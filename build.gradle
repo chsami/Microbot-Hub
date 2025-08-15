@@ -216,19 +216,23 @@ tasks.register("copyPluginDocs") {
             }
 
             def docsDir = new File("src/main/resources/net/runelite/client/plugins/microbot/${pluginDirName}/docs")
-            def readmeFile = new File(docsDir, "README.md")
             def assetsSourceDir = new File(docsDir, "assets")
+            def readmeFile = null
 
             if (docsDir.exists() && docsDir.isDirectory()) {
+                readmeFile = docsDir.listFiles()?.find { file ->
+                    file.name.toLowerCase() == "readme.md"
+                }
+
                 def pluginDocsDir = new File(publicDir, pluginName)
                 pluginDocsDir.mkdirs()
 
-                if (readmeFile.exists()) {
+                if (readmeFile && readmeFile.exists()) {
                     copy {
                         from readmeFile
                         into pluginDocsDir
                     }
-                    println "✅ Copied README.md for plugin: ${pluginName}"
+                    println "✅ Copied ${readmeFile.name} for plugin: ${pluginName}"
                 } else {
                     println "⚠️ No README.md found in docs folder for plugin: ${pluginName}"
                 }
