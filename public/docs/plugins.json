@@ -41,6 +41,49 @@
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/barbarianvillagefisherplugin/1.0.0/barbarianvillagefisherplugin-1.0.0.jar"
     },
     {
+        "internalName": "GECookerPlugin",
+        "name": "GE Cooker",
+        "description": "Cooks items on fires found at the Grand Exchange.",
+        "tags": [
+            "cooking",
+            "grand",
+            "exchange",
+            "ge",
+            "fish",
+            "raw",
+            "sticktothescript",
+            "stts"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "1.9.6",
+        "author": "StickToTheScript",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "https://oldschool.runescape.wiki/images/thumb/Grand_Exchange.png/320px-Grand_Exchange.png?7f06f",
+        "sha256": "6ccd026e33e95782736272e4ff62200712b982c1ec5101c6f7cc071aae7a6b7a",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gecookerplugin/1.0.0/gecookerplugin-1.0.0.jar"
+    },
+    {
+        "internalName": "GEFiremakerPlugin",
+        "name": "GE Firemaker",
+        "description": "Uses logs on campfires around the Grand Exchange.",
+        "tags": [
+            "firemaking",
+            "campfire",
+            "grand",
+            "exchange",
+            "ge",
+            "sticktothescript",
+            "stts"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "1.9.6",
+        "author": "StickToTheScript",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "https://oldschool.runescape.wiki/images/thumb/Grand_Exchange.png/320px-Grand_Exchange.png?7f06f",
+        "sha256": "adfc40c75a8fad1ec5f86cee43c0d01c7ef4707f61778c66cbee56b5b28327be",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gefiremakerplugin/1.0.0/gefiremakerplugin-1.0.0.jar"
+    },
+    {
         "internalName": "PestControlPlugin",
         "name": "Pest Control",
         "description": "Supports all boats, portals, and shields.",
@@ -73,7 +116,7 @@
         "author": "StickToTheScript",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/thumb/Varrock_West_bank.png/320px-Varrock_West_bank.png?18540",
-        "sha256": "9fea0bff3a815ea4f7e2c084d5731adb3a4173567c1630412cf73f5f68889575",
+        "sha256": "e39b4cc69ab440887ca1054e098cd519da3ee25dd43009217706310f653c213c",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/varrockanvilplugin/1.0.2/varrockanvilplugin-1.0.2.jar"
     }
 ]
