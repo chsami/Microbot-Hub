@@ -1,18 +1,79 @@
 [
     {
+        "internalName": "AnonymousPlugin",
+        "name": "Anonymous Mode",
+        "description": "Hide your in-game identity.",
+        "tags": [
+            "chat",
+            "mask",
+            "hide",
+            "anonymous"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "1.9.6",
+        "author": "Bolado",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "https://oldschool.runescape.wiki/images/Rogue_mask_chathead.png?0b359",
+        "sha256": "fdc7df9e3d316af8e7ed9bfd9392435921886950419bad38e0cd1a55bd6bd018",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/anonymousplugin/1.0.0/anonymousplugin-1.0.0.jar"
+    },
+    {
+        "internalName": "BarbarianVillageFisherPlugin",
+        "name": "Barb Village Fisher",
+        "description": "Fly and bait fish in Barbarian Village.",
+        "tags": [
+            "fish",
+            "fishing",
+            "fly",
+            "bait",
+            "barb",
+            "barbarian",
+            "village",
+            "sticktothescript",
+            "stts"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "1.9.6",
+        "author": "StickToTheScript",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "https://oldschool.runescape.wiki/images/thumb/Barbarian_Village_%282007%29.png/591px-Barbarian_Village_%282007%29.png?27aac",
+        "sha256": "ba660985d4a9c208f60a2abfb61a3f1c674824ab21b79ab7227c7c157e9587ea",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/barbarianvillagefisherplugin/1.0.0/barbarianvillagefisherplugin-1.0.0.jar"
+    },
+    {
         "internalName": "PestControlPlugin",
-        "name": "Pest Control Hub",
-        "description": "Microbot Pest Control plugin, this only supports the combat 100+ boat. Start at the front of the boat",
+        "name": "Pest Control",
+        "description": "Supports all boats, portals, and shields.",
         "tags": [
             "pest control",
             "microbot",
             "minigames"
         ],
-        "version": "2.2.0",
+        "version": "2.2.4",
         "minClientVersion": "1.9.6",
         "author": "Mocrosoft",
         "supportUrl": "https://github.com/chsami/microbot",
-        "sha256": "51874d88bdb16b1047df9c608888f4426571f79c4c82ca18c813056ccb75d125",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pestcontrolplugin/2.2.0/pestcontrolplugin-2.2.0.jar"
+        "iconUrl": "https://oldschool.runescape.wiki/images/Pest_Control.png?ed7bb",
+        "sha256": "647781a86c0df26881c846d52cd601a0991113e6c5cb9453e6693d8b73f57d70",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pestcontrolplugin/2.2.4/pestcontrolplugin-2.2.4.jar"
+    },
+    {
+        "internalName": "VarrockAnvilPlugin",
+        "name": "Varrock Anvil",
+        "description": "Smith items at the anvils in Varrock West.",
+        "tags": [
+            "smithing",
+            "varrock",
+            "anvil",
+            "sticktothescript",
+            "stts"
+        ],
+        "version": "1.0.2",
+        "minClientVersion": "1.9.6",
+        "author": "StickToTheScript",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "https://oldschool.runescape.wiki/images/thumb/Varrock_West_bank.png/320px-Varrock_West_bank.png?18540",
+        "sha256": "9fea0bff3a815ea4f7e2c084d5731adb3a4173567c1630412cf73f5f68889575",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/varrockanvilplugin/1.0.2/varrockanvilplugin-1.0.2.jar"
     }
 ]
