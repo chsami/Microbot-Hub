@@ -25,8 +25,8 @@ Each plugin lives in its own Java package. A typical plugin package can contain 
 
 1. `PestControlPlugin.java` or another class that extends your plugin base
 2. `dependencies.txt` for extra Maven coordinates that your plugin needs
-3. `README.md` with a short description and usage notes for the plugin
-4. `images` folder for screenshots or icons that you want to display in the hub
+3. `docs/README.md` for a short description, setup notes, and known limitations
+4. `docs/assets` folder for screenshots or icons that you want to display in the hub
 
 Only the files you really use are required. If your plugin has no extra libraries you can omit `dependencies.txt`. If you have no images you can omit the folder.
 
@@ -96,8 +96,8 @@ Tips for a smooth session
 
 ## Adding plugin docs and images
 
-1. Create `README.md` in the plugin package with a short description, setup notes, and known limitations
-2. Place screenshots in an `images` folder next to the plugin source
+1. Create `README.md` in the plugin's docs folder under resources with a short description, setup notes, and known limitations
+2. Place screenshots in an `assets` folder within the docs folder, e.g., `docs/assets/overview.png`
 3. Use relative links in `README.md` to display screenshots in the hub or on the site that reads these files
 
 Example snippet in `README.md`:
@@ -106,7 +106,7 @@ Example snippet in `README.md`:
 # Pest Control
 Automates the Pest Control minigame. Supports portals and spinners, smart prayer swaps, and activity checks.
 
-![Overview](images/overview.png)
+![Overview](assets/overview.png)
 ```
 
 ## Contributing
