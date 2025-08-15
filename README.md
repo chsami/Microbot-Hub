@@ -25,8 +25,11 @@ Each plugin lives in its own Java package. A typical plugin package can contain 
 
 1. `PestControlPlugin.java` or another class that extends your plugin base
 2. `dependencies.txt` for extra Maven coordinates that your plugin needs
-3. `docs/README.md` for a short description, setup notes, and known limitations
-4. `docs/assets` folder for screenshots or icons that you want to display in the hub
+
+Along side of the plugin's package, comes with a resources folder that contains the following:
+1. `docs/README.md` for a short description, setup notes, and known limitations
+2. `docs/assets` folder for screenshots or icons that you want to display in the hub
+3. Any additional resources such as json files, images, or other assets that your plugin needs
 
 Only the files you really use are required. If your plugin has no extra libraries you can omit `dependencies.txt`. If you have no images you can omit the folder.
 
