@@ -9,13 +9,13 @@
             "hide",
             "anonymous"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "1.9.6",
         "author": "Bolado",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Rogue_mask_chathead.png?0b359",
-        "sha256": "7563e0e4ded82d77a553a2f02e71ecd648e2a0feadbe880a4b285e224ebc4c38",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/anonymousplugin/1.0.0/anonymousplugin-1.0.0.jar"
+        "sha256": "71ef3216333488d248c2364e3099666cd487b81cec41b09358aa1125068d92d3",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/anonymousplugin/1.0.1/anonymousplugin-1.0.1.jar"
     },
     {
         "internalName": "BlessedWinePlugin",
@@ -30,13 +30,32 @@
             "microbot",
             "automation"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "1.9.6",
         "author": "Hal",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Jug_of_wine.png",
-        "sha256": "6b801c23da7a52bc8dcfdfdba7f6d98e46a05b8c2751607173a30ecfe4395a4c",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blessedwineplugin/1.0.0/blessedwineplugin-1.0.0.jar"
+        "sha256": "b7d7a0be3a555c983846d25aba302dd4ed20b2bd665a8e87ba30f437ad411ce7",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blessedwineplugin/1.0.1/blessedwineplugin-1.0.1.jar"
+    },
+    {
+        "internalName": "OuraniaPlugin",
+        "name": "Ourania Altar",
+        "description": "Microbot Ourania Altar plugin",
+        "tags": [
+            "runecrafting",
+            "microbot",
+            "skilling",
+            "ourania",
+            "zmi"
+        ],
+        "version": "1.4.1",
+        "minClientVersion": "1.9.8",
+        "author": "g-mason0",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "",
+        "sha256": "c8d874f9218d3b60a96f8a25ffa8b625f8a7a1d39cfd48a572f5cb62e4a6b82a",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/ouraniaplugin/1.4.1/ouraniaplugin-1.4.1.jar"
     },
     {
         "internalName": "PestControlPlugin",
@@ -47,12 +66,30 @@
             "microbot",
             "minigames"
         ],
-        "version": "2.2.4",
+        "version": "2.2.5",
         "minClientVersion": "1.9.6",
         "author": "Mocrosoft",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Pest_Control.png?ed7bb",
-        "sha256": "647781a86c0df26881c846d52cd601a0991113e6c5cb9453e6693d8b73f57d70",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pestcontrolplugin/2.2.4/pestcontrolplugin-2.2.4.jar"
+        "sha256": "ec0026333d696fa04abb131b3bc399c3450bae0424593750b9249bf6cce131a3",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pestcontrolplugin/2.2.5/pestcontrolplugin-2.2.5.jar"
+    },
+    {
+        "internalName": "ShootingStarPlugin",
+        "name": "ShootingStar",
+        "description": "Finds & Travels to shooting stars",
+        "tags": [
+            "mining",
+            "skilling",
+            "star",
+            "shooting"
+        ],
+        "version": "1.4.1",
+        "minClientVersion": "1.9.8",
+        "author": "g-mason0",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "",
+        "sha256": "f2a31519ab6d3d9c40e5e603046b104e18e264ffb17239da161ba2b7e995abcd",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/shootingstarplugin/1.4.1/shootingstarplugin-1.4.1.jar"
     }
 ]

@@ -23,6 +23,7 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerPlugin;
 import net.runelite.client.plugins.microbot.util.grandexchange.Rs2GrandExchange;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -31,20 +32,20 @@ import net.runelite.client.plugins.microbot.util.magic.Runes;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(
-	name = OuraniaPlugin.PLUGIN_PREFIX + "Ourania Altar",
+	name = PluginConstants.GMASON + "Ourania Altar",
 	author = "g-mason0",
 	version = OuraniaPlugin.version,
 	minClientVersion = "1.9.8",
 	description = "Microbot Ourania Altar plugin",
 	tags = {"runecrafting", "microbot", "skilling", "ourania", "zmi"},
-	enabledByDefault = false,
-	isExternal = true
+	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+	isExternal = PluginConstants.IS_EXTERNAL
 )
 public class OuraniaPlugin extends Plugin
 {
 
-	static final String version = "1.4.0";
-	static final String PLUGIN_PREFIX = "<html>[<font color=#0077B6>G</font>] ";
+	static final String version = "1.4.1";
+
 	@Inject
 	private OuraniaConfig config;
 	@Inject

@@ -1,6 +1,6 @@
 # Pest Control Script – Microbot RuneLite Client
 
-![img.png](images/img.png)
+![img.png](assets/img.png)
 
 The **Pest Control Script** automates the Old School RuneScape Pest Control mini-game using the Microbot RuneLite client.  
 It handles everything from gearing up to fighting portals and NPCs, ensuring continuous participation in games for maximum points.

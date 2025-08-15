@@ -9,21 +9,29 @@ def outputJson = file("public/docs/plugins.json")
 def jarOutputDir = file("$buildDir/libs")
 
 def computeSHA256 = { File file ->
-    MessageDigest digest = MessageDigest.getInstance("SHA-256");
-    byte[] hash = digest.digest(file.bytes);
+    MessageDigest digest = MessageDigest.getInstance("SHA-256")
 
-    StringBuilder hexString = new StringBuilder();
-    for (byte b : hash)
-    {
-        String hex = Integer.toHexString(0xff & b);
-        if (hex.length() == 1)
-        {
-            hexString.append('0');
+    file.withInputStream { inputStream ->
+        byte[] buffer = new byte[8192]
+        int bytesRead
+
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            digest.update(buffer, 0, bytesRead)
         }
-        hexString.append(hex);
     }
 
-    return hexString.toString();
+    byte[] hash = digest.digest()
+
+    StringBuilder hexString = new StringBuilder()
+    for (byte b : hash) {
+        String hex = Integer.toHexString(0xff & b)
+        if (hex.length() == 1) {
+            hexString.append('0')
+        }
+        hexString.append(hex)
+    }
+
+    return hexString.toString()
 }
 
 ext {
@@ -78,7 +86,7 @@ tasks.register("generatePluginsJson") {
                 def parsed = [:]
                 def descriptorInfo = getPluginDescriptorInfo(pluginJavaFile)
 
-                print "Parsing " + pluginName + " - (" + descriptorInfo.name + ")"
+                print "Parsing " + pluginName + " - (" + descriptorInfo.name + ") "
 
                 // Set basic plugin info from descriptor
                 parsed.internalName = pluginName

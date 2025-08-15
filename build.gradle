@@ -65,22 +65,22 @@ def pluginDirs = pluginsDir.listFiles()?.findAll { it.isDirectory() } ?: []
 println "Detected plugins: " + pluginDirs*.name
 
 def pluginsProperty = project.findProperty("pluginList")
-def selectedPlugins = pluginsProperty ? pluginsProperty.split(',' as Closure).collect { it.trim() } : []
+def selectedPlugins = pluginsProperty ? pluginsProperty.split(',').collect { it.trim() } : []
+
+// Collect all publications to create later
+def pluginPublications = []
 
 // Create a sourceSet + ShadowJar per plugin
 pluginDirs.each { pluginDir ->
-    def pluginName = ""
+    def pluginJavaFile = pluginDir.listFiles()?.find { file -> file.name.endsWith("Plugin.java") }
 
-    def pluginJavaFile = pluginDir.listFiles()?.find { file ->
-        file.name.endsWith("Plugin.java")
+    if (!pluginJavaFile) {
+        println "⚠️ No Plugin.java file found in ${pluginDir.name}"
+        return
     }
 
-    if (pluginJavaFile) {
-        pluginName = pluginJavaFile.name[0..-6] // removes '.java'
-        println "Found plugin class: ${pluginJavaFile.name}"
-    } else {
-        println "⚠️ No Plugin.java file found in $pluginName"
-    }
+    def pluginName = pluginJavaFile.name - '.java'
+    println "Found plugin class: ${pluginJavaFile.name}"
 
     if (selectedPlugins && !selectedPlugins.contains(pluginName)) {
         println "Skipping plugin: $pluginName"
@@ -103,9 +103,7 @@ pluginDirs.each { pluginDir ->
 
     // Create a ShadowJar task for each plugin
     def jarTask = tasks.register("${pluginName}Jar", ShadowJar) {
-        // Instead of including all main output, only include this specific plugin's classes
         from(sourceSets.main.output) {
-            // Get the relative path of the plugin directory within the source tree
             def pluginRelativePath = sourceSets.main.java.srcDirs.find { srcDir ->
                 pluginDir.absolutePath.startsWith(srcDir.absolutePath)
             }
@@ -115,12 +113,14 @@ pluginDirs.each { pluginDir ->
                 include "${relativePath}/**"
                 println "Including classes from path: ${relativePath}/**"
             } else {
-                // Fallback: include by plugin name pattern if directory structure doesn't match
                 include "**/${pluginName}/**"
                 include "**/${pluginName}.class"
                 include "**/${pluginName}Plugin.class"
                 println "Using fallback include pattern for plugin: ${pluginName}"
             }
+
+            include "**/microbot/PluginConstants.class"
+            println "Including shared PluginConstants class"
         }
 
         archiveFileName.set("${pluginName}-${pluginVersionFromPluginJson(pluginDir)}.jar")
@@ -131,6 +131,7 @@ pluginDirs.each { pluginDir ->
         destinationDirectory.set(layout.buildDirectory.dir("libs"))
 
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
         // Exclude module-info.class entirely (you don't need modules for plugins)
         exclude 'module-info.class'
         exclude 'META-INF/versions/**'
@@ -143,36 +144,40 @@ pluginDirs.each { pluginDir ->
         outputs.upToDateWhen { false }
     }
 
-    afterEvaluate {
-        publishing {
-            publications {
-                create("${pluginName}Publication", MavenPublication) {
-                    groupId = "net.runelite.client.plugins.microbot"
-                    artifactId = pluginName.toLowerCase()
-                    version = pluginVersionFromPluginJson(pluginDir as File)
+    tasks.named("build") {
+        dependsOn(jarTask)
+    }
 
-                    artifact(tasks.named("${pluginName}Jar").get().archiveFile) {
-                        extension "jar"
-                    }
-                }
-            }
+    pluginPublications << [
+            name       : pluginName,
+            jarTask    : jarTask,
+            version    : pluginVersionFromPluginJson(pluginDir)
+    ]
+}
 
-            repositories {
-                maven {
-                    name = "microbot-plugins"
-                    url = uri("https://nexus.microbot.cloud/repository/microbot-plugins/")
-                    credentials {
-                        username = project.findProperty("nexusUsername") ?: ""
-                        password = project.findProperty("nexusPassword") ?: ""
-                    }
+publishing {
+    publications {
+        pluginPublications.each { pub ->
+            create("${pub.name}Publication", MavenPublication) {
+                groupId = "net.runelite.client.plugins.microbot"
+                artifactId = pub.name.toLowerCase()
+                version = pub.version
+
+                artifact(pub.jarTask.get().archiveFile) {
+                    extension "jar"
                 }
             }
         }
     }
-
-    // Only make build depend on it if you want it to always run
-    tasks.named("build") {
-        dependsOn(jarTask)
+    repositories {
+        maven {
+            name = "microbot-plugins"
+            url = uri("https://nexus.microbot.cloud/repository/microbot-plugins/")
+            credentials {
+                username = project.findProperty("nexusUsername") ?: ""
+                password = project.findProperty("nexusPassword") ?: ""
+            }
+        }
     }
 }
 
@@ -188,7 +193,7 @@ tasks.withType(Jar).configureEach {
 
 tasks.register("copyPluginDocs") {
     group = "documentation"
-    description = "Copies plugin README.md files and images to the public directory for GitHub Pages"
+    description = "Copies plugin README.md files and resources to the public directory for GitHub Pages"
 
     doLast {
         def publicDir = file("public/docs")
@@ -196,44 +201,50 @@ tasks.register("copyPluginDocs") {
 
         pluginDirs.each { pluginDir ->
             def pluginName = ""
+            def pluginDirName = pluginDir.name
 
             def pluginJavaFile = pluginDir.listFiles()?.find { file ->
                 file.name.endsWith("Plugin.java")
             }
 
             if (pluginJavaFile) {
-                pluginName = pluginJavaFile.name[0..-6] // removes '.java'
+                pluginName = pluginJavaFile.name - '.java'
                 println "Found plugin class: ${pluginJavaFile.name}"
             } else {
                 println "⚠️ No Plugin.java file found in $pluginName"
+                return
             }
 
-            def readmeFile = pluginDir.listFiles()?.find { file ->
-                file.name.equalsIgnoreCase("readme.md")
-            }
-            def imagesDir = new File(pluginDir, "images")
+            def docsDir = new File("src/main/resources/net/runelite/client/plugins/microbot/${pluginDirName}/docs")
+            def readmeFile = new File(docsDir, "README.md")
+            def assetsSourceDir = new File(docsDir, "assets")
 
-            if (readmeFile != null && readmeFile.exists()) {
-                // Create plugin docs directory
+            if (docsDir.exists() && docsDir.isDirectory()) {
                 def pluginDocsDir = new File(publicDir, pluginName)
                 pluginDocsDir.mkdirs()
 
-                // Copy README.md
-                copy {
-                    from readmeFile
-                    into pluginDocsDir
-                }
-
-                println "✅ Copied README.md for plugin: ${pluginName}"
-
-                // Copy images if they exist
-                if (imagesDir.exists() && imagesDir.isDirectory()) {
+                if (readmeFile.exists()) {
                     copy {
-                        from imagesDir
-                        into new File(pluginDocsDir, "images")
+                        from readmeFile
+                        into pluginDocsDir
                     }
-                    println "✅ Copied images for plugin: ${pluginName}"
+                    println "✅ Copied README.md for plugin: ${pluginName}"
+                } else {
+                    println "⚠️ No README.md found in docs folder for plugin: ${pluginName}"
                 }
+
+                if (assetsSourceDir.exists() && assetsSourceDir.isDirectory()) {
+                    def assetsDestDir = new File(pluginDocsDir, "assets")
+                    copy {
+                        from assetsSourceDir
+                        into assetsDestDir
+                    }
+                    println "✅ Copied assets for plugin: ${pluginName}"
+                } else {
+                    println "ℹ️ No assets folder found for plugin: ${pluginName}"
+                }
+            } else {
+                println "⚠️ No docs folder found at: ${docsDir.absolutePath}"
             }
         }
     }

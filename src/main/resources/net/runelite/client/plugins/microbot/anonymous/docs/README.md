@@ -1,6 +1,6 @@
 # Anonymous Mode – Microbot RuneLite Client
 
-![preview](images/img.gif)
+![preview](assets/img.gif)
 
 The **Anonymous Mode** plugin helps you capture screenshots, record clips, stream, or share debug information without exposing your in‑game identity or account details. It masks a wide range of client UI elements locally so you can focus on demonstrating features or reporting bugs safely.
 

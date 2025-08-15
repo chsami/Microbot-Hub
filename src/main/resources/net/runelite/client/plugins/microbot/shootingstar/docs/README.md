@@ -1,9 +1,11 @@
 # Shooting Star Plugin
 
-Shooting stars are a recurring event in Old School RuneScape, where players can mine fallen stars for rewards and experience. This plugin helps you efficiently locate and mine shooting stars by integrating with multiple star location providers and automating navigation.
+![preview](https://azpublicfiles.blob.core.windows.net/microbot/shooting-star-preview.gif)
+
+Shooting stars are a world event in Old School RuneScape, where players can mine fallen stars for rewards and experience. This plugin helps you efficiently locate and mine shooting stars by integrating with multiple star location providers and automating navigation.
 
 ## Features
-- **Multiple Star Providers**: Choose from several sources for star locations. The plugin will automatically switch to another provider if one is unavailable.
+- **Multiple Star Providers**: Choose from multiple sources for star locations. The plugin will automatically switch to another provider if one is unavailable.
 - **Custom Inventory Setups**: Configure your own inventory, including pickaxes, teleports, and other useful items.
 - **Web Walker Integration**: Automatically finds the closest available star and navigates your character there.
 - **Antiban Support**: Uses Microbot's antiban system for safer, more human-like behavior.
@@ -23,9 +25,9 @@ This example setup leverages combination runes in a rune pouch. It's recommended
 
 Adding coins into your inventory setup is optional, but allows for the use of boats & charters.
 
-Export of example setup: [example-inventory-setup.json](/src/main/resources/net/runelite/client/plugins/microbot/shootingstar/example-inventory-setup.json)
+Export of example setup: [example-inventory-setup.json](assets/example-inventory-setup.json)
 
-![img.png](/src/main/resources/net/runelite/client/plugins/microbot/shootingstar/inv-setup.png)
+![img.png](assets/inv-setup.png)
 
 ## Troubleshooting / FAQ
 - **The plugin isn't finding stars:** Make sure you have a reasonable mining level and that you have configured an inventory setup.
