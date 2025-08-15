@@ -23,12 +23,17 @@ The hub is the dedicated place for community created plugins and scripts. It exi
 
 Each plugin lives in its own Java package. A typical plugin package can contain the following files and folders:
 
-1. `PestControlPlugin.java` or another class that extends your plugin base
-2. `dependencies.txt` for extra Maven coordinates that your plugin needs
-3. `README.md` with a short description and usage notes for the plugin
-4. `images` folder for screenshots or icons that you want to display in the hub
+1. `PestControlPlugin.java` - the primary class for your plugin, extending `Plugin`
+2. `PestControlScript.java` - the script class that contains the main logic, extending `Script`
+3. Other supporting classes as needed for your plugin
 
-Only the files you really use are required. If your plugin has no extra libraries you can omit `dependencies.txt`. If you have no images you can omit the folder.
+Along side of the plugin's package, comes with a resources folder that contains the following:
+1. `docs/README.md` for a short description, setup notes, and known limitations
+2. `docs/assets` folder for screenshots or icons that you want to display in the hub
+3. `dependencies.txt` for extra Maven coordinates that your plugin needs
+4. Any additional resources such as json files, images, or other assets that your plugin needs
+
+Only the files you really use are required. If your plugin has no extra libraries you can omit `dependencies.txt`. If you have no assets/images you can omit the folder.
 
 ## Declaring plugin dependencies
 
@@ -72,15 +77,24 @@ Use this minimal driver to start a focused debug session. Replace `PestControlPl
 ```java
 package net.runelite.client;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import net.runelite.client.plugins.microbot.pestcontrol.PestControlPlugin;
 
 public class Microbot
 {
-    public static void main(String[] args) throws Exception
-    {
-        RuneLiteDebug.pluginsToDebug.add(PestControlPlugin.class);
-        RuneLiteDebug.main(args);
-    }
+
+	private static final Class<?>[] debugPlugins = {
+		PestControlPlugin.class
+	};
+
+	public static void main(String[] args) throws Exception
+	{
+		List<Class<?>> _debugPlugins = Arrays.stream(debugPlugins).collect(Collectors.toList());
+		RuneLiteDebug.pluginsToDebug.addAll(_debugPlugins);
+		RuneLiteDebug.main(args);
+	}
 }
 ```
 
@@ -96,8 +110,8 @@ Tips for a smooth session
 
 ## Adding plugin docs and images
 
-1. Create `README.md` in the plugin package with a short description, setup notes, and known limitations
-2. Place screenshots in an `images` folder next to the plugin source
+1. Create `README.md` in the plugin's docs folder under resources with a short description, setup notes, and known limitations
+2. Place screenshots in an `assets` folder within the docs folder, e.g., `docs/assets/overview.png`
 3. Use relative links in `README.md` to display screenshots in the hub or on the site that reads these files
 
 Example snippet in `README.md`:
@@ -106,7 +120,7 @@ Example snippet in `README.md`:
 # Pest Control
 Automates the Pest Control minigame. Supports portals and spinners, smart prayer swaps, and activity checks.
 
-![Overview](images/overview.png)
+![Overview](assets/overview.png)
 ```
 
 ## Contributing

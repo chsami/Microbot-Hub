@@ -8,6 +8,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.pluginscheduler.api.SchedulablePlugin;
 import net.runelite.client.plugins.microbot.pluginscheduler.condition.logical.AndCondition;
 import net.runelite.client.plugins.microbot.pluginscheduler.condition.logical.LogicalCondition;
@@ -19,17 +20,20 @@ import java.awt.*;
 
 @Slf4j
 @PluginDescriptor(
-        name = PluginDescriptor.Mocrosoft + "Blessed Wine",
+        name = PluginConstants.MOCROSOFT + "Blessed Wine",
         description = "Automating Prayer Training using blessed wines at Cam Torum",
         tags = {"blessed", "wine", "ralos", "prayer", "libation", "microbot", "automation"},
-        enabledByDefault = false,
         author = "Hal",
-        version = "1.0.0",
+        version = BlessedWinePlugin.version,
+		minClientVersion = "1.9.6",
         iconUrl = "https://oldschool.runescape.wiki/images/Jug_of_wine.png",
-        isExternal = true,
-        minClientVersion = "1.9.6"
+		enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL
 )
 public class BlessedWinePlugin extends Plugin implements SchedulablePlugin {
+
+	static final String version = "1.0.1";
+
     @Inject
     private BlessedWineConfig config;
     @Provides

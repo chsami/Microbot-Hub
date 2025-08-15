@@ -9,13 +9,13 @@
             "hide",
             "anonymous"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "1.9.6",
         "author": "Bolado",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Rogue_mask_chathead.png?0b359",
-        "sha256": "7563e0e4ded82d77a553a2f02e71ecd648e2a0feadbe880a4b285e224ebc4c38",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/anonymousplugin/1.0.0/anonymousplugin-1.0.0.jar"
+        "sha256": "af095746fc3ddca04ea27d4297d555a5e702513c9239ac98af893bf9ae757f7a",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/anonymousplugin/1.0.1/anonymousplugin-1.0.1.jar"
     },
     {
         "internalName": "BlessedWinePlugin",
@@ -30,13 +30,31 @@
             "microbot",
             "automation"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "1.9.6",
         "author": "Hal",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Jug_of_wine.png",
-        "sha256": "6b801c23da7a52bc8dcfdfdba7f6d98e46a05b8c2751607173a30ecfe4395a4c",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blessedwineplugin/1.0.0/blessedwineplugin-1.0.0.jar"
+        "sha256": "d7569f334e0b0551452cd5b2e35e04c39fa87f8cdaf52c2c57510cfa8fea8187",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blessedwineplugin/1.0.1/blessedwineplugin-1.0.1.jar"
+    },
+    {
+        "internalName": "OuraniaPlugin",
+        "name": "Ourania Altar",
+        "description": "Microbot Ourania Altar plugin",
+        "tags": [
+            "runecrafting",
+            "skilling",
+            "ourania",
+            "zmi"
+        ],
+        "version": "1.4.1",
+        "minClientVersion": "1.9.8",
+        "author": "g-mason0",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "",
+        "sha256": "d587e00c21627c936bab2aa101a2a0f01e0c55f3cffdfab8de3500e8c39048fe",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/ouraniaplugin/1.4.1/ouraniaplugin-1.4.1.jar"
     },
     {
         "internalName": "PestControlPlugin",
@@ -47,12 +65,30 @@
             "microbot",
             "minigames"
         ],
-        "version": "2.2.4",
+        "version": "2.2.5",
         "minClientVersion": "1.9.6",
         "author": "Mocrosoft",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Pest_Control.png?ed7bb",
-        "sha256": "647781a86c0df26881c846d52cd601a0991113e6c5cb9453e6693d8b73f57d70",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pestcontrolplugin/2.2.4/pestcontrolplugin-2.2.4.jar"
+        "sha256": "5b58b2a54d6e0cf4aa6deb8bec0b9cb0138579e1f90f9dafff3290742eb6bced",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pestcontrolplugin/2.2.5/pestcontrolplugin-2.2.5.jar"
+    },
+    {
+        "internalName": "ShootingStarPlugin",
+        "name": "ShootingStar",
+        "description": "Finds & Travels to shooting stars",
+        "tags": [
+            "mining",
+            "skilling",
+            "star",
+            "shooting"
+        ],
+        "version": "1.4.1",
+        "minClientVersion": "1.9.8",
+        "author": "g-mason0",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "",
+        "sha256": "88af91e268daa4507c5cd9780e4e943251445409c4c6049cc3aaaae7c944e056",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/shootingstarplugin/1.4.1/shootingstarplugin-1.4.1.jar"
     }
 ]
