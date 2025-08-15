@@ -78,7 +78,7 @@ tasks.register("generatePluginsJson") {
                 def parsed = [:]
                 def descriptorInfo = getPluginDescriptorInfo(pluginJavaFile)
 
-                print "hello world " + pluginName + " - " + descriptorInfo.name
+                print "Parsing " + pluginName + " - (" + descriptorInfo.name + ")"
 
                 // Set basic plugin info from descriptor
                 parsed.internalName = pluginName
