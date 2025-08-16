@@ -37,7 +37,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 	version = OuraniaPlugin.version,
 	minClientVersion = "1.9.8",
 	description = "Microbot Ourania Altar plugin",
-	tags = {"runecrafting", "microbot", "skilling", "ourania", "zmi"},
+	tags = {"runecrafting", "skilling", "ourania", "zmi"},
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL
 )

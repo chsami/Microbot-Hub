@@ -7,12 +7,11 @@ plugins {
 }
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import groovy.json.JsonOutput
 
-apply from: 'generate-plugins.gradle'
-
-tasks.named('shadowJar') {
-    enabled = false
-}
+// Apply external scripts
+apply from: 'gradle/project-config.gradle'
+apply from: 'gradle/plugin-utils.gradle'
 
 // Create a resolvable configuration just for running microbot
 configurations {
@@ -29,7 +28,7 @@ configurations {
 
 repositories {
     maven {
-        url = 'https://nexus.microbot.cloud/repository/microbot-nightly/'
+        url = project.ext.getNexusNightlyUrl()
     }
     mavenCentral()
 }
@@ -47,9 +46,27 @@ application {
     mainClass = 'net.runelite.client.RuneLite'
 }
 
+sourceSets.main.java.srcDirs = []
+sourceSets.main.resources.srcDirs = []
+
+tasks.named('compileJava') {
+    enabled = false
+}
+tasks.named('processResources') {
+    enabled = false
+}
+tasks.named('classes') {
+    enabled = false
+}
+tasks.named('jar') {
+    enabled = false
+}
+
+tasks.named('shadowJar') {
+    enabled = false
+}
 
 // Plugin Logic
-
 String pluginVersionFromPluginJson(File pluginDir) {
     def pluginJavaFile = pluginDir.listFiles()?.find { it.name.endsWith("Plugin.java") }
     if (pluginJavaFile == null) {
@@ -59,125 +76,103 @@ String pluginVersionFromPluginJson(File pluginDir) {
     return info.version as String
 }
 
-def pluginsDir = file('src/main/java/net/runelite/client/plugins/microbot')
-def pluginDirs = pluginsDir.listFiles()?.findAll { it.isDirectory() } ?: []
+// Discover and filter plugins
+afterEvaluate {
+    def pluginsDir = file(project.ext.getPluginsSourcePath())
+    def allPlugins = project.ext.discoverPlugins(pluginsDir)
+    def pluginsProperty = project.findProperty("pluginList")
+    def selectedPluginNames = pluginsProperty ? pluginsProperty.split(',').collect { it.trim() } : []
 
-println "Detected plugins: " + pluginDirs*.name
-
-def pluginsProperty = project.findProperty("pluginList")
-def selectedPlugins = pluginsProperty ? pluginsProperty.split(',').collect { it.trim() } : []
-
-// Collect all publications to create later
-def pluginPublications = []
-
-// Create a sourceSet + ShadowJar per plugin
-pluginDirs.each { pluginDir ->
-    def pluginJavaFile = pluginDir.listFiles()?.find { file -> file.name.endsWith("Plugin.java") }
-
-    if (!pluginJavaFile) {
-        println "⚠️ No Plugin.java file found in ${pluginDir.name}"
-        return
-    }
-
-    def pluginName = pluginJavaFile.name - '.java'
-    println "Found plugin class: ${pluginJavaFile.name}"
-
-    if (selectedPlugins && !selectedPlugins.contains(pluginName)) {
-        println "Skipping plugin: $pluginName"
-        return
-    }
-
-    // Create a dependencySet for each plugin
-    def pluginConfigName = "${pluginName}ShadowDeps"
-    configurations.create(pluginConfigName) {
-        extendsFrom configurations.pluginShadowClasspath
-    }
-
-    def depsFile = new File(pluginDir as File, "dependencies.txt")
-    if (depsFile.exists()) {
-        depsFile.readLines().each { dep ->
-            println("dep " + dep.trim())
-            dependencies.add(pluginConfigName, dep.trim())
+    def validPlugins = allPlugins.findAll { plugin ->
+        if (selectedPluginNames && !selectedPluginNames.contains(plugin.name)) {
+            logger.info("Skipping plugin: ${plugin.name}")
+            return false
         }
+        logger.info("Processing plugin: ${plugin.name}")
+        return true
     }
 
-    // Create a ShadowJar task for each plugin
-    def jarTask = tasks.register("${pluginName}Jar", ShadowJar) {
-        from(sourceSets.main.output) {
-            def pluginRelativePath = sourceSets.main.java.srcDirs.find { srcDir ->
-                pluginDir.absolutePath.startsWith(srcDir.absolutePath)
-            }
+    println "Detected plugins: ${allPlugins*.name}"
+    println "Processing plugins: ${validPlugins*.name}"
 
-            if (pluginRelativePath) {
-                def relativePath = pluginRelativePath.toPath().relativize(pluginDir.toPath()).toString().replace('\\', '/')
-                include "${relativePath}/**"
-                println "Including classes from path: ${relativePath}/**"
-            } else {
-                include "**/${pluginName}/**"
-                include "**/${pluginName}.class"
-                include "**/${pluginName}Plugin.class"
-                println "Using fallback include pattern for plugin: ${pluginName}"
-            }
+    ext.validPlugins = validPlugins
+    ext.allPlugins = allPlugins
 
-            include "**/microbot/PluginConstants.class"
-            println "Including shared PluginConstants class"
+    def pluginPublications = []
+
+    validPlugins.each { plugin ->
+        // Configure source set
+        project.ext.configurePluginSourceSet(plugin)
+
+        // Configure dependencies
+        def pluginConfigName = project.ext.configurePluginDependencies(plugin)
+
+        // Create JAR task using the configuration
+        def jarTask = tasks.register("${plugin.name}Jar", ShadowJar, project.ext.getPluginJarTaskConfig(plugin, pluginConfigName))
+
+        // Add to build dependencies
+        tasks.named("build") {
+            dependsOn(jarTask)
         }
 
-        archiveFileName.set("${pluginName}-${pluginVersionFromPluginJson(pluginDir)}.jar")
-        archiveBaseName.set(pluginName)
-        archiveVersion.set(pluginVersionFromPluginJson(pluginDir as File))
-        archiveClassifier.set('')
-        configurations = [project.configurations.getByName(pluginConfigName)]
-        destinationDirectory.set(layout.buildDirectory.dir("libs"))
-
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-        // Exclude module-info.class entirely (you don't need modules for plugins)
-        exclude 'module-info.class'
-        exclude 'META-INF/versions/**'
-        exclude 'META-INF/INDEX.LIST'
-        exclude 'META-INF/*.SF'
-        exclude 'META-INF/*.DSA'
-        exclude 'META-INF/*.RSA'
-        exclude '**/module-info.class'
-        exclude '**/plugins.json'
-        outputs.upToDateWhen { false }
+        // Collect for publishing
+        pluginPublications << [
+            name    : plugin.name,
+            jarTask : jarTask,
+            version : pluginVersionFromPluginJson(plugin.dir)
+        ]
     }
 
-    tasks.named("build") {
-        dependsOn(jarTask)
-    }
+    // Configure publishing
+    publishing {
+        publications {
+            pluginPublications.each { pub ->
+                create("${pub.name}Publication", MavenPublication) {
+                    groupId = project.ext.MAVEN_GROUP_ID
+                    artifactId = pub.name.toLowerCase()
+                    version = pub.version
 
-    pluginPublications << [
-            name       : pluginName,
-            jarTask    : jarTask,
-            version    : pluginVersionFromPluginJson(pluginDir)
-    ]
-}
-
-publishing {
-    publications {
-        pluginPublications.each { pub ->
-            create("${pub.name}Publication", MavenPublication) {
-                groupId = "net.runelite.client.plugins.microbot"
-                artifactId = pub.name.toLowerCase()
-                version = pub.version
-
-                artifact(pub.jarTask.get().archiveFile) {
-                    extension "jar"
+                    artifact(pub.jarTask.get().archiveFile) {
+                        extension "jar"
+                    }
+                }
+            }
+        }
+        repositories {
+            maven {
+                name = "microbot-plugins"
+                url = uri(project.ext.getNexusPluginsUrl())
+                credentials {
+                    username = project.findProperty("nexusUsername") ?: ""
+                    password = project.findProperty("nexusPassword") ?: ""
                 }
             }
         }
     }
-    repositories {
-        maven {
-            name = "microbot-plugins"
-            url = uri("https://nexus.microbot.cloud/repository/microbot-plugins/")
-            credentials {
-                username = project.findProperty("nexusUsername") ?: ""
-                password = project.findProperty("nexusPassword") ?: ""
-            }
+
+    // Configure test source set to have access to all plugin source sets
+    def allPluginCompileTasks = []
+
+    validPlugins.each { plugin ->
+        def compileTaskName = "compile${plugin.sourceSetName.capitalize()}Java"
+
+        if (sourceSets.findByName(plugin.sourceSetName)) {
+            sourceSets.test.compileClasspath += sourceSets."${plugin.sourceSetName}".output
+            sourceSets.test.runtimeClasspath += sourceSets."${plugin.sourceSetName}".output
+
+            allPluginCompileTasks.add(compileTaskName)
+
+            dependencies.add('testRuntimeOnly', sourceSets."${plugin.sourceSetName}".output)
+            dependencies.add('testCompileOnly', sourceSets."${plugin.sourceSetName}".output)
         }
+    }
+
+    tasks.named('compileTestJava').configure {
+        dependsOn allPluginCompileTasks
+    }
+
+    tasks.named('test').configure {
+        dependsOn allPluginCompileTasks
     }
 }
 
@@ -196,61 +191,44 @@ tasks.register("copyPluginDocs") {
     description = "Copies plugin README.md files and resources to the public directory for GitHub Pages"
 
     doLast {
-        def publicDir = file("public/docs")
+        def publicDir = file(project.ext.getDocsOutputPath())
         publicDir.mkdirs()
 
-        pluginDirs.each { pluginDir ->
-            def pluginName = ""
-            def pluginDirName = pluginDir.name
+        // Discover plugins fresh since validPlugins may not be available
+        def pluginsDir = file(project.ext.getPluginsSourcePath())
+        def allPlugins = project.ext.discoverPlugins(pluginsDir)
+        def pluginsProperty = project.findProperty("pluginList")
+        def selectedPluginNames = pluginsProperty ? pluginsProperty.split(',').collect { it.trim() } : []
 
-            def pluginJavaFile = pluginDir.listFiles()?.find { file ->
-                file.name.endsWith("Plugin.java")
+        def validPlugins = allPlugins.findAll { plugin ->
+            if (selectedPluginNames && !selectedPluginNames.contains(plugin.name)) {
+                return false
             }
-
-            if (pluginJavaFile) {
-                pluginName = pluginJavaFile.name - '.java'
-                println "Found plugin class: ${pluginJavaFile.name}"
-            } else {
-                println "⚠️ No Plugin.java file found in $pluginName"
-                return
-            }
-
-            def docsDir = new File("src/main/resources/net/runelite/client/plugins/microbot/${pluginDirName}/docs")
-            def assetsSourceDir = new File(docsDir, "assets")
-            def readmeFile = null
-
-            if (docsDir.exists() && docsDir.isDirectory()) {
-                readmeFile = docsDir.listFiles()?.find { file ->
-                    file.name.toLowerCase() == "readme.md"
-                }
-
-                def pluginDocsDir = new File(publicDir, pluginName)
-                pluginDocsDir.mkdirs()
-
-                if (readmeFile && readmeFile.exists()) {
-                    copy {
-                        from readmeFile
-                        into pluginDocsDir
-                    }
-                    println "✅ Copied ${readmeFile.name} for plugin: ${pluginName}"
-                } else {
-                    println "⚠️ No README.md found in docs folder for plugin: ${pluginName}"
-                }
-
-                if (assetsSourceDir.exists() && assetsSourceDir.isDirectory()) {
-                    def assetsDestDir = new File(pluginDocsDir, "assets")
-                    copy {
-                        from assetsSourceDir
-                        into assetsDestDir
-                    }
-                    println "✅ Copied assets for plugin: ${pluginName}"
-                } else {
-                    println "ℹ️ No assets folder found for plugin: ${pluginName}"
-                }
-            } else {
-                println "⚠️ No docs folder found at: ${docsDir.absolutePath}"
-            }
+            return true
         }
+
+        validPlugins.each { plugin ->
+            project.ext.copyPluginDocumentation(plugin, publicDir)
+        }
+    }
+}
+
+tasks.register("generatePluginsJson") {
+    group = "build"
+    description = "Generates plugins.json by scanning plugin folders and hashing JARs"
+
+    doLast {
+        def pluginRoot = file(project.ext.getPluginsSourcePath())
+        def outputJson = file("${project.ext.getDocsOutputPath()}/plugins.json")
+        def jarOutputDir = file("$buildDir/libs")
+
+        // Use the common plugin discovery and JSON generation from plugin-utils
+        def allPlugins = project.ext.discoverPlugins(pluginRoot)
+        def plugins = project.ext.generatePluginsJsonData(allPlugins, jarOutputDir)
+
+        outputJson.parentFile.mkdirs()
+        outputJson.text = JsonOutput.prettyPrint(JsonOutput.toJson(plugins))
+        logger.info("✅ Generated plugins.json with ${plugins.size()} plugins")
     }
 }
 

@@ -1,0 +1,265 @@
+// gradle/plugin-utils.gradle
+// Common utilities and functions for plugin processing
+
+import java.security.MessageDigest
+
+ext {
+    // Common plugin discovery and validation
+    discoverPlugins = { pluginsDir ->
+        def pluginDirs = pluginsDir.listFiles()?.findAll { it.isDirectory() } ?: []
+        def validPlugins = []
+
+        pluginDirs.each { pluginDir ->
+            def pluginJavaFile = pluginDir.listFiles()?.find { file ->
+                file.name.endsWith("Plugin.java")
+            }
+
+            if (pluginJavaFile) {
+                validPlugins << [
+                    dir: pluginDir,
+                    javaFile: pluginJavaFile,
+                    name: pluginJavaFile.name - '.java',
+                    sourceSetName: pluginDir.name
+                ]
+            } else {
+                logger.warn("⚠️ No Plugin.java file found in ${pluginDir.name}")
+            }
+        }
+
+        return validPlugins
+    }
+
+    // Common source set configuration
+    configurePluginSourceSet = { plugin ->
+        sourceSets {
+            "${plugin.sourceSetName}" {
+                java {
+                    srcDirs = [
+                        "${project.ext.getPluginsSourcePath()}/${plugin.dir.name}",
+                        project.ext.getPluginsSourcePath()
+                    ]
+                    include "PluginConstants.java"
+                    include "${plugin.dir.name}/**"
+                }
+                resources {
+                    srcDirs = ["src/main/resources"]
+                    include "${project.ext.getPluginsResourcePath()}/${plugin.dir.name}/**"
+                    exclude "**/docs/**"
+                }
+                compileClasspath += configurations.microbotRuntime
+                runtimeClasspath += configurations.microbotRuntime
+            }
+        }
+    }
+
+    // Common dependency configuration
+    configurePluginDependencies = { plugin ->
+        def pluginConfigName = "${plugin.name}ShadowDeps"
+        configurations.create(pluginConfigName) {
+            extendsFrom configurations.pluginShadowClasspath
+        }
+
+        def depsFile = new File(project.rootDir,
+            "${project.ext.getPluginsResourcePath()}/${plugin.dir.name}/dependencies.txt")
+
+        logger.info("📁 Checking dependencies for ${plugin.name}")
+
+        if (depsFile.exists()) {
+            logger.info("   File size: ${depsFile.length()} bytes")
+            def lines = depsFile.readLines()
+            logger.info("   Lines found: ${lines.size()}")
+
+            lines.each { dep ->
+                if (dep.trim()) {
+                    logger.info("Adding dependency: ${dep.trim()}")
+                    dependencies.add(pluginConfigName, dep.trim())
+                } else {
+                    logger.info("Skipping empty line")
+                }
+            }
+        }
+
+        return pluginConfigName
+    }
+
+    // Common JAR exclusions
+    getCommonJarExclusions = {
+        return [
+            'module-info.class',
+            'META-INF/versions/**',
+            'META-INF/INDEX.LIST',
+            'META-INF/*.SF',
+            'META-INF/*.DSA',
+            'META-INF/*.RSA',
+            '**/module-info.class',
+            '**/plugins.json',
+            '**/docs/**'
+        ]
+    }
+
+    // SHA256 computation utility
+    computeSHA256 = { File file ->
+        if (!file.exists()) {
+            logger.warn("⚠️ JAR file not found: ${file.absolutePath}")
+            return "FILE_NOT_FOUND"
+        }
+
+        MessageDigest digest = MessageDigest.getInstance("SHA-256")
+        file.withInputStream { inputStream ->
+            byte[] buffer = new byte[8192]
+            int bytesRead
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                digest.update(buffer, 0, bytesRead)
+            }
+        }
+
+        byte[] hash = digest.digest()
+        StringBuilder hexString = new StringBuilder()
+        for (byte b : hash) {
+            String hex = Integer.toHexString(0xff & b)
+            if (hex.length() == 1) {
+                hexString.append('0')
+            }
+            hexString.append(hex)
+        }
+        return hexString.toString()
+    }
+
+    // Plugin descriptor parsing utility
+    getPluginDescriptorInfo = { File javaFile ->
+        def content = javaFile.getText('UTF-8')
+        def descriptor = [:]
+
+        def nameMatcher = content =~ /name\s*=\s*(?:[\w$.]+\s*\+\s*)?"([^"]+)"/
+        def descMatcher     = content =~ /description\s*=\s*"([^"]+)"/
+        def tagsMatcher     = content =~ /tags\s*=\s*\{([^}]+)\}/
+        def authorMatcher   = content =~ /author\s*=\s*"([^"]+)"/
+        def iconUrlMatcher  = content =~ /iconUrl\s*=\s*"([^"]+)"/
+        def versionMatcher  = content =~ /version\s*=\s*"([^"]+)"/
+        def minClientVersionMatcher  = content =~ /minClientVersion\s*=\s*"([^"]+)"/
+
+        if (nameMatcher.find())    descriptor.name = nameMatcher.group(1)
+        if (descMatcher.find())    descriptor.description = descMatcher.group(1)
+        if (tagsMatcher.find())    descriptor.tags = tagsMatcher.group(1).split(',').collect { it.trim().replaceAll('"','') }
+
+        descriptor.author  = authorMatcher.find()  ? authorMatcher.group(1) : project.ext.DEFAULT_AUTHOR
+        descriptor.iconUrl = iconUrlMatcher.find() ? iconUrlMatcher.group(1) : ''
+        descriptor.version = versionMatcher.find() ? versionMatcher.group(1) : project.ext.DEFAULT_VERSION
+        descriptor.minClientVersion = minClientVersionMatcher.find() ? minClientVersionMatcher.group(1) : project.ext.DEFAULT_VERSION
+
+        descriptor
+    }
+
+    // Generate plugins JSON data
+    generatePluginsJsonData = { allPlugins, jarOutputDir ->
+        def plugins = []
+
+        allPlugins.each { plugin ->
+            try {
+                def descriptorInfo = getPluginDescriptorInfo(plugin.javaFile)
+
+                logger.info("Parsing ${plugin.name} - (${descriptorInfo.name})")
+
+                def parsed = [:]
+                parsed.internalName = plugin.name
+                parsed.name = descriptorInfo.name
+                parsed.description = descriptorInfo.description
+                parsed.tags = descriptorInfo.tags
+                parsed.version = descriptorInfo.version
+                parsed.minClientVersion = descriptorInfo.minClientVersion
+                parsed.author = descriptorInfo.author
+                parsed.supportUrl = project.ext.DEFAULT_SUPPORT_URL
+                parsed.iconUrl = descriptorInfo.iconUrl
+
+                // Add SHA256
+                def jarFile = new File(jarOutputDir, "${plugin.name}-${descriptorInfo.version}.jar")
+                parsed.sha256 = computeSHA256(jarFile)
+
+                // Add Nexus URL using centralized config
+                def nexusBase = project.ext.getNexusPluginsUrl()
+                if (nexusBase.endsWith('/')) {
+                    nexusBase = nexusBase.substring(0, nexusBase.length() - 1)
+                }
+                def pluginId = plugin.name.toLowerCase()
+                parsed.url = "${nexusBase}/${project.ext.MAVEN_GROUP_ID.replace('.', '/')}/${pluginId}/${descriptorInfo.version}/${pluginId}-${descriptorInfo.version}.jar"
+
+                plugins << parsed
+                logger.info("✅ Plugin ${plugin.name} processed successfully")
+
+            } catch (Exception e) {
+                logger.warn("⚠️ Error processing ${plugin.name}: ${e.message}")
+            }
+        }
+
+        return plugins
+    }
+
+    // Create shadow JAR task for plugin - returns task configuration closure
+    getPluginJarTaskConfig = { plugin, pluginConfigName ->
+        return {
+            from(sourceSets."${plugin.sourceSetName}".output)
+
+            dependsOn tasks.named("compile${plugin.sourceSetName.capitalize()}Java")
+
+            def version = pluginVersionFromPluginJson(plugin.dir)
+            archiveFileName.set("${plugin.name}-${version}.jar")
+            archiveBaseName.set(plugin.name)
+            archiveVersion.set(version)
+            archiveClassifier.set('')
+            configurations = [project.configurations.getByName(pluginConfigName)]
+            destinationDirectory.set(layout.buildDirectory.dir("libs"))
+
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+            getCommonJarExclusions().each { pattern ->
+                exclude pattern
+            }
+
+            outputs.upToDateWhen { false }
+        }
+    }
+
+    // Documentation processing utilities
+    copyPluginDocumentation = { plugin, publicDir ->
+        def pluginName = plugin.name
+        def pluginDirName = plugin.dir.name
+
+        def docsDir = new File("${project.ext.getPluginsResourcePath()}/${pluginDirName}/docs")
+        def assetsSourceDir = new File(docsDir, "assets")
+
+        if (!docsDir.exists() || !docsDir.isDirectory()) {
+            logger.warn("⚠️ No docs folder found at: ${docsDir.absolutePath}")
+            return false
+        }
+
+        def readmeFile = docsDir.listFiles()?.find { file ->
+            file.name.toLowerCase() == "readme.md"
+        }
+
+        def pluginDocsDir = new File(publicDir, pluginName)
+        pluginDocsDir.mkdirs()
+
+        if (readmeFile?.exists()) {
+            project.copy {
+                from readmeFile
+                into pluginDocsDir
+            }
+            logger.info("✅ Copied ${readmeFile.name} for plugin: ${pluginName}")
+        } else {
+            logger.warn("⚠️ No README.md found in docs folder for plugin: ${pluginName}")
+        }
+
+        if (assetsSourceDir.exists() && assetsSourceDir.isDirectory()) {
+            def assetsDestDir = new File(pluginDocsDir, "assets")
+            project.copy {
+                from assetsSourceDir
+                into assetsDestDir
+            }
+            logger.info("✅ Copied assets for plugin: ${pluginName}")
+        } else {
+            logger.info("ℹ️ No assets folder found for plugin: ${pluginName}")
+        }
+
+        return true
+    }
+}
