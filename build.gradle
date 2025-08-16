@@ -9,11 +9,9 @@ plugins {
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import groovy.json.JsonOutput
 
-// Apply external scripts
 apply from: 'gradle/project-config.gradle'
 apply from: 'gradle/plugin-utils.gradle'
 
-// Create a resolvable configuration just for running microbot
 configurations {
     microbotRuntime {
         canBeConsumed = false
@@ -37,7 +35,6 @@ dependencies {
     compileOnly 'com.microbot:client:+'
     microbotRuntime 'com.microbot:client:+'
 
-    // Add Microbot client dependency for tests
     testImplementation 'com.microbot:client:+'
 }
 
@@ -194,7 +191,6 @@ tasks.register("copyPluginDocs") {
         def publicDir = file(project.ext.getDocsOutputPath())
         publicDir.mkdirs()
 
-        // Discover plugins fresh since validPlugins may not be available
         def pluginsDir = file(project.ext.getPluginsSourcePath())
         def allPlugins = project.ext.discoverPlugins(pluginsDir)
         def pluginsProperty = project.findProperty("pluginList")
@@ -222,7 +218,6 @@ tasks.register("generatePluginsJson") {
         def outputJson = file("${project.ext.getDocsOutputPath()}/plugins.json")
         def jarOutputDir = file("$buildDir/libs")
 
-        // Use the common plugin discovery and JSON generation from plugin-utils
         def allPlugins = project.ext.discoverPlugins(pluginRoot)
         def plugins = project.ext.generatePluginsJsonData(allPlugins, jarOutputDir)
 
