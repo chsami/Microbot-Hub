@@ -220,8 +220,6 @@ ext {
             getCommonJarExclusions().each { pattern ->
                 exclude pattern
             }
-
-            outputs.upToDateWhen { false }
         }
     }
 
