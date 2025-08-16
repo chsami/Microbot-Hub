@@ -9,13 +9,13 @@
             "hide",
             "anonymous"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "1.9.6",
         "author": "Bolado",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Rogue_mask_chathead.png?0b359",
-        "sha256": "fdc7df9e3d316af8e7ed9bfd9392435921886950419bad38e0cd1a55bd6bd018",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/anonymousplugin/1.0.0/anonymousplugin-1.0.0.jar"
+        "sha256": "f4b373dd23935efb7adfa412e7bba2f18efcb211c2251b5ec9141260abea06c8",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/anonymousplugin/1.0.1/anonymousplugin-1.0.1.jar"
     },
     {
         "internalName": "BarbarianVillageFisherPlugin",
@@ -53,13 +53,31 @@
             "microbot",
             "automation"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "1.9.6",
         "author": "Hal",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Jug_of_wine.png",
-        "sha256": "6b801c23da7a52bc8dcfdfdba7f6d98e46a05b8c2751607173a30ecfe4395a4c",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blessedwineplugin/1.0.0/blessedwineplugin-1.0.0.jar"
+        "sha256": "17298af44b02911b40e0ea4a16c8ce775807df51effd4c222f4f57412a941158",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blessedwineplugin/1.0.1/blessedwineplugin-1.0.1.jar"
+    },
+    {
+        "internalName": "OuraniaPlugin",
+        "name": "Ourania Altar",
+        "description": "Microbot Ourania Altar plugin",
+        "tags": [
+            "runecrafting",
+            "skilling",
+            "ourania",
+            "zmi"
+        ],
+        "version": "1.4.1",
+        "minClientVersion": "1.9.8",
+        "author": "g-mason0",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "",
+        "sha256": "e021222c0e10e1c65bf1e33f4a96a50a3d8553bb1482dc351e9b3933011c73ea",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/ouraniaplugin/1.4.1/ouraniaplugin-1.4.1.jar"
     },
     {
         "internalName": "GECookerPlugin",
@@ -113,13 +131,13 @@
             "microbot",
             "minigames"
         ],
-        "version": "2.2.4",
+        "version": "2.2.5",
         "minClientVersion": "1.9.6",
         "author": "Mocrosoft",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Pest_Control.png?ed7bb",
-        "sha256": "647781a86c0df26881c846d52cd601a0991113e6c5cb9453e6693d8b73f57d70",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pestcontrolplugin/2.2.4/pestcontrolplugin-2.2.4.jar"
+        "sha256": "9816a98eca006515dbf62826cb777e1ef0e252ff73804320c94cc1df768248cd",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pestcontrolplugin/2.2.5/pestcontrolplugin-2.2.5.jar"
     },
     {
         "internalName": "VarrockAnvilPlugin",
@@ -139,5 +157,23 @@
         "iconUrl": "https://oldschool.runescape.wiki/images/thumb/Varrock_West_bank.png/320px-Varrock_West_bank.png?18540",
         "sha256": "e39b4cc69ab440887ca1054e098cd519da3ee25dd43009217706310f653c213c",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/varrockanvilplugin/1.0.2/varrockanvilplugin-1.0.2.jar"
+    },
+    {
+        "internalName": "ShootingStarPlugin",
+        "name": "ShootingStar",
+        "description": "Finds & Travels to shooting stars",
+        "tags": [
+            "mining",
+            "skilling",
+            "star",
+            "shooting"
+        ],
+        "version": "1.4.1",
+        "minClientVersion": "1.9.8",
+        "author": "g-mason0",
+        "supportUrl": "https://github.com/chsami/microbot",
+        "iconUrl": "",
+        "sha256": "1d7672daa94f68acf42dd5aeef21a2e7f681245cff7dc90d83083e526947b69b",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/shootingstarplugin/1.4.1/shootingstarplugin-1.4.1.jar"
     }
 ]
