@@ -173,16 +173,6 @@ afterEvaluate {
     }
 }
 
-tasks.withType(Jar).configureEach {
-    preserveFileTimestamps = false
-    reproducibleFileOrder = true
-
-    // Set Unix permissions consistently
-    eachFile { fileCopyDetails ->
-        fileCopyDetails.mode = 0644 // rw-r--r--
-    }
-}
-
 tasks.register("copyPluginDocs") {
     group = "documentation"
     description = "Copies plugin README.md files and resources to the public directory for GitHub Pages"

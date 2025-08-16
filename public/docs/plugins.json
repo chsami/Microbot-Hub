@@ -53,7 +53,7 @@
         "author": "g-mason0",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "",
-        "sha256": "d587e00c21627c936bab2aa101a2a0f01e0c55f3cffdfab8de3500e8c39048fe",
+        "sha256": "c85b1eab9766ff625f085a2f4fd15b809f73464a58d3bd3903ff52dc857d8e46",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/ouraniaplugin/1.4.1/ouraniaplugin-1.4.1.jar"
     },
     {
@@ -70,7 +70,7 @@
         "author": "Mocrosoft",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Pest_Control.png?ed7bb",
-        "sha256": "5b58b2a54d6e0cf4aa6deb8bec0b9cb0138579e1f90f9dafff3290742eb6bced",
+        "sha256": "8682b055582fa58010e316264cb1618842dd672e6e4becbf9dc4693c04b60f21",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pestcontrolplugin/2.2.5/pestcontrolplugin-2.2.5.jar"
     },
     {
@@ -88,7 +88,7 @@
         "author": "g-mason0",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "",
-        "sha256": "88af91e268daa4507c5cd9780e4e943251445409c4c6049cc3aaaae7c944e056",
+        "sha256": "8334554b8997cd8ae586a4ae25710e8feaba6225302374279f2581ba971353a6",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/shootingstarplugin/1.4.1/shootingstarplugin-1.4.1.jar"
     }
 ]
