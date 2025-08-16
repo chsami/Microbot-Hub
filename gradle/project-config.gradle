@@ -1,6 +1,10 @@
 // gradle/project-config.gradle
 // Centralized configuration for the microbot hub project
 
+// JDK version configuration
+project.ext.TARGET_JDK_VERSION = 11
+project.ext.JDK_VENDOR = 'ADOPTIUM'
+
 // Common project paths
 project.ext.PLUGINS_SOURCE_PATH = 'src/main/java/net/runelite/client/plugins/microbot'
 project.ext.PLUGINS_RESOURCE_PATH = 'src/main/resources/net/runelite/client/plugins/microbot'

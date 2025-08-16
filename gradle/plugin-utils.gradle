@@ -70,8 +70,6 @@ ext {
                 if (dep.trim()) {
                     logger.info("Adding dependency: ${dep.trim()}")
                     dependencies.add(pluginConfigName, dep.trim())
-                } else {
-                    logger.info("Skipping empty line")
                 }
             }
         }
@@ -82,16 +80,28 @@ ext {
     // Common JAR exclusions
     getCommonJarExclusions = {
         return [
-            'module-info.class',
-            'META-INF/versions/**',
-            'META-INF/INDEX.LIST',
-            'META-INF/*.SF',
-            'META-INF/*.DSA',
-            'META-INF/*.RSA',
-            '**/module-info.class',
-            '**/plugins.json',
-            '**/docs/**',
-            '**/dependencies.txt'
+                'module-info.class',
+                'META-INF/versions/**',
+                'META-INF/INDEX.LIST',
+                'META-INF/*.SF',
+                'META-INF/*.DSA',
+                'META-INF/*.RSA',
+                'META-INF/DEPENDENCIES',
+                'META-INF/LICENSE*',
+                'META-INF/NOTICE*',
+                'META-INF/MANIFEST.MF',
+                'META-INF/native-image/**',
+                'META-INF/services/java.**',
+                'META-INF/services/javax.**',
+                'META-INF/services/sun.**',
+                'META-INF/services/com.sun.**',
+                '**/.gitkeep',
+                '**/.DS_Store',
+                '**/Thumbs.db',
+                '**/module-info.class',
+                '**/plugins.json',
+                '**/docs/**',
+                '**/dependencies.txt',
         ]
     }
 
@@ -212,6 +222,22 @@ ext {
             // Centralized reproducible build settings
             preserveFileTimestamps = false
             reproducibleFileOrder = true
+
+            // Override manifest attributes
+            manifest {
+                attributes(
+                        'Implementation-Title': plugin.name,
+                        'Implementation-Version': version,
+                        'Built-By': 'microbot-build',
+                        'Created-By': 'Gradle Shadow Plugin'
+                )
+
+                attributes.remove('Build-Jdk-Spec')
+                attributes.remove('Built-Jdk')
+                attributes.remove('Build-Jdk')
+                attributes.remove('Build-Date')
+                attributes.remove('Build-Time')
+            }
 
             eachFile { fileCopyDetails ->
                 fileCopyDetails.mode = 0644 // rw-r--r--

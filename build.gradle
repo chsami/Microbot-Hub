@@ -1,5 +1,6 @@
 plugins {
     id 'application'
+    id 'java'
     id 'io.freefair.lombok' version '8.6'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
     id 'maven-publish'
@@ -11,6 +12,28 @@ import groovy.json.JsonOutput
 
 apply from: 'gradle/project-config.gradle'
 apply from: 'gradle/plugin-utils.gradle'
+
+// Java toolchain configuration
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(project.ext.TARGET_JDK_VERSION)
+        vendor = JvmVendorSpec."${project.ext.JDK_VENDOR}"
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = project.ext.TARGET_JDK_VERSION
+    options.compilerArgs.addAll([
+        '-parameters',
+        '-Xlint:none',
+        '-g:none'
+    ])
+
+
+    options.fork = true
+    options.forkOptions.jvmArgs = ['-Dfile.encoding=UTF-8']
+}
 
 configurations {
     microbotRuntime {
@@ -220,4 +243,31 @@ tasks.register("generatePluginsJson") {
 tasks.named("build") {
     finalizedBy("generatePluginsJson")
     finalizedBy("copyPluginDocs")
+}
+
+tasks.register('validateJdkVersion') {
+    group = 'verification'
+    description = 'Validates that the correct JDK version is being used'
+
+    doLast {
+        def currentJdkVersion = System.getProperty('java.version')
+        def expectedVersion = project.ext.TARGET_JDK_VERSION
+
+        // Extract major version from full version string (e.g., "11.0.28" -> 11)
+        def majorVersion = currentJdkVersion.split('\\.')[0] as Integer
+
+        if (majorVersion != expectedVersion) {
+            throw new GradleException(
+                "❌ JDK version mismatch!\n" +
+                "Expected: JDK ${expectedVersion}\n" +
+                "Current:  JDK ${majorVersion} (${currentJdkVersion})\n"
+            )
+        } else {
+            logger.lifecycle("✅ JDK version validated: ${currentJdkVersion}")
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    dependsOn 'validateJdkVersion'
 }

@@ -14,7 +14,7 @@
         "author": "Bolado",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Rogue_mask_chathead.png?0b359",
-        "sha256": "af095746fc3ddca04ea27d4297d555a5e702513c9239ac98af893bf9ae757f7a",
+        "sha256": "f4b373dd23935efb7adfa412e7bba2f18efcb211c2251b5ec9141260abea06c8",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/anonymousplugin/1.0.1/anonymousplugin-1.0.1.jar"
     },
     {
@@ -35,7 +35,7 @@
         "author": "Hal",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Jug_of_wine.png",
-        "sha256": "d7569f334e0b0551452cd5b2e35e04c39fa87f8cdaf52c2c57510cfa8fea8187",
+        "sha256": "17298af44b02911b40e0ea4a16c8ce775807df51effd4c222f4f57412a941158",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blessedwineplugin/1.0.1/blessedwineplugin-1.0.1.jar"
     },
     {
@@ -53,7 +53,7 @@
         "author": "g-mason0",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "",
-        "sha256": "c85b1eab9766ff625f085a2f4fd15b809f73464a58d3bd3903ff52dc857d8e46",
+        "sha256": "e021222c0e10e1c65bf1e33f4a96a50a3d8553bb1482dc351e9b3933011c73ea",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/ouraniaplugin/1.4.1/ouraniaplugin-1.4.1.jar"
     },
     {
@@ -70,7 +70,7 @@
         "author": "Mocrosoft",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "https://oldschool.runescape.wiki/images/Pest_Control.png?ed7bb",
-        "sha256": "8682b055582fa58010e316264cb1618842dd672e6e4becbf9dc4693c04b60f21",
+        "sha256": "9816a98eca006515dbf62826cb777e1ef0e252ff73804320c94cc1df768248cd",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pestcontrolplugin/2.2.5/pestcontrolplugin-2.2.5.jar"
     },
     {
@@ -88,7 +88,7 @@
         "author": "g-mason0",
         "supportUrl": "https://github.com/chsami/microbot",
         "iconUrl": "",
-        "sha256": "8334554b8997cd8ae586a4ae25710e8feaba6225302374279f2581ba971353a6",
+        "sha256": "1d7672daa94f68acf42dd5aeef21a2e7f681245cff7dc90d83083e526947b69b",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/shootingstarplugin/1.4.1/shootingstarplugin-1.4.1.jar"
     }
 ]
