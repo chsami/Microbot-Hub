@@ -240,11 +240,6 @@ tasks.register("generatePluginsJson") {
     }
 }
 
-tasks.named("build") {
-    finalizedBy("generatePluginsJson")
-    finalizedBy("copyPluginDocs")
-}
-
 tasks.register('validateJdkVersion') {
     group = 'verification'
     description = 'Validates that the correct JDK version is being used'

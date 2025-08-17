@@ -1,14 +1,12 @@
-name: CI Build (development)
+name: CI Build (Pull Requests)
 
 on:
-  push:
-    branches: [ development ]
   pull_request:
     branches: [ development ]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -20,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -31,14 +31,5 @@ jobs:
       - name: Grant execute permissions to gradlew
         run: chmod +x gradlew
 
-      - name: Build
+      - name: Build JARs
         run: ./gradlew clean build -x publish
-
-      - name: Create GitHub Release with JARs
-        uses: ncipollo/release-action@v1
-        with:
-          tag: release-${{ github.run_number }}
-          name: "Development Build #${{ github.run_number }}"
-          body: "Commit: ${{ github.sha }}"
-          allowUpdates: false
-          artifacts: "**/build/libs/*.jar"
