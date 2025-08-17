@@ -218,6 +218,8 @@ ext {
             destinationDirectory.set(layout.buildDirectory.dir("libs"))
 
             duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+            entryCompression = ZipEntryCompression.DEFLATED
+            filteringCharset = 'UTF-8'
 
             // Centralized reproducible build settings
             preserveFileTimestamps = false

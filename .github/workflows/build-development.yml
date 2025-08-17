@@ -1,34 +1,36 @@
-name: Build and Publish Plugins
+name: Development Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ development ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  build-and-publish:
+  build:
     runs-on: ubuntu-latest
 
     env:
-      CI: true  # tells Gradle not to run runMicrobot
-      ORG_GRADLE_PROJECT_nexusUsername: ${{ secrets.NEXUS_USERNAME }}
-      ORG_GRADLE_PROJECT_nexusPassword: ${{ secrets.NEXUS_PASSWORD }}
+      CI: true
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up JDK
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '11' # or 11 depending on your project
+          distribution: temurin
+          java-version: '11'
+          cache: gradle
 
       - name: Grant execute permissions to gradlew
         run: chmod +x gradlew
 
       - name: Build JARs
-        run: ./gradlew clean build
+        run: ./gradlew clean build -x publish
 
       - name: Configure Git for Actions
         run: |
@@ -43,10 +45,10 @@ jobs:
             echo "✅ No changes to plugin documentation"
           else
             echo "📝 Plugin documentation updated"
-          
+            
             echo "Documentation files changed:"
             git diff --name-only public/docs/ | grep -v "plugins.json" || true
-          
+            
             git add public/docs/
             git reset public/docs/plugins.json 2>/dev/null || true
             git commit -m "chore(ci): Update plugin documentation from GitHub Actions [skip ci]"
@@ -61,33 +63,20 @@ jobs:
             echo "✅ No changes to plugins.json"
           else
             echo "🔢 plugins.json updated from GitHub Actions build"
-          
+            
             echo "Changed plugins:"
             git diff public/docs/plugins.json | grep -A 1 -B 1 '"sha256"' | grep -E '(internalName|sha256)' | sed 's/^[+-]//' | paste - - | awk -F'"' '{print "  " $4 ": " $12}' || true
-          
+            
             git add public/docs/plugins.json
             git commit -m "chore(ci): Update plugins.json from GitHub Actions [skip ci]"
             git push
           fi
 
-      - name: Publish to Nexus
-        run: ./gradlew publish
-
-      - name: Create/Update GitHub Release with JARs
+      - name: Create GitHub Release with JARs
         uses: ncipollo/release-action@v1
         with:
-          tag: latest-release
-          name: Latest build
+          tag: release-${{ github.run_number }}
+          name: "Development Build #${{ github.run_number }}"
           body: "Commit: ${{ github.sha }}"
-          allowUpdates: true
-          replacesArtifacts: true
+          allowUpdates: false
           artifacts: "**/build/libs/*.jar"
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          publish_branch: gh-pages
-          enable_jekyll: false
-          allow_empty_commit: true
