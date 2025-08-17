@@ -17,15 +17,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '11' # or 11 depending on your project
+          java-version: '11'
 
-      - name: Grant execute permissions to gradlew
-        run: chmod +x gradlew
+      - name: Grant execute permissions
+        run: |
+          chmod +x gradlew
+          chmod +x .github/scripts/parse_plugins_diff.py
 
       - name: Build JARs
         run: ./gradlew clean build
@@ -64,7 +68,7 @@ jobs:
             echo "🔢 plugins.json updated from GitHub Actions build"
           
             echo "Changed plugins:"
-            git diff public/docs/plugins.json | grep '"internalName"\|"sha256"' | sed 'N;s/\n/ /' | grep -o '"internalName": "[^"]*".*"sha256": "[^"]*"' | sed 's/"internalName": "\([^"]*\)".*"sha256": "\([^"]*\)"/  \1: \2/' || true
+            .github/scripts/parse_plugins_diff.py || echo "   (Unable to parse changes)"
           
             git add -f public/docs/plugins.json
             git commit -m "chore(ci): Update plugins.json from GitHub Actions [skip ci]"
