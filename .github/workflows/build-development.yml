@@ -29,53 +29,10 @@ jobs:
           cache: gradle
 
       - name: Grant execute permissions
-        run: |
-          chmod +x gradlew
-          chmod +x .github/scripts/parse_plugins_diff.py
+        run: chmod +x gradlew
 
       - name: Build JARs
         run: ./gradlew clean build -x publish
-
-      - name: Configure Git for Actions
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-
-      - name: Update plugin documentation
-        run: |
-          ./gradlew copyPluginDocs
-          
-          git add -f public/docs/ || true
-          git reset public/docs/plugins.json 2>/dev/null || true
-          
-          if git diff --cached --quiet; then
-            echo "✅ No changes to plugin documentation"
-          else
-            echo "📝 Plugin documentation updated"
-            
-            echo "Documentation files changed:"
-            git diff --cached --name-only || true
-            
-            git commit -m "chore(ci): Update plugin documentation from GitHub Actions [skip ci]"
-            git push
-          fi
-
-      - name: Update plugins.json
-        run: |
-          ./gradlew generatePluginsJson
-          
-          if git diff --quiet public/docs/plugins.json; then
-            echo "✅ No changes to plugins.json"
-          else
-            echo "🔢 plugins.json updated from GitHub Actions build"
-            
-            echo "Changed plugins:"
-            .github/scripts/parse_plugins_diff.py || echo "   (Unable to parse changes)"
-            
-            git add -f public/docs/plugins.json
-            git commit -m "chore(ci): Update plugins.json from GitHub Actions [skip ci]"
-            git push
-          fi
 
       - name: Create GitHub Release with JARs
         uses: ncipollo/release-action@v1
