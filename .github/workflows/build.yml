@@ -39,16 +39,17 @@ jobs:
         run: |
           ./gradlew copyPluginDocs
           
-          if git diff --quiet public/docs/ -- ':!public/docs/plugins.json'; then
+          git add -f public/docs/ || true
+          git reset public/docs/plugins.json 2>/dev/null || true
+          
+          if git diff --cached --quiet; then
             echo "✅ No changes to plugin documentation"
           else
             echo "📝 Plugin documentation updated"
           
             echo "Documentation files changed:"
-            git diff --name-only public/docs/ | grep -v "plugins.json" || true
+            git diff --cached --name-only || true
           
-            git add public/docs/
-            git reset public/docs/plugins.json 2>/dev/null || true
             git commit -m "chore(ci): Update plugin documentation from GitHub Actions [skip ci]"
             git push
           fi
@@ -63,9 +64,9 @@ jobs:
             echo "🔢 plugins.json updated from GitHub Actions build"
           
             echo "Changed plugins:"
-            git diff public/docs/plugins.json | grep -A 1 -B 1 '"sha256"' | grep -E '(internalName|sha256)' | sed 's/^[+-]//' | paste - - | awk -F'"' '{print "  " $4 ": " $12}' || true
+            git diff public/docs/plugins.json | grep '"internalName"\|"sha256"' | sed 'N;s/\n/ /' | grep -o '"internalName": "[^"]*".*"sha256": "[^"]*"' | sed 's/"internalName": "\([^"]*\)".*"sha256": "\([^"]*\)"/  \1: \2/' || true
           
-            git add public/docs/plugins.json
+            git add -f public/docs/plugins.json
             git commit -m "chore(ci): Update plugins.json from GitHub Actions [skip ci]"
             git push
           fi
