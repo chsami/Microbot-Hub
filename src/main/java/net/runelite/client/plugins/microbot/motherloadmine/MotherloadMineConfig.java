@@ -106,7 +106,7 @@ public interface MotherloadMineConfig extends Config
 	@ConfigItem(
 		keyName = useUpstairsHopper,
 		name = "Use Upstairs Hopper",
-		description = "Should uthe plugin use the upstairs hopper",
+		description = "Should the plugin use the upstairs hopper",
 		position = 1,
 		section = featureSection
 	)
