@@ -1,8 +1,8 @@
-# StickToTheScript's Grand Exchange Cooker
+# StickToTheScript's Grand Exchange Firemaker
 
-![preview](https://oldschool.runescape.wiki/images/Fire.gif?a0e7a)
+![preview](images/firemaking.png)
 
-The **Grand Exchange Cooker Script** automates cooking raw fish on fires at the Grand Exchange.
+The **Grand Exchange Firemaker Script** automates burning logs in the Grand Exchange.
 
 ---
 
@@ -10,22 +10,20 @@ The **Grand Exchange Cooker Script** automates cooking raw fish on fires at the 
 
 | Feature                  | Description                                                                                 |
 |--------------------------|---------------------------------------------------------------------------------------------|
-| **All Log Types**        | Supports making fires for all log types.                                                    |
-| **All Fish Types**       | Supports cooking of all fish types.                                                         |
+| **All Log Types**        | Supports burning all log types.                                                             |
 | **Finds Existing Fires** | If a fire already exists in the specified location, it will automatically use the campfire. |
 
 ---
 
 ## Requirements
 - Microbot RuneLite client
-- Logs, Tinderbox, and desired fish in the bank.
+- Logs and tinderbox in the bank.
 - Player is in the Grand Exchange.
 
 ---
 
 ## Configuration Options
-- **Log Type**: The type of log to use to build fires if one does not already exist.
-- **Cook Item**: The type of food we are going to cook.
+- **Log Type**: The type of log to burn.
 - **Location**: The desired primary location around the center of the Grand Exchange to use.
 - **Debug**: Enable/disable the debug entry in the overlay. This is helpful for gathering additional information when bugs occur.
 
