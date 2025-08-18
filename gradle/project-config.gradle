@@ -20,7 +20,7 @@ project.ext.NEXUS_PLUGINS_REPO = 'microbot-plugins'
 
 // Plugin defaults
 project.ext.DEFAULT_VERSION = '1.0.0'
-project.ext.DEFAULT_AUTHOR = 'Unknown Author'
+project.ext.DEFAULT_AUTHORS = ['Unknown Author']
 project.ext.DEFAULT_SUPPORT_URL = 'https://github.com/chsami/microbot'
 
 // Maven publication
