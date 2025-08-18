@@ -26,7 +26,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 	name = PluginConstants.MOCROSOFT + "MotherlodeMine",
 	description = "A bot that mines paydirt in the motherlode mine",
 	tags = {"paydirt", "mine", "motherlode", "mlm"},
-	author =  "Mocrosoft",
+	authors = { "Mocrosoft" },
 	version = MotherloadMinePlugin.version,
 	minClientVersion = "1.9.8",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,

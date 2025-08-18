@@ -60,7 +60,7 @@ import net.runelite.client.util.ImageUtil;
 @PluginDescriptor(
 	name = PluginConstants.SHOOTING_STAR_PREFIX + "ShootingStar",
 	description = "Finds & Travels to shooting stars",
-	author = "g-mason0",
+	authors = {"g-mason0"},
 	version = ShootingStarPlugin.version,
 	minClientVersion = "1.9.8",
 	tags = {"mining",  "skilling", "star", "shooting"},

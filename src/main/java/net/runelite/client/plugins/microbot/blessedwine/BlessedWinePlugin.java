@@ -23,7 +23,7 @@ import java.awt.*;
         name = PluginConstants.MOCROSOFT + "Blessed Wine",
         description = "Automating Prayer Training using blessed wines at Cam Torum",
         tags = {"blessed", "wine", "ralos", "prayer", "libation", "microbot", "automation"},
-        author = "Hal",
+        authors = { "Hal" },
         version = BlessedWinePlugin.version,
 		minClientVersion = "1.9.6",
         iconUrl = "https://oldschool.runescape.wiki/images/Jug_of_wine.png",

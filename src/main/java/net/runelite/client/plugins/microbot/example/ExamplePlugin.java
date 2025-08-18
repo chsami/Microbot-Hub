@@ -18,7 +18,7 @@ import java.awt.*;
 	name = PluginConstants.DEFAULT_PREFIX + "Example",
 	description = "Microbot Example Plugin",
 	tags = {"example", "microbot"},
-	author =  "Mocrosoft",
+	authors = { "Mocrosoft" },
 	version = ExamplePlugin.version,
 	minClientVersion = "1.9.8",
 	disable = true,

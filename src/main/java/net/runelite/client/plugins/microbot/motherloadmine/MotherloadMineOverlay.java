@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.motherloadmine.MotherloadMinePlugin;
 import net.runelite.client.plugins.microbot.motherloadmine.MotherloadMineScript;
-import static net.runelite.client.plugins.microbot.mining.motherloadmine.MotherloadMineScript.status;
+import static net.runelite.client.plugins.microbot.motherloadmine.MotherloadMineScript.status;
 import net.runelite.client.plugins.microbot.motherloadmine.enums.MLMMiningSpot;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;

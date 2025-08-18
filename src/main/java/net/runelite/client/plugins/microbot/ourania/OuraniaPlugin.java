@@ -33,7 +33,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(
 	name = PluginConstants.GMASON + "Ourania Altar",
-	author = "g-mason0",
+	authors = { "g-mason0"},
 	version = OuraniaPlugin.version,
 	minClientVersion = "1.9.8",
 	description = "Microbot Ourania Altar plugin",
