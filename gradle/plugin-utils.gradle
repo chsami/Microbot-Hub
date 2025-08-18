@@ -141,7 +141,7 @@ ext {
         def nameMatcher = content =~ /name\s*=\s*(?:[\w$.]+\s*\+\s*)?"([^"]+)"/
         def descMatcher     = content =~ /description\s*=\s*"([^"]+)"/
         def tagsMatcher     = content =~ /tags\s*=\s*\{([^}]+)\}/
-        def authorsMatcher   = content =~ /authors\s*=\s*\{([^}]+)\}/
+        def authorsMatcher   = content =~ /authors\s*=\s*\{\s*((?:"[^"]*"\s*,?\s*)+)\}/
         def singleAuthorMatcher = content =~ /authors\s*=\s*"([^"]+)"/
         def iconUrlMatcher  = content =~ /iconUrl\s*=\s*"([^"]+)"/
         def cardUrlMatcher  = content =~ /cardUrl\s*=\s*"([^"]+)"/
