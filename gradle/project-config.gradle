@@ -1,0 +1,35 @@
+// gradle/project-config.gradle
+// Centralized configuration for the microbot hub project
+
+// JDK version configuration
+project.ext.TARGET_JDK_VERSION = 11
+project.ext.JDK_VENDOR = 'ADOPTIUM'
+
+// Common project paths
+project.ext.PLUGINS_SOURCE_PATH = 'src/main/java/net/runelite/client/plugins/microbot'
+project.ext.PLUGINS_RESOURCE_PATH = 'src/main/resources/net/runelite/client/plugins/microbot'
+project.ext.DOCS_OUTPUT_PATH = 'public/docs'
+
+// Relative path for source set
+project.ext.PLUGINS_INCLUDE_PATH = 'net/runelite/client/plugins/microbot'
+
+// Nexus configuration
+project.ext.NEXUS_BASE_URL = 'https://nexus.microbot.cloud/repository'
+project.ext.NEXUS_NIGHTLY_REPO = 'microbot-nightly'
+project.ext.NEXUS_PLUGINS_REPO = 'microbot-plugins'
+
+// Plugin defaults
+project.ext.DEFAULT_VERSION = '1.0.0'
+project.ext.DEFAULT_AUTHOR = 'Unknown Author'
+project.ext.DEFAULT_SUPPORT_URL = 'https://github.com/chsami/microbot'
+
+// Maven publication
+project.ext.MAVEN_GROUP_ID = 'net.runelite.client.plugins.microbot'
+
+// Helper functions for accessing config
+project.ext.getPluginsSourcePath = { -> project.ext.PLUGINS_SOURCE_PATH }
+project.ext.getPluginsResourcePath = { -> project.ext.PLUGINS_RESOURCE_PATH }
+project.ext.getPluginsIncludePath = { -> project.ext.PLUGINS_INCLUDE_PATH }
+project.ext.getDocsOutputPath = { -> project.ext.DOCS_OUTPUT_PATH }
+project.ext.getNexusNightlyUrl = { -> "${project.ext.NEXUS_BASE_URL}/${project.ext.NEXUS_NIGHTLY_REPO}/" }
+project.ext.getNexusPluginsUrl = { -> "${project.ext.NEXUS_BASE_URL}/${project.ext.NEXUS_PLUGINS_REPO}/" }

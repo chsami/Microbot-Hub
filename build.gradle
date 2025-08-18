@@ -1,5 +1,6 @@
 plugins {
     id 'application'
+    id 'java'
     id 'io.freefair.lombok' version '8.6'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
     id 'maven-publish'
@@ -7,14 +8,33 @@ plugins {
 }
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import groovy.json.JsonOutput
 
-apply from: 'generate-plugins.gradle'
+apply from: 'gradle/project-config.gradle'
+apply from: 'gradle/plugin-utils.gradle'
 
-tasks.named('shadowJar') {
-    enabled = false
+// Java toolchain configuration
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(project.ext.TARGET_JDK_VERSION)
+        vendor = JvmVendorSpec."${project.ext.JDK_VENDOR}"
+    }
 }
 
-// Create a resolvable configuration just for running microbot
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = project.ext.TARGET_JDK_VERSION
+    options.compilerArgs.addAll([
+        '-parameters',
+        '-Xlint:none',
+        '-g:none'
+    ])
+
+
+    options.fork = true
+    options.forkOptions.jvmArgs = ['-Dfile.encoding=UTF-8']
+}
+
 configurations {
     microbotRuntime {
         canBeConsumed = false
@@ -29,7 +49,7 @@ configurations {
 
 repositories {
     maven {
-        url = 'https://nexus.microbot.cloud/repository/microbot-nightly/'
+        url = project.ext.getNexusNightlyUrl()
     }
     mavenCentral()
 }
@@ -38,7 +58,6 @@ dependencies {
     compileOnly 'com.microbot:client:+'
     microbotRuntime 'com.microbot:client:+'
 
-    // Add Microbot client dependency for tests
     testImplementation 'com.microbot:client:+'
 }
 
@@ -47,9 +66,27 @@ application {
     mainClass = 'net.runelite.client.RuneLite'
 }
 
+sourceSets.main.java.srcDirs = []
+sourceSets.main.resources.srcDirs = []
+
+tasks.named('compileJava') {
+    enabled = false
+}
+tasks.named('processResources') {
+    enabled = false
+}
+tasks.named('classes') {
+    enabled = false
+}
+tasks.named('jar') {
+    enabled = false
+}
+
+tasks.named('shadowJar') {
+    enabled = false
+}
 
 // Plugin Logic
-
 String pluginVersionFromPluginJson(File pluginDir) {
     def pluginJavaFile = pluginDir.listFiles()?.find { it.name.endsWith("Plugin.java") }
     if (pluginJavaFile == null) {
@@ -59,188 +96,181 @@ String pluginVersionFromPluginJson(File pluginDir) {
     return info.version as String
 }
 
-def pluginsDir = file('src/main/java/net/runelite/client/plugins/microbot')
-def pluginDirs = pluginsDir.listFiles()?.findAll { it.isDirectory() } ?: []
+// Discover and filter plugins
+afterEvaluate {
+    def microbotConfig = configurations.microbotRuntime.resolvedConfiguration
+    def microbotDependency = microbotConfig.firstLevelModuleDependencies
+            .find { it.moduleGroup == 'com.microbot' && it.moduleName == 'client' }
 
-println "Detected plugins: " + pluginDirs*.name
-
-def pluginsProperty = project.findProperty("pluginList")
-def selectedPlugins = pluginsProperty ? pluginsProperty.split(',' as Closure).collect { it.trim() } : []
-
-// Create a sourceSet + ShadowJar per plugin
-pluginDirs.each { pluginDir ->
-    def pluginName = ""
-
-    def pluginJavaFile = pluginDir.listFiles()?.find { file ->
-        file.name.endsWith("Plugin.java")
-    }
-
-    if (pluginJavaFile) {
-        pluginName = pluginJavaFile.name[0..-6] // removes '.java'
-        println "Found plugin class: ${pluginJavaFile.name}"
+    if (microbotDependency) {
+        logger.lifecycle("🤖 Microbot Client Version: ${microbotDependency.moduleVersion}")
     } else {
-        println "⚠️ No Plugin.java file found in $pluginName"
+        logger.warn("⚠️  Could not determine microbot client version")
     }
 
-    if (selectedPlugins && !selectedPlugins.contains(pluginName)) {
-        println "Skipping plugin: $pluginName"
-        return
-    }
+    def pluginsDir = file(project.ext.getPluginsSourcePath())
+    def allPlugins = project.ext.discoverPlugins(pluginsDir)
+    def pluginsProperty = project.findProperty("pluginList")
+    def selectedPluginNames = pluginsProperty ? pluginsProperty.split(',').collect { it.trim() } : []
 
-    // Create a dependencySet for each plugin
-    def pluginConfigName = "${pluginName}ShadowDeps"
-    configurations.create(pluginConfigName) {
-        extendsFrom configurations.pluginShadowClasspath
-    }
-
-    def depsFile = new File(pluginDir as File, "dependencies.txt")
-    if (depsFile.exists()) {
-        depsFile.readLines().each { dep ->
-            println("dep " + dep.trim())
-            dependencies.add(pluginConfigName, dep.trim())
+    def validPlugins = allPlugins.findAll { plugin ->
+        if (selectedPluginNames && !selectedPluginNames.contains(plugin.name)) {
+            logger.info("Skipping plugin: ${plugin.name}")
+            return false
         }
+        logger.info("Processing plugin: ${plugin.name}")
+        return true
     }
 
-    // Create a ShadowJar task for each plugin
-    def jarTask = tasks.register("${pluginName}Jar", ShadowJar) {
-        // Instead of including all main output, only include this specific plugin's classes
-        from(sourceSets.main.output) {
-            // Get the relative path of the plugin directory within the source tree
-            def pluginRelativePath = sourceSets.main.java.srcDirs.find { srcDir ->
-                pluginDir.absolutePath.startsWith(srcDir.absolutePath)
-            }
+    println "Detected plugins: ${allPlugins*.name}"
+    println "Processing plugins: ${validPlugins*.name}"
 
-            if (pluginRelativePath) {
-                def relativePath = pluginRelativePath.toPath().relativize(pluginDir.toPath()).toString().replace('\\', '/')
-                include "${relativePath}/**"
-                println "Including classes from path: ${relativePath}/**"
-            } else {
-                // Fallback: include by plugin name pattern if directory structure doesn't match
-                include "**/${pluginName}/**"
-                include "**/${pluginName}.class"
-                include "**/${pluginName}Plugin.class"
-                println "Using fallback include pattern for plugin: ${pluginName}"
-            }
+    ext.validPlugins = validPlugins
+    ext.allPlugins = allPlugins
+
+    def pluginPublications = []
+
+    validPlugins.each { plugin ->
+        // Configure source set
+        project.ext.configurePluginSourceSet(plugin)
+
+        // Configure dependencies
+        def pluginConfigName = project.ext.configurePluginDependencies(plugin)
+
+        // Create JAR task using the configuration
+        def jarTask = tasks.register("${plugin.name}Jar", ShadowJar, project.ext.getPluginJarTaskConfig(plugin, pluginConfigName))
+
+        // Add to build dependencies
+        tasks.named("build") {
+            dependsOn(jarTask)
         }
 
-        archiveFileName.set("${pluginName}-${pluginVersionFromPluginJson(pluginDir)}.jar")
-        archiveBaseName.set(pluginName)
-        archiveVersion.set(pluginVersionFromPluginJson(pluginDir as File))
-        archiveClassifier.set('')
-        configurations = [project.configurations.getByName(pluginConfigName)]
-        destinationDirectory.set(layout.buildDirectory.dir("libs"))
-
-        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-        // Exclude module-info.class entirely (you don't need modules for plugins)
-        exclude 'module-info.class'
-        exclude 'META-INF/versions/**'
-        exclude 'META-INF/INDEX.LIST'
-        exclude 'META-INF/*.SF'
-        exclude 'META-INF/*.DSA'
-        exclude 'META-INF/*.RSA'
-        exclude '**/module-info.class'
-        exclude '**/plugins.json'
-        outputs.upToDateWhen { false }
+        // Collect for publishing
+        pluginPublications << [
+            name    : plugin.name,
+            jarTask : jarTask,
+            version : pluginVersionFromPluginJson(plugin.dir)
+        ]
     }
 
-    afterEvaluate {
-        publishing {
-            publications {
-                create("${pluginName}Publication", MavenPublication) {
-                    groupId = "net.runelite.client.plugins.microbot"
-                    artifactId = pluginName.toLowerCase()
-                    version = pluginVersionFromPluginJson(pluginDir as File)
+    // Configure publishing
+    publishing {
+        publications {
+            pluginPublications.each { pub ->
+                create("${pub.name}Publication", MavenPublication) {
+                    groupId = project.ext.MAVEN_GROUP_ID
+                    artifactId = pub.name.toLowerCase()
+                    version = pub.version
 
-                    artifact(tasks.named("${pluginName}Jar").get().archiveFile) {
+                    artifact(pub.jarTask.get().archiveFile) {
                         extension "jar"
                     }
                 }
             }
-
-            repositories {
-                maven {
-                    name = "microbot-plugins"
-                    url = uri("https://nexus.microbot.cloud/repository/microbot-plugins/")
-                    credentials {
-                        username = project.findProperty("nexusUsername") ?: ""
-                        password = project.findProperty("nexusPassword") ?: ""
-                    }
+        }
+        repositories {
+            maven {
+                name = "microbot-plugins"
+                url = uri(project.ext.getNexusPluginsUrl())
+                credentials {
+                    username = project.findProperty("nexusUsername") ?: ""
+                    password = project.findProperty("nexusPassword") ?: ""
                 }
             }
         }
     }
 
-    // Only make build depend on it if you want it to always run
-    tasks.named("build") {
-        dependsOn(jarTask)
+    // Configure test source set to have access to all plugin source sets
+    def allPluginCompileTasks = []
+
+    validPlugins.each { plugin ->
+        def compileTaskName = "compile${plugin.sourceSetName.capitalize()}Java"
+
+        if (sourceSets.findByName(plugin.sourceSetName)) {
+            sourceSets.test.compileClasspath += sourceSets."${plugin.sourceSetName}".output
+            sourceSets.test.runtimeClasspath += sourceSets."${plugin.sourceSetName}".output
+
+            allPluginCompileTasks.add(compileTaskName)
+
+            dependencies.add('testRuntimeOnly', sourceSets."${plugin.sourceSetName}".output)
+            dependencies.add('testCompileOnly', sourceSets."${plugin.sourceSetName}".output)
+        }
     }
-}
 
-tasks.withType(Jar).configureEach {
-    preserveFileTimestamps = false
-    reproducibleFileOrder = true
+    tasks.named('compileTestJava').configure {
+        dependsOn allPluginCompileTasks
+    }
 
-    // Set Unix permissions consistently
-    eachFile { fileCopyDetails ->
-        fileCopyDetails.mode = 0644 // rw-r--r--
+    tasks.named('test').configure {
+        dependsOn allPluginCompileTasks
     }
 }
 
 tasks.register("copyPluginDocs") {
     group = "documentation"
-    description = "Copies plugin README.md files and images to the public directory for GitHub Pages"
+    description = "Copies plugin README.md files and resources to the public directory for GitHub Pages"
 
     doLast {
-        def publicDir = file("public/docs")
+        def publicDir = file(project.ext.getDocsOutputPath())
         publicDir.mkdirs()
 
-        pluginDirs.each { pluginDir ->
-            def pluginName = ""
+        def pluginsDir = file(project.ext.getPluginsSourcePath())
+        def allPlugins = project.ext.discoverPlugins(pluginsDir)
+        def pluginsProperty = project.findProperty("pluginList")
+        def selectedPluginNames = pluginsProperty ? pluginsProperty.split(',').collect { it.trim() } : []
 
-            def pluginJavaFile = pluginDir.listFiles()?.find { file ->
-                file.name.endsWith("Plugin.java")
+        def validPlugins = allPlugins.findAll { plugin ->
+            if (selectedPluginNames && !selectedPluginNames.contains(plugin.name)) {
+                return false
             }
+            return true
+        }
 
-            if (pluginJavaFile) {
-                pluginName = pluginJavaFile.name[0..-6] // removes '.java'
-                println "Found plugin class: ${pluginJavaFile.name}"
-            } else {
-                println "⚠️ No Plugin.java file found in $pluginName"
-            }
-
-            def readmeFile = pluginDir.listFiles()?.find { file ->
-                file.name.equalsIgnoreCase("readme.md")
-            }
-            def imagesDir = new File(pluginDir, "images")
-
-            if (readmeFile != null && readmeFile.exists()) {
-                // Create plugin docs directory
-                def pluginDocsDir = new File(publicDir, pluginName)
-                pluginDocsDir.mkdirs()
-
-                // Copy README.md
-                copy {
-                    from readmeFile
-                    into pluginDocsDir
-                }
-
-                println "✅ Copied README.md for plugin: ${pluginName}"
-
-                // Copy images if they exist
-                if (imagesDir.exists() && imagesDir.isDirectory()) {
-                    copy {
-                        from imagesDir
-                        into new File(pluginDocsDir, "images")
-                    }
-                    println "✅ Copied images for plugin: ${pluginName}"
-                }
-            }
+        validPlugins.each { plugin ->
+            project.ext.copyPluginDocumentation(plugin, publicDir)
         }
     }
 }
 
+// Validating JDK version when generating plugins.json is important to ensure consistent hashing :(
+tasks.register("generatePluginsJson") {
+    group = "build"
+    description = "Generates plugins.json by scanning plugin folders and hashing JARs"
+    dependsOn 'validateJdkVersion'
 
-tasks.named("build") {
-    finalizedBy("generatePluginsJson")
-    finalizedBy("copyPluginDocs")
+    doLast {
+        def pluginRoot = file(project.ext.getPluginsSourcePath())
+        def outputJson = file("${project.ext.getDocsOutputPath()}/plugins.json")
+        def jarOutputDir = file("$buildDir/libs")
+
+        def allPlugins = project.ext.discoverPlugins(pluginRoot)
+        def plugins = project.ext.generatePluginsJsonData(allPlugins, jarOutputDir)
+
+        outputJson.parentFile.mkdirs()
+        outputJson.text = JsonOutput.prettyPrint(JsonOutput.toJson(plugins))
+        logger.info("✅ Generated plugins.json with ${plugins.size()} plugins")
+    }
+}
+
+tasks.register('validateJdkVersion') {
+    group = 'verification'
+    description = 'Validates that the correct JDK version is being used'
+
+    doLast {
+        def currentJdkVersion = System.getProperty('java.version')
+        def expectedVersion = project.ext.TARGET_JDK_VERSION
+
+        // Extract major version from full version string (e.g., "11.0.28" -> 11)
+        def majorVersion = currentJdkVersion.split('\\.')[0] as Integer
+
+        if (majorVersion != expectedVersion) {
+            throw new GradleException(
+                "❌ JDK version mismatch!\n" +
+                "Expected: JDK ${expectedVersion}\n" +
+                "Current:  JDK ${majorVersion} (${currentJdkVersion})\n"
+            )
+        } else {
+            logger.lifecycle("✅ JDK version validated: ${currentJdkVersion}")
+        }
+    }
 }

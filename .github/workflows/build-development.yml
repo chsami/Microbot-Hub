@@ -1,0 +1,44 @@
+name: Development Build
+
+on:
+  push:
+    branches: [ development ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      CI: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: gradle
+
+      - name: Grant execute permissions
+        run: chmod +x gradlew
+
+      - name: Build JARs
+        run: ./gradlew clean build -x publish
+
+      - name: Create GitHub Release with JARs
+        uses: ncipollo/release-action@v1
+        with:
+          tag: release-${{ github.run_number }}
+          name: "Development Build #${{ github.run_number }}"
+          body: "Commit: ${{ github.sha }}"
+          allowUpdates: false
+          artifacts: "**/build/libs/*.jar"

@@ -1,0 +1,35 @@
+name: CI Build (Pull Requests)
+
+on:
+  pull_request:
+    branches: [ development ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      CI: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: gradle
+
+      - name: Grant execute permissions
+        run: chmod +x gradlew
+
+      - name: Build JARs
+        run: ./gradlew clean build -x publish
