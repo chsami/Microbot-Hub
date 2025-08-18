@@ -11,6 +11,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.ui.overlay.OverlayManager;
 
@@ -21,8 +22,12 @@ import java.time.Duration;
 @PluginDescriptor(
         name = PluginDescriptor.Mocrosoft + "Thieving",
         description = "Microbot thieving plugin",
+        author = "Mocrosoft, Kryox, Jesusfh",
+        version = ThievingPlugin.version,
+        minClientVersion = "1.9.8.2",
         tags = {"thieving", "microbot", "skilling"},
-        enabledByDefault = false
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class ThievingPlugin extends Plugin {
@@ -42,7 +47,7 @@ public class ThievingPlugin extends Plugin {
     @Getter
     private ThievingScript thievingScript;
 
-    public static String version = "2";
+    public static final String version = "2";
     private int startXp = 0;
 	@Getter
 	private int maxCoinPouch;
