@@ -28,7 +28,7 @@ jobs:
           java-version: '11'
           cache: gradle
 
-      - name: Grant execute permissions to gradlew
+      - name: Grant execute permissions
         run: chmod +x gradlew
 
       - name: Build JARs
