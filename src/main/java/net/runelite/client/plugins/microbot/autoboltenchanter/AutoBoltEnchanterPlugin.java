@@ -13,7 +13,8 @@ import java.awt.*;
     name = "[bga] Auto Bolt Enchanter",
     description = "Automatically enchants crossbow bolts at the bank",
     tags = {"magic"},
-    enabledByDefault = false
+    enabledByDefault = false,
+    minClientVersion = "1.9.8"
 )
 @Slf4j
 public class AutoBoltEnchanterPlugin extends Plugin {
