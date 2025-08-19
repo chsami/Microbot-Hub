@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.agility.courses;
 import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldArea;
@@ -15,6 +16,7 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.misc.Operation;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
+@Slf4j
 public class PrifddinasCourse implements AgilityCourseHandler
 {
 	private final Set<Integer> PORTAL_OBSTACLE_IDS = ImmutableSet.of(
@@ -77,17 +79,30 @@ public class PrifddinasCourse implements AgilityCourseHandler
 	@Override
 	public boolean handleWalkToStart(WorldPoint playerWorldLocation)
 	{
+		log.info("=== PrifddinasCourse.handleWalkToStart() called ===");
+		log.info("Player location: {}", playerWorldLocation);
+		log.info("Start point: {}", getStartPoint());
+		log.info("Distance to start: {}", playerWorldLocation.distanceTo(getStartPoint()));
+		log.info("Player plane: {}", Microbot.getClient().getTopLevelWorldView().getPlane());
+		log.info("getCurrentObstacleIndex(): {}", getCurrentObstacleIndex());
+		
 		if (Microbot.getClient().getTopLevelWorldView().getPlane() != 0)
 		{
+			log.info("Not on plane 0, returning false");
 			return false;
 		}
 
-		if (prifFallArea.contains(playerWorldLocation) || getCurrentObstacleIndex() <= 0)
+		boolean inFallArea = prifFallArea.contains(playerWorldLocation);
+		log.info("In fall area: {}", inFallArea);
+		
+		if (inFallArea)
 		{
+			log.info("Player in fall area, walking to start point");
 			Rs2Walker.walkTo(getStartPoint(), 2);
 			Microbot.log("Going back to course's starting point");
 			return true;
 		}
+		log.info("PrifddinasCourse.handleWalkToStart() returning false");
 		return false;
 	}
 }

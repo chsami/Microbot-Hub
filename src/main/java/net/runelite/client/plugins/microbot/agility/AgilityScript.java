@@ -148,7 +148,9 @@ public class AgilityScript extends Script
 						return;
 					}
 				}
-				else if (!(plugin.getCourseHandler() instanceof GnomeStrongholdCourse))
+				else if (!(plugin.getCourseHandler() instanceof GnomeStrongholdCourse) && 
+						 !(plugin.getCourseHandler() instanceof PrifddinasCourse) && 
+						 !(plugin.getCourseHandler() instanceof WerewolfCourse))
 				{
 					if (plugin.getCourseHandler().handleWalkToStart(playerWorldLocation))
 					{
