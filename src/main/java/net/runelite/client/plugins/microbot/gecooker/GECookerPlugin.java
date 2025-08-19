@@ -12,11 +12,11 @@ import java.awt.*;
 
 @PluginDescriptor(
 	name = PluginDescriptor.StickToTheScript + "GE Cooker",
-	author = "StickToTheScript",
+	authors = {"StickToTheScript"},
 	version = "1.0.0",
 	description = "Cooks items on fires found at the Grand Exchange.",
 	tags = {"cooking", "grand", "exchange", "ge", "fish", "raw", "sticktothescript", "stts"},
-	iconUrl = "https://oldschool.runescape.wiki/images/thumb/Grand_Exchange.png/320px-Grand_Exchange.png?7f06f",
+    cardUrl = "https://oldschool.runescape.wiki/images/thumb/Grand_Exchange.png/320px-Grand_Exchange.png?7f06f",
 	enabledByDefault = false,
 	isExternal = true,
 	minClientVersion = "1.9.6"

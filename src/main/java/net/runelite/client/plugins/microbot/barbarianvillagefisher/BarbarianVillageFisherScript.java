@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.barbarianvillagefisher;
 
-import net.runelite.api.NPC;
 import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
@@ -25,7 +24,6 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.event.KeyEvent;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static net.runelite.client.plugins.microbot.util.npc.Rs2Npc.validateInteractable;
@@ -345,16 +343,6 @@ public class BarbarianVillageFisherScript extends Script {
         return Rs2Player.getWorldLocation().distanceTo(location) <= 10;
     }
 
-    private WorldPoint isGameObjectOnTile(List<WorldPoint> locations, List<Integer> ids) {
-        // Iterate through the different locations and return the first one that has the desired object ID on it
-        for (WorldPoint loc : locations) {
-            TileObject tile = Rs2GameObject.findGameObjectByLocation(loc);
-            if (tile != null && ids.contains(tile.getId())) {
-                return loc;
-            }
-        }
-        return null;
-    }
     private boolean isGameObjectOnTile(WorldPoint location, int id) {
         // Return true if the specified tile contains the desired ID.
         TileObject tile = Rs2GameObject.findGameObjectByLocation(location);

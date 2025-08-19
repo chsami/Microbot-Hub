@@ -6,8 +6,8 @@ import net.runelite.client.config.ConfigInformation;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 import net.runelite.client.plugins.microbot.cooking.enums.CookingItem;
-import net.runelite.client.plugins.microbot.gefiremaker.enums.GEWorkLocation;
-import net.runelite.client.plugins.microbot.gefiremaker.enums.LogType;
+import net.runelite.client.plugins.microbot.gecooker.enums.GEWorkLocation;
+import net.runelite.client.plugins.microbot.gecooker.enums.LogType;
 
 
 @ConfigGroup("GECooker")

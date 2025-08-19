@@ -12,11 +12,11 @@ import java.awt.*;
 
 @PluginDescriptor(
 	name = PluginDescriptor.StickToTheScript + "Varrock Anvil",
-	author = "StickToTheScript",
+    authors = {"StickToTheScript"},
 	version = "1.0.2",
 	description = "Smith items at the anvils in Varrock West.",
 	tags = {"smithing", "varrock", "anvil", "sticktothescript", "stts"},
-	iconUrl = "https://oldschool.runescape.wiki/images/thumb/Varrock_West_bank.png/320px-Varrock_West_bank.png?18540",
+	cardUrl = "https://oldschool.runescape.wiki/images/thumb/Varrock_West_bank.png/320px-Varrock_West_bank.png?18540",
 	enabledByDefault = false,
 	isExternal = true,
 	minClientVersion = "1.9.6"

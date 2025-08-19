@@ -2,14 +2,9 @@ package net.runelite.client.plugins.microbot.barbarianvillagefisher;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
-import net.runelite.client.Notifier;
-import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.util.mouse.VirtualMouse;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
@@ -17,11 +12,11 @@ import java.awt.*;
 
 @PluginDescriptor(
 	name = PluginDescriptor.StickToTheScript + "Barb Village Fisher",
-	author = "StickToTheScript",
+    authors = {"StickToTheScript"},
 	version = "1.0.0",
 	description = "Fly and bait fish in Barbarian Village.",
 	tags = {"fish", "fishing", "fly", "bait", "barb", "barbarian", "village", "sticktothescript", "stts"},
-	iconUrl = "https://oldschool.runescape.wiki/images/thumb/Barbarian_Village_%282007%29.png/591px-Barbarian_Village_%282007%29.png?27aac",
+	cardUrl = "https://oldschool.runescape.wiki/images/thumb/Barbarian_Village_%282007%29.png/591px-Barbarian_Village_%282007%29.png?27aac",
 	enabledByDefault = false,
 	isExternal = true,
 	minClientVersion = "1.9.6"
