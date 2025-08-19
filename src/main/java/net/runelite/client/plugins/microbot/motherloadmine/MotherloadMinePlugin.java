@@ -29,12 +29,14 @@ import net.runelite.client.ui.overlay.OverlayManager;
 	authors = { "Mocrosoft" },
 	version = MotherloadMinePlugin.version,
 	minClientVersion = "1.9.8",
+	iconUrl = "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/icon.png",
+	cardUrl = "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/card.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL
 )
 public class MotherloadMinePlugin extends Plugin {
 
-	static final String version = "1.8.0";
+	static final String version = "1.8.1";
 
     @Inject
     private MotherloadMineConfig config;

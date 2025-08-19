@@ -12,19 +12,20 @@ import java.awt.AWTException;
 import net.runelite.client.plugins.microbot.PluginConstants;
 
 @PluginDescriptor(
-        name = "[KSP's]Bank Seller",
+        name = PluginConstants.KSP + "Bank Seller",
         description = "Withdraws tradeable bank items and sells them on the Grand Exchange",
-        tags = {"bank", "ge", "seller", "microbot"},
+        tags = {"bank", "ge", "seller"},
 		authors = {"KSP"},
 		version = BankSellerPlugin.version,
 		minClientVersion = "1.9.8",
+		iconUrl = "https://chsami.github.io/Microbot-Hub/BankSellerPlugin/assets/icon.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	    isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class BankSellerPlugin extends Plugin {
 
-	static final String version = "1.0.0";
+	static final String version = "1.0.1";
     @Inject
     private BankSellerConfig config;
 

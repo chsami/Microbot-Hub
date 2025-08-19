@@ -36,15 +36,17 @@ import net.runelite.client.ui.overlay.OverlayManager;
 	authors = { "g-mason0"},
 	version = OuraniaPlugin.version,
 	minClientVersion = "1.9.8",
-	description = "Microbot Ourania Altar plugin",
+	description = "Craft runes at the Ourania Altar",
 	tags = {"runecrafting", "skilling", "ourania", "zmi"},
+	iconUrl = "https://chsami.github.io/Microbot-Hub/OuraniaPlugin/assets/icon.png",
+	cardUrl = "https://chsami.github.io/Microbot-Hub/OuraniaPlugin/assets/card.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL
 )
 public class OuraniaPlugin extends Plugin
 {
 
-	static final String version = "1.4.1";
+	static final String version = "1.4.2";
 
 	@Inject
 	private OuraniaConfig config;

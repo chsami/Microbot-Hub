@@ -20,17 +20,21 @@ import java.awt.AWTException;
 import java.time.Duration;
 
 @PluginDescriptor(
-        name = PluginDescriptor.Mocrosoft + "Thieving",
+        name = PluginConstants.MOCROSOFT + "Thieving",
         description = "Microbot thieving plugin",
         authors = { "Mocrosoft, Kryox, Jesusfh" },
         version = ThievingPlugin.version,
         minClientVersion = "1.9.8.2",
-        tags = {"thieving", "microbot", "skilling"},
+        tags = {"thieving", "skilling"},
+		iconUrl = "https://chsami.github.io/Microbot-Hub/ThievingPlugin/assets/icon.png",
+		cardUrl = "https://chsami.github.io/Microbot-Hub/ThievingPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class ThievingPlugin extends Plugin {
+	public static final String version = "2.0.1";
+
     @Inject
     @Getter
     private ThievingConfig config;
@@ -47,7 +51,6 @@ public class ThievingPlugin extends Plugin {
     @Getter
     private ThievingScript thievingScript;
 
-    public static final String version = "2";
     private int startXp = 0;
 	@Getter
 	private int maxCoinPouch;

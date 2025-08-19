@@ -17,7 +17,7 @@ import java.awt.*;
 @PluginDescriptor(
 	name = PluginConstants.DEFAULT_PREFIX + "Example",
 	description = "Microbot Example Plugin",
-	tags = {"example", "microbot"},
+	tags = {"example"},
 	authors = { "Mocrosoft" },
 	version = ExamplePlugin.version,
 	minClientVersion = "1.9.8",
@@ -28,7 +28,7 @@ import java.awt.*;
 @Slf4j
 public class ExamplePlugin extends Plugin {
 
-	static final String version = "1.1.0";
+	static final String version = "1.1.1";
 
     @Inject
     private ExampleConfig config;

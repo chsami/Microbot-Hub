@@ -60,10 +60,12 @@ import net.runelite.client.util.ImageUtil;
 @PluginDescriptor(
 	name = PluginConstants.SHOOTING_STAR_PREFIX + "ShootingStar",
 	description = "Finds & Travels to shooting stars",
-	authors = {"g-mason0"},
+	authors = { "g-mason0" },
 	version = ShootingStarPlugin.version,
 	minClientVersion = "1.9.8",
 	tags = {"mining",  "skilling", "star", "shooting"},
+	iconUrl = "https://chsami.github.io/Microbot-Hub/ShootingStarPlugin/assets/icon.png",
+	cardUrl = "https://chsami.github.io/Microbot-Hub/ShootingStarPlugin/assets/card.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL
 )
@@ -71,7 +73,7 @@ import net.runelite.client.util.ImageUtil;
 public class ShootingStarPlugin extends Plugin
 {
 
-	static final String version = "1.4.1";
+	static final String version = "1.4.2";
 
 	@Getter
 	private final List<Star> starList = new ArrayList<>();

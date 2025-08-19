@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.motherloadmine;
 
 import java.awt.Rectangle;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -80,7 +81,7 @@ public class MotherloadMineScript extends Script
     public static WallObject oreVein;
     public static MLMMiningSpot miningSpot = MLMMiningSpot.IDLE;
     private int maxSackSize;
-	private Set<String> itemsToKeep;
+	private List<String> itemsToKeep;
 
 	private final MotherloadMinePlugin plugin;
     private final MotherloadMineConfig config;
@@ -175,8 +176,7 @@ public class MotherloadMineScript extends Script
             return;
         }
 
-        int sackCount = Microbot.getVarbitValue(VarbitID.MOTHERLODE_SACK_TRANSMIT);
-        if (sackCount >= maxSackSize || hasOreInInventory() || (shouldEmptySack && !Rs2Inventory.contains(ItemID.PAYDIRT))) {
+        if (currentSackCount() >= maxSackSize || hasOreInInventory() || (shouldEmptySack && !Rs2Inventory.contains(ItemID.PAYDIRT))) {
             resetMiningState();
             status = MLMStatus.EMPTY_SACK;
             return;
@@ -343,8 +343,7 @@ public class MotherloadMineScript extends Script
 			if (config.useDepositAll()) {
 				Rs2DepositBox.depositAll();
 			} else {
-				String[] _itemsToKeep = getItemsToKeep().toArray(new String[0]);
-				Rs2DepositBox.depositAllExcept(_itemsToKeep);
+				Rs2DepositBox.depositAllExcept(getItemsToKeep(), false);
 				Rs2Inventory.waitForInventoryChanges(5000);
 			}
 
@@ -358,57 +357,57 @@ public class MotherloadMineScript extends Script
 
 	private void setupInventory() {
 		if (!config.useInventorySetup()) {
-			Rs2ItemModel pickaxe = Pickaxe.getBestPickaxe(false);
+			Rs2ItemModel pickaxe = Pickaxe.getBestPickaxe();
+
 			if (pickaxe == null) {
-				pickaxe = Pickaxe.getBestPickaxe(true);
+				Rs2Bank.openBank();
+				sleepUntil(Rs2Bank::isOpen);
+
+				pickaxe = Pickaxe.getBestPickaxeFromBank();
 				if (pickaxe == null) {
-					Rs2Bank.openBank();
-					sleepUntil(Rs2Bank::isOpen);
-					pickaxe = Pickaxe.getBestBankedPickaxe(true);
-					if (pickaxe == null) {
-						Microbot.showMessage("No pickaxe found in bank or inventory. Please bank a pickaxe.");
-						Microbot.stopPlugin(plugin);
-						return;
-					}
+					Microbot.showMessage("No pickaxe found in bank or inventory. Please bank a pickaxe.");
+					Microbot.stopPlugin(plugin);
+					return;
+				}
 
-					if (Rs2Inventory.isFull()) {
-						Rs2Bank.depositAll();
-					}
+				if (Rs2Inventory.isFull()) {
+					Rs2Bank.depositAll();
+				}
 
-					boolean hasAttackRequirements = Pickaxe.hasAttackLevelRequirement(pickaxe.getId());
-					if (hasAttackRequirements) {
-						final Rs2ItemModel currentWeaponSlot = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
-						final Rs2ItemModel _pickaxe = pickaxe;
-						Rs2Bank.withdrawAndEquip(_pickaxe.getId());
-						sleepUntil(() -> Rs2Equipment.isWearing(_pickaxe.getId()));
-						if (currentWeaponSlot != null) {
-							Rs2Bank.depositOne(currentWeaponSlot.getId());
-							Rs2Inventory.waitForInventoryChanges(5000);
-						}
-					} else {
-						Rs2Bank.withdrawOne(pickaxe.getId());
+				// Only equip if it has attack requirements, otherwise keep in inventory
+				if (Pickaxe.hasAttackLevelRequirement(pickaxe.getId())) {
+					final Rs2ItemModel currentWeapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+					final Rs2ItemModel _pickaxe = pickaxe;
+					Rs2Bank.withdrawAndEquip(_pickaxe.getId());
+					sleepUntil(() -> Rs2Equipment.isWearing(_pickaxe.getId()));
+					if (currentWeapon != null) {
+						Rs2Bank.depositOne(currentWeapon.getId());
 						Rs2Inventory.waitForInventoryChanges(5000);
 					}
-					final int[] gemBagIDs = {ItemID.GEM_BAG, ItemID.GEM_BAG_OPEN};
-
-					for (int gemBagID : gemBagIDs) {
-						if (!isRunning()) break;
-
-						if (Rs2Bank.withdrawOne(gemBagID)) {
-							Rs2Inventory.waitForInventoryChanges(5000);
-							break;
-						}
-					}
-
-					if (Rs2Random.dicePercentage(10) && !hasHammer()) {
-						if (Rs2Bank.withdrawOne("hammer")) {
-							Rs2Inventory.waitForInventoryChanges(5000);
-						}
-					}
-
-					Rs2Bank.toggleItemLock("hammer", false);
-					Rs2Bank.toggleItemLock("gem bag", false);
+				} else {
+					Rs2Bank.withdrawOne(pickaxe.getId());
+					Rs2Inventory.waitForInventoryChanges(5000);
 				}
+
+				// Get gem bag and hammer
+				final int[] gemBagIDs = {ItemID.GEM_BAG, ItemID.GEM_BAG_OPEN};
+				for (int gemBagID : gemBagIDs) {
+					if (!isRunning()) break;
+					if (Rs2Bank.withdrawOne(gemBagID)) {
+						Rs2Inventory.waitForInventoryChanges(5000);
+						break;
+					}
+				}
+
+				if (Rs2Random.dicePercentage(10) && !hasHammer()) {
+					if (Rs2Bank.withdrawOne("hammer")) {
+						Rs2Inventory.waitForInventoryChanges(5000);
+					}
+				}
+
+				Rs2Bank.toggleItemLock("pickaxe", false);
+				Rs2Bank.toggleItemLock("hammer", false);
+				Rs2Bank.toggleItemLock("gem bag", false);
 			}
 
 		} else {
@@ -673,9 +672,9 @@ public class MotherloadMineScript extends Script
 		return brokenStruts.isEmpty() ? 0 : brokenStruts.size();
 	}
 
-	private Set<String> getItemsToKeep() {
+	private List<String> getItemsToKeep() {
 		if (itemsToKeep == null) {
-			Set<String> _itemsToKeep = new HashSet<>();
+			List<String> _itemsToKeep = new ArrayList<>();
 			if (Rs2Inventory.hasItem("hammer")) {
 				_itemsToKeep.add("hammer");
 			}

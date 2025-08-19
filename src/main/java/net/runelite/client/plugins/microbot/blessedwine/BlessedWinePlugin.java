@@ -22,7 +22,7 @@ import java.awt.*;
 @PluginDescriptor(
         name = PluginConstants.MOCROSOFT + "Blessed Wine",
         description = "Automating Prayer Training using blessed wines at Cam Torum",
-        tags = {"blessed", "wine", "ralos", "prayer", "libation", "microbot", "automation"},
+        tags = {"blessed", "wine", "ralos", "prayer", "libation"},
         authors = { "Hal" },
         version = BlessedWinePlugin.version,
 		minClientVersion = "1.9.6",
@@ -32,7 +32,7 @@ import java.awt.*;
 )
 public class BlessedWinePlugin extends Plugin implements SchedulablePlugin {
 
-	static final String version = "1.0.1";
+	static final String version = "1.0.2";
 
     @Inject
     private BlessedWineConfig config;

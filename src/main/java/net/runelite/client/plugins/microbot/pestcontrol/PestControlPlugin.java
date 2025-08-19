@@ -30,18 +30,19 @@ import static net.runelite.client.plugins.microbot.pestcontrol.PestControlScript
 @PluginDescriptor(
         name = PluginConstants.MOCROSOFT + "Pest Control",
         description = "Supports all boats, portals, and shields.",
-        tags = {"pest control", "microbot", "minigames"},
-        authors = { "Mocrosoft"},
+        tags = {"pest control", "minigames"},
+        authors = { "Mocrosoft" },
         version = PestControlPlugin.version,
 		minClientVersion = "1.9.6",
-        cardUrl = "https://oldschool.runescape.wiki/images/Pest_Control.png?ed7bb",
+		iconUrl = "https://chsami.github.io/Microbot-Hub/PestControlPlugin/assets/icon.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/PestControlPlugin/assets/card.png",
 		enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class PestControlPlugin extends Plugin implements SchedulablePlugin {
 
-	static final String version = "2.2.5";
+	static final String version = "2.2.6";
 
     @Inject
     PestControlScript pestControlScript;
