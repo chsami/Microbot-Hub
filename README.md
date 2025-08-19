@@ -73,15 +73,15 @@ public class YourPlugin extends Plugin {
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | String | Yes | The display name of your plugin. Use `PluginConstants.DEFAULT_PREFIX` for consistency |
+| `name` | String | Yes | The display name of your plugin. Use `PluginConstants.DEFAULT_PREFIX` if you do not want to create one. |
 | `description` | String | No | Brief description shown in the plugin panel |
 | `tags` | String[] | No | Tags for categorizing and searching plugins |
 | `author` | String | No | Plugin author name (defaults to "Unknown Author") |
 | `version` | String | Yes | Plugin version, typically referenced from a static field |
-| `minClientVersion` | String | Yes | Minimum RuneLite client version required |
+| `minClientVersion` | String | Yes | Minimum Microbot client version required |
 | `iconUrl` | String | No | URL to plugin icon image shown next to the plugin in the Microbot client hub |
 | `cardUrl` | String | No | URL to plugin card image used for the plugin card on the website |
-| `enabledByDefault` | boolean | No | Whether plugin is enabled by default on first install |
+| `enabledByDefault` | boolean | No | Whether plugin is enabled by default on first install (use `PluginConstants.DEFAULT_ENABLED`)|
 | `isExternal` | boolean | No | Marks plugin as external (use `PluginConstants.IS_EXTERNAL`) |
 
 ### Best Practices
