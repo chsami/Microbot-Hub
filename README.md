@@ -57,7 +57,8 @@ The plugin descriptor is the most important portion of your plugin class. This a
     author = "Your Name", // Author of the plugin (optional, default is "Unknown Author")
     version = YourPlugin.version, // Version of the plugin (required)
     minClientVersion = "1.9.8", // Minimum client version required to run the plugin (required)
-    disable = false, // Whether the plugin starts disabled (optional, default is false)
+    iconUrl = "https://example.com/icon.png", // URL to plugin icon shown in client (optional)
+    cardUrl = "https://example.com/card.png", // URL to plugin card image for website (optional)
     enabledByDefault = PluginConstants.DEFAULT_ENABLED, // Whether the plugin is enabled by default
     isExternal = PluginConstants.IS_EXTERNAL // Whether the plugin is external
 )
@@ -78,7 +79,8 @@ public class YourPlugin extends Plugin {
 | `author` | String | No | Plugin author name (defaults to "Unknown Author") |
 | `version` | String | Yes | Plugin version, typically referenced from a static field |
 | `minClientVersion` | String | Yes | Minimum RuneLite client version required |
-| `disable` | boolean | No | If true, plugin starts in disabled state |
+| `iconUrl` | String | No | URL to plugin icon image shown next to the plugin in the Microbot client hub |
+| `cardUrl` | String | No | URL to plugin card image used for the plugin card on the website |
 | `enabledByDefault` | boolean | No | Whether plugin is enabled by default on first install |
 | `isExternal` | boolean | No | Marks plugin as external (use `PluginConstants.IS_EXTERNAL`) |
 
