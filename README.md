@@ -1,4 +1,3 @@
-
 ---
 
 # Microbot Hub
@@ -45,6 +44,51 @@ org.apache.commons:commons-lang3:3.14.0
 ```
 
 The build reads this file and adds the coordinates at compile time and packaging time.
+
+## Plugin Descriptor
+
+The plugin descriptor is the most important portion of your plugin class. This annotation tells the Microbot client the general metadata about your plugin, such as its name, description, and version.
+
+```java
+@PluginDescriptor(
+    name = PluginConstants.DEFAULT_PREFIX + "YourPluginName", // Field to define the plugin name (required)
+    description = "Brief description of what your plugin does", // A brief description of the plugin (optional, default is '')
+    tags = {"tag1", "tag2", "microbot"}, // Tags to categorize the plugin (optional, default is '')
+    author = "Your Name", // Author of the plugin (optional, default is "Unknown Author")
+    version = YourPlugin.version, // Version of the plugin (required)
+    minClientVersion = "1.9.8", // Minimum client version required to run the plugin (required)
+    disable = false, // Whether the plugin starts disabled (optional, default is false)
+    enabledByDefault = PluginConstants.DEFAULT_ENABLED, // Whether the plugin is enabled by default
+    isExternal = PluginConstants.IS_EXTERNAL // Whether the plugin is external
+)
+@Slf4j
+public class YourPlugin extends Plugin {
+    static final String version = "1.0.0";
+    // ... plugin implementation
+}
+```
+
+### Plugin Descriptor Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | String | Yes | The display name of your plugin. Use `PluginConstants.DEFAULT_PREFIX` for consistency |
+| `description` | String | No | Brief description shown in the plugin panel |
+| `tags` | String[] | No | Tags for categorizing and searching plugins |
+| `author` | String | No | Plugin author name (defaults to "Unknown Author") |
+| `version` | String | Yes | Plugin version, typically referenced from a static field |
+| `minClientVersion` | String | Yes | Minimum RuneLite client version required |
+| `disable` | boolean | No | If true, plugin starts in disabled state |
+| `enabledByDefault` | boolean | No | Whether plugin is enabled by default on first install |
+| `isExternal` | boolean | No | Marks plugin as external (use `PluginConstants.IS_EXTERNAL`) |
+
+### Best Practices
+
+- **Naming**: Use or create tags inside of the `PluginConstants` to keep tags consistent across plugins
+- **Versioning**: Follow semantic versioning (e.g., "1.0.0", "1.2.3") and store in a static field for easy reference
+- **Description**: Keep descriptions concise but informative - they appear in the plugin panel
+- **Tags**: Include relevant tags like the game activity, skill, or functionality your plugin provides
+- **Version Management**: Always increment the version when making changes, even for small fixes
 
 # Building the project
 

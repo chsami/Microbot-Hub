@@ -22,7 +22,7 @@ import java.time.Duration;
 @PluginDescriptor(
         name = PluginDescriptor.Mocrosoft + "Thieving",
         description = "Microbot thieving plugin",
-        author = "Mocrosoft, Kryox, Jesusfh",
+        authors = { "Mocrosoft, Kryox, Jesusfh" },
         version = ThievingPlugin.version,
         minClientVersion = "1.9.8.2",
         tags = {"thieving", "microbot", "skilling"},

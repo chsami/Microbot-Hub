@@ -21,6 +21,12 @@ java {
     }
 }
 
+idea {
+    module {
+        downloadSources = false
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = project.ext.TARGET_JDK_VERSION
@@ -44,6 +50,19 @@ configurations {
     pluginShadowClasspath {
         extendsFrom runtimeClasspath
         exclude group: 'net.runelite', module: 'microbot'
+    }
+
+    // Disable source downloads for all configurations
+    configureEach {
+        resolutionStrategy {
+            eachDependency { details ->
+                if (details.target.group == 'com.microbot' && details.target.name == 'client') {
+                    details.artifactSelection {
+                        selectArtifact(DependencyArtifact.DEFAULT_TYPE, null, null)
+                    }
+                }
+            }
+        }
     }
 }
 

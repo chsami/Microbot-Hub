@@ -12,6 +12,7 @@ public final class PluginConstants
         throw new UnsupportedOperationException("This is a utility class and cannot be instantiated");
     }
 
+	public static final String DEFAULT_PREFIX = "<html>[<font color=#b8f704>MB</font>] ";
 	public static final String MOCROSOFT = "<html>[<font color=#b8f704M>M</font>] ";
 	public static final String BOLADO = "<html>[<font color=#FF0000><b>\ud83d\ude21</b></font>] ";
 	public static final String GMASON = "<html>[<font color=#0077B6>G</font>] ";

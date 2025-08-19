@@ -16,7 +16,7 @@ import net.runelite.client.plugins.microbot.PluginConstants;
 
 @PluginDescriptor(
 	name = PluginConstants.BOLADO + "Anonymous Mode",
-	author = "Bolado",
+	authors = { "Bolado" },
 	version = AnonymousPlugin.version,
 	minClientVersion = "1.9.6",
 	description = "Hide your in-game identity.",

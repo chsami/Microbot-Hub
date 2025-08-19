@@ -32,11 +32,6 @@ jobs:
       - name: Build JARs
         run: ./gradlew clean build
 
-      - name: Configure Git for Actions
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-
       - name: Generate plugin documentation
         run: ./gradlew copyPluginDocs
 

@@ -141,19 +141,42 @@ ext {
         def nameMatcher = content =~ /name\s*=\s*(?:[\w$.]+\s*\+\s*)?"([^"]+)"/
         def descMatcher     = content =~ /description\s*=\s*"([^"]+)"/
         def tagsMatcher     = content =~ /tags\s*=\s*\{([^}]+)\}/
-        def authorMatcher   = content =~ /author\s*=\s*"([^"]+)"/
+        def authorsMatcher   = content =~ /authors\s*=\s*\{\s*((?:"[^"]*"\s*,?\s*)+)\}/
+        def singleAuthorMatcher = content =~ /authors\s*=\s*"([^"]+)"/
         def iconUrlMatcher  = content =~ /iconUrl\s*=\s*"([^"]+)"/
+        def cardUrlMatcher  = content =~ /cardUrl\s*=\s*"([^"]+)"/
         def versionMatcher  = content =~ /version\s*=\s*"([^"]+)"/
         def minClientVersionMatcher  = content =~ /minClientVersion\s*=\s*"([^"]+)"/
+        def disableMatcher  = content =~ /disable\s*=\s*(true|false)/
 
-        if (nameMatcher.find())    descriptor.name = nameMatcher.group(1)
-        if (descMatcher.find())    descriptor.description = descMatcher.group(1)
-        if (tagsMatcher.find())    descriptor.tags = tagsMatcher.group(1).split(',').collect { it.trim().replaceAll('"','') }
+        // Required fields - throw exceptions if missing
+        if (!nameMatcher.find()) {
+            throw new GradleException("Missing required 'name' field in plugin descriptor: ${javaFile.absolutePath}")
+        }
+        descriptor.name = nameMatcher.group(1)
 
-        descriptor.author  = authorMatcher.find()  ? authorMatcher.group(1) : project.ext.DEFAULT_AUTHOR
+        if (!minClientVersionMatcher.find()) {
+            throw new GradleException("Missing required 'minClientVersion' field in plugin descriptor: ${javaFile.absolutePath}")
+        }
+        descriptor.minClientVersion = minClientVersionMatcher.group(1)
+
+        // Optional fields
+        if (authorsMatcher.find()) {
+            descriptor.authors = authorsMatcher.group(1).split(',').collect { it.trim().replaceAll('"','') }
+        } else if (singleAuthorMatcher.find()) {
+            descriptor.authors = [singleAuthorMatcher.group(1)]
+        } else {
+            descriptor.authors = project.ext.DEFAULT_AUTHORS
+        }
+        descriptor.description = descMatcher.find() ? descMatcher.group(1) : ''
         descriptor.iconUrl = iconUrlMatcher.find() ? iconUrlMatcher.group(1) : ''
+        descriptor.cardUrl = cardUrlMatcher.find() ? cardUrlMatcher.group(1) : ''
         descriptor.version = versionMatcher.find() ? versionMatcher.group(1) : project.ext.DEFAULT_VERSION
-        descriptor.minClientVersion = minClientVersionMatcher.find() ? minClientVersionMatcher.group(1) : project.ext.DEFAULT_VERSION
+        descriptor.disable = disableMatcher.find() ? Boolean.parseBoolean(disableMatcher.group(1)) : false
+
+        descriptor.tags = tagsMatcher.find() ?
+                tagsMatcher.group(1).split(',').collect { it.trim().replaceAll('"','') } :
+                []
 
         descriptor
     }
@@ -175,9 +198,10 @@ ext {
                 parsed.tags = descriptorInfo.tags
                 parsed.version = descriptorInfo.version
                 parsed.minClientVersion = descriptorInfo.minClientVersion
-                parsed.author = descriptorInfo.author
-                parsed.supportUrl = project.ext.DEFAULT_SUPPORT_URL
+                parsed.authors = descriptorInfo.authors
                 parsed.iconUrl = descriptorInfo.iconUrl
+                parsed.cardUrl = descriptorInfo.cardUrl
+                parsed.disable = descriptorInfo.disable
 
                 // Add SHA256
                 def jarFile = new File(jarOutputDir, "${plugin.name}-${descriptorInfo.version}.jar")

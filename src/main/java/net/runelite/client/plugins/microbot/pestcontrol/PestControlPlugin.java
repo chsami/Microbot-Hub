@@ -31,10 +31,10 @@ import static net.runelite.client.plugins.microbot.pestcontrol.PestControlScript
         name = PluginConstants.MOCROSOFT + "Pest Control",
         description = "Supports all boats, portals, and shields.",
         tags = {"pest control", "microbot", "minigames"},
-        author = "Mocrosoft",
+        authors = { "Mocrosoft"},
         version = PestControlPlugin.version,
 		minClientVersion = "1.9.6",
-        iconUrl = "https://oldschool.runescape.wiki/images/Pest_Control.png?ed7bb",
+        cardUrl = "https://oldschool.runescape.wiki/images/Pest_Control.png?ed7bb",
 		enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
