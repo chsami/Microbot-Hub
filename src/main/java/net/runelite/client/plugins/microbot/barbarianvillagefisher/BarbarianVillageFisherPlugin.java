@@ -5,25 +5,27 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-	name = PluginDescriptor.StickToTheScript + "Barb Village Fisher",
+	name = PluginConstants.STICKTOTHESCRIPT + "Barb Village Fisher",
     authors = {"StickToTheScript"},
-	version = "1.0.0",
+	version = BarbarianVillageFisherPlugin.version,
 	description = "Fly and bait fish in Barbarian Village.",
-	tags = {"fish", "fishing", "fly", "bait", "barb", "barbarian", "village", "sticktothescript", "stts"},
-	cardUrl = "https://oldschool.runescape.wiki/images/thumb/Barbarian_Village_%282007%29.png/591px-Barbarian_Village_%282007%29.png?27aac",
-	enabledByDefault = false,
-	isExternal = true,
+	tags = {"fish", "fishing", "fly", "bait", "barb", "barbarian", "village"},
+	cardUrl = "https://chsami.github.io/Microbot-Hub/BarbarianVillageFisherPlugin/assets/card.png",
+	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+	isExternal = PluginConstants.IS_EXTERNAL,
 	minClientVersion = "1.9.6"
 )
 
 @Slf4j
 public class BarbarianVillageFisherPlugin extends Plugin {
+	static final String version = "1.0.0";
     @Inject
     private BarbarianVillageFisherConfig config;
     @Inject

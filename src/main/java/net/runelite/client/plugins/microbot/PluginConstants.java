@@ -18,6 +18,7 @@ public final class PluginConstants
 	public static final String GMASON = "<html>[<font color=#0077B6>G</font>] ";
     public static final String SHOOTING_STAR_PREFIX = "<html>[<font color=#0077B6>✨</font>] ";
 	public static final String KSP = "<html>[<font color=#b8f704>KSP</font>] ";
+	public static final String STICKTOTHESCRIPT = "<html>[<font color=#FF4F00>STTS</font>] ";
 
     public static final boolean DEFAULT_ENABLED = false;
     public static final boolean IS_EXTERNAL = true;
