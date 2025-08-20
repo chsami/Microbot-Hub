@@ -895,7 +895,11 @@ public class ThievingScript extends Script {
                 return (Rs2Player.getWorld() == world && Microbot.loggedIn);
             }, 10_000);
             if (interrupt.get()) throw new SelfInterruptException("Under Attack"); // throw exception so we go back to main-loop
-            if (hopSuccess) return;
+            if (hopSuccess) {
+                sleepUntil(() -> Rs2NpcCache.getAllNpcs().findAny().isPresent(), 10_000);
+                log.info("Found {} NPCs after hopping", Rs2NpcCache.getAllNpcs().count());
+                return;
+            }
             sleep(250, 350);
         }
         log.error("Failed to hop world");

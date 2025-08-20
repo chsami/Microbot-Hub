@@ -22,7 +22,7 @@ import java.time.Duration;
 @PluginDescriptor(
         name = PluginConstants.MOCROSOFT + "Thieving",
         description = "Microbot thieving plugin",
-        authors = { "Mocrosoft, Kryox, Jesusfh" },
+        authors = { "Mocrosoft", "Kryox", "Jesusfh" },
         version = ThievingPlugin.version,
         minClientVersion = "1.9.8.2",
         tags = {"thieving", "skilling"},
@@ -33,7 +33,7 @@ import java.time.Duration;
 )
 @Slf4j
 public class ThievingPlugin extends Plugin {
-	public static final String version = "2.0.2";
+	public static final String version = "2.0.3";
 
     @Inject
     @Getter
