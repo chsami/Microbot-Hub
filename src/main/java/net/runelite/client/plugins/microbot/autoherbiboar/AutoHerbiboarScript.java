@@ -1,16 +1,16 @@
 package net.runelite.client.plugins.microbot.autoherbiboar;
 
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
+import com.google.common.collect.ImmutableList;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
-import net.runelite.client.plugins.herbiboars.HerbiboarPlugin;
-import net.runelite.client.plugins.herbiboars.HerbiboarSearchSpot;
-
+import net.runelite.api.gameval.VarbitID;
+import net.runelite.client.plugins.microbot.autoherbiboar.dependencies.HerbiboarSearchSpot;
+import net.runelite.client.plugins.microbot.autoherbiboar.dependencies.TrailToSpot;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
@@ -25,25 +25,81 @@ import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class AutoHerbiboarScript extends Script {
-    @Setter
-    private HerbiboarPlugin herbiboarPlugin;
+    private static final List<WorldPoint> END_LOCATIONS = ImmutableList.of(
+        new WorldPoint(3693, 3798, 0),
+        new WorldPoint(3702, 3808, 0),
+        new WorldPoint(3703, 3826, 0),
+        new WorldPoint(3710, 3881, 0),
+        new WorldPoint(3700, 3877, 0),
+        new WorldPoint(3715, 3840, 0),
+        new WorldPoint(3751, 3849, 0),
+        new WorldPoint(3685, 3869, 0),
+        new WorldPoint(3681, 3863, 0)
+    );
+    
     private AutoHerbiboarState state = AutoHerbiboarState.INITIALIZING;
     private boolean attackedTunnel;
-    private static final WorldPoint BANK_LOCATION = new WorldPoint(3769, 3898, 0);
-    private static final WorldPoint RETURN_LOCATION = new WorldPoint(3727, 3892, 0);
+    private static final WorldPoint BANK_LOCATION = new WorldPoint(3766, 3899, 0);
+    private static final WorldPoint RETURN_LOCATION = new WorldPoint(3732, 3892, 0);
     private int tunnelAttackAttempts = 0;
     private java.util.Set<WorldPoint> blacklistedTunnels = new java.util.HashSet<>();
+    private java.util.Set<WorldPoint> blacklistedStarts = new java.util.HashSet<>();
+    private WorldPoint lastSearchedStartLocation = null;
     private AutoHerbiboarConfig config; // store config for access
     private long stateStartTime = System.currentTimeMillis(); // track state start time for timeouts
+    @Getter
+    private List<HerbiboarSearchSpot> currentPath = new ArrayList<>(); // track current trail path
+    @Getter
+    private int finishId = 0; // track current finish id
+    @Getter
+    private final java.util.Map<WorldPoint, TileObject> starts = new java.util.HashMap<>(); // track start objects
+    @Getter
+    private final java.util.Map<WorldPoint, TileObject> trailObjects = new java.util.HashMap<>(); // track trail objects
+    @Getter
+    private final java.util.Map<WorldPoint, TileObject> tunnels = new java.util.HashMap<>(); // track tunnel objects
+    
+    public static String version = "1.2.0";
     
 
     public AutoHerbiboarState getCurrentState() {
         return state;
+    }
+
+    public List<WorldPoint> getEndLocations() {
+        return END_LOCATIONS;
+    }
+
+    private void updateTrailData() {
+        // update finish id from varbit
+        finishId = Microbot.getVarbitValue(VarbitID.HUNTING_TRAIL_ENDS_FOSSIL);
+        
+        // check for active trails and update current path
+        boolean pathActive = false;
+        currentPath.clear(); // reset current path
+        
+        for (HerbiboarSearchSpot spot : HerbiboarSearchSpot.values()) {
+            for (TrailToSpot trail : spot.getTrails()) {
+                int value = Microbot.getVarbitValue(trail.getVarbitId());
+                
+                if (value == trail.getValue()) {
+                    // the trail after searching the spot - add to path
+                    if (!currentPath.contains(spot)) {
+                        currentPath.add(spot);
+                    }
+                } else if (value > 0) {
+                    // trail is currently active
+                    pathActive = true;
+                }
+            }
+        }
+        
+        log.info("updated trail data - finish id: " + finishId + ", path size: " + currentPath.size() + ", path active: " + pathActive);
     }
     
     public void handleConfusionMessage() {
@@ -54,15 +110,24 @@ public class AutoHerbiboarScript extends Script {
     
     public void handleDeadEndTunnel() {
         log.info("dead end tunnel detected - 'nothing seems to be out of place here.'");
-        if (herbiboarPlugin != null) { // if herbiboar plugin is available
-            int finishId = herbiboarPlugin.getFinishId(); // get the current finish id
-            if (finishId > 0) { // if we have a valid finish id
-                WorldPoint deadEndTunnel = herbiboarPlugin.getEndLocations().get(finishId - 1); // get tunnel location
-                if (deadEndTunnel != null) { // if the tunnel location is valid
-                    blacklistedTunnels.add(deadEndTunnel); // add it to our blacklist
-                    log.info("blacklisted tunnel at " + deadEndTunnel + ". total blacklisted: " + blacklistedTunnels.size());
-                }
+        if (finishId > 0) { // if we have a valid finish id
+            WorldPoint deadEndTunnel = getEndLocations().get(finishId - 1); // get tunnel location
+            if (deadEndTunnel != null) { // if the tunnel location is valid
+                blacklistedTunnels.add(deadEndTunnel); // add it to our blacklist
+                log.info("blacklisted tunnel at " + deadEndTunnel + ". total blacklisted: " + blacklistedTunnels.size());
             }
+        }
+        changeState(AutoHerbiboarState.START); // reset to start state
+        attackedTunnel = false; // reset attack flag
+        tunnelAttackAttempts = 0; // reset attempt counter
+    }
+    
+    public void handleFailedSearch() {
+        log.info("failed search detected - 'you fail to find any sign of unusual creatures.'");
+        if (lastSearchedStartLocation != null) { // if we have a record of the last start we searched
+            blacklistedStarts.add(lastSearchedStartLocation); // add it to our blacklist
+            log.info("blacklisted failed start at {} - total blacklisted starts: {}", lastSearchedStartLocation, blacklistedStarts.size());
+            lastSearchedStartLocation = null; // clear the tracking
         }
         changeState(AutoHerbiboarState.START); // reset to start state
         attackedTunnel = false; // reset attack flag
@@ -371,15 +436,12 @@ public class AutoHerbiboarScript extends Script {
                     log.info("not logged in - waiting");
                     return;
                 }
-                if (herbiboarPlugin == null) { // if herbiboar plugin is not available
-                    log.info("herbiboar plugin is null - waiting");
-                    return;
-                }
                 
                 if (!Rs2Player.isMoving() && !Rs2Player.isInteracting()) {
                     dropConfiguredItems(config);
                     manageRunEnergy(config);
                     manageHunterPotions(config);
+                    updateTrailData(); // update trail tracking data
                 }
                 
                 if (state != AutoHerbiboarState.INITIALIZING && state != AutoHerbiboarState.CHECK_AUTO_RETALIATE && 
@@ -450,26 +512,28 @@ public class AutoHerbiboarScript extends Script {
                         
                         Microbot.status = "Finding start location"; // update status
                         
-                        if (herbiboarPlugin.getCurrentGroup() == null) { // if we don't have an active trail group
-                            log.info("no active trail group - looking for start location");
+                        if (getCurrentPath().isEmpty()) { // if we don't have an active trail path
+                            log.info("no active trail path - looking for start location");
                             
-                            TileObject start = herbiboarPlugin.getStarts().values().stream()
+                            TileObject start = getStarts().values().stream()
                                 .filter(s -> !blacklistedTunnels.contains(s.getWorldLocation())) // exclude blacklisted tunnels
+                                .filter(s -> !blacklistedStarts.contains(s.getWorldLocation())) // exclude blacklisted starts
                                 .min(java.util.Comparator.comparing(s -> Rs2Player.getWorldLocation().distanceTo(s.getWorldLocation()))) // find closest
                                 .orElse(null);
                             
-                            log.info("looking for start location - blacklisted tunnels: " + blacklistedTunnels.size());
+                            log.info("looking for start location - blacklisted tunnels: {}, blacklisted starts: {}", blacklistedTunnels.size(), blacklistedStarts.size());
                             
                             if (start != null) {
                                 log.info("found valid start at: " + start.getWorldLocation());
                             } else {
-                                 log.info("no valid start found - clearing blacklist and retrying");
-                                blacklistedTunnels.clear(); // clear blacklist and try again
-                                start = herbiboarPlugin.getStarts().values().stream()
+                                 log.info("no valid start found - clearing blacklists and retrying");
+                                blacklistedTunnels.clear(); // clear tunnel blacklist
+                                blacklistedStarts.clear(); // clear start blacklist
+                                start = getStarts().values().stream()
                                     .min(java.util.Comparator.comparing(s -> Rs2Player.getWorldLocation().distanceTo(s.getWorldLocation()))) // find closest without blacklist
                                     .orElse(null);
                                 if (start != null) {
-                                    log.info("found start after clearing blacklist: " + start.getWorldLocation());
+                                    log.info("found start after clearing blacklists: {}", start.getWorldLocation());
                                 }
                             }
                             
@@ -488,6 +552,7 @@ public class AutoHerbiboarScript extends Script {
                                     Rs2Walker.walkTo(loc); // walk closer
                                 } else if (!Rs2Player.isAnimating() && !Rs2Player.isInteracting()) { // if we are close and not busy
                                     log.info("interacting with start object");
+                                    lastSearchedStartLocation = loc; // track which start we are searching
                                     Rs2GameObject.interact(start, "Search"); // search the start object
                                     Rs2Player.waitForAnimation(); // wait for animation to start
                                     boolean finished = sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting(), 3000); // wait for completion
@@ -500,6 +565,9 @@ public class AutoHerbiboarScript extends Script {
                             }
                         } else {
                              log.info("active trail group found - transitioning to TRAIL state");
+                            blacklistedStarts.clear(); // clear failed start blacklist since we successfully started a trail
+                            lastSearchedStartLocation = null; // clear tracking since trail started successfully
+                            log.info("cleared blacklisted starts since trail started successfully");
                             changeState(AutoHerbiboarState.TRAIL); // switch to trail following
                         }
                         break;
@@ -515,23 +583,23 @@ public class AutoHerbiboarScript extends Script {
                             break;
                         }
                         
-                        int finishId = herbiboarPlugin.getFinishId(); // get finish id
+                        int currentFinishId = getFinishId(); // get finish id
                         
-                         log.info("finish id: " + finishId);
+                         log.info("finish id: " + currentFinishId);
                         
-                        if (finishId > 0) { // if we found the tunnel
+                        if (currentFinishId > 0) { // if we found the tunnel
                              log.info("tunnel found - transitioning to TUNNEL state");
                             changeState(AutoHerbiboarState.TUNNEL); // switch to tunnel state
                             break; 
                         }
                         
-                        List<HerbiboarSearchSpot> path = herbiboarPlugin.getCurrentPath(); // get current trail path
+                        List<HerbiboarSearchSpot> path = getCurrentPath(); // get current trail path
                          log.info("trail path length: " + path.size());
                         
                         if (!path.isEmpty()) { // if we have a path to follow
                             WorldPoint loc = path.get(path.size() - 1).getLocation(); // get next spot location
                             LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), loc); // convert to local point
-                            TileObject object = herbiboarPlugin.getTrailObjects().get(loc); // get the trail object
+                            TileObject object = getTrailObjects().get(loc); // get the trail object
                             double distance = Rs2Player.getWorldLocation().distanceTo(loc); // calculate distance
                             
                              {
@@ -570,12 +638,12 @@ public class AutoHerbiboarScript extends Script {
                         if (!attackedTunnel) { // if we haven't attacked the tunnel yet
                              log.info("tunnel not yet attacked - preparing attack");
                             
-                            int tunnelFinishId = herbiboarPlugin.getFinishId(); // get finish id for tunnel
+                            int tunnelFinishId = getFinishId(); // get finish id for tunnel
                             
                              log.info("tunnel finish id: " + tunnelFinishId);
                             
                             if (tunnelFinishId > 0) { // if we have a valid finish id
-                                WorldPoint finishLoc = herbiboarPlugin.getEndLocations().get(tunnelFinishId - 1); // get tunnel location
+                                WorldPoint finishLoc = getEndLocations().get(tunnelFinishId - 1); // get tunnel location
                                 
                                  {
                                     log.info("finish id: " + tunnelFinishId + ", finish location: " + finishLoc);
@@ -589,48 +657,9 @@ public class AutoHerbiboarScript extends Script {
                                     tunnelAttackAttempts = 0; // reset attempts
                                     break;
                                 }
-                            } else { // if tunnel finish id is 0 or invalid
-                                log.info("tunnel finish id is 0 - trying to get closer to tunnel area");
-                                tunnelAttackAttempts++; // increment attempts to track how long we've been stuck
-                                
-                                if (tunnelAttackAttempts >= 10) { // if we've been stuck too long
-                                    log.info("tunnel detection failed after 10 attempts - resetting to START state");
-                                    Microbot.status = "Tunnel detection failed - resetting..."; // update status
-                                    changeState(AutoHerbiboarState.START); // reset to start
-                                    attackedTunnel = false; // reset attack flag
-                                    tunnelAttackAttempts = 0; // reset attempts
-                                    break;
-                                }
-                                
-                                // find the closest tunnel location to walk towards
-                                WorldPoint closestTunnel = null;
-                                double closestDistance = Double.MAX_VALUE;
-                                
-                                // check all end locations for the closest tunnel
-                                for (WorldPoint endLoc : herbiboarPlugin.getEndLocations()) {
-                                    if (endLoc != null) { // if end location is valid
-                                        double distance = Rs2Player.getWorldLocation().distanceTo(endLoc); // calculate distance
-                                        if (distance < closestDistance) { // if this is closer than previous
-                                            closestDistance = distance; // update closest distance
-                                            closestTunnel = endLoc; // update closest tunnel
-                                        }
-                                    }
-                                }
-                                
-                                if (closestTunnel != null) { // if we found a tunnel to walk towards
-                                    log.info("walking closer to tunnel at " + closestTunnel + " (distance: " + closestDistance + ")");
-                                    Rs2Walker.walkTo(closestTunnel); // walk closer to the tunnel
-                                } else {
-                                    log.info("no tunnel locations found - resetting to START state");
-                                    changeState(AutoHerbiboarState.START); // reset to start
-                                    attackedTunnel = false; // reset attack flag
-                                    tunnelAttackAttempts = 0; // reset attempts
-                                }
-                                break; // exit the tunnel logic for this cycle
-                            }
                                 
                                 LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), finishLoc); // convert to local point
-                                TileObject tunnel = herbiboarPlugin.getTunnels().get(finishLoc); // get tunnel object
+                                TileObject tunnel = getTunnels().get(finishLoc); // get tunnel object
                                 WorldPoint playerLoc = Rs2Player.getWorldLocation(); // get our location
                                 double distance = playerLoc.distanceTo(finishLoc); // calculate distance to tunnel
                                 
@@ -756,7 +785,7 @@ public class AutoHerbiboarScript extends Script {
                                  log.info("harvest completed: " + harvestFinished);
                                 
                                 // find next start location after harvest
-                                TileObject start = herbiboarPlugin.getStarts().values().stream()
+                                TileObject start = getStarts().values().stream()
                                     .min(java.util.Comparator.comparing(s -> Rs2Player.getWorldLocation().distanceTo(s.getWorldLocation()))) // find closest start
                                     .orElse(null);
                                 

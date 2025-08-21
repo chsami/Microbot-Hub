@@ -19,7 +19,7 @@ import java.awt.*;
     name = PluginConstants.BGA + "Auto Bank Stander",
     description = "AIO bank standing plugin for various processing activities",
     tags = {"magic", "skilling", "processing"},
-    author = "bga",
+    authors = {"bga"},
     version = AutoBankStanderPlugin.version,
     minClientVersion = "1.9.8",
     iconUrl = "https://chsami.github.io/Microbot-Hub/AutoBankStanderPlugin/assets/icon.png",

@@ -19,7 +19,7 @@ import java.awt.*;
         name = PluginConstants.BGA + "Auto Chompy Killer",
         description = "Automated chompy bird hunting plugin...",
         tags = {"chompy", "combat"},
-        author = "bga",
+        authors = {"bga"},
         version = AutoChompyKillerPlugin.version,
         minClientVersion = "1.9.8",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoChompyKillerPlugin/assets/icon.png",

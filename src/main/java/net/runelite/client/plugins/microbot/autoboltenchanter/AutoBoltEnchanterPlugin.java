@@ -14,7 +14,7 @@ import java.awt.*;
     name = PluginConstants.BGA + "Auto Bolt Enchanter",
     description = "Automatically enchants crossbow bolts at the bank",
     tags = {"magic"},
-    author = "bga",
+    authors = {"bga"},
     version = AutoBoltEnchanterPlugin.version,
     minClientVersion = "1.9.8",
     iconUrl = "https://chsami.github.io/Microbot-Hub/AutoBoltEnchanterPlugin/assets/icon.png",

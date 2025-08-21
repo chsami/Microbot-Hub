@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 
 @Slf4j
-public class AutoAutoEssenceMiningScript extends Script {
+public class AutoEssenceMiningScript extends Script {
     private static final WorldPoint AUBURY_LOCATION = new WorldPoint(3253, 3399, 0);
     private static final int ESSENCE_MINE_REGION = 11595; // Rune essence mine region ID
     

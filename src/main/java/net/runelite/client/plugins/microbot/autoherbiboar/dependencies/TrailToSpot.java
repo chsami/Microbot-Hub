@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020, dekvall <https://github.com/dekvall>
+ * Copyright (c) 2020, Jordan <nightfirecat@protonmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,32 +25,39 @@
  */
 package net.runelite.client.plugins.microbot.autoherbiboar.dependencies;
 
+import com.google.common.collect.ImmutableSet;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import net.runelite.api.coords.WorldPoint;
+import lombok.Value;
+import net.runelite.api.annotations.Varbit;
 
-@Getter
-@RequiredArgsConstructor
-enum HerbiboarStart
+import java.util.Set;
+
+/**
+ * A representation of a trail of footsteps which appears when hunting for the Herbiboar.
+ */
+@Value
+public class TrailToSpot
 {
-	MIDDLE(new WorldPoint(3686, 3870, 0)),
-	LEPRECHAUN(new WorldPoint(3705, 3830, 0)),
-	CAMP_ENTRANCE(new WorldPoint(3704, 3810, 0)),
-	GHOST_MUSHROOM(new WorldPoint(3695, 3800, 0)),
-	DRIFTWOOD(new WorldPoint(3751, 3850, 0)),
-	;
+	/**
+	 * The Varbit associated with the trail. When inactive, this Varbit's value should be less than
+	 * {@link TrailToSpot#getValue()}. When this trail appears after searching a spot, this Varbit's value should be
+	 * equal to that of {@link TrailToSpot#getValue()}. Once the next object along the trail has been searched, this
+	 * Varbit's value will be greater than that of {@link TrailToSpot#getValue()}.
+	 */
+	@Getter(onMethod_ = {@Varbit})
+	private final int varbitId;
+	/**
+	 * The cutoff reference value to compare against the value of {@link TrailToSpot#getVarbitId()} ()} to determine its state
+	 * along the current trail.
+	 */
+	private final int value;
+	/**
+	 * The object ID of the footprints which appear when the trail is made visible.
+	 */
+	private final int footprint;
 
-	private final WorldPoint location;
-
-	static HerbiboarStart from(WorldPoint location)
+	Set<Integer> getFootprintIds()
 	{
-		for (final HerbiboarStart start : values())
-		{
-			if (start.getLocation().equals(location))
-			{
-				return start;
-			}
-		}
-		return null;
+		return ImmutableSet.of(footprint, footprint + 1);
 	}
 }

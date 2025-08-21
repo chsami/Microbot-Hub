@@ -28,13 +28,14 @@ package net.runelite.client.plugins.microbot.autoherbiboar.dependencies;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.Getter;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.gameval.VarbitID;
+
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Getter
 public enum HerbiboarSearchSpot
@@ -168,7 +169,7 @@ public enum HerbiboarSearchSpot
 		return TRAILS.contains(id);
 	}
 
-	static boolean isSearchSpot(WorldPoint location)
+	public static boolean isSearchSpot(WorldPoint location)
 	{
 		return SPOTS.contains(location);
 	}

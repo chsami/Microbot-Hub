@@ -15,7 +15,7 @@ import java.awt.AWTException;
         name = PluginConstants.BGA + "Auto Herblore",
         description = "Performs various herblore tasks...",
         tags = {"herblore", "skilling"},
-        author = "bga",
+        authors = {"bga"},
         version = AutoHerblorePlugin.version,
         minClientVersion = "1.9.8",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoHerblorePlugin/assets/icon.png",

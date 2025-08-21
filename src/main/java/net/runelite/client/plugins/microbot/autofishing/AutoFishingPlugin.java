@@ -20,7 +20,7 @@ import java.awt.*;
         name = PluginConstants.BGA + "Auto Fishing",
         description = "Automated fishing plugin with banking support",
         tags = {"fishing", "skilling"},
-        author = "bga",
+        authors = {"bga"},
         version = AutoFishingPlugin.version,
         minClientVersion = "1.9.8",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/icon.png",

@@ -15,7 +15,7 @@ import java.awt.*;
         name = PluginConstants.BGA + "Auto Essence Mining",
         description = "Mines Rune/Pure Essence...",
         tags = {"mining", "essence", "skilling"},
-        author = "bga",
+        authors = {"bga"},
         version = AutoEssenceMiningPlugin.version,
         minClientVersion = "1.9.8",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoEssenceMiningPlugin/assets/icon.png",
@@ -41,7 +41,7 @@ public class AutoEssenceMiningPlugin extends Plugin {
     private AutoEssenceMiningOverlay autoEssenceMiningOverlay;
 
     @Inject
-    AutoAutoEssenceMiningScript autoEssenceMiningScript;
+    AutoEssenceMiningScript autoEssenceMiningScript;
 
     @Override
     protected void startUp() throws AWTException {
