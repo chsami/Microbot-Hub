@@ -10,6 +10,8 @@ import net.runelite.client.plugins.microbot.autobankstander.skills.magic.MagicMe
 import net.runelite.client.plugins.microbot.autobankstander.skills.magic.enchanting.EnchantingProcessor;
 import net.runelite.client.plugins.microbot.autobankstander.skills.magic.lunars.LunarsProcessor;
 import net.runelite.client.plugins.microbot.autobankstander.skills.herblore.HerbloreProcessor;
+import net.runelite.client.plugins.microbot.autobankstander.skills.fletching.FletchingProcessor;
+import net.runelite.client.plugins.microbot.autobankstander.skills.fletching.enums.FletchingMode;
 import net.runelite.client.plugins.microbot.autobankstander.config.ConfigData;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -24,10 +26,14 @@ public class AutoBankStanderScript extends Script {
     private ConfigData configData;
     private long stateStartTime = System.currentTimeMillis(); // remember when we started this state for timeout checking
     private BankStandingProcessor processor;
+    private AutoBankStanderPlugin plugin;
 
     public boolean run(ConfigData configData) {
         this.configData = configData; // save the config data so we can use it later
-        log.info("Starting Auto Bank Stander script");
+        this.state = AutoBankStanderState.INITIALIZING; // reset state to beginning
+        this.stateStartTime = System.currentTimeMillis(); // reset state timer
+        this.processor = null; // clear any existing processor
+        log.info("Starting Auto Bank Stander script with config: {}", configData);
         
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -39,8 +45,8 @@ public class AutoBankStanderScript extends Script {
                     log.info("Not logged in, waiting");
                     return;
                 }
-                if (Rs2Player.isMoving() || Rs2Player.isAnimating()) {
-                    log.info("Player is moving or animating, waiting");
+                if (Rs2Player.isMoving() || Rs2Player.isAnimating(3000)) {
+                    log.info("Player is moving or animating, waiting (extended check for crafting)");
                     return;
                 }
 
@@ -129,7 +135,8 @@ public class AutoBankStanderScript extends Script {
             Rs2Bank.closeBank(); // close the bank interface
             changeState(AutoBankStanderState.PROCESSING); // switch to processing mode
         } else {
-            log.info("Banking failed - shutting down");
+            log.info("Banking failed - no required items available, shutting down");
+            Microbot.status = "No required items available";
             shutdown(); // stop the plugin
         }
     }
@@ -142,6 +149,12 @@ public class AutoBankStanderScript extends Script {
         if (!processor.canContinueProcessing()) {
             log.info("Cannot continue processing - shutting down");
             shutdown(); // stop the plugin
+            return;
+        }
+        
+        // check if processor is actively making items - don't interrupt with banking
+        if (processor.isActivelyProcessing()) {
+            log.info("Processor is actively making items - waiting");
             return;
         }
         
@@ -178,6 +191,7 @@ public class AutoBankStanderScript extends Script {
 
     private BankStandingProcessor createProcessor() {
         SkillType skill = configData.getSkill();
+        log.info("Creating processor for skill: {}", skill);
         switch (skill) {
             case MAGIC:
                 return createMagicProcessor();
@@ -190,8 +204,11 @@ public class AutoBankStanderScript extends Script {
                     configData.getFinishedPotion(),
                     configData.isUseAmuletOfChemistry()
                 );
+            case FLETCHING:
+                log.info("Entering fletching processor creation");
+                return createFletchingProcessor();
             default:
-                log.info("Unknown skill type: {}", skill);
+                log.info("Skill not yet implemented: {}", skill);
                 return null;
         }
     }
@@ -216,6 +233,28 @@ public class AutoBankStanderScript extends Script {
                 return null;
         }
     }
+    
+    private BankStandingProcessor createFletchingProcessor() {
+        FletchingMode mode = configData.getFletchingMode();
+        log.info("Creating fletching processor for mode: {}", mode);
+        log.info("Fletching config details - dart: {}, bolt: {}, arrow: {}, javelin: {}, bow: {}, crossbow: {}, shield: {}", 
+            configData.getDartType(), configData.getFletchingBoltType(), configData.getArrowType(), 
+            configData.getJavelinType(), configData.getBowType(), configData.getCrossbowType(), configData.getShieldType());
+        
+        FletchingProcessor processor = new FletchingProcessor(
+            mode,
+            configData.getDartType(),
+            configData.getFletchingBoltType(),
+            configData.getArrowType(),
+            configData.getJavelinType(),
+            configData.getBowType(),
+            configData.getCrossbowType(),
+            configData.getShieldType()
+        );
+        
+        log.info("Fletching processor created successfully");
+        return processor;
+    }
 
     // helper method to change state with timeout reset
     private void changeState(AutoBankStanderState newState) {
@@ -226,10 +265,24 @@ public class AutoBankStanderScript extends Script {
         }
     }
 
+    public void setPlugin(AutoBankStanderPlugin plugin) {
+        this.plugin = plugin;
+    }
+
     @Override
     public void shutdown() {
+        if (!isRunning()) {
+            log.info("Script already shutdown, ignoring");
+            return;
+        }
         log.info("Shutting down Auto Bank Stander script");
         super.shutdown(); // clean up the script properly
+        
+        // notify plugin to update panel state
+        if (plugin != null) {
+            plugin.updatePanelState();
+        }
+        
         log.info("Auto Bank Stander script shutdown complete");
     }
 }

@@ -2,7 +2,8 @@ package net.runelite.client.plugins.microbot.autobankstander.processors;
 
 public enum SkillType {
     MAGIC("Magic"),
-    HERBLORE("Herblore");
+    HERBLORE("Herblore"),
+    FLETCHING("Fletching");
 
     private final String displayName;
 

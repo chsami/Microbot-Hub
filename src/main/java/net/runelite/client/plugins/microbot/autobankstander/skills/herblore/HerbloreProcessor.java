@@ -179,11 +179,17 @@ public class HerbloreProcessor implements BankStandingProcessor {
     public boolean canContinueProcessing() {
         switch (mode) {
             case CLEAN_HERBS:
-                return findHerb() != null;
+                // can continue if we have grimy herbs in inventory OR more in bank
+                return Rs2Inventory.hasItem("grimy") || findHerb() != null;
             case UNFINISHED_POTIONS:
-                return findHerbForUnfinished() != null;
+                // can continue if we have ingredients in inventory OR more in bank
+                return (currentHerbForUnfinished != null && 
+                        Rs2Inventory.hasItem(currentHerbForUnfinished.clean) && 
+                        Rs2Inventory.hasItem(ItemID.VIAL_WATER)) || 
+                       findHerbForUnfinished() != null;
             case FINISHED_POTIONS:
-                return findPotion() != null;
+                // can continue if we have ingredients in inventory OR more in bank
+                return hasRequiredItems() || findPotion() != null;
         }
         return false;
     }
@@ -210,7 +216,6 @@ public class HerbloreProcessor implements BankStandingProcessor {
         currentHerb = findHerb();
         if (currentHerb == null) {
             log.info("No more herbs available");
-            Microbot.showMessage("No more herbs");
             return false;
         }
         
@@ -229,7 +234,6 @@ public class HerbloreProcessor implements BankStandingProcessor {
         currentHerbForUnfinished = findHerbForUnfinished();
         if (currentHerbForUnfinished == null) {
             log.info("No more herbs or vials available");
-            Microbot.showMessage("No more herbs or vials of water");
             return false;
         }
         
@@ -262,7 +266,6 @@ public class HerbloreProcessor implements BankStandingProcessor {
         currentPotion = findPotion();
         if (currentPotion == null) {
             log.info("No more ingredients for selected potion");
-            Microbot.showMessage("No more ingredients for selected potion");
             return false;
         }
         
@@ -335,7 +338,8 @@ public class HerbloreProcessor implements BankStandingProcessor {
             sleepUntil(() -> !Rs2Inventory.hasItem("grimy"), 5000);
             return true;
         }
-        return false; // no more grimy herbs, need banking
+        log.info("No grimy herbs in inventory - returning to banking");
+        return true; // return true to go back to banking for more herbs
     }
     
     private boolean processUnfinishedPotions() {
@@ -511,7 +515,6 @@ public class HerbloreProcessor implements BankStandingProcessor {
                 sleepUntil(() -> Rs2Equipment.isWearing(ItemID.AMULET_OF_CHEMISTRY), 3000);
             } else {
                 log.info("No amulet of chemistry found in bank");
-                Microbot.showMessage("No Amulet of Chemistry found in bank");
             }
         }
     }

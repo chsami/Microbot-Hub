@@ -80,11 +80,10 @@ public class EnchantingProcessor implements BankStandingProcessor {
             return false;
         }
         
-        // check for missing items and show popup if any are missing
+        // check for missing items
         String missingItems = getMissingItemsList();
         if (!missingItems.isEmpty()) {
             log.info("Missing required items: {}", missingItems);
-            Microbot.showMessage("Missing items: " + missingItems);
             return false;
         }
         

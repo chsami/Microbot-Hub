@@ -45,4 +45,12 @@ public interface BankStandingProcessor {
      * @return status string
      */
     String getStatusMessage();
+    
+    /**
+     * check if processor is actively making items (should not interrupt with banking)
+     * @return true if currently processing and should wait
+     */
+    default boolean isActivelyProcessing() {
+        return false; // default implementation for processors that don't need this
+    }
 }

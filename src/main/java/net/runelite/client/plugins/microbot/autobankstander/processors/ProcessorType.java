@@ -3,7 +3,8 @@ package net.runelite.client.plugins.microbot.autobankstander.processors;
 public enum ProcessorType {
     ENCHANTING("Bolt enchanting"),
     LUNARS("Lunar spells"),
-    HERBLORE("Herblore processing");
+    HERBLORE("Herblore processing"),
+    FLETCHING("Fletching");
 
     private final String displayName;
 
