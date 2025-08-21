@@ -137,7 +137,7 @@ public class AutoBankStanderPlugin extends Plugin {
             
             // load the crafting icon from resources
             final BufferedImage icon = ImageUtil.loadImageResource(AutoBankStanderPlugin.class, 
-                "/assets/icon.png");
+                "assets/icon.png");
             
             // create navigation button
             navButton = NavigationButton.builder()
