@@ -96,8 +96,7 @@ public class TheMessScript extends Script {
     private void handleState() {
         switch (getCurrentState()) {
             case WAITING:
-                if (!Microbot.isLoggedIn()) return;
-                if (!super.run() || !isRunning()) return;
+                if (!Microbot.isLoggedIn() || !super.run() || !isRunning()) return;
                 if (BreakHandlerScript.isBreakActive()) return;
                 break;
             case GET_EMPTY_BOWLS:
@@ -246,6 +245,7 @@ public class TheMessScript extends Script {
 
                 Set<Integer> itemsToDrop = Set.of(
                         ItemID.BOWL_EMPTY,
+                        ItemID.BOWL_WATER,
                         ItemID.KNIFE,
                         ItemID.HOSIDIUS_SERVERY_PIEDISH,
                         ItemID.BURNT_PIZZA,
@@ -271,16 +271,38 @@ public class TheMessScript extends Script {
                         ItemID.HOSIDIUS_SERVERY_MEATWATER
                 );
 
-                int droppedItemsCount = (int) Rs2Inventory.items()
-                        .filter(item -> itemsToDrop.contains(item.getId()))
-                        .peek(item -> {
-                            Rs2Inventory.drop(item.getId());
-                            sleepGaussian(120, 40);
-                        })
-                        .count();
+                int droppedItemsCount = 0;
+                
+                info("Starting inventory cleanup. Total slots to check: 28");
+                debug("Items to drop: " + itemsToDrop.toString());
+
+                // Iterate through inventory slots to drop items slot by slot
+                for (int slot = 0; slot < 28; slot++) {
+                    if (!Rs2Inventory.isSlotEmpty(slot)) {
+                        Rs2ItemModel item = Rs2Inventory.getItemInSlot(slot);
+                        if (item != null) {
+                            debug("Slot " + slot + ": Found item ID " + item.getId() + " (name: " + item.getName() + ")");
+                            if (itemsToDrop.contains(item.getId())) {
+                                debug("Slot " + slot + ": Item ID " + item.getId() + " is in drop list, attempting to drop");
+                                Rs2Inventory.slotInteract(slot, "Drop");
+                                sleepGaussian(120, 40);
+                                droppedItemsCount++;
+                                debug("Slot " + slot + ": Drop action completed for item ID " + item.getId());
+                            } else {
+                                debug("Slot " + slot + ": Item ID " + item.getId() + " NOT in drop list, keeping");
+                            }
+                        } else {
+                            debug("Slot " + slot + ": Item is null despite slot not being empty");
+                        }
+                    } else {
+                        debug("Slot " + slot + ": Empty slot, skipping");
+                    }
+                }
+
+                info("Inventory cleanup completed. Total items dropped: " + droppedItemsCount);
 
                 if (droppedItemsCount > 0) {
-                    debug("Dropped " + droppedItemsCount + " items from inventory.");
+                    info("Dropped " + droppedItemsCount + " items from inventory.");
                     Rs2Antiban.actionCooldown();
                     return false;
                 }
@@ -519,18 +541,24 @@ public class TheMessScript extends Script {
                     Rs2Antiban.actionCooldown();
                     return true;
                 } else if (getCurrentState() == State.CUT_PINEAPPLE) {
-                    while (Rs2Inventory.hasItem(ItemID.HOSIDIUS_SERVERY_PINEAPPLE) && isRunning()) {
+                    while (Rs2Inventory.hasItem(ItemID.HOSIDIUS_SERVERY_PINEAPPLE) && canContinue()) {
                         Rs2Widget.clickWidget(item1Widget);
                         sleepGaussian(120, 40);
                         Rs2Widget.clickWidget(item2Widget);
                         sleepGaussian(120, 40);
                     }
 
-                    Rs2Inventory.moveItemToSlot(Rs2Inventory.getLast(ItemID.KNIFE), (Rs2Inventory.slotContains(0, ItemID.KNIFE))? 1 : 0);
-                    sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(2000));
-                    return true;
+                    Rs2ItemModel knife = Rs2Inventory.getLast(ItemID.KNIFE);
+                    if (knife != null) {
+                        Rs2Inventory.moveItemToSlot(knife, (Rs2Inventory.slotContains(0, ItemID.KNIFE)) ? 1 : 0);
+                        sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(2000));
+                        return true;
+                    } else {
+                        debug("Failed to find knife in inventory, cannot move knife.");
+                        return false;
+                    }
                 } else {
-                    while (Rs2Inventory.hasItem(item1) && isRunning()) {
+                    while (Rs2Inventory.hasItem(item1) && canContinue()) {
                         Rs2Widget.clickWidget(item1Widget);
                         sleepGaussian(120, 40);
                         Rs2Widget.clickWidget(item2Widget);
@@ -670,6 +698,10 @@ public class TheMessScript extends Script {
         if (!Rs2Inventory.isOpen()) {
             Rs2Inventory.open();
         }
+    }
+
+    private boolean canContinue() {
+        return isRunning() && super.isRunning() && Microbot.isLoggedIn() && !BreakHandlerScript.isBreakActive() && super.run();
     }
 
     private void info(String message) {

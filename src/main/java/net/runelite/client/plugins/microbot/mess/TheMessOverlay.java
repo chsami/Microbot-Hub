@@ -176,8 +176,8 @@ public class TheMessOverlay extends Overlay {
         graphics.setColor(Color.RED);
         graphics.drawString(value, valueX, y);
 
-        // Return next Y position using the larger of the two font heights
-        int maxHeight = Math.max(fm.getHeight(), fm.getHeight());
+        // Return next Y position using the font height
+        int maxHeight = fm.getHeight();
         return y + maxHeight + 2;
     }
 

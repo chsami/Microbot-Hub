@@ -38,7 +38,7 @@ import java.time.Instant;
 @Slf4j
 public class TheMessPlugin extends Plugin {
 
-    static final String version = "1.0.1";
+    static final String version = "1.0.2";
 
     @Inject
     private TheMessConfig config;
@@ -52,7 +52,7 @@ public class TheMessPlugin extends Plugin {
     private OverlayManager overlayManager;
 
     @Inject
-    private static TheMessOverlay overlay;
+    private TheMessOverlay overlay;
 
     @Inject
     TheMessScript theMessScript;
