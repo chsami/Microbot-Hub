@@ -1,6 +1,6 @@
 # StickToTheScript's Barbarian Village Fisher
 
-![preview](images/fishing.jpg)
+![preview](assets/fishing.jpg)
 
 The **Barbarian Village Fisher Script** automatically fishes at the fishing spots in Barbarian Village, with support for cooking and banking.
 

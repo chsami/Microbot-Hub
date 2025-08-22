@@ -1,6 +1,6 @@
 # StickToTheScript's Grand Exchange Cooker
 
-![preview](images/cooking.png)
+![preview](assets/cooking.png)
 
 The **Grand Exchange Cooker Script** automates cooking raw fish on fires at the Grand Exchange.
 

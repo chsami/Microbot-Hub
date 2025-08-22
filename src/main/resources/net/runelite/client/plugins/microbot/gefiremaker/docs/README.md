@@ -1,6 +1,6 @@
 # StickToTheScript's Grand Exchange Firemaker
 
-![preview](images/firemaking.png)
+![preview](assets/firemaking.png)
 
 The **Grand Exchange Firemaker Script** automates burning logs in the Grand Exchange.
 

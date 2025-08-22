@@ -1,6 +1,6 @@
 # StickToTheScript's Varrock Anvil Smither
 
-![preview](images/smith.jpg)
+![preview](assets/smith.jpg)
 
 The **Varrock Anvil Smither Script** is capable of smithing all available items at the Varrock West Anvils.
 
