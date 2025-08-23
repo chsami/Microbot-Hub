@@ -9,6 +9,7 @@ import net.runelite.api.Player;
 import net.runelite.api.Tile;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.GameState;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.thieving.enums.ThievingNpc;
@@ -46,6 +47,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.Objects;
 
 @Slf4j
 public class ThievingScript extends Script {
@@ -127,12 +129,31 @@ public class ThievingScript extends Script {
     }
 
     private Rs2NpcModel getThievingNpc() {
-        final Rs2NpcModel npc = Rs2NpcCache.getAllNpcs()
+        Rs2NpcModel npc = Rs2NpcCache.getAllNpcs()
                 .filter(getThievingNpcFilter())
                 .filter(n -> !isNpcNull(n))
                 .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer)).orElse(null);
-        if (npc == null) return null;
-        log.info("Found new NPC={} to thieve @ {}", npc.getName(), toString(npc.getWorldLocation()));
+        
+        if (npc == null) {
+            log.warn("NPC cache failed, getting NPC directly from client thread");
+
+            npc = Microbot.getClientThread().runOnClientThreadOptional(() -> {
+                final List<NPC> clientNpcs = Microbot.getClient().getNpcs();
+                if (clientNpcs == null || clientNpcs.isEmpty()) return null;
+                return clientNpcs.stream()
+                        .filter(Objects::nonNull)
+                        .map(Rs2NpcModel::new)
+                        .filter(getThievingNpcFilter())
+                        .filter(n -> !isNpcNull(n))
+                        .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer))
+                        .orElse(null);
+            }).orElse(null);
+        }
+
+        if (npc != null) {
+            thievingNpc = npc;
+            log.info("Found new NPC={} to thieve @ {}", npc.getName(), toString(npc.getWorldLocation()));
+        }
         return npc;
     }
 
@@ -231,7 +252,7 @@ public class ThievingScript extends Script {
                 if (DOOR_TIMER.isTime()) {
                     final long current = System.currentTimeMillis();
                     // did we close the door 3 times in the last 2min? (probably someone troll opening door)
-                    if (Arrays.stream(doorCloseTime).allMatch(time -> time - 120_000 > current)) {
+                    if (Arrays.stream(doorCloseTime).allMatch(time -> time != 0 && current - time < 120_000)) {
                         Arrays.fill(doorCloseTime, 0);
                         return State.HOP;
                     }
@@ -878,9 +899,12 @@ public class ThievingScript extends Script {
 
         log.info("Hopping world, please wait...");
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            int world = Login.getRandomWorld(true, null);
-            Microbot.hopToWorld(world);
+            int currentWorld = Microbot.getClient().getWorld();
+            Microbot.hopToWorld(Login.getRandomWorld(true, null));
             final AtomicBoolean interrupt = new AtomicBoolean(false);
+            sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
+            sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
+
             boolean hopSuccess = sleepUntil(() -> {
                 final Rs2NpcModel attacking = getAttackingNpc();
                 if (attacking != null) {
@@ -892,12 +916,13 @@ public class ThievingScript extends Script {
                         return true;
                     }
                 }
-                return (Rs2Player.getWorld() == world && Microbot.loggedIn);
+                return (Microbot.getClient().getWorld() != currentWorld);
             }, 10_000);
             if (interrupt.get()) throw new SelfInterruptException("Under Attack"); // throw exception so we go back to main-loop
             if (hopSuccess) {
-                sleepUntil(() -> Rs2NpcCache.getAllNpcs().findAny().isPresent(), 10_000);
-                log.info("Found {} NPCs after hopping", Rs2NpcCache.getAllNpcs().count());
+                log.info("Successful hop world");
+                // sleepUntil(() -> Rs2NpcCache.getAllNpcs().findAny().isPresent(), 10_000);
+                // log.info("Found {} NPCs after hopping", Rs2NpcCache.getAllNpcs().count());
                 return;
             }
             sleep(250, 350);
