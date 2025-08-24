@@ -12,10 +12,10 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginConstants.BGA + "Auto Essence Mining",
+        name = PluginConstants.DEFAULT_PREFIX + "Essence Mining",
         description = "Mines Rune/Pure Essence...",
         tags = {"mining", "essence", "skilling"},
-        authors = {"bga"},
+        authors = {"Unknown"},
         version = AutoEssenceMiningPlugin.version,
         minClientVersion = "1.9.8",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoEssenceMiningPlugin/assets/icon.png",
@@ -25,7 +25,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoEssenceMiningPlugin extends Plugin {
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
     @Inject
     private AutoEssenceMiningConfig config;
     

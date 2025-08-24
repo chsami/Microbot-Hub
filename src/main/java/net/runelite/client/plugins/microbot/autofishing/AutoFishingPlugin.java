@@ -17,10 +17,10 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginConstants.BGA + "Auto Fishing",
+        name = PluginConstants.DEFAULT_PREFIX + "Fishing",
         description = "Automated fishing plugin with banking support",
         tags = {"fishing", "skilling"},
-        authors = {"bga"},
+        authors = {"Unknown"},
         version = AutoFishingPlugin.version,
         minClientVersion = "1.9.8",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/icon.png",
@@ -30,7 +30,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoFishingPlugin extends Plugin {
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
     @Inject
     private AutoFishingConfig config;
 
