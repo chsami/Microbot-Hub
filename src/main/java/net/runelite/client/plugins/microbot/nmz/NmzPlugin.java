@@ -28,8 +28,8 @@ import java.awt.*;
         authors = { "Mocrosoft" },
         version = NmzPlugin.version,
         minClientVersion = "1.9.8",
-        cardUrl = "https://chsami.github.io/Microbot-Hub/TheMessPlugin/assets/card.png",
-        iconUrl = "https://chsami.github.io/Microbot-Hub/TheMessPlugin/assets/icon.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/NmzPlugin/assets/card.png",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/NmzPlugin/assets/icon.png",
         tags = {"nmz", "microbot"},
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
