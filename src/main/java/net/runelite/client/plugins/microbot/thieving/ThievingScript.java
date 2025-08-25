@@ -9,6 +9,7 @@ import net.runelite.api.Player;
 import net.runelite.api.Tile;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.NPC;
 import net.runelite.api.GameState;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -33,6 +34,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
+import java.util.Optional;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -82,6 +84,37 @@ public class ThievingScript extends Script {
         this.plugin = plugin;
     }
 
+    private boolean refreshThievingNpc() {
+        final Rs2NpcModel current = thievingNpc;
+        if (current == null) return false;
+        try {
+            final Optional<Rs2NpcModel> opt = Rs2NpcCache.getNpcByIndex(current.getIndex());
+            if (opt.isPresent() && !isNpcNull(opt.get())) {
+                thievingNpc = opt.get();
+                return true;
+            }
+
+            try {
+                Rs2NpcCache.getInstance().update(0);
+            } catch (Exception e) {
+                log.warn("Failed to perform synchronous NPC cache update", e);
+            }
+
+            final Optional<Rs2NpcModel> opt2 = Rs2NpcCache.getNpcByIndex(current.getIndex());
+            if (opt2.isPresent() && !isNpcNull(opt2.get())) {
+                thievingNpc = opt2.get();
+                return true;
+            }
+
+            thievingNpc = null;
+            return false;
+        } catch (Exception ex) {
+            log.warn("Exception while refreshing thievingNpc from cache", ex);
+            thievingNpc = null;
+            return false;
+        }
+    }
+
     private Predicate<Rs2NpcModel> validateName(Predicate<String> stringPredicate) {
         return npc -> {
             if (npc == null) return false;
@@ -129,31 +162,12 @@ public class ThievingScript extends Script {
     }
 
     private Rs2NpcModel getThievingNpc() {
-        Rs2NpcModel npc = Rs2NpcCache.getAllNpcs()
+        final Rs2NpcModel npc = Rs2NpcCache.getAllNpcs()
                 .filter(getThievingNpcFilter())
                 .filter(n -> !isNpcNull(n))
                 .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer)).orElse(null);
-        
-        if (npc == null) {
-            log.warn("NPC cache failed, getting NPC directly from client thread");
-
-            npc = Microbot.getClientThread().runOnClientThreadOptional(() -> {
-                final List<NPC> clientNpcs = Microbot.getClient().getNpcs();
-                if (clientNpcs == null || clientNpcs.isEmpty()) return null;
-                return clientNpcs.stream()
-                        .filter(Objects::nonNull)
-                        .map(Rs2NpcModel::new)
-                        .filter(getThievingNpcFilter())
-                        .filter(n -> !isNpcNull(n))
-                        .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer))
-                        .orElse(null);
-            }).orElse(null);
-        }
-
-        if (npc != null) {
-            thievingNpc = npc;
-            log.info("Found new NPC={} to thieve @ {}", npc.getName(), toString(npc.getWorldLocation()));
-        }
+        if (npc == null) return null;
+        log.info("Found new NPC={} to thieve @ {}", npc.getName(), toString(npc.getWorldLocation()));
         return npc;
     }
 
@@ -328,6 +342,7 @@ public class ThievingScript extends Script {
         }
 
         if (currentState != State.PICKPOCKET) log.info("State {}", currentState);
+        final WorldPoint myLoc;
 
         switch(currentState) {
             case LOOT:
@@ -369,7 +384,7 @@ public class ThievingScript extends Script {
                 }
                 if (escape != ThievingData.NULL_WORLD_POINT) {
                     walkTo("Escaping", escape, 3);
-                    final WorldPoint myLoc = Rs2Player.getWorldLocation();
+                    myLoc = Rs2Player.getWorldLocation();
                     if (myLoc != null && myLoc.distanceTo(escape) < 10) {
                         if (underAttack) {
                             underAttack = false;
@@ -391,7 +406,7 @@ public class ThievingScript extends Script {
                 return;
             case EAT:
                 final double hp = Rs2Player.getHealthPercentage();
-                Rs2Player.eatAt(config.hitpoints());
+                Rs2Player.useFood();
                 Rs2Inventory.dropAll(true, "jug");
                 sleepUntil(() -> Rs2Player.getHealthPercentage() > hp, 800);
                 return;
@@ -401,19 +416,29 @@ public class ThievingScript extends Script {
                 return;
             case HOP:
                 hopWorld();
+                DOOR_TIMER.unset(); //reset timer door after hop
                 return;
             case COIN_POUCHES:
                 repeatedAction(() -> Rs2Inventory.interact("coin pouch", "Open-all"), () -> !Rs2Inventory.hasItem("coin pouch"), 3);
                 return;
             case WALK_TO_START:
-                final WorldPoint myLoc = Rs2Player.getWorldLocation();
+                myLoc = Rs2Player.getWorldLocation();
                 if (myLoc == null) {
                     log.warn("Player Location is null");
                     return;
                 }
                 if (myLoc.distanceTo(startingLocation) <= 5) {
-                    if (thievingNpc != null) walkTo("Walk to npc ", thievingNpc.getWorldLocation(), 1);
-                    else {
+                    if (thievingNpc != null) {
+                        // walkto() in bank may fail and get an incorrect npc at its location
+                        final WorldPoint npcloc = thievingNpc.getWorldLocation();
+                        if (startingLocation.distanceTo(npcloc) > 5) {
+                            log.warn("NPC is invalid. Clearing cached NPC and return at start.");
+                            thievingNpc = null;
+                            walkTo("Walk to start", startingLocation, 3);
+                            return;
+                        }
+                        walkTo("Walk to npc ", thievingNpc.getWorldLocation(), 1);
+                    } else {
                         hopWorld();
                         return;
                     }
@@ -443,16 +468,20 @@ public class ThievingScript extends Script {
             case PICKPOCKET:
                 if (Rs2Inventory.hasItem(ThievingData.ROGUE_SET.toArray(String[]::new)) && !isWearing(ThievingData.ROGUE_SET)) {
                     // only equip if we are safely in the house w/ the npc
-                    if (config.THIEVING_NPC() != ThievingNpc.VYRES ||
-                            (new Rs2WorldPoint(Rs2Player.getWorldLocation())).distanceToPath(thievingNpc.getWorldLocation()) < Integer.MAX_VALUE) {
-                        if (equip(ThievingData.ROGUE_SET)) {
-                            log.info("Equipped rogue set");
+                    myLoc = Rs2Player.getWorldLocation();
+                    final Rs2NpcModel npc = thievingNpc;
+                    if (npc != null && npc.getWorldLocation() != null && myLoc != null) {
+                        if (config.THIEVING_NPC() != ThievingNpc.VYRES ||
+                                (new Rs2WorldPoint(myLoc)).distanceToPath(npc.getWorldLocation()) < Integer.MAX_VALUE) {
+                            if (equip(ThievingData.ROGUE_SET)) {
+                                log.info("Equipped rogue set");
+                            }
+                        } else {
+                            log.info("Cannot reach {} @ {}", thievingNpc.getName(), thievingNpc.getWorldLocation());
                         }
-                    } else {
-                        log.info("Cannot reach {} @ {}", thievingNpc.getName(), thievingNpc.getWorldLocation());
+                        DOOR_TIMER.set();
+                        return;
                     }
-                    DOOR_TIMER.set();
-                    return;
                 }
 
                 if (!Rs2Equipment.isWearing("dodgy necklace") && Rs2Inventory.hasItem("dodgy necklace")) {
@@ -474,17 +503,17 @@ public class ThievingScript extends Script {
 
                 var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
                 if (highlighted.isEmpty()) {
-                    if (isNpcNull(thievingNpc)) return;
-                    if (!Rs2Npc.pickpocket(thievingNpc)) {
-                        thievingNpc = getThievingNpc();
-                        if (isNpcNull(thievingNpc)) return;
-                        if (!Rs2Npc.pickpocket(thievingNpc)) {
-                            // NPC Cache force refresh or something should work here as well
-                            // it seems sometimes the data in it become stale
-                            log.warn("NPC seems bugged hopping world");
-                            hopWorld();
-                            return;
-                        }
+                    if (!refreshThievingNpc()) return;
+                    try {
+                        Rs2Npc.pickpocket(thievingNpc);
+                    } catch (NullPointerException ex) {
+                        log.warn("NPC became invalid (null world) during pickpocket interaction, refreshing NPC cache", ex);
+                        refreshThievingNpc();
+                        return;
+                    } catch (Exception ex) {
+                        log.error("Unexpected error while interacting with NPC", ex);
+                        thievingNpc = null;
+                        return;
                     }
                 } else {
                     Rs2Npc.pickpocket(highlighted);
@@ -872,7 +901,7 @@ public class ThievingScript extends Script {
         }
 
         if (walkTo("Return to npc", startingLocation, 3)) {
-            sleepUntilWithInterrupt(() -> !Rs2Player.isMoving(), 1_200);
+            sleepUntilWithInterrupt(() -> !Rs2Player.isMoving(), 2_000);
         }
         DOOR_TIMER.set();
     }
@@ -896,36 +925,34 @@ public class ThievingScript extends Script {
     private void hopWorld() {
         thievingNpc = null;
         final int maxAttempts = 5;
+        log.info("Hopping world, please wait");
 
-        log.info("Hopping world, please wait...");
         for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            int currentWorld = Microbot.getClient().getWorld();
+            final int currentWorld = Microbot.getClient().getWorld();
             Microbot.hopToWorld(Login.getRandomWorld(true, null));
-            final AtomicBoolean interrupt = new AtomicBoolean(false);
-            sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
-            sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
 
-            boolean hopSuccess = sleepUntil(() -> {
+            BooleanSupplier attackedInterrupt = () -> {
                 final Rs2NpcModel attacking = getAttackingNpc();
-                if (attacking != null) {
-                    final WorldPoint myLoc = Rs2Player.getWorldLocation();
-                    final WorldPoint npcLoc = attacking.getWorldLocation();
-                    if (myLoc != null && npcLoc != null && myLoc.distanceTo(npcLoc) <= 2) {
-                        log.warn("Getting attacked while hopping");
-                        interrupt.set(true);
-                        return true;
-                    }
+                if (attacking == null) return false;
+                final WorldPoint me = Rs2Player.getWorldLocation();
+                final WorldPoint npc = attacking.getWorldLocation();
+                if (me != null && npc != null && me.distanceTo(npc) <= 2) {
+                    log.warn("Getting attacked while hopping");
+                    return true;
                 }
-                return (Microbot.getClient().getWorld() != currentWorld);
-            }, 10_000);
-            if (interrupt.get()) throw new SelfInterruptException("Under Attack"); // throw exception so we go back to main-loop
-            if (hopSuccess) {
+                return false;
+            };
+            
+            sleepUntilWithInterrupt(() -> Microbot.getClient().getGameState() == GameState.HOPPING, attackedInterrupt, 15_000);
+            sleepUntilWithInterrupt(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN, attackedInterrupt, 15_000);
+            boolean changed = sleepUntilWithInterrupt(() -> Microbot.getClient().getWorld() != currentWorld, attackedInterrupt, 15_000);
+
+            if (changed) {
                 log.info("Successful hop world");
-                // sleepUntil(() -> Rs2NpcCache.getAllNpcs().findAny().isPresent(), 10_000);
-                // log.info("Found {} NPCs after hopping", Rs2NpcCache.getAllNpcs().count());
                 return;
             }
             sleep(250, 350);
+            log.warn("Hop attempt {}/{} failed, retrying...", attempt + 1, maxAttempts);
         }
         log.error("Failed to hop world");
     }
