@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.valetotems.models;
 
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.valetotems.enums.GameState;
 import net.runelite.client.plugins.microbot.valetotems.enums.TotemLocation;
 import net.runelite.client.plugins.microbot.valetotems.enums.TotemLocation.RouteType;
@@ -8,6 +9,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.slf4j.event.Level;
 
 /**
  * Model class to track the overall game session state and statistics
@@ -132,7 +135,10 @@ public class GameSession {
 
     public void addError(String errorMessage) {
         errorMessages.add(String.format("[%d] %s", System.currentTimeMillis(), errorMessage));
-        setState(GameState.ERROR);
+        Microbot.log(errorMessage, Level.ERROR);
+        if (getCurrentState() != GameState.STOPPING) {
+            setState(GameState.ERROR);
+        }
     }
 
     // Progress tracking

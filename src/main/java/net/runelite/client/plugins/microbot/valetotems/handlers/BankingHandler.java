@@ -19,6 +19,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleep;
 import java.util.Random;
 import net.runelite.client.plugins.microbot.valetotems.enums.TotemLocation;
 import net.runelite.client.plugins.microbot.valetotems.models.GameSession;
+import org.slf4j.event.Level;
 
 /**
  * Handles all banking operations for the Vale Totems minigame
@@ -69,7 +70,7 @@ public class BankingHandler {
 
             return false;
         } catch (Exception e) {
-            System.err.println("Error navigating to bank: " + e.getMessage());
+            Microbot.log("Error navigating to bank: " + e.getMessage());
             return false;
         }
     }
@@ -110,7 +111,7 @@ public class BankingHandler {
 
             return false;
         } catch (Exception e) {
-            System.err.println("Error opening bank: " + e.getMessage());
+            Microbot.log("Error opening bank: " + e.getMessage());
             return false;
         }
     }
@@ -134,71 +135,60 @@ public class BankingHandler {
 
             return true;
         } catch (Exception e) {
-            System.err.println("Error depositing items: " + e.getMessage());
+            Microbot.log("Error depositing items: " + e.getMessage());
             return false;
         }
     }
 
-    /**
+        /**
      * Withdraw the required items for the minigame
+     * Note: This function assumes materials have already been pre-checked
      * @param gameSession the game session to update if critical errors occur
      * @return true if successfully withdrew required items
      */
     public static boolean withdrawRequiredItems(GameSession gameSession) {
         try {
+            // Bank should already be open from prior checks, but ensure it is
             if (!Rs2Bank.isOpen() && !openBank()) {
+                Microbot.log("Cannot withdraw items - failed to open bank");
                 return false;
-            }
-
-            // Ensure we have a knife first
-            if (!InventoryUtils.hasKnife()) {
-                if (Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID)) {
-                    if (!Rs2Bank.withdrawOne(InventoryUtils.FLETCHING_KNIFE_ID)) {
-                        System.err.println("Failed to withdraw Fletching knife");
-                        return false;
-                    }
-                } else if (Rs2Bank.hasItem(InventoryUtils.KNIFE_ID)) {
-                    if (!Rs2Bank.withdrawOne(InventoryUtils.KNIFE_ID)) {
-                        System.err.println("Failed to withdraw knife");
-                        return false;
-                    }
-                } else {
-                    System.err.println("No knife found in bank!");
-                    handleCriticalMaterialShortage(gameSession, "No knife available in inventory or bank");
-                    return false;
-                }
-                sleep(600);
             }
 
             // Calculate how many logs to withdraw
             int logsToWithdraw = InventoryUtils.getOptimalLogWithdrawAmount();
-            
+
             if (logsToWithdraw <= 0) {
+                Microbot.log("Already have sufficient logs in inventory - no withdrawal needed");
                 return true; // Already have enough materials
             }
 
             // Get the configured log type ID
             int logId = InventoryUtils.getLogId();
+            String logTypeName = config != null ? config.logType().getDisplayName() : "Yew Logs";
 
-            // Check if bank has enough logs
-            if (!Rs2Bank.hasBankItem(logId, logsToWithdraw)) {
-                String logTypeName = config != null ? config.logType().getDisplayName() : "Yew Logs";
-                System.err.println("Not enough " + logTypeName + " in bank! Need: " + logsToWithdraw);
-                handleCriticalMaterialShortage(gameSession, "Insufficient " + logTypeName + " in bank (need " + logsToWithdraw + ")");
+            // Withdraw logs (materials check already performed, so this should succeed)
+            Microbot.log("Withdrawing " + logsToWithdraw + " " + logTypeName + " from bank");
+            boolean withdrew = Rs2Bank.withdrawX(logId, logsToWithdraw);
+            if (withdrew) {
+                Microbot.log("Successfully withdrew " + logsToWithdraw + " " + logTypeName);
+                sleep(1000); // Wait for withdraw
+            } else {
+                Microbot.log("Failed to withdraw logs from bank");
                 return false;
             }
 
-            // Withdraw logs
-            Microbot.log("Withdrawing " + logsToWithdraw + " logs");
-            boolean withdrew = Rs2Bank.withdrawX(logId, logsToWithdraw);
-            if (withdrew) {
-                sleep(1000); // Wait for withdraw
+            // Final verification
+            boolean hasRequired = InventoryUtils.hasRequiredItems();
+            if (hasRequired) {
+                Microbot.log("Successfully completed item withdrawal - all required items now in inventory");
+            } else {
+                Microbot.log("Warning: Required items verification failed after withdrawal");
             }
 
-            return withdrew && InventoryUtils.hasRequiredItems();
+            return hasRequired;
 
         } catch (Exception e) {
-            System.err.println("Error withdrawing required items: " + e.getMessage());
+            Microbot.log("Error withdrawing required items: " + e.getMessage());
             return false;
         }
     }
@@ -208,7 +198,7 @@ public class BankingHandler {
             Rs2Camera.setZoom(0);
             return true;
         } catch (Exception e) {
-            System.err.println("Error fixing zoom: " + e.getMessage());
+            Microbot.log("Error fixing zoom: " + e.getMessage());
             return false;
         }
     }
@@ -222,28 +212,28 @@ public class BankingHandler {
         try {
             // Check inventory first
             if (InventoryUtils.hasLogBasket()) {
-                System.out.println("Log basket detected in inventory - enabling Extended Route (8 totems)");
+                Microbot.log("Log basket detected in inventory - enabling Extended Route (8 totems)");
                 return TotemLocation.RouteType.EXTENDED;
             }
-            
+
             // Ensure bank is open before checking
             if (!Rs2Bank.isOpen() && !openBank()) {
-                System.out.println("Could not open bank for route detection - defaulting to Standard Route");
+                Microbot.log("Could not open bank for route detection - defaulting to Standard Route");
                 return TotemLocation.RouteType.STANDARD;
             }
-            
+
             // Check bank for log basket
             if (Rs2Bank.hasItem(InventoryUtils.LOG_BASKET_ID)) {
-                System.out.println("Log basket detected in bank - enabling Extended Route (8 totems)");
+                Microbot.log("Log basket detected in bank - enabling Extended Route (8 totems)");
                 return TotemLocation.RouteType.EXTENDED;
             }
-            
-            System.out.println("No log basket detected in inventory or bank - using Standard Route (5 totems)");
+
+            Microbot.log("No log basket detected in inventory or bank - using Standard Route (5 totems)");
             return TotemLocation.RouteType.STANDARD;
-            
+
         } catch (Exception e) {
-            System.err.println("Error detecting route type: " + e.getMessage());
-            System.out.println("Defaulting to Standard Route due to error");
+            Microbot.log("Error detecting route type: " + e.getMessage());
+            Microbot.log("Defaulting to Standard Route due to error");
             return TotemLocation.RouteType.STANDARD;
         }
     }
@@ -258,14 +248,14 @@ public class BankingHandler {
             // Navigate to bank if needed
             if (!CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE)) {
                 if (!navigateToBank()) {
-                    System.err.println("Failed to navigate to bank");
+                    Microbot.log("Failed to navigate to bank");
                     return false;
                 }
             }
 
             // Open bank first
             if (!openBank()) {
-                System.err.println("Failed to open bank");
+                Microbot.log("Failed to open bank");
                 return false;
             }
 
@@ -284,10 +274,10 @@ public class BankingHandler {
             
             // Call appropriate banking method based on detected route type
             if (detectedRouteType == TotemLocation.RouteType.EXTENDED) {
-                System.out.println("Performing extended route banking cycle");
+                Microbot.log("Performing extended route banking cycle");
                 bankingSuccess = performExtendedRouteBankingOperations(gameSession);
             } else {
-                System.out.println("Performing standard route banking cycle");
+                Microbot.log("Performing standard route banking cycle");
                 bankingSuccess = performStandardBankingOperations(gameSession);
             }
 
@@ -295,13 +285,13 @@ public class BankingHandler {
                 // Close bank
                 Rs2Bank.closeBank();
                 fixZoom();
-                System.out.println("Banking cycle completed successfully using " + detectedRouteType.getDescription());
+                Microbot.log("Banking cycle completed successfully using " + detectedRouteType.getDescription());
             }
 
             return bankingSuccess;
 
         } catch (Exception e) {
-            System.err.println("Error during unified banking cycle: " + e.getMessage());
+            Microbot.log("Error during unified banking cycle: " + e.getMessage());
             return false;
         }
     }
@@ -314,26 +304,26 @@ public class BankingHandler {
         try {
             // Deposit all except knife
             if (!depositAllExceptKnife()) {
-                System.err.println("Failed to deposit items for standard route");
+                Microbot.log("Failed to deposit items for standard route");
                 return false;
             }
 
             // Check if we have enough materials
             if (!hasSufficientMaterials(1)) {
-                System.err.println("Not enough materials for standard route - stopping bot");
+                Microbot.log("Not enough materials for standard route - stopping bot");
                 gameSession.setState(GameState.STOPPING);
                 return false;
             }
 
             // Withdraw required items
             if (!withdrawRequiredItems(gameSession)) {
-                System.err.println("Failed to withdraw required items for standard route");
+                Microbot.log("Failed to withdraw required items for standard route");
                 return false;
             }
 
             return true;
         } catch (Exception e) {
-            System.err.println("Error during standard banking operations: " + e.getMessage());
+            Microbot.log("Error during standard banking operations: " + e.getMessage());
             return false;
         }
     }
@@ -344,47 +334,47 @@ public class BankingHandler {
      */
     private static boolean performExtendedRouteBankingOperations(GameSession gameSession) {
         try {
-            System.out.println("Starting extended route banking operations");
-            
+            Microbot.log("Starting extended route banking operations");
+
             // Step 1: Ensure we have knife and log basket in inventory
             if (!ensureKnifeAndLogBasketInInventory()) {
-                System.err.println("Failed to ensure knife and log basket are in inventory");
+                Microbot.log("Failed to ensure knife and log basket are in inventory");
                 return false;
             }
 
             // Step 2: Empty log basket if this is initial banking or log type changed
             if (InventoryUtils.shouldEmptyLogBasket(gameSession)) {
-                System.out.println("Emptying log basket for fresh start");
+                Microbot.log("Emptying log basket for fresh start");
                 if (!InventoryUtils.emptyLogBasket(gameSession)) {
-                    System.err.println("Failed to empty log basket");
+                    Microbot.log("Failed to empty log basket");
                     return false;
                 }
             }
 
             // Step 3: Check if we have enough materials for extended route
             if (!hasSufficientMaterialsForExtendedRoute(gameSession, 1)) {
-                System.err.println("Not enough materials for extended route - stopping bot");
+                Microbot.log("Not enough materials for extended route - stopping bot");
                 gameSession.setState(GameState.STOPPING);
                 return false;
             }
 
             // Step 4: Deposit all items except knife and log basket
             if (!depositAllExceptKnifeAndLogBasket()) {
-                System.err.println("Failed to deposit items while preserving knife and log basket");
+                Microbot.log("Failed to deposit items while preserving knife and log basket");
                 return false;
             }
 
             // Step 5: Perform log basket filling operation
             if (!performLogBasketFillingOperation(gameSession)) {
-                System.err.println("Failed to perform log basket filling operation");
+                Microbot.log("Failed to perform log basket filling operation");
                 return false;
             }
 
-            System.out.println("Extended route banking operations completed successfully");
+            Microbot.log("Extended route banking operations completed successfully");
             return true;
-            
+
         } catch (Exception e) {
-            System.err.println("Error during extended route banking operations: " + e.getMessage());
+            Microbot.log("Error during extended route banking operations: " + e.getMessage());
             return false;
         }
     }
@@ -397,19 +387,19 @@ public class BankingHandler {
 
         if (roll < LONG_AFK_PROBABILITY) {
             // Long AFK: 30 to 90 seconds
-            System.out.println("Performing a long AFK...");
+            Microbot.log("Performing a long AFK...");
             Microbot.status = "Long AFK";
             Rs2Antiban.moveMouseOffScreen(90);
             sleep(30000, 90000);
         } else if (roll < MEDIUM_AFK_PROBABILITY) {
             // Medium AFK: 10 to 30 seconds
-            System.out.println("Performing a medium AFK...");
+            Microbot.log("Performing a medium AFK...");
             Microbot.status = "Medium AFK";
             Rs2Antiban.moveMouseOffScreen(90);
             sleep(10000, 30000);
         } else if (roll < SHORT_AFK_PROBABILITY) {
             // Short AFK: 2 to 8 seconds
-            System.out.println("Performing a short AFK...");
+            Microbot.log("Performing a short AFK...");
             Microbot.status = "Short AFK";
             Rs2Antiban.moveMouseOffScreen(60);
             sleep(2000, 8000);
@@ -424,24 +414,52 @@ public class BankingHandler {
     public static boolean hasSufficientMaterials(int roundsPlanned) {
         try {
             if (!Rs2Bank.isOpen() && !openBank()) {
+                Microbot.log("Unable to check materials - cannot open bank");
                 return false;
             }
 
+            boolean hasSufficientMaterials = true;
+            StringBuilder shortageDetails = new StringBuilder();
+
             // Check for knife
-            boolean hasKnifeAvailable = InventoryUtils.hasKnife() || Rs2Bank.hasItem(InventoryUtils.KNIFE_ID) || Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID);
-            
-            // Check for logs (25 logs per round)
+            boolean hasKnifeAvailable = InventoryUtils.hasKnife() ||
+                Rs2Bank.hasItem(InventoryUtils.KNIFE_ID) ||
+                Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID);
+
+            if (!hasKnifeAvailable) {
+                hasSufficientMaterials = false;
+                shortageDetails.append("• No knife available (inventory or bank)\n");
+            }
+
+            // Check for logs (25 logs per round for standard route)
             int logsNeeded = roundsPlanned * 25;
             int currentLogs = InventoryUtils.getLogCount();
             int logId = InventoryUtils.getLogId();
             int bankLogs = Rs2Bank.count(logId);
-            
-            boolean hasEnoughLogs = (currentLogs + bankLogs) >= logsNeeded;
+            int totalLogsAvailable = currentLogs + bankLogs;
 
-            return hasKnifeAvailable && hasEnoughLogs;
+            if (totalLogsAvailable < logsNeeded) {
+                hasSufficientMaterials = false;
+                String logTypeName = config != null ? config.logType().getDisplayName() : "Yew Logs";
+                shortageDetails.append(String.format("• Logs: Have %d, Need %d (%s)\n",
+                    totalLogsAvailable, logsNeeded, logTypeName));
+            }
+
+            // Log material status
+            if (hasSufficientMaterials) {
+                Microbot.log("Material check passed - sufficient materials for " + roundsPlanned + " rounds");
+            } else {
+                Microbot.log("=== MATERIAL SHORTAGE DETECTED ===");
+                Microbot.log("Standard Route Requirements:");
+                Microbot.log(shortageDetails.toString().trim());
+                Microbot.log("==================================");
+                Microbot.showMessage("Material Shortage: " + shortageDetails.toString().trim());
+            }
+
+            return hasSufficientMaterials;
 
         } catch (Exception e) {
-            System.err.println("Error checking bank materials: " + e.getMessage());
+            Microbot.log("Error checking bank materials: " + e.getMessage());
             return false;
         }
     }
@@ -452,11 +470,14 @@ public class BankingHandler {
      * @param missingItem description of what material is missing
      */
     private static void handleCriticalMaterialShortage(GameSession gameSession, String missingItem) {
-        System.err.println("=== CRITICAL ERROR ===");
-        System.err.println("Missing required materials: " + missingItem);
-        System.err.println("Cannot continue with Vale Totems bot");
-        System.err.println("Bot will now close bank, logout, and stop");
-        System.err.println("======================");
+        // Log critical error with clear formatting
+        Microbot.log("=== CRITICAL MATERIAL SHORTAGE DETECTED ===");
+        Microbot.log("Issue: " + missingItem);
+        Microbot.log("Bot Status: Stopping due to insufficient materials");
+        Microbot.log("Action Required: Please restock materials in bank before restarting");
+        Microbot.log("=============================================");
+
+        // Update game session state
         gameSession.setState(GameState.STOPPING);
     }
 
@@ -470,32 +491,60 @@ public class BankingHandler {
     public static boolean hasSufficientMaterialsForExtendedRoute(net.runelite.client.plugins.microbot.valetotems.models.GameSession gameSession, int roundsPlanned) {
         try {
             if (!Rs2Bank.isOpen() && !openBank()) {
+                Microbot.log("Unable to check materials for extended route - cannot open bank");
                 return false;
             }
 
+            boolean hasSufficientMaterials = true;
+            StringBuilder shortageDetails = new StringBuilder();
+
             // Check for knife
-            boolean hasKnifeAvailable = InventoryUtils.hasKnife() || 
-                Rs2Bank.hasItem(InventoryUtils.KNIFE_ID) || 
+            boolean hasKnifeAvailable = InventoryUtils.hasKnife() ||
+                Rs2Bank.hasItem(InventoryUtils.KNIFE_ID) ||
                 Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID);
-            
+
+            if (!hasKnifeAvailable) {
+                hasSufficientMaterials = false;
+                shortageDetails.append("• No knife available (inventory or bank)\n");
+            }
+
             // Check for log basket
             boolean hasLogBasket = InventoryUtils.hasLogBasket();
-            
+            if (!hasLogBasket) {
+                hasSufficientMaterials = false;
+                shortageDetails.append("• No log basket available (inventory or bank)\n");
+            }
+
             // Check for logs (40 logs per extended route round - 8 totems * 5 each)
             int logsNeeded = roundsPlanned * 40;
             int currentLogs = InventoryUtils.getLogCount();
             int logId = InventoryUtils.getLogId();
             int bankLogs = Rs2Bank.count(logId);
-            
-            // Add log basket contents to total available logs using tracked count
             int logBasketLogs = InventoryUtils.getLogBasketLogCount(gameSession);
-            
-            boolean hasEnoughLogs = (currentLogs + bankLogs + logBasketLogs) >= logsNeeded;
+            int totalLogsAvailable = currentLogs + bankLogs + logBasketLogs;
 
-            return hasKnifeAvailable && hasLogBasket && hasEnoughLogs;
+            if (totalLogsAvailable < logsNeeded) {
+                hasSufficientMaterials = false;
+                String logTypeName = config != null ? config.logType().getDisplayName() : "Yew Logs";
+                shortageDetails.append(String.format("• Logs: Have %d (inventory: %d, bank: %d, basket: %d), Need %d (%s)\n",
+                    totalLogsAvailable, currentLogs, bankLogs, logBasketLogs, logsNeeded, logTypeName));
+            }
+
+            // Log material status
+            if (hasSufficientMaterials) {
+                Microbot.log("Extended route material check passed - sufficient materials");
+            } else {
+                Microbot.log("=== MATERIAL SHORTAGE DETECTED (EXTENDED ROUTE) ===");
+                Microbot.log("Extended Route Requirements (8 totems per round):");
+                Microbot.log(shortageDetails.toString().trim());
+                Microbot.log("==================================================");
+                Microbot.showMessage("Material Shortage: " + shortageDetails.toString().trim());
+            }
+
+            return hasSufficientMaterials;
 
         } catch (Exception e) {
-            System.err.println("Error checking bank materials for extended route: " + e.getMessage());
+            Microbot.log("Error checking bank materials for extended route: " + e.getMessage());
             return false;
         }
     }
@@ -518,22 +567,22 @@ public class BankingHandler {
             
             // Check if log basket is in bank and withdraw it
             if (Rs2Bank.hasItem(InventoryUtils.LOG_BASKET_ID)) {
-                System.out.println("Withdrawing log basket from bank for extended route");
+                Microbot.log("Withdrawing log basket from bank for extended route");
                 boolean withdrew = Rs2Bank.withdrawOne(InventoryUtils.LOG_BASKET_ID);
                 if (withdrew) {
                     sleep(600); // Wait for withdrawal
                     return InventoryUtils.hasLogBasket();
                 } else {
-                    System.err.println("Failed to withdraw log basket from bank");
+                    Microbot.log("Failed to withdraw log basket from bank");
                     return false;
                 }
             }
-            
-            System.out.println("No log basket found in bank");
+
+            Microbot.log("No log basket found in bank");
             return false;
             
         } catch (Exception e) {
-            System.err.println("Error ensuring log basket availability: " + e.getMessage());
+            Microbot.log("Error ensuring log basket availability: " + e.getMessage());
             return false;
         }
     }
@@ -561,7 +610,7 @@ public class BankingHandler {
 
             return true;
         } catch (Exception e) {
-            System.err.println("Error depositing items (preserving knife and log basket): " + e.getMessage());
+            Microbot.log("Error depositing items (preserving knife and log basket): " + e.getMessage());
             return false;
         }
     }
@@ -580,16 +629,16 @@ public class BankingHandler {
             if (!InventoryUtils.hasKnife()) {
                 if (Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID)) {
                     if (!Rs2Bank.withdrawOne(InventoryUtils.FLETCHING_KNIFE_ID)) {
-                        System.err.println("Failed to withdraw Fletching knife");
+                        Microbot.log("Failed to withdraw Fletching knife");
                         return false;
                     }
                 } else if (Rs2Bank.hasItem(InventoryUtils.KNIFE_ID)) {
                     if (!Rs2Bank.withdrawOne(InventoryUtils.KNIFE_ID)) {
-                        System.err.println("Failed to withdraw knife");
+                        Microbot.log("Failed to withdraw knife");
                         return false;
                     }
                 } else {
-                    System.err.println("No knife found in bank!");
+                    Microbot.log("No knife found in bank!");
                     return false;
                 }
                 sleep(600);
@@ -599,11 +648,11 @@ public class BankingHandler {
             if (!InventoryUtils.hasLogBasket()) {
                 if (Rs2Bank.hasItem(InventoryUtils.LOG_BASKET_ID)) {
                     if (!Rs2Bank.withdrawOne(InventoryUtils.LOG_BASKET_ID)) {
-                        System.err.println("Failed to withdraw log basket");
+                        Microbot.log("Failed to withdraw log basket");
                         return false;
                     }
                 } else {
-                    System.err.println("No log basket found in bank!");
+                    Microbot.log("No log basket found in bank!");
                     return false;
                 }
                 sleep(600);
@@ -612,7 +661,7 @@ public class BankingHandler {
             return InventoryUtils.hasKnife() && InventoryUtils.hasLogBasket();
 
         } catch (Exception e) {
-            System.err.println("Error ensuring knife and log basket in inventory: " + e.getMessage());
+            Microbot.log("Error ensuring knife and log basket in inventory: " + e.getMessage());
             return false;
         }
     }
@@ -629,14 +678,14 @@ public class BankingHandler {
      */
     private static boolean performLogBasketFillingOperation(net.runelite.client.plugins.microbot.valetotems.models.GameSession gameSession) {
         try {
-            System.out.println("Starting log basket filling operation");
+            Microbot.log("Starting log basket filling operation");
 
             // Step 1: Take inventory full of logs (leaving space for knife and basket)
             int logsToWithdraw = InventoryUtils.getOptimalLogBasketLogAmountForExtendedRoute(gameSession) - InventoryUtils.getLogCount();
             int logId = InventoryUtils.getLogId();
-            
+
             if (!Rs2Bank.withdrawX(logId, logsToWithdraw)) {
-                System.err.println("Failed to withdraw logs to fill inventory");
+                Microbot.log("Failed to withdraw logs to fill inventory");
                 return false;
             }
             sleep(300,800);
@@ -647,32 +696,32 @@ public class BankingHandler {
 
             // Step 3: Fill log basket with logs from inventory
             if (!InventoryUtils.fillLogBasket(gameSession)) {
-                System.err.println("Failed to fill log basket");
+                Microbot.log("Failed to fill log basket");
                 return false;
             }
 
             // Step 4: Open bank again
             if (!openBank()) {
-                System.err.println("Failed to reopen bank after filling basket");
+                Microbot.log("Failed to reopen bank after filling basket");
                 return false;
             }
 
             // Step 5: Take rest of needed logs to inventory
             int logsStillNeeded = InventoryUtils.getOptimalLogAmountForExtendedRoute(gameSession);
             if (logsStillNeeded > 0) {
-                System.out.println("Withdrawing additional " + logsStillNeeded + " logs for extended route");
+                Microbot.log("Withdrawing additional " + logsStillNeeded + " logs for extended route");
                 if (!Rs2Bank.withdrawX(logId, logsStillNeeded)) {
-                    System.err.println("Failed to withdraw additional logs");
+                    Microbot.log("Failed to withdraw additional logs");
                     return false;
                 }
                 sleep(1000);
             }
 
-            System.out.println("Log basket filling operation completed successfully");
+            Microbot.log("Log basket filling operation completed successfully");
             return true;
 
         } catch (Exception e) {
-            System.err.println("Error during log basket filling operation: " + e.getMessage());
+            Microbot.log("Error during log basket filling operation: " + e.getMessage());
             return false;
         }
     }

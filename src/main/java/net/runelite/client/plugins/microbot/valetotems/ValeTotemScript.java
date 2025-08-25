@@ -47,11 +47,6 @@ public class ValeTotemScript extends Script {
                 if (!super.run()) return;
                 if (!isRunning) return;
                 
-                // Check if bot is in stopping state
-                if (gameSession.getCurrentState().isStopping()) {
-                    return; // Exit early if stopping
-                }
-                
                 // Main bot logic
                 executeMainLoop();
 
@@ -344,12 +339,7 @@ public class ValeTotemScript extends Script {
             
             // Stop any fletching operations
             FletchingHandler.emergencyStopFletching();
-            
-            // Log out the player
-            System.out.println("Logging out player...");
-            Rs2Player.logout();
-            sleep(2000); // Wait for logout
-            
+
         } catch (Exception e) {
             System.err.println("Error during graceful shutdown: " + e.getMessage());
         } finally {
@@ -401,7 +391,7 @@ public class ValeTotemScript extends Script {
         isRunning = false;
         
         super.shutdown();
-        System.out.println("Vale Totems bot stopped.");
+        Microbot.log("Vale Totems bot stopped.");
     }
 
     /**
