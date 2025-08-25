@@ -20,10 +20,10 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 
 @PluginDescriptor(
-    name = PluginConstants.BGA + "Auto Bankstander",
+    name = PluginConstants.DEFAULT_PREFIX + "Bank Stander",
     description = "AIO bank standing plugin for various processing activities",
     tags = {"magic", "skilling", "processing"},
-    authors = {"bga"},
+    authors = {"Unknown"},
     version = AutoBankStanderPlugin.version,
     minClientVersion = "1.9.8",
     iconUrl = "https://chsami.github.io/Microbot-Hub/AutoBankStanderPlugin/assets/icon.png",
@@ -33,7 +33,7 @@ import java.awt.image.BufferedImage;
 )
 @Slf4j
 public class AutoBankStanderPlugin extends Plugin {
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
     
     @Inject
     private AutoBankStanderConfig config;

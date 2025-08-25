@@ -16,10 +16,10 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginConstants.BGA + "Auto Chompy Killer",
+        name = PluginConstants.DEFAULT_PREFIX + "Chompy Killer",
         description = "Automated chompy bird hunting plugin...",
         tags = {"chompy", "combat"},
-        authors = {"bga"},
+        authors = {"Unknown"},
         version = AutoChompyKillerPlugin.version,
         minClientVersion = "1.9.8",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoChompyKillerPlugin/assets/icon.png",
@@ -29,7 +29,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoChompyKillerPlugin extends Plugin {
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
     @Inject
     private AutoChompyKillerConfig config;
 

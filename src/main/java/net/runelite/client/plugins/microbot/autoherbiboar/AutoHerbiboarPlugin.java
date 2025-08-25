@@ -25,10 +25,10 @@ import java.awt.*;
 import java.util.Set;
 
 @PluginDescriptor(
-        name = PluginConstants.BGA + "Auto Herbiboar",
+        name = PluginConstants.DEFAULT_PREFIX + "Herbiboar",
         description = "Automaticalli hunts herbiboars with trail tracking and banking support",
         tags = {"skilling", "hunter"},
-        authors = {"bga"},
+        authors = {"Unknown"},
         version = AutoHerbiboarPlugin.version,
         minClientVersion = "1.9.8",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoHerbiboarPlugin/assets/icon.png",
@@ -38,7 +38,7 @@ import java.util.Set;
 )
 @Slf4j
 public class AutoHerbiboarPlugin extends Plugin {
-    static final String version = "1.1.0";
+    static final String version = "1.1.1";
     
     private static final Set<Integer> START_OBJECT_IDS = ImmutableSet.of(
         ObjectID.HUNTING_TRAIL_SPAWN_FOSSIL1,
