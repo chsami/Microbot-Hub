@@ -2,11 +2,7 @@ package net.runelite.client.plugins.microbot.toweroflife_creaturecreation;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.NPC;
-import net.runelite.api.events.NpcDespawned;
-import net.runelite.api.events.NpcSpawned;
 import net.runelite.client.config.ConfigManager;
-import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
@@ -41,7 +37,7 @@ public class TowerOfLifeCCPlugin extends Plugin {
 
     @Inject
     TowerOfLifeCCScript towerOfLifeCCScript;
-    static final String version = "1.0.6";
+    static final String version = "1.1.0";
 
     @Override
     protected void startUp() throws AWTException {

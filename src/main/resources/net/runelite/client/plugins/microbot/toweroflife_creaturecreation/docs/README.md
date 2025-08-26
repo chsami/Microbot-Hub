@@ -8,10 +8,11 @@ The **Tower of Life - Creature Creation Plugin** provides an automated method to
 
 ## Feature Overview
 
-| Feature                    | Description                                  |
-|----------------------------|----------------------------------------------|
-| **Selected Creature**      | Choose an NPC to create, kill, and loot.     |
-| **Eat to Full HP at Bank** | Eats to full HP while at the bank if wanted. |
+| Feature                              | Description                                                |
+|--------------------------------------|------------------------------------------------------------|
+| **Selected Creature**                | Choose an NPC to create, kill, and loot.                   |
+| **Eat to Full HP at Bank**           | Eats to full HP while at the bank if wanted.               |
+| **Prefer Lowest Healing Food First** | Whether it will heal to full using low healing food first. |
 
 ---
 

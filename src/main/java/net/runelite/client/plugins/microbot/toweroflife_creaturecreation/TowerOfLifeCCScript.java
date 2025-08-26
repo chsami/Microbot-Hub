@@ -1,11 +1,8 @@
 package net.runelite.client.plugins.microbot.toweroflife_creaturecreation;
 
-import net.runelite.api.NPC;
-import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
-import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -21,6 +18,7 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
@@ -32,7 +30,6 @@ import java.awt.event.KeyEvent;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -170,18 +167,7 @@ public class TowerOfLifeCCScript extends Script {
                     {
                         if (!Rs2Player.isFullHealth())
                         {
-                            for (Rs2Food food : Arrays.stream(Rs2Food.values()).sorted(Comparator.comparingInt(Rs2Food::getHeal).reversed()).collect(Collectors.toList()))
-                            {
-                                if (Rs2Bank.hasItem(food.getId()))
-                                {
-                                    Rs2Bank.withdrawOne(food.getId());
-                                    Rs2Inventory.waitForInventoryChanges(2000);
-                                    Rs2Inventory.interact(food.getId(), "eat");
-                                    Rs2Inventory.waitForInventoryChanges(2000);
-                                    sleepGaussian(1000, 400);
-                                    break;
-                                }
-                            }
+                            HandleFoodAtBank(_config.PreferLowestHealingFood());
                             break;
                         }
                     }
@@ -196,7 +182,6 @@ public class TowerOfLifeCCScript extends Script {
                                 break;
                             }
 
-                            //if (_config.ArdougneMediumDiaryDone())
                             if (Microbot.getVarbitValue(VarbitID.ARDOUGNE_DIARY_MEDIUM_COMPLETE) == 1)
                             {
                                 int numItemsToWithdraw = Rs2Inventory.emptySlotCount() - 1;
@@ -210,10 +195,6 @@ public class TowerOfLifeCCScript extends Script {
                             }
                             Rs2Bank.withdrawOne(ItemID.UNICORN_HORN);
                             Rs2Inventory.waitForInventoryChanges(3000);
-
-                            Rs2Bank.closeBank();
-                            currentState = State.MOVING_TO_ALTAR;
-                            depositedLoot = false;
                             break;
 
                         case SPIDINE:
@@ -224,7 +205,6 @@ public class TowerOfLifeCCScript extends Script {
                                 break;
                             }
 
-                            //if (_config.ArdougneMediumDiaryDone())
                             if (Microbot.getVarbitValue(VarbitID.ARDOUGNE_DIARY_MEDIUM_COMPLETE) == 1)
                             {
                                 int numItemsToWithdraw = Rs2Inventory.emptySlotCount() - 1;
@@ -238,12 +218,12 @@ public class TowerOfLifeCCScript extends Script {
                             }
                             Rs2Bank.withdrawOne(ItemID.RED_SPIDERS_EGGS);
                             Rs2Inventory.waitForInventoryChanges(3000);
-
-                            Rs2Bank.closeBank();
-                            currentState = State.MOVING_TO_ALTAR;
-                            depositedLoot = false;
                             break;
                     }
+                    Rs2Bank.closeBank();
+                    currentState = State.MOVING_TO_ALTAR;
+                    depositedLoot = false;
+                    break;
                 }
                 break;
 
@@ -322,6 +302,53 @@ public class TowerOfLifeCCScript extends Script {
                 }
                 break;
 
+        }
+    }
+
+    void HandleFoodAtBank(boolean preferLowestHealing)
+    {
+        // Eat any food in inventory first
+        List<Rs2ItemModel> foodInInventory = Rs2Inventory.getInventoryFood();
+        if (!foodInInventory.isEmpty())
+        {
+            Rs2Inventory.interact(foodInInventory.stream().findAny().get().getId(), "eat");
+            return;
+        }
+
+        if (preferLowestHealing)
+        {
+            for (Rs2Food food : Arrays.stream(Rs2Food.values()).sorted(Comparator.comparingInt(Rs2Food::getHeal)).collect(Collectors.toList()))
+            {
+                if (Rs2Inventory.hasItem(food.getId()))
+                {
+                    Rs2Inventory.interact(food.getId(), "eat");
+                    Rs2Inventory.waitForInventoryChanges(2000);
+                    break;
+                }
+
+                if (Rs2Bank.hasItem(food.getId()))
+                {
+                    Rs2Bank.withdrawOne(food.getId());
+                    Rs2Inventory.waitForInventoryChanges(2000);
+                    Rs2Inventory.interact(food.getId(), "eat");
+                    Rs2Inventory.waitForInventoryChanges(2000);
+                    sleepGaussian(1000, 400);
+                    break;
+                }
+            }
+            return;
+        }
+        for (Rs2Food food : Arrays.stream(Rs2Food.values()).sorted(Comparator.comparingInt(Rs2Food::getHeal).reversed()).collect(Collectors.toList()))
+        {
+            if (Rs2Bank.hasItem(food.getId()))
+            {
+                Rs2Bank.withdrawOne(food.getId());
+                Rs2Inventory.waitForInventoryChanges(2000);
+                Rs2Inventory.interact(food.getId(), "eat");
+                Rs2Inventory.waitForInventoryChanges(2000);
+                sleepGaussian(1000, 400);
+                break;
+            }
         }
     }
 
