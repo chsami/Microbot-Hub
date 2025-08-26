@@ -2,7 +2,7 @@
 ## Purpose
 NmzScript automates the Nightmare Zone (NMZ) minigame in Old School RuneScape using the Microbot framework. It manages inventory, potion usage, combat, prayer, and in-game interactions to maximize efficiency and survivability during NMZ runs.
 
-![img.png](assets/img.png)
+![img.png](img.png)
 
 ## Key Features
 - Automated Inventory & Equipment Setup
