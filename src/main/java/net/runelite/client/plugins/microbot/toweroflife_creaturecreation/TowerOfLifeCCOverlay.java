@@ -22,7 +22,7 @@ public class TowerOfLifeCCOverlay extends OverlayPanel {
         try {
             panelComponent.setPreferredSize(new Dimension(200, 300));
             panelComponent.getChildren().add(TitleComponent.builder()
-                    .text("Tower of Life V0.0.1")
+                    .text("Tower of Life V" + TowerOfLifeCCPlugin.version)
                     .color(Color.GREEN)
                     .build());
 

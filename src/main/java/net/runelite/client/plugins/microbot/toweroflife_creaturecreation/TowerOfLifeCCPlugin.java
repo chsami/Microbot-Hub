@@ -41,7 +41,7 @@ public class TowerOfLifeCCPlugin extends Plugin {
 
     @Inject
     TowerOfLifeCCScript towerOfLifeCCScript;
-    static final String version = "1.0.0";
+    static final String version = "1.0.6";
 
     @Override
     protected void startUp() throws AWTException {
@@ -55,19 +55,4 @@ public class TowerOfLifeCCPlugin extends Plugin {
         towerOfLifeCCScript.shutdown();
         overlayManager.remove(towerOfLifeCCOverlayOverlay);
     }
-
-    @Subscribe
-    public void onNpcSpawned(NpcSpawned event) {
-        NPC npc = (NPC) event.getActor();
-
-        towerOfLifeCCScript.TryAddNpcToTargets(npc, config);
-    }
-
-    @Subscribe
-    public void onNpcDespawned(NpcDespawned event) {
-        NPC npc = (NPC) event.getActor();
-
-        towerOfLifeCCScript.RemoveNpcFromTargets(npc);
-    }
-
 }

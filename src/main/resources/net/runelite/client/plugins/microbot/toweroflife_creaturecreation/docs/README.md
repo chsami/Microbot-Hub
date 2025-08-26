@@ -8,10 +8,10 @@ The **Tower of Life - Creature Creation Plugin** provides an automated method to
 
 ## Feature Overview
 
-| Feature                        | Description                                       |
-|--------------------------------|---------------------------------------------------|
-| **Selected Creature**          | Choose an NPC to create, kill, and loot.          |
-| **Pickup Satchels**            | Loots satchels dropped by the creatures summoned. |
+| Feature                    | Description                                  |
+|----------------------------|----------------------------------------------|
+| **Selected Creature**      | Choose an NPC to create, kill, and loot.     |
+| **Eat to Full HP at Bank** | Eats to full HP while at the bank if wanted. |
 
 ---
 
@@ -20,6 +20,7 @@ The **Tower of Life - Creature Creation Plugin** provides an automated method to
 - Plugin enabled in the Microbot plugin list
 - Tower of Life quest complete.
 - Required items to create your selected creature stocked in your bank. (Cowhides & at least 1 Unicorn horn for Unicows etc.)
+- Food in the bank, if using config option: Eat to Full HP at Bank.
 
 ---
 
@@ -34,6 +35,7 @@ The **Tower of Life - Creature Creation Plugin** provides an automated method to
 ## Limitations
 - Only has implementation for Unicows and Spidine.
 - Currently only supports the use of the Ardougne South bank.
+- Complete the Ardougne Medium Diary for a more efficient experience.
 
 ---
 

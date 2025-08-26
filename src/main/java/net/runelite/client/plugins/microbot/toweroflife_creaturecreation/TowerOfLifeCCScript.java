@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.toweroflife_creaturecreation;
 
 import net.runelite.api.NPC;
+import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
@@ -21,15 +22,19 @@ import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
+import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.awt.event.KeyEvent;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class TowerOfLifeCCScript extends Script {
     enum State {
@@ -48,7 +53,8 @@ public class TowerOfLifeCCScript extends Script {
     boolean arrivedInTower = false;
     boolean inBasement = false;
 
-    boolean looting = false;
+    private long lastKillTime = 0;
+
     LootingParameters spidineLootParams = new LootingParameters(
             10,
             1,
@@ -67,7 +73,7 @@ public class TowerOfLifeCCScript extends Script {
             true,
             "unicorn horn"
     );
-    List<Rs2NpcModel> targetList = new CopyOnWriteArrayList<>();
+    Rs2NpcModel summonedCreature = null;
 
     public boolean run(TowerOfLifeCCConfig config) {
         Microbot.enableAutoRunOn = false;
@@ -75,7 +81,7 @@ public class TowerOfLifeCCScript extends Script {
         InitialiseAntiban();
         depositedLoot = false;
         arrivedInTower = false;
-        targetList.clear();
+        summonedCreature = null;
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -121,7 +127,7 @@ public class TowerOfLifeCCScript extends Script {
     public void shutdown()
     {
         super.shutdown();
-        targetList.clear();
+        summonedCreature = null;
         depositedLoot = false;
         arrivedInTower = false;
     }
@@ -160,13 +166,33 @@ public class TowerOfLifeCCScript extends Script {
                         break;
                     }
 
+                    if (_config.EatFoodAtBank())
+                    {
+                        if (!Rs2Player.isFullHealth())
+                        {
+                            for (Rs2Food food : Arrays.stream(Rs2Food.values()).sorted(Comparator.comparingInt(Rs2Food::getHeal).reversed()).collect(Collectors.toList()))
+                            {
+                                if (Rs2Bank.hasItem(food.getId()))
+                                {
+                                    Rs2Bank.withdrawOne(food.getId());
+                                    Rs2Inventory.waitForInventoryChanges(2000);
+                                    Rs2Inventory.interact(food.getId(), "eat");
+                                    Rs2Inventory.waitForInventoryChanges(2000);
+                                    sleepGaussian(1000, 400);
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+
                     switch (_config.SelectedCreature())
                     {
                         case UNICOW:
                             if (!Rs2Bank.hasItem(ItemID.COW_HIDE))
                             {
                                 Microbot.showMessage("No cowhides found in bank! Shutting down.");
-                                this.shutdown();
+                                Microbot.stopPlugin(TowerOfLifeCCPlugin.class);
                                 break;
                             }
 
@@ -194,7 +220,7 @@ public class TowerOfLifeCCScript extends Script {
                             if (!Rs2Bank.hasItem(ItemID.RAW_SARDINE))
                             {
                                 Microbot.showMessage("No raw sardines found in bank! Shutting down.");
-                                this.shutdown();
+                                Microbot.stopPlugin(TowerOfLifeCCPlugin.class);
                                 break;
                             }
 
@@ -287,113 +313,71 @@ public class TowerOfLifeCCScript extends Script {
                 switch (_config.SelectedCreature())
                 {
                     case UNICOW:
-                        looting = Rs2GroundItem.lootItemsBasedOnNames(unicowLootParams);
-
-                        if (targetList.isEmpty())
-                        {
-                            // We need at least 1 cow hide to create a creature
-                            if (Rs2Inventory.hasItem(ItemID.COW_HIDE))
-                            {
-                                Rs2Inventory.useItemOnObject(ItemID.UNICORN_HORN, altarObjectId);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-                                Rs2Inventory.useItemOnObject(ItemID.COW_HIDE, altarObjectId);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-
-                                Rs2GameObject.interact(altarObjectId, "Activate");
-                                sleepUntil(() -> !targetList.isEmpty(), 5000);
-                                break;
-                            }
-                            else if (!looting)
-                            {
-                                currentState = State.MOVING_TO_BANK;
-                                break;
-                            }
-                        }
-                        else if (!Rs2Combat.inCombat())
-                        {
-                            Rs2NpcModel target = targetList.stream().findAny().orElse(null);
-                            assert target != null;
-
-                            if (!target.isDead())
-                            {
-                                Rs2Npc.attack(target);
-                            }
-                        }
-
+                        HandleCreature(unicowLootParams, ItemID.COW_HIDE, ItemID.UNICORN_HORN);
                         break;
 
                     case SPIDINE:
-                        looting = Rs2GroundItem.lootItemsBasedOnNames(spidineLootParams);
-
-                        if (targetList.isEmpty())
-                        {
-                            // We need at least 1 raw sardine to create a creature
-                            if (Rs2Inventory.hasItem(ItemID.RAW_SARDINE))
-                            {
-                                Rs2Inventory.useItemOnObject(ItemID.RAW_SARDINE, altarObjectId);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-                                Rs2Inventory.useItemOnObject(ItemID.RED_SPIDERS_EGGS, altarObjectId);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-
-                                Rs2GameObject.interact(altarObjectId, "Activate");
-                                sleepUntil(() -> !targetList.isEmpty(), 5000);
-                                break;
-                            }
-                            else if (!looting)
-                            {
-                                currentState = State.MOVING_TO_BANK;
-                                break;
-                            }
-                        }
-                        else if (!Rs2Combat.inCombat())
-                        {
-                            Rs2NpcModel target = targetList.stream().findAny().orElse(null);
-                            assert target != null;
-
-                            if (!target.isDead())
-                            {
-                                Rs2Npc.attack(target);
-                            }
-                        }
-
+                        HandleCreature(spidineLootParams, ItemID.RAW_SARDINE, ItemID.RED_SPIDERS_EGGS);
                         break;
                 }
-
                 break;
+
         }
     }
 
-    public void TryAddNpcToTargets(NPC _npc, TowerOfLifeCCConfig _config)
+    void HandleCreature(LootingParameters params, int disposableItem, int secondaryItem)
     {
-        if (_npc == null) return;
-
-        switch (_config.SelectedCreature())
+        if (Rs2GroundItem.lootItemsBasedOnNames(params))
         {
-            case UNICOW:
-                if (_npc.getId() == NpcID.TOL_UNICOW
-                        && (_npc.getInteracting() == null || _npc.getInteracting() == Microbot.getClient().getLocalPlayer()))
-                {
-                    targetList.add(new Rs2NpcModel(_npc));
-                    Microbot.log("Added " + _npc.getName() + " to targets.");
-                }
-                break;
-
-            case SPIDINE:
-                if (_npc.getId() == NpcID.TOL_SPIDINE
-                        && (_npc.getInteracting() == null || _npc.getInteracting() == Microbot.getClient().getLocalPlayer()))
-                {
-                    targetList.add(new Rs2NpcModel(_npc));
-                    Microbot.log("Added " + _npc.getName() + " to targets.");
-                }
-                break;
+            return;
         }
-    }
 
-    public void RemoveNpcFromTargets(NPC _npc)
-    {
-        if (targetList.removeIf(model -> model.getRuneliteNpc() == _npc))
+        if (summonedCreature == null)
         {
-            Microbot.log("Removed npc from targets: " + _npc.getName());
+            // NPC death cooldown - give loot a chance to spawn
+            if (System.currentTimeMillis() - lastKillTime < 2000) {
+                //Microbot.log("Waiting a couple seconds since kill time before acting");
+                return;
+            }
+
+            // We need at least 1 raw sardine/cow hide to create a creature
+            if (Rs2Inventory.hasItem(disposableItem))
+            {
+                Rs2Inventory.useItemOnObject(disposableItem, altarObjectId);
+                Rs2Inventory.waitForInventoryChanges(3000);
+                Rs2Inventory.useItemOnObject(secondaryItem, altarObjectId);
+                Rs2Inventory.waitForInventoryChanges(3000);
+                Rs2GameObject.interact(altarObjectId, "Activate");
+                sleepUntil(() -> { summonedCreature = Rs2Npc.getNpcs()
+                        .filter(npc -> npc != null
+                                && (npc.getInteracting() == null || npc.getInteracting() == Microbot.getClient().getLocalPlayer()))
+                        .findFirst().orElse(null);
+                    return summonedCreature != null;
+                }, 5000);
+                Microbot.log("Summoned creature");
+            }
+            else
+            {
+                // If there's loot we missed that we want to grab before we leave
+                if (Rs2GroundItem.lootItemsBasedOnNames(params))
+                {
+                    return;
+                }
+
+                currentState = State.MOVING_TO_BANK;
+            }
+        }
+        else if (!Rs2Combat.inCombat())
+        {
+            if (summonedCreature != null && !summonedCreature.isDead())
+            {
+                Rs2Npc.attack(summonedCreature);
+            }
+            else
+            {
+                lastKillTime = System.currentTimeMillis();
+                summonedCreature = null;
+            }
         }
     }
 }

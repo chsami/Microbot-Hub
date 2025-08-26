@@ -17,7 +17,7 @@ import net.runelite.client.plugins.microbot.toweroflife_creaturecreation.enums.T
         "<b>! WARNING !</b><br>" +
         "This is not a particularly dangerous activity, I have not handled safety if you are really low level.<br>" +
         "<br>" +
-        "Uses Ardougne South Bank" +
+        "Uses Ardougne South Bank<br>" +
         "--> Start at the bank &lt;--<br>" +
         "Ironmen rejoice and collect your secondaries!" +
         "</center>")
@@ -31,10 +31,10 @@ public interface TowerOfLifeCCConfig extends Config {
     default ToLCreature SelectedCreature() { return ToLCreature.UNICOW; }
 
     @ConfigItem(
-            name = "Pickup Satchels",
-            keyName = "pickupSatchels",
-            description = "Whether the bot should bother to pickup any satchel that drops",
+            name = "Eat to Full HP at Bank",
+            keyName = "eatFoodAtBank",
+            description = "Whether the bot will eat food to restore hp when banking",
             position = 1
     )
-    default boolean PickupSatchels() { return false; }
+    default boolean EatFoodAtBank() { return true; }
 }
