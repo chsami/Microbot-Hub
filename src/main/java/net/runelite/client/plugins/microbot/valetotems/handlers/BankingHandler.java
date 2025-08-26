@@ -483,6 +483,8 @@ public class BankingHandler {
         Microbot.log("Action Required: Please restock materials in bank before restarting");
         Microbot.log("=============================================");
 
+        Microbot.showMessage("Critical Material Shortage: " + missingItem);
+
         // Update game session state
         gameSession.setState(GameState.STOPPING);
     }
