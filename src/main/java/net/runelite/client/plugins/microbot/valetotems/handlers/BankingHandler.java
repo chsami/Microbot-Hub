@@ -302,20 +302,26 @@ public class BankingHandler {
      */
     private static boolean performStandardBankingOperations(GameSession gameSession) {
         try {
-            // Deposit all except knife
+            // Step 1: Ensure we have a knife in inventory
+            if (!ensureKnifeInInventory(gameSession)) {
+                Microbot.log("Failed to ensure knife availability for standard route");
+                return false;
+            }
+
+            // Step 2: Deposit all except knife
             if (!depositAllExceptKnife()) {
                 Microbot.log("Failed to deposit items for standard route");
                 return false;
             }
 
-            // Check if we have enough materials
+            // Step 3: Check if we have enough materials
             if (!hasSufficientMaterials(1)) {
                 Microbot.log("Not enough materials for standard route - stopping bot");
                 gameSession.setState(GameState.STOPPING);
                 return false;
             }
 
-            // Withdraw required items
+            // Step 4: Withdraw required items
             if (!withdrawRequiredItems(gameSession)) {
                 Microbot.log("Failed to withdraw required items for standard route");
                 return false;
@@ -337,7 +343,7 @@ public class BankingHandler {
             Microbot.log("Starting extended route banking operations");
 
             // Step 1: Ensure we have knife and log basket in inventory
-            if (!ensureKnifeAndLogBasketInInventory()) {
+            if (!ensureKnifeAndLogBasketInInventory(gameSession)) {
                 Microbot.log("Failed to ensure knife and log basket are in inventory");
                 return false;
             }
@@ -616,29 +622,88 @@ public class BankingHandler {
     }
 
     /**
-     * Ensure knife and log basket are in inventory
-     * @return true if both items are available in inventory
+     * Ensure knife is available in inventory (prioritizes fletching knife)
+     * @param gameSession the game session to update if critical errors occur
+     * @return true if knife is available in inventory
      */
-    private static boolean ensureKnifeAndLogBasketInInventory() {
+    private static boolean ensureKnifeInInventory(GameSession gameSession) {
         try {
             if (!Rs2Bank.isOpen() && !openBank()) {
+                Microbot.log("Cannot ensure knife availability - failed to open bank");
                 return false;
             }
 
-            // Ensure we have a knife
+            // Check if we already have a knife in inventory
+            if (InventoryUtils.hasKnife()) {
+                return true;
+            }
+
+            // Try to withdraw fletching knife first (prioritized)
+            if (Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID)) {
+                Microbot.log("Withdrawing Fletching knife from bank (prioritized)");
+                if (Rs2Bank.withdrawOne(InventoryUtils.FLETCHING_KNIFE_ID)) {
+                    sleep(600);
+                    if (InventoryUtils.hasKnife()) {
+                        Microbot.log("Successfully withdrew Fletching knife");
+                        return true;
+                    }
+                } else {
+                    Microbot.log("Failed to withdraw Fletching knife from bank");
+                }
+            }
+
+            // Try to withdraw regular knife as fallback
+            if (Rs2Bank.hasItem(InventoryUtils.KNIFE_ID)) {
+                Microbot.log("Withdrawing regular knife from bank");
+                if (Rs2Bank.withdrawOne(InventoryUtils.KNIFE_ID)) {
+                    sleep(600);
+                    if (InventoryUtils.hasKnife()) {
+                        Microbot.log("Successfully withdrew regular knife");
+                        return true;
+                    }
+                } else {
+                    Microbot.log("Failed to withdraw regular knife from bank");
+                }
+            }
+
+            // No knife found anywhere - critical error
+            handleCriticalMaterialShortage(gameSession, "No knife available (checked inventory and bank for both Fletching knife and regular knife)");
+            return false;
+
+        } catch (Exception e) {
+            Microbot.log("Error ensuring knife in inventory: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Ensure knife and log basket are in inventory (for extended route)
+     * @param gameSession the game session to update if critical errors occur
+     * @return true if both items are available in inventory
+     */
+    private static boolean ensureKnifeAndLogBasketInInventory(GameSession gameSession) {
+        try {
+            if (!Rs2Bank.isOpen() && !openBank()) {
+                Microbot.log("Cannot ensure knife and log basket availability - failed to open bank");
+                return false;
+            }
+
+            // Ensure we have a knife (prioritizing fletching knife)
             if (!InventoryUtils.hasKnife()) {
                 if (Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID)) {
+                    Microbot.log("Withdrawing Fletching knife from bank (prioritized)");
                     if (!Rs2Bank.withdrawOne(InventoryUtils.FLETCHING_KNIFE_ID)) {
                         Microbot.log("Failed to withdraw Fletching knife");
                         return false;
                     }
                 } else if (Rs2Bank.hasItem(InventoryUtils.KNIFE_ID)) {
+                    Microbot.log("Withdrawing regular knife from bank");
                     if (!Rs2Bank.withdrawOne(InventoryUtils.KNIFE_ID)) {
                         Microbot.log("Failed to withdraw knife");
                         return false;
                     }
                 } else {
-                    Microbot.log("No knife found in bank!");
+                    handleCriticalMaterialShortage(gameSession, "No knife available (checked inventory and bank for both Fletching knife and regular knife)");
                     return false;
                 }
                 sleep(600);
@@ -652,7 +717,7 @@ public class BankingHandler {
                         return false;
                     }
                 } else {
-                    Microbot.log("No log basket found in bank!");
+                    handleCriticalMaterialShortage(gameSession, "No log basket available (checked inventory and bank)");
                     return false;
                 }
                 sleep(600);
