@@ -12,13 +12,15 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginDescriptor.Cardew + " Creature Creation",
+        name = PluginConstants.Cardew + " Creature Creation",
         description = "Automates the creature creation process within the Tower of Life basement.",
         tags = {"Tower of life", "creature", "creature creation", "creation", "tol", "cc", "cd", "cardew"},
         authors = "Cardew",
         minClientVersion = "1.9.8",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/TowerOfLifeCCPlugin/assets/card.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/TowerOfLifeCCPlugin/assets/card.png",
         version = TowerOfLifeCCPlugin.version,
-        enabledByDefault = false,
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
@@ -37,7 +39,7 @@ public class TowerOfLifeCCPlugin extends Plugin {
 
     @Inject
     TowerOfLifeCCScript towerOfLifeCCScript;
-    static final String version = "1.1.0";
+    static final String version = "1.1.1";
 
     @Override
     protected void startUp() throws AWTException {
