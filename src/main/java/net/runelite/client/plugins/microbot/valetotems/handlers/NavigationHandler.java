@@ -104,6 +104,19 @@ public class NavigationHandler {
     }
 
     /**
+     * Custom walking method that only enables run energy if we have more than 10% energy
+     * @param worldPoint the target location
+     * @return true if the walk command was successfully issued
+     */
+    private static boolean walkWithRunEnergyCheck(WorldPoint worldPoint) {
+        // Check current run energy before toggling run on
+        int currentRunEnergy = Rs2Player.getRunEnergy();
+        boolean shouldToggleRun = currentRunEnergy > 10;
+
+        return Rs2Walker.walkFastCanvas(worldPoint, shouldToggleRun);
+    }
+
+    /**
      * Navigate to a specific totem location
      * @param totemLocation the target totem location
      * @return true if successfully arrived at the location
@@ -244,9 +257,9 @@ public class NavigationHandler {
                             }
                         }
                         
-                        boolean walkSuccess = Rs2Walker.walkFastCanvas(nextCheckpoint);
+                        boolean walkSuccess = walkWithRunEnergyCheck(nextCheckpoint);
                         updateWalkActionTimer();
-                        
+
                         // Implement fallback system if walkFastCanvas fails (likely due to unloaded tiles)
                         if (!walkSuccess) {
                             handleWalkingFallback(path, currentIndexOnPath, tilesForward);
@@ -258,9 +271,9 @@ public class NavigationHandler {
                             updateCameraTurnTimer();
                         }
                         
-                        boolean walkSuccess = Rs2Walker.walkFastCanvas(nextCheckpoint);
+                        boolean walkSuccess = walkWithRunEnergyCheck(nextCheckpoint);
                         updateWalkActionTimer();
-                        
+
                         // Implement the same fallback system for this branch
                         if (!walkSuccess) {
                             handleWalkingFallback(path, currentIndexOnPath, tilesForward);
@@ -502,9 +515,9 @@ public class NavigationHandler {
     }
 
     public static boolean walkOverEntTrail(WorldPoint trailLocation) {
-        Rs2Walker.walkFastCanvas(trailLocation);
+        walkWithRunEnergyCheck(trailLocation);
         sleepUntil(() -> CoordinateUtils.getPlayerLocation().distanceTo(trailLocation) < 3, 8000);
-        Rs2Walker.walkFastCanvas(trailLocation);
+        walkWithRunEnergyCheck(trailLocation);
         sleepUntil(() -> CoordinateUtils.getPlayerLocation().distanceTo(trailLocation) < 1, 2000);
         return CoordinateUtils.getPlayerLocation().distanceTo(trailLocation) < 1;
     }
@@ -715,15 +728,10 @@ public class NavigationHandler {
                                 System.out.println("Path wants to use agility shortcut: " + transport.getType() + " at " + transport.getOrigin());
                                 int distanceToOrigin = currentPosition.distanceTo(transport.getOrigin());
  
-                                // First, walk directly to the agility shortcut origin if we're not already there
+                                                                    // First, walk directly to the agility shortcut origin if we're not already there
                                 if (distanceToOrigin > 2) {
                                     System.out.println("Walking to agility shortcut origin...");
-                                    LocalPoint localOrigin = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), transport.getOrigin());
-                                    if (localOrigin != null && Rs2Camera.isTileOnScreen(localOrigin)) {
-                                        Rs2Walker.walkFastCanvas(transport.getOrigin());
-                                    } else {
-                                        Rs2Walker.walkMiniMap(transport.getOrigin());
-                                    }
+                                    walkWithRunEnergyCheck(transport.getOrigin());
                                     sleepUntil(() -> CoordinateUtils.getPlayerLocation().distanceTo(transport.getOrigin()) <= 2, 5000);
                                 }
  
@@ -813,7 +821,7 @@ public class NavigationHandler {
             System.out.println("Trying fallback distance: " + fallbackDistance + " tiles");
             
             // walkFastCanvas handles all the internal checks and minimap fallback
-            boolean fallbackSuccess = Rs2Walker.walkFastCanvas(fallbackCheckpoint);
+            boolean fallbackSuccess = walkWithRunEnergyCheck(fallbackCheckpoint);
             
             if (fallbackSuccess) {
                 System.out.println("Fallback successful at distance: " + fallbackDistance + " tiles");
@@ -825,7 +833,7 @@ public class NavigationHandler {
         System.out.println("All fallbacks failed, trying to walk to adjacent tile...");
         if (currentIndexOnPath + 1 < path.size()) {
             WorldPoint adjacentTile = path.get(currentIndexOnPath + 1);
-            return Rs2Walker.walkFastCanvas(adjacentTile); // This will use minimap if needed
+            return walkWithRunEnergyCheck(adjacentTile); // This will use minimap if needed
         }
         
         return false;
