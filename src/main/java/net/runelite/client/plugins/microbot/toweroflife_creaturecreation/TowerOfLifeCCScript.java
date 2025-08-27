@@ -184,17 +184,19 @@ public class TowerOfLifeCCScript extends Script {
 
                             if (Microbot.getVarbitValue(VarbitID.ARDOUGNE_DIARY_MEDIUM_COMPLETE) == 1)
                             {
-                                int numItemsToWithdraw = Rs2Inventory.emptySlotCount() - 1;
+                                int numItemsToWithdraw = (int)Math.floor(Rs2Inventory.emptySlotCount() * 0.5);
                                 Rs2Bank.withdrawX(ItemID.COW_HIDE, numItemsToWithdraw);
+                                Rs2Inventory.waitForInventoryChanges(3000);
+                                Rs2Bank.withdrawX(ItemID.UNICORN_HORN, numItemsToWithdraw);
                                 Rs2Inventory.waitForInventoryChanges(3000);
                             }
                             else
                             {
                                 Rs2Bank.withdrawX(ItemID.COW_HIDE, 7);
                                 Rs2Inventory.waitForInventoryChanges(3000);
+                                Rs2Bank.withdrawOne(ItemID.UNICORN_HORN);
+                                Rs2Inventory.waitForInventoryChanges(3000);
                             }
-                            Rs2Bank.withdrawOne(ItemID.UNICORN_HORN);
-                            Rs2Inventory.waitForInventoryChanges(3000);
                             break;
 
                         case SPIDINE:
@@ -207,17 +209,18 @@ public class TowerOfLifeCCScript extends Script {
 
                             if (Microbot.getVarbitValue(VarbitID.ARDOUGNE_DIARY_MEDIUM_COMPLETE) == 1)
                             {
-                                int numItemsToWithdraw = Rs2Inventory.emptySlotCount() - 1;
+                                int numItemsToWithdraw = (int)Math.floor(Rs2Inventory.emptySlotCount() * 0.5);
                                 Rs2Bank.withdrawX(ItemID.RAW_SARDINE, numItemsToWithdraw);
                                 Rs2Inventory.waitForInventoryChanges(3000);
+                                Rs2Bank.withdrawX(ItemID.RED_SPIDERS_EGGS, numItemsToWithdraw);
                             }
                             else
                             {
                                 Rs2Bank.withdrawX(ItemID.RAW_SARDINE, 4);
                                 Rs2Inventory.waitForInventoryChanges(3000);
+                                Rs2Bank.withdrawOne(ItemID.RED_SPIDERS_EGGS);
+                                Rs2Inventory.waitForInventoryChanges(3000);
                             }
-                            Rs2Bank.withdrawOne(ItemID.RED_SPIDERS_EGGS);
-                            Rs2Inventory.waitForInventoryChanges(3000);
                             break;
                     }
                     Rs2Bank.closeBank();
