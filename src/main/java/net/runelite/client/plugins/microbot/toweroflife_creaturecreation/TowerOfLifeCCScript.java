@@ -213,6 +213,7 @@ public class TowerOfLifeCCScript extends Script {
                                 Rs2Bank.withdrawX(ItemID.RAW_SARDINE, numItemsToWithdraw);
                                 Rs2Inventory.waitForInventoryChanges(3000);
                                 Rs2Bank.withdrawX(ItemID.RED_SPIDERS_EGGS, numItemsToWithdraw);
+                                Rs2Inventory.waitForInventoryChanges(3000);
                             }
                             else
                             {
