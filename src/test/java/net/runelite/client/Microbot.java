@@ -3,16 +3,14 @@ package net.runelite.client;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-import net.runelite.client.plugins.microbot.bonestobananas.BonesToBananasPlugin;
-import net.runelite.client.plugins.microbot.jewelleryenchant.JewelleryEnchantPlugin;;
+import net.runelite.client.plugins.microbot.example.ExamplePlugin;
 
 public class Microbot
 {
 
-    private static final Class<?>[] debugPlugins = {
-            JewelleryEnchantPlugin.class,
-            BonesToBananasPlugin.class
-    };
+	private static final Class<?>[] debugPlugins = {
+		ExamplePlugin.class
+	};
 
     public static void main(String[] args) throws Exception
     {
