@@ -39,7 +39,7 @@ public class TowerOfLifeCCPlugin extends Plugin {
 
     @Inject
     TowerOfLifeCCScript towerOfLifeCCScript;
-    static final String version = "1.1.2";
+    static final String version = "1.1.3";
 
     @Override
     protected void startUp() throws AWTException {

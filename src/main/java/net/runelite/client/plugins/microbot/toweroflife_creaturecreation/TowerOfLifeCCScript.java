@@ -290,8 +290,24 @@ public class TowerOfLifeCCScript extends Script {
 
                 if (Rs2Inventory.isFull())
                 {
-                    currentState = State.MOVING_TO_BANK;
-                    break;
+                    switch(_config.SelectedCreature())
+                    {
+                        // If our inventory is full but we have items to summon
+                        case UNICOW:
+                            if (!Rs2Inventory.hasItem(ItemID.COW_HIDE, ItemID.UNICORN_HORN))
+                            {
+                                currentState = State.MOVING_TO_BANK;
+                                return;
+                            }
+                            break;
+                        case SPIDINE:
+                            if (!Rs2Inventory.hasItem(ItemID.RAW_SARDINE, ItemID.RED_SPIDERS_EGGS))
+                            {
+                                currentState = State.MOVING_TO_BANK;
+                                return;
+                            }
+                            break;
+                    }
                 }
 
                 switch (_config.SelectedCreature())
