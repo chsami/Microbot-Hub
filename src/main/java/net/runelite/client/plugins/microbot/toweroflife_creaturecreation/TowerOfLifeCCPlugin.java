@@ -17,7 +17,7 @@ import java.awt.*;
         tags = {"Tower of life", "creature", "creature creation", "creation", "tol", "cc", "cd", "cardew"},
         authors = "Cardew",
         minClientVersion = "1.9.8",
-        iconUrl = "https://chsami.github.io/Microbot-Hub/TowerOfLifeCCPlugin/assets/card.png",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/TowerOfLifeCCPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/TowerOfLifeCCPlugin/assets/card.png",
         version = TowerOfLifeCCPlugin.version,
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -39,7 +39,7 @@ public class TowerOfLifeCCPlugin extends Plugin {
 
     @Inject
     TowerOfLifeCCScript towerOfLifeCCScript;
-    static final String version = "1.1.3";
+    static final String version = "1.1.4";
 
     @Override
     protected void startUp() throws AWTException {

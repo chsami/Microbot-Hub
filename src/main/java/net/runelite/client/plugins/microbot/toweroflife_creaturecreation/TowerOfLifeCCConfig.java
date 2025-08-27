@@ -9,7 +9,7 @@ import net.runelite.client.plugins.microbot.toweroflife_creaturecreation.enums.T
         "Items to summon selected creature stocked in bank.<br>" +
         "<br>" +
         "It will use your currently equipped gear to kill creatures with.<br>" +
-        "Start with an empty inventory except your teleport runes/tab<br>" +
+        "Start with an empty inventory except your teleport method<br>" +
         "<br>" +
         "<b>! WARNING !</b><br>" +
         "This is not a particularly dangerous activity, I have not handled safety if you are really low level.<br>" +
