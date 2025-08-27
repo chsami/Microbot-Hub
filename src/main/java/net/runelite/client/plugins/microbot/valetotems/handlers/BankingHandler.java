@@ -644,7 +644,7 @@ public class BankingHandler {
             if (Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID)) {
                 Microbot.log("Withdrawing Fletching knife from bank (prioritized)");
                 if (Rs2Bank.withdrawOne(InventoryUtils.FLETCHING_KNIFE_ID)) {
-                    sleep(600);
+                    sleep(1300);
                     if (InventoryUtils.hasKnife()) {
                         Microbot.log("Successfully withdrew Fletching knife");
                         return true;
@@ -658,7 +658,7 @@ public class BankingHandler {
             if (Rs2Bank.hasItem(InventoryUtils.KNIFE_ID)) {
                 Microbot.log("Withdrawing regular knife from bank");
                 if (Rs2Bank.withdrawOne(InventoryUtils.KNIFE_ID)) {
-                    sleep(600);
+                    sleep(1300);
                     if (InventoryUtils.hasKnife()) {
                         Microbot.log("Successfully withdrew regular knife");
                         return true;
@@ -708,7 +708,7 @@ public class BankingHandler {
                     handleCriticalMaterialShortage(gameSession, "No knife available (checked inventory and bank for both Fletching knife and regular knife)");
                     return false;
                 }
-                sleep(600);
+                sleep(1300);
             }
 
             // Ensure we have a log basket
@@ -722,7 +722,7 @@ public class BankingHandler {
                     handleCriticalMaterialShortage(gameSession, "No log basket available (checked inventory and bank)");
                     return false;
                 }
-                sleep(600);
+                sleep(1300);
             }
 
             return InventoryUtils.hasKnife() && InventoryUtils.hasLogBasket();
