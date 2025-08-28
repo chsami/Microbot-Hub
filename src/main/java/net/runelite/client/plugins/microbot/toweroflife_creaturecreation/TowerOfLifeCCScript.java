@@ -298,7 +298,7 @@ public class TowerOfLifeCCScript extends Script {
         {
             int numItemsToWithdraw = (int)Math.floor(Rs2Inventory.emptySlotCount() * 0.5);
 
-            Microbot.log("Number of secondary in bank: " + Rs2Bank.count(secondaryItemID));
+            //Microbot.log("Number of secondary in bank: " + Rs2Bank.count(secondaryItemID));
             if (Rs2Bank.count(secondaryItemID) >= numItemsToWithdraw)
             {
                 Rs2Bank.withdrawX(disposableItemID, numItemsToWithdraw);
@@ -402,7 +402,7 @@ public class TowerOfLifeCCScript extends Script {
                         .findFirst().orElse(null);
                     return summonedCreature != null;
                 }, 5000);
-                Microbot.log("Summoned creature");
+                //Microbot.log("Summoned creature");
             }
             else
             {
