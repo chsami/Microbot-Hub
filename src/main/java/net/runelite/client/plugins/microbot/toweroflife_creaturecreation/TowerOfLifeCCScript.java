@@ -177,11 +177,11 @@ public class TowerOfLifeCCScript extends Script {
                     switch (_config.SelectedCreature())
                     {
                         case UNICOW:
-                            HandleSummonIngredientAtBank(ItemID.COW_HIDE, ItemID.UNICORN_HORN);
+                            HandleSummonIngredientAtBank(ItemID.COW_HIDE, ItemID.UNICORN_HORN, ToLCreature.UNICOW);
                             break;
 
                         case SPIDINE:
-                            HandleSummonIngredientAtBank(ItemID.RAW_SARDINE, ItemID.RED_SPIDERS_EGGS);
+                            HandleSummonIngredientAtBank(ItemID.RAW_SARDINE, ItemID.RED_SPIDERS_EGGS, ToLCreature.SPIDINE);
                             break;
                     }
                     Rs2Bank.closeBank();
@@ -285,7 +285,7 @@ public class TowerOfLifeCCScript extends Script {
         }
     }
 
-    void HandleSummonIngredientAtBank(int disposableItemID, int secondaryItemID)
+    void HandleSummonIngredientAtBank(int disposableItemID, int secondaryItemID, ToLCreature _creature)
     {
         if (!Rs2Bank.hasItem(disposableItemID))
         {
@@ -319,10 +319,20 @@ public class TowerOfLifeCCScript extends Script {
         }
         else
         {
-            Rs2Bank.withdrawX(disposableItemID, 7);
-            Rs2Inventory.waitForInventoryChanges(1000);
-            Rs2Bank.withdrawOne(secondaryItemID);
-            Rs2Inventory.waitForInventoryChanges(1000);
+            if (_creature == ToLCreature.UNICOW)
+            {
+                Rs2Bank.withdrawX(disposableItemID, 7);
+                Rs2Inventory.waitForInventoryChanges(1000);
+                Rs2Bank.withdrawOne(secondaryItemID);
+                Rs2Inventory.waitForInventoryChanges(1000);
+            }
+            else if (_creature == ToLCreature.SPIDINE)
+            {
+                Rs2Bank.withdrawX(disposableItemID, 4);
+                Rs2Inventory.waitForInventoryChanges(1000);
+                Rs2Bank.withdrawOne(secondaryItemID);
+                Rs2Inventory.waitForInventoryChanges(1000);
+            }
         }
     }
 

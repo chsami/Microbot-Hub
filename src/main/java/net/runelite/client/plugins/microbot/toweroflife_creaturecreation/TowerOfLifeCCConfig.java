@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.toweroflife_creaturecreation;
 
 import net.runelite.client.config.*;
-import net.runelite.client.plugins.microbot.toweroflife_creaturecreation.enums.ToLCreature;
 
 @ConfigGroup("TowerOfLifeCC")
 @ConfigInformation("<center>" +
