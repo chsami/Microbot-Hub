@@ -26,12 +26,12 @@ package net.runelite.client.plugins.microbot.tithefarming.models;
 
 import lombok.Getter;
 import lombok.Setter;
-import net.runelite.api.ObjectID;
 import net.runelite.api.TileObject;
+import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.tithefarming.TitheFarmingScript;
 import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmMaterial;
 import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmState;
-import net.runelite.client.plugins.microbot.tithefarming.TitheFarmingScript;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.tithefarm.TitheFarmPlantState;
 
@@ -40,7 +40,6 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
 
-import static net.runelite.api.ObjectID.BOLOGANO_SEEDLING;
 import static net.runelite.api.coords.WorldPoint.fromRegion;
 
 public class TitheFarmPlant {
@@ -74,8 +73,8 @@ public class TitheFarmPlant {
     }
 
     public int[] expectedPatchGameObject() {
-        if (Objects.requireNonNull(net.runelite.client.plugins.microbot.tithefarming.TitheFarmingScript.state) == TitheFarmState.PLANTING_SEEDS) {
-            return new int[]{ObjectID.TITHE_PATCH, BOLOGANO_SEEDLING, ObjectID.LOGAVANO_SEEDLING, ObjectID.GOLOVANOVA_SEEDLING};
+        if (Objects.requireNonNull(TitheFarmingScript.state) == TitheFarmState.PLANTING_SEEDS) {
+            return new int[]{ObjectID.HOSIDIUS_TITHE_EMPTY, ObjectID.HOSIDIUS_TITHE_A_1_DRY, ObjectID.HOSIDIUS_TITHE_B_1_DRY, ObjectID.HOSIDIUS_TITHE_C_1_DRY};
         }
         return new int[]{};
     }
@@ -84,11 +83,11 @@ public class TitheFarmPlant {
         switch (TitheFarmingScript.state) {
             case PLANTING_SEEDS:
                 if (TitheFarmMaterial.getSeedForLevel() == TitheFarmMaterial.BOLOGANO_SEED) {
-                    return new int[]{BOLOGANO_SEEDLING, ObjectID.BOLOGANO_PLANT, ObjectID.BOLOGANO_PLANT_27401};
+                    return new int[]{ObjectID.HOSIDIUS_TITHE_B_1_DRY, ObjectID.HOSIDIUS_TITHE_B_2_DRY, ObjectID.HOSIDIUS_TITHE_B_3_DRY};
                 } else if (TitheFarmMaterial.getSeedForLevel() == TitheFarmMaterial.LOGAVANO_SEED) {
-                    return new int[]{ObjectID.LOGAVANO_SEEDLING, ObjectID.LOGAVANO_PLANT, ObjectID.LOGAVANO_PLANT_27412};
+                    return new int[]{ObjectID.HOSIDIUS_TITHE_C_1_DRY, ObjectID.HOSIDIUS_TITHE_C_2_DRY, ObjectID.HOSIDIUS_TITHE_C_3_DRY};
                 } else if (TitheFarmMaterial.getSeedForLevel() == TitheFarmMaterial.GOLOVANOVA_SEED) {
-                    return new int[]{ObjectID.GOLOVANOVA_SEEDLING, ObjectID.GOLOVANOVA_PLANT, ObjectID.GOLOVANOVA_PLANT_27390};
+                    return new int[]{ObjectID.HOSIDIUS_TITHE_A_1_DRY, ObjectID.HOSIDIUS_TITHE_A_2_DRY, ObjectID.HOSIDIUS_TITHE_A_3_DRY};
                 }
             case HARVEST:
                 //does not apply
@@ -99,17 +98,17 @@ public class TitheFarmPlant {
 
     public int expectedHarvestObject() {
         if (TitheFarmMaterial.getSeedForLevel() == TitheFarmMaterial.BOLOGANO_SEED) {
-            return ObjectID.BOLOGANO_PLANT_27404;
+            return ObjectID.HOSIDIUS_TITHE_B_4;
         } else if (TitheFarmMaterial.getSeedForLevel() == TitheFarmMaterial.LOGAVANO_SEED) {
-            return ObjectID.LOGAVANO_PLANT_27415;
+            return ObjectID.HOSIDIUS_TITHE_C_4;
         } else if (TitheFarmMaterial.getSeedForLevel() == TitheFarmMaterial.GOLOVANOVA_SEED) {
-            return ObjectID.GOLOVANOVA_PLANT_27393;
+            return ObjectID.HOSIDIUS_TITHE_A_4;
         }
         return -1;
     }
 
     public boolean isEmptyPatch() {
-        return gameObject.getId() == ObjectID.TITHE_PATCH;
+        return gameObject.getId() == ObjectID.HOSIDIUS_TITHE_EMPTY;
     }
 
     public boolean isEmptyPatchOrSeedling() {
@@ -125,15 +124,33 @@ public class TitheFarmPlant {
     }
 
     public boolean isStage1() {
-        return getGameObject().getId() == ObjectID.LOGAVANO_PLANT
-                || getGameObject().getId() == ObjectID.GOLOVANOVA_PLANT
-                || getGameObject().getId() == ObjectID.BOLOGANO_PLANT;
+        return getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_A_2_DRY
+                || getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_B_2_DRY
+                || getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_C_2_DRY;
     }
 
     public boolean isStage2() {
-        return getGameObject().getId() == ObjectID.LOGAVANO_PLANT_27412
-                || getGameObject().getId() == ObjectID.BOLOGANO_PLANT_27401
-                || getGameObject().getId() == ObjectID.GOLOVANOVA_PLANT_27390;
+        return getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_A_3_DRY
+                || getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_B_3_DRY
+                || getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_C_3_DRY;
+    }
+
+    public boolean isWatered() {
+        var id = getGameObject().getId();
+        switch (id) {
+            case ObjectID.HOSIDIUS_TITHE_B_1_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_2_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_3_WET:
+            case ObjectID.HOSIDIUS_TITHE_A_1_WET:
+            case ObjectID.HOSIDIUS_TITHE_A_2_WET:
+            case ObjectID.HOSIDIUS_TITHE_A_3_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_1_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_2_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_3_WET:
+                return true;
+            default:
+                return false;
+        }
     }
 
     public double getPlantTimeRelative() {
