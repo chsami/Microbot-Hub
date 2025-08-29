@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.bonestobananas;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigInformation;
+import net.runelite.client.config.ConfigItem;
 
 @ConfigGroup("bonestobananas")
 @ConfigInformation(
@@ -15,4 +16,14 @@ import net.runelite.client.config.ConfigInformation;
                 "▪ No configuration is needed, just enable the plugin!"
 )
 public interface BonesToBananasConfig extends Config {
+
+    @ConfigItem(
+            keyName = "useNaturalMouse",
+            name = "Use Natural Mouse",
+            description = "Uses human-like mouse movements instead of direct clicks.",
+            position = 1
+    )
+    default boolean useNaturalMouse() {
+        return true; // Default to on for safety
+    }
 }

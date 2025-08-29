@@ -4,6 +4,7 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.bonestobananas.util.ElementalStaff;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -22,6 +23,8 @@ public class BonesToBananasScript extends Script {
     private static final int BANANA_ID = ItemID.BANANA;
     private static final int MAGIC_LEVEL_REQUIRED = 15;
 
+    private boolean initialNaturalMouseState;
+
     private static final Spell BONES_TO_BANANAS_SPELL = new Spell() {
         @Override public MagicAction getMagicAction() { return MagicAction.BONES_TO_BANANAS; }
         @Override public HashMap<Runes, Integer> getRequiredRunes() {
@@ -36,6 +39,9 @@ public class BonesToBananasScript extends Script {
     };
 
     public boolean run(BonesToBananasConfig config) {
+        initialNaturalMouseState = Rs2AntibanSettings.naturalMouse;
+        Rs2AntibanSettings.naturalMouse = config.useNaturalMouse();
+
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn() || !super.run()) return;
@@ -64,17 +70,50 @@ public class BonesToBananasScript extends Script {
         return true;
     }
 
+    // FIX: Removed the incorrect @Override annotation from this method.
+    public void shutdown() {
+        Rs2AntibanSettings.naturalMouse = initialNaturalMouseState;
+        super.shutdown();
+    }
+
     private void bankAndRestock() {
         if (!Rs2Bank.isOpen()) {
             Rs2Bank.openBank();
             return;
         }
-
         Rs2Bank.depositAll(BANANA_ID);
-        sleep(200, 300);
-
+        sleep(300, 500);
+        handleStaffEquipping();
         ensureCorrectRunes();
         handleBoneWithdrawal();
+    }
+
+    private void handleStaffEquipping() {
+        if (Rs2Equipment.isWearing(ItemID.MUD_BATTLESTAFF) || Rs2Equipment.isWearing(ItemID.MYSTIC_MUD_STAFF)) {
+            return;
+        }
+        int staffToEquip = findBestStaffInBank();
+        if (staffToEquip != -1) {
+            final int finalStaffId = staffToEquip;
+            Rs2Bank.withdrawAndEquip(finalStaffId);
+            sleepUntil(() -> Rs2Equipment.isWearing(finalStaffId), 3000);
+            for (ElementalStaff staff : ElementalStaff.values()) {
+                if (Rs2Inventory.hasItem(staff.getItemId()) && !Rs2Equipment.isWearing(staff.getItemId())) {
+                    Rs2Bank.depositAll(staff.getItemId());
+                    sleep(200, 300);
+                }
+            }
+        }
+    }
+
+    private int findBestStaffInBank() {
+        if (Rs2Bank.hasItem(ItemID.MUD_BATTLESTAFF)) {
+            return ItemID.MUD_BATTLESTAFF;
+        }
+        if (Rs2Bank.hasItem(ItemID.MYSTIC_MUD_STAFF)) {
+            return ItemID.MYSTIC_MUD_STAFF;
+        }
+        return -1;
     }
 
     private boolean isWearingElementalStaffFor(Runes rune) {
