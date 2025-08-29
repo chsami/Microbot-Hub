@@ -18,6 +18,7 @@ import java.awt.*;
 	description = "Uses logs on campfires around the Grand Exchange.",
 	tags = {"firemaking", "campfire", "grand", "exchange", "ge"},
 	cardUrl = "https://chsami.github.io/Microbot-Hub/GEFiremakerPlugin/assets/card.png",
+    iconUrl = "https://chsami.github.io/Microbot-Hub/GEFiremakerPlugin/assets/firemaking.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL,
 	minClientVersion = "1.9.6"
@@ -25,7 +26,7 @@ import java.awt.*;
 
 @Slf4j
 public class GEFiremakerPlugin extends Plugin {
-	static final String version = "1.0.0";
+	static final String version = "1.0.1";
     @Inject
     private GEFiremakerConfig config;
     @Inject

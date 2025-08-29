@@ -37,6 +37,8 @@ Use at your own risk.
 ---
 
 ## Changelog
+### 1.0.1
+- Add PNG icon
 
 ### 1.0.0
 - Initial Release
