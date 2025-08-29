@@ -12,7 +12,7 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginDescriptor.Mocrosoft + "Jad Helper",
+        name = PluginConstants.MOCROSOFT + "Jad Helper",
         description = "Auto prays jad attacks and attacks healers",
         tags = {"jad", "microbot"},
         authors = { "Mocrosoft" },
@@ -25,7 +25,7 @@ import java.awt.*;
 )
 @Slf4j
 public class JadPlugin extends Plugin {
-    static final String version = "1.0.5";
+    static final String version = "1.0.6";
 
     @Inject
     private JadConfig config;

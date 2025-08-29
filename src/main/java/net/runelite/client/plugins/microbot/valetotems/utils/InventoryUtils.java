@@ -369,11 +369,6 @@ public class InventoryUtils {
                 System.err.println("No log basket in inventory to fill");
                 return false;
             }
-
-            if (Rs2Bank.isOpen()) {
-                Rs2Bank.closeBank();
-                sleep(500, 800);
-            }
             
             int currentLogsInBasket = gameSession.getLogBasketLogCount();
             int maxBasketCapacity = 28;
@@ -400,7 +395,7 @@ public class InventoryUtils {
             boolean interacted = Rs2Inventory.interact(LOG_BASKET_ID, "Fill");
             if (interacted) {
                 // Wait for the filling to complete
-                sleep(700, 1200);
+                Rs2Inventory.waitForInventoryChanges(3000);
 
                 int logsInInventoryEnd = getLogCount();
 

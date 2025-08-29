@@ -11,10 +11,12 @@ import net.runelite.client.plugins.microbot.valetotems.utils.InventoryUtils;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
+import static net.runelite.client.plugins.microbot.util.Global.sleepGaussian;
 
 import java.util.Random;
 import net.runelite.client.plugins.microbot.valetotems.enums.TotemLocation;
@@ -130,7 +132,7 @@ public class BankingHandler {
             boolean deposited = Rs2Bank.depositAllExcept(InventoryUtils.KNIFE_ID, InventoryUtils.FLETCHING_KNIFE_ID);
             
             if (deposited) {
-                sleep(600); // Wait for deposit animation
+                sleep(1300);
             }
 
             return true;
@@ -171,7 +173,7 @@ public class BankingHandler {
             boolean withdrew = Rs2Bank.withdrawX(logId, logsToWithdraw);
             if (withdrew) {
                 Microbot.log("Successfully withdrew " + logsToWithdraw + " " + logTypeName);
-                sleep(1000); // Wait for withdraw
+                Rs2Inventory.waitForInventoryChanges(3000);
             } else {
                 Microbot.log("Failed to withdraw logs from bank");
                 return false;
@@ -578,7 +580,7 @@ public class BankingHandler {
                 Microbot.log("Withdrawing log basket from bank for extended route");
                 boolean withdrew = Rs2Bank.withdrawOne(InventoryUtils.LOG_BASKET_ID);
                 if (withdrew) {
-                    sleep(600); // Wait for withdrawal
+                    Rs2Inventory.waitForInventoryChanges(3000);
                     return InventoryUtils.hasLogBasket();
                 } else {
                     Microbot.log("Failed to withdraw log basket from bank");
@@ -613,7 +615,7 @@ public class BankingHandler {
             );
             
             if (deposited) {
-                sleep(600); // Wait for deposit animation
+                Rs2Inventory.waitForInventoryChanges(3000);
             }
 
             return true;
@@ -644,7 +646,7 @@ public class BankingHandler {
             if (Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID)) {
                 Microbot.log("Withdrawing Fletching knife from bank (prioritized)");
                 if (Rs2Bank.withdrawOne(InventoryUtils.FLETCHING_KNIFE_ID)) {
-                    sleep(600);
+                    Rs2Inventory.waitForInventoryChanges(3000);
                     if (InventoryUtils.hasKnife()) {
                         Microbot.log("Successfully withdrew Fletching knife");
                         return true;
@@ -658,7 +660,7 @@ public class BankingHandler {
             if (Rs2Bank.hasItem(InventoryUtils.KNIFE_ID)) {
                 Microbot.log("Withdrawing regular knife from bank");
                 if (Rs2Bank.withdrawOne(InventoryUtils.KNIFE_ID)) {
-                    sleep(600);
+                    Rs2Inventory.waitForInventoryChanges(3000);
                     if (InventoryUtils.hasKnife()) {
                         Microbot.log("Successfully withdrew regular knife");
                         return true;
@@ -708,7 +710,7 @@ public class BankingHandler {
                     handleCriticalMaterialShortage(gameSession, "No knife available (checked inventory and bank for both Fletching knife and regular knife)");
                     return false;
                 }
-                sleep(600);
+                Rs2Inventory.waitForInventoryChanges(3000);
             }
 
             // Ensure we have a log basket
@@ -722,7 +724,7 @@ public class BankingHandler {
                     handleCriticalMaterialShortage(gameSession, "No log basket available (checked inventory and bank)");
                     return false;
                 }
-                sleep(600);
+                Rs2Inventory.waitForInventoryChanges(3000);
             }
 
             return InventoryUtils.hasKnife() && InventoryUtils.hasLogBasket();
@@ -755,11 +757,13 @@ public class BankingHandler {
                 Microbot.log("Failed to withdraw logs to fill inventory");
                 return false;
             }
-            sleep(300,800);
+
+            Rs2Inventory.waitForInventoryChanges(3000);
 
             // Step 2: Close bank
             Rs2Bank.closeBank();
-            sleep(500,1000);
+
+            sleepGaussian(500,300);
 
             // Step 3: Fill log basket with logs from inventory
             if (!InventoryUtils.fillLogBasket(gameSession)) {
@@ -781,7 +785,7 @@ public class BankingHandler {
                     Microbot.log("Failed to withdraw additional logs");
                     return false;
                 }
-                sleep(1000);
+                Rs2Inventory.waitForInventoryChanges(3000);
             }
 
             Microbot.log("Log basket filling operation completed successfully");

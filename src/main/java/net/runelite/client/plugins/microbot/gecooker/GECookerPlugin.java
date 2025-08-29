@@ -18,6 +18,7 @@ import java.awt.*;
 	description = "Cooks items on fires found at the Grand Exchange.",
 	tags = {"cooking", "grand", "exchange", "ge", "fish", "raw"},
 	cardUrl = "https://chsami.github.io/Microbot-Hub/GECookerPlugin/assets/card.png",
+    iconUrl = "https://chsami.github.io/Microbot-Hub/GECookerPlugin/assets/cooking.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL,
 	minClientVersion = "1.9.6"
@@ -25,7 +26,7 @@ import java.awt.*;
 
 @Slf4j
 public class GECookerPlugin extends Plugin {
-	static final String version = "1.0.0";
+	static final String version = "1.0.1";
     @Inject
     private GECookerConfig config;
     @Inject

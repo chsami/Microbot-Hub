@@ -80,6 +80,8 @@ public class TowerOfLifeCCScript extends Script {
         arrivedInTower = false;
         summonedCreature = null;
 
+        currentState = State.MOVING_TO_BANK;
+
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -149,15 +151,15 @@ public class TowerOfLifeCCScript extends Script {
                 {
                     if (!depositedLoot)
                     {
-                        if (Rs2Inventory.hasItem(ItemID.RED_SPIDERS_EGGS))
+                        if (Rs2Inventory.hasItem("red spiders", false))
                         {
-                            Rs2Bank.depositAll(ItemID.RED_SPIDERS_EGGS);
-                            Rs2Inventory.waitForInventoryChanges(3000);
+                            Rs2Bank.depositAll("red spiders", false);
+                            Rs2Inventory.waitForInventoryChanges(1000);
                         }
-                        if (Rs2Inventory.hasItem(ItemID.UNICORN_HORN))
+                        if (Rs2Inventory.hasItem("unicorn horn"))
                         {
-                            Rs2Bank.depositAll(ItemID.UNICORN_HORN);
-                            Rs2Inventory.waitForInventoryChanges(3000);
+                            Rs2Bank.depositAll("unicorn horn");
+                            Rs2Inventory.waitForInventoryChanges(1000);
                         }
                         depositedLoot = true;
                         break;
@@ -175,53 +177,11 @@ public class TowerOfLifeCCScript extends Script {
                     switch (_config.SelectedCreature())
                     {
                         case UNICOW:
-                            if (!Rs2Bank.hasItem(ItemID.COW_HIDE))
-                            {
-                                Microbot.showMessage("No cowhides found in bank! Shutting down.");
-                                Microbot.stopPlugin(TowerOfLifeCCPlugin.class);
-                                break;
-                            }
-
-                            if (Microbot.getVarbitValue(VarbitID.ARDOUGNE_DIARY_MEDIUM_COMPLETE) == 1)
-                            {
-                                int numItemsToWithdraw = (int)Math.floor(Rs2Inventory.emptySlotCount() * 0.5);
-                                Rs2Bank.withdrawX(ItemID.COW_HIDE, numItemsToWithdraw);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-                                Rs2Bank.withdrawX(ItemID.UNICORN_HORN, numItemsToWithdraw);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-                            }
-                            else
-                            {
-                                Rs2Bank.withdrawX(ItemID.COW_HIDE, 7);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-                                Rs2Bank.withdrawOne(ItemID.UNICORN_HORN);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-                            }
+                            HandleSummonIngredientAtBank(ItemID.COW_HIDE, ItemID.UNICORN_HORN, ToLCreature.UNICOW);
                             break;
 
                         case SPIDINE:
-                            if (!Rs2Bank.hasItem(ItemID.RAW_SARDINE))
-                            {
-                                Microbot.showMessage("No raw sardines found in bank! Shutting down.");
-                                Microbot.stopPlugin(TowerOfLifeCCPlugin.class);
-                                break;
-                            }
-
-                            if (Microbot.getVarbitValue(VarbitID.ARDOUGNE_DIARY_MEDIUM_COMPLETE) == 1)
-                            {
-                                int numItemsToWithdraw = (int)Math.floor(Rs2Inventory.emptySlotCount() * 0.5);
-                                Rs2Bank.withdrawX(ItemID.RAW_SARDINE, numItemsToWithdraw);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-                                Rs2Bank.withdrawX(ItemID.RED_SPIDERS_EGGS, numItemsToWithdraw);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-                            }
-                            else
-                            {
-                                Rs2Bank.withdrawX(ItemID.RAW_SARDINE, 4);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-                                Rs2Bank.withdrawOne(ItemID.RED_SPIDERS_EGGS);
-                                Rs2Inventory.waitForInventoryChanges(3000);
-                            }
+                            HandleSummonIngredientAtBank(ItemID.RAW_SARDINE, ItemID.RED_SPIDERS_EGGS, ToLCreature.SPIDINE);
                             break;
                     }
                     Rs2Bank.closeBank();
@@ -325,6 +285,57 @@ public class TowerOfLifeCCScript extends Script {
         }
     }
 
+    void HandleSummonIngredientAtBank(int disposableItemID, int secondaryItemID, ToLCreature _creature)
+    {
+        if (!Rs2Bank.hasItem(disposableItemID))
+        {
+            Microbot.showMessage("Missing items in bank! Shutting down.");
+            Microbot.stopPlugin(TowerOfLifeCCPlugin.class);
+            return;
+        }
+
+        if (Microbot.getVarbitValue(VarbitID.ARDOUGNE_DIARY_MEDIUM_COMPLETE) == 1)
+        {
+            int numItemsToWithdraw = (int)Math.floor(Rs2Inventory.emptySlotCount() * 0.5);
+
+            //Microbot.log("Number of secondary in bank: " + Rs2Bank.count(secondaryItemID));
+            if (Rs2Bank.count(secondaryItemID) >= numItemsToWithdraw)
+            {
+                Rs2Bank.withdrawX(disposableItemID, numItemsToWithdraw);
+                Rs2Inventory.waitForInventoryChanges(1000);
+                Rs2Bank.withdrawX(secondaryItemID, numItemsToWithdraw);
+                Rs2Inventory.waitForInventoryChanges(1000);
+            }
+            else
+            {
+                // Start a run with the lesser number of ingredients
+                numItemsToWithdraw = Rs2Bank.count(secondaryItemID);
+
+                Rs2Bank.withdrawX(disposableItemID, numItemsToWithdraw);
+                Rs2Inventory.waitForInventoryChanges(1000);
+                Rs2Bank.withdrawX(secondaryItemID, numItemsToWithdraw);
+                Rs2Inventory.waitForInventoryChanges(1000);
+            }
+        }
+        else
+        {
+            if (_creature == ToLCreature.UNICOW)
+            {
+                Rs2Bank.withdrawX(disposableItemID, 7);
+                Rs2Inventory.waitForInventoryChanges(1000);
+                Rs2Bank.withdrawOne(secondaryItemID);
+                Rs2Inventory.waitForInventoryChanges(1000);
+            }
+            else if (_creature == ToLCreature.SPIDINE)
+            {
+                Rs2Bank.withdrawX(disposableItemID, 4);
+                Rs2Inventory.waitForInventoryChanges(1000);
+                Rs2Bank.withdrawOne(secondaryItemID);
+                Rs2Inventory.waitForInventoryChanges(1000);
+            }
+        }
+    }
+
     void HandleFoodAtBank(boolean preferLowestHealing)
     {
         // Eat any food in inventory first
@@ -390,10 +401,10 @@ public class TowerOfLifeCCScript extends Script {
             // We need at least 1 raw sardine/cow hide to create a creature
             if (Rs2Inventory.hasItem(disposableItem))
             {
-                Rs2Inventory.useItemOnObject(disposableItem, altarObjectId);
-                Rs2Inventory.waitForInventoryChanges(3000);
-                Rs2Inventory.useItemOnObject(secondaryItem, altarObjectId);
-                Rs2Inventory.waitForInventoryChanges(3000);
+                //Rs2Inventory.useItemOnObject(disposableItem, altarObjectId);
+                //Rs2Inventory.waitForInventoryChanges(3000);
+                //Rs2Inventory.useItemOnObject(secondaryItem, altarObjectId);
+                //Rs2Inventory.waitForInventoryChanges(3000);
                 Rs2GameObject.interact(altarObjectId, "Activate");
                 sleepUntil(() -> { summonedCreature = Rs2Npc.getNpcs()
                         .filter(npc -> npc != null
@@ -401,7 +412,7 @@ public class TowerOfLifeCCScript extends Script {
                         .findFirst().orElse(null);
                     return summonedCreature != null;
                 }, 5000);
-                Microbot.log("Summoned creature");
+                //Microbot.log("Summoned creature");
             }
             else
             {

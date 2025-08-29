@@ -28,7 +28,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @PluginDescriptor(
-        name = PluginDescriptor.Mocrosoft + "Tithe Farm",
+        name = PluginConstants.MOCROSOFT + "Tithe Farm",
         description = "Plays the Tithe farm minigame for you!",
         tags = {"tithe farming", "microbot", "skills", "minigame"},
         authors = { "Mocrosoft" },
