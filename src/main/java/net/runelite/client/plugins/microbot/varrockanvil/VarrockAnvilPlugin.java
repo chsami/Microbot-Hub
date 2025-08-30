@@ -18,6 +18,7 @@ import java.awt.*;
 	description = "Smith items at the anvils in Varrock West.",
 	tags = {"smithing", "varrock", "anvil"},
 	cardUrl = "https://chsami.github.io/Microbot-Hub/VarrockAnvilPlugin/assets/card.png",
+    iconUrl = "https://chsami.github.io/Microbot-Hub/VarrockAnvilPlugin/assets/icon.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL,
 	minClientVersion = "1.9.6"
@@ -25,7 +26,7 @@ import java.awt.*;
 
 @Slf4j
 public class VarrockAnvilPlugin extends Plugin {
-	static final String version = "1.0.2";
+	static final String version = "1.0.3";
     @Inject
     private VarrockAnvilConfig config;
     @Inject

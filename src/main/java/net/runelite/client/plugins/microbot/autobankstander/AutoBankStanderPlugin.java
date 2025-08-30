@@ -33,7 +33,7 @@ import java.awt.image.BufferedImage;
 )
 @Slf4j
 public class AutoBankStanderPlugin extends Plugin {
-    static final String version = "1.0.1";
+    static final String version = "1.0.2";
     
     @Inject
     private AutoBankStanderConfig config;
@@ -137,7 +137,7 @@ public class AutoBankStanderPlugin extends Plugin {
             
             // load the crafting icon from resources
             final BufferedImage icon = ImageUtil.loadImageResource(AutoBankStanderPlugin.class, 
-                "assets/icon.png");
+                "icon.png");
             
             // create navigation button
             navButton = NavigationButton.builder()
