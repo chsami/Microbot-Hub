@@ -5,11 +5,12 @@ import net.runelite.api.coords.WorldPoint;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.List;
+import java.util.Arrays;
 
 public final class ThievingData {
     public static final WorldPoint NULL_WORLD_POINT = new WorldPoint(-1,-1,-1);
     public static final WorldPoint OUTSIDE_HALLOWED_BANK = new WorldPoint(3654,3384,0);
-
     public static final WorldArea ARDOUGNE_AREA = new WorldArea(2649, 3280, 7, 8, 0);
 
     public static final Set<String> VYRE_SET = Set.of(
@@ -79,4 +80,11 @@ public final class ThievingData {
             "Goreu");
 
     public static final Set<String> VYRES = VYRE_HOUSES.keySet();
+
+    public static final List<String> ANCIENT_BREW_DOSES = Arrays.asList(
+        "Ancient brew(1)",
+        "Ancient brew(2)",
+        "Ancient brew(3)",
+        "Ancient brew(4)"
+    );
 }

@@ -109,7 +109,7 @@ public interface ThievingConfig extends Config {
 
     @ConfigItem(
             keyName = "UseFood",
-            name = "Auto Eat Food",
+            name = "Use Food",
             description = "Automatically eat food if HP is low.",
             position = 0,
             section = foodSection
@@ -119,10 +119,21 @@ public interface ThievingConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "useAncientBrew",
+            name = "Use Ancient Brew",
+            description = "Use ancient brews instead of food.",
+            position = 1,
+            section = foodSection
+    )
+    default boolean useAncientBrew() {
+        return false;
+    }
+
+    @ConfigItem(
         keyName = "eatFullHpBank",
         name = "Eat Until Full Life (Bank)",
         description = "Eat until full life during bank, before stealing again.",
-        position = 1,
+        position = 2,
         section = foodSection
     )
     default boolean eatFullHpBank() {
@@ -133,7 +144,7 @@ public interface ThievingConfig extends Config {
             keyName = "Hitpoints",
             name = "Eat Below HP %",
             description = "Eat food when HP falls below this percent.",
-            position = 2,
+            position = 3,
             section = foodSection
     )
     default int hitpoints() {
@@ -144,7 +155,7 @@ public interface ThievingConfig extends Config {
             keyName = "Food",
             name = "Food Type",
             description = "Type of food to use.",
-            position = 3,
+            position = 4,
             section = foodSection
     )
     default Rs2Food food() {
@@ -153,9 +164,9 @@ public interface ThievingConfig extends Config {
 
     @ConfigItem(
             keyName = "FoodAmount",
-            name = "Food Amount",
-            description = "Amount of food to withdraw from bank.",
-            position = 4,
+            name = "Food/Pot Amount",
+            description = "Amount of food or ancient brews to withdraw from bank.",
+            position = 5,
             section = foodSection
     )
     default int foodAmount() {
