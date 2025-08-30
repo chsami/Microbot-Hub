@@ -11,10 +11,12 @@ import net.runelite.client.plugins.microbot.valetotems.utils.InventoryUtils;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
+import static net.runelite.client.plugins.microbot.util.Global.sleepGaussian;
 
 import java.util.Random;
 import net.runelite.client.plugins.microbot.valetotems.enums.TotemLocation;
@@ -130,7 +132,7 @@ public class BankingHandler {
             boolean deposited = Rs2Bank.depositAllExcept(InventoryUtils.KNIFE_ID, InventoryUtils.FLETCHING_KNIFE_ID);
             
             if (deposited) {
-                sleep(600); // Wait for deposit animation
+                sleep(1300);
             }
 
             return true;
@@ -171,7 +173,7 @@ public class BankingHandler {
             boolean withdrew = Rs2Bank.withdrawX(logId, logsToWithdraw);
             if (withdrew) {
                 Microbot.log("Successfully withdrew " + logsToWithdraw + " " + logTypeName);
-                sleep(1000); // Wait for withdraw
+                Rs2Inventory.waitForInventoryChanges(3000);
             } else {
                 Microbot.log("Failed to withdraw logs from bank");
                 return false;
@@ -302,20 +304,26 @@ public class BankingHandler {
      */
     private static boolean performStandardBankingOperations(GameSession gameSession) {
         try {
-            // Deposit all except knife
+            // Step 1: Ensure we have a knife in inventory
+            if (!ensureKnifeInInventory(gameSession)) {
+                Microbot.log("Failed to ensure knife availability for standard route");
+                return false;
+            }
+
+            // Step 2: Deposit all except knife
             if (!depositAllExceptKnife()) {
                 Microbot.log("Failed to deposit items for standard route");
                 return false;
             }
 
-            // Check if we have enough materials
+            // Step 3: Check if we have enough materials
             if (!hasSufficientMaterials(1)) {
                 Microbot.log("Not enough materials for standard route - stopping bot");
                 gameSession.setState(GameState.STOPPING);
                 return false;
             }
 
-            // Withdraw required items
+            // Step 4: Withdraw required items
             if (!withdrawRequiredItems(gameSession)) {
                 Microbot.log("Failed to withdraw required items for standard route");
                 return false;
@@ -337,7 +345,7 @@ public class BankingHandler {
             Microbot.log("Starting extended route banking operations");
 
             // Step 1: Ensure we have knife and log basket in inventory
-            if (!ensureKnifeAndLogBasketInInventory()) {
+            if (!ensureKnifeAndLogBasketInInventory(gameSession)) {
                 Microbot.log("Failed to ensure knife and log basket are in inventory");
                 return false;
             }
@@ -477,6 +485,8 @@ public class BankingHandler {
         Microbot.log("Action Required: Please restock materials in bank before restarting");
         Microbot.log("=============================================");
 
+        Microbot.showMessage("Critical Material Shortage: " + missingItem);
+
         // Update game session state
         gameSession.setState(GameState.STOPPING);
     }
@@ -570,7 +580,7 @@ public class BankingHandler {
                 Microbot.log("Withdrawing log basket from bank for extended route");
                 boolean withdrew = Rs2Bank.withdrawOne(InventoryUtils.LOG_BASKET_ID);
                 if (withdrew) {
-                    sleep(600); // Wait for withdrawal
+                    Rs2Inventory.waitForInventoryChanges(3000);
                     return InventoryUtils.hasLogBasket();
                 } else {
                     Microbot.log("Failed to withdraw log basket from bank");
@@ -605,7 +615,7 @@ public class BankingHandler {
             );
             
             if (deposited) {
-                sleep(600); // Wait for deposit animation
+                Rs2Inventory.waitForInventoryChanges(3000);
             }
 
             return true;
@@ -616,32 +626,91 @@ public class BankingHandler {
     }
 
     /**
-     * Ensure knife and log basket are in inventory
-     * @return true if both items are available in inventory
+     * Ensure knife is available in inventory (prioritizes fletching knife)
+     * @param gameSession the game session to update if critical errors occur
+     * @return true if knife is available in inventory
      */
-    private static boolean ensureKnifeAndLogBasketInInventory() {
+    private static boolean ensureKnifeInInventory(GameSession gameSession) {
         try {
             if (!Rs2Bank.isOpen() && !openBank()) {
+                Microbot.log("Cannot ensure knife availability - failed to open bank");
                 return false;
             }
 
-            // Ensure we have a knife
+            // Check if we already have a knife in inventory
+            if (InventoryUtils.hasKnife()) {
+                return true;
+            }
+
+            // Try to withdraw fletching knife first (prioritized)
+            if (Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID)) {
+                Microbot.log("Withdrawing Fletching knife from bank (prioritized)");
+                if (Rs2Bank.withdrawOne(InventoryUtils.FLETCHING_KNIFE_ID)) {
+                    Rs2Inventory.waitForInventoryChanges(3000);
+                    if (InventoryUtils.hasKnife()) {
+                        Microbot.log("Successfully withdrew Fletching knife");
+                        return true;
+                    }
+                } else {
+                    Microbot.log("Failed to withdraw Fletching knife from bank");
+                }
+            }
+
+            // Try to withdraw regular knife as fallback
+            if (Rs2Bank.hasItem(InventoryUtils.KNIFE_ID)) {
+                Microbot.log("Withdrawing regular knife from bank");
+                if (Rs2Bank.withdrawOne(InventoryUtils.KNIFE_ID)) {
+                    Rs2Inventory.waitForInventoryChanges(3000);
+                    if (InventoryUtils.hasKnife()) {
+                        Microbot.log("Successfully withdrew regular knife");
+                        return true;
+                    }
+                } else {
+                    Microbot.log("Failed to withdraw regular knife from bank");
+                }
+            }
+
+            // No knife found anywhere - critical error
+            handleCriticalMaterialShortage(gameSession, "No knife available (checked inventory and bank for both Fletching knife and regular knife)");
+            return false;
+
+        } catch (Exception e) {
+            Microbot.log("Error ensuring knife in inventory: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Ensure knife and log basket are in inventory (for extended route)
+     * @param gameSession the game session to update if critical errors occur
+     * @return true if both items are available in inventory
+     */
+    private static boolean ensureKnifeAndLogBasketInInventory(GameSession gameSession) {
+        try {
+            if (!Rs2Bank.isOpen() && !openBank()) {
+                Microbot.log("Cannot ensure knife and log basket availability - failed to open bank");
+                return false;
+            }
+
+            // Ensure we have a knife (prioritizing fletching knife)
             if (!InventoryUtils.hasKnife()) {
                 if (Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID)) {
+                    Microbot.log("Withdrawing Fletching knife from bank (prioritized)");
                     if (!Rs2Bank.withdrawOne(InventoryUtils.FLETCHING_KNIFE_ID)) {
                         Microbot.log("Failed to withdraw Fletching knife");
                         return false;
                     }
                 } else if (Rs2Bank.hasItem(InventoryUtils.KNIFE_ID)) {
+                    Microbot.log("Withdrawing regular knife from bank");
                     if (!Rs2Bank.withdrawOne(InventoryUtils.KNIFE_ID)) {
                         Microbot.log("Failed to withdraw knife");
                         return false;
                     }
                 } else {
-                    Microbot.log("No knife found in bank!");
+                    handleCriticalMaterialShortage(gameSession, "No knife available (checked inventory and bank for both Fletching knife and regular knife)");
                     return false;
                 }
-                sleep(600);
+                Rs2Inventory.waitForInventoryChanges(3000);
             }
 
             // Ensure we have a log basket
@@ -652,10 +721,10 @@ public class BankingHandler {
                         return false;
                     }
                 } else {
-                    Microbot.log("No log basket found in bank!");
+                    handleCriticalMaterialShortage(gameSession, "No log basket available (checked inventory and bank)");
                     return false;
                 }
-                sleep(600);
+                Rs2Inventory.waitForInventoryChanges(3000);
             }
 
             return InventoryUtils.hasKnife() && InventoryUtils.hasLogBasket();
@@ -688,11 +757,13 @@ public class BankingHandler {
                 Microbot.log("Failed to withdraw logs to fill inventory");
                 return false;
             }
-            sleep(300,800);
+
+            Rs2Inventory.waitForInventoryChanges(3000);
 
             // Step 2: Close bank
             Rs2Bank.closeBank();
-            sleep(500,1000);
+
+            sleepGaussian(500,300);
 
             // Step 3: Fill log basket with logs from inventory
             if (!InventoryUtils.fillLogBasket(gameSession)) {
@@ -714,7 +785,7 @@ public class BankingHandler {
                     Microbot.log("Failed to withdraw additional logs");
                     return false;
                 }
-                sleep(1000);
+                Rs2Inventory.waitForInventoryChanges(3000);
             }
 
             Microbot.log("Log basket filling operation completed successfully");

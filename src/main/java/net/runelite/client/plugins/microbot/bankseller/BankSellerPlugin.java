@@ -18,14 +18,15 @@ import net.runelite.client.plugins.microbot.PluginConstants;
 		authors = {"KSP"},
 		version = BankSellerPlugin.version,
 		minClientVersion = "1.9.8",
-		iconUrl = "https://chsami.github.io/Microbot-Hub/BankSellerPlugin/assets/icon.png",
+		iconUrl = "https://chsami.github.io/Microbot-Hub/BankSellerPlugin/assets/bank.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/BankSellerPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	    isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class BankSellerPlugin extends Plugin {
 
-	static final String version = "1.0.1";
+	static final String version = "1.0.2";
     @Inject
     private BankSellerConfig config;
 
