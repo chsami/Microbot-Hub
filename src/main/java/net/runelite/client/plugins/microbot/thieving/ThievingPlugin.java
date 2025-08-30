@@ -5,9 +5,10 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Skill;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
-import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -56,6 +57,9 @@ public class ThievingPlugin extends Plugin {
 	private int maxCoinPouch;
     private String name = null;
 
+    @Inject
+    private EventBus eventBus;
+
     @Override
     protected void startUp() throws AWTException {
         if (overlayManager != null) {
@@ -64,6 +68,22 @@ public class ThievingPlugin extends Plugin {
         startXp = 0;
 		maxCoinPouch = determineMaxCoinPouch();
         thievingScript.run();
+
+        eventBus.register(NpcDespawned.class, event -> {
+            // clear the npc reference
+            if (getThievingScript().thievingNpc != null && event.getNpc().getIndex() == getThievingScript().thievingNpc.getIndex()) {
+                log.info("NPC (index={}) properties changed, updating reference", getThievingScript().thievingNpc.getIndex());
+                getThievingScript().thievingNpc = null;
+            }
+        }, 0);
+
+        eventBus.register(ChatMessage.class, event -> {
+            if (!event.getMessage().toLowerCase().contains("you can only cast shadow veil every 30 seconds.")) {
+                return;
+            }
+            log.warn("Attempted to cast shadow veil while it was active");
+            getThievingScript().forceShadowVeilActive = System.currentTimeMillis()+30_000;
+        }, 0);
     }
 
     protected void shutDown() {
@@ -71,6 +91,7 @@ public class ThievingPlugin extends Plugin {
         overlayManager.remove(thievingOverlay);
 		maxCoinPouch = 0;
         startXp = 0;
+        eventBus.unregister(this);
     }
 
     private void setStartXp() {
@@ -106,12 +127,5 @@ public class ThievingPlugin extends Plugin {
 
     public State getState() {
         return thievingScript.currentState;
-    }
-
-    @Subscribe
-    public void onChatMessage(ChatMessage event) {
-        if (!event.getMessage().toLowerCase().contains("you can only cast shadow veil every 30 seconds.")) return;
-        log.warn("Attempted to cast shadow veil while it was active");
-        getThievingScript().forceShadowVeilActive = System.currentTimeMillis()+30_000;
     }
 }

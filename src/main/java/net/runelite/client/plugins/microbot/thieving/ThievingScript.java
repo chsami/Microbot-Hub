@@ -11,6 +11,7 @@ import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.NPC;
 import net.runelite.api.GameState;
+import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.thieving.enums.ThievingNpc;
@@ -32,6 +33,8 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
+import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
+import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
 import java.util.Optional;
@@ -57,10 +60,11 @@ public class ThievingScript extends Script {
     private final ThievingPlugin plugin;
 
     private WorldPoint startingLocation = null;
+    private Rs2NpcModel startingNpc = null;
 
     protected State currentState = State.IDLE;
 
-    private volatile Rs2NpcModel thievingNpc = null;
+    protected volatile Rs2NpcModel thievingNpc = null;
 
     @Getter(AccessLevel.PROTECTED)
     private volatile boolean underAttack;
@@ -82,37 +86,6 @@ public class ThievingScript extends Script {
     public ThievingScript(final ThievingConfig config, final ThievingPlugin plugin) {
         this.config = config;
         this.plugin = plugin;
-    }
-
-    private boolean refreshThievingNpc() {
-        final Rs2NpcModel current = thievingNpc;
-        if (current == null) return false;
-        try {
-            final Optional<Rs2NpcModel> opt = Rs2NpcCache.getNpcByIndex(current.getIndex());
-            if (opt.isPresent() && !isNpcNull(opt.get())) {
-                thievingNpc = opt.get();
-                return true;
-            }
-
-            try {
-                Rs2NpcCache.getInstance().update(0);
-            } catch (Exception e) {
-                log.warn("Failed to perform synchronous NPC cache update", e);
-            }
-
-            final Optional<Rs2NpcModel> opt2 = Rs2NpcCache.getNpcByIndex(current.getIndex());
-            if (opt2.isPresent() && !isNpcNull(opt2.get())) {
-                thievingNpc = opt2.get();
-                return true;
-            }
-
-            thievingNpc = null;
-            return false;
-        } catch (Exception ex) {
-            log.warn("Exception while refreshing thievingNpc from cache", ex);
-            thievingNpc = null;
-            return false;
-        }
     }
 
     private Predicate<Rs2NpcModel> validateName(Predicate<String> stringPredicate) {
@@ -162,12 +135,26 @@ public class ThievingScript extends Script {
     }
 
     private Rs2NpcModel getThievingNpc() {
-        final Rs2NpcModel npc = Rs2NpcCache.getAllNpcs()
+        final Comparator<Rs2NpcModel> comparator;
+
+        if (config.THIEVING_NPC() == ThievingNpc.VYRES && startingNpc != null && startingNpc.getName() != null) {
+            comparator = Comparator
+                    .comparing((Rs2NpcModel npc) -> !startingNpc.getName().equals(npc.getName()))
+                    .thenComparingInt(Rs2NpcModel::getDistanceFromPlayer);
+        } else {
+            comparator = Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer);
+        }
+
+        final Optional<Rs2NpcModel> npcOptional = Rs2NpcCache.getAllNpcs()
                 .filter(getThievingNpcFilter())
                 .filter(n -> !isNpcNull(n))
-                .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer)).orElse(null);
-        if (npc == null) return null;
-        log.info("Found new NPC={} to thieve @ {}", npc.getName(), toString(npc.getWorldLocation()));
+                .min(comparator);
+
+        if (npcOptional.isEmpty()) return null;
+        Rs2NpcModel npc = npcOptional.get();
+        if (thievingNpc == null || !thievingNpc.getName().equals(npc.getName())) {
+            log.info("Found new NPC={} to thieve @ {}", npc.getName(), toString(npc.getWorldLocation()));
+        }
         return npc;
     }
 
@@ -231,6 +218,12 @@ public class ThievingScript extends Script {
 
         if (!hasReqs()) return State.BANK;
 
+        if (config.useAncientBrew()) {
+            if (!Rs2Player.hasPrayerPoints()) return State.DRINK;
+            if (Rs2Player.getHealthPercentage() <= 15 && 
+                !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.REDEMPTION)) Rs2Prayer.toggle(Rs2PrayerEnum.REDEMPTION, true);
+        }
+        
         if (config.useFood() && Rs2Player.getHealthPercentage() <= config.hitpoints()) return State.EAT;
 
         if (Rs2Inventory.isFull()) return State.DROP;
@@ -330,6 +323,11 @@ public class ThievingScript extends Script {
             }
         }
 
+        if (startingNpc == null) { // save the npc for later use in comparisons
+            startingNpc = getThievingNpc();
+            log.info("Set starting npc to {}", startingNpc.getName());
+        }
+
         currentState = getCurrentState();
         if (currentState.isAwaitStuns()) { // some actions like eating/dropping can be done while stunned
             // await stun from most recent pickpocket action
@@ -410,13 +408,17 @@ public class ThievingScript extends Script {
                 Rs2Inventory.dropAll(true, "jug");
                 sleepUntil(() -> Rs2Player.getHealthPercentage() > hp, 800);
                 return;
+            case DRINK:
+                drinkAncientBrew();
+                Rs2Inventory.dropAll(true, "vial");
+                sleepUntil(() -> Rs2Player.hasPrayerPoints(), 800);
+                return; 
             case DROP:
                 dropAllExceptImportant();
                 if (Rs2Inventory.isFull()) Rs2Player.eatAt(99);
                 return;
             case HOP:
                 hopWorld();
-                DOOR_TIMER.unset(); //reset timer door after hop
                 return;
             case COIN_POUCHES:
                 repeatedAction(() -> Rs2Inventory.interact("coin pouch", "Open-all"), () -> !Rs2Inventory.hasItem("coin pouch"), 3);
@@ -429,14 +431,6 @@ public class ThievingScript extends Script {
                 }
                 if (myLoc.distanceTo(startingLocation) <= 5) {
                     if (thievingNpc != null) {
-                        // walkto() in bank may fail and get an incorrect npc at its location
-                        final WorldPoint npcloc = thievingNpc.getWorldLocation();
-                        if (startingLocation.distanceTo(npcloc) > 5) {
-                            log.warn("NPC is invalid. Clearing cached NPC and return at start.");
-                            thievingNpc = null;
-                            walkTo("Walk to start", startingLocation, 3);
-                            return;
-                        }
                         walkTo("Walk to npc ", thievingNpc.getWorldLocation(), 1);
                     } else {
                         hopWorld();
@@ -503,18 +497,7 @@ public class ThievingScript extends Script {
 
                 var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
                 if (highlighted.isEmpty()) {
-                    if (!refreshThievingNpc()) return;
-                    try {
-                        Rs2Npc.pickpocket(thievingNpc);
-                    } catch (NullPointerException ex) {
-                        log.warn("NPC became invalid (null world) during pickpocket interaction, refreshing NPC cache", ex);
-                        refreshThievingNpc();
-                        return;
-                    } catch (Exception ex) {
-                        log.error("Unexpected error while interacting with NPC", ex);
-                        thievingNpc = null;
-                        return;
-                    }
+                    Rs2Npc.pickpocket(thievingNpc);
                 } else {
                     Rs2Npc.pickpocket(highlighted);
                 }
@@ -547,10 +530,17 @@ public class ThievingScript extends Script {
 
     private boolean hasReqs() {
         boolean hasReqs = true;
-        if (Rs2Inventory.getInventoryFood().isEmpty()) {
+        if (config.useFood() && Rs2Inventory.getInventoryFood().isEmpty()) {
             log.info("Missing food");
             hasReqs = false;
         }
+
+        if (config.useAncientBrew() && !hasAncientBrew()) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.REDEMPTION, false);
+            log.info("Missing ancient brew");
+            hasReqs = false;
+        }
+
         if (config.dodgyNecklaceAmount() > 0 && !Rs2Inventory.hasItem("Dodgy necklace")) {
             log.info("Missing dodgy necklaces");
             hasReqs = false;
@@ -647,6 +637,7 @@ public class ThievingScript extends Script {
         final String name = npc.getName();
         if (name == null) return true;
         if (name.isBlank() || name.equalsIgnoreCase("null")) return true;
+        if (npc.getId() == -1) return true;
         final WorldPoint worldPoint = npc.getWorldLocation();
         if (worldPoint == null) return true;
         final WorldPoint myLoc = Rs2Player.getWorldLocation();
@@ -773,6 +764,7 @@ public class ThievingScript extends Script {
         }
         if (config.dodgyNecklaceAmount() > 0) exclusions.add("dodgy necklace");
         if (config.useFood()) exclusions.add(config.food().getName());
+        if (config.useAncientBrew()) exclusions.addAll(ThievingData.ANCIENT_BREW_DOSES);
         return exclusions;
     }
 
@@ -780,13 +772,12 @@ public class ThievingScript extends Script {
         return repeatedAction(
                 () -> {
                     final int deficit = amount-Rs2Inventory.itemQuantity(name, exact);
-                    if (deficit == 0) return;
-                    if (deficit > 0) {
-                        if (Rs2Bank.hasBankItem(name, deficit, exact)) Rs2Bank.withdrawX(name, deficit, exact);
-                    }
+                    if (deficit <= 0) return;
+                    if (Rs2Bank.hasBankItem(name, deficit, exact)) Rs2Bank.withdrawX(name, deficit, exact);
                     else Rs2Bank.depositX(name, deficit);
+                    Rs2Inventory.waitForInventoryChanges(1_500);
                 },
-                () -> Rs2Inventory.itemQuantity(name, exact) == amount,
+                () -> Rs2Inventory.itemQuantity(name, exact) >= amount,
                 () -> {
                     if (!Rs2Bank.isOpen()) {
                         log.warn("Bank is closed while attempting to withdraw");
@@ -830,7 +821,15 @@ public class ThievingScript extends Script {
         if (!Rs2Bank.isOpen() || !isRunning()) return;
         Rs2Bank.depositAllExcept(getExclusions());
 
-        if (!getInventoryAmount(config.food().getName(), config.foodAmount(), true)) {
+        if (config.useAncientBrew()) {
+            if (!getInventoryAmount("Ancient brew(4)", config.foodAmount(), true)) {
+                if (!Rs2Bank.isOpen()) return;
+                showMessage("No Ancient brew found in bank.");
+                shutdown();
+                return;
+            }
+        }
+        else if (!getInventoryAmount(config.food().getName(), config.foodAmount(), true)) {
             if (!Rs2Bank.isOpen()) return;
             showMessage("No " + config.food().getName() + " found in bank.");
             shutdown();
@@ -901,7 +900,7 @@ public class ThievingScript extends Script {
         }
 
         if (walkTo("Return to npc", startingLocation, 3)) {
-            sleepUntilWithInterrupt(() -> !Rs2Player.isMoving(), 2_000);
+            sleepUntilWithInterrupt(() -> !Rs2Player.isMoving(), 1_200);
         }
         DOOR_TIMER.set();
     }
@@ -924,6 +923,7 @@ public class ThievingScript extends Script {
 
     private void hopWorld() {
         thievingNpc = null;
+        DOOR_TIMER.unset();
         final int maxAttempts = 5;
         log.info("Hopping world, please wait");
 
@@ -957,11 +957,29 @@ public class ThievingScript extends Script {
         log.error("Failed to hop world");
     }
 
+    private void drinkAncientBrew() {
+        for (String dose : ThievingData.ANCIENT_BREW_DOSES) {
+            if (Rs2Inventory.contains(dose) && Rs2Inventory.interact(dose, "Drink")) {
+                log.info("Drinking: {}", dose);
+                sleepUntil(() -> Rs2Player.hasPrayerPoints(), 800);
+                break;
+            }
+        }
+    }
+
+    private boolean hasAncientBrew() {
+        for (String dose : ThievingData.ANCIENT_BREW_DOSES) {
+            if (Rs2Inventory.contains(dose)) return true;
+        }
+        return false;
+    }
+
     @Override
     public void shutdown() {
         super.shutdown();
         Rs2Walker.setTarget(null);
         Microbot.isCantReachTargetDetectionEnabled = false;
         startingLocation = null;
+        startingNpc = null;
     }
 }
