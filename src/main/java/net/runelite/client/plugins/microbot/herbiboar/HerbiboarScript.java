@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.herbiboar;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Item;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
@@ -236,21 +237,21 @@ public class HerbiboarScript extends Script {
 
     /* Withdraw potions using greedy exact-dose logic: try to reach target doses starting with the highest dose potions */
     private void withdrawDosesDescending(int[] ids, int[] doses, int targetDoses) {
-        log.info("Withdrawing potions to reach {} total doses", targetDoses);
+        Microbot.log(Level.INFO, "Withdrawing potions to reach "+targetDoses+" total doses");
 
         // Calculate current doses we already have
         int current = 0;
         for (int i = 0; i < ids.length; i++) {
             int count = Rs2Inventory.count(ids[i]);
             current += count * doses[i];
-            log.info("Already have {}x {}-dose potions = {} doses", count, doses[i], count * doses[i]);
+            Microbot.log(Level.INFO,"Already have "+count+"x "+doses[i]+"-dose potions = "+(count * doses[i])+" doses");
         }
 
         int remaining = targetDoses - current;
-        log.info("Current total: {} doses, Need: {} more doses to reach target of {}", current, remaining, targetDoses);
+        Microbot.log(Level.INFO,"Current total: "+current+" doses, Need: "+remaining+" more doses to reach target of "+targetDoses);
 
         if (remaining <= 0) {
-            log.info("Already have enough doses, no need to withdraw more");
+            Microbot.log(Level.INFO,"Already have enough doses, no need to withdraw more");
             return;
         }
 
@@ -582,6 +583,24 @@ public class HerbiboarScript extends Script {
                             Rs2Bank.openBank();
                             sleepUntil(Rs2Bank::isOpen, 3000);
                         } else {
+                            // check if we have what we need first, usually we don't when first  running
+                            if (config.useHerbSack() && !Rs2Inventory.contains(ItemID.SLAYER_HERB_SACK, ItemID.SLAYER_HERB_SACK_OPEN)) {
+                                if (Rs2Bank.hasItem(ItemID.SLAYER_HERB_SACK)) {
+                                    Rs2Bank.withdrawOne(ItemID.SLAYER_HERB_SACK);
+                                } else if (Rs2Bank.hasItem(ItemID.SLAYER_HERB_SACK_OPEN)) {
+                                    Rs2Bank.withdrawOne(ItemID.SLAYER_HERB_SACK_OPEN);
+                                }
+                                Rs2Inventory.waitForInventoryChanges(1000);
+                            }
+                            if (config.useMagicSecateurs() && !Rs2Equipment.isWearing(ItemID.FAIRY_ENCHANTED_SECATEURS)
+                                    && !Rs2Inventory.contains(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
+                                if (Rs2Bank.hasItem(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
+                                    Rs2Bank.withdrawOne(ItemID.FAIRY_ENCHANTED_SECATEURS);
+                                    Rs2Inventory.waitForInventoryChanges(1000);
+                                    Rs2Bank.wearItem(ItemID.FAIRY_ENCHANTED_SECATEURS);
+                                    Rs2Inventory.waitForInventoryChanges(1000);
+                                }
+                            }
                             /**
                              * Lock items that should not be deposited
                              */
@@ -623,7 +642,7 @@ public class HerbiboarScript extends Script {
                              * Empty herb sack if there
                              * Deposit all unlocked items again to get rid of any herbs that were in the sack
                              */
-                            Microbot.log(Level.INFO,"Depositing all items except locked slots: {}", slotsToLock);
+                            Microbot.log(Level.INFO,"Depositing all items except locked slots: "+ slotsToLock);
                             Rs2Widget.clickWidget(InterfaceID.Bankmain.DEPOSITINV);
                             if (config.useHerbSack() && Rs2Inventory.contains(ItemID.SLAYER_HERB_SACK, ItemID.SLAYER_HERB_SACK_OPEN)) {
                                 Rs2Bank.emptyHerbSack();
@@ -646,7 +665,7 @@ public class HerbiboarScript extends Script {
                                 case STAMINA_POTION:
                                 case SUPER_ENERGY_POTION:
                                 case ENERGY_POTION:
-                                    Microbot.log(Level.INFO,"Withdrawing potions to ensure 24 doses of {}", energyOption);
+                                    Microbot.log(Level.INFO,"Withdrawing potions to ensure 24 doses of "+energyOption);
                                     ensureEnergyDoses(energyOption, 24);
                                     potionsWithdrawn = true;
                                     break;
@@ -664,7 +683,7 @@ public class HerbiboarScript extends Script {
                                     break;
                             }
 
-                            Microbot.log(Level.INFO,"Fished banking, status: {} | energy option: {}", (potionsWithdrawn ? "Potions withdrawn" : "No potions needed"), energyOption);
+                            Microbot.log(Level.INFO,"Fished banking, status: "+ (potionsWithdrawn ? "Potions withdrawn" : "No potions needed")+" | energy option: "+energyOption);
                             if (potionsWithdrawn || energyOption == HerbiboarConfig.RunEnergyOption.NONE) {
                                 sleep(300); // Give time for inventory to update
                                 Rs2Bank.closeBank();
