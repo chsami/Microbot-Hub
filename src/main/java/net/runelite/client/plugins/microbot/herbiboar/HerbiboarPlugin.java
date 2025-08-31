@@ -34,8 +34,8 @@ import java.util.*;
         authors = {"AI Agent"},
         version = HerbiboarPlugin.version,
         minClientVersion = "1.9.8",
-        iconUrl = "https://chsami.github.io/Microbot-Hub/AutoHerbiboarPlugin/assets/icon.png",
-        cardUrl = "https://chsami.github.io/Microbot-Hub/AutoHerbiboarPlugin/assets/card.png",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/icon.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
