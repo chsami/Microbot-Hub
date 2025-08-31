@@ -26,6 +26,7 @@ import javax.inject.Inject;
 import java.awt.AWTException;
 import java.time.Instant;
 import java.util.*;
+import java.util.Deque;
 
 @PluginDescriptor(
         name = PluginConstants.DEFAULT_PREFIX + "Herbiboar",
@@ -114,6 +115,9 @@ public class HerbiboarPlugin extends Plugin {
 
     @Inject
     private HerbiboarScript script;
+
+    @Getter
+    private final Deque<String> lastMessages = new ArrayDeque<>(5);
 
     /**
      * Objects which appear at the beginning of Herbiboar hunting trails
@@ -208,14 +212,17 @@ public class HerbiboarPlugin extends Plugin {
 
     @Subscribe
     public void onChatMessage(ChatMessage chatMessage) {
+        String msg = chatMessage.getMessage();
+        if (lastMessages.size() == 5) lastMessages.removeFirst();
+        lastMessages.addLast(msg);
         if (chatMessage.getType() == ChatMessageType.GAMEMESSAGE) {
-            String message = chatMessage.getMessage();
-            if (message.equals("The creature has successfully confused you with its tracks, leading you round in circles.") ||
-                message.equals("You'll need to start again.")) {
+            if (msg.equals("successfully confused you with its tracks") ||
+                    msg.equals("need to start again")) {
                 script.handleConfusionMessage();
             }
         }
     }
+
     private void updateTrailData()
     {
         if (!isInHerbiboarArea())

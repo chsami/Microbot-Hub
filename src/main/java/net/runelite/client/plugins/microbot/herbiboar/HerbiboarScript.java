@@ -4,6 +4,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Item;
+import net.runelite.api.IterableHashTable;
+import net.runelite.api.MessageNode;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
@@ -30,6 +32,7 @@ import org.slf4j.event.Level;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -499,7 +502,8 @@ public class HerbiboarScript extends Script {
                     case TRAIL:
                         Microbot.status = "Following trail";
                         Microbot.log(Level.INFO,"Following trail");
-                        if (herbiboarPlugin.getFinishId() > 0) { 
+                        if (herbiboarPlugin.getFinishId() > 0) {
+                            if (checkForConfusionMessage(herbiboarPlugin)) return;
                             setState(HerbiboarState.TUNNEL);
                             break; 
                         }
@@ -516,6 +520,7 @@ public class HerbiboarScript extends Script {
                                 Rs2Player.waitForAnimation();
                                 sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting() && !Rs2Player.isMoving(), 5000);
                             }
+                            if (checkForConfusionMessage(herbiboarPlugin)) return;
                         }
                         break;
                     case TUNNEL:
@@ -723,6 +728,22 @@ public class HerbiboarScript extends Script {
         }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
     }
+
+    /**
+     * Check for the presence of the confusion or "start again" messages in the chatbox.
+     *
+     * @return true if the message is found, false otherwise
+     */
+    private boolean checkForConfusionMessage(HerbiboarPlugin plugin) {
+        for (String msg : plugin.getLastMessages()) {
+            if (msg.contains("successfully confused you with its tracks") || msg.contains("need to start again")) {
+                handleConfusionMessage();
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void shutdown() {
         Microbot.status = "IDLE";
