@@ -1,6 +1,6 @@
-package net.runelite.client.plugins.microbot.automixology.enums;
+package net.runelite.client.plugins.microbot.mixology.enums;
 
-public enum AutoMixologyState {
+public enum MixologyState {
     IDLE,
     BANK,
     REFINER,

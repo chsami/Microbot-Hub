@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.automixology;
+package net.runelite.client.plugins.microbot.mixology;
 
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPanel;
@@ -11,12 +11,12 @@ import javax.inject.Inject;
 import java.awt.*;
 import java.time.Duration;
 
-public class AutoMixologyOverlay extends OverlayPanel {
-    private final AutoMixologyPlugin plugin;
+public class MixologyOverlay extends OverlayPanel {
+    private final MixologyPlugin plugin;
     private final ModelOutlineRenderer modelOutlineRenderer;
 
     @Inject
-    AutoMixologyOverlay(AutoMixologyPlugin plugin, ModelOutlineRenderer modelOutlineRenderer) {
+    MixologyOverlay(MixologyPlugin plugin, ModelOutlineRenderer modelOutlineRenderer) {
         this.plugin = plugin;
         this.modelOutlineRenderer = modelOutlineRenderer;
         this.setPosition(OverlayPosition.DYNAMIC);
@@ -28,7 +28,7 @@ public class AutoMixologyOverlay extends OverlayPanel {
         panelComponent.setPreferredLocation(new Point(200, 20));
         panelComponent.setPreferredSize(new Dimension(300, 300));
         panelComponent.getChildren().add(TitleComponent.builder()
-                .text("Micro Mixology V" + AutoMixologyPlugin.version)
+                .text("Micro Mixology V" + MixologyPlugin.version)
                 .color(Color.GREEN)
                 .build());
 
@@ -36,15 +36,15 @@ public class AutoMixologyOverlay extends OverlayPanel {
 
         panelComponent.getChildren().add(LineComponent.builder()
                 .left("Mixology state")
-                .right(AutoMixologyScript.autoMixologyState.toString())
+                .right(MixologyScript.mixologyState.toString())
                 .build());
 
         panelComponent.getChildren().add(LineComponent.builder()
                 .left("Mox/Aga/Lye paste")
-                .right(String.valueOf(AutoMixologyScript.moxPasteAmount) + "/" + String.valueOf(AutoMixologyScript.agaPasteAmount) + "/" + String.valueOf(AutoMixologyScript.lyePasteAmount))
+                .right(String.valueOf(MixologyScript.moxPasteAmount) + "/" + String.valueOf(MixologyScript.agaPasteAmount) + "/" + String.valueOf(MixologyScript.lyePasteAmount))
                 .build());
 
-        Duration runtime = plugin.autoMixologyScript.getRunTime();
+        Duration runtime = plugin.mixologyScript.getRunTime();
 
         panelComponent.getChildren().add(LineComponent.builder()
                 .left("Mox/Aga/Lye points per hour")
@@ -58,7 +58,7 @@ public class AutoMixologyOverlay extends OverlayPanel {
                 .right(String.format("%02d:%02d:%02d", runtime.toHours(), runtime.toMinutesPart(), runtime.toSecondsPart()))
                 .build());
 
-        for (AutoMixologyPlugin.HighlightedObject highlightedObject : this.plugin.highlightedObjects().values()) {
+        for (MixologyPlugin.HighlightedObject highlightedObject : this.plugin.highlightedObjects().values()) {
             this.modelOutlineRenderer.drawOutline(highlightedObject.object(), highlightedObject.outlineWidth(), highlightedObject.color(), highlightedObject.feather());
         }
 
@@ -71,9 +71,9 @@ public class AutoMixologyOverlay extends OverlayPanel {
         // Convert time to hours
         double elapsedTimeInHours = seconds / 3600.0;
 
-        int gainedMoxPoints = AutoMixologyScript.currentMoxPoints - AutoMixologyScript.startMoxPoints;
-        int gainedLyePoints = AutoMixologyScript.currentLyePoints - AutoMixologyScript.startLyePoints;
-        int gainedAgaPoints = AutoMixologyScript.currentAgaPoints - AutoMixologyScript.startAgaPoints;
+        int gainedMoxPoints = MixologyScript.currentMoxPoints - MixologyScript.startMoxPoints;
+        int gainedLyePoints = MixologyScript.currentLyePoints - MixologyScript.startLyePoints;
+        int gainedAgaPoints = MixologyScript.currentAgaPoints - MixologyScript.startAgaPoints;
 
         // Calculate experience per hour
         int moxPointsPerHour = (int) (gainedMoxPoints / elapsedTimeInHours);

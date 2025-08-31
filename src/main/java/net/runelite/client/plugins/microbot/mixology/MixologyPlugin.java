@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.automixology;
+package net.runelite.client.plugins.microbot.mixology;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
@@ -14,10 +14,10 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
-import net.runelite.client.plugins.microbot.automixology.enums.AlchemyObject;
-import net.runelite.client.plugins.microbot.automixology.enums.PotionComponent;
-import net.runelite.client.plugins.microbot.automixology.enums.PotionModifier;
-import net.runelite.client.plugins.microbot.automixology.enums.PotionType;
+import net.runelite.client.plugins.microbot.mixology.enums.AlchemyObject;
+import net.runelite.client.plugins.microbot.mixology.enums.PotionComponent;
+import net.runelite.client.plugins.microbot.mixology.enums.PotionModifier;
+import net.runelite.client.plugins.microbot.mixology.enums.PotionType;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ColorUtil;
 
@@ -27,31 +27,31 @@ import java.util.List;
 import java.util.*;
 
 @PluginDescriptor(
-        name = PluginConstants.MOCROSOFT + "AutoMixology",
+        name = PluginConstants.MOCROSOFT + "Mixology",
         description = "Mixology plugin",
         authors = { "Mocrosoft" },
-        version = AutoMixologyPlugin.version,
+        version = MixologyPlugin.version,
         minClientVersion = "1.9.9.1",
         tags = {"herblore", "microbot", "mixology"},
-        iconUrl = "https://chsami.github.io/Microbot-Hub/AutoMixologyPlugin/assets/icon.png",
-        cardUrl = "https://chsami.github.io/Microbot-Hub/AutoMixologyPlugin/assets/card.png",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/MixologyPlugin/assets/icon.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/MixologyPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
-public class AutoMixologyPlugin extends Plugin {
+public class MixologyPlugin extends Plugin {
     public final static String version = "1.0.2-beta";
 
     @Inject
     private Client client;
     @Inject
-    private AutoMixologyConfig config;
+    private MixologyConfig config;
     @Inject
     private OverlayManager overlayManager;
     @Inject
     private ClientThread clientThread;
     @Inject
-    private AutoMixologyOverlay overlay;
+    private MixologyOverlay overlay;
     @Inject
     private InventoryPotionOverlay potionOverlay;
     private final Map<AlchemyObject, HighlightedObject> highlightedObjects = new LinkedHashMap();
@@ -61,9 +61,9 @@ public class AutoMixologyPlugin extends Plugin {
     private PotionType retortPotionType;
 
     @Inject
-    AutoMixologyScript autoMixologyScript;
+    MixologyScript mixologyScript;
 
-    public AutoMixologyPlugin() {
+    public MixologyPlugin() {
     }
 
     public Map<AlchemyObject, HighlightedObject> highlightedObjects() {
@@ -71,12 +71,12 @@ public class AutoMixologyPlugin extends Plugin {
     }
 
     @Provides
-    AutoMixologyConfig provideConfig(ConfigManager configManager) {
-        return (AutoMixologyConfig) configManager.getConfig(AutoMixologyConfig.class);
+    MixologyConfig provideConfig(ConfigManager configManager) {
+        return (MixologyConfig) configManager.getConfig(MixologyConfig.class);
     }
 
     protected void startUp() {
-        autoMixologyScript.run(config);
+        mixologyScript.run(config);
         this.overlayManager.add(this.overlay);
         this.overlayManager.add(this.potionOverlay);
         if (this.client.getGameState() == GameState.LOGGED_IN) {
@@ -86,7 +86,7 @@ public class AutoMixologyPlugin extends Plugin {
     }
 
     protected void shutDown() {
-        autoMixologyScript.shutdown();
+        mixologyScript.shutdown();
         this.overlayManager.remove(this.overlay);
         this.overlayManager.remove(this.potionOverlay);
         this.inLab = false;
@@ -148,39 +148,39 @@ public class AutoMixologyPlugin extends Plugin {
             }
         } else if (varbitId == 11330) {
             if (value == 1) {
-                autoMixologyScript.digweed = AlchemyObject.DIGWEED_NORTH_EAST;
+                mixologyScript.digweed = AlchemyObject.DIGWEED_NORTH_EAST;
             } else {
-                autoMixologyScript.digweed = null;
+                mixologyScript.digweed = null;
             }
         } else if (varbitId == 11331) {
             if (value == 1) {
-                autoMixologyScript.digweed = AlchemyObject.DIGWEED_SOUTH_EAST;
+                mixologyScript.digweed = AlchemyObject.DIGWEED_SOUTH_EAST;
             } else {
-                autoMixologyScript.digweed = null;
+                mixologyScript.digweed = null;
             }
         } else if (varbitId == 11332) {
             if (value == 1) {
-                autoMixologyScript.digweed = AlchemyObject.DIGWEED_SOUTH_WEST;
+                mixologyScript.digweed = AlchemyObject.DIGWEED_SOUTH_WEST;
             } else {
-                autoMixologyScript.digweed = null;
+                mixologyScript.digweed = null;
             }
         } else if (varbitId == 11333) {
             if (value == 1) {
-                autoMixologyScript.digweed = AlchemyObject.DIGWEED_NORTH_WEST;
+                mixologyScript.digweed = AlchemyObject.DIGWEED_NORTH_WEST;
             } else {
-                autoMixologyScript.digweed = null;
+                mixologyScript.digweed = null;
             }
         } else if (varbitId == 11329) {
-            if (autoMixologyScript.agitatorQuickActionTicks == 2) {
-                autoMixologyScript.agitatorQuickActionTicks = 0;
+            if (mixologyScript.agitatorQuickActionTicks == 2) {
+                mixologyScript.agitatorQuickActionTicks = 0;
             }
 
-            if (autoMixologyScript.agitatorQuickActionTicks == 1) {
-                autoMixologyScript.agitatorQuickActionTicks = 2;
+            if (mixologyScript.agitatorQuickActionTicks == 1) {
+                mixologyScript.agitatorQuickActionTicks = 2;
             }
         } else if (varbitId == 11328) {
-            if (autoMixologyScript.alembicQuickActionTicks == 1) {
-                autoMixologyScript.alembicQuickActionTicks = 0;
+            if (mixologyScript.alembicQuickActionTicks == 1) {
+                mixologyScript.alembicQuickActionTicks = 0;
             }
         }
     }
@@ -189,11 +189,11 @@ public class AutoMixologyPlugin extends Plugin {
     public void onGraphicsObjectCreated(GraphicsObjectCreated event) {
         int spotAnimId = event.getGraphicsObject().getId();
         if (spotAnimId == 2955 && this.alembicPotionType != null) {
-            autoMixologyScript.alembicQuickActionTicks = 1;
+            mixologyScript.alembicQuickActionTicks = 1;
         }
 
         if (spotAnimId == 2954 && this.agitatorPotionType != null) {
-            autoMixologyScript.agitatorQuickActionTicks = 1;
+            mixologyScript.agitatorQuickActionTicks = 1;
         }
     }
 
@@ -216,8 +216,8 @@ public class AutoMixologyPlugin extends Plugin {
     private void updatePotionOrdersComponent(Widget baseWidget) {
         Widget[] children = baseWidget.getChildren();
         if (children != null) {
-            for (int i = 0; i < autoMixologyScript.potionOrders.size(); ++i) {
-                PotionOrder order = autoMixologyScript.potionOrders.get(i);
+            for (int i = 0; i < mixologyScript.potionOrders.size(); ++i) {
+                PotionOrder order = mixologyScript.potionOrders.get(i);
                 Widget orderGraphic = children[order.idx() * 2 + 1];
                 Widget orderText = children[order.idx() * 2 + 2];
                 if (orderGraphic.getType() == 5 && orderText.getType() == 4) {
@@ -261,10 +261,10 @@ public class AutoMixologyPlugin extends Plugin {
 
     private void updatePotionOrders() {
         System.out.println("Updating potion orders");
-        autoMixologyScript.potionOrders = this.getPotionOrders();
+        mixologyScript.potionOrders = this.getPotionOrders();
         // Desired order: CRYSTALISED > CONCENTRATED > HOMOGENOUS
 
-        autoMixologyScript.potionOrders.sort(Comparator.comparingInt(autoMixologyScript.customOrder::indexOf));
+        mixologyScript.potionOrders.sort(Comparator.comparingInt(mixologyScript.customOrder::indexOf));
 
         VarbitComposition varbitType = this.client.getVarbit(11315);
         if (varbitType != null) {
@@ -281,7 +281,7 @@ public class AutoMixologyPlugin extends Plugin {
     }
 
     private void tryFulfillOrder(PotionType potionType, PotionModifier modifier) {
-        for (PotionOrder order : autoMixologyScript.potionOrders) {
+        for (PotionOrder order : mixologyScript.potionOrders) {
             if (order.potionType() == potionType && order.potionModifier() == modifier && !order.fulfilled()) {
                 order.setFulfilled(true);
                 break;

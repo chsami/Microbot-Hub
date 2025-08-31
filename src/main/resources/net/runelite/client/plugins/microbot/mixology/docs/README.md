@@ -1,6 +1,6 @@
-# Auto Mixology Plugin
+# Mixology Plugin
 
-The **Auto Mixology Plugin** provides automation for the Herblore Mastering Mixology Minigame to earn rewards.
+The **Mixology Plugin** provides automation for the Herblore Mastering Mixology Minigame to earn rewards.
 
 ---
 

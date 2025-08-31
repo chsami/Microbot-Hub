@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.automixology;
+package net.runelite.client.plugins.microbot.mixology;
 
 import net.runelite.api.DynamicObject;
 import net.runelite.api.GameObject;
@@ -9,10 +9,10 @@ import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.automixology.enums.AlchemyObject;
-import net.runelite.client.plugins.microbot.automixology.enums.AutoMixologyState;
-import net.runelite.client.plugins.microbot.automixology.enums.PotionComponent;
-import net.runelite.client.plugins.microbot.automixology.enums.PotionModifier;
+import net.runelite.client.plugins.microbot.mixology.enums.AlchemyObject;
+import net.runelite.client.plugins.microbot.mixology.enums.MixologyState;
+import net.runelite.client.plugins.microbot.mixology.enums.PotionComponent;
+import net.runelite.client.plugins.microbot.mixology.enums.PotionModifier;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
@@ -29,12 +29,12 @@ import java.util.stream.Collectors;
 import static net.runelite.client.plugins.microbot.mixology.AlchemyObject.MIXING_VESSEL;
 
 
-public class AutoMixologyScript extends Script {
+public class MixologyScript extends Script {
     private static final Integer DIGWEED = ItemID.MM_LAB_SPECIAL_HERB;
 
     public java.util.List<PotionOrder> potionOrders = Collections.emptyList();
 
-    public static AutoMixologyState autoMixologyState = AutoMixologyState.IDLE;
+    public static MixologyState mixologyState = MixologyState.IDLE;
     public static int lyePasteAmount, agaPasteAmount, moxPasteAmount = 0;
     public static int startLyePoints, startAgaPoints, startMoxPoints = 0;
     public static int currentLyePoints, currentAgaPoints, currentMoxPoints = 0;
@@ -48,7 +48,7 @@ public class AutoMixologyScript extends Script {
             PotionModifier.HOMOGENOUS
     );
 
-    public boolean run(AutoMixologyConfig config) {
+    public boolean run(MixologyConfig config) {
         Microbot.enableAutoRunOn = false;
         currentMoxPoints = 0;
         currentAgaPoints = 0;
@@ -72,7 +72,7 @@ public class AutoMixologyScript extends Script {
                 boolean isInMinigame = Rs2Widget.getWidget(882, 2) != null;
 
 
-                if (!isInMinigame && autoMixologyState != AutoMixologyState.REFINER) {
+                if (!isInMinigame && mixologyState != MixologyState.REFINER) {
                     Rs2Walker.walkTo(1395, 9322, 0, 2);
                     return;
                 }
@@ -111,31 +111,31 @@ public class AutoMixologyScript extends Script {
                     agaPasteAmount = Integer.parseInt(Rs2Widget.getWidget(882, 2).getDynamicChildren()[11].getText()) + Rs2Inventory.itemQuantity(ItemID.MM_AGA_PASTE);
                     lyePasteAmount = Integer.parseInt(Rs2Widget.getWidget(882, 2).getDynamicChildren()[14].getText()) + Rs2Inventory.itemQuantity(ItemID.MM_LYE_PASTE);
 
-                    if (autoMixologyState != AutoMixologyState.REFINER && (moxPasteAmount < 100 || agaPasteAmount < 100 || lyePasteAmount < 100)) {
-                        autoMixologyState = AutoMixologyState.REFINER;
+                    if (mixologyState != MixologyState.REFINER && (moxPasteAmount < 100 || agaPasteAmount < 100 || lyePasteAmount < 100)) {
+                        mixologyState = MixologyState.REFINER;
                     } else if (Rs2Inventory.hasItem(ItemID.MM_MOX_PASTE) || Rs2Inventory.hasItem(ItemID.MM_LYE_PASTE) || Rs2Inventory.hasItem(ItemID.MM_AGA_PASTE)) {
                         if (Integer.parseInt(Rs2Widget.getWidget(882, 2).getDynamicChildren()[8].getText()) >= 3000 && Rs2Inventory.hasItem(ItemID.MM_MOX_PASTE)) {
-                            autoMixologyState = AutoMixologyState.BANK;
+                            mixologyState = MixologyState.BANK;
                         } else if (Integer.parseInt(Rs2Widget.getWidget(882, 2).getDynamicChildren()[11].getText()) >= 3000 && Rs2Inventory.hasItem(ItemID.MM_AGA_PASTE)) {
-                            autoMixologyState = AutoMixologyState.BANK;
+                            mixologyState = MixologyState.BANK;
 
                         } else if (Integer.parseInt(Rs2Widget.getWidget(882, 2).getDynamicChildren()[14].getText()) >= 3000 && Rs2Inventory.hasItem(ItemID.MM_LYE_PASTE)) {
-                            autoMixologyState = AutoMixologyState.BANK;
+                            mixologyState = MixologyState.BANK;
                         } else {
-                            autoMixologyState = AutoMixologyState.DEPOSIT_HOPPER;
+                            mixologyState = MixologyState.DEPOSIT_HOPPER;
                         }
                     }
                 }
 
-                if (autoMixologyState == AutoMixologyState.IDLE) {
-                    autoMixologyState = AutoMixologyState.MIX_POTION_STAGE_1;
+                if (mixologyState == MixologyState.IDLE) {
+                    mixologyState = MixologyState.MIX_POTION_STAGE_1;
                 }
 
                 if (hasAllFulFilledItems()) {
-                    autoMixologyState = AutoMixologyState.CONVEYER_BELT;
+                    mixologyState = MixologyState.CONVEYER_BELT;
                 }
 
-                switch (autoMixologyState) {
+                switch (mixologyState) {
                     case BANK:
                         if (Rs2Inventory.hasItem("paste")) {
                             if (Rs2Bank.openBank()) {
@@ -143,7 +143,7 @@ public class AutoMixologyScript extends Script {
                             }
                             return;
                         }
-                        autoMixologyState = AutoMixologyState.MIX_POTION_STAGE_1;
+                        mixologyState = MixologyState.MIX_POTION_STAGE_1;
                         break;
                     case REFINER:
                         String herb = "";
@@ -179,7 +179,7 @@ public class AutoMixologyScript extends Script {
                                     Rs2Bank.withdrawAll(ItemID.MM_MOX_PASTE);
                                     Rs2Bank.withdrawAll(ItemID.MM_LYE_PASTE);
                                     Rs2Bank.withdrawAll(ItemID.MM_AGA_PASTE);
-                                    autoMixologyState = AutoMixologyState.DEPOSIT_HOPPER;
+                                    mixologyState = MixologyState.DEPOSIT_HOPPER;
                                     return;
                                 }
                             }
@@ -198,7 +198,7 @@ public class AutoMixologyScript extends Script {
                         if (Rs2GameObject.interact(ObjectID.MM_LAB_HOPPER)) {
                             Rs2Player.waitForWalking();
                             Rs2Inventory.waitForInventoryChanges(10000);
-                            autoMixologyState = AutoMixologyState.MIX_POTION_STAGE_1;
+                            mixologyState = MixologyState.MIX_POTION_STAGE_1;
                         }
                         break;
                     case MIX_POTION_STAGE_1:
@@ -229,12 +229,12 @@ public class AutoMixologyScript extends Script {
                         }
 
                         if (potionToMake == null) {
-                            autoMixologyState = AutoMixologyState.MIX_POTION_STAGE_2;
+                            mixologyState = MixologyState.MIX_POTION_STAGE_2;
                             return;
                         }
 
                         if (canCreatePotion(potionToMake)) {
-                            autoMixologyState = AutoMixologyState.TAKE_FROM_MIXIN_VESSEL;
+                            mixologyState = MixologyState.TAKE_FROM_MIXIN_VESSEL;
                             leverRetries = 0;
                         } else {
                             createPotion(potionToMake, config);
@@ -244,7 +244,7 @@ public class AutoMixologyScript extends Script {
                         Rs2GameObject.interact(MIXING_VESSEL.objectId());
                         boolean result = Rs2Inventory.waitForInventoryChanges(5000);
                         if (result) {
-                            autoMixologyState = AutoMixologyState.MIX_POTION_STAGE_1;
+                            mixologyState = MixologyState.MIX_POTION_STAGE_1;
                         }
                         break;
                     case MIX_POTION_STAGE_2:
@@ -257,7 +257,7 @@ public class AutoMixologyScript extends Script {
                                 .collect(Collectors.toList());
 
                         if (nonFulfilledPotions.isEmpty()) {
-                            autoMixologyState = AutoMixologyState.CONVEYER_BELT;
+                            mixologyState = MixologyState.CONVEYER_BELT;
                             return;
                         }
 
@@ -282,7 +282,7 @@ public class AutoMixologyScript extends Script {
                         }
 
                         if (nonFulfilledPotion == null || !Rs2Inventory.hasItem(nonFulfilledPotion.potionType().itemId())) {
-                            autoMixologyState = AutoMixologyState.MIX_POTION_STAGE_1;
+                            mixologyState = MixologyState.MIX_POTION_STAGE_1;
                             return;
                         }
 
@@ -291,7 +291,7 @@ public class AutoMixologyScript extends Script {
                         break;
                     case CONVEYER_BELT:
                         if (potionOrders.stream().noneMatch(x -> Rs2Inventory.hasItem(x.potionType().getFulfilledItemId()))) {
-                            autoMixologyState = AutoMixologyState.MIX_POTION_STAGE_1;
+                            mixologyState = MixologyState.MIX_POTION_STAGE_1;
                             return;
                         }
                         if (Rs2GameObject.interact(AlchemyObject.CONVEYOR_BELT.objectId())) {
@@ -386,7 +386,7 @@ public class AutoMixologyScript extends Script {
         }
     }
 
-    private void createPotion(PotionOrder potionOrder, AutoMixologyConfig config) {
+    private void createPotion(PotionOrder potionOrder, MixologyConfig config) {
         for (PotionComponent component : potionOrder.potionType().components()) {
             if (canCreatePotion(potionOrder)) break;
             if (component.character() == 'A') {

@@ -1,8 +1,8 @@
-package net.runelite.client.plugins.microbot.automixology;
+package net.runelite.client.plugins.microbot.mixology;
 
 import com.google.inject.Inject;
 import net.runelite.api.widgets.WidgetItem;
-import net.runelite.client.plugins.microbot.automixology.enums.PotionType;
+import net.runelite.client.plugins.microbot.mixology.enums.PotionType;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.overlay.WidgetItemOverlay;
 

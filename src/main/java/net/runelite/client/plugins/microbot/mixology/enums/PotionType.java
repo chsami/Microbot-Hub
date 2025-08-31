@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.automixology.enums;
+package net.runelite.client.plugins.microbot.mixology.enums;
 
 import com.google.common.collect.ImmutableMap;
 import lombok.Getter;

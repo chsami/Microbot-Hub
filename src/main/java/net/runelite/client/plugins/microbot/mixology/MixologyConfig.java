@@ -1,9 +1,9 @@
-package net.runelite.client.plugins.microbot.automixology;
+package net.runelite.client.plugins.microbot.mixology;
 
 import net.runelite.client.config.*;
-import net.runelite.client.plugins.microbot.automixology.enums.AgaHerbs;
-import net.runelite.client.plugins.microbot.automixology.enums.LyeHerbs;
-import net.runelite.client.plugins.microbot.automixology.enums.MoxHerbs;
+import net.runelite.client.plugins.microbot.mixology.enums.AgaHerbs;
+import net.runelite.client.plugins.microbot.mixology.enums.LyeHerbs;
+import net.runelite.client.plugins.microbot.mixology.enums.MoxHerbs;
 
 @ConfigGroup("mixology")
 @ConfigInformation("<p>Start the script at the bankchest of the mixology minigame room with an empty inventory.</p> <br />" +
@@ -12,7 +12,7 @@ import net.runelite.client.plugins.microbot.automixology.enums.MoxHerbs;
         "<li>60 Herblore</li>" +
         "<li>Herbs for making mox/aga/lye paste</li>" +
         "</ol>")
-public interface AutoMixologyConfig extends Config {
+public interface MixologyConfig extends Config {
     @ConfigSection(
             name = "Refiner",
             description = "Refiner configuration",

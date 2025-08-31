@@ -1,7 +1,7 @@
-package net.runelite.client.plugins.microbot.automixology;
+package net.runelite.client.plugins.microbot.mixology;
 
-import net.runelite.client.plugins.microbot.automixology.enums.PotionModifier;
-import net.runelite.client.plugins.microbot.automixology.enums.PotionType;
+import net.runelite.client.plugins.microbot.mixology.enums.PotionModifier;
+import net.runelite.client.plugins.microbot.mixology.enums.PotionType;
 
 public class PotionOrder {
     private final int idx;
