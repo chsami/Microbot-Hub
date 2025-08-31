@@ -32,12 +32,40 @@ public class MageTrainingArenaOverlay extends OverlayPanel {
 
             panelComponent.getChildren().add(LineComponent.builder().build());
 
+            MageTrainingArenaScript.ScriptState currentState = MageTrainingArenaScript.getScriptState().get();
+            
+            // Show script status
+            Color statusColor;
+            String statusText;
+            switch (currentState) {
+                case FINISHED:
+                    statusColor = Color.GREEN;
+                    statusText = "FINISHED: " + MageTrainingArenaScript.getFinishReason();
+                    break;
+                case ERROR:
+                    statusColor = Color.RED;
+                    statusText = "ERROR: " + MageTrainingArenaScript.getFinishReason();
+                    break;
+                case INITIALIZING:
+                    statusColor = Color.YELLOW;
+                    statusText = "Initializing...";
+                    break;
+                default:
+                    statusColor = Color.WHITE;
+                    statusText = "Running";
+            }
+            
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Status: " + statusText)
+                    .leftColor(statusColor)
+                    .build());
+            
             if (!Microbot.getPluginManager().isActive(MageTrainingArenaScript.getMtaPlugin())){
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Make sure to enable the 'Mage Training Arena' plugin!")
                         .leftColor(Color.RED)
                         .build());
-            } else {
+            } else if (currentState == MageTrainingArenaScript.ScriptState.RUNNING) {
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Room: " + (MageTrainingArenaScript.getCurrentRoom() != null ? MageTrainingArenaScript.getCurrentRoom() : "-"))
                         .build());
@@ -70,6 +98,13 @@ public class MageTrainingArenaOverlay extends OverlayPanel {
                 var progressBar = new ProgressBarComponent();
                 progressBar.setValue(progress);
                 panelComponent.getChildren().add(progressBar);
+            } else if (currentState == MageTrainingArenaScript.ScriptState.FINISHED || currentState == MageTrainingArenaScript.ScriptState.ERROR) {
+                // Show completion message
+                panelComponent.getChildren().add(LineComponent.builder().build()); // spacer
+                panelComponent.getChildren().add(LineComponent.builder()
+                        .left("Task completed. You can safely disable the plugin.")
+                        .leftColor(Color.CYAN)
+                        .build());
             }
         } catch(Exception ex) {
             System.out.println(ex.getMessage());

@@ -36,6 +36,7 @@ import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 import java.awt.event.KeyEvent;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -44,6 +45,19 @@ import static net.runelite.client.plugins.microbot.util.magic.Rs2Magic.getRs2Sta
 import static net.runelite.client.plugins.microbot.util.magic.Rs2Magic.getRs2Tome;
 
 public class MageTrainingArenaScript extends Script {
+    
+    public enum ScriptState {
+        INITIALIZING,
+        RUNNING,
+        FINISHED,
+        ERROR
+    }
+    
+    @Getter
+    private static final AtomicReference<ScriptState> scriptState = new AtomicReference<>(ScriptState.INITIALIZING);
+    
+    @Getter
+    private static volatile String finishReason = "";
 
     private static boolean firstTime = false;
 
@@ -72,6 +86,8 @@ public class MageTrainingArenaScript extends Script {
         bought = 0;
         buyable = 0;
         Rs2Walker.disableTeleports = true;
+        scriptState.set(ScriptState.RUNNING);
+        finishReason = "";
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -108,6 +124,13 @@ public class MageTrainingArenaScript extends Script {
 
                     if (currentPoints.entrySet().stream().allMatch(x -> getRequiredPoints().get(x.getKey()) * (config.buyRewards() ? 1 : (buyable + 1)) <= x.getValue())) {
                         if (config.buyRewards()) {
+                            // For ALL_ITEMS, we just need to reach the points - no actual purchase
+                            if (config.reward() == Rewards.ALL_ITEMS) {
+                                Microbot.log("Reached required points for Collection Log completion! Goal achieved.");
+                                finishWithSuccess("Collection Log completion achieved! All required points earned.");
+                                return;
+                            }
+                            
                             var rewardToBuy = config.reward();
                             while (rewardToBuy.getPreviousReward() != null && !Rs2Inventory.contains(rewardToBuy.getPreviousReward().getItemId()))
                                 rewardToBuy = rewardToBuy.getPreviousReward();
@@ -142,7 +165,7 @@ public class MageTrainingArenaScript extends Script {
                     } else {
                         Microbot.showMessage("MTA: Out of runes! Please restart the plugin after you restocked on runes.");
                         sleep(500);
-                        shutdown();
+                        finishWithError("Out of runes - please restock and restart.");
                     }
             } else if (config.repeatRoom()) {
                 if (currentRoom != null) {
@@ -164,6 +187,15 @@ public class MageTrainingArenaScript extends Script {
                 }
             } else if (!currentRoom.getRequirements().getAsBoolean()
                     || currentPoints.get(currentRoom.getPoints()) >= getRequiredPoints().get(currentRoom.getPoints()) * (config.buyRewards() ? 1 : (buyable + 1))) {
+                // Deposit items before leaving to maximize points
+                if (currentRoom == Rooms.ENCHANTMENT && Rs2Inventory.contains(ItemID.MAGICTRAINING_ENCHAN_SHAPEORB)) {
+                    Rs2GameObject.interact(ObjectID.MAGICTRAINING_ENCHA_HOLE, "Deposit");
+                    Rs2Player.waitForWalking();
+                }
+                if (currentRoom == Rooms.GRAVEYARD && Rs2Inventory.contains(ItemID.BANANA, ItemID.PEACH)) {
+                    Rs2GameObject.interact(new WorldPoint(3354, 9639, 1), "Deposit");
+                    Rs2Inventory.waitForInventoryChanges(5000);
+                }
                 leaveRoom();
             } else {
                 switch (currentRoom) {
@@ -399,7 +431,7 @@ public class MageTrainingArenaScript extends Script {
             while (!Rs2Player.getWorldLocation().equals(targetConverted)
                     && (Microbot.getClient().getLocalDestinationLocation() == null
                     || !Microbot.getClient().getLocalDestinationLocation().equals(localTarget))) {
-                if (Rs2Camera.isTileOnScreen(localTarget) && Rs2Player.getWorldLocation().distanceTo(targetConverted) < 10) {
+                if (Rs2Camera.isTileOnScreen(localTarget)) {
                     Rs2Walker.walkFastCanvas(targetConverted);
                     sleepGaussian(600, 150);
                 } else {
@@ -555,8 +587,15 @@ public class MageTrainingArenaScript extends Script {
             Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
         });
 
-        if (reward == config.reward())
+        if (reward == config.reward()) {
             bought++;
+        }
+        
+        // Check if we've achieved our goal - stop when we have the final target item
+        if (Rs2Inventory.contains(config.reward().getItemId())) {
+            Microbot.log("Successfully obtained " + config.reward().toString() + "! Goal achieved.");
+            finishWithSuccess("Successfully obtained " + config.reward().toString() + "! Goal achieved.");
+        }
     }
 
     public static Rooms getCurrentRoom() {
@@ -625,9 +664,27 @@ public class MageTrainingArenaScript extends Script {
         return false;
     }
 
+    private void finishWithSuccess(String reason) {
+        finishReason = reason;
+        scriptState.set(ScriptState.FINISHED);
+        Microbot.log("[MTA] " + reason);
+        shutdown();
+    }
+    
+    private void finishWithError(String reason) {
+        finishReason = reason;
+        scriptState.set(ScriptState.ERROR);
+        Microbot.log("[MTA] Error: " + reason);
+        shutdown();
+    }
+
     @Override
     public void shutdown() {
         super.shutdown();
+        // Reset state for next run
+        if (scriptState.get() == ScriptState.RUNNING) {
+            scriptState.set(ScriptState.INITIALIZING);
+        }
     }
 
     /**

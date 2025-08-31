@@ -10,10 +10,10 @@ import java.util.Map;
 @AllArgsConstructor
 public enum Rewards {
     ALL_ITEMS(ItemID.SKILLCAPE_MAX, Map.of(
-            Points.TELEKINETIC, 2675,
-            Points.GRAVEYARD, 2675,
-            Points.ENCHANTMENT, 27500,
-            Points.ALCHEMIST, 3075), null),
+            Points.TELEKINETIC, 2825,
+            Points.GRAVEYARD, 2825,
+            Points.ENCHANTMENT, 29000,
+            Points.ALCHEMIST, 3275), null),
 
     INFINITY_HAT(ItemID.MAGICTRAINING_INFINITYHAT, Map.of(
             Points.TELEKINETIC, 350,
@@ -74,6 +74,12 @@ public enum Rewards {
             Points.GRAVEYARD, 500,
             Points.ENCHANTMENT, 6000,
             Points.ALCHEMIST, 550), null),
+
+    RUNE_POUCH(ItemID.BH_RUNE_POUCH, Map.of(
+            Points.TELEKINETIC, 150,
+            Points.GRAVEYARD, 150,
+            Points.ENCHANTMENT, 1500,
+            Points.ALCHEMIST, 200), null),
 
     BONES_TO_PEACHES(ItemID.MAGICTRAINING_PEACHSPELL, Map.of(
             Points.TELEKINETIC, 200,
