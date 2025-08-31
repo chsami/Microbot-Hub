@@ -18,7 +18,7 @@ import java.awt.*;
         version = MageTrainingArenaPlugin.version,
         minClientVersion = "1.9.6",
         description = "Automates the Mage Training Arena minigame",
-        tags = {"mta", "magic", "minigame", "microbot"},
+        tags = {"mage", "training", "arena", "mta", "magic", "minigame", "microbot"},
         cardUrl = "https://chsami.github.io/Microbot-Hub/MageTrainingArenaPlugin/assets/card.png",
         iconUrl = "https://chsami.github.io/Microbot-Hub/MageTrainingArenaPlugin/assets/icon.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
