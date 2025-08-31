@@ -168,10 +168,7 @@ public class HerbiboarPlugin extends Plugin {
     private HerbiboarStart startSpot;
 
     @Override
-    protected void startUp() throws AWTException {
-        this.client = Microbot.getClient();
-
-        ClientThread clientThread = Microbot.getClientThread();
+    protected void startUp() throws AWTException {ClientThread clientThread = Microbot.getClientThread();
         HerbiboarConfig config = provideConfig(Microbot.getConfigManager());
 
         setStartTime(Instant.now());
