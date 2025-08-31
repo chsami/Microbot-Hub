@@ -3,9 +3,6 @@ package net.runelite.client.plugins.microbot.herbiboar;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Item;
-import net.runelite.api.IterableHashTable;
-import net.runelite.api.MessageNode;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
@@ -32,7 +29,6 @@ import org.slf4j.event.Level;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
