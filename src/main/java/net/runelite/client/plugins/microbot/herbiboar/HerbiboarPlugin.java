@@ -41,7 +41,7 @@ import java.util.*;
 )
 
 public class HerbiboarPlugin extends Plugin {
-    static final String version = "1.2.0";
+    static final String version = "1.2.1";
 
     @Getter
     @Setter
@@ -168,7 +168,8 @@ public class HerbiboarPlugin extends Plugin {
     private HerbiboarStart startSpot;
 
     @Override
-    protected void startUp() throws AWTException {ClientThread clientThread = Microbot.getClientThread();
+    protected void startUp() throws AWTException {
+        ClientThread clientThread = Microbot.getClientThread();
         HerbiboarConfig config = provideConfig(Microbot.getConfigManager());
 
         setStartTime(Instant.now());

@@ -68,17 +68,25 @@ public class HerbiboarScript extends Script {
     private boolean isNearBank() {
         return Rs2Player.getWorldLocation().distanceTo(BANK_LOCATION) <= 5;
     }
+
+    /** Check if the player's run energy is below the configured threshold.
+     *
+     * @param config The HerbiboarConfig containing the threshold setting.
+     * @return true if run energy is at or below the threshold, false otherwise.
+     */
+    private boolean energyUnderThreshold(HerbiboarConfig config) {
+        return Rs2Player.getRunEnergy() <= config.thresholdEnergy();
+    }
     
     private void manageRunEnergy(HerbiboarConfig config) {
         HerbiboarConfig.RunEnergyOption energyOption = config.runEnergyOption();
-        if (Microbot.getClient().getEnergy() >= 20 && energyOption != HerbiboarConfig.RunEnergyOption.STAMINA_POTION) {
-            return;
-        } else if (energyOption == HerbiboarConfig.RunEnergyOption.STAMINA_POTION &&  Rs2Player.hasStaminaBuffActive()) {
-            return;
-        }
 
         switch (energyOption) {
             case STAMINA_POTION:
+                if ((config.stamBuffAlwaysActive() && Rs2Player.hasStaminaBuffActive()) ||
+                        (!config.stamBuffAlwaysActive() && !energyUnderThreshold(config))) {
+                    return;
+                }
                 if (Rs2Inventory.contains(ItemID._4DOSESTAMINA, ItemID._3DOSESTAMINA, ItemID._2DOSESTAMINA, ItemID._1DOSESTAMINA)) {
                     Rs2Inventory.interact(ItemID._4DOSESTAMINA, "Drink");
                     if (!Rs2Inventory.contains(ItemID._4DOSESTAMINA)) {
@@ -93,6 +101,7 @@ public class HerbiboarScript extends Script {
                 }
                 break;
             case SUPER_ENERGY_POTION:
+                if (!energyUnderThreshold(config)) return;
                 if (Rs2Inventory.contains(ItemID._4DOSE2ENERGY, ItemID._3DOSE2ENERGY, ItemID._2DOSE2ENERGY, ItemID._1DOSE2ENERGY)) {
                     Rs2Inventory.interact(ItemID._4DOSE2ENERGY, "Drink");
                     if (!Rs2Inventory.contains(ItemID._4DOSE2ENERGY)) {
@@ -107,6 +116,7 @@ public class HerbiboarScript extends Script {
                 }
                 break;
             case ENERGY_POTION:
+                if (!energyUnderThreshold(config)) return;
                 if (Rs2Inventory.contains(ItemID._4DOSE1ENERGY, ItemID._3DOSE1ENERGY, ItemID._2DOSE1ENERGY, ItemID._1DOSE1ENERGY)) {
                     Rs2Inventory.interact(ItemID._4DOSE1ENERGY, "Drink");
                     if (!Rs2Inventory.contains(ItemID._4DOSE1ENERGY)) {
@@ -121,6 +131,7 @@ public class HerbiboarScript extends Script {
                 }
                 break;
             case STRANGE_FRUIT:
+                if (!energyUnderThreshold(config)) return;
                 if (Rs2Inventory.contains(ItemID.MACRO_TRIFFIDFRUIT)) {
                     Rs2Inventory.interact(ItemID.MACRO_TRIFFIDFRUIT, "Eat");
                 }

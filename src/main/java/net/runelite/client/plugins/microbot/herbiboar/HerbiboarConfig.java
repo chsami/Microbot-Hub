@@ -72,11 +72,34 @@ public interface HerbiboarConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "stamBuffAlwaysActive",
+            name = "Always keep stam buff?",
+            description = "If using stamina potions, keep the buff active at all times",
+            section = RUN_ENERGY_SECTION,
+            position = 1
+    )
+    default boolean stamBuffAlwaysActive() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "thresholdEnergy",
+            name = "Use energy potions below (%)",
+            description = "Use energy potions below this percentage of run energy",
+            section = RUN_ENERGY_SECTION,
+            position = 2
+    )
+    @Range(min = 1, max = 100)
+    default int thresholdEnergy() {
+        return 50;
+    }
+
+    @ConfigItem(
         keyName = "dropEmptyVials",
         name = "Drop empty vials",
         description = "Drop empty vials from drinking potions",
         section = RUN_ENERGY_SECTION,
-        position = 1
+        position = 3
     )
     default boolean dropEmptyVials() {
         return false;
