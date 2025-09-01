@@ -3,7 +3,6 @@ package net.runelite.client.plugins.microbot.herbiboar;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Item;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
@@ -22,12 +21,14 @@ import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import org.slf4j.event.Level;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -43,7 +44,15 @@ public class HerbiboarScript extends Script {
     private boolean attackedTunnel;
     private static final WorldPoint BANK_LOCATION = new WorldPoint(3766, 3899, 0);
     private static final WorldPoint RETURN_LOCATION = new WorldPoint(3703, 3878, 0);
-    
+
+    @Getter
+    @Setter
+    private Instant lastMove = Instant.now();
+
+    @Getter
+    @Setter
+    private WorldPoint lastLocation = null;
+
     public static String version = HerbiboarPlugin.version;
 
     public void incrementHerbisCaught() {
@@ -68,17 +77,25 @@ public class HerbiboarScript extends Script {
     private boolean isNearBank() {
         return Rs2Player.getWorldLocation().distanceTo(BANK_LOCATION) <= 5;
     }
+
+    /** Check if the player's run energy is below the configured threshold.
+     *
+     * @param config The HerbiboarConfig containing the threshold setting.
+     * @return true if run energy is at or below the threshold, false otherwise.
+     */
+    private boolean energyUnderThreshold(HerbiboarConfig config) {
+        return Rs2Player.getRunEnergy() <= config.thresholdEnergy();
+    }
     
     private void manageRunEnergy(HerbiboarConfig config) {
         HerbiboarConfig.RunEnergyOption energyOption = config.runEnergyOption();
-        if (Microbot.getClient().getEnergy() >= 20 && energyOption != HerbiboarConfig.RunEnergyOption.STAMINA_POTION) {
-            return;
-        } else if (energyOption == HerbiboarConfig.RunEnergyOption.STAMINA_POTION &&  Rs2Player.hasStaminaBuffActive()) {
-            return;
-        }
 
         switch (energyOption) {
             case STAMINA_POTION:
+                if ((config.stamBuffAlwaysActive() && Rs2Player.hasStaminaBuffActive()) ||
+                        (!config.stamBuffAlwaysActive() && !energyUnderThreshold(config))) {
+                    return;
+                }
                 if (Rs2Inventory.contains(ItemID._4DOSESTAMINA, ItemID._3DOSESTAMINA, ItemID._2DOSESTAMINA, ItemID._1DOSESTAMINA)) {
                     Rs2Inventory.interact(ItemID._4DOSESTAMINA, "Drink");
                     if (!Rs2Inventory.contains(ItemID._4DOSESTAMINA)) {
@@ -93,6 +110,7 @@ public class HerbiboarScript extends Script {
                 }
                 break;
             case SUPER_ENERGY_POTION:
+                if (!energyUnderThreshold(config)) return;
                 if (Rs2Inventory.contains(ItemID._4DOSE2ENERGY, ItemID._3DOSE2ENERGY, ItemID._2DOSE2ENERGY, ItemID._1DOSE2ENERGY)) {
                     Rs2Inventory.interact(ItemID._4DOSE2ENERGY, "Drink");
                     if (!Rs2Inventory.contains(ItemID._4DOSE2ENERGY)) {
@@ -107,6 +125,7 @@ public class HerbiboarScript extends Script {
                 }
                 break;
             case ENERGY_POTION:
+                if (!energyUnderThreshold(config)) return;
                 if (Rs2Inventory.contains(ItemID._4DOSE1ENERGY, ItemID._3DOSE1ENERGY, ItemID._2DOSE1ENERGY, ItemID._1DOSE1ENERGY)) {
                     Rs2Inventory.interact(ItemID._4DOSE1ENERGY, "Drink");
                     if (!Rs2Inventory.contains(ItemID._4DOSE1ENERGY)) {
@@ -121,6 +140,7 @@ public class HerbiboarScript extends Script {
                 }
                 break;
             case STRANGE_FRUIT:
+                if (!energyUnderThreshold(config)) return;
                 if (Rs2Inventory.contains(ItemID.MACRO_TRIFFIDFRUIT)) {
                     Rs2Inventory.interact(ItemID.MACRO_TRIFFIDFRUIT, "Eat");
                 }
@@ -420,7 +440,25 @@ public class HerbiboarScript extends Script {
                 if (!super.run()) return;
                 if (BreakHandlerScript.isMicroBreakActive()) return;
                 if (BreakHandlerScript.isBreakActive()) return;
-                
+
+
+                // Keep checking for time of last movement, if more than 1 minute, set state to RESET
+                if (getLastLocation() != null && !getLastLocation().equals(Rs2Player.getWorldLocation())) {
+                    setLastMove(Instant.now());
+                    setLastLocation(Rs2Player.getWorldLocation());
+                } else if (config.resetIfStuck() && getLastMove() != null
+                        && Instant.now().isAfter(getLastMove().plusSeconds(60))
+                        && state != HerbiboarState.RESET && state != HerbiboarState.INITIALIZING
+                        && state != HerbiboarState.CHECK_AUTO_RETALIATE && state != HerbiboarState.BANK) {
+                    Microbot.log(Level.INFO,"Player has not moved for over 1 minute, resetting script state");
+                    setLastMove(Instant.now());
+                    setLastLocation(null);
+                    setState(HerbiboarState.RESET);
+                } else if (getLastMove() == null) {
+                    setLastMove(Instant.now());
+                    setLastLocation(Rs2Player.getWorldLocation());
+                }
+
                 if (!Rs2Player.isMoving() && !Rs2Player.isInteracting()) {
                     Microbot.log(Level.INFO,"Checking inventory and run energy");
                     dropConfiguredItems(config);
@@ -444,6 +482,40 @@ public class HerbiboarScript extends Script {
                 }
                 
                 switch (state) {
+                    case RESET:
+                        /**
+                         * Here we reset the script state in case we get stuck somewhere for 1 minute.
+                         * This will walk us back to the starting rock and re-initialize the script.
+                         * If currently the warning for reset is not disabled, it will disable it.
+                         * After resetting, we check if there is a trail and then decide to go to START or TRAIL state.
+                         */
+                        Microbot.status = "Resetting...";
+                        Microbot.log(Level.INFO,"Resetting...");
+                        attackedTunnel = false;
+                        setLastMove(Instant.now());
+                        setLastLocation(null);
+                        WorldPoint resetRock = new WorldPoint(3704, 3810, 0);
+                        boolean reached = Rs2Walker.walkTo(resetRock);
+                        if (!reached) {
+                            Microbot.log(Level.INFO, "Failed to reach reset rock, stopping script");
+                            Rs2Player.logout();
+                            Microbot.showMessage("Failed to reach reset rock, stopping script");
+                            Microbot.stopPlugin(herbiboarPlugin.getClass());
+                            return;
+                        }
+                        if (Microbot.getVarbitValue(VarbitID.FOSSIL_HERBIBOAR_ALREADY_CAUGHT_IGNORE_WARNING) != 1) {
+                            Rs2GameObject.interact(resetRock, "Toggle warning");
+                            sleepUntil(() -> Microbot.getVarbitValue(VarbitID.FOSSIL_HERBIBOAR_ALREADY_CAUGHT_IGNORE_WARNING) == 1, 5000);
+                        }
+                        Rs2GameObject.interact(resetRock, "Inspect");
+                        Rs2Player.waitForAnimation();
+                        sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting() && !Rs2Player.isMoving(), 5000);
+                        if (herbiboarPlugin.getCurrentGroup() == null) {
+                            setState(HerbiboarState.START);
+                        } else {
+                            setState(HerbiboarState.TRAIL);
+                        }
+                        break;
                     case INITIALIZING:
                         Microbot.status = "Starting...";
                         Microbot.log(Level.INFO,"Initializing...");
@@ -472,7 +544,7 @@ public class HerbiboarScript extends Script {
                             if (start != null) {
                                 WorldPoint loc = start.getWorldLocation();
                                 LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), loc);
-                                if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(loc) >= 50) {
+                                if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(loc) >= config.interactionDistance()) {
                                     Rs2Walker.walkTo(loc);
                                 } else {
                                     Rs2Camera.turnTo(localPoint);
@@ -488,7 +560,8 @@ public class HerbiboarScript extends Script {
                     case TRAIL:
                         Microbot.status = "Following trail";
                         Microbot.log(Level.INFO,"Following trail");
-                        if (herbiboarPlugin.getFinishId() > 0) { 
+                        if (herbiboarPlugin.getFinishId() > 0) {
+                            if (checkForConfusionMessage(herbiboarPlugin)) return;
                             setState(HerbiboarState.TUNNEL);
                             break; 
                         }
@@ -497,7 +570,7 @@ public class HerbiboarScript extends Script {
                             WorldPoint loc = path.get(path.size() - 1).getLocation();
                             LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), loc);
                             TileObject object = herbiboarPlugin.getTrailObjects().get(loc);
-                            if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(loc) >= 50){
+                            if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(loc) >= config.interactionDistance()){
                                 Rs2Walker.walkTo(loc);
                             } else {
                                 Rs2Camera.turnTo(localPoint);
@@ -505,6 +578,7 @@ public class HerbiboarScript extends Script {
                                 Rs2Player.waitForAnimation();
                                 sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting() && !Rs2Player.isMoving(), 5000);
                             }
+                            if (checkForConfusionMessage(herbiboarPlugin)) return;
                         }
                         break;
                     case TUNNEL:
@@ -516,7 +590,7 @@ public class HerbiboarScript extends Script {
                                 WorldPoint finishLoc = herbiboarPlugin.getEndLocations().get(finishId - 1);
                                 LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), finishLoc);
                                 TileObject tunnel = herbiboarPlugin.getTunnels().get(finishLoc);
-                                if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(finishLoc) >= 50) {
+                                if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(finishLoc) >= config.interactionDistance()) {
                                     Rs2Walker.walkTo(finishLoc);
                                 } else {
                                     Rs2Camera.turnTo(localPoint);
@@ -549,7 +623,7 @@ public class HerbiboarScript extends Script {
                                 if (start != null) {
                                     WorldPoint startLoc = start.getWorldLocation();
                                     LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), startLoc);
-                                    if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(startLoc) >= 50) {
+                                    if (localPoint == null || Rs2Player.getWorldLocation().distanceTo(startLoc) >= config.interactionDistance()) {
                                         Rs2Walker.walkTo(startLoc);
                                     } else {
                                         Rs2Camera.turnTo(localPoint);
@@ -712,6 +786,22 @@ public class HerbiboarScript extends Script {
         }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
     }
+
+    /**
+     * Check for the presence of the confusion or "start again" messages in the chatbox.
+     *
+     * @return true if the message is found, false otherwise
+     */
+    private boolean checkForConfusionMessage(HerbiboarPlugin plugin) {
+        for (String msg : plugin.getLastMessages()) {
+            if (msg.contains("successfully confused you with its tracks") || msg.contains("need to start again")) {
+                handleConfusionMessage();
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public void shutdown() {
         Microbot.status = "IDLE";

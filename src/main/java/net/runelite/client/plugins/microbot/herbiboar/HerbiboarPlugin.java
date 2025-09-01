@@ -26,6 +26,7 @@ import javax.inject.Inject;
 import java.awt.AWTException;
 import java.time.Instant;
 import java.util.*;
+import java.util.Deque;
 
 @PluginDescriptor(
         name = PluginConstants.DEFAULT_PREFIX + "Herbiboar",
@@ -41,7 +42,7 @@ import java.util.*;
 )
 
 public class HerbiboarPlugin extends Plugin {
-    static final String version = "1.2.0";
+    static final String version = "1.2.2";
 
     @Getter
     @Setter
@@ -115,6 +116,9 @@ public class HerbiboarPlugin extends Plugin {
     @Inject
     private HerbiboarScript script;
 
+    @Getter
+    private final Deque<String> lastMessages = new ArrayDeque<>(5);
+
     /**
      * Objects which appear at the beginning of Herbiboar hunting trails
      */
@@ -168,7 +172,8 @@ public class HerbiboarPlugin extends Plugin {
     private HerbiboarStart startSpot;
 
     @Override
-    protected void startUp() throws AWTException {ClientThread clientThread = Microbot.getClientThread();
+    protected void startUp() throws AWTException {
+        ClientThread clientThread = Microbot.getClientThread();
         HerbiboarConfig config = provideConfig(Microbot.getConfigManager());
 
         setStartTime(Instant.now());
@@ -207,14 +212,17 @@ public class HerbiboarPlugin extends Plugin {
 
     @Subscribe
     public void onChatMessage(ChatMessage chatMessage) {
+        String msg = chatMessage.getMessage();
+        if (lastMessages.size() == 5) lastMessages.removeFirst();
+        lastMessages.addLast(msg);
         if (chatMessage.getType() == ChatMessageType.GAMEMESSAGE) {
-            String message = chatMessage.getMessage();
-            if (message.equals("The creature has successfully confused you with its tracks, leading you round in circles.") ||
-                message.equals("You'll need to start again.")) {
+            if (msg.equals("successfully confused you with its tracks") ||
+                    msg.equals("need to start again")) {
                 script.handleConfusionMessage();
             }
         }
     }
+
     private void updateTrailData()
     {
         if (!isInHerbiboarArea())

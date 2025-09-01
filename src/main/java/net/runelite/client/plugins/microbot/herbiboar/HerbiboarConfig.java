@@ -53,6 +53,31 @@ public interface HerbiboarConfig extends Config {
     default boolean useMagicSecateurs() {
         return false;
     }
+
+    @ConfigItem(
+            keyName = "resetIfStuck",
+            name = "Reset if stuck?",
+            description = "Fallback behavior to try getting unstuck if stuck for more than 1m in the same place.",
+            section = OPTIONALS_SECTION,
+            position = 2
+    )
+    default boolean resetIfStuck() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "interactionDistance",
+            name = "Interaction distance",
+            description = "Minimum distance to start interacting with objects like tunnel, rock, etc. (lower = will move closer to object before clicking on it)",
+            section = OPTIONALS_SECTION,
+            position = 3
+    )
+    @Range (min = 1, max = 50)
+    default int interactionDistance() {
+        return 25;
+    }
+
+
     @ConfigSection(
         name = "Run energy management",
         description = "Run energy management",
@@ -72,11 +97,34 @@ public interface HerbiboarConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "stamBuffAlwaysActive",
+            name = "Always keep stam buff?",
+            description = "If using stamina potions, keep the buff active at all times",
+            section = RUN_ENERGY_SECTION,
+            position = 1
+    )
+    default boolean stamBuffAlwaysActive() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "thresholdEnergy",
+            name = "Use energy potions below (%)",
+            description = "Use energy potions below this percentage of run energy",
+            section = RUN_ENERGY_SECTION,
+            position = 2
+    )
+    @Range(min = 1, max = 100)
+    default int thresholdEnergy() {
+        return 50;
+    }
+
+    @ConfigItem(
         keyName = "dropEmptyVials",
         name = "Drop empty vials",
         description = "Drop empty vials from drinking potions",
         section = RUN_ENERGY_SECTION,
-        position = 1
+        position = 3
     )
     default boolean dropEmptyVials() {
         return false;
