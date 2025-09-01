@@ -4,10 +4,10 @@ package net.runelite.client.plugins.microbot.cannonballsmelter;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.gameval.ItemID;
-import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.cannonballsmelter.enums.CannonballSmelterStates;
+import net.runelite.client.plugins.microbot.cannonballsmelter.enums.Furnace;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
@@ -16,6 +16,8 @@ import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
+import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import javax.inject.Inject;
@@ -25,9 +27,11 @@ import java.util.concurrent.TimeUnit;
 
 
 public class CannonballSmelterScript extends Script {
+
+    private static CannonballSmelterConfig config;
+
     private final ThreadLocalRandom random = ThreadLocalRandom.current();
-    @Inject
-    private CannonballSmelterConfig config;
+
     @Inject
     private Client client;
 
@@ -43,9 +47,12 @@ public class CannonballSmelterScript extends Script {
     private boolean hasBars() {
         return Rs2Inventory.hasItem(ItemID.STEEL_BAR);
     }
-    private boolean required() {return (Rs2Inventory.hasItem(ItemID.AMMO_MOULD) || Rs2Inventory.hasItem(ItemID.DOUBLE_AMMO_MOULD));}
+    private boolean required() {
+        return (Rs2Inventory.hasItem(ItemID.AMMO_MOULD) || Rs2Inventory.hasItem(ItemID.DOUBLE_AMMO_MOULD));
+    }
 
     public boolean run(CannonballSmelterConfig config) {
+        CannonballSmelterScript.config = config;
         Rs2Camera.setZoom(260);
         Rs2Camera.adjustPitch(383);
         Rs2Antiban.resetAntibanSettings();
@@ -58,7 +65,6 @@ public class CannonballSmelterScript extends Script {
                 if (!super.run() || !Microbot.isLoggedIn()) return;
                 if (Rs2AntibanSettings.actionCooldownActive) return;
                 startTime = System.currentTimeMillis();
-
 
                 getState();
 
@@ -73,6 +79,7 @@ public class CannonballSmelterScript extends Script {
                         smelt();
                         break;
                 }
+
                 endTime = System.currentTimeMillis();
                 long totalTime = endTime - startTime;
                 System.out.println("Total time for loop " + totalTime);
@@ -89,13 +96,19 @@ public class CannonballSmelterScript extends Script {
         }
         else if(hasBars()) {
             state = CannonballSmelterStates.SMELTING;
-        } else if (!hasBars() || (!hasBars() && hasBalls())){
+        }
+        else if (!hasBars() || hasBalls()){
             state = CannonballSmelterStates.BANKING;
         }
     }
 
     public void smelt() {
-        GameObject furnace = Rs2GameObject.getGameObject(ObjectID.VARROCK_DIARY_FURNACE);
+        GameObject furnace = Rs2GameObject.getGameObject(config.getFurnace().furnaceID);
+
+        if(config.getFurnace() == Furnace.SHILO_VILLAGE) {
+            furnace = Rs2GameObject.getGameObject("Furnace");
+        }
+
         if (furnace != null) {
             Rs2GameObject.interact(furnace, "Smelt");
             Microbot.status = "Moving to furnace...";
@@ -123,7 +136,14 @@ public class CannonballSmelterScript extends Script {
     
         while (!Rs2Bank.isOpen() && attempts++ < 10) {
             if (!isRunning()) break;
-            Rs2Bank.openBank();
+
+            if(config.getFurnace() == Furnace.SHILO_VILLAGE) {
+                Rs2NpcModel banker = Rs2Npc.getBankerNPC();
+                Rs2Npc.interact(banker, "Bank");
+            } else {
+                Rs2Bank.openBank();
+            }
+
             sleep(300, 600);
         }
     
@@ -147,17 +167,31 @@ public class CannonballSmelterScript extends Script {
     
 
     public void getMould() {
-        if(!Rs2Inventory.hasItem("ammo mould")) {
+        if(!Rs2Inventory.hasItem("ammo mould") && !Rs2Inventory.hasItem("double ammo mould")) {
             if(!Rs2Bank.isOpen()) {
-                Rs2Bank.openBank();
+                if(config.getFurnace() == Furnace.SHILO_VILLAGE) {
+                    Rs2NpcModel banker = Rs2Npc.getBankerNPC();
+                    Rs2Npc.interact(banker, "Bank");
+                } else {
+                    Rs2Bank.openBank();
+                }
             }
+
             sleepUntil(Rs2Bank::isOpen);
-            if(!Rs2Bank.hasItem("ammo mould")) {
-                Microbot.showMessage("Could not find ammo mould in bank, exiting...");
+
+            if(!Rs2Bank.hasItem("ammo mould") && !Rs2Bank.hasItem("double ammo mould")) {
+                Microbot.showMessage("Could not find ammo mould or double ammo mould in bank, exiting...");
                 sleep(3000, 5000);
                 shutdown();
             }
-            Rs2Bank.withdrawOne("ammo mould");
+
+            if(Rs2Bank.hasItem("double ammo mould")) {
+                Rs2Bank.withdrawOne("double ammo mould");
+            }
+            else {
+                Rs2Bank.withdrawOne("ammo mould");
+            }
+
             sleepUntil(this::required, 3000);
         }
         if(!Rs2Bank.hasItem(ItemID.STEEL_BAR)) {

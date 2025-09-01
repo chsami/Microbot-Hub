@@ -14,7 +14,7 @@ import java.awt.*;
 @PluginDescriptor(
         name = PluginConstants.GIRDY + "Cannonball Smelter",
         description = "Makes cannonballs",
-        authors = { "Girdy" },
+        authors = { "Girdy", "Engin" },
         version = CannonballSmelterPlugin.version,
         minClientVersion = "1.9.9.1",
         tags = { "smithing", "girdy", "skilling" },
@@ -24,7 +24,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class CannonballSmelterPlugin extends Plugin {
-        public static final String version = "1.0.2";
+        public static final String version = "1.1.0";
 
         @Inject
         private CannonballSmelterConfig config;

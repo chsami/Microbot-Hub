@@ -8,20 +8,22 @@ The **Cannonball Smelter Plugin** provides an automated way to smelt cannonballs
 
 ## Feature Overview
 
-- X
+| Feature     | Description                                        |
+|-------------|----------------------------------------------------|
+| **Furnace** | Which furnace location to smelt the cannonballs at |
 
 ---
 
 ## Requirements
 - Microbot RuneLite client
-- Required Ingredients to smelt Cannonballs (Ammo mould, Steel bars)
+- Required Ingredients to smelt Cannonballs (Ammo mould or Double ammo mould and Steel bars)
 - Plugin enabled in the Microbot plugin list
 
 ---
 
 ## How It Works
-1. Make sure you have the Ingredients to smelt Cannonballs (Ammo mould, Steel bars).
-2. Go to the Edgeville Furnance.
+1. Make sure you have the Ingredients to smelt Cannonballs (Ammo mould or Double ammo mould and Steel bars) in your bank.
+2. Go to the bank next to your selected Furnance.
 3. Activate the plugin.
 4. Enjoy! :)
 
