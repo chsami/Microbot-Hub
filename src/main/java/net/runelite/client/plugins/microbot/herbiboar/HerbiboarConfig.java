@@ -53,6 +53,31 @@ public interface HerbiboarConfig extends Config {
     default boolean useMagicSecateurs() {
         return false;
     }
+
+    @ConfigItem(
+            keyName = "resetIfStuck",
+            name = "Reset if stuck?",
+            description = "Fallback behavior to try getting unstuck if stuck for more than 1m in the same place.",
+            section = OPTIONALS_SECTION,
+            position = 2
+    )
+    default boolean resetIfStuck() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "interactionDistance",
+            name = "Interaction distance",
+            description = "Minimum distance to start interacting with objects like tunnel, rock, etc. (lower = will move closer to object before clicking on it)",
+            section = OPTIONALS_SECTION,
+            position = 3
+    )
+    @Range (min = 1, max = 50)
+    default int interactionDistance() {
+        return 25;
+    }
+
+
     @ConfigSection(
         name = "Run energy management",
         description = "Run energy management",
