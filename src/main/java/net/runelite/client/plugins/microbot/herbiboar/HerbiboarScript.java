@@ -442,20 +442,21 @@ public class HerbiboarScript extends Script {
                 if (BreakHandlerScript.isBreakActive()) return;
 
 
-                if (config.resetIfStuck() && state != HerbiboarState.RESET && state != HerbiboarState.INITIALIZING
+                // Keep checking for time of last movement, if more than 1 minute, set state to RESET
+                if (getLastLocation() != null && !getLastLocation().equals(Rs2Player.getWorldLocation())) {
+                    setLastMove(Instant.now());
+                    setLastLocation(Rs2Player.getWorldLocation());
+                } else if (config.resetIfStuck() && getLastMove() != null
+                        && Instant.now().isAfter(getLastMove().plusSeconds(60))
+                        && state != HerbiboarState.RESET && state != HerbiboarState.INITIALIZING
                         && state != HerbiboarState.CHECK_AUTO_RETALIATE && state != HerbiboarState.BANK) {
-                    // Keep checking for time of last movement, if more than 1 minute, set state to RESET
-                    if (getLastLocation() != null && !getLastLocation().equals(Rs2Player.getWorldLocation())) {
-                        setLastMove(Instant.now());
-                        setLastLocation(Rs2Player.getWorldLocation());
-                    } else if (getLastMove() != null && Instant.now().isAfter(getLastMove().plusSeconds(60))) {
-                        Microbot.log(Level.INFO,"Player has not moved for over 1 minute, resetting script state");
-                        setState(HerbiboarState.RESET);
-                        setLastMove(Instant.now());
-                    } else if (getLastMove() == null) {
-                        setLastMove(Instant.now());
-                        setLastLocation(Rs2Player.getWorldLocation());
-                    }
+                    Microbot.log(Level.INFO,"Player has not moved for over 1 minute, resetting script state");
+                    setLastMove(Instant.now());
+                    setLastLocation(null);
+                    setState(HerbiboarState.RESET);
+                } else if (getLastMove() == null) {
+                    setLastMove(Instant.now());
+                    setLastLocation(Rs2Player.getWorldLocation());
                 }
 
                 if (!Rs2Player.isMoving() && !Rs2Player.isInteracting()) {
