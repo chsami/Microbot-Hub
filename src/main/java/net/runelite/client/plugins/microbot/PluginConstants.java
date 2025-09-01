@@ -23,13 +23,12 @@ public final class PluginConstants
 	public static final String CRANNY = "<html>[<font color=#00B4D8>🐬</font>] ";
 	public static final String Cardew = "<html>[<font color=#824BA3>CD</font>]";
 	public static final String BGA = "<html>[<font color=#FF6B35>bga</font>] ";
-  public static final String Lumusi = "<html>[<font color=#FFD700><b>\uD83E\uDD16</b></font>] ";
-  public static final String BASCHE = "<html>[<font color=#07A6F0>B</font>] ";
+    public static final String BASCHE = "<html>[<font color=#07A6F0>B</font>] ";
     public static final String heapoverfl0w = "<html>[<font color=#07A6F0>h</font>] ";
     public static final String Lumusi = "<html>[<font color=#FFD700><b>\uD83E\uDD16</b></font>] ";
-    public static final String BASCHE = "<html>[<font color=#07A6F0>B</font>] ";
     public static final String GIRDY = "<html>[<font color=#3DED97>ǥ</font>] ";
     public static final String SEE1DUCK = "<html>[<font color=#ffff1a>\ud83e\udd86</font>] ";
-  public static final boolean DEFAULT_ENABLED = false;
-  public static final boolean IS_EXTERNAL = true;
+
+    public static final boolean DEFAULT_ENABLED = false;
+    public static final boolean IS_EXTERNAL = true;
 }
