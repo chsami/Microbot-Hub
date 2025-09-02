@@ -782,8 +782,10 @@ public class ThievingScript extends Script {
         return repeatedAction(
                 () -> {
                     final int deficit = amount-Rs2Inventory.itemQuantity(name, exact);
-                    if (deficit > 0) return;
-                    if (Rs2Bank.hasBankItem(name, deficit, exact)) Rs2Bank.withdrawX(name, deficit, exact);
+                    if (deficit == 0) return;
+                    if (deficit > 0) {
+                        if (Rs2Bank.hasBankItem(name, deficit, exact)) Rs2Bank.withdrawX(name, deficit, exact);
+                    }
                     else Rs2Bank.depositX(name, Math.abs(deficit));
                 },
                 () -> Rs2Inventory.itemQuantity(name, exact) == amount,
