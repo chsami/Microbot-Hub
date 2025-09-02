@@ -61,11 +61,11 @@ public class ThievingScript extends Script {
 
     private WorldPoint startingLocation = null;
     private String startingNpc = null;
-    protected boolean cleanNpc = false;
+    protected volatile boolean cleanNpc = false;
 
     protected State currentState = State.IDLE;
 
-    protected volatile Rs2NpcModel thievingNpc = null;
+    private volatile Rs2NpcModel thievingNpc = null;
 
     @Getter(AccessLevel.PROTECTED)
     private volatile boolean underAttack;
@@ -782,7 +782,7 @@ public class ThievingScript extends Script {
         return repeatedAction(
                 () -> {
                     final int deficit = amount-Rs2Inventory.itemQuantity(name, exact);
-                    if (deficit == 0) return;
+                    if (deficit > 0) return;
                     if (Rs2Bank.hasBankItem(name, deficit, exact)) Rs2Bank.withdrawX(name, deficit, exact);
                     else Rs2Bank.depositX(name, Math.abs(deficit));
                 },
