@@ -1,4 +1,4 @@
-# UIM Charter Crafter
+# Charter Crafter
 
 ## Features
 
