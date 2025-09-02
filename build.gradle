@@ -33,7 +33,7 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs.addAll([
         '-parameters',
         '-Xlint:none',
-        '-g:none'
+        '-g'
     ])
 
 

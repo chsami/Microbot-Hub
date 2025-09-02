@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.plugins.microbot.autoherbiboar.dependencies;
+package net.runelite.client.plugins.microbot.herbiboar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -35,8 +35,10 @@ import net.runelite.api.gameval.VarbitID;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
+/**
+ * Patch locations
+ */
 @Getter
 public enum HerbiboarSearchSpot
 {
@@ -119,7 +121,6 @@ public enum HerbiboarSearchSpot
 		new TrailToSpot(VarbitID.HUNTING_TRAIL_STATE11_2, 1, ObjectID.HUNTING_TRAIL11_2)),
 	;
 
-	private static final ImmutableMultimap<Group, HerbiboarSearchSpot> GROUPS;
 	private static final Set<WorldPoint> SPOTS;
 	private static final Set<Integer> TRAILS;
 
@@ -140,7 +141,6 @@ public enum HerbiboarSearchSpot
 			}
 		}
 
-		GROUPS = groupBuilder.build();
 		SPOTS = spotBuilder.build();
 		TRAILS = trailBuilder.build();
 	}
@@ -159,12 +159,12 @@ public enum HerbiboarSearchSpot
 	/**
 	 * Spots are placed in groups of two
 	 */
-	enum Group
+    public enum Group
 	{
 		A, B, C, D, E, F, G, H, I, J, K
 	}
 
-	static boolean isTrail(int id)
+	public static boolean isTrail(int id)
 	{
 		return TRAILS.contains(id);
 	}
@@ -172,10 +172,5 @@ public enum HerbiboarSearchSpot
 	public static boolean isSearchSpot(WorldPoint location)
 	{
 		return SPOTS.contains(location);
-	}
-
-	static List<WorldPoint> getGroupLocations(Group group)
-	{
-		return GROUPS.get(group).stream().map(HerbiboarSearchSpot::getLocation).collect(Collectors.toList());
 	}
 }

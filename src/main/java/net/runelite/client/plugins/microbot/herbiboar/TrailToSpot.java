@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.client.plugins.microbot.autoherbiboar.dependencies;
+package net.runelite.client.plugins.microbot.herbiboar;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.Getter;
@@ -45,18 +45,18 @@ public class TrailToSpot
 	 * Varbit's value will be greater than that of {@link TrailToSpot#getValue()}.
 	 */
 	@Getter(onMethod_ = {@Varbit})
-	private final int varbitId;
+    int varbitId;
 	/**
-	 * The cutoff reference value to compare against the value of {@link TrailToSpot#getVarbitId()} ()} to determine its state
+	 * The cutoff reference value to compare against the value of {@link TrailToSpot#getVarbitId()} to determine its state
 	 * along the current trail.
 	 */
-	private final int value;
+    int value;
 	/**
 	 * The object ID of the footprints which appear when the trail is made visible.
 	 */
-	private final int footprint;
+    int footprint;
 
-	Set<Integer> getFootprintIds()
+	public Set<Integer> getFootprintIds()
 	{
 		return ImmutableSet.of(footprint, footprint + 1);
 	}

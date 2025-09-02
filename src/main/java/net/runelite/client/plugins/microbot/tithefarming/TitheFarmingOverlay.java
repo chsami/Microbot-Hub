@@ -61,7 +61,7 @@ public class TitheFarmingOverlay extends OverlayPanel {
         panelComponent.getChildren().add(new ImageComponent(getImage(Objects.requireNonNull(TitheFarmMaterial.getSeedForLevel()).getFruitId(), TitheFarmingScript.fruits)));
 
         if (plugin.config.enableOverlay()) {
-            for (net.runelite.client.plugins.microbot.tithefarming.models.TitheFarmPlant plant : TitheFarmingScript.plants) {
+            for (TitheFarmPlant plant : TitheFarmingScript.plants) {
                 if (plant == null || plant.getGameObject() == null) continue;
                 final Polygon polygon = Perspective.getCanvasTilePoly(Microbot.getClient(), plant.getGameObject().getLocalLocation());
 

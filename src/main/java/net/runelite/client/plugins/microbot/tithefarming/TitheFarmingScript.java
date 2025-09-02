@@ -9,6 +9,7 @@ import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmLanes;
 import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmMaterial;
 import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmState;
@@ -64,6 +65,8 @@ public class TitheFarmingScript extends Script {
     public static int gricollerCanCharges = -1;
 
     public static boolean init = true;
+
+    private boolean allPlanted = false;
 
     public void init(TitheFarmingConfig config) {
         TitheFarmLanes lane = config.Lanes();
@@ -227,7 +230,7 @@ public class TitheFarmingScript extends Script {
                         break;
                     case STARTING:
                         Rs2Player.toggleRunEnergy(true);
-                        Rs2Tab.switchToInventoryTab();
+                        Rs2Tab.switchTo(InterfaceTab.INVENTORY);
                         init(config);
                         validateInventory();
                         DropFertiliser();
@@ -276,28 +279,36 @@ public class TitheFarmingScript extends Script {
         Comparator<TitheFarmPlant> sortByIndex = Comparator.comparingInt(TitheFarmPlant::getIndex);
         TitheFarmPlant plant = null;
         if (state != HARVEST) {
-             plant = plants.stream()
-                    .sorted(sortByIndex)
-                    .filter(TitheFarmPlant::isEmptyPatchOrSeedling) //empty patch and seedling first
-                    .findFirst()
-                    .orElseGet(() ->
-                            plants.stream()
-                                    .sorted(sortByIndex)
-                                    .filter(TitheFarmPlant::isStage1) // then stage1 plants
-                                    .findFirst()
-                                    .orElseGet(() ->
-                                            plants.stream()
-                                                    .sorted(sortByIndex)
-                                                    .filter(TitheFarmPlant::isStage2) //then stage2 plants
-                                                    .findFirst()
-                                                    .orElse(null)
-                                    )
-                    );
+            if (!allPlanted) {
+                plant = plants.stream()
+                        .sorted(sortByIndex)
+                        .filter(TitheFarmPlant::isEmptyPatchOrSeedling) //empty patch and seedling first
+                        .findFirst().orElse(null);
+            }
+            if (plant == null)
+                plant = plants.stream()
+                        .sorted(sortByIndex)
+                        .filter(TitheFarmPlant::isStage1) // then stage1 plants
+                        .findFirst()
+                        .orElseGet(() ->
+                                plants.stream()
+                                        .sorted(sortByIndex)
+                                        .filter(TitheFarmPlant::isStage2) //then stage2 plants
+                                        .findFirst()
+                                        .orElse(null)
+                        );
         }
+
 
         if (state == TitheFarmState.HARVEST && hasAllEmptyPatches()) {
             state = STARTING;
+            allPlanted = false;
         }
+
+        // if we finished planting all patches, don't plant anything until we finish harvesting
+        // otherwise if we lag/miss a plant, and it dies, we will keep trying to plant seeds and mess up the loop
+        if (plants.stream().noneMatch(TitheFarmPlant::isEmptyPatch))
+            allPlanted = true;
 
         if (plant == null && plants.stream().anyMatch(TitheFarmPlant::isValidToHarvest)) {
             state = TitheFarmState.HARVEST;
@@ -314,8 +325,8 @@ public class TitheFarmingScript extends Script {
 
         if (plant.getGameObject().getWorldLocation().distanceTo2D(Microbot.getClient().getLocalPlayer().getWorldLocation()) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
             //Important to know that there are two world locations when you are in an instance
-            //thats why we use the world location of the getLocalPlayer instead of Rs2Player.getWorldLocation
-            //because Rs2Player.getWorldLocation will give us the world location in the instance and we do not want that
+            //that's why we use the world location of the getLocalPlayer instead of Rs2Player.getWorldLocation
+            //because Rs2Player.getWorldLocation will give us the world location in the instance, and we do not want that
             WorldPoint w = WorldPoint.fromRegion(Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID(),
                     plant.regionX,
                     plant.regionY,
@@ -324,33 +335,32 @@ public class TitheFarmingScript extends Script {
             return;
         }
 
-        if (plant.isEmptyPatch()) { //start planting seeds
+        if (plant.isEmptyPatch() && !allPlanted) { //start planting seeds
             Rs2Inventory.interact(TitheFarmMaterial.getSeedForLevel().getName(), "Use");
             clickPatch(plant);
             // save 1 tick by manually clicking watering can immediately after planting seed
-            sleepUntil(() -> Rs2Player.getAnimation() == AnimationID.FARMING_SEED_DIBBING, 2_000);
-            Rs2Inventory.interact(TitheFarmMaterial.getWateringCan(), "Use");
-            sleep(200,300);
-            clickPatch(plant);
-            sleepUntil(Rs2Player::isAnimating, config.sleepAfterPlantingSeed());
-            if (Rs2Player.isAnimating()) {
-                sleepUntil(() -> plants.stream().noneMatch(x -> x.getIndex() == finalPlant.getIndex() && x.isValidToWater()));
+            sleepUntil(finalPlant::isValidToWater, 3_000);
+            if (!finalPlant.isValidToWater()) {
+                return;
             }
+            Rs2Inventory.interact(TitheFarmMaterial.getWateringCan(), "Use");
+            clickPatch(plant);
+            sleepUntil(finalPlant::isWatered, config.sleepAfterWateringSeed());
         }
 
         if (plant.isValidToWater()) {
             clickPatch(plant, "water");
-            sleepUntil(Rs2Player::isAnimating, config.sleepAfterWateringSeed());
-            if (Rs2Player.isAnimating()) {
-                sleepUntil(() -> plants.stream().noneMatch(x -> x.getIndex() == finalPlant.getIndex() && x.isValidToWater()));
-            }
+            sleepUntil(() -> Rs2Player.getAnimation() == AnimationID.FARMING_WATERING, config.sleepAfterWateringSeed());
             plant.setPlanted(Instant.now());
+            if (Rs2Player.isAnimating()){
+                sleepUntil(finalPlant::isWatered);
+            }
         }
 
 
         if (plant.isValidToHarvest()) {
             clickPatch(plant, "harvest");
-            sleepUntil(Rs2Player::isAnimating, config.sleepAfterHarvestingSeed());
+            sleepUntil(() -> Rs2Player.getAnimation() == AnimationID.HUMAN_DIG, config.sleepAfterHarvestingSeed());
             if (Rs2Player.isAnimating()) {
                 sleepUntil(() -> plants.stream().anyMatch(x -> x.getIndex() == finalPlant.getIndex() && x.isEmptyPatch()));
             }
