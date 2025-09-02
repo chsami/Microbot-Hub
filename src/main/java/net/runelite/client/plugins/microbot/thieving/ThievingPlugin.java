@@ -73,7 +73,7 @@ public class ThievingPlugin extends Plugin {
             // clear the npc reference
             if (getThievingScript().thievingNpc != null && event.getNpc().getIndex() == getThievingScript().thievingNpc.getIndex()) {
                 log.info("NPC (index={}) properties changed, updating reference", getThievingScript().thievingNpc.getIndex());
-                getThievingScript().thievingNpc = null;
+                getThievingScript().cleanNpc = true;
             }
         }, 0);
 

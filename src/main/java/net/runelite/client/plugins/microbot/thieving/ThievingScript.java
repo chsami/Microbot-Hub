@@ -60,7 +60,8 @@ public class ThievingScript extends Script {
     private final ThievingPlugin plugin;
 
     private WorldPoint startingLocation = null;
-    private Rs2NpcModel startingNpc = null;
+    private String startingNpc = null;
+    protected boolean cleanNpc = false;
 
     protected State currentState = State.IDLE;
 
@@ -137,9 +138,9 @@ public class ThievingScript extends Script {
     private Rs2NpcModel getThievingNpc() {
         final Comparator<Rs2NpcModel> comparator;
 
-        if (config.THIEVING_NPC() == ThievingNpc.VYRES && startingNpc != null && startingNpc.getName() != null) {
+        if (config.THIEVING_NPC() == ThievingNpc.VYRES && startingNpc != null) {
             comparator = Comparator
-                    .comparing((Rs2NpcModel npc) -> !startingNpc.getName().equals(npc.getName()))
+                    .comparing((Rs2NpcModel npc) -> !startingNpc.equalsIgnoreCase(npc.getName()))
                     .thenComparingInt(Rs2NpcModel::getDistanceFromPlayer);
         } else {
             comparator = Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer);
@@ -152,6 +153,10 @@ public class ThievingScript extends Script {
 
         if (npcOptional.isEmpty()) return null;
         Rs2NpcModel npc = npcOptional.get();
+        if (startingNpc == null && config.THIEVING_NPC() == ThievingNpc.VYRES) {
+            startingNpc = npc.getName();
+            log.info("Set starting npc to {}", startingNpc);
+        }
         if (thievingNpc == null || !thievingNpc.getName().equals(npc.getName())) {
             log.info("Found new NPC={} to thieve @ {}", npc.getName(), toString(npc.getWorldLocation()));
         }
@@ -315,17 +320,16 @@ public class ThievingScript extends Script {
 
     private void loop() {
         if (!shouldRun()) return;
+        if (cleanNpc) {
+            cleanNpc = false;
+            thievingNpc = null;
+        }
         if (startingLocation == null) {
             final WorldPoint loc = Rs2Player.getWorldLocation();
             if (loc != null) {
                 startingLocation = loc;
                 log.info("Set starting location to {}", loc);
             }
-        }
-
-        if (startingNpc == null) { // save the npc for later use in comparisons
-            startingNpc = getThievingNpc();
-            log.info("Set starting npc to {}", startingNpc.getName());
         }
 
         currentState = getCurrentState();
@@ -701,7 +705,7 @@ public class ThievingScript extends Script {
         for (int i = 0; i < maxTries; i++) {
             if (awaitedCondition.getAsBoolean()) return true;
             action.run();
-            sleepUntilWithInterrupt(awaitedCondition, interruptCondition, 1_200);
+            sleepUntilWithInterrupt(awaitedCondition, interruptCondition, 2_000);
         }
         return false;
     }
@@ -741,10 +745,16 @@ public class ThievingScript extends Script {
     }
 
     private boolean equip(Set<String> set, boolean shouldLog) {
-        for (String item : set) {
-            if (!equip(item, shouldLog)) return false;
-        }
-        return true;
+        boolean success = repeatedAction(
+            () -> {
+                for (String item : set) {
+                    if (!equip(item, shouldLog)) return;
+                }
+            },
+            () -> isWearing(set),
+            3
+        );
+        return success;
     }
 
     private boolean equip(Set<String> set) {
@@ -772,12 +782,11 @@ public class ThievingScript extends Script {
         return repeatedAction(
                 () -> {
                     final int deficit = amount-Rs2Inventory.itemQuantity(name, exact);
-                    if (deficit <= 0) return;
+                    if (deficit == 0) return;
                     if (Rs2Bank.hasBankItem(name, deficit, exact)) Rs2Bank.withdrawX(name, deficit, exact);
-                    else Rs2Bank.depositX(name, deficit);
-                    Rs2Inventory.waitForInventoryChanges(1_500);
+                    else Rs2Bank.depositX(name, Math.abs(deficit));
                 },
-                () -> Rs2Inventory.itemQuantity(name, exact) >= amount,
+                () -> Rs2Inventory.itemQuantity(name, exact) == amount,
                 () -> {
                     if (!Rs2Bank.isOpen()) {
                         log.warn("Bank is closed while attempting to withdraw");
