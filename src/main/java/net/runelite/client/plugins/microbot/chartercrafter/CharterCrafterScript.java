@@ -47,6 +47,7 @@ public class CharterCrafterScript extends Script {
     private volatile boolean worldHopPending = false;
     private volatile int beforeHopWorld = -1;
     private volatile int worldHopAttempts = 0;
+    private volatile long lastHopAttemptMs = 0L;
     private volatile boolean stopRequested = false;
 
     private static final String TRADER_NAME = "Trader Crewmember";
@@ -229,12 +230,12 @@ public class CharterCrafterScript extends Script {
 
     private void worldHop() {
         if (worldHopPending) {
-            if (Microbot.getClient().getGameState() == GameState.HOPPING
-                    || Microbot.getClient().getGameState() == GameState.LOGIN_SCREEN) {
-                sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN, 25000);
-                sleep(600);
+            GameState gs = Microbot.getClient().getGameState();
+            if (gs == GameState.HOPPING || gs == GameState.LOGIN_SCREEN) {
+                update("World Hop", "Hop in progress...", isPrepared, hasSetup);
+                return; // Do not trigger a new attempt while hopping/logging in
             }
-            if (Microbot.getClient().getGameState() == GameState.LOGGED_IN) {
+            if (gs == GameState.LOGGED_IN) {
                 int currentWorld = Microbot.getClient().getWorld();
                 if (beforeHopWorld != -1 && currentWorld != beforeHopWorld) {
                     worldHopPending = false;
@@ -242,10 +243,17 @@ public class CharterCrafterScript extends Script {
                     state = State.OPEN_SHOP;
                     return;
                 }
+                long sinceLast = System.currentTimeMillis() - lastHopAttemptMs;
+                if (sinceLast < 6000) {
+                    // Give previous attempt more time to complete before retrying
+                    update("World Hop", "Waiting before next attempt (" + (int)((6000 - sinceLast)/1000) + "s)", isPrepared, hasSetup);
+                    return;
+                }
             }
         }
         if (worldHopAttempts >= 3) {
             update("World Hop", "Hop attempts exhausted; retry later", isPrepared, hasSetup);
+            worldHopPending = false;
             state = State.BUY_MATERIALS;
             return;
         }
@@ -255,6 +263,8 @@ public class CharterCrafterScript extends Script {
 
         int world = Login.getRandomWorld(Rs2Player.isMember());
         worldHopAttempts++;
+        lastHopAttemptMs = System.currentTimeMillis();
+        worldHopPending = true;
         update("World Hop", "Initiating hop attempt " + worldHopAttempts + " to world " + world, isPrepared, hasSetup);
         boolean hopCall = Microbot.hopToWorld(world);
         if (!hopCall) {
@@ -285,6 +295,8 @@ public class CharterCrafterScript extends Script {
         if (cast) {
             sleepUntil(() -> Rs2Inventory.itemQuantity(MOLTEN_GLASS) > 0, 5000);
             if (Rs2Inventory.itemQuantity(MOLTEN_GLASS) > 0) {
+                int produced = Rs2Inventory.itemQuantity(MOLTEN_GLASS);
+                plugin.addMoltenGlassCrafted(produced);
                 state = State.START_GLASSBLOWING;
             } else {
                 update("Superglass Make", "No molten glass after cast", isPrepared, hasSetup);

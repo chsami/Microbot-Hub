@@ -9,6 +9,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.api.Skill;
 
 import javax.inject.Inject;
 import java.awt.*;
@@ -51,6 +52,16 @@ public class CharterCrafterPlugin extends Plugin {
     @Getter
     private volatile String status = "";
 
+    // Stats tracking
+    @Getter
+    private volatile long startTimeMillis = System.currentTimeMillis();
+    @Getter
+    private volatile int startMagicXp = 0;
+    @Getter
+    private volatile int startCraftingXp = 0;
+    @Getter
+    private volatile int moltenGlassCrafted = 0;
+
     @Provides
     CharterCrafterConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(CharterCrafterConfig.class);
@@ -58,6 +69,15 @@ public class CharterCrafterPlugin extends Plugin {
 
     @Override
     protected void startUp() throws AWTException {
+        startTimeMillis = System.currentTimeMillis();
+        if (Microbot.getClient() != null) {
+            startMagicXp = Microbot.getClient().getSkillExperience(Skill.MAGIC);
+            startCraftingXp = Microbot.getClient().getSkillExperience(Skill.CRAFTING);
+        } else {
+            startMagicXp = 0;
+            startCraftingXp = 0;
+        }
+        moltenGlassCrafted = 0;
         script = new CharterCrafterScript(this, config);
         script.run();
         if (overlayManager != null) overlayManager.add(overlay);
@@ -83,6 +103,12 @@ public class CharterCrafterPlugin extends Plugin {
         this.prepared = isPrepared;
         this.setup = hasSetup;
         Microbot.status = status;
+    }
+
+    void addMoltenGlassCrafted(int amount) {
+        if (amount > 0) {
+            moltenGlassCrafted += amount;
+        }
     }
 
 }
