@@ -121,7 +121,8 @@ public class ThievingPlugin extends Plugin {
     @Subscribe
     public void onNpcDespawned(NpcDespawned event) {
         // clear the npc reference
-        if (getThievingScript().cleanNpc == false) {
+        var npc = getThievingScript().thievingNpc;
+        if (npc != null && event.getNpc().getIndex() == npc.getIndex()) {
             log.info("NPC despawned, updating reference");
             getThievingScript().cleanNpc = true;
         }   

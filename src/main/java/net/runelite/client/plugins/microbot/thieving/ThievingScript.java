@@ -65,7 +65,7 @@ public class ThievingScript extends Script {
 
     protected State currentState = State.IDLE;
 
-    private volatile Rs2NpcModel thievingNpc = null;
+    public volatile Rs2NpcModel thievingNpc = null;
 
     @Getter(AccessLevel.PROTECTED)
     private volatile boolean underAttack;
