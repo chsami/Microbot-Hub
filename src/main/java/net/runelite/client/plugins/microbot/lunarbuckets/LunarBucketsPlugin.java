@@ -15,8 +15,8 @@ import javax.inject.Inject;
 @PluginDescriptor(
         name = "[Ne] Lunar Buckets",
         description = "Casts Humidify to fill buckets of water",
-        tags = {"lunar", "humidify", "magic", "bucket", "microbot"},
-        authors = {"Ne"},
+        tags = {"lunar", "humidify", "magic", "bucket", "MoneyMaking"},
+        authors = {"Neoxic"},
         version = LunarBucketsPlugin.version,
         minClientVersion = "1.9.9.2",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
