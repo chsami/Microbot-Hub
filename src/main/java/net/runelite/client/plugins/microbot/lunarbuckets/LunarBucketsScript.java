@@ -98,12 +98,6 @@ public class LunarBucketsScript extends Script {
             }
             return;
         }
-
-//        if (Rs2Bank.isOpen()) {
-//            Rs2Bank.closeBank();
-//            return;
-//        }
-
         state = LunarBucketsState.BANKING;
     }
 
