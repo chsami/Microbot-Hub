@@ -18,18 +18,27 @@ import net.runelite.client.plugins.microbot.pluginscheduler.event.PluginSchedule
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.plugins.microbot.PluginConstants;
 
 import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginDescriptor.Gage + "Barrows",
-        description = "Runs barrows for you",
-        tags = {"Barrows", "mm", "Money making"},
-        enabledByDefault = false
+        name = PluginConstants.GAGE + "Barrows", // Field to define the plugin name (required)
+        description = "Completes the Barrows Borthers mini-game", // A brief description of the plugin (optional, default is '')
+        tags = {"combat", "mm", "barrows"}, // Tags to categorize the plugin (optional, default is '')
+        authors = { "Gage" }, // Author(s) of the plugin (optional, default is "Unknown Author")
+        version = BarrowsPlugin.version, // Version of the plugin (required)
+        minClientVersion = "1.9.8", // Minimum client version required to run the plugin (required)
+        iconUrl = "https://oldschool.runescape.wiki/images/thumb/Strange_icon_detail.png/800px-Strange_icon_detail.png", // URL to plugin icon shown in client (optional)
+        cardUrl = "https://i.postimg.cc/hj76Q676/the-barrows-brothers-v0-aze1aro2p03b1.webp", // URL to plugin card image for website (optional)
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED, // Whether the plugin is enabled by default
+        isExternal = PluginConstants.IS_EXTERNAL // Whether the plugin is external
 )
 @Slf4j
 public class BarrowsPlugin extends Plugin implements SchedulablePlugin {
+    public static final String version = "2.0.0";
+
     @Inject
     private BarrowsConfig config;
     @Provides
