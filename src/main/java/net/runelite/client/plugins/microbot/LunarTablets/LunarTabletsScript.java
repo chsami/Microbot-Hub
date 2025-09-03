@@ -1,10 +1,6 @@
 package net.runelite.client.plugins.microbot.LunarTablets;
 
 import com.google.inject.Provides;
-import net.runelite.api.GameObject;
-import net.runelite.api.Quest;
-import net.runelite.api.QuestState;
-import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -18,10 +14,7 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 
 public class LunarTabletsScript extends Script {
