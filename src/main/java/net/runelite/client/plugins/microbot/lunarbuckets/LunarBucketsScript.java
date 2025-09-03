@@ -100,10 +100,8 @@ public class LunarBucketsScript extends Script {
     }
 
     private void handleBanking() {
-        if (!Rs2Bank.isOpen()) {
-            Rs2Bank.openBank();
-            return;
-        }
+		if (!Rs2Bank.openBank()) return;
+
         Rs2Bank.depositAllExcept(ItemID.ASTRALRUNE);
         if (!Rs2Bank.hasItem(ItemID.BUCKET_EMPTY)) {
             Microbot.showMessage("Out of buckets");
