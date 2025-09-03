@@ -47,6 +47,7 @@ public class LunarBucketsPlugin extends Plugin {
     private int casts;
     private int totalProfit;
     private int profitPerCast;
+    private int profitPerHour;
 
     @Provides
     LunarBucketsConfig provideConfig(ConfigManager configManager) {
@@ -68,6 +69,7 @@ public class LunarBucketsPlugin extends Plugin {
         casts = 0;
         totalProfit = 0;
         profitPerCast = calculateProfitPerCast();
+        profitPerHour = 0;
 
         script.run(config);
     }
@@ -88,6 +90,11 @@ public class LunarBucketsPlugin extends Plugin {
     public void recordCast() {
         casts++;
         totalProfit += profitPerCast;
+        double hours = getRuntimeHours();
+        if (hours > 0) {
+            double castsPerHour = casts / hours;
+            profitPerHour = (int) (castsPerHour * profitPerCast);
+        }
     }
 
     public int getTotalProfit() {
@@ -99,10 +106,7 @@ public class LunarBucketsPlugin extends Plugin {
     }
 
     public int getProfitPerHour() {
-        double hours = getRuntimeHours();
-        if (hours <= 0) return 0;
-        double castsPerHour = casts / hours;
-        return (int) (castsPerHour * profitPerCast);
+        return profitPerHour;
     }
 
     public Duration getRunTime() {
