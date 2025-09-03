@@ -119,14 +119,12 @@ public class LunarBucketsScript extends Script {
     }
 
     private void handleCasting() {
-        if (Rs2Bank.isOpen()) {
-            Rs2Bank.closeBank();
-            return;
-        }
-        if (Rs2Inventory.count(ItemID.BUCKET_EMPTY) == 0) {
-            state = LunarBucketsState.BANKING;
-            return;
-        }
+
+//		sleepUntil(() -> !Rs2Bank.isOpen());
+		sleepUntilOnClientThread(() -> !Rs2Bank.isOpen());
+
+		Rs2Tab.switchTo(InterfaceTab.MAGIC);
+
         Rs2Magic.cast(HUMIDIFY_SPELL);
         sleepUntil(() -> Rs2Inventory.hasItem(ItemID.BUCKET_WATER));
 //        Rs2Bank.openBank();
