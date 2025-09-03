@@ -18,7 +18,7 @@ import javax.inject.Inject;
 
 @Slf4j
 @PluginDescriptor(
-        name = "[Ne] Lunar Buckets",
+        name = LunarBucketsConstants.NETO + "Lunar Buckets",
         description = "Casts Humidify to fill buckets of water",
         tags = {"lunar", "humidify", "magic", "bucket", "MoneyMaking"},
         authors = {"Neoxic"},
