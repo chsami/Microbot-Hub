@@ -454,7 +454,7 @@ public class HerbiboarScript extends Script {
                     setLastMove(Instant.now());
                     setLastLocation(null);
                     setState(HerbiboarState.RESET);
-                } else if (getLastMove() == null) {
+                } else if (getLastMove() == null || getLastLocation() == null) {
                     setLastMove(Instant.now());
                     setLastLocation(Rs2Player.getWorldLocation());
                 }

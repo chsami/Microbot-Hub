@@ -59,8 +59,7 @@ public interface HerbiboarConfig extends Config {
             name = "Reset if stuck?",
             description = "Fallback behavior to try getting unstuck if stuck for more than 1m in the same place.",
             section = OPTIONALS_SECTION,
-            position = 2,
-            hidden = true
+            position = 2
     )
     default boolean resetIfStuck() {
         return false;
