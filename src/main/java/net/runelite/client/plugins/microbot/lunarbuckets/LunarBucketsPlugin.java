@@ -7,6 +7,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 
 import javax.inject.Inject;
 
@@ -46,6 +47,11 @@ public class LunarBucketsPlugin extends Plugin {
         if (overlayManager != null) {
             overlayManager.add(overlay);
         }
+		Rs2AntibanSettings.antibanEnabled = true;
+        Rs2AntibanSettings.simulateMistakes = false;
+		Rs2AntibanSettings.naturalMouse = true;
+		Rs2AntibanSettings.playSchedule = true;
+		Rs2AntibanSettings.profileSwitching = true;
         script.run(config);
     }
 
