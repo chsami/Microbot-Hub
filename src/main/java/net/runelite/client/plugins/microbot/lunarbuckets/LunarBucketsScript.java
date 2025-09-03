@@ -103,15 +103,17 @@ public class LunarBucketsScript extends Script {
 		if (!Rs2Bank.openBank()) return;
 
         Rs2Bank.depositAllExcept(ItemID.ASTRALRUNE);
-        if (!Rs2Bank.hasItem(ItemID.BUCKET_EMPTY)) {
-            Microbot.showMessage("Out of buckets");
-            shutdown();
-            return;
-        }
-        if (Rs2Inventory.count(ItemID.BUCKET_EMPTY) < 27) {
-            Rs2Bank.withdrawX(ItemID.BUCKET_EMPTY, 27 - Rs2Inventory.count(ItemID.BUCKET_EMPTY));
-            sleepUntil(() -> Rs2Inventory.count(ItemID.BUCKET_EMPTY) >= 27);
-        }
+		sleepUntilOnClientThread(() -> !Rs2Inventory.hasItem(ItemID.BUCKET_WATER));
+
+		if (Rs2Bank.hasItem(ItemID.BUCKET_EMPTY)) {
+			Rs2Bank.withdrawAll(ItemID.BUCKET_EMPTY);
+			sleepUntilOnClientThread(() -> Rs2Inventory.hasItem(ItemID.BUCKET_EMPTY));
+		} else {
+			Microbot.showMessage("No more buckets to fill.");
+			shutdown();
+			return;
+		}
+
         Rs2Bank.closeBank();
         state = LunarBucketsState.CASTING;
     }
