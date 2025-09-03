@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.lunarbuckets;
 
-import net.runelite.api.Skill;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -11,7 +10,6 @@ import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
 import net.runelite.client.plugins.microbot.util.magic.Runes;
 import net.runelite.client.plugins.microbot.util.magic.Spell;
-import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
 import java.util.HashMap;
@@ -130,9 +128,8 @@ public class LunarBucketsScript extends Script {
             return;
         }
         Rs2Magic.cast(HUMIDIFY_SPELL);
-        if (Rs2Player.waitForXpDrop(Skill.MAGIC, true)) {
-            Rs2Bank.openBank();
-            state = LunarBucketsState.BANKING;
-        }
+        sleepUntil(() -> Rs2Inventory.hasItem(ItemID.BUCKET_WATER));
+//        Rs2Bank.openBank();
+        state = LunarBucketsState.BANKING;
     }
 }
