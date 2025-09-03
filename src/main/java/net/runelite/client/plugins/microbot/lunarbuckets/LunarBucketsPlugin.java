@@ -22,8 +22,7 @@ import javax.inject.Inject;
         description = "Casts Humidify to fill buckets of water",
         tags = {"lunar", "humidify", "magic", "bucket", "MoneyMaking"},
         authors = {"Neoxic"},
-        version = LunarBucketsPlugin.version,
-        minClientVersion = "1.9.9.2",
+		minClientVersion = "1.9.9.2",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
@@ -59,11 +58,24 @@ public class LunarBucketsPlugin extends Plugin {
         if (overlayManager != null) {
             overlayManager.add(overlay);
         }
+
         Rs2AntibanSettings.antibanEnabled = true;
-        Rs2AntibanSettings.simulateMistakes = false;
+		Rs2AntibanSettings.contextualVariability = true;
+
+		Rs2AntibanSettings.usePlayStyle = true;
+		Rs2AntibanSettings.simulateFatigue = true;
+		Rs2AntibanSettings.simulateAttentionSpan = true;
+		Rs2AntibanSettings.behavioralVariability = true;
+		Rs2AntibanSettings.nonLinearIntervals = true;
+		Rs2AntibanSettings.dynamicIntensity = true;
+		Rs2AntibanSettings.dynamicActivity = true;
+
+		Rs2AntibanSettings.profileSwitching = true;
+
         Rs2AntibanSettings.naturalMouse = true;
-        Rs2AntibanSettings.playSchedule = true;
-        Rs2AntibanSettings.profileSwitching = true;
+		Rs2AntibanSettings.simulateMistakes = false;
+
+		Rs2AntibanSettings.actionCooldownChance = .1;
 
         startTime = Instant.now();
         casts = 0;
