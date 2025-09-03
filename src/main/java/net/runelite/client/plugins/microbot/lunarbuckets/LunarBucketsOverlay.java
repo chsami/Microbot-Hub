@@ -46,14 +46,14 @@ public class LunarBucketsOverlay extends OverlayPanel {
                 .right(statusRight)
                 .build());
 
-        panelComponent.getChildren().add(LineComponent.builder()
-                .left("Profit:")
-                .right(profitRight)
-                .build());
+		panelComponent.getChildren().add(LineComponent.builder()
+				.left("Profit/h:")
+				.right(pphRight)
+				.build());
 
         panelComponent.getChildren().add(LineComponent.builder()
-                .left("Profit/h:")
-                .right(pphRight)
+                .left("Total Profit:")
+                .right(profitRight)
                 .build());
 
         return super.render(graphics);
