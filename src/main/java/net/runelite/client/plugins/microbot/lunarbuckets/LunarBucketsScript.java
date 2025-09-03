@@ -17,8 +17,11 @@ import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
+import javax.inject.Inject;
+
 public class LunarBucketsScript extends Script {
     private LunarBucketsState state = LunarBucketsState.STARTUP;
+    private final LunarBucketsPlugin plugin;
 
     private static final Spell HUMIDIFY_SPELL = new Spell() {
         @Override public MagicAction getMagicAction() { return MagicAction.HUMIDIFY; }
@@ -32,6 +35,11 @@ public class LunarBucketsScript extends Script {
         @Override public Rs2Spellbook getSpellbook() { return Rs2Spellbook.LUNAR; }
         @Override public int getRequiredLevel() { return 68; }
     };
+
+    @Inject
+    public LunarBucketsScript(LunarBucketsPlugin plugin) {
+        this.plugin = plugin;
+    }
 
     public boolean run(LunarBucketsConfig config) {
         state = LunarBucketsState.STARTUP;
@@ -134,7 +142,9 @@ public class LunarBucketsScript extends Script {
 
         Rs2Magic.cast(HUMIDIFY_SPELL);
 
-		sleepUntilOnClientThread(() -> Rs2Inventory.hasItem(ItemID.BUCKET_WATER));
+        sleepUntilOnClientThread(() -> Rs2Inventory.hasItem(ItemID.BUCKET_WATER));
+
+        plugin.recordCast();
 
         state = LunarBucketsState.BANKING;
     }

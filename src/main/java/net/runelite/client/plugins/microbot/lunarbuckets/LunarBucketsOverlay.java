@@ -10,9 +10,12 @@ import javax.inject.Inject;
 import java.awt.*;
 
 public class LunarBucketsOverlay extends OverlayPanel {
+    private final LunarBucketsPlugin plugin;
+
     @Inject
     LunarBucketsOverlay(LunarBucketsPlugin plugin) {
         super(plugin);
+        this.plugin = plugin;
         setPosition(OverlayPosition.TOP_LEFT);
         setNaughty();
     }
@@ -25,7 +28,18 @@ public class LunarBucketsOverlay extends OverlayPanel {
                 .build());
 
         panelComponent.getChildren().add(LineComponent.builder()
-                .left(Microbot.status)
+                .left("Status:")
+                .right(Microbot.status)
+                .build());
+
+        panelComponent.getChildren().add(LineComponent.builder()
+                .left("Profit:")
+                .right(Integer.toString(plugin.getTotalProfit()))
+                .build());
+
+        panelComponent.getChildren().add(LineComponent.builder()
+                .left("Profit/h:")
+                .right(Integer.toString(plugin.getProfitPerHour()))
                 .build());
 
         return super.render(graphics);
