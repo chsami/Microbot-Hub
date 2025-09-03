@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.lunarbuckets;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -10,6 +11,7 @@ import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
 import net.runelite.client.plugins.microbot.util.magic.Runes;
 import net.runelite.client.plugins.microbot.util.magic.Spell;
+import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
 import java.util.HashMap;
@@ -32,6 +34,7 @@ public class LunarBucketsScript extends Script {
     };
 
     public boolean run(LunarBucketsConfig config) {
+        state = LunarBucketsState.STARTUP;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn() || !super.run()) return;
@@ -54,6 +57,12 @@ public class LunarBucketsScript extends Script {
             }
         }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    @Override
+    public void shutdown() {
+        state = LunarBucketsState.STARTUP;
+        super.shutdown();
     }
 
     private boolean hasSteamStaffEquipped() {
