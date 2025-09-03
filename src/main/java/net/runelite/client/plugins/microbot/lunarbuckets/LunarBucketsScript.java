@@ -66,7 +66,9 @@ public class LunarBucketsScript extends Script {
     }
 
     private boolean hasSteamStaffEquipped() {
-        return Rs2Equipment.isWearing(ItemID.STEAM_BATTLESTAFF) || Rs2Equipment.isWearing(ItemID.MYSTIC_STEAM_BATTLESTAFF);
+        return Rs2Equipment.isWearing(ItemID.STEAM_BATTLESTAFF) ||
+			Rs2Equipment.isWearing(ItemID.MYSTIC_STEAM_BATTLESTAFF) ||
+			Rs2Equipment.isWearing(ItemID.TWINFLAME_STAFF);
     }
 
     private void handleStartup() {
