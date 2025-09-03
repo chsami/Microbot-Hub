@@ -30,8 +30,8 @@ import java.awt.*;
         authors = { "Gage" }, // Author(s) of the plugin (optional, default is "Unknown Author")
         version = BarrowsPlugin.version, // Version of the plugin (required)
         minClientVersion = "1.9.8", // Minimum client version required to run the plugin (required)
-        iconUrl = "https://oldschool.runescape.wiki/images/thumb/Strange_icon_detail.png/800px-Strange_icon_detail.png", // URL to plugin icon shown in client (optional)
-        cardUrl = "https://i.postimg.cc/hj76Q676/the-barrows-brothers-v0-aze1aro2p03b1.webp", // URL to plugin card image for website (optional)
+        iconUrl = "https://chsami.github.io/Microbot-Hub/BarrowsPlugin/assets/icon.png", // URL to plugin icon shown in client (optional)
+        cardUrl = "https://chsami.github.io/Microbot-Hub/BarrowsPlugin/assets/card.png", // URL to plugin card image for website (optional)
         enabledByDefault = PluginConstants.DEFAULT_ENABLED, // Whether the plugin is enabled by default
         isExternal = PluginConstants.IS_EXTERNAL // Whether the plugin is external
 )

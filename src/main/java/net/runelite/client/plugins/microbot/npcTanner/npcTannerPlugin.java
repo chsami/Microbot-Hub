@@ -23,8 +23,8 @@ import java.awt.*;
         authors = { "Gage" }, // Author(s) of the plugin (optional, default is "Unknown Author")
         version = LunarTabletsPlugin.version, // Version of the plugin (required)
         minClientVersion = "1.9.8", // Minimum client version required to run the plugin (required)
-        iconUrl = "https://oldschool.runescape.wiki/images/Tanner_%28Crafting_Guild%29.png", // URL to plugin icon shown in client (optional)
-        cardUrl = "https://i.postimg.cc/bwk8DmKZ/chrome-8-RXSkq-DT3-G.png", // URL to plugin card image for website (optional)
+        iconUrl = "https://chsami.github.io/Microbot-Hub/npcTannerPlugin/assets/icon.png", // URL to plugin icon shown in client (optional)
+        cardUrl = "https://chsami.github.io/Microbot-Hub/npcTannerPlugin/assets/card.png", // URL to plugin card image for website (optional)
         enabledByDefault = PluginConstants.DEFAULT_ENABLED, // Whether the plugin is enabled by default
         isExternal = PluginConstants.IS_EXTERNAL // Whether the plugin is external
 )

@@ -22,8 +22,8 @@ import java.awt.*;
         authors = { "Gage" }, // Author(s) of the plugin (optional, default is "Unknown Author")
         version = LunarTabletsPlugin.version, // Version of the plugin (required)
         minClientVersion = "1.9.8", // Minimum client version required to run the plugin (required)
-        iconUrl = "https://oldschool.runescape.wiki/images/Lectern_%28Lunar%29.png", // URL to plugin icon shown in client (optional)
-        cardUrl = "https://i.postimg.cc/3Rp2P56K/chrome-k-OI9-Fh6-A5g.png", // URL to plugin card image for website (optional)
+        iconUrl = "https://chsami.github.io/Microbot-Hub/LunarTabletsPlugin/assets/icon.png", // URL to plugin icon shown in client (optional)
+        cardUrl = "https://chsami.github.io/Microbot-Hub/LunarTabletsPlugin/assets/card.png", // URL to plugin card image for website (optional)
         enabledByDefault = PluginConstants.DEFAULT_ENABLED, // Whether the plugin is enabled by default
         isExternal = PluginConstants.IS_EXTERNAL // Whether the plugin is external
 )
