@@ -126,8 +126,10 @@ public class LunarBucketsScript extends Script {
 		Rs2Tab.switchTo(InterfaceTab.MAGIC);
 
         Rs2Magic.cast(HUMIDIFY_SPELL);
-        sleepUntil(() -> Rs2Inventory.hasItem(ItemID.BUCKET_WATER));
-//        Rs2Bank.openBank();
+
+		sleepUntilOnClientThread(() -> Rs2Inventory.hasItem(ItemID.BUCKET_WATER));
+//        sleepUntil(() -> Rs2Inventory.hasItem(ItemID.BUCKET_WATER));
+
         state = LunarBucketsState.BANKING;
     }
 }
