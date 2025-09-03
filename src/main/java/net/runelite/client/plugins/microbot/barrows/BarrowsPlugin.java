@@ -25,7 +25,7 @@ import java.awt.*;
 
 @PluginDescriptor(
         name = PluginConstants.GAGE + "Barrows", // Field to define the plugin name (required)
-        description = "Completes the Barrows Borthers mini-game", // A brief description of the plugin (optional, default is '')
+        description = "Completes the Barrows Brothers mini-game", // A brief description of the plugin (optional, default is '')
         tags = {"combat", "mm", "barrows"}, // Tags to categorize the plugin (optional, default is '')
         authors = { "Gage" }, // Author(s) of the plugin (optional, default is "Unknown Author")
         version = BarrowsPlugin.version, // Version of the plugin (required)
