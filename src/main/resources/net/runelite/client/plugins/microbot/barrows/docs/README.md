@@ -1,5 +1,7 @@
 # Barrows Brothers
 
+![preview](assets/card.png)
+
 Completes the Barrows Brothers Mini-Game.
 
 ## Features

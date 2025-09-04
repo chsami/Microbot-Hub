@@ -1,5 +1,7 @@
 # NPC Tanner
 
+![preview](assets/card.png)
+
 Tans any hide in the bank.
 
 ## Features

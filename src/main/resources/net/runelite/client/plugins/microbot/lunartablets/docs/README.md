@@ -1,5 +1,7 @@
 # Lunar Tablets
 
+![preview](assets/card.png)
+
 Creates lunar tablets at the lunar lectern
 
 ## Features

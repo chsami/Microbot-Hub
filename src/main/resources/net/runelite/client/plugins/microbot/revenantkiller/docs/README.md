@@ -1,5 +1,7 @@
 # Revenant Killer
 
+![preview](assets/card.png)
+
 Kills revenants in the revenant cave
 
 ## Features
