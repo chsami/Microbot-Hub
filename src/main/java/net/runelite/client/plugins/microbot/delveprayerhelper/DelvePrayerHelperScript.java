@@ -39,13 +39,8 @@ public class DelvePrayerHelperScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
-                long startTime = System.currentTimeMillis();
 
                 handleProjectiles();
-
-                long endTime = System.currentTimeMillis();
-                long totalTime = endTime - startTime;
-                log.info("Total time for loop {}ms", totalTime);
 
             } catch (Exception ex) {
                 log.trace("Exception in main loop: ", ex);
