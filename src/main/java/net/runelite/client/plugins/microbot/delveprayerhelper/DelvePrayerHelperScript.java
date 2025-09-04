@@ -58,9 +58,9 @@ public class DelvePrayerHelperScript extends Script {
         boolean bossAlive = boss != null && !boss.isDead();
 
         if (!bossAlive) {
-            state = DelvePrayerHelperState.IDLE;
-
             Rs2Prayer.disableAllPrayers();
+
+            state = DelvePrayerHelperState.IDLE;
 
             Microbot.status = state.toString();
 
@@ -71,10 +71,10 @@ public class DelvePrayerHelperScript extends Script {
             long now = System.currentTimeMillis();
 
             if (now - lastProjectileTime > 1000) {
-                state = DelvePrayerHelperState.IDLE;
-
                 Rs2Prayer.toggle(Rs2Prayer.getActiveProtectionPrayer(), false);
                 toggleOffensivePrayer();
+
+                state = DelvePrayerHelperState.IDLE;
 
                 Microbot.status = state.toString();
             }
@@ -101,22 +101,22 @@ public class DelvePrayerHelperScript extends Script {
 
     void switchPrayer(Projectile projectile) {
         if (projectile.getId() == DelvePrayerHelperProjectile.MELEE.getProjectileID()) {
-            state = DelvePrayerHelperState.PRAY_MELEE;
-
             Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, true);
             toggleOffensivePrayer();
+
+            state = DelvePrayerHelperState.PRAY_MELEE;
         }
         else if (projectile.getId() == DelvePrayerHelperProjectile.MAGE.getProjectileID()) {
-            state = DelvePrayerHelperState.PRAY_MAGE;
-
             Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, true);
             toggleOffensivePrayer();
+
+            state = DelvePrayerHelperState.PRAY_MAGE;
         }
         else if (projectile.getId() == DelvePrayerHelperProjectile.RANGE.getProjectileID()) {
-            state = DelvePrayerHelperState.PRAY_RANGE;
-
             Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_RANGE, true);
             toggleOffensivePrayer();
+
+            state = DelvePrayerHelperState.PRAY_RANGE;
         }
 
         Microbot.status = state.toString();
@@ -127,6 +127,10 @@ public class DelvePrayerHelperScript extends Script {
             Rs2Prayer.toggle(Rs2Prayer.getBestRangePrayer(), !config.noOffensivePrayerInShieldPhase()
                     || !Rs2Npc.getNpc("Doom of Mokhaiotl", false).getName().contains("(Shielded)"));
         }
+    }
+
+    public boolean isOffensivePrayerOn() {
+        return Rs2Prayer.isPrayerActive(Rs2Prayer.getBestRangePrayer());
     }
 
     @Override

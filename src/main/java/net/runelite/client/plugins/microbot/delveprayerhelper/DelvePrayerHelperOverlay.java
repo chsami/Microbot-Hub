@@ -12,6 +12,9 @@ import java.awt.*;
 public class DelvePrayerHelperOverlay extends OverlayPanel {
 
     @Inject
+    private DelvePrayerHelperScript delvePrayerHelperScript;
+
+    @Inject
     DelvePrayerHelperOverlay(DelvePrayerHelperPlugin plugin)
     {
         super(plugin);
@@ -31,7 +34,11 @@ public class DelvePrayerHelperOverlay extends OverlayPanel {
             panelComponent.getChildren().add(LineComponent.builder().build());
 
             panelComponent.getChildren().add(LineComponent.builder()
-                    .left(Microbot.status)
+                    .left("Current projectile: " + Microbot.status)
+                    .build());
+
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Offensive Prayer on: " + delvePrayerHelperScript.isOffensivePrayerOn())
                     .build());
 
 
