@@ -7,6 +7,8 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.grandexchange.Rs2GrandExchange;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.api.gameval.ItemID;
@@ -76,6 +78,8 @@ public class LunarBucketsPlugin extends Plugin {
 		Rs2AntibanSettings.simulateMistakes = false;
 
 		Rs2AntibanSettings.actionCooldownChance = .1;
+
+        Rs2Antiban.setActivity(Activity.CASTING_PLANK_MAKE);
 
         startTime = Instant.now();
         casts = 0;

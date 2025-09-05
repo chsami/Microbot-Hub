@@ -4,6 +4,7 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -145,6 +146,9 @@ public class LunarBucketsScript extends Script {
         sleepUntilOnClientThread(() -> Rs2Inventory.hasItem(ItemID.BUCKET_WATER));
 
         plugin.recordCast();
+
+        Rs2Antiban.actionCooldown();
+        Rs2Antiban.takeMicroBreakByChance();
 
         state = LunarBucketsState.BANKING;
     }
