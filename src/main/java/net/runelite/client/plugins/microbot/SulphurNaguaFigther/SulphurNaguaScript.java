@@ -201,6 +201,9 @@ public class SulphurNaguaScript extends Script {
     /**
      * This is the state machine. It determines what the script should be doing.
      */
+    /**
+     * This is the state machine. It determines what the script should be doing.
+     */
     private void determineState(SulphurNaguaConfig config) {
         // Don't change state while in combat or during a bank operation
         if (Rs2Player.isInCombat() || isBankingInProgress) {
