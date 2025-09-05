@@ -6,6 +6,7 @@ import net.runelite.client.config.ConfigInformation;
 
 @ConfigGroup("lunarbuckets")
 @ConfigInformation(
+        "▪ START AT A BANK.<br />" +
 		"▪ Ensure your bank contains a steam staff, astral runes and empty buckets.<br />" +
 		"▪ Ensure you are on Lunar Spellbook"
 )
