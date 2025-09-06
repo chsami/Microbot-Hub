@@ -28,7 +28,7 @@ import java.awt.*;
         description = "Kills revenants in the wilderness.", // A brief description of the plugin (optional, default is '')
         tags = {"mm", "ranging", "revenant killer"}, // Tags to categorize the plugin (optional, default is '')
         authors = { "Gage" }, // Author(s) of the plugin (optional, default is "Unknown Author")
-        version = LunarTabletsPlugin.version, // Version of the plugin (required)
+        version = revKillerPlugin.version, // Version of the plugin (required)
         minClientVersion = "1.9.8", // Minimum client version required to run the plugin (required)
         iconUrl = "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/icon.png", // URL to plugin icon shown in client (optional)
         cardUrl = "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/card.png", // URL to plugin card image for website (optional)

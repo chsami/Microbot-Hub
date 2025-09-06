@@ -21,7 +21,7 @@ import java.awt.*;
         description = "Tans any hide in the bank at Al-Kharid", // A brief description of the plugin (optional, default is '')
         tags = {"mm", "tanning", "npc tanner"}, // Tags to categorize the plugin (optional, default is '')
         authors = { "Gage" }, // Author(s) of the plugin (optional, default is "Unknown Author")
-        version = LunarTabletsPlugin.version, // Version of the plugin (required)
+        version = npcTannerPlugin.version, // Version of the plugin (required)
         minClientVersion = "1.9.8", // Minimum client version required to run the plugin (required)
         iconUrl = "https://chsami.github.io/Microbot-Hub/npcTannerPlugin/assets/icon.png", // URL to plugin icon shown in client (optional)
         cardUrl = "https://chsami.github.io/Microbot-Hub/npcTannerPlugin/assets/card.png", // URL to plugin card image for website (optional)
