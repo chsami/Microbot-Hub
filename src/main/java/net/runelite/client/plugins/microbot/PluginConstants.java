@@ -29,7 +29,8 @@ public final class PluginConstants
     public static final String GIRDY = "<html>[<font color=#3DED97>ǥ</font>] ";
     public static final String SEE1DUCK = "<html>[<font color=#ffff1a>\ud83e\udd86</font>] ";
     public static final String GAGE = "<html>[<font color=#4287f5>Gage</font>] ";
+    public static final String ENGIN = "<html>[<font color=#BA8D8D>E</font>] ";
 
     public static final boolean DEFAULT_ENABLED = false;
-    public static final boolean IS_EXTERNAL = true;
+    public static final boolean IS_EXTERNAL = true; //test
 }
