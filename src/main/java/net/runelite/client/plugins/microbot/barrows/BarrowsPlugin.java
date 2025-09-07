@@ -37,7 +37,7 @@ import java.awt.*;
 )
 @Slf4j
 public class BarrowsPlugin extends Plugin implements SchedulablePlugin {
-    public static final String version = "2.0.0";
+    public static final String version = "2.0.1";
 
     @Inject
     private BarrowsConfig config;
@@ -54,7 +54,7 @@ public class BarrowsPlugin extends Plugin implements SchedulablePlugin {
     @Inject
     BarrowsScript barrowsScript;
     LogicalCondition stopCondition = new AndCondition();
-    LockCondition lockCondition = new LockCondition();
+    LockCondition lockCondition = new LockCondition("Locked during the Barrows minigame");
 
 
     @Override
