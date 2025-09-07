@@ -48,7 +48,7 @@ public class SulphurNaguaScript extends Script {
 
         CIVITAS_ILLA_FORTIS_EAST("East",
                 new WorldArea(1371, 9566, 10, 10, 0), // CORRECTED Combat Area
-                new WorldPoint(1567, 9711, 0),         // CORRECTED Preparation Area
+                new WorldPoint(1376, 9712, 0),         // CORRECTED Preparation Area
                 new WorldPoint(1452, 9568, 1));        // Bank Area
 
         private final String name;
