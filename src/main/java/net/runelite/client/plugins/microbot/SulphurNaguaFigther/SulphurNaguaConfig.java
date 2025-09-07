@@ -65,4 +65,14 @@ public interface SulphurNaguaConfig extends Config {
     default boolean usePiety() {
         return false;
     }
+
+    @ConfigItem(
+            keyName = "naguaLocation",
+            name = "Nagua Location",
+            description = "Select the Nagua fighting location",
+            position = 5
+    )
+    default SulphurNaguaScript.NaguaLocation naguaLocation() {
+        return SulphurNaguaScript.NaguaLocation.CIVITAS_ILLA_FORTIS_WEST;
+    }
 }
