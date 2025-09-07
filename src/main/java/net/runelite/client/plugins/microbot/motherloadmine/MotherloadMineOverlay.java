@@ -3,8 +3,11 @@ package net.runelite.client.plugins.microbot.motherloadmine;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.gameval.ItemID;
+import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.motherloadmine.MotherloadMinePlugin;
 import net.runelite.client.plugins.microbot.motherloadmine.MotherloadMineScript;
@@ -12,9 +15,14 @@ import static net.runelite.client.plugins.microbot.motherloadmine.MotherloadMine
 import net.runelite.client.plugins.microbot.motherloadmine.enums.MLMMiningSpot;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.ui.components.IconTextField;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
+import net.runelite.client.ui.overlay.components.ImageComponent;
 import net.runelite.client.ui.overlay.components.LineComponent;
+import net.runelite.client.ui.overlay.components.SplitComponent;
 import net.runelite.client.ui.overlay.components.TitleComponent;
 
 @Slf4j
@@ -24,6 +32,14 @@ public class MotherloadMineOverlay extends OverlayPanel {
         super(plugin);
         setPosition(OverlayPosition.TOP_LEFT);
         setSnappable(true);
+    }
+
+    @Inject private ItemManager itemManager;
+
+
+    private BufferedImage getNuggetIcon(int quantity)
+    {
+        return itemManager.getImage(ItemID.MOTHERLODE_NUGGET, quantity, true);
     }
 
     @Override
@@ -49,6 +65,18 @@ public class MotherloadMineOverlay extends OverlayPanel {
                         .build());
                 addEmptyLine();
             }
+
+            // add a golden nugget icon and the amount of golden nuggets in inventory and in bank
+            int goldenNuggetsInInventory = Rs2Inventory.count(ItemID.MOTHERLODE_NUGGET);
+            int goldenNuggetsInBank = Rs2Bank.count(ItemID.MOTHERLODE_NUGGET);
+            int totalGoldenNuggets = goldenNuggetsInInventory + goldenNuggetsInBank;
+
+
+
+            panelComponent.getChildren().add(LineComponent.builder()
+                            .left("Golden Nuggets: ")
+                            .build());
+            panelComponent.getChildren().add(new ImageComponent(getNuggetIcon(totalGoldenNuggets)));
 
             panelComponent.getChildren().add(LineComponent.builder()
                     .left(status.toString())
