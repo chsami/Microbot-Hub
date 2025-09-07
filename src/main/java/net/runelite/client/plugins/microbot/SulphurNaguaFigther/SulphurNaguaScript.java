@@ -36,22 +36,37 @@ import static java.lang.Math.max;
 
 public class SulphurNaguaScript extends Script {
 
-    public static String version = "1.5";
+    public static String version = "1.6.2"; // Final clean version
 
     @Getter
     @RequiredArgsConstructor
     public enum NaguaLocation {
-        CIVITAS_ILLA_FORTIS_WEST("West", new WorldPoint(1356, 9565, 0), new WorldPoint(1376, 9712, 0), new WorldPoint(1452, 9568, 1)),
-        CIVITAS_ILLA_FORTIS_EAST("East", new WorldPoint(1577, 9564, 0), new WorldPoint(1567, 9711, 0), new WorldPoint(1452, 9568, 1));
+        CIVITAS_ILLA_FORTIS_WEST("West",
+                new WorldArea(1344, 9553, 25, 25, 0), // Combat Area
+                new WorldPoint(1376, 9712, 0),         // Preparation Area
+                new WorldPoint(1452, 9568, 1)),        // Bank Area
+
+        CIVITAS_ILLA_FORTIS_EAST("East",
+                new WorldArea(1371, 9566, 10, 10, 0), // CORRECTED Combat Area
+                new WorldPoint(1567, 9711, 0),         // CORRECTED Preparation Area
+                new WorldPoint(1452, 9568, 1));        // Bank Area
 
         private final String name;
-        private final WorldPoint fightArea;
+        private final WorldArea combatArea;
         private final WorldPoint prepArea;
         private final WorldPoint bankArea;
 
         @Override
         public String toString() {
             return name;
+        }
+
+        public WorldPoint getFightAreaCenter() {
+            return new WorldPoint(
+                    this.combatArea.getX() + this.combatArea.getWidth() / 2,
+                    this.combatArea.getY() + this.combatArea.getHeight() / 2,
+                    this.combatArea.getPlane()
+            );
         }
     }
 
@@ -89,17 +104,20 @@ public class SulphurNaguaScript extends Script {
     private final int SUPPLY_CRATE_ID = 51371;
     private final int GRUB_SAPLING_ID = 51365;
 
-    @Getter
-    private WorldArea naguaCombatArea;
     private NaguaLocation selectedLocation;
+
+    /**
+     * Getter for the overlay to access the current combat area.
+     * @return The current WorldArea for combat.
+     */
+    public WorldArea getNaguaCombatArea() {
+        return (selectedLocation != null) ? selectedLocation.getCombatArea() : null;
+    }
 
     public boolean run(SulphurNaguaConfig config) {
         Microbot.enableAutoRunOn = true;
         currentState = SulphurNaguaState.IDLE;
         selectedLocation = config.naguaLocation();
-
-        int combatRadius = 12;
-        this.naguaCombatArea = new WorldArea(selectedLocation.getFightArea().dx(-combatRadius).dy(-combatRadius), (combatRadius * 2) + 1, (combatRadius * 2) + 1);
 
         applyAntiBanSettings();
         Rs2Antiban.setActivity(Activity.GENERAL_COMBAT);
@@ -108,7 +126,6 @@ public class SulphurNaguaScript extends Script {
             try {
                 if (!Microbot.isLoggedIn() || !super.run()) return;
 
-                // Initialize starting XP only once the player is logged in.
                 if (!hasInitialized) {
                     startTotalExp = Microbot.getClient().getOverallExperience();
                     if (startTotalExp > 0) {
@@ -134,7 +151,7 @@ public class SulphurNaguaScript extends Script {
                         handlePreparation(config);
                         break;
                     case WALKING_TO_FIGHT:
-                        Rs2Walker.walkTo(selectedLocation.getFightArea());
+                        Rs2Walker.walkTo(selectedLocation.getFightAreaCenter());
                         break;
                     case FIGHTING:
                         handleFighting(config);
@@ -157,46 +174,41 @@ public class SulphurNaguaScript extends Script {
     }
 
     private void handleFighting(SulphurNaguaConfig config) {
-        // Calculate dynamic prayer restore threshold and drink potions
         int basePrayerLevel = client.getRealSkillLevel(Skill.PRAYER);
         int currentHerbloreLevel = client.getBoostedSkillLevel(Skill.HERBLORE);
         int prayerBasedRestore = (int) floor(basePrayerLevel * 0.25) + 7;
         int herbloreBasedRestore = (int) floor(currentHerbloreLevel * 0.3) + 7;
         int dynamicThreshold = max(prayerBasedRestore, herbloreBasedRestore);
+
         Rs2Player.drinkPrayerPotionAt(dynamicThreshold);
         sleep(600);
 
-        // Activate prayers
         Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, true);
         if (config.usePiety() && Rs2Prayer.getBestMeleePrayer() != null) {
             Rs2Prayer.toggle(Rs2Prayer.getBestMeleePrayer(), true);
         }
 
-        // Attack Naguas
         if (!Rs2Player.isInCombat()) {
-            if (naguaCombatArea.contains(Rs2Player.getWorldLocation())) {
+            if (getNaguaCombatArea().contains(Rs2Player.getWorldLocation())) {
                 if (Rs2Npc.attack(NAGUA_NAME)) {
                     sleepUntil(Rs2Player::isInCombat, 5000);
                     totalNaguaKills++;
                 }
             } else {
                 Microbot.log("Outside combat zone, walking back to center...");
-                Rs2Walker.walkTo(selectedLocation.getFightArea());
+                Rs2Walker.walkTo(selectedLocation.getFightAreaCenter());
                 sleep(600, 1200);
             }
         }
     }
 
     private void determineState(SulphurNaguaConfig config) {
-        // High-priority checks to transition to FIGHTING state immediately.
-        // Fixes bugs when starting script in combat or arriving at destination.
         if ((currentState == SulphurNaguaState.IDLE && Rs2Player.isInCombat()) ||
-                (currentState == SulphurNaguaState.WALKING_TO_FIGHT && isAtLocation(selectedLocation.getFightArea()))) {
+                (currentState == SulphurNaguaState.WALKING_TO_FIGHT && isAtLocation(selectedLocation.getFightAreaCenter()))) {
             currentState = SulphurNaguaState.FIGHTING;
             return;
         }
 
-        // Don't re-evaluate state if we are already in combat.
         if (currentState == SulphurNaguaState.FIGHTING && Rs2Player.isInCombat()) {
             return;
         }
@@ -243,7 +255,7 @@ public class SulphurNaguaScript extends Script {
             return;
         }
 
-        currentState = isAtLocation(selectedLocation.getFightArea()) ? SulphurNaguaState.FIGHTING : SulphurNaguaState.WALKING_TO_FIGHT;
+        currentState = isAtLocation(selectedLocation.getFightAreaCenter()) ? SulphurNaguaState.FIGHTING : SulphurNaguaState.WALKING_TO_FIGHT;
     }
 
     private void applyAntiBanSettings() {
@@ -279,7 +291,6 @@ public class SulphurNaguaScript extends Script {
                 }
             }
 
-            // Get the inventory setup data object.
             InventorySetup setupData = config.useInventorySetup() ? config.inventorySetup() : null;
 
             if (setupData != null) {
@@ -314,7 +325,6 @@ public class SulphurNaguaScript extends Script {
                     }
                 }
             } else {
-                // Default banking without an inventory setup.
                 Rs2Bank.depositAll();
                 sleep(300, 600);
                 Rs2Bank.withdrawItem(PESTLE_AND_MORTAR_ID);
@@ -330,7 +340,6 @@ public class SulphurNaguaScript extends Script {
                 sleepUntil(() -> !Rs2Bank.isOpen(), 2000);
             }
 
-            // Create the setup manager utility and execute wearing equipment.
             if (setupData != null) {
                 Rs2InventorySetup setupManager = new Rs2InventorySetup(setupData, mainScheduledFuture);
                 setupManager.wearEquipment();
