@@ -427,8 +427,7 @@ public class TutorialIslandScript extends Script {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) == 650) {
-            Rs2NpcModel chicken = Rs2Npc.getNpcs("chicken").findFirst().orElse(null);
-            Rs2Magic.castOn(MagicAction.WIND_STRIKE, chicken);
+            widgetCast();
         } else if (Microbot.getVarbitPlayerValue(281) == 670) {
             Rs2Dialogue.clickContinue();
             if (isInDialogue()) {
@@ -766,6 +765,50 @@ public class TutorialIslandScript extends Script {
     public void fishShrimp() {
         Rs2Npc.interact(NpcID.FISHING_SPOT_3317, "Net");
         sleepUntil(() -> Rs2Inventory.contains("Raw shrimps"));
+    }
+
+    private boolean widgetCast() {
+        if (Rs2Player.isAnimating() || Rs2Player.getInteracting() != null) return true;
+
+        Widget windStrike = Rs2Widget.getWidget(218, 8);
+        if (windStrike == null) windStrike = Rs2Widget.findWidget("Wind Strike", null, true);
+        if (windStrike == null) return false;
+
+        boolean hidden;
+        try {
+            hidden = Rs2Widget.isHidden(windStrike.getId());
+        } catch (Exception ignored) {
+            hidden = true;
+        }
+
+        if (hidden) {
+            var magicTab = Rs2Widget.findWidget("Magic", true);
+            if (magicTab != null) {
+                Rs2Widget.clickWidget(magicTab);
+                Rs2Random.waitEx(200, 50);
+            }
+            windStrike = Rs2Widget.getWidget(218, 8);
+            if (windStrike == null) windStrike = Rs2Widget.findWidget("Wind Strike", null, true);
+            if (windStrike == null) return false;
+            try {
+                if (Rs2Widget.isHidden(windStrike.getId())) return false;
+            } catch (Exception ignored) {
+                return false;
+            }
+        }
+
+        Rs2Widget.clickWidget(windStrike);
+        Rs2Random.waitEx(150, 50);
+
+        Rs2NpcModel chicken = Rs2Npc.getNpcs("chicken").findFirst().orElse(null);
+        if (chicken == null) return false;
+
+        if (!Rs2Npc.interact(chicken, "Cast")) {
+            Rs2Npc.interact(chicken);
+        }
+
+        sleepUntil(() -> Rs2Player.isAnimating() || Microbot.getVarbitPlayerValue(281) != 650, 2_000);
+        return true;
     }
 
     enum Status {
