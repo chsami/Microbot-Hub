@@ -19,7 +19,7 @@ import java.awt.*;
         description = "Microbot Tutorial Island plugin",
         authors = { "Mocrosoft" },
         version = TutorialIslandPlugin.version,
-        minClientVersion = "1.9.9.1",
+        minClientVersion = "1.9.9.2",
         tags = {"TutorialIsland", "microbot"},
         iconUrl = "https://chsami.github.io/Microbot-Hub/TutorialIslandPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/TutorialIslandPlugin/assets/card.png",
