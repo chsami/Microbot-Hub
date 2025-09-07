@@ -6,7 +6,8 @@ import net.runelite.client.config.ConfigInformation;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 import net.runelite.client.plugins.microbot.thieving.enums.ThievingNpc;
-import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
+import net.runelite.client.plugins.microbot.thieving.enums.ThievingFood;
+//import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 
 @ConfigGroup("Thieving")
 @ConfigInformation(
@@ -109,24 +110,13 @@ public interface ThievingConfig extends Config {
 
     @ConfigItem(
             keyName = "UseFood",
-            name = "Use Food",
-            description = "Automatically eat food if HP is low.",
+            name = "Use Consumables",
+            description = "Automatically eat food or drink potions if HP/Prayer is low.",
             position = 0,
             section = foodSection
     )
     default boolean useFood() {
         return true;
-    }
-
-    @ConfigItem(
-            keyName = "useAncientBrew",
-            name = "Use Ancient Brew",
-            description = "Use ancient brews instead of food.",
-            position = 1,
-            section = foodSection
-    )
-    default boolean useAncientBrew() {
-        return false;
     }
 
     @ConfigItem(
@@ -153,13 +143,13 @@ public interface ThievingConfig extends Config {
 
     @ConfigItem(
             keyName = "Food",
-            name = "Food Type",
-            description = "Type of food to use.",
+            name = "Food/Potion Type",
+            description = "Type of food or potion to use.",
             position = 4,
             section = foodSection
     )
-    default Rs2Food food() {
-        return Rs2Food.MONKFISH;
+    default ThievingFood food() {
+        return ThievingFood.MONKFISH;
     }
 
     @ConfigItem(

@@ -15,6 +15,7 @@ import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.thieving.enums.ThievingNpc;
+import net.runelite.client.plugins.microbot.thieving.enums.ThievingFood;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.cache.Rs2GroundItemCache;
@@ -65,7 +66,8 @@ public class ThievingScript extends Script {
 
     protected State currentState = State.IDLE;
 
-    public volatile Rs2NpcModel thievingNpc = null;
+    @Getter
+    private volatile Rs2NpcModel thievingNpc = null;
 
     @Getter(AccessLevel.PROTECTED)
     private volatile boolean underAttack;
@@ -135,7 +137,7 @@ public class ThievingScript extends Script {
         return filter;
     }
 
-    private Rs2NpcModel getThievingNpc() {
+    private Rs2NpcModel getThievingNpcCache() {
         final Comparator<Rs2NpcModel> comparator;
 
         if (config.THIEVING_NPC() == ThievingNpc.VYRES && startingNpc != null) {
@@ -157,9 +159,8 @@ public class ThievingScript extends Script {
             startingNpc = npc.getName();
             log.info("Set starting npc to {}", startingNpc);
         }
-        if (thievingNpc == null || !thievingNpc.getName().equals(npc.getName())) {
-            log.info("Found new NPC={} to thieve @ {}", npc.getName(), toString(npc.getWorldLocation()));
-        }
+        
+        log.info("Found new NPC={} to thieve @ {}", npc.getName(), toString(npc.getWorldLocation()));
         return npc;
     }
 
@@ -223,17 +224,24 @@ public class ThievingScript extends Script {
 
         if (!hasReqs()) return State.BANK;
 
-        if (config.useAncientBrew()) {
-            if (!Rs2Player.hasPrayerPoints()) return State.DRINK;
-            if (Rs2Player.getHealthPercentage() <= 15 && 
-                !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.REDEMPTION)) Rs2Prayer.toggle(Rs2PrayerEnum.REDEMPTION, true);
+        if (config.useFood()) {
+            boolean needToEat = Rs2Player.getHealthPercentage() <= config.hitpoints();
+            boolean needToDrink = config.food() == ThievingFood.ANCIENT_BREW && !Rs2Player.hasPrayerPoints();
+
+            if (needToEat || needToDrink) {
+                return State.EAT;
+            }
+
+            if (config.food() == ThievingFood.ANCIENT_BREW && 
+                Rs2Player.getHealthPercentage() <= 15 &&
+                !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.REDEMPTION)) {
+                Rs2Prayer.toggle(Rs2PrayerEnum.REDEMPTION, true);
+            }
         }
-        
-        if (config.useFood() && Rs2Player.getHealthPercentage() <= config.hitpoints()) return State.EAT;
 
         if (Rs2Inventory.isFull()) return State.DROP;
 
-        if (isNpcNull(thievingNpc) && (thievingNpc = getThievingNpc()) == null) return State.WALK_TO_START;
+        if (isNpcNull(thievingNpc) && (thievingNpc = getThievingNpcCache()) == null) return State.WALK_TO_START;
 
         if (config.THIEVING_NPC() == ThievingNpc.VYRES) {
             final WorldPoint[] housePolygon = ThievingData.getVyreHouse(thievingNpc.getName());
@@ -380,7 +388,7 @@ public class ThievingScript extends Script {
                     }
                 }
                 if (escape == null) {
-                    if (thievingNpc == null) thievingNpc = getThievingNpc();
+                    if (thievingNpc == null) thievingNpc = getThievingNpcCache();
                     final String name = thievingNpc == null ? null : thievingNpc.getName();
                     escape = name == null ? ThievingData.NULL_WORLD_POINT : ThievingData.getVyreEscape(thievingNpc.getName());
                 }
@@ -407,16 +415,17 @@ public class ThievingScript extends Script {
                 bankAndEquip();
                 return;
             case EAT:
-                final double hp = Rs2Player.getHealthPercentage();
-                Rs2Player.useFood();
-                Rs2Inventory.dropAll(true, "jug");
-                sleepUntil(() -> Rs2Player.getHealthPercentage() > hp, 800);
+                if (config.food() == ThievingFood.ANCIENT_BREW) {
+                    drinkAncientBrew();
+                    Rs2Inventory.dropAll(true, "vial");
+                    sleepUntil(() -> Rs2Player.hasPrayerPoints(), 800);
+                } else {
+                    final double hp = Rs2Player.getHealthPercentage();
+                    Rs2Player.useFood();
+                    Rs2Inventory.dropAll(true, "jug");
+                    sleepUntil(() -> Rs2Player.getHealthPercentage() > hp, 800);
+                }
                 return;
-            case DRINK:
-                drinkAncientBrew();
-                Rs2Inventory.dropAll(true, "vial");
-                sleepUntil(() -> Rs2Player.hasPrayerPoints(), 800);
-                return; 
             case DROP:
                 dropAllExceptImportant();
                 if (Rs2Inventory.isFull()) Rs2Player.eatAt(99);
@@ -501,6 +510,7 @@ public class ThievingScript extends Script {
 
                 var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
                 if (highlighted.isEmpty()) {
+                    if (isNpcNull(thievingNpc)) return;
                     Rs2Npc.pickpocket(thievingNpc);
                 } else {
                     Rs2Npc.pickpocket(highlighted);
@@ -534,15 +544,19 @@ public class ThievingScript extends Script {
 
     private boolean hasReqs() {
         boolean hasReqs = true;
-        if (config.useFood() && Rs2Inventory.getInventoryFood().isEmpty()) {
-            log.info("Missing food");
-            hasReqs = false;
-        }
-
-        if (config.useAncientBrew() && !hasAncientBrew()) {
-            Rs2Prayer.toggle(Rs2PrayerEnum.REDEMPTION, false);
-            log.info("Missing ancient brew");
-            hasReqs = false;
+        if (config.useFood()) {
+            if (config.food() == ThievingFood.ANCIENT_BREW) {
+                if (!hasAncientBrew()) {
+                    Rs2Prayer.toggle(Rs2PrayerEnum.REDEMPTION, false);
+                    log.info("Missing ancient brew");
+                    hasReqs = false;
+                }
+            } else {
+                if (Rs2Inventory.getInventoryFood().isEmpty()) {
+                    log.info("Missing food");
+                    hasReqs = false;
+                }
+            }
         }
 
         if (config.dodgyNecklaceAmount() > 0 && !Rs2Inventory.hasItem("Dodgy necklace")) {
@@ -773,8 +787,13 @@ public class ThievingScript extends Script {
             }
         }
         if (config.dodgyNecklaceAmount() > 0) exclusions.add("dodgy necklace");
-        if (config.useFood()) exclusions.add(config.food().getName());
-        if (config.useAncientBrew()) exclusions.addAll(ThievingData.ANCIENT_BREW_DOSES);
+        if (config.useFood()) {
+            if (config.food() == ThievingFood.ANCIENT_BREW) {
+                exclusions.addAll(ThievingData.ANCIENT_BREW_DOSES);
+            } else {
+                exclusions.add(config.food().getName());
+            }
+        }
         return exclusions;
     }
 
@@ -832,31 +851,33 @@ public class ThievingScript extends Script {
         if (!Rs2Bank.isOpen() || !isRunning()) return;
         Rs2Bank.depositAllExcept(getExclusions());
 
-        if (config.useAncientBrew()) {
-            if (!getInventoryAmount("Ancient brew(4)", config.foodAmount(), true)) {
+        if (config.useFood()) {
+            String itemName = config.food().getName();
+            // Para Ancient Brew, siempre retiramos la dosis (4)
+            if (config.food() == ThievingFood.ANCIENT_BREW) {
+                itemName = "Ancient brew(4)";
+            }
+            
+            if (!getInventoryAmount(itemName, config.foodAmount(), true)) {
                 if (!Rs2Bank.isOpen()) return;
-                showMessage("No Ancient brew found in bank.");
+                showMessage("No " + config.food().getName() + " found in bank.");
                 shutdown();
                 return;
             }
         }
-        else if (!getInventoryAmount(config.food().getName(), config.foodAmount(), true)) {
-            if (!Rs2Bank.isOpen()) return;
-            showMessage("No " + config.food().getName() + " found in bank.");
-            shutdown();
-            return;
-        }
 
-        if (config.eatFullHpBank()) {
-            boolean ateFood = false;
-            while (!Rs2Player.isFullHealth() && Rs2Player.useFood()) {
-                Rs2Player.waitForAnimation();
-                ateFood = true;
-            }
+        if (config.useFood()) {
+            if (config.eatFullHpBank() && config.food() != ThievingFood.ANCIENT_BREW) {
+                boolean ateFood = false;
+                while (!Rs2Player.isFullHealth() && Rs2Player.useFood()) {
+                    Rs2Player.waitForAnimation();
+                    ateFood = true;
+                }
 
-            if (ateFood) {
-                bankAndEquip();
-                return;
+                if (ateFood) {
+                    bankAndEquip();
+                    return;
+                }
             }
         }
 
@@ -925,7 +946,6 @@ public class ThievingScript extends Script {
                             .map(String::toLowerCase)
                             .collect(Collectors.toSet())
             );
-        Rs2Inventory.getInventoryFood().forEach(food -> keep.add(food.getName()));
         Collections.addAll(keep, "coins", "book of the dead");
         if (config.THIEVING_NPC() == ThievingNpc.VYRES) Collections.addAll(keep,"drakan's medallion", "blood shard");
         Rs2Inventory.dropAllExcept(config.keepItemsAboveValue(), keep.toArray(String[]::new));

@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Skill;
 import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.NpcDespawned;
+import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -119,11 +119,11 @@ public class ThievingPlugin extends Plugin {
     }
 
     @Subscribe
-    public void onNpcDespawned(NpcDespawned event) {
+    public void onNpcSpawned(NpcSpawned event) {
         // clear the npc reference
-        var npc = getThievingScript().thievingNpc;
+        var npc = getThievingScript().getThievingNpc();
         if (npc != null && event.getNpc().getIndex() == npc.getIndex()) {
-            log.info("NPC despawned, updating reference");
+            log.info("Obsolete npc, updating reference");
             getThievingScript().cleanNpc = true;
         }   
     }

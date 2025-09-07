@@ -18,7 +18,6 @@ public enum State {
     CLOSE_DOOR,
     COIN_POUCHES(false),
     WALK_TO_START,
-    DRINK(false),
     SLEEPING;
 
     @Getter
