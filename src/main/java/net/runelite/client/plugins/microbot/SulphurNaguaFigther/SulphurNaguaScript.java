@@ -36,7 +36,7 @@ import static java.lang.Math.min;
 
 public class SulphurNaguaScript extends Script {
 
-    public static String version = "3.2.1"; // Final cleanup and English comments
+    public static String version = "1.1";
 
     @Getter
     @RequiredArgsConstructor
@@ -99,7 +99,6 @@ public class SulphurNaguaScript extends Script {
 
     // Item and NPC constants
     private final String NAGUA_NAME = "Sulphur Nagua";
-    private final String POTION_NAME = "Moonlight potion";
     private final int PESTLE_AND_MORTAR_ID = 233;
     private final int VIAL_OF_WATER_ID = 227;
     private final int MOONLIGHT_GRUB_ID = 29078;
