@@ -20,12 +20,8 @@ import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
         + "</ol>\n"
         + "<p>This script will automatically fight Sulphur Nagua, drink Moonlight Potions, and brew new ones when supplies run out.</p>\n"
         + "</html>")
-
-/**
- * Configuration interface for the Sulphur Nagua script.
- * Defines the user-configurable settings in the plugin side panel.
- */
 public interface SulphurNaguaConfig extends Config {
+
     @ConfigItem(
             keyName = "useInventorySetup",
             name = "Use Inventory Setup?",
@@ -49,7 +45,7 @@ public interface SulphurNaguaConfig extends Config {
     @ConfigItem(
             keyName = "moonlightPotionsMinimum",
             name = "Minimum Moonlight Potions",
-            description = "If the number of potions falls below this value, new ones will be made. Set to 0 to always fill the entire free inventory.",
+            description = "If the number of potions falls below this value, new ones will be made.",
             position = 3
     )
     default int moonlightPotionsMinimum() {
@@ -57,12 +53,12 @@ public interface SulphurNaguaConfig extends Config {
     }
 
     @ConfigItem(
-            keyName = "usePiety",
-            name = "Use Piety?",
-            description = "When enabled, the bot will also use the Piety prayer during combat.",
+            keyName = "useOffensivePrayers",
+            name = "Use Offensive Prayers?",
+            description = "When enabled, the bot will use the best offensive prayer (Piety, Rigour, or Augury) depending on combat style.",
             position = 4
     )
-    default boolean usePiety() {
+    default boolean useOffensivePrayers() {
         return false;
     }
 

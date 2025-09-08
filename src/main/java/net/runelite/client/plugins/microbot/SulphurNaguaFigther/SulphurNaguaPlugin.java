@@ -15,7 +15,7 @@ import java.awt.*;
 import java.time.Instant;
 
 @PluginDescriptor(
-        name = PluginConstants.DEFAULT_PREFIX + "Sulphur Nagua Fighter",
+        name = PluginConstants.VIP + "Sulphur Nagua Fighter",
         description = "Automatically fights Sulphur Naguas in Varlamore, handling potions and combat.",
         tags = {"combat", "pvm", "nagua", "varlamore", "microbot"},
         authors = { "VIP" },
@@ -27,7 +27,7 @@ import java.time.Instant;
 @Slf4j
 public class SulphurNaguaPlugin extends Plugin {
 
-    static final String version = "1.0.0";
+    public static final String version = "1.0.0";
 
     @Inject
     SulphurNaguaScript sulphurNaguaScript;
@@ -39,7 +39,6 @@ public class SulphurNaguaPlugin extends Plugin {
     private SulphurNaguaOverlay sulphurNaguaOverlay;
 
     private Instant scriptStartTime;
-    private long startTotalExp;
 
     @Provides
     SulphurNaguaConfig provideConfig(ConfigManager configManager) {
@@ -49,7 +48,6 @@ public class SulphurNaguaPlugin extends Plugin {
     @Override
     protected void startUp() throws AWTException {
         scriptStartTime = Instant.now();
-        startTotalExp = Microbot.getClient().getOverallExperience();
         if (overlayManager != null) {
             overlayManager.add(sulphurNaguaOverlay);
         }
@@ -61,8 +59,7 @@ public class SulphurNaguaPlugin extends Plugin {
         sulphurNaguaScript.shutdown();
         overlayManager.remove(sulphurNaguaOverlay);
         scriptStartTime = null;
-        startTotalExp = 0;
-        sulphurNaguaScript.totalNaguaKills = 0; // Reset kill count
+        sulphurNaguaScript.totalNaguaKills = 0;
     }
 
 
@@ -71,8 +68,10 @@ public class SulphurNaguaPlugin extends Plugin {
     }
 
     public long getXpGained() {
-        if (startTotalExp == 0) return 0;
-        return Microbot.getClient().getOverallExperience() - startTotalExp;
+        long scriptStartExp = sulphurNaguaScript.getStartTotalExp(); // Lombok's @Getter provides this method
+        if (scriptStartExp == 0) return 0; // The script has not initialized yet.
+
+        return Microbot.getClient().getOverallExperience() - scriptStartExp;
     }
 
     public long getXpPerHour() {
@@ -81,7 +80,6 @@ public class SulphurNaguaPlugin extends Plugin {
         long secondsElapsed = java.time.Duration.between(scriptStartTime, Instant.now()).getSeconds();
         if (secondsElapsed <= 0) return 0;
 
-        // Formel: (XP Gained * Seconds in an Hour) / Seconds Elapsed
         return (getXpGained() * 3600L) / secondsElapsed;
     }
 }

@@ -28,6 +28,7 @@ public final class PluginConstants
     public static final String Lumusi = "<html>[<font color=#FFD700><b>\uD83E\uDD16</b></font>] ";
     public static final String GIRDY = "<html>[<font color=#3DED97>ǥ</font>] ";
     public static final String SEE1DUCK = "<html>[<font color=#ffff1a>\ud83e\udd86</font>] ";
+    public static final String VIP = "<html>[<font color=#8CFFFD>VIP</font>] ";
 
     public static final boolean DEFAULT_ENABLED = false;
     public static final boolean IS_EXTERNAL = true;
