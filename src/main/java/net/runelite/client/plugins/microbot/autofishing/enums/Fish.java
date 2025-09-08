@@ -12,16 +12,14 @@ import java.util.stream.Collectors;
 
 @Getter
 public enum Fish {
-    SHRIMP("Shrimp", List.of("Raw shrimps"), FishingMethod.NET, FishingSpot.SHRIMP.getIds()),
-    ANCHOVIES("Anchovies", List.of("Raw anchovies"), FishingMethod.NET, FishingSpot.SHRIMP.getIds()),
+    SHRIMP_AND_ANCHOVIES("Shrimp + Anchovies", List.of("Raw shrimps", "Raw anchovies"), FishingMethod.NET, FishingSpot.SHRIMP.getIds()),
     HERRING("Herring", List.of("Raw herring"), FishingMethod.BAIT, FishingSpot.SHRIMP.getIds()),
     LOBSTER("Lobster", List.of("Raw lobster"), FishingMethod.CAGE, FishingSpot.LOBSTER.getIds()),
     SHARK("Shark", List.of("Raw shark"), FishingMethod.HARPOON, FishingSpot.SHARK.getIds()),
-    SALMON("Salmon", List.of("Raw salmon"), FishingMethod.LURE, FishingSpot.SALMON.getIds()),
-    TROUT("Trout", List.of("Raw trout"), FishingMethod.LURE, FishingSpot.SALMON.getIds()),
+    SALMON_AND_TROUT("Salmon + Trout", List.of("Raw salmon", "Raw trout"), FishingMethod.LURE, FishingSpot.SALMON.getIds()),
     MONKFISH("Monkfish", List.of("Raw monkfish"), FishingMethod.NET, FishingSpot.MONKFISH.getIds()),
     KARAMBWAN("Karambwan", List.of("Raw karambwan"), FishingMethod.KARAMBWAN_VESSEL, FishingSpot.KARAMBWAN.getIds()),
-    KARAMBWANJI("Karambwanji", List.of("Raw karambwanji"), FishingMethod.NET, FishingSpot.KARAMBWANJI.getIds()),
+    //KARAMBWANJI("Karambwanji", List.of("Raw karambwanji"), FishingMethod.NET, FishingSpot.KARAMBWANJI.getIds()),
     LAVA_EEL("Lava eel", List.of("Raw lava eel"), FishingMethod.OILY_ROD, FishingSpot.LAVA_EEL.getIds()),
     CAVE_EEL("Cave eel", List.of("Raw cave eel"), FishingMethod.BAIT, FishingSpot.CAVE_EEL.getIds()),
     BARBARIAN_FISH("Barbarian fish", List.of("Leaping trout", "Leaping salmon", "Leaping sturgeon"), FishingMethod.BARBARIAN_ROD, FishingSpot.BARB_FISH.getIds()),
@@ -89,23 +87,21 @@ public enum Fish {
 
     private FishingSpot getFishingSpotType() {
         switch (this) {
-            case SHRIMP:
-            case ANCHOVIES:
+            case SHRIMP_AND_ANCHOVIES:
             case HERRING:
                 return FishingSpot.SHRIMP;
             case LOBSTER:
                 return FishingSpot.LOBSTER;
             case SHARK:
                 return FishingSpot.SHARK;
-            case SALMON:
-            case TROUT:
+            case SALMON_AND_TROUT:
                 return FishingSpot.SALMON;
             case MONKFISH:
                 return FishingSpot.MONKFISH;
             case KARAMBWAN:
                 return FishingSpot.KARAMBWAN;
-            case KARAMBWANJI:
-                return FishingSpot.KARAMBWANJI;
+            // case KARAMBWANJI:
+            //     return FishingSpot.KARAMBWANJI;
             case LAVA_EEL:
                 return FishingSpot.LAVA_EEL;
             case CAVE_EEL:
