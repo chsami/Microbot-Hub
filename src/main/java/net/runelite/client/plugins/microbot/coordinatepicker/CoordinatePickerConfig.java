@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.jiggly.coordinatepicker;
+package net.runelite.client.plugins.microbot.coordinatepicker;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
