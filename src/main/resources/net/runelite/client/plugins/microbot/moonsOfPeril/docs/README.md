@@ -1,7 +1,9 @@
 ## Important:
 Use at your own risk.
 
-Babysit until you are 100% comfortable.Run the latest nightly build.
+Babysit until you are 100% comfortable.
+
+Run the latest nightly build.
 
 ## Why use the plugin?
 

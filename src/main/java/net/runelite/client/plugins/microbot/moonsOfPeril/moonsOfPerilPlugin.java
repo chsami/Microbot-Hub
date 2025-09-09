@@ -28,14 +28,14 @@ import java.time.Instant;
         authors = "The Funk",
         version = moonsOfPerilPlugin.version,
         minClientVersion = "2.0.0",
-        iconUrl = "https://chsami.github.io/Microbot-Hub/moonsofperil/assets/icon.png",
-        cardUrl = "https://chsami.github.io/Microbot-Hub/moonsofperil/assets/card.png",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/moonsOfPerilPlugin/assets/icon.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/moonsOfPerilPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class moonsOfPerilPlugin extends Plugin {
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
     @Inject
     private moonsOfPerilConfig config;
     @Provides
