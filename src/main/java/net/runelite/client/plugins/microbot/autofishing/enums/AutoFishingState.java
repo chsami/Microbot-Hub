@@ -11,5 +11,6 @@ public enum AutoFishingState {
     INVENTORY_FULL,
     DEPOSITING,
     RETURNING,
-    ERROR_RECOVERY
+    ERROR_RECOVERY,
+    COOKING
 }
