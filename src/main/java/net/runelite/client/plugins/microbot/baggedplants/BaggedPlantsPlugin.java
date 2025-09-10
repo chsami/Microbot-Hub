@@ -24,8 +24,8 @@ import java.time.Instant;
         tags = {"skilling", "construction", "farming"},
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL,
-        iconUrl = "https://chsami.github.io/Microbot-Hub/baggedplants/assets/Icon.png",
-        cardUrl = "https://chsami.github.io/Microbot-Hub/baggedplants/assets/Card.png"
+        iconUrl = "https://chsami.github.io/Microbot-Hub/baggedplants/assets/icon.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/baggedplants/assets/card.png"
 )
 @Slf4j
 public class BaggedPlantsPlugin extends Plugin {

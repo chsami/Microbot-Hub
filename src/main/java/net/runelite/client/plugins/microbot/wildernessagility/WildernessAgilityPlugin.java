@@ -21,8 +21,8 @@ import net.runelite.client.eventbus.Subscribe;
     tags = {"agility", "skilling", "solo", "mass", "MoneyMaking"},
     enabledByDefault = PluginConstants.DEFAULT_ENABLED,
     isExternal = PluginConstants.IS_EXTERNAL,
-    iconUrl = "https://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/Icon.png",
-    cardUrl = "httpa://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/Card.png"
+    iconUrl = "https://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/icon.png",
+    cardUrl = "httpa://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/card.png"
 )
 public class WildernessAgilityPlugin extends Plugin {
 
