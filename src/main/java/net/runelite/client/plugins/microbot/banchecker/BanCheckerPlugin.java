@@ -16,8 +16,8 @@ import javax.inject.Inject;
         authors = {"BanaanBakje"},
         version = BanCheckerPlugin.version,
         iconUrl= "https://chsami.github.io/Microbot-Hub/BanCheckerPlugin/assets/icon.png",
-        isExternal = true,
-        enabledByDefault = false
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL
 )
 public class BanCheckerPlugin extends Plugin
 {
