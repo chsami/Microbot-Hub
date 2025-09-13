@@ -6,7 +6,8 @@ import net.runelite.client.config.ConfigInformation;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 import net.runelite.client.plugins.microbot.thieving.enums.ThievingNpc;
-import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
+import net.runelite.client.plugins.microbot.thieving.enums.ThievingFood;
+//import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 
 @ConfigGroup("Thieving")
 @ConfigInformation(
@@ -109,8 +110,8 @@ public interface ThievingConfig extends Config {
 
     @ConfigItem(
             keyName = "UseFood",
-            name = "Auto Eat Food",
-            description = "Automatically eat food if HP is low.",
+            name = "Use Consumables",
+            description = "Automatically eat food or drink potions if HP/Prayer is low.",
             position = 0,
             section = foodSection
     )
@@ -122,7 +123,7 @@ public interface ThievingConfig extends Config {
         keyName = "eatFullHpBank",
         name = "Eat Until Full Life (Bank)",
         description = "Eat until full life during bank, before stealing again.",
-        position = 1,
+        position = 2,
         section = foodSection
     )
     default boolean eatFullHpBank() {
@@ -133,7 +134,7 @@ public interface ThievingConfig extends Config {
             keyName = "Hitpoints",
             name = "Eat Below HP %",
             description = "Eat food when HP falls below this percent.",
-            position = 2,
+            position = 3,
             section = foodSection
     )
     default int hitpoints() {
@@ -142,20 +143,20 @@ public interface ThievingConfig extends Config {
 
     @ConfigItem(
             keyName = "Food",
-            name = "Food Type",
-            description = "Type of food to use.",
-            position = 3,
+            name = "Food/Potion Type",
+            description = "Type of food or potion to use.",
+            position = 4,
             section = foodSection
     )
-    default Rs2Food food() {
-        return Rs2Food.MONKFISH;
+    default ThievingFood food() {
+        return ThievingFood.MONKFISH;
     }
 
     @ConfigItem(
             keyName = "FoodAmount",
-            name = "Food Amount",
-            description = "Amount of food to withdraw from bank.",
-            position = 4,
+            name = "Food/Pot Amount",
+            description = "Amount of food or ancient brews to withdraw from bank.",
+            position = 5,
             section = foodSection
     )
     default int foodAmount() {
