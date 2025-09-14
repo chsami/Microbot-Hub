@@ -2,15 +2,13 @@ package net.runelite.client.plugins.microbot.autofishing.enums;
 
 public enum AutoFishingState {
 
-    INITIALIZING,
-    CHECKING_GEAR,
+    IDLE,
     GETTING_GEAR,
     TRAVELING,
     FISHING,
-    MANAGING_SPEC,
-    INVENTORY_FULL,
+    PROCESSING_FISH,
+    COOKING,
     DEPOSITING,
-    RETURNING,
-    ERROR_RECOVERY,
-    COOKING
+    DROPPING,
+    ERROR_RECOVERY
 }
