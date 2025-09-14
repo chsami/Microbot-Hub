@@ -15,7 +15,7 @@ import java.awt.*;
 import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
 
 @PluginDescriptor(
-        name = PluginDescriptor.Default + "Event Dismiss</html>",
+        name = PluginDescriptor.Default + "Event Dismiss",
         description = "Random Event Dismisser",
         tags = {"random", "events", "microbot"},
         authors = {"Unknown"},
@@ -28,7 +28,7 @@ import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
 )
 @Slf4j
 public class EventDismissPlugin extends Plugin {
-    public static final String version = "1.0.0";
+    public static final String version = "1.0.1";
     @Inject
     private ConfigManager configManager;
     @Inject
