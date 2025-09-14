@@ -28,7 +28,7 @@ import java.awt.*;
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL,
         iconUrl = "https://chsami.github.io/Microbot-Hub/FornBirdhouseRunsPlugin/assets/icon.jpg",
-        cardUrl = "httpa://chsami.github.io/Microbot-Hub/FornBirdhouseRunsPlugin/assets/card.jpg"
+        cardUrl = "https://chsami.github.io/Microbot-Hub/FornBirdhouseRunsPlugin/assets/card.jpg"
 )
 @Slf4j
 public class FornBirdhouseRunsPlugin extends Plugin implements SchedulablePlugin {

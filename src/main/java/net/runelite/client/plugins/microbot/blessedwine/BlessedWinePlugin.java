@@ -26,8 +26,8 @@ import java.awt.*;
         authors = { "Hal" },
         version = BlessedWinePlugin.version,
 		minClientVersion = "1.9.6",
-        cardUrl = "https://chsami.github.io/Microbot-Hub/DailyTasksPlugin/assets/card.jpg",
-        iconUrl = "https://chsami.github.io/Microbot-Hub/DailyTasksPlugin/assets/icon.jpg",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/BlessedWinePlugin/assets/card.jpg",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/BlessedWinePlugin/assets/icon.jpg",
 		enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )

@@ -31,7 +31,7 @@ import static net.runelite.client.plugins.microbot.blastoisefurnace.BlastoiseFur
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL,
         iconUrl = "https://chsami.github.io/Microbot-Hub/BlastoiseFurnacePlugin/assets/icon.jpg",
-        cardUrl = "httpa://chsami.github.io/Microbot-Hub/BlastoiseFurnacePlugin/assets/card.jpg"
+        cardUrl = "https://chsami.github.io/Microbot-Hub/BlastoiseFurnacePlugin/assets/card.jpg"
 )
 @Slf4j
 public class BlastoiseFurnacePlugin extends Plugin {

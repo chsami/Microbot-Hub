@@ -42,7 +42,7 @@ import static net.runelite.client.plugins.microbot.Microbot.isLoggedIn;
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL,
         iconUrl = "https://chsami.github.io/Microbot-Hub/BradleyCombatPlugin/assets/icon.jpg",
-        cardUrl = "httpa://chsami.github.io/Microbot-Hub/BradleyCombatPlugin/assets/card.jpg"
+        cardUrl = "https://chsami.github.io/Microbot-Hub/BradleyCombatPlugin/assets/card.jpg"
 )
 public class BradleyCombatPlugin extends Plugin implements KeyListener {
     final static String version = "1.0.0";

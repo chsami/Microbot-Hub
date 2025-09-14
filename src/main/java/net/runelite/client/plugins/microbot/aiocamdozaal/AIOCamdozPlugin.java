@@ -21,7 +21,7 @@ import java.awt.*;
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL,
         iconUrl = "https://chsami.github.io/Microbot-Hub/AIOCamdozPlugin/assets/icon.jpg",
-        cardUrl = "httpa://chsami.github.io/Microbot-Hub/AIOCamdozPlugin/assets/card.jpg"
+        cardUrl = "https://chsami.github.io/Microbot-Hub/AIOCamdozPlugin/assets/card.jpg"
 )
 @Slf4j
 public class AIOCamdozPlugin extends Plugin {
