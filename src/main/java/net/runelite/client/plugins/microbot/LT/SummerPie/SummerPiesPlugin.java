@@ -9,15 +9,22 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.agility.MicroAgilityPlugin;
 import net.runelite.client.ui.overlay.OverlayManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @PluginDescriptor(
+
         name = PluginConstants.LT + "Summer Pies",
         description = "Summer Pies Plugin",
+        version = MicroAgilityPlugin.version,
+        minClientVersion = "2.0.0",
         tags = {"Summer Pies", "microbot"},
-        enabledByDefault = false
+        iconUrl = "",
+        cardUrl = "",
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL
 )
 public class SummerPiesPlugin extends Plugin {
     private static final Logger log = LoggerFactory.getLogger(SummerPiesPlugin.class);

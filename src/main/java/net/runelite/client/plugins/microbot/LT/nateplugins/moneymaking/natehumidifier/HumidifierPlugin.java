@@ -7,6 +7,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.agility.MicroAgilityPlugin;
 import net.runelite.client.plugins.microbot.nateplugins.moneymaking.natehumidifier.HumidifierConfig;
 import net.runelite.client.plugins.microbot.nateplugins.moneymaking.natehumidifier.HumidifierOverlay;
 import net.runelite.client.plugins.microbot.nateplugins.moneymaking.natehumidifier.HumidifierScript;
@@ -15,12 +16,17 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import javax.inject.Inject;
 import java.awt.*;
 
-
 @PluginDescriptor(
+
         name = PluginConstants.LT +"Humidifier",
         description = "Nate's Humidifier",
+        version = MicroAgilityPlugin.version,
+        minClientVersion = "2.0.0",
         tags = {"magic", "nate", "humidifier","moneymaking"},
-        enabledByDefault = false
+        iconUrl = "",
+        cardUrl = "",
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class HumidifierPlugin extends Plugin {

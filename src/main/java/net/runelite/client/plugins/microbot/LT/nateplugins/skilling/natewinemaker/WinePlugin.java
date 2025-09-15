@@ -10,6 +10,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.agility.MicroAgilityPlugin;
 import net.runelite.client.plugins.microbot.nateplugins.skilling.natewinemaker.WineConfig;
 import net.runelite.client.plugins.microbot.nateplugins.skilling.natewinemaker.WineOverlay;
 import net.runelite.client.plugins.microbot.nateplugins.skilling.natewinemaker.WineScript;
@@ -19,12 +20,17 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import javax.inject.Inject;
 import java.awt.*;
 
-
 @PluginDescriptor(
+
         name = PluginConstants.LT +"Wine Maker",
         description = "Nate's Wine Maker",
-        tags = {"skilling", "nate", "wine","cooking"},
-        enabledByDefault = false
+        version = MicroAgilityPlugin.version,
+        minClientVersion = "2.0.0",
+        tags = {"Fishing", "nate", "skilling"},
+        iconUrl = "",
+        cardUrl = "",
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class WinePlugin extends Plugin {
