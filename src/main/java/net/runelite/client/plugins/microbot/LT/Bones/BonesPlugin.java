@@ -11,7 +11,6 @@ import javax.inject.Inject;
 
         name = PluginConstants.LT + "Bones Burier",
         description = "Entierra Big Bones automáticamente cerca de un banco",
-        authors = { "LT" },
         version = MicroAgilityPlugin.version,
         minClientVersion = "2.0.0",
         tags = {"bones", "bury", "prayer"},
