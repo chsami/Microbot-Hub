@@ -348,7 +348,7 @@ public interface CombatHotkeysConfig extends Config {
         SHARP_EYE(Rs2PrayerEnum.SHARP_EYE),
         HAWK_EYE(Rs2PrayerEnum.HAWK_EYE),
         EAGLE_EYE(Rs2PrayerEnum.EAGLE_EYE),
-        DEADEYE(Rs2PrayerEnum.DEADEYE)
+        DEADEYE(Rs2PrayerEnum.DEADEYE),
         RIGOUR(Rs2PrayerEnum.RIGOUR);
 
         private final Rs2PrayerEnum prayer;
