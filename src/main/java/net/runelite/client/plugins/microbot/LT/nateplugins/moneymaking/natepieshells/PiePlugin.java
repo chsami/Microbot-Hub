@@ -9,6 +9,7 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.nateplugins.moneymaking.natepieshells.PieConfig;
 import net.runelite.client.plugins.microbot.nateplugins.moneymaking.natepieshells.PieOverlay;
 import net.runelite.client.plugins.microbot.nateplugins.moneymaking.natepieshells.PieScript;
@@ -20,7 +21,7 @@ import java.awt.*;
 
 
 @PluginDescriptor(
-        name = PluginDescriptor.Nate +"Pie Shell Maker",
+        name = PluginConstants.LT +"Pie Shell Maker",
         description = "Nate's Pie Shell Maker",
         tags = {"MoneyMaking", "nate", "pies"},
         enabledByDefault = false

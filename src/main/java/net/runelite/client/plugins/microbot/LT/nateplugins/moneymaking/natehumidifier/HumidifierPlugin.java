@@ -6,6 +6,7 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.nateplugins.moneymaking.natehumidifier.HumidifierConfig;
 import net.runelite.client.plugins.microbot.nateplugins.moneymaking.natehumidifier.HumidifierOverlay;
 import net.runelite.client.plugins.microbot.nateplugins.moneymaking.natehumidifier.HumidifierScript;
@@ -16,7 +17,7 @@ import java.awt.*;
 
 
 @PluginDescriptor(
-        name = PluginDescriptor.Nate +"Humidifier",
+        name = PluginConstants.LT +"Humidifier",
         description = "Nate's Humidifier",
         tags = {"magic", "nate", "humidifier","moneymaking"},
         enabledByDefault = false
