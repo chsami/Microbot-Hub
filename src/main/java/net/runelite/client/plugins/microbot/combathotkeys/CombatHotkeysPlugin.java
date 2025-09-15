@@ -11,6 +11,8 @@ import net.runelite.client.input.KeyManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.birdhouseruns.FornBirdhouseRunsPlugin;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
@@ -27,10 +29,17 @@ import static net.runelite.client.plugins.microbot.util.Global.sleep;
         name = PluginDescriptor.Cicire + "Combat hotkeys",
         description = "A plugin to bind hotkeys to combat stuff",
         tags = {"combat", "hotkeys", "microbot"},
-        enabledByDefault = false
+        authors = {"Cicire"},
+        version = CombatHotkeysPlugin.version,
+        minClientVersion = "2.0.7",
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL,
+        iconUrl = "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/icon.jpg",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/card.jpg"
 )
 @Slf4j
 public class CombatHotkeysPlugin extends Plugin implements KeyListener {
+    public static final String version = "1.1.0";
     @Inject
     private CombatHotkeysConfig config;
 
