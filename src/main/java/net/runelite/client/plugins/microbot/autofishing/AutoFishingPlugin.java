@@ -49,7 +49,6 @@ public class AutoFishingPlugin extends Plugin {
 
     @Override
     protected void startUp() throws AWTException {
-        Microbot.pauseAllScripts.set(false);
         if (overlayManager != null) {
             overlayManager.add(fishingOverlay);
         }
