@@ -6,6 +6,7 @@ import lombok.Getter;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.game.FishingSpot;
 
+//TODO: remove this once the microbot client exposes this enum
 @Getter
 public enum FishingSpotLocation
 {
