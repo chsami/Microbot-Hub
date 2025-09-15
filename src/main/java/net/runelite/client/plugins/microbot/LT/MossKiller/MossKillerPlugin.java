@@ -47,6 +47,7 @@ import static net.runelite.api.ItemID.RUNE_SCIMITAR;
         name = PluginConstants.LT + "Moss Killer",
         description = "Bee & Mntn's Moss Killer",
         tags = {"Keys", "Bryophyta", "Mntn", "Bee", "Moss Giants", "F2p"},
+        enabledByDefault = false
 )
 @Slf4j
 public class MossKillerPlugin extends Plugin implements SchedulablePlugin {
