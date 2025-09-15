@@ -28,7 +28,7 @@ public interface TutorialIslandConfig extends Config {
             description = "Prefijo que se añadirá a los nombres creados"
     )
     default String namePrefix() {
-        return "LT-"; // valor por defecto
+        return "CV-"; // valor por defecto
     }
     @ConfigItem(
             keyName = toggleMusic,
