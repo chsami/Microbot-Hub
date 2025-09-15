@@ -96,7 +96,6 @@ public class TutorialIslandScript extends Script {
                             return;
                         }
 
-                        //String name = new NameGenerator(Rs2Random.between(7, 10)).getName();
                         String name = config.namePrefix() + new NameGenerator(Rs2Random.between(7, 10)).getName();
                         Rs2Widget.clickWidget(NameCreation, 7); // enterName Field
                         Rs2Random.waitEx(1200, 300);
