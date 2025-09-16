@@ -60,8 +60,9 @@ public class AutoWoodcuttingScript extends Script {
     public volatile boolean cannotLightFire = false;
     WoodcuttingScriptState woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
     private boolean hasAutoHopMessageShown = false;
-    private final AutoWoodcuttingPlugin plugin;    
+    private final AutoWoodcuttingPlugin plugin;
     public int currentLogBasketCount = -1;
+    private long lastFiremakingXpTime = 0;
     @Inject
     public AutoWoodcuttingScript(AutoWoodcuttingPlugin plugin) {
         this.plugin = plugin;
@@ -353,7 +354,23 @@ public class AutoWoodcuttingScript extends Script {
             sleepUntil(() -> (!Rs2Player.isMoving() && Rs2Widget.findWidget("How many would you like to burn?", null, false) != null), 5000);
             Rs2Random.waitEx(400, 200);
             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-            sleepUntil(() -> !Rs2Inventory.contains(config.TREE().getLog()) || !Rs2Player.isAnimating(), 40000);
+
+            // Track XP for campfire timeout
+            int initialXp = Rs2Player.getSkillExperience(Skill.FIREMAKING);
+            lastFiremakingXpTime = System.currentTimeMillis();
+
+            sleepUntil(() -> {
+                if (!Rs2Inventory.contains(config.TREE().getLog())) return true;
+                if (!Rs2Player.isAnimating()) return true;
+
+                int currentXp = Rs2Player.getSkillExperience(Skill.FIREMAKING);
+                if (currentXp > initialXp) {
+                    initialXp = currentXp;
+                    lastFiremakingXpTime = System.currentTimeMillis();
+                }
+
+                return System.currentTimeMillis() - lastFiremakingXpTime > 6600;
+            }, 40000);
 
             return;
         }
