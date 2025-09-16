@@ -9,12 +9,12 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
-import net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig;
-import net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicOverlay;
-import net.runelite.client.plugins.microbot.magic.aiomagic.enums.StunSpell;
-import net.runelite.client.plugins.microbot.magic.aiomagic.enums.SuperHeatItem;
-import net.runelite.client.plugins.microbot.magic.aiomagic.enums.TeleportSpell;
-import net.runelite.client.plugins.microbot.magic.aiomagic.scripts.*;
+import net.runelite.client.plugins.microbot.aiomagic.AIOMagicConfig;
+import net.runelite.client.plugins.microbot.aiomagic.AIOMagicOverlay;
+import net.runelite.client.plugins.microbot.aiomagic.enums.StunSpell;
+import net.runelite.client.plugins.microbot.aiomagic.enums.SuperHeatItem;
+import net.runelite.client.plugins.microbot.aiomagic.enums.TeleportSpell;
+import net.runelite.client.plugins.microbot.aiomagic.scripts.*;
 import net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Spells;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -40,11 +40,11 @@ import java.util.stream.Collectors;
 )
 public class AIOMagicPlugin extends Plugin {
     @Inject
-    private net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig config;
+    private AIOMagicConfig config;
 
     @Provides
-    net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig provideConfig(ConfigManager configManager) {
-        return configManager.getConfig(net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig.class);
+    AIOMagicConfig provideConfig(ConfigManager configManager) {
+        return configManager.getConfig(AIOMagicConfig.class);
     }
 
     @Inject
@@ -156,30 +156,30 @@ public class AIOMagicPlugin extends Plugin {
 
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
-        if (!event.getGroup().equals(net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig.configGroup))
+        if (!event.getGroup().equals(AIOMagicConfig.configGroup))
             return;
 
-        if (event.getKey().equals(net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig.combatSpell)) {
+        if (event.getKey().equals(AIOMagicConfig.combatSpell)) {
             combatSpell = config.combatSpell();
         }
 
-        if (event.getKey().equals(net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig.alchItems)) {
+        if (event.getKey().equals(AIOMagicConfig.alchItems)) {
             alchItemNames = updateItemList(config.alchItems());
         }
 
-        if (event.getKey().equals(net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig.superHeatItem)) {
+        if (event.getKey().equals(AIOMagicConfig.superHeatItem)) {
             superHeatItem = config.superHeatItem();
         }
 
-        if (event.getKey().equals(net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig.npcName)) {
+        if (event.getKey().equals(AIOMagicConfig.npcName)) {
             npcName = config.npcName();
         }
 
-        if (event.getKey().equals(net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig.teleportSpell)) {
+        if (event.getKey().equals(AIOMagicConfig.teleportSpell)) {
             teleportSpell = config.teleportSpell();
         }
 
-        if (event.getKey().equals(net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicConfig.stunSpell)) {
+        if (event.getKey().equals(AIOMagicConfig.stunSpell)) {
             stunSpell = config.stunSpell();
         }
 

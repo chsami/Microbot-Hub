@@ -1,7 +1,7 @@
 package net.runelite.client.plugins.microbot.aiomagic;
 
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicPlugin;
+import net.runelite.client.plugins.microbot.aiomagic.AIOMagicPlugin;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.LineComponent;
@@ -14,7 +14,7 @@ import java.awt.*;
 public class AIOMagicOverlay extends OverlayPanel {
 
     @Inject
-    AIOMagicOverlay(net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicPlugin plugin) {
+    AIOMagicOverlay(net.runelite.client.plugins.microbot.aiomagic.AIOMagicPlugin plugin) {
         super(plugin);
         setPosition(OverlayPosition.TOP_LEFT);
         setNaughty();

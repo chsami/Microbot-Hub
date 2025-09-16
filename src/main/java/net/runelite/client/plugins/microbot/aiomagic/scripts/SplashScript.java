@@ -2,7 +2,7 @@ package net.runelite.client.plugins.microbot.aiomagic.scripts;
 
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.magic.aiomagic.AIOMagicPlugin;
+import net.runelite.client.plugins.microbot.aiomagic.AIOMagicPlugin;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;

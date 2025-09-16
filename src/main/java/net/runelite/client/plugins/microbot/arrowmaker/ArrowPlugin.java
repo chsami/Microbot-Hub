@@ -2,17 +2,11 @@ package net.runelite.client.plugins.microbot.arrowmaker;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
-import net.runelite.client.Notifier;
-import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
-import net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowConfig;
-import net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowOverlay;
-import net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowScript;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
@@ -35,7 +29,7 @@ import java.awt.*;
 public class ArrowPlugin extends Plugin {
     final static String version = "1.0.0";
     @Inject
-    private net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowConfig config;
+    private ArrowConfig config;
     @Inject
     private OverlayManager overlayManager;
     @Inject
@@ -45,7 +39,7 @@ public class ArrowPlugin extends Plugin {
     ArrowScript arrowScript;
 
     @Provides
-    net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowConfig provideConfig(ConfigManager configManager) {
+    ArrowConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(ArrowConfig.class);
     }
 

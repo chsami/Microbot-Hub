@@ -19,7 +19,6 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
-import net.runelite.client.plugins.microbot.util.skills.woodcutting.Rs2Woodcutting;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.wintertodt.enums.State;
@@ -220,7 +219,9 @@ public class MWintertodtScript extends Script {
                         }
                         break;
                     case CHOP_ROOTS:
-                        if (Rs2Woodcutting.isWearingAxeWithSpecialAttack()) {
+                        if (Rs2Equipment.isWearing(net.runelite.api.gameval.ItemID.DRAGON_AXE) || Rs2Equipment.isWearing(net.runelite.api.gameval.ItemID.DRAGON_AXE_2H) || Rs2Equipment.isWearing(net.runelite.api.gameval.ItemID.CRYSTAL_AXE) ||
+                            Rs2Equipment.isWearing(net.runelite.api.gameval.ItemID.CRYSTAL_AXE_2H) || Rs2Equipment.isWearing(net.runelite.api.gameval.ItemID.INFERNAL_AXE) ||
+                            Rs2Equipment.isWearing(net.runelite.api.gameval.ItemID.TRAILBLAZER_AXE)) {
                             Rs2Combat.setSpecState(true, 1000);
                         }
                         if (!Rs2Player.isAnimating()) {

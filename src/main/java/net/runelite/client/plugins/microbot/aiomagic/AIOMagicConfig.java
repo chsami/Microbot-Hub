@@ -4,10 +4,10 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
-import net.runelite.client.plugins.microbot.magic.aiomagic.enums.MagicActivity;
-import net.runelite.client.plugins.microbot.magic.aiomagic.enums.StunSpell;
-import net.runelite.client.plugins.microbot.magic.aiomagic.enums.SuperHeatItem;
-import net.runelite.client.plugins.microbot.magic.aiomagic.enums.TeleportSpell;
+import net.runelite.client.plugins.microbot.aiomagic.enums.MagicActivity;
+import net.runelite.client.plugins.microbot.aiomagic.enums.StunSpell;
+import net.runelite.client.plugins.microbot.aiomagic.enums.SuperHeatItem;
+import net.runelite.client.plugins.microbot.aiomagic.enums.TeleportSpell;
 import net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells;
 
 @ConfigGroup(AIOMagicConfig.configGroup)

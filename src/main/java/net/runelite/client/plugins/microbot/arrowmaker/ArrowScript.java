@@ -2,7 +2,7 @@ package net.runelite.client.plugins.microbot.arrowmaker;
 
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowConfig;
+import net.runelite.client.plugins.microbot.arrowmaker.ArrowConfig;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 

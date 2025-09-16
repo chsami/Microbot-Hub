@@ -7,7 +7,6 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.pluginscheduler.tasks.requirements.requirement.location.LocationOption;
 import net.runelite.client.plugins.microbot.pluginscheduler.tasks.requirements.requirement.location.ResourceLocationOption;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
-import net.runelite.client.plugins.microbot.util.skills.woodcutting.data.WoodcuttingTreeLocations;
 
 import java.util.List;
 import java.util.stream.Collectors;

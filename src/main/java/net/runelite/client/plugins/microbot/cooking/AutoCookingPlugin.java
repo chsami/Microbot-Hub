@@ -9,7 +9,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.cooking.scripts.AutoCookingScript;
 import net.runelite.client.plugins.microbot.cooking.scripts.BurnBakingScript;
-import net.runelite.client.plugins.microbot.driftnet.DriftNetPlugin;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;

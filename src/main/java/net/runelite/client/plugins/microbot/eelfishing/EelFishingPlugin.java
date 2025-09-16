@@ -6,9 +6,9 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
-import net.runelite.client.plugins.microbot.fishing.eel.EelFishingConfig;
-import net.runelite.client.plugins.microbot.fishing.eel.EelFishingOverlay;
-import net.runelite.client.plugins.microbot.fishing.eel.EelFishingScript;
+import net.runelite.client.plugins.microbot.eelfishing.EelFishingConfig;
+import net.runelite.client.plugins.microbot.eelfishing.EelFishingOverlay;
+import net.runelite.client.plugins.microbot.eelfishing.EelFishingScript;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
