@@ -4,11 +4,10 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigInformation;
 import net.runelite.client.config.ConfigSection;
-import net.runelite.client.plugins.microbot.fishing.aerial.AerialFishingScript;
 
 @ConfigGroup(AerialFishingConfig.GROUP)
 @ConfigInformation("<h2>\uD83E\uDD86 Aerial Fisher</h2>" +
-        "<h3>Version: " + AerialFishingScript.version + "</h3>" +
+        "<h3>Version: " + AerialFishingPlugin.version + "</h3>" +
         "<p>Welcome to the Aerial Fishing Plugin! This plugin assists with the Aerial Fishing activity on Molch Island.</p>" +
         "<h3>Requirements:</h3>" +
         "<ul>" +

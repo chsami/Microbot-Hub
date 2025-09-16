@@ -9,7 +9,7 @@ import net.runelite.client.plugins.bosstimer.BossTimersPlugin;
 import net.runelite.client.plugins.bosstimer.RespawnTimer;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.aiofighter.enums.DefaultLooterStyle;
+import net.runelite.client.plugins.microbot.giantmole.enums.DefaultLooterStyle;
 import net.runelite.client.plugins.microbot.giantmole.enums.GiantMoleState;
 import net.runelite.client.plugins.microbot.qualityoflife.QoLPlugin;
 import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;

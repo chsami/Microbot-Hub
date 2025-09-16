@@ -10,9 +10,9 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
-import net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowConfig;
-import net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowOverlay;
-import net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowScript;
+import net.runelite.client.plugins.microbot.arrowmaker.ArrowConfig;
+import net.runelite.client.plugins.microbot.arrowmaker.ArrowOverlay;
+import net.runelite.client.plugins.microbot.arrowmaker.ArrowScript;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
@@ -35,7 +35,7 @@ import java.awt.*;
 public class ArrowPlugin extends Plugin {
     final static String version = "1.0.0";
     @Inject
-    private net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowConfig config;
+    private ArrowConfig config;
     @Inject
     private OverlayManager overlayManager;
     @Inject
@@ -45,7 +45,7 @@ public class ArrowPlugin extends Plugin {
     ArrowScript arrowScript;
 
     @Provides
-    net.runelite.client.plugins.microbot.nateplugins.skilling.arrowmaker.ArrowConfig provideConfig(ConfigManager configManager) {
+    ArrowConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(ArrowConfig.class);
     }
 

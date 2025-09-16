@@ -5,7 +5,7 @@ import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.cooking.enums.CookingItem;
+import net.runelite.client.plugins.microbot.gecooker.enums.CookingItem;
 import net.runelite.client.plugins.microbot.gecooker.enums.GEWorkLocation;
 import net.runelite.client.plugins.microbot.gecooker.enums.LogType;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
