@@ -101,6 +101,13 @@ public class TutorialIslandScript extends Script {
                         if (maxNameLength < 3) maxNameLength = 3; // Ensure at least 3 characters for the generated name
 
                         // Generate a random name and prepend the prefix
+
+                        // Determinar longitud máxima para el nombre aleatorio sin contar prefijo
+                        String prefix = config.namePrefix(); // Ejemplo: "LT-"
+                        int maxNameLength = 12 - prefix.length(); // límite de RuneScape menos prefijo
+                        if (maxNameLength < 3) maxNameLength = 3; // asegurar al menos 3 caracteres para el nombre
+
+                        // Generar nombre aleatorio y anteponer prefijo
                         String randomName = new NameGenerator(Rs2Random.between(3, maxNameLength)).getName();
                         String name = prefix + randomName;
 
