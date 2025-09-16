@@ -12,7 +12,9 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.birdhouseruns.FornBirdhouseRunsPlugin;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -21,6 +23,8 @@ import javax.inject.Inject;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 
+import static net.runelite.client.plugins.microbot.util.Global.sleep;
+
 @PluginDescriptor(
         name = PluginDescriptor.Cicire + "Combat hotkeys",
         description = "A plugin to bind hotkeys to combat stuff",
@@ -28,14 +32,14 @@ import java.awt.event.KeyEvent;
         authors = {"Cicire"},
         version = CombatHotkeysPlugin.version,
         minClientVersion = "2.0.7",
-        cardUrl = "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/card.jpg",
-        iconUrl = "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
-        isExternal = PluginConstants.IS_EXTERNAL
+        isExternal = PluginConstants.IS_EXTERNAL,
+        iconUrl = "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/icon.jpg",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/card.jpg"
 )
 @Slf4j
 public class CombatHotkeysPlugin extends Plugin implements KeyListener {
-    public final static String version = "1.0.0";
+    public static final String version = "1.1.0";
     @Inject
     private CombatHotkeysConfig config;
 
@@ -86,6 +90,21 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
         if(config.dance().matches(e)){
             e.consume();
             script.dance = !script.dance;
+        }
+
+        if (config.offensiveMeleeKey().matches(e)) {
+            e.consume();
+            Rs2Prayer.toggle(config.offensiveMeleePrayer().getPrayer());
+        }
+
+        if (config.offensiveRangeKey().matches(e)) {
+            e.consume();
+            Rs2Prayer.toggle(config.offensiveRangePrayer().getPrayer());
+        }
+
+        if (config.offensiveMagicKey().matches(e)) {
+            e.consume();
+            Rs2Prayer.toggle(config.offensiveMagicPrayer().getPrayer());
         }
 
         if (config.protectFromMagic().matches(e)) {
@@ -145,12 +164,15 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
     }
 
 
-    private static void equipGear(String gearListConfig) {
+    private void equipGear(String gearListConfig) {
         String[] itemIDs = gearListConfig.split(",");
 
         for (String value : itemIDs) {
             int itemId = Integer.parseInt(value);
             Rs2Inventory.equip(itemId);
+
+            int delay = Rs2Random.between(0, config.maxDelay());
+            sleep(delay);
         }
     }
 
