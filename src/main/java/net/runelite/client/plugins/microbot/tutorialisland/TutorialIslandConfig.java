@@ -23,6 +23,14 @@ public interface TutorialIslandConfig extends Config {
     String qolSection = "qol";
 
     @ConfigItem(
+            keyName = "namePrefix",
+            name = "Name Prefix",
+            description = "Prefix to be added to created character names"
+    )
+    default String namePrefix() {
+        return "LT-"; // default value
+    }
+    @ConfigItem(
             keyName = toggleMusic,
             name = "Toggle Music",
             description = "Turns off in-game music",
