@@ -25,7 +25,7 @@ public interface TutorialIslandConfig extends Config {
     @ConfigItem(
             keyName = "namePrefix",
             name = "Name Prefix",
-            description = "Prefix that will be added to the created names"
+            description = "Prefijo que se añadirá a los nombres creados"
     )
     default String namePrefix() {
         return "CV-"; // valor por defecto

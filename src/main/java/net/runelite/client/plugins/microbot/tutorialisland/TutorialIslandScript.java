@@ -95,12 +95,12 @@ public class TutorialIslandScript extends Script {
                             return;
                         }
 
-                        // Set maximum length for the random name without counting the prefix
-                        String prefix = config.namePrefix(); // Ej: "CV-"
-                        int maxNameLength = 12 - prefix.length(); // RuneScape limit minus prefix
-                        if (maxNameLength < 3) maxNameLength = 3; // Make sure the name has at least 3 characters (excluding the prefix)
+                        // Determine maximum length for the random name (excluding prefix)
+                        String prefix = config.namePrefix(); // Example: "LT-"
+                        int maxNameLength = 12 - prefix.length(); // RuneScape name limit minus prefix
+                        if (maxNameLength < 3) maxNameLength = 3; // Ensure at least 3 characters for the generated name
 
-                        // Generar nombre aleatorio y anteponer prefijo
+                        // Generate a random name and prepend the prefix
                         String randomName = new NameGenerator(Rs2Random.between(3, maxNameLength)).getName();
                         String name = prefix + randomName;
 
