@@ -77,7 +77,6 @@ public class TutorialIslandScript extends Script {
                 switch (status) {
                     case NAME:
                         Widget nameSearchBar = Rs2Widget.getWidget(NameCreation, 12); // enterName Field text
-
                         String nameSearchBarText = nameSearchBar.getText();
 
                         if (nameSearchBarText.endsWith("*")) {
@@ -96,7 +95,15 @@ public class TutorialIslandScript extends Script {
                             return;
                         }
 
-                        String name = new NameGenerator(Rs2Random.between(7, 10)).getName();
+                        // Determine max length for random name excluding prefix
+                        String prefix = config.namePrefix(); // Example: "LT-"
+                        int maxNameLength = 12 - prefix.length(); // RuneScape limit minus prefix
+                        if (maxNameLength < 3) maxNameLength = 3; // ensure at least 3 characters for the name
+
+                        // Generate random name and prepend prefix
+                        String randomName = new NameGenerator(Rs2Random.between(3, maxNameLength)).getName();
+                        String name = prefix + randomName;
+
                         Rs2Widget.clickWidget(NameCreation, 7); // enterName Field
                         Rs2Random.waitEx(1200, 300);
                         Rs2Keyboard.typeString(name);
