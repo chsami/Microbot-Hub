@@ -5,6 +5,7 @@ import net.runelite.api.AnimationID;
 import net.runelite.api.GameObject;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
@@ -23,7 +24,6 @@ import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.skills.fletching.Rs2Fletching;
-import net.runelite.client.plugins.microbot.util.skills.woodcutting.Rs2Woodcutting;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -148,7 +148,9 @@ public class AutoWoodcuttingScript extends Script {
 
     private boolean beforeCuttingTreesChecks(AutoWoodcuttingConfig config) {
 
-        if (Rs2Woodcutting.isWearingAxeWithSpecialAttack())
+        if (Rs2Equipment.isWearing(ItemID.DRAGON_AXE) || Rs2Equipment.isWearing(ItemID.DRAGON_AXE_2H) || Rs2Equipment.isWearing(ItemID.CRYSTAL_AXE) ||
+                Rs2Equipment.isWearing(ItemID.CRYSTAL_AXE_2H) || Rs2Equipment.isWearing(ItemID.INFERNAL_AXE) ||
+                Rs2Equipment.isWearing(ItemID.TRAILBLAZER_AXE))
             Rs2Combat.setSpecState(true, 1000);
         boolean willBank = willBankItems(config);
         int currentLogCountBeforeFill = Rs2Inventory.count(config.TREE().getLogID());

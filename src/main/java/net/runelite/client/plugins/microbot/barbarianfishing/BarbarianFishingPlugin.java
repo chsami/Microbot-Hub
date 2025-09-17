@@ -8,9 +8,9 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
-import net.runelite.client.plugins.microbot.fishing.barbarian.BarbarianFishingConfig;
-import net.runelite.client.plugins.microbot.fishing.barbarian.BarbarianFishingOverlay;
-import net.runelite.client.plugins.microbot.fishing.barbarian.BarbarianFishingScript;
+import net.runelite.client.plugins.microbot.barbarianfishing.BarbarianFishingConfig;
+import net.runelite.client.plugins.microbot.barbarianfishing.BarbarianFishingOverlay;
+import net.runelite.client.plugins.microbot.barbarianfishing.BarbarianFishingScript;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;

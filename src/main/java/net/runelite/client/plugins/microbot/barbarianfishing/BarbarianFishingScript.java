@@ -4,7 +4,7 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.game.FishingSpot;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.fishing.barbarian.BarbarianFishingConfig;
+import net.runelite.client.plugins.microbot.barbarianfishing.BarbarianFishingConfig;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
@@ -26,9 +26,9 @@ public class BarbarianFishingScript extends Script {
     private boolean specActivated = false;
     public static String version = "1.1.3";
     public static int timeout = 0;
-    private net.runelite.client.plugins.microbot.fishing.barbarian.BarbarianFishingConfig config;
+    private BarbarianFishingConfig config;
 
-    public boolean run(net.runelite.client.plugins.microbot.fishing.barbarian.BarbarianFishingConfig config) {
+    public boolean run(BarbarianFishingConfig config) {
         this.config = config;
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyFishingSetup();
