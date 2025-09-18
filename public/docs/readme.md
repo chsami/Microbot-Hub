@@ -5,7 +5,7 @@
 
 Welcome to the Microbot Hub.
 
-Visit https://github.com/chsami/Microbot-Hub to find out all the information about this project.
+Visit [Microbot Hub](https://github.com/chsami/Microbot-Hub) to find out all the information about this project.
 
 It explains:
 
