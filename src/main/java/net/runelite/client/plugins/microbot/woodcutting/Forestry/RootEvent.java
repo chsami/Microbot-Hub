@@ -2,15 +2,16 @@ package net.runelite.client.plugins.microbot.woodcutting.Forestry;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.cache.Rs2ObjectCache;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
-import net.runelite.client.plugins.microbot.util.skills.woodcutting.Rs2Woodcutting;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
@@ -58,7 +59,9 @@ public class RootEvent implements BlockingEvent {
             var specialRoot = Rs2ObjectCache.getClosestObjectById(ObjectID.GATHERING_EVENT_RISING_ROOTS_SPECIAL).orElse(null);
 
             // Use special attack if available
-            if (Rs2Woodcutting.isWearingAxeWithSpecialAttack())
+            if ( Rs2Equipment.isWearing(ItemID.DRAGON_AXE) || Rs2Equipment.isWearing(ItemID.DRAGON_AXE_2H) || Rs2Equipment.isWearing(ItemID.CRYSTAL_AXE) ||
+                    Rs2Equipment.isWearing(ItemID.CRYSTAL_AXE_2H) || Rs2Equipment.isWearing(ItemID.INFERNAL_AXE) ||
+                    Rs2Equipment.isWearing(ItemID.TRAILBLAZER_AXE))
                 Rs2Combat.setSpecState(true, 1000);
 
             // If special root is present

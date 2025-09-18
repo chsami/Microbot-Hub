@@ -4,7 +4,7 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
-import net.runelite.client.plugins.microbot.fishing.eel.enums.EelFishingSpot;
+import net.runelite.client.plugins.microbot.eelfishing.enums.EelFishingSpot;
 
 @ConfigGroup("eelFishing")
 public interface EelFishingConfig extends Config {

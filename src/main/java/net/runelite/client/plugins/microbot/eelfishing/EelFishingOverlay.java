@@ -1,10 +1,10 @@
 package net.runelite.client.plugins.microbot.eelfishing;
 
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.fishing.eel.EelFishingConfig;
-import net.runelite.client.plugins.microbot.fishing.eel.EelFishingPlugin;
-import net.runelite.client.plugins.microbot.fishing.eel.EelFishingScript;
-import net.runelite.client.plugins.microbot.fishing.eel.enums.EelFishingSpot;
+import net.runelite.client.plugins.microbot.eelfishing.EelFishingConfig;
+import net.runelite.client.plugins.microbot.eelfishing.EelFishingPlugin;
+import net.runelite.client.plugins.microbot.eelfishing.EelFishingScript;
+import net.runelite.client.plugins.microbot.eelfishing.enums.EelFishingSpot;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.ui.overlay.OverlayPanel;
@@ -17,7 +17,7 @@ import java.awt.*;
 
 public class EelFishingOverlay extends OverlayPanel {
 
-    private final net.runelite.client.plugins.microbot.fishing.eel.EelFishingPlugin plugin;
+    private final EelFishingPlugin plugin;
     private final EelFishingConfig config;
 
     @Inject
@@ -60,8 +60,8 @@ public class EelFishingOverlay extends OverlayPanel {
             // check if we have ice gloves equipped
             panelComponent.getChildren().add(LineComponent.builder()
                     .left("Ice Gloves Equipped:")
-                    .right(net.runelite.client.plugins.microbot.fishing.eel.EelFishingScript.hasRequiredGloves() ? "✔" : "❌")
-                    .rightColor(net.runelite.client.plugins.microbot.fishing.eel.EelFishingScript.hasRequiredGloves() ? Color.GREEN : Color.RED)
+                    .right(EelFishingScript.hasRequiredGloves() ? "✔" : "❌")
+                    .rightColor(EelFishingScript.hasRequiredGloves() ? Color.GREEN : Color.RED)
                     .build());
             // check if we have hammer in inventory
             panelComponent.getChildren().add(LineComponent.builder()

@@ -74,7 +74,7 @@ public class PyramidObstacleData {
         area(3364, 2849, 3365, 2850, 2, 10865, 3370, 2833, "Low wall (floor 2) approach"),
         area(3366, 2849, 3373, 2851, 2, 10865, 3370, 2833, "Low wall (floor 2) east"),
         // End of floor 2
-        area(3369, 2834, 3370, 2834, 2, 10859, 3365, 2833, "Gap jump (floor 2 end)"),
+        area(3369, 2833, 3370, 2834, 2, 10859, 3365, 2833, "Gap jump (floor 2 end)"),
         area(3363, 2834, 3365, 2834, 2, 10857, 3358, 2833, "Stairs (floor 2 up)"),
         area(3358, 2833, 3362, 2834, 2, 10857, 3358, 2833, "Stairs (floor 2 up)"),
         

@@ -12,9 +12,7 @@ import java.util.concurrent.TimeUnit;
 
 
 public class CombatHotkeysScript extends Script {
-    public boolean isSwitchingGear = false;
     public boolean dance = false;
-    public ArrayList<Rs2ItemModel> gearToSwitch = new ArrayList<>();
 
     public boolean run(CombatHotkeysConfig config) {
         Microbot.enableAutoRunOn = true;
