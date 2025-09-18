@@ -15,9 +15,9 @@ public enum Fish {
     TROUT_AND_SALMON("Trout + Salmon", List.of("Raw trout", "Trout", "Raw salmon", "Salmon", "Burnt fish"), FishingMethod.LURE, FishingSpot.SALMON.getIds()),
     TUNA_AND_SWORDFISH("Tuna + Swordfish", List.of("Raw tuna", "Tuna", "Burnt fish", "Raw swordfish", "Swordfish", "Burnt swordfish"), FishingMethod.HARPOON, FishingSpot.LOBSTER.getIds()),
     ANGLERFISH("Anglerfish", List.of("Raw anglerfish", "Anglerfish", "Burnt anglerfish"), FishingMethod.SANDWORMS, FishingSpot.ANGLERFISH.getIds()),
-    //BARBARIAN_FISH("Barbarian fish", List.of("Leaping trout", "Leaping salmon", "Leaping sturgeon"), FishingMethod.BARBARIAN_ROD, FishingSpot.BARB_FISH.getIds()),
+    BARBARIAN_FISH("Barbarian fish", List.of("Leaping trout", "Leaping salmon", "Leaping sturgeon"), FishingMethod.BARBARIAN_ROD, FishingSpot.BARB_FISH.getIds()),
     BASS("Bass", List.of("Raw bass", "Bass", "Burnt fish"), FishingMethod.BIG_NET, FishingSpot.SHARK.getIds()),
-    //CAVE_EEL("Cave eel", List.of("Raw cave eel", "Cave eel", "Burnt eel"), FishingMethod.BAIT, FishingSpot.CAVE_EEL.getIds()),
+    CAVE_EEL("Cave eel", List.of("Raw cave eel", "Cave eel", "Burnt eel"), FishingMethod.BAIT, FishingSpot.CAVE_EEL.getIds()),
     SACRED_EEL("Sacred eel", List.of("Sacred eel"), FishingMethod.SACRED_EEL_BAIT, FishingSpot.SACRED_EEL.getIds()),
     INFERNAL_EEL("Infernal eel", List.of("Infernal eel"), FishingMethod.INFERNAL_EEL_BAIT, FishingSpot.INFERNAL_EEL.getIds()),
     COD("Cod", List.of("Raw cod", "Cod", "Burnt fish"), FishingMethod.BIG_NET, FishingSpot.LOBSTER.getIds()),
@@ -108,10 +108,10 @@ public enum Fish {
                 return FishingSpot.SACRED_EEL;
             case INFERNAL_EEL:
                 return FishingSpot.INFERNAL_EEL;
-            // case CAVE_EEL:
-            //     return FishingSpot.CAVE_EEL;
-            // case BARBARIAN_FISH:
-            //     return FishingSpot.BARB_FISH;
+            case CAVE_EEL:
+                return FishingSpot.CAVE_EEL;
+            case BARBARIAN_FISH:
+                return FishingSpot.BARB_FISH;
             case ANGLERFISH:
                 return FishingSpot.ANGLERFISH;
             case DARK_CRAB:
