@@ -10,6 +10,8 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
@@ -63,13 +65,26 @@ public class VolcanicAshMinerScript extends Script {
 
     private void handleMining(VolcanicAshMinerConfig config) {
         if (Rs2Inventory.isFull()) {
-            // Just for visual feedback in the overlay
-            BOT_STATUS = VolcanicAshMinerState.DROPPING;
-            Rs2Inventory.dropAll("soda ash");
-            BOT_STATUS = VolcanicAshMinerState.MINING;
+            if (config.bankAsh()) {
+                BOT_STATUS = VolcanicAshMinerState.WALKING;
+                Rs2Bank.walkToBankAndUseBank(BankLocation.VOLCANO_BANK);
+                if (!Rs2Bank.isOpen()) return;
+                BOT_STATUS = VolcanicAshMinerState.BANKING;
+                Rs2Bank.depositAll("soda ash");
+                if (!sleepUntil(() -> !Rs2Inventory.contains("soda ash"))) {
+                    log.warn("Failed to deposit soda ash");
+                    return;
+                }
+                Rs2Bank.closeBank();
+            } else {
+                // Just for visual feedback in the overlay
+                BOT_STATUS = VolcanicAshMinerState.DROPPING;
+                Rs2Inventory.dropAll("soda ash");
+            }
         }
 
         if (Rs2Player.distanceTo(VOLCANIC_ASH_LOCATION) > 15) {
+            BOT_STATUS = VolcanicAshMinerState.WALKING;
             Rs2Walker.walkTo(VOLCANIC_ASH_LOCATION);
         }
 
@@ -85,12 +100,14 @@ public class VolcanicAshMinerScript extends Script {
 
         GameObject rock = Rs2GameObject.findReachableObject("Ash pile", true, 12, VOLCANIC_ASH_LOCATION);
         if (rock != null) {
+            BOT_STATUS = VolcanicAshMinerState.MINING;
             if (Rs2GameObject.interact(rock)) {
                 Rs2Player.waitForXpDrop(Skill.MINING, true);
                 Rs2Antiban.actionCooldown();
                 Rs2Antiban.takeMicroBreakByChance();
             }
         } else {
+            BOT_STATUS = VolcanicAshMinerState.WAITING;
             Microbot.log("No Ash pile found. Waiting...");
         }
     }
@@ -128,7 +145,10 @@ public class VolcanicAshMinerScript extends Script {
     }
 
     public enum VolcanicAshMinerState {
+        WALKING,
+        BANKING,
         DROPPING,
-        MINING
+        MINING,
+        WAITING
     }
 }

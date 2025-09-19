@@ -17,4 +17,14 @@ public interface VolcanicAshMinerConfig extends Config {
     default int maxPlayersInArea() {
         return 0;
     }
+
+    @ConfigItem(
+            keyName = "bankAsh",
+            name = "Bank Ash",
+            description = "Whether the ash should be banked.",
+            position = 2
+    )
+    default boolean bankAsh() {
+        return false;
+    }
 }

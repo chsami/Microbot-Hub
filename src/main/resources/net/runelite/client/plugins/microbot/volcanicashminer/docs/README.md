@@ -11,6 +11,7 @@ The **Volcanic Ash Miner Plugin** provides an automated way to mine Volcanic ash
 | Feature                 | Description                                                   |
 |-------------------------|---------------------------------------------------------------|
 | **Max players in area** | If more players than this are nearby, hop worlds. 0 = disable |
+| **Bank Ash**            | Whether the ash should be banked.                             |
 
 ---
 

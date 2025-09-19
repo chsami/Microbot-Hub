@@ -8,6 +8,7 @@ import net.runelite.client.ui.overlay.components.TitleComponent;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.time.Duration;
 
 @Slf4j
 public class VolcanicAshMinerOverlay extends OverlayPanel {
@@ -31,12 +32,16 @@ public class VolcanicAshMinerOverlay extends OverlayPanel {
                     .color(Color.GREEN)
                     .build());
             panelComponent.getChildren().add(LineComponent.builder().build());
+            final Duration duration = plugin.getVolcanicAshMinerScript().getRunTime();
             panelComponent.getChildren().add(LineComponent.builder()
-                    .left("Time: " + plugin.getVolcanicAshMinerScript().getRunTime())
+                    .left("Time: " + String.format("%d:%02d:%02d",
+                            duration.toHours(),
+                            duration.toMinutesPart(),
+                            duration.toSecondsPart()))
                     .leftColor(Color.WHITE)
                     .build());
             panelComponent.getChildren().add(LineComponent.builder()
-                    .left("Running: " + VolcanicAshMinerScript.BOT_STATUS)
+                    .left("State: " + VolcanicAshMinerScript.BOT_STATUS)
                     .leftColor(Color.WHITE)
                     .build());
         } catch (Exception ex) {
