@@ -94,26 +94,6 @@ application {
     mainClass = 'net.runelite.client.RuneLite'
 }
 
-sourceSets.main.java.srcDirs = []
-sourceSets.main.resources.srcDirs = []
-
-tasks.named('compileJava') {
-    enabled = false
-}
-tasks.named('processResources') {
-    enabled = false
-}
-tasks.named('classes') {
-    enabled = false
-}
-tasks.named('jar') {
-    enabled = false
-}
-
-tasks.named('shadowJar') {
-    enabled = false
-}
-
 // Plugin Logic
 String pluginVersionFromPluginJson(File pluginDir) {
     def pluginJavaFile = pluginDir.listFiles()?.find { it.name.endsWith("Plugin.java") }

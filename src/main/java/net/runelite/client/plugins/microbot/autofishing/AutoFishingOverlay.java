@@ -25,7 +25,7 @@ public class AutoFishingOverlay extends OverlayPanel {
     @Override
     public Dimension render(Graphics2D graphics) {
         try {
-            panelComponent.setPreferredSize(new Dimension(250, 200));
+            panelComponent.setPreferredSize(new Dimension(170, 130));
             panelComponent.setBackgroundColor(new Color(0, 0, 0, 150));
             panelComponent.getChildren().add(TitleComponent.builder()
                     .text("AutoFishing v" + plugin.version)

@@ -229,7 +229,25 @@ ext {
     // Create shadow JAR task for plugin - returns task configuration closure
     getPluginJarTaskConfig = { plugin, pluginConfigName ->
         return {
-            from(sourceSets."${plugin.sourceSetName}".output)
+            from(sourceSets.main.output) {
+                // Get the relative path of the plugin directory within the source tree
+                def pluginRelativePath = sourceSets.main.java.srcDirs.find { srcDir ->
+                    plugin.dir.absolutePath.startsWith(srcDir.absolutePath)
+                }
+
+                if (pluginRelativePath) {
+                    def relativePath = pluginRelativePath.toPath().relativize(plugin.dir.toPath()).toString().replace('\\', '/')
+                    include "${relativePath}/**"
+                    println "Including classes from path: ${relativePath}/**"
+                } else {
+                    // Fallback: include by plugin name pattern if directory structure doesn't match
+                    include "**/${pluginName}/**"
+                    include "**/${pluginName}.class"
+                    include "**/${pluginName}Plugin.class"
+                    println "Using fallback include pattern for plugin: ${pluginName}"
+                }
+            }
+
 
             dependsOn tasks.named("compile${plugin.sourceSetName.capitalize()}Java")
 

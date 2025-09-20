@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Skill;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -33,7 +34,7 @@ import java.time.Duration;
 )
 @Slf4j
 public class ThievingPlugin extends Plugin {
-	public static final String version = "2.0.3";
+	public static final String version = "2.0.5";
 
     @Inject
     @Getter
@@ -110,8 +111,20 @@ public class ThievingPlugin extends Plugin {
 
     @Subscribe
     public void onChatMessage(ChatMessage event) {
-        if (!event.getMessage().toLowerCase().contains("you can only cast shadow veil every 30 seconds.")) return;
+        if (!event.getMessage().toLowerCase().contains("you can only cast shadow veil every 30 seconds.")) {
+            return;
+        }
         log.warn("Attempted to cast shadow veil while it was active");
         getThievingScript().forceShadowVeilActive = System.currentTimeMillis()+30_000;
+    }
+
+    @Subscribe
+    public void onNpcSpawned(NpcSpawned event) {
+        // clear the npc reference
+        var npc = getThievingScript().getThievingNpc();
+        if (npc != null && event.getNpc().getIndex() == npc.getIndex()) {
+            log.info("Obsolete npc, updating reference");
+            getThievingScript().cleanNpc = true;
+        }   
     }
 }
