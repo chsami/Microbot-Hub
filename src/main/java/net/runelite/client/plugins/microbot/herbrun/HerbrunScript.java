@@ -15,7 +15,6 @@ import net.runelite.client.plugins.microbot.questhelper.helpers.mischelpers.farm
 import net.runelite.client.plugins.microbot.questhelper.helpers.mischelpers.farmruns.FarmingWorld;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.cache.Rs2SkillCache;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -373,7 +372,7 @@ public class HerbrunScript extends Script {
             int seedsNeeded = patchCount; // 1 seed per patch
             
             // Validate farming level requirement
-            int farmingLevel = Rs2SkillCache.getRealSkillLevel(Skill.FARMING);
+            int farmingLevel = Microbot.getClient().getRealSkillLevel(Skill.FARMING);
             if (!seedType.canPlant(farmingLevel)) {
                 log("Cannot plant " + seedType.getSeedName() + " - requires Farming level " + 
                     seedType.getLevelRequired() + " (you have " + farmingLevel + ")");
@@ -450,7 +449,7 @@ public class HerbrunScript extends Script {
      */
     private boolean withdrawBestAvailableSeeds(int patchCount) {
         // Get player's farming level
-        int farmingLevel = Rs2SkillCache.getRealSkillLevel(Skill.FARMING);
+        int farmingLevel = Microbot.getClient().getRealSkillLevel(Skill.FARMING);
         
         // Get all plantable herbs sorted by level (highest first)
         List<HerbSeedType> plantableHerbs = HerbSeedType.getPlantableHerbs(farmingLevel);

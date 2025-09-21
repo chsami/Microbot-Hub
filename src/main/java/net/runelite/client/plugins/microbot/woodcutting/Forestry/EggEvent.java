@@ -6,11 +6,11 @@ import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.util.cache.Rs2NpcCache;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
@@ -33,7 +33,9 @@ public class EggEvent implements BlockingEvent {
         try{
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;
-            var forester = Rs2NpcCache.getClosestNpcByGameId(NpcID.GATHERING_EVENT_PHEASANT_FORESTER);
+            var forester = Rs2Npc
+                    .getNpcs(NpcID.GATHERING_EVENT_PHEASANT_FORESTER)
+                    .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer));;
             return forester.isPresent();
         } catch (Exception e) {
             log.error("EggEvent: Exception in validate method", e);
@@ -45,7 +47,9 @@ public class EggEvent implements BlockingEvent {
     public boolean execute() {
 
         Microbot.log("EggEvent: Executing Egg event");
-        var forester = Rs2NpcCache.getClosestNpcByGameId(NpcID.GATHERING_EVENT_PHEASANT_FORESTER);
+        var forester = Rs2Npc
+                .getNpcs(NpcID.GATHERING_EVENT_PHEASANT_FORESTER)
+                .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer));;
         if (forester.isEmpty()) {
             Microbot.log("EggEvent: Forester not found, cannot proceed with egg event.");
             return true; // If the forester is not found, we cannot proceed with the event
