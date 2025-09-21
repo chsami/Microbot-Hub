@@ -355,7 +355,7 @@ public interface MossKillerConfig extends Config {
             section = basicGuideSection
     )
     default boolean isSlashWeaponEquipped() {
-        return true;
+        return false;
     }
 
     @ConfigSection(

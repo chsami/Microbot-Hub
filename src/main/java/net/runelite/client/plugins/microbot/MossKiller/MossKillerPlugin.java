@@ -16,6 +16,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginInstantiationException;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.MossKiller.Enums.CombatMode;
+import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.pluginscheduler.api.SchedulablePlugin;
 import net.runelite.client.plugins.microbot.pluginscheduler.condition.logical.LockCondition;
 import net.runelite.client.plugins.microbot.pluginscheduler.condition.logical.LogicalCondition;
@@ -45,10 +46,17 @@ import static net.runelite.api.ItemID.RUNE_SCIMITAR;
         name = PluginDescriptor.Bee + "Moss Killer",
         description = "Bee & Mntn's Moss Killer",
         tags = {"Keys", "Bryophyta", "Mntn", "Bee", "Moss Giants", "F2p"},
-        enabledByDefault = false
+        authors = { "Bee" },
+        version = MossKillerPlugin.version,
+        minClientVersion = "2.0.7",
+        cardUrl = "",
+        iconUrl = "",
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class MossKillerPlugin extends Plugin implements SchedulablePlugin {
+    final static String version = "1.0.3";
     @Inject
     private MossKillerConfig config;
 
