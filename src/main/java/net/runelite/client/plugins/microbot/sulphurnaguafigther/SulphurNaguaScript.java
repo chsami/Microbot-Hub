@@ -40,18 +40,15 @@ public class SulphurNaguaScript extends Script {
     public enum NaguaLocation {
         CIVITAS_ILLA_FORTIS_WEST("West",
                 new WorldArea(1344, 9553, 25, 25, 0),
-                new WorldPoint(1376, 9712, 0),
-                new WorldPoint(1452, 9568, 1)),
+                new WorldPoint(1376, 9712, 0)),
 
         CIVITAS_ILLA_FORTIS_EAST("East",
                 new WorldArea(1371, 9557, 10, 10, 0),
-                new WorldPoint(1376, 9712, 0),
-                new WorldPoint(1452, 9568, 1));
+                new WorldPoint(1376, 9712, 0));
 
         private final String name;
         private final WorldArea combatArea;
         private final WorldPoint prepArea;
-        private final WorldPoint bankArea;
 
         @Override
         public String toString() {
@@ -130,7 +127,7 @@ public class SulphurNaguaScript extends Script {
                         handleBanking(config);
                         break;
                     case WALKING_TO_BANK:
-                        Rs2Walker.walkTo(selectedLocation.getBankArea());
+                        Rs2Bank.walkToBank();
                         break;
                     case WALKING_TO_PREP:
                         Rs2Walker.walkTo(selectedLocation.getPrepArea());
@@ -172,7 +169,7 @@ public class SulphurNaguaScript extends Script {
 
         if (!Rs2Inventory.hasItem(PESTLE_AND_MORTAR_ID)) {
             resetPreparationState();
-            currentState = isAtLocation(selectedLocation.getBankArea()) ? SulphurNaguaState.BANKING : SulphurNaguaState.WALKING_TO_BANK;
+            currentState = Rs2Bank.isNearBank(10) ? SulphurNaguaState.BANKING : SulphurNaguaState.WALKING_TO_BANK;
             return;
         }
 
@@ -301,26 +298,29 @@ public class SulphurNaguaScript extends Script {
             long startTime = System.currentTimeMillis();
             while (Rs2Inventory.count(itemID) < requiredAmount && System.currentTimeMillis() - startTime < 20000) {
                 if (Rs2Inventory.isFull()) break;
+
+                // Prüfen ob RuneLite Menu Entry Swapper "Take herblore supplies" schon setzt
                 if (Rs2Dialogue.hasDialogueOption("Take herblore supplies.")) {
                     Rs2Dialogue.clickOption("Take herblore supplies.");
                 } else if (!Rs2Player.isAnimating()) {
                     int SUPPLY_CRATE_ID = 51371;
-                    Rs2GameObject.interact(SUPPLY_CRATE_ID, "Take-from");
+                    // Direkt die Swapper-Aktion ausführen statt "Take-from"
+                    Rs2GameObject.interact(SUPPLY_CRATE_ID, "Take herblore supplies");
                 }
-                sleep(400, 600);
+                sleep(300, 500);
             }
         } else {
             if (Rs2Player.isAnimating()) return;
             int GRUB_SAPLING_ID = 51365;
             if (Rs2GameObject.interact(GRUB_SAPLING_ID, "Collect-from")) {
                 sleepUntil(() -> Rs2Inventory.count(itemID) >= requiredAmount || Rs2Inventory.isFull(), 15000);
-                // Actively stop the gathering animation if we have enough
                 if (Rs2Player.isAnimating() && Rs2Inventory.count(itemID) >= requiredAmount) {
                     Rs2Walker.walkTo(Rs2Player.getWorldLocation());
                 }
             }
         }
     }
+
 
     private void dropPotions(int count) {
         if (count <= 0) return;
@@ -412,14 +412,14 @@ public class SulphurNaguaScript extends Script {
         int herbloreBasedRestore = (int) Math.floor(currentHerbloreLevel * 0.3) + 7;
         int dynamicThreshold = Math.max(prayerBasedRestore, herbloreBasedRestore);
 
-
+        // Trinken, falls nötig
         Rs2Player.drinkPrayerPotionAt(dynamicThreshold);
-        sleep(600);
+        sleep(300, 600);
 
-
+        // Defensives Gebet aktivieren
         Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, true);
 
-
+        // Offensivgebete, falls gewünscht
         if (config.useOffensivePrayers() && Rs2Player.isInCombat()) {
             var bestMeleePrayer = Rs2Prayer.getBestMeleePrayer();
             if (bestMeleePrayer != null) {
@@ -427,20 +427,31 @@ public class SulphurNaguaScript extends Script {
             }
         }
 
-        if (!Rs2Player.isInCombat()) {
+        // --- Neuer Targeting-Block ---
+        boolean needsNewTarget = !Rs2Player.isInCombat() || Rs2Player.getInteracting() == null;
+
+        if (needsNewTarget) {
+            // Sicherstellen, dass wir im Kampfgebiet sind
             if (getNaguaCombatArea() != null && getNaguaCombatArea().contains(Rs2Player.getWorldLocation())) {
-                String NAGUA_NAME = "Sulphur Nagua";
-                if (Rs2Npc.attack(NAGUA_NAME)) {
-                    sleepUntil(Rs2Player::isInCombat, 5000);
-                    totalNaguaKills++;
+                var nagua = Rs2Npc.getNpcs("Sulphur Nagua")
+                        .filter(n -> !n.isDead())
+                        .findFirst()
+                        .orElse(null);
+
+                if (nagua != null) {
+                    if (Rs2Npc.attack(nagua)) {
+                        sleepUntil(Rs2Player::isInCombat, 3000);
+                        totalNaguaKills++;
+                    }
                 }
             } else {
                 Microbot.log("Outside combat zone, walking back to center...");
                 Rs2Walker.walkTo(selectedLocation.getFightAreaCenter());
-                sleep(600, 1200);
+                sleep(400, 800);
             }
         }
     }
+
 
     private void applyAntiBanSettings() {
         Rs2AntibanSettings.antibanEnabled = true;
