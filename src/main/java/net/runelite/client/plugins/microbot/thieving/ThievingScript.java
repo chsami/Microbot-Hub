@@ -19,7 +19,6 @@ import net.runelite.client.plugins.microbot.thieving.enums.ThievingFood;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.cache.Rs2GroundItemCache;
-import net.runelite.client.plugins.microbot.util.cache.Rs2NpcCache;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
@@ -148,7 +147,7 @@ public class ThievingScript extends Script {
             comparator = Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer);
         }
 
-        final Optional<Rs2NpcModel> npcOptional = Rs2NpcCache.getAllNpcs()
+        final Optional<Rs2NpcModel> npcOptional = Rs2Npc.getNpcs()
                 .filter(getThievingNpcFilter())
                 .filter(n -> !isNpcNull(n))
                 .min(comparator);
@@ -168,7 +167,7 @@ public class ThievingScript extends Script {
         final Player me = Microbot.getClient().getLocalPlayer();
         if (me == null) return defaultValue;
 
-        final Rs2NpcModel[] npcs = Rs2NpcCache.getAllNpcs().toArray(Rs2NpcModel[]::new);
+        final Rs2NpcModel[] npcs = Rs2Npc.getNpcs().toArray(Rs2NpcModel[]::new);
         if (npcs.length == 0) return defaultValue;
 
         final Predicate<Rs2NpcModel> customFilter = config.THIEVING_NPC() == ThievingNpc.VYRES ?
@@ -246,7 +245,7 @@ public class ThievingScript extends Script {
         if (config.THIEVING_NPC() == ThievingNpc.VYRES) {
             final WorldPoint[] housePolygon = ThievingData.getVyreHouse(thievingNpc.getName());
 
-            if (Rs2NpcCache.getAllNpcs()
+            if (Rs2Npc.getNpcs()
                     .filter(Rs2NpcModel.matches(true, "Vyrewatch Sentinel"))
                     .anyMatch(npc -> isPointInPolygon(housePolygon, npc.getWorldLocation()))) {
                 log.info("Vyrewatch Sentinel inside house");
@@ -295,7 +294,7 @@ public class ThievingScript extends Script {
 
     protected boolean shouldRun() {
         if (!Microbot.isLoggedIn()) return false;
-        return super.run();
+        return true;
     }
 
     private boolean sleepUntilWithInterrupt(BooleanSupplier awaitedCondition, BooleanSupplier interruptCondition, int time) {

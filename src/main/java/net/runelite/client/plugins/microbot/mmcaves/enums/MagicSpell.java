@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.MmCaves.enums;
+package net.runelite.client.plugins.microbot.mmcaves.enums;
 
 import net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells;
 

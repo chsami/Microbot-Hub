@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.MmCaves;
+package net.runelite.client.plugins.microbot.mmcaves;
 
 import com.google.common.collect.Table;
 import net.runelite.api.GameObject;
@@ -8,10 +8,10 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.grounditems.GroundItem;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.MmCaves.enums.CombatStyle;
-import net.runelite.client.plugins.microbot.MmCaves.enums.LightSources;
-import net.runelite.client.plugins.microbot.MmCaves.enums.Mode;
-import net.runelite.client.plugins.microbot.MmCaves.enums.State;
+import net.runelite.client.plugins.microbot.mmcaves.enums.CombatStyle;
+import net.runelite.client.plugins.microbot.mmcaves.enums.LightSources;
+import net.runelite.client.plugins.microbot.mmcaves.enums.Mode;
+import net.runelite.client.plugins.microbot.mmcaves.enums.State;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;

@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.MmCaves;
+package net.runelite.client.plugins.microbot.mmcaves;
 
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;

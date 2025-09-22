@@ -1,11 +1,11 @@
-package net.runelite.client.plugins.microbot.MmCaves;
+package net.runelite.client.plugins.microbot.mmcaves;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.Range;
-import net.runelite.client.plugins.microbot.MmCaves.enums.CombatStyle;
-import net.runelite.client.plugins.microbot.MmCaves.enums.MagicSpell;
+import net.runelite.client.plugins.microbot.mmcaves.enums.CombatStyle;
+import net.runelite.client.plugins.microbot.mmcaves.enums.MagicSpell;
 
 @ConfigGroup("mmcaves")
 public interface MmCavesConfig extends Config {

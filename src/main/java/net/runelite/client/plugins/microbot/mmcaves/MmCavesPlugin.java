@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.MmCaves;
+package net.runelite.client.plugins.microbot.mmcaves;
 
 import com.google.inject.Provides;
 import lombok.Getter;

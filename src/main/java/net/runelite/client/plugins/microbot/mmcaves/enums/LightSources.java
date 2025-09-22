@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.MmCaves.enums;
+package net.runelite.client.plugins.microbot.mmcaves.enums;
 
 public enum LightSources {
     TORCH("Torch"),

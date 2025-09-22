@@ -5,7 +5,7 @@ import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.util.cache.Rs2NpcCache;
+import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -13,6 +13,7 @@ import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
 import org.slf4j.event.Level;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,7 +34,9 @@ public class RitualEvent implements BlockingEvent {
         try{
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;
-            Optional<Rs2NpcModel> dryadCache = Rs2NpcCache.getClosestNpcByGameId(NpcID.GATHERING_EVENT_ENCHANTED_RITUAL_DRYAD);
+            Optional<Rs2NpcModel> dryadCache = Rs2Npc
+                    .getNpcs(NpcID.GATHERING_EVENT_ENCHANTED_RITUAL_DRYAD)
+                    .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer));;
             //var dryad = Rs2Npc.getNpc(NpcID.GATHERING_EVENT_ENCHANTED_RITUAL_DRYAD);
             return dryadCache.isPresent();
         } catch (Exception e) {
