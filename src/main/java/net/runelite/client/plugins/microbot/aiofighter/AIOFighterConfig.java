@@ -685,7 +685,7 @@ public interface AIOFighterConfig extends Config {
             section = safetySection
     )
     default boolean useSafety() {
-        return false;
+        return true;
     }
 
     // Missing runes

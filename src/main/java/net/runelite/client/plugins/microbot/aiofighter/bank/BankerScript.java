@@ -109,9 +109,6 @@ public class BankerScript extends Script {
         if(config.currentInventorySetup() == null){
             if(config.defaultInventorySetup() != null) {
                 AIOFighterPlugin.setCurrentSlayerInventorySetup(config.defaultInventorySetup());
-            } else {
-                Microbot.log("No inventory setup configured, skipping banking.");
-                return false;
             }
         }        
         if(!config.bank()){
@@ -160,12 +157,12 @@ public class BankerScript extends Script {
                 setupName = config.inventorySetup().getName();
             }
         }
-        
+
         if (setupName == null) {
             Microbot.log("Invalid inventory setup name, skipping banking.");
             return false;
         }
-
+        
         Rs2InventorySetup inventorySetup = new Rs2InventorySetup(setupName, mainScheduledFuture);
 
         // (3) If food is required but not available
