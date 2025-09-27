@@ -4,9 +4,6 @@ import net.runelite.api.Client;
 import net.runelite.api.Perspective;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.zerozero.birdhunter.BirdHunterConfig;
-import net.runelite.client.plugins.microbot.zerozero.birdhunter.BirdHunterPlugin;
-import net.runelite.client.plugins.microbot.zerozero.birdhunter.BirdHunterScript;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -17,7 +14,7 @@ import java.awt.*;
 
 public class BirdHunterOverlay extends OverlayPanel {
     private final Client client;
-    private final net.runelite.client.plugins.microbot.zerozero.birdhunter.BirdHunterConfig config;
+    private final BirdHunterConfig config;
 
     @Inject
     BirdHunterOverlay(Client client, BirdHunterPlugin plugin, BirdHunterConfig config) {
@@ -34,11 +31,11 @@ public class BirdHunterOverlay extends OverlayPanel {
         panelComponent.setPreferredSize(new Dimension(200, 300));
         panelComponent.getChildren().add(LineComponent.builder()
                 .left("Dropping starts at: ")
-                .right(String.valueOf(net.runelite.client.plugins.microbot.zerozero.birdhunter.BirdHunterScript.getRandomHandleInventoryTriggerThreshold()))
+                .right(String.valueOf(BirdHunterScript.getRandomHandleInventoryTriggerThreshold()))
                 .build());
         panelComponent.getChildren().add(LineComponent.builder()
                 .left("Bury bones start at: ")
-                .right(String.valueOf(net.runelite.client.plugins.microbot.zerozero.birdhunter.BirdHunterScript.getRandomBoneThreshold()))
+                .right(String.valueOf(BirdHunterScript.getRandomBoneThreshold()))
                 .build());
         LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), BirdHunterScript.getInitialStartTile());
         int huntingRadius = config.huntingRadiusValue();

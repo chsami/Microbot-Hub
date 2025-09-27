@@ -11,7 +11,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.giantmole.enums.DefaultLooterStyle;
 import net.runelite.client.plugins.microbot.giantmole.enums.GiantMoleState;
-import net.runelite.client.plugins.microbot.qualityoflife.QoLPlugin;
 import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
@@ -390,7 +389,7 @@ public class GiantMoleScript extends Script
     public void handleFood(GiantMoleConfig config)
     {
         boolean usingQoLFood = Microbot.getConfigManager().getConfiguration("QoL", "autoEatFood", Boolean.class);
-        if (!(Microbot.isPluginEnabled(QoLPlugin.class) && usingQoLFood) && !config.useRockCake())
+        if (!config.useRockCake())
         {
                 Rs2Player.eatAt(Rs2Random.randomGaussian(50, 10));
         }
@@ -401,12 +400,8 @@ public class GiantMoleScript extends Script
      */
     public void handlePotions()
     {
-        boolean usingQoLPrayer = Microbot.getConfigManager().getConfiguration("QoL", "autoDrinkPrayerPot", Boolean.class);
+        Rs2Player.drinkPrayerPotionAt(Rs2Random.randomGaussian(20, 10));
 
-        if (!(Microbot.isPluginEnabled(QoLPlugin.class) && usingQoLPrayer))
-        {
-            Rs2Player.drinkPrayerPotionAt(Rs2Random.randomGaussian(20, 10));
-        }
 
         // Covers overload-like potions for RANGED, ATTACK, STRENGTH, DEFENCE, MAGIC
         Rs2Player.drinkCombatPotionAt(Skill.RANGED);

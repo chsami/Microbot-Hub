@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 
 public class BirdHunterScript extends Script {
 
-    @Getter
     private WorldArea dynamicHuntingArea;
     @Getter
     private static WorldPoint initialStartTile;
@@ -293,7 +292,7 @@ public class BirdHunterScript extends Script {
             if (Rs2Inventory.interact(bone, "Bury")) {
                 Rs2Player.waitForXpDrop(Skill.PRAYER, true);
             }
-            sleep(Rs2Random.randomGaussian(500,200));
+            sleep(Rs2Random.randomGaussian(500, 200));
         }
     }
 

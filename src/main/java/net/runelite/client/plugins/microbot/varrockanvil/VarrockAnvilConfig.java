@@ -5,8 +5,8 @@ import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigInformation;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
-import net.runelite.client.plugins.microbot.smelting.enums.AnvilItem;
-import net.runelite.client.plugins.microbot.smelting.enums.Bars;
+import net.runelite.client.plugins.microbot.varrockanvil.enums.AnvilItem;
+import net.runelite.client.plugins.microbot.varrockanvil.enums.Bars;
 
 
 @ConfigGroup("VarrockAnvil")

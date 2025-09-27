@@ -16,17 +16,17 @@ import javax.inject.Inject;
         name = PluginDescriptor.zerozero + "Bird Hunter",
         description = "Hunts birds",
         tags = {"hunting", "00", "bird", "skilling"},
-        authors = {"zerozero"},
         version = BirdHunterPlugin.version,
-        minClientVersion = "2.0.7",
-        cardUrl = "https://chsami.github.io/Microbot-Hub/BirdHunterPlugin/assets/card.jpg",
-        iconUrl = "https://chsami.github.io/Microbot-Hub/BirdHunterPlugin/assets/icon.jpg",
+        minClientVersion = "2.0.13",
+        cardUrl = "",
+        iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class BirdHunterPlugin extends Plugin {
-    public static final String version = "1.0.1";
+
+    public final static String version = "1.0.1";
 
     @Inject
     private BirdHunterConfig config;
