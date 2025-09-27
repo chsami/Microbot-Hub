@@ -18,8 +18,10 @@ import net.runelite.client.input.MouseManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
+import net.runelite.client.plugins.microbot.wildernessagility.WildernessAgilityPlugin;
 import net.runelite.client.ui.overlay.OverlayManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,9 +38,15 @@ import java.util.Scanner;
 import java.util.stream.Collectors;
 
  @PluginDescriptor(
-    name = PluginDescriptor.eXioStorm + "Player Monitor",
-    enabledByDefault = false,
-    minClientVersion = "2.0.0"
+        version = "1.0.0",
+        name = PluginDescriptor.eXioStorm + "Player Monitor",
+        enabledByDefault = false,
+        minClientVersion = "2.0.0",
+        tags = {"wilderness", "skilling", "solo", "pvp", "Netoxic"},
+        description = "Automated wilderness agility training with banking and ticket collection",
+        isExternal = PluginConstants.IS_EXTERNAL,
+        iconUrl = "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/icon.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/card.png"
  )
  public class PlayerMonitorPlugin extends Plugin {
    private static final Logger log = LoggerFactory.getLogger(PlayerMonitorPlugin.class);
