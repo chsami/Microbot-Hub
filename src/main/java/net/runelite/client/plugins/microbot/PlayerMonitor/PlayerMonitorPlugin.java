@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.plugins.PlayerMonitor;
+package net.runelite.client.plugins.microbot.PlayerMonitor;
 
 import com.google.inject.Provides;
 import lombok.Getter;
