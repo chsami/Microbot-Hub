@@ -31,10 +31,7 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import javax.inject.Inject;
 import java.awt.event.KeyEvent;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 
@@ -52,6 +49,8 @@ public class BlastoiseFurnaceScript extends Script {
     static boolean coalBagEmpty;
     static boolean primaryOreEmpty;
     static boolean secondaryOreEmpty;
+    private boolean timerStarted = false;
+    private volatile boolean timeIsUp;
     private boolean init = false;
 
     private final BlastoiseFurnacePlugin plugin;
@@ -209,8 +208,10 @@ public class BlastoiseFurnaceScript extends Script {
             Rs2Dialogue.clickOption("Yes");
             sleep(1000, 1850);
             Rs2Dialogue.clickContinue();
-            sleep(500, 1300);
-
+            sleepUntil(()-> !Rs2Dialogue.isInDialogue(), Rs2Random.between(750,1500));
+            if(!Rs2Dialogue.isInDialogue()){
+                setTenMinuteTimer();
+            }
         }
     }
 
@@ -484,12 +485,39 @@ public class BlastoiseFurnaceScript extends Script {
             return false;
         }
         sleepUntil(() -> Rs2Dialogue.isInDialogue() || getInventoryOreCount() < oreCount, 10_000);
-        if (Rs2Widget.hasWidget("foreman")) {
+        if (Rs2Widget.hasWidget("You must ask the foreman's")) {
             log.info("Need to pay the noob tax");
+            if(timerStarted && !timeIsUp){
+                return putOreOnConveyorBelt();
+            }
+
             handleTax();
             return putOreOnConveyorBelt();
         }
         return true;
+    }
+
+    public void setTenMinuteTimer(){
+        if(timerStarted) return;
+
+        Timer timer = new Timer();
+
+        TimerTask task = new TimerTask() {
+            @Override
+            public void run() {
+                Microbot.log("Time's up! 10 minutes have passed.");
+                timeIsUp = true;
+                timerStarted = false;
+                timer.cancel();
+            }
+        };
+
+        long delay = 10 * 60 * 1000; // 10 minutes in ms
+        Microbot.log("Timer started for 10 minutes...");
+
+        timer.schedule(task, delay);
+
+        timerStarted = true;
     }
 
     private void depositOre() {
