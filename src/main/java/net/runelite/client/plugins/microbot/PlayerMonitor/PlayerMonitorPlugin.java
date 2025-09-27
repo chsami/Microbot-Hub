@@ -36,9 +36,9 @@ import java.util.Scanner;
 import java.util.stream.Collectors;
 
  @PluginDescriptor(
-         name = PluginDescriptor.eXioStorm + "Player Monitor",
-         enabledByDefault = false
-
+    name = PluginDescriptor.eXioStorm + "Player Monitor",
+    enabledByDefault = false,
+    minClientVersion = "2.0.0"
  )
  public class PlayerMonitorPlugin extends Plugin {
    private static final Logger log = LoggerFactory.getLogger(PlayerMonitorPlugin.class);
