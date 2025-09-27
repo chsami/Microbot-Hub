@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.plugins.PlayerMonitor;
+package net.runelite.client.plugins.microbot.PlayerMonitor;
 
 import com.google.inject.Provides;
 import lombok.Getter;
@@ -21,7 +21,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
-import net.runelite.client.plugins.microbot.wildernessagility.WildernessAgilityPlugin;
 import net.runelite.client.ui.overlay.OverlayManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
