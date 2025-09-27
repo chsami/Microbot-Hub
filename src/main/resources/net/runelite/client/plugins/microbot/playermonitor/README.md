@@ -18,7 +18,7 @@ A tool to automatically log out based on user configuration.
 ## Configuration
 
 ### Plugin Settings
-- **LITE-MODE**  
+- **LITE-MODE (PVP AREAS ONLY)**  
   - Logs out if someone in radius can attack you.
 ---
 ## Known Issues
