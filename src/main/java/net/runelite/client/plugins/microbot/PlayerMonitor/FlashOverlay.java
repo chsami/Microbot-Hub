@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.storm.plugins.PlayerMonitor;
+package net.runelite.client.plugins.microbot.plugins.PlayerMonitor;
 
 import java.awt.*;
 
