@@ -37,7 +37,7 @@ import java.util.Scanner;
 import java.util.stream.Collectors;
 
  @PluginDescriptor(
-        version = "1.0.0",
+        version = "1.0.1",
         name = PluginDescriptor.eXioStorm + "Player Monitor",
         enabledByDefault = false,
         minClientVersion = "2.0.0",
