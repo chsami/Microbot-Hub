@@ -120,9 +120,52 @@ public interface CombatHotkeysConfig extends Config {
     }
 
     @ConfigSection(
+            name = "Food & Potions",
+            description = "Food & Potions",
+            position = 3
+    )
+    String foodPotionsSection = "foodPotions";
+
+    @ConfigItem(
+            keyName = "Eat Best Food",
+            name = "Eat Best Food",
+            description = "Eats best food in inventory",
+            position = 0,
+            section = foodPotionsSection
+    )
+    default Keybind eatBestFood()
+    {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "Eat Fast Food",
+            name = "Eat Fast Food",
+            description = "Eats 1 tick food in inventory",
+            position = 1,
+            section = foodPotionsSection
+    )
+    default Keybind eatFastFood()
+    {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "Drink Prayer Potion",
+            name = "Drink Prayer Potion",
+            description = "Drinks Prayer Potion in inventory",
+            position = 2,
+            section = foodPotionsSection
+    )
+    default Keybind drinkPrayerPotion()
+    {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigSection(
             name = "Gear setup 1",
             description = "Gear setup 1",
-            position = 3
+            position = 4
     )
     String gearSetup1 = "gearSetup1";
 
@@ -153,7 +196,7 @@ public interface CombatHotkeysConfig extends Config {
     @ConfigSection(
             name = "Gear setup 2",
             description = "Gear setup 2",
-            position = 4
+            position = 5
     )
     String gearSetup2 = "gearSetup2";
 
@@ -184,7 +227,7 @@ public interface CombatHotkeysConfig extends Config {
     @ConfigSection(
             name = "Gear setup 3",
             description = "Gear setup 3",
-            position = 5
+            position = 6
     )
     String gearSetup3 = "gearSetup3";
 
@@ -213,7 +256,7 @@ public interface CombatHotkeysConfig extends Config {
     @ConfigSection(
             name = "Gear setup 4",
             description = "Gear setup 4",
-            position = 6
+            position = 7
     )
     String gearSetup4 = "gearSetup4";
 
@@ -242,7 +285,7 @@ public interface CombatHotkeysConfig extends Config {
     @ConfigSection(
             name = "Gear setup 5",
             description = "Gear setup 5",
-            position = 7
+            position = 8
     )
     String gearSetup5 = "gearSetup5";
 
@@ -272,7 +315,7 @@ public interface CombatHotkeysConfig extends Config {
             keyName = "dance boolean",
             name = "dance",
             description = "Select this if you want to setup dance",
-            position = 8
+            position = 9
     )
     default boolean yesDance() {
         return false;
@@ -312,7 +355,7 @@ public interface CombatHotkeysConfig extends Config {
     @ConfigSection(
             name = "Gear Equip Settings",
             description = "Settings for randomized equip delays",
-            position = 9
+            position = 10
     )
     String gearEquipSettings = "gearEquipSettings";
 
