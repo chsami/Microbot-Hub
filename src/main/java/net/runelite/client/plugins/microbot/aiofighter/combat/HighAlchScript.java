@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.aiofighter.combat;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterConfig;
+import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -15,86 +16,114 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.settings.Rs2Settings;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.util.Text;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 public class HighAlchScript extends Script
 {
 
-	private static final int MIN_TICKS = (int) Math.ceil(30.0 / 0.6);
-	private static final int MAX_TICKS = (int) Math.floor(45.0 / 0.6);
-	private int lastAlchCheckTick = -1;
-	private int nextAlchIntervalTicks = 0;
+        private static final int MIN_TICKS = (int) Math.ceil(30.0 / 0.6);
+        private static final int MAX_TICKS = (int) Math.floor(45.0 / 0.6);
+        private int lastAlchCheckTick = -1;
+        private int nextAlchIntervalTicks = 0;
 
-	public boolean run(AIOFighterConfig config)
-	{
-		mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
-			try
-			{
-				if (!Microbot.isLoggedIn() || !super.run() || !config.toggleHighAlchProfitable())
-				{
-					return;
-				}
-				List<Rs2ItemModel> items = Rs2Inventory.getList(Rs2ItemModel::isHaProfitable);
+        public boolean run(AIOFighterConfig config)
+        {
+                mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
+                        try
+                        {
+                                if (!Microbot.isLoggedIn() || !super.run())
+                                {
+                                        lastAlchCheckTick = -1;
+                                        nextAlchIntervalTicks = 0;
+                                        return;
+                                }
+                                if (!config.toggleHighAlchProfitable())
+                                {
+                                        lastAlchCheckTick = -1;
+                                        nextAlchIntervalTicks = 0;
+                                        return;
+                                }
 
-				if (items.isEmpty())
-				{
-					if (Rs2Tab.getCurrentTab() != InterfaceTab.INVENTORY)
-					{
-						Rs2Tab.switchToInventoryTab();
-					}
-					return;
-				}
+                                List<Rs2ItemModel> items = Rs2Inventory.getList(Rs2ItemModel::isHaProfitable);
+                                Set<String> alchBlacklist = AIOFighterPlugin.getHighAlchBlacklist();
+                                if (!alchBlacklist.isEmpty())
+                                {
+                                        items.removeIf(item -> {
+                                                String name = item.getName();
+                                                if (name == null)
+                                                {
+                                                        return false;
+                                                }
+                                                String standardizedName = Text.standardize(name);
+                                                if (alchBlacklist.contains(standardizedName))
+                                                {
+                                                        return true;
+                                                }
+                                                return false;
+                                        });
+                                }
 
-				int currentTick = Microbot.getClient().getTickCount();
+                                if (items.isEmpty())
+                                {
+                                        if (Rs2Tab.getCurrentTab() != InterfaceTab.INVENTORY)
+                                        {
+                                                Rs2Tab.switchToInventoryTab();
+                                        }
+                                        return;
+                                }
+
+                                int currentTick = Microbot.getClient().getTickCount();
 
 				if (lastAlchCheckTick != -1 && currentTick - lastAlchCheckTick < nextAlchIntervalTicks)
 				{
 					return;
 				}
 
-				lastAlchCheckTick = currentTick;
-				nextAlchIntervalTicks = Rs2Random.nextInt(MIN_TICKS, MAX_TICKS, 1.5, true);
+                                lastAlchCheckTick = currentTick;
+                                nextAlchIntervalTicks = Rs2Random.nextInt(MIN_TICKS, MAX_TICKS, 1.5, true);
 
-				if (Rs2ExplorersRing.hasRing() && Rs2ExplorersRing.hasCharges())
-				{
-					for (Rs2ItemModel item : items)
-					{
-						if (!isRunning())
-						{
-							break;
-						}
+                                if (Rs2ExplorersRing.hasRing() && Rs2ExplorersRing.hasCharges())
+                                {
+                                        for (Rs2ItemModel item : items)
+                                        {
+                                                if (!isRunning())
+                                                {
+                                                        break;
+                                                }
 
-						Rs2ExplorersRing.highAlch(item);
-					}
-					Rs2ExplorersRing.closeInterface();
-				}
-				else if (Rs2Magic.canCast(Rs2Spells.HIGH_LEVEL_ALCHEMY))
-				{
-					for (Rs2ItemModel item : items)
-					{
-						if (!isRunning())
-						{
-							break;
-						}
+                                                Rs2ExplorersRing.highAlch(item);
+                                        }
+                                        Rs2ExplorersRing.closeInterface();
+                                }
+                                else if (Rs2Magic.canCast(Rs2Spells.HIGH_LEVEL_ALCHEMY))
+                                {
+                                        for (Rs2ItemModel item : items)
+                                        {
+                                                if (!isRunning())
+                                                {
+                                                        break;
+                                                }
 
-						Rs2Magic.alch(item);
-						if (item.getHaPrice() > Rs2Settings.getMinimumItemValueAlchemyWarning())
-						{
-							sleepUntil(() -> Rs2Widget.hasWidget("Proceed to cast High Alchemy on it"));
-							if (Rs2Widget.hasWidget("Proceed to cast High Alchemy on it"))
-							{
-								Rs2Keyboard.keyPress('1');
-							}
-						}
-						Rs2Player.waitForAnimation();
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				Microbot.logStackTrace(this.getClass().getSimpleName(), ex);
+                                                Rs2Magic.alch(item);
+                                                if (item.getHaPrice() > Rs2Settings.getMinimumItemValueAlchemyWarning())
+                                                {
+                                                        sleepUntil(() -> Rs2Widget.hasWidget("Proceed to cast High Alchemy on it"));
+                                                        if (Rs2Widget.hasWidget("Proceed to cast High Alchemy on it"))
+                                                        {
+                                                                Rs2Keyboard.keyPress('1');
+                                                        }
+                                                }
+                                                Rs2Player.waitForAnimation();
+                                        }
+                                }
+                        }
+                        catch (Exception ex)
+                        {
+                                Microbot.logStackTrace(this.getClass().getSimpleName(), ex);
 			}
 		}, 0, 600, TimeUnit.MILLISECONDS);
 		return true;

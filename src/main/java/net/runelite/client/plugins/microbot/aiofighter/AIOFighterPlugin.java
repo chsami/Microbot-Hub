@@ -39,8 +39,12 @@ import net.runelite.client.util.Text;
 import javax.inject.Inject;
 import java.awt.*;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -72,6 +76,7 @@ public class AIOFighterPlugin extends Plugin {
     private static final String REMOVE_FROM = "Stop Fighting:";
     private static final String WALK_HERE = "Walk here";
     private static final String ATTACK = "Attack";
+    private static final String HIGH_ALCH_BLACKLIST_KEY = "highAlchBlacklist";
     @Getter
     @Setter
     public static int cooldown = 0;
@@ -343,6 +348,29 @@ public class AIOFighterPlugin extends Plugin {
                 String.class
         ).toString().split(","));
     }
+
+    private static LinkedHashSet<String> normalizeCsvEntries(String rawCsv) {
+        String source = rawCsv == null ? "" : rawCsv;
+        return Arrays.stream(source.split(","))
+                .map(Text::standardize)
+                .filter(entry -> !entry.isEmpty())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    public static Set<String> getHighAlchBlacklist() {
+        String stored = Microbot.getConfigManager().getConfiguration(
+                AIOFighterConfig.GROUP,
+                HIGH_ALCH_BLACKLIST_KEY,
+                String.class
+        );
+
+        LinkedHashSet<String> normalized = normalizeCsvEntries(stored);
+        if (normalized.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        return Collections.unmodifiableSet(normalized);
+    }
     //set Inventory Setup
     private void setInventorySetup(InventorySetup inventorySetup) {
         Microbot.getConfigManager().setConfiguration(
@@ -415,6 +443,19 @@ public class AIOFighterPlugin extends Plugin {
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
 
+
+        if (AIOFighterConfig.GROUP.equals(event.getGroup()) && event.getKey().equals(HIGH_ALCH_BLACKLIST_KEY)) {
+            LinkedHashSet<String> normalized = normalizeCsvEntries(event.getNewValue());
+            String normalizedValue = String.join(", ", normalized);
+            String incomingValue = event.getNewValue() == null ? "" : event.getNewValue();
+            if (!Objects.equals(incomingValue, normalizedValue)) {
+                Microbot.getConfigManager().setConfiguration(
+                        AIOFighterConfig.GROUP,
+                        HIGH_ALCH_BLACKLIST_KEY,
+                        normalizedValue
+                );
+            }
+        }
 
         if (event.getKey().equals("Safe Spot")) {
 
