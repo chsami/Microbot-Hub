@@ -1,17 +1,25 @@
 package net.runelite.client.plugins.microbot.driftnet;
 
+import net.runelite.api.EquipmentInventorySlot;
+import net.runelite.api.WallObject;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.*;
@@ -30,6 +38,14 @@ public class DriftNetScript extends Script {
 
     private static final int MAX_FETCH_ATTEMPTS = 5;
 
+    private WorldPoint driftnetLogoutWP = new WorldPoint(3729,10294,1);
+    private WorldPoint driftnetPastFirstTunnelWP = new WorldPoint(3729,10296,1);
+    private WorldPoint driftnetPastPlantDoorWP = new WorldPoint(3737,10299,1);
+
+    private WorldPoint driftnetFirstTunnelWP = new WorldPoint(3729,10295,1);
+
+    private WorldPoint driftnetWalkableWP = new WorldPoint(3739,10297,1);
+
     // Current number of attempts to fetch nets
     private int netFetchAttempts = 0;
 
@@ -42,6 +58,15 @@ public class DriftNetScript extends Script {
                     return;
                 }
                 if (!super.run()) {
+                    return;
+                }
+
+                // 2) Check of we're in the area
+                if(driftnetLogoutWP.equals(Rs2Player.getWorldLocation())
+                        || driftnetPastFirstTunnelWP.equals(Rs2Player.getWorldLocation())
+                        || (driftnetPastPlantDoorWP.equals(Rs2Player.getWorldLocation()) && Rs2Equipment.get(EquipmentInventorySlot.WEAPON) == null)){
+                    Microbot.log("We need to walk to the area");
+                    reEnterArea();
                     return;
                 }
 
@@ -82,6 +107,54 @@ public class DriftNetScript extends Script {
         }, 0, 600, TimeUnit.MILLISECONDS);
 
         return true;
+    }
+
+    public void reEnterArea(){
+        Rs2ItemModel ourWeapon = null;
+        if(Rs2Equipment.get(EquipmentInventorySlot.WEAPON) != null){
+            Microbot.log("Unequipping our weapon");
+            ourWeapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+            if(Rs2Equipment.unEquip(EquipmentInventorySlot.WEAPON)){
+                sleepUntil(()-> Rs2Equipment.get(EquipmentInventorySlot.WEAPON) == null, Rs2Random.between(2500,5000));
+            }
+        }
+
+        if(ourWeapon == null){
+            if(Rs2Inventory.contains(it->it!=null&&it.getName().toLowerCase().contains("trident"))){
+                ourWeapon = Rs2Inventory.get(it->it!=null&&it.getName().toLowerCase().contains("trident"));
+            }
+        }
+
+        if(driftnetLogoutWP.equals(Rs2Player.getWorldLocation())){
+            Microbot.log("Navigating the tunnel");
+            Rs2Walker.walkCanvas(driftnetFirstTunnelWP); // interact with the tunnel
+            sleepUntil(()-> Rs2Player.isAnimating(), Rs2Random.between(2000,5000));
+            sleepUntil(()-> !Rs2Player.isAnimating(), Rs2Random.between(2000,5000));
+        }
+
+        if(driftnetPastFirstTunnelWP.equals(Rs2Player.getWorldLocation())){
+            Microbot.log("Navigating the Plant door");
+            WallObject plantDoor = Rs2GameObject.getWallObject(30961);
+            Rs2GameObject.interact(plantDoor, "Navigate");
+            sleepUntil(()-> Rs2Player.isAnimating(), Rs2Random.between(2000,5000));
+            sleepUntil(()-> !Rs2Player.isAnimating(), Rs2Random.between(2000,5000));
+        }
+
+        if(driftnetPastPlantDoorWP.equals(Rs2Player.getWorldLocation())){
+            Microbot.log("Wielding our weapon");
+            if(Rs2Inventory.interact(ourWeapon, "Wield")){
+                sleepUntil(()-> Rs2Equipment.get(EquipmentInventorySlot.WEAPON) == null, Rs2Random.between(2500,5000));
+            }
+            if(Rs2Dialogue.isInDialogue() && Rs2Dialogue.hasContinue()){
+                Rs2Dialogue.clickContinue();
+                sleepUntil(()-> Rs2Dialogue.hasDialogueOption("I'll steer clear", false), Rs2Random.between(3000,5000));
+            }
+            if(Rs2Dialogue.hasDialogueOption("I'll steer clear", false)){
+                if(Rs2Dialogue.clickOption("I'll steer clear", false)){
+                    sleepUntil(()-> Rs2Equipment.get(EquipmentInventorySlot.WEAPON) != null, Rs2Random.between(2500,5000));
+                }
+            }
+        }
     }
 
     /**
@@ -141,6 +214,8 @@ public class DriftNetScript extends Script {
 
         // 1) Interact with the net
         Rs2GameObject.interact(net.getNet());
+        sleepUntil(()-> Rs2Player.isAnimating(), Rs2Random.between(2000,6000));
+        sleepUntil(()-> !Rs2Player.isAnimating(), Rs2Random.between(5000,10000));
 
         if (config.bankFish()) {
 

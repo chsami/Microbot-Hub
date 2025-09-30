@@ -23,7 +23,7 @@ public class revKillerOverlay extends OverlayPanel {
         try {
             panelComponent.setPreferredSize(new Dimension(200, 300));
             panelComponent.getChildren().add(TitleComponent.builder()
-                    .text("Rev Killer V1.0.0")
+                    .text("Rev Killer "+revKillerPlugin.version)
                     .color(Color.GREEN)
                     .build());
 

@@ -14,6 +14,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -119,6 +120,21 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
         if (config.protectFromMelee().matches(e)) {
             e.consume();
             Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE);
+        }
+
+        if (config.eatBestFood().matches(e)) {
+            e.consume();
+            Rs2Player.useFood();
+        }
+
+        if (config.eatFastFood().matches(e)) {
+            e.consume();
+            Rs2Player.useFastFood();
+        }
+
+        if (config.drinkPrayerPotion().matches(e)) {
+            e.consume();
+            Rs2Player.drinkPrayerPotion();
         }
 
         if (config.gear1().matches(e)) {

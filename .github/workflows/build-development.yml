@@ -1,8 +1,8 @@
-name: freedarwuin Build
+name: development Build
 
 on:
   push:
-    branches: [ freedarwuin ]
+    branches: [ development ]
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: release-${{ github.run_number }}
-          name: "freedarwuin Build #${{ github.run_number }}"
+          name: "development Build #${{ github.run_number }}"
           body: "Commit: ${{ github.sha }}"
           allowUpdates: false
           artifacts: "**/build/libs/*.jar"
