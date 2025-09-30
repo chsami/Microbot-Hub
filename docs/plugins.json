@@ -541,7 +541,7 @@
             "drift",
             "net"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft"
@@ -549,8 +549,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/DriftNetPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/DriftNetPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "790587842e40dfae1d8aa31d0cfd02d9bd649c01228cd7c60e7b92639d9aa04d",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/driftnetplugin/1.0.0/driftnetplugin-1.0.0.jar"
+        "sha256": "0e33a78791d4a204aa89dcf4f9da1747d6e3fbd3115507e3ae64f0c097fb6fb0",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/driftnetplugin/1.0.1/driftnetplugin-1.0.1.jar"
     },
     {
         "internalName": "MageTrainingArenaPlugin",
@@ -1361,7 +1361,7 @@
             "blast",
             "furnace"
         ],
-        "version": "1.1.0",
+        "version": "1.1.1",
         "minClientVersion": "2.0.7",
         "authors": [
             "Storm"
@@ -1369,8 +1369,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/BlastoiseFurnacePlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/BlastoiseFurnacePlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "e115811aac4eebb8f9e6d23a053477e03d82e026de61d291ee0599d3890b45d4",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blastoisefurnaceplugin/1.1.0/blastoisefurnaceplugin-1.1.0.jar"
+        "sha256": "7d7c3df0d1581bd0d4a58059ea3d78f70943f4a015b7a5f9e9c73003249e01d5",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blastoisefurnaceplugin/1.1.1/blastoisefurnaceplugin-1.1.1.jar"
     },
     {
         "internalName": "BarrowsPlugin",
@@ -1391,6 +1391,28 @@
         "disable": false,
         "sha256": "137d4de7715772ad39cd7cc3e98da68cd35e1c904ef9de0df1be8b5689247846",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/barrowsplugin/2.0.1/barrowsplugin-2.0.1.jar"
+    },
+    {
+        "internalName": "AttackTimerMetronomePlugin",
+        "name": "Prayer Helper",
+        "description": "Prayer helper",
+        "tags": [
+            "timers",
+            "overlays",
+            "tick",
+            "Lazy Flicking",
+            "Prayer"
+        ],
+        "version": "1.5.0",
+        "minClientVersion": "2.0.14",
+        "authors": [
+            "ZeroZero"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "b321f25d2825ff72f98f3a4a823bd7f0d23b898034c5be00090234a57793acd1",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/attacktimermetronomeplugin/1.5.0/attacktimermetronomeplugin-1.5.0.jar"
     },
     {
         "internalName": "TemporossPlugin",
@@ -1717,7 +1739,7 @@
             "ranging",
             "revenant killer"
         ],
-        "version": "2.0.2",
+        "version": "2.0.5",
         "minClientVersion": "1.9.8",
         "authors": [
             "Gage"
@@ -1725,8 +1747,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/card.png",
         "disable": false,
-        "sha256": "53f985036ec11f3a9868ef3bbb47685d196e38b5f9c30257f1f4441da37a6d96",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/revkillerplugin/2.0.2/revkillerplugin-2.0.2.jar"
+        "sha256": "675b6f2cf5a07a2a91d51c3ac00688a68a57ffc39e17be577d29a0725f09421f",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/revkillerplugin/2.0.5/revkillerplugin-2.0.5.jar"
     },
     {
         "internalName": "AIOMagicPlugin",
@@ -2108,6 +2130,28 @@
         "disable": false,
         "sha256": "0e17ed50e0a33ebe2d44904ad1a80800f4d41aeeaeedb52c9f1272cd3aa3548f",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autocookingplugin/1.1.0/autocookingplugin-1.1.0.jar"
+    },
+    {
+        "internalName": "PlayerMonitorPlugin",
+        "name": "Player Monitor",
+        "description": "Automated wilderness agility training with banking and ticket collection",
+        "tags": [
+            "wilderness",
+            "skilling",
+            "solo",
+            "pvp",
+            "Netoxic"
+        ],
+        "version": "1.0.1",
+        "minClientVersion": "2.0.0",
+        "authors": [
+            "Unknown Author"
+        ],
+        "iconUrl": "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/icon.png",
+        "cardUrl": "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/card.png",
+        "disable": false,
+        "sha256": "609d4eeb51245f805ec51978bf9c87b1070664636965faaeb5a9e1d80e662095",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/playermonitorplugin/1.0.1/playermonitorplugin-1.0.1.jar"
     },
     {
         "internalName": "BonesToBananasPlugin",
@@ -2631,7 +2675,7 @@
             "rc",
             "f2p"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -2639,8 +2683,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "ae62f5af906cd9f8f605008782ab62d6fd6a3555f596578ab3a10c9a5e2c4d56",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autorunecraftplugin/1.0.0/autorunecraftplugin-1.0.0.jar"
+        "sha256": "9ac799ee2d9da494b58b672f37a32174a8eeda9458ad6e13815efccaea17204e",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autorunecraftplugin/1.0.1/autorunecraftplugin-1.0.1.jar"
     },
     {
         "internalName": "FletchingPlugin",
@@ -2863,7 +2907,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "7051514ad4dac64d9ea1b57904c5d20d589ab2684bcb9b127f990b8ba93e97f8",
+        "sha256": "318c2ccea5f79c1d10f1b50613f2e4ba7fbc874aba969fc767c0a76d03a40455",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/combathotkeysplugin/1.1.0/combathotkeysplugin-1.1.0.jar"
     },
     {
