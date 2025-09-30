@@ -16,7 +16,7 @@ public class UseSpecialAttackScript extends Script {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 if (!config.useSpecialAttack()) return;
-                if (Rs2Equipment.isWearingFullGuthan()) return;
+                if (Rs2Equipment.all("guthan's").count() == 4) return;
                 if (Rs2Player.isInteracting())
                     Microbot.getSpecialAttackConfigs().useSpecWeapon();
             } catch (Exception ex) {
