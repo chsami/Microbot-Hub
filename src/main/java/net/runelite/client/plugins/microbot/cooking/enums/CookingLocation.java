@@ -31,7 +31,7 @@ public enum CookingLocation
 	LUMBRIDGE_TUTOR(new WorldPoint(3231, 3196, 0), CookingAreaType.RANGE, ObjectID.RANGE),
 	// Pay-to-play
 	MYTHS_GUILD(new WorldPoint(2465, 2848, 0), CookingAreaType.RANGE, ObjectID.DS2_GUILD_COOKING_RANGE),
-	ROUGES_DEN(new WorldPoint(3043, 4972, 1), CookingAreaType.FIRE, ObjectID.FIRE_COOK),
+	ROGUES_DEN(new WorldPoint(3043, 4972, 1), CookingAreaType.FIRE, ObjectID.FIRE_COOK),
 	COOKS_GUILD(new WorldPoint(3146, 3452, 0), CookingAreaType.RANGE, ObjectID.FAI_VARROCK_RANGE),
 	HOSIDIUS_CLAY_OVEN(new WorldPoint(1677, 3621, 0), CookingAreaType.RANGE, ObjectID.IZNOT_CLAY_RANGE),
 	RUINS_OF_UNKAH(new WorldPoint(3155, 2818, 0), CookingAreaType.FIRE, ObjectID.FIRE),

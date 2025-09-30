@@ -136,7 +136,7 @@ public class AutoCookingScript extends Script {
                         state = CookingState.BANKING;
                         break;
                     case BANKING:
-                        if (location == CookingLocation.ROUGES_DEN) {
+                        if (location == CookingLocation.ROGUES_DEN) {
                             NPC npc = Rs2Npc.getBankerNPC();
                             if (npc == null) return;
                             boolean isNPCBankOpen = Rs2Bank.openBank(npc);
