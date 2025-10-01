@@ -1232,6 +1232,30 @@
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/scurriusplugin/1.0.1/scurriusplugin-1.0.1.jar"
     },
     {
+        "internalName": "AutoGauntletPrayerPlugin",
+        "name": "Auto Gauntlet Prayer",
+        "description": "Auto Gauntlet Prayer plugin",
+        "tags": [
+            "liftedmango",
+            "Gauntlet",
+            "pvm",
+            "prayer",
+            "money making",
+            "auto",
+            "boss"
+        ],
+        "version": "1.0.8",
+        "minClientVersion": "2.0.13",
+        "authors": [
+            "Unknown Author"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "b8276903f4ee4ebc9cc2db71eeebbafd7272203e5904b5f785d9e3e68f5337fa",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autogauntletprayerplugin/1.0.8/autogauntletprayerplugin-1.0.8.jar"
+    },
+    {
         "internalName": "SandCrabPlugin",
         "name": "SandCrabs",
         "description": "Kills SandCrab & resets",
