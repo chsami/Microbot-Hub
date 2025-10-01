@@ -2,7 +2,7 @@
 
 A tool to automatically log out based on user configuration.
 ---
-![Leaderboard](assets/card.png)
+![image](assets/card.png)
 ## Features
 
 - Adjustable Player detection radius

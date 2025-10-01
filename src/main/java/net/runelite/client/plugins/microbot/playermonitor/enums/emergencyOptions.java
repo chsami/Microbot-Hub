@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.PlayerMonitor.enums;
+package net.runelite.client.plugins.microbot.playermonitor.enums;
 
 public enum emergencyOptions {
     LOGOUT("logout"),

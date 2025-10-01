@@ -46,7 +46,7 @@ public class GabulhasGoldRushScript extends Script {
                     case GETTING_BARS:
                         Rs2Inventory.wield("Goldsmith gauntlets");
                         sleep(100, 1000);
-                        Rs2Bank.useBank();
+                        Rs2Bank.openBank();
                         sleep(100, 1000);
                         while (Rs2Inventory.contains("Gold bar")) {
                             if (Rs2Bank.isOpen()) {

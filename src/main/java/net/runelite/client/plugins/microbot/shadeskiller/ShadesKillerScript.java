@@ -73,9 +73,9 @@ public class ShadesKillerScript extends Script {
             sleep(5000);
             return false;
         }
-        Rs2Bank.withdrawOne(key, Rs2Random.between(100, 600));
-        Rs2Bank.withdrawOne(config.teleportItemToShades(), Rs2Random.between(100, 600));
-        Rs2Bank.withdrawOne(config.teleportItemToBank(), Rs2Random.between(100, 600));
+        Rs2Bank.withdrawOne(key);
+        Rs2Bank.withdrawOne(config.teleportItemToShades());
+        Rs2Bank.withdrawOne(config.teleportItemToBank());
         final int missing = config.foodAmount() - Rs2Inventory.count(config.food().getName(), true);
         if (missing > 0) Rs2Bank.withdrawX(config.food().getName(), missing, true);
         withdrawCoffin();

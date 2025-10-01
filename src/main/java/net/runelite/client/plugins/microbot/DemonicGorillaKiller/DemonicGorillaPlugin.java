@@ -35,7 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 @Slf4j
 public class DemonicGorillaPlugin extends Plugin {
 
-    public final static String version = "1.2.0";
+    public final static String version = "1.2.1";
 
     private static final int DEMONIC_GORILLA_ROCK = 856;
     public static FixedSizeQueue<WorldPoint> lastLocation = new FixedSizeQueue<>(2);

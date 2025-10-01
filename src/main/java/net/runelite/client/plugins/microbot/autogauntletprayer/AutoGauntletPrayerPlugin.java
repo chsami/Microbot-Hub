@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.autoGauntletPrayer;
+package net.runelite.client.plugins.microbot.autogauntletprayer;
 
 import com.google.inject.Provides;
 import net.runelite.api.HeadIcon;
@@ -12,14 +12,12 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
-import net.runelite.client.plugins.microbot.autoGauntletPrayer.AutoGauntletConfig;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
-import net.runelite.client.plugins.microbot.util.reflection.Rs2Reflection;
 
 import javax.inject.Inject;
 import java.util.Set;
@@ -30,7 +28,7 @@ import static net.runelite.client.plugins.microbot.Microbot.log;
         name = PluginDescriptor.LiftedMango + "Auto Gauntlet Prayer",
         description = "Auto Gauntlet Prayer plugin",
         tags = {"liftedmango", "Gauntlet", "pvm", "prayer", "money making", "auto", "boss"},
-        version = AutoGauntletPrayer.version,
+        version = AutoGauntletPrayerPlugin.version,
         minClientVersion = "2.0.13",
         cardUrl = "",
         iconUrl = "",
@@ -38,13 +36,13 @@ import static net.runelite.client.plugins.microbot.Microbot.log;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 
-public class AutoGauntletPrayer extends Plugin {
-    public static final String version = "1.0.7";
+public class AutoGauntletPrayerPlugin extends Plugin {
+    public static final String version = "1.0.8";
     @Inject
-    private AutoGauntletConfig config;
+    private AutoGauntletPrayerConfig config;
     @Provides
-    AutoGauntletConfig provideConfig(ConfigManager configManager) {
-        return configManager.getConfig(AutoGauntletConfig.class);
+    AutoGauntletPrayerConfig provideConfig(ConfigManager configManager) {
+        return configManager.getConfig(AutoGauntletPrayerConfig.class);
     }
 
     private final int RANGE_PROJECTILE_MINIBOSS = 1705;
@@ -98,8 +96,7 @@ public class AutoGauntletPrayer extends Plugin {
             return;
         }
 
-        HeadIcon headIcon = Rs2Reflection.getHeadIcon(hunllef);
-        System.out.println("Headicon: " + headIcon);
+        HeadIcon headIcon = hunllef.getHeadIcon();
 
         switch (headIcon) {
             case RANGED:

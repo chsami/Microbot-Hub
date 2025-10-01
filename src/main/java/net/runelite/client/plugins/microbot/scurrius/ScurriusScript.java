@@ -125,7 +125,7 @@ public class ScurriusScript extends Script {
                     case BANKING:
                         boolean isCloseToBank = Rs2Bank.walkToBank();
                         if (isCloseToBank) {
-                            Rs2Bank.useBank();
+                            Rs2Bank.openBank();
                         }
                         if (Rs2Bank.isOpen()) {
                             Rs2Bank.depositAllExcept(importantItems.toArray(new Integer[0]));

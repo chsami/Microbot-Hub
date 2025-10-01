@@ -31,7 +31,7 @@ import java.awt.*;
 )
 @Slf4j
 public class SandCrabPlugin extends Plugin implements SchedulablePlugin {
-    public final static String version = "1.4.1";
+    public final static String version = "1.4.2";
     @Inject
     private SandCrabConfig config;
 

@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class TormentedDemonPlugin extends Plugin {
 
-    public static final String version = "1.2.0";
+    public static final String version = "1.2.1";
 
     private static final int CHANGE_ATTACK_STYLE_ANIMATION = 11387;
     private static final int MELEE_ATTACK_ANIMATION = 11392;

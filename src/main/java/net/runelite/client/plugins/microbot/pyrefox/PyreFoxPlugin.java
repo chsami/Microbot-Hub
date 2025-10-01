@@ -36,7 +36,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class PyreFoxPlugin extends Plugin {
-    public static final String version = "1.0.7";
+    public static final String version = "1.0.8";
     public static int catchCounter = 0;
     public static PyreFoxState currentState = PyreFoxState.INITIALIZE;
     public static boolean hasInitialized = false;

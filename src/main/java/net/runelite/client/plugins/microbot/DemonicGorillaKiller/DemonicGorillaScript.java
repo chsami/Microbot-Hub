@@ -305,7 +305,7 @@ public class DemonicGorillaScript extends Script {
         currentTarget = getTarget();
         if (currentTarget != null) {
             try {
-                currentOverheadIcon = Rs2Reflection.getHeadIcon(currentTarget);
+                currentOverheadIcon = currentTarget.getHeadIcon();
                 if (currentOverheadIcon == null) {
                     logOnceToChat("Failed to retrieve HeadIcon for target - NULL");
                     return;
@@ -429,7 +429,7 @@ public class DemonicGorillaScript extends Script {
                 currentTarget = getTarget(true);
                 logOnceToChat("Forcing new target");
             }
-            HeadIcon newOverheadIcon = Rs2Reflection.getHeadIcon(currentTarget);
+            HeadIcon newOverheadIcon = currentTarget.getHeadIcon();
             if (newOverheadIcon == null) return;
             if (newOverheadIcon != currentOverheadIcon) {
                 currentOverheadIcon = newOverheadIcon;

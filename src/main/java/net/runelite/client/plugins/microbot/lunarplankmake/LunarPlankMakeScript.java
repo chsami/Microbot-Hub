@@ -5,7 +5,7 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.math.Random;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 import net.runelite.client.util.QuantityFormatter;
 
@@ -137,7 +137,7 @@ public class LunarPlankMakeScript extends Script {
         if (useSetDelay) {
             sleep(setDelay);
         } else if (useRandomDelay) {
-            sleep(Random.random(0, maxRandomDelay));
+            sleep(Rs2Random.between(0, maxRandomDelay));
         }
     }
 
