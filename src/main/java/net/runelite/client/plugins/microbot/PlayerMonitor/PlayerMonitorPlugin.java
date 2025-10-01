@@ -37,12 +37,12 @@ import java.util.Scanner;
 import java.util.stream.Collectors;
 
  @PluginDescriptor(
-        version = "1.0.1",
+        version = "1.0.2",
         name = PluginDescriptor.eXioStorm + "Player Monitor",
         enabledByDefault = false,
         minClientVersion = "2.0.0",
         tags = {"wilderness", "skilling", "solo", "pvp", "Netoxic"},
-        description = "Automated wilderness agility training with banking and ticket collection",
+        description = "Monitors nearby players and executes emergency actions when detected.",
         isExternal = PluginConstants.IS_EXTERNAL,
         iconUrl = "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/card.png"
