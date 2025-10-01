@@ -33,7 +33,7 @@
             "training",
             "gem"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -41,8 +41,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "8e720ed8e78cbb5f6dafb610031d5a26d57084c234fb970190d1223c6b3f953e",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gemcrabkillerplugin/1.0.0/gemcrabkillerplugin-1.0.0.jar"
+        "sha256": "4af3d6dd2420e7a546b228a2c28a474e2406cbaee2ff1637c854cd3fd6f4c868",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gemcrabkillerplugin/1.0.1/gemcrabkillerplugin-1.0.1.jar"
     },
     {
         "internalName": "GotrPlugin",
@@ -411,7 +411,7 @@
             "firemaking",
             "minigame"
         ],
-        "version": "2.1.0",
+        "version": "2.1.1",
         "minClientVersion": "1.9.7",
         "authors": [
             "Make"
@@ -419,8 +419,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MKE_WintertodtPlugin/assets/card.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MKE_WintertodtPlugin/assets/card.png",
         "disable": false,
-        "sha256": "4a56dcde94610a07211f124098ec3f0e5d3609f38afc9174ef5da6ba524e0f97",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/mke_wintertodtplugin/2.1.0/mke_wintertodtplugin-2.1.0.jar"
+        "sha256": "ae954b5d04a0facf095511195b129d8ba6aaa4a44a8e3c65c20c1a8de621c1ad",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/mke_wintertodtplugin/2.1.1/mke_wintertodtplugin-2.1.1.jar"
     },
     {
         "internalName": "CannonballSmelterPlugin",
@@ -454,7 +454,7 @@
             "switch",
             "microbot"
         ],
-        "version": "1.2.0",
+        "version": "1.2.1",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -462,8 +462,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "c6d89a434a6e1ba70b000f8e0ac8d28ca0d01fea17ef747971674dd9992db6ba",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/tormenteddemonplugin/1.2.0/tormenteddemonplugin-1.2.0.jar"
+        "sha256": "c3725663a14641a1cb0bfca4f6473586def71ee69268756167cf925416688ec7",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/tormenteddemonplugin/1.2.1/tormenteddemonplugin-1.2.1.jar"
     },
     {
         "internalName": "MahoganyHomesPlugin",
@@ -584,7 +584,7 @@
             "GabulhasGoldRush",
             "Gabulhas"
         ],
-        "version": "1.0.6",
+        "version": "1.0.7",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -592,8 +592,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "936bd0e095d253136645c3ee7b0191635a59382f8e8a80f41bd77d7af29c1873",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gabulhasgoldrushplugin/1.0.6/gabulhasgoldrushplugin-1.0.6.jar"
+        "sha256": "60e9356f64824c6946efc422397b4a235af5975326adbcabdc3abcfb6beba1ae",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gabulhasgoldrushplugin/1.0.7/gabulhasgoldrushplugin-1.0.7.jar"
     },
     {
         "internalName": "DemonicGorillaPlugin",
@@ -607,7 +607,7 @@
             "switch",
             "microbot"
         ],
-        "version": "1.2.0",
+        "version": "1.2.1",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -615,8 +615,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "3cecf2969641d0f1c6ab48b158cf244af0de63efa1b7b82925a18090f3976ff4",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/demonicgorillaplugin/1.2.0/demonicgorillaplugin-1.2.0.jar"
+        "sha256": "d7e2377cb39e48fc6ccc8e7bcf55aa22553fee52bd8d87e834d405fb34b7e773",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/demonicgorillaplugin/1.2.1/demonicgorillaplugin-1.2.1.jar"
     },
     {
         "internalName": "AmethystMiningPlugin",
@@ -668,7 +668,7 @@
             "hotkeys",
             "microbot"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.7",
         "authors": [
             "Bradley"
@@ -676,8 +676,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/BradleyCombatPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/BradleyCombatPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "35d32019947db59a337c0de7b539434b24d5a443f1d16bfc2f07fc2bea95a2cb",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/bradleycombatplugin/1.0.0/bradleycombatplugin-1.0.0.jar"
+        "sha256": "dbbe0a0984828e62533e258253576a08cdd85ebc9247a8ce9e4dcdc2d7fc8374",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/bradleycombatplugin/1.0.1/bradleycombatplugin-1.0.1.jar"
     },
     {
         "internalName": "GEFiremakerPlugin",
@@ -1018,7 +1018,7 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.0.5",
+        "version": "2.0.6",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft",
@@ -1027,8 +1027,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "dd62aba3d3652f67a074cfecf6f9143afa32f4ffe0f935550eb29f66b3f795a4",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/aiofighterplugin/2.0.5/aiofighterplugin-2.0.5.jar"
+        "sha256": "08ed485309e057fba14384b151962440c2eee2dbfea369ac319eb9a50335e2e4",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/aiofighterplugin/2.0.6/aiofighterplugin-2.0.6.jar"
     },
     {
         "internalName": "ExamplePlugin",
@@ -1220,7 +1220,7 @@
             "scurrius",
             "boss"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1228,8 +1228,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "56020144b9e1fdd8ce91a7f4cf49c4bb97922b639de4c16afe484e6266ae2231",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/scurriusplugin/1.0.0/scurriusplugin-1.0.0.jar"
+        "sha256": "6e6e34d2ba1c2ffcea3b3df320981f9cb781cf90428c033b0bafc78ea798c751",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/scurriusplugin/1.0.1/scurriusplugin-1.0.1.jar"
     },
     {
         "internalName": "SandCrabPlugin",
@@ -1239,7 +1239,7 @@
             "Combat",
             "microbot"
         ],
-        "version": "1.4.1",
+        "version": "1.4.2",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1247,8 +1247,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "41997cc5b0c309cb3724d393c8b6a6a2790032a85fa8cb392fea02dd28d4ff22",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/sandcrabplugin/1.4.1/sandcrabplugin-1.4.1.jar"
+        "sha256": "fb3d98bcd4aa2dba9f672e27bd11e231bfe0731e03df5f45afdde7b343f4d298",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/sandcrabplugin/1.4.2/sandcrabplugin-1.4.2.jar"
     },
     {
         "internalName": "FornBirdhouseRunsPlugin",
@@ -1277,7 +1277,7 @@
             "Farming",
             "Tree run"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.7",
         "authors": [
             "Acun"
@@ -1285,8 +1285,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FarmTreeRunPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FarmTreeRunPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "82218d82179aa2c9c29610e7c6673531c0e2ffbac2d8914a5eac4f208a227507",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/farmtreerunplugin/1.0.0/farmtreerunplugin-1.0.0.jar"
+        "sha256": "49f125294060fab2f1e63bebc1637d1383d6d45d74b3bcd70c44a906ec67eb9e",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/farmtreerunplugin/1.0.1/farmtreerunplugin-1.0.1.jar"
     },
     {
         "internalName": "DelvePrayerHelperPlugin",
@@ -1469,7 +1469,7 @@
             "xp",
             "microbot"
         ],
-        "version": "1.0.3",
+        "version": "1.0.4",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1477,8 +1477,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "46d0ba855d2fb1e4adae473a770303c7b31612abe302ab6fa6ea5888cb1ba5e7",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/tearsofguthixplugin/1.0.3/tearsofguthixplugin-1.0.3.jar"
+        "sha256": "6126df20f56ad2f5fe28d6d62cd6974c9602bff7207faedb1ed5f6ddf34d6898",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/tearsofguthixplugin/1.0.4/tearsofguthixplugin-1.0.4.jar"
     },
     {
         "internalName": "RecruiterPlugin",
@@ -1514,7 +1514,7 @@
             "crabs",
             "AmmoniteCrabs"
         ],
-        "version": "1.1.0",
+        "version": "1.1.1",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1522,8 +1522,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "89b4843f3ef6c125045c12d1a5a1c5abcb26fbb907ed06c711452c7db07f6a5b",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/ammonitecrabplugin/1.1.0/ammonitecrabplugin-1.1.0.jar"
+        "sha256": "9e80f1c1560f70c01a11bd04b72caa1f139ed570439bcb6745ea2eff56301d04",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/ammonitecrabplugin/1.1.1/ammonitecrabplugin-1.1.1.jar"
     },
     {
         "internalName": "VarrockCleanerPlugin",
@@ -1598,7 +1598,7 @@
             "microbot",
             "Moneymaking"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1606,8 +1606,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "7b791f3f16b8a0451f7674b48ac934af1f25386cca267c8911802df6ee5980f1",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/shadeskillerplugin/1.0.0/shadeskillerplugin-1.0.0.jar"
+        "sha256": "b7508a29a2f948c9bf14a8431bea5a7d4ed690b2fcdf9004ee9fa1e8480226fa",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/shadeskillerplugin/1.0.1/shadeskillerplugin-1.0.1.jar"
     },
     {
         "internalName": "BlessedWinePlugin",
@@ -1678,7 +1678,7 @@
             "QoL",
             "microbot"
         ],
-        "version": "1.8.6",
+        "version": "1.8.7",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1686,8 +1686,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "0ba757d6a37a812cc2a533c283ff3d49ce2d8caefe944f1c19cb7654101d474a",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/qolplugin/1.8.6/qolplugin-1.8.6.jar"
+        "sha256": "ad8125ba680ee05e267f193bf40b78eff889eae97dbd8d927a2128b9e04582d5",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/qolplugin/1.8.7/qolplugin-1.8.7.jar"
     },
     {
         "internalName": "AstralRunesPlugin",
@@ -1760,7 +1760,7 @@
             "skilling",
             "training"
         ],
-        "version": "1.2.0",
+        "version": "1.2.1",
         "minClientVersion": "2.0.7",
         "authors": [
             "Unknown Author"
@@ -1768,8 +1768,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOMagicPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOMagicPlugin/assets/card.png",
         "disable": false,
-        "sha256": "84ce1945cc754e7e1ba1a52b06c2d346eac69a8334cded1bd6647bab6f4171c1",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/aiomagicplugin/1.2.0/aiomagicplugin-1.2.0.jar"
+        "sha256": "17b98f9c50fde094c0bae9f58c4c7c0966dfb7c89fea47e20b4c5146f43878ba",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/aiomagicplugin/1.2.1/aiomagicplugin-1.2.1.jar"
     },
     {
         "internalName": "MWintertodtPlugin",
@@ -1781,7 +1781,7 @@
             "firemaking",
             "minigame"
         ],
-        "version": "1.4.7",
+        "version": "1.4.8",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft"
@@ -1789,8 +1789,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MWintertodtPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MWintertodtPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "344f6d977935d751c888ebd5f2c082e538ee41af646bfdf71d729f2f93d0a74a",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/mwintertodtplugin/1.4.7/mwintertodtplugin-1.4.7.jar"
+        "sha256": "c57abd5e9b7ae37bdea0ee8841c78d756621eb35ff793e7a8cdf5cb73cf8ac51",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/mwintertodtplugin/1.4.8/mwintertodtplugin-1.4.8.jar"
     },
     {
         "internalName": "VolcanicAshMinerPlugin",
@@ -1956,7 +1956,7 @@
             "magic",
             "moneymaking"
         ],
-        "version": "1.0.1",
+        "version": "1.0.2",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1964,8 +1964,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "c97b7f1537e01cebd584af7a42582c3e729cc333e7deaecd17a1bea17f52172f",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/lunarplankmakeplugin/1.0.1/lunarplankmakeplugin-1.0.1.jar"
+        "sha256": "d974130da7cd4a5013caa000902ed27f1dc4594c7547f67203f24f9e65af5974",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/lunarplankmakeplugin/1.0.2/lunarplankmakeplugin-1.0.2.jar"
     },
     {
         "internalName": "MotherloadMinePlugin",
@@ -2134,7 +2134,7 @@
     {
         "internalName": "PlayerMonitorPlugin",
         "name": "Player Monitor",
-        "description": "Automated wilderness agility training with banking and ticket collection",
+        "description": "Monitors nearby players and executes emergency actions when detected.",
         "tags": [
             "wilderness",
             "skilling",
@@ -2142,7 +2142,7 @@
             "pvp",
             "Netoxic"
         ],
-        "version": "1.0.1",
+        "version": "1.0.3",
         "minClientVersion": "2.0.0",
         "authors": [
             "Unknown Author"
@@ -2150,8 +2150,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/card.png",
         "disable": false,
-        "sha256": "609d4eeb51245f805ec51978bf9c87b1070664636965faaeb5a9e1d80e662095",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/playermonitorplugin/1.0.1/playermonitorplugin-1.0.1.jar"
+        "sha256": "781daef3c76969116b67b4815d1791fdba2318fcce33a7ddd869b7ce961589fd",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/playermonitorplugin/1.0.3/playermonitorplugin-1.0.3.jar"
     },
     {
         "internalName": "BonesToBananasPlugin",
@@ -2260,7 +2260,7 @@
             "fletching",
             "minigame"
         ],
-        "version": "1.0.3",
+        "version": "1.0.4",
         "minClientVersion": "1.9.7",
         "authors": [
             "Make"
@@ -2268,8 +2268,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         "disable": false,
-        "sha256": "1707365217802b24de70d5fee24af5715a237362d45174f5e83dd9281358469e",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/valetotemplugin/1.0.3/valetotemplugin-1.0.3.jar"
+        "sha256": "ffac04c7278ff2e510806e50dab1d43e887ad37728af4d6bf71ed9b2607e2145",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/valetotemplugin/1.0.4/valetotemplugin-1.0.4.jar"
     },
     {
         "internalName": "FlippersChaserPlugin",
@@ -2423,7 +2423,7 @@
             "pyre",
             "fox"
         ],
-        "version": "1.0.7",
+        "version": "1.0.8",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -2431,8 +2431,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "d8c68b78d180f233314cd547397d55a2027aa52d081e00821168d85286b8088e",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pyrefoxplugin/1.0.7/pyrefoxplugin-1.0.7.jar"
+        "sha256": "a1b1112caab59b1e2ff93cf96e25d6614581eb573d28cf0015f3980c203d30f9",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/pyrefoxplugin/1.0.8/pyrefoxplugin-1.0.8.jar"
     },
     {
         "internalName": "HerbiboarPlugin",
@@ -2525,7 +2525,7 @@
             "microbot",
             "crafting"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft"
@@ -2533,8 +2533,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "da7588819e0f94fc28c4bc94b22f0f2b8f0006dd099297aa9940b3b4d377d216",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/craftingplugin/1.0.0/craftingplugin-1.0.0.jar"
+        "sha256": "6438d29fb3cb65d7e6e9448d587a2186481e04199d34a2d103f0b127ab120542",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/craftingplugin/1.0.1/craftingplugin-1.0.1.jar"
     },
     {
         "internalName": "GabulhasSandMinerPlugin",
@@ -2633,7 +2633,7 @@
             "taf",
             "microbot"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -2641,8 +2641,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "86539b1ee60a3653b38c23bf177dd8b82e7f6fe26c1ebede1085e18393917ab6",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/giantseaweedfarmerplugin/1.0.0/giantseaweedfarmerplugin-1.0.0.jar"
+        "sha256": "cbbc303e38eb1ca2ddb48395a20e61b53b271785bc88062f6214aa170cb3c063",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/giantseaweedfarmerplugin/1.0.1/giantseaweedfarmerplugin-1.0.1.jar"
     },
     {
         "internalName": "HumidifierPlugin",
@@ -2754,7 +2754,7 @@
             "magic",
             "moneymaking"
         ],
-        "version": "1.0.7",
+        "version": "1.0.8",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -2762,8 +2762,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "49e2dca43c2402b21802c5b0ac80c089b17a9d7c864d6c339fb6dfdf3802e2c1",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/housetabplugin/1.0.7/housetabplugin-1.0.7.jar"
+        "sha256": "5c75decae0ba72f8909579fd13700915ca6de8d77af36f603c93627654b067bd",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/housetabplugin/1.0.8/housetabplugin-1.0.8.jar"
     },
     {
         "internalName": "GECookerPlugin",
