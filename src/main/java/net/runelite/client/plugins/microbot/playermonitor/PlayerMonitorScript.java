@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.PlayerMonitor;
+package net.runelite.client.plugins.microbot.playermonitor;
 
 import net.runelite.api.Varbits;
 import net.runelite.api.coords.WorldPoint;

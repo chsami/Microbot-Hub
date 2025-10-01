@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.PlayerMonitor;
+package net.runelite.client.plugins.microbot.playermonitor;
 
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.components.LineComponent;
