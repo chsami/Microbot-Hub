@@ -62,7 +62,7 @@ public class GiantSeaweedFarmerScript extends Script {
     }
 
     private static void getToFossilIsland() {
-        if (Rs2Player.isNearArea(BankLocation.FOSSIL_ISLAND_WRECK.getWorldPoint(), 25)) {
+        if (Rs2Player.isInArea(BankLocation.FOSSIL_ISLAND_WRECK.getWorldPoint(), 25)) {
             return;
         }
         if (!Rs2Inventory.hasItem("Digsite pendant", false)) {

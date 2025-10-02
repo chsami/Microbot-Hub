@@ -152,11 +152,11 @@ public class TearsOfGuthixScript extends Script {
     private void enterMinigame() {
         if (!hadDialogue) {
             Microbot.log("Entering Minigame...");
-            if (Rs2Equipment.hasEquippedSlot(EquipmentInventorySlot.WEAPON)) {
+            if (Rs2Equipment.isWearing(EquipmentInventorySlot.WEAPON)) {
                 Microbot.log("Unequipping weapon...");
                 Rs2Equipment.unEquip(EquipmentInventorySlot.WEAPON);
             }
-            if (Rs2Equipment.hasEquippedSlot(EquipmentInventorySlot.SHIELD)) {
+            if (Rs2Equipment.isWearing(EquipmentInventorySlot.SHIELD)) {
                 Microbot.log("Unequipping shield...");
                 Rs2Equipment.unEquip(EquipmentInventorySlot.SHIELD);
             }

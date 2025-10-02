@@ -2093,7 +2093,7 @@ public class MKE_WintertodtScript extends Script {
 
                 // Open the bank if it is not open yet
                 if (!Rs2Bank.isOpen()) {
-                    Rs2Bank.useBank();
+                    Rs2Bank.openBank();
                     return; // open animation in progress – continue once open
                 }
 
@@ -3439,7 +3439,7 @@ public class MKE_WintertodtScript extends Script {
 
             // Open bank
             if (!Rs2Bank.isOpen()) {
-                Rs2Bank.useBank();
+                Rs2Bank.openBank();
                 return false; // Wait for bank to open
             }
 
@@ -3712,7 +3712,7 @@ public class MKE_WintertodtScript extends Script {
                 // Ensure bank is still open
                 if (!Rs2Bank.isOpen()) {
                     Microbot.log("Bank closed during gear setup - reopening...");
-                    if (!Rs2Bank.useBank()) {
+                    if (!Rs2Bank.openBank()) {
                         Microbot.log("Failed to reopen bank on attempt " + attempt);
                         if (attempt < maxRetries) {
                             sleepGaussian(retryDelay, 200);

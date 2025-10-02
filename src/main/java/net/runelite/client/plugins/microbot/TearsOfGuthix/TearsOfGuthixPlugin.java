@@ -31,7 +31,7 @@ import java.time.Instant;
 )
 public class TearsOfGuthixPlugin extends Plugin {
 
-    public final static String version = "1.0.3";
+    public final static String version = "1.0.4";
 
     private static final int TOG_REGION = 12948;
     @Inject

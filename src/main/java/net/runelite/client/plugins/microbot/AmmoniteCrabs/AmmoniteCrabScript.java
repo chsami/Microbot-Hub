@@ -165,7 +165,7 @@ public class AmmoniteCrabScript extends Script {
             if ((config.useFood() && Rs2Inventory.getInventoryFood().isEmpty()) || (config.usePotions() && Rs2Inventory.getFilteredPotionItemsInInventory(config.potions().getPotionName()).isEmpty())) {
                 ammoniteCrabState = AmmoniteCrabState.BANK;
                 Rs2Bank.walkToBank(BankLocation.FOSSIL_ISLAND);
-                if (Rs2Bank.useBank()) {
+                if (Rs2Bank.openBank()) {
                     if (config.usePotions()) {
                         Rs2Bank.withdrawX(config.potions().getPotionName() + "(4)", config.withdrawNumber());
                     }

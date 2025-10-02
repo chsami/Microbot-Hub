@@ -10,32 +10,22 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
-import static net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment.get;
 
 public class FoodScript extends Script {
 
-    String weaponname = "";
-    String bodyName = "";
-    String legsName = "";
-    String helmName = "";
-
-    String shieldName = "";
+    Map<Integer, String> equipment = new HashMap<>();
 
     public boolean run(AIOFighterConfig config) {
-        weaponname = "";
-        bodyName = "";
-        legsName = "";
-        helmName = "";
-        shieldName = "";
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 if (!config.toggleFood()) return;
                 double treshHold = (double) (Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) * 100) / Microbot.getClient().getRealSkillLevel(Skill.HITPOINTS);
-                if (Rs2Equipment.isWearingFullGuthan()) {
+                if (Rs2Equipment.all("guthan's").count() == 4) {
                     if (treshHold > 80) //only unequip guthans if we have more than 80% hp
                         unEquipGuthans();
                     return;
@@ -44,11 +34,11 @@ public class FoodScript extends Script {
                         return;
                 }
 
-                    if (!equipFullGuthans()) {
-                        Rs2Player.eatAt(50);
-                    }
+                if (!equipFullGuthans()) {
+                    Rs2Player.eatAt(50);
+                }
 
-            } catch(Exception ex) {
+            } catch (Exception ex) {
                 Microbot.logStackTrace(this.getClass().getSimpleName(), ex);
             }
         }, 0, 600, TimeUnit.MILLISECONDS);
@@ -56,55 +46,39 @@ public class FoodScript extends Script {
     }
 
     private void unEquipGuthans() {
-        if (Rs2Equipment.hasGuthanWeaponEquiped()  && !weaponname.isEmpty()) {
-            Rs2Inventory.equip(weaponname);
-            if (shieldName != null)
-                Rs2Inventory.equip(shieldName);
-        }
-        if (Rs2Equipment.hasGuthanBodyEquiped() && !bodyName.isEmpty()) {
-            Rs2Inventory.equip(bodyName);
-        }
-        if (Rs2Equipment.hasGuthanLegsEquiped() && !legsName.isEmpty()) {
-            Rs2Inventory.equip(legsName);
-        }
-        if (Rs2Equipment.hasGuthanHelmEquiped() && !helmName.isEmpty()) {
-            Rs2Inventory.equip(helmName);
-        }
+        Rs2Equipment.all("guthan's").forEach(g -> {
+            if (equipment.containsKey(g.getSlot())) {
+                Rs2Inventory.wield(equipment.get(g.getSlot()));
+            }
+            if (g.getSlot() == EquipmentInventorySlot.WEAPON.getSlotIdx() && equipment.containsKey(EquipmentInventorySlot.SHIELD.getSlotIdx())) {
+                Rs2Inventory.wield(equipment.get(EquipmentInventorySlot.SHIELD.getSlotIdx()));
+            }
+        });
     }
 
     private boolean equipFullGuthans() {
-        Rs2ItemModel shield = get(EquipmentInventorySlot.SHIELD);
-        if (shield != null)
-            shieldName = shield.getName();
+        Rs2Equipment.all().filter(i -> i != null && !i.getName().contains("guthan's")).forEach(i -> equipment.put(i.getSlot(), i.getName()));
 
-        if (!Rs2Equipment.hasGuthanWeaponEquiped()) {
+        if (!Rs2Equipment.isWearing("guthan's warspear")) {
             Rs2ItemModel spearWidget = Microbot.getClientThread().runOnClientThreadOptional(() ->
                     Rs2Inventory.get("guthan's warspear")).orElse(null);
             if (spearWidget == null) return false;
-            Rs2ItemModel weapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
-            weaponname = weapon != null ? weapon.getName() : "";
-            Rs2Inventory.equip(spearWidget.getName());
+            Rs2Inventory.wield(spearWidget.getName());
         }
-        if (!Rs2Equipment.hasGuthanBodyEquiped()) {
+        if (!Rs2Equipment.isWearing("guthan's platebody")) {
             Rs2ItemModel bodyWidget = Microbot.getClientThread().runOnClientThreadOptional(() -> Rs2Inventory.get("guthan's platebody")).orElse(null);
             if (bodyWidget == null) return false;
-            Rs2ItemModel body = Rs2Equipment.get(EquipmentInventorySlot.BODY);
-            bodyName = body != null ? body.getName() : "";
-            Rs2Inventory.equip(bodyWidget.getName());
+            Rs2Inventory.wield(bodyWidget.getName());
         }
-        if (!Rs2Equipment.hasGuthanLegsEquiped()) {
+        if (!Rs2Equipment.isWearing("guthan's chainskirt")) {
             Rs2ItemModel legsWidget = Microbot.getClientThread().runOnClientThreadOptional(() -> Rs2Inventory.get("guthan's chainskirt")).orElse(null);
             if (legsWidget == null) return false;
-            Rs2ItemModel legs = Rs2Equipment.get(EquipmentInventorySlot.LEGS);
-            legsName = legs != null ? legs.getName() : "";
-            Rs2Inventory.equip(legsWidget.getName());
+            Rs2Inventory.wield(legsWidget.getName());
         }
-        if (!Rs2Equipment.hasGuthanHelmEquiped()) {
+        if (!Rs2Equipment.isWearing("guthan's helm")) {
             Rs2ItemModel helmWidget = Microbot.getClientThread().runOnClientThreadOptional(() -> Rs2Inventory.get("guthan's helm")).orElse(null);
             if (helmWidget == null) return false;
-            Rs2ItemModel helm = Rs2Equipment.get(EquipmentInventorySlot.HEAD);
-            helmName = helm != null ? helm.getName() : "";
-            Rs2Inventory.equip(helmWidget.getName());
+            Rs2Inventory.wield(helmWidget.getName());
         }
         return true;
     }
