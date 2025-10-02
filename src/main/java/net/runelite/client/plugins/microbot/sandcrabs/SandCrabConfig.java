@@ -53,7 +53,7 @@ public interface SandCrabConfig extends Config {
     @ConfigItem(
             keyName = "DisableInventorySetup",
             name = "Disable Inventory Setup",
-            description = "Use Food?",
+            description = "Disabled the inventory setup",
             position = 4
     )
     default boolean DisableInventorySetup()
