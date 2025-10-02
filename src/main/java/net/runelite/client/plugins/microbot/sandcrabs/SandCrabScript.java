@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.sandcrabs;
 import net.runelite.api.GameState;
 import net.runelite.api.NPC;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.microbot.IronScurrius.IronScurriusConfig;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.sandcrabs.enums.State;
@@ -34,6 +35,7 @@ public class SandCrabScript extends Script {
 
     public int afkTimer = 0;
     public int hijackTimer = 0;
+    private boolean DisableInventorySetup;
 
     public State state = State.FIGHT;
 
@@ -69,15 +71,17 @@ public class SandCrabScript extends Script {
                 long startTime = System.currentTimeMillis();
                 var inventorySetup = new Rs2InventorySetup(config.inventorySetup().getName(), mainScheduledFuture);
 
-                if (inventorySetup == null || config.inventorySetup().getName().isEmpty()) {
-                    Microbot.showMessage("Please setup your Inventory Setup for sand crabs! Stopping...");
-                    shutdown();
-                    return;
+                if (!config.DisableInventorySetup()) {
+                    if (inventorySetup == null || config.inventorySetup().getName().isEmpty()) {
+                        Microbot.showMessage("Please setup your Inventory Setup for sand crabs! Stopping...");
+                        shutdown();
+                        return;
+                    }
                 }
 
                 Rs2Combat.enableAutoRetialiate();
 
-                if (!inventorySetup.doesEquipmentMatch()) {
+                if (!inventorySetup.doesEquipmentMatch() && !config.DisableInventorySetup()) {
                     if (Rs2Bank.walkToBankAndUseBank()) {
                         if (inventorySetup.loadEquipment()) {
                             Microbot.log("We're setup for sand crabs!");

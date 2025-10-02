@@ -19,6 +19,7 @@ public interface SandCrabConfig extends Config {
     {
         return false;
     }
+
     @ConfigItem(
             keyName = "Food",
             name = "Food",
@@ -48,5 +49,16 @@ public interface SandCrabConfig extends Config {
             position = 3
     )
     default InventorySetup inventorySetup() { return null; }
+
+    @ConfigItem(
+            keyName = "DisableInventorySetup",
+            name = "Disable Inventory Setup",
+            description = "Use Food?",
+            position = 4
+    )
+    default boolean DisableInventorySetup()
+    {
+        return false;
+    }
 
 }
