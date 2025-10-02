@@ -1,12 +1,10 @@
 package net.runelite.client.plugins.microbot.moonsofperil;
 
-import net.runelite.client.config.Config;
-import net.runelite.client.config.ConfigGroup;
-import net.runelite.client.config.ConfigItem;
-import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.*;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 
 @ConfigGroup("perilousMoons")
+@ConfigInformation("Check Guide on Discord \nQoL plugin required \n Start with empty Inventory besides gear")
 public interface MoonsOfPerilConfig extends Config {
 
     @ConfigSection(
@@ -43,6 +41,13 @@ public interface MoonsOfPerilConfig extends Config {
             position = 4
     )
     String bloodMoonSection = "Blood Moon";
+
+    @ConfigSection(
+            name = "Extra Options",
+            description = "Additional options",
+            position = 5
+    )
+    String ExtraOptionSection = "Extra Options";
 
     @ConfigItem(
             keyName  = "debugLogging",
@@ -151,6 +156,15 @@ public interface MoonsOfPerilConfig extends Config {
     }
 
     @ConfigItem(
+            keyName  = "enableEclipse",
+            name     = "Eclipse Clones - Add Random Click Delay",
+            description = "Untick to skip Eclipse Moon runs",
+            position = 0,
+            section  = ExtraOptionSection
+    )
+    default boolean enableEclipseRandomDelay() { return true; }
+
+    @ConfigItem(
             keyName  = "enableBlue",
             name     = "Fight Blue Moon",
             description = "Untick to skip Blue Moon runs",
@@ -169,6 +183,18 @@ public interface MoonsOfPerilConfig extends Config {
     default InventorySetup blueEquipmentNormal()
     {
         return null;
+    }
+
+    @ConfigItem(
+            keyName = "blueIceDodge",
+            name = "Ignore Glacier Special Event",
+            description = "Enabling this will ignore interacting with the glacier event",
+            position = 1,
+            section = ExtraOptionSection
+    )
+    default boolean DisableGlacierDodge()
+    {
+        return true;
     }
 
     @ConfigItem(
@@ -191,4 +217,15 @@ public interface MoonsOfPerilConfig extends Config {
     {
         return null;
     }
+
+    @ConfigItem(
+            keyName  = "enableBlood",
+            name     = "Blood Moon - Disable cancel clicks",
+            description = "Tick to disable ground clicking to avoid attack cancellations which may not be needed",
+            position = 2,
+            section  = ExtraOptionSection
+    )
+    default boolean DisableGroundCancelClick() { return true; }
+
+
 }

@@ -12,6 +12,7 @@ import net.runelite.client.plugins.microbot.moonsofperil.enums.Widgets;
 import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.coords.Rs2LocalPoint;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -41,6 +42,7 @@ public class EclipseMoonHandler implements BaseHandler {
     private final Rs2InventorySetup equipmentNormal;
     private final Rs2InventorySetup equipmentClones;
     private final boolean enableBoss;
+    private final boolean clonerandomdelay;
     private final net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler boss;
     private final boolean debugLogging;
 
@@ -51,6 +53,7 @@ public class EclipseMoonHandler implements BaseHandler {
 		this.enableBoss = cfg.enableEclipse();
 		this.boss = new net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler(cfg);
 		this.debugLogging = cfg.debugLogging();
+        this.clonerandomdelay = cfg.enableEclipseRandomDelay();
 	}
 
     @Override
@@ -219,6 +222,10 @@ public class EclipseMoonHandler implements BaseHandler {
 
                 // 3. Parry / Attack the clone
                 if (debugLogging) {Microbot.log("Clone #" + (parried + 1) + " spawned at " + cloneTrueLocation + " → Parrying via " + cloneLocalLocation);}
+                if (clonerandomdelay) {
+                    int delay = Rs2Random.between(30, 150);
+                    sleep(delay);
+                }
                 Rs2Walker.walkCanvas(cloneLocalLocation);
                 parried++;
             }
