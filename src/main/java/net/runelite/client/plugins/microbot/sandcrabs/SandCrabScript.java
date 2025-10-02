@@ -3,7 +3,6 @@ package net.runelite.client.plugins.microbot.sandcrabs;
 import net.runelite.api.GameState;
 import net.runelite.api.NPC;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.client.plugins.microbot.IronScurrius.IronScurriusConfig;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.sandcrabs.enums.State;
