@@ -380,8 +380,8 @@ public interface AIOFighterConfig extends Config {
     //toggle High Alch profitable items
     @ConfigItem(
             keyName = "highAlchProfitable",
-            name = "High Alch Profitable",
-            description = "High Alch Profitable items",
+            name = "High alch profitable",
+            description = "High alch profitable items",
             position = 101,
             section = lootSection
     )
@@ -392,7 +392,7 @@ public interface AIOFighterConfig extends Config {
     @ConfigItem(
             keyName = "highAlchBlacklist",
             name = "High alch blacklist",
-            description = "Items to NEVER be alched",
+            description = "Items to NEVER be alched - use * as a wildcard (e.g., *full helm, Dragon*, Amulet of glory (*)",
             position = 102,
             section = lootSection
     )

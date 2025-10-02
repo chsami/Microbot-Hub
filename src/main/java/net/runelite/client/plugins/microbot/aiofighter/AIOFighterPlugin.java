@@ -371,6 +371,56 @@ public class AIOFighterPlugin extends Plugin {
 
         return Collections.unmodifiableSet(normalized);
     }
+
+    public static boolean isHighAlchBlacklisted(String itemName) {
+        if (itemName == null) {
+            return false;
+        }
+
+        String normalizedItemName = Text.standardize(itemName);
+        if (normalizedItemName.isEmpty()) {
+            return false;
+        }
+
+        Set<String> blacklist = getHighAlchBlacklist();
+        if (blacklist.isEmpty()) {
+            return false;
+        }
+
+        for (String pattern : blacklist) {
+            if (matchesWildcard(pattern, normalizedItemName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean matchesWildcard(String pattern, String candidate) {
+        if (pattern == null || pattern.isEmpty()) {
+            return false;
+        }
+
+        if (!pattern.contains("*")) {
+            return candidate.equals(pattern);
+        }
+
+        StringBuilder regex = new StringBuilder();
+        regex.append('^');
+        for (char ch : pattern.toCharArray()) {
+            if (ch == '*') {
+                regex.append(".*");
+            } else {
+                if ("\\.^$|?+()[]{}".indexOf(ch) >= 0) {
+                    regex.append('\\');
+                }
+                regex.append(ch);
+            }
+        }
+        regex.append('$');
+
+        return candidate.matches(regex.toString());
+    }
     //set Inventory Setup
     private void setInventorySetup(InventorySetup inventorySetup) {
         Microbot.getConfigManager().setConfiguration(
