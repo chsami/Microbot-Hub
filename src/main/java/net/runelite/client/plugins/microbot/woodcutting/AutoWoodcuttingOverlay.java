@@ -6,6 +6,7 @@ import net.runelite.api.Skill;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
+import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingTree;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.LineComponent;
@@ -97,10 +98,15 @@ public class AutoWoodcuttingOverlay extends OverlayPanel {
                         .build());
             }
             // Current tree
-            if (config.TREE() != null) {
+            WoodcuttingTree tree = plugin.getSelectedTree();
+            if (tree != null) {
+                String treeLabel = tree.toString();
+                if (config.progressiveMode()) {
+                    treeLabel += " (Progressive)";
+                }
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Tree:")
-                        .right(config.TREE().toString())
+                        .right(treeLabel)
                         .rightColor(HIGHLIGHT_COLOR)
                         .build());
             }
