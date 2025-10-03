@@ -27,7 +27,7 @@ import java.time.Instant;
         tags = {"bossing", "pvm", "moneymaking", "combat", "microbot"},
         authors = "The Funk",
         version = MoonsOfPerilPlugin.version,
-        minClientVersion = "2.0.0",
+        minClientVersion = "2.0.14",
         iconUrl = "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -35,7 +35,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class MoonsOfPerilPlugin extends Plugin {
-    static final String version = "1.0.1";
+    static final String version = "1.0.2";
     @Inject
     private MoonsOfPerilConfig config;
     @Provides
