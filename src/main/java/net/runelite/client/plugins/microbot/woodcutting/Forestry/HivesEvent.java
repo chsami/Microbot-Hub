@@ -14,6 +14,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
+import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingTree;
 
 import java.awt.event.KeyEvent;
 import java.util.HashSet;
@@ -40,7 +41,8 @@ public class HivesEvent implements BlockingEvent {
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;
             var beehives = Rs2Npc.getNpcs(x -> x.getId() == net.runelite.api.gameval.NpcID.GATHERING_EVENT_BEES_BEEBOX_1 || x.getId() == net.runelite.api.gameval.NpcID.GATHERING_EVENT_BEES_BEEBOX_2);
-            return beehives.findAny().isPresent() && Rs2Inventory.count(plugin.config.TREE().getLogID()) > 1;    
+            WoodcuttingTree tree = plugin.getSelectedTree();
+            return beehives.findAny().isPresent() && tree != null && Rs2Inventory.count(tree.getLogID()) > 1;
         } catch (Exception e) {
             log.error("HivesEvent: Exception in validate method", e);
             return false;
@@ -51,7 +53,8 @@ public class HivesEvent implements BlockingEvent {
     public boolean execute() {
         plugin.currentForestryEvent = ForestryEvents.BEE_HIVE;
         completedBeehives.clear();
-        initialLogCount = Rs2Inventory.count(plugin.config.TREE().getLogID());
+        WoodcuttingTree tree = plugin.getSelectedTree();
+        initialLogCount = tree == null ? 0 : Rs2Inventory.count(tree.getLogID());
         
         log.info("Starting beehive event with {} logs", initialLogCount);
         Rs2Walker.setTarget(null); // stop walking, stop moving to bank for example
@@ -110,24 +113,25 @@ public class HivesEvent implements BlockingEvent {
             }
             
             // interact with the beehive
-            int currentLogCount = Rs2Inventory.count(plugin.config.TREE().getLogID());
+            WoodcuttingTree treeType = plugin.getSelectedTree();
+            int currentLogCount = treeType == null ? 0 : Rs2Inventory.count(treeType.getLogID());
             if (currentLogCount <= 1) {
                 log.info("Insufficient logs remaining ({}) to continue building", currentLogCount);
                 break;
             }
-            
+
             log.info("Building beehive {} (logs: {})", targetBeehive.getIndex(), currentLogCount);
             if (Rs2Npc.interact(targetBeehive, "Build")) {
                 // wait for interaction to start
                 sleepUntil(() -> Rs2Player.isInteracting() || Rs2Player.isAnimating(), 3000);
-                
+
                 // wait for building action to complete with timeout
                 boolean buildCompleted = sleepUntil(() -> !Rs2Player.isInteracting() && !Rs2Player.isAnimating(), 15000);
-                
+
                 if (buildCompleted) {
-                    int newLogCount = Rs2Inventory.count(plugin.config.TREE().getLogID());
+                    int newLogCount = treeType == null ? 0 : Rs2Inventory.count(treeType.getLogID());
                     if (newLogCount < currentLogCount) {
-                        log.info("Successfully contributed logs to beehive {} ({} -> {} logs)", 
+                        log.info("Successfully contributed logs to beehive {} ({} -> {} logs)",
                                 targetBeehive.getIndex(), currentLogCount, newLogCount);
                     }
                     
@@ -151,7 +155,8 @@ public class HivesEvent implements BlockingEvent {
             }
         }
         
-        int finalLogCount = Rs2Inventory.count(plugin.config.TREE().getLogID());
+        WoodcuttingTree finalTree = plugin.getSelectedTree();
+        int finalLogCount = finalTree == null ? 0 : Rs2Inventory.count(finalTree.getLogID());
         int logsUsed = initialLogCount - finalLogCount;
         log.info("Beehive event completed. Logs used: {}, Beehives worked on: {}", logsUsed, completedBeehives.size());
         
