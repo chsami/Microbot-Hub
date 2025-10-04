@@ -36,12 +36,12 @@
         "version": "1.0.1",
         "minClientVersion": "2.0.13",
         "authors": [
-            "Unknown Author"
+            "TaF"
         ],
-        "iconUrl": "",
-        "cardUrl": "",
+        "iconUrl": "https://chsami.github.io/Microbot-Hub/GemCrabKillerPlugin/assets/GemStoneCrab.png",
+        "cardUrl": "https://chsami.github.io/Microbot-Hub/GemCrabKillerPlugin/assets/GemStoneCrab.png",
         "disable": false,
-        "sha256": "4af3d6dd2420e7a546b228a2c28a474e2406cbaee2ff1637c854cd3fd6f4c868",
+        "sha256": "0f398fa5d804d4e8117600479ca6e09d55db989d0eabe862ad6ce7265010139f",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gemcrabkillerplugin/1.0.1/gemcrabkillerplugin-1.0.1.jar"
     },
     {
@@ -1261,18 +1261,23 @@
         "description": "Kills SandCrab & resets",
         "tags": [
             "Combat",
-            "microbot"
+            "microbot",
+            "sand",
+            "crab",
+            "sandcrab",
+            "attack",
+            "kill"
         ],
-        "version": "1.4.2",
-        "minClientVersion": "2.0.13",
+        "version": "1.4.3",
+        "minClientVersion": "2.0.14",
         "authors": [
             "Unknown Author"
         ],
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "fb3d98bcd4aa2dba9f672e27bd11e231bfe0731e03df5f45afdde7b343f4d298",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/sandcrabplugin/1.4.2/sandcrabplugin-1.4.2.jar"
+        "sha256": "41fbb2de5a787b05ae7288ef9aa545fd47804326b90c0426f9668f732ad7890e",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/sandcrabplugin/1.4.3/sandcrabplugin-1.4.3.jar"
     },
     {
         "internalName": "FornBirdhouseRunsPlugin",
@@ -2166,16 +2171,17 @@
             "pvp",
             "Netoxic"
         ],
-        "version": "1.0.3",
+        "version": "1.0.4",
         "minClientVersion": "2.0.0",
         "authors": [
-            "Unknown Author"
+            "eXioStorm",
+            "Netoxic"
         ],
         "iconUrl": "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/card.png",
         "disable": false,
-        "sha256": "781daef3c76969116b67b4815d1791fdba2318fcce33a7ddd869b7ce961589fd",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/playermonitorplugin/1.0.3/playermonitorplugin-1.0.3.jar"
+        "sha256": "9a50495ab47389d629307ec8a362695e13110f7adf3bac2996c4cfa098f22253",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/playermonitorplugin/1.0.4/playermonitorplugin-1.0.4.jar"
     },
     {
         "internalName": "BonesToBananasPlugin",
@@ -2945,15 +2951,15 @@
             "combat",
             "microbot"
         ],
-        "version": "1.0.1",
-        "minClientVersion": "2.0.0",
+        "version": "1.0.2",
+        "minClientVersion": "2.0.14",
         "authors": [
             "The Funk"
         ],
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/card.png",
         "disable": false,
-        "sha256": "63dd3a2e053d64b86c9d554da8d54fbdbaf60e6905f1653fdf3a35da7408ffc3",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/moonsofperilplugin/1.0.1/moonsofperilplugin-1.0.1.jar"
+        "sha256": "740dee9a97d754865f791f6ba369be6a02f47f2dc5917600697f3558b72ecdfe",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/moonsofperilplugin/1.0.2/moonsofperilplugin-1.0.2.jar"
     }
 ]

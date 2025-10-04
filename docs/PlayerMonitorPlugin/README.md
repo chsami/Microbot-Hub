@@ -14,13 +14,15 @@ A tool to automatically log out based on user configuration.
 
 ---
 
-
 ## Configuration
 
 ### Plugin Settings
-- **LITE-MODE (PVP AREAS ONLY)**  
-  - Logs out if someone in radius can attack you.
+- **LITE-MODE (PVP AREAS ONLY):**
+  -   Logs out if someone in radius can attack you.
+
 ---
+
 ## Known Issues
 - Takes longer than usual to log out immediately after teleporting, ie. after teleporting with Burning Amulet enemy players will have a small time-window where they can attack you even if you're out of combat.
+
 ---
