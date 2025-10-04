@@ -275,11 +275,11 @@ public class WildySaferScript extends Script {
     }
 
     private boolean equipmentIsPrepared() {
-        if (config.attackStyle() == MAGIC && Rs2Equipment.isEquipped(STAFF_OF_FIRE, WEAPON)) {
+        if (config.attackStyle() == MAGIC && Rs2Equipment.isWearing(STAFF_OF_FIRE)) {
         return true;
         }
 
-        return config.attackStyle() == RANGE && Rs2Equipment.isEquipped(MAPLE_SHORTBOW, WEAPON) && Rs2Equipment.isEquipped(MITHRIL_ARROW, AMMO);
+        return config.attackStyle() == RANGE && Rs2Equipment.isWearing(MAPLE_SHORTBOW) && Rs2Equipment.isWearing(MITHRIL_ARROW);
     }
 
     /// /// reserved for anti-pk logic /// ///
@@ -615,7 +615,7 @@ public class WildySaferScript extends Script {
                     return;
                 }
 
-                if (!Rs2Equipment.isNaked()) {
+                if (!Rs2Equipment.isWearing()) {
                     Rs2Bank.depositEquipment();
                     sleep(400,900);
                 }
@@ -630,7 +630,7 @@ public class WildySaferScript extends Script {
         if (config.attackStyle() == RANGE) {
 
             if (!isEquippedWithRequiredItemsRange()) {
-                if (!Rs2Equipment.isNaked()) {
+                if (!Rs2Equipment.isWearing()) {
                     Rs2Bank.depositEquipment();
                     Rs2Bank.withdrawX(MITHRIL_ARROW, config.mithrilArrowAmount());
                     sleep(400,800);
@@ -684,11 +684,11 @@ public class WildySaferScript extends Script {
     private boolean isEquippedWithRequiredItems() {
         int capeId = config.cape().getItemId();
         // Check if player is wearing the required items
-        return Rs2Equipment.hasEquipped(AMULET_OF_MAGIC)
-                && Rs2Equipment.hasEquipped(STAFF_OF_FIRE)
-                && Rs2Equipment.hasEquipped(capeId)
-                && Rs2Equipment.hasEquipped(LEATHER_BOOTS)
-                && Rs2Equipment.hasEquipped(LEATHER_VAMBRACES);
+        return Rs2Equipment.isWearing(AMULET_OF_MAGIC)
+                && Rs2Equipment.isWearing(STAFF_OF_FIRE)
+                && Rs2Equipment.isWearing(capeId)
+                && Rs2Equipment.isWearing(LEATHER_BOOTS)
+                && Rs2Equipment.isWearing(LEATHER_VAMBRACES);
     }
 
 
@@ -697,12 +697,12 @@ public class WildySaferScript extends Script {
         int torsoId = config.rangedTorso().getItemId();
         int chapsId = config.rangedChaps().getItemId();
         int capeId = config.cape().getItemId();
-        return Rs2Equipment.hasEquipped(amuletId)
-                && Rs2Equipment.hasEquipped(chapsId)
-                && Rs2Equipment.hasEquipped(capeId)
-                && Rs2Equipment.hasEquipped(torsoId)
-                && Rs2Equipment.hasEquipped(LEATHER_BOOTS)
-                && Rs2Equipment.hasEquipped(LEATHER_VAMBRACES);
+        return Rs2Equipment.isWearing(amuletId)
+                && Rs2Equipment.isWearing(chapsId)
+                && Rs2Equipment.isWearing(capeId)
+                && Rs2Equipment.isWearing(torsoId)
+                && Rs2Equipment.isWearing(LEATHER_BOOTS)
+                && Rs2Equipment.isWearing(LEATHER_VAMBRACES);
     }
 
     private void prepareSchedulerStart() {

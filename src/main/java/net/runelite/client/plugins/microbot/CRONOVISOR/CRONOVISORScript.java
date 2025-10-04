@@ -4,6 +4,7 @@ import net.runelite.api.Client;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.Player;
+import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -15,6 +16,9 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import org.apache.commons.lang3.RandomUtils;
 
 import javax.inject.Inject;
@@ -41,7 +45,20 @@ public class CRONOVISORScript extends Script {
     }
 
     private Player localPlayer;
+
+    // Áreas de trabajo
     private final WorldArea GEarea = new WorldArea(3153, 3478, 24, 23, 0);
+    private final WorldArea FEROXarea = new WorldArea(3125, 3618, 30, 34, 0);
+    private final WorldArea LUMBYarea = new WorldArea(3200, 3200, 30, 30, 0);
+    private final WorldArea WILDYarea = new WorldArea(3284, 3847, 10, 10, 0);
+    private final WorldArea Artioarea = new WorldArea(3219, 3785, 10, 10, 0);
+    private final WorldArea Line30Wilderarea = new WorldArea(3283, 3760, 10, 10, 0);
+    private final WorldArea Faladorarea = new WorldArea(3045, 3377, 10, 10, 0);
+    private final WorldArea Rimmingtonarea = new WorldArea(2957, 3224, 10, 10, 0);
+
+    // IDs de items
+    private static final int CLAN_CLOAK = 25712;
+    private static final int CLAN_VEXILLUM = 25721;
 
     public boolean run(CRONOVISORConfig config) {
 
@@ -54,7 +71,8 @@ public class CRONOVISORScript extends Script {
                 if (client == null || !Microbot.isLoggedIn()) return;
 
                 if (config.recruit()) {
-                    checkAndReturnToArea();
+                    handleBankItems(); // Manejo de banco y equipamiento
+                    checkAndReturnToArea(config);
 
                     List<Rs2PlayerModel> localPlayers = Rs2Player.getPlayers(p -> true)
                             .collect(Collectors.toList());
@@ -108,62 +126,134 @@ public class CRONOVISORScript extends Script {
         return true;
     }
 
+    private void handleBankItems() {
+        // Verificar si los items están equipados
+        boolean cloakEquipped = Rs2Equipment.isWearing(CLAN_CLOAK)
+                && Rs2Equipment.isWearing(EquipmentInventorySlot.CAPE);
+
+        boolean vexillumEquipped = Rs2Equipment.isWearing(CLAN_VEXILLUM)
+                && Rs2Equipment.isWearing(EquipmentInventorySlot.SHIELD);
+
+        //boolean cloakEquipped = Rs2Equipment.isEquipped(CLAN_CLOAK, EquipmentInventorySlot.CAPE);
+        //boolean vexillumEquipped = Rs2Equipment.isEquipped(CLAN_VEXILLUM, EquipmentInventorySlot.SHIELD);
+
+        // Verificar si los items están en el inventario
+        boolean cloakInInventory = Rs2Inventory.contains(CLAN_CLOAK);
+        boolean vexillumInInventory = Rs2Inventory.contains(CLAN_VEXILLUM);
+
+        System.out.println("DEBUG: cloakEquipped=" + cloakEquipped + ", cloakInInventory=" + cloakInInventory
+                + ", vexillumEquipped=" + vexillumEquipped + ", vexillumInInventory=" + vexillumInInventory);
+
+        // Si ambos items están equipados o en inventario, no abrir el banco
+        if ((cloakEquipped || cloakInInventory) && (vexillumEquipped || vexillumInInventory)) {
+            // Equipar items si están en inventario
+            if (!cloakEquipped && cloakInInventory) {
+                Rs2Inventory.interact(CLAN_CLOAK, "Wear");
+                sleep(500);
+            }
+            if (!vexillumEquipped && vexillumInInventory) {
+                Rs2Inventory.interact(CLAN_VEXILLUM, "Wear");
+                sleep(500);
+            }
+            return; // nada más que hacer
+        }
+
+        // Abrir banco solo si falta algún item **y está disponible en el banco**
+        boolean needBank = false;
+
+        if ((!cloakEquipped && !cloakInInventory) && Rs2Bank.hasItem(CLAN_CLOAK)) needBank = true;
+        if ((!vexillumEquipped && !vexillumInInventory) && Rs2Bank.hasItem(CLAN_VEXILLUM)) needBank = true;
+
+        if (!needBank) {
+            System.out.println("DEBUG: No items missing or not in bank. Skipping bank.");
+            return;
+        }
+
+        // Abrir banco
+        if (!Rs2Bank.isOpen()) {
+            Rs2Bank.openBank();
+            sleepUntil(Rs2Bank::isOpen, 3000);
+        }
+
+        // Retirar y equipar items que falten
+        if (!cloakEquipped && Rs2Bank.hasItem(CLAN_CLOAK)) {
+            Rs2Bank.withdrawAndEquip(CLAN_CLOAK);
+            sleepUntil(() ->
+                            Rs2Equipment.isWearing(CLAN_CLOAK)
+                                    && Rs2Equipment.isWearing(EquipmentInventorySlot.CAPE),
+                    3000);
+        }
+
+        if (!vexillumEquipped && Rs2Bank.hasItem(CLAN_VEXILLUM)) {
+            Rs2Bank.withdrawAndEquip(CLAN_VEXILLUM);
+            sleepUntil(() ->
+                            Rs2Equipment.isWearing(CLAN_VEXILLUM)
+                                    && Rs2Equipment.isWearing(EquipmentInventorySlot.SHIELD),
+                    3000);
+        }
+
+
+        // Cerrar banco
+        if (Rs2Bank.isOpen()) {
+            Rs2Bank.closeBank();
+            sleep(500);
+        }
+    }
+
+
+    // Resto del código permanece igual
     private void sendRandomMessage(CRONOVISORConfig config) {
         List<String> messages = new ArrayList<>();
 
-        // Cargar mensajes según idioma
-        if (config.language() == CRONOVISORConfig.LanguageOption.English) {
+        if (config.language() == CRONOVISORConfig.LanguageOption.English
+                || config.language() == CRONOVISORConfig.LanguageOption.Both) {
             if (config.enableMessage1()) messages.add(config.customMessage1_en());
             if (config.enableMessage2()) messages.add(config.customMessage2_en());
             if (config.enableMessage3()) messages.add(config.customMessage3_en());
             if (config.enableMessage4()) messages.add(config.customMessage4_en());
-        } else {
+            if (config.enableMessage5() && !config.customMessage5_en().isEmpty()) messages.add(config.customMessage5_en());
+        }
+
+        if (config.language() == CRONOVISORConfig.LanguageOption.Spanish
+                || config.language() == CRONOVISORConfig.LanguageOption.Both) {
             if (config.enableMessage1()) messages.add(config.customMessage1_es());
             if (config.enableMessage2()) messages.add(config.customMessage2_es());
             if (config.enableMessage3()) messages.add(config.customMessage3_es());
             if (config.enableMessage4()) messages.add(config.customMessage4_es());
+            if (config.enableMessage5() && !config.customMessage5_es().isEmpty()) messages.add(config.customMessage5_es());
         }
 
         if (messages.isEmpty()) return;
 
-        // Elegir mensaje aleatorio
         String message = messages.get(random.nextInt(messages.size()));
-
-        // Variaciones de texto
         message = addTextVariations(message);
 
-        // Emoji aleatorio
         if (random.nextBoolean()) {
             String[] emojis = {"🔥", "⚔️", "💀", "✅", "🚀", "🌍"};
             message += " " + emojis[random.nextInt(emojis.length)];
         }
 
-        // Limitar a 80 caracteres
-        if (message.length() > 80) {
-            message = message.substring(0, 80);
-        }
+        if (message.length() > 80) message = message.substring(0, 80);
 
         // Cambiar canal según configuración
         switch (config.chatType()) {
             case ALL:
-                Rs2Keyboard.typeString(""); // abrir chat global
+                Rs2Keyboard.typeString("");
                 Rs2Keyboard.enter();
                 break;
             case CHANNEL:
-                Rs2Keyboard.typeString("/"); // Channel
+                Rs2Keyboard.typeString("/");
                 break;
             case CLAN:
-                Rs2Keyboard.typeString("//"); // friends
+                Rs2Keyboard.typeString("//");
                 break;
         }
 
-        // Enviar mensaje
         Rs2Keyboard.typeString(message);
         Rs2Keyboard.enter();
         sleep(1000);
     }
 
-    // Variaciones mínimas en letras
     private String addTextVariations(String input) {
         Map<Character, String[]> variations = new HashMap<>();
         variations.put('a', new String[]{"a", "â", "à", "á", "ä"});
@@ -179,28 +269,45 @@ public class CRONOVISORScript extends Script {
             if (variations.containsKey(Character.toLowerCase(ch)) && random.nextInt(100) < 15) {
                 String[] opts = variations.get(Character.toLowerCase(ch));
                 sb.append(opts[random.nextInt(opts.length)]);
-            } else {
-                sb.append(ch);
-            }
+            } else sb.append(ch);
         }
         return sb.toString();
     }
 
-    private boolean isInArea() {
-        return GEarea.contains(localPlayer.getWorldLocation());
-    }
-
-    public void checkAndReturnToArea() {
-        if (!isInArea()) {
-            WorldPoint randomPoint = getRandomPointInArea();
-            Rs2Walker.walkTo(randomPoint);
+    public void checkAndReturnToArea(CRONOVISORConfig config) {
+        switch (config.location()) {
+            case Ferox:
+                if (!FEROXarea.contains(localPlayer.getWorldLocation())) Rs2Walker.walkTo(getRandomPoint(FEROXarea));
+                break;
+            case Lumbridge:
+                if (!LUMBYarea.contains(localPlayer.getWorldLocation())) Rs2Walker.walkTo(getRandomPoint(LUMBYarea));
+                break;
+            case Callisto:
+                if (!WILDYarea.contains(localPlayer.getWorldLocation())) Rs2Walker.walkTo(getRandomPoint(WILDYarea));
+                break;
+            case Artio:
+                if (!Artioarea.contains(localPlayer.getWorldLocation())) Rs2Walker.walkTo(getRandomPoint(Artioarea));
+                break;
+            case Line30Wilder:
+                if (!Line30Wilderarea.contains(localPlayer.getWorldLocation())) Rs2Walker.walkTo(getRandomPoint(Line30Wilderarea));
+                break;
+            case Falador:
+                if (!Faladorarea.contains(localPlayer.getWorldLocation())) Rs2Walker.walkTo(getRandomPoint(Faladorarea));
+                break;
+            case Rimmington:
+                if (!Rimmingtonarea.contains(localPlayer.getWorldLocation())) Rs2Walker.walkTo(getRandomPoint(Rimmingtonarea));
+                break;
+            case GrandExchange:
+            default:
+                if (!GEarea.contains(localPlayer.getWorldLocation())) Rs2Walker.walkTo(getRandomPoint(GEarea));
+                break;
         }
     }
 
-    private WorldPoint getRandomPointInArea() {
-        int x = GEarea.getX() + random.nextInt(GEarea.getWidth());
-        int y = GEarea.getY() + random.nextInt(GEarea.getHeight());
-        return new WorldPoint(x, y, GEarea.getPlane());
+    private WorldPoint getRandomPoint(WorldArea area) {
+        int x = area.getX() + random.nextInt(area.getWidth());
+        int y = area.getY() + random.nextInt(area.getHeight());
+        return new WorldPoint(x, y, area.getPlane());
     }
 
     public void inviteToClanWithRetry(String playerName) {
@@ -245,18 +352,14 @@ public class CRONOVISORScript extends Script {
     private MenuAction findRecruitAction() {
         MenuEntry[] entries = Microbot.getClient().getMenuEntries();
         for (MenuEntry entry : entries) {
-            if ("Recruit".equals(entry.getOption())) {
-                return entry.getType();
-            }
+            if ("Recruit".equals(entry.getOption())) return entry.getType();
         }
         return null;
     }
 
     @Override
     public void shutdown() {
-        if (mainScheduledFuture != null && !mainScheduledFuture.isCancelled()) {
-            mainScheduledFuture.cancel(true);
-        }
+        if (mainScheduledFuture != null && !mainScheduledFuture.isCancelled()) mainScheduledFuture.cancel(true);
         System.out.println("CRONOVISOR Script shutdown");
     }
 }

@@ -470,7 +470,7 @@ public class WildyKillerScript extends Script {
         }
 
         if (!scheduledFuture.isDone()) {
-            if (!Rs2Equipment.hasEquipped(STAFF_OF_FIRE)) {
+            if (!Rs2Equipment.isWearing(STAFF_OF_FIRE)) {
                 Rs2Inventory.equip(STAFF_OF_FIRE);
             }
         }
@@ -566,7 +566,7 @@ public class WildyKillerScript extends Script {
     }
 
     private void lure() {
-        if (!Rs2Equipment.hasEquipped(MAPLE_SHORTBOW) && Rs2Equipment.hasEquipped(ADAMANT_ARROW)) {
+        if (!Rs2Equipment.isWearing(MAPLE_SHORTBOW) && Rs2Equipment.isWearing(ADAMANT_ARROW)) {
             Rs2Inventory.interact(MAPLE_SHORTBOW, "Wield");
         }
         Rs2Player.eatAt(70);
@@ -604,13 +604,15 @@ public class WildyKillerScript extends Script {
                 Rs2Inventory.interact(RUNE_SCIMITAR, "Wield");
             } else if (isTargetPlayerFarCasting(target)) {
                 if (!castWindBlast(target)) {
-                    if (Rs2Equipment.hasEquippedSlot(AMMO)
-                            || Rs2Equipment.isEquipped(ADAMANT_ARROW, AMMO)) {
+                    if (Rs2Equipment.isWearing(ADAMANT_ARROW)) {
                         if (Rs2Inventory.contains(MAPLE_LONGBOW)) {
                             Rs2Inventory.interact(MAPLE_LONGBOW, "Wield");
                             setCombatStyle(target);
                         }
                     }
+
+
+
                 }
             } else if (Rs2Inventory.contains(MAPLE_SHORTBOW)) {
                 Rs2Inventory.interact(MAPLE_SHORTBOW, "Wield");
@@ -694,18 +696,22 @@ public class WildyKillerScript extends Script {
                     sleepUntil(() -> hitsplatApplied || MossKillerPlugin.isPlayerSnared());
                     eatingMethod(target);
                 } else if (!castWindBlast(target)) {
-                    if (Rs2Equipment.hasEquippedSlot(AMMO)
-                            || Rs2Equipment.isEquipped(ADAMANT_ARROW, AMMO)) {
+                    if (Rs2Equipment.isWearing(EquipmentInventorySlot.AMMO) // verifica si hay algo en la ranura AMMO
+                            || Rs2Equipment.isWearing(ADAMANT_ARROW)) { // verifica si el ADAMANT_ARROW está equipado en cualquier slot (probablemente AMMO)
+
                         if (Rs2Inventory.contains(MAPLE_SHORTBOW) && mossKillerPlugin.lobsterEaten()) {
                             Rs2Inventory.interact(MAPLE_SHORTBOW, "Wield");
                             setCombatStyle(target);
                             Rs2Walker.setTarget(null);
                             scheduledFuture.cancel(true);
-                            if(!Rs2Player.isInteracting()) {attack(target);}
+                            if (!Rs2Player.isInteracting()) {
+                                attack(target);
+                            }
                             sleepUntil(() -> hitsplatApplied || MossKillerPlugin.isPlayerSnared() || healthIsLow());
                             eatingMethod(target);
                         }
                     }
+
                 }
 
             }
@@ -847,13 +853,14 @@ public class WildyKillerScript extends Script {
                     Rs2Inventory.interact(RUNE_SCIMITAR, "Wield");
                 }
             } else if (!castWindBlast(target) && !isTargetPlayerFarCasting(target)) {
-                if (Rs2Equipment.hasEquippedSlot(AMMO)
-                        || Rs2Equipment.isEquipped(ADAMANT_ARROW, AMMO)) {
+                if (Rs2Equipment.isWearing(EquipmentInventorySlot.AMMO) // hay algo en la ranura AMMO
+                        || Rs2Equipment.isWearing(ADAMANT_ARROW)) {     // o está equipado el ADAMANT_ARROW
                     if (Rs2Inventory.contains(MAPLE_SHORTBOW)) {
                         Rs2Inventory.interact(MAPLE_SHORTBOW, "Wield");
                         setCombatStyle(target);
                     }
                 }
+
             } else if (isTargetPlayerFarCasting(target) && !Rs2Inventory.contains(DEATH_RUNE)) {
                 if (Rs2Inventory.contains(MAPLE_LONGBOW)) {
                     Rs2Inventory.interact(MAPLE_LONGBOW, "Wield");
@@ -873,8 +880,8 @@ public class WildyKillerScript extends Script {
                     Rs2Inventory.interact(RUNE_SCIMITAR, "Wield");
                 }
             } else if (!castWindBlast(target) && !isTargetPlayerFarCasting(target)) {
-                if (Rs2Equipment.hasEquippedSlot(AMMO)
-                        || Rs2Equipment.isEquipped(ADAMANT_ARROW, AMMO)) {
+                if (Rs2Equipment.isWearing(EquipmentInventorySlot.AMMO)
+                        || Rs2Equipment.isWearing(ADAMANT_ARROW)) {
                     if (Rs2Inventory.contains(MAPLE_SHORTBOW)) {
                         Rs2Inventory.interact(MAPLE_SHORTBOW, "Wield");
                         setCombatStyle(target);
@@ -892,9 +899,10 @@ public class WildyKillerScript extends Script {
         if (target != null && target.getOverheadIcon() != null && target.getCombatLevel() < 88) {
 
             if (useMelee && weHaveEnoughEnergyToPersue()) {
-                if (!Rs2Equipment.hasEquipped(RUNE_SCIMITAR)) {
+                if (!Rs2Equipment.isWearing(RUNE_SCIMITAR)) {
                     Rs2Inventory.interact(RUNE_SCIMITAR, "Wield");
                 }
+
                 if (localPlayer.getInteracting() != target &&
                         getPlayersInCombatLevelRange().contains(target) &&
                         !mossKillerPlugin.lobsterEaten()) {
@@ -917,8 +925,8 @@ public class WildyKillerScript extends Script {
 
                 if (!castWindBlastOverhead(target)) {
                     if (isTargetPlayerFar(target)) {
-                        if (Rs2Equipment.hasEquippedSlot(AMMO)
-                                || Rs2Equipment.isEquipped(ADAMANT_ARROW, AMMO)) {
+                        if (Rs2Equipment.isWearing(EquipmentInventorySlot.AMMO)
+                                || Rs2Equipment.isWearing(ADAMANT_ARROW)) {
                             if (!isTargetPlayerFarCasting(target)) {
                                 if (Rs2Inventory.contains(MAPLE_SHORTBOW)) {
                                     Rs2Inventory.interact(MAPLE_SHORTBOW, "Wield");
@@ -941,8 +949,8 @@ public class WildyKillerScript extends Script {
                 }
             }
 
-            if (useRange && Rs2Equipment.hasEquipped(ADAMANT_ARROW)) {
-                if (!Rs2Equipment.hasEquipped(MAPLE_SHORTBOW) && Rs2Equipment.hasEquipped(ADAMANT_ARROW)) {
+            if (useRange && Rs2Equipment.isWearing(ADAMANT_ARROW)) {
+                if (!Rs2Equipment.isWearing(MAPLE_SHORTBOW) && Rs2Equipment.isWearing(ADAMANT_ARROW)) {
                     Rs2Inventory.interact(MAPLE_SHORTBOW, "Wield");
                     eatingMethod(target);
                     if (scheduledFuture.isDone()) setCombatStyle(target);
@@ -962,7 +970,7 @@ public class WildyKillerScript extends Script {
                     sleepUntil(() -> hitsplatApplied || MossKillerPlugin.isPlayerSnared() || healthIsLow());
                     eatingMethod(target);
                 }
-            } else if (useRange && !Rs2Equipment.hasEquipped(ADAMANT_ARROW)) {castWindBlast(target);}
+            } else if (useRange && !Rs2Equipment.isWearing(ADAMANT_ARROW)) {castWindBlast(target);}
 
             if (useMage && MossKillerPlugin.isPlayerSnared()) {
                 if (doWeFocusCamera(target)) {
@@ -971,8 +979,8 @@ public class WildyKillerScript extends Script {
                 //snared and they're praying range
                 if (!castWindBlastOverhead(target)) {
                     if (isTargetPlayerFar(target)) {
-                        if (Rs2Equipment.hasEquippedSlot(AMMO)
-                                || Rs2Equipment.isEquipped(ADAMANT_ARROW, AMMO)) {
+                        if (Rs2Equipment.isWearing(EquipmentInventorySlot.AMMO)
+                                || Rs2Equipment.isWearing(ADAMANT_ARROW)) {
                             if (!isTargetPlayerFarCasting(target)) {
                                 if (Rs2Inventory.contains(MAPLE_SHORTBOW)) {
                                     Rs2Inventory.interact(MAPLE_SHORTBOW, "Wield");
@@ -1009,8 +1017,8 @@ public class WildyKillerScript extends Script {
                     if (isTargetPlayerFar(target)
                             && !weHaveEnoughEnergyToPersue()
                             && !isTargetPlayerFarCasting(target)) {
-                        if (Rs2Equipment.hasEquippedSlot(AMMO)
-                                || Rs2Equipment.isEquipped(ADAMANT_ARROW, AMMO)) {
+                        if (Rs2Equipment.isWearing(EquipmentInventorySlot.AMMO)
+                                || Rs2Equipment.isWearing(ADAMANT_ARROW)) {
                             if (Rs2Inventory.contains(MAPLE_SHORTBOW)) {
                                 Rs2Inventory.interact(MAPLE_SHORTBOW, "Wield");
                                 eatingMethod(target);
@@ -1038,14 +1046,15 @@ public class WildyKillerScript extends Script {
                 Microbot.log("Target is Far and You are Snared");
                 if (isTargetPlayerFarCasting(target)) {
                     if (!castWindBlast(target)) {
-                        if (Rs2Inventory.contains(MAPLE_LONGBOW) && Rs2Equipment.hasEquippedSlot(AMMO)) {
+                        if (Rs2Inventory.contains(MAPLE_LONGBOW) && Rs2Equipment.isWearing(EquipmentInventorySlot.AMMO)) {
                             Rs2Inventory.interact(MAPLE_LONGBOW, "Wield");
                             setCombatStyle(target);
                             eatingMethod(target);
                         }
+
                     }
                 } else if (!useMage) {
-                    if (Rs2Equipment.hasEquippedSlot(AMMO)) {
+                    if (Rs2Equipment.isWearing(EquipmentInventorySlot.AMMO)) {
                         if (Rs2Inventory.contains(MAPLE_SHORTBOW)) {
                             Rs2Inventory.interact(MAPLE_SHORTBOW, "Wield");
                             eatingMethod(target);
@@ -1340,11 +1349,11 @@ public class WildyKillerScript extends Script {
         // Priority list: Bryophyta's staff first, then Fire staff, then any other staff
         if (Rs2Inventory.hasItem(BRYOPHYTAS_STAFF_UNCHARGED)) {
             Rs2Inventory.interact(BRYOPHYTAS_STAFF_UNCHARGED, "Wield");
-            sleepUntil(() -> Rs2Equipment.hasEquipped(BRYOPHYTAS_STAFF_UNCHARGED), 2000);
+            sleepUntil(() -> Rs2Equipment.isWearing(BRYOPHYTAS_STAFF_UNCHARGED), 2000);
         }
         else if (Rs2Inventory.hasItem(STAFF_OF_FIRE)) {
             Rs2Inventory.interact(STAFF_OF_FIRE, "Wield");
-            sleepUntil(() -> Rs2Equipment.hasEquipped(STAFF_OF_FIRE), 2000);
+            sleepUntil(() -> Rs2Equipment.isWearing(STAFF_OF_FIRE), 2000);
         }
     }
 
@@ -1353,8 +1362,8 @@ public class WildyKillerScript extends Script {
      */
     private void equipBestAvailableStaff() {
         // Check what we currently have equipped
-        boolean bryoStaffEquipped = Rs2Equipment.hasEquipped(BRYOPHYTAS_STAFF_UNCHARGED);
-        boolean fireStaffEquipped = Rs2Equipment.hasEquipped(STAFF_OF_FIRE);
+        boolean bryoStaffEquipped = Rs2Equipment.isWearing(BRYOPHYTAS_STAFF_UNCHARGED);
+        boolean fireStaffEquipped = Rs2Equipment.isWearing(STAFF_OF_FIRE);
         boolean anyStaffEquipped = hasAnyStaffEquipped();
 
         // If Bryo staff is already equipped, we're good
@@ -1365,14 +1374,14 @@ public class WildyKillerScript extends Script {
         // If we have Bryo staff in inventory, equip it (regardless of what's currently equipped)
         if (Rs2Inventory.hasItem(BRYOPHYTAS_STAFF_UNCHARGED)) {
             Rs2Inventory.interact(BRYOPHYTAS_STAFF_UNCHARGED, "Wield");
-            sleepUntil(() -> Rs2Equipment.hasEquipped(BRYOPHYTAS_STAFF_UNCHARGED), 2000);
+            sleepUntil(() -> Rs2Equipment.isWearing(BRYOPHYTAS_STAFF_UNCHARGED), 2000);
             return;
         }
 
         // If fire staff isn't equipped but is in inventory, and we don't have any staff equipped
         if (!fireStaffEquipped && Rs2Inventory.hasItem(STAFF_OF_FIRE) && !anyStaffEquipped) {
             Rs2Inventory.interact(STAFF_OF_FIRE, "Wield");
-            sleepUntil(() -> Rs2Equipment.hasEquipped(STAFF_OF_FIRE), 2000);
+            sleepUntil(() -> Rs2Equipment.isWearing(STAFF_OF_FIRE), 2000);
         }
     }
 
@@ -1385,8 +1394,9 @@ public class WildyKillerScript extends Script {
      */
     private boolean hasAnyStaffEquipped() {
         // Check if any item with "staff" in its name is equipped
-        return Rs2Equipment.hasEquippedContains("staff");
+        return Rs2Equipment.isWearing("staff", false);
     }
+
 
     public boolean doWeFocusCamera(Rs2PlayerModel target) {
         if (!Rs2Camera.isTileOnScreen(target.getLocalLocation())) {
@@ -1571,7 +1581,7 @@ public class WildyKillerScript extends Script {
 
         for (String item : items) {
             if (Rs2Bank.hasItem(item)) {
-                Rs2Bank.withdrawOne(item, 1);
+                Rs2Bank.withdrawOne(item);
                 Rs2Inventory.waitForInventoryChanges(2500);
                 if (Rs2Inventory.hasItem(item)) {
                     Rs2Inventory.interact(item, "Wear");
@@ -1583,12 +1593,13 @@ public class WildyKillerScript extends Script {
     }
 
     private void verifyEquipment(String item) {
-        if (!Rs2Equipment.hasEquippedContains(item)) {
+        if (!Rs2Equipment.isWearing(item, false)) {
             System.out.println("Failed to equip: " + item);
         } else {
             System.out.println("Successfully equipped: " + item);
         }
     }
+
 
     public void handleMossGiants() {
 
@@ -1880,7 +1891,7 @@ public class WildyKillerScript extends Script {
                     TOTAL_FEROX_ENCLAVE.contains((playerLocation))
                             && mossKillerPlugin.currentTarget == null) {
                 Microbot.log("You're in the wilderness and I don't get the problem");
-                if (Rs2Equipment.isNaked()) {
+                if (Rs2Equipment.isWearing()) {
                     state = MossKillerState.WALK_TO_BANK;
                 } else { Microbot.log("You've got equipment on, let's just reset inventory at ferox bank");
                 Rs2Bank.walkToBank(BankLocation.FEROX_ENCLAVE);
@@ -1961,7 +1972,7 @@ public class WildyKillerScript extends Script {
 
         if (CASTLE_WARS_AREA.contains(playerLocation)
                 && Rs2Inventory.containsAll(AIR_RUNE, LAW_RUNE)
-                && Rs2Equipment.isEquipped(STAFF_OF_FIRE, WEAPON)) {
+                && Rs2Equipment.isWearing(STAFF_OF_FIRE)) {
             teleportAndStopWalking();
         }
 
@@ -1973,7 +1984,7 @@ public class WildyKillerScript extends Script {
 
         sleep(6200);
 
-        if (LUMBRIDGE_AREA.contains(playerLocation) || Rs2Equipment.isNaked()) {
+        if (LUMBRIDGE_AREA.contains(playerLocation) || Rs2Equipment.isWearing()) {
             state = MossKillerState.WALK_TO_BANK;
         }
 
@@ -2003,22 +2014,23 @@ public class WildyKillerScript extends Script {
             Microbot.log("Finished the 3 minute sleepUntil bank is open");
             Rs2Bank.depositAll();
             sleepUntil(Rs2Inventory::isEmpty);
-            if (Rs2Equipment.isNaked()) {
+            if (Rs2Equipment.isWearing()) {
                 sleep(1000, 1500);
                 Rs2Bank.withdrawX(AIR_RUNE, 100);
                 Rs2Inventory.waitForInventoryChanges(2500);
                 Rs2Bank.withdrawX(MIND_RUNE, 100);
                 sleepUntil(() -> Rs2Inventory.contains(MIND_RUNE));
                 Rs2Inventory.waitForInventoryChanges(2500);
-                Rs2Bank.withdrawOne("Staff of fire", 1);
+                Rs2Bank.withdrawOne("Staff of fire");
                 Rs2Inventory.waitForInventoryChanges(2500);
-                if (!Rs2Equipment.isEquipped(STAFF_OF_FIRE, WEAPON)) {
+                if (!Rs2Equipment.isWearing(STAFF_OF_FIRE)) {
                     if (Rs2Inventory.hasItem(STAFF_OF_FIRE)) {
                         Rs2Inventory.interact(STAFF_OF_FIRE, "Wield");
                     } else {
                         System.out.println("Staff of fire is not in the inventory.");
                     }
                 }
+
                 sleep(900, 3500);
                 Rs2Bank.closeBank();
                 sleep(900, 3500);
@@ -2074,7 +2086,7 @@ public class WildyKillerScript extends Script {
                 }
 
 
-                if (!Rs2Equipment.hasEquipped(RUNE_CHAINBODY)) {
+                if (!Rs2Equipment.isWearing(RUNE_CHAINBODY)) {
                     OutfitHelper.equipOutfit(OutfitHelper.OutfitType.MOSS_MAGE);
                     //equipItems();
 
@@ -2210,7 +2222,7 @@ public class WildyKillerScript extends Script {
         }
 
         sleep(1200);
-        if (Rs2Equipment.isNaked()) {
+        if (Rs2Equipment.isWearing()) {
             state = MossKillerState.BANK;
         }
 
@@ -2274,7 +2286,7 @@ public class WildyKillerScript extends Script {
                     shutdown();
                 }
                 if (Microbot.getClient().getRealSkillLevel(Skill.RANGED) >= 30 &&
-                        !Rs2Equipment.isEquipped(ADAMANT_ARROW, AMMO)) {
+                        !Rs2Equipment.isWearing(ADAMANT_ARROW)) {
                     sleep(1500, 2500);
                     Rs2Inventory.interact(ADAMANT_ARROW, "Wield");
                 }

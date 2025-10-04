@@ -15,7 +15,7 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginConstants.MOCROSOFT + "Tutorial Island",
+        name = PluginConstants.MOCROSOFT + "Tutorial Island 1",
         description = "Microbot Tutorial Island plugin",
         authors = { "Mocrosoft" },
         version = TutorialIslandPlugin.version,

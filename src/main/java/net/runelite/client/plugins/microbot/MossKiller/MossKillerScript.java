@@ -786,7 +786,7 @@ public class MossKillerScript extends Script {
                 Rs2Inventory.hasItem(LAW_RUNE) &&
                 Rs2Inventory.hasItem(FIRE_RUNE) &&
                 Rs2Inventory.hasItemAmount(FOOD, 25) &&
-                !Rs2Equipment.isNaked()) {
+                !Rs2Equipment.isWearing()) {
             state = MossKillerState.WALK_TO_MOSS_GIANTS;
             return;
         } else if (bossMode && !Rs2Inventory.hasItemAmount(FOOD, 22)) {
