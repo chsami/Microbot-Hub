@@ -40,6 +40,7 @@ public class BloodMoonHandler implements BaseHandler {
     private static final WorldPoint[] ATTACK_TILES = Locations.bloodAttackTiles();
     private final int sigilNpcID = GameObjects.SIGIL_NPC_ID.getID();
     private final boolean enableBoss;
+    private final boolean DisableGroundCancelClick;
     private final Rs2InventorySetup equipmentNormal;
     private static final WorldPoint afterRainTile = Locations.BLOOD_ATTACK_6.getWorldPoint();
     public boolean arrived = false;
@@ -51,6 +52,7 @@ public class BloodMoonHandler implements BaseHandler {
         this.equipmentNormal = equipmentNormal;
         this.boss = new net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler(cfg);
         this.debugLogging = cfg.debugLogging();
+        this.DisableGroundCancelClick = cfg.DisableGroundCancelClick();
     }
 
     @Override
@@ -206,9 +208,9 @@ public class BloodMoonHandler implements BaseHandler {
             }
             else if (bloodPoolTick == 6) {
                 if (debugLogging) {Microbot.log("Clicking on ground to stop attacking");}
-                Rs2Walker.walkFastCanvas(attackTile, true);
+                if (!DisableGroundCancelClick) {Rs2Walker.walkFastCanvas(attackTile, true);}
             }
-            sleep(100);   // OnGameTick method in MoonsOfPerilPlugin.java handles the game ticks
+            sleep(333);   // OnGameTick method in MoonsOfPerilPlugin.java handles the game ticks
         }
     }
 
