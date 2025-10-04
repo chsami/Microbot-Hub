@@ -2,7 +2,7 @@ name: CI Build (Pull Requests)
 
 on:
   pull_request:
-    branches: [ development ]
+    branches: [ freedarwuin ]
   workflow_dispatch:
 
 permissions:
