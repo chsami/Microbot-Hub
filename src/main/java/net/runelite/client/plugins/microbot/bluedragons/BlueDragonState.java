@@ -5,5 +5,6 @@ public enum BlueDragonState {
     TRAVEL_TO_DRAGONS,
     FIGHTING,
     LOOTING,
-    STARTING
+    STARTING,
+    ESCAPE
 }

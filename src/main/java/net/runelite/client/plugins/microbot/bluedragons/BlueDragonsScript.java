@@ -14,11 +14,14 @@ import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2RunePouch;
+import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
 import javax.inject.Inject;
 import java.util.List;
@@ -45,15 +48,6 @@ public class BlueDragonsScript extends Script {
     private static final int MIN_WORLD = 302;
     private static final int MAX_WORLD = 580;
 
-    private boolean isInventoryFull() {
-        boolean simpleFull = Rs2Inventory.isFull();
-        if (!simpleFull) {
-            return Rs2Inventory.getEmptySlots() <= 0;
-        }
-
-        return true;
-    }
-
     public boolean run(BlueDragonsConfig config) {
         this.config = config;
         currentState = BlueDragonState.STARTING;
@@ -71,6 +65,7 @@ public class BlueDragonsScript extends Script {
             try {
                 if (!super.run() || !Microbot.isLoggedIn()) return;
 
+
                 if (isInventoryFull() && currentState != BlueDragonState.BANKING && currentState != BlueDragonState.STARTING) {
                     logOnceToChat("Global safety: Inventory is full. Switching to BANKING state.", false, config);
                     currentState = BlueDragonState.BANKING;
@@ -81,8 +76,13 @@ public class BlueDragonsScript extends Script {
                         determineStartingState(config);
                         break;
 
+                    case ESCAPE:
+                        // TODO implement escape with tab and/or teleport - faster than webwalker and can have multiple triggers
+                        handleEscape();
+                        break;
+
                     case BANKING:
-                        handleBanking(config);
+                        HandleBankingSimple(config);
                         break;
 
                     case TRAVEL_TO_DRAGONS:
@@ -129,80 +129,11 @@ public class BlueDragonsScript extends Script {
         return true;
     }
 
-    private void handleBanking(BlueDragonsConfig config) {
-        logOnceToChat("Traveling to Falador West bank for depositing looted items.", true, config);
-        logOnceToChat("Current location: " + Microbot.getClient().getLocalPlayer().getWorldLocation(), true, config);
-
-        if (Rs2Bank.walkToBankAndUseBank(BankLocation.FALADOR_WEST)) {
-            logOnceToChat("Opened bank. Depositing loot.", true, config);
-            // Core drops
-            Rs2Bank.depositAll("Blue dragonhide");
-            Rs2Bank.depositAll("Dragon bones");
-            Rs2Bank.depositAll("Scaly blue dragonhide");
-            Rs2Bank.depositAll("Ensouled dragon head");
-
-            // Equipment drops
-            Rs2Bank.depositAll("Steel platelegs");
-            Rs2Bank.depositAll("Mithril axe");
-            Rs2Bank.depositAll("Steel battleaxe");
-            Rs2Bank.depositAll("Mithril spear");
-            Rs2Bank.depositAll("Adamant full helm");
-            Rs2Bank.depositAll("Mithril kiteshield");
-            Rs2Bank.depositAll("Rune dagger");
-            Rs2Bank.depositAll("Rune javelin");
-            Rs2Bank.depositAll("Rune spear");
-            Rs2Bank.depositAll("Shield left half");
-            Rs2Bank.depositAll("Dragon spear");
-
-            // Runes
-            Rs2Bank.depositAll("Nature rune");
-            Rs2Bank.depositAll("Fire rune");
-
-            // Herbs
-            Rs2Bank.depositAll("Grimy guam leaf");
-            Rs2Bank.depositAll("Grimy marrentill");
-            Rs2Bank.depositAll("Grimy tarromin");
-            Rs2Bank.depositAll("Grimy harralander");
-            Rs2Bank.depositAll("Grimy ranarr weed");
-            Rs2Bank.depositAll("Grimy irit leaf");
-            Rs2Bank.depositAll("Grimy avantoe");
-            Rs2Bank.depositAll("Grimy kwuarm");
-            Rs2Bank.depositAll("Grimy cadantine");
-            Rs2Bank.depositAll("Grimy lantadyme");
-            Rs2Bank.depositAll("Grimy dwarf weed");
-
-            // Resources and gems
-            Rs2Bank.depositAll("Coins");
-            Rs2Bank.depositAll("Adamantite ore");
-            Rs2Bank.depositAll("Bass");
-            Rs2Bank.depositAll("Uncut sapphire");
-            Rs2Bank.depositAll("Uncut emerald");
-            Rs2Bank.depositAll("Uncut ruby");
-            Rs2Bank.depositAll("Uncut diamond");
-
-            // Talismans and keys
-            Rs2Bank.depositAll("Chaos talisman");
-            Rs2Bank.depositAll("Nature talisman");
-            Rs2Bank.depositAll("Loop half of key");
-            Rs2Bank.depositAll("Tooth half of key");
-            Rs2Bank.depositAll("Tooth half of key (moon key)");
-            Rs2Bank.depositAll("Brimstone key");
-            Rs2Bank.depositAll("Frozen tear");
-
-            // Clue scrolls
-            Rs2Bank.depositAll("Clue scroll (hard)");
-            logOnceToChat("Withdrawing food for combat.", true, config);
-            withdrawFood(config);
-            Rs2Bank.closeBank();
-            logOnceToChat("Banking complete. Transitioning to travel state.", true, config);
-            currentState = BlueDragonState.TRAVEL_TO_DRAGONS;
-        } else {
-            logOnceToChat("Failed to reach the bank.", true, config);
-        }
-    }
+    ///  --- End of Engine Code ----------------------------------------------------------------------------------------
+    ///-----------------------------------------------------------------------------------------------------------------
 
     private void determineStartingState(BlueDragonsConfig config) {
-        boolean hasTeleport = hasTeleportToFalador();
+        boolean hasTeleport = hasTeleportToFalador2();
         boolean hasAgilityOrKey = Microbot.getClient().getRealSkillLevel(Skill.AGILITY) >= 70 || hasDustyKey();
 
         if (!hasTeleport) {
@@ -219,6 +150,19 @@ public class BlueDragonsScript extends Script {
             logOnceToChat("Starting conditions not met. Stopping the plugin.", false, config);
             shutdown();
         }
+    }
+
+    private boolean isInventoryFull() {
+        boolean simpleFull = Rs2Inventory.isFull();
+        if (!simpleFull) {
+            return Rs2Inventory.getEmptySlots() <= 0;
+        }
+
+        return true;
+    }
+
+    private boolean hasDustyKey() {
+        return Rs2Inventory.contains("Dusty key");
     }
 
     private boolean hasTeleportToFalador() {
@@ -253,8 +197,106 @@ public class BlueDragonsScript extends Script {
         return inInventory || inRunePouch;
     }
 
-    private boolean hasDustyKey() {
-        return Rs2Inventory.contains("Dusty key");
+
+    private boolean hasTeleportToFalador2() {
+        logOnceToChat("Checking for Falador teleport or required runes.", true, config);
+
+        if (Rs2Inventory.contains("Falador teleport")) {
+            logOnceToChat("Found Falador teleport in inventory.", true, config);
+            return true;
+        }
+
+        if (Rs2Magic.canCast(MagicAction.FALADOR_TELEPORT)){
+            return true;
+        }
+
+        return false;
+    };
+
+    private void handleEscape(){
+        Rs2Magic.cast(MagicAction.FALADOR_TELEPORT);
+    }
+
+
+    private void HandleBankingSimple(BlueDragonsConfig config) {
+        logOnceToChat("Traveling to Falador West bank for depositing looted items.", true, config);
+        logOnceToChat("Current location: " + Microbot.getClient().getLocalPlayer().getWorldLocation(), true, config);
+
+        if (Rs2Bank.walkToBankAndUseBank(BankLocation.FALADOR_WEST)) {
+
+            logOnceToChat("Opened bank. Depositing loot.", true, config);
+            Rs2Bank.depositAll();
+            Rs2Inventory.waitForInventoryChanges(600);
+            sleep(450,750);
+
+            logOnceToChat("Checking food for combat.", true, config);
+            int foodCount = Rs2Inventory.getInventoryFood().size();
+            Rs2Bank.withdrawX(config.foodType().getId(), config.foodAmount() - foodCount);
+            Rs2Inventory.waitForInventoryChanges(600);
+            Rs2Bank.closeBank();
+            logOnceToChat("Banking complete. Transitioning to travel state.", true, config);
+            currentState = BlueDragonState.TRAVEL_TO_DRAGONS;
+        } else {
+            logOnceToChat("Failed to reach the bank.", true, config);
+        }
+
+    }
+
+    private void withdrawFood(BlueDragonsConfig config) {
+        Rs2Food food = config.foodType();
+        int requiredAmount = config.foodAmount();
+
+        if (food == null || requiredAmount <= 0) {
+            logOnceToChat("Invalid food type or amount in configuration.", true, config);
+            return;
+        }
+
+        int currentFoodInInventory = Rs2Inventory.count(food.getName());
+        int deficit = requiredAmount - currentFoodInInventory;
+
+        if (deficit <= 0) {
+            logOnceToChat("Inventory already contains the required amount of " + food.getName() + ".", true, config);
+            return;
+        }
+
+        if (!Rs2Bank.isOpen()) {
+            logOnceToChat("Bank is not open. Cannot withdraw food.", true, config);
+            return;
+        }
+
+        boolean bankLoaded = sleepUntil(() -> !Rs2Bank.bankItems().isEmpty(), 5000);
+        if (!bankLoaded) {
+            logOnceToChat("Bank items did not load in time.", true, config);
+            return;
+        }
+
+        if (!Rs2Bank.hasItem(food.getName())) {
+            logOnceToChat(food.getName() + " not found in the bank. Stopping script.", true, config);
+            shutdown();
+            return;
+        }
+
+        logOnceToChat("Attempting to withdraw " + deficit + "x " + food.getName(), false, config);
+
+        int retryCount = 0;
+        final int maxRetries = 3;
+        boolean success = false;
+
+        while (retryCount < maxRetries && !success) {
+            success = Rs2Bank.withdrawX(food.getName(), deficit, true);
+            if (!success) {
+                retryCount++;
+                sleep(500);
+                logOnceToChat("Retrying withdrawal of " + food.getName() + " (" + retryCount + ")", true, config);
+            }
+        }
+
+        if (!success) {
+            logOnceToChat("Unable to withdraw " + food.getName() + " after multiple attempts. Stopping script.", true, config);
+            shutdown();
+        } else {
+            logOnceToChat("Successfully withdrew " + deficit + "x " + food.getName(), false, config);
+        }
     }
 
     private void handleTravelToDragons() {
@@ -357,7 +399,7 @@ public class BlueDragonsScript extends Script {
 
     private boolean checkForLoot() {
         String[] lootItems = {
-                "Dragon bones", "Blue dragonhide", "Ensouled dragon head",
+                "Dragon bones",
                 "Dragon spear", "Shield left half", "Scaly blue dragonhide"
         };
 
@@ -393,7 +435,7 @@ public class BlueDragonsScript extends Script {
         }
 
         if (config.lootMiscItems() && !isInventoryFull()) {
-            Rs2GroundItem.lootItemBasedOnValue(new LootingParameters(config.lootValueThreshold(), 100000, 8, 1, 1, false, true));
+            Rs2GroundItem.lootItemBasedOnValue(new LootingParameters(config.lootValueThreshold(), 9999999, 8, 1, 1, false, true));
         }
 
         if (config.lootDragonhide() && !isInventoryFull()) {
@@ -439,62 +481,7 @@ public class BlueDragonsScript extends Script {
         return false;
     }
 
-    private void withdrawFood(BlueDragonsConfig config) {
-        Rs2Food food = config.foodType();
-        int requiredAmount = config.foodAmount();
 
-        if (food == null || requiredAmount <= 0) {
-            logOnceToChat("Invalid food type or amount in configuration.", true, config);
-            return;
-        }
-
-        int currentFoodInInventory = Rs2Inventory.count(food.getName());
-        int deficit = requiredAmount - currentFoodInInventory;
-
-        if (deficit <= 0) {
-            logOnceToChat("Inventory already contains the required amount of " + food.getName() + ".", true, config);
-            return;
-        }
-
-        if (!Rs2Bank.isOpen()) {
-            logOnceToChat("Bank is not open. Cannot withdraw food.", true, config);
-            return;
-        }
-
-        boolean bankLoaded = sleepUntil(() -> !Rs2Bank.bankItems().isEmpty(), 5000);
-        if (!bankLoaded) {
-            logOnceToChat("Bank items did not load in time.", true, config);
-            return;
-        }
-
-        if (!Rs2Bank.hasItem(food.getName())) {
-            logOnceToChat(food.getName() + " not found in the bank. Stopping script.", true, config);
-            shutdown();
-            return;
-        }
-
-        logOnceToChat("Attempting to withdraw " + deficit + "x " + food.getName(), false, config);
-
-        int retryCount = 0;
-        final int maxRetries = 3;
-        boolean success = false;
-
-        while (retryCount < maxRetries && !success) {
-            success = Rs2Bank.withdrawX(food.getName(), deficit, true);
-            if (!success) {
-                retryCount++;
-                sleep(500);
-                logOnceToChat("Retrying withdrawal of " + food.getName() + " (" + retryCount + ")", true, config);
-            }
-        }
-
-        if (!success) {
-            logOnceToChat("Unable to withdraw " + food.getName() + " after multiple attempts. Stopping script.", true, config);
-            shutdown();
-        } else {
-            logOnceToChat("Successfully withdrew " + deficit + "x " + food.getName(), false, config);
-        }
-    }
 
     private Rs2NpcModel getAvailableDragon() {
         Rs2NpcModel dragon = Rs2Npc.getNpc("Blue dragon");
@@ -611,6 +598,19 @@ public class BlueDragonsScript extends Script {
         return targetWorld;
     }
 
+
+
+    public void updateConfig(BlueDragonsConfig config) {
+        logOnceToChat("Applying new configuration to Blue Dragons script.", true, config);
+        this.config = config;
+
+        if (overlay != null) {
+            overlay.setConfig(config);
+        }
+
+        withdrawFood(config);
+    }
+
     void logOnceToChat(String message, boolean isDebug, BlueDragonsConfig config) {
         if (message == null || message.trim().isEmpty()) {
             message = "Unknown log message (null or empty)...";
@@ -624,19 +624,14 @@ public class BlueDragonsScript extends Script {
         }
     }
 
-    public void updateConfig(BlueDragonsConfig config) {
-        logOnceToChat("Applying new configuration to Blue Dragons script.", true, config);
-        this.config = config;
-
-        if (overlay != null) {
-            overlay.setConfig(config);
-        }
-
-        withdrawFood(config);
+    private boolean underAttack() {
+        return Rs2Player.isAnimating(5000);
     }
+
 
     public void shutdown() {
         super.shutdown();
+        Rs2Walker.setTarget(null);
         Rs2Walker.disableTeleports = false;
         if (overlay != null) {
             overlay.resetStats();
@@ -645,7 +640,5 @@ public class BlueDragonsScript extends Script {
         currentTargetId = null;
     }
 
-    private boolean underAttack() {
-        return Rs2Player.isAnimating(5000);
-    }
+
 }

@@ -52,7 +52,7 @@ public interface BlueDragonsConfig extends Config {
 
     @ConfigItem(keyName = "foodAmount", name = "Amount of Food", description = "Specify the number of food items to withdraw", section = foodSection)
     default int foodAmount() {
-        return 3;
+        return 1;
     }
 
     @ConfigItem(keyName = "eatAtHealthPercent", name = "Eat at Health Percentage", description = "Eat food when health drops below this percentage", section = foodSection)
