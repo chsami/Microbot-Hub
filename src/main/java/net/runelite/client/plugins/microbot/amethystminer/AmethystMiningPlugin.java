@@ -28,8 +28,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class AmethystMiningPlugin extends Plugin {
-    public static final String version = "1.2.1";
-    private static final Logger log = LoggerFactory.getLogger(AmethystMiningPlugin.class);
+    public static final String version = "1.2.2";
     @Inject
     private OverlayManager overlayManager;
     @Inject
