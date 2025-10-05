@@ -480,7 +480,7 @@ public class TotemHandler {
         }
 
         // Get the spirit animal's NPC model
-        NPC animalNpc = Rs2Npc.getNpcs()
+        Rs2NpcModel animalNpc = Rs2Npc.getNpcs()
                 .filter(npc -> npc.getId() == animal.getNpcId())
                 .findFirst()
                 .orElse(null);

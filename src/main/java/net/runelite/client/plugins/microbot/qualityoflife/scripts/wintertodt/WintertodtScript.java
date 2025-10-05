@@ -20,6 +20,7 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
@@ -33,8 +34,8 @@ public class WintertodtScript extends Script {
     public static QoLConfig config;
     public static GameObject unlitBrazier;
     public static GameObject brokenBrazier;
-    public static NPC pyromancer;
-    public static NPC incapitatedPyromancer;
+    public static Rs2NpcModel pyromancer;
+    public static Rs2NpcModel incapitatedPyromancer;
     public static boolean helpedIncapitatedPyromancer = false;
     public static boolean isWintertodtAlive = false;
     public static int wintertodtHp = -1;
@@ -111,11 +112,9 @@ public class WintertodtScript extends Script {
 
     public void onNpcChanged(NpcChanged event) {
         if (event.getNpc().getId() == 7372) {
-            incapitatedPyromancer = event.getNpc();
-
-        }
-        if (event.getNpc().getId() == 7371) {
-            pyromancer = event.getNpc();
+            new Rs2NpcModel(event.getNpc());
+        } else if (event.getNpc().getId() == 7371) {
+            pyromancer = new Rs2NpcModel(event.getNpc());
             incapitatedPyromancer = null;
             if (helpedIncapitatedPyromancer) {
                 if (config.lightUnlitBrazier()) {
@@ -132,20 +131,20 @@ public class WintertodtScript extends Script {
         if (event.getNpc().getId() == 7372) {
             if (incapitatedPyromancer != null) {
                 if (incapitatedPyromancer.getWorldLocation().distanceTo2D(Rs2Player.getWorldLocation()) > event.getNpc().getWorldLocation().distanceTo2D(Rs2Player.getWorldLocation())) {
-                    incapitatedPyromancer = event.getNpc();
+                    incapitatedPyromancer = new Rs2NpcModel(event.getNpc());
                     return;
                 }
             }
-            incapitatedPyromancer = event.getNpc();
+            incapitatedPyromancer = new Rs2NpcModel(event.getNpc());
         }
         if (event.getNpc().getId() == 7371) {
             if (pyromancer != null) {
                 if (pyromancer.getWorldLocation().distanceTo2D(Rs2Player.getWorldLocation()) > event.getNpc().getWorldLocation().distanceTo2D(Rs2Player.getWorldLocation())) {
-                    pyromancer = event.getNpc();
+                    pyromancer = new Rs2NpcModel(event.getNpc());
                     return;
                 }
             }
-            pyromancer = event.getNpc();
+            pyromancer = new Rs2NpcModel(event.getNpc());
         }
     }
 

@@ -181,7 +181,7 @@ public class InventoryUtils {
      * @return true if has enough space
      */
     public static boolean hasInventorySpace(int additionalItems) {
-        return Rs2Inventory.getEmptySlots() >= additionalItems;
+        return Rs2Inventory.emptySlotCount() >= additionalItems;
     }
 
     /**
@@ -215,7 +215,7 @@ public class InventoryUtils {
                 fletchingType,
                 getBowCount(),
                 getValeOfferingCount(),
-                28 - Rs2Inventory.getEmptySlots(),
+                28 - Rs2Inventory.emptySlotCount(),
                 28);
     }
 

@@ -40,7 +40,7 @@ public class HighAlchScript extends Script {
                 {
                     if (Rs2Tab.getCurrentTab() != InterfaceTab.INVENTORY)
                     {
-                        Rs2Tab.switchToInventoryTab();
+                        Rs2Tab.switchTo(InterfaceTab.INVENTORY);
                     }
                     return;
                 }

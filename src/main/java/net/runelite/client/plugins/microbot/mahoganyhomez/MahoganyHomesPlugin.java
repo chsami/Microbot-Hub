@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class MahoganyHomesPlugin extends Plugin {
-    public static final String version = "0.0.6";
+    public static final String version = "0.0.7";
     private static final List<Integer> PLANKS = Arrays.asList(ItemID.PLANK, ItemID.OAK_PLANK, ItemID.TEAK_PLANK, ItemID.MAHOGANY_PLANK);
     private static final List<String> PLANK_NAMES = Arrays.asList("Plank", "Oak plank", "Teak plank", "Mahogany plank");
     private static final Map<Integer, Integer> MAHOGANY_HOMES_REPAIRS = new HashMap<>();

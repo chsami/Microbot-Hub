@@ -42,7 +42,7 @@ public enum State {
     }
 
     public static int getTotalAvailableFishSlots() {
-        return Rs2Inventory.getEmptySlots() + getAllFish();
+        return Rs2Inventory.emptySlotCount() + getAllFish();
     }
 
     public String toString() {

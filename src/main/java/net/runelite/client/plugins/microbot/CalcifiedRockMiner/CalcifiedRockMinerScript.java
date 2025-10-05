@@ -148,7 +148,7 @@ public class CalcifiedRockMinerScript extends Script {
         if (maxPlayers > 0) {
             WorldPoint localLocation = Rs2Player.getWorldLocation();
 
-            long nearbyPlayers = Microbot.getClient().getPlayers().stream()
+            long nearbyPlayers = Microbot.getClient().getTopLevelWorldView().players().stream()
                     .filter(p -> p != null && p != Microbot.getClient().getLocalPlayer())
                     .filter(p -> {
                         return p.getWorldLocation().distanceTo(localLocation) <= 15;

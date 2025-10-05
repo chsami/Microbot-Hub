@@ -14,6 +14,7 @@ import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 
 import java.util.concurrent.TimeUnit;
 
@@ -53,7 +54,7 @@ public class EelFishingScript extends Script {
                 return;
             }
 
-            var fishingspot = findFishingSpot();
+            Rs2NpcModel fishingspot = findFishingSpot();
             if (fishingspot == null) {
                 return;
             }
@@ -76,9 +77,9 @@ public class EelFishingScript extends Script {
 
     }
 
-    private NPC findFishingSpot() {
+    private Rs2NpcModel findFishingSpot() {
         for (int fishingSpotId : getFishingSpotIds(config.fishingSpot())) {
-            NPC fishingspot = Rs2Npc.getNpc(fishingSpotId);
+            Rs2NpcModel fishingspot = Rs2Npc.getNpc(fishingSpotId);
             if (fishingspot != null) {
                 return fishingspot;
             }

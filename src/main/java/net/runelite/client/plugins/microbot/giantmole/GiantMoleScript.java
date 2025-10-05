@@ -26,6 +26,7 @@ import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.security.Login;
@@ -305,9 +306,9 @@ public class GiantMoleScript extends Script
     /**
      * Returns the NPC representing the Giant Mole (via hint arrow).
      */
-    public NPC getMole()
+    public Rs2NpcModel getMole()
     {
-        return Microbot.getClient().getHintArrowNpc();
+        return new Rs2NpcModel(Microbot.getClient().getHintArrowNpc());
     }
 
     /**
@@ -350,7 +351,7 @@ public class GiantMoleScript extends Script
      */
     public void attackMole()
     {
-        var mole = getMole();
+        Rs2NpcModel mole = getMole();
         if (mole != null && !Rs2Combat.inCombat())
         {
             // Mole's "dig" animation is 3314; if it's mid-dig or dead, skip

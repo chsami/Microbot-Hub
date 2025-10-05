@@ -388,10 +388,10 @@ public class BanksBankStanderScript extends Script {
 
     private void depositUnwantedItems(Integer itemId, int quantityMax) {
         if (itemId == null) return;
-        if (config.depositAll() && Rs2Inventory.getEmptySlots() < 28) {
+        if (config.depositAll() && Rs2Inventory.emptySlotCount() < 28) {
             timeValue = System.currentTimeMillis();
             Rs2Bank.depositAll();
-            sleepUntilTrue(() -> Rs2Inventory.getEmptySlots() == 28, 40, 1800);
+            sleepUntilTrue(() -> Rs2Inventory.emptySlotCount() == 28, 40, 1800);
             randomNum = calculateSleepDuration(1);
             if (System.currentTimeMillis() - timeValue < randomNum) {
                 sleep((int) (randomNum - (System.currentTimeMillis() - timeValue)));
@@ -400,14 +400,14 @@ public class BanksBankStanderScript extends Script {
             }
             // we check that the inventory changes in case the player's bank is full so that we don't cause an unintentional loop.
             // also since we're using the method "logout()", we'll also use "this.isRunning()" so people can avoid the logout by turning the plugin off.
-            if (this.isRunning() && Rs2Inventory.getEmptySlots() < 28) {
+            if (this.isRunning() && Rs2Inventory.emptySlotCount() < 28) {
                 Microbot.showMessage("Bank is full, unable to deposit items.");
                 long start = System.currentTimeMillis();
-                while (this.isRunning() && ((System.currentTimeMillis() - start) < 120000) && Rs2Inventory.getEmptySlots() < 28) {
-                    sleepUntilTrue(() -> Rs2Inventory.getEmptySlots() == 28, 1800, 3600);
-                    if (Rs2Inventory.getEmptySlots() == 28) sleep(10000);
+                while (this.isRunning() && ((System.currentTimeMillis() - start) < 120000) && Rs2Inventory.emptySlotCount() < 28) {
+                    sleepUntilTrue(() -> Rs2Inventory.emptySlotCount() == 28, 1800, 3600);
+                    if (Rs2Inventory.emptySlotCount() == 28) sleep(10000);
                 }
-                if (this.isRunning() && Rs2Inventory.getEmptySlots() < 28) {
+                if (this.isRunning() && Rs2Inventory.emptySlotCount() < 28) {
                     sleep(calculateSleepDuration(1));
                     Rs2Player.logout();
                     sleep(calculateSleepDuration(1));
@@ -465,7 +465,7 @@ public class BanksBankStanderScript extends Script {
                 }
             }
         }
-        if (Rs2Inventory.getEmptySlots() < 28) {
+        if (Rs2Inventory.emptySlotCount() < 28) {
             if (!bankExcept.isEmpty()) {
                 Rs2Bank.depositAllExcept(bankExcept.toArray(new Integer[0]));
             } else {

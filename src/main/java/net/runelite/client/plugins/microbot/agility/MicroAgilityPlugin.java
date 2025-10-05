@@ -56,7 +56,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MicroAgilityPlugin extends Plugin implements SchedulablePlugin
 {
-	public static final String version = "1.2.2";
+	public static final String version = "1.2.3";
 	@Inject
 	private MicroAgilityConfig config;
 	@Inject
