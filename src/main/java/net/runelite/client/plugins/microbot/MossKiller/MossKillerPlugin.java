@@ -43,10 +43,10 @@ import static net.runelite.api.HeadIcon.*;
 import static net.runelite.api.ItemID.RUNE_SCIMITAR;
 
 @PluginDescriptor(
-        name = PluginDescriptor.Bee + "Moss Killer",
-        description = "Bee & Mntn's Moss Killer",
-        tags = {"Keys", "Bryophyta", "Mntn", "Bee", "Moss Giants", "F2p"},
-        authors = { "Bee" },
+        name = PluginConstants.CVS + "Moss Killer",
+        description = "CVS & Mntn's Moss Killer",
+        tags = {"Keys", "Bryophyta", "Mntn", "CVS", "Moss Giants", "F2p"},
+        authors = { "CVS" },
         version = MossKillerPlugin.version,
         minClientVersion = "2.0.7",
         cardUrl = "",

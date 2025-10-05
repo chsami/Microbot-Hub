@@ -14,7 +14,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import javax.inject.Inject;
 
 @PluginDescriptor(
-        name = PluginDescriptor.Bee + "Clan CRONOVISOR",
+        name = PluginConstants.CVS + "Clan CRONOVISOR",
         description = "Recruits people at GE to your clan",
         tags = {"recruit", "clan", "type", "keyboard", "typer","Auto-typer", "microbot"},
         authors = { "Mocrosoft" },

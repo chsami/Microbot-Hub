@@ -23,8 +23,7 @@ public class Microbot
             CRONOVISORPlugin.class,
             TutorialIslandPlugin.class,
             PizzaPlugin.class,
-            SummerPiesPlugin.class
-	};
+            SummerPiesPlugin.class};
 
     public static void main(String[] args) throws Exception
     {
