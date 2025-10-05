@@ -37,11 +37,12 @@ import java.util.Scanner;
 import java.util.stream.Collectors;
 
  @PluginDescriptor(
-        version = "1.0.3",
+        version = "1.0.4",
         name = PluginDescriptor.eXioStorm + "Player Monitor",
         enabledByDefault = false,
         minClientVersion = "2.0.0",
         tags = {"wilderness", "skilling", "solo", "pvp", "Netoxic"},
+        authors = { "eXioStorm", "Netoxic" },
         description = "Monitors nearby players and executes emergency actions when detected.",
         isExternal = PluginConstants.IS_EXTERNAL,
         iconUrl = "https://chsami.github.io/Microbot-Hub/PlayerMonitorPlugin/assets/icon.png",

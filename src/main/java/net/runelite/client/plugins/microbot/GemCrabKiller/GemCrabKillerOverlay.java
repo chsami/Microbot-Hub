@@ -34,7 +34,7 @@ public class GemCrabKillerOverlay extends OverlayPanel {
 
     private BufferedImage getCrabImageFromResources() {
         try {
-            var img = ImageUtil.loadImageResource(GemCrabKillerPlugin.class, "/net/runelite/client/plugins/microbot/GemCrabKiller/GemStoneCrab.png");
+            var img = ImageUtil.loadImageResource(GemCrabKillerPlugin.class, "GemStoneCrab.png");
             return ImageUtil.resizeImage(img, 24, 24, true);
         } catch (Exception e) {
             e.printStackTrace();
