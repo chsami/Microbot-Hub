@@ -352,16 +352,16 @@
             "dragons",
             "prayer"
         ],
-        "version": "1.0.0",
-        "minClientVersion": "2.0.13",
+        "version": "1.1.0",
+        "minClientVersion": "2.0.14",
         "authors": [
             "Unknown Author"
         ],
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "d16d4db45583320df0682a478f23cd30b9144d1019193dcfdd9b471d0dbdcb13",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/bluedragonsplugin/1.0.0/bluedragonsplugin-1.0.0.jar"
+        "sha256": "47a0d2e75ffec914170e9c7653a2e534b61b6471dd8f06a5e62c7d6301724d91",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/bluedragonsplugin/1.1.0/bluedragonsplugin-1.1.0.jar"
     },
     {
         "internalName": "EventDismissPlugin",
@@ -440,7 +440,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/CannonballSmelterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/CannonballSmelterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "f80e76a290028b38ca62c2f4e9073412c93fec407635f913affdbfa8f5e219fa",
+        "sha256": "3ad97445319b96357e905ea7d1daa6317cd4dc6cfd2ccba145cb12c2017cc793",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/cannonballsmelterplugin/1.1.0/cannonballsmelterplugin-1.1.0.jar"
     },
     {
@@ -922,7 +922,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "1d797a4b21fbe170f342b817fa555809c6b8f4db4831dfd9d96e762128c0c19e",
+        "sha256": "ccd6615db707a87864845aa3f7c729ffc015c37a44ac95fd82e86b6d0ed0f5b4",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autowoodcuttingplugin/1.7.1/autowoodcuttingplugin-1.7.1.jar"
     },
     {
@@ -1018,7 +1018,7 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.0.6",
+        "version": "2.0.7",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft",
@@ -1027,8 +1027,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "08ed485309e057fba14384b151962440c2eee2dbfea369ac319eb9a50335e2e4",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/aiofighterplugin/2.0.6/aiofighterplugin-2.0.6.jar"
+        "sha256": "f18ddf2350831de5dddad17349746b3f2b2d56a38db3fb4a0c73ff75e34beba3",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/aiofighterplugin/2.0.7/aiofighterplugin-2.0.7.jar"
     },
     {
         "internalName": "ExamplePlugin",
