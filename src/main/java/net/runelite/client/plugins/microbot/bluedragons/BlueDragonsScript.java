@@ -172,7 +172,6 @@ public class BlueDragonsScript extends Script {
             logOnceToChat("Found Falador teleport in inventory.", true, config);
             return true;
         }
-
         int lawRuneId = ItemID.LAWRUNE;
         int waterRuneId = ItemID.WATERRUNE;
         int dustRuneId = ItemID.DUSTRUNE;

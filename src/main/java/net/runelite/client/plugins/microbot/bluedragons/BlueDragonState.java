@@ -8,3 +8,4 @@ public enum BlueDragonState {
     STARTING,
     ESCAPE
 }
+
