@@ -12,6 +12,7 @@ import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
         "2. <b style='color: red;'>MUST</b> have Falador teleport (runes/teletab) <br />" +
         "3. Correct food amount from config <br />" +
         "4. Start with your dusty key in your inventory or have 70 agility <br /> <br />" +
+        "5. Lock Rune pouch or Runes in Inventory at bank, before starting <br /> <br />" +
         "<center>Press <b style='color: green;'>START</b> and enjoy :)</center>")
 public interface BlueDragonsConfig extends Config {
     @ConfigItem(keyName = "startPlugin", name = "Start/Stop the Plugin", description = "This is start or stop the plugin on a toggle")
