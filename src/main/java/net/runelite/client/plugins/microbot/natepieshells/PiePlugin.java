@@ -28,7 +28,7 @@ import java.awt.*;
 )
 @Slf4j
 public class PiePlugin extends Plugin {
-    final static String version = "1.2.0";
+    final static String version = "1.2.1";
 
     @Inject
     private PieConfig config;

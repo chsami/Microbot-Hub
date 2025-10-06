@@ -25,7 +25,7 @@ public class DemonicGorillaLooterScript extends Script {
                 }
                 if (!super.run()) return;
                 if (!Microbot.isLoggedIn()) return;
-                if (Rs2Inventory.isFull() || Rs2Inventory.getEmptySlots() <= minFreeSlots) return;
+                if (Rs2Inventory.isFull() || Rs2Inventory.emptySlotCount() <= minFreeSlots) return;
                 lootItemsOnName(config);
                 if (config.scatterAshes()) {
                     lootAndScatterMalicious();

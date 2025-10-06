@@ -48,7 +48,7 @@ public class FlaxScript extends Script {
 
                 switch (state) {
                     case LOOTING:
-                        if (Rs2Inventory.getEmptySlots() <= config.minFreeSlots()) {
+                        if (Rs2Inventory.emptySlotCount() <= config.minFreeSlots()) {
                             state = LooterState.BANKING;
                             return;
                         }
@@ -98,7 +98,7 @@ public class FlaxScript extends Script {
             init = false;
             return;
         }
-        if (Rs2Inventory.getEmptySlots() <= config.minFreeSlots()) {
+        if (Rs2Inventory.emptySlotCount() <= config.minFreeSlots()) {
             state = LooterState.BANKING;
             init = false;
             return;

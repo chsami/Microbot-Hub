@@ -116,7 +116,7 @@ public class PestControlScript extends Script {
                         }
                     }
                     if (!walkToCenter) {
-                        WorldPoint worldPoint = WorldPoint.fromRegion(Rs2Player.getWorldLocation().getRegionID(), 32, 17, Microbot.getClient().getPlane());
+                        WorldPoint worldPoint = WorldPoint.fromRegion(Rs2Player.getWorldLocation().getRegionID(), 32, 17, Microbot.getClient().getTopLevelWorldView().getPlane());
                         Rs2Walker.walkTo(worldPoint, 3);
                         if (worldPoint.distanceTo(Rs2Player.getWorldLocation()) > 4) {
                             return;
@@ -328,7 +328,7 @@ public class PestControlScript extends Script {
         for (Portal portal : portals) {
             if (!portal.isHasShield() && !portal.getHitPoints().getText().trim().equals("0") && closestAttackablePortal == portal) {
                 if (!Rs2Walker.isCloseToRegion(distanceToPortal, portal.getRegionX(), portal.getRegionY())) {
-                    Rs2Walker.walkTo(WorldPoint.fromRegion(Rs2Player.getWorldLocation().getRegionID(), portal.getRegionX(), portal.getRegionY(), Microbot.getClient().getPlane()), 5);
+                    Rs2Walker.walkTo(WorldPoint.fromRegion(Rs2Player.getWorldLocation().getRegionID(), portal.getRegionX(), portal.getRegionY(), Microbot.getClient().getTopLevelWorldView().getPlane()), 5);
                     attackPortal();
                 } else {
                     attackPortal();

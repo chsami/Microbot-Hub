@@ -155,7 +155,7 @@ public class BlueDragonsScript extends Script {
     private boolean isInventoryFull() {
         boolean simpleFull = Rs2Inventory.isFull();
         if (!simpleFull) {
-            return Rs2Inventory.getEmptySlots() <= 0;
+            return Rs2Inventory.emptySlotCount() <= 0;
         }
 
         return true;

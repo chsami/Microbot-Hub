@@ -289,7 +289,7 @@ public class OuraniaScript extends Script
 							}
 						}
 
-						int requiredEssence = Rs2Inventory.getEmptySlots() + Rs2Inventory.getRemainingCapacityInPouches();
+						int requiredEssence = Rs2Inventory.emptySlotCount() + Rs2Inventory.getRemainingCapacityInPouches();
 
 						if (!Rs2Bank.hasBankItem(config.essence().getItemId(), requiredEssence))
 						{

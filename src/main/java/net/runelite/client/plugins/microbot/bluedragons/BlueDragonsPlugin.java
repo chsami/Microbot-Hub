@@ -27,7 +27,7 @@ import javax.inject.Inject;
 )
 public class BlueDragonsPlugin extends Plugin {
 
-    public static final String version = "1.1.0";
+    public static final String version = "1.1.1";
     static final String CONFIG = "bluedragons";
 
     @Inject

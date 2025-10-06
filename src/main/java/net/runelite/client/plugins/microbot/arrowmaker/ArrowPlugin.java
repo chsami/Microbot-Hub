@@ -27,7 +27,7 @@ import java.awt.*;
 )
 @Slf4j
 public class ArrowPlugin extends Plugin {
-    final static String version = "1.0.0";
+    final static String version = "1.0.1";
     @Inject
     private ArrowConfig config;
     @Inject

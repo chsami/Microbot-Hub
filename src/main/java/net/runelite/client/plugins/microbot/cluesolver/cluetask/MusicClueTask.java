@@ -12,6 +12,7 @@ import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 import net.runelite.client.plugins.cluescrolls.clues.MusicClue;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -142,7 +143,7 @@ public class MusicClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        NPC npc = Rs2Npc.getNpc(npcName);
+        Rs2NpcModel npc = Rs2Npc.getNpc(npcName);
         if (npc == null) {
             log.warn("NPC {} not found near the clue location.", npcName);
             return false;
