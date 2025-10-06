@@ -46,7 +46,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 public class OuraniaPlugin extends Plugin
 {
 
-	static final String version = "1.4.2";
+	static final String version = "1.4.3";
 
 	@Inject
 	private OuraniaConfig config;

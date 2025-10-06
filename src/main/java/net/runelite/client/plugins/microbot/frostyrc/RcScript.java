@@ -12,6 +12,7 @@ import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.frostyrc.enums.RuneType;
 import net.runelite.client.plugins.microbot.frostyrc.enums.State;
 import net.runelite.client.plugins.microbot.frostyrc.enums.Teleports;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
@@ -200,7 +201,7 @@ public class RcScript extends Script {
 			BreakHandlerScript.setLockState(true);
 		}
 
-        Rs2Tab.switchToInventoryTab();
+        Rs2Tab.switchTo(InterfaceTab.INVENTORY);
 
 		if (Rs2Inventory.hasDegradedPouch()) {
 			Rs2Magic.repairPouchesWithLunar();

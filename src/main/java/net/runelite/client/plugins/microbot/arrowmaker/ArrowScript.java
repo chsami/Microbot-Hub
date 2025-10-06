@@ -4,6 +4,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.arrowmaker.ArrowConfig;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.concurrent.TimeUnit;
@@ -45,7 +46,7 @@ public class ArrowScript extends Script {
     }
     private void handleSleep(){
         sleepUntilOnClientThread(() -> Rs2Widget.getWidget(17694733) != null);
-        keyPress('1');
+        Rs2Keyboard.keyPress('1');
         sleep(12000,14000);
     }
 }

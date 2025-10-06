@@ -413,7 +413,7 @@ public class MahoganyHomesScript extends Script {
                                 Rs2Inventory.waitForInventoryChanges(1000);
                             }
                         }, 20000, 1000);
-                        if (Rs2Inventory.getEmptySlots() > 0)
+                        if (Rs2Inventory.emptySlotCount() > 0)
                             Rs2Bank.openBank();
                             Rs2Bank.withdrawAll(plugin.getConfig().currentTier().getPlankSelection().getPlankId());
                             Rs2Bank.closeBank();
@@ -425,7 +425,7 @@ public class MahoganyHomesScript extends Script {
                         }
                         
                         // Calculate if we'll have enough space for planks after steel bars
-                        int freeSlots = Rs2Inventory.getEmptySlots();
+                        int freeSlots = Rs2Inventory.emptySlotCount();
                         int currentPlanks = planksInInventory() + planksInPlankSack();
                         int additionalPlanksNeeded = planksNeeded() - currentPlanks;
                         

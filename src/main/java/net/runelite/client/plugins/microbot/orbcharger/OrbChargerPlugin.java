@@ -40,7 +40,7 @@ import java.util.List;
 )
 @Slf4j
 public class OrbChargerPlugin extends Plugin {
-    public final static String version = "1.1.0";
+    public final static String version = "1.1.1";
     
     @Inject
     private net.runelite.client.plugins.microbot.orbcharger.OrbChargerConfig config;

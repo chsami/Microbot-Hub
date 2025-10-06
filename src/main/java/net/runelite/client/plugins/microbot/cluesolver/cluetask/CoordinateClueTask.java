@@ -15,6 +15,7 @@ import net.runelite.client.plugins.cluescrolls.clues.Enemy;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.concurrent.ExecutorService;
@@ -133,7 +134,7 @@ public class CoordinateClueTask extends ClueTask {
     }
 
     private boolean engageEnemy() {
-        NPC targetNpc = Rs2Npc.getNpc(enemy.getText());
+        Rs2NpcModel targetNpc = Rs2Npc.getNpc(enemy.getText());
         if (targetNpc == null) {
             log.warn("Expected enemy not found.");
             completeTask(false);

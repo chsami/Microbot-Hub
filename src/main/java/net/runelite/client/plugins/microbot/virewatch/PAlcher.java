@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.virewatch;
 
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
@@ -54,7 +55,7 @@ public class PAlcher extends Script {
         Rs2Magic.alch(item);
         sleepUntil(() -> !Rs2Inventory.contains(item));
         plugin.alchingDrop = false;
-        Rs2Tab.switchToInventoryTab();
+        Rs2Tab.switchTo(InterfaceTab.INVENTORY);
 
     }
 
@@ -68,7 +69,7 @@ public class PAlcher extends Script {
         sleep(300);
         Rs2Keyboard.keyPress(KeyEvent.VK_1);
         plugin.alchingDrop = false;
-        Rs2Tab.switchToInventoryTab();
+        Rs2Tab.switchTo(InterfaceTab.INVENTORY);
     }
     @Override
     public void shutdown() {

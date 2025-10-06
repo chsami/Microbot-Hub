@@ -14,6 +14,7 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -52,7 +53,7 @@ public class AerialFishingScript extends Script {
             }
 
 
-            NPC fishingspot = findFishingSpot();
+            Rs2NpcModel fishingspot = findFishingSpot();
             if (fishingspot == null) {
                 return;
             }
@@ -67,8 +68,8 @@ public class AerialFishingScript extends Script {
             if (Rs2Npc.interact(fishingspot)) {
                 if (sleepUntil(Rs2Player::isInteracting, 1200)) {
                     sleepUntil(() -> Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_BIRD), () -> {
-                        if ((Rs2Inventory.getEmptySlots() <= 1 && Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_NO_BIRD)) || (Rs2Inventory.getEmptySlots() == 0 && Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_BIRD))) {
-                            Microbot.log("Empty slot count:" + Rs2Inventory.getEmptySlots());
+                        if ((Rs2Inventory.emptySlotCount() <= 1 && Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_NO_BIRD)) || (Rs2Inventory.emptySlotCount() == 0 && Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_BIRD))) {
+                            Microbot.log("Empty slot count:" + Rs2Inventory.emptySlotCount());
                             Rs2ItemModel knife = Rs2Inventory.get(ItemID.KNIFE);
                             Rs2Inventory.hover(knife);
 
@@ -94,7 +95,7 @@ public class AerialFishingScript extends Script {
     }
 
 
-    private NPC findFishingSpot() {
+    private Rs2NpcModel findFishingSpot() {
         return Rs2Npc.getNpc(NpcID.FISHING_SPOT_AERIAL);
     }
 

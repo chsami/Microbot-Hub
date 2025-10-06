@@ -8,6 +8,7 @@ import net.runelite.api.Point;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.*;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.worldmap.WorldMap;
@@ -27,6 +28,7 @@ import net.runelite.client.plugins.microbot.aiofighter.loot.LootScript;
 import net.runelite.client.plugins.microbot.aiofighter.safety.SafetyScript;
 import net.runelite.client.plugins.microbot.aiofighter.shop.ShopScript;
 import net.runelite.client.plugins.microbot.aiofighter.skill.AttackStyleScript;
+import net.runelite.client.plugins.microbot.globval.WidgetIndices;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
@@ -66,7 +68,7 @@ import java.util.stream.Collectors;
 )
 @Slf4j
 public class AIOFighterPlugin extends Plugin {
-    public static final String version = "2.0.7";
+    public static final String version = "2.0.8";
     public static boolean needShopping = false;
     private static final String SET = "Set";
     private static final String CENTER_TILE = ColorUtil.wrapWithColorTag("Center Tile", JagexColors.MENU_TARGET);
@@ -607,11 +609,11 @@ public class AIOFighterPlugin extends Plugin {
     }
 
     private WorldPoint getSelectedWorldPoint() {
-        if (Microbot.getClient().getWidget(ComponentID.WORLD_MAP_MAPVIEW) == null) {
-            if (Microbot.getClient().getSelectedSceneTile() != null) {
-                return Microbot.getClient().isInInstancedRegion() ?
-                        WorldPoint.fromLocalInstance(Microbot.getClient(), Microbot.getClient().getSelectedSceneTile().getLocalLocation()) :
-                        Microbot.getClient().getSelectedSceneTile().getWorldLocation();
+        if (Microbot.getClient().getWidget(InterfaceID.Worldmap.MAP_CONTAINER) == null) {
+            if (Microbot.getClient().getTopLevelWorldView().getSelectedSceneTile() != null) {
+                return Microbot.getClient().getTopLevelWorldView().isInstance() ?
+                        WorldPoint.fromLocalInstance(Microbot.getClient(), Microbot.getClient().getTopLevelWorldView().getSelectedSceneTile().getLocalLocation()) :
+                        Microbot.getClient().getTopLevelWorldView().getSelectedSceneTile().getWorldLocation();
             }
         } else {
             return calculateMapPoint(Microbot.getClient().isMenuOpen() ? lastMenuOpenedPoint : Microbot.getClient().getMouseCanvasPosition());
@@ -694,7 +696,7 @@ public class AIOFighterPlugin extends Plugin {
         }
     }
     private void addMenuEntry(MenuEntryAdded event, String option, String target, int position) {
-        List<MenuEntry> entries = new LinkedList<>(Arrays.asList(Microbot.getClient().getMenuEntries()));
+        List<MenuEntry> entries = new LinkedList<>(Arrays.asList(Microbot.getClient().getMenu().getMenuEntries()));
 
         if (entries.stream().anyMatch(e -> e.getOption().equals(option) && e.getTarget().equals(target))) {
             return;

@@ -5,6 +5,7 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
@@ -628,7 +629,7 @@ public class TutorialIslandScript extends Script {
                 Rs2Player.waitForWalking();
                 Rs2Npc.attack("Giant rat");
             } else {
-                Rs2Tab.switchToInventoryTab();
+                Rs2Tab.switchTo(InterfaceTab.INVENTORY);
                 Rs2Random.waitEx(600, 100);
                 Rs2Inventory.wield("Bronze sword");
                 Rs2Random.waitEx(600, 100);
@@ -709,7 +710,7 @@ public class TutorialIslandScript extends Script {
             Rs2Widget.clickWidget(widget); // switchToQuestTab
             Rs2Random.waitEx(1200, 300);
         } else {
-            Rs2Tab.switchToInventoryTab();
+            Rs2Tab.switchTo(InterfaceTab.INVENTORY);
             Rs2Random.waitEx(600, 100);
             Rs2GameObject.interact(9726, "Climb-down");
             Rs2Random.waitEx(2400, 100);

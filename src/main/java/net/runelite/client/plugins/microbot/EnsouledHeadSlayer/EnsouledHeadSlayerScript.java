@@ -183,7 +183,7 @@ public class EnsouledHeadSlayerScript extends Script {
             shutdown();
             return false;
         }
-        if (Rs2Inventory.getEmptySlots() < 28) {
+        if (Rs2Inventory.emptySlotCount() < 28) {
             Rs2Bank.depositAll();
         }
         if (!useInventorySetup(config)) return false;
@@ -235,13 +235,13 @@ public class EnsouledHeadSlayerScript extends Script {
             }
 
             extractRunes(config, primaryHead);
-            int availableSlots = Rs2Inventory.getEmptySlots() - config.foodAmount();
+            int availableSlots = Rs2Inventory.emptySlotCount() - config.foodAmount();
             if (availableSlots <= 0) {
                 Microbot.log("Not enough inventory space");
                 return false;
             }
             Rs2Bank.withdrawX(primaryHead.getItemId(), availableSlots);
-            int remainingSlots = Rs2Inventory.getEmptySlots();
+            int remainingSlots = Rs2Inventory.emptySlotCount();
             Spell requiredSpell = primaryHead.getMagicSpell();
             if (remainingSlots > 0) {
                 for (Rs2EnsouledHead otherHead : Rs2EnsouledHead.values()) {
@@ -265,7 +265,7 @@ public class EnsouledHeadSlayerScript extends Script {
                 Microbot.log("No " + selectedHead.getName() + " found in bank");
                 return false;
             }
-            var headsToWithdraw = Rs2Inventory.getEmptySlots() - config.foodAmount();
+            var headsToWithdraw = Rs2Inventory.emptySlotCount() - config.foodAmount();
             Microbot.log("Withdrawing " + headsToWithdraw + " " + selectedHead.getName() + " from bank");
             Rs2Bank.withdrawX(selectedHead.getName(), headsToWithdraw);
         }

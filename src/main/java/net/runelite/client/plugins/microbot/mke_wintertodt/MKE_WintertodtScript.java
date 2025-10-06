@@ -2629,7 +2629,7 @@ public class MKE_WintertodtScript extends Script {
             }
 
             // Check inventory space and drop items if needed
-            int emptySlots = Rs2Inventory.getEmptySlots();
+            int emptySlots = Rs2Inventory.emptySlotCount();
             if (emptySlots == 0) {
                 Microbot.log("Inventory full - dropping bruma items to make space for concoctions");
                 
@@ -2735,7 +2735,7 @@ public class MKE_WintertodtScript extends Script {
             }
 
             // Check inventory space and drop items if needed
-            int emptySlots = Rs2Inventory.getEmptySlots();
+            int emptySlots = Rs2Inventory.emptySlotCount();
             if (emptySlots == 0) {
                 Microbot.log("Inventory full - dropping bruma items to make space for herbs");
                 
@@ -3213,7 +3213,7 @@ public class MKE_WintertodtScript extends Script {
             int maxLogsInTime = (int) (availableTimeSec / singleLogProcessingTimeSec);
 
             // We can't chop more than our available inventory space
-            int availableInvSlots = Rs2Inventory.getEmptySlots();
+            int availableInvSlots = Rs2Inventory.emptySlotCount();
 
             // The plan is to chop the minimum of what we have time for vs what we have space for
             int calculatedTarget = Math.min(maxLogsInTime + EXTRA_ROOTS_BUFFER, availableInvSlots);

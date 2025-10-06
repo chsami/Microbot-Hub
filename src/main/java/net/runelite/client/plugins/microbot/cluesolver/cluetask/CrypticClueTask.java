@@ -16,6 +16,7 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.models.RS2Item;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.Objects;
@@ -166,7 +167,7 @@ public class CrypticClueTask extends ClueTask {
     }
 
     private boolean killEnemy() {
-        NPC enemy = Rs2Npc.getNpc(clue.getEnemy().name());
+        Rs2NpcModel enemy = Rs2Npc.getNpc(clue.getEnemy().name());
         if (enemy == null || enemy.getHealthRatio() <= 0) {
             log.info("Enemy {} is defeated. Searching for loot.", clue.getEnemy());
             return true;
@@ -209,7 +210,7 @@ public class CrypticClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        NPC targetNpc = Rs2Npc.getNpc(clue.getNpc(clueScrollPlugin));
+        Rs2NpcModel targetNpc = Rs2Npc.getNpc(clue.getNpc(clueScrollPlugin));
         if (targetNpc == null) {
             log.warn("NPC {} not found at the location.", clue.getNpc(clueScrollPlugin));
             return false;

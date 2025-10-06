@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.agility.courses;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.agility.courses.PyramidObstacleData.ObstacleArea;
@@ -11,6 +12,7 @@ import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -79,7 +81,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         }
         
         // Check if we should turn in pyramids (either inventory full OR reached random threshold) AND we're on ground level
-        int pyramidCount = Rs2Inventory.count(ItemID.PYRAMID_TOP);
+        int pyramidCount = Rs2Inventory.count(ItemID.AGILITY_PYRAMID_GOLD_PYRAMID);
         boolean shouldTurnIn = (Rs2Inventory.isFull() || pyramidCount >= state.getPyramidTurnInThreshold()) && playerPos.getPlane() == 0;
         
         if (shouldTurnIn) {
@@ -468,13 +470,11 @@ public class PyramidCourse implements AgilityCourseHandler {
                         b.getWorldLocation().distanceTo(playerPos)
                     ))
                     .orElse(null);
-                    
-                if (nearest != null) {
-                    if (log.isDebugEnabled()) {
-                        log.debug("Found strictly checked obstacle at {}", nearest.getWorldLocation());
-                    }
-                    return nearest;
+
+                if (log.isDebugEnabled()) {
+                    log.debug("Found strictly checked obstacle at {}", nearest.getWorldLocation());
                 }
+                return nearest;
             }
         }
         
@@ -545,7 +545,7 @@ public class PyramidCourse implements AgilityCourseHandler {
                     log.debug("Could not find east Ledge at expected location (3372, 2839)");
                     // Try to find any ledge on east side as fallback
                     List<TileObject> eastLedges = Rs2GameObject.getAll(obj -> 
-                        obj.getId() == obstacleId && 
+                        obj.getId() == obstacleId &&
                         obj.getPlane() == playerPos.getPlane() &&
                         obj.getWorldLocation().getX() >= 3372 && obj.getWorldLocation().getX() <= 3373 &&
                         obj.getWorldLocation().getY() >= 2837 && obj.getWorldLocation().getY() <= 2841
@@ -558,7 +558,7 @@ public class PyramidCourse implements AgilityCourseHandler {
             
             // Default behavior - look for middle ledge
             List<TileObject> obstacles = Rs2GameObject.getAll(obj -> 
-                obj.getId() == obstacleId && 
+                obj.getId() == obstacleId &&
                 obj.getPlane() == playerPos.getPlane() &&
                 obj.getWorldLocation().getX() < 3370 && // Exclude east side ledges
                 obj.getWorldLocation().getY() >= 2840 && obj.getWorldLocation().getY() <= 2851 && // Middle Y range
@@ -599,7 +599,7 @@ public class PyramidCourse implements AgilityCourseHandler {
             List<GroundObject> nearbyPlanks = new ArrayList<>();
             
             for (GroundObject go : groundObjects) {
-                if (go.getId() == obstacleId && 
+                if (go.getId() == obstacleId &&
                     go.getPlane() == playerPos.getPlane() &&
                     go.getWorldLocation().distanceTo(playerPos) <= 15) {
                     nearbyPlanks.add(go);
@@ -630,7 +630,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         
         // Normal game objects
         List<TileObject> obstacles = Rs2GameObject.getAll(obj -> 
-            obj.getId() == obstacleId && 
+            obj.getId() == obstacleId &&
             obj.getPlane() == playerPos.getPlane() &&
             obj.getWorldLocation().distanceTo(playerPos) <= 15
         );
@@ -643,7 +643,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         if (log.isDebugEnabled()) {
             log.debug("Found {} obstacles with ID {} on plane {}:", obstacles.size(), obstacleId, playerPos.getPlane());
             for (TileObject obj : obstacles) {
-                log.debug("  - {} at {} (distance: {})", 
+                log.debug("  - {} at {} (distance: {})",
                     obstacleId, obj.getWorldLocation(), obj.getWorldLocation().distanceTo(playerPos));
             }
         }
@@ -675,7 +675,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         }
         
         // For low wall on floor 1, make sure we get the north end
-        if (obstacleId == 10865 && playerPos.getPlane() == 1 && 
+        if (obstacleId == 10865 && playerPos.getPlane() == 1 &&
             playerPos.getX() == 3354 && playerPos.getY() <= 2840) {
             // Sort by Y coordinate descending to get northernmost wall
             obstacles.sort((a, b) -> Integer.compare(
@@ -767,7 +767,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         }
         
         return nearbyObstacles.stream()
-            .filter(obj -> isObstacleReachable(obj))
+            .filter(this::isObstacleReachable)
             .min((a, b) -> Integer.compare(
                 a.getWorldLocation().distanceTo(playerPos),
                 b.getWorldLocation().distanceTo(playerPos)
@@ -793,7 +793,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         // Only walk to start if on ground level
         if (playerLocation.getPlane() == 0) {
             // Check if we should handle pyramid turn-in instead of walking to start
-            int pyramidCount = Rs2Inventory.count(ItemID.PYRAMID_TOP);
+            int pyramidCount = Rs2Inventory.count(ItemID.AGILITY_PYRAMID_GOLD_PYRAMID);
             boolean shouldTurnIn = pyramidCount > 0 && (Rs2Inventory.isFull() || pyramidCount >= state.getPyramidTurnInThreshold());
             
             if (shouldTurnIn) {
@@ -827,12 +827,10 @@ public class PyramidCourse implements AgilityCourseHandler {
                     TileObject pyramidStairs = stairsCandidates.stream()
                         .min(Comparator.comparingInt(obj -> obj.getWorldLocation().distanceTo(playerLocation)))
                         .orElse(null);
-                    if (pyramidStairs != null) {
-                        log.debug("Clicking directly on pyramid stairs (reachable from current position)");
-                        if (Rs2GameObject.interact(pyramidStairs)) {
-                            Global.sleep(600, 800); // Small delay after clicking
-                            return true;
-                        }
+                    log.debug("Clicking directly on pyramid stairs (reachable from current position)");
+                    if (Rs2GameObject.interact(pyramidStairs)) {
+                        Global.sleep(600, 800); // Small delay after clicking
+                        return true;
                     }
                 }
                 
@@ -1121,14 +1119,14 @@ public class PyramidCourse implements AgilityCourseHandler {
     private boolean handlePyramidTurnIn() {
         try {
             // Check if we still have pyramid tops
-            if (!Rs2Inventory.contains(ItemID.PYRAMID_TOP)) {
+            if (!Rs2Inventory.contains(ItemID.AGILITY_PYRAMID_GOLD_PYRAMID)) {
                 log.debug("No pyramid tops found in inventory - returning to course");
                 state.clearPyramidTurnIn();
                 return false;
             }
             
             // Try to find Simon
-            NPC simon = Rs2Npc.getNpc(SIMON_NAME);
+            Rs2NpcModel simon = Rs2Npc.getNpc(SIMON_NAME);
             
             // If Simon is found and reachable, use pyramid top on him
             if (simon != null && Rs2GameObject.canReach(simon.getWorldLocation())) {
@@ -1151,7 +1149,7 @@ public class PyramidCourse implements AgilityCourseHandler {
                     }
                 } else {
                     // Not in dialogue, use pyramid top on Simon
-                    boolean used = Rs2Inventory.useItemOnNpc(ItemID.PYRAMID_TOP, simon);
+                    boolean used = Rs2Inventory.useItemOnNpc(ItemID.AGILITY_PYRAMID_GOLD_PYRAMID, simon);
                     if (used) {
                         log.debug("Successfully used pyramid top on Simon");
                         Global.sleepUntil(() -> Rs2Dialogue.isInDialogue(), 3000);
@@ -1170,7 +1168,7 @@ public class PyramidCourse implements AgilityCourseHandler {
             Rs2Player.waitForWalking();
             
             // Check if we've completed the turn-in (no pyramids left and not in dialogue)
-            if (!Rs2Inventory.contains(ItemID.PYRAMID_TOP) && !Rs2Dialogue.isInDialogue()) {
+            if (!Rs2Inventory.contains(ItemID.AGILITY_PYRAMID_GOLD_PYRAMID) && !Rs2Dialogue.isInDialogue()) {
                 log.debug("Pyramid tops turned in successfully");
                 state.clearPyramidTurnIn();
                 
@@ -1197,9 +1195,9 @@ public class PyramidCourse implements AgilityCourseHandler {
      * @return true if waterskins were dropped, false otherwise
      */
     private boolean handleEmptyWaterskins() {
-        if (Rs2Inventory.contains(ItemID.WATERSKIN0)) {
+        if (Rs2Inventory.contains(ItemID.WATER_SKIN0)) {
             log.debug("Found empty waterskin(s), dropping them");
-            Rs2Inventory.drop(ItemID.WATERSKIN0);
+            Rs2Inventory.drop(ItemID.WATER_SKIN0);
             Global.sleep(300, 500);
             return true;
         }

@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 )
 public class PVirewatchKillerPlugin extends Plugin {
 
-    public final static String version = "1.0.0";
+    public final static String version = "1.0.1";
 
     private PLooter looterScript = new PLooter();
     private PAlcher alchScript = new PAlcher();

@@ -236,7 +236,7 @@ public class TzhaarVenatorBowScript extends Script {
                 }
             }
 
-            Rs2Bank.withdrawX("Prayer potion(4)", config.withdrawPrayerPotsCount() == 0 ? Rs2Inventory.getEmptySlots() - 2 : config.withdrawPrayerPotsCount());
+            Rs2Bank.withdrawX("Prayer potion(4)", config.withdrawPrayerPotsCount() == 0 ? Rs2Inventory.emptySlotCount() - 2 : config.withdrawPrayerPotsCount());
             Rs2Inventory.waitForInventoryChanges(1800);
             Rs2Bank.closeBank();
             if (Rs2Inventory.count("Prayer potion(4)") == 0) {

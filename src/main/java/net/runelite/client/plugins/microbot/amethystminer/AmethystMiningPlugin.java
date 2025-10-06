@@ -1,7 +1,7 @@
 package net.runelite.client.plugins.microbot.amethystminer;
 
 import com.google.inject.Provides;
-import net.runelite.api.ObjectID;
+import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.WallObject;
 import net.runelite.api.events.WallObjectSpawned;
 import net.runelite.client.config.ConfigManager;
@@ -12,8 +12,6 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.amethystminer.enums.Status;
 import net.runelite.client.ui.overlay.OverlayManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import java.awt.*;
@@ -30,8 +28,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class AmethystMiningPlugin extends Plugin {
-    public static final String version = "1.2.0";
-    private static final Logger log = LoggerFactory.getLogger(AmethystMiningPlugin.class);
+    public static final String version = "1.2.2";
     @Inject
     private OverlayManager overlayManager;
     @Inject
@@ -56,11 +53,23 @@ public class AmethystMiningPlugin extends Plugin {
     public void onConfigChanged(ConfigChanged event) {
         if (event.getGroup().equals("AmethystMining")) {
             if (event.getKey().equals("gemBag")) {
-                boolean b = amethystMiningConfig.gemBag() ? AmethystMiningScript.itemsToKeep.add(AmethystMiningScript.gemBag) : AmethystMiningScript.itemsToKeep.remove(AmethystMiningScript.gemBag);
-                boolean c = amethystMiningConfig.gemBag() ? AmethystMiningScript.itemsToKeep.add(AmethystMiningScript.openGemBag) : AmethystMiningScript.itemsToKeep.remove(AmethystMiningScript.openGemBag);
+                if (amethystMiningConfig.gemBag()) {
+                    AmethystMiningScript.itemsToKeep.add(AmethystMiningScript.gemBag);
+                } else {
+                    AmethystMiningScript.itemsToKeep.remove(AmethystMiningScript.gemBag);
+                }
+                if (amethystMiningConfig.gemBag()) {
+                    AmethystMiningScript.itemsToKeep.add(AmethystMiningScript.openGemBag);
+                } else {
+                    AmethystMiningScript.itemsToKeep.remove(AmethystMiningScript.openGemBag);
+                }
             }
             if (event.getKey().equals("chiselAmethysts")) {
-                boolean b = amethystMiningConfig.chiselAmethysts() ? AmethystMiningScript.itemsToKeep.add(AmethystMiningScript.chisel) : AmethystMiningScript.itemsToKeep.remove(AmethystMiningScript.chisel);
+                if (amethystMiningConfig.chiselAmethysts()) {
+                    AmethystMiningScript.itemsToKeep.add(AmethystMiningScript.chisel);
+                } else {
+                    AmethystMiningScript.itemsToKeep.remove(AmethystMiningScript.chisel);
+                }
             }
         }
     }
@@ -70,7 +79,7 @@ public class AmethystMiningPlugin extends Plugin {
         WallObject wallObject = event.getWallObject();
         if (wallObject == null)
             return;
-        if (AmethystMiningScript.status == Status.MINING && wallObject.getId() == ObjectID.EMPTY_WALL) {
+        if (AmethystMiningScript.status == Status.MINING && wallObject.getId() == ObjectID.AMETHYSTROCK_EMPTY) {
             if (AmethystMiningScript.oreVein != null) {
                 if (wallObject.getWorldLocation().equals(AmethystMiningScript.oreVein.getWorldLocation())) {
                     AmethystMiningScript.oreVein = null;

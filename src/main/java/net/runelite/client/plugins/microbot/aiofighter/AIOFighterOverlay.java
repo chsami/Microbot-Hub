@@ -63,8 +63,8 @@ public class AIOFighterOverlay extends OverlayPanel {
         if (filteredAttackableNpcs.get() == null) return null;
 
         calculateLinesToDisplay();
-        GeneralPath lines = linesToDisplay[Microbot.getClient().getPlane()];
-        LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient(), config.centerLocation());
+        GeneralPath lines = linesToDisplay[Microbot.getClient().getTopLevelWorldView().getPlane()];
+        LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), config.centerLocation());
         if (lp != null) {
             Polygon poly = Perspective.getCanvasTileAreaPoly(Microbot.getClient(), lp, config.attackRadius() * 2);
 
@@ -74,7 +74,7 @@ public class AIOFighterOverlay extends OverlayPanel {
             }
         }
         // render safe spot
-        LocalPoint sslp = LocalPoint.fromWorld(Microbot.getClient(), config.safeSpot());
+        LocalPoint sslp = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), config.safeSpot());
         if (sslp != null) {
             Polygon safeSpotPoly = Perspective.getCanvasTileAreaPoly(Microbot.getClient(), sslp, 1);
             if (safeSpotPoly != null && config.toggleSafeSpot()) {
@@ -132,11 +132,11 @@ public class AIOFighterOverlay extends OverlayPanel {
 
         path = Geometry.clipPath(path, viewArea);
         path = Geometry.filterPath(path, (p1, p2) ->
-                Perspective.localToCanvas(Microbot.getClient(), new LocalPoint((int) p1[0], (int) p1[1]), Microbot.getClient().getPlane()) != null &&
-                        Perspective.localToCanvas(Microbot.getClient(), new LocalPoint((int) p2[0], (int) p2[1]), Microbot.getClient().getPlane()) != null);
+                Perspective.localToCanvas(Microbot.getClient(), new LocalPoint((int) p1[0], (int) p1[1]), Microbot.getClient().getTopLevelWorldView().getPlane()) != null &&
+                        Perspective.localToCanvas(Microbot.getClient(), new LocalPoint((int) p2[0], (int) p2[1]), Microbot.getClient().getTopLevelWorldView().getPlane()) != null);
         path = Geometry.transformPath(path, coords ->
         {
-            Point point = Perspective.localToCanvas(Microbot.getClient(), new LocalPoint((int) coords[0], (int) coords[1]), Microbot.getClient().getPlane());
+            Point point = Perspective.localToCanvas(Microbot.getClient(), new LocalPoint((int) coords[0], (int) coords[1]), Microbot.getClient().getTopLevelWorldView().getPlane());
             coords[0] = point.getX();
             coords[1] = point.getY();
         });
@@ -175,7 +175,8 @@ public class AIOFighterOverlay extends OverlayPanel {
     }
 
     private void transformWorldToLocal(float[] coords) {
-        final LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient(), (int) coords[0], (int) coords[1]);
+        final LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), (int) coords[0], (int) coords[1]);
+        if (lp == null) return;
         coords[0] = lp.getX() - Perspective.LOCAL_TILE_SIZE / 2f;
         coords[1] = lp.getY() - Perspective.LOCAL_TILE_SIZE / 2f;
     }

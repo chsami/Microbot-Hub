@@ -161,7 +161,7 @@ public class SummerGardenScript extends Script {
     // Returns true if successfully entered the house.
     private boolean goInsideHouse() {
         // The player is not in Al Kharid or is somehow upstairs?
-        if (!isInAlKharid() || Microbot.getClient().getPlane() != 0) {
+        if (!isInAlKharid() || Microbot.getClient().getTopLevelWorldView().getPlane() != 0) {
             return false;
         }
 
@@ -255,7 +255,7 @@ public class SummerGardenScript extends Script {
         var osmanLocation = new WorldPoint(3296, 3181, 0);
 
         // The player is not in Al Kharid or is somehow upstairs?
-        if (!isInAlKharid() || Microbot.getClient().getPlane() != 0) {
+        if (!isInAlKharid() || Microbot.getClient().getTopLevelWorldView().getPlane() != 0) {
             return;
         }
 
