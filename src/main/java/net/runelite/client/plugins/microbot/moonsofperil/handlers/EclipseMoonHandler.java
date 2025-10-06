@@ -12,6 +12,7 @@ import net.runelite.client.plugins.microbot.moonsofperil.enums.Widgets;
 import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.coords.Rs2LocalPoint;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -41,17 +42,19 @@ public class EclipseMoonHandler implements BaseHandler {
     private final Rs2InventorySetup equipmentNormal;
     private final Rs2InventorySetup equipmentClones;
     private final boolean enableBoss;
+    private final boolean clonerandomdelay;
     private final net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler boss;
     private final boolean debugLogging;
 
-	public EclipseMoonHandler(MoonsOfPerilConfig cfg, Rs2InventorySetup equipmentNormal, Rs2InventorySetup equipmentClones)
-	{
-		this.equipmentNormal = equipmentNormal;
-		this.equipmentClones = equipmentClones;
-		this.enableBoss = cfg.enableEclipse();
-		this.boss = new net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler(cfg);
-		this.debugLogging = cfg.debugLogging();
-	}
+    public EclipseMoonHandler(MoonsOfPerilConfig cfg, Rs2InventorySetup equipmentNormal, Rs2InventorySetup equipmentClones)
+    {
+        this.equipmentNormal = equipmentNormal;
+        this.equipmentClones = equipmentClones;
+        this.enableBoss = cfg.enableEclipse();
+        this.boss = new net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler(cfg);
+        this.debugLogging = cfg.debugLogging();
+        this.clonerandomdelay = cfg.enableEclipseRandomDelay();
+    }
 
     @Override
     public boolean validate() {
@@ -112,7 +115,7 @@ public class EclipseMoonHandler implements BaseHandler {
             return;
         }
 
-/*      1 ─ wait until shield starts sliding */
+        /*      1 ─ wait until shield starts sliding */
 
         if (debugLogging) {Microbot.log("Sleeping until knockback animation finishes...");}
         sleepUntil(() ->
@@ -124,12 +127,12 @@ public class EclipseMoonHandler implements BaseHandler {
         sleep(2_100);
         if (debugLogging) {Microbot.log("Commencing our walk around the lap");}
 
-/*         ───── 2. Four anchor tiles around the boss (SW → NW → NE → SE) ───── */
+        /*         ───── 2. Four anchor tiles around the boss (SW → NW → NE → SE) ───── */
         WorldPoint[] lap = {
-            new WorldPoint(1483, 9627, 0),  // SW
-            new WorldPoint(1483, 9637, 0),  // NW
-            new WorldPoint(1493, 9637, 0),  // NE
-            new WorldPoint(1493, 9627, 0)   // SE
+                new WorldPoint(1483, 9627, 0),  // SW
+                new WorldPoint(1483, 9637, 0),  // NW
+                new WorldPoint(1493, 9637, 0),  // NE
+                new WorldPoint(1493, 9627, 0)   // SE
         };
 
         for (WorldPoint p : lap) {
@@ -144,7 +147,7 @@ public class EclipseMoonHandler implements BaseHandler {
         }
         if (debugLogging) {Microbot.log("Shield lap has been completed");}
 
-/*         3 ─ run to post-phase attack tile */
+        /*         3 ─ run to post-phase attack tile */
         WorldPoint fin = Locations.ECLIPSE_ATTACK_6.getWorldPoint();
         if (debugLogging) {Microbot.log("Running to the normal attack sequence tile");}
         Rs2Walker.walkFastCanvas(fin, true);
@@ -219,6 +222,10 @@ public class EclipseMoonHandler implements BaseHandler {
 
                 // 3. Parry / Attack the clone
                 if (debugLogging) {Microbot.log("Clone #" + (parried + 1) + " spawned at " + cloneTrueLocation + " → Parrying via " + cloneLocalLocation);}
+                if (clonerandomdelay) {
+                    int delay = Rs2Random.between(30, 150);
+                    sleep(delay);
+                }
                 Rs2Walker.walkCanvas(cloneLocalLocation);
                 parried++;
             }

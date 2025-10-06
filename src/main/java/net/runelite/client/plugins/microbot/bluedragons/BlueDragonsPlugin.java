@@ -19,7 +19,7 @@ import javax.inject.Inject;
         description = "Blue dragon farmer for bones",
         tags = {"blue", "dragons", "prayer"},
         version = BlueDragonsPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.0.14",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -27,7 +27,7 @@ import javax.inject.Inject;
 )
 public class BlueDragonsPlugin extends Plugin {
 
-    public static final String version = "1.0.0";
+    public static final String version = "1.1.1";
     static final String CONFIG = "bluedragons";
 
     @Inject

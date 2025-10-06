@@ -96,7 +96,7 @@ public class AutoChinScript extends Script {
             }
 
             // If our inventory is full of ferrets
-            if (Rs2Inventory.getEmptySlots() <= 1 && Rs2Inventory.contains(ItemID.FERRET)) {
+            if (Rs2Inventory.emptySlotCount() <= 1 && Rs2Inventory.contains(ItemID.FERRET)) {
                 // ferrets have the option release and not drop
                 while (Rs2Inventory.contains(ItemID.FERRET)) {
                     Rs2Inventory.interact(ItemID.FERRET, "Release");

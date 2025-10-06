@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.tormenteddemons;
 
+import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.HeadIcon;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
@@ -218,7 +219,7 @@ public class TormentedDemonScript extends Script {
                 currentTarget = findNewTarget(config);
             }
             if (currentTarget != null) {
-                currentOverheadIcon = Rs2Reflection.getHeadIcon(currentTarget);
+                currentOverheadIcon = currentTarget.getHeadIcon();
                 if (currentOverheadIcon == null) {
                     logOnceToChat("Failed to retrieve HeadIcon for target.");
                     return;
@@ -267,7 +268,7 @@ public class TormentedDemonScript extends Script {
             }
         }
 
-        HeadIcon newOverheadIcon = Rs2Reflection.getHeadIcon(currentTarget);
+        HeadIcon newOverheadIcon = currentTarget.getHeadIcon();
         if (newOverheadIcon != currentOverheadIcon) {
             currentOverheadIcon = newOverheadIcon;
             if (!Rs2Inventory.isOpen()) {
@@ -322,7 +323,7 @@ public class TormentedDemonScript extends Script {
         return Rs2Npc.getAttackableNpcs("Tormented Demon")
                 .filter(npc -> npc.getInteracting() == null || npc.getInteracting() == Microbot.getClient().getLocalPlayer())
                 .filter(npc -> {
-                    HeadIcon demonHeadIcon = Rs2Reflection.getHeadIcon(npc);
+                    HeadIcon demonHeadIcon = npc.getHeadIcon();
                     if (demonHeadIcon != null) {
                         switchGear(config, demonHeadIcon);
                         return true;
@@ -459,7 +460,7 @@ public class TormentedDemonScript extends Script {
                 Rs2Inventory.interact(ringId, "Wear");
                 sleep(800);
 
-                Rs2Equipment.useRingAction(JewelleryLocationEnum.FEROX_ENCLAVE);
+                Rs2Equipment.interact(JewelleryLocationEnum.FEROX_ENCLAVE.getTooltip(), JewelleryLocationEnum.FEROX_ENCLAVE.getDestination());
                 logOnceToChat("Teleporting to Ferox Enclave using Ring of Dueling");
                 return;
             }

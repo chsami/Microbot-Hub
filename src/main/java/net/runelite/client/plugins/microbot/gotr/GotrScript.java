@@ -194,7 +194,7 @@ public class GotrScript extends Script {
                         }
                     } else {
                         if (getGuardiansPower() > 70) {
-                            if (Rs2Inventory.hasItemAmount(GUARDIAN_FRAGMENTS, Rs2Random.between(Rs2Inventory.getEmptySlots()+Rs2Inventory.getRemainingCapacityInPouches(), Rs2Inventory.getEmptySlots()+Rs2Inventory.getRemainingCapacityInPouches()+3))) {
+                            if (Rs2Inventory.hasItemAmount(GUARDIAN_FRAGMENTS, Rs2Random.between(Rs2Inventory.emptySlotCount()+Rs2Inventory.getRemainingCapacityInPouches(), Rs2Inventory.emptySlotCount()+Rs2Inventory.getRemainingCapacityInPouches()+3))) {
                                 shouldMineGuardianRemains = false;
                             }
                         } else {

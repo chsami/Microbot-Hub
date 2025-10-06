@@ -10,7 +10,7 @@ import net.runelite.client.plugins.microbot.housetab.enums.HOUSETABS_CONFIG;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.math.Random;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -100,8 +100,8 @@ public class HouseTabScript extends Script {
         int buttonRelativeY = houseAdvertisementEnterHouseWidget.getChild(houseIndexToJoin).getRelativeY() + enterHouseButtonHeight;
         if (buttonRelativeY > (mainWindow.getScrollY() + mainWindow.getHeight())) {
             keepExecuteUntil(() -> {
-                int x = (int) mainWindow.getBounds().getCenterX() + Random.random(-50, 50);
-                int y = (int) mainWindow.getBounds().getCenterY() + Random.random(-50, 50);
+                int x = (int) mainWindow.getBounds().getCenterX() + Rs2Random.between(-50, 50);
+                int y = (int) mainWindow.getBounds().getCenterY() + Rs2Random.between(-50, 50);
                 Microbot.getMouse().scrollDown(new Point(x, y));
             }, () -> buttonRelativeY <= (mainWindow.getScrollY() + mainWindow.getHeight()), 500);
         } else {

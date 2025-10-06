@@ -649,7 +649,7 @@ public class NavigationHandler {
                 nearestTotem != null ? nearestTotem.name() : "None",
                 nearestTotem != null ? CoordinateUtils.getDistanceToPlayer(nearestTotem.getLocation()) : -1,
                 distanceToBank,
-                Rs2Player.isWalking() ? "Yes" : "No");
+                Rs2Player.isMoving() ? "Yes" : "No");
     }
 
     /**
@@ -755,7 +755,7 @@ public class NavigationHandler {
                                         sleep(1000);
 
                                         while (System.currentTimeMillis() - startTime < timeout) {
-                                            boolean isIdle = !Rs2Player.isWalking() && Microbot.getClient().getLocalPlayer().getAnimation() == -1;
+                                            boolean isIdle = !Rs2Player.isMoving() && Microbot.getClient().getLocalPlayer().getAnimation() == -1;
 
                                             if (isIdle) {
                                                 if (idleTimeStart == -1) {

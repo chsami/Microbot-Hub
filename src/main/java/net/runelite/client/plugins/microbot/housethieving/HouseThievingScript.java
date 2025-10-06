@@ -301,7 +301,7 @@ public class HouseThievingScript extends Script {
     }
 
     private void handleThievingHouse(Rs2NpcModel houseNpc) {
-        if (Rs2Inventory.getEmptySlots() < 1) {
+        if (Rs2Inventory.emptySlotCount() < 1) {
             if (!exitHouse())
                 return;
             state = State.BANKING;

@@ -42,7 +42,7 @@ public class LootScript extends Script {
                 final State st = AIOFighterPlugin.getState();
                 if (st == State.BANKING || st == State.WALKING) return;
 
-                if (((Rs2Inventory.isFull() || Rs2Inventory.getEmptySlots() <= minFreeSlots) && !config.eatFoodForSpace())
+                if (((Rs2Inventory.isFull() || Rs2Inventory.emptySlotCount() <= minFreeSlots) && !config.eatFoodForSpace())
                         || (Rs2Player.isInCombat() && !config.toggleForceLoot())) {
                     return;
                 }

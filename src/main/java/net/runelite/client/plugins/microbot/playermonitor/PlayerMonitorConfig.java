@@ -1,8 +1,8 @@
-package net.runelite.client.plugins.microbot.plugins.PlayerMonitor;
+package net.runelite.client.plugins.microbot.playermonitor;
 
 import net.runelite.client.config.*;
-import net.runelite.client.plugins.microbot.storm.plugins.PlayerMonitor.enums.SoundEffectID;
-import net.runelite.client.plugins.microbot.storm.plugins.PlayerMonitor.enums.emergencyOptions;
+import net.runelite.client.plugins.microbot.playermonitor.enums.SoundEffectID;
+import net.runelite.client.plugins.microbot.playermonitor.enums.emergencyOptions;
 
 import java.awt.*;
  

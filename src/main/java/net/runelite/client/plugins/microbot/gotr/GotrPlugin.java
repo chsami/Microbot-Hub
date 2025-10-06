@@ -50,7 +50,7 @@ import java.util.regex.Matcher;
 )
 @Slf4j
 public class GotrPlugin extends Plugin implements SchedulablePlugin {
-    public static final String version = "1.2.1";
+    public static final String version = "1.2.2";
 
     @Inject
     private GotrConfig config;

@@ -9,6 +9,7 @@ import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcManager;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -84,7 +85,7 @@ public class QoLOverlay extends OverlayPanel {
     }
 
     private void renderPlayers(Graphics2D graphics) {
-        for (Player player : Rs2Player.getPlayersInCombat()) {
+        for (Rs2PlayerModel player : Rs2Player.getPlayersInCombat()) {
             System.out.println(Rs2Player.getPlayerEquipmentNames(player));
             String text = (Rs2Player.calculateHealthPercentage(player) + " HP");
             LocalPoint lp = player.getLocalLocation();

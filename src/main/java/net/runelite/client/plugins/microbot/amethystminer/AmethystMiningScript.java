@@ -243,6 +243,9 @@ public class AmethystMiningScript extends Script {
 
     private void initialize() {
         Rs2Antiban.antibanSetupTemplates.applyMiningSetup();
+        itemsToKeep.clear();
+        pickAxeInInventory = "";
+        inventoryCountSinceLastGemBagCheck = 0;
         status = Status.IDLE;
         miningSpot = MiningSpot.NULL;
         oreVein = null;

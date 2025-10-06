@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 )
 public class EnsouledHeadSlayerPlugin extends Plugin implements SchedulablePlugin {
 
-    public final static String version = "1.0.0";
+    public final static String version = "1.0.1";
 
     private Instant scriptStartTime;
     @Inject

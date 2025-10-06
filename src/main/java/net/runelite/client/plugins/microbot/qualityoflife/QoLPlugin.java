@@ -19,6 +19,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.MicrobotPlugin;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.globval.WidgetIndices;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.qualityoflife.enums.WintertodtActions;
 import net.runelite.client.plugins.microbot.qualityoflife.managers.CraftingManager;
@@ -84,7 +85,7 @@ import static net.runelite.client.plugins.microbot.util.Global.awaitExecutionUnt
 )
 @Slf4j
 public class QoLPlugin extends Plugin implements KeyListener {
-    public static final String version = "1.8.6";
+    public static final String version = "1.8.8";
     public static final List<NewMenuEntry> bankMenuEntries = new LinkedList<>();
     public static final List<NewMenuEntry> furnaceMenuEntries = new LinkedList<>();
     public static final List<NewMenuEntry> anvilMenuEntries = new LinkedList<>();
@@ -523,7 +524,7 @@ public class QoLPlugin extends Plugin implements KeyListener {
         Global.sleep(Rs2Random.randomGaussian(150, 50));
         Microbot.getMouse().click(Microbot.getClient().getMouseCanvasPosition(), highAlchItem);
         Rs2Player.waitForXpDrop(Skill.MAGIC, 1000);
-        Rs2Tab.switchToInventoryTab();
+        Rs2Tab.switchTo(InterfaceTab.INVENTORY);
 
     }
 

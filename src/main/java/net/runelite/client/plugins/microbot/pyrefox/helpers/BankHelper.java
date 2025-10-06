@@ -23,7 +23,7 @@ public class BankHelper
 
 		if (!Rs2Bank.isOpen()) {
 			Microbot.status = "Opening bank.";
-			Rs2Bank.useBank();
+			Rs2Bank.openBank();
 			Rs2Player.waitForWalking();
 			return false;
 		}
@@ -47,7 +47,7 @@ public class BankHelper
 
 		if (!Rs2Bank.isOpen()) {
 			Microbot.status = "Opening bank.";
-			Rs2Bank.useBank();
+			Rs2Bank.openBank();
 			Rs2Player.waitForWalking();
 			return false;
 		}

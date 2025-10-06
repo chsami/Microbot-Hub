@@ -122,14 +122,14 @@ public class DefaultScript extends Script {
                             }
                         }
 
-                        if (Rs2Inventory.getEmptySlots() <= config.minFreeSlots()) {
+                        if (Rs2Inventory.emptySlotCount() <= config.minFreeSlots()) {
                             state = LooterState.BANKING;
                             return;
                         }
                         break;
 
                     case BANKING:
-                        if (Rs2Inventory.getEmptySlots() <= config.minFreeSlots()) return;
+                        if (Rs2Inventory.emptySlotCount() <= config.minFreeSlots()) return;
                         state = LooterState.LOOTING;
                         break;
                 }

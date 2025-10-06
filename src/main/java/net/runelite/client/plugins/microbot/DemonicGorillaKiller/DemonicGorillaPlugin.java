@@ -10,8 +10,8 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.DemonicGorillaKiller.utils.FixedSizeQueue;
 import net.runelite.client.plugins.microbot.PluginConstants;
-import net.runelite.client.plugins.microbot.util.containers.FixedSizeQueue;
 import net.runelite.client.plugins.microbot.util.misc.TimeUtils;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -35,7 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 @Slf4j
 public class DemonicGorillaPlugin extends Plugin {
 
-    public final static String version = "1.2.0";
+    public final static String version = "1.2.3";
 
     private static final int DEMONIC_GORILLA_ROCK = 856;
     public static FixedSizeQueue<WorldPoint> lastLocation = new FixedSizeQueue<>(2);

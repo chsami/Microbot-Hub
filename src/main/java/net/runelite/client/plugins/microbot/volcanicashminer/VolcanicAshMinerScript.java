@@ -28,7 +28,6 @@ import static net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIn
 
 @Slf4j
 public class VolcanicAshMinerScript extends Script {
-    public static final String VERSION = "1.1.0";
     public static VolcanicAshMinerState BOT_STATUS = VolcanicAshMinerState.MINING;
     private final WorldPoint VOLCANIC_ASH_LOCATION = new WorldPoint(3790, 3770, 0);
 
@@ -117,7 +116,7 @@ public class VolcanicAshMinerScript extends Script {
         if (maxPlayers > 0) {
             WorldPoint localLocation = Rs2Player.getWorldLocation();
 
-            long nearbyPlayers = Microbot.getClient().getPlayers().stream()
+            long nearbyPlayers = Microbot.getClient().getTopLevelWorldView().players().stream()
                     .filter(p -> p != null && p != Microbot.getClient().getLocalPlayer())
                     .filter(p -> p.getWorldLocation().distanceTo(localLocation) <= 15)
                     //filter if players are using mining animation

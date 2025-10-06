@@ -26,7 +26,7 @@ public class PyreFoxConstants
 	{
 		Microbot.log("Rerolling gathering amounts...");
 
-		int emptySlots = Rs2Inventory.getEmptySlots();
+		int emptySlots = Rs2Inventory.emptySlotCount();
 		// Calculate the maximum amount to gather based on available space
 		int maxGatherAmount = Math.max(emptySlots, 1); // Minimum gather amount should always be 1
 

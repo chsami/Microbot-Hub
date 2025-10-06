@@ -10,6 +10,7 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 public class SpecialAttackScript extends Script {
 
@@ -20,7 +21,7 @@ public class SpecialAttackScript extends Script {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 if (!config.useSpecWeapon()) return;
-                if (Rs2Equipment.isWearingFullGuthan()) return;
+                if (Rs2Equipment.all("guthan's").count() == 4) return;
                 if (Rs2Player.isInteracting()) {
                     npc.set((Rs2NpcModel) Rs2Player.getInteracting());
                     if (Microbot.getSpecialAttackConfigs().useSpecWeapon()) {

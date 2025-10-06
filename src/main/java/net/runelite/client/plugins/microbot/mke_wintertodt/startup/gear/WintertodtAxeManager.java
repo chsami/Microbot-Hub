@@ -327,7 +327,7 @@ public class WintertodtAxeManager {
                 if (!Rs2Inventory.isOpen()) {
                     Rs2Inventory.open();
                 }
-                Rs2Bank.useBank();
+                Rs2Bank.openBank();
                 sleepUntilTrue(() -> Rs2Bank.isOpen(), 100, 3000);
             } catch (Exception e) {
                 Microbot.log("Failed to reopen bank: " + e.getMessage());

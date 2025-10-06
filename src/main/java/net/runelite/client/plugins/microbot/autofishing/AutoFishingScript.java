@@ -2,8 +2,8 @@ package net.runelite.client.plugins.microbot.autofishing;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.ObjectID;
-import net.runelite.api.ItemID;
+import net.runelite.api.gameval.ObjectID;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
@@ -140,7 +140,7 @@ public class AutoFishingScript extends Script {
     // we process fish that require special handling
     private void handleProcessingFish() {
         if (selectedFish == Fish.SACRED_EEL && Rs2Inventory.hasItem("Knife") && Rs2Inventory.hasItem("Sacred eel")) {
-            Rs2Inventory.useItemOnObject(ItemID.KNIFE, ItemID.SACRED_EEL);
+            Rs2Inventory.useItemOnObject(ItemID.KNIFE, ItemID.SNAKEBOSS_EEL);
         } else if (selectedFish == Fish.INFERNAL_EEL && Rs2Inventory.hasItem("Hammer") && Rs2Inventory.hasItem("Infernal eel")) {
             Rs2Inventory.useItemOnObject(ItemID.HAMMER, ItemID.INFERNAL_EEL);
         }
@@ -156,7 +156,7 @@ public class AutoFishingScript extends Script {
 
         String fishToCook = getRawFishInInventory().stream().findFirst().orElse(null);
 
-        if (fireOrRange != null && fishToCook != null) {
+        if (fishToCook != null) {
             Rs2Inventory.useUnNotedItemOnObject(fishToCook, fireOrRange);
             if (sleepUntil(() -> Rs2Widget.findWidget("How many would you like to cook?", null) != null)) {
                 Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
@@ -249,10 +249,9 @@ public class AutoFishingScript extends Script {
     private TileObject getNearbyFireOrRange() {
         Integer[] fireIds = {
             ObjectID.FIRE,
-            ObjectID.FORESTERS_CAMPFIRE,
-            ObjectID.CAMPFIRE,
-            ObjectID.FIRE_43475,
-            ObjectID.FIRE_26185
+            ObjectID.FORESTRY_FIRE,
+            ObjectID.EAGLEPEAK_CAMPFIRE_TIDY,
+            ObjectID.FIRE_COOK
         };
         return Rs2GameObject.getGameObject(fireIds, 15);
     }

@@ -21,9 +21,9 @@ import java.awt.*;
 @PluginDescriptor(
         name = PluginDescriptor.Mocrosoft + "SandCrabs",
         description = "Kills SandCrab & resets",
-        tags = {"Combat", "microbot"},
+        tags = {"Combat", "microbot", "sand", "crab", "sandcrab", "attack", "kill"},
         version = SandCrabPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.0.14",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -31,7 +31,7 @@ import java.awt.*;
 )
 @Slf4j
 public class SandCrabPlugin extends Plugin implements SchedulablePlugin {
-    public final static String version = "1.4.1";
+    public final static String version = "1.4.3";
     @Inject
     private SandCrabConfig config;
 

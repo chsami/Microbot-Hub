@@ -4,6 +4,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.concurrent.TimeUnit;
@@ -20,7 +21,7 @@ public class PieScript extends Script {
                 if (Rs2Inventory.count("pie dish") > 0 && (Rs2Inventory.count("pastry dough") > 0)) {
                     Rs2Inventory.combine("pie dish", "pastry dough");
                     sleepUntilOnClientThread(() -> Rs2Widget.getWidget(17694734) != null);
-                    keyPress('1');
+                    Rs2Keyboard.keyPress('1');
                     sleepUntilOnClientThread(() -> !Rs2Inventory.hasItem("pie dish"), 25000);
 
                     totalPieShellsMade += 14;   // rough example, but you get the point

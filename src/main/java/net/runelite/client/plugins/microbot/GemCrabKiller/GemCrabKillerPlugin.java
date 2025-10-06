@@ -17,18 +17,19 @@ import java.time.Instant;
 @PluginDescriptor(
         name = PluginDescriptor.TaFCat + "Gem Crab Killer",
         description = "Automatically kills the Gem Crab boss",
+        authors = {"TaF"},
         tags = {"TaF", "crab", "combat", "training", "gem"},
         version = GemCrabKillerPlugin.version,
         minClientVersion = "2.0.13",
-        cardUrl = "",
-        iconUrl = "",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/GemCrabKillerPlugin/assets/GemStoneCrab.png",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/GemCrabKillerPlugin/assets/GemStoneCrab.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class GemCrabKillerPlugin extends Plugin {
 
-    public final static String version = "1.0.0";
+    public final static String version = "1.0.1";
     @Inject
     GemCrabKillerScript gemCrabKillerScript;
     @Inject

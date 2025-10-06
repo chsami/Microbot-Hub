@@ -22,7 +22,7 @@ import java.awt.*;
         name = PluginDescriptor.TaFCat + "Volcanic Ash Miner",
         description = "Start either at the ash mine on Fossil Island or with a digsite pendant in your inventory. Have a pickaxe in your inventory or equipped.",
         authors = { "TaF" },
-        version = VolcanicAshMinerScript.VERSION,
+        version = VolcanicAshMinerPlugin.version,
         minClientVersion = "2.0.9",
         tags = {"volcanic", "ash", "mining", "ironman", "taf", "microbot"},
         iconUrl = "https://chsami.github.io/Microbot-Hub/volcanicashminer/assets/icon.png",
@@ -31,6 +31,8 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class VolcanicAshMinerPlugin extends Plugin implements SchedulablePlugin {
+    public static final String version = "1.1.1";
+
     @Inject
     private VolcanicAshMinerConfig config;
     @Inject
