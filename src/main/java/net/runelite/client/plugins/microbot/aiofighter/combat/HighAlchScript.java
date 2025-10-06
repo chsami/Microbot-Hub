@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.aiofighter.combat;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterConfig;
+import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -36,7 +37,8 @@ public class HighAlchScript extends Script
 				{
 					return;
 				}
-				List<Rs2ItemModel> items = Rs2Inventory.getList(Rs2ItemModel::isHaProfitable);
+                                List<Rs2ItemModel> items = Rs2Inventory.getList(Rs2ItemModel::isHaProfitable);
+                                items.removeIf(item -> AIOFighterPlugin.isHighAlchBlacklisted(item.getName()));
 
 				if (items.isEmpty())
 				{

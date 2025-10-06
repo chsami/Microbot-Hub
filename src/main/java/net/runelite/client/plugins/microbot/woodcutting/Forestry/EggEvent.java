@@ -15,6 +15,7 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
+import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingTree;
 
 import java.util.Comparator;
 import java.util.stream.Collectors;
@@ -61,9 +62,10 @@ public class EggEvent implements BlockingEvent {
         if (Rs2Inventory.isFull()) {
             Microbot.log("EggEvent: Inventory is full.");
             // drop a log to make space for the egg
-            if (Rs2Inventory.contains(plugin.config.TREE().getLog())) {
-                Microbot.log("EggEvent: Dropping a log to make space for the egg.");
-                Rs2Inventory.drop(plugin.config.TREE().getLog());
+            WoodcuttingTree tree = plugin.getSelectedTree();
+            if (tree != null && Rs2Inventory.contains(tree.getLog())) {
+                Microbot.log("EggEvent: Dropping a log of " + tree.getName() + " to make space for the egg.");
+                Rs2Inventory.drop(tree.getLog());
                 sleepUntil(() -> !Rs2Inventory.isFull(), 5000);
             }
         }

@@ -39,8 +39,12 @@ import net.runelite.client.util.Text;
 import javax.inject.Inject;
 import java.awt.*;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -62,7 +66,7 @@ import java.util.stream.Collectors;
 )
 @Slf4j
 public class AIOFighterPlugin extends Plugin {
-    public static final String version = "2.0.6";
+    public static final String version = "2.0.7";
     public static boolean needShopping = false;
     private static final String SET = "Set";
     private static final String CENTER_TILE = ColorUtil.wrapWithColorTag("Center Tile", JagexColors.MENU_TARGET);
@@ -72,16 +76,17 @@ public class AIOFighterPlugin extends Plugin {
     private static final String REMOVE_FROM = "Stop Fighting:";
     private static final String WALK_HERE = "Walk here";
     private static final String ATTACK = "Attack";
+    private static final String HIGH_ALCH_BLACKLIST_KEY = "highAlchBlacklist";
     @Getter
     @Setter
     public static int cooldown = 0;
-    
+
     @Getter @Setter
     private static volatile long lastNpcKilledTime = 0;
-    
+
     @Getter @Setter
     private static volatile boolean waitingForLoot = false;
-    
+
     /**
      * Centralized method to clear wait-for-loot state
      * @param reason Optional reason for clearing the state (for logging)
@@ -94,7 +99,7 @@ public class AIOFighterPlugin extends Plugin {
             Microbot.log("Clearing wait-for-loot state: " + reason);
         }
     }
-    
+
     private final CannonScript cannonScript = new CannonScript();
     private final AttackNpcScript attackNpc = new AttackNpcScript();
 
@@ -134,7 +139,7 @@ public class AIOFighterPlugin extends Plugin {
 
     @Override
     protected void startUp() throws AWTException {
-		Microbot.pauseAllScripts.compareAndSet(true, false);
+        Microbot.pauseAllScripts.compareAndSet(true, false);
         //initialize any data on startup
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
         AtomicReference<ScheduledFuture<?>> futureRef = new AtomicReference<>();
@@ -179,7 +184,7 @@ public class AIOFighterPlugin extends Plugin {
         potionManagerScript.run(config);
         safetyScript.run(config);
         slayerScript.run(config);
-        
+
         // Configure special attack settings
         if (config.useSpecialAttack() && config.specWeapon() != null) {
             Microbot.getSpecialAttackConfigs()
@@ -190,7 +195,7 @@ public class AIOFighterPlugin extends Plugin {
             Microbot.getSpecialAttackConfigs()
                     .setSpecialAttack(config.useSpecialAttack());
         }
-        
+
         Rs2Slayer.blacklistedSlayerMonsters = getBlacklistedSlayerNpcs();
         bankerScript.run(config);
         shopScript.run(config);
@@ -200,7 +205,7 @@ public class AIOFighterPlugin extends Plugin {
         // Reset wait for loot state on shutdown
         setWaitingForLoot(false);
         setLastNpcKilledTime(0L);
-        
+
         highAlchScript.shutdown();
         lootScript.shutdown();
         cannonScript.shutdown();
@@ -343,6 +348,79 @@ public class AIOFighterPlugin extends Plugin {
                 String.class
         ).toString().split(","));
     }
+
+    private static LinkedHashSet<String> normalizeCsvEntries(String rawCsv) {
+        String source = rawCsv == null ? "" : rawCsv;
+        return Arrays.stream(source.split(","))
+                .map(Text::standardize)
+                .filter(entry -> !entry.isEmpty())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    public static Set<String> getHighAlchBlacklist() {
+        String stored = Microbot.getConfigManager().getConfiguration(
+                AIOFighterConfig.GROUP,
+                HIGH_ALCH_BLACKLIST_KEY,
+                String.class
+        );
+
+        LinkedHashSet<String> normalized = normalizeCsvEntries(stored);
+        if (normalized.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        return Collections.unmodifiableSet(normalized);
+    }
+
+    public static boolean isHighAlchBlacklisted(String itemName) {
+        if (itemName == null) {
+            return false;
+        }
+
+        String normalizedItemName = Text.standardize(itemName);
+        if (normalizedItemName.isEmpty()) {
+            return false;
+        }
+
+        Set<String> blacklist = getHighAlchBlacklist();
+        if (blacklist.isEmpty()) {
+            return false;
+        }
+
+        for (String pattern : blacklist) {
+            if (matchesWildcard(pattern, normalizedItemName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean matchesWildcard(String pattern, String candidate) {
+        if (pattern == null || pattern.isEmpty()) {
+            return false;
+        }
+
+        if (!pattern.contains("*")) {
+            return candidate.equals(pattern);
+        }
+
+        StringBuilder regex = new StringBuilder();
+        regex.append('^');
+        for (char ch : pattern.toCharArray()) {
+            if (ch == '*') {
+                regex.append(".*");
+            } else {
+                if ("\\.^$|?+()[]{}".indexOf(ch) >= 0) {
+                    regex.append('\\');
+                }
+                regex.append(ch);
+            }
+        }
+        regex.append('$');
+
+        return candidate.matches(regex.toString());
+    }
     //set Inventory Setup
     private void setInventorySetup(InventorySetup inventorySetup) {
         Microbot.getConfigManager().setConfiguration(
@@ -369,8 +447,8 @@ public class AIOFighterPlugin extends Plugin {
         );
     }
     public static String getNpcAttackList() {
-       return Microbot.getConfigManager().getConfiguration(
-               AIOFighterConfig.GROUP,
+        return Microbot.getConfigManager().getConfiguration(
+                AIOFighterConfig.GROUP,
                 "monster"
         );
     }
@@ -415,6 +493,19 @@ public class AIOFighterPlugin extends Plugin {
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
 
+
+        if (AIOFighterConfig.GROUP.equals(event.getGroup()) && event.getKey().equals(HIGH_ALCH_BLACKLIST_KEY)) {
+            LinkedHashSet<String> normalized = normalizeCsvEntries(event.getNewValue());
+            String normalizedValue = String.join(", ", normalized);
+            String incomingValue = event.getNewValue() == null ? "" : event.getNewValue();
+            if (!Objects.equals(incomingValue, normalizedValue)) {
+                Microbot.getConfigManager().setConfiguration(
+                        AIOFighterConfig.GROUP,
+                        HIGH_ALCH_BLACKLIST_KEY,
+                        normalizedValue
+                );
+            }
+        }
 
         if (event.getKey().equals("Safe Spot")) {
 

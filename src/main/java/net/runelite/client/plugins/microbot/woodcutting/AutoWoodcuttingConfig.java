@@ -39,10 +39,21 @@ public interface AutoWoodcuttingConfig extends Config {
     String forestrySection = "forestry";
 
     @ConfigItem(
+            keyName = "progressiveMode",
+            name = "Progressive mode",
+            description = "Automatically switch to the best tree based on your Woodcutting level",
+            position = 0,
+            section = generalSection
+    )
+    default boolean progressiveMode() {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = "Tree",
             name = "Tree",
-            description = "Choose the tree",
-            position = 0,
+            description = "Choose the tree (ignored when Progressive mode is enabled)",
+            position = 1,
             section = generalSection
     )
     default WoodcuttingTree TREE() {

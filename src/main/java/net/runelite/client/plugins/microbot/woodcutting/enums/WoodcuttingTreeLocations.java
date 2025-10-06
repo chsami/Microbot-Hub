@@ -332,7 +332,7 @@ public class WoodcuttingTreeLocations {
         
         // Seers' Village
         locations.add(new ResourceLocationOption(
-                new WorldPoint(2710, 3513, 0), 
+                new WorldPoint(2711, 3463, 0),
                 "Seers' Village Yew Trees",true,1
         ));
         

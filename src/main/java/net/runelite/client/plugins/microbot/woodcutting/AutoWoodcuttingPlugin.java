@@ -23,6 +23,7 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.woodcutting.Forestry.*;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
+import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingTree;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
@@ -424,6 +425,13 @@ public class AutoWoodcuttingPlugin extends Plugin {
     public int getCompletedForestryEventCount() {
         return completedForestryEvents.get();
     }
+
+    public WoodcuttingTree getSelectedTree() {
+        if (autoWoodcuttingScript != null) {
+            return autoWoodcuttingScript.getActiveTree();
+        }
+        return config.TREE();
+    }
     
     /**
      * Ensures inventory has space for forestry event rewards by dropping logs if needed
@@ -436,7 +444,8 @@ public class AutoWoodcuttingPlugin extends Plugin {
             return true;
         }
         
-        String logName = config.TREE().getLog();
+        WoodcuttingTree tree = getSelectedTree();
+        String logName = tree.getLog();
         int slotsNeeded = requiredSlots - currentFreeSlots;
         int logsToDelete = Math.min(slotsNeeded, Rs2Inventory.count(logName));
         
@@ -445,7 +454,7 @@ public class AutoWoodcuttingPlugin extends Plugin {
             return false;
         }
         
-        log.info("Making space for forestry rewards: dropping {} logs", logsToDelete);
+        log.info("Making space for forestry rewards: dropping {} logs of {}", logsToDelete, tree.getName());
         
         int actualDropped = Rs2Inventory.dropAmount(logName, logsToDelete, InteractOrder.EFFICIENT_ROW);
         
