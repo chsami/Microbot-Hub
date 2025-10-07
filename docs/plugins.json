@@ -1390,7 +1390,7 @@
             "blast",
             "furnace"
         ],
-        "version": "1.1.1",
+        "version": "1.1.2",
         "minClientVersion": "2.0.7",
         "authors": [
             "Storm"
@@ -1398,8 +1398,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/BlastoiseFurnacePlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/BlastoiseFurnacePlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "7d7c3df0d1581bd0d4a58059ea3d78f70943f4a015b7a5f9e9c73003249e01d5",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blastoisefurnaceplugin/1.1.1/blastoisefurnaceplugin-1.1.1.jar"
+        "sha256": "4523552d659b015a6c919daf8bfbaaa9c1f92783629af98c41e71f57f43c9cab",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/blastoisefurnaceplugin/1.1.2/blastoisefurnaceplugin-1.1.2.jar"
     },
     {
         "internalName": "BarrowsPlugin",
