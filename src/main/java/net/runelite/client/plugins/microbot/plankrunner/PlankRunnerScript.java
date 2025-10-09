@@ -12,10 +12,12 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
+import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.Comparator;
 import java.util.Set;
@@ -25,8 +27,11 @@ import java.util.regex.Pattern;
 
 public class PlankRunnerScript extends Script {
 
+
     public static PlankRunnerState state;
     private final PlankRunnerPlugin plugin;
+
+
 
     @Inject
     public PlankRunnerScript(PlankRunnerPlugin plugin) {
@@ -143,10 +148,14 @@ public class PlankRunnerScript extends Script {
                             return;
                         }
 
+                        var teakWidget = Rs2Widget.getWidget(270, 17);
                         Rs2Npc.interact(sawmillOperator, "Buy-plank");
                         Microbot.status = "Buying Planks";
-                        Rs2Dialogue.sleepUntilHasCombinationDialogue();
-                        Rs2Dialogue.clickCombinationOption(plugin.getPlank().getDialogueOption());
+                        sleep(1200);
+                        //Rs2Keyboard.keyPress(plugin.getPlank().getKeyPress());
+                        //Rs2Dialogue.clickCombinationOption(plugin.getPlank().getDialogueOption());
+                        Rs2Widget.clickWidget(plugin.getPlank().getWidget());
+                        Rs2Widget.clickWidget(plugin.getPlank().getWidget());
                         sleepUntil(() -> Rs2Inventory.hasItem(plugin.getPlank().getPlankItemId()));
                         plugin.calculateProfit();
                         break;
@@ -214,4 +223,6 @@ public class PlankRunnerScript extends Script {
         }
         return 0;
     }
+
+
 }
