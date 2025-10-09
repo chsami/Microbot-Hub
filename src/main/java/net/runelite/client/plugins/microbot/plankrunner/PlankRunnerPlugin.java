@@ -33,7 +33,7 @@ import java.time.Instant;
 @Slf4j
 public class PlankRunnerPlugin extends Plugin {
 
-    public static final String version = "1.1.0";
+    public static final String version = "1.1.1";
     @Inject
     private PlankRunnerConfig config;
 
