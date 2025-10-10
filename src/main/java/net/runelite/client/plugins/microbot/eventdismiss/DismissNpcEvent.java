@@ -36,7 +36,7 @@ public class DismissNpcEvent implements BlockingEvent {
             Rs2Dialogue.clickContinue();
             return true;
         }
-        return false;
+        return true;
     }
 
     @Override
