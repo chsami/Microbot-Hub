@@ -372,7 +372,7 @@
             "events",
             "microbot"
         ],
-        "version": "1.0.1",
+        "version": "1.0.3",
         "minClientVersion": "2.0.7",
         "authors": [
             "Unknown"
@@ -380,8 +380,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/EventDismissPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/EventDismissPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "fd5d44a8360464d84256319b5029a041cc00d71bb9b7fa28490113cb3c8de227",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/eventdismissplugin/1.0.1/eventdismissplugin-1.0.1.jar"
+        "sha256": "44205c740f54a54b187a7a3d825a210d568a2e438ac75a580dbb1ce207fc6813",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/eventdismissplugin/1.0.3/eventdismissplugin-1.0.3.jar"
     },
     {
         "internalName": "AutoFishingPlugin",
