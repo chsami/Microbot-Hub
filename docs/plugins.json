@@ -479,16 +479,16 @@
             "see1duck",
             "microbot"
         ],
-        "version": "0.0.7",
+        "version": "0.0.8",
         "minClientVersion": "2.0.13",
         "authors": [
-            "Unknown Author"
+            "See1Duck"
         ],
-        "iconUrl": "",
-        "cardUrl": "",
+        "iconUrl": "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/icon.png",
+        "cardUrl": "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/card.png",
         "disable": false,
-        "sha256": "e1fc3998fa84952479cd90991f25abe9061aa168db8b55b387a1e2564ac3674d",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/mahoganyhomesplugin/0.0.7/mahoganyhomesplugin-0.0.7.jar"
+        "sha256": "f2c0be346ba4cd8746f427aa2c25faa3490624e4d97a715dbce673d082d68294",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/mahoganyhomesplugin/0.0.8/mahoganyhomesplugin-0.0.8.jar"
     },
     {
         "internalName": "DiscordPlugin",
