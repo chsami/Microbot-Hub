@@ -25,7 +25,7 @@ import java.awt.*;
 )
 @Slf4j
 public class EventDismissPlugin extends Plugin {
-    public static final String version = "1.0.1";
+    public static final String version = "1.0.3";
     @Inject
     private ConfigManager configManager;
     @Inject
