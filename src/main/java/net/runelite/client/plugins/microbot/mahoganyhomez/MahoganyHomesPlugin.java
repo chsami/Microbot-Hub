@@ -46,15 +46,16 @@ import java.util.stream.Collectors;
         name = PluginDescriptor.See1Duck + " Mahogany Homes",
         description = "Automates Mahogany Homes contracts",
         tags = {"mahogany", "homes", "construction", "contract", "minigame", "s1d", "see1duck", "microbot"},
+		authors = {"See1Duck"},
         version = MahoganyHomesPlugin.version,
         minClientVersion = "2.0.13",
-        cardUrl = "",
-        iconUrl = "",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/card.png",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/icon.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class MahoganyHomesPlugin extends Plugin {
-    public static final String version = "0.0.7";
+    public static final String version = "0.0.8";
     private static final List<Integer> PLANKS = Arrays.asList(ItemID.PLANK, ItemID.OAK_PLANK, ItemID.TEAK_PLANK, ItemID.MAHOGANY_PLANK);
     private static final List<String> PLANK_NAMES = Arrays.asList("Plank", "Oak plank", "Teak plank", "Mahogany plank");
     private static final Map<Integer, Integer> MAHOGANY_HOMES_REPAIRS = new HashMap<>();
@@ -822,7 +823,7 @@ public class MahoganyHomesPlugin extends Plugin {
             return mapIcon;
         }
 
-        mapIcon = ImageUtil.getResourceStreamFromClass(getClass(), "map-icon.png");
+        mapIcon = ImageUtil.loadImageResource(getClass(), "map-icon.png");
         return mapIcon;
     }
 
@@ -831,7 +832,7 @@ public class MahoganyHomesPlugin extends Plugin {
             return mapArrow;
         }
 
-        mapArrow = ImageUtil.getResourceStreamFromClass(getClass(), "map-arrow-icon.png");
+        mapArrow = ImageUtil.loadImageResource(getClass(), "map-arrow-icon.png");
         return mapArrow;
     }
 

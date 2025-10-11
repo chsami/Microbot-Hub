@@ -11,7 +11,10 @@ import java.awt.*;
         "<p>2. <strong>Contracts:</strong> Select your desired contract <em>BEFORE</em> starting.</p>\n" +
         "<p>3. <strong>Supplies:</strong> Stock up on the correct planks and Steel bars in the bank, the bot will handle resupplying on its own</p>\n" +
         "<p></p>\n" +
-        "<p><strong>FEEDBACK:</strong> If you encounters any bugs or need assistance shoot a message in Discord</p>\n" )
+		"<p><strong>NOTES:</strong></p>\n" +
+		"<p>- If somehow it get's stuck, enable the overlay in the options below and shift+click the option to reset the state.</p>\n" +
+		"<p></p>\n" +
+        "<p><strong>FEEDBACK:</strong> If you encounter any bugs or need assistance, shoot a message in Discord</p>\n" )
 public interface MahoganyHomesConfig extends Config
 {
     String GROUP_NAME = "MahoganyHomesBot";
