@@ -3,8 +3,6 @@ package net.runelite.client.plugins.microbot.eventdismiss;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.util.Global;
-import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 
@@ -19,7 +17,10 @@ public class DismissNpcEvent implements BlockingEvent {
     @Override
     public boolean validate() {
         Rs2NpcModel randomEventNPC = Rs2Npc.getRandomEventNPC();
-        return Rs2Npc.hasLineOfSight(randomEventNPC);
+        if (randomEventNPC == null) {
+            return false;
+        }
+        return shouldDismissNpc(randomEventNPC) && Rs2Npc.hasLineOfSight(randomEventNPC);
     }
 
     @Override
@@ -27,16 +28,11 @@ public class DismissNpcEvent implements BlockingEvent {
         Rs2NpcModel randomEventNPC = Rs2Npc.getRandomEventNPC();
         if (randomEventNPC == null) return true;
         boolean shouldDismiss = shouldDismissNpc(randomEventNPC);
-        if (shouldDismiss) {
-            Rs2Npc.interact(randomEventNPC, "Dismiss");
-            Global.sleepUntil(() -> Rs2Npc.getRandomEventNPC() == null);
-            return true;
-        } else if (!Rs2Inventory.isFull()) {
-            Rs2Npc.interact(randomEventNPC, "Talk-to");
-            Rs2Dialogue.sleepUntilHasContinue();
-            Rs2Dialogue.clickContinue();
+        if (!shouldDismiss) {
             return true;
         }
+        Rs2Npc.interact(randomEventNPC, "Dismiss");
+        Global.sleepUntil(() -> Rs2Npc.getRandomEventNPC() == null);
         return !validate();
     }
 
