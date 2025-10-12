@@ -380,7 +380,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/EventDismissPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/EventDismissPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "44205c740f54a54b187a7a3d825a210d568a2e438ac75a580dbb1ce207fc6813",
+        "sha256": "cb8f5f838147c8fef5f5c77cf19ba38a69345e23f2654343e7646bf1358811d8",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/eventdismissplugin/1.0.3/eventdismissplugin-1.0.3.jar"
     },
     {
