@@ -34,7 +34,7 @@ public final class WildernessAgilityScript extends Script {
     private static final int FOOD_PRIMARY = 24592;
     private static final int FOOD_SECONDARY = 24595;
     private static final int FOOD_TERTIARY = 24589;
-    private static final int FOOD_DROP = 24598;
+    private static final int FOOD_DROP = 24598; //This is the super restore, let's add a config to choose how many we want to drop instead of dropping all
     private static final int KNIFE_ID = 962;
     private static final int TELEPORT_ID = 24963;
     private static final int COINS_ID = 995;
@@ -401,6 +401,9 @@ public final class WildernessAgilityScript extends Script {
         }
         WorldPoint loc = Rs2Player.getWorldLocation();
         if (!Rs2Player.isAnimating() && !Rs2Player.isMoving()) {
+            // Clear inventory before attempting obstacle if needed
+            clearInventoryIfNeeded();
+
             // Player must be within 4 tiles of (3004, 3937, 0) to interact with the pipe at (3004, 3938, 0)
             WorldPoint pipeTile = new WorldPoint(3004, 3938, 0);
             WorldPoint pipeFrontTile = new WorldPoint(3004, 3937, 0);
@@ -454,6 +457,9 @@ public final class WildernessAgilityScript extends Script {
             return;
         }
         if (!Rs2Player.isAnimating() && !Rs2Player.isMoving()) {
+            // Clear inventory before attempting obstacle if needed
+            clearInventoryIfNeeded();
+
             TileObject rope = getObstacleObj(1);
             if (rope != null) {
                 boolean interacted = Rs2GameObject.interact(rope);
@@ -1251,7 +1257,7 @@ public final class WildernessAgilityScript extends Script {
         int attempts = 0;
         int maxAttempts = 10; // Prevent infinite loops
         
-        while (Rs2Inventory.items().count() >= 26 && isRunning() && attempts < maxAttempts) {
+        while (Rs2Inventory.items().count() >= config.maxInventoryBeforeEat() && isRunning() && attempts < maxAttempts) {
             attempts++;
             boolean itemHandled = false;
             
@@ -1259,7 +1265,7 @@ public final class WildernessAgilityScript extends Script {
                 Rs2Inventory.interact(FOOD_PRIMARY, "Eat");
                 waitForInventoryChanges(getActionDelay());
                 itemHandled = true;
-            } else if (Rs2Inventory.contains(FOOD_DROP)) {
+            } else if (Rs2Inventory.contains(FOOD_DROP) && Rs2Inventory.count(FOOD_DROP) > config.maxSuperRestoreCount()) {
                 Rs2Inventory.interact(FOOD_DROP, "Drop");
                 waitForInventoryChanges(800);
                 itemHandled = true;

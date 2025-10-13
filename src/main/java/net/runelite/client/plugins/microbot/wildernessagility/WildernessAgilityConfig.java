@@ -90,6 +90,26 @@ public interface WildernessAgilityConfig extends Config {
     @Range(min = 1, max = 200_000)
     default int useTicketsWhen() { return 101; }
 
+    @ConfigItem(
+            keyName = "maxInventoryBeforeEat",
+            name = "Max Inventory Spaces Before Eating",
+            description = "The max number of inventory spaces before you consume food passively.",
+            position = 14,
+            section = lootingSection
+    )
+    @Range(min = 1, max = 27)
+    default  int maxInventoryBeforeEat() { return 26; }
+
+    @ConfigItem(
+            keyName = "maxSuperRestoreCount",
+            name = "Max Number of Super Restores",
+            description = "The max number of super restores you would like to keep from tagging.",
+            position = 15,
+            section = lootingSection
+    )
+    @Range(min = 0, max = 27)
+    default int maxSuperRestoreCount() { return 0; }
+
     // === Banking Settings ===
     @ConfigSection(
         name = "Banking Settings",
