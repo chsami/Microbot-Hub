@@ -7,12 +7,11 @@ This plugin is designed to handle agility training at the Wilderness Course, wit
 
 ## Features
 
-- Automated agility training at the Wilderness Course  
-- Supports both solo and mass-world running  
-- Automatic walking and coin deposit if starting outside the course  
-- Integration with Webwalker and QOL plugins  
-- Basic antiban support (optional, user-configured)  
-- Planned future support for **Anti-PK detection and escape logic**  
+- Automated agility training at the Wilderness Course.  
+- Supports both solo and mass-world running.  
+- Automatic walking to course and coin deposit if starting outside the course.  
+- Integration with Webwalker and QOL plugins.
+- Full looting bag support and inventory value monitoring.
 
 ---
 
@@ -20,20 +19,24 @@ This plugin is designed to handle agility training at the Wilderness Course, wit
 ## Configuration
 
 ### Inventory (Required)
-- **150,000 coins** – Required for paid course entry  
-- **Knife** – Needed for fallback walking paths  
-- **Ice Plateau teleport** (optional, recommended)  
+- **150,000 coins** – Required to utilize the Agility Dispenser 
+- **Knife** – Needed for the primary banking logic. (Walking to mage bank)
+- **Looting bag** - Now required at all times.  Open the bag before starting.
+- **Ice Plateau teleport** (optional, but highly recommended)  
 
 ### Plugin Settings
+- **Player Monitor**
+  - HIGHLY recommended for various avoidance features in the script, but not required
+
 - **Webwalker**  
-  - Enable, and disable “Avoid Wilderness.”  
+  - Enable, and disable the toggle “Avoid Wilderness.”  
 
 - **QOL (Quality of Life)**  
   - Enable, and configure:  
     - Disable camera options  
-    - Auto-eat: 55–70% threshold  
+    - Auto-eat: 55–90% threshold (higher health = less chance of dying) 
     - Auto-complete dialogue  
-    - Auto Potion Manager (not functional yet)  
+    - Auto Potion Manager (not fully tested with anti poisons yet)
 
 - **Antiban Settings**  
   - Configure to preference. Script does not modify these settings.  
@@ -67,13 +70,13 @@ Everything else is flexible depending on your personal preferences or available 
 ### Starting at the Course
 - Enable **“Start at course?”** in the config  
 - Deposit coins (optional)  
-- Remove or open any looting bag  
-- Launch the script  
+- Ensure looting bag is open if using the related functions  
+- Start the script  
 
 ### Starting Anywhere Else
 - Disable **“Start at course?”** in the config  
-- Have 150k coins, a knife, and optionally an Ice Plateau teleport  
-- The script will navigate to the course and handle deposits automatically  
+- Have 150k coins, a knife, a looting bag, and optionally an Ice Plateau teleport  
+- The script will navigate to the course and handle coin depositing automatically  
 
 ---
 
@@ -84,31 +87,26 @@ Everything else is flexible depending on your personal preferences or available 
   - `Agility Fc`  
   - `Free Agility`  
 - Start script during active mass runs  
-- Monitoring is still strongly recommended as PKers may appear  
+- Monitoring of your character is still strongly recommended as PKers may appear  
 
 ---
 
-## Solo Running
-
-- Provides basic functionality only  
-- No PK detection or avoidance currently implemented  
-- If attacked, you must handle the situation manually  
+## Escape Settings
+ 
+- Leave course at Health % will force the player to the nearest bank when uner the threshold
+- If phoenix necklace expires  (and toggeled on) player will leave course, enable player monitor, and logout or world hop/bank
 
 ---
 
 ## In Development
 
-- Anti-PK detection and escape logic  
-- Improved integration with Break Handler and Potion Manager  
+- Idk what now?
 
 ---
 
 ## Known Issues
 
-- Occasional failure to leave the Friends Chat during world hop stage  
-- Break Handler incompatibility  
-- Some features still experimental and may behave unexpectedly  
-- Error withdrawing Ice Plateau TP during re-banking.
+- Sometimes banking just fails?  It retries until it gets it right though so not a huge deal still weird though.
 
 ---
 
