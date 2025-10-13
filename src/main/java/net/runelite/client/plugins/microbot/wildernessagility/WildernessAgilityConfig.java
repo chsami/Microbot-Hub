@@ -97,7 +97,7 @@ public interface WildernessAgilityConfig extends Config {
             position = 14,
             section = lootingSection
     )
-    @Range(min = 1, max = 27)
+    @Range(min = 1, max = 28)
     default  int maxInventoryBeforeEat() { return 26; }
 
     @ConfigItem(
