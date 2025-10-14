@@ -319,7 +319,8 @@ public final class WildernessAgilityScript extends Script {
                 
                 switch (currentState) {
                     case INIT: 
-                        checkLootingBagOnStartup(); // Sync initial looting bag value if present
+                        // DISABLED: Looting bag check corrupts inventory action data
+                        // checkLootingBagOnStartup(); // Sync initial looting bag value if present
                         currentState = ObstacleState.PIPE; 
                         break;
                     case START: handleStart(); break;
@@ -1030,7 +1031,8 @@ public final class WildernessAgilityScript extends Script {
     }
     private void handleStart() {
         // Check looting bag on startup if present
-        checkLootingBagOnStartup();
+        // DISABLED: This corrupts inventory action data and causes Rs2Inventory.use() to crash
+        // checkLootingBagOnStartup();
         
         TileObject dispenserObj = getDispenserObj();
         WorldPoint playerLoc = Rs2Player.getWorldLocation();
@@ -1041,11 +1043,14 @@ public final class WildernessAgilityScript extends Script {
                 WorldPoint walkTarget = dispenserObj != null ? dispenserObj.getWorldLocation() : DISPENSER_POINT;
                 if (!isAt(walkTarget, 4)) {
                     Rs2Walker.walkTo(walkTarget, 2);
+                    sleep(1000);
                     return;
                 }
             }
             int coinCount = Rs2Inventory.itemQuantity(COINS_ID);
             if (coinCount < 150000) {
+                Microbot.log("[WildernessAgility] Not enough coins to deposit into dispenser (" + coinCount + " < 150000) - going to bank");
+                
                 // Enable Player Monitor when starting banking process if configured
                 if (config.enablePlayerMonitor()) {
                     try {
@@ -1067,15 +1072,14 @@ public final class WildernessAgilityScript extends Script {
                 return;
             }
             if (dispenserObj != null) {
-                // Use coins on dispenser - safer method using item ID
-                if (Rs2Inventory.use(COINS_ID)) {
-                    sleep(400);
-                    Rs2GameObject.interact(dispenserObj, "Use");
-                    sleep(getActionDelay());
-                    sleepUntil(() -> Rs2Inventory.itemQuantity(COINS_ID) < coinCount, getXpTimeout());
-                } else {
-                    Microbot.log("[WildernessAgility] Failed to use coins on dispenser");
-                }
+                Microbot.log("[WildernessAgility] Attempting to deposit " + coinCount + " coins into dispenser");
+                Rs2Inventory.use(COINS_ID);
+                sleep(400);
+                Rs2GameObject.interact(dispenserObj, "Use");
+                sleep(getActionDelay());
+                sleepUntil(() -> Rs2Inventory.itemQuantity(COINS_ID) < coinCount, getXpTimeout());
+            } else {
+                Microbot.log("[WildernessAgility] Dispenser object not found!");
             }
             currentState = ObstacleState.PIPE;
             return;
@@ -1762,7 +1766,8 @@ public final class WildernessAgilityScript extends Script {
 
     private void handleWalkToCourse() {
         // Check looting bag on startup if present (for when returning from bank)
-        checkLootingBagOnStartup();
+        // DISABLED: This corrupts inventory action data and causes Rs2Inventory.use() to crash
+        // checkLootingBagOnStartup();
         
         if (!isAt(START_POINT, 2)) {
             Rs2Walker.walkTo(START_POINT, 2);
@@ -1773,16 +1778,17 @@ public final class WildernessAgilityScript extends Script {
         if (dispenserObj != null) {
             int coinCount = Rs2Inventory.itemQuantity(COINS_ID);
             if (coinCount >= 150000) {
-                // Use coins on dispenser - safer method using item ID
-                if (Rs2Inventory.use(COINS_ID)) {
-                    sleep(400);
-                    Rs2GameObject.interact(dispenserObj, "Use");
-                    sleep(getActionDelay());
-                    sleepUntil(() -> Rs2Inventory.itemQuantity(COINS_ID) < coinCount, getXpTimeout());
-                } else {
-                    Microbot.log("[WildernessAgility] Failed to use coins on dispenser");
-                }
+                Microbot.log("[WildernessAgility] [WALK_TO_COURSE] Attempting to deposit " + coinCount + " coins into dispenser");
+                Rs2Inventory.use(COINS_ID);
+                sleep(400);
+                Rs2GameObject.interact(dispenserObj, "Use");
+                sleep(getActionDelay());
+                sleepUntil(() -> Rs2Inventory.itemQuantity(COINS_ID) < coinCount, getXpTimeout());
+            } else {
+                Microbot.log("[WildernessAgility] [WALK_TO_COURSE] Not enough coins (" + coinCount + " < 150000)");
             }
+        } else {
+            Microbot.log("[WildernessAgility] [WALK_TO_COURSE] Dispenser object not found!");
         }
         currentState = ObstacleState.PIPE;
     }
@@ -2157,10 +2163,33 @@ public final class WildernessAgilityScript extends Script {
         waitingForLootingBagSync = true;
         hasCheckedLootingBagOnStartup = true;
         
-        // Right-click looting bag and select "Check"
-        Rs2Inventory.interact(LOOTING_BAG_OPEN_ID, "Check");
-        
-        // Wait for container to load
-        sleepUntil(() -> !waitingForLootingBagSync, 3000);
+        try {
+            // Right-click looting bag and select "Check"
+            Rs2Inventory.interact(LOOTING_BAG_OPEN_ID, "Check");
+            
+            // Wait for container to load
+            sleepUntil(() -> !waitingForLootingBagSync, 3000);
+            
+            // Close the looting bag interface
+            Rs2Keyboard.keyPress(java.awt.event.KeyEvent.VK_ESCAPE);
+            sleep(300); // Wait for interface to close
+            
+            // Ensure we're on the inventory tab
+            Rs2Tab.switchTo(InterfaceTab.INVENTORY);
+            sleep(200);
+            
+            Microbot.log("[WildernessAgility] Looting bag interface closed, inventory refreshed");
+        } catch (NullPointerException e) {
+            // Known issue: Items with null action data in inventory can cause Rs2Inventory operations to crash
+            Microbot.log("[WildernessAgility] Inventory error during looting bag check - will retry next cycle");
+            waitingForLootingBagSync = false;
+            hasCheckedLootingBagOnStartup = false; // Allow retry
+            
+            // Try to close any open interface just in case
+            try {
+                Rs2Keyboard.keyPress(java.awt.event.KeyEvent.VK_ESCAPE);
+                sleep(300);
+            } catch (Exception ignored) {}
+        }
     }
 }
