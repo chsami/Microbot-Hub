@@ -372,7 +372,7 @@
             "events",
             "microbot"
         ],
-        "version": "1.0.3",
+        "version": "1.0.4",
         "minClientVersion": "2.0.7",
         "authors": [
             "Unknown"
@@ -380,8 +380,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/EventDismissPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/EventDismissPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "cb8f5f838147c8fef5f5c77cf19ba38a69345e23f2654343e7646bf1358811d8",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/eventdismissplugin/1.0.3/eventdismissplugin-1.0.3.jar"
+        "sha256": "086419752be9ed9f4e85b1594b8130adb0c2ca61f145a74d14d14626499155ba",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/eventdismissplugin/1.0.4/eventdismissplugin-1.0.4.jar"
     },
     {
         "internalName": "AutoFishingPlugin",
@@ -773,16 +773,16 @@
             "mass",
             "MoneyMaking"
         ],
-        "version": "1.5.1",
-        "minClientVersion": "1.9.8",
+        "version": "1.6.0",
+        "minClientVersion": "2.0.21",
         "authors": [
-            "Unknown Author"
+            "Cranny"
         ],
         "iconUrl": "https://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/icon.png",
-        "cardUrl": "https://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/card.png",
+        "cardUrl": "httpa://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/card.png",
         "disable": false,
-        "sha256": "68d6152e534dabaf899c51ac3dc5dfbf582993581b305f6e64e870b42077a8e4",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/wildernessagilityplugin/1.5.1/wildernessagilityplugin-1.5.1.jar"
+        "sha256": "45f3c9c15ff922537fc792a44d013773637b96880cbf9dbfa1064ff9eadfacca",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/wildernessagilityplugin/1.6.0/wildernessagilityplugin-1.6.0.jar"
     },
     {
         "internalName": "StallThievingPlugin",
@@ -2149,7 +2149,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.1.0",
+        "version": "1.1.1",
         "minClientVersion": "2.0.7",
         "authors": [
             "George"
@@ -2157,8 +2157,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoCookingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoCookingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "0e17ed50e0a33ebe2d44904ad1a80800f4d41aeeaeedb52c9f1272cd3aa3548f",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autocookingplugin/1.1.0/autocookingplugin-1.1.0.jar"
+        "sha256": "a223c3611dc2075314a8806eb4b85843065b200aeecfbdb12ec4c631a916e5bf",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autocookingplugin/1.1.1/autocookingplugin-1.1.1.jar"
     },
     {
         "internalName": "PlayerMonitorPlugin",
