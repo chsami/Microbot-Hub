@@ -103,7 +103,17 @@ public class AutoCookingScript extends Script {
                                 return;
                             }
                             Rs2Inventory.useItemOnObject(cookingItem.getRawItemID(), cookingObject.getId());
-                            sleepUntil(() -> !Rs2Player.isMoving() && Rs2Widget.findWidget("like to cook?", null, false) != null);
+
+                            boolean productionWidgetOpen = Rs2Widget.isProductionWidgetOpen();
+                            if (!productionWidgetOpen) {
+                                productionWidgetOpen = sleepUntilTrue(Rs2Widget::isProductionWidgetOpen, 200, 12000);
+                            }
+
+                            if (!productionWidgetOpen) {
+                                return;
+                            }
+
+                            sleepUntilTrue(() -> !Rs2Player.isMoving(), 200, 8000);
 
                             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
                             Microbot.status = "Cooking " + cookingItem.getRawItemName();
@@ -141,9 +151,18 @@ public class AutoCookingScript extends Script {
                             if (npc == null) return;
                             boolean isNPCBankOpen = Rs2Bank.openBank(npc);
                             if (!isNPCBankOpen) return;
+                            sleepUntil(() -> !Rs2Player.isMoving());
                         } else {
-                            boolean isBankOpen = Rs2Bank.walkToBankAndUseBank();
-                            if (!isBankOpen || !Rs2Bank.isOpen()) return;
+                            TileObject nearbyBankObject = Rs2GameObject.findBank(20);
+                            if (nearbyBankObject != null) {
+                                int distanceToBank = Rs2Player.getWorldLocation().distanceTo(nearbyBankObject.getWorldLocation());
+                                boolean isBankOpen = Rs2Bank.openBank(nearbyBankObject);
+                                if (!isBankOpen || !Rs2Bank.isOpen()) return;
+                                sleepUntil(() -> !Rs2Player.isMoving());
+                            } else {
+                                boolean isBankOpen = Rs2Bank.walkToBankAndUseBank();
+                                if (!isBankOpen || !Rs2Bank.isOpen()) return;
+                            }
                         }
 
                         Rs2Bank.depositAll();
@@ -167,6 +186,15 @@ public class AutoCookingScript extends Script {
                         Rs2Bank.closeBank();
                         break;
                     case WALKING:
+                        boolean hasRawItems = hasRawItem(cookingItem);
+                        int distanceToCookingObject = Rs2Player.getWorldLocation().distanceTo(location.getCookingObjectWorldPoint());
+
+                        if (hasRawItems && distanceToCookingObject <= 20) {
+                            state = CookingState.COOKING;
+                            sleepUntil(() -> !Rs2Player.isMoving());
+                            break;
+                        }
+
                         if (!isNearCookingLocation(location, 10)) {
                             boolean walkTo = Rs2Walker.walkTo(location.getCookingObjectWorldPoint(), 2);
                             if (!walkTo) return;
@@ -174,7 +202,7 @@ public class AutoCookingScript extends Script {
                             Rs2Walker.walkFastCanvas(location.getCookingObjectWorldPoint());
                         }
 
-                        if (hasRawItem(cookingItem)) {
+                        if (hasRawItems) {
                             state = CookingState.COOKING;
                         } else {
                             state = CookingState.BANKING;
