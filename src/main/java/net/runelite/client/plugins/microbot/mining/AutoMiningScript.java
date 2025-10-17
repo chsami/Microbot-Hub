@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.mining;
 
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.GameObject;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
@@ -7,7 +8,9 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.mining.data.MiningRockLocations;
 import net.runelite.client.plugins.microbot.mining.data.Rocks;
+import net.runelite.client.plugins.microbot.pluginscheduler.tasks.requirements.requirement.location.LocationOption;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
@@ -21,7 +24,9 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -31,12 +36,16 @@ enum State {
     RESETTING,
 }
 
+@Slf4j
 public class AutoMiningScript extends Script {
 
-    public static final String version = "1.4.4";
+    public static final String version = "1.4.5";
     private static final int GEM_MINE_UNDERGROUND = 11410;
     private static final int BASALT_MINE = 11425;
     State state = State.MINING;
+    private static final List<Rocks> PROGRESSIVE_ROCKS = buildProgressiveRocks();
+    private Rocks activeRock;
+    private LocationOption activeLocation;
 
     public boolean run(AutoMiningConfig config) {
         initialPlayerLocation = null;
@@ -52,7 +61,13 @@ public class AutoMiningScript extends Script {
                     initialPlayerLocation = Rs2Player.getWorldLocation();
                 }
 
-                if (!config.ORE().hasRequiredLevel()) {
+                updateActiveRock(config);
+
+                if (config.progressiveMode() && ensureProgressiveLocation(config)) {
+                    return;
+                }
+
+                if (activeRock == null || !activeRock.hasRequiredLevel()) {
                     Microbot.log("You do not have the required mining level to mine this ore.");
                     return;
                 }
@@ -102,7 +117,11 @@ public class AutoMiningScript extends Script {
                             return;
                         }
 
-                        GameObject rock = Rs2GameObject.findReachableObject(config.ORE().getName(), true, config.distanceToStray(), initialPlayerLocation, false, "");
+                        if (activeRock == null) {
+                            return;
+                        }
+
+                        GameObject rock = Rs2GameObject.findReachableObject(activeRock.getName(), true, config.distanceToStray(), initialPlayerLocation);
 
                         if (rock != null) {
                             if (Rs2GameObject.interact(rock)) {
@@ -116,7 +135,7 @@ public class AutoMiningScript extends Script {
                         List<String> itemNames = Arrays.stream(config.itemsToBank().split(",")).map(String::toLowerCase).collect(Collectors.toList());
 
                         if (config.useBank()) {
-                            if (config.ORE() == Rocks.GEM && Rs2Player.getWorldLocation().getRegionID() == GEM_MINE_UNDERGROUND) {
+                            if (activeRock == Rocks.GEM && Rs2Player.getWorldLocation().getRegionID() == GEM_MINE_UNDERGROUND) {
                                 if (Rs2DepositBox.openDepositBox()) {
                                     if (Rs2Inventory.contains("Open gem bag")) {
                                         Rs2Inventory.interact("Open gem bag", "Empty");
@@ -127,7 +146,7 @@ public class AutoMiningScript extends Script {
                                     Rs2DepositBox.closeDepositBox();
                                 }
                             }
-                            else if (Rocks.BASALT == config.ORE() && BASALT_MINE == Rs2Player.getWorldLocation().getRegionID()) {
+                            else if (Rocks.BASALT == activeRock && BASALT_MINE == Rs2Player.getWorldLocation().getRegionID()) {
                                 if (Rs2Walker.walkTo(2872,3935,0)){
                                     Rs2Inventory.useItemOnNpc(ItemID.BASALT, NpcID.MY2ARM_SNOWFLAKE);
                                     Rs2Walker.walkTo(2841,10339,0);
@@ -155,5 +174,78 @@ public class AutoMiningScript extends Script {
     public void shutdown(){
         super.shutdown();
         Rs2Antiban.resetAntibanSettings();
+    }
+
+    private static List<Rocks> buildProgressiveRocks() {
+        List<Rocks> rocks = new ArrayList<>(Arrays.asList(
+                Rocks.TIN,
+                Rocks.IRON,
+                Rocks.COAL,
+                Rocks.GOLD,
+                Rocks.MITHRIL,
+                Rocks.ADAMANTITE,
+                Rocks.RUNITE
+        ));
+        return rocks;
+    }
+
+    private void updateActiveRock(AutoMiningConfig config) {
+        Rocks previousRock = activeRock;
+        LocationOption previousLocation = activeLocation;
+
+        if (!config.progressiveMode()) {
+            activeRock = config.ORE();
+            activeLocation = MiningRockLocations.getBestAccessibleLocation(activeRock);
+            updateStatus();
+            return;
+        }
+
+        Rocks unlockedRock = PROGRESSIVE_ROCKS.stream()
+                .filter(Rocks::hasRequiredLevel)
+                .max(Comparator.comparingInt(Rocks::getMiningLevel))
+                .orElse(PROGRESSIVE_ROCKS.get(0));
+
+        activeRock = unlockedRock;
+        activeLocation = MiningRockLocations.getBestAccessibleLocation(activeRock);
+
+        updateStatus();
+    }
+
+    private boolean ensureProgressiveLocation(AutoMiningConfig config) {
+        if (activeLocation == null || activeLocation.getWorldPoint() == null) {
+            return false;
+        }
+
+        WorldPoint targetPoint = activeLocation.getWorldPoint();
+
+        if (initialPlayerLocation == null || !initialPlayerLocation.equals(targetPoint)) {
+            initialPlayerLocation = targetPoint;
+        }
+
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) {
+            return true;
+        }
+
+        int acceptableDistance = Math.min(Math.max(1, config.distanceToStray()), 5);
+        int distanceToTarget = playerLocation.distanceTo(targetPoint);
+        if (distanceToTarget > acceptableDistance) {
+            if (Rs2Player.isMoving()) {
+                return true;
+            }
+
+            Rs2Walker.walkTo(targetPoint, 3);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void updateStatus() {
+        String oreName = activeRock != null ? activeRock.getName() : "Unknown";
+        String locationName = (activeLocation != null && activeLocation.getName() != null)
+                ? activeLocation.getName()
+                : "current area";
+        Microbot.status = "Mining " + oreName + " @ " + locationName;
     }
 }

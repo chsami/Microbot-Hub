@@ -52,6 +52,18 @@ public interface AutoMiningConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "progressiveMode",
+            name = "Progressive mode",
+            description = "Automatically select the best ore for our level",
+            position = 1,
+            section = generalSection
+    )
+    default boolean progressiveMode()
+    {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = "DistanceToStray",
             name = "Distance to Stray",
             description = "Set how far you can travel from your initial position in tiles",

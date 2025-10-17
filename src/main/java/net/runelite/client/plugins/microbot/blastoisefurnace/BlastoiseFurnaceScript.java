@@ -147,6 +147,12 @@ public class BlastoiseFurnaceScript extends Script {
 
                         if (Rs2Inventory.hasItem("bar")) {
                             Rs2Bank.depositAllExcept(coalBag, GAUNTLETS_OF_GOLDSMITHING, ICE_GLOVES, SMITHING_UNIFORM_GLOVES_ICE);
+                            if (Rs2Inventory.isFull()) {
+                                // Wait so our player avoids drinking potions with a full inventory
+                                if (!Rs2Inventory.waitForInventoryChanges(1800)) {
+                                    sleepUntil(() -> !Rs2Inventory.isFull(), 1200);
+                                }
+                            }
                         }
 
                         if (!hasRequiredOresForSmithing()) {
@@ -456,7 +462,21 @@ public class BlastoiseFurnaceScript extends Script {
 
     private void withdrawAndDrink(String potionItemName) {
         String baseName = getBaseName(potionItemName);
-        Rs2Bank.withdrawOne(potionItemName);
+        boolean withdrewPotion = Rs2Bank.withdrawOne(potionItemName);
+        if (!withdrewPotion) {
+            if (Rs2Inventory.isFull()) {
+                // Wait a full tick for safety
+                if (!Rs2Inventory.waitForInventoryChanges(600) && Rs2Inventory.isFull()) {
+                    log.debug("Inventory remained full while attempting to withdraw {}", potionItemName);
+                    return;
+                }
+                withdrewPotion = Rs2Bank.withdrawOne(potionItemName);
+            }
+            if (!withdrewPotion) {
+                log.debug("Failed to withdraw potion {} from the bank", potionItemName);
+                return;
+            }
+        }
         Rs2Inventory.waitForInventoryChanges(1800);
         Rs2Inventory.interact(potionItemName, "drink");
         Rs2Inventory.waitForInventoryChanges(1800);
