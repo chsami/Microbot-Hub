@@ -152,8 +152,6 @@ public class GotrScript extends Script {
 
                 if (isInMiniGame) {
 
-                    if (lootChisel()) return;
-
                     if (waitingForGameToStart(timeToStart)) return;
             
 
@@ -317,17 +315,6 @@ public class GotrScript extends Script {
             log("Taking uncharged cells...");
             Rs2Player.waitForAnimation();
         }
-    }
-
-    private boolean lootChisel() {
-        if (isInHugeMine()) return false;
-        if (!Rs2Inventory.isFull() && !Rs2Inventory.hasItem("Chisel")) {
-            Rs2GameObject.interact("chisel", "take");
-            Rs2Player.waitForWalking();
-            log("Looking for chisel...");
-            return true;
-        }
-        return false;
     }
 
     private boolean usePortal() {
