@@ -86,7 +86,9 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     protected void shutDown() throws Exception {
         log("Gauntlet plugin stopped!");
         Rs2Prayer.disableAllPrayers();
-        overlayManager.remove(overlay);    }
+        overlayManager.remove(overlay);
+            super.shutDown();
+    }
 
     @Subscribe
     public void onGameTick(GameTick event) {
