@@ -224,7 +224,7 @@ public class WintertodtInventoryManager {
     private boolean handleAxeSetup(WintertodtAxeManager.AxeDecision axeDecision) {
         if (axeDecision.shouldEquipAxe()) {
             // Axe should be equipped - check if it is
-            if (!Rs2Equipment.hasEquipped(axeDecision.getAxeId())) {
+            if (!Rs2Equipment.isWearing(axeDecision.getAxeId())) {
                 if (Rs2Inventory.hasItem(axeDecision.getAxeId())) {
                     Rs2Inventory.wield(axeDecision.getAxeId());
                     inventorySetupLog.add("Equipped axe from inventory: " + axeDecision.getAxeName());
@@ -241,7 +241,7 @@ public class WintertodtInventoryManager {
         } else {
             // Axe should be in inventory
             if (!Rs2Inventory.hasItem(axeDecision.getAxeId())) {
-                if (Rs2Equipment.hasEquipped(axeDecision.getAxeId())) {
+                if (Rs2Equipment.isWearing(axeDecision.getAxeId())) {
                     Rs2Equipment.unEquip(EquipmentInventorySlot.WEAPON);
                     inventorySetupLog.add("Moved axe to inventory: " + axeDecision.getAxeName());
                 } else if (Rs2Bank.isOpen() && Rs2Bank.hasBankItem(axeDecision.getAxeId(),1)) {
@@ -264,8 +264,8 @@ public class WintertodtInventoryManager {
      */
     private boolean handleFireTool() {
         // Check if we have bruma torch equipped/available (prioritize offhand)
-        if (Rs2Equipment.hasEquipped(ItemID.BRUMA_TORCH_OFFHAND) || 
-            Rs2Equipment.hasEquipped(ItemID.BRUMA_TORCH)) {
+        if (Rs2Equipment.isWearing(ItemID.BRUMA_TORCH_OFFHAND) ||
+            Rs2Equipment.isWearing(ItemID.BRUMA_TORCH)) {
             inventorySetupLog.add("Fire tool: Bruma torch equipped");
             return true;
         }

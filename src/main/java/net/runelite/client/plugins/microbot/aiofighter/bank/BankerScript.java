@@ -100,7 +100,7 @@ public class BankerScript extends Script {
     }
 
 //    public boolean needsBanking() {
-//        return (isUpkeepItemDepleted(config) && config.bank()) || (Rs2Inventory.getEmptySlots() <= config.minFreeSlots() && config.bank()) || needSlayerItems() || inventorySetupChanged;
+//        return (isUpkeepItemDepleted(config) && config.bank()) || (Rs2Inventory.emptySlotCount() <= config.minFreeSlots() && config.bank()) || needSlayerItems() || inventorySetupChanged;
 //    }
     /**
      * Returns true if the player needs to bank (e.g., missing potions, full inventory).
@@ -109,9 +109,6 @@ public class BankerScript extends Script {
         if(config.currentInventorySetup() == null){
             if(config.defaultInventorySetup() != null) {
                 AIOFighterPlugin.setCurrentSlayerInventorySetup(config.defaultInventorySetup());
-            } else {
-                Microbot.log("No inventory setup configured, skipping banking.");
-                return false;
             }
         }        
         if(!config.bank()){
@@ -120,7 +117,7 @@ public class BankerScript extends Script {
 
         // Don't bank if we can eat food for space instead
         if (config.eatFoodForSpace() && 
-            Rs2Inventory.getEmptySlots() <= config.minFreeSlots() && 
+            Rs2Inventory.emptySlotCount() <= config.minFreeSlots() && 
             !Rs2Inventory.getInventoryFood().isEmpty()) {
             // Food available to make space - let EatForSpaceScript handle it
             return false;
@@ -139,7 +136,7 @@ public class BankerScript extends Script {
         }
 
         // (2) If there are too few empty slots, missing slayer items, or the inventory setup changed
-        if ((Rs2Inventory.getEmptySlots() <= config.minFreeSlots() && config.bank()) || needSlayerItems() || inventorySetupChanged) {
+        if ((Rs2Inventory.emptySlotCount() <= config.minFreeSlots() && config.bank()) || needSlayerItems() || inventorySetupChanged) {
             Microbot.log("Low free slots, missing slayer items, or inventory setup changed, triggering banking.");
             bankingTriggered = true;
             return true;
@@ -160,12 +157,12 @@ public class BankerScript extends Script {
                 setupName = config.inventorySetup().getName();
             }
         }
-        
+
         if (setupName == null) {
             Microbot.log("Invalid inventory setup name, skipping banking.");
             return false;
         }
-
+        
         Rs2InventorySetup inventorySetup = new Rs2InventorySetup(setupName, mainScheduledFuture);
 
         // (3) If food is required but not available

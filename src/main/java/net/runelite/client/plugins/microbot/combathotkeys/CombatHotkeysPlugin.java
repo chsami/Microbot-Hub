@@ -12,8 +12,11 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -30,7 +33,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleep;
         tags = {"combat", "hotkeys", "microbot"},
         authors = {"Cicire"},
         version = CombatHotkeysPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.0.8",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL,
         iconUrl = "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/icon.jpg",
@@ -106,6 +109,14 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
             Rs2Prayer.toggle(config.offensiveMagicPrayer().getPrayer());
         }
 
+        if (config.specialAttackKey().matches(e)) {
+            e.consume();
+            Microbot.getClientThread().runOnSeperateThread(() -> {
+                Rs2Combat.setSpecState(!Rs2Combat.getSpecState());
+                return null;
+            });
+        }
+
         if (config.protectFromMagic().matches(e)) {
             e.consume();
             Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC);
@@ -119,6 +130,30 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
         if (config.protectFromMelee().matches(e)) {
             e.consume();
             Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE);
+        }
+
+        if (config.eatBestFood().matches(e)) {
+            e.consume();
+            Microbot.getClientThread().runOnSeperateThread(() -> {
+                Rs2Player.useFood();
+                return null;
+            });
+        }
+
+        if (config.eatFastFood().matches(e)) {
+            e.consume();
+            Microbot.getClientThread().runOnSeperateThread(() -> {
+                Rs2Player.useFastFood();
+                return null;
+            });
+        }
+
+        if (config.drinkPrayerPotion().matches(e)) {
+            e.consume();
+            Microbot.getClientThread().runOnSeperateThread(() -> {
+                Rs2Player.drinkPrayerPotion();
+                return null;
+            });
         }
 
         if (config.gear1().matches(e)) {
@@ -157,6 +192,14 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
             e.consume();
             Microbot.getClientThread().runOnSeperateThread(() -> {
                 equipGear(config.gearList5());
+                return null;
+            });
+        }
+
+        if (config.highAlchemyKey().matches(e)) {
+            e.consume();
+            Microbot.getClientThread().runOnSeperateThread(() -> {
+                Rs2Magic.alch(config.itemToAlch(),50, 75);
                 return null;
             });
         }

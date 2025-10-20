@@ -48,8 +48,8 @@ public class WildernessAgilityOverlay extends OverlayPanel {
                 .rightColor(new Color(0xFFA726))
                 .build());
         panelComponent.getChildren().add(LineComponent.builder()
-                .left("Inventory Value")
-                .right(String.format("%,d gp", script.getInventoryValue()))
+                .left("Looting Bag Value")
+                .right(String.format("%,d gp", script.getLootingBagValue()))
                 .leftColor(new Color(0x2ECC40)) // money green
                 .rightColor(new Color(0x2ECC40))
                 .build());

@@ -30,10 +30,20 @@ public class SafetyScript extends Script {
                 if (config.missingFood() && Rs2Inventory.getInventoryFood().isEmpty() && !config.bank()){
                     stopAndLog("Missing food in inventory. Turn Missing Food config off if you don't want this.");
                 }
-                if (config.missingArrows() && !Rs2Equipment.contains(x -> x.getName().toLowerCase().contains("arrow") || x.getName().toLowerCase().contains("bolt") || x.getName().toLowerCase().contains("dart") || x.getName().toLowerCase().contains("knife"))){
+                if (config.missingArrows() && !Rs2Equipment.isWearing(x -> x.getName().toLowerCase().contains("arrow") || x.getName().toLowerCase().contains("bolt") || x.getName().toLowerCase().contains("dart") || x.getName().toLowerCase().contains("knife"))){
                     stopAndLog("Missing arrows in inventory/equipment");
                 }
-                if (config.lowHealth() && Rs2Inventory.getInventoryFood().isEmpty() && !config.bank()){
+                String setupName = "";
+                if (config.slayerMode()) {
+                    if (config.currentInventorySetup() != null) {
+                        setupName = config.currentInventorySetup().getName();
+                    }
+                } else {
+                    if (config.inventorySetup() != null) {
+                        setupName = config.inventorySetup().getName();
+                    }
+                }
+                if (config.lowHealth() && Rs2Inventory.getInventoryFood().isEmpty() && (!config.bank() || setupName == null)){
                     if (Rs2Player.getHealthPercentage() < config.healthSafetyValue()){
                         stopAndLog("Low health: " + Rs2Player.getHealthPercentage() + "%");
                     }

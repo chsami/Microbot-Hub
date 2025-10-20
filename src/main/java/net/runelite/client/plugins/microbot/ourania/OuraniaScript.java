@@ -19,7 +19,7 @@ import net.runelite.client.plugins.gpu.GpuPlugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
-import net.runelite.client.plugins.microbot.qualityoflife.scripts.pouch.Pouch;
+import net.runelite.client.plugins.microbot.pouch.Pouch;
 import net.runelite.client.plugins.microbot.ourania.enums.OuraniaState;
 import net.runelite.client.plugins.microbot.ourania.enums.Path;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
@@ -289,7 +289,7 @@ public class OuraniaScript extends Script
 							}
 						}
 
-						int requiredEssence = Rs2Inventory.getEmptySlots() + Rs2Inventory.getRemainingCapacityInPouches();
+						int requiredEssence = Rs2Inventory.emptySlotCount() + Rs2Inventory.getRemainingCapacityInPouches();
 
 						if (!Rs2Bank.hasBankItem(config.essence().getItemId(), requiredEssence))
 						{

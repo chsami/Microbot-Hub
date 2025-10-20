@@ -15,7 +15,7 @@ public class PLooter extends Script {
     public boolean run(PVirewatchKillerConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             if (!super.run()) return;
-            if (Rs2Inventory.isFull() || Rs2Inventory.getEmptySlots() <= 1|| Rs2Combat.inCombat())
+            if (Rs2Inventory.isFull() || Rs2Inventory.emptySlotCount() <= 1|| Rs2Combat.inCombat())
                 return;
 
             if (!config.toggleLootItems()) return;

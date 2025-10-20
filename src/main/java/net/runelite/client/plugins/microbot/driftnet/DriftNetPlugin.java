@@ -40,7 +40,7 @@ import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
 )
 @Slf4j
 public class DriftNetPlugin extends Plugin {
-    final static String version = "1.0.0";
+    final static String version = "1.0.1";
     static final String CONFIG_GROUP = "driftnet";
     private static final int UNDERWATER_REGION = 15008;
     private static final String CHAT_PRODDING_FISH = "You prod at the shoal of fish to scare it.";

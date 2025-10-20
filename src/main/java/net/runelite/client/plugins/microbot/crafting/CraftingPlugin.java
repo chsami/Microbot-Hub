@@ -29,7 +29,7 @@ import java.awt.*;
 @Slf4j
 public class CraftingPlugin extends Plugin {
 
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
 
     private final DefaultScript defaultScript = new DefaultScript();
     private final GemsScript gemsScript = new GemsScript();

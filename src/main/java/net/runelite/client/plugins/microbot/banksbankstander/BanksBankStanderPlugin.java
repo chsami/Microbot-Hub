@@ -32,7 +32,7 @@ import java.util.Arrays;
 )
 @Slf4j
 public class BanksBankStanderPlugin extends Plugin {
-    public final static String version = "2.1.0";
+    public final static String version = "2.1.1";
     @Inject
     private BanksBankStanderConfig config;
 

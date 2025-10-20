@@ -5,6 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.construction.ConstructionConfig;
+import net.runelite.client.plugins.microbot.construction.ConstructionOverlay;
+import net.runelite.client.plugins.microbot.construction.ConstructionScript;
+import net.runelite.client.plugins.microbot.construction.enums.ConstructionState;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -13,49 +17,51 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginDescriptor.Mocrosoft + "Construction",
-        description = "Microbot construction plugin",
+        name = PluginDescriptor.Geoff + "Construction 2",
+        description = "Geoff's Microbot construction plugin with added new bits.",
         tags = {"skilling", "microbot", "construction"},
-        authors = { "Mocrosoft" },
         version = ConstructionPlugin.version,
-        minClientVersion = "2.0.7",
-        cardUrl = "https://chsami.github.io/Microbot-Hub/ConstructionPlugin/assets/card.png",
-        iconUrl = "https://chsami.github.io/Microbot-Hub/ConstructionPlugin/assets/icon.png",
+        minClientVersion = "2.0.13",
+        cardUrl = "",
+        iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class ConstructionPlugin extends Plugin {
-
-    final static String version = "1.1.0";
+    public static final String version = "1.3.1";
 
     @Inject
-    private ConstructionConfig config;
+    private net.runelite.client.plugins.microbot.construction.ConstructionConfig config;
 
     @Provides
-    ConstructionConfig provideConfig(ConfigManager configManager) {
+    net.runelite.client.plugins.microbot.construction.ConstructionConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(ConstructionConfig.class);
     }
 
     @Inject
     private OverlayManager overlayManager;
     @Inject
-    private ConstructionOverlay constructionOverlay;
+    private ConstructionOverlay ConstructionOverlay;
 
-    public ConstructionScript constructionScript = new ConstructionScript();
+    private final net.runelite.client.plugins.microbot.construction.ConstructionScript ConstructionScript = new ConstructionScript();
 
     @Override
     protected void startUp() throws AWTException {
-		Microbot.pauseAllScripts.compareAndSet(true, false);
+        Microbot.pauseAllScripts.compareAndSet(true, false);
         if (overlayManager != null) {
-            overlayManager.add(constructionOverlay);
+            overlayManager.add(ConstructionOverlay);
         }
-        constructionScript.run(config);
+        ConstructionScript.run(config);
     }
 
-    protected void shutDown() throws Exception {
-        constructionScript.shutdown();
-        overlayManager.remove(constructionOverlay);
-        super.shutDown();
+    @Override
+    protected void shutDown() {
+        ConstructionScript.shutdown();
+        overlayManager.remove(ConstructionOverlay);
+    }
+
+    public ConstructionState getState() {
+        return ConstructionScript.getState();
     }
 }

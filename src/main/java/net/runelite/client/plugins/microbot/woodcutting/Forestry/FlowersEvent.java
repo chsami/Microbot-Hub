@@ -68,9 +68,8 @@ public class FlowersEvent implements BlockingEvent {
                 sleepUntil(() -> false, 1000);
                 continue;
             }
-            
-            // interact with the flowering bush to pollinate it
-            if (Rs2Npc.interact(availableFlower, "Pick-from")) {
+
+            if (Rs2Npc.interact(availableFlower, "Tend-to")) {
                 Rs2Player.waitForAnimation();
                 sleepUntil(() -> !Rs2Player.isInteracting(), 8000);
             }

@@ -477,7 +477,7 @@ public class MWintertodtScript extends Script {
             Rs2Walker.walkTo(bankLocation);
             Rs2Player.waitForWalking();
         }
-        Rs2Bank.useBank();
+        Rs2Bank.openBank();
         if (!Rs2Bank.isOpen()) return true;
         Rs2Bank.depositAllExcept("hammer", "tinderbox", "knife", config.food().getName(), axe);
         int foodCount = Rs2Inventory.getInventoryFood().size();

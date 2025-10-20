@@ -10,6 +10,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.pluginscheduler.tasks.requirements.requirement.location.ResourceLocationOption;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
@@ -28,6 +29,7 @@ import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.woodcutting.enums.*;
+import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingTreeLocations;
 
 import javax.inject.Inject;
 import java.awt.event.KeyEvent;
@@ -56,29 +58,44 @@ public class AutoWoodcuttingScript extends Script {
     );
 
     public static final int FORESTRY_DISTANCE = 15;
+    private static final List<WoodcuttingTree> PROGRESSIVE_TREE_ORDER = List.of(
+            WoodcuttingTree.TREE,
+            WoodcuttingTree.OAK,
+            WoodcuttingTree.WILLOW,
+            WoodcuttingTree.TEAK_TREE,
+            WoodcuttingTree.MAPLE,
+            WoodcuttingTree.MAHOGANY,
+            WoodcuttingTree.YEW,
+            WoodcuttingTree.MAGIC,
+            WoodcuttingTree.REDWOOD
+    );
     private static WorldPoint returnPoint;
     public volatile boolean cannotLightFire = false;
     WoodcuttingScriptState woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
     private boolean hasAutoHopMessageShown = false;
-    private final AutoWoodcuttingPlugin plugin;    
+    private final AutoWoodcuttingPlugin plugin;
     public int currentLogBasketCount = -1;
+    private WoodcuttingTree activeTree = WoodcuttingTree.TREE;
+    private ResourceLocationOption activeLocation;
     @Inject
     public AutoWoodcuttingScript(AutoWoodcuttingPlugin plugin) {
         this.plugin = plugin;
     }
 
-    private static void handleFiremaking(AutoWoodcuttingConfig config) {
+    private void handleFiremaking(AutoWoodcuttingConfig config) {
+        WoodcuttingTree treeType = getActiveTree();
+
         if (!Rs2Inventory.hasItem(TINDERBOX)) {
             Rs2Bank.openBank();
             sleepUntil(Rs2Bank::isOpen, 20000);
             Rs2Bank.withdrawItem(true, "Tinderbox");
         }
 
-        if (!Rs2Inventory.hasItem(config.TREE().getLog())) {
+        if (!Rs2Inventory.hasItem(treeType.getLog())) {
             Microbot.log("Opening bank");
             Rs2Bank.openBank();
             sleepUntil(Rs2Bank::isOpen, 20000);
-            Rs2Bank.withdrawAll(config.TREE().getLog());
+            Rs2Bank.withdrawAll(treeType.getLog());
             Rs2Bank.closeBank();
             sleep(500, 1200);
         }
@@ -97,6 +114,8 @@ public class AutoWoodcuttingScript extends Script {
         Rs2Antiban.antibanSetupTemplates.applyWoodcuttingSetup();
         Rs2AntibanSettings.dynamicActivity = true;
         Rs2AntibanSettings.dynamicIntensity = true;
+        activeTree = config.TREE();
+        activeLocation = null;
         if (config.firemakeOnly()) {
             woodcuttingScriptState = WoodcuttingScriptState.FIREMAKING;
         }
@@ -125,17 +144,18 @@ public class AutoWoodcuttingScript extends Script {
     }
 
     private void handleWoodcutting(AutoWoodcuttingConfig config) {
+        WoodcuttingTree treeType = getActiveTree();
         GameObject tree = null;
         if (config.HardwoodTreePatch()) {
             var patchIds = List.of(30480, 30481, 30482);
-            var trees = Rs2GameObject.getGameObjects(x -> patchIds.contains(x.getId()) && Rs2GameObject.hasAction(Rs2GameObject.convertToObjectComposition(x), config.TREE().getAction()));
+            var trees = Rs2GameObject.getGameObjects(x -> patchIds.contains(x.getId()) && Rs2GameObject.hasAction(Rs2GameObject.convertToObjectComposition(x), treeType.getAction()));
             tree = trees.stream().findFirst().orElse(null);
         } else {
-            tree = Rs2GameObject.findReachableObject(config.TREE().getName(), true, config.distanceToStray(), getInitialPlayerLocation(), config.TREE().equals(WoodcuttingTree.REDWOOD), config.TREE().getAction());
+            tree = Rs2GameObject.findReachableObject(treeType.getName(), true, config.distanceToStray(), getInitialPlayerLocation(), treeType.equals(WoodcuttingTree.REDWOOD), treeType.getAction());
         }
 
         if (tree != null) {
-            if (Rs2GameObject.interact(tree, config.TREE().getAction())) {
+            if (Rs2GameObject.interact(tree, treeType.getAction())) {
                 Rs2Player.waitForAnimation();
                 Rs2Antiban.actionCooldown();
 
@@ -147,25 +167,26 @@ public class AutoWoodcuttingScript extends Script {
     }
 
     private boolean beforeCuttingTreesChecks(AutoWoodcuttingConfig config) {
+        WoodcuttingTree treeType = getActiveTree();
 
         if (Rs2Equipment.isWearing(ItemID.DRAGON_AXE) || Rs2Equipment.isWearing(ItemID.DRAGON_AXE_2H) || Rs2Equipment.isWearing(ItemID.CRYSTAL_AXE) ||
                 Rs2Equipment.isWearing(ItemID.CRYSTAL_AXE_2H) || Rs2Equipment.isWearing(ItemID.INFERNAL_AXE) ||
                 Rs2Equipment.isWearing(ItemID.TRAILBLAZER_AXE))
             Rs2Combat.setSpecState(true, 1000);
         boolean willBank = willBankItems(config);
-        int currentLogCountBeforeFill = Rs2Inventory.count(config.TREE().getLogID());
+        int currentLogCountBeforeFill = Rs2Inventory.count(treeType.getLogID());
         if ( currentLogCountBeforeFill > 0 && currentLogBasketCount < Rs2LogBasket.LOG_BASKET_CAPACITY && Rs2LogBasket.hasLogBasket()  && willBank) {
             if (currentLogBasketCount == -1) {
                 Rs2LogBasket.BasketContents content  = Rs2LogBasket.getCurrentBasketContents();
                 currentLogBasketCount = content == null ? 0 : content.quantity;
                 log.info("Initialized log basket count to {}", currentLogBasketCount);
             }
-            if(currentLogBasketCount < Rs2LogBasket.LOG_BASKET_CAPACITY && Rs2Inventory.isFull() && Rs2Inventory.contains(config.TREE().getLog())) {
-                
+            if(currentLogBasketCount < Rs2LogBasket.LOG_BASKET_CAPACITY && Rs2Inventory.isFull() && Rs2Inventory.contains(treeType.getLog())) {
+
                 if (Rs2LogBasket.fillLogBasket()) {
-                    Rs2Antiban.actionCooldown();                                                
+                    Rs2Antiban.actionCooldown();
                 }
-                int currentLogCountAfterFill = Rs2Inventory.count(config.TREE().getLogID());
+                int currentLogCountAfterFill = Rs2Inventory.count(treeType.getLogID());
                 int addedLogs = currentLogCountBeforeFill - currentLogCountAfterFill;
                 currentLogBasketCount += addedLogs;
                 log.info("Added {} logs to basket, current count: {}", addedLogs, currentLogBasketCount);
@@ -216,7 +237,13 @@ public class AutoWoodcuttingScript extends Script {
             returnPoint = Rs2Player.getWorldLocation();
         }
 
-        if (!config.TREE().hasRequiredLevel()) {
+        updateActiveTree(config);
+
+        if (config.progressiveMode() && ensureProgressiveLocation(config)) {
+            return true;
+        }
+
+        if (!getActiveTree().hasRequiredLevel()) {
             Microbot.showMessage("You do not have the required woodcutting level to cut this tree.");
             shutdown();
             return true;
@@ -258,7 +285,7 @@ public class AutoWoodcuttingScript extends Script {
             case BURN:
                 burnLog(config);
 
-                if (Rs2Inventory.contains(config.TREE().getLog())) return;
+                if (Rs2Inventory.contains(getActiveTree().getLog())) return;
 
                 walkBack(config);
 
@@ -275,11 +302,45 @@ public class AutoWoodcuttingScript extends Script {
         }
     }
 
+    private boolean ensureProgressiveLocation(AutoWoodcuttingConfig config) {
+        if (activeLocation == null || activeLocation.getWorldPoint() == null) {
+            return false;
+        }
+
+        WorldPoint targetPoint = activeLocation.getWorldPoint();
+
+        if (initialPlayerLocation == null || !initialPlayerLocation.equals(targetPoint)) {
+            initialPlayerLocation = targetPoint;
+        }
+
+        if (returnPoint == null || !returnPoint.equals(targetPoint)) {
+            returnPoint = targetPoint;
+        }
+
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) {
+            return true;
+        }
+
+        int acceptableDistance = Math.min(Math.max(1, config.distanceToStray()), 5);
+        int distanceToTarget = playerLocation.distanceTo(targetPoint);
+        if (distanceToTarget > acceptableDistance) {
+            if (Rs2Player.isMoving()) {
+                return true;
+            }
+
+            Rs2Walker.walkTo(targetPoint, 3);
+            return true;
+        }
+
+        return false;
+    }
+
     private boolean handleBanking(AutoWoodcuttingConfig config) {
         BankLocation nearestBank = Rs2Bank.getNearestBank();
         boolean isBankOpen = Rs2Bank.isNearBank(nearestBank, 8) ? Rs2Bank.openBank() : Rs2Bank.walkToBankAndUseBank(nearestBank);
         if (!isBankOpen || !Rs2Bank.isOpen()) return false;
-        
+
         // empty log basket first if we have one
         Rs2LogBasket.emptyLogBasketAtBank();
         currentLogBasketCount = 0;
@@ -326,6 +387,7 @@ public class AutoWoodcuttingScript extends Script {
     }
 
     private void burnLog(AutoWoodcuttingConfig config) {
+        WoodcuttingTree treeType = getActiveTree();
         WorldPoint fireSpot;
         boolean useCampfire = false;
 
@@ -348,14 +410,14 @@ public class AutoWoodcuttingScript extends Script {
             Rs2Inventory.waitForInventoryChanges(() -> {
                 Rs2Inventory.use("tinderbox");
                 sleepUntil(Rs2Inventory::isItemSelected);
-                Rs2Inventory.useLast(config.TREE().getLogID());
+                Rs2Inventory.useLast(treeType.getLogID());
             }, 300, 100);
         } else if (!isFiremake() && useCampfire) {
-            Rs2Inventory.useItemOnObject(config.TREE().getLogID(), fire.getId());
+            Rs2Inventory.useItemOnObject(treeType.getLogID(), fire.getId());
             sleepUntil(() -> (!Rs2Player.isMoving() && Rs2Widget.findWidget("How many would you like to burn?", null, false) != null), 5000);
             Rs2Random.waitEx(400, 200);
             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-            sleepUntil(() -> !Rs2Inventory.contains(config.TREE().getLog()) || !Rs2Player.isAnimating(), 40000);
+            sleepUntil(() -> !Rs2Inventory.contains(treeType.getLog()) || !Rs2Player.isAnimating(), 40000);
 
             return;
         }
@@ -399,7 +461,7 @@ public class AutoWoodcuttingScript extends Script {
     }
 
     private void fletchArrowShaft(AutoWoodcuttingConfig config) {
-        Rs2Inventory.combineClosest("knife", config.TREE().getLog());
+        Rs2Inventory.combineClosest("knife", getActiveTree().getLog());
         sleepUntil(Rs2Widget::isProductionWidgetOpen, 5000);
         Rs2Widget.clickWidget("arrow shafts");
         Rs2Player.waitForAnimation();
@@ -459,20 +521,21 @@ public class AutoWoodcuttingScript extends Script {
             }
             return;
         }
-        int logCount = Rs2Inventory.count(config.TREE().getLogID());
-        if (logCount > 0) {            
-            boolean startFletchingSucces = Rs2Fletching.fletchItems(config.TREE().getLogID(), config.fletchingType().getContainsInventoryName(), "All");
-            int fletchedItems = Rs2Inventory.getList( itemBounds -> itemBounds.getName().contains(config.fletchingType().getContainsInventoryName())).size();
-            log.info("We fletched " + logCount + " " + config.TREE() + " into " +fletchedItems + " of" + config.fletchingType().getContainsInventoryName() +  " "+ ", success: " + startFletchingSucces);
+        WoodcuttingTree treeType = getActiveTree();
+        int logCount = Rs2Inventory.count(treeType.getLogID());
+        if (logCount > 0) {
+            boolean startFletchingSucces = Rs2Fletching.fletchItems(treeType.getLogID(), config.fletchingType().getContainsInventoryName(), "All");
+            int fletchedItems = Rs2Inventory.getList(itemBounds -> itemBounds.getName().contains(config.fletchingType().getContainsInventoryName())).size();
+            log.info("We fletched {} {} into {} of {} , success: {}", logCount, treeType, fletchedItems, config.fletchingType().getContainsInventoryName(), startFletchingSucces);
             if (!startFletchingSucces) {
                 log.error("Failed to start fletching, stopping script");
                 shutdown();
                 return;
 
             }
-            if (Rs2Inventory.count(config.TREE().getLogID())!=0){
+            if (Rs2Inventory.count(treeType.getLogID())!=0){
                 return;
-            }            
+            }
         }
         
         // handle secondary action
@@ -500,13 +563,89 @@ public class AutoWoodcuttingScript extends Script {
             case NONE:
                 break;
         }
-        
-        
+
+
         woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
     }
 
+    public WoodcuttingTree getActiveTree() {
+        return activeTree;
+    }
+
+    private void updateActiveTree(AutoWoodcuttingConfig config) {
+        WoodcuttingTree previousTree = activeTree;
+        WoodcuttingTree resolvedTree;
+        ResourceLocationOption candidateLocation = null;
+        boolean progressive = config.progressiveMode();
+
+        if (progressive) {
+            int woodcuttingLevel = Rs2Player.getRealSkillLevel(Skill.WOODCUTTING);
+            ProgressiveSelection selection = determineProgressiveSelection(woodcuttingLevel);
+            resolvedTree = selection.getTree();
+            candidateLocation = selection.getLocation();
+        } else {
+            resolvedTree = config.TREE();
+        }
+
+        if (resolvedTree == null) {
+            resolvedTree = WoodcuttingTree.TREE;
+        }
+
+        activeTree = resolvedTree;
+
+        if (progressive) {
+            boolean keepExistingLocation = previousTree == resolvedTree && activeLocation != null && activeLocation.hasRequirements();
+
+            if (!keepExistingLocation) {
+                activeLocation = candidateLocation;
+            }
+        } else {
+            activeLocation = null;
+        }
+    }
+
+    private ProgressiveSelection determineProgressiveSelection(int woodcuttingLevel) {
+        ProgressiveSelection bestSelection = null;
+
+        for (WoodcuttingTree tree : PROGRESSIVE_TREE_ORDER) {
+            if (woodcuttingLevel < tree.getWoodcuttingLevel()) {
+                break;
+            }
+
+            ResourceLocationOption location = WoodcuttingTreeLocations.getBestAccessibleLocation(tree);
+            if (location != null) {
+                bestSelection = new ProgressiveSelection(tree, location);
+            }
+        }
+
+        if (bestSelection != null) {
+            return bestSelection;
+        }
+
+        ResourceLocationOption fallbackLocation = WoodcuttingTreeLocations.getBestAccessibleLocation(WoodcuttingTree.TREE);
+        return new ProgressiveSelection(WoodcuttingTree.TREE, fallbackLocation);
+    }
+
+    private static class ProgressiveSelection {
+        private final WoodcuttingTree tree;
+        private final ResourceLocationOption location;
+
+        private ProgressiveSelection(WoodcuttingTree tree, ResourceLocationOption location) {
+            this.tree = tree;
+            this.location = location;
+        }
+
+        public WoodcuttingTree getTree() {
+            return tree;
+        }
+
+        public ResourceLocationOption getLocation() {
+            return location;
+        }
+    }
+
     @Override
-    public void shutdown() {        
+    public void shutdown() {
         super.shutdown();
         currentLogBasketCount = -1;
         Rs2Fletching.stopFletchingWhileMoving();
@@ -515,5 +654,6 @@ public class AutoWoodcuttingScript extends Script {
         initialPlayerLocation = null;
         hasAutoHopMessageShown = false;
         Rs2Antiban.resetAntibanSettings();
+        activeLocation = null;
     }
 }

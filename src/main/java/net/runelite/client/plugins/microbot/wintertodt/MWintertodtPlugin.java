@@ -41,7 +41,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class MWintertodtPlugin extends Plugin {
-    public static final String version = "1.4.7";
+    public static final String version = "1.4.8";
     @Inject
     MWintertodtScript wintertodtScript;
     @Inject

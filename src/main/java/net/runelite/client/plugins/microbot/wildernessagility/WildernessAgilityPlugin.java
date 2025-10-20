@@ -9,6 +9,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.ChatMessageType;
 import net.runelite.client.util.Text;
 import net.runelite.client.eventbus.Subscribe;
@@ -17,16 +18,15 @@ import net.runelite.client.eventbus.Subscribe;
     name = PluginConstants.CRANNY + "Wilderness Agility",
     description = "Automated wilderness agility training with banking and ticket collection",
     version = WildernessAgilityPlugin.version,
-    minClientVersion = "1.9.8",
+    authors = { "Cranny" },
+    minClientVersion = "2.0.21",
     tags = {"agility", "skilling", "solo", "mass", "MoneyMaking"},
-    enabledByDefault = PluginConstants.DEFAULT_ENABLED,
-    isExternal = PluginConstants.IS_EXTERNAL,
     iconUrl = "https://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/icon.png",
-    cardUrl = "https://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/card.png"
+    cardUrl = "httpa://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/card.png"
 )
 public class WildernessAgilityPlugin extends Plugin {
 
-    static final String version = "1.5.1";
+    static final String version = "1.6.0";
     @Inject
     private OverlayManager overlayManager;
     @Inject
@@ -67,9 +67,29 @@ public class WildernessAgilityPlugin extends Plugin {
 
     @Subscribe
     public void onChatMessage(ChatMessage chatMessage) {
-        String msg = Text.removeTags(chatMessage.getMessage());
-        if (chatMessage.getType() == ChatMessageType.FRIENDSCHATNOTIFICATION && msg.startsWith("Now talking in chat-channel")) {
+        String msg = chatMessage.getMessage(); // Keep raw message for regex matching
+        String cleanMsg = Text.removeTags(msg); // Clean version for exact string matching
+        
+        // Detect friends chat join
+        if (chatMessage.getType() == ChatMessageType.FRIENDSCHATNOTIFICATION && cleanMsg.startsWith("Now talking in chat-channel")) {
             script.setLastFcJoinMessageTime(System.currentTimeMillis());
         }
+        
+        // Detect player death
+        if (chatMessage.getType() == ChatMessageType.GAMEMESSAGE && cleanMsg.equals("Oh dear, you are dead!")) {
+            Microbot.log("[WildernessAgility] Death detected via chat message");
+            script.triggerDeathHandling();
+        }
+        
+        // Detect dispenser loot (use raw message for regex matching)
+        if (chatMessage.getType() == ChatMessageType.GAMEMESSAGE) {
+            script.handleDispenserChatMessage(msg);
+        }
+    }
+    
+    @Subscribe
+    public void onItemContainerChanged(ItemContainerChanged event) {
+        // Forward looting bag container changes to script for value tracking
+        script.handleItemContainerChanged(event);
     }
 } 

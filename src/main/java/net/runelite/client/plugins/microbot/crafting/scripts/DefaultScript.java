@@ -6,7 +6,7 @@ import net.runelite.client.plugins.microbot.crafting.CraftingConfig;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.math.Random;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 
 import java.awt.event.KeyEvent;
 import java.util.concurrent.TimeUnit;
@@ -17,7 +17,7 @@ public class DefaultScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
-                if (Random.random(1, 255) == 2)
+                if (Rs2Random.between(1, 255) == 2)
                     sleep(3000, 60000);
                 String leather = "green dragon leather";
                 String craftedItem = "green d'hide body";

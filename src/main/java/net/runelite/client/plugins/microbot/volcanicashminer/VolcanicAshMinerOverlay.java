@@ -28,7 +28,7 @@ public class VolcanicAshMinerOverlay extends OverlayPanel {
         try {
             panelComponent.setPreferredSize(new Dimension(200, 300));
             panelComponent.getChildren().add(TitleComponent.builder()
-                    .text("VolcanicAshMiner - v" + VolcanicAshMinerScript.VERSION)
+                    .text("VolcanicAshMiner - v" + plugin.version)
                     .color(Color.GREEN)
                     .build());
             panelComponent.getChildren().add(LineComponent.builder().build());

@@ -380,8 +380,8 @@ public interface AIOFighterConfig extends Config {
     //toggle High Alch profitable items
     @ConfigItem(
             keyName = "highAlchProfitable",
-            name = "High Alch Profitable",
-            description = "High Alch Profitable items",
+            name = "High alch profitable",
+            description = "High alch profitable items",
             position = 101,
             section = lootSection
     )
@@ -390,10 +390,21 @@ public interface AIOFighterConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "highAlchBlacklist",
+            name = "High alch blacklist",
+            description = "Items to NEVER be alched - use * as a wildcard (e.g., *full helm, Dragon*, Amulet of glory (*)",
+            position = 102,
+            section = lootSection
+    )
+    default String highAlchBlacklist() {
+        return "";
+    }
+
+    @ConfigItem(
             keyName =  "eatFoodForSpace",
             name = "Eat food for space",
             description = "Eats food before looting if low on space",
-            position = 102,
+            position = 103,
             section = lootSection
     )
     default boolean eatFoodForSpace() { return false; }
@@ -402,7 +413,7 @@ public interface AIOFighterConfig extends Config {
             keyName = "waitForLoot",
             name = "Wait for Loot",
             description = "Wait for loot to appear before attacking next NPC",
-            position = 103,
+            position = 104,
             section = lootSection,
             hidden = true
     )
@@ -415,7 +426,7 @@ public interface AIOFighterConfig extends Config {
             keyName = "lootWaitTimeout",
             name = "Loot Wait Timeout (s)",
             description = "Seconds to wait for loot before resuming combat (1-10)",
-            position = 104,
+            position = 105,
             section = lootSection,
             hidden = true
     )
@@ -685,7 +696,7 @@ public interface AIOFighterConfig extends Config {
             section = safetySection
     )
     default boolean useSafety() {
-        return false;
+        return true;
     }
 
     // Missing runes
@@ -953,5 +964,4 @@ public interface AIOFighterConfig extends Config {
     }
 
 }
-
 

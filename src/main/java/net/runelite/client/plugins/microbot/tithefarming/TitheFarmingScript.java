@@ -330,7 +330,7 @@ public class TitheFarmingScript extends Script {
             WorldPoint w = WorldPoint.fromRegion(Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID(),
                     plant.regionX,
                     plant.regionY,
-                    Microbot.getClient().getPlane());
+                    Microbot.getClient().getTopLevelWorldView().getPlane());
             Rs2Walker.walkMiniMap(w, 1);
             return;
         }
@@ -403,7 +403,7 @@ public class TitheFarmingScript extends Script {
         WorldPoint worldPoint = WorldPoint.fromRegion(Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID(),
                 plant.regionX,
                 plant.regionY,
-                Microbot.getClient().getPlane());
+                Microbot.getClient().getTopLevelWorldView().getPlane());
 
         Rs2GameObject.interact(worldPoint);
 
@@ -415,7 +415,7 @@ public class TitheFarmingScript extends Script {
         WorldPoint worldPoint = WorldPoint.fromRegion(Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID(),
                 plant.regionX,
                 plant.regionY,
-                Microbot.getClient().getPlane());
+                Microbot.getClient().getTopLevelWorldView().getPlane());
 
         Rs2GameObject.interact(worldPoint, action);
     }

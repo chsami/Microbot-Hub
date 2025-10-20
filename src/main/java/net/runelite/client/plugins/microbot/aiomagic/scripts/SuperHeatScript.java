@@ -66,7 +66,7 @@ public class SuperHeatScript extends Script {
 
                 switch (state) {
                     case BANKING:
-                        boolean isBankOpen = Rs2Bank.isNearBank(15) ? Rs2Bank.useBank() : Rs2Bank.walkToBankAndUseBank();
+                        boolean isBankOpen = Rs2Bank.isNearBank(15) ? Rs2Bank.openBank() : Rs2Bank.walkToBankAndUseBank();
                         if (!isBankOpen || !Rs2Bank.isOpen()) return;
 
                         Rs2Bank.depositAllExcept(ItemID.NATURERUNE);

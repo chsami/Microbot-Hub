@@ -456,9 +456,9 @@ public class AstralRunesScript extends Script {
                 Rs2Inventory.checkPouches();
                 Rs2Inventory.waitForInventoryChanges(200);
             }
-            var emptySlots = Rs2Inventory.getEmptySlots();
+            var emptySlots = Rs2Inventory.emptySlotCount();
             Rs2Inventory.interact(colossalPouch, "Fill");
-            var nextEmptySlots = Rs2Inventory.getEmptySlots();
+            var nextEmptySlots = Rs2Inventory.emptySlotCount();
             // Handle edge case where pouch goes out-of-sync
             if( !Rs2Inventory.waitForInventoryChanges(400) || emptySlots == nextEmptySlots ) {
                 Rs2Bank.closeBank();
@@ -470,10 +470,7 @@ public class AstralRunesScript extends Script {
     }
 
     private static void switchInventoryTabIfNeeded() {
-        if( Rs2Tab.getCurrentTab() != InterfaceTab.INVENTORY ) {
-            Rs2Tab.switchToInventoryTab();
-            sleepUntil(() -> Rs2Tab.getCurrentTab() == InterfaceTab.INVENTORY);
-        }
+        Rs2Tab.switchTo(InterfaceTab.INVENTORY);
     }
 
     private static void closeWorldMapIfNeeded() {
