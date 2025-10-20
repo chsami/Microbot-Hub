@@ -39,38 +39,7 @@ public class AutoGauntletPrayerScript extends Script {
         this.config = config;
     }
 
-    public boolean run() {
-        Microbot.enableAutoRunOn = false;
-        mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
-            try {
-                if (!Microbot.isLoggedIn()) return;
-                if (!super.run()) return;
-                long startTime = System.currentTimeMillis();
-                long currentTime = System.currentTimeMillis();
-
-                switch (agpstate) {
-                    case Engine:
-                        //nothing2
-                        break;
-
-                    case Idle:
-                        //nothing
-                        break;
-                }
-
-
-
-                long endTime = System.currentTimeMillis();
-                long totalTime = endTime - startTime;
-                log.info("Total time for loop {}ms", totalTime);
-
-            } catch (Exception ex) {
-                log.trace("Exception in main loop: ", ex);
-            }
-        }, 0, 300, TimeUnit.MILLISECONDS);
-        return true;
-    }
-
+    
     public void Timer1() {
         agpPrayTime = currentTime;
 
