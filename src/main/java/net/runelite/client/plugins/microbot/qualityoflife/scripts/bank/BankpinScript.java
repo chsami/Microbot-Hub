@@ -6,6 +6,7 @@ import net.runelite.client.plugins.microbot.qualityoflife.QoLConfig;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.security.Encryption;
 import net.runelite.client.plugins.microbot.util.security.Login;
+import net.runelite.client.plugins.microbot.util.security.LoginManager;
 
 import java.util.concurrent.TimeUnit;
 
@@ -16,9 +17,9 @@ public class BankpinScript extends Script {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 if (!config.useBankPin()) return;
-                if ((Login.activeProfile.getBankPin() == null || Login.activeProfile.getBankPin().isEmpty()) || Login.activeProfile.getBankPin().equalsIgnoreCase("**bankpin**")) return;
+                if ((LoginManager.getActiveProfile().getBankPin() == null || LoginManager.getActiveProfile().getBankPin().isEmpty()) || LoginManager.getActiveProfile().getBankPin().equalsIgnoreCase("**bankpin**")) return;
 
-                Rs2Bank.handleBankPin(Encryption.decrypt(Login.activeProfile.getBankPin()));
+                Rs2Bank.handleBankPin(Encryption.decrypt(LoginManager.getActiveProfile().getBankPin()));
 
             } catch(Exception ex) {
                 Microbot.logStackTrace(this.getClass().getSimpleName(), ex);
