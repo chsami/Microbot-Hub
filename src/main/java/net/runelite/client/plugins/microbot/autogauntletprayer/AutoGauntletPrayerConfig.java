@@ -18,4 +18,34 @@ public interface AutoGauntletPrayerConfig extends Config {
     default boolean MysticMight() {
         return false;
     }
+
+    @ConfigItem(
+            keyName = "DisableWeapon",
+            name = "Disable Weapon swaps",
+            description = "",
+            position = 2
+    )
+    default boolean DisableWeapon() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "DisablePrayer",
+            name = "Disable Prayer swap",
+            description = "",
+            position = 3
+    )
+    default boolean DisablePrayer() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "enOverlay",
+            name = "Enable Overlay",
+            description = "",
+            position = 4
+    )
+    default boolean enOverlay() {
+        return true;
+    }
 }
