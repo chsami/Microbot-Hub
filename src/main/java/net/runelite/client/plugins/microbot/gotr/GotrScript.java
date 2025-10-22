@@ -670,20 +670,22 @@ public class GotrScript extends Script {
     }
 
     public static List<GameObject> getAvailableAltars() {
-        int elementalPoints = Microbot.getVarbitValue(13686);
-        int catalyticPoints = Microbot.getVarbitValue(13685);
-        if (config.Mode() == Mode.BALANCED) {
-            Microbot.log(elementalPoints < catalyticPoints ? "We have " + elementalPoints + " elemental points, looking for elemental altar..." : "We have " + catalyticPoints +" catalytic points, looking for catalytic altar...");
-        }
-        return Rs2GameObject.getGameObjects().stream()
+        int elementalPoints = elementalRewardPoints;
+        int catalyticPoints = catalyticRewardPoints;
+        List<GameObject> availableAltars = Rs2GameObject.getGameObjects().stream()
                 .filter(x -> {
 
                     if (!guardianPortalInfo.containsKey(x.getId())) return false;
-                    if (GotrScript.guardianPortalInfo.get(x.getId()).getRequiredLevel()
+
+                    GuardianPortalInfo portalInfo = GotrScript.guardianPortalInfo.get(x.getId());
+
+                    if (portalInfo.getRequiredLevel()
                             > Microbot.getClient().getBoostedSkillLevel(Skill.RUNECRAFT)) {
+                        Microbot.log("Filtered altar " + portalInfo.getName() + " – insufficient RC level");
                         return false;
                     }
-                    if (GotrScript.guardianPortalInfo.get(x.getId()).getQuestState() != QuestState.FINISHED) {
+                    if (portalInfo.getQuestState() != QuestState.FINISHED) {
+                        Microbot.log("Filtered altar " + portalInfo.getName() + " – quest not complete");
                         return false;
                     }
 
@@ -693,12 +695,53 @@ public class GotrScript extends Script {
                     if (((DynamicObject) x.getRenderable()).getAnimation().getId() != 9363) {
                         return false;
                     }
-
+                    Microbot.log("Adding " + portalInfo.getName() + " to list of available altars");
                     return true;
 
                 })
-                .sorted((config.Mode() == Mode.BALANCED && elementalPoints < catalyticPoints) || config.Mode() == Mode.ELEMENTAL ? Comparator.comparingInt(TileObject::getId) : Comparator.comparingInt(TileObject::getId).reversed())
                 .collect(Collectors.toList());
+
+        Microbot.log("Found " + availableAltars.size() + " active altars after filtering.");
+
+        if (config.Mode() == Mode.POINTS) {
+            // Sort by strongest → weakest CellType; if equal, fall back to balancing points
+            Microbot.log("Sorting by CellType (strongest→weakest) for POINTS mode...");
+            return availableAltars.stream()
+                    .sorted(
+                            Comparator.<GameObject>comparingInt(
+                                            o -> GotrScript.guardianPortalInfo.get(o.getId()).getCellType().ordinal()
+                                    ).reversed()
+                                    .thenComparingInt(o -> {
+                                        RuneType rt = GotrScript.guardianPortalInfo.get(o.getId()).getRuneType();
+                                        boolean preferElemental = elementalPoints < catalyticPoints;
+                                        return ((preferElemental && rt == RuneType.ELEMENTAL) ||
+                                                (!preferElemental && rt == RuneType.CATALYTIC)) ? 0 : 1;
+                                    })
+                    )
+                    .peek(o -> Microbot.log("Altar " +
+                            GotrScript.guardianPortalInfo.get(o.getId()).getName() + " – " +
+                            GotrScript.guardianPortalInfo.get(o.getId()).getCellType()))
+                    .collect(Collectors.toList());
+        }
+
+        if ((config.Mode() == Mode.BALANCED && elementalPoints < catalyticPoints) || config.Mode() == Mode.ELEMENTAL) {
+            Microbot.log(elementalPoints < catalyticPoints
+                    ? "We have " + elementalPoints + " elemental points, looking for elemental altar..."
+                    : "We have " + catalyticPoints +" catalytic points, looking for catalytic altar...");
+
+            Microbot.log("Sorting for BALANCED/ELEMENTAL mode (" +
+                    (elementalPoints < catalyticPoints ? "Elemental priority" : "Catalytic priority") + ")");
+
+            return availableAltars.stream()
+                    .sorted(
+                            (elementalPoints < catalyticPoints)
+                                    ? Comparator.comparingInt(TileObject::getId)
+                                    : Comparator.comparingInt(TileObject::getId).reversed()
+                    )
+                    .collect(Collectors.toList());
+        }
+        Microbot.log("Returning unsorted altars (default mode).");
+        return availableAltars;
     }
 
     private int getGuardiansPower() {
