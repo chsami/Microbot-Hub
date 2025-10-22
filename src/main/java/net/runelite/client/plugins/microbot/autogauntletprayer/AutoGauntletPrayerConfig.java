@@ -6,7 +6,7 @@ import net.runelite.client.config.ConfigInformation;
 import net.runelite.client.config.ConfigItem;
 
 @ConfigGroup("Auto Gauntlet Prayer")
-@ConfigInformation("LiftedMango <br> 0.1.0 <br><br> Does Gauntlet stuff"
+@ConfigInformation("LiftedMango <br> 0.1.1 <br><br> Does Gauntlet stuff <br><br>Drinks potions automatically"
 )
 public interface AutoGauntletPrayerConfig extends Config {
     @ConfigItem(
