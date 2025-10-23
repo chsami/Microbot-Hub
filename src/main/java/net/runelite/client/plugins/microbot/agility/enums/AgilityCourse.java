@@ -10,6 +10,7 @@ public enum AgilityCourse
 	AL_KHARID_ROOFTOP_COURSE("Al Kharid Rooftop Course", new AlKharidCourse()),
 	APE_ATOLL_AGILITY_COURSE("Ape Atoll Agility Course", new ApeAtollCourse()),
 	ARDOUGNE_ROOFTOP_COURSE("Ardougne Rooftop Course", new ArdougneCourse()),
+	BRIMHAVEN_SPIKE_COURSE("Brimhaven Spike Course", new BrimhavenSpikeCourse()),
 	CANIFIS_ROOFTOP_COURSE("Canifis Rooftop Course", new CanafisCourse()),
 	COLOSSAL_WYRM_ADVANCED_COURSE("Colossal Wyrm Advanced Course", new ColossalWyrmAdvancedCourse()),
 	COLOSSAL_WYRM_BASIC_COURSE("Colossal Wyrm Basic Course", new ColossalWyrmBasicCourse()),
@@ -23,7 +24,7 @@ public enum AgilityCourse
 	SHAYZIEN_ADVANCED_COURSE("Shayzien Advanced Agility Course", new ShayzienAdvancedCourse()),
 	SHAYZIEN_BASIC_COURSE("Shayzien Basic Agility Course", new ShayzienBasicCourse()),
 	VARROCK_ROOFTOP_COURSE("Varrock Rooftop Course", new VarrockCourse()),
-	WEREWOLF_COURSE("Werewolf Agility Course", new WerewolfCourse())
+	WEREWOLF_COURSE("Werewolf Agility Course", new WerewolfCourse()),
 	;
 
 

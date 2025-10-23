@@ -7,6 +7,7 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.agility.AgilityPlugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.agility.courses.BrimhavenSpikeCourse;
 import net.runelite.client.plugins.microbot.agility.courses.GnomeStrongholdCourse;
 import net.runelite.client.plugins.microbot.agility.courses.PrifddinasCourse;
 import net.runelite.client.plugins.microbot.agility.courses.WerewolfCourse;
@@ -49,6 +50,13 @@ public class AgilityScript extends Script
 	@Override
 	public void shutdown()
 	{
+		// Reset BrimhavenSpike course flags if applicable
+		if (plugin.getCourseHandler() instanceof BrimhavenSpikeCourse)
+		{
+			BrimhavenSpikeCourse course = (BrimhavenSpikeCourse) plugin.getCourseHandler();
+			course.reset();
+		}
+		
 		super.shutdown();
 	}
 
@@ -70,18 +78,37 @@ public class AgilityScript extends Script
 				{
 					return;
 				}
+				
+				// Debug log to see if main loop is running
+				Microbot.log("AgilityScript main loop running - Course: " + config.agilityCourse().getTooltip());
 				if (!plugin.hasRequiredLevel())
 				{
+					Microbot.log("Early return: Required level not met");
 					Microbot.showMessage("You do not have the required level for this course.");
 					shutdown();
 					return;
 				}
+				
+				// Check coin requirement for BrimhavenSpike course (only before payment)
+				if (plugin.getCourseHandler() instanceof BrimhavenSpikeCourse)
+				{
+					BrimhavenSpikeCourse course = (BrimhavenSpikeCourse) plugin.getCourseHandler();
+					if (!course.hasPaid() && !course.hasRequiredCoins())
+					{
+						Microbot.log("Early return: Not enough coins for BrimhavenSpike course");
+						Microbot.showMessage("You need 200 coins to enter the Brimhaven Spike course!");
+						shutdown();
+						return;
+					}
+				}
 				if (Rs2AntibanSettings.actionCooldownActive)
 				{
+					Microbot.log("Early return: Action cooldown active");
 					return;
 				}
 				if (startPoint == null)
 				{
+					Microbot.log("Early return: Start point is null");
 					Microbot.showMessage("Agility course: " + config.agilityCourse().getTooltip() + " is not supported.");
 					sleep(10000);
 					return;
@@ -92,21 +119,29 @@ public class AgilityScript extends Script
 
 				if (handleFood())
 				{
+					Microbot.log("Early return: Handling food");
 					return;
 				}
 				if (handleSummerPies())
 				{
+					Microbot.log("Early return: Handling summer pies");
 					return;
 				}
 
 				if (lootMarksOfGrace())
 				{
+					Microbot.log("Early return: Looting marks of grace");
 					return;
 				}
 
 				if (handleCourseSpecificActions(playerWorldLocation))
 				{
 					return;
+				}
+				
+				// Debug log to see if script is running
+				if (plugin.getCourseHandler() instanceof BrimhavenSpikeCourse) {
+					Microbot.log("BrimhavenSpike course detected, but handleCourseSpecificActions returned false");
 				}
 
 				final int agilityExp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
@@ -379,6 +414,8 @@ public class AgilityScript extends Script
 
 	private boolean handleCourseSpecificActions(WorldPoint playerWorldLocation)
 	{
+		Microbot.log("handleCourseSpecificActions called for: " + plugin.getCourseHandler().getClass().getSimpleName());
+		
 		if (plugin.getCourseHandler() instanceof PrifddinasCourse)
 		{
 			PrifddinasCourse course = (PrifddinasCourse) plugin.getCourseHandler();
@@ -391,6 +428,14 @@ public class AgilityScript extends Script
 				|| course.handleStickPickup(playerWorldLocation)
 				|| course.handleSlide()
 				|| course.handleStickReturn(playerWorldLocation);
+		}
+		else if (plugin.getCourseHandler() instanceof BrimhavenSpikeCourse)
+		{
+			Microbot.log("BrimhavenSpikeCourse detected, calling handleWalkToStart");
+			BrimhavenSpikeCourse course = (BrimhavenSpikeCourse) plugin.getCourseHandler();
+			boolean result = course.handleWalkToStart(playerWorldLocation);
+			Microbot.log("BrimhavenSpikeCourse handleWalkToStart returned: " + result);
+			return result;
 		}
 		else if (!(plugin.getCourseHandler() instanceof GnomeStrongholdCourse))
 		{
