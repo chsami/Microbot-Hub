@@ -120,6 +120,14 @@ public class AutoGauntletPrayerPlugin extends Plugin {
 
         HeadIcon headIcon = hunllef.getHeadIcon();
 
+        // Protection Prayers happen above
+        /// --- PRAYER management part 2
+        checkAndToggleAttackPrayers();
+        checkSteelSkin();
+
+        Rs2Tab.switchTo(InterfaceTab.INVENTORY);
+
+        /// --- Start of INVENTORY management
         switch (headIcon) {
             case RANGED:
                 handleRangedHeadIcon();
@@ -133,9 +141,7 @@ public class AutoGauntletPrayerPlugin extends Plugin {
             default:
                 break;
         }
-        // Protection Prayers happen above
-        checkAndToggleAttackPrayers();
-        checkSteelSkin();
+
         checkPrayerPotions();
     }
 
@@ -311,6 +317,16 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     }
 
     private void SendPrayerToggle(Rs2PrayerEnum prayer, boolean enable) {
+        if (prayer == null) return;
+
+        boolean currentlyActive = Rs2Prayer.isPrayerActive(prayer);
+        if (currentlyActive == enable) return;
+
+        Rs2Prayer.toggle(prayer, enable, true);
+
+    }
+
+    private void SendPrayerToggleSleep(Rs2PrayerEnum prayer, boolean enable) {
         if (prayer == null) return;
 
         boolean currentlyActive = Rs2Prayer.isPrayerActive(prayer);
