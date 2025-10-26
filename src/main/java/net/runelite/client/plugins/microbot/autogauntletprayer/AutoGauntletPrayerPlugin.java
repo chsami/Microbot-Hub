@@ -90,6 +90,15 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     protected void startUp() throws Exception {
         log("Auto gauntlet prayer plugin started!");
         overlayManager.add(overlay);
+
+        // Always default to Protect from Range when the plugin starts
+        nextPrayer = Rs2PrayerEnum.PROTECT_RANGE;
+
+        // Ensure all other prayers are off, then enable Protect Range
+        Rs2Prayer.disableAllPrayers();
+        SendPrayerToggle(Rs2PrayerEnum.PROTECT_RANGE, true);
+
+        log("Defaulted to Protect from Range on plugin start.");
     }
 
     @Override
