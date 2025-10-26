@@ -1,8 +1,10 @@
 package net.runelite.client.plugins.microbot.autogauntletprayer;
 
 import com.google.inject.Provides;
+import lombok.Getter;
 import net.runelite.api.HeadIcon;
 import net.runelite.api.NPC;
+import net.runelite.api.Skill;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ProjectileMoved;
@@ -11,25 +13,30 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
+import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
+import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 import java.util.Set;
 
+import static java.lang.Thread.sleep;
 import static net.runelite.client.plugins.microbot.Microbot.log;
 
 @PluginDescriptor(
         name = PluginDescriptor.LiftedMango + "Auto Gauntlet Prayer",
         description = "Auto Gauntlet Prayer plugin",
-        tags = {"liftedmango", "Gauntlet", "pvm", "prayer", "money making", "auto", "boss"},
+        tags = {"liftedmango", "Gauntlet", "pvm", "prayer", "money making", "auto", "boss", "hunllef"},
         version = AutoGauntletPrayerPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.0.30",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -37,7 +44,11 @@ import static net.runelite.client.plugins.microbot.Microbot.log;
 )
 
 public class AutoGauntletPrayerPlugin extends Plugin {
-    public static final String version = "1.0.8";
+    public static final String version = "1.1";
+    @Inject
+    private OverlayManager overlayManager;
+    @Inject
+    private AutoGauntletPrayerOverlay overlay;
     @Inject
     private AutoGauntletPrayerConfig config;
     @Provides
@@ -45,6 +56,12 @@ public class AutoGauntletPrayerPlugin extends Plugin {
         return configManager.getConfig(AutoGauntletPrayerConfig.class);
     }
 
+    @Getter
+    private static int timer1Count = 0;
+    @Getter
+    private static long timer1Time = 0;
+
+    public static long agpPrayTime;
     private final int RANGE_PROJECTILE_MINIBOSS = 1705;
     private final int MAGE_PROJECTILE_MINIBOSS = 1701;
     private final int RANGE_PROJECTILE = 1711;
@@ -67,23 +84,28 @@ public class AutoGauntletPrayerPlugin extends Plugin {
             36150, 36151 // Gauntlet tiles (Ground object)
     );
 
+    long lastPrayerSwitch;
+
     @Override
     protected void startUp() throws Exception {
         log("Auto gauntlet prayer plugin started!");
+        overlayManager.add(overlay);
     }
 
     @Override
     protected void shutDown() throws Exception {
         log("Gauntlet plugin stopped!");
         Rs2Prayer.disableAllPrayers();
+        super.shutDown();
+        overlayManager.remove(overlay);
     }
 
     @Subscribe
     public void onGameTick(GameTick event) {
-        System.out.println("Next prayer: " + nextPrayer);
+        Microbot.log("Next prayer: " + nextPrayer);
 
         if (nextPrayer != null && !Rs2Prayer.isPrayerActive(nextPrayer)) {
-            Rs2Prayer.toggle(nextPrayer, true);
+            SendPrayerToggle(nextPrayer, true);
         }
 
         Rs2NpcModel hunllef = Rs2Npc.getNpcs()
@@ -111,28 +133,32 @@ public class AutoGauntletPrayerPlugin extends Plugin {
             default:
                 break;
         }
+        // Protection Prayers happen above
+        checkAndToggleAttackPrayers();
+        checkSteelSkin();
+        checkPrayerPotions();
     }
 
     @Subscribe
     public void onProjectileMoved(ProjectileMoved event) {
+
         int projectileId = event.getProjectile().getId();
 
         switch (projectileId) {
             case MAGE_PROJECTILE:
             case CG_MAGE_PROJECTILE:
             case MAGE_PROJECTILE_MINIBOSS:
-                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, true);
+                SendPrayerToggle(Rs2PrayerEnum.PROTECT_MAGIC, true);
                 break;
             case RANGE_PROJECTILE:
             case CG_RANGE_PROJECTILE:
             case RANGE_PROJECTILE_MINIBOSS:
-                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_RANGE, true);
+                SendPrayerToggle(Rs2PrayerEnum.PROTECT_RANGE, true);
                 break;
             default:
                 break;
         }
 
-        checkAndTogglePrayers();
     }
 
     @Subscribe
@@ -146,175 +172,162 @@ public class AutoGauntletPrayerPlugin extends Plugin {
         switch (animationID) {
             case MAGE_ANIMATION:
                 nextPrayer = Rs2PrayerEnum.PROTECT_MAGIC;
-                Rs2Prayer.toggle(nextPrayer, true);
                 break;
             case RANGE_ANIMATION:
                 nextPrayer = Rs2PrayerEnum.PROTECT_RANGE;
-                Rs2Prayer.toggle(nextPrayer, true);
                 break;
             default:
                 break;
         }
+
     }
 
-    private void handleRangedHeadIcon()
-    {
-        if (hasStaffInInventory() && !isHalberdEquipped())
-        {
-            equipStaff();
-        }
-        else if (hasHalberdInInventory() && !isStaffEquipped())
-        {
-            equipHalberd();
-        }
+    private static final int[] BOW_IDS = {
+            ItemID.GAUNTLET_RANGED_T3_HM, ItemID.GAUNTLET_RANGED_T3,
+            ItemID.GAUNTLET_RANGED_T2_HM, ItemID.GAUNTLET_RANGED_T2,
+            ItemID.GAUNTLET_RANGED_T1_HM, ItemID.GAUNTLET_RANGED_T1
+    };
+
+    private static final int[] STAFF_IDS = {
+            ItemID.GAUNTLET_MAGIC_T3_HM, ItemID.GAUNTLET_MAGIC_T3,
+            ItemID.GAUNTLET_MAGIC_T2_HM, ItemID.GAUNTLET_MAGIC_T2,
+            ItemID.GAUNTLET_MAGIC_T1_HM, ItemID.GAUNTLET_MAGIC_T1
+    };
+
+    private static final int[] HALBERD_IDS = {
+            ItemID.GAUNTLET_MELEE_T3_HM, ItemID.GAUNTLET_MELEE_T3,
+            ItemID.GAUNTLET_MELEE_T2_HM, ItemID.GAUNTLET_MELEE_T2,
+            ItemID.GAUNTLET_MELEE_T1_HM, ItemID.GAUNTLET_MELEE_T1
+    };
+
+    public synchronized Rs2PrayerEnum getNextPrayer() {
+        return nextPrayer;
     }
 
-    private void handleMagicHeadIcon()
-    {
-        if (hasBowInInventory() && !isHalberdEquipped())
-        {
-            equipBow();
-        }
-        else if (hasHalberdInInventory() && !isBowEquipped())
-        {
-            equipHalberd();
-        }
+    private void handleRangedHeadIcon() {
+        if (hasStaffInInventory() && !isHalberdEquipped()) { equipStaff(); }
+        else if (hasHalberdInInventory() && !isStaffEquipped()) { equipHalberd(); }
     }
 
-    private void handleMeleeHeadIcon()
-    {
-        if (hasStaffInInventory() && !isBowEquipped())
-        {
-            equipStaff();
-        }
-        else if (hasBowInInventory() && !isStaffEquipped())
-        {
-            equipBow();
-        }
+    private void handleMagicHeadIcon() {
+        if (hasBowInInventory() && !isHalberdEquipped()) { equipBow(); }
+        else if (hasHalberdInInventory() && !isBowEquipped()) { equipHalberd(); }
     }
 
-    private boolean hasBowInInventory() {
-        return Rs2Inventory.contains(ItemID.GAUNTLET_RANGED_T1)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_RANGED_T2)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_RANGED_T3)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_RANGED_T1_HM)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_RANGED_T2_HM)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_RANGED_T3_HM);
+    private void handleMeleeHeadIcon() {
+        if (hasStaffInInventory() && !isBowEquipped()) { equipStaff(); }
+        else if (hasBowInInventory() && !isStaffEquipped()) { equipBow(); }
     }
 
-    private boolean hasStaffInInventory() {
-        return Rs2Inventory.contains(ItemID.GAUNTLET_MAGIC_T1)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_MAGIC_T2)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_MAGIC_T3)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_MAGIC_T1_HM)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_MAGIC_T2_HM)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_MAGIC_T3_HM);
-    }
-
-    private boolean hasHalberdInInventory() {
-        return Rs2Inventory.contains(ItemID.GAUNTLET_MELEE_T1)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_MELEE_T2)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_MELEE_T3)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_MELEE_T1_HM)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_MELEE_T2_HM)
-                || Rs2Inventory.contains(ItemID.GAUNTLET_MELEE_T3_HM);
-    }
-
-    private void equipBow() {
-        Rs2Inventory.equip(ItemID.GAUNTLET_RANGED_T1_HM);
-        Rs2Inventory.equip(ItemID.GAUNTLET_RANGED_T2);
-        Rs2Inventory.equip(ItemID.GAUNTLET_RANGED_T3);
-        Rs2Inventory.equip(ItemID.GAUNTLET_RANGED_T3_HM);
-    }
-
-    private void equipStaff() {
-        Rs2Inventory.equip(ItemID.GAUNTLET_MAGIC_T1);
-        Rs2Inventory.equip(ItemID.GAUNTLET_MAGIC_T2);
-        Rs2Inventory.equip(ItemID.GAUNTLET_MAGIC_T3);
-        Rs2Inventory.equip(ItemID.GAUNTLET_MAGIC_T1_HM);
-        Rs2Inventory.equip(ItemID.GAUNTLET_MAGIC_T2_HM);
-        Rs2Inventory.equip(ItemID.GAUNTLET_MAGIC_T3_HM);
-    }
-
-    private void equipHalberd() {
-        Rs2Inventory.equip(ItemID.GAUNTLET_MELEE_T1);
-        Rs2Inventory.equip(ItemID.GAUNTLET_MELEE_T2);
-        Rs2Inventory.equip(ItemID.GAUNTLET_MELEE_T3);
-        Rs2Inventory.equip(ItemID.GAUNTLET_MELEE_T1_HM);
-        Rs2Inventory.equip(ItemID.GAUNTLET_MELEE_T2_HM);
-        Rs2Inventory.equip(ItemID.GAUNTLET_MELEE_T3_HM);
-    }
-
-    private void checkAndTogglePrayers() {
-        if (isBowEquipped() && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.RIGOUR)) {
-            toggleRigourPrayer();
-        }
-        if (isStaffEquipped() && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.AUGURY)) {
-            toggleAuguryPrayer();
-        }
-        if (isHalberdEquipped() && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PIETY)) {
-            togglePietyPrayer();
-        }
-    }
-
-    private boolean isBowEquipped() {
-        return Rs2Equipment.isWearing(ItemID.GAUNTLET_RANGED_T3)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_RANGED_T2)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_RANGED_T1)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_RANGED_T3_HM)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_RANGED_T2_HM)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_RANGED_T1_HM);
-    }
-
-    private boolean isStaffEquipped() {
-        return Rs2Equipment.isWearing(ItemID.GAUNTLET_MAGIC_T3)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_MAGIC_T1)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_MAGIC_T2)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_MAGIC_T3_HM)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_MAGIC_T2_HM)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_MAGIC_T1_HM);
-    }
-
-    private boolean isHalberdEquipped() {
-        return Rs2Equipment.isWearing(ItemID.GAUNTLET_MELEE_T3)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_MELEE_T1)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_MELEE_T2)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_MELEE_T3_HM)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_MELEE_T2_HM)
-                || Rs2Equipment.isWearing(ItemID.GAUNTLET_MELEE_T1_HM);
-    }
-
-    private void toggleRigourPrayer() {
-        if (!config.MysticMight()) {
-            Rs2Prayer.toggle(Rs2PrayerEnum.RIGOUR, true);
-        } else {
-            if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.STEEL_SKIN)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.STEEL_SKIN, true);
+    private boolean hasWeaponInInventory(int[] ids) {
+        for (int id : ids) {
+            if (Rs2Inventory.contains(id)) {
+                return true;
             }
-            Rs2Prayer.toggle(Rs2PrayerEnum.EAGLE_EYE, true);
+        }
+        return false;
+    }
+
+    private boolean isWeaponEquipped(int[] ids) {
+        for (int id : ids) {
+            if (Rs2Equipment.isWearing(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void equipBestAvailable(int[] ids) {
+        for (int id : ids) {
+            if (Rs2Inventory.contains(id)) {
+                Rs2Inventory.equip(id);
+                break;
+            }
         }
     }
 
-    private void toggleAuguryPrayer() {
-        if (!config.MysticMight()) {
-            Rs2Prayer.toggle(Rs2PrayerEnum.AUGURY, true);
-        } else {
-            if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.STEEL_SKIN)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.STEEL_SKIN, true);
-            }
-            Rs2Prayer.toggle(Rs2PrayerEnum.MYSTIC_MIGHT, true);
+    private boolean hasBowInInventory() {return hasWeaponInInventory(BOW_IDS);}
+    private boolean hasStaffInInventory() {return hasWeaponInInventory(STAFF_IDS);}
+    private boolean hasHalberdInInventory() {return hasWeaponInInventory(HALBERD_IDS);}
+    private boolean isBowEquipped() {return isWeaponEquipped(BOW_IDS);}
+    private boolean isStaffEquipped() {return isWeaponEquipped(STAFF_IDS);}
+    private boolean isHalberdEquipped() {return isWeaponEquipped(HALBERD_IDS);}
+
+    private void equipBow() { equipBestAvailable(BOW_IDS); }
+    private void equipStaff() { equipBestAvailable(STAFF_IDS); }
+    private void equipHalberd() { equipBestAvailable(HALBERD_IDS); }
+
+
+    ///  ---------------------------------------------------------------------------------------------------------------
+    ///  Prayers
+    /// --------------
+
+    private void checkAndToggleAttackPrayers() {
+        if (isBowEquipped() && (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.RIGOUR) && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.EAGLE_EYE) && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.DEAD_EYE))) {
+            toggleRangeAttackPrayer();
+        }
+        if (isStaffEquipped() && (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.AUGURY) && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.MYSTIC_MIGHT) && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.MYSTIC_VIGOUR))) {
+            toggleMagicAttackPrayer();
+        }
+        if ((isHalberdEquipped()) && (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PIETY)) && !(Rs2Prayer.isPrayerActive(Rs2PrayerEnum.INCREDIBLE_REFLEXES) && Rs2Prayer.isPrayerActive(Rs2PrayerEnum.ULTIMATE_STRENGTH))) {
+            toggleMeleeAttackPrayer();
         }
     }
 
-    private void togglePietyPrayer() {
-        if (!config.MysticMight()) {
-            Rs2Prayer.toggle(Rs2PrayerEnum.PIETY, true);
-        } else {
-            if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.STEEL_SKIN)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.STEEL_SKIN, true);
-            }
-            Rs2Prayer.toggle(Rs2PrayerEnum.ULTIMATE_STRENGTH, true);
-            Rs2Prayer.toggle(Rs2PrayerEnum.INCREDIBLE_REFLEXES, true);
+    private void checkSteelSkin(){
+        if (config.HigherPrayers()) {return;}
+        if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.STEEL_SKIN)) {
+            SendPrayerToggle(Rs2PrayerEnum.STEEL_SKIN, true);
         }
     }
+
+    private void toggleRangeAttackPrayer() {
+        if (config.HigherPrayers()) {
+            SendPrayerToggle(Rs2PrayerEnum.RIGOUR, true);
+        } else if (config.TitansPrayers()){
+            SendPrayerToggle(Rs2PrayerEnum.DEAD_EYE, true);
+        } else {
+            SendPrayerToggle(Rs2PrayerEnum.EAGLE_EYE, true);
+        }
+    }
+
+    private void toggleMagicAttackPrayer() {
+        if (config.HigherPrayers()) {
+            SendPrayerToggle(Rs2PrayerEnum.AUGURY, true);
+        } else if (config.TitansPrayers()) {
+            SendPrayerToggle(Rs2PrayerEnum.MYSTIC_VIGOUR, true);
+        } else {
+            SendPrayerToggle(Rs2PrayerEnum.MYSTIC_MIGHT, true);
+        }
+    }
+
+    private void toggleMeleeAttackPrayer() {
+        SendPrayerToggle(Rs2PrayerEnum.PIETY, true);
+    }
+
+    private void checkPrayerPotions() {
+        int currentPrayer = Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER);
+        if (currentPrayer < config.ppotvalue()) {Rs2Inventory.interact("Egniol potion", "Drink");}
+    }
+
+    private void SendPrayerToggle(Rs2PrayerEnum prayer, boolean enable) {
+        if (prayer == null) return;
+
+        boolean currentlyActive = Rs2Prayer.isPrayerActive(prayer);
+        if (currentlyActive == enable) return;
+
+        Microbot.getClientThread().runOnSeperateThread(() -> {
+            try {
+                Rs2Prayer.toggle(prayer, enable, true);
+                // small deliberate pause so the client UI can update; catch interruptions
+                try { Thread.sleep(15); } catch (InterruptedException ignored) {}
+                Rs2Tab.switchTo(InterfaceTab.INVENTORY);
+            } catch (Exception e) {
+                Microbot.log("safeTogglePrayer error: " + e.getMessage());
+            }
+            return true;
+        });
+
+    }
+
 }
