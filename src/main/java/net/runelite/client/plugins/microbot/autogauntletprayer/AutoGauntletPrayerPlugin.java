@@ -72,7 +72,6 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     private final int CG_DEACTIVATE_MAGE_PROJECTILE = 1714;
     private final int MAGE_ANIMATION = 8754;
     private final int RANGE_ANIMATION = 8755;
-    private static final long PRAYER_TOGGLE_DEBOUNCE_MS = 50;
     private int projectileCount = 0;
     private Rs2PrayerEnum nextPrayer = Rs2PrayerEnum.PROTECT_RANGE;
 
@@ -86,7 +85,6 @@ public class AutoGauntletPrayerPlugin extends Plugin {
             36150, 36151 // Gauntlet tiles (Ground object)
     );
 
-    long projectilethrottle;
 
     @Override
     protected void startUp() throws Exception {
@@ -159,7 +157,7 @@ public class AutoGauntletPrayerPlugin extends Plugin {
         long TickEnd = System.currentTimeMillis();
         long TickDuration = TickStart - TickEnd;
         Microbot.log("Tick runtime: " + TickDuration);
-    }
+    } // --- End of Gametick
 
     @Subscribe
     public void onProjectileMoved(ProjectileMoved event) {
@@ -190,8 +188,6 @@ public class AutoGauntletPrayerPlugin extends Plugin {
             default:
                 break;
         }
-
-
 
     }
 
@@ -255,18 +251,14 @@ public class AutoGauntletPrayerPlugin extends Plugin {
 
     private boolean hasWeaponInInventory(int[] ids) {
         for (int id : ids) {
-            if (Rs2Inventory.contains(id)) {
-                return true;
-            }
+            if (Rs2Inventory.contains(id)) { return true; }
         }
         return false;
     }
 
     private boolean isWeaponEquipped(int[] ids) {
         for (int id : ids) {
-            if (Rs2Equipment.isWearing(id)) {
-                return true;
-            }
+            if (Rs2Equipment.isWearing(id)) { return true; }
         }
         return false;
     }
@@ -368,26 +360,6 @@ public class AutoGauntletPrayerPlugin extends Plugin {
                 Microbot.log("safeTogglePrayer error: " + e.getMessage());
             }
             Rs2Tab.switchTo(InterfaceTab.INVENTORY);
-            return true;
-        });
-
-    }
-
-    private void SendPrayerToggleSleep(Rs2PrayerEnum prayer, boolean enable) {
-        if (prayer == null) return;
-
-        boolean currentlyActive = Rs2Prayer.isPrayerActive(prayer);
-        if (currentlyActive == enable) return;
-
-        Microbot.getClientThread().runOnSeperateThread(() -> {
-            try {
-                Rs2Prayer.toggle(prayer, enable, true);
-                // small deliberate pause so the client UI can update; catch interruptions
-                try { Thread.sleep(15); } catch (InterruptedException ignored) {}
-                Rs2Tab.switchTo(InterfaceTab.INVENTORY);
-            } catch (Exception e) {
-                Microbot.log("safeTogglePrayer error: " + e.getMessage());
-            }
             return true;
         });
 
