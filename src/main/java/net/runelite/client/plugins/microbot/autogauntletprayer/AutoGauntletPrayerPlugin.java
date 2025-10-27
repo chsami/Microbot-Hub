@@ -72,6 +72,8 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     private final int CG_DEACTIVATE_MAGE_PROJECTILE = 1714;
     private final int MAGE_ANIMATION = 8754;
     private final int RANGE_ANIMATION = 8755;
+    private static final long PRAYER_TOGGLE_DEBOUNCE_MS = 50;
+    private int projectileCount = 0;
     private Rs2PrayerEnum nextPrayer = Rs2PrayerEnum.PROTECT_RANGE;
 
     private static final Set<Integer> HUNLLEF_IDS = Set.of(
@@ -84,7 +86,7 @@ public class AutoGauntletPrayerPlugin extends Plugin {
             36150, 36151 // Gauntlet tiles (Ground object)
     );
 
-    long lastPrayerSwitch;
+    long projectilethrottle;
 
     @Override
     protected void startUp() throws Exception {
@@ -111,7 +113,8 @@ public class AutoGauntletPrayerPlugin extends Plugin {
 
     @Subscribe
     public void onGameTick(GameTick event) {
-        Microbot.log("Next prayer: " + nextPrayer);
+        //Microbot.log("Next prayer: " + nextPrayer);
+        long TickStart = System.currentTimeMillis();
 
         if (nextPrayer != null && !Rs2Prayer.isPrayerActive(nextPrayer)) {
             SendPrayerToggle(nextPrayer, true);
@@ -152,27 +155,43 @@ public class AutoGauntletPrayerPlugin extends Plugin {
         }
 
         checkPrayerPotions();
+
+        long TickEnd = System.currentTimeMillis();
+        long TickDuration = TickStart - TickEnd;
+        Microbot.log("Tick runtime: " + TickDuration);
     }
 
     @Subscribe
     public void onProjectileMoved(ProjectileMoved event) {
-
         int projectileId = event.getProjectile().getId();
 
         switch (projectileId) {
             case MAGE_PROJECTILE:
             case CG_MAGE_PROJECTILE:
             case MAGE_PROJECTILE_MINIBOSS:
-                SendPrayerToggle(Rs2PrayerEnum.PROTECT_MAGIC, true);
+                //SendPrayerToggle(Rs2PrayerEnum.PROTECT_MAGIC, true);
                 break;
+
             case RANGE_PROJECTILE:
             case CG_RANGE_PROJECTILE:
             case RANGE_PROJECTILE_MINIBOSS:
-                SendPrayerToggle(Rs2PrayerEnum.PROTECT_RANGE, true);
+                //SendPrayerToggle(Rs2PrayerEnum.PROTECT_RANGE, true);
+                break;
+
+            case CG_DEACTIVATE_MAGE_PROJECTILE:
+            case DEACTIVATE_MAGE_PROJECTILE:
+                projectileCount++;
+                if (projectileCount >= 56) {
+                    SendPrayerToggle(nextPrayer, true);
+                    SendPrayerToggleDelay(nextPrayer, true, 200);
+                    projectileCount = 0; // reset after the last hit
+                }
                 break;
             default:
                 break;
         }
+
+
 
     }
 
@@ -332,6 +351,25 @@ public class AutoGauntletPrayerPlugin extends Plugin {
         if (currentlyActive == enable) return;
 
         Rs2Prayer.toggle(prayer, enable, true);
+
+    }
+
+    private void SendPrayerToggleDelay(Rs2PrayerEnum prayer, boolean enable, int delay) {
+        if (prayer == null) return;
+
+        boolean currentlyActive = Rs2Prayer.isPrayerActive(prayer);
+        if (currentlyActive == enable) return;
+
+        Microbot.getClientThread().runOnSeperateThread(() -> {
+
+            try { Thread.sleep(delay); } catch (InterruptedException ignored) {}
+            try { Rs2Prayer.toggle(prayer, enable, true);
+            } catch (Exception e) {
+                Microbot.log("safeTogglePrayer error: " + e.getMessage());
+            }
+            Rs2Tab.switchTo(InterfaceTab.INVENTORY);
+            return true;
+        });
 
     }
 
