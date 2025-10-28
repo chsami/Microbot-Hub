@@ -2,9 +2,10 @@ package net.runelite.client.plugins.microbot.autogauntletprayer;
 
 import com.google.inject.Provides;
 import lombok.Getter;
-import net.runelite.api.HeadIcon;
-import net.runelite.api.NPC;
-import net.runelite.api.Skill;
+import net.runelite.api.*;
+import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ProjectileMoved;
@@ -20,13 +21,21 @@ import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.HashSet;
 
 import static java.lang.Thread.sleep;
 import static net.runelite.client.plugins.microbot.Microbot.log;
@@ -62,6 +71,7 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     private static long timer1Time = 0;
 
     public static long agpPrayTime;
+    private final int PADDLEFISH_HEAL_VALUE = 20;
     private final int RANGE_PROJECTILE_MINIBOSS = 1705;
     private final int MAGE_PROJECTILE_MINIBOSS = 1701;
     private final int RANGE_PROJECTILE = 1711;
@@ -72,7 +82,11 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     private final int CG_DEACTIVATE_MAGE_PROJECTILE = 1714;
     private final int MAGE_ANIMATION = 8754;
     private final int RANGE_ANIMATION = 8755;
+    Rs2NpcModel hunllef = null;
+    Rs2NpcModel Tornado = null;
+    private final int CG_TORNADO = 9039;
     private int projectileCount = 0;
+    private boolean AttackNeeded = false;
     private Rs2PrayerEnum nextPrayer = Rs2PrayerEnum.PROTECT_RANGE;
 
     private static final Set<Integer> HUNLLEF_IDS = Set.of(
@@ -83,6 +97,10 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     private static final Set<Integer> DANGEROUS_TILES = Set.of(
             36047, 36048, // Corrupted tiles (Ground object)
             36150, 36151 // Gauntlet tiles (Ground object)
+    );
+
+    private static final Set<Integer> FLOOR_TILES = Set.of(
+            36149, 36046 // CG, G Floor Tiles
     );
 
 
@@ -105,59 +123,63 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     protected void shutDown() throws Exception {
         log("Gauntlet plugin stopped!");
         Rs2Prayer.disableAllPrayers();
-        super.shutDown();
         overlayManager.remove(overlay);
+        super.shutDown();
     }
 
     @Subscribe
     public void onGameTick(GameTick event) {
-        //Microbot.log("Next prayer: " + nextPrayer);
-        long TickStart = System.currentTimeMillis();
+            //Microbot.log("Next prayer: " + nextPrayer);
+            long TickStart = System.currentTimeMillis();
 
-        if (nextPrayer != null && !Rs2Prayer.isPrayerActive(nextPrayer)) {
-            SendPrayerToggle(nextPrayer, true);
-        }
+            if (nextPrayer != null && !Rs2Prayer.isPrayerActive(nextPrayer)) {
+                SendPrayerToggle(nextPrayer, true);
+            }
 
-        Rs2NpcModel hunllef = Rs2Npc.getNpcs()
-                .filter(npc -> HUNLLEF_IDS.contains(npc.getId()))
-                .findFirst()
-                .orElse(null);
+            Tornado = Rs2Npc.getNpc(CG_TORNADO);
+            hunllef = Rs2Npc.getNpcs()
+                    .filter(npc -> HUNLLEF_IDS.contains(npc.getId()))
+                    .findFirst()
+                    .orElse(null);
 
-        if (hunllef == null) {
-            nextPrayer = null;
-            return;
-        }
+            if (hunllef == null) {
+                nextPrayer = null;
+                return;
+            }
 
-        HeadIcon headIcon = hunllef.getHeadIcon();
+            HeadIcon headIcon = hunllef.getHeadIcon();
 
-        // Protection Prayers happen above
-        /// --- PRAYER management part 2
-        checkAndToggleAttackPrayers();
-        checkSteelSkin();
+            // Protection Prayers happen above
+            /// --- PRAYER management part 2
+            checkAndToggleAttackPrayers();
+            checkSteelSkin();
 
-        Rs2Tab.switchTo(InterfaceTab.INVENTORY);
+            Rs2Tab.switchTo(InterfaceTab.INVENTORY);
 
-        /// --- Start of INVENTORY management
-        switch (headIcon) {
-            case RANGED:
-                handleRangedHeadIcon();
-                break;
-            case MAGIC:
-                handleMagicHeadIcon();
-                break;
-            case MELEE:
-                handleMeleeHeadIcon();
-                break;
-            default:
-                break;
-        }
+            /// --- Start of INVENTORY actions
+            switch (headIcon) {
+                case RANGED:
+                    handleRangedHeadIcon();
+                    break;
+                case MAGIC:
+                    handleMagicHeadIcon();
+                    break;
+                case MELEE:
+                    handleMeleeHeadIcon();
+                    break;
+                default:
+                    break;
+            }
 
-        checkPrayerPotions();
+            checkFood();
+            checkPrayerPotions();
+            if (config.autoattack()) {checkAttack();}
 
-        long TickEnd = System.currentTimeMillis();
-        long TickDuration = TickStart - TickEnd;
-        Microbot.log("Tick runtime: " + TickDuration);
-    } // --- End of Gametick
+            long TickEnd = System.currentTimeMillis();
+            long TickDuration = TickEnd - TickStart;
+            if (config.debugtoggle()) Microbot.log("Tick runtime: " + TickDuration);
+        }; // --- End of Gametick
+
 
     @Subscribe
     public void onProjectileMoved(ProjectileMoved event) {
@@ -180,8 +202,7 @@ public class AutoGauntletPrayerPlugin extends Plugin {
             case DEACTIVATE_MAGE_PROJECTILE:
                 projectileCount++;
                 if (projectileCount >= 56) {
-                    SendPrayerToggle(nextPrayer, true);
-                    SendPrayerToggleDelay(nextPrayer, true, 200);
+                    SendPrayerToggleDelay(nextPrayer, true, 300);
                     projectileCount = 0; // reset after the last hit
                 }
                 break;
@@ -209,7 +230,6 @@ public class AutoGauntletPrayerPlugin extends Plugin {
             default:
                 break;
         }
-
     }
 
     private static final int[] BOW_IDS = {
@@ -267,6 +287,7 @@ public class AutoGauntletPrayerPlugin extends Plugin {
         for (int id : ids) {
             if (Rs2Inventory.contains(id)) {
                 Rs2Inventory.equip(id);
+                if (!Rs2Player.isMoving()) {AttackNeeded = true; }
                 break;
             }
         }
@@ -283,10 +304,9 @@ public class AutoGauntletPrayerPlugin extends Plugin {
     private void equipStaff() { equipBestAvailable(STAFF_IDS); }
     private void equipHalberd() { equipBestAvailable(HALBERD_IDS); }
 
-
-    ///  ---------------------------------------------------------------------------------------------------------------
-    ///  Prayers
-    /// --------------
+    ///  --------------------------------------------------------------------------------------------------------------
+    ///  --- Prayers --------------------------------------------------------------------------------------------------
+    /// ---------------------------------------------------------------------------------------------------------------
 
     private void checkAndToggleAttackPrayers() {
         if (isBowEquipped() && (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.RIGOUR) && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.EAGLE_EYE) && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.DEAD_EYE))) {
@@ -331,24 +351,56 @@ public class AutoGauntletPrayerPlugin extends Plugin {
         SendPrayerToggle(Rs2PrayerEnum.PIETY, true);
     }
 
+    private void checkFood() {
+        int currentHp = Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS);
+        int maxHp = Microbot.getClient().getRealSkillLevel(Skill.HITPOINTS);
+        int missingHp = maxHp - currentHp;
+        if (config.TornadoCheck() && (Tornado == null)) {return;}
+        if (config.eatFood()) { if (Rs2Player.isMoving()) { if (missingHp >= PADDLEFISH_HEAL_VALUE) { EatFood(); }}}
+        else if (currentHp < config.emergencyeatvalue()) { EatFood(); }
+    }
+
+    private void EatFood() {
+        Rs2Inventory.interact("Paddlefish", "Eat");
+        if (!Rs2Player.isMoving()) {AttackNeeded = true; }
+    }
+
     private void checkPrayerPotions() {
         int currentPrayer = Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER);
         if (currentPrayer < config.ppotvalue()) {Rs2Inventory.interact("Egniol potion", "Drink");}
     }
 
+    private void checkAttack(){
+        if (hunllef == null) return;
+        if (Rs2Player.isMoving()) return;
+        if (AttackNeeded) {
+                Rs2Npc.interact(hunllef, "attack");
+                AttackNeeded = false;
+        }
+    }
+
+    private void checkAttackDelay(int delay){
+        if (hunllef == null) return;
+        if (Rs2Player.isMoving()) return;
+        if (AttackNeeded) {
+            Microbot.getClientThread().runOnSeperateThread(() -> {
+                try {Thread.sleep(delay);} catch (InterruptedException ignored) {}
+                Rs2Npc.interact(hunllef, "attack");
+                AttackNeeded = false;
+                return true;
+            });
+        }
+    }
+
     private void SendPrayerToggle(Rs2PrayerEnum prayer, boolean enable) {
         if (prayer == null) return;
-
         boolean currentlyActive = Rs2Prayer.isPrayerActive(prayer);
         if (currentlyActive == enable) return;
-
         Rs2Prayer.toggle(prayer, enable, true);
-
     }
 
     private void SendPrayerToggleDelay(Rs2PrayerEnum prayer, boolean enable, int delay) {
         if (prayer == null) return;
-
         boolean currentlyActive = Rs2Prayer.isPrayerActive(prayer);
         if (currentlyActive == enable) return;
 
@@ -364,5 +416,4 @@ public class AutoGauntletPrayerPlugin extends Plugin {
         });
 
     }
-
 }
