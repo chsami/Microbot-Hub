@@ -24,7 +24,7 @@ public class BarrowsOverlay extends OverlayPanel {
         try {
             panelComponent.setPreferredSize(new Dimension(200, 300));
             panelComponent.getChildren().add(TitleComponent.builder()
-                    .text("Barrows V1.0.0")
+                    .text("Barrows V"+BarrowsPlugin.version)
                     .color(Color.GREEN)
                     .build());
 
