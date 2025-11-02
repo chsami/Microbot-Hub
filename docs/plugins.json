@@ -391,7 +391,7 @@
             "fishing",
             "skilling"
         ],
-        "version": "1.0.6",
+        "version": "1.0.7",
         "minClientVersion": "1.9.8",
         "authors": [
             "AI Agent"
@@ -399,8 +399,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "9e6e3d36899789a3be3df4230c1ead2327945fd32176129a3551ff7c58a61cdb",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autofishingplugin/1.0.6/autofishingplugin-1.0.6.jar"
+        "sha256": "3bd9e801ed2d17d364d544e0f41c2ab025916a22df78d0f0efb8806a2d730e3a",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autofishingplugin/1.0.7/autofishingplugin-1.0.7.jar"
     },
     {
         "internalName": "MKE_WintertodtPlugin",
@@ -914,7 +914,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.7.2",
+        "version": "1.7.3",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft"
@@ -922,8 +922,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "e1e2048c08634238f492a14c331c3d4482b29145f23b1dfbe165c8d4ad6eb0c8",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autowoodcuttingplugin/1.7.2/autowoodcuttingplugin-1.7.2.jar"
+        "sha256": "2fbd22abe58a3380dbe3f5bea10da16266de695261a7f29f448b10d8ac798649",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autowoodcuttingplugin/1.7.3/autowoodcuttingplugin-1.7.3.jar"
     },
     {
         "internalName": "NmzPlugin",
@@ -1607,7 +1607,7 @@
             "ranged",
             "magic"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.6",
         "authors": [
             "FreakJoost"
@@ -1615,8 +1615,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "c186a3a9c174f17284d62180dad11ef56505f5279942af448d88e3baa840b346",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/mmcavesplugin/1.0.0/mmcavesplugin-1.0.0.jar"
+        "sha256": "67c6d3ba395030e2c0de4fb35def2dd1c058676fe734e63d6787575d727cdeba",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/mmcavesplugin/1.0.1/mmcavesplugin-1.0.1.jar"
     },
     {
         "internalName": "ShadesKillerPlugin",
