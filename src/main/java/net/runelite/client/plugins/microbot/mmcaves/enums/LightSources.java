@@ -8,7 +8,7 @@ public enum LightSources {
     BULLSEYE_LANTERN("Bullseye lantern"),
     SAPPHIRE_LANTERN("Sapphire lantern"),
     EMERALD_LANTERN("Emerald lantern"),
-    BRUMA_TORCH("Bruma orch"),
+    BRUMA_TORCH("Bruma torch"),
     ABBYSAL_LANTERN("Abbysal lantern");
 
     private final String itemName;

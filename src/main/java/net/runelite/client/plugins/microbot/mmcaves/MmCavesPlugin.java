@@ -30,7 +30,7 @@ import java.util.Set;
 )
 @Slf4j
 public class MmCavesPlugin extends Plugin {
-    public static String version = "1.0.0";
+    public static String version = "1.0.1";
 
     @Inject
     private MmCavesConfig config;
