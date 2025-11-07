@@ -22,6 +22,7 @@ import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
+import net.runelite.client.plugins.microbot.util.security.LoginManager;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
@@ -367,7 +368,7 @@ public class AirOrbScript extends Script {
             System.out.println("Logout unsuccessful, retrying logout.");
             return;
         }
-        new Login(Login.getRandomWorld(Login.activeProfile.isMember()));
+        new Login(Login.getRandomWorld(LoginManager.getActiveProfile().isMember()));
         sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN, 10000);
         shouldFlee = false;
     }

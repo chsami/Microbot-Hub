@@ -6,7 +6,7 @@ import net.runelite.client.plugins.microbot.util.inventory.InteractOrder;
 
 @ConfigGroup("Mining")
 @ConfigInformation("<h2>Auto Mining</h2>" +
-        "<h3>Version: "+ AutoMiningScript.version + "</h3>" +
+        "<h3>Version: "+ AutoMiningPlugin.version + "</h3>" +
         "<p>1. <strong>Ore Selection:</strong> Choose the type of ore you wish to mine. The default ore is <em>TIN</em>.</p>" +
         "<p></p>"+
         "<p>2. <strong>Distance to Stray:</strong> Set the maximum distance in tiles that the bot can travel from its initial position. The default distance is <em>20 tiles</em>.</p>" +

@@ -39,9 +39,7 @@ enum State {
 @Slf4j
 public class AutoMiningScript extends Script {
 
-    public static final String version = "1.4.5";
     private static final int GEM_MINE_UNDERGROUND = 11410;
-    private static final int BASALT_MINE = 11425;
     State state = State.MINING;
     private static final List<Rocks> PROGRESSIVE_ROCKS = buildProgressiveRocks();
     private Rocks activeRock;
@@ -146,7 +144,7 @@ public class AutoMiningScript extends Script {
                                     Rs2DepositBox.closeDepositBox();
                                 }
                             }
-                            else if (Rocks.BASALT == activeRock && BASALT_MINE == Rs2Player.getWorldLocation().getRegionID()) {
+                            else if (Rocks.BASALT == activeRock) {
                                 if (Rs2Walker.walkTo(2872,3935,0)){
                                     Rs2Inventory.useItemOnNpc(ItemID.BASALT, NpcID.MY2ARM_SNOWFLAKE);
                                     Rs2Walker.walkTo(2841,10339,0);

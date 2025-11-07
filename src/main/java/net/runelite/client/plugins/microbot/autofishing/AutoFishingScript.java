@@ -212,11 +212,17 @@ public class AutoFishingScript extends Script {
                     itemsLock.add(Rs2Inventory.get(item).getSlot());
                 }
             }
+            if (Rs2Inventory.hasItem(ItemID.FISH_BARREL_CLOSED)) {
+                itemsLock.add(Rs2Inventory.get(ItemID.FISH_BARREL_CLOSED).getSlot());
+            } else if (Rs2Inventory.hasItem(ItemID.FISH_BARREL_OPEN)) {
+                itemsLock.add(Rs2Inventory.get(ItemID.FISH_BARREL_OPEN).getSlot());
+            }
             int[] slotsToLock = itemsLock.stream()
                              .mapToInt(Integer::intValue)
                              .toArray();
 
             sleepUntil(() -> Rs2Bank.lockAllBySlot(slotsToLock));
+            Rs2Bank.emptyFishBarrel();
             Rs2Bank.depositAll();
             sleepUntil(() -> !Rs2Inventory.isFull());
             Rs2Bank.toggleAllLocks();

@@ -8,6 +8,7 @@ import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.mke_wintertodt.enums.State;
 import net.runelite.client.plugins.microbot.util.security.Login;
+import net.runelite.client.plugins.microbot.util.security.LoginManager;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.accountselector.AutoLoginPlugin;
 import net.runelite.client.ui.ClientUI;
@@ -470,7 +471,7 @@ public class WintertodtBreakManager {
                 }
                 
                 // Check if we have an active profile configured
-                if (Login.activeProfile == null) {
+                if (LoginManager.getActiveProfile() == null) {
                     Microbot.log("No active profile configured for automatic login");
                     return false;
                 }

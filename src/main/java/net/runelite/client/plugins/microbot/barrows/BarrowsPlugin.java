@@ -37,7 +37,7 @@ import java.awt.*;
 )
 @Slf4j
 public class BarrowsPlugin extends Plugin implements SchedulablePlugin {
-    public static final String version = "2.0.1";
+    public static final String version = "2.0.2";
 
     @Inject
     private BarrowsConfig config;
