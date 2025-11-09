@@ -272,7 +272,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AnonymousPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AnonymousPlugin/assets/card.png",
         "disable": false,
-        "sha256": "d8219962d86f0552969e4ae85c78d4970ff4e7afea0139befb9cfea9c151535e",
+        "sha256": "7f60ed977ecfeedc130089ee646bf4608f67cf94f4be0a9f54152928fb4b16ed",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/anonymousplugin/1.0.3/anonymousplugin-1.0.3.jar"
     },
     {
@@ -1456,7 +1456,7 @@
             "fishing",
             "skilling"
         ],
-        "version": "1.4.1",
+        "version": "1.4.2",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1464,8 +1464,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "ccecfafbbdfa3e1bfef64da0b6e685cdb7f4cf79e4751adbe15935aa4e2cae4e",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/temporossplugin/1.4.1/temporossplugin-1.4.1.jar"
+        "sha256": "69ec6ec72734b8c87954e024564701479283bdca14a623723babfef9c4c9c3e4",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/temporossplugin/1.4.2/temporossplugin-1.4.2.jar"
     },
     {
         "internalName": "AutoHunterPlugin",
