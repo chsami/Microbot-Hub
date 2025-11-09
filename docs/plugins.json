@@ -730,7 +730,7 @@
             "microbot",
             "smithing"
         ],
-        "version": "1.0.5",
+        "version": "1.0.6",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -738,8 +738,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "781e5184379343aa1b42ce7958b12e70556f7114b33e538d0ce7454e94e5121b",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/giantsfoundryplugin/1.0.5/giantsfoundryplugin-1.0.5.jar"
+        "sha256": "48ce05a515ae8c4bc6ee6e1395fb8240283fd7976e6e97a8ccb686e6350972c0",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/giantsfoundryplugin/1.0.6/giantsfoundryplugin-1.0.6.jar"
     },
     {
         "internalName": "BankTabSorterPlugin",
