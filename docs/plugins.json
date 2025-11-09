@@ -54,7 +54,7 @@
             "gotr",
             "microbot"
         ],
-        "version": "1.2.2",
+        "version": "1.3.0",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -62,8 +62,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "b5a2ea61ca5f2a15f95e801f26cce0f3de949c7cf33a587b1b217d5964cec974",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gotrplugin/1.2.2/gotrplugin-1.2.2.jar"
+        "sha256": "503420aedbf41f093e0aa4fb1ea71f7129d8ac72f620c5e85390ca01a4711849",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gotrplugin/1.3.0/gotrplugin-1.3.0.jar"
     },
     {
         "internalName": "JadPlugin",
@@ -2772,7 +2772,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/card.png",
         "disable": false,
-        "sha256": "633692969c90d1c985d8a48ef153a48341f381ceb7c8597261dd3ea5a2246c75",
+        "sha256": "4697ef2270e49f0ee7e53200f4bd8e920ba4435e58e17bdb875c1eaddcb252d0",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/microagilityplugin/1.2.3/microagilityplugin-1.2.3.jar"
     },
     {
