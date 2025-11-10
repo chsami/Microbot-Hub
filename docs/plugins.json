@@ -169,6 +169,32 @@
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/jewelleryenchantplugin/1.0.1/jewelleryenchantplugin-1.0.1.jar"
     },
     {
+        "internalName": "GauntletHelperPlugin",
+        "name": "Gauntlet Helper",
+        "description": "Gauntlet Helper",
+        "tags": [
+            "Jam",
+            "cg",
+            "Gauntlet",
+            "hunllef",
+            "pvm",
+            "prayer",
+            "money making",
+            "auto",
+            "boss"
+        ],
+        "version": "1.0",
+        "minClientVersion": "2.0.30",
+        "authors": [
+            "Unknown Author"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "0d3e6ffb5d4713333a99eb8a7ba7b23a88a93aca31772ff8b76385530d84da63",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gauntlethelperplugin/1.0/gauntlethelperplugin-1.0.jar"
+    },
+    {
         "internalName": "OrbChargerPlugin",
         "name": "Orb Charger",
         "description": "Microbot Orb Charger Plugin",
@@ -914,7 +940,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.7.3",
+        "version": "1.7.4",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft"
@@ -922,8 +948,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "2fbd22abe58a3380dbe3f5bea10da16266de695261a7f29f448b10d8ac798649",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autowoodcuttingplugin/1.7.3/autowoodcuttingplugin-1.7.3.jar"
+        "sha256": "92a56998b36a530ba07008ea4a374b566c5bba62fd70c9dc8ea4430d3aa47fca",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autowoodcuttingplugin/1.7.4/autowoodcuttingplugin-1.7.4.jar"
     },
     {
         "internalName": "NmzPlugin",
@@ -933,16 +959,16 @@
             "nmz",
             "microbot"
         ],
-        "version": "2.2.0",
-        "minClientVersion": "1.9.8",
+        "version": "2.2.1",
+        "minClientVersion": "2.0.0",
         "authors": [
             "Mocrosoft"
         ],
         "iconUrl": "https://chsami.github.io/Microbot-Hub/NmzPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/NmzPlugin/assets/card.png",
         "disable": false,
-        "sha256": "e42916f7786bf15054cf9d7585a2c4d1a75e28cd5305dde0c12a6c4f317b9cf6",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/nmzplugin/2.2.0/nmzplugin-2.2.0.jar"
+        "sha256": "59b7780f2464137135a9765518ddc9f187006c71d15a92ae61ae13563fd8d771",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/nmzplugin/2.2.1/nmzplugin-2.2.1.jar"
     },
     {
         "internalName": "TutorialIslandPlugin",
@@ -2725,7 +2751,7 @@
             "microbot",
             "skills"
         ],
-        "version": "1.6.2",
+        "version": "1.6.3",
         "minClientVersion": "1.9.9.1",
         "authors": [
             "Mocrosoft"
@@ -2733,8 +2759,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FletchingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FletchingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "294b8a2b5e6c091fcb075b0eaa275ab0d61a4d9f24e8c055f0defde106ea0f30",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/fletchingplugin/1.6.2/fletchingplugin-1.6.2.jar"
+        "sha256": "c5a23f7d70f39c20771e266e7f4796ca88036ba5e840053eef5097cd0bcf69b4",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/fletchingplugin/1.6.3/fletchingplugin-1.6.3.jar"
     },
     {
         "internalName": "AutoBankStanderPlugin",
@@ -2889,7 +2915,7 @@
             "varlamore",
             "microbot"
         ],
-        "version": "1.0.0",
+        "version": "2.0.0",
         "minClientVersion": "1.9.8",
         "authors": [
             "VIP"
@@ -2897,8 +2923,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/SulphurNaguaPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/SulphurNaguaPlugin/assets/card.png",
         "disable": false,
-        "sha256": "2d5047b6624d950503acd90584c6f97a30ed85d76b77dfe18ad1b97b554e7e01",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/sulphurnaguaplugin/1.0.0/sulphurnaguaplugin-1.0.0.jar"
+        "sha256": "2dfaf4820e47f2492ae98f0bf57e5fe7bebd3282526c4b17e31f1b2646efee7c",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/sulphurnaguaplugin/2.0.0/sulphurnaguaplugin-2.0.0.jar"
     },
     {
         "internalName": "PVirewatchKillerPlugin",
