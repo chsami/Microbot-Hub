@@ -71,16 +71,18 @@ public class NmzScript extends Script {
                 if (!Microbot.isLoggedIn()) return;
                 if (!initialized) {
                     initialized = true;
-                    if (config.inventorySetup() != null) {
-                        var inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
-                        if (!inventorySetup.doesInventoryMatch() || !inventorySetup.doesEquipmentMatch()) {
-                            Rs2Walker.walkTo(Rs2Bank.getNearestBank().getWorldPoint(), 20);
-                            if (!inventorySetup.loadEquipment() || !inventorySetup.loadInventory()) {
-                                Microbot.log("Failed to load inventory setup");
-                                Microbot.stopPlugin(plugin);
-                                return;
+                    if (config.inventorySetupon()) {
+                        if (config.inventorySetup() != null) {
+                            var inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
+                            if (!inventorySetup.doesInventoryMatch() || !inventorySetup.doesEquipmentMatch()) {
+                                Rs2Walker.walkTo(Rs2Bank.getNearestBank().getWorldPoint(), 20);
+                                if (!inventorySetup.loadEquipment() || !inventorySetup.loadInventory()) {
+                                    Microbot.log("Failed to load inventory setup");
+                                    Microbot.stopPlugin(plugin);
+                                    return;
+                                }
+                                Rs2Bank.closeBank();
                             }
-                            Rs2Bank.closeBank();
                         }
                     }
                     Rs2Walker.walkTo(new WorldPoint(2609, 3114, 0), 5);

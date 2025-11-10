@@ -35,6 +35,15 @@ public interface NmzConfig extends Config {
     default InventorySetup inventorySetup() { return null; }
 
     @ConfigItem(
+            keyName = "inventorySetupon",
+            name = "Use Inventory Setup?",
+            description = "If on, Inventory Setup will be used. If off, its ignored.",
+            position = 1,
+            section = generalSection
+    )
+    default boolean inventorySetupon() { return true; }
+
+    @ConfigItem(
             keyName = "How many overload potions to use",
             name = "How many overload potions to use",
             description = "How many overload potions to use",
