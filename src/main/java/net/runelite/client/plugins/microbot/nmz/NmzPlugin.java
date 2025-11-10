@@ -36,7 +36,7 @@ import java.awt.*;
 )
 @Slf4j
 public class NmzPlugin extends Plugin implements SchedulablePlugin{
-    final static String version = "2.2.0";
+    final static String version = "2.2.1";
     @Inject
     private NmzConfig config;
 
