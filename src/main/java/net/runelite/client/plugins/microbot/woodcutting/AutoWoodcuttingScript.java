@@ -298,8 +298,9 @@ public class AutoWoodcuttingScript extends Script {
                 }
                 break;
             case FLETCH:
-                handleFletchingWorkflow(config);
-                woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
+                if (handleFletchingWorkflow(config)) {
+                    woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
+                }
                 break;
         }
     }
@@ -491,19 +492,19 @@ public class AutoWoodcuttingScript extends Script {
     /**
      * handle fletching workflow with secondary actions
      */
-    private void handleFletchingWorkflow(AutoWoodcuttingConfig config) {
+    private boolean handleFletchingWorkflow(AutoWoodcuttingConfig config) {
         // fletch logs in inventory
         if (!Rs2Fletching.hasKnife()) {
             log.info("Unable to find knife in inventory/equipped");
             switch (config.secondaryAction()) {
                 case BANK:
-                case STRING_AND_BANK:                    
+                case STRING_AND_BANK:
                     if (!handleBanking(config)) {
                         walkBack(config);
-                        return;
+                        return false;
                     }
                     break;
-                case DROP:                
+                case DROP:
                 case STRING_AND_DROP:
                     log.info("Dropping items to find knife");
                     String [] itemNames = Arrays.stream(config.itemsToKeep().split(",")).map(String::trim).toArray(String[]::new);
@@ -515,13 +516,13 @@ public class AutoWoodcuttingScript extends Script {
                         itemNames[itemNames.length - 1] = "log basket";
                     }
 
-                    
-                    Rs2Inventory.dropAllExcept(false, InteractOrder.COLUMN,itemNames );                    
+
+                    Rs2Inventory.dropAllExcept(false, InteractOrder.COLUMN,itemNames );
                     break;
                 case NONE:
                     break;
             }
-            return;
+            return !Rs2Inventory.isFull();
         }
         WoodcuttingTree treeType = getActiveTree();
         int logCount = Rs2Inventory.count(treeType.getLogID());
@@ -532,23 +533,24 @@ public class AutoWoodcuttingScript extends Script {
             if (!startFletchingSucces) {
                 log.error("Failed to start fletching, stopping script");
                 shutdown();
-                return;
+                return false;
 
             }
             if (Rs2Inventory.count(treeType.getLogID())!=0){
-                return;
+                return false;
             }
         }
-        
+
         // handle secondary action
         switch (config.secondaryAction()) {
             case BANK:
-                if (!handleBanking(config)) return;
+                if (!handleBanking(config)) return false;
                 walkBack(config);
                 break;
             case DROP:
-                
+
                 Rs2Fletching.dropFletchedItems(config.fletchingType().getContainsInventoryName());
+                Rs2Inventory.waitForInventoryChanges(1800);
                 break;
             case STRING_AND_DROP:
             case STRING_AND_BANK:
@@ -556,10 +558,11 @@ public class AutoWoodcuttingScript extends Script {
                     Rs2Fletching.stringBows(config.fletchingType().getContainsInventoryName());
                 }
                 if (config.secondaryAction() == WoodcuttingSecondaryAction.STRING_AND_BANK) {
-                    if (!handleBanking(config)) return;
+                    if (!handleBanking(config)) return false;
                     walkBack(config);
                 } else {
                     Rs2Fletching.dropFletchedItems(config.fletchingType().getContainsInventoryName());
+                    Rs2Inventory.waitForInventoryChanges(1800);
                 }
                 break;
             case NONE:
@@ -567,7 +570,7 @@ public class AutoWoodcuttingScript extends Script {
         }
 
 
-        woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
+        return !Rs2Inventory.isFull();
     }
 
     public WoodcuttingTree getActiveTree() {
