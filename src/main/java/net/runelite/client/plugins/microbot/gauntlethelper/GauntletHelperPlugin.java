@@ -16,7 +16,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
-//import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.gauntlethelper.GauntletHelperConfig;
 import net.runelite.client.plugins.microbot.gauntlethelper.GauntletHelperOverlay;
 import net.runelite.client.plugins.microbot.gauntlethelper.GauntletHelperPlugin;
@@ -51,13 +51,13 @@ import static net.runelite.client.plugins.microbot.Microbot.log;
         version = GauntletHelperPlugin.version,
         minClientVersion = "2.0.30",
         cardUrl = "",
-        iconUrl = ""
-        //enabledByDefault = PluginConstants.DEFAULT_ENABLED,
-        //isExternal = PluginConstants.IS_EXTERNAL
+        iconUrl = "",
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL
 )
 
 public class GauntletHelperPlugin extends Plugin {
-    public static final String version = "1.0";
+    public static final String version = "1.1";
 
     @Inject
     private Client client;
