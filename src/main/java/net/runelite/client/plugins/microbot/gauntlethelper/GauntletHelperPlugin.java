@@ -57,7 +57,7 @@ import static net.runelite.client.plugins.microbot.Microbot.log;
 )
 
 public class GauntletHelperPlugin extends Plugin {
-    public static final String version = "1.0";
+    public static final String version = "1.1";
 
     @Inject
     private Client client;
