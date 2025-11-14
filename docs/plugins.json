@@ -183,7 +183,7 @@
             "auto",
             "boss"
         ],
-        "version": "1.0",
+        "version": "1.1",
         "minClientVersion": "2.0.30",
         "authors": [
             "Unknown Author"
@@ -191,8 +191,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "0d3e6ffb5d4713333a99eb8a7ba7b23a88a93aca31772ff8b76385530d84da63",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gauntlethelperplugin/1.0/gauntlethelperplugin-1.0.jar"
+        "sha256": "7e4845cbe95c32dfc85a8d099f95a32a8c7e3653ab061dac9378e8cc3cfeccb5",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gauntlethelperplugin/1.1/gauntlethelperplugin-1.1.jar"
     },
     {
         "internalName": "OrbChargerPlugin",
@@ -338,7 +338,7 @@
             "star",
             "shooting"
         ],
-        "version": "1.4.2",
+        "version": "1.4.3",
         "minClientVersion": "1.9.8",
         "authors": [
             "g-mason0"
@@ -346,8 +346,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/ShootingStarPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ShootingStarPlugin/assets/card.png",
         "disable": false,
-        "sha256": "d8aa3b9f0f4d10e907f95b37c0fb20cfcd35dd0ddb301a63a3cc59c09f524a1e",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/shootingstarplugin/1.4.2/shootingstarplugin-1.4.2.jar"
+        "sha256": "686738b3738258d50066b5efed917f61255a9755a4b32a63640d37f9a579b9b7",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/shootingstarplugin/1.4.3/shootingstarplugin-1.4.3.jar"
     },
     {
         "internalName": "MixologyPlugin",
@@ -358,7 +358,7 @@
             "microbot",
             "mixology"
         ],
-        "version": "1.0.2-beta",
+        "version": "1.0.3",
         "minClientVersion": "1.9.9.1",
         "authors": [
             "Mocrosoft"
@@ -366,8 +366,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MixologyPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MixologyPlugin/assets/card.png",
         "disable": false,
-        "sha256": "1dee9b05db87ec4499ac165e0655d40c459974e70a52ade759243fc6cd38fae8",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/mixologyplugin/1.0.2-beta/mixologyplugin-1.0.2-beta.jar"
+        "sha256": "d21701ae469c58b23d25083b5381b00e7c5ed29d8a06d41d3fb17a115639f6c1",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/mixologyplugin/1.0.3/mixologyplugin-1.0.3.jar"
     },
     {
         "internalName": "BlueDragonsPlugin",
@@ -857,7 +857,7 @@
             "thieving",
             "skilling"
         ],
-        "version": "2.0.6",
+        "version": "2.0.7",
         "minClientVersion": "1.9.8.2",
         "authors": [
             "Mocrosoft",
@@ -867,8 +867,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/ThievingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ThievingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "987a84fbe57acfa975ec574208d790e1f1046560872b0ae1bef6f23ea0fa33f4",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/thievingplugin/2.0.6/thievingplugin-2.0.6.jar"
+        "sha256": "232475bf45f221638db556c7dab2061dbd42e6757ee08f75383a1dee03d01d3e",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/thievingplugin/2.0.7/thievingplugin-2.0.7.jar"
     },
     {
         "internalName": "TzhaarVenatorBowPlugin",
@@ -940,7 +940,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.7.4",
+        "version": "1.7.6",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft"
@@ -948,8 +948,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "92a56998b36a530ba07008ea4a374b566c5bba62fd70c9dc8ea4430d3aa47fca",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autowoodcuttingplugin/1.7.4/autowoodcuttingplugin-1.7.4.jar"
+        "sha256": "825ce42cb84cd2cabcdaa47874fa07b799518b8220203257cb1317fe0438b599",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autowoodcuttingplugin/1.7.6/autowoodcuttingplugin-1.7.6.jar"
     },
     {
         "internalName": "NmzPlugin",
@@ -1144,7 +1144,7 @@
             "ourania",
             "zmi"
         ],
-        "version": "1.4.3",
+        "version": "1.4.4",
         "minClientVersion": "1.9.8",
         "authors": [
             "g-mason0"
@@ -1152,8 +1152,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/OuraniaPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/OuraniaPlugin/assets/card.png",
         "disable": false,
-        "sha256": "45bb7ba603cf3611510eb557bab9106af41b40b20d461c73e78009886c506512",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/ouraniaplugin/1.4.3/ouraniaplugin-1.4.3.jar"
+        "sha256": "013d6a8cf964530d66045db2d589b5160fcbca88c8be06988986f9cfb7f8163c",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/ouraniaplugin/1.4.4/ouraniaplugin-1.4.4.jar"
     },
     {
         "internalName": "PumperPlugin",
@@ -1859,7 +1859,7 @@
             "taf",
             "microbot"
         ],
-        "version": "1.1.1",
+        "version": "1.1.2",
         "minClientVersion": "2.0.9",
         "authors": [
             "TaF"
@@ -1867,8 +1867,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/volcanicashminer/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/volcanicashminer/assets/card.png",
         "disable": false,
-        "sha256": "3aca6096dd1f9285f5bafe8ab6016f2289cd601389c9de6f9ec48e1bc10650c0",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/volcanicashminerplugin/1.1.1/volcanicashminerplugin-1.1.1.jar"
+        "sha256": "9c73d9c0c55d17c80fc0cf2f3b6e43f3d08bb51ab9b0a0edcf132016361ddbcc",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/volcanicashminerplugin/1.1.2/volcanicashminerplugin-1.1.2.jar"
     },
     {
         "internalName": "SalamanderPlugin",
