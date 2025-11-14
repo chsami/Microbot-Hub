@@ -62,7 +62,7 @@ Refractored from OpenOSRS credit goes to Owain van Brakel for originally creatin
  */
 
 @PluginDescriptor(
-        name = PluginConstants.SYN + "Zulrah Helper",
+        name = PluginConstants.SYN + "Zulrah Overlay Helper",
         description = "Helps with various aspects during a fight with Zulrah",
         tags = {"Zulrah", "Helper", "boss", "bossing", "snek", "snake", "tool"},
         authors = { "Syntax" },

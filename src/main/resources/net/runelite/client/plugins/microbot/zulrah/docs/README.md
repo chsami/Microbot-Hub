@@ -1,4 +1,4 @@
-﻿# Zulrah Helper
+﻿# Zulrah Overlay Helper
 
 Microbot's Zulrah Helper augments the fight by tracking rotations, warning about attacks, and highlighting optimal defensive prayers.
 
@@ -16,4 +16,4 @@ Microbot's Zulrah Helper augments the fight by tracking rotations, warning about
 
 ## Credits
 
-Owain van Brakel for originally creating this plugin for OpenOSRS
+The original creator that created the plugin for OpenOSRS
