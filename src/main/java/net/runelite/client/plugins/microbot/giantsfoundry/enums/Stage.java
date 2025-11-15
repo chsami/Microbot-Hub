@@ -8,15 +8,17 @@ import net.runelite.api.coords.WorldPoint;
 @AllArgsConstructor
 public enum Stage
 {
-    TRIP_HAMMER("Hammer", Heat.HIGH, 20, -25, new WorldPoint(3367, 11497, 0)),
-    GRINDSTONE("Grind", Heat.MED, 10, 15, new WorldPoint(3364, 11492, 0)),
-    POLISHING_WHEEL("Polish", Heat.LOW, 10, -17, new WorldPoint(3365, 11485, 0));
+    TRIP_HAMMER("Hammer", Heat.HIGH, 20, -25, new WorldPoint(3367, 11497, 0), 4, 14),
+    GRINDSTONE("Grind", Heat.MED, 10, 15, new WorldPoint(3364, 11492, 0), 7, 19),
+    POLISHING_WHEEL("Polish", Heat.LOW, 10, -17, new WorldPoint(3365, 11485, 0), 12, 10);
 
     private final String name;
     private final Heat heat;
     private final int progressPerAction;
     private final int heatChange;
     private final WorldPoint location;
+    private final int distanceToLava;
+    private final int distanceToWaterfall;
 
     public boolean isHeating()
     {

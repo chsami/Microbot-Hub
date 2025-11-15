@@ -35,9 +35,17 @@ public class GiantsFoundryScript extends Script {
 
     public static State state;
     static GiantsFoundryConfig config;
+    static String firstBarName;
+    static String secondBarName;
+    static boolean useBars;
+
 
     public boolean run(GiantsFoundryConfig config) {
         this.config = config;
+        useBars = config.useBars();
+        firstBarName = useBars ? config.FirstBar().getName() : config.firstItem();
+        secondBarName = useBars ? config.SecondBar().getName() : config.secondItem();
+
         setState(State.CRAFTING_WEAPON, true);
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -151,50 +159,74 @@ public class GiantsFoundryScript extends Script {
     }
 
     public void fillCrucible() {
-        if (!hasSelectedMould())
-            return;
+        if (!preconditionsMet()) return;
 
-        if (Microbot.getVarbitValue(MouldHelper.SWORD_TYPE_1_VARBIT) == 0) {
-            return;
-        }
-        if (Microbot.getVarbitValue(GiantsFoundryState.VARBIT_GAME_STAGE) != 1) {
-            return;
+        if (!ensureBarsInInventory()) return;
+
+        if (useBars) {
+            addBarsWithWidget(firstBarName, config.FirstBar());
+            addBarsWithWidget(secondBarName, config.SecondBar());
+        } else {
+            addBarsWithInventoryUse(firstBarName);
+            addBarsWithInventoryUse(secondBarName);
         }
 
-        if (!Rs2Inventory.hasItemAmount(config.FirstBar().getName(), config.firstBarAmount())
-                && !Rs2Inventory.hasItemAmount(config.SecondBar().getName(), config.secondBarAmount()) && !canPour()) {
-            Rs2Bank.openBank();
-            //check if inv is empty and deposit all inv items
-            if(Rs2Bank.count(config.FirstBar().getName()) < config.firstBarAmount() || Rs2Bank.count(config.SecondBar().getName()) < config.secondBarAmount()) {
-                Microbot.log("Insufficient bars in bank to continue");
-                this.shutdown();
-                return;
-            }
-            Rs2Bank.withdrawDeficit(config.FirstBar().getName(), config.firstBarAmount());
-            Rs2Bank.withdrawDeficit(config.SecondBar().getName(), config.secondBarAmount());
-            Rs2Bank.closeBank();
-            return;
-        }
-        Rs2Bank.closeBank();
-        if (Rs2Inventory.hasItem(config.FirstBar().getName()) && !canPour()) {
-            Rs2GameObject.interact(CRUCIBLE, "Fill");
-            sleepUntil(() -> Rs2Widget.findWidget("What metal would you like to add?", null) != null, 5000);
-            Rs2Keyboard.keyPress(getKeyFromBar(config.FirstBar()));
-            sleepUntil(() -> !Rs2Inventory.hasItem(config.FirstBar().getName()), 5000);
-        }
-        if (Rs2Inventory.hasItem(config.SecondBar().getName()) && !canPour()) {
-            Rs2GameObject.interact(CRUCIBLE, "Fill");
-            sleepUntil(() -> Rs2Widget.findWidget("What metal would you like to add?", null) != null, 5000);
-            sleep(600, 1200);
-
-            Rs2Keyboard.keyPress(getKeyFromBar(config.SecondBar()));
-            sleepUntil(() -> !Rs2Inventory.hasItem(config.SecondBar().getName()), 5000);
-        }
         if (canPour()) {
-            Rs2GameObject.interact(CRUCIBLE, "Pour");
-            sleep(5000);
-            sleepUntil(() -> !canPour(), 10000);
+            pourCrucible();
         }
+    }
+
+    private boolean preconditionsMet() {
+        if (!hasSelectedMould()) return false;
+        if (Microbot.getVarbitValue(MouldHelper.SWORD_TYPE_1_VARBIT) == 0) return false;
+        return Microbot.getVarbitValue(GiantsFoundryState.VARBIT_GAME_STAGE) == 1;
+    }
+
+    private boolean ensureBarsInInventory() {
+        if ((Rs2Inventory.hasItemAmount(firstBarName, config.firstBarAmount())
+                && Rs2Inventory.hasItemAmount(secondBarName, config.secondBarAmount()))
+                || canPour()) {
+            return true;
+        }
+
+        Rs2Bank.openBank();
+        if (Rs2Bank.count(firstBarName) < config.firstBarAmount()
+                || Rs2Bank.count(secondBarName) < config.secondBarAmount()) {
+            Microbot.log("Insufficient bars / items in bank to continue");
+            this.shutdown();
+            return false;
+        }
+        Rs2Bank.withdrawDeficit(firstBarName, config.firstBarAmount());
+        Rs2Bank.withdrawDeficit(secondBarName, config.secondBarAmount());
+        Rs2Bank.closeBank();
+        return true;
+    }
+
+    private void addBarsWithWidget(String barName, SmithableBars key) {
+        if (!Rs2Inventory.hasItem(barName) || canPour()) return;
+        Rs2GameObject.interact(CRUCIBLE, "Fill");
+        sleepUntil(() -> Rs2Widget.findWidget("What metal would you like to add?", null) != null, 5000);
+        Rs2Keyboard.keyPress(getKeyFromBar(key));
+        sleepUntil(() -> !Rs2Inventory.hasItem(barName), 5000);
+    }
+
+    private void addBarsWithInventoryUse(String barName) {
+        if (!Rs2Inventory.hasItem(barName) || canPour()) return;
+        Rs2Inventory.use(barName);
+        Rs2GameObject.interact(CRUCIBLE);
+        sleepUntil(() -> Rs2Widget.findWidget("How many would you like to add?", null) != null, 5000);
+        sleep(600, 1200);
+
+        if (Microbot.getClient().getWidget(14352385) != null) {
+            Rs2Keyboard.keyPress('4');
+            sleepUntil(() -> !Rs2Inventory.hasItem(barName), 5000);
+        }
+    }
+
+    private void pourCrucible() {
+        Rs2GameObject.interact(CRUCIBLE, "Pour");
+        sleep(5000);
+        sleepUntil(() -> !canPour(), 10000);
     }
 
     public static char getKeyFromBar(SmithableBars bar) {
@@ -263,7 +295,7 @@ public class GiantsFoundryScript extends Script {
                 if (!doAction && isAtLavaTile) return;
                 Rs2GameObject.interact(LAVA_POOL, "Heat-preform");
                 GiantsFoundryState.heatingCoolingState.stop();
-                GiantsFoundryState.heatingCoolingState.setup(7, 0, "heats");
+                GiantsFoundryState.heatingCoolingState.setup(false, true, "heats");
                 GiantsFoundryState.heatingCoolingState.start(GiantsFoundryState.getHeatAmount());
                 sleepUntil(() -> GiantsFoundryState.heatingCoolingState.getRemainingDuration() <= 1);
                 break;
@@ -272,7 +304,7 @@ public class GiantsFoundryScript extends Script {
                 if (!doAction && isAtWaterFallTile) return;
                 Rs2GameObject.interact(WATERFALL, "Cool-preform");
                 GiantsFoundryState.heatingCoolingState.stop();
-                GiantsFoundryState.heatingCoolingState.setup(-7, 0, "cools");
+                GiantsFoundryState.heatingCoolingState.setup(false, false, "cools");
                 GiantsFoundryState.heatingCoolingState.start(GiantsFoundryState.getHeatAmount());
                 sleepUntil(() -> GiantsFoundryState.heatingCoolingState.getRemainingDuration() <= 1);
                 break;

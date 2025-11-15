@@ -2,11 +2,7 @@ package net.runelite.client.plugins.microbot.giantsfoundry;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.plugins.microbot.giantsfoundry.enums.Stage;
 
-/**
- * A state-machine that keeps track of heating/cooling actions.
- */
 @Slf4j
 @Data
 public class HeatActionStateMachine
@@ -14,46 +10,44 @@ public class HeatActionStateMachine
     /**
      * Tick counter for heating, -1 means not currently heating.
      */
-    int HeatingTicks = -1;
+    int heatingTicks = -1;
 
     /**
      * Tick counter for cooling, -1 means not currently cooling.
      */
-    int CoolingTicks = -1;
+    int coolingTicks = -1;
 
-    /**
-     * The velocity of the heating/cooling action.
-     */
-    int Velocity;
+    boolean actionFast;
 
-    /**
-     * The acceleration bonus of the heating/cooling action.
-     */
-    int AccelerationBonus;
+    boolean actionHeating;
 
     /**
      * The starting heat amount of the heating/cooling action.
      */
-    int StartingHeat;
+    int startingHeat;
 
     /**
      * The estimated tick duration of the heating/cooling action.
      */
-    int EstimatedDuration;
+    int estimatedDuration;
 
     /**
      * The goal heat amount of the heating/cooling action.
      */
-    int GoalHeat = 0;
+    int goalHeat = 0;
+
+    // debug
+    boolean goalInRange;
+    boolean isOverShooting;
+    int predictedHeat;
 
     /**
      * The last action the player clicked on. Used for ui overlay to display.
      * When null, the state-machine will stop() and reset.
      */
-    String ActionName = null;
+    String actionname = null;
 
-
-
+    private int heatActionPadTicks = 3; // Do not touch, helps with the calculations of how much to heat up / cool down
 
     /**
      * Start the state-machine with the given parameters.
@@ -61,27 +55,26 @@ public class HeatActionStateMachine
      * These parameters have to be set-up manually before start().
      * Velocity, AccelerationBonus, ActionName
      *
-
      * @param startingHeat the starting heat amount
-     * @see HeatActionStateMachine#setup(int, int, String)
+     * @see HeatActionStateMachine#setup(boolean, boolean, String)
      */
     public void start(int startingHeat)
     {
         // use Velocity to determine if heating or cooling
-        if (Velocity > 0)
+        if (actionHeating)
         {
-            HeatingTicks = 0;
-            CoolingTicks = -1;
+            heatingTicks = 0;
+            coolingTicks = -1;
         }
         else
         {
-            CoolingTicks = 0;
-            HeatingTicks = -1;
+            heatingTicks = -1;
+            coolingTicks = 0;
         }
-        StartingHeat = startingHeat - Velocity;
 
+        this.startingHeat = startingHeat;
 
-        calculateEstimates();
+        updateEstimates();
     }
 
     /**
@@ -93,11 +86,11 @@ public class HeatActionStateMachine
     {
         if (isHeating())
         {
-            return Math.max(0, EstimatedDuration - HeatingTicks);
+            return Math.max(0, (estimatedDuration - heatingTicks));
         }
         else if (isCooling())
         {
-            return Math.max(0, EstimatedDuration - CoolingTicks);
+            return Math.max(0, (estimatedDuration - coolingTicks));
         }
         else
         {
@@ -109,97 +102,39 @@ public class HeatActionStateMachine
      * Core logic. Runs once on {@link HeatActionStateMachine#start} and assumes synchronization with the game.
      * Calculate the estimated duration and goal heat amount of the heating/cooling action.
      */
-    public void calculateEstimates()
+    public void updateEstimates()
     {
-        int[] range = GiantsFoundryState.getCurrentHeatRange();
-        Stage stage = GiantsFoundryState.getCurrentStage();
-        int actionsLeft = GiantsFoundryState.getActionsLeftInStage();
-        int actionsLeft_DeltaHeat = actionsLeft * stage.getHeatChange();
-        if (isHeating())
-        {
-            if (stage.isHeating())
-            {
-                GoalHeat = Math.max(range[0] + 20, range[1] - actionsLeft_DeltaHeat);
-                if (StartingHeat < GoalHeat)
-                {
-                    EstimatedDuration = HeatActionSolver.findDx0Index(
-                            GoalHeat - StartingHeat,
-                            Velocity, AccelerationBonus);
 
-                    GoalHeat += EstimatedDuration / 2; // compensate for decay during heating
+        HeatActionSolver.DurationResult result =
+                HeatActionSolver.solve(
+                        GiantsFoundryState.getCurrentStage(),
+                        GiantsFoundryState.getCurrentHeatRange(),
+                        GiantsFoundryState.getActionsLeftInStage(),
+                        getStartingHeat(),
+                        actionFast,
+                        isHeating(),
+                        heatActionPadTicks,
+                        GiantsFoundryState.isPlayerRunning()
+                );
 
-                    EstimatedDuration = HeatActionSolver.findDx0Index(
-                            GoalHeat - StartingHeat,
-                            Velocity, AccelerationBonus);
-                }
-                else // overheating
-                {
-                    EstimatedDuration = 0;
-                }
-            }
-            else // is cooling
-            {
-                GoalHeat = Math.min(range[1] - 20, range[0] - actionsLeft_DeltaHeat);
-                if (StartingHeat < GoalHeat)
-                {
-                    EstimatedDuration = HeatActionSolver.findDx0Index(
-                            GoalHeat - StartingHeat,
-                            Velocity, AccelerationBonus
-                    );
-                }
-                else // cold enough
-                {
-                    EstimatedDuration = 0;
-                }
-            }
-        }
-        else if (isCooling())
-        {
-            if (stage.isCooling())
-            {
-                GoalHeat = Math.max(range[1] - 20, range[0] + actionsLeft_DeltaHeat);
-                if (StartingHeat > GoalHeat) // too hot
-                {
-                    EstimatedDuration = HeatActionSolver.findDx0Index(
-                            StartingHeat - GoalHeat,
-                            Math.abs(Velocity), Math.abs(AccelerationBonus)
-                    );
-                }
-                else // hot enough
-                {
-                    EstimatedDuration = 0;
-                }
-            }
-            else // Heating Stage
-            {
-                GoalHeat = Math.max(range[0] + 20, range[1] - actionsLeft_DeltaHeat);
-                if (StartingHeat > GoalHeat)
-                {
-                    EstimatedDuration = HeatActionSolver.findDx0Index(
-                            (StartingHeat - GoalHeat),
-                            Math.abs(Velocity), Math.abs(AccelerationBonus)
-                    );
-                }
-                else
-                {
-                    EstimatedDuration = 0;
-                }
-            }
-        }
+        goalInRange = result.isGoalInRange();
+        isOverShooting = result.isOvershooting();
+
+        predictedHeat = result.getPredictedHeat();
+
+        estimatedDuration = result.getDuration();
     }
 
     /**
      * Helper to remind the neccessary parameters to start the state-machine.
      *
-     * @param velocity          the velocity of the heating/cooling action, 7 for slow, 27 for fast.
-     * @param accelerationBonus the acceleration bonus of the heating/cooling action. Usually 0 for slow, 2 for fast.
      * @param actionName        the name of the action to display in the ui overlay
      */
-    public void setup(int velocity, int accelerationBonus, String actionName)
+    public void setup(boolean isFast, boolean isHeating, String actionName)
     {
-        Velocity = velocity;
-        AccelerationBonus = accelerationBonus;
-        ActionName = actionName;
+        actionFast = isFast;
+        actionHeating = isHeating;
+        actionname = actionName;
     }
 
     /**
@@ -207,9 +142,9 @@ public class HeatActionStateMachine
      */
     public void stop()
     {
-        HeatingTicks = -1;
-        CoolingTicks = -1;
-        ActionName = null;
+        heatingTicks = -1;
+        coolingTicks = -1;
+        actionname = null;
     }
 
     /**
@@ -219,7 +154,7 @@ public class HeatActionStateMachine
      */
     public boolean isHeating()
     {
-        return HeatingTicks >= 0;
+        return heatingTicks >= 0;
     }
 
     /**
@@ -229,7 +164,7 @@ public class HeatActionStateMachine
      */
     public boolean isCooling()
     {
-        return CoolingTicks >= 0;
+        return coolingTicks >= 0;
     }
 
     /**
@@ -247,25 +182,30 @@ public class HeatActionStateMachine
      */
     public void onTick()
     {
+        if (isIdle()) return;
+
         if (isHeating())
         {
-            HeatingTicks++;
-            if (HeatingTicks >= EstimatedDuration)
+            if (heatingTicks >= estimatedDuration)
             {
                 stop();
             }
+            else
+            {
+                heatingTicks++;
+            }
         }
-        if (isCooling())
+        else if (isCooling())
         {
-            CoolingTicks++;
-            if (CoolingTicks >= EstimatedDuration)
+            if (coolingTicks >= estimatedDuration)
             {
                 stop();
             }
+            else
+            {
+                coolingTicks++;
+            }
         }
-//		log.info("\nReal Heat: " + State.getHeatAmount()
-//		+ "\nGoal Heat - StartingHeat: " + (GoalHeat - StartingHeat)
-//		+ "\nDuration: " + EstimatedDuration);
     }
 
 }
