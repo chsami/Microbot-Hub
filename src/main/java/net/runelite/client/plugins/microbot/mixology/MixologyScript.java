@@ -22,6 +22,8 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -46,7 +48,16 @@ public class MixologyScript extends Script {
             PotionModifier.CONCENTRATED,
             PotionModifier.HOMOGENOUS
     );
-
+    /**
+     * Get the total runtime of the script
+     *
+     * @return the total runtime of the script
+     */
+    public Instant startTime;
+    public Duration getRunTime() {
+        if (startTime == null) return Duration.ofSeconds(0);
+        return Duration.between(startTime, Instant.now());
+    }
     public boolean run(MixologyConfig config) {
         Microbot.enableAutoRunOn = false;
         currentMoxPoints = 0;
@@ -56,6 +67,7 @@ public class MixologyScript extends Script {
         if (!Rs2AntibanSettings.naturalMouse) {
             Microbot.log("Hey! Did you know this script works really well with natural mouse? Feel free to enable it in the antiban settings.");
         }
+        startTime = Instant.now();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;

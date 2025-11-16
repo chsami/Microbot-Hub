@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum FletchingMaterial
 {
-    LOG(""),
+    LOG("Log"),
     WOOD("Wood"),
     OAK("Oak"),
     WILLOW("Willow"),

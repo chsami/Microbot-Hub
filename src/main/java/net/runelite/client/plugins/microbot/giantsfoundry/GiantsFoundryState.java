@@ -257,5 +257,11 @@ public class GiantsFoundryState {
 
         return actions;
     }
+
+    public static boolean isPlayerRunning()
+    {
+        return Microbot.getClient().getVarpValue(173) == 1;
+    }
+
     public static HeatActionStateMachine heatingCoolingState = new HeatActionStateMachine();
 }

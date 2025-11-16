@@ -1,5 +1,7 @@
 package net.runelite.client.plugins.microbot.ourania;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -49,6 +51,17 @@ public class OuraniaScript extends Script
 	private final List<Integer> massWorlds = List.of(327, 480);
 	private final OuraniaPlugin plugin;
 	private int selectedWorld = 0;
+    public Instant startTime;
+
+    /**
+     * Get the total runtime of the script
+     *
+     * @return the total runtime of the script
+     */
+    public Duration getRunTime() {
+        if (startTime == null) return Duration.ofSeconds(0);
+        return Duration.between(startTime, Instant.now());
+    }
 
 	@Inject
 	public OuraniaScript(OuraniaPlugin plugin, OuraniaConfig config)
@@ -66,6 +79,7 @@ public class OuraniaScript extends Script
 
 	public boolean run()
 	{
+        startTime = Instant.now();
 		Microbot.enableAutoRunOn = false;
 		Rs2Antiban.resetAntibanSettings();
 		Rs2Antiban.antibanSetupTemplates.applyRunecraftingSetup();

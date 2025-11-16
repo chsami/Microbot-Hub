@@ -39,10 +39,21 @@ public interface AutoWoodcuttingConfig extends Config {
     String forestrySection = "forestry";
 
     @ConfigItem(
+            keyName = "enableWoodcutting",
+            name = "Enable auto woodcutting",
+            description = "Turn off to keep forestry helpers active without cutting trees automatically",
+            position = 0,
+            section = generalSection
+    )
+    default boolean enableWoodcutting() {
+        return true;
+    }
+
+    @ConfigItem(
             keyName = "progressiveMode",
             name = "Progressive mode",
             description = "Automatically switch to the best tree based on your Woodcutting level",
-            position = 0,
+            position = 1,
             section = generalSection
     )
     default boolean progressiveMode() {
@@ -53,7 +64,7 @@ public interface AutoWoodcuttingConfig extends Config {
             keyName = "Tree",
             name = "Tree",
             description = "Choose the tree (ignored when Progressive mode is enabled)",
-            position = 1,
+            position = 2,
             section = generalSection
     )
     default WoodcuttingTree TREE() {
@@ -64,7 +75,7 @@ public interface AutoWoodcuttingConfig extends Config {
             keyName = "DistanceToStray",
             name = "Distance to Stray",
             description = "Set how far you can travel from your initial position in tiles",
-            position = 1,
+            position = 3,
             section = generalSection
     )
     default int distanceToStray() {
@@ -75,7 +86,7 @@ public interface AutoWoodcuttingConfig extends Config {
             keyName = "Hop",
             name = "Autohop when player detected",
             description = "Auto hop when a nearby player is detected",
-            position = 2,
+            position = 4,
             section = generalSection
     )
     default boolean hopWhenPlayerDetected() {
@@ -86,7 +97,7 @@ public interface AutoWoodcuttingConfig extends Config {
             keyName = "Firemake",
             name = "Firemake only",
             description = "Turns into an Auto Firemaker only mode , start plugin initially at desired firemaking starting position , tested only at GE - North East ",
-            position = 4,
+            position = 5,
             section = generalSection
     )
     default boolean firemakeOnly() {
@@ -97,7 +108,7 @@ public interface AutoWoodcuttingConfig extends Config {
             keyName = "HardwoodTreePatch",
             name = "Woodcut at Hardwood Tree Patch",
             description = "Woodcut at Hardwood Tree Patch",
-            position = 5,
+            position = 6,
             section = generalSection
     )
     default boolean HardwoodTreePatch() {
@@ -108,7 +119,7 @@ public interface AutoWoodcuttingConfig extends Config {
             keyName = "LootNests",
             name = "Loot Bird Nests",
             description = "Loot bird nests from trees and events",
-            position = 6,
+            position = 7,
             section = generalSection
     )
     default boolean lootBirdNests() { return true; }
@@ -117,7 +128,7 @@ public interface AutoWoodcuttingConfig extends Config {
             keyName = "LootSeeds",
             name = "Loot Seeds",
             description = "Loot seeds from events",
-            position = 7,
+            position = 8,
             section = generalSection
     )
     default boolean lootSeeds() { return true; }
@@ -126,7 +137,7 @@ public interface AutoWoodcuttingConfig extends Config {
             keyName = "LootMyItemsOnly",
             name = "Loot my items only",
             description = "Only loot your items (Ironman)",
-            position = 8,
+            position = 9,
             section = generalSection
     )
     default boolean lootMyItemsOnly() { return false;}
@@ -194,7 +205,7 @@ public interface AutoWoodcuttingConfig extends Config {
             section = inventorySection
     )
     default String itemsToKeep() {
-        return "axe,tinderbox,knife,bowstring,crystal shard,demon tear,petal garland,golden pheasant egg,pheasant tail feathers,fox whistle,key";
+        return "axe,tinderbox,knife,bowstring,crystal shard,demon tear,petal garland,golden pheasant egg,pheasant tail feathers,fox whistle,key, Anima-infused bark";
     }
 
     @ConfigItem(

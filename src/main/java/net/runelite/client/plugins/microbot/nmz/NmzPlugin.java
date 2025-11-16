@@ -27,7 +27,7 @@ import java.awt.*;
         description = "Plays the nightmare zone minigame",
         authors = { "Mocrosoft" },
         version = NmzPlugin.version,
-        minClientVersion = "1.9.8",
+        minClientVersion = "2.0.0",
         cardUrl = "https://chsami.github.io/Microbot-Hub/NmzPlugin/assets/card.png",
         iconUrl = "https://chsami.github.io/Microbot-Hub/NmzPlugin/assets/icon.png",
         tags = {"nmz", "microbot"},
@@ -36,7 +36,7 @@ import java.awt.*;
 )
 @Slf4j
 public class NmzPlugin extends Plugin implements SchedulablePlugin{
-    final static String version = "2.2.0";
+    final static String version = "2.2.1";
     @Inject
     private NmzConfig config;
 

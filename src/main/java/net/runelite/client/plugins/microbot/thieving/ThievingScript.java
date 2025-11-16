@@ -37,6 +37,8 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Arrays;
 import java.util.Collections;
@@ -82,6 +84,17 @@ public class ThievingScript extends Script {
 
     protected static int getCloseDoorTime() {
         return DOOR_TIMER.getRemainingTime();
+    }
+
+    /**
+     * Get the total runtime of the script
+     *
+     * @return the total runtime of the script
+     */
+    public Instant startTime;
+    public Duration getRunTime() {
+        if (startTime == null) return Duration.ofSeconds(0);
+        return Duration.between(startTime, Instant.now());
     }
 
     @Inject
@@ -527,6 +540,7 @@ public class ThievingScript extends Script {
         lastAction = System.currentTimeMillis();
         nextShadowVeil = System.currentTimeMillis()+60_000;
         underAttack = false;
+        startTime = Instant.now();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 loop();

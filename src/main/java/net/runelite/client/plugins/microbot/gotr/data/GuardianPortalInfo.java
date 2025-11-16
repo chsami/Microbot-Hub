@@ -13,7 +13,9 @@ public class GuardianPortalInfo {
     private int talismanId;
     @Getter
     private int spriteId;
+    @Getter
     private RuneType runeType;
+    @Getter
     private CellType cellType;
 
     @Getter

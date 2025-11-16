@@ -31,7 +31,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class VolcanicAshMinerPlugin extends Plugin implements SchedulablePlugin {
-    public static final String version = "1.1.1";
+    public static final String version = "1.1.2";
 
     @Inject
     private VolcanicAshMinerConfig config;

@@ -1,5 +1,7 @@
 package net.runelite.client.plugins.microbot.shootingstar;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -48,6 +50,18 @@ public class ShootingStarScript extends Script
 	private boolean hasEquipment = false;
 	private boolean hasInventory = false;
 
+    public Instant startTime;
+
+    /**
+     * Get the total runtime of the script
+     *
+     * @return the total runtime of the script
+     */
+    public Duration getRunTime() {
+        if (startTime == null) return Duration.ofSeconds(0);
+        return Duration.between(startTime, Instant.now());
+    }
+
 	@Inject
 	public ShootingStarScript(ShootingStarPlugin plugin, ShootingStarConfig config)
 	{
@@ -57,6 +71,7 @@ public class ShootingStarScript extends Script
 
 	public boolean run()
 	{
+        startTime = Instant.now();
 		Microbot.enableAutoRunOn = true;
 		initialPlayerLocation = null;
 		hasEquipment = false;

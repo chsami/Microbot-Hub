@@ -22,6 +22,8 @@ import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.mining.MiningAnimation;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
 import static net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity.VERY_LOW;
@@ -30,8 +32,19 @@ import static net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIn
 public class VolcanicAshMinerScript extends Script {
     public static VolcanicAshMinerState BOT_STATUS = VolcanicAshMinerState.MINING;
     private final WorldPoint VOLCANIC_ASH_LOCATION = new WorldPoint(3790, 3770, 0);
+    public Instant startTime;
 
+    /**
+     * Get the total runtime of the script
+     *
+     * @return the total runtime of the script
+     */
+    public Duration getRunTime() {
+        if (startTime == null) return Duration.ofSeconds(0);
+        return Duration.between(startTime, Instant.now());
+    }
     public boolean run(VolcanicAshMinerConfig config) {
+        startTime = Instant.now();
         BOT_STATUS = VolcanicAshMinerState.MINING;
         Microbot.enableAutoRunOn = false;
         Rs2Antiban.resetAntibanSettings();

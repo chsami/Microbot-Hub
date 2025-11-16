@@ -37,7 +37,7 @@ public class TemporossScript extends Script {
 
     // Version string
     public static final Pattern DIGIT_PATTERN = Pattern.compile("(\\d+)");
-    public static final int TEMPOROSS_REGION = 12078;
+    public static final int TEMPOROSS_REGION = 12076;
 
     // Game state variables
 

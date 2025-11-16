@@ -40,7 +40,7 @@ import java.util.*;
 )
 @Slf4j
 public class MixologyPlugin extends Plugin {
-    public final static String version = "1.0.2-beta";
+    public final static String version = "1.0.3";
 
     @Inject
     private Client client;
