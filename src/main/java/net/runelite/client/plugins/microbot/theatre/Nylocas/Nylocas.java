@@ -1,0 +1,976 @@
+package net.runelite.client.plugins.microbot.theatre.Nylocas;
+
+import lombok.Getter;
+import lombok.Setter;
+import net.runelite.api.*;
+import net.runelite.api.Point;
+import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.*;
+import net.runelite.api.kit.KitType;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.game.SkillIconManager;
+import net.runelite.client.input.MouseManager;
+import net.runelite.client.plugins.microbot.qualityoflife.enums.WeaponID;
+import net.runelite.client.plugins.microbot.theatre.Room;
+import net.runelite.client.plugins.microbot.theatre.TheatreConfig;
+import net.runelite.client.plugins.microbot.theatre.TheatreInputListener;
+import net.runelite.client.plugins.microbot.theatre.TheatrePlugin;
+import net.runelite.client.ui.overlay.components.InfoBoxComponent;
+import net.runelite.client.util.ColorUtil;
+import net.runelite.client.util.Text;
+import org.apache.commons.lang3.ObjectUtils;
+
+import javax.inject.Inject;
+import java.awt.*;
+import java.time.Instant;
+import java.util.*;
+import java.util.List;
+
+public class Nylocas extends Room
+{
+	private enum WeaponStyle
+	{
+		MAGIC,
+		RANGE,
+		MELEE
+	}
+
+	@Inject
+	private Client client;
+
+	@Inject
+	private NylocasOverlay nylocasOverlay;
+
+	@Inject
+	protected Nylocas(TheatrePlugin plugin, TheatreConfig config)
+	{
+		super(plugin, config);
+	}
+
+	@Inject
+	private NylocasAliveCounterOverlay nylocasAliveCounterOverlay;
+
+	@Inject
+	private TheatreInputListener theatreInputListener;
+
+	@Inject
+	private MouseManager mouseManager;
+
+	@Inject
+	private SkillIconManager skillIconManager;
+
+	@Getter
+	private boolean nyloActive;
+
+	@Getter
+	private NPC nyloBossNPC;
+
+	@Getter
+	private boolean nyloBossAlive;
+
+	@Setter
+	@Getter
+	private static Runnable wave31Callback = null;
+	@Setter
+	@Getter
+	private static Runnable endOfWavesCallback = null;
+
+	@Getter
+	private HashMap<NPC, Integer> nylocasPillars = new HashMap<>();
+
+	@Getter
+	private HashMap<NPC, Integer> nylocasNpcs = new HashMap<>();
+
+	@Getter
+	private HashSet<NPC> aggressiveNylocas = new HashSet<>();
+
+	@Getter
+	private Instant nyloWaveStart;
+
+	@Getter
+	private int instanceTimer = 0;
+
+	@Getter
+	private boolean isInstanceTimerRunning = false;
+
+	@Getter
+	private NyloSelectionManager nyloSelectionManager;
+
+	@Getter
+	private int nyloBossAttackTickCount = -1;
+
+	@Getter
+	private int nyloBossSwitchTickCount = -1;
+
+	@Getter
+	private int nyloBossTotalTickCount = -1;
+
+	@Getter
+	private int nyloBossStage = 0;
+
+	private WeaponStyle weaponStyle;
+
+	private HashMap<NyloNPC, NPC> currentWave = new HashMap<>();
+
+	@Getter
+	private final Map<LocalPoint, Integer> splitsMap = new HashMap();
+	private final Set<NPC> bigNylos = new HashSet();
+
+	private int varbit6447 = -1;
+	private boolean nextInstance = true;
+
+	@Getter
+	private int nyloWave = 0;
+
+	@Getter
+	private int ticksUntilNextWave = 0;
+	private int ticksSinceLastWave = 0;
+	private int totalStalledWaves = 0;
+
+	private static final int NPCID_NYLOCAS_PILLAR = 8358;
+
+	private boolean skipTickCheck = false;
+
+	private static final String MAGE_NYLO = "Nylocas Hagios";
+	private static final String RANGE_NYLO = "Nylocas Toxobolos";
+	private static final String MELEE_NYLO = "Nylocas Ischyros";
+
+	private static final Set<Integer> NYLO_BOSS_MELEE = Set.of(NpcID.NYLOCAS_VASILIAS_10808, NpcID.NYLOCAS_PRINKIPAS_10804, NpcID.NYLOCAS_VASILIAS_8355);
+	private static final Set<Integer> NYLO_BOSS_MAGE = Set.of(NpcID.NYLOCAS_VASILIAS_10809, NpcID.NYLOCAS_PRINKIPAS_10805, NpcID.NYLOCAS_VASILIAS_8356);
+	private static final Set<Integer> NYLO_BOSS_RANGE = Set.of(NpcID.NYLOCAS_VASILIAS_10810, NpcID.NYLOCAS_PRINKIPAS_10806, NpcID.NYLOCAS_VASILIAS_8357);
+
+	@Override
+	public void init()
+	{
+		InfoBoxComponent box = new InfoBoxComponent();
+		box.setImage(skillIconManager.getSkillImage(Skill.ATTACK));
+		NyloSelectionBox nyloMeleeOverlay = new NyloSelectionBox(box);
+		nyloMeleeOverlay.setSelected(config.getHighlightMeleeNylo());
+
+		box = new InfoBoxComponent();
+		box.setImage(skillIconManager.getSkillImage(Skill.MAGIC));
+		NyloSelectionBox nyloMageOverlay = new NyloSelectionBox(box);
+		nyloMageOverlay.setSelected(config.getHighlightMageNylo());
+
+		box = new InfoBoxComponent();
+		box.setImage(skillIconManager.getSkillImage(Skill.RANGED));
+		NyloSelectionBox nyloRangeOverlay = new NyloSelectionBox(box);
+		nyloRangeOverlay.setSelected(config.getHighlightRangeNylo());
+
+		nyloSelectionManager = new NyloSelectionManager(nyloMeleeOverlay, nyloMageOverlay, nyloRangeOverlay);
+		nyloSelectionManager.setHidden(!config.nyloHighlightOverlay());
+		nylocasAliveCounterOverlay.setHidden(!config.nyloAlivePanel());
+		nylocasAliveCounterOverlay.setNyloAlive(0);
+		nylocasAliveCounterOverlay.setMaxNyloAlive(12);
+
+		nyloBossNPC = null;
+		nyloBossAlive = false;
+	}
+
+	private void startupNyloOverlay()
+	{
+		mouseManager.registerMouseListener(theatreInputListener);
+
+		if (nyloSelectionManager != null)
+		{
+			overlayManager.add(nyloSelectionManager);
+			nyloSelectionManager.setHidden(!config.nyloHighlightOverlay());
+		}
+
+		if (nylocasAliveCounterOverlay != null)
+		{
+			overlayManager.add(nylocasAliveCounterOverlay);
+			nylocasAliveCounterOverlay.setHidden(!config.nyloAlivePanel());
+		}
+	}
+
+	private void shutdownNyloOverlay()
+	{
+		mouseManager.unregisterMouseListener(theatreInputListener);
+
+		if (nyloSelectionManager != null)
+		{
+			overlayManager.remove(nyloSelectionManager);
+			nyloSelectionManager.setHidden(true);
+		}
+
+		if (nylocasAliveCounterOverlay != null)
+		{
+			overlayManager.remove(nylocasAliveCounterOverlay);
+			nylocasAliveCounterOverlay.setHidden(true);
+		}
+	}
+
+	public void load()
+	{
+		overlayManager.add(nylocasOverlay);
+		weaponStyle = null;
+	}
+
+	public void unload()
+	{
+		overlayManager.remove(nylocasOverlay);
+
+		shutdownNyloOverlay();
+		nyloBossNPC = null;
+		nyloBossAlive = false;
+		nyloWaveStart = null;
+		weaponStyle = null;
+		splitsMap.clear();
+		bigNylos.clear();
+	}
+
+	private void resetNylo()
+	{
+		nyloBossNPC = null;
+		nyloBossAlive = false;
+		nylocasPillars.clear();
+		nylocasNpcs.clear();
+		aggressiveNylocas.clear();
+		setNyloWave(0);
+		currentWave.clear();
+		totalStalledWaves = 0;
+		weaponStyle = null;
+		splitsMap.clear();
+		bigNylos.clear();
+	}
+
+	private void setNyloWave(int wave)
+	{
+		nyloWave = wave;
+		nylocasAliveCounterOverlay.setWave(wave);
+
+		if (wave >= 3)
+		{
+			isInstanceTimerRunning = false;
+		}
+
+		if (wave != 0)
+		{
+			ticksSinceLastWave = NylocasWave.waves.get(wave).getWaveDelay();
+			ticksUntilNextWave = NylocasWave.waves.get(wave).getWaveDelay();
+		}
+
+		if (wave >= 20)
+		{
+			if (nylocasAliveCounterOverlay.getMaxNyloAlive() != 24)
+			{
+				nylocasAliveCounterOverlay.setMaxNyloAlive(24);
+			}
+		}
+
+		if (wave < 20)
+		{
+			if (nylocasAliveCounterOverlay.getMaxNyloAlive() != 12)
+			{
+				nylocasAliveCounterOverlay.setMaxNyloAlive(12);
+			}
+		}
+
+		if (wave == NylocasWave.MAX_WAVE && wave31Callback != null)
+		{
+			wave31Callback.run();
+		}
+	}
+
+	@Subscribe
+	public void onConfigChanged(ConfigChanged change)
+	{
+		if (change.getKey().equals("nyloHighlightOverlay"))
+		{
+			nyloSelectionManager.setHidden(!config.nyloHighlightOverlay());
+		}
+
+		if (change.getKey().equals("nyloAliveCounter"))
+		{
+			nylocasAliveCounterOverlay.setHidden(!config.nyloAlivePanel());
+		}
+	}
+
+	@Subscribe
+	public void onNpcSpawned(NpcSpawned npcSpawned)
+	{
+		NPC npc = npcSpawned.getNpc();
+		switch (npc.getId())
+		{
+			case NPCID_NYLOCAS_PILLAR:
+			case 10790:
+			case 10811:
+				nyloActive = true;
+				if (nylocasPillars.size() > 3)
+				{
+					nylocasPillars.clear();
+				}
+				if (!nylocasPillars.containsKey(npc))
+				{
+					nylocasPillars.put(npc, 100);
+				}
+				break;
+			case 8342:
+			case 8343:
+			case 8344:
+			case 8345:
+			case 8346:
+			case 8347:
+			case 8348:
+			case 8349:
+			case 8350:
+			case 8351:
+			case 8352:
+			case 8353:
+			case 10774:
+			case 10775:
+			case 10776:
+			case 10777:
+			case 10778:
+			case 10779:
+			case 10780:
+			case 10781:
+			case 10782:
+			case 10783:
+			case 10784:
+			case 10785:
+			case 10791:
+			case 10792:
+			case 10793:
+			case 10794:
+			case 10795:
+			case 10796:
+			case 10797:
+			case 10798:
+			case 10799:
+			case 10800:
+			case 10801:
+			case 10802:
+				if (nyloActive)
+				{
+					nylocasNpcs.put(npc, 52);
+					nylocasAliveCounterOverlay.setNyloAlive(nylocasNpcs.size());
+
+					NyloNPC nyloNPC = matchNpc(npc);
+					if (nyloNPC != null)
+					{
+						currentWave.put(nyloNPC, npc);
+						if (currentWave.size() > 2)
+						{
+							matchWave();
+						}
+					}
+				}
+				break;
+			case NpcID.NYLOCAS_VASILIAS:
+			case NpcID.NYLOCAS_VASILIAS_8355:
+			case NpcID.NYLOCAS_VASILIAS_8356:
+			case NpcID.NYLOCAS_VASILIAS_8357:
+			case 10786:
+			case 10787:
+			case 10788:
+			case 10789:
+			case 10807:
+			case 10808:
+			case 10809:
+			case 10810:
+				nyloBossTotalTickCount = -4;
+				nyloBossAlive = true;
+				isInstanceTimerRunning = false;
+				nyloBossNPC = npc;
+				break;
+		}
+
+		int id = npc.getId();
+		switch (id)
+		{
+			case 8345:
+			case 8346:
+			case 8347:
+			case 10794:
+			case 10795:
+			case 10796:
+				bigNylos.add(npc);
+				break;
+		}
+	}
+
+	private void matchWave()
+	{
+		HashSet<NyloNPC> potentialWave;
+		Set<NyloNPC> currentWaveKeySet = currentWave.keySet();
+
+		for (int wave = nyloWave + 1; wave <= NylocasWave.MAX_WAVE; wave++)
+		{
+			boolean matched = true;
+			potentialWave = NylocasWave.waves.get(wave).getWaveData();
+			for (NyloNPC nyloNpc : potentialWave)
+			{
+				if (!currentWaveKeySet.contains(nyloNpc))
+				{
+					matched = false;
+					break;
+				}
+			}
+
+			if (matched)
+			{
+				setNyloWave(wave);
+				for (NyloNPC nyloNPC : potentialWave)
+				{
+					if (nyloNPC.isAggressive())
+					{
+						aggressiveNylocas.add(currentWave.get(nyloNPC));
+					}
+				}
+				currentWave.clear();
+				return;
+			}
+		}
+	}
+
+	private NyloNPC matchNpc(NPC npc)
+	{
+		WorldPoint p = WorldPoint.fromLocalInstance(client, npc.getLocalLocation());
+		Point point = new Point(p.getRegionX(), p.getRegionY());
+		NylocasSpawnPoint spawnPoint = NylocasSpawnPoint.getLookupMap().get(point);
+
+		if (spawnPoint == null)
+		{
+			return null;
+		}
+
+		NylocasType nylocasType = NylocasType.getLookupMap().get(npc.getId());
+
+		if (nylocasType == null)
+		{
+			return null;
+		}
+
+		return new NyloNPC(nylocasType, spawnPoint);
+	}
+
+	@Subscribe
+	public void onNpcDespawned(NpcDespawned npcDespawned)
+	{
+		NPC npc = npcDespawned.getNpc();
+		switch (npc.getId())
+		{
+			case NPCID_NYLOCAS_PILLAR:
+			case 10790:
+			case 10811:
+				if (nylocasPillars.containsKey(npc))
+				{
+					nylocasPillars.remove(npc);
+				}
+				if (nylocasPillars.size() < 1)
+				{
+					nyloWaveStart = null;
+					nyloActive = false;
+				}
+				break;
+			case 8342:
+			case 8343:
+			case 8344:
+			case 8345:
+			case 8346:
+			case 8347:
+			case 8348:
+			case 8349:
+			case 8350:
+			case 8351:
+			case 8352:
+			case 8353:
+			case 10774:
+			case 10775:
+			case 10776:
+			case 10777:
+			case 10778:
+			case 10779:
+			case 10780:
+			case 10781:
+			case 10782:
+			case 10783:
+			case 10784:
+			case 10785:
+			case 10791:
+			case 10792:
+			case 10793:
+			case 10794:
+			case 10795:
+			case 10796:
+			case 10797:
+			case 10798:
+			case 10799:
+			case 10800:
+			case 10801:
+			case 10802:
+				if (nylocasNpcs.remove(npc) != null)
+				{
+					nylocasAliveCounterOverlay.setNyloAlive(nylocasNpcs.size());
+				}
+				aggressiveNylocas.remove(npc);
+				if (nyloWave == NylocasWave.MAX_WAVE && nylocasNpcs.size() == 0 && endOfWavesCallback != null)
+				{
+					endOfWavesCallback.run();
+				}
+				break;
+			case NpcID.NYLOCAS_VASILIAS:
+			case NpcID.NYLOCAS_VASILIAS_8355:
+			case NpcID.NYLOCAS_VASILIAS_8356:
+			case NpcID.NYLOCAS_VASILIAS_8357:
+			case 10786:
+			case 10787:
+			case 10788:
+			case 10789:
+			case 10807:
+			case 10808:
+			case 10809:
+			case 10810:
+				nyloBossAlive = false;
+				nyloBossAttackTickCount = -1;
+				nyloBossSwitchTickCount = -1;
+				nyloBossTotalTickCount = -1;
+				break;
+		}
+	}
+
+	@Subscribe
+	public void onAnimationChanged(AnimationChanged event)
+	{
+		Actor actor = event.getActor();
+		if (actor instanceof NPC)
+		{
+			switch (((NPC) actor).getId())
+			{
+				case 8355:
+				case 8356:
+				case 8357:
+				case 10787:
+				case 10788:
+				case 10789:
+				case 10808:
+				case 10809:
+				case 10810:
+					if (event.getActor().getAnimation() == 8004 ||
+						event.getActor().getAnimation() == 7999 ||
+						event.getActor().getAnimation() == 7989)
+					{
+						nyloBossAttackTickCount = 5;
+						nyloBossStage++;
+					}
+			}
+		}
+		if (!bigNylos.isEmpty() && event.getActor() instanceof NPC)
+		{
+			NPC npc = (NPC) event.getActor();
+			if (bigNylos.contains(npc))
+			{
+				int anim = npc.getAnimation();
+				if (anim == 8005 || anim == 7991 || anim == 7998)
+				{
+					splitsMap.putIfAbsent(npc.getLocalLocation(), 6);
+					bigNylos.remove(npc);
+				}
+
+			}
+		}
+	}
+
+	@Subscribe
+	public void onNpcChanged(NpcChanged npcChanged)
+	{
+		int npcId = npcChanged.getNpc().getId();
+
+		switch (npcId)
+		{
+			case 8355:
+			case 8356:
+			case 8357:
+			case 10787:
+			case 10788:
+			case 10789:
+			case 10808:
+			case 10809:
+			case 10810:
+			{
+				nyloBossAttackTickCount = 3;
+				nyloBossSwitchTickCount = 11;
+				nyloBossStage = 0;
+			}
+		}
+	}
+
+	@Subscribe
+	public void onVarbitChanged(VarbitChanged event)
+	{
+		int[] varps = client.getVarps();
+		int newVarbit6447 = client.getVarbitValue(varps, 6447);
+
+		if (inRoomRegion(TheatrePlugin.NYLOCAS_REGION) && newVarbit6447 != 0 && newVarbit6447 != varbit6447)
+		{
+			nyloWaveStart = Instant.now();
+
+			if (nylocasAliveCounterOverlay != null)
+			{
+				nylocasAliveCounterOverlay.setNyloWaveStart(nyloWaveStart);
+			}
+		}
+
+		varbit6447 = newVarbit6447;
+	}
+
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged gameStateChanged)
+	{
+		if (gameStateChanged.getGameState() != GameState.LOGGED_IN)
+		{
+			return;
+		}
+
+		if (inRoomRegion(TheatrePlugin.NYLOCAS_REGION))
+		{
+			startupNyloOverlay();
+		}
+		else
+		{
+			if (!nyloSelectionManager.isHidden() || !nylocasAliveCounterOverlay.isHidden())
+			{
+				shutdownNyloOverlay();
+			}
+			resetNylo();
+
+			isInstanceTimerRunning = false;
+		}
+
+		nextInstance = true;
+	}
+
+	@Subscribe
+	public void onGameTick(GameTick event)
+	{
+		if (inRoomRegion(TheatrePlugin.NYLOCAS_REGION) && nyloActive)
+		{
+			if (skipTickCheck)
+			{
+				skipTickCheck = false;
+			}
+			else
+			{
+				if (client.getLocalPlayer() == null || client.getLocalPlayer().getPlayerComposition() == null)
+				{
+					return;
+				}
+
+				int equippedWeapon = ObjectUtils.defaultIfNull(client.getLocalPlayer().getPlayerComposition().getEquipmentId(KitType.WEAPON), -1);
+				weaponStyle = determineWeaponStyle(equippedWeapon);
+			}
+
+			for (Iterator<NPC> it = nylocasNpcs.keySet().iterator(); it.hasNext(); )
+			{
+				NPC npc = it.next();
+				int ticksLeft = nylocasNpcs.get(npc);
+
+				if (ticksLeft < 0)
+				{
+					it.remove();
+					continue;
+				}
+				nylocasNpcs.replace(npc, ticksLeft - 1);
+			}
+
+			for (NPC pillar : nylocasPillars.keySet())
+			{
+				int healthPercent = pillar.getHealthRatio();
+				if (healthPercent > -1)
+				{
+					nylocasPillars.replace(pillar, healthPercent);
+				}
+			}
+
+			if ((instanceTimer + 1) % 4 == 1 && nyloWave < NylocasWave.MAX_WAVE && ticksSinceLastWave < 2)
+			{
+				if (config.nyloStallMessage() && nylocasAliveCounterOverlay.getNyloAlive() >= nylocasAliveCounterOverlay.getMaxNyloAlive())
+				{
+					totalStalledWaves++;
+					client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Stalled Wave: <col=EF1020>" +
+						nyloWave + "/" + NylocasWave.MAX_WAVE + "<col=00> - Time:<col=EF1020> " + nylocasAliveCounterOverlay.getFormattedTime() +
+						" <col=00>- Nylos Alive: <col=EF1020>" + nylocasAliveCounterOverlay.getNyloAlive() + "/" + nylocasAliveCounterOverlay.getMaxNyloAlive() +
+						" <col=00>- Total Stalled Waves: <col=EF1020>" + totalStalledWaves, "");
+				}
+				ticksUntilNextWave = 4;
+			}
+
+			ticksSinceLastWave = Math.max(0, ticksSinceLastWave - 1);
+			ticksUntilNextWave = Math.max(0, ticksUntilNextWave - 1);
+
+			if (!splitsMap.isEmpty())
+			{
+				splitsMap.values().removeIf((value) -> value <= 1);
+				splitsMap.replaceAll((key, value) -> value - 1);
+			}
+		}
+
+
+		if (nyloActive && nyloBossAlive)
+		{
+			nyloBossAttackTickCount--;
+			nyloBossSwitchTickCount--;
+			nyloBossTotalTickCount++;
+		}
+
+		instanceTimer = (instanceTimer + 1) % 4;
+	}
+
+	@Subscribe
+	public void onClientTick(ClientTick event)
+	{
+		List<Player> players = client.getPlayers();
+		for (Player player : players)
+		{
+			if (player.getWorldLocation() != null)
+			{
+				LocalPoint lp = player.getLocalLocation();
+
+				WorldPoint wp = WorldPoint.fromRegion(player.getWorldLocation().getRegionID(), 5, 33, 0);
+				LocalPoint lp1 = LocalPoint.fromWorld(client, wp.getX(), wp.getY());
+				if (lp1 != null)
+				{
+					Point base = new Point(lp1.getSceneX(), lp1.getSceneY());
+					Point point = new Point(lp.getSceneX() - base.getX(), lp.getSceneY() - base.getY());
+
+					if (inRoomRegion(TheatrePlugin.BLOAT_REGION) && point.getX() == -1 && (point.getY() == -1 || point.getY() == -2 || point.getY() == -3) && nextInstance)
+					{
+						client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Nylo instance timer started.", "");
+						instanceTimer = 3;
+						isInstanceTimerRunning = true;
+						nextInstance = false;
+					}
+				}
+			}
+		}
+	}
+
+	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked event)
+	{
+		if (event.isItemOp() && event.getItemOp() == 2)
+		{
+			WeaponStyle newStyle = determineWeaponStyle(event.getItemId());
+			if (newStyle != null)
+			{
+				skipTickCheck = true;
+				weaponStyle = newStyle;
+			}
+		}
+	}
+
+	@Subscribe
+	public void onMenuEntryAdded(MenuEntryAdded entry)
+	{
+		MenuEntry menuEntry = entry.getMenuEntry();
+		MenuAction menuAction = menuEntry.getType();
+		if (nyloActive || nyloBossAlive)
+		{
+			if (config.removeNyloBossEntries() && menuAction == MenuAction.NPC_SECOND_OPTION && weaponStyle != null)
+			{
+				NPC npc = menuEntry.getNpc();
+				if (npc == null)
+				{
+					npc = findNpcByIndex(entry.getIdentifier());
+				}
+				if (npc != null)
+				{
+					int id = npc.getId();
+					switch (weaponStyle)
+					{
+						case MAGIC:
+							if (NYLO_BOSS_MELEE.contains(id) || NYLO_BOSS_RANGE.contains(id))
+							{
+								removeLatestMenuEntry();
+							}
+							break;
+						case MELEE:
+							if (NYLO_BOSS_RANGE.contains(id) || NYLO_BOSS_MAGE.contains(id))
+							{
+								removeLatestMenuEntry();
+							}
+							break;
+						case RANGE:
+							if (NYLO_BOSS_MELEE.contains(id) || NYLO_BOSS_MAGE.contains(id))
+							{
+								removeLatestMenuEntry();
+							}
+							break;
+					}
+				}
+			}
+		}
+
+		if (!nyloActive)
+		{
+			return;
+		}
+
+		String target = entry.getTarget();
+
+		if (config.removeNyloEntries() && menuAction == MenuAction.NPC_SECOND_OPTION && weaponStyle != null)
+		{
+			switch (weaponStyle)
+			{
+				case MAGIC:
+					if (target.contains(MELEE_NYLO) || target.contains(RANGE_NYLO))
+					{
+						removeLatestMenuEntry();
+					}
+					break;
+				case MELEE:
+					if (target.contains(RANGE_NYLO) || target.contains(MAGE_NYLO))
+					{
+						removeLatestMenuEntry();
+					}
+					break;
+				case RANGE:
+					if (target.contains(MELEE_NYLO) || target.contains(MAGE_NYLO))
+					{
+						removeLatestMenuEntry();
+					}
+					break;
+			}
+		}
+
+		if (config.nyloRecolorMenu() && entry.getOption().equals("Attack"))
+		{
+			MenuEntry[] entries = client.getMenuEntries();
+			MenuEntry toEdit = entries[entries.length - 1];
+
+			String strippedTarget = Text.removeTags(target);
+
+			if (strippedTarget.startsWith(MAGE_NYLO))
+			{
+				toEdit.setTarget(ColorUtil.prependColorTag(strippedTarget, Color.CYAN));
+			}
+			else if (strippedTarget.startsWith(MELEE_NYLO))
+			{
+				toEdit.setTarget(ColorUtil.prependColorTag(strippedTarget, new Color(255, 188, 188)));
+			}
+			else if (strippedTarget.startsWith(RANGE_NYLO))
+			{
+				toEdit.setTarget(ColorUtil.prependColorTag(strippedTarget, Color.GREEN));
+			}
+			client.setMenuEntries(entries);
+		}
+	}
+
+	@Subscribe
+	public void onMenuOpened(MenuOpened menu)
+	{
+		if (!config.nyloRecolorMenu() || !nyloActive || !nyloBossAlive)
+		{
+			return;
+		}
+
+		// Filter all entries with Examine
+		client.setMenuEntries(Arrays.stream(menu.getMenuEntries()).filter(s -> !s.getOption().equals("Examine")).toArray(MenuEntry[]::new));
+	}
+
+	private void removeLatestMenuEntry()
+	{
+		MenuEntry[] entries = client.getMenuEntries();
+		if (entries.length == 0)
+		{
+			return;
+		}
+
+		client.setMenuEntries(Arrays.copyOf(entries, entries.length - 1));
+	}
+
+	private NPC findNpcByIndex(int index)
+	{
+		return client.getNpcs().stream()
+			.filter(npc -> npc != null && npc.getIndex() == index)
+			.findFirst()
+			.orElse(null);
+	}
+
+	private WeaponStyle determineWeaponStyle(int weaponId)
+	{
+		if (weaponId <= 0)
+		{
+			return null;
+		}
+
+		WeaponID weapon = WeaponID.getByObjectId(weaponId);
+		WeaponStyle mapped = weaponStyleFromAttackType(weapon != null ? weapon.getAttackType() : null);
+		if (mapped != null)
+		{
+			return mapped;
+		}
+
+		ItemComposition composition = client.getItemDefinition(weaponId);
+		if (composition != null)
+		{
+			String name = composition.getName();
+			if (name != null)
+			{
+				String lowerName = name.toLowerCase();
+				if (isMagicWeapon(lowerName))
+				{
+					return WeaponStyle.MAGIC;
+				}
+				if (isRangedWeapon(lowerName))
+				{
+					return WeaponStyle.RANGE;
+				}
+			}
+		}
+
+		return WeaponStyle.MELEE;
+	}
+
+	private WeaponStyle weaponStyleFromAttackType(String attackType)
+	{
+		if (attackType == null)
+		{
+			return null;
+		}
+
+		switch (attackType.toLowerCase())
+		{
+			case "magic":
+				return WeaponStyle.MAGIC;
+			case "ranged":
+				return WeaponStyle.RANGE;
+			case "melee":
+				return WeaponStyle.MELEE;
+			default:
+				return null;
+		}
+	}
+
+	private boolean isMagicWeapon(String name)
+	{
+		return name.contains("staff")
+			|| name.contains("wand")
+			|| name.contains("sceptre")
+			|| name.contains("scepter")
+			|| name.contains("trident")
+			|| name.contains("tome")
+			|| name.contains("book");
+	}
+
+	private boolean isRangedWeapon(String name)
+	{
+		return name.contains("bow")
+			|| name.contains("crossbow")
+			|| name.contains("knife")
+			|| name.contains("dart")
+			|| name.contains("javelin")
+			|| name.contains("thrownaxe")
+			|| name.contains("throwing axe")
+			|| name.contains("chinchompa")
+			|| name.contains("ballista")
+			|| name.contains("atlatl")
+			|| name.contains("sling")
+			|| name.contains("salamander");
+	}
+
+}
