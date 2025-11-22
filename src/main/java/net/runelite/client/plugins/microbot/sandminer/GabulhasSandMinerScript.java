@@ -89,11 +89,21 @@ public class GabulhasSandMinerScript extends Script {
                 dropEmptyWaterskins();
             }
 
-            while (Rs2Player.hopIfPlayerDetected(1, 3000, 100) && super.isRunning()) {
-                sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
-                sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
-                sleep(1200, 2000);
+            if (config.hopworldclose()) {
+                while (Rs2Player.hopIfPlayerDetected(1, 3000, 100) && super.isRunning()) {
+                    sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
+                    sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
+                    sleep(1200, 2000);
+                }
+            } else if (config.hopworldlong()) {
+                while (Rs2Player.hopIfPlayerDetected(1, 3000, 6) && super.isRunning()) {
+                    sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
+                    sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
+                    sleep(1200, 2000);
+                }
             }
+
+
 
             if (!config.turboMode()) sleep(Rs2Random.nextInt(300, 5000, 0.1, true));
             if (!Rs2Player.isInteracting() || !Rs2Player.isAnimating()) {
@@ -140,6 +150,7 @@ public class GabulhasSandMinerScript extends Script {
     private void dropEmptyWaterskins() {
         while (Rs2Inventory.hasItem(ItemID.WATER_SKIN0)) {
             Rs2Inventory.drop(ItemID.WATER_SKIN0);
+            sleep(550,650);
         }
     }
 
