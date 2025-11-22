@@ -30,7 +30,7 @@ import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
 )
 @Slf4j
 public class AutoCookingPlugin extends Plugin {
-    public final static String version = "1.1.1";
+    public final static String version = "1.1.2";
     @Inject
     AutoCookingScript autoCookingScript;
     @Inject
