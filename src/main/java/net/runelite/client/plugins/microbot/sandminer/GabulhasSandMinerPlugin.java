@@ -29,7 +29,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class GabulhasSandMinerPlugin extends Plugin {
-    public static final String version = "1.2.0";
+    public static final String version = "1.2.1";
     @Inject
     GabulhasSandMinerScript gabulhasSandMinerScript;
     @Inject
