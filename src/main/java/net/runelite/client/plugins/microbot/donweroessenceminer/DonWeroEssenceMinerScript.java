@@ -84,17 +84,29 @@ public class DonWeroEssenceMinerScript extends Script {
                             GameObject portal = Rs2GameObject.getGameObject("Portal");
 
                             if (portal == null) {
-                                log.info("Portal not immediately visible, trying camera rotations...");
+                                log.info("Portal not immediately visible, adjusting camera and rotating...");
 
-                                // Try rotating camera in different directions to find portal
-                                int[] cameraAngles = {0, 512, 1024, 1536}; // North, East, South, West
-                                for (int angle : cameraAngles) {
-                                    Rs2Camera.setYaw(angle);
-                                    sleep(400, 600);
-                                    portal = Rs2GameObject.getGameObject("Portal");
-                                    if (portal != null) {
-                                        log.info("Found portal after rotating camera to angle: " + angle);
-                                        break;
+                                // Zoom out and look down from above for better visibility
+                                Rs2Camera.setZoom(450);
+                                Rs2Camera.setPitch(383); // Max pitch - looking straight down
+                                sleep(600, 800);
+
+                                // Search after adjusting camera
+                                portal = Rs2GameObject.getGameObject("Portal");
+
+                                // If still not found, try rotating camera in different directions
+                                if (portal == null) {
+                                    int[] cameraAngles = {0, 512, 1024, 1536}; // North, East, South, West
+                                    for (int angle : cameraAngles) {
+                                        Rs2Camera.setYaw(angle);
+                                        sleep(400, 600);
+
+                                        // Search after each rotation
+                                        portal = Rs2GameObject.getGameObject("Portal");
+                                        if (portal != null) {
+                                            log.info("Found portal after rotating camera to angle: " + angle);
+                                            break;
+                                        }
                                     }
                                 }
                             }
