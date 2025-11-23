@@ -83,12 +83,8 @@ public class DonWeroEssenceMinerScript extends Script {
                             Microbot.status = "Looking for nearest portal (attempt " + (portalSearchAttempts + 1) + ")";
 
                             // Find the NEAREST portal (there are multiple in the mine)
-                            GameObject portal = Rs2GameObject.getGameObjects(obj -> {
-                                        String name = Microbot.getClient().getObjectDefinition(obj.getId()).getName();
-                                        return name != null && name.equalsIgnoreCase("Portal");
-                                    }).stream()
-                                    .min(Comparator.comparingInt(obj -> obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
-                                    .orElse(null);
+                            // Search with large distance to find all portals, returns nearest
+                            GameObject portal = Rs2GameObject.getGameObject("Portal", 50);
 
                             if (portal == null) {
                                 log.info("No portals found, adjusting camera and rotating...");
@@ -99,12 +95,7 @@ public class DonWeroEssenceMinerScript extends Script {
                                 sleep(600, 800);
 
                                 // Search for nearest portal after adjusting camera
-                                portal = Rs2GameObject.getGameObjects(obj -> {
-                                            String name = Microbot.getClient().getObjectDefinition(obj.getId()).getName();
-                                            return name != null && name.equalsIgnoreCase("Portal");
-                                        }).stream()
-                                        .min(Comparator.comparingInt(obj -> obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
-                                        .orElse(null);
+                                portal = Rs2GameObject.getGameObject("Portal", 50);
 
                                 // If still not found, try rotating camera in different directions
                                 if (portal == null) {
@@ -114,12 +105,7 @@ public class DonWeroEssenceMinerScript extends Script {
                                         sleep(400, 600);
 
                                         // Search for nearest portal after each rotation
-                                        portal = Rs2GameObject.getGameObjects(obj -> {
-                                                    String name = Microbot.getClient().getObjectDefinition(obj.getId()).getName();
-                                                    return name != null && name.equalsIgnoreCase("Portal");
-                                                }).stream()
-                                                .min(Comparator.comparingInt(obj -> obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
-                                                .orElse(null);
+                                        portal = Rs2GameObject.getGameObject("Portal", 50);
                                         if (portal != null) {
                                             log.info("Found portal at distance " + portal.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) + " after rotating to angle: " + angle);
                                             break;
