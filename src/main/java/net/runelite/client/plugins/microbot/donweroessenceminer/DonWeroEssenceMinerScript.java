@@ -135,17 +135,29 @@ public class DonWeroEssenceMinerScript extends Script {
                             if (portal != null) {
                                 portalSearchAttempts = 0; // Reset counter
 
+                                // Re-search for portal to ensure fresh object reference
+                                GameObject freshPortal = Rs2GameObject.getGameObject("Portal", 50);
+                                if (freshPortal == null) {
+                                    log.warn("Portal was found but disappeared, retrying next cycle");
+                                    return;
+                                }
+
                                 // Turn camera to portal if it's not on screen
-                                if (!Rs2Camera.isTileOnScreen(portal)) {
+                                if (!Rs2Camera.isTileOnScreen(freshPortal)) {
                                     Microbot.status = "Turning camera to portal";
-                                    Rs2Camera.turnTo(portal);
-                                    sleep(300, 600);
+                                    Rs2Camera.turnTo(freshPortal);
+                                    sleep(600, 900);
                                 }
 
                                 Microbot.status = "Using portal to exit";
-                                log.info("Interacting with portal at: " + portal.getWorldLocation());
-                                if (Rs2GameObject.interact(portal)) {
+                                log.info("Attempting to interact with portal at: " + freshPortal.getWorldLocation());
+
+                                boolean interacted = Rs2GameObject.interact(freshPortal);
+                                if (interacted) {
+                                    log.info("Successfully clicked portal, waiting for teleport");
                                     sleep(3000, 4000); // Wait for teleport
+                                } else {
+                                    log.warn("Failed to interact with portal, will retry");
                                 }
                             } else {
                                 log.error("Portal not found after " + portalSearchAttempts + " search attempts!");
