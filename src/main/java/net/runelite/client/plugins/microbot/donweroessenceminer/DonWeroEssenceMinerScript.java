@@ -16,6 +16,7 @@ import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
+import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
 
 enum EssenceMiningState {
@@ -78,21 +79,32 @@ public class DonWeroEssenceMinerScript extends Script {
 
                     case TELEPORT_AND_BANK:
                         if (inEssenceMine) {
-                            // Exit through portal - enhanced search logic
-                            Microbot.status = "Looking for portal (attempt " + (portalSearchAttempts + 1) + ")";
+                            // Exit through portal - find nearest portal
+                            Microbot.status = "Looking for nearest portal (attempt " + (portalSearchAttempts + 1) + ")";
 
-                            GameObject portal = Rs2GameObject.getGameObject("Portal");
+                            // Find the NEAREST portal (there are multiple in the mine)
+                            GameObject portal = Rs2GameObject.getGameObjects(obj -> {
+                                        String name = Microbot.getClient().getObjectDefinition(obj.getId()).getName();
+                                        return name != null && name.equalsIgnoreCase("Portal");
+                                    }).stream()
+                                    .min(Comparator.comparingInt(obj -> obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                                    .orElse(null);
 
                             if (portal == null) {
-                                log.info("Portal not immediately visible, adjusting camera and rotating...");
+                                log.info("No portals found, adjusting camera and rotating...");
 
                                 // Zoom out and look down from above for better visibility
                                 Rs2Camera.setZoom(450);
                                 Rs2Camera.setPitch(383); // Max pitch - looking straight down
                                 sleep(600, 800);
 
-                                // Search after adjusting camera
-                                portal = Rs2GameObject.getGameObject("Portal");
+                                // Search for nearest portal after adjusting camera
+                                portal = Rs2GameObject.getGameObjects(obj -> {
+                                            String name = Microbot.getClient().getObjectDefinition(obj.getId()).getName();
+                                            return name != null && name.equalsIgnoreCase("Portal");
+                                        }).stream()
+                                        .min(Comparator.comparingInt(obj -> obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                                        .orElse(null);
 
                                 // If still not found, try rotating camera in different directions
                                 if (portal == null) {
@@ -101,14 +113,21 @@ public class DonWeroEssenceMinerScript extends Script {
                                         Rs2Camera.setYaw(angle);
                                         sleep(400, 600);
 
-                                        // Search after each rotation
-                                        portal = Rs2GameObject.getGameObject("Portal");
+                                        // Search for nearest portal after each rotation
+                                        portal = Rs2GameObject.getGameObjects(obj -> {
+                                                    String name = Microbot.getClient().getObjectDefinition(obj.getId()).getName();
+                                                    return name != null && name.equalsIgnoreCase("Portal");
+                                                }).stream()
+                                                .min(Comparator.comparingInt(obj -> obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                                                .orElse(null);
                                         if (portal != null) {
-                                            log.info("Found portal after rotating camera to angle: " + angle);
+                                            log.info("Found portal at distance " + portal.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) + " after rotating to angle: " + angle);
                                             break;
                                         }
                                     }
                                 }
+                            } else {
+                                log.info("Found portal at distance: " + portal.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()));
                             }
 
                             // If still not found, try moving around
