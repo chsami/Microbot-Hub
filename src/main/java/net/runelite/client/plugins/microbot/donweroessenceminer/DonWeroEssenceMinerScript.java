@@ -94,22 +94,17 @@ public class DonWeroEssenceMinerScript extends Script {
                                 Rs2Camera.setPitch(383); // Max pitch - looking straight down
                                 sleep(600, 800);
 
-                                // Search for nearest portal after adjusting camera
-                                portal = Rs2GameObject.getGameObject("Portal", 50);
+                                // Rotate through 3 cardinal directions (270 degrees total, not full 360)
+                                int[] cameraAngles = {0, 512, 1024}; // North, East, South
+                                for (int angle : cameraAngles) {
+                                    Rs2Camera.setYaw(angle);
+                                    sleep(400, 600);
 
-                                // If still not found, try rotating camera in different directions
-                                if (portal == null) {
-                                    int[] cameraAngles = {0, 512, 1024, 1536}; // North, East, South, West
-                                    for (int angle : cameraAngles) {
-                                        Rs2Camera.setYaw(angle);
-                                        sleep(400, 600);
-
-                                        // Search for nearest portal after each rotation
-                                        portal = Rs2GameObject.getGameObject("Portal", 50);
-                                        if (portal != null) {
-                                            log.info("Found portal at distance " + portal.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) + " after rotating to angle: " + angle);
-                                            break;
-                                        }
+                                    // Search for nearest portal after EACH rotation
+                                    portal = Rs2GameObject.getGameObject("Portal", 50);
+                                    if (portal != null) {
+                                        log.info("Found portal at distance " + portal.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) + " after rotating to angle: " + angle);
+                                        break;
                                     }
                                 }
                             } else {
