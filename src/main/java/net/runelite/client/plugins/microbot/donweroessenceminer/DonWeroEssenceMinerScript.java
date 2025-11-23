@@ -31,6 +31,7 @@ public class DonWeroEssenceMinerScript extends Script {
     private static final int ESSENCE_MINE_REGION = 11595;
 
     private EssenceMiningState state = EssenceMiningState.TELEPORT_AND_BANK;
+    private int portalSearchAttempts = 0;
 
     public boolean run(DonWeroEssenceMinerConfig config) {
         Rs2Antiban.resetAntibanSettings();
@@ -77,30 +78,66 @@ public class DonWeroEssenceMinerScript extends Script {
 
                     case TELEPORT_AND_BANK:
                         if (inEssenceMine) {
-                            // Exit through portal
-                            Microbot.status = "Looking for portal";
+                            // Exit through portal - enhanced search logic
+                            Microbot.status = "Looking for portal (attempt " + (portalSearchAttempts + 1) + ")";
 
-                            // Wait for portal to appear (sometimes takes a moment to load)
-                            boolean portalFound = sleepUntil(() -> Rs2GameObject.getGameObject("Portal") != null, 5000);
+                            GameObject portal = Rs2GameObject.getGameObject("Portal");
 
-                            if (!portalFound) {
-                                log.warn("Portal not found after waiting");
+                            if (portal == null) {
+                                log.info("Portal not immediately visible, trying camera rotations...");
+
+                                // Try rotating camera in different directions to find portal
+                                int[] cameraAngles = {0, 512, 1024, 1536}; // North, East, South, West
+                                for (int angle : cameraAngles) {
+                                    Rs2Camera.setYaw(angle);
+                                    sleep(400, 600);
+                                    portal = Rs2GameObject.getGameObject("Portal");
+                                    if (portal != null) {
+                                        log.info("Found portal after rotating camera to angle: " + angle);
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // If still not found, try moving around
+                            if (portal == null && portalSearchAttempts < 3) {
+                                log.warn("Portal not found after camera rotations, trying to walk around...");
+                                Microbot.status = "Searching for portal - moving around";
+
+                                // Walk to a random nearby tile to change perspective
+                                WorldPoint currentPos = Rs2Player.getWorldLocation();
+                                WorldPoint searchPos = new WorldPoint(
+                                    currentPos.getX() + (portalSearchAttempts % 2 == 0 ? 3 : -3),
+                                    currentPos.getY() + (portalSearchAttempts % 2 == 0 ? 2 : -2),
+                                    currentPos.getPlane()
+                                );
+
+                                Rs2Walker.walkFastCanvas(searchPos);
+                                sleep(1200, 1800);
+
+                                portalSearchAttempts++;
                                 return;
                             }
 
-                            GameObject portal = Rs2GameObject.getGameObject("Portal");
+                            // Found the portal!
                             if (portal != null) {
+                                portalSearchAttempts = 0; // Reset counter
+
                                 // Turn camera to portal if it's not on screen
                                 if (!Rs2Camera.isTileOnScreen(portal)) {
                                     Microbot.status = "Turning camera to portal";
                                     Rs2Camera.turnTo(portal);
-                                    sleep(300, 600); // Brief delay for camera to move
+                                    sleep(300, 600);
                                 }
 
                                 Microbot.status = "Using portal to exit";
+                                log.info("Interacting with portal at: " + portal.getWorldLocation());
                                 if (Rs2GameObject.interact(portal)) {
                                     sleep(3000, 4000); // Wait for teleport
                                 }
+                            } else {
+                                log.error("Portal not found after " + portalSearchAttempts + " search attempts!");
+                                portalSearchAttempts = 0; // Reset to try again
                             }
                             return;
                         }
