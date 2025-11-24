@@ -87,6 +87,15 @@ public interface AutoMiningConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "hopIfNoOreAvailable",
+            name = "Hop World if no ore available",
+            description = "Hops world if no ore is available in the distance to stray",
+            position = 4,
+            section = generalSection
+    )
+    default boolean hopIfNoOreAvailable() { return false; }
+
+    @ConfigItem(
             keyName = "UseBank",
             name = "UseBank",
             description = "Use bank and walk back to original location",

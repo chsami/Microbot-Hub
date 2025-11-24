@@ -127,6 +127,18 @@ public class AutoMiningScript extends Script {
                                 Rs2Antiban.actionCooldown();
                                 Rs2Antiban.takeMicroBreakByChance();
                             }
+                        } else {
+                            if (config.hopIfNoOreAvailable()) {
+                                Microbot.status = "No ore available. Hopping...";
+                                Rs2Random.waitEx(3200, 800); // Delay to avoid UI locking
+
+                                int world = Login.getRandomWorld(Rs2Player.isMember());
+                                boolean hopped = Microbot.hopToWorld(world);
+                                if (hopped) {
+                                    Microbot.status = "Hopped to world: " + world;
+                                    return; // Exit current cycle after hop
+                                }
+                            }
                         }
                         break;
                     case RESETTING:
