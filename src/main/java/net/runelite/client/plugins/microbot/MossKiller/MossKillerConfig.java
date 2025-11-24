@@ -297,7 +297,7 @@ public interface MossKillerConfig extends Config {
             section = basicGuideSection
     )
     default int keyThreshold() {
-        return 30;
+        return 100;
     }
 
     @ConfigItem(
