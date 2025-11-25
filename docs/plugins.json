@@ -1095,6 +1095,30 @@
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/chaosaltarplugin/1.0.0/chaosaltarplugin-1.0.0.jar"
     },
     {
+        "internalName": "ZulrahPlugin",
+        "name": "Zulrah Overlay Helper",
+        "description": "Helps with various aspects during a fight with Zulrah",
+        "tags": [
+            "Zulrah",
+            "Helper",
+            "boss",
+            "bossing",
+            "snek",
+            "snake",
+            "tool"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.0.1",
+        "authors": [
+            "Syntax"
+        ],
+        "iconUrl": "https://i.imgur.com/syri2MC.png",
+        "cardUrl": "https://i.imgur.com/syri2MC.png",
+        "disable": false,
+        "sha256": "59be847e04e3ddc772d7806d82aea96ae9fd3f73f48736420fa39addb5774f8c",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/zulrahplugin/1.0.0/zulrahplugin-1.0.0.jar"
+    },
+    {
         "internalName": "BankSellerPlugin",
         "name": "Bank Seller",
         "description": "Withdraws tradeable bank items and sells them on the Grand Exchange",
