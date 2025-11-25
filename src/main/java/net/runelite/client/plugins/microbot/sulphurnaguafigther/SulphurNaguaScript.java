@@ -199,10 +199,6 @@ public class SulphurNaguaScript extends Script {
         int fixedItems = countFixedItems();
         int maxPossiblePotions = 28 - fixedItems;
         int targetPotions = Math.min(config.moonlightPotionsMinimum(), maxPossiblePotions);
-        if (targetPotions < 5) {
-            currentState = Rs2Bank.isNearBank(10) ? SulphurNaguaState.BANKING : SulphurNaguaState.WALKING_TO_BANK;
-            return;
-        }
 
         boolean hasPotionsInInventory = countMoonlightPotions() > 0;
         int totalOwnedPotions = countMoonlightPotions() + potionsToPickup;
@@ -695,13 +691,6 @@ public class SulphurNaguaScript extends Script {
         }
 
         fixedItemCount += Rs2Inventory.count(SULPHUR_BLADE_ID);
-
-        Set<Integer> prayerPotionIds = Set.of(139, 141, 143, 2434);
-        for (int prayerId : prayerPotionIds) {
-            if (Rs2Inventory.hasItem(prayerId)) {
-                fixedItemCount += Rs2Inventory.count(prayerId);
-            }
-        }
 
         return fixedItemCount;
     }
