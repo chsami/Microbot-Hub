@@ -940,7 +940,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.7.6",
+        "version": "1.7.7",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft"
@@ -948,8 +948,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "825ce42cb84cd2cabcdaa47874fa07b799518b8220203257cb1317fe0438b599",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autowoodcuttingplugin/1.7.6/autowoodcuttingplugin-1.7.6.jar"
+        "sha256": "a7229822983109d8a1aeaf58d15832fdf15cc0900377d3356dc2c3e6e65182da",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autowoodcuttingplugin/1.7.7/autowoodcuttingplugin-1.7.7.jar"
     },
     {
         "internalName": "NmzPlugin",
@@ -2199,7 +2199,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.1.1",
+        "version": "1.1.2",
         "minClientVersion": "2.0.7",
         "authors": [
             "George"
@@ -2207,8 +2207,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoCookingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoCookingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "a223c3611dc2075314a8806eb4b85843065b200aeecfbdb12ec4c631a916e5bf",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autocookingplugin/1.1.1/autocookingplugin-1.1.1.jar"
+        "sha256": "987785fc650dd4b4dad50d191bf837e832787d6bfff17ed35143e1e1a4ffe1d5",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autocookingplugin/1.1.2/autocookingplugin-1.1.2.jar"
     },
     {
         "internalName": "PlayerMonitorPlugin",
@@ -2624,7 +2624,7 @@
             "GabulhasSandMiner",
             "Gabulhas"
         ],
-        "version": "1.2.0",
+        "version": "1.2.1",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -2632,8 +2632,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "1f2273e075bd9db1a3f685f540b3d8dce8b925be25e9d9c2b3fc245ed915f761",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gabulhassandminerplugin/1.2.0/gabulhassandminerplugin-1.2.0.jar"
+        "sha256": "230802abf552ba17d856480f3cc28f724ccd959835f3ef868236e316630c797f",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/gabulhassandminerplugin/1.2.1/gabulhassandminerplugin-1.2.1.jar"
     },
     {
         "internalName": "ArceuusRcPlugin",
@@ -2947,7 +2947,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/SulphurNaguaPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/SulphurNaguaPlugin/assets/card.png",
         "disable": false,
-        "sha256": "2dfaf4820e47f2492ae98f0bf57e5fe7bebd3282526c4b17e31f1b2646efee7c",
+        "sha256": "480092260fe97a7427cd8796b8d688a97d86d213653d6a28c000519cdff3e668",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/sulphurnaguaplugin/2.0.0/sulphurnaguaplugin-2.0.0.jar"
     },
     {
