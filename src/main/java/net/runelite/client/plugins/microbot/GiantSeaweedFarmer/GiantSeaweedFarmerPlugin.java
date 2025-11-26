@@ -33,7 +33,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class GiantSeaweedFarmerPlugin extends Plugin implements SchedulablePlugin {
-    public final static String version = "1.0.1";
+    public final static String version = "1.0.3";
     private Instant scriptStartTime;
     @Inject
     private GiantSeaweedFarmerConfig config;

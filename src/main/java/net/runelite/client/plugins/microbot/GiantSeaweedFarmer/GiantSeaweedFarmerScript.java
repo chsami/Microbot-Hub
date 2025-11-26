@@ -44,6 +44,7 @@ public class GiantSeaweedFarmerScript extends Script {
     private List<Integer> handledPatches = new ArrayList<>();
     private final List<Integer> patches = List.of(30500, 30501);
     private static int lastVarbitValue = -1;
+    private long lastApparatusCheck = System.currentTimeMillis();
 
     private static final WorldPoint FossilIslandDiveChest = new WorldPoint(3766, 3899, 0);
     private static final WorldPoint FarmGuildSpiritTree = new WorldPoint(1250, 3749, 0);
@@ -106,7 +107,7 @@ public class GiantSeaweedFarmerScript extends Script {
                         handleFarming();
                         //ToDo Set timer for 40 minutes ? or just check every tick?
                         //sleep(40 * 60 * 1000); //40min * 60sec * 1000ms
-                        //ToDo Check Spores every 15 seconds
+                        //ToDo Check Spores every 15 seconds or make it lazy with settings
                         //ToDo Note Seaweed?
                         //ToDo Check Fishing Apparatus?
                         //ToDo Work on "Other Tasks" and/or Break-handler
@@ -432,6 +433,19 @@ public class GiantSeaweedFarmerScript extends Script {
                     inCriticalSection = false;
                 }
             case "Harvestable":
+
+                // EQUIP FARMING CAPE FOR HARVEST BONUS
+                if (config.FarmingCape()) {
+                    if (Rs2Inventory.contains("Farming cape") && !Rs2Equipment.isWearing("Farming cape")) {
+                        Rs2Inventory.interact("Farming cape", "Wear");
+                        sleep(150, 250);
+                    }
+                    if (Rs2Inventory.contains("Farming cape(t)") && !Rs2Equipment.isWearing("Farming cape(t)")) {
+                        Rs2Inventory.interact("Farming cape(t)", "Wear");
+                        sleep(150, 250);
+                    }
+                }
+
                 Rs2GameObject.interact(patchObj, "Pick");
                 sleepUntil(() -> {
                     // Re-find the patch object at the same location to get updated state
@@ -445,6 +459,12 @@ public class GiantSeaweedFarmerScript extends Script {
                     // Harvesting is complete when patch becomes empty or inventory is full
                     return currentState.equals("Empty") || Rs2Inventory.isFull();
                 }, 20000);
+
+                // IMMEDIATELY RE-EQUIP DIVING APPARATUS
+                if (!Rs2Equipment.isWearing("Diving apparatus") && Rs2Inventory.contains("Diving apparatus")) {
+                    Rs2Inventory.interact("Diving apparatus", "Wear");
+                    sleep(200, 300);
+                }
                 return false; // Don't mark as handled - needs planting after harvesting
             case "Weeds":
                 Rs2GameObject.interact(patchObj, "Rake");
@@ -474,6 +494,9 @@ public class GiantSeaweedFarmerScript extends Script {
                     return !currentState.equals("Dead");
                 }, 10000);
                 return false; // Don't mark as handled - needs planting after clearing
+            case "Diseased":
+                Microbot.showMessage("Diseased patch! Please turn off the script and then cure me manually as i cant do this automatically yet.");
+                return false;
             default:
                 currentPatch = null;
                 return true;
@@ -503,6 +526,22 @@ public class GiantSeaweedFarmerScript extends Script {
 
 
 
+    }
+
+    private void safetyCheck() {
+        if (Rs2Player.getWorldLocation().getPlane() != 1) return; // only underwater
+
+        if (!Rs2Equipment.isWearing("Diving apparatus")) {
+            // if > 2000 ms without apparatus underwater, force equip
+            if (System.currentTimeMillis() - lastApparatusCheck > 2000) {
+                if (Rs2Inventory.contains("Diving apparatus")) {
+                    Rs2Inventory.interact("Diving apparatus", "Wear");
+                    Microbot.log("SAFETY: Diving apparatus re-equipped automatically!");
+                }
+            }
+        } else {
+            lastApparatusCheck = System.currentTimeMillis();
+        }
     }
 
     private void GSF_AntiBan_Setup(){
