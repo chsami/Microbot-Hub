@@ -4,8 +4,7 @@ import net.runelite.client.config.*;
 
 @ConfigGroup("GabulhasSandMiner")
 @ConfigInformation(
-        "Mines sandstone and deposits it in the Quarry.<br/><br/>"+
-        "Just start next to the grinder with a pickaxe. <br/><br/>"+
+        "Mines sandstone and deposits it in the Quarry. Start with Pickaxe in Quarry<br/><br/>"+
         "The scripts supports handling the heat using waterskins +"+
         "humidify spell (Lunar spells) or using the circlet of water.<br/><br/>"+
         "<b>Turbo mode enables the plugin to mine and deposit faster, without clicking on minimap to walk, "+
@@ -33,10 +32,32 @@ public interface GabulhasSandMinerConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "hopWorldlong",
+            name = "Hop world Long",
+            description = "Hops world if player is spotted on minimap (within 100 tiles)",
+            position = 1,
+            section = settingsSection
+    )
+    default boolean hopworldlong() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "hopWorldclose",
+            name = "Hop world Nearby",
+            description = "Hops world if player is spotted very close, probably on same mining spot",
+            position = 2,
+            section = settingsSection
+    )
+    default boolean hopworldclose() {
+        return true;
+    }
+
+    @ConfigItem(
             keyName = "useHumidify",
             name = "Use Humidify",
             description = "Enables the use of the Humidify spell to keep your waterskins full. Requires the Lunar spellbook to be active.",
-            position = 1,
+            position = 3,
             section = settingsSection
     )
     default boolean useHumidify() {
@@ -46,7 +67,7 @@ public interface GabulhasSandMinerConfig extends Config {
     @ConfigSection(
             name = "Starting State",
             description = "Starting State",
-            position = 1
+            position = 4
     )
     String startingStateSection = "startingStateSection";
 

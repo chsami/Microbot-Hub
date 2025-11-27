@@ -7,11 +7,11 @@ import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.util.cache.Rs2ObjectCache;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.tileobject.Rs2TileObjectApi;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
@@ -30,8 +30,8 @@ public class RootEvent implements BlockingEvent {
         try{
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;
-            var root = Rs2ObjectCache.getClosestObjectById(ObjectID.GATHERING_EVENT_RISING_ROOTS).orElse(null);
-            var specialRoot = Rs2ObjectCache.getClosestObjectById(ObjectID.GATHERING_EVENT_RISING_ROOTS_SPECIAL).orElse(null);
+            var root = Rs2TileObjectApi.getNearest(x -> x.getId() == ObjectID.GATHERING_EVENT_RISING_ROOTS);
+            var specialRoot = Rs2TileObjectApi.getNearest(x -> x.getId() == ObjectID.GATHERING_EVENT_RISING_ROOTS_SPECIAL);
 
             // Is the hasAction Check needed?
             // If special root is present
@@ -55,8 +55,8 @@ public class RootEvent implements BlockingEvent {
         plugin.currentForestryEvent = ForestryEvents.TREE_ROOT;
         Rs2Walker.setTarget(null); // stop walking, stop moving to bank for example
         while (this.validate()) {
-            var root = Rs2ObjectCache.getClosestObjectById(ObjectID.GATHERING_EVENT_RISING_ROOTS).orElse(null);
-            var specialRoot = Rs2ObjectCache.getClosestObjectById(ObjectID.GATHERING_EVENT_RISING_ROOTS_SPECIAL).orElse(null);
+            var root = Rs2TileObjectApi.getNearest(x -> x.getId() == ObjectID.GATHERING_EVENT_RISING_ROOTS);
+            var specialRoot = Rs2TileObjectApi.getNearest(x -> x.getId() == ObjectID.GATHERING_EVENT_RISING_ROOTS_SPECIAL);
 
             // Use special attack if available
             if ( Rs2Equipment.isWearing(ItemID.DRAGON_AXE) || Rs2Equipment.isWearing(ItemID.DRAGON_AXE_2H) || Rs2Equipment.isWearing(ItemID.CRYSTAL_AXE) ||
@@ -76,7 +76,7 @@ public class RootEvent implements BlockingEvent {
                 }
                 // Interact with the special root
                 Microbot.log("RootEvent: Interacting with special root at " + specialRoot.getWorldLocation());
-                Rs2GameObject.interact(specialRoot.getTileObject(), "Chop down");
+                specialRoot.click("Chop down");
                 Rs2Player.waitForAnimation(5000);
                 sleepUntil(() -> !Rs2Player.isInteracting(), 40000);
             }
@@ -92,7 +92,7 @@ public class RootEvent implements BlockingEvent {
                 }
                 // Interact with the regular root
                 Microbot.log("RootEvent: Interacting with regular root at " + root.getWorldLocation());
-                Rs2GameObject.interact(root.getTileObject(), "Chop down");
+                root.click("Chop down");
                 Rs2Player.waitForAnimation(5000);
                 sleepUntil(() -> !Rs2Player.isInteracting(), 40000);
             }
