@@ -9,3 +9,6 @@ Community port of the all-in-one Theatre of Blood helper originally written for 
 - Sotetseg maze helpers plus automated prayer queue UI
 - Xarpus and Verzik attack indicators, webs, shadows, and prayer widgets
 
+## Credits
+
+The original creator that created the plugin for OpenOSRS

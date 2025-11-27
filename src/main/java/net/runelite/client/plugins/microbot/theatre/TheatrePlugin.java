@@ -22,7 +22,7 @@ import net.runelite.client.plugins.microbot.theatre.Xarpus.Xarpus;
 import javax.inject.Inject;
 
 @PluginDescriptor(
-	name = PluginConstants.DEFAULT_PREFIX + "Theatre of Blood",
+	name = PluginConstants.SYN + "Theatre of Blood Overlay",
 	description = "All-in-one plugin providing overlays and helpers for every Theatre of Blood room.",
 	tags = {"ToB", "Theatre", "raids", "bloat", "verzik", "nylo", "xarpus", "sotetseg", "maiden", "microbot"},
 	authors = {"Syntax"},
@@ -37,7 +37,7 @@ import javax.inject.Inject;
 @Slf4j
 public class TheatrePlugin extends Plugin
 {
-	public static final String VERSION = "1.0.0";
+	public static final String VERSION = "1.0.1";
 
 	@Inject
 	private Client client;

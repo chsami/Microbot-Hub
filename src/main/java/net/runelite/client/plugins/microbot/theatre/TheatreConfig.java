@@ -1247,8 +1247,8 @@ public interface TheatreConfig extends Config
 
 	@ConfigItem(
 		keyName = "highlightMelee",
-		name = "",
-		description = "",
+		name = "Highlight melee",
+		description = "Toggle rendering the melee Nylo indicator.",
 		section = miscSection,
 		position = 801
 	)
@@ -1268,8 +1268,8 @@ public interface TheatreConfig extends Config
 
 	@ConfigItem(
 		keyName = "highlightMage",
-		name = "",
-		description = "",
+		name = "Highlight mage",
+		description = "Toggle rendering the mage Nylo indicator.",
 		section = miscSection,
 		position = 803
 	)
@@ -1289,8 +1289,8 @@ public interface TheatreConfig extends Config
 
 	@ConfigItem(
 		keyName = "highlightRange",
-		name = "",
-		description = "",
+		name = "Highlight range",
+		description = "Toggle rendering the range Nylo indicator.",
 		section = miscSection,
 		position = 805
 	)
