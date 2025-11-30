@@ -36,7 +36,6 @@ ext {
                 java {
                     srcDirs = ["src/main/java"]
                     include "${project.ext.getPluginsIncludePath()}/PluginConstants.java"
-                    include "${project.ext.getPluginsIncludePath()}/qualityoflife/enums/**"
                     include "${project.ext.getPluginsIncludePath()}/${plugin.dir.name}/**"
                 }
                 resources {
