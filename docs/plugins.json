@@ -2713,7 +2713,7 @@
             "taf",
             "microbot"
         ],
-        "version": "1.0.1",
+        "version": "1.0.3",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -2721,8 +2721,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "cbbc303e38eb1ca2ddb48395a20e61b53b271785bc88062f6214aa170cb3c063",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/giantseaweedfarmerplugin/1.0.1/giantseaweedfarmerplugin-1.0.1.jar"
+        "sha256": "d98cb6bfbf37427ce120f806cce1cfc460bab707f472aea006a143147a2152ff",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/giantseaweedfarmerplugin/1.0.3/giantseaweedfarmerplugin-1.0.3.jar"
     },
     {
         "internalName": "HumidifierPlugin",
