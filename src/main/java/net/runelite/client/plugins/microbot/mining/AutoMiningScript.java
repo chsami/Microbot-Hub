@@ -133,7 +133,22 @@ public class AutoMiningScript extends Script {
                         List<String> itemNames = Arrays.stream(config.itemsToBank().split(",")).map(String::toLowerCase).collect(Collectors.toList());
 
                         if (config.useBank()) {
-                            if (activeRock == Rocks.GEM && Rs2Player.getWorldLocation().getRegionID() == GEM_MINE_UNDERGROUND) {
+                            if (config.clayBracelet() && config.ORE() == Rocks.CLAY) {
+                                if (!Rs2Bank.walkToBankAndUseBank()) {
+                                    return;
+                                }
+
+                                // deposit all non-locked items to make room for bracelet of clay
+                                Rs2Bank.depositAll();
+                                if (Rs2Bank.hasItem(11074)) {
+                                    Rs2Bank.withdrawAndEquip(11074);
+                                }
+                                else {
+                                    log.info("You don't have any more bracelet of clays");
+                                }
+                                Rs2Bank.bankItemsAndWalkBackToOriginalPosition(itemNames, initialPlayerLocation, 0, config.distanceToStray());
+                            }
+                            else if (activeRock == Rocks.GEM && Rs2Player.getWorldLocation().getRegionID() == GEM_MINE_UNDERGROUND) {
                                 if (Rs2DepositBox.openDepositBox()) {
                                     if (Rs2Inventory.contains("Open gem bag")) {
                                         Rs2Inventory.interact("Open gem bag", "Empty");

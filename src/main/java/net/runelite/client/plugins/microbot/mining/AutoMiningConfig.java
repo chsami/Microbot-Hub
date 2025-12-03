@@ -110,6 +110,17 @@ public interface AutoMiningConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "clayBracelet",
+            name = "Use Clay Bracelet",
+            description = "Withdraw and equip bracelet of clay. Start script with bracelet on.",
+            position = 2,
+            section = bankingSection
+    )
+    default boolean clayBracelet() {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = "dropOrder",
             name = "Drop Order",
             description = "Order for dropping items",
