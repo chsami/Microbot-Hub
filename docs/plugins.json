@@ -2276,6 +2276,33 @@
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/hunterkebbitsplugin/1.1.0/hunterkebbitsplugin-1.1.0.jar"
     },
     {
+        "internalName": "TheatrePlugin",
+        "name": "Theatre of Blood Overlay",
+        "description": "All-in-one plugin providing overlays and helpers for every Theatre of Blood room.",
+        "tags": [
+            "ToB",
+            "Theatre",
+            "raids",
+            "bloat",
+            "verzik",
+            "nylo",
+            "xarpus",
+            "sotetseg",
+            "maiden",
+            "microbot"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.0.13",
+        "authors": [
+            "Syntax"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "e8579783651c2fe384f8920d35c2bf2a7410adb04fe770b8538fb0356511afc4",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/theatreplugin/1.0.0/theatreplugin-1.0.0.jar"
+    },
+    {
         "internalName": "DailyTasksPlugin",
         "name": "Daily Tasks",
         "description": "Microbot daily tasks plugin",
