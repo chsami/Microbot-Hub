@@ -33,7 +33,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class GiantSeaweedFarmerPlugin extends Plugin implements SchedulablePlugin {
-    public final static String version = "1.0.1";
+    public final static String version = "1.0.3";
     private Instant scriptStartTime;
     @Inject
     private GiantSeaweedFarmerConfig config;
@@ -55,6 +55,7 @@ public class GiantSeaweedFarmerPlugin extends Plugin implements SchedulablePlugi
     @Override
     protected void startUp() throws AWTException {
         scriptStartTime = Instant.now();
+        giantSeaweedFarmerScript.GSF_Running = true;
         if (overlayManager != null) {
             overlayManager.add(giantSeaweedFarmerOverlay);
         }

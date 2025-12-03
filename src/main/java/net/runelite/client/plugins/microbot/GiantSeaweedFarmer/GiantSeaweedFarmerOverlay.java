@@ -33,6 +33,10 @@ public class GiantSeaweedFarmerOverlay extends OverlayPanel {
                     .left("Running: " + plugin.getTimeRunning())
                     .leftColor(Color.WHITE)
                     .build());
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("State: " + GiantSeaweedFarmerScript.BOT_STATE)
+                    .leftColor(Color.WHITE)
+                    .build());
         } catch (Exception ex) {
             System.out.println(ex.getMessage());
         }
