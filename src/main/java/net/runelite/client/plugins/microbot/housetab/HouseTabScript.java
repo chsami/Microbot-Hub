@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.housetab;
 
+import net.runelite.api.GameObject;
 import net.runelite.api.Point;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
@@ -9,13 +10,16 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.housetab.enums.HOUSETABS_CONFIG;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2RunePouch;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
+import net.runelite.client.plugins.microbot.util.magic.Runes;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -30,13 +34,17 @@ public class HouseTabScript extends Script {
 
     private final int HOUSE_ADVERTISEMENT_NAME_PARENT_INTERFACE = 3407881;
 
-    private final int HOUSE_TABLET_INTERFACE = 26411033;
+    private final Map<Integer, Integer> lecternToHouseTabButton = Map.of(
+            ObjectID.POH_LECTERN_6, 26411031,
+            ObjectID.POH_LECTERN_8, 26411033
+    );
 
     private final HOUSETABS_CONFIG houseTabConfig;
     private final String[] playerHouses;
 
     private final ScheduledExecutorService scheduledExecutorService;
 
+    private int lecternTabletWidgetId = 26411033;
 
     private boolean hasSoftClay() {
         return Rs2Inventory.hasItem(1761);
@@ -47,7 +55,8 @@ public class HouseTabScript extends Script {
     }
 
     private boolean hasLawRune() {
-        return Rs2Inventory.hasItem(ItemID.LAWRUNE);
+        if (Rs2Inventory.hasRunePouch()) {Rs2RunePouch.fullUpdate();}
+        return Rs2Inventory.hasItem(ItemID.LAWRUNE) || (Rs2Inventory.hasRunePouch() && Rs2RunePouch.contains(Runes.LAW));
     }
 
     public HouseTabScript(HOUSETABS_CONFIG houseTabConfig, String[] playerHouses) {
@@ -112,36 +121,47 @@ public class HouseTabScript extends Script {
         }
     }
 
+    private Integer getHouseLectern() {
+        GameObject lectern = Rs2GameObject.getGameObject(lecternToHouseTabButton.keySet().toArray(new Integer[0]));
+        if (lectern != null) {
+            lecternTabletWidgetId = lecternToHouseTabButton.get(lectern.getId());
+            return lectern.getId();
+        }
+
+        return null;
+    }
+
     public void lookForLectern() {
+        if (getHouseLectern() == null) { Microbot.log("Can't find lectern"); shutdown(); return;} //can't find lectern
         if (!hasSoftClay() || Rs2GameObject.findObjectById(HOUSE_ADVERTISEMENT_OBJECT) != null || Microbot.isGainingExp)
             return;
 
-        Widget houseTabInterface = Microbot.getClient().getWidget(HOUSE_TABLET_INTERFACE);
+        Widget houseTabInterface = Microbot.getClient().getWidget(lecternTabletWidgetId);
         if (houseTabInterface != null || Rs2GameObject.findObjectById(HOUSE_PORTAL_OBJECT) == null) return;
 
-        boolean success = Rs2GameObject.interact(new int[]{13647, 37349}, "Study");
+        boolean success = Rs2GameObject.interact(lecternToHouseTabButton.keySet().stream().mapToInt(Integer::intValue).toArray(), "Study");
         if (success) {
-            sleepUntilOnClientThread(() -> Microbot.getClient().getWidget(HOUSE_TABLET_INTERFACE) != null);
+            sleepUntilOnClientThread(() -> Microbot.getClient().getWidget(lecternTabletWidgetId) != null);
         }
     }
 
     public void createHouseTablet() {
-        Widget houseTabInterface = Microbot.getClient().getWidget(HOUSE_TABLET_INTERFACE);
+        Widget houseTabInterface = Microbot.getClient().getWidget(lecternTabletWidgetId);
         if (houseTabInterface == null) return;
         if (!hasSoftClay() || Rs2GameObject.findObjectById(HOUSE_PORTAL_OBJECT) == null)
             return;
 
-        while (Microbot.getClient().getWidget(HOUSE_TABLET_INTERFACE) != null) {
+        while (Microbot.getClient().getWidget(lecternTabletWidgetId) != null) {
             if (mainScheduledFuture.isCancelled()) break;
             Microbot.getMouse()
                     .click(houseTabInterface.getCanvasLocation());
             sleep(1000, 2000);
-            Rs2Widget.clickWidget(26411022);
+            Rs2Widget.clickWidget(26411022); // create button on spell tablet widget
             sleep(1000, 2000);
         }
 
         sleepUntilOnClientThread(() -> !hasSoftClay()
-                || Microbot.getClient().getWidget(HOUSE_TABLET_INTERFACE) != null
+                || Microbot.getClient().getWidget(lecternTabletWidgetId) != null
                 || !Microbot.isGainingExp, 55000);
     }
 
@@ -190,7 +210,7 @@ public class HouseTabScript extends Script {
                     return;
                 }
 
-                boolean isInHouse = Rs2GameObject.getGameObject(new Integer[]{ObjectID.POH_LECTERN_8}) != null;
+                boolean isInHouse = Rs2GameObject.getGameObject(lecternToHouseTabButton.keySet().toArray(new Integer[0])) != null;
                 if (isInHouse) {
                     lookForLectern();
                     createHouseTablet();
