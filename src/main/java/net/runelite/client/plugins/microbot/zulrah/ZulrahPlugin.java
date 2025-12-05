@@ -77,7 +77,7 @@ Refractored from OpenOSRS credit goes to Owain van Brakel for originally creatin
 public class ZulrahPlugin extends Plugin implements KeyListener
 {
 	private static final Logger log = LoggerFactory.getLogger(ZulrahPlugin.class);
-    public static final String version = "1.0.0";
+    public static final String version = "1.0.1";
 	@Inject
 	private Client client;
 	@Inject
@@ -114,7 +114,7 @@ public class ZulrahPlugin extends Plugin implements KeyListener
 	private boolean holdingSnakelingHotkey = false;
 	private Counter zulrahTotalTicksInfoBox;
 	public static final BufferedImage[] ZULRAH_IMAGES = new BufferedImage[3];
-	private static final BufferedImage CLOCK_ICON = ImageUtil.getResourceStreamFromClass(ZulrahPlugin.class, "docs/assets/clock.png");
+	private static final BufferedImage CLOCK_ICON = ImageUtil.getResourceStreamFromClass(ZulrahPlugin.class, "clock.png");
 	private final BiConsumer<RotationType, RotationType> phaseTicksHandler = (current, potential) -> {
 		if (zulrahReset) 
 	{
@@ -556,8 +556,8 @@ public class ZulrahPlugin extends Plugin implements KeyListener
 
 	static
 	{
-		ZulrahPlugin.ZULRAH_IMAGES[0] = ImageUtil.getResourceStreamFromClass(ZulrahPlugin.class, "docs/assets/zulrah_range.png");
-		ZulrahPlugin.ZULRAH_IMAGES[1] = ImageUtil.getResourceStreamFromClass(ZulrahPlugin.class, "docs/assets/zulrah_melee.png");
-		ZulrahPlugin.ZULRAH_IMAGES[2] = ImageUtil.getResourceStreamFromClass(ZulrahPlugin.class, "docs/assets/zulrah_magic.png");
+		ZulrahPlugin.ZULRAH_IMAGES[0] = ImageUtil.getResourceStreamFromClass(ZulrahPlugin.class, "zulrah_range.png");
+		ZulrahPlugin.ZULRAH_IMAGES[1] = ImageUtil.getResourceStreamFromClass(ZulrahPlugin.class, "zulrah_melee.png");
+		ZulrahPlugin.ZULRAH_IMAGES[2] = ImageUtil.getResourceStreamFromClass(ZulrahPlugin.class, "zulrah_magic.png");
 	}
 }
