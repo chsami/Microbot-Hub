@@ -545,7 +545,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.0.9",
+        "version": "1.0.10",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -553,8 +553,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "6985609507fd236d3e4d3f4c3ffedfab8d3046c0cb6b46b0bce692128a59db42",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autominingplugin/1.0.9/autominingplugin-1.0.9.jar"
+        "sha256": "bee20663b24e87f4e10d05e3d0e91ab45932ef3e4ead5c40127a03504eeee5f3",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/autominingplugin/1.0.10/autominingplugin-1.0.10.jar"
     },
     {
         "internalName": "DriftNetPlugin",
@@ -1107,7 +1107,7 @@
             "snake",
             "tool"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.0.1",
         "authors": [
             "Syntax"
@@ -1115,8 +1115,8 @@
         "iconUrl": "https://i.imgur.com/syri2MC.png",
         "cardUrl": "https://i.imgur.com/syri2MC.png",
         "disable": false,
-        "sha256": "59be847e04e3ddc772d7806d82aea96ae9fd3f73f48736420fa39addb5774f8c",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/zulrahplugin/1.0.0/zulrahplugin-1.0.0.jar"
+        "sha256": "1cd39a93344c7451b278c7171d10c20933dc5614da234c0844bc997edcef8034",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/zulrahplugin/1.0.1/zulrahplugin-1.0.1.jar"
     },
     {
         "internalName": "BankSellerPlugin",
@@ -1818,7 +1818,7 @@
             "ranging",
             "revenant killer"
         ],
-        "version": "2.0.5",
+        "version": "2.0.6",
         "minClientVersion": "1.9.8",
         "authors": [
             "Gage"
@@ -1826,8 +1826,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/card.png",
         "disable": false,
-        "sha256": "675b6f2cf5a07a2a91d51c3ac00688a68a57ffc39e17be577d29a0725f09421f",
-        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/revkillerplugin/2.0.5/revkillerplugin-2.0.5.jar"
+        "sha256": "8f7fea5da54529f8f7568caa33343a0c41e1208e442195fd9b2802ca37ab3ac5",
+        "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/revkillerplugin/2.0.6/revkillerplugin-2.0.6.jar"
     },
     {
         "internalName": "AIOMagicPlugin",
@@ -2299,7 +2299,7 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "e8579783651c2fe384f8920d35c2bf2a7410adb04fe770b8538fb0356511afc4",
+        "sha256": "1d58bbcf5f57c861dc7276d1210db5328b57f78560e3fc92017b97bf492c5524",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/theatreplugin/1.0.0/theatreplugin-1.0.0.jar"
     },
     {
@@ -2869,7 +2869,7 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "5c75decae0ba72f8909579fd13700915ca6de8d77af36f603c93627654b067bd",
+        "sha256": "d72aed33395a7302132c6153b04f6465a608f0d5fb79088d368d661b3b58c350",
         "url": "https://nexus.microbot.cloud/repository/microbot-plugins/net/runelite/client/plugins/microbot/housetabplugin/1.0.8/housetabplugin-1.0.8.jar"
     },
     {
