@@ -36,7 +36,7 @@ import java.awt.*;
 )
 @Slf4j
 public class revKillerPlugin extends Plugin implements SchedulablePlugin {
-    public static final String version = "2.0.5";
+    public static final String version = "2.0.6";
     @Inject
     private net.runelite.client.plugins.microbot.revkiller.revKillerConfig config;
     @Provides

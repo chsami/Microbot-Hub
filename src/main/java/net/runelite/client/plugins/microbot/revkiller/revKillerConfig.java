@@ -20,15 +20,15 @@ public interface revKillerConfig extends Config {
     }
 
     enum RevSelections {
-        IMP(new WorldPoint(3199, 10071, 0), "Rev Imps"),
-        GOBLIN(new WorldPoint(3226, 10067, 0), "Rev Goblins"),
-        HOBGOBLIN(new WorldPoint(3242, 10099, 0), "Rev Hobgoblins"),
-        PYREFIEND(new WorldPoint(3174, 10154, 0), "Rev Pyrefiend"),
-        CYCLOPS(new WorldPoint(3170, 10189, 0), "Rev Cyclops"),
-        DEMON(new WorldPoint(3160, 10114, 0), "Rev Demon"),
-        DARKBEAST(new WorldPoint(3207, 10163, 0), "Rev Darkbeast"),
-        ORK(new WorldPoint(3215, 10096, 0), "Rev Orks"),
-        KNIGHT(new WorldPoint(3238,10226,0), "Rev Knight");
+        IMP(new WorldPoint(3199, 10071, 0), "Revenant imp"),
+        GOBLIN(new WorldPoint(3226, 10067, 0), "Revenant goblin"),
+        HOBGOBLIN(new WorldPoint(3242, 10099, 0), "Revenant hobgoblin"),
+        PYREFIEND(new WorldPoint(3174, 10154, 0), "Revenant pyrefiend"),
+        CYCLOPS(new WorldPoint(3170, 10189, 0), "Revenant cyclops"),
+        DEMON(new WorldPoint(3160, 10114, 0), "Revenant demon"),
+        DARKBEAST(new WorldPoint(3207, 10163, 0), "Revenant dark beast"),
+        ORK(new WorldPoint(3215, 10096, 0), "Revenant ork"),
+        KNIGHT(new WorldPoint(3238,10226,0), "Revenant knight");
         //more to come I'm lazy okay
 
         private final WorldPoint wp;
