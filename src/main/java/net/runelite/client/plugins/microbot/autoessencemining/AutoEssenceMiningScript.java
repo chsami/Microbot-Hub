@@ -30,6 +30,12 @@ public class AutoEssenceMiningScript extends Script {
     private boolean isInEssenceMine = false;
     private boolean needsToBank = false;
     private long stateStartTime = System.currentTimeMillis(); // track state timeout
+    private long lastStateChangeTime = 0; // prevent rapid state changes
+    private static final long STATE_CHANGE_COOLDOWN_MS = 500; // minimum time between state changes
+    private boolean isUsingPortal = false; // track if we're currently using the portal
+    private long portalUseStartTime = 0; // track when we started using portal
+    private long lastPortalAttemptTime = 0; // track last portal interaction attempt
+    private static final long PORTAL_RETRY_COOLDOWN_MS = 2000; // wait 2 seconds between portal attempts
 
     public boolean run(AutoEssenceMiningConfig config) {
         log.info("Starting essence mining script");
@@ -72,35 +78,53 @@ public class AutoEssenceMiningScript extends Script {
                 isInEssenceMine = (Rs2Player.getWorldLocation().getRegionID() == ESSENCE_MINE_REGION);
                 needsToBank = Rs2Inventory.isFull();
                 
+                // Check if portal teleport completed (we're no longer in the mine)
+                if (isUsingPortal && !isInEssenceMine) {
+                    log.info("Portal teleport completed, no longer in essence mine");
+                    isUsingPortal = false;
+                    portalUseStartTime = 0;
+                }
+                
+                // Timeout portal use if it takes too long (10 seconds)
+                if (isUsingPortal && System.currentTimeMillis() - portalUseStartTime > 10000) {
+                    log.info("Portal use timeout, resetting flag");
+                    isUsingPortal = false;
+                    portalUseStartTime = 0;
+                }
+                
                 log.info("=== State Evaluation ===");
+                log.info("Current state: {}", state);
                 log.info("In essence mine: {}", isInEssenceMine);
                 log.info("Inventory full: {}", needsToBank);
+                log.info("Is using portal: {}", isUsingPortal);
                 log.info("Distance to Aubury: {}", Rs2Player.getWorldLocation().distanceTo(AUBURY_LOCATION));
 
-                if (isInEssenceMine) {
-                    if (!needsToBank) {
-                        log.info("In mine with space, switching to MINING_ESSENCE");
-                        hasTeleportedWithAubury = true;
-                        changeState(AutoEssenceMiningState.MINING_ESSENCE);
+                // Skip state evaluation if we're currently using the portal OR if we're in USING_PORTAL state and still in mine
+                // This prevents re-evaluation loops when waiting for portal cooldown or retrying portal interaction
+                // Allow state evaluation if we've left the mine (portal worked) or if we've been stuck for too long
+                boolean shouldSkipStateEvaluation = false;
+                if (isUsingPortal) {
+                    shouldSkipStateEvaluation = true;
+                    log.info("Skipping state evaluation - portal use in progress");
+                } else if (state == AutoEssenceMiningState.USING_PORTAL && isInEssenceMine) {
+                    // If we're in USING_PORTAL state but still in the mine, skip state evaluation
+                    // unless we've been stuck for more than 20 seconds
+                    long timeInPortalState = System.currentTimeMillis() - stateStartTime;
+                    if (timeInPortalState < 20000) {
+                        shouldSkipStateEvaluation = true;
+                        log.info("Skipping state evaluation - in USING_PORTAL state for {}ms, waiting for portal interaction", timeInPortalState);
                     } else {
-                        log.info("In mine but inventory full, switching to USING_PORTAL");
-                        changeState(AutoEssenceMiningState.USING_PORTAL);
+                        log.info("Been in USING_PORTAL state for {}ms, allowing state re-evaluation", timeInPortalState);
                     }
-                } else {
-                    if (needsToBank) {
-                        log.info("Need to bank, switching to BANKING");
-                        changeState(AutoEssenceMiningState.BANKING);
-                    } else {
-                        if (Rs2Player.getWorldLocation().distanceTo(AUBURY_LOCATION) <= 8) {
-                            log.info("Near Aubury, switching to TELEPORTING_WITH_AUBURY");
-                            if (hasTeleportedWithAubury) {
-                                hasTeleportedWithAubury = false;
-                            }
-                            changeState(AutoEssenceMiningState.TELEPORTING_WITH_AUBURY);
-                        } else {
-                            log.info("Far from Aubury, switching to WALKING_TO_AUBURY");
-                            changeState(AutoEssenceMiningState.WALKING_TO_AUBURY);
-                        }
+                }
+                
+                if (!shouldSkipStateEvaluation) {
+                    // Evaluate what state we should be in, but only change once per iteration
+                    AutoEssenceMiningState targetState = determineTargetState();
+                    
+                    // Only change state if it's different and cooldown has passed
+                    if (targetState != state) {
+                        changeState(targetState);
                     }
                 }
 
@@ -226,9 +250,36 @@ public class AutoEssenceMiningScript extends Script {
         log.info("State: USING_PORTAL");
         Microbot.status = "Using portal to exit";
         
+        // If we're already using the portal, wait for it to complete
+        if (isUsingPortal) {
+            log.info("Portal use in progress, waiting for teleport to complete");
+            // Check if we've left the mine
+            if (!isInEssenceMine) {
+                log.info("Successfully teleported out of essence mine");
+                isUsingPortal = false;
+                portalUseStartTime = 0;
+                hasTeleportedWithAubury = false;
+            }
+            return;
+        }
+        
         // validate we're in the essence mine before looking for portal
         if (Rs2Player.getWorldLocation().getRegionID() != ESSENCE_MINE_REGION) {
             log.info("Not in essence mine, cannot use portal");
+            return;
+        }
+
+        // Check cooldown before attempting portal interaction
+        long timeSinceLastAttempt = System.currentTimeMillis() - lastPortalAttemptTime;
+        if (timeSinceLastAttempt < PORTAL_RETRY_COOLDOWN_MS) {
+            log.info("Portal retry cooldown active ({}ms remaining), waiting", 
+                    PORTAL_RETRY_COOLDOWN_MS - timeSinceLastAttempt);
+            return;
+        }
+
+        // Don't try to interact if player is already moving or animating
+        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) {
+            log.info("Player is moving or animating, waiting before portal interaction");
             return;
         }
 
@@ -237,16 +288,19 @@ public class AutoEssenceMiningScript extends Script {
 
         if (portal != null) {
             log.info("Found portal, attempting to use it");
+            lastPortalAttemptTime = System.currentTimeMillis();
             if (Rs2GameObject.interact(portal)) {
-                log.info("Clicked portal, waiting for teleport animation");
-                Rs2Player.waitForAnimation(3000);
-                log.info("Successfully used portal to exit essence mine");
-                hasTeleportedWithAubury = false;
+                log.info("Clicked portal, setting portal use flag");
+                isUsingPortal = true;
+                portalUseStartTime = System.currentTimeMillis();
+                // Wait a bit for the teleport to start
+                sleep(500);
             } else {
-                log.info("Failed to interact with portal");
+                log.info("Failed to interact with portal, will retry after cooldown");
             }
         } else {
-            log.info("Portal not found in essence mine");
+            log.info("Portal not found in essence mine, will retry after cooldown");
+            lastPortalAttemptTime = System.currentTimeMillis();
         }
     }
 
@@ -300,13 +354,54 @@ public class AutoEssenceMiningScript extends Script {
         }
     }
 
-    // helper method to change state with timeout reset
-    private void changeState(AutoEssenceMiningState newState) {
-        if (newState != state || state.equals(AutoEssenceMiningState.WALKING_TO_AUBURY)) {
-            log.info("State change: {} -> {}", state, newState);
-            state = newState;
-            stateStartTime = System.currentTimeMillis();
+    // Determine the target state based on current conditions
+    private AutoEssenceMiningState determineTargetState() {
+        if (isInEssenceMine) {
+            if (!needsToBank) {
+                log.info("In mine with space, target state: MINING_ESSENCE");
+                hasTeleportedWithAubury = true;
+                return AutoEssenceMiningState.MINING_ESSENCE;
+            } else {
+                log.info("In mine but inventory full, target state: USING_PORTAL");
+                return AutoEssenceMiningState.USING_PORTAL;
+            }
+        } else {
+            if (needsToBank) {
+                log.info("Need to bank, target state: BANKING");
+                return AutoEssenceMiningState.BANKING;
+            } else {
+                if (Rs2Player.getWorldLocation().distanceTo(AUBURY_LOCATION) <= 8) {
+                    log.info("Near Aubury, target state: TELEPORTING_WITH_AUBURY");
+                    if (hasTeleportedWithAubury) {
+                        hasTeleportedWithAubury = false;
+                    }
+                    return AutoEssenceMiningState.TELEPORTING_WITH_AUBURY;
+                } else {
+                    log.info("Far from Aubury, target state: WALKING_TO_AUBURY");
+                    return AutoEssenceMiningState.WALKING_TO_AUBURY;
+                }
+            }
         }
+    }
+
+    // helper method to change state with timeout reset and cooldown protection
+    private void changeState(AutoEssenceMiningState newState) {
+        if (newState == state) {
+            return; // Already in this state
+        }
+        
+        // Check cooldown to prevent rapid state changes
+        long timeSinceLastChange = System.currentTimeMillis() - lastStateChangeTime;
+        if (timeSinceLastChange < STATE_CHANGE_COOLDOWN_MS) {
+            log.info("State change cooldown active ({}ms remaining), skipping change from {} to {}", 
+                    STATE_CHANGE_COOLDOWN_MS - timeSinceLastChange, state, newState);
+            return;
+        }
+        
+        log.info("State change: {} -> {}", state, newState);
+        state = newState;
+        stateStartTime = System.currentTimeMillis();
+        lastStateChangeTime = System.currentTimeMillis();
     }
 
     @Override
