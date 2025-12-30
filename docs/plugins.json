@@ -2449,7 +2449,7 @@
             "thieving",
             "house thieving"
         ],
-        "version": "1.0.1",
+        "version": "1.0.2",
         "minClientVersion": "2.0.7",
         "authors": [
             "Maxxin"
@@ -2457,8 +2457,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/HouseThievingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/HouseThievingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "107d3f3743fe73191a8974d91b2de690144d8e5693e106239dcbf2e4a68a91b4",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/housethievingplugin-1.0.1.jar"
+        "sha256": "3ce5e950259eede0b0ba43dda877842c7cadf8bac341e2380759e20f7b8466a8",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/housethievingplugin-1.0.2.jar"
     },
     {
         "internalName": "PestControlPlugin",
