@@ -25,6 +25,7 @@ public class AutoRunecraftScript extends Script
 {
     private States state;
     private Altars altar;
+    private EssenceType essenceType;
     private boolean initialise;
     public static int runsCompleted = 0;
     public static int initialRunecraftLevel;
@@ -40,6 +41,7 @@ public class AutoRunecraftScript extends Script
         Rs2Antiban.setActivity(Activity.GENERAL_RUNECRAFT);
 
         altar = config.ALTAR();
+        essenceType = config.ESSENCE_TYPE();
 
         initialise = true;
 
@@ -65,7 +67,7 @@ public class AutoRunecraftScript extends Script
                         return;
                     }
 
-                    if (!Rs2Inventory.hasItem("Pure Essence", false))
+                    if (!Rs2Inventory.hasItem(essenceType.getItemName(), false))
                     {
                         Microbot.log("No essence in inventory - banking");
                         state = States.BANKING;
@@ -113,15 +115,15 @@ public class AutoRunecraftScript extends Script
                             Rs2Random.wait(800, 1600);
                         }
 
-                        Microbot.status = "Withdrawing pure essence";
+                        Microbot.status = "Withdrawing " + essenceType.getItemName().toLowerCase();
 
-                        if (!Rs2Bank.hasBankItem("Pure essence", false))
+                        if (!Rs2Bank.hasBankItem(essenceType.getItemName(), false))
                         {
-                            Microbot.showMessage("No pure essence in bank!");
+                            Microbot.showMessage("No " + essenceType.getItemName().toLowerCase() + " in bank!");
                             shutdown();
                             return;
                         }
-                        Rs2Bank.withdrawAll("Pure essence", true);
+                        Rs2Bank.withdrawAll(essenceType.getItemName(), true);
                         Rs2Random.wait(800, 1600);
                         state = States.WALKING_TO_ALTAR;
                         Rs2Bank.closeBank();
@@ -156,13 +158,34 @@ public class AutoRunecraftScript extends Script
                     case CRAFTING_RUNES:
                         initialise = false;
                         Microbot.status = "Crafting runes";
-                        Rs2Inventory.useItemOnObject(ItemID.BLANKRUNE_HIGH, altar.getAltarID()); //could just interact with altar, but I'm too lazy to change this now
-                        Rs2Random.wait(800, 1600);
-                        sleepUntil(() -> Rs2Player.waitForXpDrop(Skill.RUNECRAFT));
-                        Rs2Random.wait(800, 1600);
-                        runsCompleted++;
-                        updateLevelXp();
-                        state = States.EXITING_ALTAR;
+                        
+                        // Check if we have essence in inventory
+                        if (!Rs2Inventory.hasItem(essenceType.getItemName(), false))
+                        {
+                            Microbot.log("No essence in inventory - exiting altar");
+                            state = States.EXITING_ALTAR;
+                            return;
+                        }
+                        
+                        // Get the altar GameObject and interact with it
+                        var altarGameObject = Rs2GameObject.getGameObject(altar.getAltarID());
+                        if (altarGameObject == null)
+                        {
+                            Microbot.log("Altar not found - waiting");
+                            return;
+                        }
+                        
+                        // Interact with the altar to craft runes
+                        if (Rs2GameObject.interact(altarGameObject))
+                        {
+                            Rs2Random.wait(800, 1600);
+                            // Wait for XP drop to confirm crafting completed
+                            Rs2Player.waitForXpDrop(Skill.RUNECRAFT);
+                            Rs2Random.wait(800, 1600);
+                            runsCompleted++;
+                            updateLevelXp();
+                            state = States.EXITING_ALTAR;
+                        }
                         break;
 
                     case EXITING_ALTAR:
