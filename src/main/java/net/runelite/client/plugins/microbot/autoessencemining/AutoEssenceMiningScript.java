@@ -36,6 +36,10 @@ public class AutoEssenceMiningScript extends Script {
     private long portalUseStartTime = 0; // track when we started using portal
     private long lastPortalAttemptTime = 0; // track last portal interaction attempt
     private static final long PORTAL_RETRY_COOLDOWN_MS = 2000; // wait 2 seconds between portal attempts
+    private int consecutivePortalFailures = 0; // track consecutive portal interaction failures
+    private static final int MAX_PORTAL_FAILURES = 5; // max failures before forcing recovery
+    private long lastTimeoutTime = 0; // track when we last hit a timeout
+    private static final long TIMEOUT_COOLDOWN_MS = 5000; // wait 5 seconds after timeout before allowing state changes
 
     public boolean run(AutoEssenceMiningConfig config) {
         log.info("Starting essence mining script");
@@ -61,13 +65,6 @@ public class AutoEssenceMiningScript extends Script {
 
                 // track loop performance
                 long startTime = System.currentTimeMillis();
-                
-                // state timeout protection
-                if (System.currentTimeMillis() - stateStartTime > 30000) {
-                    log.info("State timeout after 30 seconds, resetting to WALKING_TO_AUBURY");
-                    changeState(AutoEssenceMiningState.WALKING_TO_AUBURY);
-                    return;
-                }
 
                 if (Rs2Player.isMoving() || Rs2Player.isAnimating()) {
                     log.info("Player is moving or animating, waiting");
@@ -78,11 +75,60 @@ public class AutoEssenceMiningScript extends Script {
                 isInEssenceMine = (Rs2Player.getWorldLocation().getRegionID() == ESSENCE_MINE_REGION);
                 needsToBank = Rs2Inventory.isFull();
                 
+                // state timeout protection - check after determining location
+                if (System.currentTimeMillis() - stateStartTime > 30000) {
+                    // If we're stuck in USING_PORTAL in the mine, check failure count
+                    if (state == AutoEssenceMiningState.USING_PORTAL && isInEssenceMine && needsToBank) {
+                        if (consecutivePortalFailures >= MAX_PORTAL_FAILURES) {
+                            log.error("Too many consecutive portal failures ({}), forcing state reset to break loop", consecutivePortalFailures);
+                            // Reset everything and force state change
+                            isUsingPortal = false;
+                            portalUseStartTime = 0;
+                            lastPortalAttemptTime = 0;
+                            consecutivePortalFailures = 0;
+                            // Force change to BANKING - this will fail but at least break the loop
+                            // The 30s timeout will catch it again if needed
+                            changeState(AutoEssenceMiningState.BANKING);
+                            return;
+                        } else {
+                            log.warn("State timeout in USING_PORTAL while in mine with full inventory ({} failures) - resetting portal tracking", consecutivePortalFailures);
+                            // Reset all portal-related flags to allow fresh attempt
+                            isUsingPortal = false;
+                            portalUseStartTime = 0;
+                            lastPortalAttemptTime = 0;
+                            // Reset state timer to give it another chance
+                            stateStartTime = System.currentTimeMillis();
+                            // Don't change state, just reset tracking
+                        }
+                    } else {
+                        // Before resetting to WALKING_TO_AUBURY, check if we're in the mine with full inventory
+                        // If so, we'll just loop back to USING_PORTAL, so handle it differently
+                        if (isInEssenceMine && needsToBank) {
+                            log.warn("State timeout but still in mine with full inventory - resetting and adding cooldown to prevent loop");
+                            // Reset portal tracking and state timer to allow retry
+                            isUsingPortal = false;
+                            portalUseStartTime = 0;
+                            lastPortalAttemptTime = 0;
+                            consecutivePortalFailures = 0;
+                            stateStartTime = System.currentTimeMillis();
+                            lastTimeoutTime = System.currentTimeMillis(); // Set timeout cooldown
+                            // Don't change state - let the normal state evaluation handle it after cooldown
+                            return;
+                        }
+                        log.info("State timeout after 30 seconds, resetting to WALKING_TO_AUBURY");
+                        consecutivePortalFailures = 0; // Reset on other state timeouts
+                        lastTimeoutTime = System.currentTimeMillis(); // Set timeout cooldown
+                        changeState(AutoEssenceMiningState.WALKING_TO_AUBURY);
+                        return;
+                    }
+                }
+                
                 // Check if portal teleport completed (we're no longer in the mine)
                 if (isUsingPortal && !isInEssenceMine) {
                     log.info("Portal teleport completed, no longer in essence mine");
                     isUsingPortal = false;
                     portalUseStartTime = 0;
+                    consecutivePortalFailures = 0; // Reset on successful teleport
                 }
                 
                 // Timeout portal use if it takes too long (10 seconds)
@@ -103,18 +149,52 @@ public class AutoEssenceMiningScript extends Script {
                 // This prevents re-evaluation loops when waiting for portal cooldown or retrying portal interaction
                 // Allow state evaluation if we've left the mine (portal worked) or if we've been stuck for too long
                 boolean shouldSkipStateEvaluation = false;
-                if (isUsingPortal) {
+                long timeInPortalState = 0;
+                
+                // Check timeout cooldown first
+                if (lastTimeoutTime > 0) {
+                    long timeSinceTimeout = System.currentTimeMillis() - lastTimeoutTime;
+                    if (timeSinceTimeout < TIMEOUT_COOLDOWN_MS) {
+                        shouldSkipStateEvaluation = true;
+                        log.info("Skipping state evaluation - timeout cooldown active ({}ms remaining)", 
+                                TIMEOUT_COOLDOWN_MS - timeSinceTimeout);
+                    } else {
+                        // Cooldown expired, reset it
+                        lastTimeoutTime = 0;
+                    }
+                }
+                
+                if (!shouldSkipStateEvaluation && isUsingPortal) {
                     shouldSkipStateEvaluation = true;
                     log.info("Skipping state evaluation - portal use in progress");
-                } else if (state == AutoEssenceMiningState.USING_PORTAL && isInEssenceMine) {
+                } else if (!shouldSkipStateEvaluation && state == AutoEssenceMiningState.USING_PORTAL && isInEssenceMine) {
                     // If we're in USING_PORTAL state but still in the mine, skip state evaluation
-                    // unless we've been stuck for more than 20 seconds
-                    long timeInPortalState = System.currentTimeMillis() - stateStartTime;
-                    if (timeInPortalState < 20000) {
+                    // unless we've been stuck for more than 10 seconds (portal interaction likely failing)
+                    timeInPortalState = System.currentTimeMillis() - stateStartTime;
+                    long timeSinceLastAttempt = lastPortalAttemptTime > 0 ? 
+                        System.currentTimeMillis() - lastPortalAttemptTime : Long.MAX_VALUE;
+                    
+                    // If we've been in this state for more than 10 seconds, or if we haven't made an attempt in 5+ seconds, allow re-evaluation
+                    if (timeInPortalState < 10000 && timeSinceLastAttempt < 5000) {
                         shouldSkipStateEvaluation = true;
-                        log.info("Skipping state evaluation - in USING_PORTAL state for {}ms, waiting for portal interaction", timeInPortalState);
+                        log.info("Skipping state evaluation - in USING_PORTAL state for {}ms, last attempt {}ms ago", 
+                                timeInPortalState, timeSinceLastAttempt);
                     } else {
-                        log.info("Been in USING_PORTAL state for {}ms, allowing state re-evaluation", timeInPortalState);
+                        // If we've been trying for 10+ seconds or haven't attempted in 5+ seconds,
+                        // allow state re-evaluation to potentially recover
+                        log.info("Been in USING_PORTAL state for {}ms (last attempt {}ms ago), allowing state re-evaluation", 
+                                timeInPortalState, timeSinceLastAttempt);
+                    }
+                    
+                    // If we've been stuck for 15+ seconds, force a state change to break the loop
+                    // Since we have a full inventory, try to force exit by changing to a state that will handle it
+                    if (timeInPortalState > 15000) {
+                        log.warn("Stuck in USING_PORTAL state for {}ms, forcing state change to recover", timeInPortalState);
+                        // Try to force exit by changing state - if portal isn't working, maybe we need to try a different approach
+                        // Reset portal attempt tracking and allow normal state flow
+                        lastPortalAttemptTime = 0;
+                        // Force state re-evaluation by not skipping it
+                        shouldSkipStateEvaluation = false;
                     }
                 }
                 
@@ -125,6 +205,12 @@ public class AutoEssenceMiningScript extends Script {
                     // Only change state if it's different and cooldown has passed
                     if (targetState != state) {
                         changeState(targetState);
+                    } else if (state == AutoEssenceMiningState.USING_PORTAL && timeInPortalState > 15000) {
+                        // If we're still stuck after 15 seconds and target state is still USING_PORTAL,
+                        // reset the state start time to give it another chance, but this will be caught by the 30s timeout
+                        log.warn("Still in USING_PORTAL after {}ms, resetting state timer to allow recovery", timeInPortalState);
+                        stateStartTime = System.currentTimeMillis();
+                        lastPortalAttemptTime = 0; // Reset portal attempt tracking
                     }
                 }
 
@@ -258,6 +344,7 @@ public class AutoEssenceMiningScript extends Script {
                 log.info("Successfully teleported out of essence mine");
                 isUsingPortal = false;
                 portalUseStartTime = 0;
+                consecutivePortalFailures = 0; // Reset on successful teleport
                 hasTeleportedWithAubury = false;
             }
             return;
@@ -287,20 +374,29 @@ public class AutoEssenceMiningScript extends Script {
         GameObject portal = Rs2GameObject.getGameObject("Portal", false);
 
         if (portal != null) {
-            log.info("Found portal, attempting to use it");
+            log.info("Found portal, attempting to use it (failures: {})", consecutivePortalFailures);
             lastPortalAttemptTime = System.currentTimeMillis();
             if (Rs2GameObject.interact(portal)) {
                 log.info("Clicked portal, setting portal use flag");
                 isUsingPortal = true;
                 portalUseStartTime = System.currentTimeMillis();
+                consecutivePortalFailures = 0; // Reset on successful interaction
                 // Wait a bit for the teleport to start
                 sleep(500);
             } else {
-                log.info("Failed to interact with portal, will retry after cooldown");
+                consecutivePortalFailures++;
+                log.warn("Failed to interact with portal (failures: {}), will retry after cooldown", consecutivePortalFailures);
             }
         } else {
-            log.info("Portal not found in essence mine, will retry after cooldown");
+            consecutivePortalFailures++;
+            log.warn("Portal not found in essence mine (failures: {}), will retry after cooldown", consecutivePortalFailures);
             lastPortalAttemptTime = System.currentTimeMillis();
+            
+            // If we've failed many times, log more details for debugging
+            if (consecutivePortalFailures >= 3) {
+                log.error("Portal search failing repeatedly. Current region: {}, Expected: {}", 
+                        Rs2Player.getWorldLocation().getRegionID(), ESSENCE_MINE_REGION);
+            }
         }
     }
 
