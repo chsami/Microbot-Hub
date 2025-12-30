@@ -7,8 +7,8 @@ An automated sailing plugin that supports salvaging shipwrecks while sailing.
 ### Salvaging
 - **Automatic Shipwreck Detection**: Finds and salvages nearby shipwrecks within a 15-tile radius
 - **Smart Inventory Management**: Automatically handles full inventory by depositing salvage, alching valuable items, or dropping junk
-- **Salvaging Station Support**: Deposits salvage at salvaging stations when available
-- **Hook Deployment**: Automatically deploys salvaging hooks on nearby shipwrecks
+- **Salvaging Station Support**: Deposits salvage at your boat's salvaging station (if installed)
+- **Hook Deployment**: Automatically deploys your boat's salvaging hook on nearby shipwrecks
 
 ### Inventory Management
 - **High Alching**: Automatically high alchs valuable items when inventory is full (configurable)
@@ -68,12 +68,11 @@ An automated sailing plugin that supports salvaging shipwrecks while sailing.
 
 1. **Detection**: The plugin scans for shipwrecks within a 15-tile radius using their object IDs
 2. **Priority**: Finds the nearest shipwreck within the salvageable area
-3. **Salvaging**: Deploys the salvaging hook when a wreck is found and inventory has space
+3. **Salvaging**: Deploys your boat's salvaging hook when a wreck is found and inventory has space
 4. **Inventory Management**: When inventory fills up:
    - If salvage items exist and player isn't animating:
-     - Looks for a salvaging station
-     - If station exists: deposits salvage
-     - If no station: drops junk items
+     - If you have a salvaging station on your boat: deposits salvage at the station
+     - If you don't have a salvaging station: drops junk items
    - If alching is enabled: high alchs configured items
    - Drops remaining junk items
 5. **Repeat**: Continues the cycle while the plugin is enabled
@@ -94,8 +93,9 @@ The plugin recognizes the following shipwreck types with their level requirement
 ## Tips
 
 - **Recommended Worlds**: Use world 596 or 597 for the best salvaging experience
+- **Boat Equipment**: Ensure your boat has a salvaging hook installed to collect salvage from shipwrecks
+- **Salvaging Station**: Install a salvaging station on your boat to automatically process salvage items when inventory is full
 - **Alching Setup**: Ensure you have nature runes and a fire staff (or fire runes) for high alching
-- **Station Proximity**: The plugin works best when sailing near salvaging stations for easy salvage deposition
 - **Item Configuration**: Customize the alch and drop lists based on your needs and which items you want to keep
 - **Highlight Colors**: Adjust highlight colors if the defaults don't stand out enough on your screen
 - **Inventory Space**: The plugin considers inventory "full" at 24-28 items (randomized) to handle salvage variations
@@ -103,15 +103,20 @@ The plugin recognizes the following shipwreck types with their level requirement
 ## Requirements
 
 - Sailing skill unlocked
-- Salvaging hook in inventory or nearby
+- A boat with a salvaging hook installed
 - Nature runes for alching (if enabled)
 - Fire runes or fire staff for alching (if enabled)
+
+## Optional Equipment
+
+- **Salvaging Station**: Install on your boat to automatically process salvage items (recommended for best efficiency)
+- Without a salvaging station, the plugin will drop junk items when inventory fills with salvage
 
 ## Known Limitations
 
 - Requires shipwrecks to be within 15 tiles of the player
 - Will wait if player is already animating (salvaging)
-- Relies on salvaging station availability for salvage deposition
+- Without a salvaging station on your boat, salvage items will be dropped when inventory is full
 
 ## Version History
 

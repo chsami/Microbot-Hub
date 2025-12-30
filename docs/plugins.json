@@ -2663,22 +2663,22 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gabulhassandminerplugin-1.2.1.jar"
     },
     {
-        "internalName": "SailingPlugin",
+        "internalName": "MSailingPlugin",
         "name": "Sailing",
         "description": "Microbot Sailing Plugin",
         "tags": [
             "sailing"
         ],
-        "version": "1.0.0",
+        "version": "1.0.1",
         "minClientVersion": "2.1.0",
         "authors": [
             "Mocrosoft"
         ],
-        "iconUrl": "https://chsami.github.io/Microbot-Hub/SailingPlugin/assets/icon.jpg",
-        "cardUrl": "https://chsami.github.io/Microbot-Hub/SailingPlugin/assets/card.jpg",
+        "iconUrl": "https://chsami.github.io/Microbot-Hub/MSailingPlugin/assets/icon.jpg",
+        "cardUrl": "https://chsami.github.io/Microbot-Hub/MSailingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "eb9a54b2100a296a428e3b9590121d04d07e9a805d1f0dfaac067e12853b6293",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sailingplugin-1.0.0.jar"
+        "sha256": "313460e5db716d04f4ecc8fe7d02661fd137b909aeccb17db960170e70ccf875",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/msailingplugin-1.0.1.jar"
     },
     {
         "internalName": "ArceuusRcPlugin",
