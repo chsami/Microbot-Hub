@@ -25,7 +25,7 @@ import static net.runelite.client.plugins.microbot.util.npc.Rs2Npc.validateInter
 public class AerialFishingScript extends Script {
     public static int timeout = 0;
     public static final WorldPoint FISHING_SPOT = new WorldPoint(1376, 3629, 0);
-
+    final int FISH_OFFCUTS = 11334;
     public boolean run(AerialFishingConfig config) {
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyFishingSetup();
@@ -36,7 +36,7 @@ public class AerialFishingScript extends Script {
         Rs2AntibanSettings.microBreakDurationLow = 1;
         Rs2AntibanSettings.microBreakDurationHigh = 5;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
-            if (!super.run() || !Microbot.isLoggedIn() || !Rs2Inventory.hasItem("fish chunks", "king worm") || (!Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_NO_BIRD) && !Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_BIRD))) {
+            if (!super.run() || !Microbot.isLoggedIn() || !Rs2Inventory.hasItem(FISH_OFFCUTS, ItemID.KING_WORM) || (!Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_NO_BIRD) && !Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_BIRD))) {
                 return;
             }
 
