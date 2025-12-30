@@ -302,7 +302,7 @@ public class AutoEssenceMiningScript extends Script {
 
     // helper method to change state with timeout reset
     private void changeState(AutoEssenceMiningState newState) {
-        if (newState != state) {
+        if (newState != state || state.equals(AutoEssenceMiningState.WALKING_TO_AUBURY)) {
             log.info("State change: {} -> {}", state, newState);
             state = newState;
             stateStartTime = System.currentTimeMillis();
