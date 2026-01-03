@@ -36,7 +36,7 @@ public class AerialFishingScript extends Script {
         Rs2AntibanSettings.microBreakDurationLow = 1;
         Rs2AntibanSettings.microBreakDurationHigh = 5;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
-            if (!super.run() || !Microbot.isLoggedIn() || !Rs2Inventory.hasItem("fish chunks", "king worm") || (!Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_NO_BIRD) && !Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_BIRD))) {
+            if (!super.run() || !Microbot.isLoggedIn() || !Rs2Inventory.hasItem("fish chunks", "king worm", "fish offcuts") || (!Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_NO_BIRD) && !Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_BIRD))) {
                 return;
             }
 
