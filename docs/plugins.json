@@ -2669,7 +2669,7 @@
         "tags": [
             "sailing"
         ],
-        "version": "1.0.1",
+        "version": "1.0.2",
         "minClientVersion": "2.1.0",
         "authors": [
             "Mocrosoft"
@@ -2677,8 +2677,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MSailingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MSailingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "313460e5db716d04f4ecc8fe7d02661fd137b909aeccb17db960170e70ccf875",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/msailingplugin-1.0.1.jar"
+        "sha256": "24ad2f3fcd877ee9f6b7031a1b538b7574991c32535815ab38f629f4376d7b7c",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/msailingplugin-1.0.2.jar"
     },
     {
         "internalName": "ArceuusRcPlugin",
