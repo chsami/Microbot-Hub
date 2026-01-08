@@ -94,7 +94,7 @@
             "Aerial",
             "skilling"
         ],
-        "version": "1.1.1",
+        "version": "1.1.2",
         "minClientVersion": "2.0.7",
         "authors": [
             "See1Duck"
@@ -102,8 +102,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AerialFishingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AerialFishingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "30c2f01ef268d1e51b5b1b321bcc95b8fafb0513ec6a9a190e3b9e75d93df0f3",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aerialfishingplugin-1.1.1.jar"
+        "sha256": "a70bee8b25dbb04c795e778b8f714c9abd70bc44404c160a2b95c23b752c88c5",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aerialfishingplugin-1.1.2.jar"
     },
     {
         "internalName": "GildedAltarPlugin",
@@ -940,7 +940,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.7.8",
+        "version": "1.8.0",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft"
@@ -948,8 +948,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "2cee0dbea3c44ca93ef660fb60da8cc4b010f16ccacf2d49eb19f9f46af4e479",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.7.8.jar"
+        "sha256": "86402d453af2d5ea7f6cd6800797160f18ee0724d9a03a94984781ee45bc5c39",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.0.jar"
     },
     {
         "internalName": "NmzPlugin",
@@ -2367,7 +2367,7 @@
             "fletching",
             "minigame"
         ],
-        "version": "1.0.5",
+        "version": "1.0.6",
         "minClientVersion": "1.9.7",
         "authors": [
             "Make"
@@ -2375,8 +2375,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         "disable": false,
-        "sha256": "388615d4497a9337de6ff207da4959be80b2634b1bfd71f25afab926df039442",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/valetotemplugin-1.0.5.jar"
+        "sha256": "b808018ae58186bfc677fe3d1ce8e472a9cefaeb430e2e4a22d16d34112b1527",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/valetotemplugin-1.0.6.jar"
     },
     {
         "internalName": "FlippersChaserPlugin",
@@ -2669,7 +2669,7 @@
         "tags": [
             "sailing"
         ],
-        "version": "1.0.2",
+        "version": "2.0.1",
         "minClientVersion": "2.1.0",
         "authors": [
             "Mocrosoft"
@@ -2677,8 +2677,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MSailingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MSailingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "24ad2f3fcd877ee9f6b7031a1b538b7574991c32535815ab38f629f4376d7b7c",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/msailingplugin-1.0.2.jar"
+        "sha256": "d6ed631a4ab7b235ad9c3c33d82a66d42f46f3fad309b62f7297928769790c0e",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/msailingplugin-2.0.1.jar"
     },
     {
         "internalName": "ArceuusRcPlugin",
