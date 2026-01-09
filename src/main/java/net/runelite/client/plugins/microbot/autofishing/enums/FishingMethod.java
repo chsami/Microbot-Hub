@@ -14,7 +14,7 @@ public enum FishingMethod {
     CAGE(List.of("Cage"), List.of("Lobster pot"), 40),
     SANDWORMS(List.of("Sandworms", "Bait"), List.of("Fishing rod", "Sandworms"), 15),
     KARAMBWAN_VESSEL(List.of("Fish"), List.of("Karambwan vessel", "Raw karambwanji"), 65),
-    BARBARIAN_ROD(List.of("Use-rod"), List.of("Barbarian rod"), 48),
+    BARBARIAN_ROD(List.of("Use-rod"), List.of("Barbarian rod", "Feather"), 48),
     OILY_ROD(List.of("Bait"), List.of("Oily fishing rod", "Fishing bait"), 53),
     INFERNAL_EEL_BAIT(List.of("Bait"), List.of("Oily fishing rod", "Fishing bait", "Hammer"), 80),
     DARK_CRAB_BAIT(List.of("Cage"), List.of("Lobster pot", "Dark fishing bait"), 85),
