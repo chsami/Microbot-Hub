@@ -14,6 +14,6 @@ public interface GildedAltarConfig extends Config {
             position = 0
     )
     default String GUIDE() {
-        return "This only supports house advertisements. Use this script in w330";
+        return "Start in Rimmington with noted bones and GP. The script will automatically use house advertisements on W330.";
     }
 }
