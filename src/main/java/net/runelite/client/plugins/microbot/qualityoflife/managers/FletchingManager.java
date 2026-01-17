@@ -60,7 +60,7 @@ public class FletchingManager
         // Quick Fletch Items (Logs -> Bows, etc.)
         if (config.quickFletchItems()
                 && !isInWintertodtRegion()
-                && event.getItemId() == ItemID.KNIFE
+                && (event.getItemId() == ItemID.KNIFE || event.getItemId() == ItemID.FLETCHING_KNIFE)
                 && "Use".equals(event.getOption()))
         {
             modifyMenuEntry(event, "<col=FFA500>Quick fletch: </col>", config.fletchingItem().getName(), this::quickFletchLogsOnClick);
