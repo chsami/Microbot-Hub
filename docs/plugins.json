@@ -417,7 +417,7 @@
             "fishing",
             "skilling"
         ],
-        "version": "1.0.7",
+        "version": "1.0.8",
         "minClientVersion": "1.9.8",
         "authors": [
             "AI Agent"
@@ -425,8 +425,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "3bd9e801ed2d17d364d544e0f41c2ab025916a22df78d0f0efb8806a2d730e3a",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autofishingplugin-1.0.7.jar"
+        "sha256": "3f35a068b30e010bc9f56ef9bdbc95ca09eff1fbe385b3defe508913ff3c195d",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autofishingplugin-1.0.8.jar"
     },
     {
         "internalName": "MKE_WintertodtPlugin",
@@ -940,7 +940,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.8.0",
+        "version": "1.8.1",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft"
@@ -948,8 +948,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "86402d453af2d5ea7f6cd6800797160f18ee0724d9a03a94984781ee45bc5c39",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.0.jar"
+        "sha256": "da65c1df06f2f4443431312964a5d9c89f97bf4ecca476f180f4b30becabb8ca",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.1.jar"
     },
     {
         "internalName": "NmzPlugin",
@@ -1765,7 +1765,7 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "25b08b00aa657ad4ca12365174d8a8964666d7e59e68570d1bdde583df827565",
+        "sha256": "24a85434a53b61f794ad871e81dbaff88ae6f15ae29053a364bbf60327818a03",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.8.jar"
     },
     {
