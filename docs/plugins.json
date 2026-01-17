@@ -857,7 +857,7 @@
             "thieving",
             "skilling"
         ],
-        "version": "2.0.7",
+        "version": "2.1.0",
         "minClientVersion": "1.9.8.2",
         "authors": [
             "Mocrosoft",
@@ -867,8 +867,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/ThievingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ThievingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "bf47ade9dc06f71210422d4d3914a7f4795b8f61628428450a0f4ee600b42c20",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/thievingplugin-2.0.7.jar"
+        "sha256": "363a1db13fb9e75c8006ac9faa8d6fd707464b58ae064390d814a19f893b4c61",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/thievingplugin-2.1.0.jar"
     },
     {
         "internalName": "TzhaarVenatorBowPlugin",
