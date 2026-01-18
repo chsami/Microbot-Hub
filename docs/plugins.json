@@ -1044,7 +1044,7 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.0.8",
+        "version": "2.0.9",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft",
@@ -1053,8 +1053,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "012ef75cc4d96f06eb6029e037bfa1dc29d1cf048de8495c1bd03c4d494c4233",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.0.8.jar"
+        "sha256": "a2c09ad14cdd1c68e79e02d94accdff6d64bd01e2d610c3c42c5e6de4b7abdf1",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.0.9.jar"
     },
     {
         "internalName": "ExamplePlugin",
