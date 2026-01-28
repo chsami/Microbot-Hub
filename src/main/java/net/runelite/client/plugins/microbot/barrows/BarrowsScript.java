@@ -1,11 +1,17 @@
 package net.runelite.client.plugins.microbot.barrows;
 
+import com.google.inject.Inject;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.npc.Rs2NpcCache;
+import net.runelite.client.plugins.microbot.api.player.Rs2PlayerCache;
 import net.runelite.client.plugins.microbot.api.tileitem.Rs2TileItemCache;
 import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel;
+import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
@@ -13,8 +19,6 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldArea;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
-import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -31,7 +35,6 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
-import javax.inject.Inject;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,7 +73,10 @@ public class BarrowsScript extends Script {
     private ScheduledFuture<?> WalkToTheChestFuture;
 
     @Inject
-    Rs2TileItemCache rs2TileItemCache;
+    Rs2NpcCache rs2NpcCache;
+    @Inject Rs2TileItemCache rs2TileItemCache;
+    @Inject Rs2PlayerCache rs2PlayerCache;
+    @Inject Rs2TileObjectCache rs2TileObjectCache;
 
 
 
@@ -145,11 +151,11 @@ public class BarrowsScript extends Script {
                 if(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID() == ItemID.TELEPORT_TO_HOUSE) {
                     if (!inTunnels && !shouldBank && Rs2Player.getWorldLocation().distanceTo(new WorldPoint(3573, 3296, 0)) > 60) {
                         //needed to intercept the walker
-                        if(Rs2GameObject.getGameObject(4525) == null){
+                        if(rs2TileObjectCache.query().withId(4525).nearest() == null){
                             Rs2Inventory.interact("Teleport to house", "Inside");
                             sleepUntil(() -> Rs2Player.getAnimation() == 4069, Rs2Random.between(2000, 4000));
                             sleepUntil(() -> !Rs2Player.isAnimating(), Rs2Random.between(6000, 10000));
-                            sleepUntil(() -> Rs2GameObject.getGameObject(4525) != null, Rs2Random.between(6000, 10000));
+                            sleepUntil(() -> rs2TileObjectCache.query().withId(4525).nearest() != null, Rs2Random.between(6000, 10000));
                         }
                         handlePOH(config);
                         return;
@@ -157,6 +163,16 @@ public class BarrowsScript extends Script {
                 }
 
                 if(!inTunnels && !shouldBank) {
+
+                    if(!BreakHandlerScript.lockState.get()){
+                        if(BreakHandlerScript.breakIn < 60 && BreakHandlerScript.breakIn != -1){
+                            Microbot.log("Going on break soon, doing nothing.");
+                            return;
+                        }
+                    }
+
+                    BreakHandlerScript.lockState.set(true);
+
                     for (BarrowsBrothers brother : BarrowsBrothers.values()) {
                         Rs2WorldArea mound = brother.getHumpWP();
                         NeededPrayer = brother.whatToPray;
@@ -253,7 +269,7 @@ public class BarrowsScript extends Script {
                             }
 
                             // we're in the mound, prayer is active
-                            GameObject sarc = Rs2GameObject.getGameObject("Sarcophagus");
+                            Rs2TileObjectModel sarc = rs2TileObjectCache.query().withIds(20770,20720,20722,20771,20721,20772).nearest();
                             Rs2NpcModel currentBrother = null;
                             Microbot.log("Found the Sarcophagus");
                             while(currentBrother == null) {
@@ -261,7 +277,7 @@ public class BarrowsScript extends Script {
                                 if (!super.isRunning()) break;
 
 
-                                if (Rs2GameObject.interact(sarc, "Search")) {
+                                if (sarc.click("Search")) {
                                     sleepUntil(() -> Rs2Player.isMoving(), Rs2Random.between(1000, 3000));
                                     sleepUntil(() -> !Rs2Player.isMoving() || Rs2Player.isInCombat(), Rs2Random.between(3000, 6000));
                                     // the brother could take a second to spawn in.
@@ -320,11 +336,11 @@ public class BarrowsScript extends Script {
                             digIntoTheMound(tunnelMound);
 
                             while(!Rs2Dialogue.isInDialogue()) {
-                                GameObject sarc = Rs2GameObject.getGameObject("Sarcophagus");
+                                Rs2TileObjectModel sarc = rs2TileObjectCache.query().withIds(20770,20720,20722,20771,20721,20772).nearest();
 
                                 if (!super.isRunning()) break;
 
-                                if (Rs2GameObject.interact(sarc, "Search")) {
+                                if (sarc.click("Search")) {
                                     sleepUntil(() -> Rs2Player.isMoving(), Rs2Random.between(1000, 3000));
                                     sleepUntil(() -> !Rs2Player.isMoving() || Rs2Player.isInCombat(), Rs2Random.between(3000, 6000));
                                     sleepUntil(() -> Rs2Dialogue.isInDialogue(), Rs2Random.between(3000, 6000));
@@ -380,15 +396,16 @@ public class BarrowsScript extends Script {
                     solvePuzzle();
                     checkForAndFightBrother(config);
 
-                    if(Rs2GameObject.findObjectById(20973) != null
-                            && (Rs2GameObject.hasLineOfSight(Rs2GameObject.findObjectById(20973))
-                            || Rs2Player.distanceTo(Rs2GameObject.findObjectById(20973).getWorldLocation()) < 4)){
+                    Rs2TileObjectModel barrowsChest = rs2TileObjectCache.query().withId(20973).nearest();
+
+                    if(barrowsChest != null &&
+                            (barrowsChest.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) < 5)){
                         //chest ID: 20973
                         stopFutureWalker();
 
-                        TileObject chest = Rs2GameObject.findObjectById(20973);
 
-                        if(Rs2GameObject.interact(chest, "Open")){
+
+                        if(barrowsChest.click("Open")){
                             sleepUntil(()-> hintNpcModel()!=null && hintNpcModel().getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= 5, Rs2Random.between(4000,6000));
                         } else {
                             return;
@@ -404,7 +421,7 @@ public class BarrowsScript extends Script {
                                     break;
                                 }
 
-                                if (Rs2GameObject.interact(chest, "Search")) {
+                                if(barrowsChest.click("Search")){
                                     sleep(500, 1500);
                                 }
 
@@ -453,7 +470,7 @@ public class BarrowsScript extends Script {
                         outOfSupplies(config);
                         //walk to and open the bank
                         Rs2Bank.walkToBankAndUseBank(BankLocation.FEROX_ENCLAVE);
-                        //unlock
+                        BreakHandlerScript.lockState.set(false);
                     } else {
                         Rs2Food ourfood = config.food();
                         int ourFoodsID = ourfood.getId();
@@ -678,24 +695,25 @@ public class BarrowsScript extends Script {
 
     public void handlePOH(BarrowsConfig config){
         if(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID() == ItemID.TELEPORT_TO_HOUSE){
-            if(Rs2GameObject.getGameObject(4525) != null){
+            Rs2TileObjectModel pohThing = rs2TileObjectCache.query().withId(4525).nearest();
+            if(pohThing != null){
                 Microbot.log("We're in our POH");
-                GameObject rejPool = Rs2GameObject.getGameObject(it->it!=null&&it.getId() == 29238 || it.getId() == 29239 || it.getId() == 29241 || it.getId() == 29240);
+                Rs2TileObjectModel rejPool = rs2TileObjectCache.query().withIds(29238,29239,29241,29240).nearest();
                 if(rejPool != null){
-                    if(Rs2GameObject.interact(rejPool, "Drink")){
+                    if(rejPool.click("Drink")){
                         sleepUntil(()-> Rs2Player.isMoving(), Rs2Random.between(2000,4000));
                         sleepUntil(()-> !Rs2Player.isMoving(), Rs2Random.between(10000,15000));
                     }
                 }
-                GameObject regularPortal = Rs2GameObject.getGameObject("Barrows Portal");
+                Rs2TileObjectModel regularPortal = rs2TileObjectCache.query().withName("Barrows Portal").nearest();
                 if(regularPortal != null){
-                    while(Rs2GameObject.getGameObject(4525) != null){
+                    while(pohThing != null){
                         if(!super.isRunning()){break;}
                         if(!Rs2Player.isMoving()){
-                            if(Rs2GameObject.interact(regularPortal, "Enter")){
+                            if(regularPortal.click("Enter")){
                                 sleepUntil(()-> Rs2Player.isMoving(), Rs2Random.between(2000,4000));
                                 sleepUntil(()-> !Rs2Player.isMoving(), Rs2Random.between(10000,15000));
-                                sleepUntil(()-> Rs2GameObject.getGameObject("Barrows Portal") == null, Rs2Random.between(10000,15000));
+                                sleepUntil(()-> rs2TileObjectCache.query().withName("Barrows Portal").nearest() == null, Rs2Random.between(10000,15000));
                             }
                         }
                     }
@@ -795,10 +813,13 @@ public class BarrowsScript extends Script {
                 randomMoundTile = moundArea.toWorldPointList().get(Rs2Random.between(0,(totalTiles-1)));
 
                 //strange old man body blocking us
-                if(Rs2Npc.getNpc("Strange Old Man")!=null){
-                    if(Rs2Npc.getNpc("Strange Old Man").getWorldLocation() != null){
-                        if(Rs2Npc.getNpc("Strange Old Man").getWorldLocation() == randomMoundTile){
-                            while(Rs2Npc.getNpc("Strange Old Man").getWorldLocation() == randomMoundTile){
+
+                net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel strangeOldMan = rs2NpcCache.query().withName("Strange Old Man").nearest();
+
+                if(strangeOldMan !=null){
+                    if(strangeOldMan.getWorldLocation() != null){
+                        if(strangeOldMan.getWorldLocation() == randomMoundTile){
+                            while(strangeOldMan.getWorldLocation() == randomMoundTile){
                                 if(!super.isRunning()){break;}
                                 randomMoundTile = moundArea.toWorldPointList().get(Rs2Random.between(0,(totalTiles-1)));
                                 sleep(250,500);
@@ -814,14 +835,15 @@ public class BarrowsScript extends Script {
     }
 
     public void leaveTheMound(){
-        if(Rs2GameObject.getGameObject("Staircase", true) != null) {
-            if (Rs2GameObject.hasLineOfSight(Rs2GameObject.getGameObject("Staircase", true))) {
+        Rs2TileObjectModel stairs = rs2TileObjectCache.query().withIds(20668,20669,20670,20671,20672,20667).nearest();
+        if(stairs != null) {
+            if (Rs2Walker.canReach(stairs.getWorldLocation())) {
                 if (Rs2Player.getWorldLocation().getPlane() == 3) {
                     while (Rs2Player.getWorldLocation().getPlane() == 3) {
                         Microbot.log("Leaving the mound");
                         if (!super.isRunning()) break;
 
-                        if (Rs2GameObject.interact("Staircase", "Climb-up")) {
+                        if (stairs.click("Climb-up")) {
                             sleepUntil(() -> Rs2Player.getWorldLocation().getPlane() != 3, Rs2Random.between(3000, 6000));
                         }
 
@@ -839,14 +861,15 @@ public class BarrowsScript extends Script {
     }
 
     public void lootChampionScroll(){
-        Rs2TileItemModel championScroll = rs2TileItemCache.query().where(x -> x.getId() == ItemID.SKELETON_CHAMPION_SCROLL).nearest();
+        Rs2TileItemModel championScroll = rs2TileItemCache.query().withId(ItemID.SKELETON_CHAMPION_SCROLL).nearest();
         if(championScroll != null){
-                while(rs2TileItemCache.query().where(x -> x.getId() == ItemID.SKELETON_CHAMPION_SCROLL).nearest() != null && !Rs2Inventory.contains(championScroll.getId())){
+            if(championScroll.isReachable() && championScroll.isLootAble()){
+                while(rs2TileItemCache.query().withId(ItemID.SKELETON_CHAMPION_SCROLL).nearest() != null && !Rs2Inventory.contains(championScroll.getId())){
                     if(!super.isRunning()) break;
-
-                    Rs2GroundItem.interact(championScroll.getName(), "Take");
+                    championScroll.click("Take");
                     sleepUntil(()-> !Rs2Player.isMoving() && Rs2Inventory.contains(championScroll.getId()), Rs2Random.between(4000,12000));
                 }
+            }
         }
     }
 
@@ -855,15 +878,16 @@ public class BarrowsScript extends Script {
             int RP = Microbot.getVarbitValue(Varbits.BARROWS_REWARD_POTENTIAL);
             if(RP>870) return;
 
-            Rs2NpcModel skele = Rs2Npc.getNpc("Skeleton");
+
+            net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel skele = rs2NpcCache.query().withName("Skeleton").nearest();
 
             if(skele == null || skele.isDead()) return;
 
-            if(Rs2Npc.hasLineOfSight(skele)){
+            if(skele.hasLineOfSight()){
                 stopFutureWalker();
 
                 if(!Rs2Player.isInCombat()){
-                    if(Rs2Npc.attack(skele)){
+                    if(skele.click("Attack")){
                         sleepUntil(()-> Rs2Player.isInCombat()&&!Rs2Player.isMoving(), Rs2Random.between(4000,8000));
                     }
                 }
@@ -901,8 +925,9 @@ public class BarrowsScript extends Script {
                         }
 
                         if(hintNpcModel()!=null) {
-                            Rs2NpcModel barrowsbrother = hintNpcModel();
-                            if(Rs2Npc.hasLineOfSight(barrowsbrother)) {
+                            Rs2NpcModel barrowsbrotherHint = hintNpcModel();
+                            net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel brother = rs2NpcCache.query().withName(barrowsbrotherHint.getName()).nearest();
+                            if(brother !=null && brother.hasLineOfSight()) {
                                 Microbot.log("The brother is here.");
                                 break;
                             }
@@ -1107,10 +1132,10 @@ public class BarrowsScript extends Script {
                 if(Rs2Bank.closeBank()) sleepUntil(()-> !Rs2Bank.isOpen(), Rs2Random.between(2000,4000));
 
             } else {
-                GameObject rej = Rs2GameObject.getGameObject("Pool of Refreshment", true);
+                Rs2TileObjectModel rej = rs2TileObjectCache.query().withId(39651).nearest();
                 if(rej == null) break;
                 Microbot.log("Drinking");
-                if(Rs2GameObject.interact(rej, "Drink")){
+                if(rej.click("Drink")){
                     sleepUntil(()-> Rs2Player.isMoving(), Rs2Random.between(1000,3000));
                     sleepUntil(()-> !Rs2Player.isMoving(), Rs2Random.between(5000,10000));
                     sleepUntil(()-> Rs2Player.isAnimating(), Rs2Random.between(1000,4000));
@@ -1150,9 +1175,11 @@ public class BarrowsScript extends Script {
 
     public void checkForAndFightBrother(BarrowsConfig config){
         if (hintNpcModel() != null) {
-            stopFutureWalker();
+            Rs2NpcModel currentBrother = hintNpcModel(); //Rs2NpcCache.getNpcsStream().filter(it->it.getName().equals(hintNpcModel().getName())).findFirst().orElse(null);
             Rs2PrayerEnum neededprayer = Rs2PrayerEnum.PROTECT_MELEE;
-            if (hintNpcModel() != null && Rs2Npc.hasLineOfSight(hintNpcModel())) {
+            if (hintNpcModel() != null && currentBrother !=null) {
+                stopFutureWalker();
+
                 if(hintNpcModel().getName().contains("Ahrim")) neededprayer = Rs2PrayerEnum.PROTECT_MAGIC;
 
                 if(hintNpcModel().getName().contains("Karil")) neededprayer = Rs2PrayerEnum.PROTECT_RANGE;
@@ -1160,11 +1187,14 @@ public class BarrowsScript extends Script {
                 while(hintNpcModel() != null){
                     Microbot.log("Fighting the brother.");
 
-                    if (!super.isRunning()) break;
+                    if (!super.isRunning()){
+                        Microbot.log("Super isn't running!");
+                        break;
+                    }
 
 
                     if(inTunnels) {
-                        if (!Rs2Npc.hasLineOfSight(hintNpcModel())) {
+                        if (!Rs2Npc.hasLineOfSight(currentBrother)) {
                             Microbot.log("No LOS!");
                             break;
                         }
@@ -1179,12 +1209,12 @@ public class BarrowsScript extends Script {
                     }
 
                     if(hintNpcModel() != null && Rs2Player.getInteracting() != null && !Rs2Player.getInteracting().getName().equals(hintNpcModel().getName())){
-                        if(Rs2Npc.interact(hintNpcModel(), "Attack")){
+                        if(Rs2Npc.attack(currentBrother)){
                             sleepUntil(()-> Rs2Player.isInCombat(), Rs2Random.between(3000,6000));
                         }
                     } else {
                         if(!Rs2Player.isInCombat()){
-                            if(Rs2Npc.interact(hintNpcModel(), "Attack")){
+                            if(Rs2Npc.attack(currentBrother)){
                                 sleepUntil(()-> Rs2Player.isInCombat(), Rs2Random.between(3000,6000));
                             }
                         }
@@ -1229,7 +1259,7 @@ public class BarrowsScript extends Script {
                 return;
             }
 
-            Rs2Walker.walkTo(Chest);
+            Rs2Walker.walkTo(Chest, 2);
         } catch (Exception e) {
             Microbot.log("walkToChest failed: " + e.getMessage());
         }
