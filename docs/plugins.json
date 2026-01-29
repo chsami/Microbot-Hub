@@ -298,7 +298,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AnonymousPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AnonymousPlugin/assets/card.png",
         "disable": false,
-        "sha256": "7f60ed977ecfeedc130089ee646bf4608f67cf94f4be0a9f54152928fb4b16ed",
+        "sha256": "ec9a199feee04950c80d5065badb644a96c67d162dea8578b8dd346fdda1e387",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/anonymousplugin-1.0.3.jar"
     },
     {
@@ -425,7 +425,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "3f35a068b30e010bc9f56ef9bdbc95ca09eff1fbe385b3defe508913ff3c195d",
+        "sha256": "1a943434dcb5bd9ffa6fc56dd5d071021db187fba27fff4801371a4567c0dbfc",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autofishingplugin-1.0.8.jar"
     },
     {
@@ -1468,7 +1468,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/BarrowsPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/BarrowsPlugin/assets/card.png",
         "disable": false,
-        "sha256": "4abf5cbcf0b09c5d06fd6efb1a67e29b442d973bc333acf679dc10063dd7b2ca",
+        "sha256": "95f643a82b1eb04f98e8c3ba0385c10770d0742919ce16b6e7d1eece7409919b",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/barrowsplugin-2.0.2.jar"
     },
     {
@@ -1826,7 +1826,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/card.png",
         "disable": false,
-        "sha256": "2970a95fbe4fa3f3e6bcdbc0ccc171aece4e1f159081fcf4473528afddd7c3c4",
+        "sha256": "6597b356b245dc2e4101974157e21128fd45e603c5c6df6a93bd027ccf03a970",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/revkillerplugin-2.0.8.jar"
     },
     {
@@ -2558,7 +2558,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/card.png",
         "disable": false,
-        "sha256": "df40f490d369642c1cf603f8ace9a6889f95b5fdf9f39e95cc641f7def77bf9e",
+        "sha256": "d86675e0e2cc172881fdd9d033aca3b78d9d521a4bb9dcecc75a21f86a28c81e",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/herbiboarplugin-1.2.4.jar"
     },
     {
