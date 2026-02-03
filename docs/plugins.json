@@ -2056,7 +2056,7 @@
             "motherlode",
             "mlm"
         ],
-        "version": "1.8.2",
+        "version": "1.8.3",
         "minClientVersion": "1.9.8",
         "authors": [
             "Mocrosoft"
@@ -2064,8 +2064,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/card.png",
         "disable": false,
-        "sha256": "01de0407b26929449f8dbdc515a21a22a4138e9fe7fec579f86acdbec3d3dd85",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/motherloadmineplugin-1.8.2.jar"
+        "sha256": "ce0e5ccd7babe4da3842b41dcbe136ab00804b0990616a814da958f6e116a0a2",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/motherloadmineplugin-1.8.3.jar"
     },
     {
         "internalName": "AIOCamdozPlugin",
