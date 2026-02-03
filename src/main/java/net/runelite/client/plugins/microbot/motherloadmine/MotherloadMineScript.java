@@ -513,7 +513,7 @@ public class MotherloadMineScript extends Script
 
 		handlePickaxeSpec();
 
-		if (!rs2TileObjectCache.query().interact(vein.getId())) return false;
+		if (!vein.click()) return false;
 		oreVein = vein;
 
 		return sleepUntil(() -> {
