@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.RoyalTitans;
+package net.runelite.client.plugins.microbot.royaltitans;
 
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -26,7 +26,7 @@ public class RoyalTitansOverlay extends OverlayPanel {
         try {
             panelComponent.setPreferredSize(new Dimension(200, 300));
             panelComponent.getChildren().add(TitleComponent.builder()
-                    .text("TaF's Royal Titan Plugin v" + plugin.version)
+                    .text("TaF's Royal Titan Plugin v" + RoyalTitansPlugin.version)
                     .color(Color.decode("#a4ffff"))
                     .build());
             panelComponent.getChildren().add(LineComponent.builder()
@@ -34,20 +34,20 @@ public class RoyalTitansOverlay extends OverlayPanel {
                     .leftColor(Color.WHITE)
                     .build());
             panelComponent.getChildren().add(LineComponent.builder()
-                    .left("State:" + plugin.royalTitansScript.state.name())
+                    .left("State:" + plugin.royalTitansScript.getState().name())
                     .build());
             panelComponent.getChildren().add(LineComponent.builder()
-                    .left("Substate: " + plugin.royalTitansScript.subState)
+                    .left("Substate: " + plugin.royalTitansScript.getSubState())
                     .build());
             panelComponent.getChildren().add(LineComponent.builder()
                     .left("Duo partner: " + config.teammateName())
                     .build());
             panelComponent.getChildren().add(LineComponent.builder()
-                    .left("Kills: " + plugin.royalTitansScript.kills)
+                    .left("Kills: " + plugin.royalTitansScript.getKills())
                     .build());
-            if (plugin.royalTitansScript.enrageTile != null) {
+            if (plugin.royalTitansScript.getEnrageTile() != null) {
                 panelComponent.getChildren().add(LineComponent.builder()
-                        .left("Enrage tile: " + plugin.royalTitansScript.enrageTile.getWorldLocation())
+                        .left("Enrage tile: " + plugin.royalTitansScript.getEnrageTile().getWorldLocation())
                         .build());
             }
 

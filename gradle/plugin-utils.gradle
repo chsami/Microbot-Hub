@@ -37,6 +37,11 @@ ext {
                     srcDirs = ["src/main/java"]
                     include "${project.ext.getPluginsIncludePath()}/PluginConstants.java"
                     include "${project.ext.getPluginsIncludePath()}/${plugin.dir.name}/**"
+                    // Include shared classes for microbot and custom plugins
+                    if (project.ext.getPluginsIncludePath().contains("microbot") ||
+                        project.ext.getPluginsIncludePath().contains("custom")) {
+                        include "net/runelite/client/plugins/shared/**"
+                    }
                 }
                 resources {
                     srcDirs = ["src/main/resources"]

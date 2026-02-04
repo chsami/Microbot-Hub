@@ -1,23 +1,29 @@
-package net.runelite.client.plugins.microbot.RoyalTitans;
+package net.runelite.client.plugins.microbot.royaltitans;
 
-import net.runelite.client.config.*;
+import net.runelite.client.config.Config;
+import net.runelite.client.config.ConfigGroup;
+import net.runelite.client.config.ConfigInformation;
+import net.runelite.client.config.ConfigItem;
+import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.Range;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 
 @ConfigInformation(
         "<html>" +
-                "<h2 style='color: #6d9eeb;'>Royal Titans Bot by TaF</h2>" +
-                "<p>This script kills the Royal Titans with another bot or player.</p>" +
+                "<h2 style='color: #6d9eeb;'>Royal Titans Bot by Donderstone2</h2>" +
+                "<p>This script kills the Royal Titans solo, or with another bot or player.</p>" +
                 "<h3 style='color: #93c47d;'>Requirements:</h3>" +
                 "<ul>" +
                 "<li><b>Combat Styles:</b> All 3 combat styles are required</li>" +
                 "<li><b>Magic Gear:</b> Must provide +70 magic bonus (or +39 with void mage)</li>" +
                 "<li><b>Ranged Gear:</b> Must use a weapon with range of 7+ (crossbows/bowfa)</li>" +
                 "<li><b>Melee Gear:</b> Best available melee gear for optimal killing speeds</li>" +
-                "<li><b>Spell Selection:</b> Preselect autocast spell for minions (i.e. Water spells for fire minions/walls)</li>" +
+                "<li><b>Spell Selection:</b> Must have runes with you to cast waves, unless you set the minions to NONE.</li>" +
+                "<li><b>Restoration:</b> Must have rings of dueling in your bank and also in the inventory setups, to ensure safe teleportation and restoration.</li>" +
                 "</ul>" +
                 "<p style='color: #cc0000;'><i>Note: Both bots should be configured to focus on different titans for best efficiency.</i></p>" +
                 "</html>")
-@ConfigGroup("RoyalTitans")
+@ConfigGroup("DonderRoyalTitans")
 public interface RoyalTitansConfig extends Config {
     @ConfigSection(
             name = "General Settings",
@@ -71,22 +77,11 @@ public interface RoyalTitansConfig extends Config {
     }
 
     @ConfigItem(
-            keyName = "resupplyWithTeammate",
-            name = "Leave with teammate",
-            description = "If enabled, the bot leave if your teammate leaves. It will attempt to resupply and go back to royal titans. If disabled, the bot will continue to fight until it runs out of supplies.",
-            section = generalSection,
-            position = 1
-    )
-    default boolean resupplyWithTeammate() {
-        return false;
-    }
-
-    @ConfigItem(
             keyName = "currentBotInstanceOwner",
             name = "Are you instance owner?",
             description = "If enabled, this bot instance will create the instance, otherwise, it will join the teammates instance",
             section = generalSection,
-            position = 2
+            position = 1
     )
     default boolean currentBotInstanceOwner() {
         return false;
@@ -95,9 +90,9 @@ public interface RoyalTitansConfig extends Config {
     @ConfigItem(
             keyName = "soloMode",
             name = "Enable solo mode?",
-            description = "If enabled, the bot will fight the boss alone - Requires you to have the Twinflame staff",
+            description = "If enabled, the bot will fight the boss alone",
             section = generalSection,
-            position = 3
+            position = 2
     )
     default boolean soloMode() {
         return false;
@@ -108,7 +103,7 @@ public interface RoyalTitansConfig extends Config {
             name = "The amount of time (in seconds) to wait for your teammate at the entrance",
             description = "The amount of time (in seconds) to wait for your teammate before shutting down the script.",
             section = generalSection,
-            position = 4
+            position = 3
     )
     default int waitingTimeForTeammate() {
         return 600;
@@ -276,22 +271,11 @@ public interface RoyalTitansConfig extends Config {
     }
 
     @ConfigItem(
-            keyName = "emergencyTeleport",
-            name = "Emergency teleport item ID",
-            description = "The ID of the item to use to teleport out of the boss room. If set to 0 or no value, it will exit the room normally and walk to a bank",
-            section = supplySettings,
-            position = 1
-    )
-    default int emergencyTeleport() {
-        return 0;
-    }
-
-    @ConfigItem(
             keyName = "boostedStatsThreshold",
             name = "% Boosted Stats Threshold",
             description = "The threshold for using a potion when the boosted stats are below the maximum.",
             section = supplySettings,
-            position = 2
+            position = 1
     )
     @Range(
             min = 1,
@@ -340,7 +324,7 @@ public interface RoyalTitansConfig extends Config {
 
     enum RoyalTitan {ICE_TITAN, FIRE_TITAN}
 
-    enum Minions {ICE_MINIONS, FIRE_MINIONS, NONE}
+    enum Minions {ICE_MINIONS, FIRE_MINIONS, NONE, ALL}
 
     enum LootingTitan {ICE_TITAN, FIRE_TITAN, ALTERNATE, RANDOM}
 }

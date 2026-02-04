@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.RoyalTitans;
+package net.runelite.client.plugins.microbot.royaltitans;
 
 public enum RoyalTitansTravelStatus {
     TO_BANK,

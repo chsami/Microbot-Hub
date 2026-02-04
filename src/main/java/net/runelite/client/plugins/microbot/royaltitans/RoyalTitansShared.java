@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.RoyalTitans;
+package net.runelite.client.plugins.microbot.royaltitans;
 
 import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -8,13 +8,65 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import java.util.List;
 
 public class RoyalTitansShared {
+
     public static final Integer ICE_TITAN_ID = 14147;
     public static final Integer FIRE_TITAN_DEAD_ID = 14148;
     public static final Integer ICE_TITAN_DEAD_ID = 14149;
     public static final Integer FIRE_TITAN_ID = 12596;
     public static final int BOSS_REGION = 11669;
-    // Fixes attempts at double looting or yo-yo-ing between the dead titans
-    public static boolean LootedTitanLastIteration = false;
+    public static final String[] ITEMS_TO_LOOT = new String[] {
+            "Giantsoul amulet",
+            "Fire element staff crown",
+            "Ice element staff crown",
+            "Mystic vigour prayer scroll",
+            "Deadeye prayer scroll",
+            "Mystic fire staff",
+            "Mystic water staff",
+            "Fire battlestaff",
+            "Water battlestaff",
+            "Rune plateskirt",
+            "Rune platelegs",
+            "Rune scimitar",
+            "Rune pickaxe",
+            "Rune sq shield",
+            "Rune axe",
+            "Chaos rune",
+            "Death rune",
+            "Nature rune",
+            "Law rune",
+            "Soul rune",
+            "Blood rune",
+            "Rune arrow",
+            "Fire rune",
+            "Water rune",
+            "Gold ore",
+            "Fire orb",
+            "Water orb",
+            "Coal",
+            "Grimy avantoe",
+            "Grimy cadantine",
+            "Grimy dwarf weed",
+            "Grimy irit leaf",
+            "Grimy kwuarm",
+            "Grimy lantadyme",
+            "Grimy ranarr weed",
+            "Avantoe seed",
+            "Cadantine seed",
+            "Dwarf weed seed",
+            "Irit seed",
+            "Kwuarm seed",
+            "Lantadyme seed",
+            "Ranarr seed",
+            "Maple seed",
+            "Palm tree seed",
+            "Yew seed",
+            "Coins",
+            "Prayer potion(4)",
+            "Desiccated page",
+            "Clue scroll (hard)",
+            "Clue scroll (elite)",
+            "Bran"
+    };
 
     public static void evaluateAndConsumePotions(RoyalTitansConfig config) {
         int threshold = config.boostedStatsThreshold();
