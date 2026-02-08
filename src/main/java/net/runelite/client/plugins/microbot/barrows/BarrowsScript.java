@@ -705,7 +705,7 @@ public class BarrowsScript extends Script {
                         sleepUntil(()-> !Rs2Player.isMoving(), Rs2Random.between(10000,15000));
                     }
                 }
-                Rs2TileObjectModel regularPortal = rs2TileObjectCache.query().withName("Barrows Portal").nearest();
+                Rs2TileObjectModel regularPortal = rs2TileObjectCache.query().withIds(37603,37615,37591).nearest();
                 if(regularPortal != null){
                     while(pohThing != null){
                         if(!super.isRunning()){break;}
@@ -713,7 +713,7 @@ public class BarrowsScript extends Script {
                             if(regularPortal.click("Enter")){
                                 sleepUntil(()-> Rs2Player.isMoving(), Rs2Random.between(2000,4000));
                                 sleepUntil(()-> !Rs2Player.isMoving(), Rs2Random.between(10000,15000));
-                                sleepUntil(()-> rs2TileObjectCache.query().withName("Barrows Portal").nearest() == null, Rs2Random.between(10000,15000));
+                                sleepUntil(()-> rs2TileObjectCache.query().withIds(37603,37615,37591).nearest() == null, Rs2Random.between(10000,15000));
                             }
                         }
                     }
