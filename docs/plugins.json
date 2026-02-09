@@ -1460,7 +1460,7 @@
             "mm",
             "barrows"
         ],
-        "version": "2.0.2",
+        "version": "2.0.3",
         "minClientVersion": "2.1.0",
         "authors": [
             "Gage"
@@ -1468,8 +1468,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/BarrowsPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/BarrowsPlugin/assets/card.png",
         "disable": false,
-        "sha256": "95f643a82b1eb04f98e8c3ba0385c10770d0742919ce16b6e7d1eece7409919b",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/barrowsplugin-2.0.2.jar"
+        "sha256": "f2b1c08bb9d8069f8cec1f3e016c8fd67651d870ebba672045aa287488af4bbd",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/barrowsplugin-2.0.3.jar"
     },
     {
         "internalName": "AttackTimerMetronomePlugin",
@@ -2056,7 +2056,7 @@
             "motherlode",
             "mlm"
         ],
-        "version": "1.8.3",
+        "version": "1.8.4",
         "minClientVersion": "1.9.8",
         "authors": [
             "Mocrosoft"
@@ -2064,8 +2064,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/card.png",
         "disable": false,
-        "sha256": "ce0e5ccd7babe4da3842b41dcbe136ab00804b0990616a814da958f6e116a0a2",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/motherloadmineplugin-1.8.3.jar"
+        "sha256": "fc3b290dc6ac3eefc98ef8d0dad7ac587f97ad44dbfd509e73e1b126af4e4870",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/motherloadmineplugin-1.8.4.jar"
     },
     {
         "internalName": "AIOCamdozPlugin",
