@@ -4,17 +4,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import net.runelite.client.plugins.fishing.FishingPlugin;
-import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
-import net.runelite.client.plugins.microbot.astralrc.AstralRunesPlugin;
-import net.runelite.client.plugins.microbot.autofishing.AutoFishingPlugin;
-import net.runelite.client.plugins.microbot.example.ExamplePlugin;
+import net.runelite.client.plugins.microbot.slayer.SlayerPlugin;
 
 public class Microbot
 {
 
 	private static final Class<?>[] debugPlugins = {
-		AIOFighterPlugin.class
+            SlayerPlugin.class,
 	};
 
     public static void main(String[] args) throws Exception
