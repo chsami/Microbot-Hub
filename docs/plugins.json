@@ -2169,6 +2169,26 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/arrowplugin-1.0.1.jar"
     },
     {
+        "internalName": "SlayerPlugin",
+        "name": "Slayer",
+        "description": "Automated slayer with banking and travel support",
+        "tags": [
+            "slayer",
+            "combat",
+            "task"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.1.11",
+        "authors": [
+            "Big L"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "ba028c4d4f0cb9e1169f1b3b55aa5ad3d2ecbeb685c2502312fb1c5d829337a2",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/slayerplugin-1.0.0.jar"
+    },
+    {
         "internalName": "RcPlugin",
         "name": "Frosty Rc",
         "description": "A plugin to automate Rune crafting",
