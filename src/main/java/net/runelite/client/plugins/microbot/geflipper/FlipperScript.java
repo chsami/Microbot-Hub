@@ -45,7 +45,8 @@ public class FlipperScript extends Script {
 	private Object suggestionManager;
     private Object highlightController;
     private long lastActionTime = 0;
-    private long actionCooldown = 1500; // randomized cooldown between actions
+    private long actionCooldown = 1800; // randomized cooldown between actions
+	private long interactionTimeout = 33000;
 
 	private int[] grandExchangeSlotIds = new int[] {
 		InterfaceID.GeOffers.INDEX_0,
@@ -111,7 +112,21 @@ public class FlipperScript extends Script {
                         if (checkAndAbortIfNeeded()) return;
 
                         // Check for highlighted widgets
-                        checkAndClickHighlightedWidgets();
+                        if (checkAndClickHighlightedWidgets()) return;
+
+						// Returns to overview if stuck in offer window
+						long currentTime = System.currentTimeMillis();
+						if (Rs2GrandExchange.isOfferScreenOpen() && (currentTime - lastActionTime > interactionTimeout)) {
+							Rs2GrandExchange.backToOverview();
+
+							lastActionTime = System.currentTimeMillis();
+							actionCooldown = Rs2Random.randomGaussian(1800, 300);
+							interactionTimeout = Rs2Random.randomGaussian(33000, 6000);
+
+							log.info("interactionTimeout reached, returning to GE overview.");
+							return;
+						}
+
                         break;
                 }
             } catch (Exception ex) {
@@ -129,7 +144,7 @@ public class FlipperScript extends Script {
 		suggestionManager = null;
 		highlightController = null;
 		lastActionTime = 0;
-		actionCooldown = 1500;
+		actionCooldown = 1800;
 		super.shutdown();
 	}
 
@@ -327,7 +342,7 @@ public class FlipperScript extends Script {
 					: Rs2UiHelper.getDefaultRectangle();
 				Microbot.doInvoke(menuEntry, bounds);
 				lastActionTime = System.currentTimeMillis();
-				actionCooldown = Rs2Random.randomGaussian(1200, 300);
+				actionCooldown = Rs2Random.randomGaussian(1800, 300);
 				return true;
 			}
 		}
@@ -351,12 +366,12 @@ public class FlipperScript extends Script {
 		return true;
     }
 
-    private void checkAndClickHighlightedWidgets()
+    private boolean checkAndClickHighlightedWidgets()
 	{
 		long currentTime = System.currentTimeMillis();
-		if (currentTime - lastActionTime < actionCooldown) return;
+		if (currentTime - lastActionTime < actionCooldown) return false;
 
-		if (flippingCopilot == null || highlightController == null) return;
+		if (flippingCopilot == null || highlightController == null) return false;
 
 		try {
 			Widget highlightedWidget = getWidgetFromOverlay(highlightController, "");
@@ -367,11 +382,14 @@ public class FlipperScript extends Script {
 				Rs2Widget.clickWidget(highlightedWidget);
 				lastActionTime = currentTime;
                 actionCooldown = Rs2Random.randomGaussian(1800, 300);
+				return true;
 			}
 		}
 		catch (Exception e)
 		{
 			log.error("Could not process highlight widgets: {} - ", e.getMessage(), e);
 		}
+
+		return false;
 	}
 }
