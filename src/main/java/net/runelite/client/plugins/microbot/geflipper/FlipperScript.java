@@ -105,6 +105,19 @@ public class FlipperScript extends Script {
                             return;
                         }
 
+                        // Check interaction timeout FIRST - reset state if stuck
+                        long currentTime = System.currentTimeMillis();
+                        if (Rs2GrandExchange.isOfferScreenOpen() && (currentTime - lastActionTime > interactionTimeout)) {
+                            Rs2GrandExchange.backToOverview();
+
+                            lastActionTime = System.currentTimeMillis();
+                            actionCooldown = Rs2Random.randomGaussian(1800, 300);
+                            interactionTimeout = Rs2Random.randomGaussian(33000, 6000);
+
+                            log.info("interactionTimeout reached, returning to GE overview.");
+                            return;
+                        }
+
 						// Check for Copilot price/quantity messages in chat
 						if (checkAndPressCopilotKeybind()) return;
 
@@ -113,19 +126,6 @@ public class FlipperScript extends Script {
 
                         // Check for highlighted widgets
                         if (checkAndClickHighlightedWidgets()) return;
-
-						// Returns to overview if stuck in offer window
-						long currentTime = System.currentTimeMillis();
-						if (Rs2GrandExchange.isOfferScreenOpen() && (currentTime - lastActionTime > interactionTimeout)) {
-							Rs2GrandExchange.backToOverview();
-
-							lastActionTime = System.currentTimeMillis();
-							actionCooldown = Rs2Random.randomGaussian(1800, 300);
-							interactionTimeout = Rs2Random.randomGaussian(33000, 6000);
-
-							log.info("interactionTimeout reached, returning to GE overview.");
-							return;
-						}
 
                         break;
                 }
