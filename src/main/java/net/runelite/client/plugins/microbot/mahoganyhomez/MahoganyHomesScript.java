@@ -4,6 +4,7 @@ import com.google.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
@@ -23,6 +24,7 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
+import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -121,6 +123,12 @@ public class MahoganyHomesScript extends Script {
         if (plugin.getCurrentHome() == null
                 || !plugin.getCurrentHome().isInside(Rs2Player.getWorldLocation())
                 || Hotspot.isEverythingFixed()) {
+            return;
+        }
+
+        if (Rs2Widget.isWidgetVisible(InterfaceID.PohFurnitureCreation.FRAME)){
+            Microbot.log("Out of plank and furniture creation widget pop up");
+            bank();
             return;
         }
 
@@ -278,12 +286,27 @@ public class MahoganyHomesScript extends Script {
             var npc = Rs2Npc.getNpc(plugin.getCurrentHome().getNpcId());
             if (npc == null && Rs2Player.getWorldLocation().getPlane() > 0) {
                 log("We are on the wrong floor, Trying to find ladder to go down");
-                TileObject closestLadder = Rs2GameObject.findObject(plugin.getCurrentHome().getLadders());
-                if (Rs2GameObject.interact(closestLadder))
-                    sleepUntil(
-                            () -> Rs2Player.getWorldLocation().getPlane() == 0
-                            , 5000);
-                return;
+                int playerPlane = Rs2Player.getWorldLocation().getPlane();
+
+                List<GameObject> ladders = Rs2GameObject.getGameObjects(
+                        obj -> Arrays.stream(plugin.getCurrentHome().getLadders())
+                                .anyMatch(id -> id == obj.getId())
+                                && obj.getWorldLocation().getPlane() == playerPlane
+                );
+                GameObject closestLadder = ladders.stream()
+                        .min(Comparator.comparingInt(obj ->
+                                obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                        .orElse(null);
+                Rs2WorldPoint objectLocation = Rs2Tile.getNearestWalkableTile(closestLadder);
+                    if (!openDoorToObject(closestLadder, objectLocation)) {
+                        if (Rs2GameObject.interact(closestLadder)) {
+                            sleepUntil(
+                                    () -> Rs2Player.getWorldLocation().getPlane() == 0
+                                    , 5000);
+                            return;
+                        }
+                    }
+                //}
             }
             if (npc != null) {
                 Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
