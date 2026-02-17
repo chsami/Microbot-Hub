@@ -128,6 +128,7 @@ public class MahoganyHomesScript extends Script {
 
         if (Rs2Widget.isWidgetVisible(InterfaceID.PohFurnitureCreation.FRAME)){
             Microbot.log("Out of plank and furniture creation widget pop up");
+            Rs2Bank.walkToBank();
             bank();
             return;
         }
@@ -306,7 +307,6 @@ public class MahoganyHomesScript extends Script {
                             return;
                         }
                     }
-                //}
             }
             if (npc != null) {
                 Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
