@@ -505,7 +505,7 @@
             "see1duck",
             "microbot"
         ],
-        "version": "0.0.8",
+        "version": "0.0.9",
         "minClientVersion": "2.0.13",
         "authors": [
             "See1Duck"
@@ -513,8 +513,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/card.png",
         "disable": false,
-        "sha256": "a96187a5cddd4249422ff7aa3d8e2c732f9b8f474c739a95bb70ba0dca8295f1",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mahoganyhomesplugin-0.0.8.jar"
+        "sha256": "5343be8c8af4a4bff5553e014ea24d06fc05bd43b615989846c505013e35c25b",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mahoganyhomesplugin-0.0.9.jar"
     },
     {
         "internalName": "DiscordPlugin",
