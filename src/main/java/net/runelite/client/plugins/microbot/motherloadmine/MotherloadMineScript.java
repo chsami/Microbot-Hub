@@ -151,6 +151,9 @@ public class MotherloadMineScript extends Script
             case DEPOSIT_HOPPER:
                 depositHopper();
                 break;
+            case DROP_GEMS:
+                dropGems();
+                break;
         }
     }
 
@@ -173,6 +176,11 @@ public class MotherloadMineScript extends Script
 
         if (shouldRepairWaterwheel && getBrokenStrutCount() > 1) {
             status = MLMStatus.FIXING_WATERWHEEL;
+            return;
+        }
+
+        if (config.dropGems() && hasGemsInInventory()) {
+            status = MLMStatus.DROP_GEMS;
             return;
         }
 
@@ -261,6 +269,16 @@ public class MotherloadMineScript extends Script
                 ItemID.RUNITE_ORE, ItemID.ADAMANTITE_ORE, ItemID.MITHRIL_ORE,
                 ItemID.GOLD_ORE, ItemID.COAL
         );
+    }
+
+    private boolean hasGemsInInventory() {
+        return Rs2Inventory.contains(ItemID.UNCUT_SAPPHIRE, ItemID.UNCUT_EMERALD, ItemID.UNCUT_RUBY, ItemID.UNCUT_DIAMOND);
+    }
+    
+    private void dropGems() {
+        if (hasGemsInInventory()) {
+            Rs2Inventory.dropAll(ItemID.UNCUT_SAPPHIRE, ItemID.UNCUT_EMERALD, ItemID.UNCUT_RUBY, ItemID.UNCUT_DIAMOND);
+        }
     }
 
     private int payDirtCount() {
