@@ -19,7 +19,7 @@ import java.awt.*;
 	name = PluginConstants.DEFAULT_PREFIX + "Chatbot",
 	description = "AI-powered chatbot using OpenAI. Reads in-game chat and responds intelligently.",
 	tags = {"chatbot", "openai", "ai", "chat", "gpt"},
-	authors = { "Mocrosoft" },
+	authors = { "Bender" },
 	version = ChatbotPlugin.version,
 	minClientVersion = "1.9.8",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -28,7 +28,7 @@ import java.awt.*;
 @Slf4j
 public class ChatbotPlugin extends Plugin {
 
-    static final String version = "1.2.3";
+    static final String version = "1.0.0";
 
     @Inject
     private ChatbotConfig config;
