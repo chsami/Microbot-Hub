@@ -4,14 +4,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import net.runelite.client.plugins.microbot.motherloadmine.MotherloadMinePlugin;
 import net.runelite.client.plugins.microbot.slayer.SlayerPlugin;
 
 public class Microbot
 {
 
 	private static final Class<?>[] debugPlugins = {
-            MotherloadMinePlugin.class,
+            SlayerPlugin.class,
 	};
 
     public static void main(String[] args) throws Exception
