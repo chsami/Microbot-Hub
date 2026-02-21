@@ -6,5 +6,6 @@ public enum MLMStatus {
     DEPOSIT_HOPPER,
     BANKING,
     EMPTY_SACK,
-    FIXING_WATERWHEEL
+    FIXING_WATERWHEEL,
+    DROP_GEMS
 }
