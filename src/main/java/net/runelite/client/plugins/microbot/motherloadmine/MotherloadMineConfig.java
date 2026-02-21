@@ -22,6 +22,7 @@ public interface MotherloadMineConfig extends Config
 	String inventorySetup = "inventory-setup";
 	String useDepositAll = "useDepositAll";
 	String antiCrash = "antiCrash";
+	String dropGems = "dropGems";
 	String useUpstairsMine = "useUpstairsMine";
 	String useUpstairsHopper = "useUpstairsHopper";
 	String miningArea = "miningArea";
@@ -85,6 +86,18 @@ public interface MotherloadMineConfig extends Config
 		section = generalSection
 	)
 	default boolean useAntiCrash()
+	{
+		return false;
+	}
+
+	@ConfigItem(
+		keyName = dropGems,
+		name = "Drop Gems",
+		description = "Automatically drop gems while mining",
+		position = 4,
+		section = generalSection
+	)
+	default boolean dropGems()
 	{
 		return false;
 	}
