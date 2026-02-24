@@ -172,20 +172,18 @@ public class GabulhasKarambwansScript extends Script {
                                  Rs2GameObject.interact(SPIRITUAL_FAIRY_TREE_ID, "Last-destination (DKP)");
 
             if (interacted) {
-                sleepUntil(() -> Rs2Player.distanceTo(fishingPoint) < 15, 8000);
+                waitTillPlayerNextToFishingSpot();
             }
         } else {
             Rs2Walker.walkTo(zanarisRingPoint, 3);
             Rs2Player.waitForWalking();
             
             if (Rs2GameObject.interact(FAIRY_RING_ID, "Last-destination (DKP)")) {
-                sleepUntil(() -> Rs2Player.distanceTo(fishingPoint) < 15, 8000);
+                waitTillPlayerNextToFishingSpot();
             } else {
                 Rs2Player.waitForWalking();
             }
         }
-
-        waitTillPlayerNextToFishingSpot();
     }
 
     private boolean hasPohCape() {
