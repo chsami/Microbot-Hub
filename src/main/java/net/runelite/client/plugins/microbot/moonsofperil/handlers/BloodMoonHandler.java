@@ -6,12 +6,12 @@ import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
-import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
-import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilPlugin;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.GameObjects;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.Locations;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.Widgets;
+import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
+import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilPlugin;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
@@ -44,13 +44,13 @@ public class BloodMoonHandler implements BaseHandler {
     private final Rs2InventorySetup equipmentNormal;
     private static final WorldPoint afterRainTile = Locations.BLOOD_ATTACK_6.getWorldPoint();
     public boolean arrived = false;
-    private final BossHandler boss;
+    private final net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler boss;
     private final boolean debugLogging;
 
     public BloodMoonHandler(MoonsOfPerilConfig cfg, Rs2InventorySetup equipmentNormal) {
         this.enableBoss = cfg.enableBlood();
         this.equipmentNormal = equipmentNormal;
-        this.boss = new BossHandler(cfg);
+        this.boss = new net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler(cfg);
         this.debugLogging = cfg.debugLogging();
         this.DisableGroundCancelClick = cfg.DisableGroundCancelClick();
     }
@@ -81,7 +81,7 @@ public class BloodMoonHandler implements BaseHandler {
             else if (isSpecialAttack2Sequence()) {
                 specialAttack2Sequence();
             }
-            else if (BossHandler.isNormalAttackSequence(sigilNpcID)) {
+            else if (net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.isNormalAttackSequence(sigilNpcID)) {
                 boss.normalAttackSequence(sigilNpcID, bossNpcID, ATTACK_TILES, equipmentNormal);
             }
             sleep(300);

@@ -1,8 +1,8 @@
 package net.runelite.client.plugins.microbot.moonsofperil.enums;
 
+import net.runelite.api.coords.WorldPoint;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import net.runelite.api.coords.WorldPoint;
 
 import java.util.Arrays;
 

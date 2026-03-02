@@ -5,19 +5,19 @@ import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
-import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.GameObjects;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.Locations;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.Widgets;
+import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
-import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.Collections;
@@ -43,14 +43,14 @@ public class BlueMoonHandler implements BaseHandler {
     private final MoonsOfPerilConfig cfg;
     private final boolean enableBoss;
     private final boolean disableGlacierDodge;
-    private final BossHandler boss;
+    private final net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler boss;
     private final boolean debugLogging;
 
     public BlueMoonHandler(MoonsOfPerilConfig cfg, Rs2InventorySetup equipmentNormal) {
         this.cfg = cfg;
         this.equipmentNormal = equipmentNormal;
         this.enableBoss = cfg.enableBlue();
-        this.boss = new BossHandler(cfg);
+        this.boss = new net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler(cfg);
         this.debugLogging = cfg.debugLogging();
         this.disableGlacierDodge = cfg.DisableGlacierDodge();
     }
@@ -82,7 +82,7 @@ public class BlueMoonHandler implements BaseHandler {
                 if (!this.disableGlacierDodge) { specialAttack2Sequence(this.cfg);}
                 else {specialAttack2IdleSequence();}
             }
-            else if (BossHandler.isNormalAttackSequence(sigilNpcID)) {
+            else if (net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.isNormalAttackSequence(sigilNpcID)) {
                 boss.normalAttackSequence(sigilNpcID, bossNpcID, ATTACK_TILES, equipmentNormal);
             }
             sleep(300);
@@ -91,7 +91,7 @@ public class BlueMoonHandler implements BaseHandler {
         Rs2Prayer.disableAllPrayers();
         sleep(2400);
         Rs2Prayer.disableAllPrayers();
-        BossHandler.rechargeRunEnergy();
+        net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.rechargeRunEnergy();
         BreakHandlerScript.setLockState(false);
         return State.IDLE;
     }
@@ -197,11 +197,11 @@ public class BlueMoonHandler implements BaseHandler {
             }
             WorldPoint attackTile = Rs2Player.getWorldLocation();
             if (debugLogging) {Microbot.log(ts.get() + "Attack location calculated as: " + attackTile);}
-            sleepUntil(() -> BossHandler.inDanger(attackTile) || invSetup.doesEquipmentMatch(),3_000);
+            sleepUntil(() -> net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.inDanger(attackTile) || invSetup.doesEquipmentMatch(),3_000);
             if (invSetup.doesEquipmentMatch()) {
                 break;
             }
-            if (BossHandler.inDanger(attackTile)) {
+            if (net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.inDanger(attackTile)) {
                 if (debugLogging) {Microbot.log(ts.get() + "Standing on dangerous tile: " + attackTile);}
                 WorldPoint safeTile = Rs2Tile.getSafeTiles(1).get(0);
                 if (debugLogging) {Microbot.log(ts.get() + "Safe tile calculated to be: " + safeTile);}

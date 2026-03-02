@@ -2,8 +2,8 @@ package net.runelite.client.plugins.microbot.moonsofperil.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.ObjectID;
+import net.runelite.api.gameval.NpcID;
 
 @Getter
 @RequiredArgsConstructor
