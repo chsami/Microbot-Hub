@@ -1,17 +1,17 @@
 package net.runelite.client.plugins.microbot.moonsofperil.handlers;
 
-import net.runelite.api.gameval.ObjectID;
-import net.runelite.api.gameval.ItemID;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
+import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
-import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
@@ -122,26 +122,51 @@ public class ResupplyHandler implements BaseHandler {
         cookBream();
     }
 
+    public void eatToFull(String foodName) {
+        while (Rs2Player.getHealthPercentage() < 100) {
+
+            if (!Rs2Inventory.contains(foodName)) {
+                Microbot.log("Out of food!");
+                return;
+            }
+
+            Rs2Inventory.interact(foodName, "Eat");
+            Rs2Player.waitForAnimation(1200); // wait for eat animation
+        }
+    }
+
     private void fishBream() {
+        if (Rs2Player.getHealthPercentage() < 100) {
+            eatToFull("Cooked bream");
+        }
+
+        // 1) Ensure we have a BIG_NET (only fetch if missing)
         if (!Rs2Inventory.contains(ItemID.BIG_NET)) {
             if (Rs2GameObject.interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) {
                 Rs2Dialogue.sleepUntilHasDialogueOption("Take fishing supplies.");
                 Rs2Dialogue.clickOption("Take fishing supplies.");
                 Rs2Inventory.waitForInventoryChanges(4_000);
             }
-            Rs2Walker.walkFastCanvas(new WorldPoint(1520,9689,0));
-            while (!Rs2Inventory.isFull() && Rs2Inventory.contains(ItemID.BIG_NET)) {
-                if (!Rs2Player.isAnimating()) {
-                    Rs2GameObject.interact(51367, "Fish"); // restart if animation stopped
-                    sleep(3000, 4000);
-                }
-                sleep(300, 500);
-            }
-            if (debugLogging) {Microbot.log("Inventory should now be full of fish");}
-            sleep(600, 900);
-            Rs2Inventory.drop(ItemID.BIG_NET);
         }
+        // 2) Safety: if we STILL don't have it, do nothing this tick
+        if (!Rs2Inventory.contains(ItemID.BIG_NET)) {
+            if (debugLogging) Microbot.log("No big net yet — can't fish.");
+            return;
+        }
+        // 3) Now do the fishing regardless of how we got the net
+        Rs2Walker.walkFastCanvas(new WorldPoint(1520, 9689, 0));
 
+        while (!Rs2Inventory.isFull()) {
+            if (!Rs2Player.isAnimating()) {
+                Rs2GameObject.interact(51367, "Fish"); // restart if animation stopped
+                sleep(3000, 4000);
+            }
+            sleep(300, 500);
+        }
+        if (debugLogging) Microbot.log("Inventory should now be full of fish");
+        sleep(600, 900);
+        // Optional: only drop it if that's really intended
+        Rs2Inventory.drop(ItemID.BIG_NET);
     }
 
     private void cookBream() {

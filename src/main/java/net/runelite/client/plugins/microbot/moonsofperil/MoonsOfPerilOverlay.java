@@ -9,8 +9,8 @@ import net.runelite.client.ui.overlay.components.TitleComponent;
 
 import javax.inject.Inject;
 import java.awt.*;
-import java.time.Instant;
 import java.time.Duration;
+import java.time.Instant;
 
 public class MoonsOfPerilOverlay extends OverlayPanel {
     private Instant startTime;

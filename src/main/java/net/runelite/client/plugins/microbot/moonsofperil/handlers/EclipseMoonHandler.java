@@ -1,30 +1,30 @@
 package net.runelite.client.plugins.microbot.moonsofperil.handlers;
 
-import net.runelite.api.gameval.NpcID;
-import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.AnimationID;
+import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
+import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.GameObjects;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.Locations;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.Widgets;
-import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.coords.Rs2LocalPoint;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
-import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
-
-import static net.runelite.client.plugins.microbot.util.Global.sleep;
-import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
+import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static net.runelite.client.plugins.microbot.util.Global.sleep;
+import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 
 public class EclipseMoonHandler implements BaseHandler {
 
@@ -43,7 +43,7 @@ public class EclipseMoonHandler implements BaseHandler {
     private final Rs2InventorySetup equipmentClones;
     private final boolean enableBoss;
     private final boolean clonerandomdelay;
-    private final net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler boss;
+    private final BossHandler boss;
     private final boolean debugLogging;
 
     public EclipseMoonHandler(MoonsOfPerilConfig cfg, Rs2InventorySetup equipmentNormal, Rs2InventorySetup equipmentClones)
@@ -51,7 +51,7 @@ public class EclipseMoonHandler implements BaseHandler {
         this.equipmentNormal = equipmentNormal;
         this.equipmentClones = equipmentClones;
         this.enableBoss = cfg.enableEclipse();
-        this.boss = new net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler(cfg);
+        this.boss = new BossHandler(cfg);
         this.debugLogging = cfg.debugLogging();
         this.clonerandomdelay = cfg.enableEclipseRandomDelay();
     }
@@ -81,7 +81,7 @@ public class EclipseMoonHandler implements BaseHandler {
             else if (isSpecialAttack2Sequence()) {
                 specialAttack2Sequence();
             }
-            else if (net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.isNormalAttackSequence(sigilNpcID)) {
+            else if (BossHandler.isNormalAttackSequence(sigilNpcID)) {
                 boss.normalAttackSequence(sigilNpcID, bossNpcID, ATTACK_TILES, equipmentNormal);
             }
             sleep(300);
@@ -89,7 +89,7 @@ public class EclipseMoonHandler implements BaseHandler {
         if (debugLogging) {Microbot.log("The " + bossName + "boss health bar widget is no longer visible, the fight must have ended.");}
         Rs2Prayer.disableAllPrayers();
         sleep(2400);
-        net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.rechargeRunEnergy();
+        BossHandler.rechargeRunEnergy();
         BreakHandlerScript.setLockState(false);
         return State.IDLE;
     }
@@ -178,7 +178,7 @@ public class EclipseMoonHandler implements BaseHandler {
             boss.equipInventorySetup(equipmentClones);
             boss.eatIfNeeded();
             boss.drinkIfNeeded();
-            net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler.meleePrayerOn();
+            BossHandler.meleePrayerOn();
             return true;
         }
 

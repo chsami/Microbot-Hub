@@ -1,12 +1,12 @@
 package net.runelite.client.plugins.microbot.moonsofperil.handlers;
 
-import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
+import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 
 public class IdleHandler implements BaseHandler {
 
-    private final net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler boss;
+    private final BossHandler boss;
 
     public IdleHandler(MoonsOfPerilConfig cfg) {
         this.boss = new BossHandler(cfg);

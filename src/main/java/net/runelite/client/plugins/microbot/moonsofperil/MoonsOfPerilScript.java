@@ -1,15 +1,15 @@
 package net.runelite.client.plugins.microbot.moonsofperil;
 
-import javax.inject.Inject;
 import lombok.Getter;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-
 import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.moonsofperil.handlers.BaseHandler;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 
-import java.util.*;
+import javax.inject.Inject;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 public class MoonsOfPerilScript extends Script {
@@ -20,12 +20,12 @@ public class MoonsOfPerilScript extends Script {
 	private Rs2InventorySetup eclipseClones;
 
     @Getter
-    private net.runelite.client.plugins.microbot.moonsofperil.enums.State state = net.runelite.client.plugins.microbot.moonsofperil.enums.State.IDLE;
+    private State state = State.IDLE;
     public static boolean test = false;
-    public static volatile net.runelite.client.plugins.microbot.moonsofperil.enums.State CURRENT_STATE = net.runelite.client.plugins.microbot.moonsofperil.enums.State.IDLE;
+    public static volatile State CURRENT_STATE = State.IDLE;
 	private final MoonsOfPerilConfig config;
 
-    private final Map<net.runelite.client.plugins.microbot.moonsofperil.enums.State, net.runelite.client.plugins.microbot.moonsofperil.handlers.BaseHandler> handlers = new EnumMap<>(net.runelite.client.plugins.microbot.moonsofperil.enums.State.class);
+    private final Map<State, BaseHandler> handlers = new EnumMap<>(State.class);
 
 	@Inject
 	public MoonsOfPerilScript(MoonsOfPerilConfig config) {
@@ -51,7 +51,7 @@ public class MoonsOfPerilScript extends Script {
                 /* ---------------- MAIN LOOP ---------------- */
                 state = determineState();
                 CURRENT_STATE = state;
-                net.runelite.client.plugins.microbot.moonsofperil.handlers.BaseHandler h = handlers.get(state);
+                BaseHandler h = handlers.get(state);
                 if (h != null && h.validate()) {
                     h.execute();
                 }
@@ -70,72 +70,72 @@ public class MoonsOfPerilScript extends Script {
     /* One-off wiring of state → handler instances                        */
     /* ------------------------------------------------------------------ */
     private void initHandlers() {
-        handlers.put(net.runelite.client.plugins.microbot.moonsofperil.enums.State.IDLE,        new net.runelite.client.plugins.microbot.moonsofperil.handlers.IdleHandler(config));
-        handlers.put(net.runelite.client.plugins.microbot.moonsofperil.enums.State.RESUPPLY,    new net.runelite.client.plugins.microbot.moonsofperil.handlers.ResupplyHandler(config));
-        handlers.put(net.runelite.client.plugins.microbot.moonsofperil.enums.State.ECLIPSE_MOON,new net.runelite.client.plugins.microbot.moonsofperil.handlers.EclipseMoonHandler(config, eclipseEquipment, eclipseClones));
-        handlers.put(net.runelite.client.plugins.microbot.moonsofperil.enums.State.BLUE_MOON,   new net.runelite.client.plugins.microbot.moonsofperil.handlers.BlueMoonHandler(config, blueEquipment));
-        handlers.put(net.runelite.client.plugins.microbot.moonsofperil.enums.State.BLOOD_MOON,  new net.runelite.client.plugins.microbot.moonsofperil.handlers.BloodMoonHandler(config, bloodEquipment));
-        handlers.put(net.runelite.client.plugins.microbot.moonsofperil.enums.State.REWARDS,     new net.runelite.client.plugins.microbot.moonsofperil.handlers.RewardHandler(config));
-        handlers.put(net.runelite.client.plugins.microbot.moonsofperil.enums.State.DEATH,       new net.runelite.client.plugins.microbot.moonsofperil.handlers.DeathHandler(config));
+        handlers.put(State.IDLE,        new net.runelite.client.plugins.microbot.moonsofperil.handlers.IdleHandler(config));
+        handlers.put(State.RESUPPLY,    new net.runelite.client.plugins.microbot.moonsofperil.handlers.ResupplyHandler(config));
+        handlers.put(State.ECLIPSE_MOON,new net.runelite.client.plugins.microbot.moonsofperil.handlers.EclipseMoonHandler(config, eclipseEquipment, eclipseClones));
+        handlers.put(State.BLUE_MOON,   new net.runelite.client.plugins.microbot.moonsofperil.handlers.BlueMoonHandler(config, blueEquipment));
+        handlers.put(State.BLOOD_MOON,  new net.runelite.client.plugins.microbot.moonsofperil.handlers.BloodMoonHandler(config, bloodEquipment));
+        handlers.put(State.REWARDS,     new net.runelite.client.plugins.microbot.moonsofperil.handlers.RewardHandler(config));
+        handlers.put(State.DEATH,       new net.runelite.client.plugins.microbot.moonsofperil.handlers.DeathHandler(config));
     }
 
     /* ------------------------------------------------------------------ */
     /* state logic                */
     /* ------------------------------------------------------------------ */
-    private net.runelite.client.plugins.microbot.moonsofperil.enums.State determineState() {
+    private State determineState() {
         /* 1 ─ In case of death */
-        if (isPlayerDead())                 return net.runelite.client.plugins.microbot.moonsofperil.enums.State.DEATH;
+        if (isPlayerDead())                 return State.DEATH;
 
         /* 2 ─ if all bosses are dead --> end-of-run chest loot */
-        if (readyToLootChest())             return net.runelite.client.plugins.microbot.moonsofperil.enums.State.REWARDS;
+        if (readyToLootChest())             return State.REWARDS;
 
         /* 3 ─ Do resupply as needed before boss phases */
-        if (needsResupply())                  return net.runelite.client.plugins.microbot.moonsofperil.enums.State.RESUPPLY;
+        if (needsResupply())                  return State.RESUPPLY;
 
         /* 4 ─ boss phases in order */
-        if (eclipseMoonSequence())       return net.runelite.client.plugins.microbot.moonsofperil.enums.State.ECLIPSE_MOON;
-        if (blueMoonSequence())         return net.runelite.client.plugins.microbot.moonsofperil.enums.State.BLUE_MOON;
-        if (bloodMoonSequence())         return net.runelite.client.plugins.microbot.moonsofperil.enums.State.BLOOD_MOON;
+        if (eclipseMoonSequence())       return State.ECLIPSE_MOON;
+        if (blueMoonSequence())         return State.BLUE_MOON;
+        if (bloodMoonSequence())         return State.BLOOD_MOON;
 
         /* 5 ─ nothing to do */
-        return net.runelite.client.plugins.microbot.moonsofperil.enums.State.IDLE;
+        return State.IDLE;
     }
 
     /* ---------- Supplies ------------------------------------------------- */
     private boolean needsResupply()
     {
         // Skip while we're already resupplying
-        if (state == net.runelite.client.plugins.microbot.moonsofperil.enums.State.RESUPPLY) {
+        if (state == State.RESUPPLY) {
             return false;
         }
-        net.runelite.client.plugins.microbot.moonsofperil.handlers.BaseHandler resupply = handlers.get(net.runelite.client.plugins.microbot.moonsofperil.enums.State.RESUPPLY);
+        BaseHandler resupply = handlers.get(State.RESUPPLY);
         return resupply != null && resupply.validate();
     }
 
     /* ---------- Eclipse Moon -------------------------------------------- */
     private boolean eclipseMoonSequence()
     {
-        net.runelite.client.plugins.microbot.moonsofperil.handlers.BaseHandler eclipse = handlers.get(net.runelite.client.plugins.microbot.moonsofperil.enums.State.ECLIPSE_MOON);
+        BaseHandler eclipse = handlers.get(State.ECLIPSE_MOON);
         return eclipse != null && eclipse.validate();
     }
 
     /* ---------- Blue Moon ------------------------------------------------ */
     private boolean blueMoonSequence()
     {
-        net.runelite.client.plugins.microbot.moonsofperil.handlers.BaseHandler blue = handlers.get(net.runelite.client.plugins.microbot.moonsofperil.enums.State.BLUE_MOON);
+        BaseHandler blue = handlers.get(State.BLUE_MOON);
         return blue != null && blue.validate();
     }
 
     /* ---------- Blood Moon ---------------------------------------------- */
     private boolean bloodMoonSequence()
     {
-        net.runelite.client.plugins.microbot.moonsofperil.handlers.BaseHandler blood = handlers.get(net.runelite.client.plugins.microbot.moonsofperil.enums.State.BLOOD_MOON);
+        BaseHandler blood = handlers.get(State.BLOOD_MOON);
         return blood != null && blood.validate();
     }
 
     /* ---------- Rewards Chest ---------------------------------------------- */
     private boolean readyToLootChest() {
-        net.runelite.client.plugins.microbot.moonsofperil.handlers.BaseHandler reward = handlers.get(net.runelite.client.plugins.microbot.moonsofperil.enums.State.REWARDS);
+        BaseHandler reward = handlers.get(State.REWARDS);
         return reward != null && reward.validate();
     }
 

@@ -4,15 +4,14 @@ import lombok.Getter;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
+import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.Locations;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.Widgets;
-import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import javax.inject.Inject;
-
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
@@ -28,7 +27,7 @@ public class RewardHandler implements BaseHandler {
     private boolean blueEnabled;
     private boolean bloodEnabled;
     private final boolean debugLogging;
-    private final net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler boss;
+    private final BossHandler boss;
 
     @Inject
     public RewardHandler(MoonsOfPerilConfig cfg) {
