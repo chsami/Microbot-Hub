@@ -206,7 +206,7 @@
             "exchange",
             "automation"
         ],
-        "version": "1.1.0",
+        "version": "1.2.0",
         "minClientVersion": "2.0.7",
         "authors": [
             "Choken"
@@ -214,8 +214,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "0401dcbeee78d4a043b57e054b7cc7300173e86607d13bacb3304db6ce49d461",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/flipperplugin-1.1.0.jar"
+        "sha256": "a8848a9158d0203f080301485a82dfbd9ebd2401fd3bcd6efbea849de8db66cb",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/flipperplugin-1.2.0.jar"
     },
     {
         "internalName": "LunarTabletsPlugin",
@@ -1891,7 +1891,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "da65c1df06f2f4443431312964a5d9c89f97bf4ecca476f180f4b30becabb8ca",
+        "sha256": "592d147d174a5e17f71084b2f46bb8cef728f91669c1b19ced0bea1059a36479",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.1.jar"
     },
     {
@@ -2523,7 +2523,7 @@
             "GabulhasKarambwans",
             "Gabulhas"
         ],
-        "version": "1.1.0",
+        "version": "1.2.0",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -2531,8 +2531,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "6df26314e093c4925a925de026511a6b5821cfd6cde72015c2bde772e1a6fe4e",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gabulhaskarambwansplugin-1.1.0.jar"
+        "sha256": "dc308ba09adce326309fd4cdacda41bf619f2ce552243919036c07ff5fc94937",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gabulhaskarambwansplugin-1.2.0.jar"
     },
     {
         "internalName": "RoguesDenPlugin",
@@ -2883,7 +2883,7 @@
             "combat",
             "microbot"
         ],
-        "version": "1.0.2",
+        "version": "1.0.3",
         "minClientVersion": "2.0.14",
         "authors": [
             "The Funk"
@@ -2891,8 +2891,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/card.png",
         "disable": false,
-        "sha256": "740dee9a97d754865f791f6ba369be6a02f47f2dc5917600697f3558b72ecdfe",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/moonsofperilplugin-1.0.2.jar"
+        "sha256": "25c02e447ca1371869ea7889c1493b71637481142d70a92eadd46b719513f933",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/moonsofperilplugin-1.0.3.jar"
     },
     {
         "internalName": "BanksShopperPlugin",
