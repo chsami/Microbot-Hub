@@ -86,7 +86,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AnonymousPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AnonymousPlugin/assets/card.png",
         "disable": false,
-        "sha256": "ec9a199feee04950c80d5065badb644a96c67d162dea8578b8dd346fdda1e387",
+        "sha256": "fa366abfb7dd926b225a38508f8a2c5ede2909b17b2c7ab0c84a994f949e4976",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/anonymousplugin-1.0.3.jar"
     },
     {
@@ -214,7 +214,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "a8848a9158d0203f080301485a82dfbd9ebd2401fd3bcd6efbea849de8db66cb",
+        "sha256": "dc68c01c3c5c5c7208f0ea562ea446acdd82f4cdcc20ccb832c5e6f533b91f8b",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/flipperplugin-1.2.0.jar"
     },
     {
@@ -411,7 +411,7 @@
             "microbot",
             "Vyrewatch"
         ],
-        "version": "1.0.1",
+        "version": "1.0.2",
         "minClientVersion": "2.0.7",
         "authors": [
             "Pumsters"
@@ -419,8 +419,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/PVirewatchKillerPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/PVirewatchKillerPlugin/assets/card.png",
         "disable": false,
-        "sha256": "6efaf24983147cace8b34ab5b3a655e3bd07245a9090dc8196761ce927a23dbe",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/pvirewatchkillerplugin-1.0.1.jar"
+        "sha256": "5877c241bb74e226115395512b35d9b8ebb43620fab5242885b7897dc66c2bbf",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/pvirewatchkillerplugin-1.0.2.jar"
     },
     {
         "internalName": "BarbarianFishingPlugin",
@@ -1591,7 +1591,7 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.0.9",
+        "version": "2.0.10",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft",
@@ -1600,8 +1600,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "a2c09ad14cdd1c68e79e02d94accdff6d64bd01e2d610c3c42c5e6de4b7abdf1",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.0.9.jar"
+        "sha256": "52d85eb59e31e4503761d3a4077776ef571213695b9040959635917967691f58",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.0.10.jar"
     },
     {
         "internalName": "OrbChargerPlugin",
@@ -2627,7 +2627,7 @@
             "microbot",
             "mixology"
         ],
-        "version": "1.0.3",
+        "version": "1.0.4",
         "minClientVersion": "1.9.9.1",
         "authors": [
             "Mocrosoft"
@@ -2635,8 +2635,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MixologyPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MixologyPlugin/assets/card.png",
         "disable": false,
-        "sha256": "d21701ae469c58b23d25083b5381b00e7c5ed29d8a06d41d3fb17a115639f6c1",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mixologyplugin-1.0.3.jar"
+        "sha256": "072682ee48bfb08459806781deee77d70aeb15210c46edc3973dc85da02363da",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mixologyplugin-1.0.4.jar"
     },
     {
         "internalName": "GiantsFoundryPlugin",
