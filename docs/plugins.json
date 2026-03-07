@@ -206,16 +206,17 @@
             "exchange",
             "automation"
         ],
-        "version": "1.2.0",
-        "minClientVersion": "2.0.7",
+        "version": "1.2.1",
+        "minClientVersion": "2.1.21",
         "authors": [
-            "Choken"
+            "Choken",
+            "afss0"
         ],
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "dc68c01c3c5c5c7208f0ea562ea446acdd82f4cdcc20ccb832c5e6f533b91f8b",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/flipperplugin-1.2.0.jar"
+        "sha256": "a79bd67034b440ed31b4eab2f1f340300b9fd4ca616b0a05398b5ff85b8f17b1",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/flipperplugin-1.2.1.jar"
     },
     {
         "internalName": "LunarTabletsPlugin",
