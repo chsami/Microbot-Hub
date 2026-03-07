@@ -428,6 +428,8 @@ public class AutoWoodcuttingScript extends Script {
             sleepUntil(() -> (!Rs2Player.isMoving() && Rs2Widget.findWidget("How many would you like to burn?", null, false) != null), 5000);
             Rs2Random.waitEx(400, 200);
             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+            sleepUntil(Rs2Player::isAnimating, 2000);
+            Microbot.log("Sleeping until not animating or no more logs");
             sleepUntil(() -> !Rs2Inventory.contains(treeType.getLog()) || !Rs2Player.isAnimating(), 40000);
 
             return;

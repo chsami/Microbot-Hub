@@ -32,7 +32,7 @@ public class MoonsOfPerilOverlay extends OverlayPanel {
         try {
             panelComponent.setPreferredSize(new Dimension(200, 900));
             panelComponent.getChildren().add(TitleComponent.builder()
-                    .text("\uD83C\uDF19 Moons Of Peril V1.0.0 \uD83C\uDF19")
+                    .text("\uD83C\uDF19 Moons Of Peril V1.0.3 \uD83C\uDF19")
                     .color(Color.ORANGE)
                     .build());
 

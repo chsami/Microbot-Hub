@@ -35,7 +35,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class MoonsOfPerilPlugin extends Plugin {
-    static final String version = "1.0.2";
+    static final String version = "1.0.3";
     @Inject
     private MoonsOfPerilConfig config;
     @Provides
