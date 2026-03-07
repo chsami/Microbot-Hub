@@ -36,7 +36,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class MotherloadMinePlugin extends Plugin {
 
-	static final String version = "1.8.4";
+	static final String version = "1.9.0";
 
     @Inject
     private MotherloadMineConfig config;
