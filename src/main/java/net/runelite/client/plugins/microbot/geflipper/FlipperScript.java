@@ -367,35 +367,31 @@ public class FlipperScript extends Script {
 	}
 
     private boolean checkAndPressCopilotKeybind() {
-        // 1. Search MES_LAYER_SCROLLCONTENTS for a widget containing "Copilot" (if it's time to select the item suggestion)
-        Widget scrollContents = Rs2Widget.getWidget(InterfaceID.Chatbox.MES_LAYER_SCROLLCONTENTS);
-        Widget copilotWidget = null;
-
-        if (scrollContents != null) {
-            copilotWidget = Rs2Widget.findWidget("Copilot", List.of(scrollContents), false);
-            if (copilotWidget != null && Rs2Widget.isWidgetVisible(copilotWidget.getId())) {
-				log.info("Found chat widget '{}'.", copilotWidget.getId());
-				// 2. Press only Enter if found in scroll contents (selecting item)
-				Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
-				
-				// As these widgets tend to disappear quickly sometimes, we sleep after we interact with it to select the suggested item
-				sleepUntil(() -> System.currentTimeMillis() - lastActionTime < actionCooldown);
-				lastActionTime = System.currentTimeMillis();
-				actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
-				return true;
-            }
+		// 1. Search for a widget with text "Copilot item" (if it's time to select the item suggestion in the buy item window)
+        Widget copilotWidget = Rs2Widget.findWidget("Copilot item:", null, false);
+        if (copilotWidget != null && Rs2Widget.isWidgetVisible(copilotWidget.getId())) {
+			log.info("Found chat widget Copilot item '{}'.", copilotWidget.getId());
+			/// 2. Press only Enter if found in scroll contents (selecting item)
+			Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
+			
+			/// As these widgets tend to disappear quickly sometimes, we sleep after we interact with it to select the suggested item
+			sleepUntil(() -> System.currentTimeMillis() - lastActionTime < actionCooldown);
+			lastActionTime = System.currentTimeMillis();
+			actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+			return true;
         }
 
 		if (System.currentTimeMillis() - lastActionTime < actionCooldown) return false;
 
-		Widget mesLayer = Rs2Widget.getWidget(InterfaceID.Chatbox.MES_LAYER);
-		if (mesLayer != null) {
-			copilotWidget = Rs2Widget.findWidget("Copilot", List.of(mesLayer), false);
-		}
+		// If it's time to set price/quantity
 
-        if (copilotWidget != null && Rs2Widget.isWidgetVisible(copilotWidget.getId())) {
+		Widget setPriceWidget = Rs2Widget.findWidget("Set a price for each item:", null, true);
+		Widget setQuantityWidget = Rs2Widget.findWidget("How many do you wish to ", null, false);
+
+        if ((setPriceWidget != null && Rs2Widget.isWidgetVisible(setPriceWidget.getId())) || 
+		(setQuantityWidget != null && Rs2Widget.isWidgetVisible(setQuantityWidget.getId()))) {
 			// 3. Press E then Enter (setting price/quantity)
-			log.info("Found chat widget '{}'.", copilotWidget.getId());
+			log.info("Found chat widget (price/quantity) '{}'.", setPriceWidget != null ? setPriceWidget.getId() : setQuantityWidget.getId());
 			Rs2Keyboard.keyPress(KeyEvent.VK_E);
 			sleep(KEY_PRESS_DELAY_MIN, KEY_PRESS_DELAY_MAX);
 			Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
