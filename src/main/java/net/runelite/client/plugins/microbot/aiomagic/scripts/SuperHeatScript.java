@@ -116,7 +116,9 @@ public class SuperHeatScript extends Script {
                             return;
                         }
 
-                        Rs2Bank.withdrawX(plugin.getSuperHeatItem().getItemID(), requiredOre);
+                        if (!withdrawExactAmount(plugin.getSuperHeatItem().getItemID(), requiredOre)) {
+                            return;
+                        }
 
                         if (requiredCoal > 0) {
                             if (!Rs2Bank.hasBankItem(ItemID.COAL, requiredCoal)) {
@@ -125,8 +127,15 @@ public class SuperHeatScript extends Script {
                                 return;
                             }
 
-                            Rs2Bank.withdrawX(ItemID.COAL, requiredCoal);
+                            if (!withdrawExactAmount(ItemID.COAL, requiredCoal)) {
+                                return;
+                            }
                         }
+
+                        if (!hasBankedMaterialsForCycle(requiredOre, requiredCoal)) {
+                            return;
+                        }
+
                         Rs2Bank.closeBank();
                         sleepUntil(() -> !Rs2Bank.isOpen());
                         break;
@@ -202,5 +211,32 @@ public class SuperHeatScript extends Script {
         int coalToWithdraw = oreToWithdraw * coalAmount;
 
         return new int[]{oreToWithdraw, coalToWithdraw};
+    }
+
+    private boolean withdrawExactAmount(int itemId, int amount) {
+        if (amount <= 0) {
+            return true;
+        }
+
+        if (!Rs2Bank.withdrawX(true, itemId, amount)) {
+            return false;
+        }
+
+        Rs2Inventory.waitForInventoryChanges(1200);
+        sleepUntil(() -> Rs2Inventory.hasItemAmount(itemId, amount), 2500);
+        return Rs2Inventory.hasItemAmount(itemId, amount);
+    }
+
+    private boolean hasBankedMaterialsForCycle(int requiredOre, int requiredCoal) {
+        boolean hasRequiredOre = Rs2Inventory.hasItemAmount(plugin.getSuperHeatItem().getItemID(), requiredOre);
+        if (!hasRequiredOre) {
+            return false;
+        }
+
+        if (requiredCoal <= 0) {
+            return true;
+        }
+
+        return Rs2Inventory.hasItemAmount(ItemID.COAL, requiredCoal);
     }
 }
