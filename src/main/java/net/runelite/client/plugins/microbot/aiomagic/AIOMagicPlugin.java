@@ -72,12 +72,15 @@ public class AIOMagicPlugin extends Plugin {
     private StunAlchScript stunAlchScript;
 
     @Inject
+    private StunScript stunScript;
+
+    @Inject
     private StunTeleAlchScript stunTeleAlchScript; // NEW
 
     @Inject
     private SpinFlaxScript spinFlaxScript;
 
-    public final static String version = "1.2.2";
+    public final static String version = "1.2.3";
 
     @Getter
     private Rs2CombatSpells combatSpell;
@@ -118,6 +121,9 @@ public class AIOMagicPlugin extends Plugin {
             case SPLASHING:
                 splashScript.run();
                 break;
+            case STUN:
+                stunScript.run();
+                break;
             case ALCHING:
                 alchScript.run();
                 break;
@@ -148,6 +154,7 @@ public class AIOMagicPlugin extends Plugin {
         superHeatScript.shutdown();
         teleportScript.shutdown();
         teleAlchScript.shutdown();
+        stunScript.shutdown();
         stunAlchScript.shutdown();
         if (stunTeleAlchScript != null) stunTeleAlchScript.shutdown(); // NEW
         if (spinFlaxScript != null) spinFlaxScript.shutdown();
