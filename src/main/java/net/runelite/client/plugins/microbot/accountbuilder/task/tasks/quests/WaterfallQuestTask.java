@@ -14,7 +14,12 @@ import net.runelite.client.plugins.microbot.accountbuilder.task.AbstractTask;
 @Slf4j
 public class WaterfallQuestTask extends AbstractTask {
 
-    /** Quest varbit ID for Waterfall Quest completion. */
+    /**
+     * Quest varbit ID for Waterfall Quest progress.
+     * Source: OSRS Wiki — https://oldschool.runescape.wiki/w/Waterfall_Quest#Varbit
+     * Value 7 = quest complete.
+     * TODO: verify against live client before enabling this task in production.
+     */
     private static final int WATERFALL_QUEST_VARBIT = 222;
     private static final int COMPLETE_VALUE = 7;
 

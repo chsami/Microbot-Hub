@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.accountbuilder;
 
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.accountbuilder.task.Task;
@@ -12,6 +13,7 @@ import javax.inject.Inject;
 import java.awt.*;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public class AccountBuilderOverlay extends OverlayPanel {
 
     private final AccountBuilderPlugin plugin;
@@ -95,7 +97,7 @@ public class AccountBuilderOverlay extends OverlayPanel {
                     .build());
 
         } catch (Exception ex) {
-            System.out.println("AccountBuilderOverlay error: " + ex.getMessage());
+            log.error("AccountBuilderOverlay render error: {}", ex.getMessage(), ex);
         }
 
         return super.render(graphics);

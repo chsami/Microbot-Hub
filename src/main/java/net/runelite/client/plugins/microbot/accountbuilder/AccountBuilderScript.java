@@ -39,8 +39,8 @@ public class AccountBuilderScript extends Script {
         taskExecutor = new TaskExecutor(buildTaskList(config), profile);
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
-            if (!Microbot.isLoggedIn()) return;
             if (!super.run()) return;
+            if (!Microbot.isLoggedIn()) return;
             try {
                 taskExecutor.tick();
             } catch (Exception ex) {
@@ -74,6 +74,7 @@ public class AccountBuilderScript extends Script {
                 new TrainStrengthTask(40, profile),
                 // Phase 2 — Combat Base
                 new TrainDefenceTask(40, profile),
+                new TrainHitpointsTask(50, profile),
                 new TrainRangedTask(40, profile),
                 // Phase 3 — Utility Skills
                 new TrainPrayerTask(43, profile),

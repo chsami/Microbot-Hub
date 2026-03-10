@@ -14,7 +14,12 @@ import net.runelite.client.plugins.microbot.accountbuilder.task.AbstractTask;
 @Slf4j
 public class AnimalMagnetismTask extends AbstractTask {
 
-    /** Quest varbit ID for Animal Magnetism completion. */
+    /**
+     * Quest varbit ID for Animal Magnetism progress.
+     * Source: OSRS Wiki — https://oldschool.runescape.wiki/w/Animal_Magnetism#Varbit
+     * Value 4 = quest complete.
+     * TODO: verify against live client before enabling this task in production.
+     */
     private static final int ANIMAL_MAGNETISM_VARBIT = 274;
     private static final int COMPLETE_VALUE = 4;
 
