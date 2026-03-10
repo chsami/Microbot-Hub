@@ -2109,7 +2109,7 @@
             "skilling",
             "training"
         ],
-        "version": "1.2.2",
+        "version": "1.2.3",
         "minClientVersion": "2.0.7",
         "authors": [
             "Unknown Author"
@@ -2117,8 +2117,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOMagicPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOMagicPlugin/assets/card.png",
         "disable": false,
-        "sha256": "88db76ae226e484e37bd17792a68c230bf3e4e8ec8e87389ac70321bbce57652",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiomagicplugin-1.2.2.jar"
+        "sha256": "d1085663f32faf8ca596202f0c7a7f58c9cfa65926367b3dd5d2183b5e37f0b5",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiomagicplugin-1.2.3.jar"
     },
     {
         "internalName": "ConstructionPlugin",
