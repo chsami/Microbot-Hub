@@ -1180,7 +1180,7 @@
             "Giant Mole",
             "microbot"
         ],
-        "version": "0.0.4",
+        "version": "0.0.5",
         "minClientVersion": "2.0.0",
         "authors": [
             "See1Duck"
@@ -1188,8 +1188,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/GiantMolePlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/GiantMolePlugin/assets/card.png",
         "disable": false,
-        "sha256": "f81f4fc75ed4bb5952f8a737d1709cba14a1649454da998608d9f07faeedcc64",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/giantmoleplugin-0.0.4.jar"
+        "sha256": "2086215a60982dbe6efdcb2c286f6419eec7d4b16324c9e7efc5bc5dc82b20c5",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/giantmoleplugin-0.0.5.jar"
     },
     {
         "internalName": "DemonicGorillaPlugin",
@@ -2109,7 +2109,7 @@
             "skilling",
             "training"
         ],
-        "version": "1.2.1",
+        "version": "1.2.2",
         "minClientVersion": "2.0.7",
         "authors": [
             "Unknown Author"
@@ -2117,8 +2117,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOMagicPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOMagicPlugin/assets/card.png",
         "disable": false,
-        "sha256": "17b98f9c50fde094c0bae9f58c4c7c0966dfb7c89fea47e20b4c5146f43878ba",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiomagicplugin-1.2.1.jar"
+        "sha256": "88db76ae226e484e37bd17792a68c230bf3e4e8ec8e87389ac70321bbce57652",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiomagicplugin-1.2.2.jar"
     },
     {
         "internalName": "ConstructionPlugin",
