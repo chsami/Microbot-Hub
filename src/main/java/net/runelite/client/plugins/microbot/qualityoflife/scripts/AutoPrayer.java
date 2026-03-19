@@ -2,7 +2,9 @@ package net.runelite.client.plugins.microbot.qualityoflife.scripts;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Player;
+import net.runelite.api.WorldType;
 import net.runelite.api.kit.KitType;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.qualityoflife.QoLConfig;
@@ -11,149 +13,200 @@ import net.runelite.client.plugins.microbot.qualityoflife.enums.WeaponID;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
+import javax.inject.Inject;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-public class AutoPrayer extends Script {
+public class AutoPrayer extends Script
+{
+    @Inject
+    private ClientThread clientThread;
 
     private long lastPkAttackTime = 0;
     private String lastPrayedStyle = null;
+
     private static final long PRAYER_DISABLE_DELAY_MS = 10_000;
+
     private Player followedPlayer = null;
     private long followEndTime = 0;
 
-    public boolean run(QoLConfig config) {
-        mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
-            try {
-                if (!Microbot.isLoggedIn()) return;
-                if (!super.run()) return;
-                if (!config.autoPrayAgainstPlayers()) return;
+    public boolean run(QoLConfig config)
+    {
+        mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() ->
+        {
+            clientThread.invokeLater(() ->
+            {
+                try
+                {
+                    if (!Microbot.isLoggedIn()) return;
+                    if (!super.run()) return;
+                    if (!config.autoPrayAgainstPlayers()) return;
 
-                handleAntiPkPrayers(config);
-
-            } catch (Exception ex) {
-                log.error("Error in AutoPrayer execution: {}", ex.getMessage(), ex);
-            }
+                    handleAntiPkPrayers(config);
+                }
+                catch (Exception ex)
+                {
+                    log.error("AutoPrayer error", ex);
+                }
+            });
         }, 0, 300, TimeUnit.MILLISECONDS);
+
         return true;
     }
 
-    private void handleAntiPkPrayers(QoLConfig config) {
+    private void handleAntiPkPrayers(QoLConfig config)
+    {
         Player local = Microbot.getClient().getLocalPlayer();
-        if (!(local.getInteracting() instanceof Player)) {
-            // If we haven't been attacked for 10s, turn off prayers and stop following
-            if (lastPrayedStyle != null && System.currentTimeMillis() - lastPkAttackTime > PRAYER_DISABLE_DELAY_MS) {
+        if (local == null) return;
+
+        if (!(local.getInteracting() instanceof Player))
+        {
+            if (lastPrayedStyle != null &&
+                System.currentTimeMillis() - lastPkAttackTime > PRAYER_DISABLE_DELAY_MS)
+            {
                 Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, false);
                 Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, false);
                 Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_RANGE, false);
                 Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_ITEM, false);
+
                 lastPrayedStyle = null;
                 followedPlayer = null;
                 followEndTime = 0;
             }
             return;
         }
+
         Player attacker = (Player) local.getInteracting();
+        if (attacker == null || attacker.getPlayerComposition() == null) return;
+
         int animationId = attacker.getAnimation();
         int weaponId = attacker.getPlayerComposition().getEquipmentId(KitType.WEAPON);
+
         String detectedStyle = null;
 
-        // Aggressive mode: follow and swap based on weapon, not just animation
-        if (config.aggressiveAntiPkMode()) {
-            // Start or refresh follow if attacked
+        if (config.aggressiveAntiPkMode())
+        {
             followedPlayer = attacker;
             followEndTime = System.currentTimeMillis() + PRAYER_DISABLE_DELAY_MS;
         }
 
-        // Get weapon and animation info for detection
         WeaponAnimation anim = WeaponAnimation.getByAnimationId(animationId);
         WeaponID weapon = WeaponID.getByObjectId(weaponId);
-        String weaponName = weapon != null ? weapon.getItemName() : "Unknown (" + weaponId + ")";
-        String animationName = anim != null ? anim.getAnimationName() : "Unknown (" + animationId + ")";
 
-        // If following a player in aggressive mode and timer is active
-        if (config.aggressiveAntiPkMode() && followedPlayer != null && System.currentTimeMillis() < followEndTime) {
+        if (config.aggressiveAntiPkMode() && followedPlayer != null &&
+            System.currentTimeMillis() < followEndTime)
+        {
             int followedWeaponId = followedPlayer.getPlayerComposition().getEquipmentId(KitType.WEAPON);
+            int followedAnimationId = followedPlayer.getAnimation();
+
             WeaponID followedWeapon = WeaponID.getByObjectId(followedWeaponId);
-            WeaponAnimation followedAnim = WeaponAnimation.getByAnimationId(animationId);
-            
-            if (followedWeapon != null) {
+            WeaponAnimation followedAnim = WeaponAnimation.getByAnimationId(followedAnimationId);
+
+            if (followedWeapon != null)
+            {
                 detectedStyle = followedWeapon.getAttackType().toLowerCase();
             }
-            if (followedAnim != null) {
-                // Animation takes priority if present
+
+            if (followedAnim != null)
+            {
                 detectedStyle = followedAnim.getAttackType().toLowerCase();
             }
-            
-            String followedWeaponName = followedWeapon != null ? followedWeapon.getItemName() : "Unknown (" + followedWeaponId + ")";
-            String followedAnimationName = followedAnim != null ? followedAnim.getAnimationName() : "Unknown (" + animationId + ")";
-            
-            log.info("Aggressive Anti-PK: Following player {} | WeaponID={} ({}) | AnimationID={} ({}) | WeaponType={} | FinalPrayer={}",
-                followedPlayer.getName(), followedWeaponId, followedWeaponName, animationId, followedAnimationName, detectedStyle, detectedStyle);
-                
-            if (detectedStyle != null) {
-                prayStyle(detectedStyle, config);
-            }
-        } else {
-            // Normal mode: use animation/weapon detection on attacker
-            if (weapon != null) {
+        }
+        else
+        {
+            if (weapon != null)
+            {
                 detectedStyle = weapon.getAttackType().toLowerCase();
             }
-            if (anim != null) {
+
+            if (anim != null)
+            {
                 detectedStyle = anim.getAttackType().toLowerCase();
             }
-            
-            log.info("[Anti-PK Debug] AnimationID={} ({}) | WeaponID={} ({}) | WeaponType={} | FinalPrayer={}",
-                animationId, animationName, weaponId, weaponName, detectedStyle, detectedStyle);
-                
-            if (detectedStyle != null) {
-                prayStyle(detectedStyle, config);
-            }
+        }
+
+        if (detectedStyle != null)
+        {
+            prayStyle(detectedStyle, config);
         }
     }
 
-    private void prayStyle(String style, QoLConfig config) {
-        boolean shouldChange = !style.equals(lastPrayedStyle)
-            || (style.equals("melee") && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PROTECT_MELEE))
-            || (style.equals("magic") && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PROTECT_MAGIC))
-            || (style.equals("ranged") && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PROTECT_RANGE));
+    private void prayStyle(String style, QoLConfig config)
+    {
+        if (style == null) return;
 
-        if (shouldChange) {
-            if ("melee".equals(style)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, true);
-            } else if ("ranged".equals(style)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_RANGE, true);
-            } else if ("magic".equals(style)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, true);
+        boolean shouldChange = !style.equals(lastPrayedStyle);
+
+        if (shouldChange)
+        {
+            switch (style)
+            {
+                case "melee":
+                    Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, true);
+                    break;
+                case "ranged":
+                    Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_RANGE, true);
+                    break;
+                case "magic":
+                    Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, true);
+                    break;
             }
+
             lastPrayedStyle = style;
         }
 
-        Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_ITEM, config.enableProtectItemPrayer());
+        applyProtectItemIfAllowed(config);
 
         lastPkAttackTime = System.currentTimeMillis();
     }
 
-    public boolean isFollowingPlayer(Player player) {
-        return followedPlayer != null && player != null && player.getName().equals(followedPlayer.getName());
+    /**
+     * Protect Item is unavailable in Last Man Standing; only toggle it elsewhere.
+     */
+    private static void applyProtectItemIfAllowed(QoLConfig cfg)
+    {
+        if (isLastManStandingWorld())
+        {
+            Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_ITEM, false);
+            return;
+        }
+        Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_ITEM, cfg.enableProtectItemPrayer());
     }
 
-    public void handleAggressivePrayerOnGearChange(Player player, QoLConfig config) {
+    private static boolean isLastManStandingWorld()
+    {
+        if (Microbot.getClient() == null)
+        {
+            return false;
+        }
+        return Microbot.getClient().getWorldType().contains(WorldType.LAST_MAN_STANDING);
+    }
+
+    public boolean isFollowingPlayer(Player player)
+    {
+        return followedPlayer != null &&
+               player != null &&
+               player.getName() != null &&
+               player.getName().equals(followedPlayer.getName());
+    }
+
+    public void handleAggressivePrayerOnGearChange(Player player, QoLConfig config)
+    {
+        if (player == null || player.getPlayerComposition() == null) return;
+
         int weaponId = player.getPlayerComposition().getEquipmentId(KitType.WEAPON);
         WeaponID weapon = WeaponID.getByObjectId(weaponId);
-        if (weapon != null) {
+
+        if (weapon != null)
+        {
             String detectedStyle = weapon.getAttackType().toLowerCase();
             prayStyle(detectedStyle, config);
-            log.info("Aggressive Anti-PK (Immediate): Detected gear swap for {} | WeaponID={} | Style={}", player.getName(), weaponId, detectedStyle);
         }
     }
 
-    public Player getFollowedPlayer() {
-        return followedPlayer;
-    }
-
     @Override
-    public void shutdown() {
+    public void shutdown()
+    {
         super.shutdown();
         log.info("AutoPrayer shutdown complete.");
     }
