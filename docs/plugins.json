@@ -392,7 +392,7 @@
             "magic",
             "moneymaking"
         ],
-        "version": "1.0.2",
+        "version": "1.0.4",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -400,8 +400,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "d974130da7cd4a5013caa000902ed27f1dc4594c7547f67203f24f9e65af5974",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/lunarplankmakeplugin-1.0.2.jar"
+        "sha256": "09b056f9b8da1163ceb7932efe54d0f3a8f12b0bb788fd92a7abb9256398409f",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/lunarplankmakeplugin-1.0.4.jar"
     },
     {
         "internalName": "PVirewatchKillerPlugin",
@@ -686,7 +686,7 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "ba028c4d4f0cb9e1169f1b3b55aa5ad3d2ecbeb685c2502312fb1c5d829337a2",
+        "sha256": "28e7da5f0afcb38cff46cf6e933f4e28881323addf74bb130367bc63dde7b0ff",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/slayerplugin-1.0.0.jar"
     },
     {
@@ -1601,7 +1601,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "52d85eb59e31e4503761d3a4077776ef571213695b9040959635917967691f58",
+        "sha256": "7b48e91a08815d97830b8a925e5e86c2b06f384d9057a730008b7c0a11658b4b",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.0.10.jar"
     },
     {
