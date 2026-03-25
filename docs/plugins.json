@@ -2293,7 +2293,7 @@
         "tags": [
             "sailing"
         ],
-        "version": "2.0.1",
+        "version": "2.1.0",
         "minClientVersion": "2.1.0",
         "authors": [
             "Mocrosoft"
@@ -2301,8 +2301,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MSailingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MSailingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "d6ed631a4ab7b235ad9c3c33d82a66d42f46f3fad309b62f7297928769790c0e",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/msailingplugin-2.0.1.jar"
+        "sha256": "1059dce0225793dcb45cff44b40b20fa30d16dac17392b271b9997aaa6421f06",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/msailingplugin-2.1.0.jar"
     },
     {
         "internalName": "DeadFallTrapHunterPlugin",
