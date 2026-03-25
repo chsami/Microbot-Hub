@@ -5,6 +5,7 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
+import net.runelite.client.plugins.microbot.sailing.AlchOrder;
 import net.runelite.client.plugins.microbot.sailing.features.trials.data.TrialRanks;
 
 import java.awt.*;
@@ -62,7 +63,7 @@ public interface SailingConfig extends Config {
 		keyName = "alchItems",
 		name = "Alch items",
 		description = "Comma-separated list of items to high alch when salvaging.",
-		position = 2,
+		position = 1,
 		section = generalSection
 	)
 	default String alchItems()
@@ -71,10 +72,34 @@ public interface SailingConfig extends Config {
 	}
 
 	@ConfigItem(
+		keyName = "openCaskets",
+		name = "Open Caskets",
+		description = "Automatically open all caskets in your inventory before alching and dropping.",
+		position = 2,
+		section = generalSection
+	)
+	default boolean openCaskets()
+	{
+		return false;
+	}
+
+	@ConfigItem(
+		keyName = "alchOrder",
+		name = "Alch Order",
+		description = "Order in which to high alch items. LIST_ORDER follows your alch list. LEFT_TO_RIGHT sweeps row by row. RIGHT_TO_LEFT sweeps rows right to left. TOP_TO_BOTTOM sweeps column by column. BOTTOM_TO_TOP sweeps columns bottom to top.",
+		position = 3,
+		section = generalSection
+	)
+	default AlchOrder alchOrder()
+	{
+		return AlchOrder.LIST_ORDER;
+	}
+
+	@ConfigItem(
 		keyName = "dropItems",
 		name = "Drop items",
 		description = "Comma-separated list of items to drop when salvaging.",
-		position = 3,
+		position = 4,
 		section = generalSection
 	)
 	default String dropItems()
