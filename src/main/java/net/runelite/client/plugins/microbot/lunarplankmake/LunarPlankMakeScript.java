@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.lunarplankmake;
 
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.lunarplankmake.enums.Logs;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
@@ -36,9 +37,7 @@ public class LunarPlankMakeScript extends Script {
     public boolean run(LunarPlankMakeConfig config) {
         startTime = System.currentTimeMillis();
 
-        int unprocessedItemPrice = Microbot.getItemManager().search(config.ITEM().getName()).get(0).getPrice();
-        int processedItemPrice = Microbot.getItemManager().search(config.ITEM().getFinished()).get(0).getPrice();
-        profitPerPlank = processedItemPrice - unprocessedItemPrice;
+        refreshProfitPerPlank(config);
 
         useSetDelay = config.useSetDelay();
         setDelay = config.setDelay();
@@ -71,20 +70,22 @@ public class LunarPlankMakeScript extends Script {
     }
 
     private void plankItems(LunarPlankMakeConfig config) {
-        if (!Rs2Inventory.hasItem(config.ITEM().getName(), true)) {
+        int logId = config.ITEM().getLogItemId();
+        if (!Rs2Inventory.hasItem(logId)) {
             currentState = State.BANKING;
             return;
         }
 
-        int initialPlankCount = Rs2Inventory.count(config.ITEM().getFinished());
+        int plankId = config.ITEM().getPlankItemId();
+        int initialPlankCount = Rs2Inventory.count(plankId);
 
         if (lazyMode) {
-            int initialLogQuantity = Rs2Inventory.count(config.ITEM().getName());
+            int initialLogQuantity = Rs2Inventory.count(logId);
             Rs2Magic.cast(MagicAction.PLANK_MAKE);
             addDelay();
-            Rs2Inventory.interact(config.ITEM().getName());
+            Rs2Inventory.interact(logId);
             if (waitUntilNoLogsRemaining(config, initialLogQuantity)) {
-                int plankMadeThisBatch = Rs2Inventory.count(config.ITEM().getFinished()) - initialPlankCount;
+                int plankMadeThisBatch = Rs2Inventory.count(plankId) - initialPlankCount;
                 plankMade += plankMadeThisBatch;
                 addDelay();
             } else {
@@ -96,10 +97,10 @@ public class LunarPlankMakeScript extends Script {
 
         Rs2Magic.cast(MagicAction.PLANK_MAKE);
         addDelay();
-        Rs2Inventory.interact(config.ITEM().getName());
+        Rs2Inventory.interact(logId);
 
-        if (waitForInventoryChange(config.ITEM().getFinished(), initialPlankCount)) {
-            int plankMadeThisAction = Rs2Inventory.count(config.ITEM().getFinished()) - initialPlankCount;
+        if (waitForInventoryChange(plankId, initialPlankCount)) {
+            int plankMadeThisAction = Rs2Inventory.count(plankId) - initialPlankCount;
             plankMade += plankMadeThisAction;
             addDelay();
         } else {
@@ -112,12 +113,13 @@ public class LunarPlankMakeScript extends Script {
         if (initialLogQuantity <= 0) {
             return true;
         }
+        int logId = config.ITEM().getLogItemId();
         long start = System.currentTimeMillis();
         long timeoutMs = initialLogQuantity * 4000L;
         if (timeoutMs < 60000L) {
             timeoutMs = 60000L;
         }
-        while (Rs2Inventory.hasItem(config.ITEM().getName(), true)) {
+        while (Rs2Inventory.hasItem(logId)) {
             if (System.currentTimeMillis() - start > timeoutMs) {
                 return false;
             }
@@ -126,10 +128,10 @@ public class LunarPlankMakeScript extends Script {
         return true;
     }
 
-    private boolean waitForInventoryChange(String itemName, int initialCount) {
+    private boolean waitForInventoryChange(int plankItemId, int initialCount) {
         long start = System.currentTimeMillis();
-        while (Rs2Inventory.count(itemName) == initialCount) {
-            if (System.currentTimeMillis() - start > 3000) { // 3-second timeout
+        while (Rs2Inventory.count(plankItemId) == initialCount) {
+            if (System.currentTimeMillis() - start > 3000) {
                 return false;
             }
             sleep(10);
@@ -140,8 +142,11 @@ public class LunarPlankMakeScript extends Script {
     private void bank(LunarPlankMakeConfig config) {
         if (!Rs2Bank.openBank()) return;
 
-        Rs2Bank.depositAll(config.ITEM().getFinished());
-        sleepUntilOnClientThread(() -> !Rs2Inventory.hasItem(config.ITEM().getFinished()));
+        int plankId = config.ITEM().getPlankItemId();
+        int logId = config.ITEM().getLogItemId();
+
+        Rs2Bank.depositAll(plankId);
+        sleepUntilOnClientThread(() -> !Rs2Inventory.hasItem(plankId));
 
         boolean hasVoucher = false;
 
@@ -157,14 +162,23 @@ public class LunarPlankMakeScript extends Script {
 
         int logsToWithdraw = hasVoucher ? 12 : 28;
 
-        if (Rs2Bank.hasItem(config.ITEM().getName())) {
-            Rs2Bank.withdrawX(config.ITEM().getName(), logsToWithdraw);
-            sleepUntilOnClientThread(() -> Rs2Inventory.hasItem(config.ITEM().getName()));
-        } else {
+        int logsInInventory = Rs2Inventory.count(logId);
+        if (logsInInventory >= logsToWithdraw) {
+            Rs2Bank.closeBank();
+            currentState = State.PLANKING;
+            calculateProfitAndDisplay(config);
+            return;
+        }
+
+        if (!Rs2Bank.hasItem(logId)) {
             Microbot.showMessage("No more " + config.ITEM().getName() + " to plank.");
             shutdown();
             return;
         }
+
+        int need = logsToWithdraw - logsInInventory;
+        Rs2Bank.withdrawX(logId, need);
+        sleepUntilOnClientThread(() -> Rs2Inventory.count(logId) >= logsToWithdraw);
 
         Rs2Bank.closeBank();
         currentState = State.PLANKING;
@@ -172,11 +186,43 @@ public class LunarPlankMakeScript extends Script {
     }
 
     private void waitUntilReady() {
-        sleep(500); // Short sleep before retrying
+        sleep(500);
         currentState = State.PLANKING;
     }
 
+    private void refreshProfitPerPlank(LunarPlankMakeConfig config) {
+        Logs item = config.ITEM();
+        int plankPrice = gePrice(item.getFinished());
+        int logPrice = gePrice(item.getName());
+        int astral = gePrice("Astral rune");
+        int nature = gePrice("Nature rune");
+        int runeGp = 2 * astral + nature;
+        if (config.includeEarthRuneCost()) {
+            int earth = gePrice("Earth rune");
+            runeGp += 15 * earth;
+        }
+        int voucherPerPlank = 0;
+        if (config.useSawmillVouchers()) {
+            int voucherPrice = gePrice("Sawmill voucher");
+            voucherPerPlank = voucherPrice / 24;
+        }
+        int planksPerLog = config.useSawmillVouchers() ? 2 : 1;
+        int logCostPerPlank = logPrice / planksPerLog;
+        int coinFeePerPlank = item.getPlankMakeCoinFee() / planksPerLog;
+        int runeCostPerPlank = runeGp / planksPerLog;
+        profitPerPlank = plankPrice - logCostPerPlank - coinFeePerPlank - runeCostPerPlank - voucherPerPlank;
+    }
+
+    private static int gePrice(String itemName) {
+        try {
+            return Microbot.getItemManager().search(itemName).get(0).getPrice();
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     private void calculateProfitAndDisplay(LunarPlankMakeConfig config) {
+        refreshProfitPerPlank(config);
         double elapsedHours = (System.currentTimeMillis() - startTime) / 3600000.0;
         int plankPerHour = (int) (plankMade / elapsedHours);
         int totalProfit = profitPerPlank * (int) plankMade;

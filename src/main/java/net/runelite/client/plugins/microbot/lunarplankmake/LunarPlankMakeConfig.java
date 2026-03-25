@@ -69,10 +69,21 @@ public interface LunarPlankMakeConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "includeEarthRuneCost",
+            name = "Include Earth rune cost",
+            description = "Count 15 Earth runes per plank in profit (turn off if using mud/earth staff)",
+            position = 4,
+            section = generalSection
+    )
+    default boolean includeEarthRuneCost() {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = "useSetDelay",
             name = "Use Set Delay",
             description = "Enable to use a set delay between actions",
-            position = 4,
+            position = 5,
             section = generalSection
     )
     default boolean useSetDelay() {
@@ -83,7 +94,7 @@ public interface LunarPlankMakeConfig extends Config {
             keyName = "setDelay",
             name = "Set Delay (ms)",
             description = "The fixed delay in milliseconds between actions",
-            position = 5,
+            position = 6,
             section = generalSection
     )
     default int setDelay() {
@@ -94,7 +105,7 @@ public interface LunarPlankMakeConfig extends Config {
             keyName = "useRandomDelay",
             name = "Use Random Delay",
             description = "Enable to use a random delay between actions",
-            position = 6,
+            position = 7,
             section = generalSection
     )
     default boolean useRandomDelay() {
@@ -105,7 +116,7 @@ public interface LunarPlankMakeConfig extends Config {
             keyName = "maxRandomDelay",
             name = "Maximum Random Delay (ms)",
             description = "The maximum random delay in milliseconds between actions",
-            position = 7,
+            position = 8,
             section = generalSection
     )
     default int maxRandomDelay() {
