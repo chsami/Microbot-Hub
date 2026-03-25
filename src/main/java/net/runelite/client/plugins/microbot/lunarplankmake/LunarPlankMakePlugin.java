@@ -24,7 +24,7 @@ import java.awt.*;
 )
 @Slf4j
 public class LunarPlankMakePlugin extends Plugin {
-    public static final String version = "1.0.2";
+    public static final String version = "1.0.4";
     @Inject
     private LunarPlankMakeConfig config;
 
