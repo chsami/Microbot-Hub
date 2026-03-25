@@ -7,8 +7,10 @@ import net.runelite.client.plugins.microbot.api.boat.Rs2BoatCache;
 import net.runelite.client.plugins.microbot.api.player.models.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.sailing.AlchOrder;
 import net.runelite.client.plugins.microbot.sailing.SailingConfig;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -17,6 +19,7 @@ import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
@@ -63,19 +66,22 @@ public class SalvagingScript {
                 return;
             }
 
+            // Check inventory FIRST before deciding whether to salvage
+            if (isInventoryFull()) {
+                log.info("Inventory full, handling before salvaging");
+                handleFullInventory(config, player);
+                return;
+            }
+
+            // Inventory has space — go find a wreck and salvage
             var nearbyWreck = findNearestWreck(player.getWorldLocation());
             if (nearbyWreck == null) {
                 log.info("No shipwreck found nearby");
                 sleep(WAIT_TIME);
-                dropJunk(config);
                 return;
             }
 
-            if (isInventoryFull()) {
-                handleFullInventory(config, player);
-            } else {
-                deploySalvagingHook(player);
-            }
+            deploySalvagingHook(player);
 
         } catch (Exception ex) {
             log.error("Error in salvaging script", ex);
@@ -117,9 +123,17 @@ public class SalvagingScript {
         if (hasSalvageItems() && !isPlayerAnimating(player)) {
             depositSalvageOrDrop(config);
         } else {
+            // 1. Drop junk first to make room for casket loot
+            dropJunk(config);
+            // 2. Open caskets — now there's space for the loot to land
+            if (config.openCaskets()) {
+                openCaskets();
+            }
+            // 3. Alch anything on the alch list (including new loot from caskets)
             if (config.enableAlching()) {
                 alchItems(config);
             }
+            // 4. Drop anything leftover from casket loot that's also on the drop list
             dropJunk(config);
         }
     }
@@ -162,30 +176,88 @@ public class SalvagingScript {
         }
     }
 
+    private void openCaskets() {
+        while (Rs2Inventory.hasItem("casket")) {
+            int slotsBefore = Rs2Inventory.emptySlotCount();
+            log.info("Opening casket ({} casket(s) remaining)", Rs2Inventory.count("casket"));
+            Rs2Inventory.interact("casket", "Open");
+            sleepUntil(() -> !Rs2Inventory.hasItem("casket") ||
+                    Rs2Inventory.emptySlotCount() != slotsBefore, 5000);
+            if (Rs2Inventory.hasItem("casket") && Rs2Inventory.emptySlotCount() == slotsBefore) {
+                log.warn("Casket open had no effect, stopping casket loop");
+                break;
+            }
+            sleep(300, 600);
+        }
+        log.info("All caskets opened");
+    }
+
     private void alchItems(SailingConfig config) {
         var alchItems = config.alchItems();
-        if (alchItems == null || alchItems.isBlank()) {
-            return;
-        }
+        if (alchItems == null || alchItems.isBlank()) return;
 
-        var itemsToAlch = Arrays.stream(alchItems.split(","))
+        var itemNamesToAlch = Arrays.stream(alchItems.split(","))
                 .map(String::trim)
+                .map(String::toLowerCase)
                 .filter(item -> !item.isEmpty())
-                .toArray(String[]::new);
+                .collect(Collectors.toList());
 
-        for (String itemName : itemsToAlch) {
-            if (Rs2Inventory.hasItem(itemName)) {
-                Rs2Magic.alch(itemName);
-                Rs2Player.waitForXpDrop(Skill.MAGIC, 10000, false);
+        AlchOrder order = config.alchOrder();
+
+        if (order == AlchOrder.LIST_ORDER) {
+            for (String itemName : itemNamesToAlch) {
+                while (Rs2Inventory.hasItem(itemName)) {
+                    log.info("Alching (list order): {}", itemName);
+                    Rs2Magic.alch(itemName);
+                    Rs2Player.waitForXpDrop(Skill.MAGIC, 10000, false);
+                }
             }
+        } else {
+            final int COLUMNS = 4;
+            Comparator<Rs2ItemModel> slotOrder;
+            switch (order) {
+                case RIGHT_TO_LEFT:
+                    slotOrder = Comparator
+                            .comparingInt((Rs2ItemModel i) -> i.getSlot() / COLUMNS)
+                            .thenComparingInt(i -> -(i.getSlot() % COLUMNS));
+                    break;
+                case TOP_TO_BOTTOM:
+                    slotOrder = Comparator
+                            .comparingInt((Rs2ItemModel i) -> i.getSlot() % COLUMNS)
+                            .thenComparingInt(i -> i.getSlot() / COLUMNS);
+                    break;
+                case BOTTOM_TO_TOP:
+                    slotOrder = Comparator
+                            .comparingInt((Rs2ItemModel i) -> i.getSlot() % COLUMNS)
+                            .thenComparingInt(i -> -(i.getSlot() / COLUMNS));
+                    break;
+                default: // LEFT_TO_RIGHT
+                    slotOrder = Comparator.comparingInt(Rs2ItemModel::getSlot);
+                    break;
+            }
+
+            boolean alched;
+            do {
+                alched = false;
+                List<Rs2ItemModel> candidates = Rs2Inventory.all().stream()
+                        .filter(item -> itemNamesToAlch.stream()
+                                .anyMatch(name -> item.getName().toLowerCase().contains(name)))
+                        .sorted(slotOrder)
+                        .collect(Collectors.toList());
+                if (!candidates.isEmpty()) {
+                    Rs2ItemModel next = candidates.get(0);
+                    log.info("Alching ({}) slot {}: {}", order, next.getSlot(), next.getName());
+                    Rs2Magic.alch(next);
+                    Rs2Player.waitForXpDrop(Skill.MAGIC, 10000, false);
+                    alched = true;
+                }
+            } while (alched);
         }
     }
 
     private void dropJunk(SailingConfig config) {
         var dropItems = config.dropItems();
-        if (dropItems == null || dropItems.isBlank()) {
-            return;
-        }
+        if (dropItems == null || dropItems.isBlank()) return;
 
         var junkItems = Arrays.stream(dropItems.split(","))
                 .map(String::trim)

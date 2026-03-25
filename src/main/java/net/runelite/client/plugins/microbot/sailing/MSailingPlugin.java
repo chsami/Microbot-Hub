@@ -30,7 +30,7 @@ import java.awt.*;
 @Slf4j
 public class MSailingPlugin extends Plugin {
 
-	static final String version = "2.0.1";
+	static final String version = "2.1.0";
 
     @Inject
     private SailingConfig config;
