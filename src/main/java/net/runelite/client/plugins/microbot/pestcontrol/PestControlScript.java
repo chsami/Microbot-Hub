@@ -227,7 +227,8 @@ public class PestControlScript extends Script {
 
 
     public boolean isOutside() {
-        return Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(new WorldPoint(2644, 2644, 0)) < 20;
+        WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return playerLoc.distanceTo(new WorldPoint(2644, 2644, 0)) < 20;
     }
 
     public boolean isInBoat() {

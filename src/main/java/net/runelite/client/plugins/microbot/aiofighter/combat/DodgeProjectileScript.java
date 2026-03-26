@@ -26,7 +26,7 @@ public class DodgeProjectileScript extends Script {
 
             if (projectiles.isEmpty()) return;
             WorldPoint[] dangerousPoints = projectiles.stream().map(Projectile::getTargetPoint).toArray(WorldPoint[]::new);
-            WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+            WorldPoint playerLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 
             if (projectiles.stream().anyMatch(p -> p.getTargetPoint().distanceTo(playerLocation) < 2)) {
                 WorldPoint safePoint = calculateSafePoint(playerLocation, dangerousPoints);

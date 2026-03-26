@@ -87,7 +87,7 @@ public class FlipperScript extends Script {
                              state = State.MONITORING_COPILOT;
                              return;
                         }
-                        if (!grandExchangeArea.contains(Microbot.getClient().getLocalPlayer().getWorldLocation())) {
+                        if (!grandExchangeArea.contains(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))) {
                             Rs2GrandExchange.walkToGrandExchange();
                         }
                         state = State.GETTING_COINS;

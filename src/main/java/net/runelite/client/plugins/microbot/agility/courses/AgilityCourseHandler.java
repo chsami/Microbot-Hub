@@ -34,7 +34,7 @@ public interface AgilityCourseHandler
 
 	default TileObject getCurrentObstacle()
 	{
-		WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+		WorldPoint playerLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 
 		List<AgilityObstacleModel> matchingObstacles = getObstacles().stream()
 			.filter(o -> o.getOperationX().check(playerLocation.getX(), o.getRequiredX()) && o.getOperationY().check(playerLocation.getY(), o.getRequiredY()))
@@ -134,7 +134,7 @@ public interface AgilityCourseHandler
 
 	default int getCurrentObstacleIndex()
 	{
-		WorldPoint playerLoc = Microbot.getClient().getLocalPlayer().getWorldLocation();
+		WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 		int playerPlane = Microbot.getClient().getTopLevelWorldView().getPlane();
 
 		if (playerPlane == 0 && playerLoc.distanceTo(getStartPoint()) < 5)

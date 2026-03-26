@@ -114,7 +114,8 @@ public class NmzScript extends Script {
     }
 
     public boolean isOutside() {
-        return Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(new WorldPoint(2602, 3116, 0)) < 20;
+        WorldPoint loc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return loc != null && loc.distanceTo(new WorldPoint(2602, 3116, 0)) < 20;
     }
 
     public void handleOutsideNmz() {
@@ -204,7 +205,10 @@ public class NmzScript extends Script {
         TileObject rs2GameObject = Rs2GameObject.findObjectById(objectId);
         if (rs2GameObject != null) {
             Rs2Walker.walkFastLocal(rs2GameObject.getLocalLocation());
-            sleepUntil(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(rs2GameObject.getWorldLocation()) < 5);
+            sleepUntil(() -> {
+                WorldPoint loc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+                return loc != null && loc.distanceTo(rs2GameObject.getWorldLocation()) < 5;
+            });
             Rs2GameObject.interact(objectId);
             return true;
         }

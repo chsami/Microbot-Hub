@@ -149,7 +149,7 @@ public class TemporossScript extends Script {
     }
 
     private void finishGame() {
-        Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClient().getLocalPlayer().getWorldLocation());
+        Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
         Rs2NpcModel exitNpc = Rs2Npc.getNpcs()
                 .filter(value -> value.getComposition() != null
                         && value.getComposition().getActions() != null
@@ -450,7 +450,7 @@ public class TemporossScript extends Script {
                 .getNpcs(npc -> Arrays.asList(npc.getComposition().getActions()).contains("Douse"))
                 .map(Rs2NpcModel::new)
                 .collect(Collectors.toList());
-        Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClient().getLocalPlayer().getWorldLocation());
+        Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
         sortedFires = allFires.stream()
                 .filter(y -> playerLocation.distanceToPath(y.getWorldLocation()) < 35)
                 .sorted(Comparator.comparingInt(x -> playerLocation.distanceToPath(x.getWorldLocation())))
@@ -462,7 +462,7 @@ public class TemporossScript extends Script {
         List<GameObject> allClouds = Rs2GameObject.getGameObjects().stream()
                 .filter(obj -> obj.getId() == NullObjectID.NULL_41006)
                 .collect(Collectors.toList());
-        Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClient().getLocalPlayer().getWorldLocation());
+        Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
         sortedClouds = allClouds.stream()
                 .filter(y -> playerLocation.distanceToPath(y.getWorldLocation()) < 30)
                 .sorted(Comparator.comparingInt(x -> playerLocation.distanceToPath(x.getWorldLocation())))
@@ -538,7 +538,7 @@ public class TemporossScript extends Script {
         TileObject damagedMast = workArea.getBrokenMast();
         if(damagedMast == null)
             return;
-        if (Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(damagedMast.getWorldLocation()) <= 5) {
+        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(damagedMast.getWorldLocation())) <= 5) {
             sleep(600);
             if (Rs2GameObject.interact(damagedMast, "Repair")) {
                 log("Repairing mast");
@@ -554,7 +554,7 @@ public class TemporossScript extends Script {
         TileObject damagedTotem = workArea.getBrokenTotem();
         if(damagedTotem == null)
             return;
-        if (Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(damagedTotem.getWorldLocation()) <= 5) {
+        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(damagedTotem.getWorldLocation())) <= 5) {
             sleep(600);
             if (Rs2GameObject.interact(damagedTotem, "Repair")) {
                 log("Repairing totem");
@@ -628,17 +628,17 @@ public class TemporossScript extends Script {
             case SECOND_CATCH:
             case THIRD_CATCH:
                 isFilling = false;
-                if (inCloud(Microbot.getClient().getLocalPlayer().getWorldLocation(), 1)) {
+                if (inCloud(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()), 1)) {
                     GameObject cloud = sortedClouds.stream()
                             .findFirst()
                             .orElse(null);
                     if (cloud != null) {
                         Rs2Walker.walkNextToInstance(cloud);
                         Rs2Player.waitForWalking();
-                        if (inCloud(Microbot.getClient().getLocalPlayer().getWorldLocation(), 1)) {
+                        if (inCloud(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()), 1)) {
                             Microbot.log("Current spot is clouded, looking for a better fishing spot...");
 
-                            var playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+                            var playerLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 
                             var safeFishSpot = fishSpots.stream()
                                     .filter(spot -> !inCloud(spot.getWorldLocation(), 1))
@@ -742,7 +742,8 @@ public class TemporossScript extends Script {
                         .map(Rs2NpcModel::new)
                         .collect(Collectors.toList());
 
-                if (inCloud(Microbot.getClient().getLocalPlayer().getWorldLocation(),5) && !isFilling) {
+                WorldPoint fillPlayerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+                if (inCloud(fillPlayerLoc,5) && !isFilling) {
                     GameObject cloud = sortedClouds.stream()
                             .findFirst()
                             .orElse(null);
@@ -757,10 +758,10 @@ public class TemporossScript extends Script {
                     return;
                 }
 
-                if (inCloud(Microbot.getClient().getLocalPlayer().getLocalLocation())) {
+                if (inCloud(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getLocalLocation()))) {
                     log("In cloud, walking to safe point");
                     Rs2NpcModel ammoCrate = ammoCrates.stream()
-                            .max(Comparator.comparingInt(value -> new Rs2WorldPoint(value.getWorldLocation()).distanceToPath(Microbot.getClient().getLocalPlayer().getWorldLocation()))).orElse(null);
+                            .max(Comparator.comparingInt(value -> new Rs2WorldPoint(value.getWorldLocation()).distanceToPath(fillPlayerLoc))).orElse(null);
                     Rs2Camera.turnTo(ammoCrate);
                     Rs2Npc.interact(ammoCrate, "Fill");
                     log("Switching ammo crate");
@@ -770,7 +771,7 @@ public class TemporossScript extends Script {
                 }
 
                 var ammoCrate = ammoCrates.stream()
-                        .min(Comparator.comparingInt(value -> new Rs2WorldPoint(value.getWorldLocation()).distanceToPath(Microbot.getClient().getLocalPlayer().getWorldLocation()))).orElse(null);
+                        .min(Comparator.comparingInt(value -> new Rs2WorldPoint(value.getWorldLocation()).distanceToPath(fillPlayerLoc))).orElse(null);
 
                 // In mass world mode, clear fires along the path to the ammo crate before interacting.
                 if (!temporossConfig.solo() && ammoCrate != null) {
@@ -872,7 +873,7 @@ public class TemporossScript extends Script {
         LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(),workArea.spiritPoolPoint);
         Rs2Camera.turnTo(localPoint);
         assert localPoint != null;
-        if(Objects.equals(Microbot.getClient().getLocalDestinationLocation(), localPoint) || Objects.equals(Microbot.getClient().getLocalPlayer().getWorldLocation(), workArea.spiritPoolPoint))
+        if(Objects.equals(Microbot.getClient().getLocalDestinationLocation(), localPoint) || Objects.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()), workArea.spiritPoolPoint))
             return;
         if(Rs2Camera.isTileOnScreen(localPoint) && Microbot.isPluginEnabled(GpuPlugin.class)) {
             Rs2Walker.walkFastLocal(localPoint);
@@ -900,7 +901,7 @@ public class TemporossScript extends Script {
 
     // method to fight fires that is in a path to a location
     public boolean fightFiresInPath(WorldPoint location) {
-        Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClient().getLocalPlayer().getWorldLocation());
+        Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
         List<WorldPoint> walkerPath = playerLocation.pathTo(location,true);
         walkPath = walkerPath;
         if (sortedFires.isEmpty()) {

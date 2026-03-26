@@ -114,7 +114,7 @@ public class AgilityScript extends Script
 					return;
 				}
 
-				final WorldPoint playerWorldLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+				final WorldPoint playerWorldLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 				final int currentAgilityXp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
 
 				if (handleFood())
@@ -217,8 +217,8 @@ public class AgilityScript extends Script
 				// Normal obstacle interaction
 				if (Rs2GameObject.interact(gameObject)) {
 					// Wait for completion - this now returns quickly on XP drop
-					boolean completed = plugin.getCourseHandler().waitForCompletion(agilityExp, 
-						Microbot.getClient().getLocalPlayer().getWorldLocation().getPlane());
+					boolean completed = plugin.getCourseHandler().waitForCompletion(agilityExp,
+						Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).getPlane());
 					
 					if (!completed) {
 						// Timeout occurred - log warning (throttled to once per 30 seconds)
@@ -374,8 +374,8 @@ public class AgilityScript extends Script
 
 	private boolean performEfficientAlch(TileObject gameObject, String alchItem, int agilityExp)
 	{
-		WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
-		
+		WorldPoint playerLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+
 		if (gameObject.getWorldLocation().distanceTo(playerLocation) >= 5)
 		{
 			// Efficient alching: click, alch, click
@@ -385,8 +385,8 @@ public class AgilityScript extends Script
 				Rs2Magic.alch(alchItem, 50, 75);
 				Rs2GameObject.interact(gameObject);
 				boolean completed = plugin.getCourseHandler().waitForCompletion(agilityExp,
-					Microbot.getClient().getLocalPlayer().getWorldLocation().getPlane());
-				
+					Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).getPlane());
+
 				if (!completed) {
 					// Timeout during efficient alching - log warning
 					long now = System.currentTimeMillis();

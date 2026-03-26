@@ -135,7 +135,7 @@ public class AmmoniteCrabScript extends Script {
             ammoniteCrabState = AmmoniteCrabState.HOP_WORLD;
         }
 
-        if (Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(config.crabLocation().getWorldhopLocation()) > 10 && (ammoniteCrabState != AmmoniteCrabState.RESET_AGGRO && ammoniteCrabState != AmmoniteCrabState.WALK_BACK && ammoniteCrabState != AmmoniteCrabState.BANK)) {
+        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).distanceTo(config.crabLocation().getWorldhopLocation()) > 10 && (ammoniteCrabState != AmmoniteCrabState.RESET_AGGRO && ammoniteCrabState != AmmoniteCrabState.WALK_BACK && ammoniteCrabState != AmmoniteCrabState.BANK)) {
             ammoniteCrabState = AmmoniteCrabState.WALK_BACK;
             resetAggro(config);
             resetAfkTimer();
@@ -181,7 +181,7 @@ public class AmmoniteCrabScript extends Script {
             ammoniteCrabState = AmmoniteCrabState.FIGHT;
             return;
         }
-        if (config.crabLocation().getWorldhopLocation().distanceTo(Microbot.getClient().getLocalPlayer().getWorldLocation()) > 2) {
+        if (config.crabLocation().getWorldhopLocation().distanceTo(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())) > 2) {
             Rs2Walker.walkTo(config.crabLocation().getWorldhopLocation());
             return;
         }
@@ -211,7 +211,7 @@ public class AmmoniteCrabScript extends Script {
 
     private void walkBack(AmmoniteCrabConfig config) {
         Rs2Walker.walkTo(config.crabLocation().getFightLocation());
-        if (Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(config.crabLocation().getFightLocation()) <= 3) {
+        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).distanceTo(config.crabLocation().getFightLocation()) <= 3) {
             attackScatteredCrabs(config);
             resetAfkTimer();
             ammoniteCrabState = AmmoniteCrabState.FIGHT;
@@ -253,7 +253,7 @@ public class AmmoniteCrabScript extends Script {
 
     private void resetAggro(AmmoniteCrabConfig config) {
         Rs2Walker.walkTo(config.crabLocation().getResetLocation());
-        if (Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(config.crabLocation().getResetLocation()) <= 3) {
+        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).distanceTo(config.crabLocation().getResetLocation()) <= 3) {
             ammoniteCrabState = AmmoniteCrabState.WALK_BACK;
         }
     }
@@ -270,7 +270,7 @@ public class AmmoniteCrabScript extends Script {
     }
 
     private boolean otherPlayerDetected() {
-        return otherPlayerDetected(Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return otherPlayerDetected(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
     }
 
     private boolean otherPlayerDetected(WorldPoint worldPoint) {
