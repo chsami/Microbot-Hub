@@ -42,7 +42,7 @@ import java.awt.*;
 @Slf4j
 public class SummerGardenPlugin extends Plugin
 {
-    public final static String version = "1.0.1";
+    public final static String version = "1.0.2";
     @Inject
     private Client client;
 

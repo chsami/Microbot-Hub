@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MicroAgilityPlugin extends Plugin
 {
-	public static final String version = "1.2.4";
+	public static final String version = "1.2.5";
 	@Inject
 	private MicroAgilityConfig config;
 	@Inject

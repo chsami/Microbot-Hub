@@ -537,7 +537,8 @@ public class MotherloadMineScript extends Script
 		return sleepUntil(() -> {
 			Rs2TileObjectModel _vein = rs2TileObjectCache.query().where(o -> Objects.equals(o.getWorldLocation(), vein.getWorldLocation())).nearestReachable();
 			if (_vein == null || !isValidVein(_vein)) return false;
-			return AntibanPlugin.isMining() && _vein.getWorldLocation().distanceTo(Microbot.getClient().getLocalPlayer().getWorldLocation()) <= 2;
+			WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+			return AntibanPlugin.isMining() && playerLoc != null && _vein.getWorldLocation().distanceTo(playerLoc) <= 2;
 		}, 10_000);
 	}
 

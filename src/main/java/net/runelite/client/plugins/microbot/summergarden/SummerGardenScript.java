@@ -125,15 +125,16 @@ public class SummerGardenScript extends Script {
     }
 
     private boolean isInAlKharid() {
-        return Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID() == REGION_ALKHARID;
+        return Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID()) == REGION_ALKHARID;
     }
 
     private boolean isInGarden() {
-        return Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID() == REGION_GARDEN;
+        return Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID()) == REGION_GARDEN;
     }
 
     private boolean isInHouseArea() {
-        return Microbot.getClient().getLocalPlayer().getWorldLocation().isInArea(WORLD_AREA_HOUSE);
+        WorldPoint loc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return loc != null && loc.isInArea(WORLD_AREA_HOUSE);
     }
 
     private WallObject getHouseDoor() {
@@ -225,7 +226,7 @@ public class SummerGardenScript extends Script {
         }
 
         // Click tree
-        if (Microbot.getClient().getLocalPlayer().getWorldLocation().equals(WORLD_POINT_MAZE_STARTING_LOCATION)) {
+        if (WORLD_POINT_MAZE_STARTING_LOCATION.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))) {
             if (config.waitForOneClick() || ElementalCollisionDetector.getTicksUntilStart() == 0) {
                 Rs2GameObject.interact(OBJECT_SUMMER_TREE);
                 sleepUntil(() -> Rs2Player.isMoving());
@@ -237,7 +238,7 @@ public class SummerGardenScript extends Script {
         }
 
         // The player is inside the garden so the gate doesn't need to be clicked.
-        if (Microbot.getClient().getLocalPlayer().getWorldLocation().getY() >= 5481) {
+        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getY()) >= 5481) {
             return;
         }
 

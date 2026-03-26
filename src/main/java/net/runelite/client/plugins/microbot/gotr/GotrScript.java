@@ -612,13 +612,13 @@ public class GotrScript extends Script {
     public  static boolean isInLargeMine() {
         int largeMineX = 3637;
         return Rs2Player.getWorldLocation().getRegionID() == 14484
-                && Microbot.getClient().getLocalPlayer().getWorldLocation().getX() >= largeMineX;
+                && Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getX()) >= largeMineX;
     }
 
     public  boolean isInHugeMine() {
         int hugeMineX = 3594;
         return Rs2Player.getWorldLocation().getRegionID() == 14484
-                && Microbot.getClient().getLocalPlayer().getWorldLocation().getX() <= hugeMineX;
+                && Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getX()) <= hugeMineX;
     }
 
     public static boolean isGuardianPortal(GameObject gameObject) {
