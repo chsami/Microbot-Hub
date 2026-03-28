@@ -49,7 +49,6 @@ class MahoganyHomesOverlay extends OverlayPanel
     public Dimension render(Graphics2D graphics)
     {
         final Home home = plugin.getCurrentHome();
-        final Player player = plugin.getClient().getLocalPlayer();
         if (plugin.isPluginTimedOut() || !config.textOverlay() || player == null)
         {
             return null;
@@ -60,7 +59,7 @@ class MahoganyHomesOverlay extends OverlayPanel
             addLine(home.getName());
             addLine(home.getHint());
 
-            if (plugin.distanceBetween(home.getArea(), player.getWorldLocation()) > 0)
+            if (plugin.distanceBetween(home.getArea(), Rs2Player.getWorldLocation()) > 0)
             {
                 if (config.showRequiredMaterials() && plugin.getContractTier() > 0)
                 {

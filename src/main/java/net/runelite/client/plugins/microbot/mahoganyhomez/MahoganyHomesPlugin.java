@@ -292,7 +292,7 @@ public class MahoganyHomesPlugin extends Plugin {
             case MahoganyHomesConfig.HINT_ARROW_KEY:
                 client.clearHintArrow();
                 if (client.getLocalPlayer() != null) {
-                    refreshHintArrow(client.getLocalPlayer().getWorldLocation());
+                    refreshHintArrow(Rs2Player.getWorldLocation());
                 }
                 break;
         }
@@ -671,8 +671,8 @@ public class MahoganyHomesPlugin extends Plugin {
             worldMapPointManager.add(new MahoganyHomesWorldPoint(h.getLocation(), this));
         }
 
-        if (config.displayHintArrows() && client.getLocalPlayer() != null) {
-            refreshHintArrow(client.getLocalPlayer().getWorldLocation());
+        if (config.displayHintArrows() && Rs2Player.getCombatLevel() != 0) {
+            refreshHintArrow(Rs2Player.getWorldLocation());
         }
 
     }
@@ -773,7 +773,7 @@ public class MahoganyHomesPlugin extends Plugin {
                         continue;
                     }
 
-                    int diff = obj.getWorldLocation().distanceTo(client.getLocalPlayer().getWorldLocation());
+                    int diff = obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation());
                     if (diff < distance) {
                         distance = diff;
                         location = obj.getWorldLocation();
