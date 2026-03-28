@@ -2,7 +2,6 @@ package net.runelite.client.plugins.microbot.mahoganyhomez;
 
 import lombok.Setter;
 import net.runelite.api.GameObject;
-import net.runelite.api.Player;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.ui.overlay.*;
 import net.runelite.client.ui.overlay.components.LineComponent;
@@ -49,7 +48,7 @@ class MahoganyHomesOverlay extends OverlayPanel
     public Dimension render(Graphics2D graphics)
     {
         final Home home = plugin.getCurrentHome();
-        if (plugin.isPluginTimedOut() || !config.textOverlay() || player == null)
+        if (plugin.isPluginTimedOut() || !config.textOverlay() || Microbot.isLoggedIn())
         {
             return null;
         }
