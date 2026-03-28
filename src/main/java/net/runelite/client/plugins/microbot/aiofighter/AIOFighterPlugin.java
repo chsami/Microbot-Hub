@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
         name = PluginDescriptor.Mocrosoft + "AIO Fighter",
         authors = { "Mocrosoft", "See1Duck" },
         version = AIOFighterPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.1.32",
         description = "Microbot AIO Fighter plugin",
         tags = {"fight", "microbot", "misc", "combat", "playerassistant"},
         cardUrl = "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
@@ -68,7 +68,7 @@ import java.util.stream.Collectors;
 )
 @Slf4j
 public class AIOFighterPlugin extends Plugin {
-    public static final String version = "2.0.11";
+    public static final String version = "2.0.12";
     public static boolean needShopping = false;
     private static final String SET = "Set";
     private static final String CENTER_TILE = ColorUtil.wrapWithColorTag("Center Tile", JagexColors.MENU_TARGET);
