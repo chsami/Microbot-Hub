@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -50,6 +51,7 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -547,6 +549,19 @@ public class MotherloadMineScript extends Script
         return rs2TileObjectCache.query().where(this::isValidVein).nearestReachable();
     }
 
+    private boolean otherPlayerDetected() {
+        return otherPlayerDetected(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
+    }
+
+    private boolean otherPlayerDetected(WorldPoint worldPoint) {
+        for (Rs2PlayerModel player : Rs2Player.getPlayers(player -> true).collect(Collectors.toList())) {
+            if (player.getWorldLocation().distanceTo(worldPoint) == 0)
+                continue;
+            return true;
+        }
+        return false;
+    }
+
     private boolean isValidVein(Rs2TileObjectModel wallObject)
     {
         int id = wallObject.getId();
@@ -557,8 +572,7 @@ public class MotherloadMineScript extends Script
 
 		if (!config.mineUpstairs() && config.useAntiCrash())
 		{
-			boolean isPlayerNearBy = Microbot.getClientThread().invoke(() -> rs2PlayerCache.query().where(p -> p != null && p.getWorldLocation().distanceTo(wallObject.getWorldLocation()) <= 2).first() != null);
-			if (isPlayerNearBy) return false;
+			if (otherPlayerDetected()) return false;
 		}
 
         if (config.mineUpstairs())
