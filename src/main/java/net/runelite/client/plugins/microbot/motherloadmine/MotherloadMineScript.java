@@ -557,7 +557,7 @@ public class MotherloadMineScript extends Script
 
 		if (!config.mineUpstairs() && config.useAntiCrash())
 		{
-			boolean isPlayerNearBy = Microbot.getClientThread().invoke(rs2PlayerCache.query().where(p -> p != null && p.getWorldLocation().distanceTo(wallObject.getWorldLocation()) <= 2).first() != null);
+			boolean isPlayerNearBy = Microbot.getClientThread().invoke(() -> rs2PlayerCache.query().where(p -> p != null && p.getWorldLocation().distanceTo(wallObject.getWorldLocation()) <= 2).first() != null);
 			if (isPlayerNearBy) return false;
 		}
 
