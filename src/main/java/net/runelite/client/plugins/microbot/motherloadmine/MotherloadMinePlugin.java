@@ -28,7 +28,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 	tags = {"paydirt", "mine", "motherlode", "mlm"},
 	authors = { "Mocrosoft" },
 	version = MotherloadMinePlugin.version,
-	minClientVersion = "1.9.8",
+	minClientVersion = "2.1.32",
 	iconUrl = "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/icon.png",
 	cardUrl = "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/card.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -36,7 +36,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 )
 public class MotherloadMinePlugin extends Plugin {
 
-	static final String version = "1.9.1";
+	static final String version = "1.9.2";
 
     @Inject
     private MotherloadMineConfig config;
