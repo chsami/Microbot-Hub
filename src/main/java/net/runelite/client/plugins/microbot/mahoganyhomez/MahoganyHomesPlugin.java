@@ -48,14 +48,14 @@ import java.util.stream.Collectors;
         tags = {"mahogany", "homes", "construction", "contract", "minigame", "s1d", "see1duck", "microbot"},
 		authors = {"See1Duck"},
         version = MahoganyHomesPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.1.32",
         cardUrl = "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/card.png",
         iconUrl = "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/icon.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class MahoganyHomesPlugin extends Plugin {
-    public static final String version = "0.0.9";
+    public static final String version = "0.0.10";
     private static final List<Integer> PLANKS = Arrays.asList(ItemID.PLANK, ItemID.OAK_PLANK, ItemID.TEAK_PLANK, ItemID.MAHOGANY_PLANK);
     private static final List<String> PLANK_NAMES = Arrays.asList("Plank", "Oak plank", "Teak plank", "Mahogany plank");
     private static final Map<Integer, Integer> MAHOGANY_HOMES_REPAIRS = new HashMap<>();
