@@ -16,6 +16,9 @@ import static net.runelite.api.MenuAction.RUNELITE_OVERLAY;
 import static net.runelite.api.MenuAction.RUNELITE_OVERLAY_CONFIG;
 import static net.runelite.client.ui.overlay.OverlayManager.OPTION_CONFIGURE;
 
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+
 class MahoganyHomesOverlay extends OverlayPanel
 {
     static final String RESET_SESSION_OPTION = "Reset";
