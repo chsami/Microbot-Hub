@@ -213,7 +213,7 @@ public class SandCrabScript extends Script {
         }
         for (NPC sandyRock : npcs) {
             //ignore sandcrabs far away from the player
-            if (!sandyRock.getWorldArea().isInMeleeDistance(Microbot.getClient().getLocalPlayer().getWorldArea()))
+            if (!sandyRock.getWorldArea().isInMeleeDistance(Rs2Player.getWorldArea()))
                 continue;
 
             return false; //found a sandy rock crab near the player
