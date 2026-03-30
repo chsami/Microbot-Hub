@@ -293,6 +293,7 @@ public class AutoWoodcuttingScript extends Script {
                 break;
             case BURN_CAMPFIRE:
             case BURN:
+                woodcuttingScriptState = WoodcuttingScriptState.FIREMAKING;
                 burnLog(config);
 
                 if (Rs2Inventory.contains(getActiveTree().getLog())) return;
@@ -405,7 +406,7 @@ public class AutoWoodcuttingScript extends Script {
         // prioritize campfire if available
         Rs2TileObjectModel fire = rs2TileObjectCache.query().where(x -> x.getId() == 49927).nearest(6); // Forester's campfire
         if (fire == null) {
-            rs2TileObjectCache.query().where(x -> x.getId() == 26185).nearest(6);
+            fire = rs2TileObjectCache.query().where(x -> x.getId() == 26185).nearest(6);
         }
         if (config.primaryAction() == WoodcuttingPrimaryAction.BURN_CAMPFIRE) {
             if (fire != null) {
