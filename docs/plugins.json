@@ -2754,7 +2754,7 @@
             "skills",
             "minigame"
         ],
-        "version": "1.1.3",
+        "version": "1.1.4",
         "minClientVersion": "1.9.8.8",
         "authors": [
             "Mocrosoft"
@@ -2762,8 +2762,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/TitheFarmingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/TitheFarmingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "48f80a96238c93913d341b4bdab9489ed6a0431ddef7ca319007bd8843810bfd",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tithefarmingplugin-1.1.3.jar"
+        "sha256": "d18f5fb27dec8fba7c2cdffaf5f9e5593186079169240d9995924ff889226900",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tithefarmingplugin-1.1.4.jar"
     },
     {
         "internalName": "AttackTimerMetronomePlugin",
