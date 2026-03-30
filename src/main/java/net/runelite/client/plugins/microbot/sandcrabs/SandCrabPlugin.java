@@ -18,7 +18,7 @@ import java.awt.*;
         description = "Kills SandCrab & resets",
         tags = {"Combat", "microbot", "sand", "crab", "sandcrab", "attack", "kill"},
         version = SandCrabPlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.1.32",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -26,7 +26,7 @@ import java.awt.*;
 )
 @Slf4j
 public class SandCrabPlugin extends Plugin  {
-    public final static String version = "1.5.1";
+    public final static String version = "1.5.2";
     @Inject
     private SandCrabConfig config;
 
