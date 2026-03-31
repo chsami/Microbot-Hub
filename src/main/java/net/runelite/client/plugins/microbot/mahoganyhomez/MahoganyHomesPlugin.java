@@ -291,9 +291,11 @@ public class MahoganyHomesPlugin extends Plugin {
                 break;
             case MahoganyHomesConfig.HINT_ARROW_KEY:
                 client.clearHintArrow();
-                if (client.getLocalPlayer() != null) {
-                    refreshHintArrow(client.getLocalPlayer().getWorldLocation());
-                }
+                clientThread.invoke(() -> {
+                    if (client.getLocalPlayer() != null) {
+                        refreshHintArrow(client.getLocalPlayer().getWorldLocation());
+                    }
+                });
                 break;
         }
     }
