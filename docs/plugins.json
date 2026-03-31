@@ -1119,16 +1119,16 @@
             "attack",
             "kill"
         ],
-        "version": "1.5.1",
-        "minClientVersion": "2.1.0",
+        "version": "1.5.2",
+        "minClientVersion": "2.1.32",
         "authors": [
             "Unknown Author"
         ],
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "1eb5170cba04e258a21e407a24455d8b10d0d93b6bb7ee82030d4d87f6ca5c18",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sandcrabplugin-1.5.1.jar"
+        "sha256": "c93d11651da25d2472d6789db2bd272ffb51f49ee60244288739c1fcf5841b56",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sandcrabplugin-1.5.2.jar"
     },
     {
         "internalName": "PiePlugin",
@@ -2066,7 +2066,7 @@
             "minigame",
             "microbot"
         ],
-        "version": "1.1.4",
+        "version": "1.1.5",
         "minClientVersion": "1.9.6",
         "authors": [
             "Basche"
@@ -2074,8 +2074,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MageTrainingArenaPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MageTrainingArenaPlugin/assets/card.png",
         "disable": false,
-        "sha256": "6bef256ced3c8149fd98d5ce8206da76d81f6d6f27ab9df9bb4689fa49169470",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/magetrainingarenaplugin-1.1.4.jar"
+        "sha256": "edb1cc7ce700c05109d0d9907fe0b50a97eb73e6854632758ca0785b24e03902",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/magetrainingarenaplugin-1.1.5.jar"
     },
     {
         "internalName": "GECookerPlugin",
@@ -2131,8 +2131,8 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.0.11",
-        "minClientVersion": "2.0.7",
+        "version": "2.0.12",
+        "minClientVersion": "2.1.32",
         "authors": [
             "Mocrosoft",
             "See1Duck"
@@ -2140,8 +2140,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "364977f63cb216b9852b202d9b42569b1f79344d0cdc9b71c6d2479ba56a7de4",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.0.11.jar"
+        "sha256": "b50bb1c9a8fc12f566ba166495b6658f78e41f641020035a6a1264246a12b0ae",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.0.12.jar"
     },
     {
         "internalName": "PVirewatchKillerPlugin",
@@ -2503,16 +2503,16 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.8.1",
-        "minClientVersion": "2.0.7",
+        "version": "1.8.2",
+        "minClientVersion": "2.1.32",
         "authors": [
             "Mocrosoft"
         ],
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "592d147d174a5e17f71084b2f46bb8cef728f91669c1b19ced0bea1059a36479",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.1.jar"
+        "sha256": "ad2f4d945f28c334333719761e55e9ec97ad932e1eddddd5302a8598f7d013ec",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.2.jar"
     },
     {
         "internalName": "FornBirdhouseRunsPlugin",
@@ -2566,8 +2566,8 @@
             "exchange",
             "automation"
         ],
-        "version": "1.2.2",
-        "minClientVersion": "2.1.21",
+        "version": "1.2.3",
+        "minClientVersion": "2.1.32",
         "authors": [
             "Choken",
             "afss0"
@@ -2575,8 +2575,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "d7f93abcb16802734932292f2f7d274d69463e87f6c5199af75a0f099ab95eb3",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/flipperplugin-1.2.2.jar"
+        "sha256": "cff5c416375de79ff981215da14c2b1c1a4a3c25016961648a64a156ccf407c2",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/flipperplugin-1.2.3.jar"
     },
     {
         "internalName": "BarrowsPlugin",
