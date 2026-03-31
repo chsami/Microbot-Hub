@@ -66,7 +66,7 @@ public class TitheFarmPlant {
     public TitheFarmPlant(int regionX, int regionY, int index) {
         this.planted = Instant.now();
         this.state = TitheFarmPlantState.UNWATERED;
-        this.gameObject = Rs2GameObject.findGameObjectByLocation(fromRegion(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer()).getWorldLocation().getRegionID(), regionX, regionY, 0));
+        this.gameObject = Rs2GameObject.findGameObjectByLocation(fromRegion(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID()), regionX, regionY, 0));
         this.regionX = regionX;
         this.regionY = regionY;
         this.index = index;
