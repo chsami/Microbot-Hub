@@ -614,7 +614,7 @@
             "vorkath",
             "microbot"
         ],
-        "version": "1.3.11",
+        "version": "1.3.12",
         "minClientVersion": "1.9.9.1",
         "authors": [
             "Mocrosoft"
@@ -622,8 +622,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/VorkathPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/VorkathPlugin/assets/card.png",
         "disable": false,
-        "sha256": "8642132a9bbfea929669f4b585d8187ee064ef94c9898890350eae13fc34a9b3",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/vorkathplugin-1.3.11.jar"
+        "sha256": "f3735c2720fa2732c2751350e6f5b5113b62e59e8eb64f7a3acc403b29925250",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/vorkathplugin-1.3.12.jar"
     },
     {
         "internalName": "BlueDragonsPlugin",
@@ -2754,7 +2754,7 @@
             "skills",
             "minigame"
         ],
-        "version": "1.1.4",
+        "version": "1.1.5",
         "minClientVersion": "1.9.8.8",
         "authors": [
             "Mocrosoft"
@@ -2762,8 +2762,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/TitheFarmingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/TitheFarmingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "d18f5fb27dec8fba7c2cdffaf5f9e5593186079169240d9995924ff889226900",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tithefarmingplugin-1.1.4.jar"
+        "sha256": "156f39b98a34384d97db42dd25633734b989efad9a182c207323f7aabcb09512",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tithefarmingplugin-1.1.5.jar"
     },
     {
         "internalName": "AttackTimerMetronomePlugin",
