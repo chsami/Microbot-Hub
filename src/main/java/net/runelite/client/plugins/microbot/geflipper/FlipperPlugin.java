@@ -16,14 +16,14 @@ import java.awt.*;
         tags = {"flip", "ge", "grand", "exchange", "automation"},
         authors = {"Choken", "afss0"},
         version = FlipperPlugin.version,
-        minClientVersion = "2.1.21",
+        minClientVersion = "2.1.32",
         cardUrl = "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.2";
+    public static final String version = "1.2.3";
     @Inject
     private Client client;
     @Inject

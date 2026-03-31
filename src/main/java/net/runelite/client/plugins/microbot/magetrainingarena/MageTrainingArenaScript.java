@@ -422,7 +422,9 @@ public class MageTrainingArenaScript extends Script {
             Rs2Camera.setZoom(Rs2Random.betweenInclusive(40,60));
         }
 
-        if (room.getGuardian().getWorldLocation().equals(room.getFinishLocation())) {
+        var guardian = new Rs2NpcModel(room.getGuardian());
+
+        if (guardian.getWorldLocation().equals(room.getFinishLocation())) {
             sleepUntil(() -> room.getGuardian().getId() == NpcID.MAGICTRAINING_GUARD_MAZE_COMPLETE);
             sleep(200, 400);
             Rs2Npc.interact(new Rs2NpcModel(room.getGuardian()), "New-maze");

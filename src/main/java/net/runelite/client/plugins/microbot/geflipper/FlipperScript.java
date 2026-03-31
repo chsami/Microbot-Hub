@@ -416,9 +416,19 @@ public class FlipperScript extends Script {
 
 			if (isHighlightedVisible) {
 				log.info("Clicking highlighted widget: {}", highlightedWidget.getId());
-				sleepUntil(() -> Rs2Widget.clickWidget(highlightedWidget));
+				Rs2Widget.clickWidget(highlightedWidget);
+				Rs2Random.wait(100, 200);
 				lastActionTime = currentTime;
                 actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+
+				// Sometimes, flipping copilot suggestions cost more than what's available in inventory, we should detect and avoid that
+				if (highlightedWidget.getText().contains("Confirm") || (highlightedWidget.getActions().length > 0 && highlightedWidget.getActions()[0].contains("Confirm"))) {
+					if (!sleepUntil(() -> !Rs2GrandExchange.isOfferScreenOpen())) {
+						Rs2GrandExchange.backToOverview();
+						return false;
+					}
+				}
+
 				return true;
 			}
 		}
