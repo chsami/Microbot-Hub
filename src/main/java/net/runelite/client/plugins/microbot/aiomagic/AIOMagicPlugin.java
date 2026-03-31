@@ -80,7 +80,7 @@ public class AIOMagicPlugin extends Plugin {
     @Inject
     private SpinFlaxScript spinFlaxScript;
 
-    public final static String version = "1.2.3";
+    public final static String version = "1.2.4";
 
     @Getter
     private Rs2CombatSpells combatSpell;
