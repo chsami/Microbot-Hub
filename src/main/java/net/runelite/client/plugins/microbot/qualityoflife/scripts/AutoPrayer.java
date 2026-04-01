@@ -29,7 +29,7 @@ public class AutoPrayer extends Script {
                 if (!super.run()) return;
                 if (!config.autoPrayAgainstPlayers()) return;
 
-                handleAntiPkPrayers(config);
+                Microbot.getClientThread().invoke(() -> handleAntiPkPrayers(config));
 
             } catch (Exception ex) {
                 log.error("Error in AutoPrayer execution: {}", ex.getMessage(), ex);
