@@ -177,8 +177,20 @@ public class GabulhasKarambwansScript extends Script {
         } else {
             Rs2Walker.walkTo(zanarisRingPoint, 3);
             Rs2Player.waitForWalking();
-            
-            if (Rs2GameObject.interact(FAIRY_RING_ID, "Last-destination (DKP)")) {
+
+            // Ensure the fairy ring at Zanaris is actually loaded before trying to interact.
+            sleepUntil(() -> Rs2GameObject.getGameObject(zanarisRingPoint) != null, 5000);
+
+            GameObject zanarisRing = Rs2GameObject.getGameObject(zanarisRingPoint);
+            boolean interacted = false;
+            if (zanarisRing != null) {
+                // Prefer the explicit last-destination option, fall back to a generic interact if needed.
+                interacted = Rs2GameObject.interact(zanarisRing, "Last-destination (DKP)")
+                        || Rs2GameObject.interact(zanarisRing, "Last-destination")
+                        || Rs2GameObject.interact(zanarisRing, "Use");
+            }
+
+            if (interacted) {
                 waitTillPlayerNextToFishingSpot();
             } else {
                 Rs2Player.waitForWalking();
