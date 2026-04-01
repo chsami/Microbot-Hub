@@ -38,8 +38,12 @@ public enum SuperHeatItem {
     public int getCoalAmount() {
         return secondaryItemID == ItemID.COAL ? secondaryAmount : 0;
     }
+
+    public boolean requiresSecondaryItem() {
+        return secondaryAmount > 0;
+    }
     
     public boolean hasRequiredLevel() {
-        return Rs2Player.getSkillRequirement(Skill.SMITHING, this.levelRequired);
+        return Rs2Player.getSkillRequirement(Skill.SMITHING, levelRequired);
     }
 }
