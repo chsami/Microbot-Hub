@@ -289,7 +289,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.0.10",
+        "version": "1.0.11",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -297,8 +297,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "5608024965b14f33a8e80a8142ec4710d4e3a530093d73b017c03d34c786d900",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autominingplugin-1.0.10.jar"
+        "sha256": "9b0ea557f1649576a1993641d2b385e62783bc45c1d81f4b5116120fcf3faf53",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autominingplugin-1.0.11.jar"
     },
     {
         "internalName": "TearsOfGuthixPlugin",
@@ -1259,7 +1259,7 @@
             "motherlode",
             "mlm"
         ],
-        "version": "1.9.1",
+        "version": "1.9.4",
         "minClientVersion": "1.9.8",
         "authors": [
             "Mocrosoft"
@@ -1267,8 +1267,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/card.png",
         "disable": false,
-        "sha256": "f6bd802bf644598f64ccb056105dcf93c70dc5473872209e197e5a82c5698403",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/motherloadmineplugin-1.9.1.jar"
+        "sha256": "e3d5f6947c6467800444454855d5240992a69b37183fe30b69c2b76f9e5496fe",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/motherloadmineplugin-1.9.4.jar"
     },
     {
         "internalName": "StallThievingPlugin",
