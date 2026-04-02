@@ -12,6 +12,7 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 public class AutoPrayer extends Script {
@@ -19,8 +20,16 @@ public class AutoPrayer extends Script {
     private long lastPkAttackTime = 0;
     private String lastPrayedStyle = null;
     private static final long PRAYER_DISABLE_DELAY_MS = 10_000;
+    private static final long MIN_STYLE_STABLE_MS = 500;
+    private static final long MIN_PRAYER_SWITCH_INTERVAL_MS = 400;
     private Player followedPlayer = null;
     private long followEndTime = 0;
+    private String lastDetectedStyle = null;
+    private long styleDetectedSince = 0;
+    private String pendingCorrectStyle = null;
+    private long pendingCorrectAfter = 0;
+    private String reactionForStyle = null;
+    private long reactionReadyAt = 0;
 
     public boolean run(QoLConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -58,9 +67,11 @@ public class AutoPrayer extends Script {
         int weaponId = attacker.getPlayerComposition().getEquipmentId(KitType.WEAPON);
         String detectedStyle = null;
 
-        // Aggressive mode: follow and swap based on weapon, not just animation
-        if (config.aggressiveAntiPkMode()) {
-            // Start or refresh follow if attacked
+        boolean lmsMode = config.lmsAnimationPraying();
+        boolean aggressiveMode = config.aggressiveAntiPkMode();
+
+        // Follow behavior: in aggressive mode or LMS mode, remember the attacker for a short window
+        if (aggressiveMode || lmsMode) {
             followedPlayer = attacker;
             followEndTime = System.currentTimeMillis() + PRAYER_DISABLE_DELAY_MS;
         }
@@ -71,17 +82,19 @@ public class AutoPrayer extends Script {
         String weaponName = weapon != null ? weapon.getItemName() : "Unknown (" + weaponId + ")";
         String animationName = anim != null ? anim.getAnimationName() : "Unknown (" + animationId + ")";
 
-        // If following a player in aggressive mode and timer is active
-        if (config.aggressiveAntiPkMode() && followedPlayer != null && System.currentTimeMillis() < followEndTime) {
+        // If following a player (aggressive or LMS) and timer is active
+        if ((aggressiveMode || lmsMode) && followedPlayer != null && System.currentTimeMillis() < followEndTime) {
             int followedWeaponId = followedPlayer.getPlayerComposition().getEquipmentId(KitType.WEAPON);
             WeaponID followedWeapon = WeaponID.getByObjectId(followedWeaponId);
             WeaponAnimation followedAnim = WeaponAnimation.getByAnimationId(animationId);
-            
-            if (followedWeapon != null) {
+
+            // LMS mode: animation-first, but still track their equipped weapon like aggressive mode
+            if (lmsMode && followedAnim != null) {
+                detectedStyle = followedAnim.getAttackType().toLowerCase();
+            } else if (followedWeapon != null) {
                 detectedStyle = followedWeapon.getAttackType().toLowerCase();
-            }
-            if (followedAnim != null) {
-                // Animation takes priority if present
+            } else if (!lmsMode && followedAnim != null) {
+                // Non-LMS aggressive mode: fall back to animation if we have no weapon classification
                 detectedStyle = followedAnim.getAttackType().toLowerCase();
             }
             
@@ -95,11 +108,13 @@ public class AutoPrayer extends Script {
                 prayStyle(detectedStyle, config);
             }
         } else {
-            // Normal mode: use animation/weapon detection on attacker
-            if (weapon != null) {
+            // Not currently following (or follow window expired): use current attacker info
+            if (lmsMode && anim != null) {
+                // LMS: animation-first on the current attacker
+                detectedStyle = anim.getAttackType().toLowerCase();
+            } else if (weapon != null) {
                 detectedStyle = weapon.getAttackType().toLowerCase();
-            }
-            if (anim != null) {
+            } else if (anim != null) {
                 detectedStyle = anim.getAttackType().toLowerCase();
             }
             
@@ -113,29 +128,159 @@ public class AutoPrayer extends Script {
     }
 
     private void prayStyle(String style, QoLConfig config) {
-        boolean shouldChange = !style.equals(lastPrayedStyle)
-            || (style.equals("melee") && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PROTECT_MELEE))
-            || (style.equals("magic") && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PROTECT_MAGIC))
-            || (style.equals("ranged") && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PROTECT_RANGE));
+        if (style == null) {
+            return;
+        }
 
-        if (shouldChange) {
-            if ("melee".equals(style)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, true);
-            } else if ("ranged".equals(style)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_RANGE, true);
-            } else if ("magic".equals(style)) {
-                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, true);
+        long now = System.currentTimeMillis();
+
+        // Require the detected style to be stable for a short time
+        boolean sameDetected = false;
+        if (lastDetectedStyle != null) {
+            if (lastDetectedStyle.equals(style)) {
+                sameDetected = true;
             }
+        }
+        if (!sameDetected) {
+            lastDetectedStyle = style;
+            styleDetectedSince = now;
+            return;
+        }
+        if (now - styleDetectedSince < MIN_STYLE_STABLE_MS) {
+            return;
+        }
+
+        // Do not switch prayers too frequently to avoid reacting to rapid bait switches
+        if (!style.equals(lastPrayedStyle)) {
+            if (now - lastPkAttackTime < MIN_PRAYER_SWITCH_INTERVAL_MS) {
+                return;
+            }
+        }
+
+        // LMS antiban logic: reaction delay + wrong-prayer chance
+        if (config.lmsAnimationPraying()) {
+            // If we previously chose a wrong prayer, correct it after the delay
+            if (pendingCorrectStyle != null
+                && style.equals(pendingCorrectStyle)
+                && now >= pendingCorrectAfter) {
+
+                applyPrayer(style);
+                lastPrayedStyle = style;
+                pendingCorrectStyle = null;
+                pendingCorrectAfter = 0;
+                reactionForStyle = null;
+                reactionReadyAt = 0;
+                lastPkAttackTime = now;
+                return;
+            }
+
+            // New style seen: set up a reaction delay
+            if (!style.equals(lastPrayedStyle)
+                && (reactionForStyle == null || !style.equals(reactionForStyle))) {
+
+                int maxDelay = config.lmsMaxReactionDelayMs();
+                if (maxDelay < 30) {
+                    maxDelay = 30;
+                }
+                int delayRange = maxDelay - 30;
+                int delay = delayRange > 0
+                    ? ThreadLocalRandom.current().nextInt(30, maxDelay + 1)
+                    : 30;
+
+                reactionForStyle = style;
+                reactionReadyAt = now + delay;
+                return;
+            }
+
+            // Still within reaction window: do nothing yet
+            if (reactionForStyle != null
+                && style.equals(reactionForStyle)
+                && now < reactionReadyAt) {
+                return;
+            }
+
+            // Reaction window elapsed; decide whether to pray wrong first
+            if (!style.equals(lastPrayedStyle)) {
+                int wrongChance = config.lmsWrongPrayChance();
+                if (wrongChance < 0) {
+                    wrongChance = 0;
+                }
+                if (wrongChance > 100) {
+                    wrongChance = 100;
+                }
+
+                int roll = ThreadLocalRandom.current().nextInt(0, 100);
+                boolean makeMistake = roll < wrongChance;
+
+                if (makeMistake) {
+                    String wrongStyle = pickWrongStyle(style);
+                    if (wrongStyle != null) {
+                        applyPrayer(wrongStyle);
+                        lastPrayedStyle = wrongStyle;
+
+                        // Correct to the real style after 1–2 game ticks (~600–1200ms)
+                        int correctDelayMs = ThreadLocalRandom.current().nextInt(600, 1201);
+                        pendingCorrectStyle = style;
+                        pendingCorrectAfter = now + correctDelayMs;
+                        lastPkAttackTime = now;
+                        reactionForStyle = null;
+                        reactionReadyAt = 0;
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Default / non-LMS behavior: simple immediate switch
+        if (!style.equals(lastPrayedStyle)) {
+            applyPrayer(style);
             lastPrayedStyle = style;
         }
 
-        Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_ITEM, config.enableProtectItemPrayer());
+        lastPkAttackTime = now;
+    }
 
-        lastPkAttackTime = System.currentTimeMillis();
+    private static void applyPrayer(String style) {
+        switch (style) {
+            case "melee":
+                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, true);
+                break;
+            case "ranged":
+                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_RANGE, true);
+                break;
+            case "magic":
+                Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, true);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static String pickWrongStyle(String correctStyle) {
+        String[] options = {"melee", "ranged", "magic"};
+        String[] candidates = new String[2];
+        int idx = 0;
+        for (String opt : options) {
+            if (!opt.equals(correctStyle)) {
+                candidates[idx] = opt;
+                idx++;
+            }
+        }
+        if (idx == 0) {
+            return null;
+        }
+        if (idx == 1) {
+            return candidates[0];
+        }
+        int choice = ThreadLocalRandom.current().nextInt(0, idx);
+        return candidates[choice];
     }
 
     public boolean isFollowingPlayer(Player player) {
-        return followedPlayer != null && player != null && player.getName().equals(followedPlayer.getName());
+        return followedPlayer != null
+            && player != null
+            && player.getName() != null
+            && player.getName().equals(followedPlayer.getName());
     }
 
     public void handleAggressivePrayerOnGearChange(Player player, QoLConfig config) {
