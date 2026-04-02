@@ -20,12 +20,8 @@ public class AutoPrayer extends Script {
     private long lastPkAttackTime = 0;
     private String lastPrayedStyle = null;
     private static final long PRAYER_DISABLE_DELAY_MS = 10_000;
-    private static final long MIN_STYLE_STABLE_MS = 500;
-    private static final long MIN_PRAYER_SWITCH_INTERVAL_MS = 400;
     private Player followedPlayer = null;
     private long followEndTime = 0;
-    private String lastDetectedStyle = null;
-    private long styleDetectedSince = 0;
     private String pendingCorrectStyle = null;
     private long pendingCorrectAfter = 0;
     private String reactionForStyle = null;
@@ -88,13 +84,10 @@ public class AutoPrayer extends Script {
             WeaponID followedWeapon = WeaponID.getByObjectId(followedWeaponId);
             WeaponAnimation followedAnim = WeaponAnimation.getByAnimationId(animationId);
 
-            // LMS mode: animation-first, but still track their equipped weapon like aggressive mode
-            if (lmsMode && followedAnim != null) {
-                detectedStyle = followedAnim.getAttackType().toLowerCase();
-            } else if (followedWeapon != null) {
+            // Weapon first, then animation (shared IDs can misclassify e.g. whip vs bow)
+            if (followedWeapon != null) {
                 detectedStyle = followedWeapon.getAttackType().toLowerCase();
-            } else if (!lmsMode && followedAnim != null) {
-                // Non-LMS aggressive mode: fall back to animation if we have no weapon classification
+            } else if (followedAnim != null) {
                 detectedStyle = followedAnim.getAttackType().toLowerCase();
             }
             
@@ -108,11 +101,8 @@ public class AutoPrayer extends Script {
                 prayStyle(detectedStyle, config);
             }
         } else {
-            // Not currently following (or follow window expired): use current attacker info
-            if (lmsMode && anim != null) {
-                // LMS: animation-first on the current attacker
-                detectedStyle = anim.getAttackType().toLowerCase();
-            } else if (weapon != null) {
+            // Not currently following (or follow window expired): weapon first, then animation
+            if (weapon != null) {
                 detectedStyle = weapon.getAttackType().toLowerCase();
             } else if (anim != null) {
                 detectedStyle = anim.getAttackType().toLowerCase();
@@ -133,29 +123,6 @@ public class AutoPrayer extends Script {
         }
 
         long now = System.currentTimeMillis();
-
-        // Require the detected style to be stable for a short time
-        boolean sameDetected = false;
-        if (lastDetectedStyle != null) {
-            if (lastDetectedStyle.equals(style)) {
-                sameDetected = true;
-            }
-        }
-        if (!sameDetected) {
-            lastDetectedStyle = style;
-            styleDetectedSince = now;
-            return;
-        }
-        if (now - styleDetectedSince < MIN_STYLE_STABLE_MS) {
-            return;
-        }
-
-        // Do not switch prayers too frequently to avoid reacting to rapid bait switches
-        if (!style.equals(lastPrayedStyle)) {
-            if (now - lastPkAttackTime < MIN_PRAYER_SWITCH_INTERVAL_MS) {
-                return;
-            }
-        }
 
         // LMS antiban logic: reaction delay + wrong-prayer chance
         if (config.lmsAnimationPraying()) {
