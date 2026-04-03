@@ -1,11 +1,8 @@
 package net.runelite.client.plugins.microbot.aiomagic;
 
 import com.google.inject.Provides;
-import lombok.Getter;
 import net.runelite.api.Skill;
 import net.runelite.client.config.ConfigManager;
-import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
@@ -80,39 +77,10 @@ public class AIOMagicPlugin extends Plugin {
     @Inject
     private SpinFlaxScript spinFlaxScript;
 
-    public final static String version = "1.2.3";
-
-    @Getter
-    private Rs2CombatSpells combatSpell;
-
-    @Getter
-    private List<String> alchItemNames = Collections.emptyList();
-
-    @Getter
-    private SuperHeatItem superHeatItem;
-
-    @Getter
-    private String npcName;
-
-    @Getter
-    private TeleportSpell teleportSpell;
-
-    @Getter
-    private StunSpell stunSpell;
-
-    @Getter
-    private String stunNpcName;
+    public final static String version = "1.2.6";
 
     @Override
     protected void startUp() throws AWTException {
-        combatSpell = config.combatSpell();
-        alchItemNames = updateItemList(config.alchItems());
-        superHeatItem = config.superHeatItem();
-        npcName = config.npcName();
-        teleportSpell = config.teleportSpell();
-        stunSpell = config.stunSpell();
-        stunNpcName = config.stunNpcName();
-
         if (overlayManager != null) {
             overlayManager.add(aioMagicOverlay);
         }
@@ -161,38 +129,32 @@ public class AIOMagicPlugin extends Plugin {
         overlayManager.remove(aioMagicOverlay);
     }
 
-    @Subscribe
-    public void onConfigChanged(ConfigChanged event) {
-        if (!event.getGroup().equals(AIOMagicConfig.configGroup))
-            return;
+    public Rs2CombatSpells getCombatSpell() {
+        return config.combatSpell();
+    }
 
-        if (event.getKey().equals(AIOMagicConfig.combatSpell)) {
-            combatSpell = config.combatSpell();
-        }
+    public List<String> getAlchItemNames() {
+        return updateItemList(config.alchItems());
+    }
 
-        if (event.getKey().equals(AIOMagicConfig.alchItems)) {
-            alchItemNames = updateItemList(config.alchItems());
-        }
+    public SuperHeatItem getSuperHeatItem() {
+        return config.superHeatItem();
+    }
 
-        if (event.getKey().equals(AIOMagicConfig.superHeatItem)) {
-            superHeatItem = config.superHeatItem();
-        }
+    public String getNpcName() {
+        return config.npcName();
+    }
 
-        if (event.getKey().equals(AIOMagicConfig.npcName)) {
-            npcName = config.npcName();
-        }
+    public TeleportSpell getTeleportSpell() {
+        return config.teleportSpell();
+    }
 
-        if (event.getKey().equals(AIOMagicConfig.teleportSpell)) {
-            teleportSpell = config.teleportSpell();
-        }
+    public StunSpell getStunSpell() {
+        return config.stunSpell();
+    }
 
-        if (event.getKey().equals(AIOMagicConfig.stunSpell)) {
-            stunSpell = config.stunSpell();
-        }
-
-        if (event.getKey().equals(AIOMagicConfig.stunNpcName)) {
-            stunNpcName = config.stunNpcName();
-        }
+    public String getStunNpcName() {
+        return config.stunNpcName();
     }
 
     private List<String> updateItemList(String items) {

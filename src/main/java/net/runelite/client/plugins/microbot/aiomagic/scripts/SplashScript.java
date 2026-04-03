@@ -2,13 +2,13 @@ package net.runelite.client.plugins.microbot.aiomagic.scripts;
 
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.aiomagic.AIOMagicPlugin;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import javax.inject.Inject;
@@ -51,12 +51,27 @@ public class SplashScript extends Script {
 					return;
 				}
 
-				if (Rs2Player.isMoving() || Rs2Combat.inCombat()) return;
-				if (Rs2AntibanSettings.actionCooldownActive) return;
+					if (Rs2Player.isMoving() || Rs2Combat.inCombat()) return;
+					if (Rs2AntibanSettings.actionCooldownActive) return;
 
-				if (Rs2Npc.attack(plugin.getNpcName())) {
-					Rs2Antiban.actionCooldown();
-				}
+					String targetNpcName = plugin.getNpcName() == null ? "" : plugin.getNpcName().trim();
+					if (targetNpcName.isEmpty()) {
+						Microbot.showMessage("Set an NPC name in config");
+						shutdown();
+						return;
+					}
+
+					Rs2NpcModel targetNpc = Microbot.getRs2NpcCache().query()
+							.withName(targetNpcName)
+							.nearest();
+					if (targetNpc == null) {
+						Microbot.log("Unable to find NPC: " + targetNpcName);
+						return;
+					}
+
+					if (targetNpc.click("Attack")) {
+						Rs2Antiban.actionCooldown();
+					}
 
 				long endTime = System.currentTimeMillis();
 				long totalTime = endTime - startTime;
