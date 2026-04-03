@@ -281,7 +281,7 @@ public class DemonicGorillaScript extends Script {
         currentTripKillCount = 0;
         Microbot.pauseAllScripts.compareAndSet(false, true);
         escapeTosafety();
-        sleepUntil(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().equals(SAFE_LOCATION), 5000);
+        sleepUntil(() -> SAFE_LOCATION.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())), 5000);
         disableAllPrayers();
         Microbot.pauseAllScripts.compareAndSet(true, false);
         BOT_STATUS = State.BANKING;
@@ -387,7 +387,7 @@ public class DemonicGorillaScript extends Script {
             // Handle AOE attack
             if (currentAnimation == DEMONIC_GORILLA_AOE_ATTACK && demonicGorillaRockPosition != null) {
                 List<WorldPoint> dangerousWorldPoints = new ArrayList<>(Rs2Tile.getDangerousGraphicsObjectTiles().keySet());
-                dangerousWorldPoints.add(Microbot.getClient().getLocalPlayer().getWorldLocation());
+                dangerousWorldPoints.add(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
                 dangerousWorldPoints.add(currentTarget.getWorldLocation());
                 dangerousWorldPoints.add(location);
                 dangerousWorldPoints.addAll(DemonicGorillaPlugin.lastLocation.getAll());
@@ -511,7 +511,7 @@ public class DemonicGorillaScript extends Script {
                 return (Rs2NpcModel) interacting;
             }
         }
-        var playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+        var playerLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 
         var alreadyInteractingNpcs = Rs2Npc.getNpcsForPlayer("Demonic gorilla");
         if (!alreadyInteractingNpcs.isEmpty()) {

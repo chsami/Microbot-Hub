@@ -79,20 +79,21 @@ public class AutoMiningScript extends Script {
                 int maxPlayers = config.maxPlayersInArea();
                 if (maxPlayers > 0) {
                     WorldPoint localLocation = Rs2Player.getWorldLocation();
-
-                    long nearbyPlayers = Microbot.getClient().getTopLevelWorldView().players().stream()
-                            .filter(p -> p != null && p != Microbot.getClient().getLocalPlayer())
-                            .filter(p -> {
-                                if (config.distanceToStray() == 0) {
-                                    // Only count players standing on the same exact tile
-                                    return p.getWorldLocation().equals(localLocation);
-                                }
-                                // Count players within distanceToStray
-                                return p.getWorldLocation().distanceTo(localLocation) <= config.distanceToStray();
-                            })
-                            //filter if players are using mining animation
-                            .filter(p -> p.getAnimation() != -1)
-                            .count();
+                    long nearbyPlayers = Microbot.getClientThread().runOnClientThreadOptional(() ->
+                                    Microbot.getClient().getTopLevelWorldView().players().stream()
+                                            .filter(p -> p != null && p != Microbot.getClient().getLocalPlayer())
+                                            .filter(p -> {
+                                                if (config.distanceToStray() == 0) {
+                                                    // Only count players standing on the same exact tile
+                                                    return p.getWorldLocation().equals(localLocation);
+                                                }
+                                                // Count players within distanceToStray
+                                                return p.getWorldLocation().distanceTo(localLocation) <= config.distanceToStray();
+                                            })
+                                            // filter if players are using mining animation
+                                            .filter(p -> p.getAnimation() != -1)
+                                            .count())
+                            .orElse(0L);
 
                     if (nearbyPlayers >= maxPlayers) {
                         Microbot.status = "Too many players nearby. Hopping...";
@@ -130,7 +131,11 @@ public class AutoMiningScript extends Script {
                         }
                         break;
                     case RESETTING:
-                        List<String> itemNames = Arrays.stream(config.itemsToBank().split(",")).map(String::toLowerCase).collect(Collectors.toList());
+                        List<String> itemNames = Arrays.stream(config.itemsToBank().split(","))
+                                .map(String::trim)
+                                .map(String::toLowerCase)
+                                .filter(s -> !s.isEmpty())
+                                .collect(Collectors.toList());
 
                         if (config.useBank()) {
                             if (config.clayBracelet() && config.ORE() == Rocks.CLAY) {
@@ -164,8 +169,25 @@ public class AutoMiningScript extends Script {
                                     Rs2Walker.walkTo(2841, 10339, 0);
                                 }
                             } else {
-                                if (!Rs2Bank.bankItemsAndWalkBackToOriginalPosition(itemNames, initialPlayerLocation, 0, config.distanceToStray()))
+                                if (!Rs2Bank.isOpen()) {
+                                    if (!Rs2Bank.walkToBankAndUseBank()) {
+                                        return;
+                                    }
                                     return;
+                                }
+
+                                if (itemNames.isEmpty()) {
+                                    Rs2Bank.depositAll();
+                                } else {
+                                    Rs2Bank.depositAll(i ->
+                                            i.getName() != null &&
+                                                    itemNames.stream().anyMatch(item -> i.getName().toLowerCase().contains(item)));
+                                }
+
+                                if (!Rs2Bank.closeBank())
+                                    return;
+
+                                Rs2Walker.walkTo(initialPlayerLocation, config.distanceToStray());
                             }
 
                         } else {

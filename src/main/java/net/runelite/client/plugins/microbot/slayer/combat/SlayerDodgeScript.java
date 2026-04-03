@@ -48,7 +48,7 @@ public class SlayerDodgeScript extends Script {
                         .map(Projectile::getTargetPoint)
                         .toArray(WorldPoint[]::new);
 
-                WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+                WorldPoint playerLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 
                 // Check if any projectile is targeting near the player
                 boolean inDanger = projectiles.stream()

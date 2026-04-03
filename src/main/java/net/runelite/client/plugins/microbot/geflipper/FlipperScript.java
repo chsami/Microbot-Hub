@@ -38,6 +38,15 @@ enum State {
 
 @Slf4j
 public class FlipperScript extends Script {
+	private static final int DEFAULT_ACTION_COOLDOWN = 1200;
+	private static final int ACTION_COOLDOWN_VARIANCE = 600;
+	private static final int DEFAULT_INTERACTION_TIMEOUT = 33000;
+	private static final int INTERACTION_TIMEOUT_VARIANCE = 11000;
+	private static final int INVENTORY_WAIT_TIMEOUT = 5000;
+	private static final int SCHEDULE_INTERVAL_MS = 600;
+	private static final int KEY_PRESS_DELAY_MIN = 250;
+	private static final int KEY_PRESS_DELAY_MAX = 400;
+
 	private final WorldArea grandExchangeArea = new WorldArea(3136, 3465, 61, 54, 0);
     State state = State.GOING_TO_GE;
 
@@ -45,7 +54,8 @@ public class FlipperScript extends Script {
 	private Object suggestionManager;
     private Object highlightController;
     private long lastActionTime = 0;
-    private long actionCooldown = 1500; // randomized cooldown between actions
+    private long actionCooldown = DEFAULT_ACTION_COOLDOWN;
+	private long interactionTimeout = DEFAULT_INTERACTION_TIMEOUT;
 
 	private int[] grandExchangeSlotIds = new int[] {
 		InterfaceID.GeOffers.INDEX_0,
@@ -77,7 +87,7 @@ public class FlipperScript extends Script {
                              state = State.MONITORING_COPILOT;
                              return;
                         }
-                        if (!grandExchangeArea.contains(Microbot.getClient().getLocalPlayer().getWorldLocation())) {
+                        if (!grandExchangeArea.contains(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))) {
                             Rs2GrandExchange.walkToGrandExchange();
                         }
                         state = State.GETTING_COINS;
@@ -91,7 +101,7 @@ public class FlipperScript extends Script {
                             Rs2Bank.depositAll();
                             sleepUntil(Rs2Inventory::isEmpty);
                             Rs2Bank.withdrawAll(ItemID.COINS);
-                            Rs2Inventory.waitForInventoryChanges(5000);
+                            Rs2Inventory.waitForInventoryChanges(INVENTORY_WAIT_TIMEOUT);
                             Rs2Bank.closeBank();
                             sleepUntil(() -> !Rs2Bank.isOpen());
                             state = State.MONITORING_COPILOT;
@@ -104,20 +114,34 @@ public class FlipperScript extends Script {
                             return;
                         }
 
+                        // Check interaction timeout first - reset ge window state if stuck
+                        long currentTime = System.currentTimeMillis();
+                        if (Rs2GrandExchange.isOfferScreenOpen() && (currentTime - lastActionTime > interactionTimeout)) {
+                            Rs2GrandExchange.backToOverview();
+
+                            lastActionTime = System.currentTimeMillis();
+                            actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+                            interactionTimeout = Rs2Random.randomGaussian(DEFAULT_INTERACTION_TIMEOUT, INTERACTION_TIMEOUT_VARIANCE);
+
+                            log.info("interactionTimeout reached, returning to GE overview.");
+                            return;
+                        }
+
 						// Check for Copilot price/quantity messages in chat
 						if (checkAndPressCopilotKeybind()) return;
 
                         // Check if we need to abort any offers
-                        if (checkAndAbortIfNeeded()) return;
+                        if (checkAndAbortOrModifyIfNeeded()) return;
 
                         // Check for highlighted widgets
-                        checkAndClickHighlightedWidgets();
+                        if (checkAndClickHighlightedWidgets()) return;
+
                         break;
                 }
             } catch (Exception ex) {
                 log.error("Error in FlipperScript: {} - ", ex.getMessage(), ex);
             }
-        }, 0, 600, TimeUnit.MILLISECONDS);
+        }, 0, SCHEDULE_INTERVAL_MS, TimeUnit.MILLISECONDS);
 
         return true;
     }
@@ -129,7 +153,7 @@ public class FlipperScript extends Script {
 		suggestionManager = null;
 		highlightController = null;
 		lastActionTime = 0;
-		actionCooldown = 1500;
+		actionCooldown = DEFAULT_ACTION_COOLDOWN;
 		super.shutdown();
 	}
 
@@ -282,7 +306,7 @@ public class FlipperScript extends Script {
 			return null;
 		}
 
-		if (Objects.equals(suggestionType, "abort"))
+		if (Objects.equals(suggestionType, "abort") || Objects.equals(suggestionType, "modify_buy") || Objects.equals(suggestionType, "modify_sell"))
 		{
 			return getHighlightWidgets(highlightController).stream()
 				.filter(Objects::nonNull)
@@ -301,10 +325,9 @@ public class FlipperScript extends Script {
 		}
 	}
 
-	private boolean checkAndAbortIfNeeded()
+	private boolean checkAndAbortOrModifyIfNeeded()
 	{
-		long currentTime = System.currentTimeMillis();
-		if (currentTime - lastActionTime < actionCooldown) return true;
+		if (System.currentTimeMillis() - lastActionTime < actionCooldown) return false;
 
 		if (flippingCopilot == null || highlightController == null || suggestionManager == null) return false;
 		try
@@ -314,20 +337,25 @@ public class FlipperScript extends Script {
 
 			String suggestionType = getSuggestionType(currentSuggestion);
 
-			if (!Objects.equals(suggestionType, "abort")) return false;
+			if (!Objects.equals(suggestionType, "abort") && !Objects.equals(suggestionType, "modify_buy") && !Objects.equals(suggestionType, "modify_sell")) return false;
 
 			log.info("Found suggestion type '{}'.", suggestionType);
 
 			Widget abortWidget = getWidgetFromOverlay(highlightController, suggestionType);
 			if (abortWidget != null)
-			{
-				NewMenuEntry menuEntry = new NewMenuEntry("Abort offer", "", 2, MenuAction.CC_OP, 2, abortWidget.getId(), false);
+			{	
+				NewMenuEntry menuEntry;
+				if (Objects.equals(suggestionType, "modify_buy") || Objects.equals(suggestionType, "modify_sell"))
+					menuEntry = new NewMenuEntry("Modify offer", "", 3, MenuAction.CC_OP, 2, abortWidget.getId(), false);
+				else
+					menuEntry = new NewMenuEntry("Abort offer", "", 2, MenuAction.CC_OP, 2, abortWidget.getId(), false);
+
 				Rectangle bounds = abortWidget.getBounds() != null && Rs2UiHelper.isRectangleWithinCanvas(abortWidget.getBounds())
 					? abortWidget.getBounds()
 					: Rs2UiHelper.getDefaultRectangle();
 				Microbot.doInvoke(menuEntry, bounds);
 				lastActionTime = System.currentTimeMillis();
-				actionCooldown = Rs2Random.randomGaussian(1200, 300);
+				actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 				return true;
 			}
 		}
@@ -339,24 +367,48 @@ public class FlipperScript extends Script {
 	}
 
     private boolean checkAndPressCopilotKeybind() {
-		boolean isChatboxInputOpen = Rs2Widget.isWidgetVisible(InterfaceID.Chatbox.MES_LAYER);
-		if (!isChatboxInputOpen) return false;
-		log.info("Found chatbox input open, pressing 'e' then Enter");
-		// Press 'e' to trigger FlippingCopilot's keybind
-		Rs2Keyboard.keyPress(KeyEvent.VK_E);
-		sleep(250, 400);
-		Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
+		// 1. Search for a widget with text "Copilot item" (if it's time to select the item suggestion in the buy item window)
+        Widget copilotWidget = Rs2Widget.findWidget("Copilot item:", null, false);
+        if (copilotWidget != null && Rs2Widget.isWidgetVisible(copilotWidget.getId())) {
+			log.info("Found chat widget Copilot item '{}'.", copilotWidget.getId());
+			/// 2. Press only Enter if found in scroll contents (selecting item)
+			Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
+			
+			/// As these widgets tend to disappear quickly sometimes, we sleep after we interact with it to select the suggested item
+			sleepUntil(() -> System.currentTimeMillis() - lastActionTime < actionCooldown);
+			lastActionTime = System.currentTimeMillis();
+			actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+			return true;
+        }
 
-		lastActionTime = System.currentTimeMillis();
-		return true;
+		if (System.currentTimeMillis() - lastActionTime < actionCooldown) return false;
+
+		// If it's time to set price/quantity
+
+		Widget setPriceWidget = Rs2Widget.findWidget("Set a price for each item:", null, true);
+		Widget setQuantityWidget = Rs2Widget.findWidget("How many do you wish to ", null, false);
+
+        if ((setPriceWidget != null && Rs2Widget.isWidgetVisible(setPriceWidget.getId())) || 
+		(setQuantityWidget != null && Rs2Widget.isWidgetVisible(setQuantityWidget.getId()))) {
+			// 3. Press E then Enter (setting price/quantity)
+			log.info("Found chat widget (price/quantity) '{}'.", setPriceWidget != null ? setPriceWidget.getId() : setQuantityWidget.getId());
+			Rs2Keyboard.keyPress(KeyEvent.VK_E);
+			sleep(KEY_PRESS_DELAY_MIN, KEY_PRESS_DELAY_MAX);
+			Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
+			lastActionTime = System.currentTimeMillis();
+			actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+			return true;
+        }
+
+		return false;
     }
 
-    private void checkAndClickHighlightedWidgets()
+    private boolean checkAndClickHighlightedWidgets()
 	{
 		long currentTime = System.currentTimeMillis();
-		if (currentTime - lastActionTime < actionCooldown) return;
+		if (currentTime - lastActionTime < actionCooldown) return false;
 
-		if (flippingCopilot == null || highlightController == null) return;
+		if (flippingCopilot == null || highlightController == null) return false;
 
 		try {
 			Widget highlightedWidget = getWidgetFromOverlay(highlightController, "");
@@ -365,13 +417,26 @@ public class FlipperScript extends Script {
 			if (isHighlightedVisible) {
 				log.info("Clicking highlighted widget: {}", highlightedWidget.getId());
 				Rs2Widget.clickWidget(highlightedWidget);
+				Rs2Random.wait(100, 200);
 				lastActionTime = currentTime;
-                actionCooldown = Rs2Random.randomGaussian(1800, 300);
+                actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+
+				// Sometimes, flipping copilot suggestions cost more than what's available in inventory, we should detect and avoid that
+				if (highlightedWidget.getText().contains("Confirm") || (highlightedWidget.getActions().length > 0 && highlightedWidget.getActions()[0].contains("Confirm"))) {
+					if (!sleepUntil(() -> !Rs2GrandExchange.isOfferScreenOpen())) {
+						Rs2GrandExchange.backToOverview();
+						return false;
+					}
+				}
+
+				return true;
 			}
 		}
 		catch (Exception e)
 		{
 			log.error("Could not process highlight widgets: {} - ", e.getMessage(), e);
 		}
+
+		return false;
 	}
 }

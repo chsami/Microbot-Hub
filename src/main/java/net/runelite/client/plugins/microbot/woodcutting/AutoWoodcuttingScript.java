@@ -293,6 +293,7 @@ public class AutoWoodcuttingScript extends Script {
                 break;
             case BURN_CAMPFIRE:
             case BURN:
+                woodcuttingScriptState = WoodcuttingScriptState.FIREMAKING;
                 burnLog(config);
 
                 if (Rs2Inventory.contains(getActiveTree().getLog())) return;
@@ -405,7 +406,7 @@ public class AutoWoodcuttingScript extends Script {
         // prioritize campfire if available
         Rs2TileObjectModel fire = rs2TileObjectCache.query().where(x -> x.getId() == 49927).nearest(6); // Forester's campfire
         if (fire == null) {
-            rs2TileObjectCache.query().where(x -> x.getId() == 26185).nearest(6);
+            fire = rs2TileObjectCache.query().where(x -> x.getId() == 26185).nearest(6);
         }
         if (config.primaryAction() == WoodcuttingPrimaryAction.BURN_CAMPFIRE) {
             if (fire != null) {
@@ -428,6 +429,8 @@ public class AutoWoodcuttingScript extends Script {
             sleepUntil(() -> (!Rs2Player.isMoving() && Rs2Widget.findWidget("How many would you like to burn?", null, false) != null), 5000);
             Rs2Random.waitEx(400, 200);
             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+            sleepUntil(Rs2Player::isAnimating, 2000);
+            Microbot.log("Sleeping until not animating or no more logs");
             sleepUntil(() -> !Rs2Inventory.contains(treeType.getLog()) || !Rs2Player.isAnimating(), 40000);
 
             return;

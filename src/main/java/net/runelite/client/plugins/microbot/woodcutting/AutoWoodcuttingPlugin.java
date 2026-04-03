@@ -42,7 +42,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
         tags = {"Woodcutting", "microbot", "skilling"},
         authors = {"Mocrosoft"},
         version = AutoWoodcuttingPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.1.32",
         cardUrl = "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -50,7 +50,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 )
 @Slf4j
 public class AutoWoodcuttingPlugin extends Plugin {
-    public static final String version = "1.8.1";
+    public static final String version = "1.8.2";
     @Inject
     @Getter(AccessLevel.MODULE)
     public AutoWoodcuttingScript autoWoodcuttingScript;

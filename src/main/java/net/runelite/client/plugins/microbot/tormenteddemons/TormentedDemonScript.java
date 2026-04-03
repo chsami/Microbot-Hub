@@ -94,7 +94,7 @@ public class TormentedDemonScript extends Script {
         }
         WorldPoint targetLocationOne = new WorldPoint(4062, 4558, 0);
         WorldPoint targetFinalLocation = new WorldPoint(4073, 4432, 0);
-        WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+        WorldPoint playerLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 
         switch (travelStep) {
             case LOCATION_ONE:
@@ -137,7 +137,7 @@ public class TormentedDemonScript extends Script {
             case LOCATION_THREE:
                 Microbot.status = "Approaching Tormented Demon location...";
                 if (Rs2Walker.walkTo(targetFinalLocation, 2)) {
-                    sleepUntil(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().equals(targetFinalLocation), 5000);
+                    sleepUntil(() -> targetFinalLocation.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())), 5000);
                     travelStep = TravelStep.LOCATION_ONE;
                     BOT_STATUS = State.FIGHTING;
                 }
@@ -239,7 +239,7 @@ public class TormentedDemonScript extends Script {
             currentOverheadIcon = null;
             Microbot.pauseAllScripts.set(true);
             teleportToFeroxEnclave();
-            sleepUntil(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().equals(SAFE_LOCATION), 5000);
+            sleepUntil(() -> SAFE_LOCATION.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())), 5000);
             Microbot.pauseAllScripts.set(false);
             BOT_STATUS = State.BANKING;
             return;

@@ -55,7 +55,7 @@ import java.util.stream.Collectors;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class MahoganyHomesPlugin extends Plugin {
-    public static final String version = "0.0.8";
+    public static final String version = "0.0.9";
     private static final List<Integer> PLANKS = Arrays.asList(ItemID.PLANK, ItemID.OAK_PLANK, ItemID.TEAK_PLANK, ItemID.MAHOGANY_PLANK);
     private static final List<String> PLANK_NAMES = Arrays.asList("Plank", "Oak plank", "Teak plank", "Mahogany plank");
     private static final Map<Integer, Integer> MAHOGANY_HOMES_REPAIRS = new HashMap<>();
@@ -250,10 +250,12 @@ public class MahoganyHomesPlugin extends Plugin {
         overlayManager.add(textOverlay);
         overlayManager.add(highlightOverlay);
         overlayManager.add(plankSackOverlay);
-        if (client.getGameState() == GameState.LOGGED_IN) {
-            loadFromConfig();
-            clientThread.invoke(this::updateVarbMap);
-        }
+        clientThread.invoke(() -> {
+            if (client.getGameState() == GameState.LOGGED_IN) {
+                loadFromConfig();
+                updateVarbMap();
+            }
+        });
         script.run(config);
     }
 
@@ -271,6 +273,7 @@ public class MahoganyHomesPlugin extends Plugin {
         mapArrow = null;
         lastChanged = null;
         lastCompletedCount = -1;
+        plankCount = -1;
         contractTier = 0;
         script.shutdown();
     }
@@ -290,9 +293,11 @@ public class MahoganyHomesPlugin extends Plugin {
                 break;
             case MahoganyHomesConfig.HINT_ARROW_KEY:
                 client.clearHintArrow();
-                if (client.getLocalPlayer() != null) {
-                    refreshHintArrow(client.getLocalPlayer().getWorldLocation());
-                }
+                clientThread.invoke(() -> {
+                    if (client.getLocalPlayer() != null) {
+                        refreshHintArrow(client.getLocalPlayer().getWorldLocation());
+                    }
+                });
                 break;
         }
     }
@@ -312,7 +317,7 @@ public class MahoganyHomesPlugin extends Plugin {
 
     @Subscribe
     public void onUsernameChanged(UsernameChanged e) {
-        loadFromConfig();
+        clientThread.invoke(this::loadFromConfig);
     }
 
     @Subscribe
@@ -629,7 +634,7 @@ public class MahoganyHomesPlugin extends Plugin {
         if (name != null) {
             // They may have asked for a contract but already had one, check the configs
             if (contractTier == 0) {
-                loadFromConfig();
+                clientThread.invoke(this::loadFromConfig);
                 // If the config matches the assigned value then do nothing
                 if (currentHome != null && currentHome.getName().equalsIgnoreCase(name)) {
                     return;
@@ -653,27 +658,28 @@ public class MahoganyHomesPlugin extends Plugin {
     }
 
     public void setCurrentHome(final Home h) {
-        currentHome = h;
-        client.clearHintArrow();
-        lastChanged = Instant.now();
-        lastCompletedCount = 0;
-        varbMap.clear();
+        clientThread.invoke(() -> {
+            currentHome = h;
+            client.clearHintArrow();
+            lastChanged = Instant.now();
+            lastCompletedCount = 0;
+            varbMap.clear();
 
-        if (currentHome == null) {
-            worldMapPointManager.removeIf(MahoganyHomesWorldPoint.class::isInstance);
-            contractTier = 0;
-            return;
-        }
+            if (currentHome == null) {
+                worldMapPointManager.removeIf(MahoganyHomesWorldPoint.class::isInstance);
+                contractTier = 0;
+                return;
+            }
 
-        if (config.worldMapIcon()) {
-            worldMapPointManager.removeIf(MahoganyHomesWorldPoint.class::isInstance);
-            worldMapPointManager.add(new MahoganyHomesWorldPoint(h.getLocation(), this));
-        }
+            if (config.worldMapIcon()) {
+                worldMapPointManager.removeIf(MahoganyHomesWorldPoint.class::isInstance);
+                worldMapPointManager.add(new MahoganyHomesWorldPoint(h.getLocation(), this));
+            }
 
-        if (config.displayHintArrows() && client.getLocalPlayer() != null) {
-            refreshHintArrow(client.getLocalPlayer().getWorldLocation());
-        }
-
+            if (config.displayHintArrows() && client.getLocalPlayer() != null) {
+                refreshHintArrow(client.getLocalPlayer().getWorldLocation());
+            }
+        });
     }
 
 

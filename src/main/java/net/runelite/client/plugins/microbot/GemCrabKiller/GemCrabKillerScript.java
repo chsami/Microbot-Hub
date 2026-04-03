@@ -215,7 +215,8 @@ public class GemCrabKillerScript extends Script {
         }
 
         // Check if we're near the cave entrance before walking
-        GameObject caveEntrance = Rs2GameObject.getGameObject(CAVE_ENTRANCE_ID, Rs2Player.getLocalPlayer().getWorldLocation());
+        WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        GameObject caveEntrance = Rs2GameObject.getGameObject(CAVE_ENTRANCE_ID, playerLoc);
         if (caveEntrance != null) {
             // Check if the cave entrance has the "Crawl-through" action
             var composition = Microbot.getClientThread().runOnClientThreadOptional(() ->

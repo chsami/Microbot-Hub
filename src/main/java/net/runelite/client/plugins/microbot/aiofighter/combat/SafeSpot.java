@@ -53,7 +53,7 @@ private boolean isDefaultSafeSpot(WorldPoint safeSpot) {
 }
 
 private boolean isPlayerAtSafeSpot(WorldPoint safeSpot) {
-    return safeSpot.equals(Microbot.getClient().getLocalPlayer().getWorldLocation());
+    return safeSpot.equals(Rs2Player.getWorldLocation());
 }
 
     @Override

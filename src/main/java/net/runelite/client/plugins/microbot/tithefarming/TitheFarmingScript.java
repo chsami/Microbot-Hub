@@ -323,11 +323,9 @@ public class TitheFarmingScript extends Script {
 
         final TitheFarmPlant finalPlant = plant;
 
-        if (plant.getGameObject().getWorldLocation().distanceTo2D(Microbot.getClient().getLocalPlayer().getWorldLocation()) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
-            //Important to know that there are two world locations when you are in an instance
-            //that's why we use the world location of the getLocalPlayer instead of Rs2Player.getWorldLocation
-            //because Rs2Player.getWorldLocation will give us the world location in the instance, and we do not want that
-            WorldPoint w = WorldPoint.fromRegion(Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID(),
+        WorldPoint corePlayerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        if (plant.getGameObject().getWorldLocation().distanceTo2D(corePlayerLoc) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
+            WorldPoint w = WorldPoint.fromRegion(corePlayerLoc.getRegionID(),
                     plant.regionX,
                     plant.regionY,
                     Microbot.getClient().getTopLevelWorldView().getPlane());
@@ -400,19 +398,18 @@ public class TitheFarmingScript extends Script {
 
 
     private static void clickPatch(TitheFarmPlant plant) {
-        WorldPoint worldPoint = WorldPoint.fromRegion(Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID(),
+        WorldPoint patchPlayerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        WorldPoint worldPoint = WorldPoint.fromRegion(patchPlayerLoc.getRegionID(),
                 plant.regionX,
                 plant.regionY,
                 Microbot.getClient().getTopLevelWorldView().getPlane());
 
         Rs2GameObject.interact(worldPoint);
-
-        //Point point = Calculations.worldToCanvas(worldPoint.getX(), worldPoint.getY());
-        //Microbot.getMouse().click(point);
     }
 
     private static void clickPatch(TitheFarmPlant plant, String action) {
-        WorldPoint worldPoint = WorldPoint.fromRegion(Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID(),
+        WorldPoint patchPlayerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        WorldPoint worldPoint = WorldPoint.fromRegion(patchPlayerLoc.getRegionID(),
                 plant.regionX,
                 plant.regionY,
                 Microbot.getClient().getTopLevelWorldView().getPlane());
@@ -450,11 +447,12 @@ public class TitheFarmingScript extends Script {
 
     private void walkToBarrel() {
         final TileObject gameObject = Rs2GameObject.findObjectById(ObjectID.WATER_BARREL1);
-        if (gameObject.getWorldLocation().distanceTo2D(Microbot.getClient().getLocalPlayer().getWorldLocation()) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
+        WorldPoint barrelPlayerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        if (gameObject.getWorldLocation().distanceTo2D(barrelPlayerLoc) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
             Rs2Walker.walkMiniMap(gameObject.getWorldLocation(), 1);
             sleepUntil(Rs2Player::isMoving);
         }
-        sleepUntil(() -> gameObject.getWorldLocation().distanceTo2D(Microbot.getClient().getLocalPlayer().getWorldLocation()) < DISTANCE_THRESHOLD_MINIMAP_WALK);
+        sleepUntil(() -> gameObject.getWorldLocation().distanceTo2D(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())) < DISTANCE_THRESHOLD_MINIMAP_WALK);
     }
 
     private void checkGricollerCharges() {

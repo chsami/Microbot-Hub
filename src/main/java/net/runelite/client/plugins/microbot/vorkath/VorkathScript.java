@@ -39,6 +39,7 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
 import javax.inject.Inject;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -570,7 +571,6 @@ public class VorkathScript extends Script {
     private boolean doesProjectileExistById(int id) {
         for (Projectile projectile : Microbot.getClient().getProjectiles()) {
             if (projectile.getId() == id) {
-                //println("Projectile $id found")
                 return true;
             }
         }
@@ -579,7 +579,7 @@ public class VorkathScript extends Script {
 
     private boolean isCloseToRelleka() {
         if (Microbot.getClient().getLocalPlayer() == null) return false;
-        return Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(new WorldPoint(2670, 3634, 0)) < 80;
+        return Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(new WorldPoint(2670, 3634, 0))) < 80;
     }
 
     private boolean teleToPoh() {
@@ -596,7 +596,7 @@ public class VorkathScript extends Script {
     }
 
     private void redBallWalk() {
-        WorldPoint currentPlayerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+        WorldPoint currentPlayerLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
         WorldPoint sideStepLocation = new WorldPoint(currentPlayerLocation.getX() + 2, currentPlayerLocation.getY(), 0);
         if (Rs2Random.between(0, 2) == 1) {
             sideStepLocation = new WorldPoint(currentPlayerLocation.getX() - 2, currentPlayerLocation.getY(), 0);
@@ -604,40 +604,56 @@ public class VorkathScript extends Script {
         final WorldPoint _sideStepLocation = sideStepLocation;
         Rs2Walker.walkFastLocal(LocalPoint.fromWorld(Microbot.getClient(), _sideStepLocation));
         Rs2Player.waitForWalking();
-        sleepUntil(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().equals(_sideStepLocation));
+        sleepUntil(() -> _sideStepLocation.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())));
     }
 
-    WorldPoint findSafeTile() {
-        WorldPoint swPoint = new WorldPoint(vorkath.getWorldLocation().getX() + 1, vorkath.getWorldLocation().getY() - 8, 0);
+    WorldPoint findSafeTile(WorldPoint vorkathLoc, WorldPoint playerLoc) {
+        WorldPoint swPoint = new WorldPoint(vorkathLoc.getX() + 1, vorkathLoc.getY() - 8, 0);
         WorldArea wooxWalkArea = new WorldArea(swPoint, 5, 1);
 
         List<WorldPoint> safeTiles = wooxWalkArea.toWorldPointList().stream().filter(this::isTileSafe).collect(Collectors.toList());
 
-        // Find the closest safe tile by x-coordinate to the player
-        return safeTiles.stream().min(Comparator.comparingInt(tile -> Math.abs(tile.getX() - Microbot.getClient().getLocalPlayer().getWorldLocation().getX()))).orElse(null);
+        return safeTiles.stream().min(Comparator.comparingInt(tile -> Math.abs(tile.getX() - playerLoc.getX()))).orElse(null);
     }
-
 
     boolean isTileSafe(WorldPoint tile) {
         return !acidPools.contains(tile)
                 && !acidPools.contains(new WorldPoint(tile.getX(), tile.getY() + 1, tile.getPlane()));
-
     }
 
     private void handleAcidWalk() {
-        if (!doesProjectileExistById(acidProjectileId) && !doesProjectileExistById(acidRedProjectileId) && Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.VORKATH_ACID).isEmpty()) {
+        Object[] clientState = Microbot.getClientThread().invoke(() -> {
+            boolean hasAcidProj = doesProjectileExistById(acidProjectileId);
+            boolean hasRedAcidProj = doesProjectileExistById(acidRedProjectileId);
+
+            List<WorldPoint> acidTiles = new ArrayList<>();
+            Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.VORKATH_ACID).forEach(o -> acidTiles.add(o.getWorldLocation()));
+            Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.OLM_ACID_POOL).forEach(o -> acidTiles.add(o.getWorldLocation()));
+            Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.MYQ5_ACID_POOL).forEach(o -> acidTiles.add(o.getWorldLocation()));
+
+            WorldPoint playerLoc = Microbot.getClient().getLocalPlayer().getWorldLocation();
+            WorldPoint vorkathLoc = vorkath.getRuneliteNpc().getWorldLocation();
+
+            return new Object[]{hasAcidProj, hasRedAcidProj, acidTiles, playerLoc, vorkathLoc};
+        });
+
+        boolean hasAcidProj = (boolean) clientState[0];
+        boolean hasRedAcidProj = (boolean) clientState[1];
+        @SuppressWarnings("unchecked")
+        List<WorldPoint> acidTiles = (List<WorldPoint>) clientState[2];
+        WorldPoint playerLocation = (WorldPoint) clientState[3];
+        WorldPoint vorkathLoc = (WorldPoint) clientState[4];
+
+        if (!hasAcidProj && !hasRedAcidProj && acidTiles.isEmpty()) {
             Rs2Npc.interact(vorkath, "attack");
             state = State.FIGHT_VORKATH;
             acidPools.clear();
             return;
         }
 
-        Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.VORKATH_ACID).forEach(tileObject -> acidPools.add(tileObject.getWorldLocation()));
-        Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.OLM_ACID_POOL).forEach(tileObject -> acidPools.add(tileObject.getWorldLocation()));
-        Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.MYQ5_ACID_POOL).forEach(tileObject -> acidPools.add(tileObject.getWorldLocation()));
+        acidPools.addAll(acidTiles);
 
-        WorldPoint safeTile = findSafeTile();
-        WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+        WorldPoint safeTile = findSafeTile(vorkathLoc, playerLocation);
 
         if (safeTile != null) {
             if (playerLocation.equals(safeTile)) {
@@ -649,11 +665,19 @@ public class VorkathScript extends Script {
         }
     }
 
-    //Only use this for testing purpose on sleeping vorkath
     private void testWooxWalk() {
         vorkath = Rs2Npc.getNpc(NpcID.VORKATH_SLEEPING);
-        WorldPoint safeTile = findSafeTile();
-        WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+
+        Object[] clientState = Microbot.getClientThread().invoke(() -> {
+            WorldPoint playerLoc = Microbot.getClient().getLocalPlayer().getWorldLocation();
+            WorldPoint vorkathLoc = vorkath.getRuneliteNpc().getWorldLocation();
+            return new Object[]{playerLoc, vorkathLoc};
+        });
+
+        WorldPoint playerLocation = (WorldPoint) clientState[0];
+        WorldPoint vorkathLoc = (WorldPoint) clientState[1];
+
+        WorldPoint safeTile = findSafeTile(vorkathLoc, playerLocation);
 
         if (safeTile != null) {
             if (playerLocation.equals(safeTile)) {

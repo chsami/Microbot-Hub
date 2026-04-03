@@ -240,7 +240,7 @@ public class BurnBakingScript extends Script {
         }
 
         WorldPoint bankerWorldLocation = WorldPoint.fromLocal(Microbot.getClient(), bankerLocation);
-        WorldPoint playerWorldLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+        WorldPoint playerWorldLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 
         // Check if the player is within 4 tiles of the banker
         if (playerWorldLocation.distanceTo(bankerWorldLocation) <= 4) {
@@ -286,7 +286,7 @@ public class BurnBakingScript extends Script {
         return Rs2Npc.getNpcs()
                 .filter(npc -> npc.getComposition() != null && npc.getComposition().getActions() != null &&
                         Arrays.asList(npc.getComposition().getActions()).contains("Bank"))
-                .min(Comparator.comparingInt(npc -> npc.getWorldLocation().distanceTo(Microbot.getClient().getLocalPlayer().getWorldLocation())))
+                .min(Comparator.comparingInt(npc -> npc.getWorldLocation().distanceTo(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))))
                 .orElse(null);
     }
 

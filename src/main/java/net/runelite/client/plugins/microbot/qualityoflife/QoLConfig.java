@@ -941,6 +941,48 @@ public interface QoLConfig extends Config {
         return false;
     }
 
+    // LMS-specific animation-based anti-PK behavior
+    @ConfigItem(
+        keyName = "lms",
+        name = "LMS",
+        description = "Use LMS-style animation logic for staff users: treat LMS magic staves as magic by default, but swap to melee when a melee animation is detected until a magic cast is seen again.",
+        position = 3,
+        section = autoPrayerSection
+    )
+    default boolean lmsAnimationPraying() {
+        return true;
+    }
+
+    @Range(
+        min = 30,
+        max = 2000
+    )
+    @ConfigItem(
+        keyName = "lmsMaxReactionDelayMs",
+        name = "Max reaction delay (ms)",
+        description = "When LMS is enabled, randomly delay prayer switches between 30 ms and this value to simulate human reaction time.",
+        position = 4,
+        section = autoPrayerSection
+    )
+    default int lmsMaxReactionDelayMs() {
+        return 300;
+    }
+
+    @Range(
+        min = 0,
+        max = 100
+    )
+    @ConfigItem(
+        keyName = "lmsWrongPrayChance",
+        name = "Wrong pray chance (%)",
+        description = "When LMS is enabled, percent chance to briefly use an incorrect protection prayer before correcting it a moment later.",
+        position = 5,
+        section = autoPrayerSection
+    )
+    default int lmsWrongPrayChance() {
+        return 5;
+    }
+
     @ConfigItem(
             keyName = "grandExchangeHotkey",
             name = "Paste and Search GE Hotkey",

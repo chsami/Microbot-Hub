@@ -219,7 +219,7 @@ public class BlueDragonsScript extends Script {
 
     private void HandleBankingSimple(BlueDragonsConfig config) {
         logOnceToChat("Traveling to Falador West bank for depositing looted items.", true, config);
-        logOnceToChat("Current location: " + Microbot.getClient().getLocalPlayer().getWorldLocation(), true, config);
+        logOnceToChat("Current location: " + Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()), true, config);
 
         if (Rs2Bank.walkToBankAndUseBank(BankLocation.FALADOR_WEST)) {
 
@@ -300,7 +300,7 @@ public class BlueDragonsScript extends Script {
 
     private void handleTravelToDragons() {
         logOnceToChat("Traveling to dragons.", false, config);
-        logOnceToChat("Player location before travel: " + Microbot.getClient().getLocalPlayer().getWorldLocation(), true, config);
+        logOnceToChat("Player location before travel: " + Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()), true, config);
 
         if (isPlayerAtSafeSpot()) {
             logOnceToChat("Already at safe spot. Transitioning to FIGHTING state.", true, config);
@@ -525,7 +525,7 @@ public class BlueDragonsScript extends Script {
     }
 
     private boolean isPlayerAtSafeSpot() {
-        return SAFE_SPOT.equals(Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return SAFE_SPOT.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
     }
 
     private void moveToSafeSpot() {

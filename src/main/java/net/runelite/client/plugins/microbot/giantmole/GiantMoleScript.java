@@ -278,11 +278,13 @@ public class GiantMoleScript extends Script
      */
     public static WorldPoint getMoleLocation()
     {
-        if (isInMoleTunnel())
+        if (!isInMoleTunnel())
         {
-            return Microbot.getClient().getHintArrowPoint();
+            return null;
         }
-        return null;
+        return Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> Microbot.getClient().getHintArrowPoint())
+                .orElse(null);
     }
 
     /**
@@ -308,7 +310,10 @@ public class GiantMoleScript extends Script
      */
     public Rs2NpcModel getMole()
     {
-        return new Rs2NpcModel(Microbot.getClient().getHintArrowNpc());
+        return Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> Microbot.getClient().getHintArrowNpc())
+                .map(Rs2NpcModel::new)
+                .orElse(null);
     }
 
     /**
@@ -352,22 +357,34 @@ public class GiantMoleScript extends Script
     public void attackMole()
     {
         Rs2NpcModel mole = getMole();
-        if (mole != null && !Rs2Combat.inCombat())
+        if (mole == null || Rs2Combat.inCombat())
         {
-            // Mole's "dig" animation is 3314; if it's mid-dig or dead, skip
-            if (mole.getAnimation() == 3314 || isMoleDead())
-            {
-                return;
-            }
+            return;
+        }
 
-            // If pathfinder is active, exit it before attacking
-            if (ShortestPathPlugin.getPathfinder() != null)
-            {
-                ShortestPathPlugin.exit();
-                sleep(600, 800);
-            }
+        boolean moleIsDigging = Microbot.getClientThread()
+                .runOnClientThreadOptional(() ->
+                {
+                    NPC hintNpc = Microbot.getClient().getHintArrowNpc();
+                    return hintNpc != null && hintNpc.getAnimation() == 3314;
+                })
+                .orElse(false);
 
-            Rs2Npc.interact(mole, "Attack");
+        // Mole's "dig" animation is 3314; if it's mid-dig or dead, skip
+        if (moleIsDigging || isMoleDead())
+        {
+            return;
+        }
+
+        // If pathfinder is active, exit it before attacking
+        if (ShortestPathPlugin.getPathfinder() != null)
+        {
+            ShortestPathPlugin.exit();
+            sleep(600, 800);
+        }
+
+        if (Rs2Npc.interact(mole, "Attack"))
+        {
             sleep(600, 800);
         }
     }
@@ -458,6 +475,10 @@ public class GiantMoleScript extends Script
         // (1) If inventory is full, we need to bank
         if (Rs2Inventory.isFull())
         {
+            if (config.toggleBuryBones() && buryBonesInInventory())
+            {
+                return false;
+            }
             Microbot.log("Inventory is full, banking...");
             return true;
         }
@@ -615,7 +636,24 @@ public class GiantMoleScript extends Script
             {
                 Microbot.pauseAllScripts.compareAndSet(true, false);
             }
+            buryBonesInInventory();
         }
+    }
+
+    private boolean buryBonesInInventory()
+    {
+        List<Rs2ItemModel> bones = Rs2Inventory.getBones();
+        if (bones == null || bones.isEmpty())
+        {
+            return false;
+        }
+        if (Rs2Inventory.interact(bones.get(0), "Bury"))
+        {
+            Rs2Player.waitForAnimation();
+            sleep(150, 300);
+            return true;
+        }
+        return false;
     }
 
     private void lootRunes(GiantMoleConfig config)
