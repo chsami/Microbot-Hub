@@ -11,7 +11,6 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
@@ -20,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 public class StunAlchScript extends Script {
 
-    private MagicState state = MagicState.CASTING;
+    private final MagicState state = MagicState.CASTING;
     private final AIOMagicPlugin plugin;
 
     @Inject
@@ -44,60 +43,94 @@ public class StunAlchScript extends Script {
                 long startTime = System.currentTimeMillis();
 
 
-                switch (state) {
-                    case CASTING:
-                        if (plugin.getAlchItemNames().isEmpty() || plugin.getAlchItemNames().stream().noneMatch(Rs2Inventory::hasItem)) {
-                            Microbot.log("Missing alch items...");
-                            return;
-                        }
+                if (state != MagicState.CASTING) {
+                    return;
+                }
 
-                        if (!Rs2Magic.hasRequiredRunes(plugin.getAlchSpell())) {
-                            Microbot.showMessage("Out of runes for alchemy");
-                            shutdown();
-                            return;
-                        }
+                if (plugin.getStunSpell() == null) {
+                    Microbot.showMessage("Set a stun spell in config");
+                    shutdown();
+                    return;
+                }
 
-                        if (!Rs2Magic.hasRequiredRunes(plugin.getStunSpell().getRs2Spell())) {
-                            Microbot.showMessage("Out of runes for " + plugin.getStunSpell().name());
-                            shutdown();
-                            return;
-                        }
+                String targetNpcName = plugin.getStunNpcName() == null ? "" : plugin.getStunNpcName().trim();
+                if (targetNpcName.isEmpty()) {
+                    Microbot.showMessage("Set a stun NPC name in config");
+                    shutdown();
+                    return;
+                }
 
-                        Rs2ItemModel alchItem = plugin.getAlchItemNames().stream()
-                                .filter(Rs2Inventory::hasItem)
-                                .map(Rs2Inventory::get)
-                                .findFirst()
-                                .orElse(null);
+                if (plugin.getAlchItemNames().isEmpty() || plugin.getAlchItemNames().stream().noneMatch(Rs2Inventory::hasItem)) {
+                    Microbot.log("Missing alch items...");
+                    return;
+                }
 
-                        if (alchItem == null) {
-                            Microbot.log("Missing alch items...");
-                            return;
-                        }
+                if (!Rs2Magic.hasRequiredRunes(plugin.getAlchSpell())) {
+                    Microbot.showMessage("Out of runes for alchemy");
+                    shutdown();
+                    return;
+                }
 
-                        if (Rs2AntibanSettings.naturalMouse) {
-                            int inventorySlot = Rs2Player.getSkillRequirement(Skill.MAGIC, 55) ? 12 : 4;
-                            if (alchItem.getSlot() != inventorySlot) {
-                                Rs2Inventory.moveItemToSlot(alchItem, inventorySlot);
-                                return;
-                            }
-                        }
+                if (!Rs2Magic.hasRequiredRunes(plugin.getStunSpell().getRs2Spell())) {
+                    Microbot.showMessage("Out of runes for " + plugin.getStunSpell().name());
+                    shutdown();
+                    return;
+                }
 
-                        var npc = (Rs2NpcModel) Rs2Player.getInteracting();
+                Rs2ItemModel alchItem = plugin.getAlchItemNames().stream()
+                        .filter(Rs2Inventory::hasItem)
+                        .map(Rs2Inventory::get)
+                        .findFirst()
+                        .orElse(null);
 
-                        if (npc != null) {
-                            Rs2Magic.castOn(plugin.getStunSpell().getRs2Spell().getMagicAction(), npc);
-                        } else {
-                            Rs2Magic.castOn(plugin.getStunSpell().getRs2Spell().getMagicAction(), Rs2Npc.getNpc(plugin.getStunNpcName()));
-                        }
+                if (alchItem == null) {
+                    Microbot.log("Missing alch items...");
+                    return;
+                }
 
-                        if (Rs2AntibanSettings.naturalMouse) {
-                            Rs2Magic.alch(alchItem, 10, 50);
-                        } else {
-                            Rs2Magic.alch(alchItem);
-                            sleep(200, 300);
-                        }
+                if (Rs2AntibanSettings.naturalMouse) {
+                    int inventorySlot = Rs2Player.getSkillRequirement(Skill.MAGIC, 55) ? 12 : 4;
+                    if (alchItem.getSlot() != inventorySlot) {
+                        Rs2Inventory.moveItemToSlot(alchItem, inventorySlot);
+                        return;
+                    }
+                }
 
-                        break;
+                Rs2NpcModel npc = null;
+                Object interacting = Rs2Player.getInteracting();
+                if (interacting instanceof Rs2NpcModel) {
+                    npc = (Rs2NpcModel) interacting;
+                }
+
+                if (npc != null) {
+                    Rs2Magic.castOn(plugin.getStunSpell().getRs2Spell().getMagicAction(), npc);
+                } else {
+                    var configuredNpc = Microbot.getRs2NpcCache().query()
+                            .withName(targetNpcName)
+                            .nearest();
+                    if (configuredNpc == null) {
+                        Microbot.log("Unable to find NPC: " + targetNpcName);
+                        return;
+                    }
+                    if (!Rs2Magic.cast(plugin.getStunSpell().getRs2Spell().getMagicAction())) {
+                        Microbot.log("Unable to select stun spell: " + plugin.getStunSpell().name());
+                        return;
+                    }
+                    if (!sleepUntil(() -> Microbot.getClient().isWidgetSelected(), 800)) {
+                        Microbot.log("Stun spell was not selected in time");
+                        return;
+                    }
+                    if (!configuredNpc.click()) {
+                        Microbot.log("Unable to cast stun on NPC: " + targetNpcName);
+                        return;
+                    }
+                }
+
+                if (Rs2AntibanSettings.naturalMouse) {
+                    Rs2Magic.alch(alchItem, 10, 50);
+                } else {
+                    Rs2Magic.alch(alchItem);
+                    sleep(200, 300);
                 }
 
                 long endTime = System.currentTimeMillis();
@@ -105,7 +138,7 @@ public class StunAlchScript extends Script {
                 System.out.println("Total time for loop " + totalTime);
 
             } catch (Exception ex) {
-                System.out.println(ex.getMessage());
+                Microbot.log("Stun-Alch loop failed: " + ex.getMessage());
             }
         }, 0, 100, TimeUnit.MILLISECONDS);
         return true;

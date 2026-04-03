@@ -8,7 +8,6 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
@@ -16,7 +15,7 @@ import javax.inject.Inject;
 import java.util.concurrent.TimeUnit;
 
 public class StunScript extends Script {
-    private MagicState state = MagicState.CASTING;
+    private final MagicState state = MagicState.CASTING;
     private final AIOMagicPlugin plugin;
 
     @Inject
@@ -41,22 +40,52 @@ public class StunScript extends Script {
 
                 switch (state) {
                     case CASTING:
+                        if (plugin.getStunSpell() == null) {
+                            Microbot.showMessage("Set a stun spell in config");
+                            shutdown();
+                            return;
+                        }
+
+                        String targetNpcName = plugin.getStunNpcName() == null ? "" : plugin.getStunNpcName().trim();
+                        if (targetNpcName.isEmpty()) {
+                            Microbot.showMessage("Set a stun NPC name in config");
+                            shutdown();
+                            return;
+                        }
+
                         if (!Rs2Magic.hasRequiredRunes(plugin.getStunSpell().getRs2Spell())) {
                             Microbot.showMessage("Out of runes for " + plugin.getStunSpell().name());
                             shutdown();
                             return;
                         }
 
-                        Rs2NpcModel interactingNpc = (Rs2NpcModel) Rs2Player.getInteracting();
+                        Rs2NpcModel interactingNpc = null;
+                        Object interacting = Rs2Player.getInteracting();
+                        if (interacting instanceof Rs2NpcModel) {
+                            interactingNpc = (Rs2NpcModel) interacting;
+                        }
                         if (interactingNpc != null) {
                             Rs2Magic.castOn(plugin.getStunSpell().getRs2Spell().getMagicAction(), interactingNpc);
                         } else {
-                            Rs2NpcModel configuredNpc = Rs2Npc.getNpc(plugin.getStunNpcName());
+                            var configuredNpc = Microbot.getRs2NpcCache().query()
+                                    .withName(targetNpcName)
+                                    .nearest();
                             if (configuredNpc == null) {
-                                Microbot.log("Unable to find NPC: " + plugin.getStunNpcName());
+                                Microbot.log("Unable to find NPC: " + targetNpcName);
                                 return;
                             }
-                            Rs2Magic.castOn(plugin.getStunSpell().getRs2Spell().getMagicAction(), configuredNpc);
+                            if (!Rs2Magic.cast(plugin.getStunSpell().getRs2Spell().getMagicAction())) {
+                                Microbot.log("Unable to select stun spell: " + plugin.getStunSpell().name());
+                                return;
+                            }
+                            if (!sleepUntil(() -> Microbot.getClient().isWidgetSelected(), 800)) {
+                                Microbot.log("Stun spell was not selected in time");
+                                return;
+                            }
+                            if (!configuredNpc.click()) {
+                                Microbot.log("Unable to cast stun on NPC: " + targetNpcName);
+                                return;
+                            }
                         }
 
                         sleep(200, 300);
@@ -65,7 +94,7 @@ public class StunScript extends Script {
                         break;
                 }
             } catch (Exception ex) {
-                System.out.println(ex.getMessage());
+                Microbot.log("Stun loop failed: " + ex.getMessage());
             }
         }, 0, 100, TimeUnit.MILLISECONDS);
         return true;

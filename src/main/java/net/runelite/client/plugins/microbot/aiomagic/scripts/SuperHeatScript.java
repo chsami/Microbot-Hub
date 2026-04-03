@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.aiomagic.scripts;
 
 import net.runelite.api.Skill;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.aiomagic.AIOMagicPlugin;
@@ -17,7 +18,6 @@ import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Staff;
 import net.runelite.client.plugins.microbot.util.magic.Runes;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
-import net.runelite.api.gameval.ItemID;
 
 import javax.inject.Inject;
 import java.util.List;

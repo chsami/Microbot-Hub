@@ -1,20 +1,23 @@
 package net.runelite.client.plugins.microbot.aiomagic.scripts;
+
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
-import net.runelite.client.plugins.microbot.aiomagic.AIOMagicPlugin;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
+import net.runelite.client.plugins.microbot.aiomagic.AIOMagicPlugin;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+
 import javax.inject.Inject;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
 public class StunTeleAlchScript extends Script {
     private final AIOMagicPlugin plugin;
     private static final List<Integer> TELEPORT_GRAPHICS = List.of(800, 802, 803, 804);
@@ -24,10 +27,12 @@ public class StunTeleAlchScript extends Script {
     private long lastNpcRecoveryTeleportAt = 0L;
     private int consecutiveNpcRecoveryTeleports = 0;
     private long lastNpcNotFoundLogAt = 0L;
+
     @Inject
     public StunTeleAlchScript(AIOMagicPlugin plugin) {
         this.plugin = plugin;
     }
+
     public boolean run() {
         Microbot.enableAutoRunOn = false;
         Rs2Antiban.resetAntibanSettings();
@@ -37,14 +42,21 @@ public class StunTeleAlchScript extends Script {
         Rs2AntibanSettings.contextualVariability = true;
         Rs2AntibanSettings.usePlayStyle = true;
         Rs2Antiban.setActivity(Activity.TELEPORT_TRAINING);
+
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 long startTime = System.currentTimeMillis();
+
                 String configuredTargetNpc = plugin.getStunNpcName();
                 if (configuredTargetNpc == null || configuredTargetNpc.isBlank()) {
                     Microbot.showMessage("Set a stun NPC name in config");
+                    shutdown();
+                    return;
+                }
+                if (plugin.getStunSpell() == null) {
+                    Microbot.showMessage("Set a stun spell in config");
                     shutdown();
                     return;
                 }
@@ -90,7 +102,7 @@ public class StunTeleAlchScript extends Script {
                     }
                 }
                 // 1) STUN target from user config using queryable NPC cache
-                Rs2NpcModel target = Microbot.getRs2NpcCache().query()
+                var target = Microbot.getRs2NpcCache().query()
                         .withName(configuredTargetNpc)
                         .nearest();
                 if (target == null) {
@@ -140,6 +152,7 @@ public class StunTeleAlchScript extends Script {
         }, 0, 100, TimeUnit.MILLISECONDS);
         return true;
     }
+
     @Override
     public void shutdown() {
         lastNpcRecoveryTeleportAt = 0L;

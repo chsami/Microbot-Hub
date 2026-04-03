@@ -16,7 +16,7 @@ public enum SuperHeatItem {
     ADAMANTITE(ItemID.ADAMANTITE_ORE, 1, ItemID.COAL, 6, 70),
     CUPRONICKEL(ItemID.NICKEL_ORE, 1, ItemID.COPPER_ORE, 2, 74),
     RUNITE(ItemID.RUNITE_ORE, 1, ItemID.COAL, 8, 85);
-    
+
     private final int itemID;
     private final int primaryAmount;
     private final int secondaryItemID;
@@ -42,7 +42,7 @@ public enum SuperHeatItem {
     public boolean requiresSecondaryItem() {
         return secondaryAmount > 0;
     }
-    
+
     public boolean hasRequiredLevel() {
         return Rs2Player.getSkillRequirement(Skill.SMITHING, levelRequired);
     }

@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.aiomagic;
 
 import com.google.inject.Provides;
-import lombok.Getter;
 import net.runelite.api.Skill;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
@@ -70,44 +69,18 @@ public class AIOMagicPlugin extends Plugin {
     private StunAlchScript stunAlchScript;
 
     @Inject
+    private StunScript stunScript;
+
+    @Inject
     private StunTeleAlchScript stunTeleAlchScript; // NEW
 
     @Inject
     private SpinFlaxScript spinFlaxScript;
 
-    public final static String version = "1.2.5";
-
-    @Getter
-    private Rs2CombatSpells combatSpell;
-
-    @Getter
-    private List<String> alchItemNames = Collections.emptyList();
-
-    @Getter
-    private SuperHeatItem superHeatItem;
-
-    @Getter
-    private String npcName;
-
-    @Getter
-    private TeleportSpell teleportSpell;
-
-    @Getter
-    private StunSpell stunSpell;
-
-    @Getter
-    private String stunNpcName;
+    public final static String version = "1.2.6";
 
     @Override
     protected void startUp() throws AWTException {
-        combatSpell = config.combatSpell();
-        alchItemNames = updateItemList(config.alchItems());
-        superHeatItem = config.superHeatItem();
-        npcName = config.npcName();
-        teleportSpell = config.teleportSpell();
-        stunSpell = config.stunSpell();
-        stunNpcName = config.stunNpcName();
-
         if (overlayManager != null) {
             overlayManager.add(aioMagicOverlay);
         }
@@ -115,6 +88,9 @@ public class AIOMagicPlugin extends Plugin {
         switch (config.magicActivity()) {
             case SPLASHING:
                 splashScript.run();
+                break;
+            case STUN:
+                stunScript.run();
                 break;
             case ALCHING:
                 alchScript.run();
@@ -146,10 +122,39 @@ public class AIOMagicPlugin extends Plugin {
         superHeatScript.shutdown();
         teleportScript.shutdown();
         teleAlchScript.shutdown();
+        stunScript.shutdown();
         stunAlchScript.shutdown();
         if (stunTeleAlchScript != null) stunTeleAlchScript.shutdown(); // NEW
         if (spinFlaxScript != null) spinFlaxScript.shutdown();
         overlayManager.remove(aioMagicOverlay);
+    }
+
+    public Rs2CombatSpells getCombatSpell() {
+        return config.combatSpell();
+    }
+
+    public List<String> getAlchItemNames() {
+        return updateItemList(config.alchItems());
+    }
+
+    public SuperHeatItem getSuperHeatItem() {
+        return config.superHeatItem();
+    }
+
+    public String getNpcName() {
+        return config.npcName();
+    }
+
+    public TeleportSpell getTeleportSpell() {
+        return config.teleportSpell();
+    }
+
+    public StunSpell getStunSpell() {
+        return config.stunSpell();
+    }
+
+    public String getStunNpcName() {
+        return config.stunNpcName();
     }
 
     private List<String> updateItemList(String items) {
