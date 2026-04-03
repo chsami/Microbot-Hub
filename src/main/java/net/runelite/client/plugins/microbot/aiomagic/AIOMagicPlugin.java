@@ -4,8 +4,6 @@ import com.google.inject.Provides;
 import lombok.Getter;
 import net.runelite.api.Skill;
 import net.runelite.client.config.ConfigManager;
-import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
@@ -72,15 +70,12 @@ public class AIOMagicPlugin extends Plugin {
     private StunAlchScript stunAlchScript;
 
     @Inject
-    private StunScript stunScript;
-
-    @Inject
     private StunTeleAlchScript stunTeleAlchScript; // NEW
 
     @Inject
     private SpinFlaxScript spinFlaxScript;
 
-    public final static String version = "1.2.3";
+    public final static String version = "1.2.5";
 
     @Getter
     private Rs2CombatSpells combatSpell;
@@ -121,9 +116,6 @@ public class AIOMagicPlugin extends Plugin {
             case SPLASHING:
                 splashScript.run();
                 break;
-            case STUN:
-                stunScript.run();
-                break;
             case ALCHING:
                 alchScript.run();
                 break;
@@ -154,45 +146,10 @@ public class AIOMagicPlugin extends Plugin {
         superHeatScript.shutdown();
         teleportScript.shutdown();
         teleAlchScript.shutdown();
-        stunScript.shutdown();
         stunAlchScript.shutdown();
         if (stunTeleAlchScript != null) stunTeleAlchScript.shutdown(); // NEW
         if (spinFlaxScript != null) spinFlaxScript.shutdown();
         overlayManager.remove(aioMagicOverlay);
-    }
-
-    @Subscribe
-    public void onConfigChanged(ConfigChanged event) {
-        if (!event.getGroup().equals(AIOMagicConfig.configGroup))
-            return;
-
-        if (event.getKey().equals(AIOMagicConfig.combatSpell)) {
-            combatSpell = config.combatSpell();
-        }
-
-        if (event.getKey().equals(AIOMagicConfig.alchItems)) {
-            alchItemNames = updateItemList(config.alchItems());
-        }
-
-        if (event.getKey().equals(AIOMagicConfig.superHeatItem)) {
-            superHeatItem = config.superHeatItem();
-        }
-
-        if (event.getKey().equals(AIOMagicConfig.npcName)) {
-            npcName = config.npcName();
-        }
-
-        if (event.getKey().equals(AIOMagicConfig.teleportSpell)) {
-            teleportSpell = config.teleportSpell();
-        }
-
-        if (event.getKey().equals(AIOMagicConfig.stunSpell)) {
-            stunSpell = config.stunSpell();
-        }
-
-        if (event.getKey().equals(AIOMagicConfig.stunNpcName)) {
-            stunNpcName = config.stunNpcName();
-        }
     }
 
     private List<String> updateItemList(String items) {
