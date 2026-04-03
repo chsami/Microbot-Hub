@@ -51,7 +51,7 @@
             "star",
             "shooting"
         ],
-        "version": "1.4.3",
+        "version": "1.4.4",
         "minClientVersion": "1.9.8",
         "authors": [
             "g-mason0"
@@ -59,8 +59,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/ShootingStarPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ShootingStarPlugin/assets/card.png",
         "disable": false,
-        "sha256": "686738b3738258d50066b5efed917f61255a9755a4b32a63640d37f9a579b9b7",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/shootingstarplugin-1.4.3.jar"
+        "sha256": "1371bffadd7f23a5ed8e1d4aac4d41b43a925e25b018d75b694dba5284a05eb9",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/shootingstarplugin-1.4.4.jar"
     },
     {
         "internalName": "AnimatedArmourPlugin",
@@ -125,7 +125,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/card.png",
         "disable": false,
-        "sha256": "5343be8c8af4a4bff5553e014ea24d06fc05bd43b615989846c505013e35c25b",
+        "sha256": "b10bf261fa5482f6f840d998c30927ac00dd6f6e80b37fc03a365a30dd06f5a8",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mahoganyhomesplugin-0.0.9.jar"
     },
     {
@@ -1862,7 +1862,7 @@
             "skilling",
             "training"
         ],
-        "version": "1.2.3",
+        "version": "1.2.5",
         "minClientVersion": "2.0.7",
         "authors": [
             "Unknown Author"
@@ -1870,8 +1870,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOMagicPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOMagicPlugin/assets/card.png",
         "disable": false,
-        "sha256": "d1085663f32faf8ca596202f0c7a7f58c9cfa65926367b3dd5d2183b5e37f0b5",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiomagicplugin-1.2.3.jar"
+        "sha256": "35028a37df30e29e394b2d3d6f12add1f4306bdcc2e4665cad5259820705e462",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiomagicplugin-1.2.5.jar"
     },
     {
         "internalName": "OrbChargerPlugin",
@@ -2515,6 +2515,26 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.2.jar"
     },
     {
+        "internalName": "HueyPrayerPlugin",
+        "name": "Huey Prayer",
+        "description": "Auto prayer vs Hueycoatl (3-style projectile)",
+        "tags": [
+            "microbot",
+            "huey",
+            "prayer"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.1.34",
+        "authors": [
+            "Unknown Author"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "b9173eb467b7fc71ba1225f31599099319be3cf6b962253ae4ee4e8988ef3d66",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/hueyprayerplugin-1.0.0.jar"
+    },
+    {
         "internalName": "FornBirdhouseRunsPlugin",
         "name": "Birdhouse Runner",
         "description": "Does a birdhouse run",
@@ -2628,7 +2648,7 @@
             "QoL",
             "microbot"
         ],
-        "version": "1.8.8",
+        "version": "1.8.9",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -2636,8 +2656,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "24a85434a53b61f794ad871e81dbaff88ae6f15ae29053a364bbf60327818a03",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.8.jar"
+        "sha256": "e40236268dc88f45bda1a06be0afd80919cb1ee10ea60173df5964c6e5d64a6a",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.9.jar"
     },
     {
         "internalName": "SlayerPlugin",
@@ -2733,16 +2753,16 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.1.3",
-        "minClientVersion": "2.0.7",
+        "version": "1.1.4",
+        "minClientVersion": "2.0.8",
         "authors": [
             "George"
         ],
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoCookingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoCookingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "f503655fdda65fd5c5a4f2c807e5aee1765f1dffb544331d4f06b07151c0a762",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autocookingplugin-1.1.3.jar"
+        "sha256": "64f9f2690625f0ed8f27ad4df9964953e7b7809c8784ecdba31e120c9367c1f9",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autocookingplugin-1.1.4.jar"
     },
     {
         "internalName": "TitheFarmingPlugin",
