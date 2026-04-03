@@ -106,33 +106,33 @@ public class SuperHeatScript extends Script {
                             Rs2Inventory.waitForInventoryChanges(1200);
                         }
 
-                        int[] requiredOreAndCoal = calculateOreAndCoal(plugin.getSuperHeatItem(), Rs2Inventory.emptySlotCount());
-                        int requiredOre = requiredOreAndCoal[0];
-                        int requiredCoal = requiredOreAndCoal[1];
+                        int[] requiredMaterials = calculateRequiredMaterials(plugin.getSuperHeatItem(), Rs2Inventory.emptySlotCount());
+                        int requiredPrimary = requiredMaterials[0];
+                        int requiredSecondary = requiredMaterials[1];
 
-                        if (!Rs2Bank.hasBankItem(plugin.getSuperHeatItem().getItemID(), requiredOre)) {
+                        if (!Rs2Bank.hasBankItem(plugin.getSuperHeatItem().getItemID(), requiredPrimary)) {
                             Microbot.showMessage("Missing Ore Requirement!");
                             shutdown();
                             return;
                         }
 
-                        if (!withdrawExactAmount(plugin.getSuperHeatItem().getItemID(), requiredOre)) {
+                        if (!withdrawExactAmount(plugin.getSuperHeatItem().getItemID(), requiredPrimary)) {
                             return;
                         }
 
-                        if (requiredCoal > 0) {
-                            if (!Rs2Bank.hasBankItem(ItemID.COAL, requiredCoal)) {
-                                Microbot.showMessage("Missing Coal Requirement!");
+                        if (requiredSecondary > 0) {
+                            if (!Rs2Bank.hasBankItem(plugin.getSuperHeatItem().getSecondaryItemID(), requiredSecondary)) {
+                                Microbot.showMessage("Missing Secondary Material Requirement!");
                                 shutdown();
                                 return;
                             }
 
-                            if (!withdrawExactAmount(ItemID.COAL, requiredCoal)) {
+                            if (!withdrawExactAmount(plugin.getSuperHeatItem().getSecondaryItemID(), requiredSecondary)) {
                                 return;
                             }
                         }
 
-                        if (!hasBankedMaterialsForCycle(requiredOre, requiredCoal)) {
+                        if (!hasBankedMaterialsForCycle(requiredPrimary, requiredSecondary)) {
                             return;
                         }
 
@@ -182,37 +182,41 @@ public class SuperHeatScript extends Script {
     }
 
     private boolean hasRequiredItems() {
-        if (plugin.getSuperHeatItem().getCoalAmount() > 0) {
-            return Rs2Inventory.hasItem(plugin.getSuperHeatItem().getItemID()) && Rs2Inventory.hasItemAmount(ItemID.COAL, plugin.getSuperHeatItem().getCoalAmount());
+        if (plugin.getSuperHeatItem().getSecondaryAmount() > 0) {
+            return Rs2Inventory.hasItemAmount(plugin.getSuperHeatItem().getItemID(), plugin.getSuperHeatItem().getPrimaryAmount())
+                    && Rs2Inventory.hasItemAmount(
+                    plugin.getSuperHeatItem().getSecondaryItemID(),
+                    plugin.getSuperHeatItem().getSecondaryAmount());
         }
-        return Rs2Inventory.hasItem(plugin.getSuperHeatItem().getItemID());
+        return Rs2Inventory.hasItemAmount(plugin.getSuperHeatItem().getItemID(), plugin.getSuperHeatItem().getPrimaryAmount());
     }
 
     /**
-     * Determines the amount of ore and coal to withdraw based on available empty slots.
+     * Determines the amount of primary and secondary materials to withdraw based on available empty slots.
      *
      * @param superHeatItem The SuperHeatItem for which to calculate the withdrawal amounts.
      * @param emptySlots    The number of empty slots available in the inventory.
-     * @return An array where the first element is the number of ore and the second element is the amount of coal.
+     * @return An array where the first element is primary amount and second element is secondary amount.
      */
-    public static int[] calculateOreAndCoal(SuperHeatItem superHeatItem, int emptySlots) {
-        int coalAmount = superHeatItem.getCoalAmount();
+    public static int[] calculateRequiredMaterials(SuperHeatItem superHeatItem, int emptySlots) {
+        int primaryAmount = superHeatItem.getPrimaryAmount();
+        int secondaryAmount = superHeatItem.getSecondaryAmount();
 
-        // If no coal is required, all slots are for the ore
-        if (coalAmount == 0) {
-            return new int[]{emptySlots, 0};
+        // If no secondary material is required, all slots are for the primary ore.
+        if (secondaryAmount == 0) {
+            int cycles = emptySlots / primaryAmount;
+            return new int[]{cycles * primaryAmount, 0};
         }
 
-        // Calculate the maximum number of ore that can fit given the coal requirement
-        int maxOre = emptySlots / (coalAmount + 1); // 1 slot for ore + N slots for coal
+        // Calculate max number of bars based on inventory and per-bar material counts.
+        int slotsPerCycle = primaryAmount + secondaryAmount;
+        int cycles = emptySlots / slotsPerCycle;
 
-        // Calculate the corresponding amount of coal
-        int oreToWithdraw = maxOre;
-        int coalToWithdraw = oreToWithdraw * coalAmount;
+        int primaryToWithdraw = cycles * primaryAmount;
+        int secondaryToWithdraw = cycles * secondaryAmount;
 
-        return new int[]{oreToWithdraw, coalToWithdraw};
+        return new int[]{primaryToWithdraw, secondaryToWithdraw};
     }
-
     private boolean withdrawExactAmount(int itemId, int amount) {
         if (amount <= 0) {
             return true;
@@ -227,16 +231,17 @@ public class SuperHeatScript extends Script {
         return Rs2Inventory.hasItemAmount(itemId, amount);
     }
 
-    private boolean hasBankedMaterialsForCycle(int requiredOre, int requiredCoal) {
-        boolean hasRequiredOre = Rs2Inventory.hasItemAmount(plugin.getSuperHeatItem().getItemID(), requiredOre);
-        if (!hasRequiredOre) {
+    private boolean hasBankedMaterialsForCycle(int requiredPrimary, int requiredSecondary) {
+        boolean hasRequiredPrimary = Rs2Inventory.hasItemAmount(plugin.getSuperHeatItem().getItemID(), requiredPrimary)
+                && requiredPrimary >= plugin.getSuperHeatItem().getPrimaryAmount();
+        if (!hasRequiredPrimary) {
             return false;
         }
 
-        if (requiredCoal <= 0) {
+        if (requiredSecondary <= 0) {
             return true;
         }
 
-        return Rs2Inventory.hasItemAmount(ItemID.COAL, requiredCoal);
+        return Rs2Inventory.hasItemAmount(plugin.getSuperHeatItem().getSecondaryItemID(), requiredSecondary);
     }
 }

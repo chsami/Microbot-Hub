@@ -37,7 +37,7 @@ public enum ShootingStarLocation
 	TAVERLEY__WHITE_WOLF_TUNNEL_ENTRANCE(new WorldPoint(2884, 3472, 0), "Taverley house portal", "Taverley", false),
 	FELDIP_HUNTER_AREA(new WorldPoint(2573, 2965, 0), "Feldip Hills (aks fairy ring)", "Feldip Hills", false),
 	RELLEKKA_MINE(new WorldPoint(2680, 3701, 0), "Rellekka mine", "Rellekka mine", false),
-	TRAHAEARN_MINE_ENTRANCE(new WorldPoint(2552, 3294, 0), "Prifddinas Zalcano entrance", "Prifddinas Zalcano", false),
+	TRAHAEARN_MINE_ENTRANCE(new WorldPoint(3275, 6057, 0), "Prifddinas Zalcano entrance", "Prifddinas Zalcano", false),
 	WEST_LUMBRIDGE_SWAMP_MINE(new WorldPoint(3156, 3154, 0), "West Lumbridge Swamp mine", "W Lumbridge Swamp", false),
 	RANTZS_CAVE(new WorldPoint(2630, 2991, 0), "Rantz cave", "Rantz cave", false),
 	MYNYDD_MINE(new WorldPoint(2173, 3408, 0), "Mynydd nw of Prifddinas", "Mynydd", false),
