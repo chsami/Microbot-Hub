@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.qualityoflife;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Player;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
@@ -20,6 +21,14 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class QoLScript extends Script {
 
+    /**
+     * When anti-PK prayer is on and we are fighting another player, space out eat attempts so they do not
+     * contend with prayer switching on every script tick (300ms). Eating still happens; it is not disabled.
+     */
+    private static final long ANTI_PK_PLAYER_COMBAT_EAT_ATTEMPT_GAP_MS = 800L;
+
+    private long lastAntiPkPlayerCombatEatAttemptMs = 0L;
+
     private final boolean bankOpen = false;
 
     public boolean run(QoLConfig config) {
@@ -37,7 +46,7 @@ public class QoLScript extends Script {
                 }
 
                 if (config.autoEatFood()) {
-                    handleAutoEat(config.eatFoodPercentage());
+                    handleAutoEat(config);
                 }
 
                 if (QoLPlugin.executeBankActions) {
@@ -116,9 +125,30 @@ public class QoLScript extends Script {
 
     }
 
-    // handle auto eat
-    private void handleAutoEat(int percent) {
-        Rs2Player.eatAt(percent, true);
+    /**
+     * Client-only reads via {@code Microbot.getClientThread().invoke} (see AutoPrayer).
+     * With anti-PK prayer on, eating is still allowed in PvP; we only throttle eat attempts while interacting
+     * with another player so auto-eat does not fire every tick against prayer switching.
+     */
+    private void handleAutoEat(QoLConfig config) {
+        Microbot.getClientThread().invoke(() -> {
+            if (Microbot.getClient() == null) {
+                return;
+            }
+            if (config.autoPrayAgainstPlayers()) {
+                Player local = Microbot.getClient().getLocalPlayer();
+                if (local != null) {
+                    if (local.getInteracting() instanceof Player) {
+                        long now = System.currentTimeMillis();
+                        if (now - lastAntiPkPlayerCombatEatAttemptMs < ANTI_PK_PLAYER_COMBAT_EAT_ATTEMPT_GAP_MS) {
+                            return;
+                        }
+                        lastAntiPkPlayerCombatEatAttemptMs = now;
+                    }
+                }
+            }
+            Rs2Player.eatAt(config.eatFoodPercentage(), true);
+        });
     }
 
     private void handleAutoDrinkPrayPot(int points) {
