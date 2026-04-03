@@ -96,6 +96,9 @@ public class AutoCookingScript extends Script {
                         }
 
                         TileObject cookingObject = Rs2GameObject.findObjectById(location.getCookingObjectID());
+                        if (cookingObject == null) {
+                            cookingObject = Rs2GameObject.findGameObjectByLocation(location.getCookingObjectWorldPoint());
+                        }
 
                         if (cookingObject != null) {
                             if (!Rs2Camera.isTileOnScreen(cookingObject.getLocalLocation())) {
