@@ -80,6 +80,10 @@ public class SalvagingScript {
     private static final int CARGO_HOLD_BEFORE_CLOSE_AFTER_WITHDRAW_MAX_MS = 2200;
     /** Periodically re-open the hold and count ITEMS widgets so &quot;full&quot; stays accurate without item-container tracking. */
     private static final int CARGO_HOLD_WIDGET_RESYNC_MIN_MS = 4500;
+    /** After Deposit inventory, occupied text can lag; retry read while the panel stays open before Escape. */
+    private static final int CARGO_HOLD_POST_DEPOSIT_READ_ATTEMPTS = 6;
+    private static final int CARGO_HOLD_POST_DEPOSIT_READ_GAP_MIN_MS = 120;
+    private static final int CARGO_HOLD_POST_DEPOSIT_READ_GAP_MAX_MS = 320;
     private static final int CARGO_HOLD_SCENE_SCAN_RADIUS = 32;
     private final Rs2TileObjectCache tileObjectCache;
     @SuppressWarnings("unused")
@@ -320,9 +324,13 @@ public class SalvagingScript {
             }
         }
 
+        refreshCargoHoldCountsIfPanelOpen();
+
         if (!cargoHoldProcessing) {
             if (hasNearbySalvageableWreck(player.getWorldLocation()) || hasSalvageItems()) {
-                maybeResyncCargoHoldCountsFromOpenUi();
+                if (!willDepositSalvageToCargoHoldImminently()) {
+                    maybeResyncCargoHoldCountsFromOpenUi();
+                }
             }
         }
 
@@ -565,10 +573,29 @@ public class SalvagingScript {
         }
         sleep(Rs2Random.between(280, 620));
         sleepUntil(() -> Rs2Inventory.count("salvage") < salvageBefore, SALVAGE_TIMEOUT);
-        if (readOccupiedCountFromOpenHoldInterface()) {
-            lastCargoHoldWidgetResyncMs = System.currentTimeMillis();
+        boolean readOk = readOccupiedCountAfterDepositWhileHoldOpen();
+        lastCargoHoldWidgetResyncMs = System.currentTimeMillis();
+        if (!readOk) {
+            log.info("Cargo hold: could not refresh counts after deposit from UI");
         }
-        closeCargoHoldInterface();
+        if (!shouldLeaveCargoHoldOpenAfterDeposit()) {
+            closeCargoHoldInterface();
+        }
+    }
+
+    /**
+     * When the cargo-hold pipeline will continue on the next script iteration (withdraw another stack, or deposit again
+     * with the UI already open), closing here forces an immediate re-open in {@link #processCargoHoldWithdrawStep()} or
+     * {@link #openCargoHoldInterfaceForWithdraw()}. Leave the panel open instead.
+     */
+    private boolean shouldLeaveCargoHoldOpenAfterDeposit() {
+        if (cargoHoldSalvageStackCount <= 0) {
+            return false;
+        }
+        if (cargoHoldProcessing) {
+            return true;
+        }
+        return shouldProcessCargoHold();
     }
 
     /**
@@ -602,29 +629,60 @@ public class SalvagingScript {
     }
 
     /**
-     * Re-opens the hold on a throttle and re-counts widgets. Only invoked when a wreck is in range or the player is
-     * carrying salvage, so idle sailing does not spam open/close.
+     * Reads occupied/salvage counts after an in-UI deposit while the hold stays open. Inventory updates first; the
+     * header line can update a tick later, so we settle then retry instead of closing and triggering a resync open.
+     */
+    private boolean readOccupiedCountAfterDepositWhileHoldOpen() {
+        sleep(Rs2Random.between(180, 420));
+        for (int attempt = 0; attempt < CARGO_HOLD_POST_DEPOSIT_READ_ATTEMPTS; attempt++) {
+            if (readOccupiedCountFromOpenHoldInterface()) {
+                return true;
+            }
+            sleep(Rs2Random.between(CARGO_HOLD_POST_DEPOSIT_READ_GAP_MIN_MS, CARGO_HOLD_POST_DEPOSIT_READ_GAP_MAX_MS));
+        }
+        return false;
+    }
+
+    /**
+     * Re-reads occupied/salvage counts whenever the cargo-hold panel is already open (no throttle). Must run before
+     * deposit/withdraw decisions: throttled {@link #maybeResyncCargoHoldCountsFromOpenUi()}, skipped resync while
+     * {@link #cargoHoldProcessing}, and deposit-imminent skips left stale counts and repeated deposit attempts into a
+     * full hold.
+     */
+    private void refreshCargoHoldCountsIfPanelOpen() {
+        boolean visible = Microbot.getClientThread().runOnClientThreadOptional(
+                () -> Rs2Widget.isWidgetVisible(InterfaceID.SailingBoatCargohold.UNIVERSE)).orElse(false);
+        if (!visible) {
+            return;
+        }
+        if (readOccupiedCountFromOpenHoldInterface()) {
+            lastCargoHoldWidgetResyncMs = System.currentTimeMillis();
+        }
+    }
+
+    /**
+     * Re-opens the hold on a throttle and re-counts widgets when the panel was closed. When the panel is open,
+     * {@link #refreshCargoHoldCountsIfPanelOpen()} already refreshed this tick.
      */
     private void maybeResyncCargoHoldCountsFromOpenUi() {
+        boolean wasVisible = Microbot.getClientThread().runOnClientThreadOptional(
+                () -> Rs2Widget.isWidgetVisible(InterfaceID.SailingBoatCargohold.UNIVERSE)).orElse(false);
+        if (wasVisible) {
+            return;
+        }
         long now = System.currentTimeMillis();
         if (now - lastCargoHoldWidgetResyncMs < CARGO_HOLD_WIDGET_RESYNC_MIN_MS) {
             return;
         }
-        boolean wasVisible = Microbot.getClientThread().runOnClientThreadOptional(
-                () -> Rs2Widget.isWidgetVisible(InterfaceID.SailingBoatCargohold.UNIVERSE)).orElse(false);
-        if (!wasVisible) {
-            if (!openCargoHoldInterfaceForWithdraw()) {
-                return;
-            }
-            sleep(Rs2Random.between(180, 420));
+        if (!openCargoHoldInterfaceForWithdraw()) {
+            return;
         }
+        sleep(Rs2Random.between(180, 420));
         if (!readOccupiedCountFromOpenHoldInterface()) {
             return;
         }
         lastCargoHoldWidgetResyncMs = now;
-        if (!wasVisible) {
-            closeCargoHoldInterface();
-        }
+        closeCargoHoldInterface();
     }
 
     private boolean clickDepositInventoryInOpenCargoHold() {
@@ -1018,6 +1076,17 @@ public class SalvagingScript {
      */
     private boolean suppressSalvageDepositDuringCargoHoldProcessing() {
         return cargoHoldProcessing && cargoHoldSalvageStackCount > 0;
+    }
+
+    /**
+     * When true, this tick will open the hold for {@link #depositToCargoHold()} (from cargo-hold mode or
+     * {@link #handleFullInventory}). Skipping {@link #maybeResyncCargoHoldCountsFromOpenUi()} avoids an extra
+     * open→read→close before that deposit, which already refreshes counts after deposit.
+     */
+    private boolean willDepositSalvageToCargoHoldImminently() {
+        return hasSalvageItems()
+                && canDepositSalvageToCargoHold()
+                && !suppressSalvageDepositDuringCargoHoldProcessing();
     }
 
     private boolean hasSalvageItems() {
