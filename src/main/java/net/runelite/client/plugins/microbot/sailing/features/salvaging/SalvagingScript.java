@@ -2,7 +2,14 @@ package net.runelite.client.plugins.microbot.sailing.features.salvaging;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.api.Constants;
+import net.runelite.api.DecorativeObject;
+import net.runelite.api.GameObject;
+import net.runelite.api.Scene;
 import net.runelite.api.Skill;
+import net.runelite.api.Tile;
+import net.runelite.api.TileObject;
+import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.gameval.InterfaceID;
@@ -22,17 +29,27 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
+import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.util.Text;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import java.awt.event.KeyEvent;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
@@ -40,6 +57,9 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 @Slf4j
 @Singleton
 public class SalvagingScript {
+
+    /** First decimal number in the occupied-line text (e.g. {@code 160} or {@code 160 / 160}). */
+    private static final Pattern CARGO_HOLD_FIRST_NUMBER = Pattern.compile("(\\d+)");
 
     private static final int SIZE_SALVAGEABLE_AREA = 15;
     private static final int MIN_INVENTORY_FULL = 24;
@@ -60,23 +80,28 @@ public class SalvagingScript {
     private static final int CARGO_HOLD_BEFORE_CLOSE_AFTER_WITHDRAW_MAX_MS = 2200;
     /** Periodically re-open the hold and count ITEMS widgets so &quot;full&quot; stays accurate without item-container tracking. */
     private static final int CARGO_HOLD_WIDGET_RESYNC_MIN_MS = 4500;
+    private static final int CARGO_HOLD_SCENE_SCAN_RADIUS = 32;
     private final Rs2TileObjectCache tileObjectCache;
     @SuppressWarnings("unused")
     private final Rs2BoatCache boatCache;
     private final EventBus eventBus;
 
     /**
-     * Refreshed on the client thread each {@link GameTick} so overlays and the script read a consistent list without
-     * calling {@code toListOnClientThread()} from the overlay render path (which may not run on the client thread).
+     * Shipwreck lists rebuilt each {@link GameTick} on the client thread by scanning {@link Client#getTopLevelWorldView()}
+     * (the sea layer). Plugin Hub &quot;Sailing&quot; uses game object spawn/despawn events instead; both target the same
+     * {@link GameObject} ids. Microbot&apos;s tile cache and {@link Rs2GameObject} iterate the player world view scene,
+     * which misses at-sea wrecks.
      */
+    private final Map<String, Rs2TileObjectModel> activeWreckByKey = new HashMap<>();
+    private final Map<String, Rs2TileObjectModel> inactiveWreckByKey = new HashMap<>();
     private volatile List<Rs2TileObjectModel> activeWreckSnapshot = List.of();
     private volatile List<Rs2TileObjectModel> inactiveWreckSnapshot = List.of();
 
     /** Max cargo slots for this boat tier ({@link CargoHoldObjectIds#ID_TO_CAPACITY}). */
     private int cargoHoldCapacity = -1;
-    /** Occupied slots from the open cargo-hold item grid (widget tree). */
+    /** Occupied slots: first number from {@link CargoHoldInterfaceWidgets} text line after the hold is open; else ITEMS grid count. */
     private int cargoHoldCount = -1;
-    /** Salvage stacks in the hold from the same grid (item name contains &quot;salvage&quot;). */
+    /** Salvage stacks in the hold from the same grid (item name contains &quot;salvage&quot;; one slot = one stack). */
     private int cargoHoldSalvageStackCount = -1;
     private boolean cargoHoldProcessing = false;
     private int lastCargoHoldObjectId = -1;
@@ -104,12 +129,108 @@ public class SalvagingScript {
 
     @Subscribe
     public void onGameTick(GameTick event) {
-        activeWreckSnapshot = List.copyOf(tileObjectCache.query()
-                .where(wreck -> SalvageObjectIds.ACTIVE_SHIPWRECK_IDS.contains(wreck.getId()))
-                .toList());
-        inactiveWreckSnapshot = List.copyOf(tileObjectCache.query()
-                .where(wreck -> SalvageObjectIds.INACTIVE_SHIPWRECK_IDS.contains(wreck.getId()))
-                .toList());
+        rebuildShipwreckMapsFromTopLevelScene();
+        activeWreckSnapshot = List.copyOf(activeWreckByKey.values());
+        inactiveWreckSnapshot = List.copyOf(inactiveWreckByKey.values());
+    }
+
+    /**
+     * Full top-level scene pass (sea layer), same objects the client draws for distant water tiles.
+     */
+    private void rebuildShipwreckMapsFromTopLevelScene() {
+        activeWreckByKey.clear();
+        inactiveWreckByKey.clear();
+        Client client = Microbot.getClient();
+        if (client == null) {
+            return;
+        }
+        WorldView wv = client.getTopLevelWorldView();
+        if (wv == null) {
+            return;
+        }
+        Scene scene = wv.getScene();
+        if (scene == null) {
+            return;
+        }
+        Tile[][][] tiles = scene.getTiles();
+        if (tiles == null) {
+            return;
+        }
+        int plane = wv.getPlane();
+        if (plane < 0) {
+            return;
+        }
+        if (plane >= tiles.length) {
+            return;
+        }
+        Tile[][] planeTiles = tiles[plane];
+        if (planeTiles == null) {
+            return;
+        }
+        int maxX = Math.min(Constants.SCENE_SIZE, planeTiles.length);
+        for (int x = 0; x < maxX; x++) {
+            Tile[] column = planeTiles[x];
+            if (column == null) {
+                continue;
+            }
+            int maxY = Math.min(Constants.SCENE_SIZE, column.length);
+            for (int y = 0; y < maxY; y++) {
+                Tile tile = column[y];
+                if (tile == null) {
+                    continue;
+                }
+                GameObject[] gameObjects = tile.getGameObjects();
+                if (gameObjects != null) {
+                    for (GameObject go : gameObjects) {
+                        if (go == null) {
+                            continue;
+                        }
+                        if (!go.getSceneMinLocation().equals(tile.getSceneLocation())) {
+                            continue;
+                        }
+                        considerShipwreckTileObjectForRebuild(go);
+                    }
+                }
+                DecorativeObject dec = tile.getDecorativeObject();
+                if (dec != null) {
+                    considerShipwreckTileObjectForRebuild(dec);
+                }
+            }
+        }
+    }
+
+    private void considerShipwreckTileObjectForRebuild(TileObject obj) {
+        int id = obj.getId();
+        if (SalvageObjectIds.ACTIVE_SHIPWRECK_IDS.contains(id)) {
+            activeWreckByKey.put(dedupeKey(obj), new Rs2TileObjectModel(obj));
+            return;
+        }
+        if (SalvageObjectIds.INACTIVE_SHIPWRECK_IDS.contains(id)) {
+            inactiveWreckByKey.put(dedupeKey(obj), new Rs2TileObjectModel(obj));
+        }
+    }
+
+    private static String dedupeKey(TileObject o) {
+        WorldPoint p = o.getWorldLocation();
+        return o.getId() + ":" + p.getX() + ":" + p.getY() + ":" + p.getPlane();
+    }
+
+    private static List<Rs2TileObjectModel> mergeDistinctTileObjectLists(List<Rs2TileObjectModel> a, List<Rs2TileObjectModel> b) {
+        Map<String, Rs2TileObjectModel> byKey = new LinkedHashMap<>();
+        for (Rs2TileObjectModel m : a) {
+            byKey.put(tileObjectDedupeKey(m), m);
+        }
+        for (Rs2TileObjectModel m : b) {
+            String key = tileObjectDedupeKey(m);
+            if (!byKey.containsKey(key)) {
+                byKey.put(key, m);
+            }
+        }
+        return List.copyOf(byKey.values());
+    }
+
+    private static String tileObjectDedupeKey(Rs2TileObjectModel m) {
+        return dedupeKey(m);
     }
 
     public List<Rs2TileObjectModel> getActiveWrecks() {
@@ -281,33 +402,33 @@ public class SalvagingScript {
         }
         Integer capObj = CargoHoldObjectIds.ID_TO_CAPACITY.get(hold.getId());
         if (capObj == null) {
-            logCargoHoldInitThrottled("Cargo hold: object id not mapped to capacity; update CargoHoldObjectIds if your boat is new.");
+            logCargoHoldInitThrottled(
+                    "Cargo hold: object id " + hold.getId() + " not mapped to capacity; add it to CargoHoldObjectIds if this is a new boat tier or variant.");
             return;
         }
         int cap = capObj;
-        hold.click("Open");
-        boolean opened = sleepUntil(() -> Rs2Widget.isWidgetVisible(InterfaceID.SailingBoatCargohold.UNIVERSE), CARGO_HOLD_UI_TIMEOUT_MS);
-        if (!opened) {
-            logCargoHoldInitThrottled("Cargo hold: interface did not open after clicking Open; try again or check client/game updates.");
+        if (!openCargoHoldInterfaceForWithdraw()) {
+            logCargoHoldInitThrottled(
+                    "Cargo hold: could not open interface for initialization; stand on your boat and use Open on the hold.");
             return;
         }
-        int[] grid = Microbot.getClientThread().invoke(this::countOccupiedAndSalvageStacksInOpenHoldInterface);
-        closeCargoHoldInterface();
-        if (grid == null) {
+        sleep(Rs2Random.between(280, 650));
+        cargoHoldCapacity = cap;
+        if (!readOccupiedCountFromOpenHoldInterface()) {
             cargoHoldCapacity = -1;
             cargoHoldCount = -1;
             cargoHoldSalvageStackCount = -1;
             logCargoHoldInitThrottled(
-                    "Cargo hold: could not read ITEMS widget grid after opening; check client/game updates.");
+                    "Cargo hold: could not read hold contents after opening; check client/game updates.");
+            closeCargoHoldInterface();
             return;
         }
-        cargoHoldCapacity = cap;
-        applyCargoHoldCountsFromItemGrid(grid);
+        closeCargoHoldInterface();
         lastCargoHoldObjectId = hold.getId();
         lastCargoHoldInitHintLogMs = 0;
         lastCargoHoldWidgetResyncMs = System.currentTimeMillis();
         log.info(
-                "Cargo hold initialized: capacity={} slots, occupied={} (widgets), salvage stacks={}; deposits use in-UI Deposit inventory.",
+                "Cargo hold initialized: capacity={} slots, occupied={}, salvage stacks={}; deposits use in-UI Deposit inventory.",
                 cargoHoldCapacity, cargoHoldCount, cargoHoldSalvageStackCount);
     }
 
@@ -320,17 +441,80 @@ public class SalvagingScript {
         log.info(message);
     }
 
+    /**
+     * Resolves the cargo hold on the client thread: tile cache merge, then {@link Rs2GameObject} scene scan (same gap as
+     * wrecks), then name match, then nearest to the player.
+     */
     private Rs2TileObjectModel findCargoHold() {
-        Rs2TileObjectModel inWorldView = tileObjectCache.query()
+        return Microbot.getClientThread().invoke(this::findCargoHoldOnClientThread);
+    }
+
+    private Rs2TileObjectModel findCargoHoldOnClientThread() {
+        List<Rs2TileObjectModel> fromWorldView = tileObjectCache.query()
                 .fromWorldView()
-                .where(obj -> CargoHoldObjectIds.ALL_IDS.contains(obj.getId()))
-                .nearestOnClientThread();
-        if (inWorldView != null) {
-            return inWorldView;
+                .where(this::isCargoHoldTileObject)
+                .toList();
+        List<Rs2TileObjectModel> fromDefaultScene = tileObjectCache.query()
+                .where(this::isCargoHoldTileObject)
+                .toList();
+        List<Rs2TileObjectModel> merged = mergeDistinctTileObjectLists(fromWorldView, fromDefaultScene);
+        if (merged.isEmpty()) {
+            merged = scanCargoHoldObjectsFromScene();
         }
-        return tileObjectCache.query()
-                .where(obj -> CargoHoldObjectIds.ALL_IDS.contains(obj.getId()))
-                .nearestOnClientThread();
+        if (merged.isEmpty()) {
+            WorldPoint anchor = Rs2Player.getWorldLocation();
+            if (anchor != null) {
+                try {
+                    TileObject named = Rs2GameObject.getTileObject("Cargo hold", anchor, CARGO_HOLD_SCENE_SCAN_RADIUS);
+                    if (named != null) {
+                        merged = List.of(new Rs2TileObjectModel(named));
+                    }
+                } catch (RuntimeException ex) {
+                    log.debug("Cargo hold: Rs2GameObject.getTileObject name fallback failed (known issue on some sea scenes)", ex);
+                }
+            }
+        }
+        if (merged.isEmpty()) {
+            return null;
+        }
+        WorldPoint player = Rs2Player.getWorldLocation();
+        if (player == null) {
+            return merged.get(0);
+        }
+        return merged.stream()
+                .min(Comparator.comparingInt(o -> player.distanceTo(o.getWorldLocation())))
+                .orElse(null);
+    }
+
+    private List<Rs2TileObjectModel> scanCargoHoldObjectsFromScene() {
+        WorldPoint anchor = Rs2Player.getWorldLocation();
+        if (anchor == null) {
+            return List.of();
+        }
+        try {
+            List<?> raw = Rs2GameObject.getAll(o -> CargoHoldObjectIds.ALL_IDS.contains(o.getId()), anchor, CARGO_HOLD_SCENE_SCAN_RADIUS);
+            List<Rs2TileObjectModel> out = new ArrayList<>();
+            for (Object o : raw) {
+                if (o instanceof TileObject) {
+                    out.add(new Rs2TileObjectModel((TileObject) o));
+                }
+            }
+            return out;
+        } catch (RuntimeException ex) {
+            log.debug("Cargo hold: Rs2GameObject.getAll scene scan failed", ex);
+            return List.of();
+        }
+    }
+
+    private boolean isCargoHoldTileObject(Rs2TileObjectModel obj) {
+        if (CargoHoldObjectIds.ALL_IDS.contains(obj.getId())) {
+            return true;
+        }
+        String name = obj.getName();
+        if (name == null) {
+            return false;
+        }
+        return name.toLowerCase().contains("cargo hold");
     }
 
     private boolean shouldProcessCargoHold() {
@@ -381,8 +565,9 @@ public class SalvagingScript {
         }
         sleep(Rs2Random.between(280, 620));
         sleepUntil(() -> Rs2Inventory.count("salvage") < salvageBefore, SALVAGE_TIMEOUT);
-        readOccupiedCountFromOpenHoldInterface();
-        lastCargoHoldWidgetResyncMs = System.currentTimeMillis();
+        if (readOccupiedCountFromOpenHoldInterface()) {
+            lastCargoHoldWidgetResyncMs = System.currentTimeMillis();
+        }
         closeCargoHoldInterface();
     }
 
@@ -402,14 +587,18 @@ public class SalvagingScript {
     }
 
     /**
-     * Reads occupied slots and salvage stacks from the open hold&apos;s {@link InterfaceID.SailingBoatCargohold#ITEMS} widget tree.
+     * Reads occupied + salvage counts while the cargo-hold interface is already open. Call
+     * {@link #openCargoHoldInterfaceForWithdraw()} (and a short sleep) first when the panel was not open.
+     *
+     * @return false if the read failed
      */
-    private void readOccupiedCountFromOpenHoldInterface() {
+    private boolean readOccupiedCountFromOpenHoldInterface() {
         int[] grid = Microbot.getClientThread().invoke(this::countOccupiedAndSalvageStacksInOpenHoldInterface);
         if (grid == null) {
-            return;
+            return false;
         }
         applyCargoHoldCountsFromItemGrid(grid);
+        return true;
     }
 
     /**
@@ -421,18 +610,21 @@ public class SalvagingScript {
         if (now - lastCargoHoldWidgetResyncMs < CARGO_HOLD_WIDGET_RESYNC_MIN_MS) {
             return;
         }
-        if (Rs2Widget.isWidgetVisible(InterfaceID.SailingBoatCargohold.UNIVERSE)) {
-            readOccupiedCountFromOpenHoldInterface();
-            lastCargoHoldWidgetResyncMs = now;
+        boolean wasVisible = Microbot.getClientThread().runOnClientThreadOptional(
+                () -> Rs2Widget.isWidgetVisible(InterfaceID.SailingBoatCargohold.UNIVERSE)).orElse(false);
+        if (!wasVisible) {
+            if (!openCargoHoldInterfaceForWithdraw()) {
+                return;
+            }
+            sleep(Rs2Random.between(180, 420));
+        }
+        if (!readOccupiedCountFromOpenHoldInterface()) {
             return;
         }
-        if (!openCargoHoldInterfaceForWithdraw()) {
-            return;
-        }
-        sleep(Rs2Random.between(180, 420));
-        readOccupiedCountFromOpenHoldInterface();
-        closeCargoHoldInterface();
         lastCargoHoldWidgetResyncMs = now;
+        if (!wasVisible) {
+            closeCargoHoldInterface();
+        }
     }
 
     private boolean clickDepositInventoryInOpenCargoHold() {
@@ -494,10 +686,14 @@ public class SalvagingScript {
     }
 
     /**
-     * Applies {@code grid[0]} = occupied slots and {@code grid[1]} = salvage stacks; clamps when {@link #cargoHoldCapacity} is known.
+     * Applies {@code grid[0]} = occupied slots, {@code grid[1]} = salvage stack count from the ITEMS grid.
+     * {@link #cargoHoldCapacity} is unchanged here (set from {@link CargoHoldObjectIds} at init).
      */
     private void applyCargoHoldCountsFromItemGrid(int[] grid) {
         if (grid == null) {
+            return;
+        }
+        if (grid.length < 2) {
             return;
         }
         int occ = Math.max(0, grid[0]);
@@ -521,32 +717,78 @@ public class SalvagingScript {
     }
 
     /**
-     * {@code [0]} = occupied slots, {@code [1]} = stacks whose name contains &quot;salvage&quot;. Must run on the client thread.
+     * {@code [0]} = occupied slots, {@code [1]} = salvage-named stacks in the ITEMS grid.
+     * Occupied comes from {@link CargoHoldInterfaceWidgets} (client {@code getWidget(943, 4)}) when parseable; else the ITEMS grid walk.
+     * Requires the cargo-hold panel to already be open. Client thread only.
      */
     private int[] countOccupiedAndSalvageStacksInOpenHoldInterface() {
-        Client client = Microbot.getClient();
-        if (client == null) {
+        try {
+            Client client = Microbot.getClient();
+            if (client == null) {
+                return null;
+            }
+            Widget universe = client.getWidget(InterfaceID.SailingBoatCargohold.UNIVERSE);
+            if (universe == null || universe.isHidden()) {
+                return null;
+            }
+            Widget items = client.getWidget(InterfaceID.SailingBoatCargohold.ITEMS);
+            if (items == null || items.isHidden()) {
+                return null;
+            }
+            int salvageStacks = countSalvageItemSlotsInHoldRecursive(client, items);
+            Integer occupiedFromLine = parseOccupiedSlotsFromCargoHoldTextLine(client);
+            int occupied;
+            if (occupiedFromLine != null) {
+                occupied = occupiedFromLine;
+            } else {
+                occupied = countNonEmptyItemSlotsRecursive(items);
+            }
+            return new int[] { occupied, salvageStacks };
+        } catch (RuntimeException ex) {
+            log.debug("Cargo hold: interface read failed", ex);
             return null;
         }
-        Widget universe = client.getWidget(InterfaceID.SailingBoatCargohold.UNIVERSE);
-        if (universe == null || universe.isHidden()) {
+    }
+
+    /**
+     * First number in the occupied/capacity text (e.g. {@code 160} from {@code 160 / 160} or a single value).
+     */
+    private static Integer parseOccupiedSlotsFromCargoHoldTextLine(Client client) {
+        Widget w = client.getWidget(
+                CargoHoldInterfaceWidgets.CARGO_HOLD_OCCUPIED_TEXT_GROUP,
+                CargoHoldInterfaceWidgets.CARGO_HOLD_OCCUPIED_TEXT_CHILD);
+        if (w == null) {
             return null;
         }
-        Widget items = client.getWidget(InterfaceID.SailingBoatCargohold.ITEMS);
-        if (items == null || items.isHidden()) {
+        if (w.isHidden()) {
             return null;
         }
-        int occupied = countNonEmptyItemSlotsRecursive(items);
-        int salvageStacks = countSalvageItemSlotsInHoldRecursive(client, items);
-        return new int[] { occupied, salvageStacks };
+        String t = w.getText();
+        if (t == null) {
+            return null;
+        }
+        if (t.isEmpty()) {
+            return null;
+        }
+        String plain = Text.removeTags(t).replace("<br>", " ").trim();
+        Matcher m = CARGO_HOLD_FIRST_NUMBER.matcher(plain);
+        if (!m.find()) {
+            return null;
+        }
+        return Integer.parseInt(m.group(1));
     }
 
     private static int countSalvageItemSlotsInHoldRecursive(Client client, Widget w) {
         int count = 0;
         if (w.getItemId() > 0) {
             var def = client.getItemDefinition(w.getItemId());
-            if (def != null && def.getName().toLowerCase().contains("salvage")) {
-                count++;
+            if (def != null) {
+                String name = def.getName();
+                if (name != null) {
+                    if (name.toLowerCase().contains("salvage")) {
+                        count++;
+                    }
+                }
             }
         }
         Widget[] children = w.getChildren();
@@ -554,6 +796,9 @@ public class SalvagingScript {
             return count;
         }
         for (Widget c : children) {
+            if (c == null) {
+                continue;
+            }
             count += countSalvageItemSlotsInHoldRecursive(client, c);
         }
         return count;
@@ -569,6 +814,9 @@ public class SalvagingScript {
             return count;
         }
         for (Widget c : children) {
+            if (c == null) {
+                continue;
+            }
             count += countNonEmptyItemSlotsRecursive(c);
         }
         return count;
