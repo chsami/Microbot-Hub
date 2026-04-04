@@ -5,6 +5,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.34]
+
+### Fixed
+- **Shipwreck highlight overlay**: Wreck lists are refreshed on the client each game tick and read by the overlay from that snapshot, so highlights draw reliably instead of depending on cache queries from the overlay render path.
+- **Cargo hold + full inventory**: With **Use Cargo Hold** enabled, a full inventory that is only salvage is handled by depositing into the hold or entering hold processing; the script no longer tries to deploy the hook in that situation.
+
+### Added
+- **Idle inventory cleanup**: When there is no salvage in your inventory but **Open Caskets**, **Drop Items**, or **Enable Alching** would change the inventory, the plugin can run one drop / casket / alch pass before salvaging so leftover loot does not sit in the way.
+
+### Changed
+- **Cargo hold behaviour**:
+  - Opens the hold and uses **Deposit inventory** in the cargo UI (not the salvaging station) when banking salvage from a full inventory.
+  - Tracks **total occupied slots** and **salvage stacks** separately from the hold item grid so “full” and **processing** decisions match how the hold actually behaves (non-salvage items can occupy slots while salvage remains to process).
+  - Re-reads the grid periodically while the hold flow is active; when you are idle (no nearby wreck and no salvage in inventory), the script avoids opening the hold on a timer just to resync counts.
+  - Initialises the hold as soon as cargo-hold mode is active, before the “already salvaging” wait, so boarding or toggling the option is not blocked by animation checks.
+  - Resolves the hold game object using the player world view first, with a fallback lookup if needed.
+
+---
+
+## [2.2.0]
+
+### Added
+- **Use Cargo Hold** (config checkbox, default: off)
+  When enabled while salvaging, shipwreck salvage is deposited into your boat cargo hold via the hold interface (**Deposit inventory**) instead of using the salvaging station. Capacity and occupied slots are read from the cargo hold interface on first use; if the hold is full or would overflow the next deposit (using the same conservative rule as the design spec: zero free slots, or hold free slots below current empty inventory slots), the script enters a **processing** phase: it withdraws salvage from the hold in batches, closes the UI, and reuses the existing full-inventory routine (drop junk, open caskets, high alch) until salvage stacks in the hold reach zero, then resumes hook deployment. Manual hold interactions can desync the internal count; the script re-reads the interface when the hold object ID switches between no-cargo and cargo visuals. If the cargo UI fails to open repeatedly during processing, processing mode stops to avoid an infinite loop.
+
+---
+
 ## [2.1.0]
 
 ### Fixed
