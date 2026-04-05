@@ -9,8 +9,9 @@ public final class CargoHoldInterfaceWidgets {
     }
 
     /**
-     * Occupied-line text while the hold is open ({@code client.getWidget(943, 4)}). The first number in {@link net.runelite.api.widgets.Widget#getText()}
-     * is treated as occupied slots (e.g. {@code 160} or {@code 160 / 160}).
+     * Occupied-slot count text while the hold is open ({@code client.getWidget(943, 4)}). In practice this child often
+     * shows only {@code X} (occupied slots), not a full {@code X / N} line; we still parse the first run of digits from
+     * {@link net.runelite.api.widgets.Widget#getText()} so either shape works.
      */
     public static final int CARGO_HOLD_OCCUPIED_TEXT_GROUP = 943;
 

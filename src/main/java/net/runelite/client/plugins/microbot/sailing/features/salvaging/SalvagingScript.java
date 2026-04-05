@@ -1,16 +1,19 @@
 package net.runelite.client.plugins.microbot.sailing.features.salvaging;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.Constants;
 import net.runelite.api.DecorativeObject;
 import net.runelite.api.GameObject;
+import net.runelite.api.Player;
 import net.runelite.api.Scene;
 import net.runelite.api.Skill;
 import net.runelite.api.Tile;
 import net.runelite.api.TileObject;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
@@ -58,7 +61,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 @Singleton
 public class SalvagingScript {
 
-    /** First decimal number in the occupied-line text (e.g. {@code 160} or {@code 160 / 160}). */
+    /** First decimal number in the occupied widget text (often just {@code X}; still works if the client shows {@code X / N}). */
     private static final Pattern CARGO_HOLD_FIRST_NUMBER = Pattern.compile("(\\d+)");
 
     private static final int SIZE_SALVAGEABLE_AREA = 15;
@@ -84,7 +87,13 @@ public class SalvagingScript {
     private static final int CARGO_HOLD_POST_DEPOSIT_READ_ATTEMPTS = 6;
     private static final int CARGO_HOLD_POST_DEPOSIT_READ_GAP_MIN_MS = 120;
     private static final int CARGO_HOLD_POST_DEPOSIT_READ_GAP_MAX_MS = 320;
-    private static final int CARGO_HOLD_SCENE_SCAN_RADIUS = 32;
+    /** Radius for {@link Rs2GameObject} scans and name fallbacks around the player (boat nested view, port, etc.). */
+    private static final int NEARBY_TILE_OBJECT_SCAN_RADIUS = 32;
+    /**
+     * In-game message when deposit fails because every slot is taken ({@code Text.standardize} comparison, so extra
+     * punctuation or wording after this phrase still matches).
+     */
+    private static final String CARGO_HOLD_FULL_MESSAGE_CONTAINS = "the cargo hold is full";
     private final Rs2TileObjectCache tileObjectCache;
     @SuppressWarnings("unused")
     private final Rs2BoatCache boatCache;
@@ -93,8 +102,9 @@ public class SalvagingScript {
     /**
      * Shipwreck lists rebuilt each {@link GameTick} on the client thread by scanning {@link Client#getTopLevelWorldView()}
      * (the sea layer). Plugin Hub &quot;Sailing&quot; uses game object spawn/despawn events instead; both target the same
-     * {@link GameObject} ids. Microbot&apos;s tile cache and {@link Rs2GameObject} iterate the player world view scene,
-     * which misses at-sea wrecks.
+     * {@link GameObject} ids. At-sea wrecks live on the top-level sea scene; boat facilities (e.g. cargo hold) live in the
+     * boarded boat&apos;s nested {@link WorldView}. {@link Rs2GameObject} / tile cache can miss one or the other depending
+     * on context; shipwrecks use an explicit top-level scene walk, cargo hold uses the local player world view scene walk.
      */
     private final Map<String, Rs2TileObjectModel> activeWreckByKey = new HashMap<>();
     private final Map<String, Rs2TileObjectModel> inactiveWreckByKey = new HashMap<>();
@@ -103,11 +113,11 @@ public class SalvagingScript {
 
     /** Max cargo slots for this boat tier ({@link CargoHoldObjectIds#ID_TO_CAPACITY}). */
     private int cargoHoldCapacity = -1;
-    /** Occupied slots: first number from {@link CargoHoldInterfaceWidgets} text line after the hold is open; else ITEMS grid count. */
-    private int cargoHoldCount = -1;
+    /** Occupied slots: parsed from {@link CargoHoldInterfaceWidgets} occupied text (usually just {@code X}) when the hold is open; else ITEMS grid count. */
+    private volatile int cargoHoldCount = -1;
     /** Salvage stacks in the hold from the same grid (item name contains &quot;salvage&quot;; one slot = one stack). */
-    private int cargoHoldSalvageStackCount = -1;
-    private boolean cargoHoldProcessing = false;
+    private volatile int cargoHoldSalvageStackCount = -1;
+    private volatile boolean cargoHoldProcessing = false;
     private int lastCargoHoldObjectId = -1;
     private int cargoHoldWithdrawFailures = 0;
     /** Consecutive withdraw clicks that did not change inventory (separate from open failures). */
@@ -450,8 +460,9 @@ public class SalvagingScript {
     }
 
     /**
-     * Resolves the cargo hold on the client thread: tile cache merge, then {@link Rs2GameObject} scene scan (same gap as
-     * wrecks), then name match, then nearest to the player.
+     * Resolves the cargo hold on the client thread: tile cache merge, explicit walk of the local player&apos;s
+     * {@link WorldView} scene (same approach as Plugin Hub {@code BoatTracker} + {@code CargoHoldTier} ids),
+     * {@link Rs2GameObject} radius scan, then name match, then nearest to the player.
      */
     private Rs2TileObjectModel findCargoHold() {
         return Microbot.getClientThread().invoke(this::findCargoHoldOnClientThread);
@@ -466,14 +477,13 @@ public class SalvagingScript {
                 .where(this::isCargoHoldTileObject)
                 .toList();
         List<Rs2TileObjectModel> merged = mergeDistinctTileObjectLists(fromWorldView, fromDefaultScene);
-        if (merged.isEmpty()) {
-            merged = scanCargoHoldObjectsFromScene();
-        }
+        merged = mergeDistinctTileObjectLists(merged, scanCargoHoldObjectsFromLocalPlayerWorldViewScene());
+        merged = mergeDistinctTileObjectLists(merged, scanCargoHoldObjectsFromScene());
         if (merged.isEmpty()) {
             WorldPoint anchor = Rs2Player.getWorldLocation();
             if (anchor != null) {
                 try {
-                    TileObject named = Rs2GameObject.getTileObject("Cargo hold", anchor, CARGO_HOLD_SCENE_SCAN_RADIUS);
+                    TileObject named = Rs2GameObject.getTileObject("Cargo hold", anchor, NEARBY_TILE_OBJECT_SCAN_RADIUS);
                     if (named != null) {
                         merged = List.of(new Rs2TileObjectModel(named));
                     }
@@ -500,7 +510,7 @@ public class SalvagingScript {
             return List.of();
         }
         try {
-            List<?> raw = Rs2GameObject.getAll(o -> CargoHoldObjectIds.ALL_IDS.contains(o.getId()), anchor, CARGO_HOLD_SCENE_SCAN_RADIUS);
+            List<?> raw = Rs2GameObject.getAll(o -> CargoHoldObjectIds.ALL_IDS.contains(o.getId()), anchor, NEARBY_TILE_OBJECT_SCAN_RADIUS);
             List<Rs2TileObjectModel> out = new ArrayList<>();
             for (Object o : raw) {
                 if (o instanceof TileObject) {
@@ -512,6 +522,97 @@ public class SalvagingScript {
             log.debug("Cargo hold: Rs2GameObject.getAll scene scan failed", ex);
             return List.of();
         }
+    }
+
+    /**
+     * Full scene pass on the local player&apos;s {@link WorldView} (the boat interior when boarded), matching Plugin Hub
+     * {@code BoatTracker} / {@code CargoHoldTier.fromGameObjectId} behaviour.
+     */
+    private List<Rs2TileObjectModel> scanCargoHoldObjectsFromLocalPlayerWorldViewScene() {
+        Client client = Microbot.getClient();
+        if (client == null) {
+            return List.of();
+        }
+        Player lp = client.getLocalPlayer();
+        if (lp == null) {
+            return List.of();
+        }
+        WorldView wv = lp.getWorldView();
+        if (wv == null) {
+            return List.of();
+        }
+        return collectTileObjectsFromWorldViewScene(wv, this::isCargoHoldTileObject);
+    }
+
+    /**
+     * Walks one {@link WorldView}&apos;s scene (e.g. local player / boat interior) and collects {@link TileObject}s that
+     * match {@code predicate}. Same tile rules as {@link #rebuildShipwreckMapsFromTopLevelScene()} for game objects.
+     */
+    private List<Rs2TileObjectModel> collectTileObjectsFromWorldViewScene(
+            WorldView wv,
+            Predicate<Rs2TileObjectModel> predicate) {
+        Scene scene = wv.getScene();
+        if (scene == null) {
+            return List.of();
+        }
+        Tile[][][] tiles = scene.getTiles();
+        if (tiles == null) {
+            return List.of();
+        }
+        int plane = wv.getPlane();
+        if (plane < 0) {
+            return List.of();
+        }
+        if (plane >= tiles.length) {
+            return List.of();
+        }
+        Tile[][] planeTiles = tiles[plane];
+        if (planeTiles == null) {
+            return List.of();
+        }
+        List<Rs2TileObjectModel> out = new ArrayList<>();
+        int maxX = Math.min(Constants.SCENE_SIZE, planeTiles.length);
+        for (int x = 0; x < maxX; x++) {
+            Tile[] column = planeTiles[x];
+            if (column == null) {
+                continue;
+            }
+            int maxY = Math.min(Constants.SCENE_SIZE, column.length);
+            for (int y = 0; y < maxY; y++) {
+                Tile tile = column[y];
+                if (tile == null) {
+                    continue;
+                }
+                GameObject[] gameObjects = tile.getGameObjects();
+                if (gameObjects != null) {
+                    for (GameObject go : gameObjects) {
+                        if (go == null) {
+                            continue;
+                        }
+                        if (!go.getSceneMinLocation().equals(tile.getSceneLocation())) {
+                            continue;
+                        }
+                        maybeAddTileObjectIf(out, go, predicate);
+                    }
+                }
+                DecorativeObject dec = tile.getDecorativeObject();
+                if (dec != null) {
+                    maybeAddTileObjectIf(out, dec, predicate);
+                }
+            }
+        }
+        return out;
+    }
+
+    private static void maybeAddTileObjectIf(
+            List<Rs2TileObjectModel> out,
+            TileObject obj,
+            Predicate<Rs2TileObjectModel> predicate) {
+        Rs2TileObjectModel model = new Rs2TileObjectModel(obj);
+        if (!predicate.test(model)) {
+            return;
+        }
+        out.add(model);
     }
 
     private boolean isCargoHoldTileObject(Rs2TileObjectModel obj) {
@@ -559,8 +660,28 @@ public class SalvagingScript {
             return;
         }
         sleep(Rs2Random.between(200, 480));
+        if (!readOccupiedCountAfterDepositWhileHoldOpen()) {
+            log.warn("Cargo hold: could not read hold grid from UI before deposit");
+            closeCargoHoldInterface();
+            return;
+        }
+        lastCargoHoldWidgetResyncMs = System.currentTimeMillis();
         int salvageBefore = Rs2Inventory.count("salvage");
         if (salvageBefore <= 0) {
+            closeCargoHoldInterface();
+            return;
+        }
+        if (!canDepositSalvageToCargoHold()) {
+            if (cargoHoldCapacity > 0) {
+                int free = cargoHoldCapacity - cargoHoldCount;
+                if (free <= 0) {
+                    cargoHoldProcessing = true;
+                    log.info(
+                            "Cargo hold has no free slots after UI read ({} / {}); switching to processing phase",
+                            cargoHoldCount,
+                            cargoHoldCapacity);
+                }
+            }
             closeCargoHoldInterface();
             return;
         }
@@ -629,8 +750,8 @@ public class SalvagingScript {
     }
 
     /**
-     * Reads occupied/salvage counts after an in-UI deposit while the hold stays open. Inventory updates first; the
-     * header line can update a tick later, so we settle then retry instead of closing and triggering a resync open.
+     * Reads occupied/salvage counts while the hold panel stays open: used before clicking Deposit inventory (sync state,
+     * avoid depositing into a full hold) and after a deposit (header line can lag). Settles then retries across ticks.
      */
     private boolean readOccupiedCountAfterDepositWhileHoldOpen() {
         sleep(Rs2Random.between(180, 420));
@@ -776,7 +897,7 @@ public class SalvagingScript {
 
     /**
      * {@code [0]} = occupied slots, {@code [1]} = salvage-named stacks in the ITEMS grid.
-     * Occupied comes from {@link CargoHoldInterfaceWidgets} (client {@code getWidget(943, 4)}) when parseable; else the ITEMS grid walk.
+     * Occupied comes from {@link CargoHoldInterfaceWidgets} (occupied-only text child {@code 943, 4}) when parseable; else the ITEMS grid walk.
      * Requires the cargo-hold panel to already be open. Client thread only.
      */
     private int[] countOccupiedAndSalvageStacksInOpenHoldInterface() {
@@ -809,7 +930,7 @@ public class SalvagingScript {
     }
 
     /**
-     * First number in the occupied/capacity text (e.g. {@code 160} from {@code 160 / 160} or a single value).
+     * First number in the occupied-slot widget text (typically just occupied {@code X}; same regex if a {@code X / N} string appears).
      */
     private static Integer parseOccupiedSlotsFromCargoHoldTextLine(Client client) {
         Widget w = client.getWidget(
@@ -1247,11 +1368,69 @@ public class SalvagingScript {
         }
     }
 
+    /**
+     * Resolves a salvaging station like {@link #findCargoHold()}: tile cache, explicit local {@link WorldView} scene walk
+     * (on-board station), then {@link Rs2GameObject} radius scan (e.g. port), nearest to the player.
+     */
     private Rs2TileObjectModel findSalvagingStation() {
-        return tileObjectCache.query()
+        return Microbot.getClientThread().invoke(this::findSalvagingStationOnClientThread);
+    }
+
+    private Rs2TileObjectModel findSalvagingStationOnClientThread() {
+        List<Rs2TileObjectModel> fromWorldView = tileObjectCache.query()
                 .fromWorldView()
                 .where(this::isSalvagingStationTileObject)
-                .nearestOnClientThread();
+                .toList();
+        List<Rs2TileObjectModel> fromDefaultScene = tileObjectCache.query()
+                .where(this::isSalvagingStationTileObject)
+                .toList();
+        List<Rs2TileObjectModel> merged = mergeDistinctTileObjectLists(fromWorldView, fromDefaultScene);
+        Client client = Microbot.getClient();
+        if (client != null) {
+            Player lp = client.getLocalPlayer();
+            if (lp != null) {
+                WorldView wv = lp.getWorldView();
+                if (wv != null) {
+                    merged = mergeDistinctTileObjectLists(
+                            merged,
+                            collectTileObjectsFromWorldViewScene(wv, this::isSalvagingStationTileObject));
+                }
+            }
+        }
+        merged = mergeDistinctTileObjectLists(merged, scanSalvagingStationsFromRs2GameObject());
+        if (merged.isEmpty()) {
+            return null;
+        }
+        WorldPoint player = Rs2Player.getWorldLocation();
+        if (player == null) {
+            return merged.get(0);
+        }
+        return merged.stream()
+                .min(Comparator.comparingInt(o -> player.distanceTo(o.getWorldLocation())))
+                .orElse(null);
+    }
+
+    private List<Rs2TileObjectModel> scanSalvagingStationsFromRs2GameObject() {
+        WorldPoint anchor = Rs2Player.getWorldLocation();
+        if (anchor == null) {
+            return List.of();
+        }
+        try {
+            List<?> raw = Rs2GameObject.getAll(
+                    o -> SalvagingStationObjectIds.ALL_IDS.contains(o.getId()),
+                    anchor,
+                    NEARBY_TILE_OBJECT_SCAN_RADIUS);
+            List<Rs2TileObjectModel> out = new ArrayList<>();
+            for (Object o : raw) {
+                if (o instanceof TileObject) {
+                    out.add(new Rs2TileObjectModel((TileObject) o));
+                }
+            }
+            return out;
+        } catch (RuntimeException ex) {
+            log.debug("Salvaging station: Rs2GameObject.getAll scan failed", ex);
+            return List.of();
+        }
     }
 
     /**
