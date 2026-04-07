@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import net.runelite.client.plugins.fishing.FishingPlugin;
+import net.runelite.client.plugins.microbot.agentserver.AgentServerPlugin;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
 import net.runelite.client.plugins.microbot.astralrc.AstralRunesPlugin;
 import net.runelite.client.plugins.microbot.autofishing.AutoFishingPlugin;
@@ -18,7 +19,8 @@ public class Microbot
 {
 
 	private static final Class<?>[] debugPlugins = {
-		AIOFighterPlugin.class
+		AIOFighterPlugin.class,
+		AgentServerPlugin.class
 	};
 
     public static void main(String[] args) throws Exception

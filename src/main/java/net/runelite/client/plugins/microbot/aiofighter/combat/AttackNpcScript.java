@@ -19,6 +19,8 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldArea;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
+import net.runelite.client.plugins.microbot.util.gameobject.Rs2Cannon;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.item.Rs2EnsouledHead;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
@@ -67,7 +69,23 @@ public class AttackNpcScript extends Script {
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
-                if (!Microbot.isLoggedIn() || !super.run() || !config.toggleCombat())
+                if (!Microbot.isLoggedIn() || !super.run())
+                    return;
+
+                if (config.toggleCannon()
+                        && !config.state().equals(State.BANKING)
+                        && !config.state().equals(State.WALKING)) {
+                    if (Rs2Cannon.repair()) return;
+                    Rs2Cannon.refill();
+                }
+
+                if (config.useSpecialAttack()
+                        && Rs2Equipment.all("guthan's").count() != 4
+                        && Rs2Player.isInteracting()) {
+                    Microbot.getSpecialAttackConfigs().useSpecWeapon();
+                }
+
+                if (!config.toggleCombat())
                     return;
 
                 if (config.centerLocation().distanceTo(Rs2Player.getWorldLocation()) < config.attackRadius() &&

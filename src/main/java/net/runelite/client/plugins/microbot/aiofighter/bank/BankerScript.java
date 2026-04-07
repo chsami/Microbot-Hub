@@ -99,9 +99,6 @@ public class BankerScript extends Script {
         return true;
     }
 
-//    public boolean needsBanking() {
-//        return (isUpkeepItemDepleted(config) && config.bank()) || (Rs2Inventory.emptySlotCount() <= config.minFreeSlots() && config.bank()) || needSlayerItems() || inventorySetupChanged;
-//    }
     /**
      * Returns true if the player needs to bank (e.g., missing potions, full inventory).
      */
@@ -442,32 +439,11 @@ public class BankerScript extends Script {
 
 
                 }
-//                if( AIOFighterBetaPlugin.needShopping)
-//                    return;
             }
             inventorySetupChanged = false;
         }
 
     }
-
-//    public boolean depositAllExcept(AIOFighterConfig config) {
-//        List<Integer> ids = Arrays.stream(ItemToKeep.values())
-//                .filter(item -> item.isEnabled(config))
-//                .flatMap(item -> item.getIds().stream())
-//                .collect(Collectors.toList());
-//        Rs2Bank.depositAllExcept(ids.toArray(new Integer[0]));
-//        return Rs2Bank.isOpen();
-//    }
-
-//    public boolean isUpkeepItemDepleted(AIOFighterConfig config) {
-//        return Arrays.stream(ItemToKeep.values())
-//                .filter(item -> item != ItemToKeep.TELEPORT && item.isEnabled(config))
-//                .anyMatch(item -> item.getIds().stream().mapToInt(Rs2Inventory::count).sum() == 0);
-//    }
-//
-//    public boolean goToBank() {
-//        return Rs2Walker.walkTo(Rs2Bank.getNearestBank().getWorldPoint(), 8);
-//    }
 
     public boolean handleBanking() {
          AIOFighterPlugin.setState(State.BANKING);
