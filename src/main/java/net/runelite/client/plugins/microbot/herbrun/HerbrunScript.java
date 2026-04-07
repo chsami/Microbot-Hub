@@ -52,7 +52,7 @@ public class HerbrunScript extends Script {
 
     private final List<HerbPatch> herbPatches = new ArrayList<>();
 
-    public boolean run() {        
+    public boolean run() {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             if (!Microbot.isLoggedIn()) return;
             if (!super.run()) return;
@@ -60,20 +60,22 @@ public class HerbrunScript extends Script {
                 initialized = true;
                 HerbrunPlugin.status = "Gearing up";
                 populateHerbPatches();
-                
+
                 // Wait for herbPatches to be populated by client thread (bounded wait with 1000ms timeout)
                 if (!sleepUntil(() -> !herbPatches.isEmpty(), 1000)) {
-                    // If still empty after timeout, check once more to handle edge cases
-                    if (herbPatches.isEmpty()) {                                        
+                    if (herbPatches.isEmpty()) {
                         return;
                     }
                 }
-                
-                if (config.useInventorySetup()) {
+
+                if (config.bypassInventoryRequirements()) {
+                    // Skip all inventory checks — start run with whatever is currently in inventory
+                    log("Bypass inventory requirements enabled — skipping inventory setup");
+                } else if (config.useInventorySetup()) {
                     var inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
                     if (!inventorySetup.doesInventoryMatch() || !inventorySetup.doesEquipmentMatch()) {
                         Rs2Walker.walkTo(Rs2Bank.getNearestBank().getWorldPoint(), 20);
-                        if (!inventorySetup.loadEquipment() || !inventorySetup.loadInventory()) {                        
+                        if (!inventorySetup.loadEquipment() || !inventorySetup.loadInventory()) {
                             return;
                         }
                         Rs2Bank.closeBank();
@@ -87,7 +89,6 @@ public class HerbrunScript extends Script {
 
                 log("Will visit " + herbPatches.size() + " herb patches");
             }
-            
 
             if (Rs2Inventory.hasItem("Weeds")) {
                 Rs2Inventory.drop("Weeds");
@@ -113,12 +114,10 @@ public class HerbrunScript extends Script {
             if (!currentPatch.isInRange(10)) {
                 HerbrunPlugin.status = "Walking to " + currentPatch.getRegionName();
                 Rs2Walker.walkTo(currentPatch.getLocation(), 20);
-
             }
 
             HerbrunPlugin.status = "Farming " + currentPatch.getRegionName();
             if (handleHerbPatch()) getNextPatch();
-
 
         }, 0, 1000, TimeUnit.MILLISECONDS);
 
@@ -143,7 +142,7 @@ public class HerbrunScript extends Script {
                 return;
             }
 
-            // Start with weiss, getNearestBank doesn't like that area!
+            // Start with Weiss — getNearestBank doesn't like that area!
             currentPatch = herbPatches.stream()
                     .filter(patch -> patch.isEnabled() && Objects.equals(patch.getRegionName(), "Weiss"))
                     .findFirst()
@@ -151,32 +150,65 @@ public class HerbrunScript extends Script {
                             .filter(HerbPatch::isEnabled)
                             .findFirst()
                             .orElse(null));
-            
+
             if (currentPatch != null) {
                 herbPatches.remove(currentPatch);
             }
         }
     }
 
+    /**
+     * Attempts to note all un-noted grimy herbs in inventory using the nearest Tool Leprechaun.
+     * Returns true if noting succeeded or there was nothing to note, false if the leprechaun
+     * couldn't be found or the interaction failed.
+     */
+    private boolean noteHerbsWithLeprechaun() {
+        Rs2ItemModel unNoted = Rs2Inventory.getUnNotedItem("Grimy", false);
+        if (unNoted == null) {
+            // Nothing to note
+            return true;
+        }
+        Rs2NpcModel leprechaun = Rs2Npc.getNpc("Tool leprechaun");
+        if (leprechaun == null) {
+            log("No Tool Leprechaun nearby — cannot note herbs");
+            return false;
+        }
+        HerbrunPlugin.status = "Noting herbs with leprechaun";
+        Rs2Inventory.use(unNoted);
+        Rs2Npc.interact(leprechaun, "Talk-to");
+        Rs2Inventory.waitForInventoryChanges(10000);
+        return true;
+    }
+
     private boolean handleHerbPatch() {
+        // ── Full-inventory guard ──────────────────────────────────────────────
+        // If the inventory is full mid-harvest, note herbs then immediately
+        // continue so we don't stall on the same patch forever.
         if (Rs2Inventory.isFull()) {
             Rs2NpcModel leprechaun = Rs2Npc.getNpc("Tool leprechaun");
             if (leprechaun != null) {
                 Rs2ItemModel unNoted = Rs2Inventory.getUnNotedItem("Grimy", false);
                 if (unNoted != null) {
+                    HerbrunPlugin.status = "Inventory full — noting herbs";
                     Rs2Inventory.use(unNoted);
                     Rs2Npc.interact(leprechaun, "Talk-to");
                     Rs2Inventory.waitForInventoryChanges(10000);
+                    // Don't return — fall through so the patch loop continues this tick
                 } else {
-                    // No grimy herbs to note - try to drop weeds or empty buckets as fallback
+                    // No grimy herbs to note; try to clear junk to free a slot
                     if (Rs2Inventory.hasItem("Weeds")) {
                         Rs2Inventory.drop("Weeds");
                     } else if (Rs2Inventory.hasItem(ItemID.BUCKET_EMPTY)) {
                         Rs2Inventory.drop(ItemID.BUCKET_EMPTY);
+                    } else {
+                        // Truly stuck — nothing we can do without user intervention
+                        return false;
                     }
                 }
+            } else {
+                // Leprechaun not visible; back off and retry next tick
+                return false;
             }
-            return false;
         }
 
         Integer[] ids = {
@@ -194,6 +226,7 @@ public class HerbrunScript extends Script {
         var obj = Rs2GameObject.findObject(ids);
         if (obj == null) return false;
         var state = getHerbPatchState(obj);
+
         switch (state) {
             case "Empty":
                 // Apply compost if configured
@@ -206,13 +239,13 @@ public class HerbrunScript extends Script {
                     Rs2Inventory.use(compost.getItemId());
                     Rs2GameObject.interact(obj, "Compost");
                     Rs2Player.waitForXpDrop(Skill.FARMING, 10000, false);
-                    
+
                     // Drop empty bucket if configured (not for bottomless bucket)
                     if (config.dropEmptyBuckets() && !config.compostType().isBottomless()) {
                         Rs2Inventory.drop(ItemID.BUCKET_EMPTY);
                     }
                 }
-                // Find the first herb seed in inventory and use its specific ID
+                // Find the first herb seed in inventory and plant it
                 HerbSeedType seedInInventory = getFirstHerbSeedInInventory();
                 if (seedInInventory != null) {
                     Rs2Inventory.use(seedInInventory.getItemId());
@@ -222,18 +255,33 @@ public class HerbrunScript extends Script {
                     log("No herb seeds found in inventory for planting");
                 }
                 return false;
+
             case "Harvestable":
+                HerbrunPlugin.status = "Harvesting " + currentPatch.getRegionName();
                 Rs2GameObject.interact(obj, "Pick");
+                // Wait until patch is empty OR inventory fills up
                 sleepUntil(() -> getHerbPatchState(obj).equals("Empty") || Rs2Inventory.isFull(), 20000);
-                return false;
+
+                // ── Post-harvest noting ───────────────────────────────────────
+                // If the patch is now empty and the user wants herbs noted, do it
+                // before we hand off to the next patch.
+                if (getHerbPatchState(obj).equals("Empty") && config.noteHerbsAfterHarvest()) {
+                    noteHerbsWithLeprechaun();
+                }
+                // If inventory is STILL full after noting (shouldn't happen, but guard anyway),
+                // stay on this patch so the full-inventory block handles it next tick.
+                return getHerbPatchState(obj).equals("Empty");
+
             case "Weeds":
                 Rs2GameObject.interact(obj, "Rake");
                 Rs2Player.waitForAnimation(10000);
                 return false;
+
             case "Dead":
                 Rs2GameObject.interact(obj, "Clear");
                 sleepUntil(() -> getHerbPatchState(obj).equals("Empty"), 10000);
                 return false;
+
             default:
                 currentPatch = null;
                 return true;
@@ -304,7 +352,7 @@ public class HerbrunScript extends Script {
     private boolean setupAutoInventory() {
         // Walk to nearest bank
         Rs2Walker.walkTo(Rs2Bank.getNearestBank().getWorldPoint(), 20);
-        
+
         // Open bank
         if (!Rs2Bank.openBank()) {
             log("Failed to open bank");
@@ -314,14 +362,14 @@ public class HerbrunScript extends Script {
             log("Timeout waiting for bank to open after 10 seconds");
             return false;
         }
-        
+
         // Deposit all items into bank
         Rs2Bank.depositAll();
         Rs2Inventory.waitForInventoryChanges(5000);
-        
+
         // Count enabled patches to know how many seeds/compost we need
         int patchCount = (int) herbPatches.stream().filter(HerbPatch::isEnabled).count();
-        
+
         // Withdraw farming tools (fail fast if missing)
         boolean toolsOk = true;
         toolsOk &= Rs2Bank.withdrawX(ItemID.RAKE, 1);
@@ -331,12 +379,12 @@ public class HerbrunScript extends Script {
             log("Missing farming tools in bank (rake/spade/dibber)");
             return false;
         }
-        
+
         // Withdraw magic secateurs if available
         if (Rs2Bank.hasItem(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
             Rs2Bank.withdrawX(ItemID.FAIRY_ENCHANTED_SECATEURS, 1);
         }
-        
+
         // Withdraw teleportation runes
         boolean missingRunes = false;
         missingRunes |= !Rs2Bank.withdrawX(ItemID.LAWRUNE, 20);
@@ -344,17 +392,17 @@ public class HerbrunScript extends Script {
         missingRunes |= !Rs2Bank.withdrawX(ItemID.EARTHRUNE, 50);
         missingRunes |= !Rs2Bank.withdrawX(ItemID.FIRERUNE, 50);
         missingRunes |= !Rs2Bank.withdrawX(ItemID.WATERRUNE, 50);
-        
+
         if (missingRunes) {
             log("Missing teleportation runes - cannot complete herb run");
             return false;
         }
-        
+
         // Withdraw Ectophial if Morytania is enabled
         if (config.enableMorytania() && Rs2Bank.hasItem(ItemID.ECTOPHIAL)) {
             Rs2Bank.withdrawX(ItemID.ECTOPHIAL, 1);
         }
-        
+
         // Withdraw herb seeds
         HerbSeedType seedType = config.herbSeedType();
         if (seedType == HerbSeedType.BEST) {
@@ -366,15 +414,15 @@ public class HerbrunScript extends Script {
         } else {
             // Original logic for specific seed type
             int seedsNeeded = patchCount; // 1 seed per patch
-            
+
             // Validate farming level requirement
             int farmingLevel = Microbot.getClient().getRealSkillLevel(Skill.FARMING);
             if (!seedType.canPlant(farmingLevel)) {
-                log("Cannot plant " + seedType.getSeedName() + " - requires Farming level " + 
-                    seedType.getLevelRequired() + " (you have " + farmingLevel + ")");
+                log("Cannot plant " + seedType.getSeedName() + " - requires Farming level " +
+                        seedType.getLevelRequired() + " (you have " + farmingLevel + ")");
                 return false;
             }
-            
+
             if (!Rs2Bank.withdrawX(seedType.getItemId(), seedsNeeded)) {
                 if (!config.allowPartialRuns()) {
                     log("Failed to withdraw " + seedsNeeded + " " + seedType.getSeedName());
@@ -395,7 +443,7 @@ public class HerbrunScript extends Script {
                 }
             }
         }
-        
+
         // Withdraw compost if enabled
         CompostType compostType = config.compostType();
         if (compostType != CompostType.NONE) {
@@ -414,18 +462,18 @@ public class HerbrunScript extends Script {
                 }
             }
         }
-        
+
         // Close bank
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen(), 5000);
-        
+
         log("Inventory setup complete - starting herb run");
         return true;
     }
 
     /**
      * Helper method to find the first herb seed present in inventory
-     * 
+     *
      * @return HerbSeedType of the first seed found, or null if none found
      */
     private HerbSeedType getFirstHerbSeedInInventory() {
@@ -439,41 +487,41 @@ public class HerbrunScript extends Script {
 
     /**
      * Withdraws the best available herb seeds based on farming level and bank availability
-     * 
+     *
      * @param patchCount Number of patches that need seeds
      * @return true if enough seeds were withdrawn for all patches
      */
     private boolean withdrawBestAvailableSeeds(int patchCount) {
         // Get player's farming level
         int farmingLevel = Microbot.getClient().getRealSkillLevel(Skill.FARMING);
-        
+
         // Get all plantable herbs sorted by level (highest first)
         List<HerbSeedType> plantableHerbs = HerbSeedType.getPlantableHerbs(farmingLevel);
-        
+
         if (plantableHerbs.isEmpty()) {
             log("No herbs can be planted at farming level " + farmingLevel);
             return false;
         }
-        
+
         int seedsWithdrawn = 0;
         int seedsNeeded = patchCount;
-        
+
         // Track which seed types we're withdrawing for logging
         Map<HerbSeedType, Integer> withdrawnSeeds = new HashMap<>();
-        
+
         // Try to withdraw seeds starting from highest level herbs
         for (HerbSeedType herb : plantableHerbs) {
             if (seedsWithdrawn >= seedsNeeded) {
                 break; // We have enough seeds
             }
-            
+
             // Check how many of this seed type we have in bank
             int availableSeeds = Rs2Bank.count(herb.getItemId());
-            
+
             if (availableSeeds > 0) {
                 // Calculate how many to withdraw (up to what we need)
                 int toWithdraw = Math.min(availableSeeds, seedsNeeded - seedsWithdrawn);
-                
+
                 // Withdraw the seeds
                 if (Rs2Bank.withdrawX(herb.getItemId(), toWithdraw)) {
                     seedsWithdrawn += toWithdraw;
@@ -484,31 +532,31 @@ public class HerbrunScript extends Script {
                 }
             }
         }
-        
+
         // Check if we got enough seeds
         if (seedsWithdrawn < seedsNeeded) {
             log("Could only withdraw " + seedsWithdrawn + " seeds, need " + seedsNeeded + " for all patches");
-            
+
             // Log what we managed to get
             if (!withdrawnSeeds.isEmpty()) {
                 StringBuilder sb = new StringBuilder("Seeds withdrawn: ");
-                withdrawnSeeds.forEach((herb, count) -> 
-                    sb.append(count).append("x ").append(herb.getSeedName()).append(", "));
+                withdrawnSeeds.forEach((herb, count) ->
+                        sb.append(count).append("x ").append(herb.getSeedName()).append(", "));
                 log(sb.toString());
             }
-            
+
             if (!config.allowPartialRuns()) {
                 return false; // Require all seeds when partial runs are disabled
             }
             return seedsWithdrawn > 0; // Return true if we got at least some seeds
         }
-        
+
         // Success - log summary
         StringBuilder summary = new StringBuilder("Successfully withdrew seeds for " + patchCount + " patches: ");
-        withdrawnSeeds.forEach((herb, count) -> 
-            summary.append(count).append("x ").append(herb.getSeedName()).append(" (lvl ").append(herb.getLevelRequired()).append("), "));
+        withdrawnSeeds.forEach((herb, count) ->
+                summary.append(count).append("x ").append(herb.getSeedName()).append(" (lvl ").append(herb.getLevelRequired()).append("), "));
         log(summary.toString());
-        
+
         return true;
     }
 
