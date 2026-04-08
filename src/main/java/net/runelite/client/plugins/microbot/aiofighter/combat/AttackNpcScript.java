@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.aiofighter.combat;
 
-import com.google.inject.Inject;
 import lombok.SneakyThrows;
 import net.runelite.api.Actor;
 import net.runelite.api.NPC;
@@ -14,7 +13,6 @@ import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
 import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyle;
 import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyleMapper;
 import net.runelite.client.plugins.microbot.aiofighter.enums.State;
-import net.runelite.client.plugins.microbot.api.npc.Rs2NpcCache;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
@@ -56,9 +54,6 @@ public class AttackNpcScript extends Script {
     public static volatile int cachedTargetNpcIndex = -1;
     private boolean messageShown = false;
     private int noNpcCount = 0;
-
-    @Inject
-    private Rs2NpcCache rs2NpcCache;
 
     public static void skipNpc() {
         currentNpc = null;
@@ -141,7 +136,7 @@ public class AttackNpcScript extends Script {
                 final boolean requireReachable = config.attackReachableNpcs();
                 final Rs2WorldPoint rs2PlayerPoint = Rs2Player.getRs2WorldPoint();
 
-                List<Rs2NpcModel> attackableNpcs = rs2NpcCache.query()
+                List<Rs2NpcModel> attackableNpcs = Microbot.getRs2NpcCache().query()
                         .where(npc -> npc.getCombatLevel() > 0 && !npc.isDead())
                         .where(npc -> !npc.isInteracting() || Objects.equals(npc.getInteracting(), localPlayer))
                         .where(npc -> {
@@ -185,7 +180,7 @@ public class AttackNpcScript extends Script {
                 // Check if our cached target died
                 if (config.toggleWaitForLoot() && !AIOFighterPlugin.isWaitingForLoot() && cachedTargetNpcIndex != -1) {
                     final int targetIndex = cachedTargetNpcIndex;
-                    Rs2NpcModel cachedNpcModel = rs2NpcCache.query()
+                    Rs2NpcModel cachedNpcModel = Microbot.getRs2NpcCache().query()
                             .where(npc -> npc.getIndex() == targetIndex)
                             .first();
 
@@ -303,7 +298,7 @@ public class AttackNpcScript extends Script {
      */
     private void handleItemOnNpcToKill(AIOFighterConfig config) {
         final Player localPlayer = Microbot.getClient().getLocalPlayer();
-        Rs2NpcModel npc = rs2NpcCache.query()
+        Rs2NpcModel npc = Microbot.getRs2NpcCache().query()
                 .where(n -> n.isDead() && Objects.equals(n.getInteracting(), localPlayer))
                 .first();
         if (npc == null) return;
@@ -330,7 +325,7 @@ public class AttackNpcScript extends Script {
     private Rs2NpcModel findReanimatedHeadOnPlayer() {
         final Player localPlayer = Microbot.getClient().getLocalPlayer();
         if (localPlayer == null) return null;
-        return rs2NpcCache.query()
+        return Microbot.getRs2NpcCache().query()
                 .where(npc -> Objects.equals(npc.getInteracting(), localPlayer))
                 .where(npc -> {
                     String name = npc.getName();

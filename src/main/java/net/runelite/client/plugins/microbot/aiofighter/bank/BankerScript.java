@@ -13,7 +13,6 @@ import net.runelite.client.plugins.microbot.aiofighter.enums.State;
 import net.runelite.client.plugins.microbot.aiofighter.shop.ShopItem;
 import net.runelite.client.plugins.microbot.aiofighter.shop.ShopScript;
 import net.runelite.client.plugins.microbot.aiofighter.shop.ShopType;
-import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.inventorysetups.MInventorySetupsPlugin;
@@ -46,8 +45,6 @@ public class BankerScript extends Script {
     private static boolean bankingTriggered = false;
     @Inject
     private MInventorySetupsPlugin inventorySetupsPlugin;
-    @Inject
-    private Rs2TileObjectCache rs2TileObjectCache;
 
     public boolean run(AIOFighterConfig config) {
         this.config = config;
@@ -482,7 +479,7 @@ public class BankerScript extends Script {
         // Rs2GameObject.interact 51-tile walk-to fallback. The new model's click()
         // does not walk-to-object, so we must guard distance up front to avoid
         // silently dispatching a click against an unreachable pool.
-        Rs2TileObjectModel pool = rs2TileObjectCache.query()
+        Rs2TileObjectModel pool = Microbot.getRs2TileObjectCache().query()
                 .withName("Pool of Refreshment")
                 .nearest(20);
         if (pool != null) {

@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.aiofighter.combat;
 
-import com.google.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Player;
 import net.runelite.api.events.NpcDespawned;
@@ -11,7 +10,6 @@ import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyle;
 import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyleMapper;
 import net.runelite.client.plugins.microbot.aiofighter.enums.PrayerStyle;
 import net.runelite.client.plugins.microbot.aiofighter.model.Monster;
-import net.runelite.client.plugins.microbot.api.npc.Rs2NpcCache;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcManager;
@@ -31,9 +29,6 @@ public class FlickerScript extends Script {
     // Atomic references for thread-safe list access and updates
     public static final AtomicReference<List<Monster>> currentMonstersAttackingUsRef = new AtomicReference<>(new ArrayList<>());
     private final AtomicReference<List<Rs2NpcModel>> npcsRef = new AtomicReference<>(new ArrayList<>());
-
-    @Inject
-    private Rs2NpcCache rs2NpcCache;
 
     private AttackStyle prayFlickAttackStyle = null;
     private boolean usePrayer = false;
@@ -84,7 +79,7 @@ public class FlickerScript extends Script {
                     npcsRef.set(new ArrayList<>());
                     return;
                 }
-                npcsRef.set(rs2NpcCache.query()
+                npcsRef.set(Microbot.getRs2NpcCache().query()
                         .where(npc -> Objects.equals(npc.getInteracting(), localPlayer))
                         .toList());
 
