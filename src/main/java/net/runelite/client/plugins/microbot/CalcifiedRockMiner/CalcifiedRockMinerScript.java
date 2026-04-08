@@ -83,8 +83,7 @@ public class CalcifiedRockMinerScript extends Script {
     private void handleMining(net.runelite.client.plugins.microbot.CalcifiedRockMiner.CalcifiedRockMinerConfig config) {
         if (Rs2Inventory.isFull()) {
             if (config.dropDeposits()) {
-                Rs2Inventory.dropAll("Calcified deposit");
-                Rs2Inventory.dropAll("uncut");
+                Rs2Inventory.dropAll(false, "calcified deposit", "uncut");
                 return;
             } else if (config.crushDeposits()) {
                 BOT_STATUS = CalcifiedRockMinerState.CRUSHING;
@@ -109,18 +108,22 @@ public class CalcifiedRockMinerScript extends Script {
         if (config.focusCrackedWaterDeposits() && !Rs2Player.isMoving()) {
             var weepingRocks = Rs2GameObject.getDecorativeObjects(x -> x.getId() == WEEPING_ROCK, Rs2Player.getWorldLocation());
             if (weepingRocks != null && !weepingRocks.isEmpty()) {
-                var rock = weepingRocks.stream().findFirst().get();
-                MoveCameraToRock(rock.getWorldLocation());
-                var distance = rock.getLocalLocation().distanceTo(Rs2Player.getLocalLocation());
-                // 128 == 1 tile, so we must be mining the tear, if above, we should move to the tear
-                if (distance > 128 || !Rs2Player.isAnimating()) {
-                    Rs2Camera.turnTo(rock.getLocalLocation(), 45);
-                    Microbot.getMouse().click(rock.getCanvasLocation());
-                    Rs2Player.waitForXpDrop(Skill.MINING, true);
-                    Rs2Antiban.actionCooldown();
-                    Rs2Antiban.takeMicroBreakByChance();
-                    sleepUntil(Rs2Player::isAnimating, 5000);
-                    return;
+                var weepingRock = weepingRocks.stream().findFirst().get();
+                GameObject tearRock = Rs2GameObject.getGameObject("Calcified rocks", weepingRock.getWorldLocation(), 2);
+                if (tearRock != null) {
+                    MoveCameraToRock(tearRock.getWorldLocation());
+                    var distance = tearRock.getLocalLocation().distanceTo(Rs2Player.getLocalLocation());
+                    // 128 == 1 tile, so we must be mining the tear, if above, we should move to the tear
+                    if (distance > 128 || !Rs2Player.isAnimating()) {
+                        Rs2Camera.turnTo(tearRock.getLocalLocation(), 45);
+                        if (Rs2GameObject.interact(tearRock)) {
+                            Rs2Player.waitForXpDrop(Skill.MINING, true);
+                            Rs2Antiban.actionCooldown();
+                            Rs2Antiban.takeMicroBreakByChance();
+                            sleepUntil(Rs2Player::isAnimating, 5000);
+                        }
+                        return;
+                    }
                 }
             }
         }
@@ -170,8 +173,12 @@ public class CalcifiedRockMinerScript extends Script {
         return false;
     }
 
+    private boolean hasHammer() {
+        return Rs2Inventory.hasItem("hammer") || Rs2Equipment.isWearing("hammer");
+    }
+
     private void handleCrushing(net.runelite.client.plugins.microbot.CalcifiedRockMiner.CalcifiedRockMinerConfig config) {
-        if (config.crushDeposits() && Rs2Inventory.hasItem("hammer") && Rs2Inventory.hasItem(29088)) {
+        if (config.crushDeposits() && hasHammer() && Rs2Inventory.hasItem(29088)) {
             if (Rs2Player.getWorldLocation().distanceTo(ANVIL) < 1) {
                 Rs2Inventory.interact(29088, "use");
                 Rs2GameObject.interact("Anvil");
@@ -208,8 +215,7 @@ public class CalcifiedRockMinerScript extends Script {
             Rs2Bank.walkToBank(BankLocation.CAM_TORUM);
             Rs2Bank.openBank();
             sleepUntil(() -> Rs2Bank.isOpen(), 5000);
-            Rs2Bank.depositAll("Calcified deposit");
-            Rs2Bank.depositAll("Uncut");
+            Rs2Bank.depositAllExcept("pickaxe", "hammer");
             Rs2Bank.closeBank();
 
         }
