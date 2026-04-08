@@ -279,7 +279,7 @@ public class GameObjectUtils {
         if (obj == null) {
             return -1;
         }
-        return obj.getWorldLocation().distanceTo(Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return obj.getWorldLocation().distanceTo(CoordinateUtils.getPlayerLocation());
     }
 
     /**
@@ -367,7 +367,7 @@ public class GameObjectUtils {
         if (gameObject == null) {
             return false;
         }
-        WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+        WorldPoint playerLocation = CoordinateUtils.getPlayerLocation();
         return gameObject.getWorldLocation().distanceTo(playerLocation) <= maxDistance;
     }
 
