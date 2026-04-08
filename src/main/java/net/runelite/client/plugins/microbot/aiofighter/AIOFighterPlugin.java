@@ -61,7 +61,7 @@ import java.util.stream.Collectors;
 )
 @Slf4j
 public class AIOFighterPlugin extends Plugin {
-    public static final String version = "2.1.0";
+    public static final String version = "2.1.3";
     public static boolean needShopping = false;
     private static final String SET = "Set";
     private static final String CENTER_TILE = ColorUtil.wrapWithColorTag("Center Tile", JagexColors.MENU_TARGET);
@@ -100,15 +100,19 @@ public class AIOFighterPlugin extends Plugin {
     private final FoodScript foodScript = new FoodScript();
     private final LootScript lootScript = new LootScript();
     private final SafeSpot safeSpotScript = new SafeSpot();
-    private final FlickerScript flickerScript = new FlickerScript();
+    @Inject
+    private FlickerScript flickerScript;
     private final BuryScatterScript buryScatterScript = new BuryScatterScript();
     private final AttackStyleScript attackStyleScript = new AttackStyleScript();
-    private final BankerScript bankerScript = new BankerScript();
-    private final PrayerScript prayerScript = new PrayerScript();
+    @Inject
+    private BankerScript bankerScript;
+    @Inject
+    private PrayerScript prayerScript;
     private final HighAlchScript highAlchScript = new HighAlchScript();
     private final PotionManagerScript potionManagerScript = new PotionManagerScript();
     private final SafetyScript safetyScript = new SafetyScript();
-    private final SlayerScript slayerScript = new SlayerScript();
+    @Inject
+    private SlayerScript slayerScript;
     private final ShopScript shopScript = new ShopScript();
     private final DodgeProjectileScript dodgeScript = new DodgeProjectileScript();
     @Inject
