@@ -7,6 +7,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.sailing.features.salvaging.SalvagingHighlight;
+import net.runelite.client.plugins.microbot.sailing.features.salvaging.SalvagingScript;
 import net.runelite.client.plugins.microbot.sailing.features.trials.TrialsScript;
 import net.runelite.client.plugins.microbot.sailing.features.trials.debug.BoatPathOverlay;
 import net.runelite.client.plugins.microbot.sailing.features.trials.overlay.TrialRouteOverlay;
@@ -30,7 +31,7 @@ import java.awt.*;
 @Slf4j
 public class MSailingPlugin extends Plugin {
 
-	static final String version = "2.1.0";
+	static final String version = "2.2.56";
 
     @Inject
     private SailingConfig config;
@@ -45,6 +46,9 @@ public class MSailingPlugin extends Plugin {
     private SailingOverlay sailingOverlay;
     @Inject
     private SalvagingHighlight salvagingHighlight;
+
+    @Inject
+    private SalvagingScript salvagingScript;
 
     @Inject
     private SailingScript sailingScript;
@@ -63,6 +67,7 @@ public class MSailingPlugin extends Plugin {
             overlayManager.add(boatPathOverlay);
             overlayManager.add(trialRouteOverlay);
         }
+        salvagingScript.register();
         trialsScript.register();
         sailingScript.run();
     }
@@ -70,6 +75,7 @@ public class MSailingPlugin extends Plugin {
     protected void shutDown() {
         sailingScript.shutdown();
         trialsScript.shutdown();
+        salvagingScript.unregister();
         trialsScript.unregister();
         overlayManager.remove(sailingOverlay);
         overlayManager.remove(salvagingHighlight);
