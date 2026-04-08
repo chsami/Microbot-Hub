@@ -88,8 +88,11 @@ public class AttackNpcScript extends Script {
                 if (!config.toggleCombat())
                     return;
 
-                if (config.centerLocation().distanceTo(Rs2Player.getWorldLocation()) < config.attackRadius() &&
-                        !config.centerLocation().equals(new WorldPoint(0, 0, 0)) && AIOFighterPlugin.getState() != State.BANKING) {
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (playerLocation != null
+                        && config.centerLocation().distanceTo(playerLocation) < config.attackRadius()
+                        && !config.centerLocation().equals(new WorldPoint(0, 0, 0))
+                        && AIOFighterPlugin.getState() != State.BANKING) {
                     if (ShortestPathPlugin.getPathfinder() != null)
                         Rs2Walker.setTarget(null);
                     AIOFighterPlugin.setState(State.IDLE);

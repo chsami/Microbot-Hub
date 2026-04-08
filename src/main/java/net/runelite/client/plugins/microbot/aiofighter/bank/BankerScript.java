@@ -58,12 +58,14 @@ public class BankerScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if(!super.run()) return;
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (playerLocation == null) return;
                 if (config.bank() && needBanking() && !AIOFighterPlugin.needShopping) {
                     if(handleBanking()){
                         Microbot.log("Banking handled successfully.");
                     }
                 } else if (!needBanking() &&
-                        config.centerLocation().distanceTo(Rs2Player.getWorldLocation()) > config.attackRadius() &&
+                        config.centerLocation().distanceTo(playerLocation) > config.attackRadius() &&
                         !config.centerLocation().equals(new WorldPoint(0, 0, 0))) {
 
                     boolean shouldWalk = false;
