@@ -114,6 +114,14 @@ application {
     mainClass = 'net.runelite.client.RuneLite'
 }
 
+tasks.register('runDebug', JavaExec) {
+    group = 'application'
+    description = 'Launch the Microbot client via the test entry point (Microbot.java) with pluginsToDebug populated.'
+    dependsOn 'testClasses'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.runelite.client.Microbot'
+}
+
 // Plugin Logic
 String pluginVersionFromPluginJson(File pluginDir) {
     def pluginJavaFile = pluginDir.listFiles()?.find { it.name.endsWith("Plugin.java") }

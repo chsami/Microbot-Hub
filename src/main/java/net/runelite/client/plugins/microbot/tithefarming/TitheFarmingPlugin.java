@@ -5,7 +5,6 @@ import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Item;
 import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -15,7 +14,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmMaterial;
 import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmState;
-import net.runelite.client.plugins.microbot.tithefarming.models.TitheFarmPlant;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
@@ -42,7 +40,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class TitheFarmingPlugin extends Plugin {
 
-    final static String version = "1.1.5";
+    final static String version = "1.1.12";
 
     @Inject
     public TitheFarmingConfig config;
@@ -79,15 +77,6 @@ public class TitheFarmingPlugin extends Plugin {
     protected void shutDown() {
         titheFarmScript.shutdown();
         overlayManager.remove(titheFarmOverlay);
-    }
-
-    @Subscribe
-    public void onGameObjectSpawned(GameObjectSpawned event) {
-        for (TitheFarmPlant plant : net.runelite.client.plugins.microbot.tithefarming.TitheFarmingScript.plants) {
-            if (event.getGameObject().getWorldLocation().equals(plant.getGameObject().getWorldLocation())) {
-                plant.setGameObject(event.getGameObject());
-            }
-        }
     }
 
     @Subscribe

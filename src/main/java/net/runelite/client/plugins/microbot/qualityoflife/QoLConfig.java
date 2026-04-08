@@ -984,6 +984,17 @@ public interface QoLConfig extends Config {
     }
 
     @ConfigItem(
+        keyName = "offensivePrayers",
+        name = "Offensive prayers",
+        description = "Enable the best offensive prayer you can use for your currently equipped weapon (Piety/Rigour/Augury or lower tiers).",
+        position = 6,
+        section = autoPrayerSection
+    )
+    default boolean offensivePrayers() {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = "grandExchangeHotkey",
             name = "Paste and Search GE Hotkey",
             description = "Pastes clipboard text into the GE search box.",

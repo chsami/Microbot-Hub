@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.valetotems.handlers;
 
 import net.runelite.api.GameObject;
+import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.api.Client;
@@ -257,7 +258,8 @@ public class NavigationHandler {
                 // Priority 4: Regular walking.
                 // Only perform actions if not on cooldown (timer-based, non-blocking)
                 if (!isWalkActionOnCooldown()) {
-                    LocalPoint localNextCheckpoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), nextCheckpoint);
+                    LocalPoint localNextCheckpoint = Microbot.getClientThread().invoke(() ->
+                            LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), nextCheckpoint));
                     if (localNextCheckpoint != null && Rs2Camera.isTileOnScreen(localNextCheckpoint)) {
                         // Camera turn with cooldown check
                         if (!isCameraTurnOnCooldown()) {
@@ -775,7 +777,17 @@ public class NavigationHandler {
                                         sleep(1000);
 
                                         while (System.currentTimeMillis() - startTime < timeout) {
-                                            boolean isIdle = !Rs2Player.isMoving() && Microbot.getClient().getLocalPlayer().getAnimation() == -1;
+                                            boolean isIdle = false;
+                                            if (!Rs2Player.isMoving()) {
+                                                int animation = Microbot.getClientThread().invoke(() -> {
+                                                    Player player = Microbot.getClient().getLocalPlayer();
+                                                    if (player == null) {
+                                                        return Integer.MIN_VALUE;
+                                                    }
+                                                    return player.getAnimation();
+                                                });
+                                                isIdle = animation == -1;
+                                            }
 
                                             if (isIdle) {
                                                 if (idleTimeStart == -1) {

@@ -2,12 +2,15 @@ package net.runelite.client.plugins.microbot.qualityoflife.scripts;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Player;
+import net.runelite.api.Skill;
+import net.runelite.api.WorldType;
 import net.runelite.api.kit.KitType;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.qualityoflife.QoLConfig;
 import net.runelite.client.plugins.microbot.qualityoflife.enums.WeaponAnimation;
 import net.runelite.client.plugins.microbot.qualityoflife.enums.WeaponID;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
@@ -16,6 +19,9 @@ import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 public class AutoPrayer extends Script {
+
+    private static final int RIGOUR_UNLOCKED_VARBIT = 5451;
+    private static final int AUGURY_UNLOCKED_VARBIT = 5452;
 
     private long lastPkAttackTime = 0;
     private String lastPrayedStyle = null;
@@ -26,21 +32,336 @@ public class AutoPrayer extends Script {
     private long pendingCorrectAfter = 0;
     private String reactionForStyle = null;
     private long reactionReadyAt = 0;
+    /** True after we have applied offensive prayers this session; used to clear on toggle-off. */
+    private boolean offensivePrayersManaged = false;
+    /**
+     * Last weapon item id we used for offensive prayer selection while in combat.
+     * Equipment is still read every cycle; this is for swap detection and reset on leaving combat.
+     * We do not mass-deactivate prayers on change—turning on the right offensive for the new style replaces via normal game rules.
+     */
+    private int lastOffensiveWeaponId = -1;
+    /**
+     * LMS presets can show high Prayer level while still restricting Piety/Chivalry; after failed activation we use
+     * Ultimate Strength + Incredible Reflexes only until combat ends.
+     */
+    private int lmsMeleeTopTierFailedAttempts = 0;
+    private boolean lmsMeleeUseStatPrayersOnly = false;
 
     public boolean run(QoLConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
-                if (!config.autoPrayAgainstPlayers()) return;
+                if (!config.autoPrayAgainstPlayers() && !config.offensivePrayers()) return;
 
-                Microbot.getClientThread().invoke(() -> handleAntiPkPrayers(config));
+                Microbot.getClientThread().invoke(() -> {
+                    if (config.autoPrayAgainstPlayers()) {
+                        handleAntiPkPrayers(config);
+                    }
+                    if (config.offensivePrayers()) {
+                        if (Rs2Player.isInCombat()) {
+                            updateOffensivePrayers(config);
+                        } else {
+                            clearOffensivePrayersIfNeeded();
+                        }
+                    } else {
+                        clearOffensivePrayersIfNeeded();
+                    }
+                });
 
             } catch (Exception ex) {
                 log.error("Error in AutoPrayer execution: {}", ex.getMessage(), ex);
             }
         }, 0, 300, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    private void updateOffensivePrayers(QoLConfig config) {
+        Player local = Microbot.getClient().getLocalPlayer();
+        if (local == null || local.getPlayerComposition() == null) {
+            return;
+        }
+        int weaponId = local.getPlayerComposition().getEquipmentId(KitType.WEAPON);
+        WeaponID weapon = WeaponID.getByObjectId(weaponId);
+        String category;
+        if (weapon != null) {
+            category = weapon.getAttackType().toLowerCase();
+        } else {
+            category = "melee";
+        }
+
+        int prayerLevel = getOffensivePrayerSkillLevel();
+        switch (category) {
+            case "ranged":
+                activateBestRangedOffensivePrayer(prayerLevel);
+                break;
+            case "magic":
+                activateBestMagicOffensivePrayer(prayerLevel);
+                break;
+            case "melee":
+            default:
+                activateBestMeleeOffensivePrayer(prayerLevel);
+                break;
+        }
+        lastOffensiveWeaponId = weaponId;
+        offensivePrayersManaged = true;
+    }
+
+    private void clearOffensivePrayersIfNeeded() {
+        if (!offensivePrayersManaged) {
+            return;
+        }
+        deactivateAllOffensivePrayers();
+        offensivePrayersManaged = false;
+        lastOffensiveWeaponId = -1;
+        lmsMeleeTopTierFailedAttempts = 0;
+        lmsMeleeUseStatPrayersOnly = false;
+    }
+
+    /**
+     * Offensive tier thresholds use base Prayer level ({@code getRealSkillLevel}), not boosted.
+     * In LMS, boosted level can exceed your loadout’s real Prayer (e.g. sips) and incorrectly select
+     * Rigour/Augury for 1-def pures and other low-Prayer presets; the game still keys tier choice on base level.
+     */
+    private static int getOffensivePrayerSkillLevel() {
+        if (Microbot.getClient() == null) {
+            return 1;
+        }
+        return Microbot.getClient().getRealSkillLevel(Skill.PRAYER);
+    }
+
+    private static boolean isLastManStandingWorld() {
+        if (Microbot.getClient() == null) {
+            return false;
+        }
+        return Microbot.getClient().getWorldType().contains(WorldType.LAST_MAN_STANDING);
+    }
+
+    /**
+     * LMS ranged: highest prayer allowed by level only — never fall through to lower tiers when a higher tier is
+     * eligible but did not register on one tick (avoids cycling Sharp/Hawk/Eagle/Rigour).
+     */
+    private static Rs2PrayerEnum bestRangedOffensiveForLmsLevel(int prayerLevel) {
+        if (prayerLevel >= 74) {
+            return Rs2PrayerEnum.RIGOUR;
+        }
+        if (prayerLevel >= 44) {
+            return Rs2PrayerEnum.EAGLE_EYE;
+        }
+        if (prayerLevel >= 26) {
+            return Rs2PrayerEnum.HAWK_EYE;
+        }
+        if (prayerLevel >= 8) {
+            return Rs2PrayerEnum.SHARP_EYE;
+        }
+        return null;
+    }
+
+    /** LMS magic: same top-down selection as {@link #bestRangedOffensiveForLmsLevel}. */
+    private static Rs2PrayerEnum bestMagicOffensiveForLmsLevel(int prayerLevel) {
+        if (prayerLevel >= 77) {
+            return Rs2PrayerEnum.AUGURY;
+        }
+        if (prayerLevel >= 45) {
+            return Rs2PrayerEnum.MYSTIC_MIGHT;
+        }
+        if (prayerLevel >= 27) {
+            return Rs2PrayerEnum.MYSTIC_LORE;
+        }
+        if (prayerLevel >= 9) {
+            return Rs2PrayerEnum.MYSTIC_WILL;
+        }
+        return null;
+    }
+
+    /**
+     * Piety and Chivalry are mutually exclusive. Do not fall through from Piety to Chivalry when
+     * {@code isPrayerActive(Piety)} is still false one tick after toggle — only one top-tier target per level band.
+     */
+    private static Rs2PrayerEnum bestMeleeOffensivePrayerForLevel(int prayerLevel) {
+        if (prayerLevel >= 70) {
+            return Rs2PrayerEnum.PIETY;
+        }
+        if (prayerLevel >= 60) {
+            return Rs2PrayerEnum.CHIVALRY;
+        }
+        return null;
+    }
+
+    /**
+     * Piety/Chivalry: single target from level (see {@link #bestMeleeOffensivePrayerForLevel}).
+     * Below 60: Ultimate Strength + Incredible Reflexes as before.
+     * LMS: {@link #activateBestMeleeOffensivePrayerLms} — level can read 99 while the loadout still blocks Piety/Chivalry.
+     */
+    private void activateBestMeleeOffensivePrayer(int prayerLevel) {
+        if (isLastManStandingWorld()) {
+            activateBestMeleeOffensivePrayerLms(prayerLevel);
+            return;
+        }
+        Rs2PrayerEnum topTier = bestMeleeOffensivePrayerForLevel(prayerLevel);
+        if (topTier != null) {
+            if (!Rs2Prayer.isPrayerActive(topTier)) {
+                Rs2Prayer.toggle(topTier, true);
+            }
+            return;
+        }
+        activateMeleeStatPrayerPair(prayerLevel);
+    }
+
+    private void activateBestMeleeOffensivePrayerLms(int prayerLevel) {
+        if (!lmsMeleeUseStatPrayersOnly) {
+            Rs2PrayerEnum topTier = bestMeleeOffensivePrayerForLevel(prayerLevel);
+            if (topTier != null) {
+                if (Rs2Prayer.isPrayerActive(topTier)) {
+                    lmsMeleeTopTierFailedAttempts = 0;
+                    return;
+                }
+                Rs2Prayer.toggle(topTier, true);
+                if (Rs2Prayer.isPrayerActive(topTier)) {
+                    lmsMeleeTopTierFailedAttempts = 0;
+                    return;
+                }
+                lmsMeleeTopTierFailedAttempts++;
+                if (lmsMeleeTopTierFailedAttempts < 2) {
+                    return;
+                }
+                lmsMeleeUseStatPrayersOnly = true;
+                lmsMeleeTopTierFailedAttempts = 0;
+            }
+        }
+        activateMeleeStatPrayerPair(prayerLevel);
+    }
+
+    private void activateMeleeStatPrayerPair(int prayerLevel) {
+        if (prayerLevel >= 31 && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.ULTIMATE_STRENGTH)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.ULTIMATE_STRENGTH, true);
+        }
+        if (prayerLevel >= 34 && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.INCREDIBLE_REFLEXES)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.INCREDIBLE_REFLEXES, true);
+        }
+    }
+
+    private void activateBestRangedOffensivePrayer(int prayerLevel) {
+        if (isLastManStandingWorld()) {
+            activateBestRangedOffensivePrayerLms(prayerLevel);
+            return;
+        }
+        if (prayerLevel >= 74) {
+            boolean rigourUnlocked = Microbot.getVarbitValue(RIGOUR_UNLOCKED_VARBIT) == 1;
+            if (rigourUnlocked) {
+                if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.RIGOUR)) {
+                    Rs2Prayer.toggle(Rs2PrayerEnum.RIGOUR, true);
+                }
+                return;
+            }
+        }
+        if (prayerLevel >= 44) {
+            if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.EAGLE_EYE)) {
+                Rs2Prayer.toggle(Rs2PrayerEnum.EAGLE_EYE, true);
+            }
+            return;
+        }
+        if (prayerLevel >= 26) {
+            if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.HAWK_EYE)) {
+                Rs2Prayer.toggle(Rs2PrayerEnum.HAWK_EYE, true);
+            }
+            return;
+        }
+        if (prayerLevel >= 8 && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.SHARP_EYE)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.SHARP_EYE, true);
+        }
+    }
+
+    /** LMS: one target prayer from the top of the range for your level; only that prayer is toggled. */
+    private void activateBestRangedOffensivePrayerLms(int prayerLevel) {
+        Rs2PrayerEnum target = bestRangedOffensiveForLmsLevel(prayerLevel);
+        if (target == null) {
+            return;
+        }
+        if (!Rs2Prayer.isPrayerActive(target)) {
+            Rs2Prayer.toggle(target, true);
+        }
+    }
+
+    private void activateBestMagicOffensivePrayer(int prayerLevel) {
+        if (isLastManStandingWorld()) {
+            activateBestMagicOffensivePrayerLms(prayerLevel);
+            return;
+        }
+        if (prayerLevel >= 77) {
+            boolean auguryUnlocked = Microbot.getVarbitValue(AUGURY_UNLOCKED_VARBIT) == 1;
+            if (auguryUnlocked) {
+                if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.AUGURY)) {
+                    Rs2Prayer.toggle(Rs2PrayerEnum.AUGURY, true);
+                }
+                return;
+            }
+        }
+        if (prayerLevel >= 45) {
+            if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.MYSTIC_MIGHT)) {
+                Rs2Prayer.toggle(Rs2PrayerEnum.MYSTIC_MIGHT, true);
+            }
+            return;
+        }
+        if (prayerLevel >= 27) {
+            if (!Rs2Prayer.isPrayerActive(Rs2PrayerEnum.MYSTIC_LORE)) {
+                Rs2Prayer.toggle(Rs2PrayerEnum.MYSTIC_LORE, true);
+            }
+            return;
+        }
+        if (prayerLevel >= 9 && !Rs2Prayer.isPrayerActive(Rs2PrayerEnum.MYSTIC_WILL)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.MYSTIC_WILL, true);
+        }
+    }
+
+    /** LMS: same as ranged — top-down tier for level, single toggle target. */
+    private void activateBestMagicOffensivePrayerLms(int prayerLevel) {
+        Rs2PrayerEnum target = bestMagicOffensiveForLmsLevel(prayerLevel);
+        if (target == null) {
+            return;
+        }
+        if (!Rs2Prayer.isPrayerActive(target)) {
+            Rs2Prayer.toggle(target, true);
+        }
+    }
+
+    private static void deactivateAllOffensivePrayers() {
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PIETY)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.PIETY, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.CHIVALRY)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.CHIVALRY, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.ULTIMATE_STRENGTH)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.ULTIMATE_STRENGTH, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.INCREDIBLE_REFLEXES)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.INCREDIBLE_REFLEXES, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.RIGOUR)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.RIGOUR, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.EAGLE_EYE)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.EAGLE_EYE, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.HAWK_EYE)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.HAWK_EYE, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.SHARP_EYE)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.SHARP_EYE, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.AUGURY)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.AUGURY, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.MYSTIC_MIGHT)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.MYSTIC_MIGHT, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.MYSTIC_LORE)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.MYSTIC_LORE, false);
+        }
+        if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.MYSTIC_WILL)) {
+            Rs2Prayer.toggle(Rs2PrayerEnum.MYSTIC_WILL, false);
+        }
     }
 
     private void handleAntiPkPrayers(QoLConfig config) {
@@ -266,6 +587,7 @@ public class AutoPrayer extends Script {
 
     @Override
     public void shutdown() {
+        clearOffensivePrayersIfNeeded();
         super.shutdown();
         log.info("AutoPrayer shutdown complete.");
     }

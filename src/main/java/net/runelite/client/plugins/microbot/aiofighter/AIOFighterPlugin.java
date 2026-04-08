@@ -20,7 +20,6 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.aiofighter.bank.BankerScript;
-import net.runelite.client.plugins.microbot.aiofighter.cannon.CannonScript;
 import net.runelite.client.plugins.microbot.aiofighter.combat.*;
 import net.runelite.client.plugins.microbot.aiofighter.enums.PrayerStyle;
 import net.runelite.client.plugins.microbot.aiofighter.enums.State;
@@ -28,7 +27,6 @@ import net.runelite.client.plugins.microbot.aiofighter.loot.LootScript;
 import net.runelite.client.plugins.microbot.aiofighter.safety.SafetyScript;
 import net.runelite.client.plugins.microbot.aiofighter.shop.ShopScript;
 import net.runelite.client.plugins.microbot.aiofighter.skill.AttackStyleScript;
-import net.runelite.client.plugins.microbot.globval.WidgetIndices;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
@@ -47,11 +45,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @PluginDescriptor(
@@ -68,7 +61,7 @@ import java.util.stream.Collectors;
 )
 @Slf4j
 public class AIOFighterPlugin extends Plugin {
-    public static final String version = "2.0.12";
+    public static final String version = "2.1.4";
     public static boolean needShopping = false;
     private static final String SET = "Set";
     private static final String CENTER_TILE = ColorUtil.wrapWithColorTag("Center Tile", JagexColors.MENU_TARGET);
@@ -102,14 +95,11 @@ public class AIOFighterPlugin extends Plugin {
         }
     }
 
-    private final CannonScript cannonScript = new CannonScript();
     private final AttackNpcScript attackNpc = new AttackNpcScript();
-
     private final FoodScript foodScript = new FoodScript();
     private final LootScript lootScript = new LootScript();
     private final SafeSpot safeSpotScript = new SafeSpot();
     private final FlickerScript flickerScript = new FlickerScript();
-    private final UseSpecialAttackScript useSpecialAttackScript = new UseSpecialAttackScript();
     private final BuryScatterScript buryScatterScript = new BuryScatterScript();
     private final AttackStyleScript attackStyleScript = new AttackStyleScript();
     private final BankerScript bankerScript = new BankerScript();
@@ -128,11 +118,8 @@ public class AIOFighterPlugin extends Plugin {
     private AIOFighterOverlay playerAssistOverlay;
     @Inject
     private AIOFighterInfoOverlay playerAssistInfoOverlay;
-    private MenuEntry lastClick;
     private Point lastMenuOpenedPoint;
     private WorldPoint trueTile;
-
-    protected ScheduledExecutorService initializerExecutor = Executors.newSingleThreadScheduledExecutor();
 
     @Provides
     public AIOFighterConfig provideConfig(ConfigManager configManager) {
@@ -142,26 +129,12 @@ public class AIOFighterPlugin extends Plugin {
     @Override
     protected void startUp() throws AWTException {
         Microbot.pauseAllScripts.compareAndSet(true, false);
-        //initialize any data on startup
-        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-        AtomicReference<ScheduledFuture<?>> futureRef = new AtomicReference<>();
 
-        ScheduledFuture<?> future = executor.scheduleWithFixedDelay(() -> {
-            if (Microbot.getConfigManager() == null) {
-                return;
-            }
+        if (Microbot.getConfigManager() != null) {
             setState(State.IDLE);
-            // Reset wait for loot state on startup
             setWaitingForLoot(false);
             setLastNpcKilledTime(0L);
-            // Get the future from the reference and cancel it
-            ScheduledFuture<?> scheduledFuture = futureRef.get();
-            if (scheduledFuture != null) {
-                scheduledFuture.cancel(false);
-            }
-            // now that no other tasks run, you can shut down:
-            executor.shutdown();
-        }, 0, 1, TimeUnit.SECONDS);
+        }
 
         if (overlayManager != null) {
             overlayManager.add(playerAssistOverlay);
@@ -173,12 +146,10 @@ public class AIOFighterPlugin extends Plugin {
             setCenter(Rs2Player.getWorldLocation());
         dodgeScript.run(config);
         lootScript.run(config);
-        cannonScript.run(config);
         attackNpc.run(config);
         foodScript.run(config);
         safeSpotScript.run(config);
         flickerScript.run(config);
-        useSpecialAttackScript.run(config);
         buryScatterScript.run(config);
         attackStyleScript.run(config);
         prayerScript.run(config);
@@ -187,7 +158,14 @@ public class AIOFighterPlugin extends Plugin {
         safetyScript.run(config);
         slayerScript.run(config);
 
-        // Configure special attack settings
+        applySpecialAttackConfig();
+
+        Rs2Slayer.blacklistedSlayerMonsters = getBlacklistedSlayerNpcs();
+        bankerScript.run(config);
+        shopScript.run(config);
+    }
+
+    private void applySpecialAttackConfig() {
         if (config.useSpecialAttack() && config.specWeapon() != null) {
             Microbot.getSpecialAttackConfigs()
                     .setSpecialAttack(true)
@@ -197,26 +175,19 @@ public class AIOFighterPlugin extends Plugin {
             Microbot.getSpecialAttackConfigs()
                     .setSpecialAttack(config.useSpecialAttack());
         }
-
-        Rs2Slayer.blacklistedSlayerMonsters = getBlacklistedSlayerNpcs();
-        bankerScript.run(config);
-        shopScript.run(config);
     }
 
     protected void shutDown() {
-        // Reset wait for loot state on shutdown
         setWaitingForLoot(false);
         setLastNpcKilledTime(0L);
 
         highAlchScript.shutdown();
         lootScript.shutdown();
-        cannonScript.shutdown();
         attackNpc.shutdown();
         dodgeScript.shutdown();
         foodScript.shutdown();
         safeSpotScript.shutdown();
         flickerScript.shutdown();
-        useSpecialAttackScript.shutdown();
         buryScatterScript.shutdown();
         attackStyleScript.shutdown();
         bankerScript.shutdown();
@@ -238,117 +209,67 @@ public class AIOFighterPlugin extends Plugin {
         setSafeSpot(new WorldPoint(0, 0, 0));
     }
 
-    public static void setCenter(WorldPoint worldPoint)
-    {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "centerLocation",
-                worldPoint
-        );
+    private static <T> void setConfig(String key, T value) {
+        Microbot.getConfigManager().setConfiguration(AIOFighterConfig.GROUP, key, value);
     }
-    // set safe spot
-    public static void setSafeSpot(WorldPoint worldPoint)
-    {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "safeSpotLocation",
-                worldPoint
-        );
 
-
+    private static <T> T getConfig(String key, Class<T> type) {
+        return Microbot.getConfigManager().getConfiguration(AIOFighterConfig.GROUP, key, type);
     }
-    // Set remainingSlayerKills
+
+    public static void setCenter(WorldPoint worldPoint) {
+        setConfig("centerLocation", worldPoint);
+    }
+
+    public static void setSafeSpot(WorldPoint worldPoint) {
+        setConfig("safeSpotLocation", worldPoint);
+    }
+
     public static void setRemainingSlayerKills(int remainingSlayerKills) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "remainingSlayerKills",
-                remainingSlayerKills
-        );
+        setConfig("remainingSlayerKills", remainingSlayerKills);
     }
-    // Set slayerLocation
+
     public static void setSlayerLocationName(String slayerLocation) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "slayerLocation",
-                slayerLocation
-        );
+        setConfig("slayerLocation", slayerLocation);
     }
-    // Set slayerTask
+
     public static void setSlayerTask(String slayerTask) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "slayerTask",
-                slayerTask
-        );
+        setConfig("slayerTask", slayerTask);
     }
-    // Set slayerTaskWeaknessThreshold
+
     public static void setSlayerTaskWeaknessThreshold(int slayerTaskWeaknessThreshold) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "slayerTaskWeaknessThreshold",
-                slayerTaskWeaknessThreshold
-        );
+        setConfig("slayerTaskWeaknessThreshold", slayerTaskWeaknessThreshold);
     }
-    // Set slayerTaskWeaknessItem
+
     public static void setSlayerTaskWeaknessItem(String slayerTaskWeaknessItem) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "slayerTaskWeaknessItem",
-                slayerTaskWeaknessItem
-        );
+        setConfig("slayerTaskWeaknessItem", slayerTaskWeaknessItem);
     }
-    // Set slayerHasTaskWeakness
+
     public static void setSlayerHasTaskWeakness(boolean slayerHasTaskWeakness) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "slayerHasTaskWeakness",
-                slayerHasTaskWeakness
-        );
+        setConfig("slayerHasTaskWeakness", slayerHasTaskWeakness);
     }
-    // Set currentInventorySetup
+
     public static void setCurrentSlayerInventorySetup(InventorySetup currentInventorySetup) {
         Microbot.log("Setting current inventory setup to: " + currentInventorySetup.getName());
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "currentInventorySetup",
-                currentInventorySetup
-        );
+        setConfig("currentInventorySetup", currentInventorySetup);
     }
-    // Get currentInventorySetup
+
     public static InventorySetup getCurrentSlayerInventorySetup() {
-        return Microbot.getConfigManager().getConfiguration(
-                AIOFighterConfig.GROUP,
-                "currentInventorySetup",
-                InventorySetup.class
-        );
+        return getConfig("currentInventorySetup", InventorySetup.class);
     }
-    // Get defaultInventorySetup
+
     public static InventorySetup getDefaultInventorySetup() {
-        return Microbot.getConfigManager().getConfiguration(
-                AIOFighterConfig.GROUP,
-                "defaultInventorySetup",
-                InventorySetup.class
-        );
+        return getConfig("defaultInventorySetup", InventorySetup.class);
     }
-    // Add NPC to blacklist blacklistedSlayerNpcs
+
     public static void addBlacklistedSlayerNpcs(String npcName) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "blacklistedSlayerNpcs",
-                Microbot.getConfigManager().getConfiguration(
-                        AIOFighterConfig.GROUP,
-                        "blacklistedSlayerNpcs",
-                        String.class
-                ) + npcName + ","
-        );
+        String existing = getConfig("blacklistedSlayerNpcs", String.class);
+        setConfig("blacklistedSlayerNpcs", existing + npcName + ",");
     }
-    // Get blacklistedSlayerNpcs as a list
+
     public static List<String> getBlacklistedSlayerNpcs() {
-        return Arrays.asList(Microbot.getConfigManager().getConfiguration(
-                AIOFighterConfig.GROUP,
-                "blacklistedSlayerNpcs",
-                String.class
-        ).toString().split(","));
+        String stored = getConfig("blacklistedSlayerNpcs", String.class);
+        return Arrays.asList(stored.split(","));
     }
 
     private static LinkedHashSet<String> normalizeCsvEntries(String rawCsv) {
@@ -360,17 +281,11 @@ public class AIOFighterPlugin extends Plugin {
     }
 
     public static Set<String> getHighAlchBlacklist() {
-        String stored = Microbot.getConfigManager().getConfiguration(
-                AIOFighterConfig.GROUP,
-                HIGH_ALCH_BLACKLIST_KEY,
-                String.class
-        );
-
+        String stored = getConfig(HIGH_ALCH_BLACKLIST_KEY, String.class);
         LinkedHashSet<String> normalized = normalizeCsvEntries(stored);
         if (normalized.isEmpty()) {
             return Collections.emptySet();
         }
-
         return Collections.unmodifiableSet(normalized);
     }
 
@@ -423,62 +338,30 @@ public class AIOFighterPlugin extends Plugin {
 
         return candidate.matches(regex.toString());
     }
-    //set Inventory Setup
-    private void setInventorySetup(InventorySetup inventorySetup) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "inventorySetupHidden",
-                inventorySetup
-        );
-    }
-
-
     public static State getState() {
-        return Microbot.getConfigManager().getConfiguration(
-                AIOFighterConfig.GROUP,
-                "state",
-                State.class
-        );
+        return getConfig("state", State.class);
     }
 
     public static void setState(State state) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "state",
-                state
-        );
+        setConfig("state", state);
     }
+
     public static String getNpcAttackList() {
-        return Microbot.getConfigManager().getConfiguration(
-                AIOFighterConfig.GROUP,
-                "monster"
-        );
+        return Microbot.getConfigManager().getConfiguration(AIOFighterConfig.GROUP, "monster");
     }
+
     public static void addNpcToList(String npcName) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "monster",
-                getNpcAttackList() + npcName + ","
-        );
-
+        setConfig("monster", getNpcAttackList() + npcName + ",");
     }
+
     public static void removeNpcFromList(String npcName) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "monster",
-                Arrays.stream(getNpcAttackList().split(","))
-                        .filter(n -> !n.equalsIgnoreCase(npcName))
-                        .collect(Collectors.joining(","))
-        );
+        setConfig("monster", Arrays.stream(getNpcAttackList().split(","))
+                .filter(n -> !n.equalsIgnoreCase(npcName))
+                .collect(Collectors.joining(",")));
     }
 
-    // set attackable npcs
     public static void setAttackableNpcs(String npcNames) {
-        Microbot.getConfigManager().setConfiguration(
-                AIOFighterConfig.GROUP,
-                "monster",
-                npcNames
-        );
+        setConfig("monster", npcNames);
     }
 
     private String getNpcNameFromMenuEntry(String menuTarget) {
@@ -501,11 +384,7 @@ public class AIOFighterPlugin extends Plugin {
             String normalizedValue = String.join(", ", normalized);
             String incomingValue = event.getNewValue() == null ? "" : event.getNewValue();
             if (!Objects.equals(incomingValue, normalizedValue)) {
-                Microbot.getConfigManager().setConfiguration(
-                        AIOFighterConfig.GROUP,
-                        HIGH_ALCH_BLACKLIST_KEY,
-                        normalizedValue
-                );
+                setConfig(HIGH_ALCH_BLACKLIST_KEY, normalizedValue);
             }
         }
 
@@ -525,13 +404,9 @@ public class AIOFighterPlugin extends Plugin {
             }
 
         }
-        // Handle special attack weapon config changes
         if (event.getKey().equals("Use special attack") || event.getKey().equals("Spec weapon")) {
             if (config.useSpecialAttack() && config.specWeapon() != null) {
-                Microbot.getSpecialAttackConfigs()
-                        .setSpecialAttack(true)
-                        .setSpecialAttackWeapon(config.specWeapon())
-                        .setMinimumSpecEnergy(config.specWeapon().getEnergyRequired());
+                applySpecialAttackConfig();
             } else {
                 Microbot.getSpecialAttackConfigs().reset();
             }
@@ -668,19 +543,11 @@ public class AIOFighterPlugin extends Plugin {
         return null;
     }
     private void onMenuOptionClicked(MenuEntry entry) {
-
-
-
         if (entry.getOption().equals(SET) && entry.getTarget().equals(CENTER_TILE)) {
             setCenter(trueTile);
         }
         if (entry.getOption().equals(SET) && entry.getTarget().equals(SAFE_SPOT)) {
             setSafeSpot(trueTile);
-        }
-
-
-        if (entry.getType() != MenuAction.WALK) {
-            lastClick = entry;
         }
     }
 

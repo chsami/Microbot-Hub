@@ -2,6 +2,8 @@ package net.runelite.client.plugins.microbot.aiofighter.combat;
 
 import lombok.SneakyThrows;
 import net.runelite.api.Actor;
+import net.runelite.api.NPC;
+import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -11,19 +13,20 @@ import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
 import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyle;
 import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyleMapper;
 import net.runelite.client.plugins.microbot.aiofighter.enums.State;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
-import net.runelite.client.plugins.microbot.util.ActorModel;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldArea;
+import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
+import net.runelite.client.plugins.microbot.util.gameobject.Rs2Cannon;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.item.Rs2EnsouledHead;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcManager;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -35,6 +38,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -67,11 +72,30 @@ public class AttackNpcScript extends Script {
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
-                if (!Microbot.isLoggedIn() || !super.run() || !config.toggleCombat())
+                if (!Microbot.isLoggedIn() || !super.run())
                     return;
 
-                if (config.centerLocation().distanceTo(Rs2Player.getWorldLocation()) < config.attackRadius() &&
-                        !config.centerLocation().equals(new WorldPoint(0, 0, 0)) && AIOFighterPlugin.getState() != State.BANKING) {
+                if (config.toggleCannon()
+                        && !config.state().equals(State.BANKING)
+                        && !config.state().equals(State.WALKING)) {
+                    if (Rs2Cannon.repair()) return;
+                    Rs2Cannon.refill();
+                }
+
+                if (config.useSpecialAttack()
+                        && Rs2Equipment.all("guthan's").count() != 4
+                        && Rs2Player.isInteracting()) {
+                    Microbot.getSpecialAttackConfigs().useSpecWeapon();
+                }
+
+                if (!config.toggleCombat())
+                    return;
+
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (playerLocation != null
+                        && config.centerLocation().distanceTo(playerLocation) < config.attackRadius()
+                        && !config.centerLocation().equals(new WorldPoint(0, 0, 0))
+                        && AIOFighterPlugin.getState() != State.BANKING) {
                     if (ShortestPathPlugin.getPathfinder() != null)
                         Rs2Walker.setTarget(null);
                     AIOFighterPlugin.setState(State.IDLE);
@@ -86,15 +110,15 @@ public class AttackNpcScript extends Script {
                         boolean prevPause = Microbot.pauseAllScripts.getAndSet(true);
                         try {
                             if (head.reanimate()) {
-                                sleepUntil(() -> Rs2Npc.getNpcsForPlayer(Rs2EnsouledHead::isNpcReanimated).findAny().isPresent(), 15000);
+                                sleepUntil(() -> findReanimatedHeadOnPlayer() != null, 15000);
                             }
                         } finally {
                             Microbot.pauseAllScripts.set(prevPause);
                         }
                     }
-                    Rs2NpcModel reanimated = Rs2Npc.getNpcsForPlayer(Rs2EnsouledHead::isNpcReanimated).findAny().orElse(null);
+                    Rs2NpcModel reanimated = findReanimatedHeadOnPlayer();
                     if (reanimated != null) {
-                        Rs2Npc.interact(reanimated, "Attack");
+                        reanimated.click("Attack");
                         return;
                     }
                 }
@@ -102,27 +126,38 @@ public class AttackNpcScript extends Script {
 
                 attackableArea = new Rs2WorldArea(config.centerLocation().toWorldArea());
                 attackableArea = attackableArea.offset(config.attackRadius());
-                List<String> npcsToAttack = Arrays.stream(config.attackableNpcs().split(","))
+                final Set<String> npcsToAttack = Arrays.stream(config.attackableNpcs().split(","))
                         .map(x -> x.trim().toLowerCase())
-                        .collect(Collectors.toList());
-                filteredAttackableNpcs.set(
-                        Rs2Npc.getAttackableNpcs(config.attackReachableNpcs())
-                                .filter(npc -> npc.getWorldLocation().distanceTo(config.centerLocation()) <= config.attackRadius())
-                                .filter(npc -> npc.getName() != null && !npcsToAttack.isEmpty() && npcsToAttack.stream().anyMatch(npc.getName()::equalsIgnoreCase))
-                                .sorted(Comparator.comparingInt((Rs2NpcModel npc) -> npc.getInteracting() == Microbot.getClient().getLocalPlayer() ? 0 : 1)
-                                        .thenComparingInt(npc -> Rs2Player.getRs2WorldPoint().distanceToPath(npc.getWorldLocation())))
-                                .collect(Collectors.toList())
-                );
-                final List<Rs2NpcModel> attackableNpcs = new ArrayList<>();
+                        .filter(x -> !x.isEmpty())
+                        .collect(Collectors.toSet());
+                final Player localPlayer = Microbot.getClient().getLocalPlayer();
+                final WorldPoint centerLocation = config.centerLocation();
+                final int attackRadius = config.attackRadius();
+                final boolean requireReachable = config.attackReachableNpcs();
+                final Rs2WorldPoint rs2PlayerPoint = Rs2Player.getRs2WorldPoint();
 
-                for (var attackableNpc : filteredAttackableNpcs.get()) {
-                    if (attackableNpc == null || attackableNpc.getName() == null) continue;
-                    for (var npcToAttack : npcsToAttack) {
-                        if (npcToAttack.equalsIgnoreCase(attackableNpc.getName())) {
-                            attackableNpcs.add(attackableNpc);
-                        }
-                    }
-                }
+                List<Rs2NpcModel> attackableNpcs = Microbot.getRs2NpcCache().query()
+                        .where(npc -> npc.getCombatLevel() > 0 && !npc.isDead())
+                        .where(npc -> !npc.isInteracting() || Objects.equals(npc.getInteracting(), localPlayer))
+                        .where(npc -> {
+                            // Single getWorldLocation() call combines the radius and reachable filters
+                            // (each model access is a client-thread invoke; one fetch per NPC per tick).
+                            WorldPoint loc = npc.getWorldLocation();
+                            if (loc == null) return false;
+                            if (loc.distanceTo(centerLocation) > attackRadius) return false;
+                            return !requireReachable || rs2PlayerPoint.distanceToPath(loc) < Integer.MAX_VALUE;
+                        })
+                        .where(npc -> {
+                            String name = npc.getName();
+                            return name != null && !npcsToAttack.isEmpty() && npcsToAttack.contains(name.toLowerCase());
+                        })
+                        .toList()
+                        .stream()
+                        .sorted(Comparator
+                                .comparingInt((Rs2NpcModel npc) -> Objects.equals(npc.getInteracting(), localPlayer) ? 0 : 1)
+                                .thenComparingInt(npc -> rs2PlayerPoint.distanceToPath(npc.getWorldLocation())))
+                        .collect(Collectors.toList());
+
                 filteredAttackableNpcs.set(attackableNpcs);
 
                 // Check if we should pause while looting is happening
@@ -133,19 +168,21 @@ public class AttackNpcScript extends Script {
                 // Check if we need to update our cached target (but not while waiting for loot)
                 if (!AIOFighterPlugin.isWaitingForLoot()) {
                     Actor currentInteracting = Rs2Player.getInteracting();
-                    if (currentInteracting instanceof Rs2NpcModel) {
-                        Rs2NpcModel npc = (Rs2NpcModel) currentInteracting;
+                    if (currentInteracting instanceof NPC) {
+                        NPC interactingNpc = (NPC) currentInteracting;
                         // Update our cached target to who we're fighting
-                        if (npc.getHealthRatio() > 0 && !npc.isDead()) {
-                            cachedTargetNpcIndex = npc.getIndex();
+                        if (interactingNpc.getHealthRatio() > 0 && !interactingNpc.isDead()) {
+                            cachedTargetNpcIndex = interactingNpc.getIndex();
                         }
                     }
                 }
 
                 // Check if our cached target died
                 if (config.toggleWaitForLoot() && !AIOFighterPlugin.isWaitingForLoot() && cachedTargetNpcIndex != -1) {
-                    // Find the NPC by index using Rs2 API
-                    Rs2NpcModel cachedNpcModel = Rs2Npc.getNpcByIndex(cachedTargetNpcIndex);
+                    final int targetIndex = cachedTargetNpcIndex;
+                    Rs2NpcModel cachedNpcModel = Microbot.getRs2NpcCache().query()
+                            .where(npc -> npc.getIndex() == targetIndex)
+                            .first();
 
                     if (cachedNpcModel != null && (cachedNpcModel.isDead() || (cachedNpcModel.getHealthRatio() == 0 && cachedNpcModel.getHealthScale() > 0))) {
                         AIOFighterPlugin.setWaitingForLoot(true);
@@ -200,12 +237,12 @@ public class AttackNpcScript extends Script {
                 if (!attackableNpcs.isEmpty()) {
                     noNpcCount = 0;
 
-                    Rs2NpcModel npc = attackableNpcs.stream().findFirst().orElse(null);
+                    Rs2NpcModel npc = attackableNpcs.get(0);
 
                     if (!Rs2Camera.isTileOnScreen(npc.getLocalLocation()))
                         Rs2Camera.turnTo(npc);
 
-                    Rs2Npc.interact(npc, "attack");
+                    npc.click("attack");
                     Microbot.status = "Attacking " + npc.getName();
                     Rs2Antiban.actionCooldown();
                     //sleepUntil(Rs2Player::isInteracting, 1000);
@@ -260,19 +297,41 @@ public class AttackNpcScript extends Script {
      * item on npcs that need to kill like rockslug
      */
     private void handleItemOnNpcToKill(AIOFighterConfig config) {
-        Rs2NpcModel npc = Rs2Npc.getNpcsForPlayer(ActorModel::isDead).findFirst().orElse(null);
-        List<String> lizardVariants = new ArrayList<>(Arrays.asList("Lizard", "Desert Lizard", "Small Lizard"));
+        final Player localPlayer = Microbot.getClient().getLocalPlayer();
+        Rs2NpcModel npc = Microbot.getRs2NpcCache().query()
+                .where(n -> n.isDead() && Objects.equals(n.getInteracting(), localPlayer))
+                .first();
         if (npc == null) return;
+        List<String> lizardVariants = new ArrayList<>(Arrays.asList("Lizard", "Desert Lizard", "Small Lizard"));
+        // Rs2Inventory.useItemOnNpc only accepts the legacy util.npc.Rs2NpcModel — wrap our underlying NPC at the call site.
+        net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel legacyNpc =
+                new net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel(npc.getNpc());
         if (Microbot.getVarbitValue(SLAYER_AUTOKILL_DESERTLIZARDS) == 0 && lizardVariants.contains(npc.getName()) && npc.getHealthRatio() < 5) {
-            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_ICY_WATER, npc);
+            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_ICY_WATER, legacyNpc);
             Rs2Player.waitForAnimation();
         } else if (Microbot.getVarbitValue(SLAYER_AUTOKILL_ROCKSLUGS) == 0 && npc.getName().equalsIgnoreCase("rockslug") && npc.getHealthRatio() < 5) {
-            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_BAG_OF_SALT, npc);
+            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_BAG_OF_SALT, legacyNpc);
             Rs2Player.waitForAnimation();
         } else if (Microbot.getVarbitValue(SLAYER_AUTOKILL_GARGOYLES) == 0 && npc.getName().equalsIgnoreCase("gargoyle") && npc.getHealthRatio() < 3) {
-            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_ROCK_HAMMER, npc);
+            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_ROCK_HAMMER, legacyNpc);
             Rs2Player.waitForAnimation();
         }
+    }
+
+    /**
+     * Finds a reanimated head NPC the player is currently interacting with.
+     * Replaces the legacy {@code Rs2Npc.getNpcsForPlayer(Rs2EnsouledHead::isNpcReanimated)} call.
+     */
+    private Rs2NpcModel findReanimatedHeadOnPlayer() {
+        final Player localPlayer = Microbot.getClient().getLocalPlayer();
+        if (localPlayer == null) return null;
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> Objects.equals(npc.getInteracting(), localPlayer))
+                .where(npc -> {
+                    String name = npc.getName();
+                    return name != null && name.contains("Reanimated");
+                })
+                .first();
     }
 
     @Override

@@ -170,6 +170,7 @@ Based on recent commits:
 
 ## Important Implementation Details
 
+- **Local Microbot Client Source**: The latest Microbot client source lives in the sibling `Microbot` folder (`../Microbot/`) on the `development` branch. This is the authoritative, up-to-date client codebase. When you need to look up client APIs, utility classes (e.g., `Rs2Bank`, `Rs2Inventory`, `Rs2Walker`), or understand how the client works, reference that repository directly.
 - **Java Version**: JDK 11 (configured in `project-config.gradle` with `TARGET_JDK_VERSION = 11`, vendor `ADOPTIUM`)
 - **Microbot Client Dependency**: Defaults to the latest version resolved via `https://microbot.cloud/api/version/client`, falling back to `2.0.61` if lookup fails. Artifacts come from GitHub Releases (`https://github.com/chsami/Microbot/releases/download/<version>/microbot-<version>.jar`). Override with `-PmicrobotClientVersion=<version>` or `-PmicrobotClientVersion=latest`, or supply a local JAR for offline work via `-PmicrobotClientPath=/absolute/path/to/microbot-<version>.jar`
 - **Plugin Release Tag**: `plugins.json` uses a stable release tag (`latest-release`) so download URLs stay constant: `https://github.com/chsami/Microbot-Hub/releases/download/latest-release/<plugin>-<version>.jar`. Override with `-PpluginsReleaseTag=<tag>` if needed.
@@ -191,6 +192,20 @@ When you run `./gradlew build`:
    - Creates shadow JAR task with plugin-specific dependencies
    - Parses `@PluginDescriptor` for metadata
    - Computes SHA256 hash of JAR for `plugins.json`
+
+## Microbot CLI & Agent Server
+
+The Microbot client embeds an HTTP server (Agent Server plugin, port 8081) that the Hub uses for automated testing. Reference docs are mirrored in this repo:
+
+- **CLI command reference**: `docs/MICROBOT_CLI.md` — login, script lifecycle, inventory, NPCs, walking, banking, etc.
+- **HTTP API summary**: `docs/AGENT_SERVER.md` — all endpoints, login error detection, script result submission.
+- **Script lifecycle API**: `docs/SCRIPT_LIFECYCLE_API.md` — start/stop/status/results endpoints and automated testing flow.
+- **Test example**: `src/test/java/net/runelite/client/ScriptLifecycleTest.java` — demonstrates the full login → start → poll → results → stop cycle.
+
+Key capabilities for Hub plugin testing:
+- **Login control**: `POST /login` blocks until login succeeds or fails, returning a definitive `success` boolean and `loginError` on failure (non-member on members world, bans, auth failures). Auto-dismisses error dialogs on retry — no manual intervention needed.
+- **Script lifecycle**: Start/stop plugins by class name via HTTP, poll runtime status, submit and retrieve structured test results.
+- **Java result API**: Hub scripts can call `ScriptResultStore.submit(className, data)` directly from within the JVM.
 
 ## Common Patterns
 
