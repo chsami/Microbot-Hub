@@ -717,9 +717,8 @@ public class FarmTreeRunScript extends Script {
         if (isHardTreePatch(patch) && !isPatchEmpty(patch) && !shouldProtectHardTree(config) && action != PaymentKind.CLEAR)
             return true;
 
-        Rs2NpcModel treeGardener = null;
-        treeGardener = Rs2Npc.getNearestNpcWithAction("Pay");
-        Rs2Npc.interact(treeGardener, "Pay");
+        Rs2NpcModel treeGardener = Rs2Npc.getNearestNpcWithAction("Pay");
+        if (treeGardener != null) Rs2Npc.interact(treeGardener, "Pay");
 
         if (treeGardener == null) {
             handleExoticGardeners();
@@ -1001,17 +1000,13 @@ public class FarmTreeRunScript extends Script {
      * @return true if gardener interaction successful, else false
      */
     private void handleExoticGardeners() {
-        // Nikkie: Farming guild fruit tree gardener
-        Rs2NpcModel nikkie = Rs2Npc.getNpc("Nikkie");
+        var nikkie = Microbot.getRs2NpcCache().query().withName("Nikkie").nearest();
 
-        // Rosie: Farming guild tree patch gardener
-        Rs2NpcModel rosie = Rs2Npc.getNpc("Rosie");
+        var rosie = Microbot.getRs2NpcCache().query().withName("Rosie").nearest();
 
-        Rs2NpcModel npcToInteract = null;
         String paymentAction = "";
+        net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel npcToInteract = null;
 
-        // Rosie and Nikkie are close together.
-        // We need to check their distance to make sure we got the correct gardener.
         if (rosie == null && nikkie == null) {
             Microbot.log("Gardeners in farming guild not found. Report this bug.");
             shutdown();
@@ -1024,7 +1019,7 @@ public class FarmTreeRunScript extends Script {
             paymentAction = "Pay (tree patch)";
         }
 
-        Rs2Npc.interact(npcToInteract, paymentAction);
+        if (npcToInteract != null) npcToInteract.click(paymentAction);
     }
 
     @Override

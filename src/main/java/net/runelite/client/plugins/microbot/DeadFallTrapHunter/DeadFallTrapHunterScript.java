@@ -16,6 +16,7 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.List;
@@ -327,20 +328,19 @@ public class DeadFallTrapHunterScript extends Script {
     }
 
     private boolean handleExistingTraps(DeadFallTrapHunterPlugin plugin, DeadFallTrapHunterConfig config) {
-        // Filter for FULL traps and sort by time (traps about to collapse first) and then pick the first one
         var trapToHandle = plugin.getTraps().entrySet().stream()
                 .filter(entry -> entry.getValue().getState() == HunterTrap.State.FULL)
                 .sorted((a, b) -> Double.compare(b.getValue().getTrapTimeRelative(), a.getValue().getTrapTimeRelative())).collect(Collectors.toList()).stream().findFirst().orElse(null);
         if (trapToHandle == null) return false;
         WorldPoint location = trapToHandle.getKey();
         if (!Rs2Player.isAnimating() && !Rs2Player.isMoving()) {
-            var gameObject = Rs2GameObject.getGameObject(location);
+            Rs2TileObjectModel gameObject = Microbot.getRs2TileObjectCache().query().within(location, 0).first();
             if (gameObject != null) {
                 if (Rs2Inventory.count() > 24) {
                     forceDrop = true;
                     Rs2Inventory.waitForInventoryChanges(8000);
                 }
-                Rs2GameObject.interact(gameObject, "Check");
+                gameObject.click("Check");
                 creaturesCaught++;
                 sleep(config.minSleepAfterCatch(), config.maxSleepAfterCatch());
                 return true;
@@ -350,8 +350,8 @@ public class DeadFallTrapHunterScript extends Script {
     }
 
     private void setNewTrap(DeadFallTrapHunting deadFallTrapHunting, DeadFallTrapHunterConfig config) {
-        if (Rs2GameObject.exists(deadFallTrapHunting.getTrapId())) {
-            Rs2GameObject.interact(deadFallTrapHunting.getTrapId(), "Set-trap");
+        if (Microbot.getRs2TileObjectCache().query().withId(deadFallTrapHunting.getTrapId()).count() > 0) {
+            Microbot.getRs2TileObjectCache().query().interact(deadFallTrapHunting.getTrapId(), "Set-trap");
             sleep(config.minSleepAfterLay(), config.maxSleepAfterLay());
         }
     }
