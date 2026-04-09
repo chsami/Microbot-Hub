@@ -22,7 +22,7 @@ public class HosidiusFruitThievingSpot implements IStallThievingSpot {
             return;
         }
 
-        final GameObject stall = botApi.getGameObject(STALL_ID, SAFESPOT.dx(1));
+        final var stall = botApi.getGameObject(STALL_ID, SAFESPOT.dx(1));
         if (stall == null)
         {
             return;

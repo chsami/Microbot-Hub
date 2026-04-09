@@ -11,12 +11,9 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 import net.runelite.client.plugins.cluescrolls.clues.CrypticClue;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
-import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
-import net.runelite.client.plugins.microbot.util.models.RS2Item;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.Objects;
@@ -158,7 +155,7 @@ public class CrypticClueTask extends ClueTask {
             state = State.KILLING_ENEMY;
         } else if (clue.getObjectId() != -1) {
             state = State.INTERACTING_WITH_OBJECT;
-        } else if (clue.getNpc(clueScrollPlugin) != null && Rs2Npc.getNpc(clue.getNpc(clueScrollPlugin)) != null) {
+        } else if (clue.getNpc(clueScrollPlugin) != null && Microbot.getRs2NpcCache().query().withName(clue.getNpc(clueScrollPlugin)).nearest() != null) {
             state = State.INTERACTING_WITH_NPC;
         } else {
             state = State.COMPLETED;
@@ -167,12 +164,12 @@ public class CrypticClueTask extends ClueTask {
     }
 
     private boolean killEnemy() {
-        Rs2NpcModel enemy = Rs2Npc.getNpc(clue.getEnemy().name());
-        if (enemy == null || enemy.getHealthRatio() <= 0) {
+        Rs2NpcModel enemy = Microbot.getRs2NpcCache().query().withName(clue.getEnemy().name()).nearest();
+        if (enemy == null || enemy.getNpc().getHealthRatio() <= 0) {
             log.info("Enemy {} is defeated. Searching for loot.", clue.getEnemy());
             return true;
         }
-        if (Rs2Npc.interact(enemy, "Attack")) {
+        if (enemy.click("Attack")) {
             log.info("Started attacking enemy: {}", clue.getEnemy());
         } else {
             log.warn("Failed to attack enemy: {}", clue.getEnemy());
@@ -181,11 +178,11 @@ public class CrypticClueTask extends ClueTask {
     }
 
     private boolean lootGroundItem() {
-        RS2Item[] groundItems = Rs2GroundItem.getAll(5);
+        var groundItems = Microbot.getRs2TileItemCache().query().within(10).toList();
         boolean anyLooted = false;
 
-        for (RS2Item item : groundItems) {
-            if (Rs2GroundItem.interact(item)) {
+        for (var item : groundItems) {
+            if (item.click("Take")) {
                 log.info("Successfully picked up item: {}", item);
                 anyLooted = true;
             } else {
@@ -197,11 +194,11 @@ public class CrypticClueTask extends ClueTask {
 
     private boolean interactWithObject() {
         int targetObject = clue.getObjectId();
-        if (Rs2GameObject.interact(targetObject, "Search")
-                || Rs2GameObject.interact(targetObject, "Investigate")
-                || Rs2GameObject.interact(targetObject, "Examine")
-                || Rs2GameObject.interact(targetObject, "Look-at")
-                || Rs2GameObject.interact(targetObject, "Open")) {
+        if (Microbot.getRs2TileObjectCache().query().interact(targetObject, "Search")
+                || Microbot.getRs2TileObjectCache().query().interact(targetObject, "Investigate")
+                || Microbot.getRs2TileObjectCache().query().interact(targetObject, "Examine")
+                || Microbot.getRs2TileObjectCache().query().interact(targetObject, "Look-at")
+                || Microbot.getRs2TileObjectCache().query().interact(targetObject, "Open")) {
             log.info("Interacted with required object for the clue.");
             return true;
         }
@@ -210,12 +207,12 @@ public class CrypticClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        Rs2NpcModel targetNpc = Rs2Npc.getNpc(clue.getNpc(clueScrollPlugin));
+        Rs2NpcModel targetNpc = Microbot.getRs2NpcCache().query().withName(clue.getNpc(clueScrollPlugin)).nearest();
         if (targetNpc == null) {
             log.warn("NPC {} not found at the location.", clue.getNpc(clueScrollPlugin));
             return false;
         }
-        return Rs2Npc.interact(targetNpc, "Talk-to");
+        return targetNpc.click("Talk-to");
     }
 
     private boolean handleDialogue() {

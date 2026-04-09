@@ -690,21 +690,19 @@ public class NavigationHandler {
                 WorldPoint nextPoint = path.get(currentIndex + 1);
                 
                 // Simple door detection and handling
-                List<net.runelite.api.TileObject> doors = net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.getAll(
+                var doors = net.runelite.client.plugins.microbot.Microbot.getRs2TileObjectCache().query().where(
                     obj -> {
                         if (!obj.getWorldLocation().equals(nextPoint)) {
                             return false;
                         }
-                        // Convert TileObject to ObjectComposition to check actions
-                        net.runelite.api.ObjectComposition comp = net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.convertToObjectComposition(obj);
+                        net.runelite.api.ObjectComposition comp = obj.getObjectComposition();
                         return net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.hasAction(comp, "Open") ||
                                net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.hasAction(comp, "Close") ||
                                net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.hasAction(comp, "Pick-lock");
-                    }
-                );
-                
-                for (net.runelite.api.TileObject door : doors) {
-                    if (net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.interact(door)) {
+                    }).toList();
+
+                for (var door : doors) {
+                    if (door.click()) {
                         sleep(1000); // Wait for door interaction
                         return true;
                     }
@@ -758,12 +756,12 @@ public class NavigationHandler {
                                 }
  
                                 // Now find and interact with the agility shortcut
-                                net.runelite.api.TileObject agilityObj = net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.findObjectById(transport.getObjectId());
+                                var agilityObj = net.runelite.client.plugins.microbot.Microbot.getRs2TileObjectCache().query().withId(transport.getObjectId()).nearest();
                                 if (agilityObj != null &&
                                     agilityObj.getWorldLocation().distanceTo(transport.getOrigin()) <= 3) {
  
                                     System.out.println("Using agility shortcut: " + transport.getType());
-                                    if (net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.interact(agilityObj, transport.getAction())) {
+                                    if (agilityObj != null && agilityObj.click(transport.getAction())) {
                                         
                                         // Wait until the player has been idle (not walking or animating) for 1.5 seconds
                                         System.out.println("Waiting for agility shortcut to complete...");
