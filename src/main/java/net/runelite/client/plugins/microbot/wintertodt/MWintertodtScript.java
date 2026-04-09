@@ -15,6 +15,7 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -51,7 +52,7 @@ public class MWintertodtScript extends Script {
     final WorldPoint sproutingRoots = new WorldPoint(1635, 3978, 0);
     String axe = "";
     int wintertodtHp = -1;
-    private GameObject brazier;
+    private Rs2TileObjectModel brazierModel;
     boolean init = false;
 
     private static void changeState(State scriptState) {
@@ -139,9 +140,12 @@ public class MWintertodtScript extends Script {
 
                 boolean wintertodtRespawning = Rs2Widget.hasWidget("returns in");
                 boolean isWintertodtAlive = Rs2Widget.hasWidget("Wintertodt's Energy");
-                brazier = Rs2GameObject.findObject(BRAZIER_29312, config.brazierLocation().getOBJECT_BRAZIER_LOCATION());
-                GameObject brokenBrazier = Rs2GameObject.findObject(ObjectID.BRAZIER_29313, config.brazierLocation().getOBJECT_BRAZIER_LOCATION());
-                GameObject fireBrazier = Rs2GameObject.findObject(ObjectID.BURNING_BRAZIER_29314, config.brazierLocation().getOBJECT_BRAZIER_LOCATION());
+                brazierModel = Microbot.getRs2TileObjectCache().query().withId(BRAZIER_29312)
+                        .where(o -> o.getWorldLocation().equals(config.brazierLocation().getOBJECT_BRAZIER_LOCATION())).nearest();
+                Rs2TileObjectModel brokenBrazierModel = Microbot.getRs2TileObjectCache().query().withId(ObjectID.BRAZIER_29313)
+                        .where(o -> o.getWorldLocation().equals(config.brazierLocation().getOBJECT_BRAZIER_LOCATION())).nearest();
+                Rs2TileObjectModel fireBrazierModel = Microbot.getRs2TileObjectCache().query().withId(ObjectID.BURNING_BRAZIER_29314)
+                        .where(o -> o.getWorldLocation().equals(config.brazierLocation().getOBJECT_BRAZIER_LOCATION())).nearest();
                 boolean playerIsLowWarmth = getWarmthLevel() < config.warmthTreshhold();
                 // if use rejuvenation potion is enabled, we should check for potions instead of food
                 boolean needBanking = !Rs2Inventory.hasItemAmount(config.rejuvenationPotions() ? "Rejuvenation potion " : config.food().getName(), config.minFood(), false, false)
@@ -163,7 +167,7 @@ public class MWintertodtScript extends Script {
                 }
 
                 dropUnnecessaryItems();
-                shouldLightBrazier(isWintertodtAlive, needBanking, fireBrazier, brazier);
+                shouldLightBrazier(isWintertodtAlive, needBanking, fireBrazierModel, brazierModel);
                 shouldBank(needBanking);
                 shouldEat();
                 dodgeOrbDamage();
@@ -208,11 +212,11 @@ public class MWintertodtScript extends Script {
 
                     case WAITING:
                         walkToBrazier();
-                        shouldLightBrazier(isWintertodtAlive, needBanking, fireBrazier, brazier);
+                        shouldLightBrazier(isWintertodtAlive, needBanking, fireBrazierModel, brazierModel);
                         break;
                     case LIGHT_BRAZIER:
-                        if (brazier != null && !Rs2Player.isAnimating()) {
-                            if (Rs2GameObject.interact(brazier, "light")) {
+                        if (brazierModel != null && !Rs2Player.isAnimating()) {
+                            if (brazierModel.click("light")) {
                                 sleepGaussian(600, 150);
                             }
                             return;
@@ -225,7 +229,7 @@ public class MWintertodtScript extends Script {
                             Rs2Combat.setSpecState(true, 1000);
                         }
                         if (!Rs2Player.isAnimating()) {
-                            Rs2GameObject.interact(ObjectID.BRUMA_ROOTS, "Chop");
+                            Microbot.getRs2TileObjectCache().query().interact(ObjectID.BRUMA_ROOTS, "Chop");
                             sleepUntil(Rs2Player::isAnimating, 2000);
                             resetActions = false;
                             Rs2Antiban.actionCooldown();
@@ -251,31 +255,30 @@ public class MWintertodtScript extends Script {
                         break;
                     case BURN_LOGS:
                         if (!Microbot.isGainingExp || resetActions) {
-                            TileObject burningBrazier = Rs2GameObject.findObjectById(BURNING_BRAZIER_29314);
-                            if (brokenBrazier != null && config.fixBrazier()) {
-                                Rs2GameObject.interact(brokenBrazier, "fix");
+                            Rs2TileObjectModel burningBrazier = Microbot.getRs2TileObjectCache().query().withId(BURNING_BRAZIER_29314).nearest();
+                            if (brokenBrazierModel != null && config.fixBrazier()) {
+                                brokenBrazierModel.click("fix");
                                 Microbot.log("Fixing brazier");
                                 sleepGaussian(300, 50);
                                 return;
                             }
-                            // this extra check is needed in case all braziers are broken or not burning
-                            if (burningBrazier == null && brazier != null && config.relightBrazier()) {
+                            if (burningBrazier == null && brazierModel != null && config.relightBrazier()) {
 
 
-                                Rs2GameObject.interact(brazier, "light");
+                                brazierModel.click("light");
                                 Microbot.log("Lighting brazier");
                                 sleep(1500);
                                 return;
                             } else {
-                                if (burningBrazier.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) > 10 && brazier != null && config.relightBrazier()) {
-                                    Rs2GameObject.interact(brazier, "light");
+                                if (burningBrazier.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) > 10 && brazierModel != null && config.relightBrazier()) {
+                                    brazierModel.click("light");
                                     Microbot.log("Lighting brazier");
                                     sleep(1500);
                                     return;
                                 }
                             }
                             if (burningBrazier.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) < 10 && hasItemsToBurn()) {
-                                Rs2GameObject.interact(burningBrazier, "feed");
+                                burningBrazier.click("feed");
                                 Microbot.log("Feeding brazier");
                                 resetActions = false;
                                 sleep(GAME_TICK_LENGTH * 3);
@@ -358,7 +361,7 @@ public class MWintertodtScript extends Script {
         return true;
     }
 
-    private boolean shouldLightBrazier(boolean isWintertodtAlive, boolean needBanking, GameObject fireBrazier, GameObject brazier) {
+    private boolean shouldLightBrazier(boolean isWintertodtAlive, boolean needBanking, Rs2TileObjectModel fireBrazier, Rs2TileObjectModel brazier) {
         if (!isWintertodtAlive) return false;
         if (needBanking) return false;
         if (state == State.CHOP_ROOTS) return false;// we are most likely to far from the brazier to light it in time
@@ -410,7 +413,9 @@ public class MWintertodtScript extends Script {
 //                //sleep(3000);
 //            }
         } else if (Rs2Player.getWorldLocation().equals(config.brazierLocation().getBRAZIER_LOCATION()) && state == State.WAITING) {
-            Rs2GameObject.hoverOverObject(brazier);
+            if (brazierModel != null && brazierModel.getClickbox() != null) {
+                Microbot.getMouse().move(brazierModel.getClickbox().getBounds());
+            }
         }
     }
 
@@ -420,7 +425,7 @@ public class MWintertodtScript extends Script {
                     && WorldPoint.fromLocalInstance(Microbot.getClient(),
                     graphicsObject.getLocation()).distanceTo(Rs2Player.getWorldLocation()) == 1) {
                 //walk south
-                List<GameObject> gameObjects = new ArrayList<>(Rs2GameObject.getGameObjects(5));
+                List<Rs2TileObjectModel> gameObjects = Microbot.getRs2TileObjectCache().query().within(5).toList();
                 // we only need to dodge if there are 2 or more snow fall objects
                 if (gameObjects.size() > 2) {
                     Rs2Walker.walkFastCanvas(new WorldPoint(Rs2Player.getWorldLocation().getX(), Rs2Player.getWorldLocation().getY() - 1, Rs2Player.getWorldLocation().getPlane()));
@@ -444,16 +449,19 @@ public class MWintertodtScript extends Script {
                     Rs2Walker.walkTo(crateLocation, 3);
                     Rs2Player.waitForWalking(1000);
                 }
-                GameObject crate = Rs2GameObject.getGameObject(crateLocation);
+                Rs2TileObjectModel crate = Microbot.getRs2TileObjectCache().query()
+                        .where(o -> o.getWorldLocation().equals(crateLocation)).nearest();
                 if (crate != null) {
+                    final Rs2TileObjectModel crateRef = crate;
                     sleepUntil(() -> Rs2Inventory.count(ItemID.REJUVENATION_POTION_UNF) >= config.foodAmount(), () -> {
-                        if (Rs2GameObject.interact(crate, "Take-concoction"))
+                        if (crateRef.click("Take-concoction"))
                             Rs2Inventory.waitForInventoryChanges(3000);
                     }, 10000, 300);
                 }
-                GameObject roots = Rs2GameObject.getGameObject(sproutingRoots);
+                Rs2TileObjectModel roots = Microbot.getRs2TileObjectCache().query()
+                        .where(o -> o.getWorldLocation().equals(sproutingRoots)).nearest();
                 if (roots != null) {
-                    Rs2GameObject.interact(roots, "Pick");
+                    roots.click("Pick");
                     Rs2Inventory.waitForInventoryChanges(5000);
                     sleepUntil(() -> Rs2Inventory.count(ItemID.REJUVENATION_POTION_UNF) <= Rs2Inventory.count(ItemID.BRUMA_HERB), 10000);
                     Rs2Inventory.combineClosest(ItemID.REJUVENATION_POTION_UNF, ItemID.BRUMA_HERB);

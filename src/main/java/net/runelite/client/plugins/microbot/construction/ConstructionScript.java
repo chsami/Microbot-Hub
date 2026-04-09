@@ -1,7 +1,5 @@
 package net.runelite.client.plugins.microbot.construction;
 
-import net.runelite.api.GameObject;
-import net.runelite.api.NPC;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.construction.ConstructionConfig;
@@ -10,16 +8,15 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 
 import java.awt.event.KeyEvent;
 import java.util.List;
@@ -37,23 +34,13 @@ public class ConstructionScript extends Script {
     private static final List<Integer> MAHOGANY_TABLE = List.of(13298, 15298);
     private static final List<Integer> MYTHICAL_CAPE_MOUNT = List.of(15394, 31986);
 
-    public GameObject getClosestTile(List<Integer> objIDs) {
-        List<GameObject> objects = Rs2GameObject.getGameObjects();
-        GameObject closest = null;
-        WorldPoint playerLocation = Rs2Player.getWorldLocation();
-        
-        for (GameObject obj : objects) {
-            if (objIDs.contains(obj.getId())) {
-                if (closest == null || Rs2Walker.getDistanceBetween(playerLocation, obj.getWorldLocation()) < Rs2Walker.getDistanceBetween(playerLocation, closest.getWorldLocation())) {
-                    closest = obj;
-                }
-            }
-        }
-        return closest;
+    public Rs2TileObjectModel getClosestTile(List<Integer> objIDs) {
+        int[] ids = objIDs.stream().mapToInt(Integer::intValue).toArray();
+        return Microbot.getRs2TileObjectCache().query().withIds(ids).nearest();
     }
 
     public Rs2NpcModel getButler() {
-        return Rs2Npc.getNpc("Demon butler");
+        return Microbot.getRs2NpcCache().query().withName("Demon butler").nearest();
     }
 
     public boolean hasDialogueOptionToUnnote() {
@@ -144,7 +131,7 @@ public class ConstructionScript extends Script {
 
     private void calculateState(net.runelite.client.plugins.microbot.construction.ConstructionConfig config) {
         boolean hasRequiredPlanks;
-        NPC butler = getButler();
+        Rs2NpcModel butler = getButler();
         List<Integer> objectIDs = List.of(0);
         switch (config.selectedMode()) {
             case OAK_DUNGEON_DOOR:
@@ -167,11 +154,14 @@ public class ConstructionScript extends Script {
             workingTile = getClosestTile(objectIDs).getWorldLocation();
         }
 
-        GameObject objOnWorkingTile = Rs2GameObject.getGameObject(workingTile);
+        Rs2TileObjectModel objOnWorkingTile = Microbot.getRs2TileObjectCache().query()
+                .where(o -> o.getWorldLocation().equals(workingTile))
+                .nearest();
         if (objOnWorkingTile == null || !objectIDs.contains(objOnWorkingTile.getId())) {
-            // Find new working tile
             workingTile = getClosestTile(objectIDs).getWorldLocation();
-            objOnWorkingTile = Rs2GameObject.getGameObject(workingTile);
+            objOnWorkingTile = Microbot.getRs2TileObjectCache().query()
+                    .where(o -> o.getWorldLocation().equals(workingTile))
+                    .nearest();
         }
 
         if (objOnWorkingTile.getId() == objectIDs.get(0)) {
@@ -188,9 +178,9 @@ public class ConstructionScript extends Script {
     }
 
     private void returnToTheHouse(){
-        GameObject housePortal = Rs2GameObject.getGameObject("Portal");
+        Rs2TileObjectModel housePortal = Microbot.getRs2TileObjectCache().query().withName("Portal").nearest();
         if(housePortal != null){
-            if(Rs2GameObject.interact(housePortal, "Build mode")){
+            if(housePortal.click("Build mode")){
                 sleepUntil(()-> Rs2Player.getWorldLocation() != null
                         && Rs2Player.getWorldLocation().getRegionX() == 29
                             && Rs2Player.getWorldLocation().getRegionY() == 89, Rs2Random.between(10000,20000));
@@ -203,7 +193,9 @@ public class ConstructionScript extends Script {
     }
 
     private void buildSpace(net.runelite.client.plugins.microbot.construction.ConstructionConfig config, int actionDelay) {
-        GameObject space = Rs2GameObject.getGameObject(workingTile);
+        Rs2TileObjectModel space = Microbot.getRs2TileObjectCache().query()
+                .where(o -> o.getWorldLocation().equals(workingTile))
+                .nearest();
         int spaceId = space != null ? space.getId() : -1;
         char buildKey = '1';
 
@@ -217,15 +209,12 @@ public class ConstructionScript extends Script {
             case MAHOGANY_TABLE:
                 buildKey = '6';
                 break;
-            // case MYTHICAL_CAPE:
-            //     buildKey = '4';
-            //     break;
             default:
                 return;
         }
 
         if (space == null) return;
-        if (Rs2GameObject.interact(space, "Build")) {
+        if (space.click("Build")) {
             System.out.println("Interacted with build space: " + space.getId());
             sleepUntilOnClientThread(this::hasFurnitureInterfaceOpen, 2500);
             System.out.println("Pressing key: " + buildKey);
@@ -238,13 +227,15 @@ public class ConstructionScript extends Script {
     }
 
     private void removeSpace(net.runelite.client.plugins.microbot.construction.ConstructionConfig config, int actionDelay) {
-        GameObject builtObject = Rs2GameObject.getGameObject(workingTile);
+        Rs2TileObjectModel builtObject = Microbot.getRs2TileObjectCache().query()
+                .where(o -> o.getWorldLocation().equals(workingTile))
+                .nearest();
         int spaceId = builtObject != null ? builtObject.getId() : -1;
 
         if (builtObject == null) return;
         if(builtObject.getId() == 15328 || builtObject.getId() == 15403 || builtObject.getId() == 15298 || builtObject.getId() == 31986) return;
 
-        if (Rs2GameObject.interact(builtObject, "Remove")) {
+        if (builtObject.click("Remove")) {
             System.out.println("Interacted with remove option: " + builtObject.getId());
             sleepUntilOnClientThread(() -> hasRemoveInterfaceOpen(config), 2500);
             Rs2Keyboard.keyPress('1');
@@ -274,12 +265,12 @@ public class ConstructionScript extends Script {
             sleepUntil(()-> Rs2Dialogue.isInDialogue(), Rs2Random.between(2000,5000));
         }
 
-        if (Rs2Dialogue.isInDialogue() || Rs2Npc.interact(butler, "Talk-to")) {
+        if (Rs2Dialogue.isInDialogue() || butler.click("Talk-to")) {
             sleep(500);
             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
             sleep(400, 1000);
             if (Rs2Widget.findWidget("Go to the bank...", null) != null) {
-                Rs2Inventory.useItemOnNpc(config.selectedMode().getPlankItemId() + 1, butler.getId()); // + 1 for noted item
+                Rs2Inventory.useItemOnNpc(config.selectedMode().getPlankItemId() + 1, butler.getId());
                 sleepUntilOnClientThread(() -> Rs2Widget.hasWidget("Dost thou wish me to exchange that certificate"));
                 Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
                 sleepUntilOnClientThread(() -> Rs2Widget.hasWidget("Select an option"));
