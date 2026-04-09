@@ -11,6 +11,8 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
@@ -37,6 +39,7 @@ public class PestControlScript extends Script {
 
     boolean initialise = true;
     boolean walkToCenter = false;
+    private boolean wasInPestControl = false;
     PestControlConfig config;
     private final PestControlPlugin plugin;
 
@@ -74,6 +77,21 @@ public class PestControlScript extends Script {
         }
     }
 
+    private static WorldPoint stepTowards(WorldPoint from, WorldPoint to, int maxStep) {
+        int dx = to.getX() - from.getX();
+        int dy = to.getY() - from.getY();
+        int chebyshev = Math.max(Math.abs(dx), Math.abs(dy));
+        if (chebyshev <= maxStep) {
+            return to;
+        }
+        double scale = (double) maxStep / chebyshev;
+        return new WorldPoint(
+                from.getX() + (int) Math.round(dx * scale),
+                from.getY() + (int) Math.round(dy * scale),
+                from.getPlane()
+        );
+    }
+
     public boolean run(PestControlConfig config) {
         this.config = config;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -98,7 +116,9 @@ public class PestControlScript extends Script {
                     }
                     if (Rs2Player.getWorldLocation().getRegionID() == 10537 && Rs2Player.getWorld() == config.world()) {
 
-                        initialise = handleInventorySetup();
+                        if (handleInventorySetup()) {
+                            initialise = false;
+                        }
 
                     } else {
                         Microbot.log("Traveling to Pest Island");
@@ -107,6 +127,7 @@ public class PestControlScript extends Script {
                 }
                 if (isInPestControl) {
                     initialise = false;
+                    wasInPestControl = true;
                     if (!isQuickPrayerEnabled() && Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER) != 0 && config.quickPrayer()) {
                         final Widget prayerOrb = Rs2Widget.getWidget(ComponentID.MINIMAP_QUICK_PRAYER_ORB);
                         if (prayerOrb != null) {
@@ -115,12 +136,14 @@ public class PestControlScript extends Script {
                         }
                     }
                     if (!walkToCenter) {
-                        WorldPoint worldPoint = WorldPoint.fromRegion(Rs2Player.getWorldLocation().getRegionID(), 32, 17, Microbot.getClient().getTopLevelWorldView().getPlane());
-                        Rs2Walker.walkTo(worldPoint, 3);
-                        if (worldPoint.distanceTo(Rs2Player.getWorldLocation()) > 4) {
-                            return;
-                        } else {
+                        WorldPoint playerLoc = Rs2Player.getWorldLocation();
+                        WorldPoint worldPoint = WorldPoint.fromRegion(playerLoc.getRegionID(), 32, 17, playerLoc.getPlane());
+                        if (playerLoc.distanceTo(worldPoint) <= 4) {
                             walkToCenter = true;
+                        } else {
+                            Rs2Walker.walkMiniMap(stepTowards(playerLoc, worldPoint, 14));
+                            sleepUntil(() -> !Rs2Player.isMoving(), 4000);
+                            return;
                         }
                     }
 
@@ -172,10 +195,12 @@ public class PestControlScript extends Script {
                     }
 
                 } else {
-                    Rs2Walker.setTarget(null);
+                    if (wasInPestControl) {
+                        Rs2Walker.setTarget(null);
+                        wasInPestControl = false;
+                    }
                     resetPortals();
                     walkToCenter = false;
-                    sleep(Rs2Random.between(1600, 1800));
                     if (!isInBoat && !initialise) {
                         if (Microbot.getClient().getLocalPlayer().getCombatLevel() >= 100) {
                             Rs2GameObject.interact(ObjectID.GANGPLANK_25632);
@@ -184,10 +209,11 @@ public class PestControlScript extends Script {
                         } else {
                             Rs2GameObject.interact(ObjectID.GANGPLANK_14315);
                         }
-                        sleepUntil(() -> Microbot.getClient().getWidget(WidgetInfo.PEST_CONTROL_BOAT_INFO) != null, 3000);
+                        sleepUntil(this::isInBoat, 3000);
                     } else {
                         if (config.alchInBoat() && !config.alchItem().equalsIgnoreCase("")) {
                             Rs2Magic.alch(config.alchItem());
+                            sleep(Rs2Random.between(1600, 1800));
                         }
                     }
                 }
@@ -201,15 +227,20 @@ public class PestControlScript extends Script {
 
     /**
      * Handles the inventory setup based on the provided configuration.
+     *
+     * @return true when no setup work is needed (no setup configured, already
+     *         matches, or successfully loaded); false when loading failed and
+     *         the script should retry on the next tick.
      */
     private boolean handleInventorySetup() {
 
-        if (config.inventorySetup() == null) {
-            return false;
+        InventorySetup setup = config.inventorySetup();
+        if (setup == null || isEmptySetup(setup)) {
+            return true;
         }
 
         Microbot.log("Starting Inv Setup");
-        var inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
+        var inventorySetup = new Rs2InventorySetup(setup, mainScheduledFuture);
 
         if (inventorySetup.doesInventoryMatch() && inventorySetup.doesEquipmentMatch()) {
             return true;
@@ -222,7 +253,15 @@ public class PestControlScript extends Script {
         Microbot.log("Inv Setup Finished");
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen(), 2000);
-        return false;
+        return true;
+    }
+
+    private static boolean isEmptySetup(InventorySetup setup) {
+        return isAllDummy(setup.getInventory()) && isAllDummy(setup.getEquipment());
+    }
+
+    private static boolean isAllDummy(List<InventorySetupsItem> items) {
+        return items == null || items.stream().allMatch(item -> item == null || InventorySetupsItem.itemIsDummy(item));
     }
 
 
@@ -232,11 +271,15 @@ public class PestControlScript extends Script {
     }
 
     public boolean isInBoat() {
-        return Microbot.getClient().getWidget(WidgetInfo.PEST_CONTROL_BOAT_INFO) != null;
+        return Microbot.getClientThread().runOnClientThreadOptional(
+                () -> Microbot.getClient().getWidget(WidgetInfo.PEST_CONTROL_BOAT_INFO) != null
+        ).orElse(false);
     }
 
     public boolean isInPestControl() {
-        return Microbot.getClient().getWidget(WidgetInfo.PEST_CONTROL_BLUE_SHIELD) != null;
+        return Microbot.getClientThread().runOnClientThreadOptional(
+                () -> Microbot.getClient().getWidget(WidgetInfo.PEST_CONTROL_BLUE_SHIELD) != null
+        ).orElse(false);
     }
 
     public void exitBoat() {
@@ -362,6 +405,7 @@ public class PestControlScript extends Script {
         Microbot.log("Pest control about to shutdown");
         initialise = true;
         walkToCenter = false;
+        wasInPestControl = false;
         super.shutdown();
     }
 }
