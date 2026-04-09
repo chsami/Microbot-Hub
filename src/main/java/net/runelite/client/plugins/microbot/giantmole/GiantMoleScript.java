@@ -17,7 +17,7 @@ import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -25,8 +25,7 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.security.Login;
@@ -239,9 +238,9 @@ public class GiantMoleScript extends Script
     /**
      * Retrieves the Mole Hill tile object by ID.
      */
-    public TileObject getMoleHill()
+    public Rs2TileObjectModel getMoleHill()
     {
-        return Rs2GameObject.getTileObject(ObjectID.MOLE_HILL);
+        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.MOLE_HILL).nearest();
     }
 
     /**
@@ -249,10 +248,10 @@ public class GiantMoleScript extends Script
      */
     public void checkWorldOccupied()
     {
-        TileObject moleHill = getMoleHill();
+        Rs2TileObjectModel moleHill = getMoleHill();
         if (moleHill != null)
         {
-            Rs2GameObject.interact(moleHill, "Look-inside");
+            moleHill.click("Look-inside");
             Global.sleepUntilTrue(() -> checkedIfWorldOccupied, 200, 7000);
         }
     }
@@ -262,7 +261,7 @@ public class GiantMoleScript extends Script
      */
     public void goInsideMoleHill()
     {
-        TileObject moleHill = getMoleHill();
+        Rs2TileObjectModel moleHill = getMoleHill();
         if (moleHill != null)
         {
             if (Rs2Walker.walkTo(moleHill.getWorldLocation(), 0))
@@ -310,10 +309,13 @@ public class GiantMoleScript extends Script
      */
     public Rs2NpcModel getMole()
     {
-        return Microbot.getClientThread()
+        NPC hintNpc = Microbot.getClientThread()
                 .runOnClientThreadOptional(() -> Microbot.getClient().getHintArrowNpc())
-                .map(Rs2NpcModel::new)
                 .orElse(null);
+        if (hintNpc == null) return null;
+        return Microbot.getRs2NpcCache().query()
+                .where(n -> n.getNpc() == hintNpc)
+                .nearest();
     }
 
     /**
@@ -383,7 +385,7 @@ public class GiantMoleScript extends Script
             sleep(600, 800);
         }
 
-        if (Rs2Npc.interact(mole, "Attack"))
+        if (mole.click("Attack"))
         {
             sleep(600, 800);
         }
@@ -399,7 +401,7 @@ public class GiantMoleScript extends Script
             return;
         }
 
-        boolean underAttack = Rs2Npc.getNpcsForPlayer().findAny().isPresent() || Rs2Combat.inCombat();
+        boolean underAttack = Microbot.getRs2NpcCache().query().where(Rs2NpcModel::isInteractingWithPlayer).count() > 0 || Rs2Combat.inCombat();
         Rs2Prayer.toggleQuickPrayer(!isInFalador() && underAttack);
     }
 

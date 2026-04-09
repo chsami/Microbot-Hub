@@ -1,26 +1,23 @@
 package net.runelite.client.plugins.microbot.mmcaves;
 
 import com.google.common.collect.Table;
-import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
-import net.runelite.api.GroundObject;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.grounditems.GroundItem;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.mmcaves.enums.CombatStyle;
 import net.runelite.client.plugins.microbot.mmcaves.enums.LightSources;
 import net.runelite.client.plugins.microbot.mmcaves.enums.Mode;
 import net.runelite.client.plugins.microbot.mmcaves.enums.State;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
 import net.runelite.client.plugins.microbot.util.magic.Runes;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -35,7 +32,6 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class MmCavesScript extends Script {
@@ -224,9 +220,9 @@ public class MmCavesScript extends Script {
 
     private void handleCheckEmptyCave() {
         Microbot.log("Checking if cave is empty");
-        GroundObject hole = Rs2GameObject.getGroundObject(28772);
+        Rs2TileObjectModel hole = Microbot.getRs2TileObjectCache().query().withId(28772).nearest();
         if (hole != null) {
-            Rs2GameObject.interact(hole.getWorldLocation(), "Look-in");
+            hole.click("Look-in");
             sleepUntil(() -> caveIsEmpty, 3000);
         }
     }
@@ -251,11 +247,11 @@ public class MmCavesScript extends Script {
 
     private void handleEnterCave() {
         Microbot.log("Entering cave...");
-        GroundObject hole = Rs2GameObject.getGroundObject(28772);
+        Rs2TileObjectModel hole = Microbot.getRs2TileObjectCache().query().withId(28772).nearest();
         if (hole != null) {
             Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, true);
 
-            Rs2GameObject.interact(hole.getWorldLocation(), "Enter");
+            hole.click("Enter");
             sleepUntil(() -> caveIsEmpty, 3000);
         }
     }
@@ -304,11 +300,11 @@ public class MmCavesScript extends Script {
 
         // This is not efficient and needs improvement but sufficient for first release
         // If not it impacts magic a lot due to longer delay
-        Optional<Rs2NpcModel> monkey = Rs2Npc.getNpcs("Maniacal monkey")
-                .filter(npc -> npc.getWorldLocation().equals(new WorldPoint(2451, 9159, 1)))
-                .filter(npc -> !npc.isDead())
-                .findFirst();
-        Rs2NpcModel target = monkey.orElse(null);
+        Rs2NpcModel target = Microbot.getRs2NpcCache().query()
+                .withName("Maniacal monkey")
+                .where(npc -> npc.getWorldLocation().equals(new WorldPoint(2451, 9159, 1))
+                        && !npc.getNpc().isDead())
+                .nearest();
 
         boolean attacked = attemptAttack(target);
         if (attacked) walkBetweenTiles();
@@ -339,9 +335,9 @@ public class MmCavesScript extends Script {
             sleepUntil(() -> plugin.getMyWorldPoint().distanceTo(EXIT_TILE) < 3, 1000);
 
             if ( plugin.getMyWorldPoint().distanceTo(EXIT_TILE) < 3) {
-                GameObject rope = Rs2GameObject.getGameObject(28775);
+                Rs2TileObjectModel rope = Microbot.getRs2TileObjectCache().query().withId(28775).nearest();
                 if (rope != null) {
-                    Rs2GameObject.interact(rope, "Climb-up");
+                    rope.click("Climb-up");
                     sleepUntil(() -> plugin.getMyWorldPoint().getRegionID() == cavesUpstairs, 5000);
                 }
             }
@@ -433,7 +429,7 @@ public class MmCavesScript extends Script {
         if (!config.shouldAutoCast()) {
             attacked = Rs2Magic.castOn(config.magicSpell().getSpell(), target);
         } else {
-            attacked = Rs2Npc.interact(target, "Attack");
+            attacked = target.click("Attack");
         }
 
         if (attacked) {
