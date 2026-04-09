@@ -5,10 +5,9 @@ import net.runelite.api.Constants;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -20,7 +19,6 @@ import java.awt.event.KeyEvent;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 @Slf4j
@@ -40,9 +38,11 @@ public class HivesEvent implements BlockingEvent {
         try{
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;
-            var beehives = Rs2Npc.getNpcs(x -> x.getId() == net.runelite.api.gameval.NpcID.GATHERING_EVENT_BEES_BEEBOX_1 || x.getId() == net.runelite.api.gameval.NpcID.GATHERING_EVENT_BEES_BEEBOX_2);
+            var beehives = Microbot.getRs2NpcCache().query()
+                    .where(x -> x.getId() == net.runelite.api.gameval.NpcID.GATHERING_EVENT_BEES_BEEBOX_1 || x.getId() == net.runelite.api.gameval.NpcID.GATHERING_EVENT_BEES_BEEBOX_2)
+                    .toList();
             WoodcuttingTree tree = plugin.getSelectedTree();
-            return beehives.findAny().isPresent() && tree != null && Rs2Inventory.count(tree.getLogID()) > 1;
+            return !beehives.isEmpty() && tree != null && Rs2Inventory.count(tree.getLogID()) > 1;
         } catch (Exception e) {
             log.error("HivesEvent: Exception in validate method", e);
             return false;
@@ -68,11 +68,11 @@ public class HivesEvent implements BlockingEvent {
             }
             
             // find available beehives, excluding ones we've already completed
-            List<Rs2NpcModel> availableBeehives = Rs2Npc.getNpcs(x -> 
-                    (x.getId() == net.runelite.api.gameval.NpcID.GATHERING_EVENT_BEES_BEEBOX_1 || 
-                     x.getId() == net.runelite.api.gameval.NpcID.GATHERING_EVENT_BEES_BEEBOX_2) &&
-                    !completedBeehives.contains(x.getIndex()))
-                    .collect(Collectors.toList());
+            List<Rs2NpcModel> availableBeehives = Microbot.getRs2NpcCache().query()
+                    .where(x -> (x.getId() == net.runelite.api.gameval.NpcID.GATHERING_EVENT_BEES_BEEBOX_1 ||
+                            x.getId() == net.runelite.api.gameval.NpcID.GATHERING_EVENT_BEES_BEEBOX_2) &&
+                            !completedBeehives.contains(x.getIndex()))
+                    .toList();
             
             if (availableBeehives.isEmpty()) {
                 log.info("No more available beehives to work on");
@@ -105,7 +105,7 @@ public class HivesEvent implements BlockingEvent {
             }
             
             // check if beehive still exists (might have been completed by others or disappeared)
-            if (!Rs2Npc.getNpcs(x -> x.getIndex() == targetBeehive.getIndex()).findAny().isPresent()) {
+            if (Microbot.getRs2NpcCache().query().where(x -> x.getIndex() == targetBeehive.getIndex()).count() == 0) {
                 log.info("Beehive {} completed or disappeared", targetBeehive.getIndex());
                 completedBeehives.add(targetBeehive.getIndex());
                 currentBeehive = null;
@@ -121,7 +121,7 @@ public class HivesEvent implements BlockingEvent {
             }
 
             log.info("Building beehive {} (logs: {})", targetBeehive.getIndex(), currentLogCount);
-            if (Rs2Npc.interact(targetBeehive, "Build")) {
+            if (targetBeehive.click("Build")) {
                 // wait for interaction to start
                 sleepUntil(() -> Rs2Player.isInteracting() || Rs2Player.isAnimating(), 3000);
 
@@ -136,7 +136,7 @@ public class HivesEvent implements BlockingEvent {
                     }
                     
                     // check if this beehive is now completed (disappeared)
-                    if (!Rs2Npc.getNpcs(x -> x.getIndex() == targetBeehive.getIndex()).findAny().isPresent()) {
+                    if (Microbot.getRs2NpcCache().query().where(x -> x.getIndex() == targetBeehive.getIndex()).count() == 0) {
                         log.info("Beehive {} completed successfully", targetBeehive.getIndex());
                         completedBeehives.add(targetBeehive.getIndex());
                         currentBeehive = null;
