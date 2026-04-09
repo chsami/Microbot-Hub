@@ -7,6 +7,7 @@ import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
@@ -106,9 +107,12 @@ public class MoonlightMothScript extends Script {
     private void handleBanking(MoonlightMothConfig config) {
         Microbot.status = "Banking process initiated";
 
-        if (!Rs2Bank.walkToBankAndUseBank()) {
-            logOnceToChat("Failed to open bank.", false);
-            return;
+        if (!Rs2Bank.isOpen()) {
+            Rs2Bank.walkToBank(BankLocation.HUNTERS_GUILD);
+            if (!Rs2Bank.openBank()) {
+                logOnceToChat("Failed to open bank.", false);
+                return;
+            }
         }
 
         if (Rs2Inventory.hasItem("Moonlight moth")) {
