@@ -11,6 +11,8 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
@@ -98,7 +100,9 @@ public class PestControlScript extends Script {
                     }
                     if (Rs2Player.getWorldLocation().getRegionID() == 10537 && Rs2Player.getWorld() == config.world()) {
 
-                        initialise = handleInventorySetup();
+                        if (handleInventorySetup()) {
+                            initialise = false;
+                        }
 
                     } else {
                         Microbot.log("Traveling to Pest Island");
@@ -201,15 +205,20 @@ public class PestControlScript extends Script {
 
     /**
      * Handles the inventory setup based on the provided configuration.
+     *
+     * @return true when no setup work is needed (no setup configured, already
+     *         matches, or successfully loaded); false when loading failed and
+     *         the script should retry on the next tick.
      */
     private boolean handleInventorySetup() {
 
-        if (config.inventorySetup() == null) {
-            return false;
+        InventorySetup setup = config.inventorySetup();
+        if (setup == null || isEmptySetup(setup)) {
+            return true;
         }
 
         Microbot.log("Starting Inv Setup");
-        var inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
+        var inventorySetup = new Rs2InventorySetup(setup, mainScheduledFuture);
 
         if (inventorySetup.doesInventoryMatch() && inventorySetup.doesEquipmentMatch()) {
             return true;
@@ -222,7 +231,15 @@ public class PestControlScript extends Script {
         Microbot.log("Inv Setup Finished");
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen(), 2000);
-        return false;
+        return true;
+    }
+
+    private static boolean isEmptySetup(InventorySetup setup) {
+        return isAllDummy(setup.getInventory()) && isAllDummy(setup.getEquipment());
+    }
+
+    private static boolean isAllDummy(List<InventorySetupsItem> items) {
+        return items == null || items.stream().allMatch(item -> item == null || InventorySetupsItem.itemIsDummy(item));
     }
 
 
