@@ -2,8 +2,8 @@ package net.runelite.client.plugins.microbot.autofishing;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
@@ -22,7 +22,7 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -124,9 +124,9 @@ public class AutoFishingScript extends Script {
         }
         activateSpec();
         if (fishAction.isEmpty()) {
-            fishAction = Rs2Npc.getAvailableAction(fishingSpot, selectedFish.getActions());
+            fishAction = Rs2Npc.getAvailableAction(new net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel(fishingSpot.getNpc()), selectedFish.getActions());
         }
-        if (!fishAction.isEmpty() && Rs2Npc.interact(fishingSpot, fishAction)) {
+        if (!fishAction.isEmpty() && fishingSpot.click(fishAction)) {
             Rs2Player.waitForXpDrop(Skill.FISHING);
             Rs2Antiban.actionCooldown();
             Rs2Antiban.takeMicroBreakByChance();
@@ -241,9 +241,9 @@ public class AutoFishingScript extends Script {
      */
     private Rs2NpcModel findNearestFishingSpot() {
         int[] spotIds = selectedFish.getFishingSpot();
-        return Rs2Npc.getNpcs(npc -> Arrays.stream(spotIds).anyMatch(id -> npc.getId() == id))
-                .findFirst()
-                .orElse(null);
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> Arrays.stream(spotIds).anyMatch(id -> npc.getId() == id))
+                .nearest();
     }
 
     private List<String> getRawFishInInventory() {

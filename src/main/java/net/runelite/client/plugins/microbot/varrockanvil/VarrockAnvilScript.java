@@ -11,7 +11,6 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -95,7 +94,7 @@ public class VarrockAnvilScript extends Script {
                         return;
                     }
 
-                    if (Rs2GameObject.interact(2097)) {
+                    if (Microbot.getRs2TileObjectCache().query().withId(2097).interact()) {
                         debug("Using anvil");
 
                         // Wait until anvil screen is open

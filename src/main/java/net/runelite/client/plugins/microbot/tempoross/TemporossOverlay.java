@@ -9,7 +9,7 @@ import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -58,14 +58,14 @@ public class TemporossOverlay extends Overlay {
         // Render NPC overlays if the list is not null
         if (npcList != null) {
             for (Rs2NpcModel npc : npcList) {
-                Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getRuneliteNpc().getWorldLocation());
+                Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
                 Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClient().getLocalPlayer().getWorldLocation());
                 renderNpcOverlay(graphics, npc, Color.RED,    npcLocation.distanceToPath(playerLocation.getWorldPoint()) + " tiles");
             }
         }
         if (ammoList != null) {
             for (Rs2NpcModel npc : ammoList) {
-                Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getRuneliteNpc().getWorldLocation());
+                Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
                 Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClient().getLocalPlayer().getWorldLocation());
                 renderNpcOverlay(graphics, npc, Color.RED,    npcLocation.distanceToPath(playerLocation.getWorldPoint()) + " " + Text.removeTags(npc.getName()));
             }
@@ -151,16 +151,14 @@ public class TemporossOverlay extends Overlay {
 
     // Add this method to render overlays for NPCs
     private void renderNpcOverlay(Graphics2D graphics, Rs2NpcModel npc, Color color, String label) {
-        if (npc == null || npc.getConvexHull() == null) {
+        if (npc == null || npc.getNpc() == null || npc.getNpc().getConvexHull() == null) {
             return;
         }
 
-        // Draw the NPC outline
-        Shape npcHull = npc.getConvexHull();
+        Shape npcHull = npc.getNpc().getConvexHull();
         OverlayUtil.renderPolygon(graphics, npcHull, color);
 
-        // Draw the label above the NPC
-        Point textLocation = npc.getCanvasTextLocation(graphics, label, npc.getLogicalHeight() + 40);
+        Point textLocation = npc.getNpc().getCanvasTextLocation(graphics, label, npc.getNpc().getLogicalHeight() + 40);
         if (textLocation != null) {
             OverlayUtil.renderTextLocation(graphics, textLocation, label, Color.WHITE);
         }

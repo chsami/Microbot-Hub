@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.sandminer;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
@@ -12,7 +11,6 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
@@ -111,17 +109,21 @@ public class GabulhasSandMinerScript extends Script {
                     if (firstRock) {
                         WorldPoint innerMiningPoint = (Rs2Random.dicePercentage(50)) ?
                                 new WorldPoint(3164, 2905, 0) : new WorldPoint(3166, 2905, 0);
-                        GameObject innerSandstoneRock = Rs2GameObject.getGameObject("Sandstone rocks", true, innerMiningPoint);
-                        Rs2GameObject.interact(innerSandstoneRock, "Mine");
+                        var innerSandstoneRock = Microbot.getRs2TileObjectCache().query()
+                                .withName("Sandstone rocks")
+                                .nearest(innerMiningPoint, 0);
+                        if (innerSandstoneRock != null) innerSandstoneRock.click("Mine");
                         Rs2Player.waitForXpDrop(Skill.MINING, 15000);
                         Rs2Antiban.actionCooldown();
                         firstRock = false;
                         continue;
                     }
                 }
-                GameObject sandstoneRock = Rs2GameObject.getGameObject("Sandstone rocks", true, miningPoint, 5);
+                var sandstoneRock = Microbot.getRs2TileObjectCache().query()
+                        .withName("Sandstone rocks")
+                        .nearest(miningPoint, 5);
                 if (sandstoneRock != null) {
-                    Rs2GameObject.interact(sandstoneRock, "Mine");
+                    sandstoneRock.click("Mine");
                     if (config.turboMode()) {
                         Rs2Player.waitForXpDrop(Skill.MINING, 15000);
                     } else {
@@ -156,8 +158,10 @@ public class GabulhasSandMinerScript extends Script {
 
     private void deposit(GabulhasSandMinerConfig config) {
         if (!config.turboMode()) Rs2Walker.walkTo(grinder);
-        GameObject sandstoneRock = Rs2GameObject.findObject(26199, grinder);
-        Rs2GameObject.interact(sandstoneRock, "Deposit");
+        var grinderObj = Microbot.getRs2TileObjectCache().query()
+                .withId(26199)
+                .nearest(grinder, 5);
+        if (grinderObj != null) grinderObj.click("Deposit");
         while (Rs2Inventory.contains("Sandstone (1kg)", "Sandstone (2kg)", "Sandstone (5kg)", "Sandstone (10kg)") && super.isRunning()) {
             if (!config.turboMode()) {
                 sleep(100, 3000);

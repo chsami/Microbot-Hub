@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.autoessencemining;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.GameObject;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -10,10 +9,8 @@ import net.runelite.client.plugins.microbot.autoessencemining.enums.AutoEssenceM
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -166,10 +163,10 @@ public class AutoEssenceMiningScript extends Script {
         }
         
         // find Aubury NPC
-        Rs2NpcModel aubury = Rs2Npc.getNpc("Aubury");
+        Rs2NpcModel aubury = Microbot.getRs2NpcCache().query().withName("Aubury").nearest();
         if (aubury != null) {
             log.info("Found Aubury, attempting teleport");
-            if (Rs2Npc.interact(aubury, "Teleport")) {
+            if (aubury.click("Teleport")) {
                 log.info("Clicked teleport, waiting for animation");
                 Rs2Player.waitForAnimation(3000);
                 log.info("Teleport animation completed");
@@ -199,11 +196,11 @@ public class AutoEssenceMiningScript extends Script {
         }
         
         // find essence rock to mine
-        GameObject essenceRock = Rs2GameObject.getGameObject("Rune Essence", false);
-        
+        var essenceRock = Microbot.getRs2TileObjectCache().query().withName("Rune Essence").nearest();
+
         if (essenceRock != null) {
             log.info("Found rune essence rock, attempting to mine");
-            if (Rs2GameObject.interact(essenceRock, "Mine")) {
+            if (essenceRock.click("Mine")) {
                 log.info("Started mining essence, waiting for XP drop");
                 boolean xpGained = Rs2Player.waitForXpDrop(Skill.MINING, true);
                 if (xpGained) {
@@ -233,11 +230,11 @@ public class AutoEssenceMiningScript extends Script {
         }
 
         // find the portal to exit
-        GameObject portal = Rs2GameObject.getGameObject("Portal", false);
+        var portal = Microbot.getRs2TileObjectCache().query().withName("Portal").nearest();
 
         if (portal != null) {
             log.info("Found portal, attempting to use it");
-            if (Rs2GameObject.interact(portal)) {
+            if (portal.click()) {
                 log.info("Clicked portal, waiting for teleport animation");
                 Rs2Player.waitForAnimation(3000);
                 log.info("Successfully used portal to exit essence mine");

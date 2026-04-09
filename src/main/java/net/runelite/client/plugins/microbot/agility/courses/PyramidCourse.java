@@ -11,8 +11,7 @@ import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -1126,7 +1125,7 @@ public class PyramidCourse implements AgilityCourseHandler {
             }
             
             // Try to find Simon
-            Rs2NpcModel simon = Rs2Npc.getNpc(SIMON_NAME);
+            Rs2NpcModel simon = Microbot.getRs2NpcCache().query().withName(SIMON_NAME).nearest();
             
             // If Simon is found and reachable, use pyramid top on him
             if (simon != null && Rs2GameObject.canReach(simon.getWorldLocation())) {
@@ -1149,7 +1148,7 @@ public class PyramidCourse implements AgilityCourseHandler {
                     }
                 } else {
                     // Not in dialogue, use pyramid top on Simon
-                    boolean used = Rs2Inventory.useItemOnNpc(ItemID.AGILITY_PYRAMID_GOLD_PYRAMID, simon);
+                    boolean used = Rs2Inventory.useItemOnNpc(ItemID.AGILITY_PYRAMID_GOLD_PYRAMID, simon.getNpc());
                     if (used) {
                         log.debug("Successfully used pyramid top on Simon");
                         Global.sleepUntil(() -> Rs2Dialogue.isInDialogue(), 3000);

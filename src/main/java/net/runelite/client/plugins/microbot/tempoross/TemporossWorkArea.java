@@ -2,11 +2,10 @@ package net.runelite.client.plugins.microbot.tempoross;
 
 import net.runelite.api.NullObjectID;
 import net.runelite.api.ObjectID;
-import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 
 
 public class TemporossWorkArea
@@ -54,76 +53,56 @@ public class TemporossWorkArea
         }
     }
 
-    public TileObject getBucketCrate()
+    public Rs2TileObjectModel getBucketCrate()
     {
-        return Rs2GameObject.findObject(ObjectID.BUCKETS, bucketPoint);
+        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.BUCKETS).within(bucketPoint, 2).nearest();
     }
 
-    public TileObject getPump()
+    public Rs2TileObjectModel getPump()
     {
-        return Rs2GameObject.findObject(ObjectID.WATER_PUMP_41000, pumpPoint);
+        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.WATER_PUMP_41000).within(pumpPoint, 2).nearest();
     }
 
-    public TileObject getRopeCrate()
+    public Rs2TileObjectModel getRopeCrate()
     {
-        return Rs2GameObject.findObject(ObjectID.ROPES, ropePoint);
+        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.ROPES).within(ropePoint, 2).nearest();
     }
 
-    public TileObject getHammerCrate()
+    public Rs2TileObjectModel getHammerCrate()
     {
-        return Rs2GameObject.findObject(ObjectID.HAMMERS_40964, hammerPoint);
+        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.HAMMERS_40964).within(hammerPoint, 2).nearest();
     }
 
-    public TileObject getHarpoonCrate()
+    public Rs2TileObjectModel getHarpoonCrate()
     {
-        return Rs2GameObject.findObject(ObjectID.HARPOONS, harpoonPoint);
+        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.HARPOONS).within(harpoonPoint, 2).nearest();
     }
 
-    public TileObject getMast() {
-        //WorldPoint localInstance = WorldPoint.toLocalInstance(Microbot.getClient().getTopLevelWorldView(),mastPoint).stream().findFirst().orElse(null);
-    TileObject mast = Rs2GameObject.findGameObjectByLocation(mastPoint);
-    if (mast != null && (mast.getId() == NullObjectID.NULL_41352 || mast.getId() == NullObjectID.NULL_41353)) {
-        return mast;
-    }
-    return null;
+    public Rs2TileObjectModel getMast() {
+    Rs2TileObjectModel mast = Microbot.getRs2TileObjectCache().query().withIds(NullObjectID.NULL_41352, NullObjectID.NULL_41353).within(mastPoint, 2).nearest();
+    return mast;
 }
 
-    public TileObject getBrokenMast() {
-        //WorldPoint localInstance = WorldPoint.toLocalInstance(Microbot.getClient().getTopLevelWorldView(),mastPoint).stream().findFirst().orElse(null);
-    TileObject mast = Rs2GameObject.findGameObjectByLocation(mastPoint);
-    if (mast != null && (mast.getId() == ObjectID.DAMAGED_MAST_40996 || mast.getId() == ObjectID.DAMAGED_MAST_40997))
-        return mast;
-
-    return null;
+    public Rs2TileObjectModel getBrokenMast() {
+    return Microbot.getRs2TileObjectCache().query().withIds(ObjectID.DAMAGED_MAST_40996, ObjectID.DAMAGED_MAST_40997).within(mastPoint, 2).nearest();
     }
 
-    public TileObject getTotem() {
-        //WorldPoint localInstance = WorldPoint.toLocalInstance(Microbot.getClient().getTopLevelWorldView(),totemPoint).stream().findFirst().orElse(null);
-        TileObject totem = Rs2GameObject.findGameObjectByLocation(totemPoint);
-    if (totem != null && (totem.getId() == NullObjectID.NULL_41355 || totem.getId() == NullObjectID.NULL_41354)) {
-        return totem;
-    }
-    return null;
+    public Rs2TileObjectModel getTotem() {
+    return Microbot.getRs2TileObjectCache().query().withIds(NullObjectID.NULL_41355, NullObjectID.NULL_41354).within(totemPoint, 2).nearest();
 }
 
-    public TileObject getBrokenTotem() {
-        //WorldPoint localInstance = WorldPoint.toLocalInstance(Microbot.getClient().getTopLevelWorldView(),totemPoint).stream().findFirst().orElse(null);
-    TileObject totem = Rs2GameObject.findGameObjectByLocation(totemPoint);
-    if (totem != null && (totem.getId() == ObjectID.DAMAGED_TOTEM_POLE || totem.getId() == ObjectID.DAMAGED_TOTEM_POLE_41011))
-        return totem;
-
-    return null;
+    public Rs2TileObjectModel getBrokenTotem() {
+    return Microbot.getRs2TileObjectCache().query().withIds(ObjectID.DAMAGED_TOTEM_POLE, ObjectID.DAMAGED_TOTEM_POLE_41011).within(totemPoint, 2).nearest();
     }
 
-    public TileObject getRange()
+    public Rs2TileObjectModel getRange()
     {
-        //WorldPoint localInstance = WorldPoint.toLocalInstance(Microbot.getClient().getTopLevelWorldView(),rangePoint).stream().findFirst().orElse(null);
-        return Rs2GameObject.findObject(ObjectID.SHRINE_41236, rangePoint);
+        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.SHRINE_41236).within(rangePoint, 2).nearest();
     }
 
-    public TileObject getClosestTether() {
-    TileObject mast = getMast();
-    TileObject totem = getTotem();
+    public Rs2TileObjectModel getClosestTether() {
+    Rs2TileObjectModel mast = getMast();
+    Rs2TileObjectModel totem = getTotem();
 
     if (mast == null) {
         return totem;
