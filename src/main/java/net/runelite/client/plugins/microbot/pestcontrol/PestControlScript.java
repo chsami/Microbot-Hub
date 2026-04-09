@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.pestcontrol;
 
 import com.google.common.collect.ImmutableSet;
+import net.runelite.api.GameObject;
 import net.runelite.api.NPCComposition;
 import net.runelite.api.NpcID;
 import net.runelite.api.ObjectID;
@@ -76,6 +77,9 @@ public class PestControlScript extends Script {
 
     public boolean run(PestControlConfig config) {
         this.config = config;
+        if (mainScheduledFuture != null && !mainScheduledFuture.isDone()) {
+            mainScheduledFuture.cancel(true);
+        }
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -83,10 +87,6 @@ public class PestControlScript extends Script {
 
                 final boolean isInPestControl = isInPestControl();
                 final boolean isInBoat = isInBoat();
-                System.out.println("Initialise: " + initialise);
-                System.out.println("Is in Pest Control: " + isInPestControl);
-                System.out.println("Is in Boat: " + isInBoat);
-
 
                 if (initialise && !isInPestControl && !isInBoat) {
                     Microbot.log("Initialising");
@@ -116,6 +116,9 @@ public class PestControlScript extends Script {
                     }
                     if (!walkToCenter) {
                         WorldPoint worldPoint = WorldPoint.fromRegion(Rs2Player.getWorldLocation().getRegionID(), 32, 17, Microbot.getClient().getTopLevelWorldView().getPlane());
+                        if (tryOpenSouthGate(worldPoint)) {
+                            return;
+                        }
                         Rs2Walker.walkTo(worldPoint, 3);
                         if (worldPoint.distanceTo(Rs2Player.getWorldLocation()) > 4) {
                             return;
@@ -212,7 +215,7 @@ public class PestControlScript extends Script {
         var inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
 
         if (inventorySetup.doesInventoryMatch() && inventorySetup.doesEquipmentMatch()) {
-            return true;
+            return false;
         }
 
         if (!inventorySetup.loadEquipment() || !inventorySetup.loadInventory()) {
@@ -236,7 +239,19 @@ public class PestControlScript extends Script {
     }
 
     public boolean isInPestControl() {
-        return Microbot.getClient().getWidget(WidgetInfo.PEST_CONTROL_BLUE_SHIELD) != null;
+        if (Microbot.getClient().getWidget(WidgetInfo.PEST_CONTROL_BLUE_SHIELD) != null) {
+            return true;
+        }
+        if (Microbot.getClient().getWidget(WidgetInfo.PEST_CONTROL_PURPLE_SHIELD) != null) {
+            return true;
+        }
+        if (Microbot.getClient().getWidget(WidgetInfo.PEST_CONTROL_RED_SHIELD) != null) {
+            return true;
+        }
+        if (Microbot.getClient().getWidget(WidgetInfo.PEST_CONTROL_YELLOW_SHIELD) != null) {
+            return true;
+        }
+        return false;
     }
 
     public void exitBoat() {
@@ -273,7 +288,7 @@ public class PestControlScript extends Script {
                 }
             }
         } else {
-            if (config.Priority2() == npcType) {
+            if (config.Priority3() == npcType) {
                 if (npcType == PestControlNpc.BRAWLER) {
                     return attackBrawler();
                 } else if (npcType == PestControlNpc.PORTAL) {
@@ -353,6 +368,26 @@ public class PestControlScript extends Script {
                 sleepUntil(() -> !Microbot.getClient().getLocalPlayer().isInteracting());
                 return true;
             }
+        }
+        return false;
+    }
+
+    private boolean tryOpenSouthGate(WorldPoint centerPoint) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null || centerPoint == null) return false;
+
+        // Only attempt this while moving from south spawn area toward the center.
+        if (playerLocation.getY() >= centerPoint.getY()) return false;
+
+        GameObject gate = Rs2GameObject.getGameObject("Gate", false);
+        if (gate == null || gate.getWorldLocation() == null) return false;
+
+        int gateDistance = gate.getWorldLocation().distanceTo(playerLocation);
+        if (gateDistance > 4) return false;
+
+        if (Rs2GameObject.interact(gate, "Open")) {
+            sleep(350, 650);
+            return true;
         }
         return false;
     }
