@@ -6,8 +6,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.delveprayerhelper.enums.DelvePrayerHelperState;
 import net.runelite.client.plugins.microbot.delveprayerhelper.enums.DelvePrayerHelperProjectile;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
@@ -51,11 +50,11 @@ public class DelvePrayerHelperScript extends Script {
 
     void handleProjectiles() {
         int currentCycle = Microbot.getClient().getGameCycle();
-        Rs2NpcModel boss = Rs2Npc.getNpc("Doom of Mokhaiotl", false);
+        Rs2NpcModel boss = Microbot.getRs2NpcCache().query().where(n -> n.getName() != null && n.getName().contains("Doom of Mokhaiotl")).nearest();
 
         incomingProjectiles.entrySet().removeIf(e -> e.getKey() < currentCycle);
 
-        boolean bossAlive = boss != null && !boss.isDead();
+        boolean bossAlive = boss != null && !boss.getNpc().isDead();
 
         if (!bossAlive) {
             Rs2Prayer.disableAllPrayers();
@@ -124,8 +123,9 @@ public class DelvePrayerHelperScript extends Script {
 
     private void toggleOffensivePrayer() {
         if(config.offensivePrayer()) {
-            Rs2Prayer.toggle(Rs2Prayer.getBestRangePrayer(), !config.noOffensivePrayerInShieldPhase()
-                    || !Rs2Npc.getNpc("Doom of Mokhaiotl", false).getName().contains("(Shielded)"));
+            var doom = Microbot.getRs2NpcCache().query().where(n -> n.getName() != null && n.getName().contains("Doom of Mokhaiotl")).nearest();
+            boolean shielded = doom != null && doom.getName().contains("(Shielded)");
+            Rs2Prayer.toggle(Rs2Prayer.getBestRangePrayer(), !config.noOffensivePrayerInShieldPhase() || !shielded);
         }
     }
 

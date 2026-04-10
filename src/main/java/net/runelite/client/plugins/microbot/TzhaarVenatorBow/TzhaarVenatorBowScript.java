@@ -11,12 +11,11 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.grandexchange.Rs2GrandExchange;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -152,7 +151,7 @@ public class TzhaarVenatorBowScript extends Script {
         var invalidNpcs = getInvalidNpcs();
         if (!invalidNpcs.isEmpty()) {
             Microbot.log("Under attack from mager, focusing it");
-            Rs2Npc.attack(invalidNpcs.get(0));
+            invalidNpcs.get(0).click("Attack");
             return false;
         }
         return true;
@@ -169,27 +168,31 @@ public class TzhaarVenatorBowScript extends Script {
 
                 if (!hursList.isEmpty()) {
                     // Attack the first TzHaar-Hur
-                    Rs2Npc.attack(hursList.get(0));
+                    hursList.get(0).click("Attack");
                 } else {
                     // Attack the first valid NPC
-                    Rs2Npc.attack(npcs.get(0));
+                    npcs.get(0).click("Attack");
                 }
             }
         }
     }
 
     private List<Rs2NpcModel> getValidNpcs() {
-        return Rs2Npc.getAttackableNpcs(true)
-                .filter(npc -> npc.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= 6)
-                .filter(npc -> VALID_NPCS.contains(npc.getName()))
-                .filter(npc -> !INVALID_NPCS.contains(npc.getName())).collect(Collectors.toList());
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> !npc.isDead())
+                .where(npc -> npc.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= 6)
+                .where(npc -> VALID_NPCS.contains(npc.getName()))
+                .where(npc -> !INVALID_NPCS.contains(npc.getName()))
+                .toList();
     }
 
     private List<Rs2NpcModel> getInvalidNpcs() {
-        return Rs2Npc.getNpcsForPlayer("TzHaar-Mej").stream()
-                .filter(npc -> npc.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= 15)
-                .filter(npc -> !npc.isDead() && npc.isInteracting())
-                .filter(npc -> Rs2Npc.hasLineOfSight(npc)).collect(Collectors.toList());
+        return Microbot.getRs2NpcCache().query()
+                .withName("TzHaar-Mej")
+                .where(npc -> npc.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= 15)
+                .where(npc -> !npc.isDead() && npc.isInteracting())
+                .where(npc -> npc.hasLineOfSight())
+                .toList();
     }
 
     private void handleTravel(TzHaarVenatorBowConfig config) {

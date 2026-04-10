@@ -9,8 +9,6 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
-import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -151,16 +149,15 @@ public class SalamanderScript extends Script {
     }
 
     private boolean handleExistingTraps(SalamanderPlugin plugin, SalamanderConfig config) {
-        // Filter for FULL traps and sort by time (traps about to collapse first) and then pick the first one
         var trapToHandle = plugin.getTraps().entrySet().stream()
                 .filter(entry -> entry.getValue().getState() == HunterTrap.State.FULL)
                 .sorted((a, b) -> Double.compare(b.getValue().getTrapTimeRelative(), a.getValue().getTrapTimeRelative())).collect(Collectors.toList()).stream().findFirst().orElse(null);
         if (trapToHandle == null) return false;
         WorldPoint location = trapToHandle.getKey();
         if (!Rs2Player.isAnimating() && !Rs2Player.isMoving()) {
-            var gameObject = Rs2GameObject.getGameObject(location);
+            var gameObject = Microbot.getRs2TileObjectCache().query().within(location, 0).first();
             if (gameObject != null) {
-                Rs2GameObject.interact(gameObject, "Reset");
+                gameObject.click("Reset");
                 SalamandersCaught++;
                 sleep(config.minSleepAfterCatch(), config.maxSleepAfterCatch());
                 return true;
@@ -170,14 +167,15 @@ public class SalamanderScript extends Script {
     }
 
     private void setNewTrap(SalamanderHunting salamanderType, SalamanderConfig config) {
-        if (Rs2GameObject.exists(salamanderType.getTreeId())) {
-            Rs2GameObject.interact(salamanderType.getTreeId(), "Set-trap");
+        if (Microbot.getRs2TileObjectCache().query().withId(salamanderType.getTreeId()).count() > 0) {
+            Microbot.getRs2TileObjectCache().query().interact(salamanderType.getTreeId(), "Set-trap");
             sleep(config.minSleepAfterLay(), config.maxSleepAfterLay());
         }
     }
 
     public boolean IsRopeOnTheGround() {
-        return Rs2GroundItem.exists(ROPE, 7) || Rs2GroundItem.exists(303, 7);
+        return Microbot.getRs2TileItemCache().query().withId(ROPE).within(7).count() > 0 ||
+                Microbot.getRs2TileItemCache().query().withId(303).within(7).count() > 0;
     }
 
     @Override

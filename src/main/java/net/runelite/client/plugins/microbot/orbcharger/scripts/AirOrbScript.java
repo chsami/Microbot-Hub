@@ -14,6 +14,7 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -237,7 +238,7 @@ public class AirOrbScript extends Script {
                         }
 
                         Rs2Magic.cast(MagicAction.CHARGE_AIR_ORB);
-                        Rs2GameObject.interact(ObjectID.OBELISK_OF_AIR);
+                        Microbot.getRs2TileObjectCache().query().interact(ObjectID.OBELISK_OF_AIR);
                         Rs2Dialogue.sleepUntilHasCombinationDialogue();
                         Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
                         sleepUntil(() -> Rs2Player.isAnimating(1200), 5000);
@@ -246,7 +247,7 @@ public class AirOrbScript extends Script {
                         sleepUntil(() -> !Rs2Player.isAnimating(5000) || !Rs2Inventory.hasItem(ItemID.STAFFORB) || shouldFlee, () -> shouldFlee = !plugin.getDangerousPlayers().isEmpty(), 96000, 1000);
                         break;
                     case DRINKING:
-                        Rs2GameObject.interact(ObjectID.POOL_OF_REFRESHMENT);
+                        Microbot.getRs2TileObjectCache().query().interact(ObjectID.POOL_OF_REFRESHMENT);
                         sleepUntil(() -> Rs2Player.getRunEnergy() == 100 && !Rs2Player.isAnimating(2000));
                         break;
                     case WALKING:
@@ -410,9 +411,9 @@ public class AirOrbScript extends Script {
         if (!hasRequiredItems()) return false;
         if (!Rs2GameObject.exists(ObjectID.POOL_OF_REFRESHMENT)) return false;
         
-        TileObject refreshmentPool = Rs2GameObject.findObjectById(ObjectID.POOL_OF_REFRESHMENT);
+        Rs2TileObjectModel refreshmentPool = Microbot.getRs2TileObjectCache().query().withId(ObjectID.POOL_OF_REFRESHMENT).nearest();
         if (refreshmentPool == null) return false;
-        
+
         return Rs2Player.getWorldLocation().distanceTo(refreshmentPool.getWorldLocation()) < 8;
     }
 

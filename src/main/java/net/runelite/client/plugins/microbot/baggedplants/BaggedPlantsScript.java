@@ -1,16 +1,16 @@
 package net.runelite.client.plugins.microbot.baggedplants;
 
-import net.runelite.api.TileObject;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.baggedplants.enums.BaggedPlantsState;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -114,12 +114,12 @@ public class BaggedPlantsScript extends Script {
         
         if (inHouse && hasUnnotedPlants) {
             // Check if there's a built plant to remove first
-            TileObject builtPlant = Rs2GameObject.findObjectById(BUILT_PLANT);
+            var builtPlant = Microbot.getRs2TileObjectCache().query().withId(BUILT_PLANT).nearest();
             if (builtPlant != null) {
                 state = BaggedPlantsState.REMOVE_PLANT;
             } else {
                 // No built plant, check for empty plant space to build on
-                TileObject plantSpace = Rs2GameObject.findObjectById(PLANT_SPACE);
+                var plantSpace = Microbot.getRs2TileObjectCache().query().withId(PLANT_SPACE).nearest();
                 if (plantSpace != null) {
                     state = BaggedPlantsState.BUILD_PLANT;
                 }
@@ -168,7 +168,7 @@ public class BaggedPlantsScript extends Script {
 
     private boolean isInHouse() {
         // Similar to gilded altar script - check if Phials NPC is not present
-        return Rs2Npc.getNpc("Phials") == null;
+        return Microbot.getRs2NpcCache().query().withName("Phials").nearest() == null;
     }
 
     private void checkInventory() {
@@ -179,9 +179,9 @@ public class BaggedPlantsScript extends Script {
     }
 
     private void enterHouse(BaggedPlantsConfig config) {
-        TileObject housePortal = Rs2GameObject.findObjectById(HOUSE_PORTAL);
+        var housePortal = Microbot.getRs2TileObjectCache().query().withId(HOUSE_PORTAL).nearest();
         if (housePortal != null) {
-            if (Rs2GameObject.interact(housePortal, "Build mode")) {
+            if (housePortal.click("Build mode")) {
                 System.out.println("Entered house in build mode");
                 // Wait the configured time
                 int waitTime = Rs2Random.between(config.minWaitTime() * 1000, config.maxWaitTime() * 1000);
@@ -195,9 +195,9 @@ public class BaggedPlantsScript extends Script {
     }
 
     private void buildPlant() {
-        TileObject plantSpace = Rs2GameObject.findObjectById(PLANT_SPACE);
+        var plantSpace = Microbot.getRs2TileObjectCache().query().withId(PLANT_SPACE).nearest();
         if (plantSpace != null) {
-            if (Rs2GameObject.interact(plantSpace, "Build")) {
+            if (plantSpace.click("Build")) {
                 System.out.println("Interacted with plant space to build");
                 sleepUntilOnClientThread(this::hasBuildInterfaceOpen, 2500);
                 Rs2Keyboard.keyPress('1'); // Select first option
@@ -216,9 +216,9 @@ public class BaggedPlantsScript extends Script {
     }
 
     private void removePlant() {
-        TileObject builtPlant = Rs2GameObject.findObjectById(BUILT_PLANT);
+        var builtPlant = Microbot.getRs2TileObjectCache().query().withId(BUILT_PLANT).nearest();
         if (builtPlant != null) {
-            if (Rs2GameObject.interact(builtPlant, "Remove")) {
+            if (builtPlant.click("Remove")) {
                 System.out.println("Interacted with plant to remove");
                 sleepUntilOnClientThread(this::hasRemoveInterfaceOpen, 2500);
                 Rs2Keyboard.keyPress('1'); // Confirm removal
@@ -244,7 +244,7 @@ public class BaggedPlantsScript extends Script {
                 if (!Rs2Inventory.isItemSelected()) {
                     Rs2Inventory.use(NOTED_BAGGED_PLANT);
                 } else {
-                    Rs2Npc.interact("Phials", "Use");
+                    Microbot.getRs2NpcCache().query().withName("Phials").interact("Use");
                     Rs2Player.waitForWalking();
                 }
                 return; // Wait for dialogue to open
@@ -285,7 +285,7 @@ public class BaggedPlantsScript extends Script {
             }
             
             if (wateringCanToRefill != -1) {
-                TileObject well = Rs2GameObject.findObjectById(SINK);
+                var well = Microbot.getRs2TileObjectCache().query().withId(SINK).nearest();
                 if (well != null) {
                     System.out.println("Refilling watering can ID: " + wateringCanToRefill + " (Full cans: " + fullWateringCans + "/3)");
                     final int canToRefill = wateringCanToRefill;

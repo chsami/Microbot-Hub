@@ -8,8 +8,7 @@ import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.shop.Rs2Shop;
@@ -164,7 +163,7 @@ public class CharterCrafterScript extends Script {
             Rs2Inventory.dropAll("Empty light orb", "Light orb");
         }
 
-        Rs2NpcModel trader = Rs2Npc.getNpc(TRADER_NAME, false);
+        Rs2NpcModel trader = Microbot.getRs2NpcCache().query().withName(TRADER_NAME).nearest();
         if (trader == null) {
             update("Bootstrap", "Trader not nearby", false, true);
             state = State.STOP;

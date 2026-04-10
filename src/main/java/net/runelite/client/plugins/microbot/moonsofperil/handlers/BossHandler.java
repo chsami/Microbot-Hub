@@ -12,11 +12,9 @@ import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
@@ -72,7 +70,7 @@ public final class BossHandler {
             }
             sleepUntil(() -> Rs2Player.getWorldLocation().equals(bossWorldPoint));
         }
-        if (Rs2GameObject.interact(bossStatueID, "Use")) {
+        if (Microbot.getRs2TileObjectCache().query().interact(bossStatueID, "Use")) {
             if (debugLogging) {Microbot.log("Entering " + bossName + " arena");}
             sleepUntil(() -> !Rs2Player.getWorldLocation().equals(bossWorldPoint),5_000);
         }
@@ -133,7 +131,7 @@ public final class BossHandler {
      * Returns true if the sigil NPC (the highlighted attack tile) is present
      */
     public static boolean isNormalAttackSequence(int sigilNpcID) {
-        return Rs2Npc.getNpc(sigilNpcID) != null;
+        return Microbot.getRs2NpcCache().query().withId(sigilNpcID).nearest() != null;
     }
 
     /**
@@ -161,7 +159,7 @@ public final class BossHandler {
         while (sigilMoves <= 3 && isNormalAttackSequence(sigilNpcID))
         {
             /* 1 ─ detect a new sigil square */
-            Rs2NpcModel sigil = Rs2Npc.getNpc(sigilNpcID);
+            Rs2NpcModel sigil = Microbot.getRs2NpcCache().query().withId(sigilNpcID).nearest();
             if (sigil == null) {
                 sleep(300);
                 if (debugLogging) {Microbot.log("Sigil not found. Breaking out of sequence");}
@@ -193,10 +191,10 @@ public final class BossHandler {
             }
 
             /* 4 ─ attack the boss whenever not in combat */
-            Rs2NpcModel boss = Rs2Npc.getNpc(bossNpcID);
+            Rs2NpcModel boss = Microbot.getRs2NpcCache().query().withId(bossNpcID).nearest();
             if (boss != null && !Rs2Combat.inCombat()) {
                 if (debugLogging) {Microbot.log("Attacking the boss");}
-                Rs2Npc.attack(bossNpcID);
+                Microbot.getRs2NpcCache().query().withId(bossNpcID).interact("Attack");
             }
 
             sleep(300);
@@ -215,7 +213,7 @@ public final class BossHandler {
         long endTime = System.currentTimeMillis() + 10_000;
 
         while (System.currentTimeMillis() < endTime) {
-            if (Rs2GameObject.interact(exitStairsGroundObjectID)) {
+            if (Microbot.getRs2TileObjectCache().query().interact(exitStairsGroundObjectID)) {
                 sleepUntil(() -> Rs2Widget.isWidgetVisible(Widgets.BOSS_HEALTH_BAR.getID()),5_000);
                 if (debugLogging) {Microbot.log("Successfully bailed out of the boss arena");}
                 return;
@@ -230,8 +228,8 @@ public final class BossHandler {
 
     /** If current run energy is less than 80%, recharges run energy at a campfire located on the world canvas */
     public static void rechargeRunEnergy() {
-        if (Rs2GameObject.getGameObject(ObjectID.PMOON_RANGE) != null && Rs2Player.getRunEnergy() <=80) {
-            Rs2GameObject.interact(ObjectID.PMOON_RANGE, "Make-cuppa");
+        if (Microbot.getRs2TileObjectCache().query().withId(ObjectID.PMOON_RANGE).nearest() != null && Rs2Player.getRunEnergy() <=80) {
+            Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_RANGE, "Make-cuppa");
             sleep(600);
         }
     }

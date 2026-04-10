@@ -5,7 +5,6 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -18,7 +17,7 @@ public class StoneChestThieverScript extends Script {
     private static void handleThieving() {
         if (Rs2Player.isAnimating()) return;
         // Chest ID
-        Rs2GameObject.interact(34429, "Picklock");
+        Microbot.getRs2TileObjectCache().query().interact(34429, "Picklock");
         Rs2Player.waitForAnimation(600);
         Rs2Player.waitForXpDrop(Skill.THIEVING);
     }

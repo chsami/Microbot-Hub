@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.driftnet;
 
 import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.WallObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.NpcID;
@@ -17,7 +16,7 @@ import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -26,8 +25,8 @@ import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.util.List;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
 
 import static net.runelite.client.plugins.microbot.Microbot.log;
 
@@ -134,8 +133,7 @@ public class DriftNetScript extends Script {
 
         if(driftnetPastFirstTunnelWP.equals(Rs2Player.getWorldLocation())){
             Microbot.log("Navigating the Plant door");
-            WallObject plantDoor = Rs2GameObject.getWallObject(30961);
-            Rs2GameObject.interact(plantDoor, "Navigate");
+            Microbot.getRs2TileObjectCache().query().withId(30961).interact("Navigate");
             sleepUntil(()-> Rs2Player.isAnimating(), Rs2Random.between(2000,5000));
             sleepUntil(()-> !Rs2Player.isAnimating(), Rs2Random.between(2000,5000));
         }
@@ -164,7 +162,7 @@ public class DriftNetScript extends Script {
     private void fetchNetsFromAnnette() {
         final int maxWeight = 25; // https://oldschool.runescape.wiki/w/Drift_net_fishing
         var maxDriftnets = maxWeight - Microbot.getClient().getWeight() - 1; // Driftnets are 1kg each; doing - 1 to be safe
-        Rs2GameObject.interact(ObjectID.FOSSIL_MERMAID_DRIFTNETS, "Nets");
+        Microbot.getRs2TileObjectCache().query().withId(ObjectID.FOSSIL_MERMAID_DRIFTNETS).interact("Nets");
         sleepUntil(() -> Rs2Widget.getWidget(20250629) != null);
         var annetteWidget = Rs2Widget.getWidget(20250629);
         var annetteWithdrawXMenuEntry = new NewMenuEntry(0, 20250629, 57, 3, 21652, "<col=ff9040>Drift net</col>");
@@ -245,7 +243,7 @@ public class DriftNetScript extends Script {
      */
     private void chaseNearbyFish(Set<Integer> fishSet) {
         // Sort the NPC indexes by distance to the player
-        var fishNpcs = Rs2Npc.getNpcs(NpcID.FOSSIL_FISH_SHOAL).collect(Collectors.toList());
+        var fishNpcs = Microbot.getRs2NpcCache().query().withId(NpcID.FOSSIL_FISH_SHOAL).toList();
         var fishIndexNpcMap = new HashMap<Integer, Rs2NpcModel>();
         fishSet.forEach(index -> {
             var fishNpc = fishNpcs.stream().filter(npc -> npc.getIndex() == index).findFirst().orElse(null);
@@ -270,7 +268,7 @@ public class DriftNetScript extends Script {
             if (npc == null) continue;
 
             // Interact with the fish to "Chase" it
-            Rs2Npc.interact(npc, "Chase");
+            npc.click("Chase");
             sleepGaussian(1500, 300);
             break;
         }

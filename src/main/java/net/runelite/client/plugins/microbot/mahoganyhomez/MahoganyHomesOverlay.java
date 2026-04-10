@@ -3,7 +3,7 @@ package net.runelite.client.plugins.microbot.mahoganyhomez;
 import lombok.Setter;
 import net.runelite.api.GameObject;
 import net.runelite.api.Player;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.ui.overlay.*;
 import net.runelite.client.ui.overlay.components.LineComponent;
 
@@ -144,6 +144,8 @@ class MahoganyHomesOverlay extends OverlayPanel
 
     private void addObjectLine(final GameObject left)
     {
-        panelComponent.getChildren().add(LineComponent.builder().left(Rs2GameObject.convertGameObjectToObjectComposition(left).getName()).right(": "+Objects.requireNonNull(Hotspot.getByObjectId(left.getId())).getRequiredAction()).build());
+        var obj = Microbot.getRs2TileObjectCache().query().withId(left.getId()).nearest();
+        if (obj == null) return;
+        panelComponent.getChildren().add(LineComponent.builder().left(obj.getObjectComposition().getName()).right(": "+Objects.requireNonNull(Hotspot.getByObjectId(left.getId())).getRequiredAction()).build());
     }
 }

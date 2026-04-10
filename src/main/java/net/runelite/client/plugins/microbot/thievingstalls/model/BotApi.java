@@ -1,11 +1,11 @@
 package net.runelite.client.plugins.microbot.thievingstalls.model;
 
-import net.runelite.api.GameObject;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 public class BotApi {
@@ -16,14 +16,14 @@ public class BotApi {
         return Rs2Walker.walkTo(worldPoint, 0);
     }
 
-    public GameObject getGameObject(final int id, final WorldPoint worldPoint)
+    public Rs2TileObjectModel getGameObject(final int id, final WorldPoint worldPoint)
     {
-        return Rs2GameObject.findObject(id, worldPoint);
+        return Microbot.getRs2TileObjectCache().query().withId(id).nearest(worldPoint, 5);
     }
 
-    public void steal(final GameObject gameObject)
+    public void steal(final Rs2TileObjectModel gameObject)
     {
-        Rs2GameObject.interact(gameObject, STEAL_ACTION);
+        gameObject.click(STEAL_ACTION);
     }
 
     public void dropAll(int... ids)

@@ -11,12 +11,10 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.scurrius.enums.State;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.coords.Rs2LocalPoint;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -26,7 +24,6 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -70,13 +67,13 @@ public class ScurriusScript extends Script {
                     previousState = state;
                 }
 
-                scurrius = Rs2Npc.getNpc("Scurrius", true);
+                scurrius = Microbot.getRs2NpcCache().query().withName("Scurrius").nearest();
 
                 boolean hasFood = !Rs2Inventory.getInventoryFood().isEmpty();
                 boolean hasPrayerPotions = Rs2Inventory.hasItem("prayer potion") || Rs2Inventory.hasItem("super restore");
                 boolean isScurriusPresent = scurrius != null;
                 boolean isInFightRoom = isInFightRoom();
-                boolean hasLineOfSightWithScurrius = Rs2Npc.hasLineOfSight(scurrius);
+                boolean hasLineOfSightWithScurrius = scurrius != null && scurrius.hasLineOfSight();
 
                 if (previousInFightRoom == null || isInFightRoom != previousInFightRoom) {
                     Microbot.log(isInFightRoom ? "Player has entered the boss room." : "Player has exited the boss room.");
@@ -195,15 +192,17 @@ public class ScurriusScript extends Script {
                             }
                         }
 
-                        Optional<Rs2NpcModel> giantRat = Rs2Npc.getNpcs("giant rat").filter(npc -> !npc.isDead()).findFirst();
-                        if (giantRat.isPresent()) {
-                            Rs2NpcModel giantRatModel = giantRat.get();
-                            boolean didWeAttackAGiantRat = scurrius != null && config.prioritizeRats() && Rs2Npc.attack(giantRatModel);
+                        Rs2NpcModel giantRatModel = Microbot.getRs2NpcCache().query()
+                                .where(n -> n.getName() != null && n.getName().toLowerCase().contains("giant rat")
+                                        && !n.getNpc().isDead())
+                                .nearest();
+                        if (giantRatModel != null) {
+                            boolean didWeAttackAGiantRat = scurrius != null && config.prioritizeRats() && giantRatModel.click("Attack");
                             if (didWeAttackAGiantRat) return;
                         }
 
                         if (!Microbot.getClient().getLocalPlayer().isInteracting()) {
-                            Rs2Npc.attack(scurrius);
+                            scurrius.click("Attack");
                         }
                         break;
 
@@ -225,7 +224,7 @@ public class ScurriusScript extends Script {
 
                         Rs2Walker.walkTo(bossLocation);
                         String interactionType = config.bossRoomEntryType().getInteractionText();
-                        Rs2GameObject.interact(ObjectID.RAT_BOSS_ENTRANCE, interactionType);
+                        Microbot.getRs2TileObjectCache().query().withId(ObjectID.RAT_BOSS_ENTRANCE).interact(interactionType);
                         sleepUntil(this::isInFightRoom);
                         break;
 
@@ -329,7 +328,7 @@ public class ScurriusScript extends Script {
     private void handlePrayerLogic() {
         if (scurrius == null) return;
 
-        int npcAnimation = scurrius.getAnimation();
+        int npcAnimation = scurrius.getNpc().getAnimation();
         Rs2PrayerEnum newDefensivePrayer = null;
 
         switch (npcAnimation) {

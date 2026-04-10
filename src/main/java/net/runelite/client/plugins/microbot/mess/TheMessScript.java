@@ -19,6 +19,7 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -142,7 +143,7 @@ public class TheMessScript extends Script {
                     return;
                 }
                 if (Rs2GameObject.canReach(BUFFET_TABLE_LOC)) {
-                    Rs2GameObject.interact("Buffet table", "Serve");
+                    Microbot.getRs2TileObjectCache().query().withName("Buffet table").interact("Serve");
                     sleepUntil(() -> Rs2Player.waitForXpDrop(Skill.COOKING), 10000);
                 } else {
                     debug("Cannot reach the buffet table, waiting...");
@@ -167,7 +168,8 @@ public class TheMessScript extends Script {
     private BooleanSupplier returnEmptyBowls() {
         return () -> {
             if (Rs2Inventory.hasItem(ItemID.BOWL_EMPTY)) {
-                Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, Rs2GameObject.getGameObject(UTENSIL_CUPBOARD_LOC).getId());
+                Rs2TileObjectModel cupboard = Microbot.getRs2TileObjectCache().query().within(UTENSIL_CUPBOARD_LOC, 1).nearest();
+                if (cupboard != null) Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, cupboard.getId());
                 sleepUntil(() -> Rs2Inventory.count(ItemID.BOWL_EMPTY) == 0, 10000);
                 Rs2Antiban.actionCooldown();
                 return !Rs2Inventory.hasItem(ItemID.BOWL_EMPTY);
@@ -389,7 +391,8 @@ public class TheMessScript extends Script {
     private BooleanSupplier fillBowl() {
         return () -> {
             if (Rs2Inventory.hasItem(ItemID.BOWL_EMPTY)) {
-                Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, Rs2GameObject.getGameObject(SINK_LOC).getId());
+                Rs2TileObjectModel sink = Microbot.getRs2TileObjectCache().query().within(SINK_LOC, 1).nearest();
+                if (sink != null) Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, sink.getId());
                 sleepUntil(() -> !Rs2Inventory.hasItem(ItemID.BOWL_EMPTY),
                         10000);
                 Rs2Antiban.actionCooldown();
@@ -441,7 +444,8 @@ public class TheMessScript extends Script {
         }
         return () -> {
             if (Rs2GameObject.canReach(CLAY_OVEN_LOC)) {
-                Rs2Inventory.useItemOnObject(itemId, Rs2GameObject.getGameObject(CLAY_OVEN_LOC).getId());
+                Rs2TileObjectModel oven = Microbot.getRs2TileObjectCache().query().within(CLAY_OVEN_LOC, 1).nearest();
+                if (oven != null) Rs2Inventory.useItemOnObject(itemId, oven.getId());
                 sleepUntil(() -> Rs2Widget.hasWidget("How many would you like to cook?"));
                 if (Rs2Widget.hasWidget("How many would you like to cook?")) {
                     Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);

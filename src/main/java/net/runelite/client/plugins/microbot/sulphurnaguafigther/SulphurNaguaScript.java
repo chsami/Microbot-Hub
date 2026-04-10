@@ -16,11 +16,9 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -361,14 +359,14 @@ public class SulphurNaguaScript extends Script {
                     Rs2Dialogue.clickOption("Take herblore supplies.");
                 } else if (!Rs2Player.isAnimating()) {
                     int SUPPLY_CRATE_ID = 51371;
-                    Rs2GameObject.interact(SUPPLY_CRATE_ID, "Take herblore supplies");
+                    Microbot.getRs2TileObjectCache().query().interact(SUPPLY_CRATE_ID, "Take herblore supplies");
                 }
                 sleep(300, 500);
             }
         } else {
             if (Rs2Player.isAnimating()) return;
             int GRUB_SAPLING_ID = 51365;
-            if (Rs2GameObject.interact(GRUB_SAPLING_ID, "Collect-from")) {
+            if (Microbot.getRs2TileObjectCache().query().interact(GRUB_SAPLING_ID, "Collect-from")) {
                 sleepUntil(() -> Rs2Inventory.count(itemID) >= requiredAmount || Rs2Inventory.isFull(), 15000);
                 if (Rs2Player.isAnimating() && Rs2Inventory.count(itemID) >= requiredAmount) {
                     Rs2Walker.walkTo(Rs2Player.getWorldLocation());
@@ -481,7 +479,7 @@ public class SulphurNaguaScript extends Script {
             return;
         }
 
-        var eytallali = Rs2Npc.getNpc(EYTALLALI_ID);
+        var eytallali = Microbot.getRs2NpcCache().query().withId(EYTALLALI_ID).nearest();
         if (eytallali == null) {
             Microbot.log("Waiting for Eytallali to appear...");
             sleep(600, 1000);
@@ -493,7 +491,7 @@ public class SulphurNaguaScript extends Script {
             return;
         }
 
-        if (Rs2Inventory.useItemOnNpc(SULPHUROUS_ESSENCE_ID, eytallali)) {
+        if (Rs2Inventory.useItemOnNpc(SULPHUROUS_ESSENCE_ID, EYTALLALI_ID)) {
             Microbot.log("Exchanging essence...");
             sleepUntil(Rs2Dialogue::isInDialogue, 5000);
         }
@@ -523,13 +521,13 @@ public class SulphurNaguaScript extends Script {
 
         if (needsNewTarget) {
             if (getNaguaCombatArea() != null && getNaguaCombatArea().contains(Rs2Player.getWorldLocation())) {
-                var nagua = Rs2Npc.getNpcs("Sulphur Nagua")
-                        .filter(n -> !n.isDead())
-                        .findFirst()
-                        .orElse(null);
+                var nagua = Microbot.getRs2NpcCache().query()
+                        .withName("Sulphur Nagua")
+                        .where(n -> !n.isDead())
+                        .first();
 
                 if (nagua != null) {
-                    if (Rs2Npc.attack(nagua)) {
+                    if (nagua.click("Attack")) {
                         sleepUntil(Rs2Player::isInCombat, 3000);
                         totalNaguaKills++;
                     }

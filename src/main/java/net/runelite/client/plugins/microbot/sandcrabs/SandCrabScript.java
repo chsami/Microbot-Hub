@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.sandcrabs;
 
 import net.runelite.api.GameState;
-import net.runelite.api.NPC;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -13,8 +12,7 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.util.security.Login;
@@ -207,18 +205,17 @@ public class SandCrabScript extends Script {
      * @return true if npc is aggressive
      */
     private boolean isNpcAggressive() {
-        List<Rs2NpcModel> npcs = Rs2Npc.getNpcs("Sandy rocks", true).collect(Collectors.toList());
+        List<Rs2NpcModel> npcs = Microbot.getRs2NpcCache().query().withName("Sandy rocks").toList();
         if (npcs.isEmpty()) {
             return false;
         }
-        for (NPC sandyRock : npcs) {
-            //ignore sandcrabs far away from the player
-            if (!sandyRock.getWorldArea().isInMeleeDistance(Rs2Player.getWorldLocation()))
+        for (Rs2NpcModel sandyRock : npcs) {
+            if (!sandyRock.getNpc().getWorldArea().isInMeleeDistance(Rs2Player.getWorldLocation()))
                 continue;
 
-            return false; //found a sandy rock crab near the player
+            return false;
         }
-        return true; //did not find any sandy rocks near the player
+        return true;
     }
 
     /**

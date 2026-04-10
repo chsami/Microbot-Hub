@@ -17,18 +17,21 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.PluginConstants;
 
 @Slf4j
 @PluginDescriptor(
-        name = "Huey Prayer",
+        name = PluginConstants.DEFAULT_PREFIX + "Huey Prayer",
         description = "Auto prayer vs Hueycoatl (3-style projectile)",
         tags = {"microbot", "huey", "prayer"},
         version = HueyPrayerPlugin.VERSION,
-        minClientVersion = "2.1.34"
+        minClientVersion = "2.1.34",
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL
 )
 public class HueyPrayerPlugin extends Plugin
 {
-    static final String VERSION = "1.0.0";
+    static final String VERSION = "1.0.1";
     @Inject
     private Client client;
 

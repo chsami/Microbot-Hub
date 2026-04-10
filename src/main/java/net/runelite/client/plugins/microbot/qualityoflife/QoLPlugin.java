@@ -35,7 +35,6 @@ import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.antiban.FieldUtil;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -85,7 +84,7 @@ import static net.runelite.client.plugins.microbot.util.Global.awaitExecutionUnt
 )
 @Slf4j
 public class QoLPlugin extends Plugin implements KeyListener {
-    public static final String version = "1.8.8";
+    public static final String version = "1.8.10";
     public static final List<NewMenuEntry> bankMenuEntries = new LinkedList<>();
     public static final List<NewMenuEntry> furnaceMenuEntries = new LinkedList<>();
     public static final List<NewMenuEntry> anvilMenuEntries = new LinkedList<>();
@@ -362,7 +361,7 @@ public class QoLPlugin extends Plugin implements KeyListener {
                 event.consume();
                 Microbot.getClientThread().runOnSeperateThread(() -> {
                     Rs2Inventory.fillPouches();
-                    Rs2GameObject.interact(ObjectID.WORKBENCH_43754);
+                    Microbot.getRs2TileObjectCache().query().interact(ObjectID.WORKBENCH_43754);
                     return null;
                 });
 
@@ -373,7 +372,7 @@ public class QoLPlugin extends Plugin implements KeyListener {
                 event.consume();
                 Microbot.getClientThread().runOnSeperateThread(() -> {
                     Rs2Inventory.fillPouches();
-                    Rs2GameObject.interact(ObjectID.HUGE_GUARDIAN_REMAINS);
+                    Microbot.getRs2TileObjectCache().query().interact(ObjectID.HUGE_GUARDIAN_REMAINS);
                     return null;
                 });
 
@@ -386,7 +385,7 @@ public class QoLPlugin extends Plugin implements KeyListener {
                     Global.sleepUntil(() -> !Rs2Inventory.anyPouchFull(), () -> {
                                 Rs2Inventory.emptyPouches();
                                 Rs2Inventory.waitForInventoryChanges(3000);
-                                Rs2GameObject.interact("Altar");
+                                Microbot.getRs2TileObjectCache().query().withName("Altar").interact();
                                 Rs2Inventory.waitForInventoryChanges(3000);
                             }
                             , 10000, 200);

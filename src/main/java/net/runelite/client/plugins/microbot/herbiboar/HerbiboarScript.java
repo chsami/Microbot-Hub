@@ -18,8 +18,7 @@ import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -584,7 +583,7 @@ public class HerbiboarScript extends Script {
                     case TUNNEL:
                         Microbot.status = "Attacking tunnel";
                         Microbot.log(Level.INFO,"Attacking tunnel");
-                        if (!attackedTunnel || (Rs2Npc.getNpc("Herbiboar") == null && attackedTunnel)) {
+                        if (!attackedTunnel || (Microbot.getRs2NpcCache().query().withName("Herbiboar").nearest() == null && attackedTunnel)) {
                             int finishId = herbiboarPlugin.getFinishId();
                             if (finishId > 0) {
                                 WorldPoint finishLoc = herbiboarPlugin.getEndLocations().get(finishId - 1);
@@ -602,18 +601,18 @@ public class HerbiboarScript extends Script {
                                 }
                             }
                         } else {
-                            Rs2NpcModel herb = Rs2Npc.getNpc("Herbiboar");
-                            if (herb != null) setState(HerbiboarState.HARVEST);
+                            Rs2NpcModel herbCheck = Microbot.getRs2NpcCache().query().withName("Herbiboar").nearest();
+                            if (herbCheck != null) setState(HerbiboarState.HARVEST);
                         }
                         break;
                     case HARVEST:
                         Microbot.status = "Harvesting herbiboar";
                         Microbot.log(Level.INFO,"Harvesting herbiboar");
-                        Rs2NpcModel herb = Rs2Npc.getNpc("Herbiboar");
+                        Rs2NpcModel herb = Microbot.getRs2NpcCache().query().withName("Herbiboar").nearest();
                         if (herb != null) {
                             WorldPoint loc = herb.getWorldLocation();
                             if (Rs2Player.getWorldLocation().distanceTo(loc) <= 8) {
-                                Rs2Npc.interact(herb, "Harvest");
+                                herb.click("Harvest");
                                 Rs2Player.waitForAnimation();
                                 sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting() && !Rs2Player.isMoving(), 5000);
                                 incrementHerbisCaught();

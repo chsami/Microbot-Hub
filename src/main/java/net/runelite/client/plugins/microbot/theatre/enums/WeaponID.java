@@ -145,7 +145,7 @@ public enum WeaponID {
     DORGESHUUN_CROSSBOW("Dorgeshuun crossbow", "Ranged", new int[]{}),
     DRAGON_CROSSBOW("Dragon crossbow", "Ranged", new int[]{ItemID.XBOWS_CROSSBOW_DRAGON}),
     DRAGON_DART("Dragon dart", "Ranged", new int[]{ItemID.DRAGON_DART}),
-    DRAGON_DAGGER_BR("Dragon dagger BR", "Ranged", new int[]{ItemID.BR_DRAGON_DAGGER}),
+    DRAGON_DAGGER_BR("Dragon dagger BR", "Melee", new int[]{ItemID.BR_DRAGON_DAGGER}),
     DRAGON_HUNTER_CROSSBOW("Dragon hunter crossbow", "Ranged", new int[]{ItemID.DRAGONHUNTER_XBOW}),
     DRAGON_HUNTER_CROSSBOW_B("Dragon hunter crossbow (b)", "Ranged", new int[]{}),
     DRAGON_HUNTER_CROSSBOW_T("Dragon hunter crossbow (t)", "Ranged", new int[]{}),

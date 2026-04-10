@@ -12,7 +12,6 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -145,7 +144,7 @@ public class AutoRunecraftScript extends Script
                         }
                         else
                         {
-                            Rs2GameObject.interact(altar.getAltarRuinsID(), "Enter");
+                            Microbot.getRs2TileObjectCache().query().withId(altar.getAltarRuinsID()).interact("Enter");
                         }
                         Rs2Random.wait(800, 1600);
                         sleepUntil(() -> !Rs2Player.isMoving());
@@ -167,7 +166,7 @@ public class AutoRunecraftScript extends Script
 
                     case EXITING_ALTAR:
                         Microbot.status = "Exiting altar";
-                        Rs2GameObject.interact(altar.getPortalID(), "Use");
+                        Microbot.getRs2TileObjectCache().query().withId(altar.getPortalID()).interact("Use");
                         sleepUntil(() -> !Rs2Player.isMoving());
                         Rs2Random.wait(800, 1600);
                         state = States.BANKING;

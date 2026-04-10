@@ -2,9 +2,7 @@ package net.runelite.client.plugins.microbot.slayer;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
-import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
-import net.runelite.api.TileObject;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
@@ -16,8 +14,9 @@ import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2Cannon;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2LootEngine;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
@@ -29,9 +28,7 @@ import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.npc.MonsterLocation;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcManager;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -347,9 +344,9 @@ public class SlayerScript extends Script {
 
         if (distance <= 5) {
             // We're at the master, interact to get task
-            Rs2NpcModel masterNpc = Rs2Npc.getNpc(master.getName());
+            var masterNpc = Microbot.getRs2NpcCache().query().withName(master.getName()).nearest();
             if (masterNpc != null) {
-                if (Rs2Npc.interact(masterNpc, "Assignment")) {
+                if (masterNpc.click("Assignment")) {
                     log.info("Requesting task from {}", master.getName());
                     sleepUntil(Rs2Dialogue::isInDialogue, 3000);
                 }
@@ -539,9 +536,9 @@ public class SlayerScript extends Script {
 
         if (distance <= 5) {
             // We're at the master, interact to open rewards
-            Rs2NpcModel masterNpc = Rs2Npc.getNpc(master.getName());
+            var masterNpc = Microbot.getRs2NpcCache().query().withName(master.getName()).nearest();
             if (masterNpc != null) {
-                if (Rs2Npc.interact(masterNpc, "Rewards")) {
+                if (masterNpc.click("Rewards")) {
                     log.info("Opening rewards menu to skip task (attempt {})", skipAttemptCounter + 1);
                     sleepUntil(() -> Rs2Dialogue.isInDialogue() || Rs2Widget.isWidgetVisible(SLAYER_REWARDS_GROUP_ID, 0), 3000);
                 }
@@ -618,7 +615,7 @@ public class SlayerScript extends Script {
     }
 
     private boolean isInPoh() {
-        return Rs2GameObject.findObjectById(HOUSE_PORTAL_ID) != null;
+        return Microbot.getRs2TileObjectCache().query().withId(HOUSE_PORTAL_ID).nearest() != null;
     }
 
     private boolean isFullPrayer() {
@@ -680,8 +677,8 @@ public class SlayerScript extends Script {
 
     private boolean useRejuvenationPool() {
         for (int poolId : REJUVENATION_POOL_IDS) {
-            if (Rs2GameObject.exists(poolId)) {
-                return Rs2GameObject.interact(poolId, "Drink");
+            if (Microbot.getRs2TileObjectCache().query().withId(poolId).nearest() != null) {
+                return Microbot.getRs2TileObjectCache().query().interact(poolId, "Drink");
             }
         }
         return false;
@@ -707,7 +704,7 @@ public class SlayerScript extends Script {
         }
 
         // Fallback to house portal exit
-        if (Rs2GameObject.interact(HOUSE_PORTAL_ID, "Enter")) {
+        if (Microbot.getRs2TileObjectCache().query().interact(HOUSE_PORTAL_ID, "Enter")) {
             log.info("Leaving house via portal (no teleport options found)");
         }
     }
@@ -719,13 +716,11 @@ public class SlayerScript extends Script {
     private boolean teleportViaPortalNexus() {
         // Try to find any tier of portal nexus
         for (int nexusId : PORTAL_NEXUS_IDS) {
-            if (Rs2GameObject.exists(nexusId)) {
-                // Try direct Grand Exchange teleport option first
-                if (Rs2GameObject.interact(nexusId, "Grand Exchange")) {
+            if (Microbot.getRs2TileObjectCache().query().withId(nexusId).nearest() != null) {
+                if (Microbot.getRs2TileObjectCache().query().interact(nexusId, "Grand Exchange")) {
                     return true;
                 }
-                // Some nexus configurations might use different option names
-                if (Rs2GameObject.interact(nexusId, "Varrock Grand Exchange")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(nexusId, "Varrock Grand Exchange")) {
                     return true;
                 }
             }
@@ -739,8 +734,8 @@ public class SlayerScript extends Script {
      */
     private boolean teleportViaMountedGlory() {
         for (int gloryId : MOUNTED_GLORY_IDS) {
-            if (Rs2GameObject.exists(gloryId)) {
-                if (Rs2GameObject.interact(gloryId, "Edgeville")) {
+            if (Microbot.getRs2TileObjectCache().query().withId(gloryId).nearest() != null) {
+                if (Microbot.getRs2TileObjectCache().query().interact(gloryId, "Edgeville")) {
                     return true;
                 }
             }
@@ -753,8 +748,8 @@ public class SlayerScript extends Script {
      * @return true if interaction was successful, false if mounted wealth not found
      */
     private boolean teleportViaMountedWealth() {
-        if (Rs2GameObject.exists(MOUNTED_WEALTH_ID)) {
-            if (Rs2GameObject.interact(MOUNTED_WEALTH_ID, "Grand Exchange")) {
+        if (Microbot.getRs2TileObjectCache().query().withId(MOUNTED_WEALTH_ID).nearest() != null) {
+            if (Microbot.getRs2TileObjectCache().query().interact(MOUNTED_WEALTH_ID, "Grand Exchange")) {
                 return true;
             }
         }
@@ -1049,9 +1044,9 @@ public class SlayerScript extends Script {
 
         if (distance <= 5) {
             // We're at the master, interact to open rewards
-            Rs2NpcModel masterNpc = Rs2Npc.getNpc(master.getName());
+            var masterNpc = Microbot.getRs2NpcCache().query().withName(master.getName()).nearest();
             if (masterNpc != null) {
-                if (Rs2Npc.interact(masterNpc, "Rewards")) {
+                if (masterNpc.click("Rewards")) {
                     log.info("Opening rewards menu to block task (attempt {})", blockAttemptCounter + 1);
                     sleepUntil(() -> Rs2Dialogue.isInDialogue() || Rs2Widget.isWidgetVisible(SLAYER_REWARDS_GROUP_ID, 0), 3000);
                 }
@@ -1603,39 +1598,33 @@ public class SlayerScript extends Script {
         }
 
         // Find and interact with the occult altar
-        TileObject occultAltar = findOccultAltar();
+        Rs2TileObjectModel occultAltar = findOccultAltar();
         if (occultAltar != null) {
-            // Try right-click option first (e.g., "Ancient Magicks", "Lunar", "Standard")
             String altarOption = getAltarOptionForSpellbook(requiredSpellbook);
             log.info("Attempting occult altar right-click option: '{}'", altarOption);
 
-            if (Rs2GameObject.interact(occultAltar, altarOption)) {
-                // Wait briefly for either direct spellbook switch or a dialog to open
+            if (occultAltar.click(altarOption)) {
                 sleepUntil(() -> Rs2Magic.isSpellbook(requiredSpellbook) || Rs2Dialogue.hasSelectAnOption(), 3000);
 
-                // Check if the spellbook already switched (right-click option worked directly)
                 if (Rs2Magic.isSpellbook(requiredSpellbook)) {
                     log.info("Successfully switched to {} spellbook via right-click", requiredSpellbook);
                     finishSpellbookSwap();
                     return;
                 }
 
-                // Right-click option may have opened a dialog - handle it
                 if (Rs2Dialogue.hasSelectAnOption() && handleSpellbookWidget(requiredSpellbook)) {
                     return;
                 }
             } else {
-                // Right-click option didn't match - try left-click "Venerate" which opens dialog
                 log.info("Right-click option '{}' not found, trying Venerate", altarOption);
-                if (Rs2GameObject.interact(occultAltar, "Venerate")) {
+                if (occultAltar.click("Venerate")) {
                     sleepUntil(Rs2Dialogue::hasSelectAnOption, 3000);
                     if (!handleSpellbookWidget(requiredSpellbook)) {
                         log.warn("Venerate used but could not handle spellbook dialog");
                     }
                 } else {
-                    // Last resort: plain interact
                     log.info("Trying plain interact on occult altar");
-                    Rs2GameObject.interact(occultAltar);
+                    occultAltar.click();
                     sleepUntil(Rs2Dialogue::hasSelectAnOption, 3000);
                     handleSpellbookWidget(requiredSpellbook);
                 }
@@ -1771,9 +1760,9 @@ public class SlayerScript extends Script {
     /**
      * Finds the occult altar in the POH.
      */
-    private TileObject findOccultAltar() {
+    private Rs2TileObjectModel findOccultAltar() {
         for (int altarId : OCCULT_ALTAR_IDS) {
-            TileObject altar = Rs2GameObject.findObjectById(altarId);
+            Rs2TileObjectModel altar = Microbot.getRs2TileObjectCache().query().withId(altarId).nearest();
             if (altar != null) {
                 return altar;
             }
@@ -2704,7 +2693,7 @@ public class SlayerScript extends Script {
                     Rs2NpcModel anyAttacker = findAnyNpcAttackingUs();
                     if (anyAttacker != null) {
                         log.info("Fallback: Attacking {} that is attacking us (at task location)", anyAttacker.getName());
-                        if (Rs2Npc.interact(anyAttacker, "Attack")) {
+                        if (anyAttacker.click("Attack")) {
                             sleepUntil(Rs2Player::isInteracting, 1000);
                         }
                     }
@@ -2720,7 +2709,7 @@ public class SlayerScript extends Script {
             Rs2NpcModel superior = findNearbySuperior();
             if (superior != null) {
                 log.info("Superior monster detected: {}! Attacking.", superior.getName());
-                if (Rs2Npc.interact(superior, "Attack")) {
+                if (superior.click("Attack")) {
                     sleepUntil(Rs2Player::isInteracting, 1000);
                 }
                 return;
@@ -2730,10 +2719,9 @@ public class SlayerScript extends Script {
         // Check if we're already in combat with a living target
         Actor currentInteracting = Rs2Player.getInteracting();
         if (currentInteracting != null) {
-            // Verify the target is actually alive - don't idle on dead NPCs
             boolean targetAlive = true;
-            if (currentInteracting instanceof Rs2NpcModel) {
-                Rs2NpcModel npc = (Rs2NpcModel) currentInteracting;
+            if (currentInteracting instanceof net.runelite.api.NPC) {
+                net.runelite.api.NPC npc = (net.runelite.api.NPC) currentInteracting;
                 targetAlive = !npc.isDead() && npc.getHealthRatio() != 0;
             }
             if (targetAlive) {
@@ -2750,7 +2738,7 @@ public class SlayerScript extends Script {
             Rs2NpcModel attacker = findNpcAttackingUs(targetMonsters);
             if (attacker != null) {
                 log.info("Retaliating against target monster: {}", attacker.getName());
-                if (Rs2Npc.interact(attacker, "Attack")) {
+                if (attacker.click("Attack")) {
                     sleepUntil(Rs2Player::isInteracting, 1000);
                 }
                 return;
@@ -2763,7 +2751,7 @@ public class SlayerScript extends Script {
                     Rs2NpcModel anyAttacker = findAnyNpcAttackingUs();
                     if (anyAttacker != null) {
                         log.info("Fallback: Retaliating against {} (at task location, not in target list)", anyAttacker.getName());
-                        if (Rs2Npc.interact(anyAttacker, "Attack")) {
+                        if (anyAttacker.click("Attack")) {
                             sleepUntil(Rs2Player::isInteracting, 1000);
                         }
                         return;
@@ -2775,17 +2763,18 @@ public class SlayerScript extends Script {
 
         // Find attackable NPCs matching target monsters
         // Prioritize NPCs that are already attacking us (interacting with player)
-        List<Rs2NpcModel> attackableNpcs = Rs2Npc.getAttackableNpcs(true)
-                .filter(npc -> npc.getName() != null)
-                .filter(npc -> targetMonsters.stream()
+        List<Rs2NpcModel> attackableNpcs = Microbot.getRs2NpcCache().query()
+                .where(npc -> !npc.isDead())
+                .where(npc -> npc.getName() != null)
+                .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
-                .filter(npc -> taskDestination == null ||
+                .where(npc -> taskDestination == null ||
                         npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius())
+                .toList()
+                .stream()
                 .sorted(Comparator
-                        // First priority: NPCs already attacking us (interacting with player)
                         .comparingInt((Rs2NpcModel npc) ->
                                 npc.getInteracting() == Microbot.getClient().getLocalPlayer() ? 0 : 1)
-                        // Second priority: closest distance
                         .thenComparingInt(npc ->
                                 Rs2Player.getWorldLocation().distanceTo(npc.getWorldLocation())))
                 .collect(Collectors.toList());
@@ -2794,10 +2783,13 @@ public class SlayerScript extends Script {
             log.debug("No attackable slayer monsters found nearby matching: {}", targetMonsters);
 
             // Debug: log nearby NPCs to help diagnose
-            List<String> nearbyNpcNames = Rs2Npc.getAttackableNpcs(true)
-                    .filter(npc -> npc.getName() != null)
-                    .filter(npc -> taskDestination == null ||
+            List<String> nearbyNpcNames = Microbot.getRs2NpcCache().query()
+                    .where(npc -> !npc.isDead())
+                    .where(npc -> npc.getName() != null)
+                    .where(npc -> taskDestination == null ||
                             npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius())
+                    .toList()
+                    .stream()
                     .map(Rs2NpcModel::getName)
                     .distinct()
                     .collect(Collectors.toList());
@@ -2847,7 +2839,7 @@ public class SlayerScript extends Script {
 
         // Attack the first NPC (prioritizes those attacking us, then closest)
         Rs2NpcModel target = attackableNpcs.get(0);
-        if (Rs2Npc.interact(target, "Attack")) {
+        if (target.click("Attack")) {
             log.info("Attacking {}", target.getName());
             sleepUntil(Rs2Player::isInteracting, 1000);
         }
@@ -2939,8 +2931,9 @@ public class SlayerScript extends Script {
      * Checks if any NPC is currently attacking the player.
      */
     private boolean isBeingAttacked() {
-        return Rs2Npc.getNpcsForPlayer()
-                .anyMatch(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer());
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
+                .count() > 0;
     }
 
     /**
@@ -2948,15 +2941,14 @@ public class SlayerScript extends Script {
      * Used when we're "in combat" (being attacked) but not attacking back.
      */
     private Rs2NpcModel findNpcAttackingUs(List<String> targetMonsters) {
-        return Rs2Npc.getNpcsForPlayer()
-                .filter(npc -> npc.getName() != null)
-                .filter(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
-                .filter(npc -> targetMonsters.stream()
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> npc.getName() != null)
+                .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
+                .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
-                .filter(npc -> taskDestination == null ||
+                .where(npc -> taskDestination == null ||
                         npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius() + 5)
-                .findFirst()
-                .orElse(null);
+                .first();
     }
 
     /**
@@ -2964,12 +2956,11 @@ public class SlayerScript extends Script {
      * Used as a fallback when variant/target list doesn't match.
      */
     private Rs2NpcModel findAnyNpcAttackingUs() {
-        return Rs2Npc.getNpcsForPlayer()
-                .filter(npc -> npc.getName() != null)
-                .filter(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
-                .filter(npc -> !npc.isDead())
-                .findFirst()
-                .orElse(null);
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> npc.getName() != null)
+                .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
+                .where(npc -> !npc.isDead())
+                .first();
     }
 
     /**
@@ -3033,14 +3024,15 @@ public class SlayerScript extends Script {
             return;
         }
 
-        List<Rs2NpcModel> nearbyMonsters = Rs2Npc.getNpcsForPlayer()
-                .filter(npc -> npc.getName() != null)
-                .filter(npc -> targetMonsters.stream()
+        List<Rs2NpcModel> nearbyMonsters = Microbot.getRs2NpcCache().query()
+                .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
+                .where(npc -> npc.getName() != null)
+                .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> npc.getName().equalsIgnoreCase(monster)))
-                .filter(npc -> !npc.isDead())
-                .filter(npc -> taskDestination == null ||
+                .where(npc -> !npc.isDead())
+                .where(npc -> taskDestination == null ||
                         npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius())
-                .collect(Collectors.toList());
+                .toList();
 
         if (nearbyMonsters.isEmpty()) {
             log.debug("No target monsters found nearby for AoE combat");
@@ -3081,7 +3073,7 @@ public class SlayerScript extends Script {
             if (activeJsonProfile.shouldUseGoading() && bestTarget != null) {
                 log.info("Attacking {} to trigger goading aggro ({} monsters nearby)",
                         bestTarget.getName(), nearbyMonsters.size());
-                if (Rs2Npc.interact(bestTarget, "Attack")) {
+                if (bestTarget.click("Attack")) {
                     sleepUntil(Rs2Player::isInteracting, 1000);
                 }
                 return;
@@ -3102,7 +3094,7 @@ public class SlayerScript extends Script {
         log.info("Attacking {} with autocast {} ({} monsters stacked)",
                 bestTarget.getName(), spell.name(), maxStackedCount);
 
-        if (Rs2Npc.interact(bestTarget, "Attack")) {
+        if (bestTarget.click("Attack")) {
             sleepUntil(Rs2Player::isInteracting, 1000);
         }
     }
@@ -3209,11 +3201,14 @@ public class SlayerScript extends Script {
      * @return The superior NPC if found, null otherwise
      */
     private Rs2NpcModel findNearbySuperior() {
-        return Rs2Npc.getAttackableNpcs(true)
-                .filter(npc -> npc.getName() != null)
-                .filter(npc -> SUPERIOR_MONSTERS.contains(npc.getName()))
-                .filter(npc -> taskDestination == null ||
-                        npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius() + 5) // Slightly larger radius for superiors
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> !npc.isDead())
+                .where(npc -> npc.getName() != null)
+                .where(npc -> SUPERIOR_MONSTERS.contains(npc.getName()))
+                .where(npc -> taskDestination == null ||
+                        npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius() + 5)
+                .toList()
+                .stream()
                 .min(Comparator.comparingInt(npc ->
                         Rs2Player.getWorldLocation().distanceTo(npc.getWorldLocation())))
                 .orElse(null);
@@ -3950,24 +3945,22 @@ public class SlayerScript extends Script {
      */
     private boolean handleCannonPickup() {
         // Check if cannon still exists
-        var cannon = Rs2GameObject.findObject("Dwarf multicannon", true, 50, false, Rs2Player.getWorldLocation());
+        var cannon = Microbot.getRs2TileObjectCache().query().withName("Dwarf multicannon").within(Rs2Player.getWorldLocation(), 50).nearest();
         if (cannon == null) {
             log.info("Cannon already picked up or not found");
-            return true; // Cannon doesn't exist, we're done
+            return true;
         }
 
         WorldPoint cannonLocation = cannon.getWorldLocation();
         int distance = Rs2Player.getWorldLocation().distanceTo(cannonLocation);
 
-        // If too far, walk to cannon first
         if (distance > 5) {
             log.info("Walking to cannon to pick it up (distance: {})", distance);
             Rs2Walker.walkTo(cannonLocation, 2);
-            return false; // Still in progress
+            return false;
         }
 
-        // Try to pick up cannon
-        if (Rs2GameObject.interact(cannon, "Pick-up")) {
+        if (cannon.click("Pick-up")) {
             log.info("Picking up cannon...");
             sleepUntil(() -> !isCannonPlacedNearby(), 5000);
 
@@ -3990,7 +3983,7 @@ public class SlayerScript extends Script {
      * @return true if pickup was initiated successfully
      */
     private boolean pickupCannon() {
-        if (Rs2GameObject.interact("Dwarf multicannon", "Pick-up")) {
+        if (Microbot.getRs2TileObjectCache().query().withName("Dwarf multicannon").interact("Pick-up")) {
             log.info("Picking up cannon...");
             return true;
         }
@@ -4002,7 +3995,7 @@ public class SlayerScript extends Script {
      * @return true if cannon object is found nearby
      */
     private boolean isCannonPlacedNearby() {
-        return Rs2GameObject.findObject("Dwarf multicannon", true, 10, false, Rs2Player.getWorldLocation()) != null;
+        return Microbot.getRs2TileObjectCache().query().withName("Dwarf multicannon").within(Rs2Player.getWorldLocation(), 10).nearest() != null;
     }
 
     /**

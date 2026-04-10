@@ -10,7 +10,6 @@ import net.runelite.client.plugins.microbot.pyrefox.PyreFoxConstants;
 import net.runelite.client.plugins.microbot.pyrefox.PyreFoxPlugin;
 import net.runelite.client.plugins.microbot.pyrefox.enums.PyreFoxState;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
@@ -104,7 +103,7 @@ public class PyreFoxStateManager extends Script
 		// causing exceptions to be thrown. when we do enter the CHOPPING_TREES state, we enter a while loop
 		// which exits when reaching our log goal, or if our hitpoints drop below our configured min. HP.
 		var trapPoint = PyreFoxConstants.TRAP_OBJECT_POINT;
-		var trap = trapPoint != null ? Rs2GameObject.getGameObject(PyreFoxConstants.TRAP_OBJECT_POINT) : null;
+		var trap = trapPoint != null ? Microbot.getRs2TileObjectCache().query().within(PyreFoxConstants.TRAP_OBJECT_POINT, 0).first() : null;
 		boolean trapCaughtFox = (trap != null && trap.getId() == PyreFoxConstants.GAMEOBJECT_ROCK_FOX_CAUGHT);
 		boolean surpassedLogCutThreshold = Rs2Inventory.count("logs") <= PyreFoxConstants.GATHER_LOGS_AT_AMOUNT;
 		if ((!trapCaughtFox || trap == null) && surpassedLogCutThreshold && Rs2Player.distanceTo(PyreFoxConstants.PYRE_FOX_CENTER_POINT) < 60)

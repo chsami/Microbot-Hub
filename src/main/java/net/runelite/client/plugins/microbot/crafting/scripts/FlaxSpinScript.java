@@ -1,12 +1,10 @@
 package net.runelite.client.plugins.microbot.crafting.scripts;
 
-import net.runelite.api.GameObject;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.crafting.CraftingConfig;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
@@ -15,7 +13,8 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.event.KeyEvent;
-import java.util.*;
+import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 enum State {
@@ -99,9 +98,9 @@ public class FlaxSpinScript extends Script implements ICraftingScript {
                         Rs2Walker.walkTo(config.flaxSpinLocation().getWorldPoint(), 4);
                         sleepUntilTrue(() -> isNearSpinningWheel(config, 4) && !Rs2Player.isMoving(), 600, 300000);
                         if (!isNearSpinningWheel(config, 4)) return;
-                        Optional<GameObject> spinningWheel = Rs2GameObject.getGameObjects().stream()
-                                .filter(obj -> obj.getId() == config.flaxSpinLocation().getObjectID()).min(Comparator.comparingInt(obj -> Rs2Player.getWorldLocation().distanceTo(obj.getWorldLocation())));
-                        if (spinningWheel.isEmpty()) {
+                        net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel spinningWheel = Microbot.getRs2TileObjectCache().query()
+                                .withId(config.flaxSpinLocation().getObjectID()).nearest();
+                        if (spinningWheel == null) {
                             Rs2Walker.walkFastCanvas(config.flaxSpinLocation().getWorldPoint());
                             return;
                         }

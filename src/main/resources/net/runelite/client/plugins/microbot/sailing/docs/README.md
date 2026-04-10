@@ -7,7 +7,8 @@ An automated sailing plugin that supports salvaging shipwrecks while sailing.
 ### Salvaging
 - **Automatic Shipwreck Detection**: Finds and salvages nearby shipwrecks within a 15-tile radius
 - **Smart Inventory Management**: Checks inventory status before attempting to salvage — clears a full inventory before looking for new wrecks
-- **Salvaging Station Support**: Deposits salvage at your boat's salvaging station (if installed)
+- **Salvaging Station Support**: Deposits salvage at your boat's salvaging station (if installed), unless **Use Cargo Hold** is enabled
+- **Cargo Hold (optional)**: Opens the hold and uses **Deposit inventory** in the cargo UI; tracks occupied slots and salvage stacks from the hold grid. When the hold is full or nearly full, withdraws and runs the same alch/drop/casket pipeline until salvage stacks in the hold are cleared. Avoids unnecessary hold open/close while idle away from wrecks without salvage
 - **Hook Deployment**: Automatically deploys your boat's salvaging hook on nearby shipwrecks
 
 ### Inventory Management
@@ -22,6 +23,7 @@ An automated sailing plugin that supports salvaging shipwrecks while sailing.
 - **Inactive Wrecks**: Highlights depleted shipwrecks/stumps (gray by default)
 - **High Level Wrecks**: Highlights shipwrecks above your sailing level (red by default)
 - **Customizable Colors**: All highlight colors are fully customizable
+- Wreck data for the overlay is updated on each game tick on the client thread so highlights stay in sync with the scene
 
 ## Configuration
 
@@ -43,6 +45,12 @@ An automated sailing plugin that supports salvaging shipwrecks while sailing.
 - When enabled, opens all caskets in your inventory as part of the full-inventory routine
 - Caskets are opened after the first drop pass (to ensure space for loot) and before alching
 - Any junk from casket loot is caught by a second drop pass after alching
+
+**Use Cargo Hold** (default: disabled)
+- When enabled, you must be on your boat with a cargo hold in range. The script opens the hold to learn capacity, reads **occupied slots** and **salvage stacks** from the hold item grid, and when your inventory is full of salvage it uses **Deposit inventory** in the cargo UI (instead of the salvaging station).
+- When the hold has no free slots, or its free slots are fewer than your current empty inventory slots, the script withdraws salvage from the hold and runs the same drop/casket/alch steps as a full inventory until **salvage stacks in the hold** reach zero, then continues salvaging (other items may still occupy slots).
+- While you are idle with no nearby wreck and no salvage in inventory, the script does not keep opening the hold only to refresh counts.
+- Turn this off to restore the original station-only behaviour. If the hold is not available (wrong place, no hold), salvaging waits until it can initialise the hold.
 
 **Alch Order** (default: LIST_ORDER)
 - Controls the order in which matching items are alched across your inventory
@@ -80,14 +88,15 @@ An automated sailing plugin that supports salvaging shipwrecks while sailing.
 
 1. **Inventory Check First**: On each tick, the plugin checks whether inventory is full before looking for wrecks
 2. **If inventory is full**:
-   - If salvage items are present → deposit at salvaging station (or drop junk if no station)
+   - If salvage items are present → open cargo hold and **Deposit inventory** (**Use Cargo Hold**), else salvaging station (or drop junk if no station)
    - Otherwise:
      1. Drop configured junk items
      2. Open caskets (if enabled) — space has been made by the drop step
      3. High alch configured items (if enabled) — includes any loot from opened caskets
      4. Drop again — catches any junk that came from casket loot
-3. **If inventory has space**: find the nearest wreck and deploy the salvaging hook
-4. **Repeat**
+3. **If inventory has space** and there is no salvage to protect: if **Open Caskets**, **Drop Items**, or **Enable Alching** would still change the inventory, the plugin may run one cleanup pass (same order as step 2) before looking for wrecks
+4. **If inventory has space** after that: find the nearest wreck and deploy the salvaging hook
+5. **Repeat**
 
 ## Shipwreck Types
 
@@ -132,6 +141,15 @@ An automated sailing plugin that supports salvaging shipwrecks while sailing.
 - Casket opening requires at least one free inventory slot — the drop pass before opening handles this in normal usage
 
 ## Version History
+
+**2.2.34**
+- Reliable **shipwreck highlights** via per-tick client-side wreck snapshots for the overlay
+- **Cargo hold**: **Deposit inventory** in the UI, separate **salvage stack** vs **slot** tracking, smarter resync (no idle spam), earlier hold initialisation, improved hold object lookup
+- **Full inventory + cargo hold**: full salvage inventories deposit or enter hold processing instead of deploying the hook
+- **Idle inventory cleanup** when there is no salvage but casket/drop/alch work remains
+
+**2.2.0**
+- Optional **Use Cargo Hold** mode for salvaging: deposit salvage into the boat hold, process the hold when full or nearly full, then resume hooks
 
 **2.1.0**
 - Fixed alch loop only alching one of each item instead of exhausting all stacks

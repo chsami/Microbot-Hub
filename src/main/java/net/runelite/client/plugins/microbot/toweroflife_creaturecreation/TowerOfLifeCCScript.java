@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.toweroflife_creaturecreation;
 
-import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarbitID;
@@ -14,15 +13,15 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -209,11 +208,11 @@ public class TowerOfLifeCCScript extends Script {
                 {
                     if (!inBasement && !Rs2Player.isMoving())
                     {
-                        TileObject trapdoor = Rs2GameObject.getTileObject(new WorldPoint(2648, 3212, 0));
+                        Rs2TileObjectModel trapdoor = Microbot.getRs2TileObjectCache().query().within(new WorldPoint(2648, 3212, 0), 1).nearest();
                         if (trapdoor != null)
                         {
                             Microbot.log("Trapdoor id: " + trapdoor.getId());
-                            Rs2GameObject.interact(trapdoor, "Climb-down");
+                            trapdoor.click("Climb-down");
                         }
                         else
                         {
@@ -405,11 +404,11 @@ public class TowerOfLifeCCScript extends Script {
                 //Rs2Inventory.waitForInventoryChanges(3000);
                 //Rs2Inventory.useItemOnObject(secondaryItem, altarObjectId);
                 //Rs2Inventory.waitForInventoryChanges(3000);
-                Rs2GameObject.interact(altarObjectId, "Activate");
-                sleepUntil(() -> { summonedCreature = Rs2Npc.getNpcs()
-                        .filter(npc -> npc != null
-                                && (npc.getInteracting() == null || npc.getInteracting() == Microbot.getClient().getLocalPlayer()))
-                        .findFirst().orElse(null);
+                Microbot.getRs2TileObjectCache().query().interact(altarObjectId, "Activate");
+                sleepUntil(() -> { summonedCreature = Microbot.getRs2NpcCache().query()
+                        .where(npc -> npc.getNpc() != null
+                                && (npc.getNpc().getInteracting() == null || npc.getNpc().getInteracting() == Microbot.getClient().getLocalPlayer()))
+                        .nearest();
                     return summonedCreature != null;
                 }, 5000);
                 //Microbot.log("Summoned creature");
@@ -427,9 +426,9 @@ public class TowerOfLifeCCScript extends Script {
         }
         else if (!Rs2Combat.inCombat())
         {
-            if (summonedCreature != null && !summonedCreature.isDead())
+            if (summonedCreature != null && !summonedCreature.getNpc().isDead())
             {
-                Rs2Npc.attack(summonedCreature);
+                summonedCreature.click("Attack");
             }
             else
             {

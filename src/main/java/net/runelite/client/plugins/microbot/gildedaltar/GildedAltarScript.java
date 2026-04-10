@@ -1,15 +1,13 @@
 package net.runelite.client.plugins.microbot.gildedaltar;
 
 import net.runelite.api.ObjectID;
-import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -37,7 +35,7 @@ public class GildedAltarScript extends Script {
     public static GildedAltarPlayerState state = GildedAltarPlayerState.IDLE;
 
     private boolean inHouse() {
-        return Rs2Npc.getNpc("Phials") == null;
+        return Microbot.getRs2NpcCache().query().withName("Phials").nearest() == null;
     }
 
     private boolean hasUnNotedBones() {
@@ -113,12 +111,12 @@ public class GildedAltarScript extends Script {
 
         // We should only rely on using the settings menu if the portal is several rooms away from the portal. Bringing up 3 different interfaces when we can see the portal on screen is unnecessary.
         if(usePortal) {
-            TileObject portalObject = Rs2GameObject.findObjectById(HOUSE_PORTAL_OBJECT);
+            Rs2TileObjectModel portalObject = Microbot.getRs2TileObjectCache().query().withId(HOUSE_PORTAL_OBJECT).nearest();
             if (portalObject == null) {
                 System.out.println("Not in house, HOUSE_PORTAL_OBJECT not found.");
                 return;
             }
-            Rs2GameObject.interact(portalObject);
+            portalObject.click();
             Rs2Player.waitForWalking();
             return;
         }
@@ -157,7 +155,7 @@ public class GildedAltarScript extends Script {
             if (!Rs2Inventory.isItemSelected()) {
                 Rs2Inventory.use("bones");
             } else {
-                Rs2Npc.interact("Phials", "Use");
+                Microbot.getRs2NpcCache().query().withName("Phials").interact("Use");
                 Rs2Player.waitForWalking();
             }
         } else if (Microbot.getClient().getWidget(14352385) != null) {
@@ -169,7 +167,7 @@ public class GildedAltarScript extends Script {
     private void enterHouse() {
         // If we've already visited a house this session, use 'Visit-Last' on advertisement board
         if (visitedOnce) {
-            Rs2GameObject.interact(ObjectID.HOUSE_ADVERTISEMENT, "Visit-Last");
+            Microbot.getRs2TileObjectCache().query().interact(ObjectID.HOUSE_ADVERTISEMENT, "Visit-Last");
             sleep(2400, 3000);
             return;
         }
@@ -177,7 +175,7 @@ public class GildedAltarScript extends Script {
         boolean isAdvertisementWidgetOpen = Rs2Widget.isWidgetVisible(3407875);
 
         if (!isAdvertisementWidgetOpen) {
-            Rs2GameObject.interact(ObjectID.HOUSE_ADVERTISEMENT, "View");
+            Microbot.getRs2TileObjectCache().query().interact(ObjectID.HOUSE_ADVERTISEMENT, "View");
             sleep(1200, 1800);
         }
 
@@ -244,7 +242,7 @@ public class GildedAltarScript extends Script {
         }
 
 
-        TileObject altar = Rs2GameObject.getGameObject("Altar", true);
+        Rs2TileObjectModel altar = Microbot.getRs2TileObjectCache().query().withName("Altar").nearest();
         if (altar != null) {
             Rs2Inventory.useUnNotedItemOnObject("bones", altar.getId());
         Rs2Player.waitForAnimation();
