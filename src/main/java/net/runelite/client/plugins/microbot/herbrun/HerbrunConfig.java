@@ -46,6 +46,18 @@ public interface HerbrunConfig extends Config {
         return null;
     }
 
+    @ConfigItem(
+            keyName = "bypassInventoryRequirements",
+            name = "Bypass Inventory Requirements",
+            description = "Skip strict inventory checks and start the run with whatever is in your inventory/bank. " +
+                    "Useful when you don't have all required items but still want to run available patches.",
+            section = inventorySection,
+            position = 2
+    )
+    default boolean bypassInventoryRequirements() {
+        return false;
+    }
+
     @ConfigSection(
             name = "Auto Banking Settings",
             description = "Configure automatic banking options",
@@ -98,9 +110,27 @@ public interface HerbrunConfig extends Config {
     }
 
     @ConfigSection(
+            name = "Harvesting Settings",
+            description = "Settings for harvesting herb patches",
+            position = 2
+    )
+    String harvestSection = "harvesting";
+
+    @ConfigItem(
+            keyName = "noteHerbsAfterHarvest",
+            name = "Note Herbs After Harvest",
+            description = "After fully clearing a patch, use the Tool Leprechaun to note harvested herbs before moving on.",
+            section = harvestSection,
+            position = 0
+    )
+    default boolean noteHerbsAfterHarvest() {
+        return true;
+    }
+
+    @ConfigSection(
             name = "General Settings",
             description = "General plugin settings",
-            position = 2
+            position = 3
     )
     String settingsSection = "settings";
 
@@ -214,20 +244,10 @@ public interface HerbrunConfig extends Config {
         return true;
     }
 
-    //    @ConfigItem(
-//            keyName = "enableHarmony",
-//            name = "Enable Harmony Island Patch",
-//            description = "Enable Harmony Island patch in herb run",
-//            position = 9,
-//            section = locationSection
-//    )
-//    default boolean enableHarmony() {
-//        return false;
-//    }
     @ConfigSection(
             name = "Location toggles",
             description = "Location toggles",
-            position = 3
+            position = 4
     )
     String locationSection = "Location";
 
