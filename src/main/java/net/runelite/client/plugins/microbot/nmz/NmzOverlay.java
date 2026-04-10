@@ -2,7 +2,6 @@ package net.runelite.client.plugins.microbot.nmz;
 
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.LineComponent;
@@ -52,11 +51,7 @@ public class NmzOverlay extends OverlayPanel {
                     .right(String.valueOf(Microbot.getVarbitValue(VarbitID.NZONE_POTION_4)))
                     .build());
 
-            panelComponent.getChildren().add(LineComponent.builder().build());
-
-            Rs2Antiban.renderAntibanOverlayComponents(panelComponent);
-
-        } catch(Exception ex) {
+} catch(Exception ex) {
             System.out.println(ex.getMessage());
         }
         return super.render(graphics);
