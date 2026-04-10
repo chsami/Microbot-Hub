@@ -13,9 +13,7 @@ import net.runelite.client.plugins.microbot.moonsofperil.enums.Widgets;
 import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilPlugin;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -74,7 +72,7 @@ public class BloodMoonHandler implements BaseHandler {
         }
 
         int bossNpcID = NpcID.PMOON_BOSS_BLOOD_MOON_VIS;
-        while (Rs2Widget.isWidgetVisible(bossHealthBarWidgetID) || Rs2Npc.getNpc(bossNpcID) != null) {
+        while (Rs2Widget.isWidgetVisible(bossHealthBarWidgetID) || Microbot.getRs2NpcCache().query().withId(bossNpcID).nearest() != null) {
             if (isSpecialAttack1Sequence()) {
                 specialAttack1Sequence();
             }
@@ -99,7 +97,7 @@ public class BloodMoonHandler implements BaseHandler {
      * Returns True if the jaguar NPC is found.
      */
     public boolean isSpecialAttack1Sequence() {
-        Rs2NpcModel jaguar = Rs2Npc.getNpc(NpcID.PMOON_BOSS_JAGUAR);
+        Rs2NpcModel jaguar = Microbot.getRs2NpcCache().query().withId(NpcID.PMOON_BOSS_JAGUAR).nearest();
         return (jaguar != null && Rs2Widget.isWidgetVisible(bossHealthBarWidgetID));
     }
 
@@ -107,7 +105,7 @@ public class BloodMoonHandler implements BaseHandler {
      * Returns True if the Moonfire gameobject is found and the boss is not attackable.
      */
     public boolean isSpecialAttack2Sequence() {
-        return Rs2GameObject.exists(ObjectID.PMOON_BOSS_BLOOD_FIRE) && Rs2Npc.getNpc(sigilNpcID) == null && Rs2Widget.isWidgetVisible(bossHealthBarWidgetID);
+        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.PMOON_BOSS_BLOOD_FIRE).nearest() != null && Microbot.getRs2NpcCache().query().withId(sigilNpcID).nearest() == null && Rs2Widget.isWidgetVisible(bossHealthBarWidgetID);
     }
 
     /**  Blood Moon – Blood Rain Special Attack Handler */
@@ -119,7 +117,7 @@ public class BloodMoonHandler implements BaseHandler {
         sleepUntil(() -> Rs2Player.getWorldLocation().equals(afterRainTile));
         while (isSpecialAttack2Sequence()) {
             WorldPoint playerTile = Rs2Player.getWorldLocation();
-            GameObject bloodPool = Rs2GameObject.getGameObject(o -> o.getId() == ObjectID.PMOON_BOSS_BLOOD_POOL && o.getWorldLocation().equals(playerTile));
+            var bloodPool = Microbot.getRs2TileObjectCache().query().withId(ObjectID.PMOON_BOSS_BLOOD_POOL).where(o -> o.getWorldLocation().equals(playerTile)).nearest();
             if (bloodPool != null) {
                 if (debugLogging) {Microbot.log("Standing on dangerous tile: " + playerTile);}
                 WorldPoint safeTile = getRandomSafeTile(ObjectID.PMOON_BOSS_BLOOD_POOL, 1);
@@ -143,7 +141,7 @@ public class BloodMoonHandler implements BaseHandler {
         final long startMs = System.currentTimeMillis();
 
         /* 1  find the sigil NPC (2×2, SW tile = sigilLoc) */
-        Rs2NpcModel sigilNpc = Rs2Npc.getNpcs(n -> n.getId() == sigilNpcID).findFirst().orElse(null);
+        Rs2NpcModel sigilNpc = Microbot.getRs2NpcCache().query().where(n -> n.getId() == sigilNpcID).toList().stream().findFirst().orElse(null);
         if (sigilNpc == null) {
             if (debugLogging) {Microbot.log("no sigil NPC – bail");}
             return;
@@ -181,10 +179,10 @@ public class BloodMoonHandler implements BaseHandler {
         if (!arrived) return;
 
         /* 4 ─ lock the target jaguar (SW tile == spawnTile) ---------------- */
-        Rs2NpcModel targetJaguar = Rs2Npc.getNpcs(n ->
+        Rs2NpcModel targetJaguar = Microbot.getRs2NpcCache().query().where(n ->
                         n.getId() == NpcID.PMOON_BOSS_JAGUAR &&
                                 n.getWorldLocation().equals(spawnTile))
-                .findFirst().orElse(null);
+                .toList().stream().findFirst().orElse(null);
         if (targetJaguar == null) {
             if (debugLogging) {Microbot.log("jaguar not on expected spawn");}
             return;
@@ -195,7 +193,7 @@ public class BloodMoonHandler implements BaseHandler {
 
         while (isSpecialAttack1Sequence() && System.currentTimeMillis() - startMs < TIMEOUT_MS) {
             int bloodPoolTick = MoonsOfPerilPlugin.bloodPoolTick;
-            if (targetJaguar.getAnimation() == 12492) {
+            if (targetJaguar.getNpc().getAnimation() == 12492) {
                 sleep(600);
                 break;
             }
@@ -204,7 +202,7 @@ public class BloodMoonHandler implements BaseHandler {
                 Rs2Walker.walkFastCanvas(evadeTile, true);
             } else if (bloodPoolTick == 5) {
                 if (debugLogging) {Microbot.log("ATTACK jaguar");}
-                Rs2Npc.attack(targetJaguar);
+                targetJaguar.click("Attack");
             }
             else if (bloodPoolTick == 6) {
                 if (debugLogging) {Microbot.log("Clicking on ground to stop attacking");}
@@ -226,10 +224,12 @@ public class BloodMoonHandler implements BaseHandler {
         if (centre == null) return null;
 
         // ── 2. collect all dangerous tiles within radius ──
-        Set<WorldPoint> dangerTiles = Rs2GameObject
-                .getGameObjects(o -> o.getId() == dangerousId, distance)
+        Set<WorldPoint> dangerTiles = Microbot.getRs2TileObjectCache().query()
+                .withId(dangerousId)
+                .within(distance)
+                .toList()
                 .stream()
-                .map(GameObject::getWorldLocation)
+                .map(o -> o.getWorldLocation())
                 .collect(Collectors.toSet());
 
         // ── 3. enumerate every tile in the square centred on the player ──

@@ -1,13 +1,13 @@
 package net.runelite.client.plugins.microbot.virewatch;
 
 import net.runelite.api.Client;
+import net.runelite.api.NPC;
 import net.runelite.api.Perspective;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -16,7 +16,6 @@ import net.runelite.client.ui.overlay.outline.ModelOutlineRenderer;
 
 import javax.inject.Inject;
 import java.awt.*;
-import java.util.stream.Collectors;
 
 import static net.runelite.client.ui.overlay.OverlayUtil.renderPolygon;
 
@@ -77,7 +76,8 @@ public class PVirewatchKillerOverlay extends Overlay {
         }
 
         if (!config.disableNPCOutline()) {
-            for (net.runelite.api.NPC npc : Rs2Npc.getAttackableNpcs("Vyrewatch Sentinel").collect(Collectors.toList())) {
+            for (var npcModel : Microbot.getRs2NpcCache().query().withName("Vyrewatch Sentinel").where(n -> !n.isDead()).toList()) {
+                NPC npc = npcModel.getNpc();
                 if (npc != null && npc.getCanvasTilePoly() != null) {
                     if (!plugin.fightArea.contains(npc.getWorldLocation())) continue;
 

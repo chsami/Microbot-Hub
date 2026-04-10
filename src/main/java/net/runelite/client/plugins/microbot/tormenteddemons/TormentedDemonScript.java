@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.tormenteddemons;
 
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.HeadIcon;
+import net.runelite.api.NPC;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
@@ -11,12 +12,10 @@ import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.JewelleryLocationEnum;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -109,7 +108,7 @@ public class TormentedDemonScript extends Script {
 
             case CLIMB_FIRST_STAIRS:
                 Microbot.status = "Climbing first stairs...";
-                if (Rs2GameObject.interact(53623, "Climb-up")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(53623, "Climb-up")) {
                     Rs2Player.waitForAnimation();
                     sleepUntil(() -> !Rs2Player.isAnimating());
                     travelStep = TravelStep.CLIMB_SECOND_STAIRS;
@@ -118,7 +117,7 @@ public class TormentedDemonScript extends Script {
 
             case CLIMB_SECOND_STAIRS:
                 Microbot.status = "Climbing second stairs...";
-                if (Rs2GameObject.interact(53624, "Climb-up")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(53624, "Climb-up")) {
                     Rs2Player.waitForAnimation();
                     sleepUntil(() -> !Rs2Player.isAnimating());
                     travelStep = TravelStep.CLIMB_THROUGH;
@@ -127,7 +126,7 @@ public class TormentedDemonScript extends Script {
 
             case CLIMB_THROUGH:
                 Microbot.status = "Climbing through the path...";
-                if (Rs2GameObject.interact(54082, "Climb-through")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(54082, "Climb-through")) {
                     Rs2Player.waitForAnimation();
                     sleepUntil(() -> !Rs2Player.isAnimating());
                     travelStep = TravelStep.LOCATION_THREE;
@@ -157,7 +156,7 @@ public class TormentedDemonScript extends Script {
                 int maxPrayer = Microbot.getClient().getRealSkillLevel(Skill.PRAYER);
 
                 if (currentHealth < maxHealth || currentPrayer < maxPrayer) {
-                    if (Rs2GameObject.interact(FEROX_POOL_ID, "Drink")) {
+                    if (Microbot.getRs2TileObjectCache().query().interact(FEROX_POOL_ID, "Drink")) {
                         Rs2Player.waitForAnimation();
                         sleepUntil(() ->
                                 Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) == maxHealth &&
@@ -250,16 +249,17 @@ public class TormentedDemonScript extends Script {
             Rs2Player.eatAt(config.minEatPercent());
             Rs2Player.drinkPrayerPotionAt(config.minPrayerPercent());
 
-            var interactingTarget = (Rs2NpcModel) Rs2Player.getInteracting();
+            var interactingActor = Rs2Player.getInteracting();
+            int interactingIndex = (interactingActor instanceof NPC) ? ((NPC) interactingActor).getIndex() : -1;
 
             if (currentTarget == null) return;
 
-            if (interactingTarget == null || interactingTarget.getIndex() != currentTarget.getIndex()) {
-                boolean attackSuccessful = Rs2Npc.interact(currentTarget, "attack");
+            if (interactingActor == null || interactingIndex != currentTarget.getIndex()) {
+                boolean attackSuccessful = currentTarget.click("attack");
 
                 if (attackSuccessful) {
                     Rs2Player.waitForAnimation();
-                    sleepUntil(() -> Rs2Player.getInteracting() != null && ((Rs2NpcModel) Rs2Player.getInteracting()).getIndex() == currentTarget.getIndex(), 3000);
+                    sleepUntil(() -> Rs2Player.getInteracting() instanceof NPC && ((NPC) Rs2Player.getInteracting()).getIndex() == currentTarget.getIndex(), 3000);
                 } else {
                     logOnceToChat("Attack failed for target: " + (currentTarget != null ? currentTarget.getName() : "null"));
                     currentTarget = null;
@@ -320,9 +320,11 @@ public class TormentedDemonScript extends Script {
     }
 
     private Rs2NpcModel findNewTarget(TormentedDemonConfig config) {
-        return Rs2Npc.getAttackableNpcs("Tormented Demon")
-                .filter(npc -> npc.getInteracting() == null || npc.getInteracting() == Microbot.getClient().getLocalPlayer())
-                .filter(npc -> {
+        return Microbot.getRs2NpcCache().query()
+                .withName("Tormented Demon")
+                .where(npc -> !npc.isDead())
+                .where(npc -> npc.getInteracting() == null || npc.getInteracting() == Microbot.getClient().getLocalPlayer())
+                .where(npc -> {
                     HeadIcon demonHeadIcon = npc.getHeadIcon();
                     if (demonHeadIcon != null) {
                         switchGear(config, demonHeadIcon);
@@ -331,8 +333,7 @@ public class TormentedDemonScript extends Script {
                     logOnceToChat("Null HeadIcon for NPC " + npc.getName());
                     return false;
                 })
-                .findFirst()
-                .orElse(null);
+                .first();
     }
 
     private void switchGear(TormentedDemonConfig config, HeadIcon combatNpcHeadIcon) {

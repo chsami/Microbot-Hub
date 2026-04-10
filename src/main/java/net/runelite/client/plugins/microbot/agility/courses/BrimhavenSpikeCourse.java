@@ -4,9 +4,7 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.agility.models.AgilityObstacleModel;
 import net.runelite.client.plugins.microbot.util.Global;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -87,14 +85,13 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
         }
 
         // Find and interact with Cap'n Izzy No-Beard
-        var captain = Rs2Npc.getNpc(CAPTAIN_IZZY_NPC_ID);
+        var captain = Microbot.getRs2NpcCache().query().withId(CAPTAIN_IZZY_NPC_ID).nearest();
         if (captain == null) {
             Microbot.log("Cap'n Izzy No-Beard not found!");
             return false;
         }
 
-        // Click "Pay" option
-        if (Rs2Npc.interact(captain, "Pay")) {
+        if (captain.click("Pay")) {
             Microbot.log("Attempting to pay Cap'n Izzy No-Beard...");
             
             // Wait for coins to be deducted
@@ -127,7 +124,7 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
 
         // Just click the ladder directly without detection
         Microbot.log("Force clicking ladder...");
-        Rs2GameObject.interact(3617, "Climb-down");
+        Microbot.getRs2TileObjectCache().query().interact(3617, "Climb-down");
         
         // Wait a bit for the interaction
         Global.sleep(1000);
@@ -281,7 +278,7 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
                     return null; // This will trigger the timed tile-walking logic in handleWalkToStart
                 }
                 
-                var gameObject = Rs2GameObject.getGameObject(currentObstacle.getObjectID(), playerLocation, 10);
+                var gameObject = Microbot.getRs2TileObjectCache().query().withId(currentObstacle.getObjectID()).within(playerLocation, 10).nearest();
                 if (gameObject != null) {
                     Microbot.log("Looking for obstacle " + (currentObstacleIndex + 1) + "/" + obstacles.size() + " (ID: " + currentObstacle.getObjectID() + ")");
                     return gameObject;

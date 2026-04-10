@@ -2,7 +2,7 @@ package net.runelite.client.plugins.microbot.aiocamdozaal;
 
 import net.runelite.api.Point;
 import net.runelite.api.Skill;
-import net.runelite.api.WallObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.AnimationID;
@@ -16,15 +16,13 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -53,7 +51,7 @@ public class AIOCamdozScript extends Script {
 
     State state = State.WALKING_TO_BANK;
 
-    List<WallObject> mineableRocks = new ArrayList<>();
+    List<Rs2TileObjectModel> mineableRocks = new ArrayList<>();
 
     int pickaxeToUse;
     int netToUse;
@@ -191,17 +189,17 @@ public class AIOCamdozScript extends Script {
                             if (lastInteractedBarroniteID == 41547) {
                                 //System.out.println(("Last Interacted Rock: LEFT Barronite Vein"));
                                 for (int miningObjectID : miningObjectIDsReverse) {
-                                    mineableRocks.addAll(Rs2GameObject.getWallObjects(object -> object != null && (object.getId() == 41548)));
+                                    mineableRocks.addAll(Microbot.getRs2TileObjectCache().query().withId(41548).toList());
                                 }
                             } else if (lastInteractedBarroniteID == 41548) {
                                 //System.out.println(("Last Interacted Rock: RIGHT Barronite Vein"));
                                 for (int miningObjectID : miningObjectIDs) {
-                                    mineableRocks.addAll(Rs2GameObject.getWallObjects(object -> object != null && (object.getId() == 41547)));
+                                    mineableRocks.addAll(Microbot.getRs2TileObjectCache().query().withId(41547).toList());
                                 }
                             }
 
                             if (!mineableRocks.isEmpty()) {
-                                Rs2GameObject.interact(mineableRocks.get(0), "Mine");
+                                mineableRocks.get(0).click("Mine");
                                 lastInteractedBarroniteID = mineableRocks.get(0).getId();
                                 Microbot.status = "Mining Barronite rocks";
                             }
@@ -231,7 +229,7 @@ public class AIOCamdozScript extends Script {
                 if (Rs2Player.getAnimation() != smithingAnimationID) {
                     if (Rs2Inventory.hasItem(ItemID.CAMDOZAAL_BARRONITE_DEPOSIT)) {
                         if (!sleepUntil(() -> Rs2Player.waitForXpDrop(Skill.SMITHING), 3000)) {
-                            Rs2GameObject.interact(crusherID, "Smith");
+                            Microbot.getRs2TileObjectCache().query().interact(crusherID, "Smith");
                             Microbot.status = "Smithing Barronite deposits";
                         }
                     } else {
@@ -373,9 +371,9 @@ public class AIOCamdozScript extends Script {
                 }
                 if (!Rs2Player.isInteracting() && !Rs2Player.isMoving()) {
                     if (netToUse == 303) {
-                        Rs2Npc.interact(10686, "Small Net");
+                        Microbot.getRs2NpcCache().query().withId(10686).interact("Small Net");
                     } else if (netToUse == 305) {
-                        Rs2Npc.interact(10686, "Big Net");
+                        Microbot.getRs2NpcCache().query().withId(10686).interact("Big Net");
 
                     }
                 }
@@ -394,7 +392,7 @@ public class AIOCamdozScript extends Script {
                                     Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
                                     Rs2Player.waitForXpDrop(Skill.COOKING, 3000);
                                 } else if (!Rs2Player.isMoving()) {
-                                    Rs2GameObject.interact(41545, "Prepare-fish");
+                                    Microbot.getRs2TileObjectCache().query().interact(41545, "Prepare-fish");
 
                                 }
                             } else {
@@ -412,7 +410,7 @@ public class AIOCamdozScript extends Script {
                                     Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
                                     Rs2Player.waitForXpDrop(Skill.PRAYER, 3000);
                                 } else if (!Rs2Player.isMoving()) {
-                                    Rs2GameObject.interact(41546, "Offer-fish");
+                                    Microbot.getRs2TileObjectCache().query().interact(41546, "Offer-fish");
                                 }
                             } else {
                                 if (Rs2Inventory.hasItem(ItemID.BARRONITE_MACE_2)) {
@@ -553,15 +551,15 @@ public class AIOCamdozScript extends Script {
                     state = State.WALKING_TO_BANK;
                 }
 
-                golemsAttackingPlayer = Rs2Npc.getNpcsForPlayer().collect(Collectors.toList());
+                golemsAttackingPlayer = Microbot.getRs2NpcCache().query().where(n -> n.isInteractingWithPlayer()).toList();
 
                 if (!Rs2Combat.inCombat()) {
                     // Not in combat
                     if (!golemsAttackingPlayer.isEmpty()) {
                         // Filter by things with an Attack option
                         Rs2NpcModel targetGolem = golemsAttackingPlayer.stream()
-                                .filter(npc -> npc.getComposition() != null &&
-                                        Arrays.stream(npc.getComposition().getActions())
+                                .filter(npc -> npc.getNpc().getTransformedComposition() != null &&
+                                        Arrays.stream(npc.getNpc().getTransformedComposition().getActions())
                                                 .anyMatch(action -> action != null && action.toLowerCase().contains("attack")))
                                 .findFirst().orElse(null);
 
@@ -570,14 +568,14 @@ public class AIOCamdozScript extends Script {
                                 Rs2Camera.turnTo(targetGolem);
                             }
 
-                            Rs2Npc.interact(targetGolem, "Attack");
+                            targetGolem.click("Attack");
                             Rs2Antiban.actionCooldown();
                         }
                         break;
                     }
 
-                    golems = Rs2Npc.getNpcs(_golemID).collect(Collectors.toList());
-                    rubbles = Rs2Npc.getNpcs(_rubbleID).collect(Collectors.toList());
+                    golems = Microbot.getRs2NpcCache().query().withId(_golemID).toList();
+                    rubbles = Microbot.getRs2NpcCache().query().withId(_rubbleID).toList();
 
                     if (!golems.isEmpty()) {
                         Rs2NpcModel golem = golems.stream().findFirst().orElse(null);
@@ -586,7 +584,7 @@ public class AIOCamdozScript extends Script {
                             Rs2Camera.turnTo(golem);
                         }
 
-                        Rs2Npc.interact(golem, "Attack");
+                        golem.click("Attack");
                         Rs2Antiban.actionCooldown();
                     } else {
                         if (!rubbles.isEmpty()) {
@@ -596,7 +594,7 @@ public class AIOCamdozScript extends Script {
                                 Rs2Camera.turnTo(rubble);
                             }
 
-                            Rs2Npc.interact(rubble, "Awaken");
+                            rubble.click("Awaken");
                             Rs2Antiban.actionCooldown();
                             sleepUntil(() -> !golems.isEmpty(), 2000);
                         }

@@ -6,7 +6,7 @@ import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.Microbot;
 
 import javax.inject.Inject;
 
@@ -27,7 +27,7 @@ public class FeedKittenEvent implements BlockingEvent {
 
     @Override
     public boolean execute() {
-        Rs2Npc.getNpcs("Kitten").findFirst().ifPresent(kitten -> Rs2Inventory.useItemOnNpc(ItemID.TBWT_RAW_KARAMBWANJI, kitten));
+        Microbot.getRs2NpcCache().query().withName("Kitten").toList().stream().findFirst().ifPresent(kitten -> Rs2Inventory.useItemOnNpc(ItemID.TBWT_RAW_KARAMBWANJI, kitten.getNpc()));
         Global.sleepUntil(() -> (KittenPlugin.HUNGRY_FIRST_WARNING_TIME_LEFT_IN_SECONDS * 1000) < kittenPlugin.getTimeBeforeHungry());
         return true;
     }

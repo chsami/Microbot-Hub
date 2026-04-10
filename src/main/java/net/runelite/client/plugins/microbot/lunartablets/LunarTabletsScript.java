@@ -7,7 +7,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -136,7 +135,7 @@ public class LunarTabletsScript extends Script {
                 }
             } else {
                 // interact with lecturn
-                if(Rs2GameObject.interact("Lectern", "Study")){
+                if(Microbot.getRs2TileObjectCache().query().withName("Lectern").interact("Study")){
                     sleep(generateRandomNumber(0,1000));
                 }
             }

@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.birdhunter;
 
 import lombok.Getter;
-import net.runelite.api.GameObject;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldArea;
@@ -12,13 +11,12 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
-import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -120,30 +118,30 @@ public class BirdHunterScript extends Script {
     }
 
     private void handleTraps(BirdHunterConfig config) {
-        List<GameObject> successfulTraps = new ArrayList<>();
-        successfulTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_JUNGLE));
-        successfulTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_COLOURED));
-        successfulTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_FULL_DESERT));
-        successfulTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_FULL_WOODLAND));
-        successfulTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_FULL_POLAR));
-        successfulTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_FULL_JUNGLE));
-        successfulTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_FULL_COLOURED));
+        List<Rs2TileObjectModel> successfulTraps = new ArrayList<>();
+        successfulTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_JUNGLE).toList());
+        successfulTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_COLOURED).toList());
+        successfulTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_FULL_DESERT).toList());
+        successfulTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_FULL_WOODLAND).toList());
+        successfulTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_FULL_POLAR).toList());
+        successfulTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_FULL_JUNGLE).toList());
+        successfulTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_FULL_COLOURED).toList());
 
-        List<GameObject> catchingTraps = new ArrayList<>();
-        catchingTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_FULL_COLOURED));
-        catchingTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_DESERT));
-        catchingTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_WOODLAND));
-        catchingTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_POLAR));
-        catchingTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_FULL_JUNGLE));
+        List<Rs2TileObjectModel> catchingTraps = new ArrayList<>();
+        catchingTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_FULL_COLOURED).toList());
+        catchingTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_DESERT).toList());
+        catchingTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_WOODLAND).toList());
+        catchingTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_POLAR).toList());
+        catchingTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_FULL_JUNGLE).toList());
 
-        List<GameObject> failedTraps = Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_BROKEN);
-        List<GameObject> idleTraps = Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP);
-        idleTraps.addAll(Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.HUNTING_OJIBWAY_TRAP_FAILING));
+        List<Rs2TileObjectModel> failedTraps = Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_BROKEN).toList();
+        List<Rs2TileObjectModel> idleTraps = new ArrayList<>(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP).toList());
+        idleTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_FAILING).toList());
 
         int availableTraps = getAvailableTraps(Rs2Player.getRealSkillLevel(Skill.HUNTER));
         int totalTraps = successfulTraps.size() + failedTraps.size() + idleTraps.size() + catchingTraps.size();
 
-        if (Rs2GroundItem.exists(ItemID.HUNTING_OJIBWAY_BIRD_SNARE, 20)) {
+        if (Microbot.getRs2TileItemCache().query().withId(ItemID.HUNTING_OJIBWAY_BIRD_SNARE).within(20).count() > 0) {
             pickUpBirdSnare();
             return;
         }
@@ -154,7 +152,7 @@ public class BirdHunterScript extends Script {
         }
 
         if (!successfulTraps.isEmpty()) {
-            for (GameObject successfulTrap : successfulTraps) {
+            for (Rs2TileObjectModel successfulTrap : successfulTraps) {
                 if (interactWithTrap(successfulTrap)) {
                     setTrap(config);
                     return;
@@ -163,7 +161,7 @@ public class BirdHunterScript extends Script {
         }
 
         if (!failedTraps.isEmpty()) {
-            for (GameObject failedTrap : failedTraps) {
+            for (Rs2TileObjectModel failedTrap : failedTraps) {
                 if (interactWithTrap(failedTrap)) {
                     setTrap(config);
                     return;
@@ -197,7 +195,7 @@ public class BirdHunterScript extends Script {
     }
 
     private boolean isGameObjectAt(WorldPoint point) {
-        return Rs2GameObject.findObjectByLocation(point) != null;
+        return Microbot.getRs2TileObjectCache().query().within(point, 0).count() > 0;
     }
 
 
@@ -246,9 +244,9 @@ public class BirdHunterScript extends Script {
     }
 
 
-    private boolean interactWithTrap(GameObject birdSnare) {
+    private boolean interactWithTrap(Rs2TileObjectModel birdSnare) {
         sleep(Rs2Random.randomGaussian(2000, 1250));
-        Rs2GameObject.interact(birdSnare);
+        birdSnare.click();
         sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(7000));
         sleep(Rs2Random.randomGaussian(2000, 1250));
 
@@ -256,7 +254,7 @@ public class BirdHunterScript extends Script {
     }
 
     private void pickUpBirdSnare() {
-        if (Rs2GroundItem.loot(ItemID.HUNTING_OJIBWAY_BIRD_SNARE)) {
+        if (Microbot.getRs2TileItemCache().query().withId(ItemID.HUNTING_OJIBWAY_BIRD_SNARE).interact("Take")) {
             sleepUntil(() -> Rs2Inventory.contains(ItemID.HUNTING_OJIBWAY_BIRD_SNARE), 2000);
         }
     }

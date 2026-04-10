@@ -15,7 +15,6 @@ import net.runelite.client.plugins.microbot.birdhouseruns.enums.Log;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -197,7 +196,7 @@ public class FornBirdhouseRunsScript extends Script {
     }
 
     private boolean interactWithObject(int objectId) {
-        Rs2GameObject.interact(objectId);
+        Microbot.getRs2TileObjectCache().query().withId(objectId).interact();
         sleepUntil(Rs2Player::isInteracting);
         sleepUntil(() -> !Rs2Player.isInteracting());
         return true;
@@ -206,7 +205,7 @@ public class FornBirdhouseRunsScript extends Script {
     private void seedHouse(WorldPoint worldPoint, states status) {
         Rs2Inventory.use(" seed");
         sleepUntil(Rs2Inventory::isItemSelected);
-        Rs2GameObject.interact(worldPoint);
+        Microbot.getRs2TileObjectCache().query().within(worldPoint, 0).interact();
         sleepUntil(() -> Rs2Widget.findWidget("full of seed") != null, 1000);
         botStatus = status;
     }
@@ -217,13 +216,13 @@ public class FornBirdhouseRunsScript extends Script {
             Rs2Inventory.use(" logs");
             Rs2Inventory.waitForInventoryChanges(5000);
         }
-        Rs2GameObject.interact(worldPoint, "Build");
+        Microbot.getRs2TileObjectCache().query().within(worldPoint, 0).interact("Build");
         sleepUntil(Rs2Player::isAnimating);
         botStatus = status;
     }
 
-    private void dismantleBirdhouse(int itemId, states status) {
-        Rs2GameObject.interact(itemId, "Empty");
+    private void dismantleBirdhouse(int objectId, states status) {
+        Microbot.getRs2TileObjectCache().query().interact(objectId, "Empty");
         Rs2Player.waitForXpDrop(Skill.HUNTER);
         botStatus = status;
     }

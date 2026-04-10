@@ -9,7 +9,7 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -104,7 +104,8 @@ public class npcTannerScript extends Script {
                 }
             } else {
                 Microbot.status="Tanning: "+npcTannerScript.whattotan;
-                if(Rs2Npc.interact(Rs2Npc.getNpc("Ellis"), "Trade")){
+                Rs2NpcModel ellis = Microbot.getRs2NpcCache().query().withName("Ellis").nearest();
+                if(ellis != null && ellis.click("Trade")){
                     sleep(1000, 3000);
                 }
             }

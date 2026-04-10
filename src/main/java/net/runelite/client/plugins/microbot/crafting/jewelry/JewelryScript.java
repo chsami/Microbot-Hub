@@ -3,7 +3,6 @@ package net.runelite.client.plugins.microbot.crafting.jewelry;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.ItemID;
 import net.runelite.api.Skill;
-import net.runelite.api.TileObject;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.crafting.jewelry.enums.*;
@@ -14,6 +13,7 @@ import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2RunePouch;
@@ -308,8 +308,9 @@ public class JewelryScript extends Script {
                         
                         break;
                     case CRAFTING:
-                        TileObject furnaceObject = Rs2GameObject.findObjectById(plugin.getCraftingLocation().getFurnanceObjectID());
-                        
+                        Rs2TileObjectModel furnaceObject = Microbot.getRs2TileObjectCache().query()
+                                .withId(plugin.getCraftingLocation().getFurnanceObjectID()).nearest();
+
                         if (furnaceObject == null) {
                             Rs2Walker.walkTo(plugin.getCraftingLocation().getFurnaceLocation());
                             return;
@@ -320,7 +321,7 @@ public class JewelryScript extends Script {
                             return;
                         }
 
-                        Rs2GameObject.interact(furnaceObject, "smelt");
+                        furnaceObject.click("smelt");
                         sleepUntilTrue(() -> Rs2Widget.isGoldCraftingWidgetOpen() || Rs2Widget.isSilverCraftingWidgetOpen(), 500, 20000);
                         Rs2Widget.clickWidget(plugin.getJewelry().getItemName());
                         Rs2Antiban.actionCooldown();

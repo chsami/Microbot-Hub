@@ -65,10 +65,10 @@ public class PrifddinasCourse implements AgilityCourseHandler
 
 	public boolean handlePortal()
 	{
-		TileObject portal = Rs2GameObject.getGameObject(PORTAL_OBSTACLE_IDS.toArray(new Integer[0]), 10);
-		if (portal != null && Microbot.getClientThread().runOnClientThreadOptional(portal::getClickbox).isPresent())
+		var portalModel = Microbot.getRs2TileObjectCache().query().withIds(PORTAL_OBSTACLE_IDS.stream().mapToInt(Integer::intValue).toArray()).within(10).nearest();
+		if (portalModel != null && Microbot.getClientThread().runOnClientThreadOptional(portalModel::getClickbox).isPresent())
 		{
-			if (Rs2GameObject.interact(portal, "travel"))
+			if (portalModel.click("travel"))
 			{
 				Global.sleep(2000, 3000);
 				return true;

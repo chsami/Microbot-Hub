@@ -11,8 +11,8 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 import net.runelite.client.plugins.cluescrolls.clues.MusicClue;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -143,13 +143,13 @@ public class MusicClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        Rs2NpcModel npc = Rs2Npc.getNpc(npcName);
+        Rs2NpcModel npc = Microbot.getRs2NpcCache().query().withName(npcName).nearest();
         if (npc == null) {
             log.warn("NPC {} not found near the clue location.", npcName);
             return false;
         }
 
-        if (Rs2Npc.interact(npc, "Talk-to")) {
+        if (npc.click("Talk-to")) {
             log.info("Interacted with NPC: {}", npcName);
             return true;
         } else {

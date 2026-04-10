@@ -14,7 +14,6 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -160,7 +159,7 @@ public class TearsOfGuthixScript extends Script {
                 Microbot.log("Unequipping shield...");
                 Rs2Equipment.unEquip(EquipmentInventorySlot.SHIELD);
             }
-            Rs2GameObject.interact(JUNA, "Story");
+            Microbot.getRs2TileObjectCache().query().interact(JUNA, "Story");
         }
         while (Rs2Dialogue.hasContinue() && this.isRunning()) {
             Rs2Dialogue.clickContinue();

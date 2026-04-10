@@ -1,11 +1,11 @@
 package net.runelite.client.plugins.microbot.woodcutting.Forestry;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.GameObject;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -43,11 +43,12 @@ public class StrugglingSaplingEvent implements BlockingEvent {
         try{
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;        
-            var strugglingSaplings = Rs2GameObject.getGameObjects(Rs2GameObject.nameMatches("Struggling sapling", false));
-            if (strugglingSaplings == null) return false;
+            var strugglingSaplings = Microbot.getRs2TileObjectCache().query()
+                    .withName("Struggling sapling")
+                    .toList();
             if (strugglingSaplings.isEmpty()) return false;
             return strugglingSaplings.stream().anyMatch(obj ->
-                    Rs2GameObject.hasAction(Rs2GameObject.convertToObjectComposition(obj), "Add-mulch") &&
+                    Rs2GameObject.hasAction(obj.getObjectComposition(), "Add-mulch") &&
                             obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= AutoWoodcuttingScript.FORESTRY_DISTANCE
             );
         } catch (Exception e) {
@@ -62,19 +63,22 @@ public class StrugglingSaplingEvent implements BlockingEvent {
             Microbot.log("StrugglingSaplingEvent: Executing Struggling Sapling event");
             plugin.currentForestryEvent = ForestryEvents.STRUGGLING_SAPLING;
             // Find the struggling sapling
-            var sapling = Rs2GameObject.getGameObjects(Rs2GameObject.nameMatches("Struggling sapling", false))
+            var sapling = Microbot.getRs2TileObjectCache().query()
+                    .withName("Struggling sapling")
+                    .toList()
                     .stream()
                     .filter(obj ->
-                            Rs2GameObject.hasAction(Rs2GameObject.convertToObjectComposition(obj), "Add-mulch") &&
+                            Rs2GameObject.hasAction(obj.getObjectComposition(), "Add-mulch") &&
                                     obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= AutoWoodcuttingScript.FORESTRY_DISTANCE
                     )
                     .findFirst()
                     .orElse(null);
 
-            // Find all available leaf ingredients
-            var ingredients = Rs2GameObject.getGameObjects(gameObject -> ingredientIds.contains(gameObject.getId()))
+            var ingredients = Microbot.getRs2TileObjectCache().query()
+                    .where(gameObject -> ingredientIds.contains(gameObject.getId()))
+                    .toList()
                     .stream()
-                    .filter(obj -> Rs2GameObject.hasAction(Rs2GameObject.convertToObjectComposition(obj), "Collect"))
+                    .filter(obj -> Rs2GameObject.hasAction(obj.getObjectComposition(), "Collect"))
                     .collect(Collectors.toList());
 
             if (ingredients.isEmpty()) {
@@ -97,7 +101,7 @@ public class StrugglingSaplingEvent implements BlockingEvent {
                 // If we have mulch stage 3 in inventory, add them to the sapling
                 if (Rs2Inventory.contains(ItemID.GATHERING_EVENT_SAPLING_MULCH_STAGE3)) {
                     Microbot.log("StrugglingSaplingEvent: Adding mulch to the struggling sapling.");
-                    Rs2GameObject.interact(sapling, "Add-mulch");
+                    sapling.click("Add-mulch");
                     Rs2Player.waitForAnimation();
                     continue;
                 }
@@ -116,11 +120,10 @@ public class StrugglingSaplingEvent implements BlockingEvent {
 
                 if (correctIngredient != null) {
                     // Look for matching ingredient in our available ingredients
-                    for (GameObject ingredient : ingredients) {
+                    for (Rs2TileObjectModel ingredient : ingredients) {
                         if (ingredient.getId() == correctIngredient.getId()) {
-                            // Collect this ingredient as it's known to be correct
                             Microbot.log("StrugglingSaplingEvent: Collecting known correct ingredient: " + ingredient.getWorldLocation());
-                            Rs2GameObject.interact(ingredient, "Collect");
+                            ingredient.click("Collect");
                             Rs2Player.waitForAnimation();
                         }
                     }
@@ -144,7 +147,7 @@ public class StrugglingSaplingEvent implements BlockingEvent {
                 Microbot.log("StrugglingSaplingEvent: No known correct ingredient, collecting a random one.");
                 var randomIngredient = availableIngredients.get((int) (Math.random() * availableIngredients.size()));
                 Microbot.log("StrugglingSaplingEvent: Collecting random ingredient: " + randomIngredient.getWorldLocation());
-                Rs2GameObject.interact(randomIngredient, "Collect");
+                randomIngredient.click("Collect");
                 triedIngredients.add(randomIngredient.getId());
                 Rs2Player.waitForAnimation();
             }

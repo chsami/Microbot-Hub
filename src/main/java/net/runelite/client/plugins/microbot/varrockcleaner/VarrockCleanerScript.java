@@ -4,7 +4,6 @@ package net.runelite.client.plugins.microbot.varrockcleaner;
 import net.runelite.api.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 
@@ -57,7 +56,7 @@ public class VarrockCleanerScript extends Script {
             currentState = State.CLEAN_FIND;
             return;
         }
-        if (Rs2GameObject.interact(ObjectID.DIG_SITE_SPECIMEN_ROCKS, "Take")) {
+        if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.DIG_SITE_SPECIMEN_ROCKS, "Take")) {
             sleepUntil(() -> !Rs2Inventory.isFull(), 5000);
         }
         if (Rs2Inventory.isFull()) {
@@ -66,7 +65,7 @@ public class VarrockCleanerScript extends Script {
     }
 
     private void cleanFinds() {
-        if (Rs2Inventory.contains("Uncleaned find") && Rs2GameObject.interact(ObjectID.SPECIMEN_TABLE_24556, "Clean")) {
+        if (Rs2Inventory.contains("Uncleaned find") && Microbot.getRs2TileObjectCache().query().interact(ObjectID.SPECIMEN_TABLE_24556, "Clean")) {
             sleepUntil(() -> !Rs2Inventory.contains("Uncleaned find"), 30000);
             if (!Rs2Inventory.contains("Uncleaned find")) {
                 currentState = State.STORAGE_CRATE;
@@ -87,7 +86,7 @@ public class VarrockCleanerScript extends Script {
                 "Arrowheads"
         };
 
-        if (!Rs2Inventory.contains("Uncleaned find") && Rs2GameObject.interact(ObjectID.STORAGE_CRATE, "Add finds")) {
+        if (!Rs2Inventory.contains("Uncleaned find") && Microbot.getRs2TileObjectCache().query().interact(ObjectID.STORAGE_CRATE, "Add finds")) {
             Rs2Keyboard.keyPress('2');
             sleep(1000);
 

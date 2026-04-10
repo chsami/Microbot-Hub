@@ -10,7 +10,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 import net.runelite.client.plugins.cluescrolls.clues.FaloTheBardClue;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.concurrent.ExecutorService;
@@ -110,7 +110,7 @@ public class FaloTheBardClueTask extends ClueTask {
 
     private boolean interactWithNpc() {
         log.info("Interacting with Falo the Bard NPC.");
-        return Rs2Npc.interact("Falo the Bard", "Talk-to");
+        return Microbot.getRs2NpcCache().query().withName("Falo the Bard").interact("Talk-to");
     }
 
     private boolean confirmClueCompletion() {

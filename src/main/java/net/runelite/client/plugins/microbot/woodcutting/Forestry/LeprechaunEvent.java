@@ -7,17 +7,11 @@ import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.Global;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
 import org.slf4j.event.Level;
-
-import java.util.Comparator;
-import java.util.Optional;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleepGaussian;
 @Slf4j
@@ -34,10 +28,10 @@ public class LeprechaunEvent implements BlockingEvent {
         try{
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;
-            Optional<Rs2NpcModel> leprechaun =  Rs2Npc
-                    .getNpcs(NpcID.GATHERING_EVENT_WOODCUTTING_LEPRECHAUN)
-                    .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer));;
-            return leprechaun.isPresent();
+            var leprechaun = Microbot.getRs2NpcCache().query()
+                    .withId(NpcID.GATHERING_EVENT_WOODCUTTING_LEPRECHAUN)
+                    .nearest();
+            return leprechaun != null;
         } catch (Exception e) {
             log.error("LeprechaunEvent: Exception in validate method", e);
             return false;
@@ -51,7 +45,7 @@ public class LeprechaunEvent implements BlockingEvent {
         Rs2Walker.setTarget(null); // stop walking, stop moving to bank for example
         while (this.validate()) {
             log.info("LeprechaunEvent: Leprechaun event still valid, continuing execution get opbject");
-            var endOfRainbow = Rs2GameObject.getGameObject(ObjectID.GATHERING_EVENT_WOODCUTTING_LEPRECHAUN_RAINBOW);
+            var endOfRainbow = Microbot.getRs2TileObjectCache().query().withId(ObjectID.GATHERING_EVENT_WOODCUTTING_LEPRECHAUN_RAINBOW).nearest();
             if (endOfRainbow == null) {
                 log.warn("LeprechaunEvent: End of the rainbow not found, retrying...");
                 sleepGaussian(900, 300);

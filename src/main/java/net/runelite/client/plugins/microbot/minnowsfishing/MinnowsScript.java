@@ -10,7 +10,7 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import java.util.concurrent.TimeUnit;
@@ -53,8 +53,8 @@ public class MinnowsScript extends Script {
                             TARGET_SPOT_ID = FISHING_SPOT_1_ID;
                         }
                         Microbot.status = "DODGING FLYING FISH";
-                        fishingspot = Rs2Npc.getNpc(TARGET_SPOT_ID);
-                        Rs2Npc.interact(fishingspot, "Small Net");
+                        fishingspot = Microbot.getRs2NpcCache().query().withId(TARGET_SPOT_ID).nearest();
+                        if (fishingspot != null) fishingspot.click("Small Net");
                         Rs2Antiban.actionCooldown();
                         return;
                     }
@@ -63,8 +63,8 @@ public class MinnowsScript extends Script {
                 }
 
                 Microbot.status = "INTERACTING";
-                fishingspot = Rs2Npc.getNpc(TARGET_SPOT_ID);
-                Rs2Npc.interact(fishingspot, "Small Net");
+                fishingspot = Microbot.getRs2NpcCache().query().withId(TARGET_SPOT_ID).nearest();
+                if (fishingspot != null) fishingspot.click("Small Net");
                 Rs2Antiban.actionCooldown();
                 Rs2Antiban.takeMicroBreakByChance();
 

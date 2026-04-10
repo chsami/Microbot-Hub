@@ -12,9 +12,8 @@ import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 import net.runelite.client.plugins.cluescrolls.clues.AnagramClue;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.concurrent.ExecutorService;
@@ -134,7 +133,7 @@ public class AnagramClueTask extends ClueTask {
     private void transitionToInteractionState() {
         if (clue.getObjectId() != -1) {
             state = State.INTERACTING_WITH_OBJECT;
-        } else if (clue.getNpcProvider() != null && Rs2Npc.getNpc(clue.getNpcName(clueScrollPlugin)) != null) {
+        } else if (clue.getNpcProvider() != null && Microbot.getRs2NpcCache().query().withName(clue.getNpcName(clueScrollPlugin)).nearest() != null) {
             state = State.INTERACTING_WITH_NPC;
         } else {
             log.warn("No valid interaction target found.");
@@ -144,11 +143,11 @@ public class AnagramClueTask extends ClueTask {
 
     private boolean interactWithObject() {
         int targetObject = clue.getObjectId();
-        boolean interacted = Rs2GameObject.interact(targetObject, "Search")
-                || Rs2GameObject.interact(targetObject, "Investigate")
-                || Rs2GameObject.interact(targetObject, "Examine")
-                || Rs2GameObject.interact(targetObject, "Look-at")
-                || Rs2GameObject.interact(targetObject, "Open");
+        boolean interacted = Microbot.getRs2TileObjectCache().query().interact(targetObject, "Search")
+                || Microbot.getRs2TileObjectCache().query().interact(targetObject, "Investigate")
+                || Microbot.getRs2TileObjectCache().query().interact(targetObject, "Examine")
+                || Microbot.getRs2TileObjectCache().query().interact(targetObject, "Look-at")
+                || Microbot.getRs2TileObjectCache().query().interact(targetObject, "Open");
 
         if (interacted) {
             log.info("Interacted with object for clue.");
@@ -159,13 +158,13 @@ public class AnagramClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        var targetNpc = Rs2Npc.getNpc(clue.getNpcName(clueScrollPlugin));
+        var targetNpc = Microbot.getRs2NpcCache().query().withName(clue.getNpcName(clueScrollPlugin)).nearest();
         if (targetNpc == null) {
             log.warn("NPC {} not found.", clue.getNpcName(clueScrollPlugin));
             return false;
         }
 
-        boolean interacted = Rs2Npc.interact(targetNpc, "Talk-to");
+        boolean interacted = targetNpc.click("Talk-to");
         if (interacted) {
             log.info("Talking to NPC: {}", clue.getNpcName(clueScrollPlugin));
             Rs2Dialogue.sleepUntilInDialogue();

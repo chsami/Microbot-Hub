@@ -12,14 +12,12 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.NameGenerator;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
@@ -292,7 +290,7 @@ public class TutorialIslandScript extends Script {
     }
 
     public void GettingStarted() {
-        var npc = Rs2Npc.getNpc(NpcID.GIELINOR_GUIDE);
+        var npc = Microbot.getRs2NpcCache().query().withId(NpcID.GIELINOR_GUIDE).nearest();
 
         if (hasContinue()) return;
 
@@ -302,7 +300,7 @@ public class TutorialIslandScript extends Script {
                 return;
             }
 
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) < 8) {
@@ -345,26 +343,26 @@ public class TutorialIslandScript extends Script {
 
             sleepUntil(() -> Rs2Camera.getPitch() > 250);
 
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
 
         } else {
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         }
     }
 
     public void SurvivalGuide() {
-        var npc = Rs2Npc.getNpc(NpcID.SURVIVAL_EXPERT);
+        var npc = Microbot.getRs2NpcCache().query().withId(NpcID.SURVIVAL_EXPERT).nearest();
 
         if (Microbot.getVarbitPlayerValue(281) == 10 || Microbot.getVarbitPlayerValue(281) == 20 || Microbot.getVarbitPlayerValue(281) == 60) {
-            if (!Rs2Npc.hasLineOfSight(npc)) {
+            if (!npc.hasLineOfSight()) {
                 Rs2Walker.walkTo(npc.getWorldLocation(), 4);
                 Rs2Player.waitForWalking();
             }
-            if (Rs2Npc.interact(npc, "talk-to")) {
+            if (npc.click("talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) < 40) {
@@ -378,12 +376,12 @@ public class TutorialIslandScript extends Script {
             var widget = Rs2Widget.findWidget("Skills", true);
             Rs2Widget.clickWidget(widget); // switchToSkillsTab
             Rs2Random.waitEx(1200, 300);
-            if (Rs2Npc.interact(npc, "talk-to")) {
+            if (npc.click("talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) <= 90) {
             if (!Rs2Inventory.hasItem("Bronze Axe") || !Rs2Inventory.hasItem("Tinderbox")) {
-                if (Rs2Npc.interact(npc, "talk-to")) {
+                if (npc.click("talk-to")) {
                     sleepUntil(Rs2Dialogue::isInDialogue);
                 }
                 return;
@@ -392,11 +390,11 @@ public class TutorialIslandScript extends Script {
                 fishShrimp();
                 return;
             }
-            if (!Rs2Inventory.contains("Logs") && (!Rs2GameObject.exists(ObjectID.FIRE_26185) || Rs2Player.getRealSkillLevel(Skill.WOODCUTTING) == 0)) {
+            if (!Rs2Inventory.contains("Logs") && (Microbot.getRs2TileObjectCache().query().withId(ObjectID.FIRE_26185).nearest() == null || Rs2Player.getRealSkillLevel(Skill.WOODCUTTING) == 0)) {
                 CutTree();
                 return;
             }
-            if (!Rs2GameObject.exists(ObjectID.FIRE_26185)) {
+            if (Microbot.getRs2TileObjectCache().query().withId(ObjectID.FIRE_26185).nearest() == null) {
                 LightFire();
                 return;
             }
@@ -405,7 +403,7 @@ public class TutorialIslandScript extends Script {
     }
 
     public void MageGuide() {
-        var npc = Rs2Npc.getNpc(NpcID.MAGIC_INSTRUCTOR);
+        var npc = Microbot.getRs2NpcCache().query().withId(NpcID.MAGIC_INSTRUCTOR).nearest();
 
         if (Microbot.getVarbitPlayerValue(281) == 610 || Microbot.getVarbitPlayerValue(281) == 620) {
             WorldPoint worldPoint = new WorldPoint(3141, 3088, 0);
@@ -415,7 +413,7 @@ public class TutorialIslandScript extends Script {
             if (distance > 8) {
                 Rs2Walker.walkTo(targetPoint, 8);
             } else {
-                if (Rs2Npc.interact(npc, "Talk-to")) {
+                if (npc.click("Talk-to")) {
                     sleepUntil(Rs2Dialogue::isInDialogue);
                 }
             }
@@ -424,7 +422,7 @@ public class TutorialIslandScript extends Script {
             Rs2Widget.clickWidget(widget); // switchToMagicTab
             Rs2Random.waitEx(1200, 300);
         } else if (Microbot.getVarbitPlayerValue(281) == 640) {
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) == 650) {
@@ -450,7 +448,7 @@ public class TutorialIslandScript extends Script {
                     }
                 }
             } else {
-                if (Rs2Npc.interact(npc, "Talk-to")) {
+                if (npc.click("Talk-to")) {
                     sleepUntil(Rs2Dialogue::isInDialogue);
                 }
             }
@@ -458,11 +456,11 @@ public class TutorialIslandScript extends Script {
     }
 
     public void PrayerGuide() {
-        var npc = Rs2Npc.getNpc(NpcID.BROTHER_BRACE);
+        var npc = Microbot.getRs2NpcCache().query().withId(NpcID.BROTHER_BRACE).nearest();
 
         if (Microbot.getVarbitPlayerValue(281) == 640 || Microbot.getVarbitPlayerValue(281) == 550 || Microbot.getVarbitPlayerValue(281) == 540) {
             Rs2Walker.walkTo(new WorldPoint(3124, 3106, 0));
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) == 560) {
@@ -470,7 +468,7 @@ public class TutorialIslandScript extends Script {
             Rs2Widget.clickWidget(widget); // switchToPrayerTab
             Rs2Random.waitEx(1200, 300);
         } else if (Microbot.getVarbitPlayerValue(281) == 570) {
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) == 580) {
@@ -478,17 +476,17 @@ public class TutorialIslandScript extends Script {
             Rs2Widget.clickWidget(widget); // switchToFriendsTab
             Rs2Random.waitEx(1200, 300);
         } else if (Microbot.getVarbitPlayerValue(281) == 600) {
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         }
     }
 
     public void BankerGuide() {
-        var npc = Rs2Npc.getNpc(NpcID.ACCOUNT_GUIDE);
+        var npc = Microbot.getRs2NpcCache().query().withId(NpcID.ACCOUNT_GUIDE).nearest();
 
         if (Microbot.getVarbitPlayerValue(281) == 510) {
-            Rs2GameObject.interact(ObjectID.BANK_BOOTH_10083);
+            Microbot.getRs2TileObjectCache().query().interact(ObjectID.BANK_BOOTH_10083);
             sleepUntil(() -> Microbot.getVarbitPlayerValue(281) != 510);
 
 
@@ -512,7 +510,7 @@ public class TutorialIslandScript extends Script {
 
             Rs2Bank.closeBank();
             sleepUntil(() -> !Rs2Bank.isOpen());
-            Rs2GameObject.interact(26815); //interactWithPollBooth
+            Microbot.getRs2TileObjectCache().query().interact(26815); //interactWithPollBooth
             sleepUntil(() -> Microbot.getVarbitPlayerValue(281) != 520);
         } else if (Microbot.getVarbitPlayerValue(281) == 525 || Microbot.getVarbitPlayerValue(281) == 530) {
             if (Rs2Widget.isWidgetVisible(310, 2)) {
@@ -534,7 +532,7 @@ public class TutorialIslandScript extends Script {
 
             Rs2Walker.walkTo(npc.getWorldLocation(), 3);
             Rs2Player.waitForWalking();
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) == 531) {
@@ -546,19 +544,19 @@ public class TutorialIslandScript extends Script {
                 clickContinue();
                 return;
             }
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         }
     }
 
     public void CombatGuide() {
-        var npc = Rs2Npc.getNpc(NpcID.COMBAT_INSTRUCTOR);
+        var npc = Microbot.getRs2NpcCache().query().withId(NpcID.COMBAT_INSTRUCTOR).nearest();
 
         if (Microbot.getVarbitPlayerValue(281) <= 370) {
             Rs2Walker.walkTo(new WorldPoint(Rs2Random.between(3106, 3108), Rs2Random.between(9508, 9510), 0));
             Rs2Player.waitForWalking();
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) <= 410) {
@@ -592,13 +590,13 @@ public class TutorialIslandScript extends Script {
                 }
             }
 
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) == 500) {
             Rs2Walker.walkTo(new WorldPoint(3111, 9526, Rs2Player.getWorldLocation().getPlane()));
             Rs2Player.waitForWalking();
-            Rs2GameObject.interact("Ladder", "Climb-up");
+            Microbot.getRs2TileObjectCache().query().withName("Ladder").interact("Climb-up");
             sleepUntil(() -> Microbot.getVarbitPlayerValue(281) != 500);
         } else if (Microbot.getVarbitPlayerValue(281) == 480 || Microbot.getVarbitPlayerValue(281) == 490) {
             Actor rat = Rs2Player.getInteracting();
@@ -611,11 +609,11 @@ public class TutorialIslandScript extends Script {
                 Rs2Walker.walkTo(new WorldPoint(3110, 9523, 0), 4);
             }
             Rs2Player.waitForWalking();
-            Rs2Npc.attack("Giant rat");
+            Microbot.getRs2NpcCache().query().withName("Giant rat").interact("Attack");
         } else if (Microbot.getVarbitPlayerValue(281) == 470) {
             Rs2Walker.walkTo(npc.getWorldLocation());
             Rs2Player.waitForWalking();
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) >= 420) {
@@ -627,7 +625,7 @@ public class TutorialIslandScript extends Script {
                 WorldPoint worldPoint = new WorldPoint(3105, 9517, 0);
                 Rs2Walker.walkTo(worldPoint, 3);
                 Rs2Player.waitForWalking();
-                Rs2Npc.attack("Giant rat");
+                Microbot.getRs2NpcCache().query().withName("Giant rat").interact("Attack");
             } else {
                 Rs2Tab.switchTo(InterfaceTab.INVENTORY);
                 Rs2Random.waitEx(600, 100);
@@ -639,21 +637,21 @@ public class TutorialIslandScript extends Script {
     }
 
     public void MiningGuide() {
-        var npc = Rs2Npc.getNpc(NpcID.MINING_INSTRUCTOR);
+        var npc = Microbot.getRs2NpcCache().query().withId(NpcID.MINING_INSTRUCTOR).nearest();
 
         if (Microbot.getVarbitPlayerValue(281) == 260) {
             Rs2Walker.walkTo(new WorldPoint(Rs2Random.between(3082, 3085), Rs2Random.between(9502, 9505), 0));
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else {
             if (Rs2Inventory.contains("Bronze dagger")) {
-                Rs2GameObject.interact(ObjectID.GATE_9718, "Open");
+                Microbot.getRs2TileObjectCache().query().interact(ObjectID.GATE_9718, "Open");
                 sleepUntil(() -> Microbot.getVarbitPlayerValue(281) > 360);
                 return;
             }
             if (Rs2Inventory.contains("Bronze bar") && Rs2Inventory.contains("Hammer")) {
-                Rs2GameObject.interact("Anvil", "Smith");
+                Microbot.getRs2TileObjectCache().query().withName("Anvil").interact("Smith");
                 sleepUntil(Rs2Widget::isSmithingWidgetOpen);
                 Rs2Widget.clickWidget(312, 9); // Smith Bronze Dagger
                 Rs2Random.waitEx(1200, 300);
@@ -661,7 +659,7 @@ public class TutorialIslandScript extends Script {
                 return;
             }
             if (Rs2Inventory.contains("Bronze bar") && !Rs2Inventory.contains("Hammer")) {
-                if (Rs2Npc.interact(npc, "Talk-to")) {
+                if (npc.click("Talk-to")) {
                     sleepUntil(Rs2Dialogue::isInDialogue);
                 }
                 return;
@@ -678,7 +676,7 @@ public class TutorialIslandScript extends Script {
                 Collections.shuffle(rockIds);
                 int rockId = rockIds.get(0);
 
-                Rs2GameObject.interact(rockId, "Mine");
+                Microbot.getRs2TileObjectCache().query().interact(rockId, "Mine");
                 sleepUntil(() -> {
                     if (rockId == ObjectID.COPPER_ROCKS) {
                         return Rs2Inventory.contains("Copper ore") && !Rs2Player.isAnimating(1800);
@@ -696,14 +694,14 @@ public class TutorialIslandScript extends Script {
     }
 
     public void QuestGuide() {
-        var npc = Rs2Npc.getNpc(NpcID.QUEST_GUIDE);
+        var npc = Microbot.getRs2NpcCache().query().withId(NpcID.QUEST_GUIDE).nearest();
 
         if (Microbot.getVarbitPlayerValue(281) == 200 || Microbot.getVarbitPlayerValue(281) == 210) {
             Rs2Walker.walkTo(new WorldPoint(Rs2Random.between(3083, 3086), Rs2Random.between(3127, 3129), 0));
-            Rs2GameObject.interact(9716, "Open");
+            Microbot.getRs2TileObjectCache().query().interact(9716, "Open");
             Rs2Random.waitEx(1200, 300);
         } else if (Microbot.getVarbitPlayerValue(281) == 220 || Microbot.getVarbitPlayerValue(281) == 240) {
-            Rs2Npc.interact(npc, "Talk-to");
+            npc.click("Talk-to");
             sleepUntil(Rs2Dialogue::isInDialogue);
         } else if (Microbot.getVarbitPlayerValue(281) == 230) {
             var widget = Rs2Widget.findWidget("Quest List", true);
@@ -712,24 +710,24 @@ public class TutorialIslandScript extends Script {
         } else {
             Rs2Tab.switchTo(InterfaceTab.INVENTORY);
             Rs2Random.waitEx(600, 100);
-            Rs2GameObject.interact(9726, "Climb-down");
+            Microbot.getRs2TileObjectCache().query().interact(9726, "Climb-down");
             Rs2Random.waitEx(2400, 100);
         }
     }
 
     public void CookingGuide() {
-        var npc = Rs2Npc.getNpc(NpcID.MASTER_CHEF);
+        var npc = Microbot.getRs2NpcCache().query().withId(NpcID.MASTER_CHEF).nearest();
 
         if (Microbot.getVarbitPlayerValue(281) == 120) {
             Rs2Random.waitEx(1200, 300);
             Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
-            Rs2GameObject.interact(ObjectID.GATE_9470, "Open");
+            Microbot.getRs2TileObjectCache().query().interact(ObjectID.GATE_9470, "Open");
             sleepUntil(() -> Microbot.getVarbitPlayerValue(281) != 120);
         } else if (Microbot.getVarbitPlayerValue(281) == 130) {
-            Rs2GameObject.interact(ObjectID.DOOR_9709, "Open");
+            Microbot.getRs2TileObjectCache().query().interact(ObjectID.DOOR_9709, "Open");
             sleepUntil(() -> Microbot.getVarbitPlayerValue(281) != 130);
         } else if (Microbot.getVarbitPlayerValue(281) == 140) {
-            if (Rs2Npc.interact(npc, "Talk-to")) {
+            if (npc.click("Talk-to")) {
                 sleepUntil(Rs2Dialogue::isInDialogue);
             }
         } else if (Microbot.getVarbitPlayerValue(281) >= 150 && Microbot.getVarbitPlayerValue(281) < 200) {
@@ -738,10 +736,10 @@ public class TutorialIslandScript extends Script {
                 sleepUntil(() -> Rs2Inventory.contains("Dough"), 2000);
             } else if (Rs2Inventory.contains("Bread dough")) {
                 Rs2Inventory.interact("Bread dough");
-                Rs2GameObject.interact(9736, "Use");
+                Microbot.getRs2TileObjectCache().query().interact(9736, "Use");
                 sleepUntil(() -> Rs2Inventory.contains("Bread"));
             } else if (Rs2Inventory.contains("Bread")) {
-                if (Rs2GameObject.interact(9710, "Open")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(9710, "Open")) {
                     Rs2Random.waitEx(2400, 100);
                 }
             }
@@ -759,12 +757,12 @@ public class TutorialIslandScript extends Script {
     }
 
     public void CutTree() {
-        Rs2GameObject.interact("Tree", "Chop down");
+        Microbot.getRs2TileObjectCache().query().withName("Tree").interact("Chop down");
         sleepUntil(() -> Rs2Inventory.hasItem("Logs") && !Rs2Player.isAnimating(2400));
     }
 
     public void fishShrimp() {
-        Rs2Npc.interact(NpcID.FISHING_SPOT_3317, "Net");
+        Microbot.getRs2NpcCache().query().withId(NpcID.FISHING_SPOT_3317).interact("Net");
         sleepUntil(() -> Rs2Inventory.contains("Raw shrimps"));
     }
 
@@ -801,11 +799,11 @@ public class TutorialIslandScript extends Script {
         Rs2Widget.clickWidget(windStrike);
         Rs2Random.waitEx(150, 50);
 
-        Rs2NpcModel chicken = Rs2Npc.getNpcs("chicken").findFirst().orElse(null);
+        Rs2NpcModel chicken = Microbot.getRs2NpcCache().query().withName("chicken").nearest();
         if (chicken == null) return false;
 
-        if (!Rs2Npc.interact(chicken, "Cast")) {
-            Rs2Npc.interact(chicken);
+        if (!chicken.click("Cast")) {
+            chicken.click("Cast");
         }
 
         sleepUntil(() -> Rs2Player.isAnimating() || Microbot.getVarbitPlayerValue(281) != 650, 2_000);

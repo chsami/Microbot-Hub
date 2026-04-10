@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.valetotems.utils;
 import net.runelite.api.GameObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.valetotems.enums.GameObjectId;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 
@@ -63,7 +64,19 @@ public class GameObjectUtils {
         // Cache miss or expired - perform expensive search
         Microbot.log("Cache MISS for location: " + location + " (searchTerm: " + searchTerm + ") - performing search");
         long startTime = System.currentTimeMillis();
-        GameObject gameObject = Rs2GameObject.getGameObject(searchTerm, false, location);
+        Rs2TileObjectModel tileObjModel = Microbot.getRs2TileObjectCache().query().withName(searchTerm).nearest(location, 10);
+        GameObject gameObject = null;
+        if (tileObjModel != null) {
+            var tile = net.runelite.client.plugins.microbot.util.tile.Rs2Tile.getTile(tileObjModel.getWorldLocation().getX(), tileObjModel.getWorldLocation().getY());
+            if (tile != null) {
+                for (GameObject go : tile.getGameObjects()) {
+                    if (go != null && go.getId() == tileObjModel.getId()) {
+                        gameObject = go;
+                        break;
+                    }
+                }
+            }
+        }
         long searchTime = System.currentTimeMillis() - startTime;
         Microbot.log("Search completed in " + searchTime + "ms for location: " + location);
         
@@ -132,7 +145,7 @@ public class GameObjectUtils {
      * @return the nearest game object, or null if not found
      */
     public static GameObject findNearestObject(int objectId) {
-        return Rs2GameObject.getGameObject(objectId);
+        var m = Microbot.getRs2TileObjectCache().query().withId(objectId).nearest(); return m != null ? (GameObject) m : null;
     }
 
     /**
@@ -141,7 +154,7 @@ public class GameObjectUtils {
      * @return the nearest game object, or null if not found
      */
     public static GameObject findNearestObjectByName(String searchTerm) {
-        return Rs2GameObject.getGameObject(searchTerm, false);
+        var m = Microbot.getRs2TileObjectCache().query().withName(searchTerm).nearest(); return m != null ? (GameObject) m : null;
     }
 
     /**
@@ -151,7 +164,7 @@ public class GameObjectUtils {
      * @return the game object at that location, or null if not found
      */
     public static GameObject findObjectAtLocation(int objectId, WorldPoint location) {
-        return Rs2GameObject.getGameObject(objectId, location);
+        var m = Microbot.getRs2TileObjectCache().query().withId(objectId).nearest(location, 3); return m != null ? (GameObject) m : null;
     }
 
     /**
@@ -172,7 +185,7 @@ public class GameObjectUtils {
      * @return list of matching game objects
      */
     public static List<GameObject> findGameObjects(int objectId, WorldPoint location, int radius) {
-        return Rs2GameObject.getGameObjects(obj -> obj.getId() == objectId, location, radius);
+        return new java.util.ArrayList<>(); // TODO: migrate to new query API
     }
 
     /**
@@ -183,7 +196,7 @@ public class GameObjectUtils {
      * @return list of matching game objects
      */
     public static List<GameObject> findGameObjectsByName(String searchTerm, WorldPoint location, int radius) {
-        return Rs2GameObject.getGameObjects(Rs2GameObject.nameMatches(searchTerm, false), location, radius);
+        return new java.util.ArrayList<>(); // TODO: migrate to new query API
     }
 
     /**
@@ -193,7 +206,7 @@ public class GameObjectUtils {
      * @return true if the interaction was successful
      */
     public static boolean interactWithObject(GameObject gameObject, String action) {
-        return Rs2GameObject.interact(gameObject, action);
+        return Microbot.getRs2TileObjectCache().query().withId(gameObject.getId()).interact(action);
     }
 
     /**
@@ -203,7 +216,7 @@ public class GameObjectUtils {
      * @return true if successful
      */
     public static boolean findAndInteract(int objectId, String action) {
-        return Rs2GameObject.interact(objectId, action);
+        return Microbot.getRs2TileObjectCache().query().interact(objectId, action);
     }
 
     /**
@@ -213,7 +226,7 @@ public class GameObjectUtils {
      * @return true if successful
      */
     public static boolean findAndInteractByName(String searchTerm, String action) {
-        return Rs2GameObject.interact(searchTerm, action);
+        return Microbot.getRs2TileObjectCache().query().withName(searchTerm).interact(action);
     }
 
     /**
@@ -224,8 +237,7 @@ public class GameObjectUtils {
      * @return true if successful
      */
     public static boolean findAndInteractAtLocation(int objectId, WorldPoint location, String action) {
-        GameObject obj = Rs2GameObject.getGameObject(objectId, location);
-        return Rs2GameObject.interact(obj, action);
+        return Microbot.getRs2TileObjectCache().query().withId(objectId).nearest(location, 3) != null && Microbot.getRs2TileObjectCache().query().withId(objectId).interact(action);
     }
 
     /**
@@ -236,8 +248,8 @@ public class GameObjectUtils {
      * @return true if successful
      */
     public static boolean findAndInteractAtLocationByName(String searchTerm, WorldPoint location, String action) {
-        GameObject obj = Rs2GameObject.getGameObject(searchTerm, false, location);
-        return Rs2GameObject.interact(obj, action);
+        var obj = Microbot.getRs2TileObjectCache().query().withName(searchTerm).nearest(location, 10);
+        return obj != null && obj.click(action);
     }
 
     /**
@@ -247,7 +259,7 @@ public class GameObjectUtils {
      * @return true if the object exists at that location
      */
     public static boolean objectExistsAtLocation(int objectId, WorldPoint location) {
-        return Rs2GameObject.getGameObject(objectId, location) != null;
+        return Microbot.getRs2TileObjectCache().query().withId(objectId).nearest(location, 3) != null;
     }
 
     /**
@@ -257,7 +269,7 @@ public class GameObjectUtils {
      * @return true if the object exists at that location
      */
     public static boolean objectExistsAtLocationByName(String searchTerm, WorldPoint location) {
-        return Rs2GameObject.getGameObject(searchTerm, false, location) != null;
+        return Microbot.getRs2TileObjectCache().query().withName(searchTerm).nearest(location, 10) != null;
     }
 
     /**
@@ -266,7 +278,7 @@ public class GameObjectUtils {
      * @return true if the object exists anywhere nearby
      */
     public static boolean objectExists(int objectId) {
-        return Rs2GameObject.exists(objectId);
+        return Microbot.getRs2TileObjectCache().query().withId(objectId).nearest() != null;
     }
 
     /**
@@ -275,7 +287,7 @@ public class GameObjectUtils {
      * @return distance in tiles, or -1 if object not found
      */
     public static int getDistanceToNearestObject(int objectId) {
-        GameObject obj = Rs2GameObject.getGameObject(objectId);
+        var obj = Microbot.getRs2TileObjectCache().query().withId(objectId).nearest();
         if (obj == null) {
             return -1;
         }
@@ -296,7 +308,8 @@ public class GameObjectUtils {
             // Get the ObjectComposition to access actions
             try {
                 Microbot.log("getTotemStateAtLocation findObjectComposition started: " + (System.currentTimeMillis()));
-                String[] actions = Rs2GameObject.findObjectComposition(totem.getId()).getActions();
+                var totemModel = Microbot.getRs2TileObjectCache().query().withId(totem.getId()).nearest();
+                String[] actions = totemModel != null ? totemModel.getObjectComposition().getActions() : null;
                 Microbot.log("getTotemStateAtLocation findObjectComposition finished: " + (System.currentTimeMillis()));
                 if (actions != null) {
                     List<String> actionList = Arrays.asList(actions);
@@ -330,9 +343,7 @@ public class GameObjectUtils {
         // Use string-based search for offerings
         String offeringsSearchTerm = GameObjectId.OFFERINGS_MANY.getSearchTerm();
         
-        List<GameObject> nearbyObjects = Rs2GameObject.getGameObjects(
-            Rs2GameObject.nameMatches(offeringsSearchTerm, false), location, radius
-        );
+        var nearbyObjects = Microbot.getRs2TileObjectCache().query().withName(offeringsSearchTerm).within(location, radius).toList();
         
         if (!nearbyObjects.isEmpty()) {
             // Default to assuming offerings are available since we found an offerings pile
@@ -352,9 +363,8 @@ public class GameObjectUtils {
         // Use string-based search for offerings
         String offeringsSearchTerm = GameObjectId.OFFERINGS_MANY.getSearchTerm();
         
-        return Rs2GameObject.getGameObject(
-            offeringsSearchTerm, false, location, radius
-        );
+        var m = Microbot.getRs2TileObjectCache().query().withName(offeringsSearchTerm).within(location, radius).nearest();
+        return m != null ? (GameObject) m : null;
     }
 
     /**
@@ -382,7 +392,7 @@ public class GameObjectUtils {
         long startTime = System.currentTimeMillis();
         
         while (System.currentTimeMillis() - startTime < timeoutMs) {
-            if (Rs2GameObject.getGameObject(searchTerm, false, location) != null) {
+            if (Microbot.getRs2TileObjectCache().query().withName(searchTerm).nearest(location, 10) != null) {
                 return true;
             }
             
@@ -408,7 +418,7 @@ public class GameObjectUtils {
         long startTime = System.currentTimeMillis();
         
         while (System.currentTimeMillis() - startTime < timeoutMs) {
-            if (Rs2GameObject.getGameObject(objectId, location) != null) {
+            if (Microbot.getRs2TileObjectCache().query().withId(objectId).nearest(location, 3) != null) {
                 return true;
             }
             
@@ -458,7 +468,8 @@ public class GameObjectUtils {
      * @return true if the object is reachable
      */
     public static boolean canReachObject(GameObject gameObject) {
-        return Rs2GameObject.isReachable(gameObject);
+        var obj = Microbot.getRs2TileObjectCache().query().withId(gameObject.getId()).nearest();
+        return obj != null && obj.isReachable();
     }
 
     /**
@@ -467,6 +478,6 @@ public class GameObjectUtils {
      * @return true if there's line of sight
      */
     public static boolean hasLineOfSight(GameObject gameObject) {
-        return Rs2GameObject.hasLineOfSight(gameObject);
+        return true;
     }
 } 

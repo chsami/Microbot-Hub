@@ -14,16 +14,16 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
-import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2RunePouch;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.magic.*;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -189,7 +189,7 @@ public class MageTrainingArenaScript extends Script {
                     || currentPoints.get(currentRoom.getPoints()) >= getRequiredPoints().get(currentRoom.getPoints()) * (config.buyRewards() ? 1 : (buyable + 1))) {
                 // Deposit items before leaving to maximize points
                 if (currentRoom == Rooms.ENCHANTMENT && Rs2Inventory.contains(ItemID.MAGICTRAINING_ENCHAN_SHAPEORB)) {
-                    Rs2GameObject.interact(ObjectID.MAGICTRAINING_ENCHA_HOLE, "Deposit");
+                    Microbot.getRs2TileObjectCache().query().interact(ObjectID.MAGICTRAINING_ENCHA_HOLE, "Deposit");
                     Rs2Player.waitForWalking();
                 }
                 if (currentRoom == Rooms.GRAVEYARD && Rs2Inventory.contains(ItemID.BANANA, ItemID.PEACH)) {
@@ -331,19 +331,19 @@ public class MageTrainingArenaScript extends Script {
             if (!Rs2Walker.walkTo(new WorldPoint(3363, 9640, 0)))
                 return;
 
-            Rs2GameObject.interact(ObjectID.MAGICTRAINING_ENCHA_HOLE, "Deposit");
+            Microbot.getRs2TileObjectCache().query().interact(ObjectID.MAGICTRAINING_ENCHA_HOLE, "Deposit");
             Rs2Player.waitForWalking();
             return;
         }
 
-        boolean successFullLoot = Rs2GroundItem.loot(ItemID.MAGICTRAINING_DRAGONSTONE, 12) && Rs2Inventory.waitForInventoryChanges(5000);
+        boolean successFullLoot = Microbot.getRs2TileItemCache().query().withId(ItemID.MAGICTRAINING_DRAGONSTONE).interact("Take") && Rs2Inventory.waitForInventoryChanges(5000);
 
         if (successFullLoot && Rs2Inventory.emptySlotCount() > 0)
             return;
 
         var bonusShape = getBonusShape();
         if (bonusShape == null) return;
-        var object = Rs2GameObject.getGameObject(obj -> (obj.getId() == bonusShape.getObjectId()) && Rs2Camera.isTileOnScreen(obj));
+        Rs2TileObjectModel object = Microbot.getRs2TileObjectCache().query().withId(bonusShape.getObjectId()).where(obj -> Rs2Camera.isTileOnScreen(obj.getLocalLocation())).nearest();
         if (object == null) {
             var index = Rs2Random.between(0, 4);
             Rs2Walker.walkTo(new WorldPoint[]{
@@ -369,7 +369,7 @@ public class MageTrainingArenaScript extends Script {
             Rs2Inventory.interact(itemId);
 
             sleepUntil(() -> !Rs2Inventory.contains(itemId) || itemId != ItemID.MAGICTRAINING_DRAGONSTONE && bonusShape != getBonusShape(), 20000);
-        } else if (Rs2GameObject.interact(object, "Take-from")) {
+        } else if (object.click("Take-from")) {
             Rs2Inventory.waitForInventoryChanges(1000);
         } else if (Rs2Player.getWorldLocation().distanceTo(object.getWorldLocation()) > 10){
             Rs2Walker.walkFastCanvas(object.getWorldLocation());
@@ -427,7 +427,7 @@ public class MageTrainingArenaScript extends Script {
         if (guardian.getWorldLocation().equals(room.getFinishLocation())) {
             sleepUntil(() -> room.getGuardian().getId() == NpcID.MAGICTRAINING_GUARD_MAZE_COMPLETE);
             sleep(200, 400);
-            Rs2Npc.interact(new Rs2NpcModel(room.getGuardian()), "New-maze");
+            new Rs2NpcModel(room.getGuardian()).click("New-maze");
             sleepUntil(() -> Rs2Player.getWorldLocation().distanceTo(teleRoom.getArea()) != 0);
         } else {
             while (!Rs2Player.getWorldLocation().equals(targetConverted)
@@ -454,7 +454,7 @@ public class MageTrainingArenaScript extends Script {
                 if (Rs2Random.dicePercentage(50)) {
                     Rs2Camera.turnTo(room.getGuardian());
                 }
-                Rs2Npc.interact(new Rs2NpcModel(room.getGuardian()));
+                new Rs2NpcModel(room.getGuardian()).click();
                 sleepUntil(()->room.getGuardian().getId() != NpcID.MAGICTRAINING_GUARD_MAZE_MOVING);
             }
         }
@@ -544,13 +544,13 @@ public class MageTrainingArenaScript extends Script {
         }
 
         if (room.getSuggestion() == null) {
-            Rs2GameObject.interact("Cupboard", "Search");
+            Microbot.getRs2TileObjectCache().query().withName("Cupboard").interact("Search");
             sleep(300,600);
 
             if (sleepUntilTrue(Rs2Player::isMoving, 100, 1000))
                 sleepUntil(() -> !Rs2Player.isMoving());
         } else {
-            Rs2GameObject.interact(room.getSuggestion().getGameObject(), "Take-5");
+            new Rs2TileObjectModel(room.getSuggestion().getGameObject()).click("Take-5");
             Rs2Inventory.waitForInventoryChanges(3000);
             sleep(300,600);
         }
@@ -572,7 +572,7 @@ public class MageTrainingArenaScript extends Script {
             return;
 
         if (!Rs2Widget.isWidgetVisible(197, 0)) {
-            Rs2Npc.interact(NpcID.MAGICTRAINING_GUARD_REWARDS, "Trade-with");
+            Microbot.getRs2NpcCache().query().withId(NpcID.MAGICTRAINING_GUARD_REWARDS).interact("Trade-with");
             sleepUntil(() -> Rs2Widget.isWidgetVisible(197, 0));
             sleepGaussian(600, 150);
             return;
@@ -614,7 +614,7 @@ public class MageTrainingArenaScript extends Script {
         if (!Rs2Walker.walkTo(portalPoint))
             return;
 
-        Rs2GameObject.interact(room.getTeleporter(), "Enter");
+        Microbot.getRs2TileObjectCache().query().interact(room.getTeleporter(), "Enter");
         Rs2Player.waitForAnimation();
         if (Rs2Widget.hasWidget("You must talk to the Entrance Guardian"))
             firstTime = true;
@@ -641,7 +641,7 @@ public class MageTrainingArenaScript extends Script {
         if (!Rs2Walker.walkTo(exit))
             return;
 
-        Rs2GameObject.interact(ObjectID.MAGICTRAINING_RETURNDOOR, "Enter");
+        Microbot.getRs2TileObjectCache().query().interact(ObjectID.MAGICTRAINING_RETURNDOOR, "Enter");
         Rs2Player.waitForWalking();
     }
 
@@ -651,7 +651,7 @@ public class MageTrainingArenaScript extends Script {
                 return true;
 
             if (!Rs2Dialogue.isInDialogue())
-                Rs2Npc.interact(NpcID.MAGICTRAINING_GUARD_ENTRANCE, "Talk-to");
+                Microbot.getRs2NpcCache().query().withId(NpcID.MAGICTRAINING_GUARD_ENTRANCE).interact("Talk-to");
             else if (Rs2Dialogue.hasSelectAnOption() && Rs2Widget.hasWidget("I'm new to this place"))
                 Rs2Widget.clickWidget("I'm new to this place");
             else if (Rs2Dialogue.hasSelectAnOption() && Rs2Widget.hasWidget("Thanks, bye!")) {

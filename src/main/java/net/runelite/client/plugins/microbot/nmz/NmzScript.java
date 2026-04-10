@@ -10,12 +10,10 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -147,10 +145,10 @@ public class NmzScript extends Script {
             lastCombatTime = System.currentTimeMillis();
         }
         if (!Rs2Player.isInCombat() && System.currentTimeMillis() - lastCombatTime > 20000) {
-            Rs2NpcModel closestNpc = Rs2Npc.getNearestNpcWithAction("Attack");
+            Rs2NpcModel closestNpc = Microbot.getRs2NpcCache().query().nearest();
 
             if (closestNpc != null) {
-                Rs2Npc.interact(closestNpc, "Attack");
+                closestNpc.click("Attack");
             }
         }
         prayerPotionScript.run();
@@ -173,7 +171,7 @@ public class NmzScript extends Script {
     public void startNmzDream() {
         // Set new center so that it is random for every time joining the dream
         center = new WorldPoint(Rs2Random.between(2270, 2276), Rs2Random.between(4693, 4696), 0);
-        Rs2Npc.interact(NpcID.DOMINIC_ONION, "Dream");
+        Microbot.getRs2NpcCache().query().withId(NpcID.DOMINIC_ONION).interact("Dream");
         sleepUntil(() -> Rs2Widget.hasWidget("Which dream would you like to experience?"));
         Rs2Widget.clickWidget("Previous:");
         sleepUntil(() -> Rs2Widget.hasWidget("Click here to continue"));
@@ -202,14 +200,14 @@ public class NmzScript extends Script {
     }
 
     public boolean interactWithObject(int objectId) {
-        TileObject rs2GameObject = Rs2GameObject.findObjectById(objectId);
+        var rs2GameObject = Microbot.getRs2TileObjectCache().query().withId(objectId).nearest();
         if (rs2GameObject != null) {
-            Rs2Walker.walkFastLocal(rs2GameObject.getLocalLocation());
+            Rs2Walker.walkFastCanvas(rs2GameObject.getWorldLocation());
             sleepUntil(() -> {
                 WorldPoint loc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
                 return loc != null && loc.distanceTo(rs2GameObject.getWorldLocation()) < 5;
             });
-            Rs2GameObject.interact(objectId);
+            rs2GameObject.click();
             return true;
         }
         return false;
@@ -222,7 +220,7 @@ public class NmzScript extends Script {
 
         int neededAmount = requiredAmount - currentAmount;
 
-        Rs2GameObject.interact(objectId, "Take");
+        Microbot.getRs2TileObjectCache().query().withId(objectId).interact("Take");
         String widgetText = "How many doses of ";
         sleepUntil(() -> Rs2Widget.hasWidget(widgetText));
 
@@ -291,7 +289,7 @@ public class NmzScript extends Script {
         if (Rs2Inventory.count(itemName) == requiredAmount) return;
         if (Rs2Inventory.get(itemName) == null) return;
 
-        Rs2GameObject.interact(objectId, "Store");
+        Microbot.getRs2TileObjectCache().query().withId(objectId).interact("Store");
         String storeWidgetText = "Store all your ";
         sleepUntil(() -> Rs2Widget.hasWidget(storeWidgetText));
         if (Rs2Widget.hasWidget(storeWidgetText)) {
@@ -305,7 +303,7 @@ public class NmzScript extends Script {
     private void fetchPotions(int objectId, String itemName, int requiredAmount) {
         if (Rs2Inventory.count(itemName) == requiredAmount) return;
 
-        Rs2GameObject.interact(objectId, "Take");
+        Microbot.getRs2TileObjectCache().query().withId(objectId).interact("Take");
         String widgetText = "How many doses of ";
         sleepUntil(() -> Rs2Widget.hasWidget(widgetText));
         if (Rs2Widget.hasWidget(widgetText)) {
@@ -320,7 +318,7 @@ public class NmzScript extends Script {
         if (Microbot.getClientThread().runOnClientThreadOptional(() ->
                 Rs2Widget.getWidget(129, 6) == null || Rs2Widget.getWidget(129, 6).isHidden())
                 .orElse(false)) {
-            Rs2GameObject.interact(EMPTY_VIAL, "drink");
+            Microbot.getRs2TileObjectCache().query().withId(EMPTY_VIAL).interact("drink");
         }
         sleep(2000,4000);
         Widget widget = Rs2Widget.getWidget(129, 6);
@@ -351,7 +349,7 @@ public class NmzScript extends Script {
             }
         }
 
-        Rs2GameObject.interact(26273);
+        Microbot.getRs2TileObjectCache().query().withId(26273).interact();
         sleepUntil(() -> Rs2Widget.isWidgetVisible(13500418) || Rs2Bank.isBankPinWidgetVisible(), 10000);
         if (Rs2Bank.isBankPinWidgetVisible()) {
             try {

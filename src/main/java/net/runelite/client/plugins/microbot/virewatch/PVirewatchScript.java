@@ -4,7 +4,6 @@ import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -34,13 +33,13 @@ public class PVirewatchScript extends Script {
 
                 if(Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER) <= config.prayAt()) {
                     plugin.rechargingPrayer = true;
-                    var statue = Rs2GameObject.getGameObject(39234);
+                    var statue = Microbot.getRs2TileObjectCache().query().withId(39234).nearest();
                     if(statue != null) {
                         Rs2Walker.walkTo(statue.getWorldLocation(), 1);
-                        sleepUntil(() -> Rs2GameObject.hasLineOfSight(statue));
-                        if(Rs2GameObject.hasLineOfSight(statue)) {
+                        sleepUntil(statue::isReachable);
+                        if(statue.isReachable()) {
                             Microbot.status = "RECHARGING PRAYER";
-                            Rs2GameObject.interact(39234);
+                            statue.click();
                             sleep(100);
                             plugin.rechargingPrayer = false;
                             if(Rs2Player.isInteracting()) {

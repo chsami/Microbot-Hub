@@ -11,7 +11,6 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
@@ -205,7 +204,7 @@ public class RoguesDenScript extends Script {
         Obstacles.Obstacle nextObstacle = OBSTACLES[closestIndex + 1];
 
         if (closestIndex == 0 && !Rs2Player.getWorldLocation().equals(currentObstacle.getTile())) {
-            Rs2GameObject.interact(currentObstacle.getObjectId());
+            Microbot.getRs2TileObjectCache().query().interact(currentObstacle.getObjectId());
             sleepUntil(() -> Rs2Player.getWorldLocation().equals(currentObstacle.getTile()));
             return true;
         }
@@ -243,7 +242,7 @@ public class RoguesDenScript extends Script {
     private boolean useTileObject() {
         if (Rs2Inventory.hasItem(ItemID.ROGUESDEN_PUZZLE_MOSAIC_TILE1)) {
             Microbot.log("Handle tile door");
-            Rs2GameObject.interact(7234, "Open");
+            Microbot.getRs2TileObjectCache().query().interact(7234, "Open");
             Rs2Widget.sleepUntilHasWidget("Select");
             Rs2Widget.clickWidget("Select");
             Rs2Inventory.waitForInventoryChanges(3000);
@@ -323,7 +322,7 @@ public class RoguesDenScript extends Script {
     private void enterMinigame() {
         WalkerState state = Rs2Walker.walkWithState(new WorldPoint(3056, 4991, 1));
         if (state == WalkerState.ARRIVED) {
-            Rs2GameObject.interact(ObjectID.ROGUESDEN_MAZEENTRANCE);
+            Microbot.getRs2TileObjectCache().query().interact(ObjectID.ROGUESDEN_MAZEENTRANCE);
             sleepUntil(() -> Rs2Inventory.hasItem(ItemID.ROGUESDEN_GEM));
         }
     }
@@ -344,9 +343,9 @@ public class RoguesDenScript extends Script {
 
         if (obstacle.getObjectId() != -1) {
             if (obstacle.getObjectId() == 7249) {
-                Rs2GameObject.interact(obstacle.getObjectId(), "search"); // Handles wall searching
+                Microbot.getRs2TileObjectCache().query().interact(obstacle.getObjectId(), "search"); // Handles wall searching
             } else {
-                Rs2GameObject.interact(obstacle.getObjectId());
+                Microbot.getRs2TileObjectCache().query().interact(obstacle.getObjectId());
             }
             Rs2Player.waitForWalking();
 

@@ -16,7 +16,6 @@ import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.misc.Operation;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import org.slf4j.event.Level;
@@ -119,9 +118,9 @@ public class WerewolfCourse implements AgilityCourseHandler {
                 else { // Login edge case where we end up in not defined walker area?
                     if(Rs2Walker.walkTo(RESET_WORLD_POINT, 5)) // Try one more time
                         return true;
-                    var agilityBoss = Rs2Npc.getNpc(NpcID.WEREWOLF_TRAINER_START); // Try clicking on NPC to move to right area?
+                    var agilityBoss = Microbot.getRs2NpcCache().query().withId(NpcID.WEREWOLF_TRAINER_START).nearest();
                     if(agilityBoss != null) {
-                        Rs2Npc.interact(agilityBoss);
+                        agilityBoss.click();
                         return true;
                     }
                 }
@@ -182,15 +181,15 @@ public class WerewolfCourse implements AgilityCourseHandler {
 
     private static void returnStick(WorldPoint playerWorldLocation) {
         if (Rs2Inventory.hasItem("Stick")) {
-            var stickNpc = Rs2Npc.getNpc(NpcID.WEREWOLF_TRAINER_STICK);
+            var stickNpc = Microbot.getRs2NpcCache().query().withId(NpcID.WEREWOLF_TRAINER_STICK).nearest();
             if(stickNpc == null) {
                 Rs2Walker.walkTo(STICK_NPC_WORLD_POINT, 5);
-                stickNpc = Rs2Npc.getNpc(NpcID.WEREWOLF_TRAINER_STICK);
+                stickNpc = Microbot.getRs2NpcCache().query().withId(NpcID.WEREWOLF_TRAINER_STICK).nearest();
             }
             if (stickNpc != null) {
                 if (playerWorldLocation.distanceTo(stickNpc.getWorldLocation()) > 5)
                     Rs2Walker.walkTo(stickNpc.getWorldLocation(), 5);
-                Rs2Npc.interact(stickNpc, "Give-Stick");
+                stickNpc.click("Give-Stick");
                 Rs2Player.waitForWalking();
             } else {
                 Microbot.log("Could not find stick NPC!", Level.WARN);

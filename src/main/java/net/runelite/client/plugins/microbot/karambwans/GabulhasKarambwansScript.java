@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.karambwans;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.GameObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.NpcID;
@@ -11,11 +10,9 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Spells;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.karambwans.enums.KarambwanBankLocation;
@@ -108,9 +105,9 @@ public class GabulhasKarambwansScript extends Script {
             return;
         }
         WorldPoint ringLocation = new WorldPoint(2900, 3111, 0); // Karamja ring
-        GameObject fairyRing = Rs2GameObject.getGameObject(ringLocation);
+        var fairyRing = Microbot.getRs2TileObjectCache().query().nearest(ringLocation, 3);
         if (fairyRing != null) {
-            Rs2GameObject.interact(fairyRing, "Zanaris");
+            fairyRing.click("Zanaris");
             Rs2Player.waitForAnimation();
         }
     }
@@ -153,7 +150,7 @@ public class GabulhasKarambwansScript extends Script {
     }
 
     private void interactWithFishingSpot() {
-        Rs2Npc.interact(NpcID._0_45_48_KARAMBWAN, "Fish");
+        Microbot.getRs2NpcCache().query().withId(NpcID._0_45_48_KARAMBWAN).interact("Fish");
     }
 
     private void walkToFish() {
@@ -165,10 +162,10 @@ public class GabulhasKarambwansScript extends Script {
             } else {
                 Rs2Magic.quickCast(MagicAction.TELEPORT_TO_HOUSE);
             }
-            sleepUntil(() -> Rs2GameObject.exists(FAIRY_RING_ID) || Rs2GameObject.exists(SPIRITUAL_FAIRY_TREE_ID), 5000);
+            sleepUntil(() -> Microbot.getRs2TileObjectCache().query().withId(FAIRY_RING_ID).nearest() != null || Microbot.getRs2TileObjectCache().query().withId(SPIRITUAL_FAIRY_TREE_ID).nearest() != null, 5000);
 
-            boolean interacted = Rs2GameObject.interact(FAIRY_RING_ID, "Last-destination (DKP)") || 
-                                 Rs2GameObject.interact(SPIRITUAL_FAIRY_TREE_ID, "Last-destination (DKP)");
+            boolean interacted = Microbot.getRs2TileObjectCache().query().interact(FAIRY_RING_ID, "Last-destination (DKP)") || 
+                                 Microbot.getRs2TileObjectCache().query().interact(SPIRITUAL_FAIRY_TREE_ID, "Last-destination (DKP)");
 
             if (interacted) {
                 waitTillPlayerNextToFishingSpot();
@@ -178,15 +175,15 @@ public class GabulhasKarambwansScript extends Script {
             Rs2Player.waitForWalking();
 
             // Ensure the fairy ring at Zanaris is actually loaded before trying to interact.
-            sleepUntil(() -> Rs2GameObject.getGameObject(zanarisRingPoint) != null, 5000);
+            sleepUntil(() -> Microbot.getRs2TileObjectCache().query().nearest(zanarisRingPoint, 3) != null, 5000);
 
-            GameObject zanarisRing = Rs2GameObject.getGameObject(zanarisRingPoint);
+            var zanarisRing = Microbot.getRs2TileObjectCache().query().nearest(zanarisRingPoint, 3);
             boolean interacted = false;
             if (zanarisRing != null) {
                 // Prefer the explicit last-destination option, fall back to a generic interact if needed.
-                interacted = Rs2GameObject.interact(zanarisRing, "Last-destination (DKP)")
-                        || Rs2GameObject.interact(zanarisRing, "Last-destination")
-                        || Rs2GameObject.interact(zanarisRing, "Use");
+                interacted = zanarisRing.click("Last-destination (DKP)")
+                        || zanarisRing.click("Last-destination")
+                        || zanarisRing.click("Use");
             }
 
             if (interacted) {
