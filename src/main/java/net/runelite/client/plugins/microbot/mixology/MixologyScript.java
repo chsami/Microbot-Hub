@@ -5,7 +5,6 @@ import net.runelite.api.GameObject;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
 
-
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -15,12 +14,12 @@ import net.runelite.client.plugins.microbot.mixology.enums.PotionComponent;
 import net.runelite.client.plugins.microbot.mixology.enums.PotionModifier;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -98,7 +97,7 @@ public class MixologyScript extends Script {
 
                     if (digweed != null && !Rs2Player.isAnimating() && !Rs2Inventory.hasItem(DIGWEED)
                             && config.pickDigWeed()) {
-                        Rs2GameObject.interact(digweed.coordinate());
+                        Microbot.getRs2TileObjectCache().query().withId(digweed.objectId()).interact();
                         Rs2Player.waitForWalking();
                         Rs2Player.waitForAnimation();
                         return;
@@ -165,7 +164,7 @@ public class MixologyScript extends Script {
                         }
 
                         if (Rs2Inventory.hasItem(config.agaHerb().toString()) || Rs2Inventory.hasItem(config.lyeHerb().toString()) || Rs2Inventory.hasItem(config.moxHerb().toString())) {
-                            Rs2GameObject.interact(ObjectID.MM_LAB_MILL);
+                            Microbot.getRs2TileObjectCache().query().withId(ObjectID.MM_LAB_MILL).interact();
                             Rs2Player.waitForAnimation();
                             sleepGaussian(450, 150);
                             if (!config.useQuickActionRefiner()) {
@@ -206,7 +205,7 @@ public class MixologyScript extends Script {
                         }
                         break;
                     case DEPOSIT_HOPPER:
-                        if (Rs2GameObject.interact(ObjectID.MM_LAB_HOPPER)) {
+                        if (Microbot.getRs2TileObjectCache().query().withId(ObjectID.MM_LAB_HOPPER).interact()) {
                             Rs2Player.waitForWalking();
                             Rs2Inventory.waitForInventoryChanges(10000);
                             mixologyState = MixologyState.MIX_POTION_STAGE_1;
@@ -252,7 +251,7 @@ public class MixologyScript extends Script {
                         }
                         break;
                     case TAKE_FROM_MIXIN_VESSEL:
-                        Rs2GameObject.interact(MIXING_VESSEL.objectId());
+                        Microbot.getRs2TileObjectCache().query().withId(MIXING_VESSEL.objectId()).interact();
                         boolean result = Rs2Inventory.waitForInventoryChanges(5000);
                         if (result) {
                             mixologyState = MixologyState.MIX_POTION_STAGE_1;
@@ -305,7 +304,7 @@ public class MixologyScript extends Script {
                             mixologyState = MixologyState.MIX_POTION_STAGE_1;
                             return;
                         }
-                        if (Rs2GameObject.interact(AlchemyObject.CONVEYOR_BELT.objectId())) {
+                        if (Microbot.getRs2TileObjectCache().query().withId(AlchemyObject.CONVEYOR_BELT.objectId()).interact()) {
                             Rs2Inventory.waitForInventoryChanges(5000);
                             currentAgaPoints = getAgaPoints();
                             currentLyePoints = getLyePoints();
@@ -357,25 +356,22 @@ public class MixologyScript extends Script {
     private static void processPotion(PotionOrder nonFulfilledPotion) {
         switch (nonFulfilledPotion.potionModifier()) {
             case HOMOGENOUS:
-                GameObject agitator = (GameObject) Rs2GameObject.findObjectById(AlchemyObject.AGITATOR.objectId());
-                if (agitator != null && (((DynamicObject) agitator.getRenderable()).getAnimation().getId() == 11633 || ((DynamicObject) agitator.getRenderable()).getAnimation().getId() == 11632)) {
-                    Rs2GameObject.interact(AlchemyObject.AGITATOR.objectId());
+                if (isAlchemyObjectAnimating(AlchemyObject.AGITATOR, 11633, 11632)) {
+                    Microbot.getRs2TileObjectCache().query().withId(AlchemyObject.AGITATOR.objectId()).interact();
                 } else {
                     Rs2Inventory.useItemOnObject(nonFulfilledPotion.potionType().itemId(), AlchemyObject.AGITATOR.objectId());
                 }
                 break;
             case CONCENTRATED:
-                GameObject retort = (GameObject) Rs2GameObject.findObjectById(AlchemyObject.RETORT.objectId());
-                if (retort != null && (((DynamicObject) retort.getRenderable()).getAnimation().getId() == 11643 || ((DynamicObject) retort.getRenderable()).getAnimation().getId() == 11642)) {
-                    Rs2GameObject.interact(AlchemyObject.RETORT.objectId());
+                if (isAlchemyObjectAnimating(AlchemyObject.RETORT, 11643, 11642)) {
+                    Microbot.getRs2TileObjectCache().query().withId(AlchemyObject.RETORT.objectId()).interact();
                 } else {
                     Rs2Inventory.useItemOnObject(nonFulfilledPotion.potionType().itemId(), AlchemyObject.RETORT.objectId());
                 }
                 break;
             case CRYSTALISED:
-                GameObject alembic = (GameObject) Rs2GameObject.findObjectById(AlchemyObject.ALEMBIC.objectId());
-                if (alembic != null && (((DynamicObject) alembic.getRenderable()).getAnimation().getId() == 11638 || ((DynamicObject) alembic.getRenderable()).getAnimation().getId() == 11637)) {
-                    Rs2GameObject.interact(AlchemyObject.ALEMBIC.objectId());
+                if (isAlchemyObjectAnimating(AlchemyObject.ALEMBIC, 11638, 11637)) {
+                    Microbot.getRs2TileObjectCache().query().withId(AlchemyObject.ALEMBIC.objectId()).interact();
                 } else {
                     Rs2Inventory.useItemOnObject(nonFulfilledPotion.potionType().itemId(), AlchemyObject.ALEMBIC.objectId());
                 }
@@ -383,16 +379,38 @@ public class MixologyScript extends Script {
         }
     }
 
+    private static boolean isAlchemyObjectAnimating(AlchemyObject alchemyObject, int... animationIds) {
+        Rs2TileObjectModel model = Microbot.getRs2TileObjectCache().query().withId(alchemyObject.objectId()).nearest();
+        if (model == null) return false;
+        try {
+            net.runelite.api.Scene scene = Microbot.getClient().getTopLevelWorldView().getScene();
+            int plane = model.getWorldLocation().getPlane();
+            int sceneX = model.getLocalLocation().getSceneX();
+            int sceneY = model.getLocalLocation().getSceneY();
+            net.runelite.api.Tile tile = scene.getTiles()[plane][sceneX][sceneY];
+            if (tile == null || tile.getGameObjects() == null) return false;
+            for (net.runelite.api.GameObject go : tile.getGameObjects()) {
+                if (go != null && go.getId() == alchemyObject.objectId() && go.getRenderable() instanceof DynamicObject) {
+                    int animId = ((DynamicObject) go.getRenderable()).getAnimation().getId();
+                    for (int id : animationIds) {
+                        if (animId == id) return true;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     private static void quickActionProcessPotion(PotionOrder nonFulfilledPotion) {
         switch (nonFulfilledPotion.potionModifier()) {
             case HOMOGENOUS:
-                Rs2GameObject.interact(AlchemyObject.AGITATOR.objectId());
+                Microbot.getRs2TileObjectCache().query().withId(AlchemyObject.AGITATOR.objectId()).interact();
                 break;
             case CONCENTRATED:
-                Rs2GameObject.interact(AlchemyObject.RETORT.objectId());
+                Microbot.getRs2TileObjectCache().query().withId(AlchemyObject.RETORT.objectId()).interact();
                 break;
             case CRYSTALISED:
-                Rs2GameObject.interact(AlchemyObject.ALEMBIC.objectId());
+                Microbot.getRs2TileObjectCache().query().withId(AlchemyObject.ALEMBIC.objectId()).interact();
                 break;
         }
     }
@@ -401,11 +419,11 @@ public class MixologyScript extends Script {
         for (PotionComponent component : potionOrder.potionType().components()) {
             if (canCreatePotion(potionOrder)) break;
             if (component.character() == 'A') {
-                Rs2GameObject.interact(AlchemyObject.AGA_LEVER.objectId());
+                Microbot.getRs2TileObjectCache().query().withId(AlchemyObject.AGA_LEVER.objectId()).interact();
             } else if (component.character() == 'L') {
-                Rs2GameObject.interact(AlchemyObject.LYE_LEVER.objectId());
+                Microbot.getRs2TileObjectCache().query().withId(AlchemyObject.LYE_LEVER.objectId()).interact();
             } else if (component.character() == 'M') {
-                Rs2GameObject.interact(AlchemyObject.MOX_LEVER.objectId());
+                Microbot.getRs2TileObjectCache().query().withId(AlchemyObject.MOX_LEVER.objectId()).interact();
             }
             if (config.useQuickActionLever()) {
                 Rs2Player.waitForAnimation();
@@ -419,23 +437,34 @@ public class MixologyScript extends Script {
     }
 
     private boolean canCreatePotion(PotionOrder potionOrder) {
-        // Get the mixer game objects
-        GameObject[] mixers = {
-                (GameObject) Rs2GameObject.findObjectById(ObjectID.MM_LAB_MIXER_03), // mixer3
-                (GameObject) Rs2GameObject.findObjectById(ObjectID.MM_LAB_MIXER_02), // mixer2
-                (GameObject) Rs2GameObject.findObjectById(ObjectID.MM_LAB_MIXER_01)  // mixer1
+        Rs2TileObjectModel[] mixerModels = {
+                Microbot.getRs2TileObjectCache().query().withId(ObjectID.MM_LAB_MIXER_03).nearest(),
+                Microbot.getRs2TileObjectCache().query().withId(ObjectID.MM_LAB_MIXER_02).nearest(),
+                Microbot.getRs2TileObjectCache().query().withId(ObjectID.MM_LAB_MIXER_01).nearest()
         };
 
-        // Check if any mixers are missing
-        if (Arrays.stream(mixers).anyMatch(Objects::isNull)) {
+        if (Arrays.stream(mixerModels).anyMatch(Objects::isNull)) {
             return false;
         }
 
-        // Get animations in correct order
-        int[] currentAnimations = Arrays.stream(mixers)
-                .map(mixer -> ((DynamicObject) mixer.getRenderable()).getAnimation().getId())
-                .mapToInt(Integer::intValue)
-                .toArray();
+        int[] currentAnimations = new int[3];
+        for (int i = 0; i < mixerModels.length; i++) {
+            Rs2TileObjectModel m = mixerModels[i];
+            int animId = -1;
+            try {
+                net.runelite.api.Scene scene = Microbot.getClient().getTopLevelWorldView().getScene();
+                net.runelite.api.Tile tile = scene.getTiles()[m.getWorldLocation().getPlane()][m.getLocalLocation().getSceneX()][m.getLocalLocation().getSceneY()];
+                if (tile != null && tile.getGameObjects() != null) {
+                    for (net.runelite.api.GameObject go : tile.getGameObjects()) {
+                        if (go != null && go.getId() == mixerModels[i].getId() && go.getRenderable() instanceof DynamicObject) {
+                            animId = ((DynamicObject) go.getRenderable()).getAnimation().getId();
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+            currentAnimations[i] = animId;
+        }
 
         // Map components to their valid animations
         Map<Character, int[]> componentAnimations = Map.of(

@@ -7,10 +7,7 @@ import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
@@ -34,10 +31,10 @@ public class EggEvent implements BlockingEvent {
         try{
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;
-            var forester = Rs2Npc
-                    .getNpcs(NpcID.GATHERING_EVENT_PHEASANT_FORESTER)
-                    .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer));;
-            return forester.isPresent();
+            var forester = Microbot.getRs2NpcCache().query()
+                    .withId(NpcID.GATHERING_EVENT_PHEASANT_FORESTER)
+                    .nearest();
+            return forester != null;
         } catch (Exception e) {
             log.error("EggEvent: Exception in validate method", e);
             return false;
@@ -48,12 +45,12 @@ public class EggEvent implements BlockingEvent {
     public boolean execute() {
 
         Microbot.log("EggEvent: Executing Egg event");
-        var forester = Rs2Npc
-                .getNpcs(NpcID.GATHERING_EVENT_PHEASANT_FORESTER)
-                .min(Comparator.comparingInt(Rs2NpcModel::getDistanceFromPlayer));;
-        if (forester.isEmpty()) {
+        var forester = Microbot.getRs2NpcCache().query()
+                .withId(NpcID.GATHERING_EVENT_PHEASANT_FORESTER)
+                .nearest();
+        if (forester == null) {
             Microbot.log("EggEvent: Forester not found, cannot proceed with egg event.");
-            return true; // If the forester is not found, we cannot proceed with the event
+            return true;
         }
 
         plugin.currentForestryEvent = ForestryEvents.PHEASANT;
@@ -75,15 +72,15 @@ public class EggEvent implements BlockingEvent {
             // If we have an egg, interact with the forester
             if (Rs2Inventory.contains("Pheasant egg")) {
                 Microbot.log("EggEvent: Interacting with the forester to give the egg.");
-                Rs2Npc.interact(forester.get(), "Talk-to");
+                forester.click("Talk-to");
                 sleepUntil(Rs2Dialogue::isInDialogue, 5000);
                 while (Rs2Dialogue.isInDialogue()) Rs2Dialogue.clickContinue();
                 continue;
             }
 
             // If we don't have an egg, interact with the pheasant nest
-            var nests = Rs2GameObject.getGameObjects((gameObject) -> gameObject.getId() == ObjectID.GATHERING_EVENT_PHEASANT_NEST02);
-            var pheasants = Rs2Npc.getNpcs(NpcID.GATHERING_EVENT_PHEASANT).collect(Collectors.toList());
+            var nests = Microbot.getRs2TileObjectCache().query().where(gameObject -> gameObject.getId() == ObjectID.GATHERING_EVENT_PHEASANT_NEST02).toList();
+            var pheasants = Microbot.getRs2NpcCache().query().withId(NpcID.GATHERING_EVENT_PHEASANT).toList();
 
             if (nests.isEmpty() || pheasants.isEmpty()) {
                 Microbot.log("EggEvent: No pheasant nests found, cannot proceed with egg event.");
@@ -91,7 +88,6 @@ public class EggEvent implements BlockingEvent {
             }
             // find nest without pheasants
             var emptyNests = nests.stream()
-                    .filter(Rs2GameObject::isReachable)
                     .filter(nest -> pheasants.stream()
                             .noneMatch(pheasant -> pheasant.getWorldLocation() == nest.getWorldLocation()))
                     .collect(Collectors.toList());
@@ -101,7 +97,7 @@ public class EggEvent implements BlockingEvent {
                     .min(Comparator.comparingInt(o -> o.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
                     .orElse(null);
 
-            var interact = Rs2GameObject.interact(closestNest);
+            var interact = closestNest != null && closestNest.click();
             if (!interact) {
                 Microbot.log("EggEvent: Failed to interact with the pheasant nest.");
                 Microbot.log("EggEvent: Closest nest is null? " + (closestNest == null));

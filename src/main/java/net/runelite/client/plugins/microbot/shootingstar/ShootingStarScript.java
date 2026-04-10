@@ -7,10 +7,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
-import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
@@ -28,7 +27,6 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Gembag;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -215,11 +213,11 @@ public class ShootingStarScript extends Script
 							Rs2Combat.setSpecState(true, 1000);
 						}
 
-						TileObject starObject = Rs2GameObject.getGameObject(currentStar.getObjectId());
+						var starObject = Microbot.getRs2TileObjectCache().query().withId(currentStar.getObjectId()).nearest();
 
 						if (starObject != null)
 						{
-							Rs2GameObject.interact(starObject, "mine");
+							starObject.click("mine");
 							sleepUntil(Rs2Player::isAnimating);
 							Rs2Antiban.actionCooldown();
 							Rs2Antiban.moveMouseOffScreen();
@@ -438,9 +436,11 @@ public class ShootingStarScript extends Script
 
 		if (state == ShootingStarState.MINING)
 		{
-			GameObject starObject = Rs2GameObject.getGameObject("crashed star", initialPlayerLocation, 10);
+			var starModel = Microbot.getRs2TileObjectCache().query()
+					.where(n -> n.getName() != null && n.getName().toLowerCase().contains("crashed star"))
+					.nearest(initialPlayerLocation, 10);
 
-			if (currentStar == null || starObject == null)
+			if (currentStar == null || starModel == null)
 			{
 
 				if (plugin.getSelectedStar().getTier() == 1)
@@ -458,7 +458,7 @@ public class ShootingStarScript extends Script
 				return ShootingStarState.WAITING_FOR_STAR;
 			}
 
-			int _newTier = currentStar.getTierBasedOnObjectId(starObject.getId());
+			int _newTier = currentStar.getTierBasedOnObjectId(starModel.getId());
 			currentStar.setTier(_newTier);
 			plugin.updatePanelList(false);
 			currentStar = selectedStar;
@@ -491,22 +491,22 @@ public class ShootingStarScript extends Script
 		// If the state is mining state, scan the crashed star game object & check if the game object id has updated.
 		if (state == ShootingStarState.MINING)
 		{
-			GameObject starObject = Rs2GameObject.getGameObject("crashed star", initialPlayerLocation, 10);
-			return hasStarGameObjectChanged(starObject);
+			var starModel = Microbot.getRs2TileObjectCache().query()
+					.where(n -> n.getName() != null && n.getName().toLowerCase().contains("crashed star"))
+					.nearest(initialPlayerLocation, 10);
+			return hasStarModelChanged(starModel);
 		}
 		return false;
 	}
 
-	private boolean hasStarGameObjectChanged(GameObject starObject)
+	private boolean hasStarModelChanged(Rs2TileObjectModel starModel)
 	{
-		// If the GameObject does not exist anymore
-		if (starObject == null)
+		if (starModel == null)
 		{
 			return true;
 		}
 
-		// If the GameObject has updated to a new tier
-		return currentStar.getObjectId() != starObject.getId();
+		return currentStar.getObjectId() != starModel.getId();
 	}
 
 	private Pickaxe getBestPickaxe(List<Rs2ItemModel> items)

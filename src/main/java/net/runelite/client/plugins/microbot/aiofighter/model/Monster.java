@@ -1,8 +1,8 @@
 package net.runelite.client.plugins.microbot.aiofighter.model;
 
 import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyle;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcManager;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcStats;
 
 public class Monster {

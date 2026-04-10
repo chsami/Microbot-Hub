@@ -2,12 +2,11 @@ package net.runelite.client.plugins.microbot.bluedragons;
 
 import lombok.Setter;
 import net.runelite.api.Client;
-import net.runelite.api.NPC;
 import net.runelite.api.Perspective;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -106,7 +105,7 @@ public class BlueDragonsOverlay extends OverlayPanel {
         // Dragon tracking section
         addSectionDivider("Dragon Tracking");
 
-        NPC nearestDragon = Rs2Npc.getNpc("Blue dragon");
+        Rs2NpcModel nearestDragon = Microbot.getRs2NpcCache().query().withName("Blue dragon").nearest();
         boolean isTargeting = nearestDragon != null &&
                 script.getCurrentTargetId() != null &&
                 script.getCurrentTargetId() == nearestDragon.getId();
@@ -228,12 +227,12 @@ public class BlueDragonsOverlay extends OverlayPanel {
         );
     }
 
-    private String getDragonStatus(NPC dragon, boolean isTargeting) {
+    private String getDragonStatus(Rs2NpcModel dragon, boolean isTargeting) {
         if (dragon == null) return "No dragons";
         return isTargeting ? "Fighting" : "Available";
     }
 
-    private Color getDragonStatusColor(NPC dragon, boolean isTargeting) {
+    private Color getDragonStatusColor(Rs2NpcModel dragon, boolean isTargeting) {
         if (dragon == null) return new Color(169, 169, 169); // Dark Gray
         return isTargeting ? new Color(220, 20, 60) : new Color(50, 205, 50); // Crimson : Lime Green
     }

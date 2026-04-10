@@ -31,8 +31,7 @@ import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Pvp;
@@ -128,7 +127,7 @@ public class revKillerScript extends Script {
 
                 if(firstRun || weDied) {
                     Microbot.log("It's our first run or we died!");
-                    if(firstRun && Rs2Npc.getNpc(config.selectedRev().getName()) != null){
+                    if(firstRun && Microbot.getRs2NpcCache().query().withName(config.selectedRev().getName()).nearest() != null){
                         // we're all ready geared and there
                         firstRun = false;
                         Microbot.log("It's our first run and we're all ready here!");
@@ -270,7 +269,7 @@ public class revKillerScript extends Script {
     }
 
     public Rs2NpcModel revenentKnight() {
-        return Rs2Npc.getNpc(7939);
+        return Microbot.getRs2NpcCache().query().withId(7939).nearest();
     }
 
     public void kiteTheKnight(){
@@ -295,7 +294,7 @@ public class revKillerScript extends Script {
             } else {
                 Microbot.log("We need to click the rev.");
                 if(revenentKnight()!=null && revenentKnight().getWorldLocation().distanceTo(jammedTile)<=2) {
-                    if (Rs2Npc.interact(revenentKnight(), "Attack")) {
+                    if (revenentKnight().click("Attack")) {
                         Microbot.log("We attacked the knight");
                         return;
                     }
@@ -313,7 +312,7 @@ public class revKillerScript extends Script {
                         sleepUntil(() -> Rs2Player.isMoving(), Rs2Random.between(1000, 3000));
                         sleepUntil(() -> !Rs2Player.isMoving(), Rs2Random.between(2000, 3000));
                     }
-                    if (Rs2Npc.interact(revenentKnight(), "Attack")) {
+                    if (revenentKnight().click("Attack")) {
                         Microbot.log("We attacked the knight");
                         return;
                     }
@@ -350,7 +349,7 @@ public class revKillerScript extends Script {
             if(playerCheck()){return;}
             if(revenentKnight() == null) return;
 
-            if(Rs2Npc.interact(revenentKnight(), "Attack")){
+            if(revenentKnight().click("Attack")){
                 Microbot.log("We attacked the knight");
                 sleepUntil(()-> Rs2Player.isMoving(), Rs2Random.between(1000,3000));
                 sleepUntil(()-> !Rs2Player.isMoving(), Rs2Random.between(2000,3000));
@@ -419,7 +418,7 @@ public class revKillerScript extends Script {
         }
 
         if(Rs2Player.getWorldLocation().equals(fifthTile)) {
-            if (Rs2Npc.interact(revenentKnight(), "Attack")) {
+            if (revenentKnight().click("Attack")) {
                 Microbot.log("We attacked the knight");
                 Microbot.log("Rev should be locked");
             }
@@ -501,7 +500,7 @@ public class revKillerScript extends Script {
             } else {
                 if(!Rs2Dialogue.isInDialogue()){
                     Microbot.log("At the cave, clicking.");
-                    if(Microbot.getRs2TileObjectCache().query().withId(31555).nearest().click("Enter")){
+                    if(Microbot.getRs2TileObjectCache().query().interact(31555, "Enter")){
                         sleepUntil(()-> Rs2Dialogue.isInDialogue(), generateRandomNumber(1000,3000));
                     }
                 }
@@ -752,7 +751,7 @@ public class revKillerScript extends Script {
     }
 
     public void fightrev(revKillerConfig config){
-        Rs2NpcModel Rev = Rs2Npc.getNpc(config.selectedRev().getName());
+        Rs2NpcModel Rev = Microbot.getRs2NpcCache().query().withName(config.selectedRev().getName()).nearest();
 
         if(Rev!=null){
 
@@ -765,7 +764,7 @@ public class revKillerScript extends Script {
 
                 Microbot.log("Attacking Rev");
 
-                if (Rs2Npc.interact(Rev, "Attack")) {
+                if (Rev.click("Attack")) {
                     sleepUntil(() -> Rev.isDead() || !Rs2Player.isInCombat() || isItTimeToGo() || Rs2Player.getHealthPercentage() <= generateRandomNumber(70, 80), generateRandomNumber(60000, 120000));
                     hoppedWorld=false;
                 }
@@ -774,7 +773,7 @@ public class revKillerScript extends Script {
             if(Rev.isInteracting()) {
                 if(hoppedWorld) {
                     Microbot.log("Rev is attacking us attacking back.");
-                    if (Rs2Npc.interact(Rev, "Attack")) {
+                    if (Rev.click("Attack")) {
                         hoppedWorld=false;
                         sleepUntil(() -> Rev.isDead() || !Rs2Player.isInCombat() || isItTimeToGo() || Rs2Player.getHealthPercentage() <= generateRandomNumber(70, 80), generateRandomNumber(60000, 120000));
                     }
@@ -1002,8 +1001,7 @@ public class revKillerScript extends Script {
                     }
                 }
                 if(!Rs2Inventory.isFull()){
-                    if(Microbot.getRs2TileItemCache().query().withId(theItem.getId()).nearest() != null){
-                        Microbot.getRs2TileItemCache().query().withId(theItem.getId()).nearest().click("Take");
+                    if(Microbot.getRs2TileItemCache().query().withId(theItem.getId()).interact("Take")){
                         Rs2Inventory.waitForInventoryChanges(Rs2Random.between(4000,6000));
                     }
                 }
@@ -1019,8 +1017,7 @@ public class revKillerScript extends Script {
                     }
                 }
                 if(!Rs2Inventory.isFull()){
-                    if(Microbot.getRs2TileItemCache().query().withId(theItem.getId()).nearest() != null){
-                        Microbot.getRs2TileItemCache().query().withId(theItem.getId()).nearest().click("Take");
+                    if(Microbot.getRs2TileItemCache().query().withId(theItem.getId()).interact("Take")){
                         Rs2Inventory.waitForInventoryChanges(Rs2Random.between(4000,6000));
                     }
                 }

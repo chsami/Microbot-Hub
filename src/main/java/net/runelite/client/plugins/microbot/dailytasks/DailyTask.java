@@ -9,11 +9,9 @@ import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -36,7 +34,7 @@ public enum DailyTask {
                     && Microbot.getClient().getVarpValue(VarPlayerID.NZONE_REWARDPOINTS) >= 9500
                     && Microbot.getClient().getVarbitValue(VarbitID.NZONE_HERBBOXES_PURCHASED) < 15,
             () -> {
-                Rs2GameObject.interact(26273, "Search");
+                Microbot.getRs2TileObjectCache().query().interact(26273, "Search");
                 sleepUntil(() -> Rs2Widget.findWidget("Dom Onion") != null);
                 doInvoke(new NewMenuEntry("Buy-50", "Herb box", 4, MenuAction.CC_OP, 20, 13500420, false), new Rectangle(1, 1));
                 Rs2Inventory.waitForInventoryChanges(1000);
@@ -53,7 +51,7 @@ public enum DailyTask {
             () -> Microbot.getClient().getVarbitValue(Varbits.DIARY_VARROCK_EASY) == 1
                     && Microbot.getClient().getVarbitValue(Varbits.DAILY_STAVES_COLLECTED) == 0,
             () -> {
-                Rs2GameObject.interact(30357);
+                Microbot.getRs2TileObjectCache().query().interact(30357);
                 sleepUntil(() -> Rs2Widget.findWidget("discounted battlestaves") != null);
                 Rs2Widget.clickWidget("Click here to continue");
                 sleepUntil(() -> Rs2Widget.findWidget("Yes") != null);
@@ -69,7 +67,7 @@ public enum DailyTask {
             () -> Microbot.getClient().getVarbitValue(Varbits.DIARY_ARDOUGNE_MEDIUM) == 1
                     && Microbot.getClient().getVarbitValue(Varbits.DAILY_ESSENCE_COLLECTED) == 0,
             () -> {
-                Rs2Npc.interact(8481, "Claim");
+                Microbot.getRs2NpcCache().query().withId(8481).interact("Claim");
                 Rs2Inventory.waitForInventoryChanges(1000);
             },
             DailyTasksConfig::collectEssence
@@ -92,7 +90,7 @@ public enum DailyTask {
             () -> Microbot.getClient().getVarbitValue(Varbits.DIARY_KANDARIN_EASY) == 1
                     && Microbot.getClient().getVarbitValue(Varbits.DAILY_FLAX_STATE) == 0,
             () -> {
-                Rs2Npc.interact(5522, "Exchange");
+                Microbot.getRs2NpcCache().query().withId(5522).interact("Exchange");
                 sleepUntil(Rs2Dialogue::isInDialogue);
                 Rs2Dialogue.clickOption("Agree");
                 Rs2Inventory.waitForInventoryChanges(1000);
@@ -140,10 +138,10 @@ public enum DailyTask {
             () -> Microbot.getClient().getVarpValue(VarPlayer.THRONE_OF_MISCELLANIA) > 0,
             () -> {
                 sleepUntil(() -> Rs2Player.getWorldLocation().getRegionID() == 10044, 10000);
-                Rs2GameObject.interact(15079);
+                Microbot.getRs2TileObjectCache().query().interact(15079);
                 sleepUntilOnClientThread(() -> Microbot.getClient().getVarbitValue(Varbits.KINGDOM_APPROVAL) == 127, 10000);
                 Rs2Walker.walkTo(new WorldPoint(2502, 3858, 1), 5);
-                Rs2Npc.interact(5448, "Collect");
+                Microbot.getRs2NpcCache().query().withId(5448).interact("Collect");
                 sleepUntil(() -> Rs2Dialogue.hasDialogueOption("Collect resources"));
                 Rs2Dialogue.clickOption("Collect resources");
                 sleepUntil(() -> Rs2Widget.findWidget("Resources Collected") != null);

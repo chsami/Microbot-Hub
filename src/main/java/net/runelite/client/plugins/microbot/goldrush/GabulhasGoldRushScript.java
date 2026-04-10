@@ -8,7 +8,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
@@ -70,7 +69,7 @@ public class GabulhasGoldRushScript extends Script {
                         break;
                     case USING_BARS:
                         int currentXP = Microbot.getClient().getSkillExperience(Skill.SMITHING);
-                        Rs2GameObject.interact(9100, "Put-ore-on");
+                        Microbot.getRs2TileObjectCache().query().withId(9100).interact("Put-ore-on");
                         while (Rs2Inventory.contains("Gold ore")) {
                             sleep(100);
                         }
@@ -84,7 +83,7 @@ public class GabulhasGoldRushScript extends Script {
                         break;
                     case RETRIEVING_BARS:
                         Rs2Inventory.wield("Ice gloves");
-                        Rs2GameObject.interact(9092, "Take");
+                        Microbot.getRs2TileObjectCache().query().withId(9092).interact("Take");
                         Rs2Keyboard.keyPress(' ');
                         while (!Rs2Inventory.contains("Gold bar")) {
                             Rs2Keyboard.keyPress(32);

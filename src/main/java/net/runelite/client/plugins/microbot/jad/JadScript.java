@@ -2,16 +2,15 @@ package net.runelite.client.plugins.microbot.jad;
 
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public class JadScript extends Script {
     public static final Map<Integer, Long> npcAttackCooldowns = new HashMap<>();
@@ -22,9 +21,11 @@ public class JadScript extends Script {
             try {
                 if (!Microbot.isLoggedIn() || !super.run()) return;
 
-                var jadNpcs = Rs2Npc.getNpcs("Jad", false);
+                List<Rs2NpcModel> jadNpcs = Microbot.getRs2NpcCache().query()
+                        .where(n -> n.getName() != null && n.getName().toLowerCase().contains("jad"))
+                        .toList();
 
-                for (Rs2NpcModel jadNpc : jadNpcs.collect(Collectors.toList())) {
+                for (Rs2NpcModel jadNpc : jadNpcs) {
                     if (jadNpc == null) continue;
 
                     long currentTimeMillis = System.currentTimeMillis();
@@ -38,7 +39,7 @@ public class JadScript extends Script {
                         }
                     }
 
-                    int npcAnimation = jadNpc.getAnimation();
+                    int npcAnimation = jadNpc.getNpc().getAnimation();
                     handleJadPrayer(npcAnimation);
                     if (config.shouldAttackHealers()) {
                         handleHealerInteraction();
@@ -53,17 +54,21 @@ public class JadScript extends Script {
     }
 
     private void handleHealerInteraction() {
-        var healer = Rs2Npc.getNpcs("hurkot", false)
-                .filter(npc -> npc != null && npc.getInteracting() != Microbot.getClient().getLocalPlayer())
-                .findFirst()
-                .orElse(null);
+        var healer = Microbot.getRs2NpcCache().query()
+                .where(n -> n.getName() != null && n.getName().toLowerCase().contains("hurkot") && !n.isInteractingWithPlayer())
+                .nearest();
 
         if (healer != null) {
-            Rs2Npc.interact(healer, "attack");
+            healer.click("Attack");
         } else {
             var npc = Rs2Player.getInteracting();
-            if (npc == null || npc != null && npc.getName().contains("hurkot")) {
-                Rs2Npc.interact(Rs2Npc.getNpc("Jad", false), "attack");
+            if (npc == null || npc.getName().contains("hurkot")) {
+                var jad = Microbot.getRs2NpcCache().query()
+                        .where(n -> n.getName() != null && n.getName().toLowerCase().contains("jad"))
+                        .nearest();
+                if (jad != null) {
+                    jad.click("Attack");
+                }
             }
         }
 

@@ -17,8 +17,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.tempoross.enums.HarpoonType;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import java.util.regex.Pattern;
@@ -118,7 +117,7 @@ public class TemporossPlugin extends Plugin {
         TemporossScript.updateAmmoCrateData();
         TemporossScript.updateLastWalkPath();
 
-        Rs2NpcModel doubleFishingSpot = Rs2Npc.getNpc(NpcID.FISHING_SPOT_10569);
+        Rs2NpcModel doubleFishingSpot = Microbot.getRs2NpcCache().query().withId(NpcID.FISHING_SPOT_10569).nearest();
 
         if (TemporossScript.state == State.INITIAL_COOK && doubleFishingSpot != null) {
             TemporossScript.state = TemporossScript.state.next;

@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.aiofighter.bank;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.GameObject;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
@@ -14,13 +13,13 @@ import net.runelite.client.plugins.microbot.aiofighter.enums.State;
 import net.runelite.client.plugins.microbot.aiofighter.shop.ShopItem;
 import net.runelite.client.plugins.microbot.aiofighter.shop.ShopScript;
 import net.runelite.client.plugins.microbot.aiofighter.shop.ShopType;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.inventorysetups.MInventorySetupsPlugin;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
@@ -58,12 +57,14 @@ public class BankerScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if(!super.run()) return;
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (playerLocation == null) return;
                 if (config.bank() && needBanking() && !AIOFighterPlugin.needShopping) {
                     if(handleBanking()){
                         Microbot.log("Banking handled successfully.");
                     }
                 } else if (!needBanking() &&
-                        config.centerLocation().distanceTo(Rs2Player.getWorldLocation()) > config.attackRadius() &&
+                        config.centerLocation().distanceTo(playerLocation) > config.attackRadius() &&
                         !config.centerLocation().equals(new WorldPoint(0, 0, 0))) {
 
                     boolean shouldWalk = false;
@@ -474,10 +475,15 @@ public class BankerScript extends Script {
             sleepUntil(() -> !Rs2Bank.isOpen(), 2000);
         }
         
-        // Find and use the pool
-        GameObject pool = Rs2GameObject.get("Pool of Refreshment", true);
+        // Find and use the pool. Bound to 20 tiles — replaces the legacy
+        // Rs2GameObject.interact 51-tile walk-to fallback. The new model's click()
+        // does not walk-to-object, so we must guard distance up front to avoid
+        // silently dispatching a click against an unreachable pool.
+        Rs2TileObjectModel pool = Microbot.getRs2TileObjectCache().query()
+                .withName("Pool of Refreshment")
+                .nearest(20);
         if (pool != null) {
-            if (Rs2GameObject.interact(pool, "Drink")) {
+            if (pool.click("Drink")) {
                 sleepUntil(Rs2Player::isMoving, 2000);
                 sleepUntil(() -> !Rs2Player.isMoving(), 5000);
                 sleepUntil(Rs2Player::isAnimating, 2000);

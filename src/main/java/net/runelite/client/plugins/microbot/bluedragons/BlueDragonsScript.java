@@ -17,8 +17,7 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2RunePouch;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
@@ -483,14 +482,14 @@ public class BlueDragonsScript extends Script {
 
 
     private Rs2NpcModel getAvailableDragon() {
-        Rs2NpcModel dragon = Rs2Npc.getNpc("Blue dragon");
+        Rs2NpcModel dragon = Microbot.getRs2NpcCache().query().withName("Blue dragon").nearest();
         logOnceToChat("Found dragon: " + (dragon != null ? "Yes (ID: " + dragon.getId() + ")" : "No"), true, config);
 
         if (dragon != null) {
             boolean correctId = (dragon.getId() == BLUE_DRAGON_ID_1 || dragon.getId() == BLUE_DRAGON_ID_2 || dragon.getId() == BLUE_DRAGON_ID_3);
             logOnceToChat("Dragon has correct ID (265, 266, or 267): " + correctId, true, config);
 
-            boolean hasLineOfSight = Rs2Npc.hasLineOfSight(new Rs2NpcModel(dragon));
+            boolean hasLineOfSight = dragon.hasLineOfSight();
             logOnceToChat("Has line of sight to dragon: " + hasLineOfSight, true, config);
 
             if (correctId && hasLineOfSight) {
@@ -503,13 +502,13 @@ public class BlueDragonsScript extends Script {
     private boolean attackDragon(Rs2NpcModel dragon) {
         final int dragonId = dragon.getId();
 
-        if (Rs2Combat.inCombat() && dragon.getInteracting() != Microbot.getClient().getLocalPlayer()) {
+        if (Rs2Combat.inCombat() && !dragon.isInteractingWithPlayer()) {
             logOnceToChat("Cannot attack dragon - player is in combat with different target.", true, config);
             return false;
         }
 
-        if (Rs2Npc.attack(dragon)) {
-            boolean dragonKilled = sleepUntil(() -> Rs2Npc.getNpc(dragonId) == null, 60000);
+        if (dragon.click("Attack")) {
+            boolean dragonKilled = sleepUntil(() -> Microbot.getRs2NpcCache().query().withId(dragonId).nearest() == null, 60000);
 
             if (dragonKilled) {
                 logOnceToChat("Dragon killed. Transitioning to looting state.", true, config);

@@ -4,7 +4,7 @@ import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.Microbot;
 
 import javax.inject.Inject;
 
@@ -26,7 +26,7 @@ public class KittenAttentionEvent implements BlockingEvent
     @Override
     public boolean execute()
     {
-        Rs2Npc.getNpcs("Kitten").findFirst().ifPresent(kitten -> Rs2Npc.interact(kitten, "Interact"));
+        Microbot.getRs2NpcCache().query().withName("Kitten").toList().stream().findFirst().ifPresent(kitten -> kitten.click("Interact"));
         if (Rs2Dialogue.sleepUntilHasDialogueOption("Stroke")) {
             Rs2Dialogue.clickOption("Stroke");
         }

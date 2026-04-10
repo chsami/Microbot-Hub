@@ -26,21 +26,19 @@ package net.runelite.client.plugins.microbot.tithefarming.models;
 
 import lombok.Getter;
 import lombok.Setter;
-import net.runelite.api.TileObject;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.tithefarming.TitheFarmingScript;
 import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmMaterial;
 import net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmState;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.tithefarm.TitheFarmPlantState;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
-
-import static net.runelite.api.coords.WorldPoint.fromRegion;
 
 public class TitheFarmPlant {
     private static final Duration PLANT_TIME = Duration.ofMinutes(1);
@@ -56,20 +54,64 @@ public class TitheFarmPlant {
     @Getter
     private final TitheFarmPlantState state;
 
-    @Getter
-    @Setter
-    private TileObject gameObject;
-
     public int regionX;
     public int regionY;
 
     public TitheFarmPlant(int regionX, int regionY, int index) {
         this.planted = Instant.now();
         this.state = TitheFarmPlantState.UNWATERED;
-        this.gameObject = Rs2GameObject.findGameObjectByLocation(fromRegion(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID()), regionX, regionY, 0));
         this.regionX = regionX;
         this.regionY = regionY;
         this.index = index;
+    }
+
+    public Rs2TileObjectModel getGameObject() {
+        // The hardcoded lane definitions are off by 1 from the actual instance patch
+        // tiles (verified via the agent server: lane defines (35,25) but the cache has
+        // a tithe patch at local (34,24), and so on for every patch). Allow a 1-tile
+        // tolerance match so the lookup is robust to this without rewriting all four
+        // lane lists. Patches are 3 tiles apart so the tolerance can't match the
+        // wrong neighbour.
+        return Microbot.getRs2TileObjectCache().query()
+                .where(o -> {
+                    if (!isTithePatchId(o.getId())) return false;
+                    WorldPoint wp = o.getWorldLocation();
+                    if (wp == null) return false;
+                    int dx = Math.abs(wp.getRegionX() - regionX);
+                    int dy = Math.abs(wp.getRegionY() - regionY);
+                    return dx <= 1 && dy <= 1;
+                })
+                .first();
+    }
+
+    private static boolean isTithePatchId(int id) {
+        switch (id) {
+            case ObjectID.HOSIDIUS_TITHE_EMPTY:
+            case ObjectID.HOSIDIUS_TITHE_A_1_DRY:
+            case ObjectID.HOSIDIUS_TITHE_A_2_DRY:
+            case ObjectID.HOSIDIUS_TITHE_A_3_DRY:
+            case ObjectID.HOSIDIUS_TITHE_A_4:
+            case ObjectID.HOSIDIUS_TITHE_A_1_WET:
+            case ObjectID.HOSIDIUS_TITHE_A_2_WET:
+            case ObjectID.HOSIDIUS_TITHE_A_3_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_1_DRY:
+            case ObjectID.HOSIDIUS_TITHE_B_2_DRY:
+            case ObjectID.HOSIDIUS_TITHE_B_3_DRY:
+            case ObjectID.HOSIDIUS_TITHE_B_4:
+            case ObjectID.HOSIDIUS_TITHE_B_1_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_2_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_3_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_1_DRY:
+            case ObjectID.HOSIDIUS_TITHE_C_2_DRY:
+            case ObjectID.HOSIDIUS_TITHE_C_3_DRY:
+            case ObjectID.HOSIDIUS_TITHE_C_4:
+            case ObjectID.HOSIDIUS_TITHE_C_1_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_2_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_3_WET:
+                return true;
+            default:
+                return false;
+        }
     }
 
     public int[] expectedPatchGameObject() {
@@ -108,35 +150,51 @@ public class TitheFarmPlant {
     }
 
     public boolean isEmptyPatch() {
-        return gameObject.getId() == ObjectID.HOSIDIUS_TITHE_EMPTY;
+        Rs2TileObjectModel obj = getGameObject();
+        return obj != null && obj.getId() == ObjectID.HOSIDIUS_TITHE_EMPTY;
     }
 
     public boolean isEmptyPatchOrSeedling() {
-        return Arrays.stream(expectedPatchGameObject()).anyMatch(id -> id == gameObject.getId());
+        Rs2TileObjectModel obj = getGameObject();
+        if (obj == null) return false;
+        int objId = obj.getId();
+        return Arrays.stream(expectedPatchGameObject()).anyMatch(id -> id == objId);
     }
 
     public boolean isValidToWater() {
-        return Arrays.stream(expectedWateredObject()).anyMatch(id -> id == gameObject.getId()) || isStage1() || isStage2();
+        Rs2TileObjectModel obj = getGameObject();
+        if (obj == null) return false;
+        int objId = obj.getId();
+        return Arrays.stream(expectedWateredObject()).anyMatch(id -> id == objId) || isStage1() || isStage2();
     }
 
     public boolean isValidToHarvest() {
-        return gameObject.getId() == expectedHarvestObject();
+        Rs2TileObjectModel obj = getGameObject();
+        return obj != null && obj.getId() == expectedHarvestObject();
     }
 
     public boolean isStage1() {
-        return getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_A_2_DRY
-                || getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_B_2_DRY
-                || getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_C_2_DRY;
+        Rs2TileObjectModel obj = getGameObject();
+        if (obj == null) return false;
+        int id = obj.getId();
+        return id == ObjectID.HOSIDIUS_TITHE_A_2_DRY
+                || id == ObjectID.HOSIDIUS_TITHE_B_2_DRY
+                || id == ObjectID.HOSIDIUS_TITHE_C_2_DRY;
     }
 
     public boolean isStage2() {
-        return getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_A_3_DRY
-                || getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_B_3_DRY
-                || getGameObject().getId() == ObjectID.HOSIDIUS_TITHE_C_3_DRY;
+        Rs2TileObjectModel obj = getGameObject();
+        if (obj == null) return false;
+        int id = obj.getId();
+        return id == ObjectID.HOSIDIUS_TITHE_A_3_DRY
+                || id == ObjectID.HOSIDIUS_TITHE_B_3_DRY
+                || id == ObjectID.HOSIDIUS_TITHE_C_3_DRY;
     }
 
     public boolean isWatered() {
-        var id = getGameObject().getId();
+        Rs2TileObjectModel obj = getGameObject();
+        if (obj == null) return false;
+        var id = obj.getId();
         switch (id) {
             case ObjectID.HOSIDIUS_TITHE_B_1_WET:
             case ObjectID.HOSIDIUS_TITHE_B_2_WET:

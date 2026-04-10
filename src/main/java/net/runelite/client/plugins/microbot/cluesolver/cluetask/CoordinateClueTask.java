@@ -14,8 +14,8 @@ import net.runelite.client.plugins.cluescrolls.clues.CoordinateClue;
 import net.runelite.client.plugins.cluescrolls.clues.Enemy;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.concurrent.ExecutorService;
@@ -134,13 +134,13 @@ public class CoordinateClueTask extends ClueTask {
     }
 
     private boolean engageEnemy() {
-        Rs2NpcModel targetNpc = Rs2Npc.getNpc(enemy.getText());
+        Rs2NpcModel targetNpc = Microbot.getRs2NpcCache().query().withName(enemy.getText()).nearest();
         if (targetNpc == null) {
             log.warn("Expected enemy not found.");
             completeTask(false);
             return false;
         }
-        if (Rs2Npc.interact(targetNpc, "Attack")) {
+        if (targetNpc.click("Attack")) {
             log.info("Engaging enemy: {}", enemy.getText());
             return waitForEnemyDefeat(targetNpc);
         }
@@ -148,8 +148,8 @@ public class CoordinateClueTask extends ClueTask {
         return false;
     }
 
-    private boolean waitForEnemyDefeat(NPC targetNpc) {
-        return targetNpc.isDead(); // This assumes an enemy tracking system
+    private boolean waitForEnemyDefeat(Rs2NpcModel targetNpc) {
+        return targetNpc.getNpc().isDead();
     }
 
     private boolean prepareToDig() {

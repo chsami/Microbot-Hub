@@ -1,12 +1,11 @@
 package net.runelite.client.plugins.microbot.animatedarmour;
 
-import net.runelite.api.GameObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -59,9 +58,9 @@ public class AnimatedArmourScript extends Script {
 
     public void animateArmor() {
         WorldPoint armorStandLocation = new WorldPoint(2851, 3536, 0);
-        GameObject armorStand = Rs2GameObject.getGameObject(armorStandLocation);
+        Rs2TileObjectModel armorStand = Microbot.getRs2TileObjectCache().query().within(armorStandLocation, 0).nearest();
         if (armorStand != null) {
-            Rs2GameObject.interact(armorStand);
+            armorStand.click();
             Rs2Player.waitForAnimation();
         }
 

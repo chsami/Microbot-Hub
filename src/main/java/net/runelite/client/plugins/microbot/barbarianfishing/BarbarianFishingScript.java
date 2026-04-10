@@ -14,7 +14,7 @@ import net.runelite.client.plugins.microbot.util.inventory.InteractOrder;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import java.util.concurrent.TimeUnit;
@@ -68,10 +68,10 @@ public class BarbarianFishingScript extends Script {
             }
 
             if (!Rs2Camera.isTileOnScreen(fishingspot.getLocalLocation())) {
-                validateInteractable(fishingspot);
+                validateInteractable(fishingspot.getNpc());
             }
 
-            if(Rs2Npc.interact(fishingspot, "Use-rod")) {
+            if(fishingspot.click("Use-rod")) {
                 Rs2Antiban.actionCooldown();
                 Rs2Antiban.takeMicroBreakByChance();
             };
@@ -85,13 +85,9 @@ public class BarbarianFishingScript extends Script {
     }
 
     private Rs2NpcModel findFishingSpot() {
-        for (int fishingSpotId : FishingSpot.BARB_FISH.getIds()) {
-            Rs2NpcModel fishingSpot = Rs2Npc.getNpc(fishingSpotId);
-            if (fishingSpot != null) {
-                return fishingSpot;
-            }
-        }
-        return null;
+        return Microbot.getRs2NpcCache().query()
+                .withIds(FishingSpot.BARB_FISH.getIds())
+                .nearest();
     }
 
     private void dropInventoryItems(BarbarianFishingConfig config) {

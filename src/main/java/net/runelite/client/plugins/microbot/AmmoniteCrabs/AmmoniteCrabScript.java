@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.AmmoniteCrabs;
 
 import net.runelite.api.GameState;
-import net.runelite.api.NPC;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -13,8 +12,7 @@ import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.util.security.Login;
@@ -218,12 +216,13 @@ public class AmmoniteCrabScript extends Script {
         }
     }
 
-    // Attack all scattered crabs in the area
     private void attackScatteredCrabs(AmmoniteCrabConfig config) {
-        var ammoniteCrabs = Rs2Npc.getNpcs("Ammonite Crab", true).filter(x -> x != null && !x.isDead() && x.getWorldLocation().distanceTo(config.crabLocation().getFightLocation()) > 1 && x.getWorldLocation().distanceTo(config.crabLocation().getFightLocation()) < 15).collect(Collectors.toList());
+        var ammoniteCrabs = Microbot.getRs2NpcCache().query().withName("Ammonite Crab")
+                .where(x -> x.getNpc() != null && !x.getNpc().isDead() && x.getWorldLocation().distanceTo(config.crabLocation().getFightLocation()) > 1 && x.getWorldLocation().distanceTo(config.crabLocation().getFightLocation()) < 15)
+                .toList();
         for (Rs2NpcModel ammoniteCrab : ammoniteCrabs) {
-            if (ammoniteCrab != null && !ammoniteCrab.isDead()) {
-                Rs2Npc.attack(ammoniteCrab);
+            if (ammoniteCrab != null && !ammoniteCrab.getNpc().isDead()) {
+                ammoniteCrab.click("Attack");
                 Rs2Player.waitForAnimation(1600);
                 sleep(1600, 2400);
             }
@@ -237,18 +236,17 @@ public class AmmoniteCrabScript extends Script {
      * @return true if npc is aggressive
      */
     private boolean isNpcAggressive() {
-        List<Rs2NpcModel> npcs = Rs2Npc.getNpcs("Fossil Rock", true).collect(Collectors.toList());
+        List<Rs2NpcModel> npcs = Microbot.getRs2NpcCache().query().withName("Fossil Rock").toList();
         if (npcs.isEmpty()) {
             return true;
         }
-        for (NPC ammoniteRock : npcs) {
-            //ignore ammonitecrabs far away from the player
-            if (!ammoniteRock.getWorldArea().isInMeleeDistance(Microbot.getClient().getLocalPlayer().getWorldArea()))
+        for (Rs2NpcModel ammoniteRock : npcs) {
+            if (!ammoniteRock.getNpc().getWorldArea().isInMeleeDistance(Microbot.getClient().getLocalPlayer().getWorldArea()))
                 continue;
 
-            return false; //found a fossil rock crab near the player
+            return false;
         }
-        return true; //did not find any fossil rocks near the player
+        return true;
     }
 
     private void resetAggro(AmmoniteCrabConfig config) {

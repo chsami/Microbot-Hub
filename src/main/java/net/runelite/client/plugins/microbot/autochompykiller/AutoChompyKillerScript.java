@@ -2,24 +2,21 @@ package net.runelite.client.plugins.microbot.autochompykiller;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.GameObject;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 @Slf4j
 public class AutoChompyKillerScript extends Script {
@@ -31,22 +28,20 @@ public class AutoChompyKillerScript extends Script {
     private AutoChompyKillerConfig config;
 
     private boolean isBloatedToadOnGround() {
-        Stream<Rs2NpcModel> npcs = Rs2Npc.getNpcs();
-        long toadCount = npcs.filter(element -> element.getWorldLocation().equals(Rs2Player.getWorldLocation()) && element.getId() == NpcID.BLOATED_TOAD).count();
+        long toadCount = Microbot.getRs2NpcCache().query().withId(NpcID.BLOATED_TOAD).where(element -> element.getWorldLocation().equals(Rs2Player.getWorldLocation())).count();
 
         return toadCount > 0;
     }
 
     private boolean isDeadChompyNearby() {
-        Stream<Rs2NpcModel> npcs = Rs2Npc.getNpcs();
-        long deadChompyCount = npcs.filter(element -> element.getId() == NpcID.CHOMPYBIRD_DEAD && Rs2Player.getWorldLocation().distanceTo(element.getWorldLocation()) <= 5).count();
+        long deadChompyCount = Microbot.getRs2NpcCache().query().withId(NpcID.CHOMPYBIRD_DEAD).where(element -> Rs2Player.getWorldLocation().distanceTo(element.getWorldLocation()) <= 5).count();
 
         return deadChompyCount > 0;
     }
 
     private Rs2NpcModel getNearestReachableNpc(int npcId) {
         Rs2WorldPoint playerLocation = new Rs2WorldPoint(Rs2Player.getWorldLocation());
-        return Rs2Npc.getNpcs(npc -> npc.getId() == npcId)
+        return Microbot.getRs2NpcCache().query().withId(npcId).toList().stream()
                 .min(java.util.Comparator.comparingInt(npc -> 
                     playerLocation.distanceToPath(npc.getWorldLocation())))
                 .orElse(null);
@@ -258,7 +253,7 @@ public class AutoChompyKillerScript extends Script {
                     case FILLING_BELLOWS:
                         log.info("State: FILLING_BELLOWS");
                         Microbot.status = "Filling bellows";
-                        if (Rs2GameObject.interact(ObjectID.SWAMPBUBBLES, "Suck")) {
+                        if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.SWAMPBUBBLES, "Suck")) {
                             boolean completed = sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting(), 5000);
                             if (completed) {
                                 log.info("Successfully filled bellows");
@@ -321,7 +316,7 @@ public class AutoChompyKillerScript extends Script {
                                 }
                                 
                                 log.info("Found swamp toad, attempting to inflate it");
-                                if (Rs2Npc.interact(swampToad, "Inflate")) {
+                                if (swampToad.click("Inflate")) {
                                     // wait for interaction to start
                                     boolean interactionStarted = sleepUntil(() -> Rs2Player.isAnimating() || Rs2Player.isInteracting(), 3000);
                                     if (interactionStarted) {
@@ -359,7 +354,7 @@ public class AutoChompyKillerScript extends Script {
                         Rs2NpcModel targetChompy = getNearestReachableNpc(NpcID.CHOMPYBIRD);
                         if (targetChompy != null) {
                             log.info("Attacking chompy");
-                            if (Rs2Npc.interact(targetChompy, "Attack")) {
+                            if (targetChompy.click("Attack")) {
                                 sleepUntil(() -> Rs2Player.isAnimating() || Rs2Player.isInteracting(), 3000);
                                 boolean completed = sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting(), 10000);
                                 log.info("Attack animation completed: {}", completed);
@@ -378,7 +373,7 @@ public class AutoChompyKillerScript extends Script {
                         Rs2NpcModel deadChompy = getNearestReachableNpc(NpcID.CHOMPYBIRD_DEAD);
                         if (deadChompy != null) {
                             log.info("Plucking dead chompy");
-                            if (Rs2Npc.interact(deadChompy, "Pluck")) {
+                            if (deadChompy.click("Pluck")) {
                                 sleepUntil(() -> Rs2Player.isAnimating() || Rs2Player.isInteracting(), 3000);
                                 boolean completed = sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting(), 5000);
                                 log.info("Plucking animation completed: {}", completed);
@@ -447,13 +442,13 @@ public class AutoChompyKillerScript extends Script {
     }
 
     public void handleCantReachBubbles() {
-        List<GameObject> bubbles = Rs2GameObject.getGameObjects(obj -> obj.getId() == ObjectID.SWAMPBUBBLES);
+        var bubbles = Microbot.getRs2TileObjectCache().query().withId(ObjectID.SWAMPBUBBLES).toList();
         if (bubbles != null && !bubbles.isEmpty()) {
             Random rand = new Random();
-            GameObject bubble = bubbles.get(rand.nextInt(bubbles.size()));
-            
+            var bubble = bubbles.get(rand.nextInt(bubbles.size()));
+
             if (bubble != null) {
-                Rs2GameObject.interact(bubble, "Suck");
+                bubble.click("Suck");
                 sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting());
                 state = AutoChompyKillerState.INFLATING;
             } else {

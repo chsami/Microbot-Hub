@@ -15,8 +15,7 @@ import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -32,7 +31,6 @@ import java.util.stream.Collectors;
 import static net.runelite.api.ItemID.*;
 import static net.runelite.api.gameval.ItemID.CAKE_TIN;
 import static net.runelite.api.gameval.ItemID.EGG;
-import static net.runelite.client.plugins.microbot.util.npc.Rs2Npc.getNpcs;
 import static net.runelite.client.plugins.microbot.util.player.Rs2Player.toggleRunEnergy;
 
 
@@ -183,7 +181,7 @@ public class BurnBakingScript extends Script {
                     if (currentCookingLevel < 40 && !Rs2Inventory.contains("Uncooked stew")) {
                         System.out.println("entering prepare stew");
                         if (!Rs2Player.isAnimating()) { walkToBanker();
-                            Rs2Npc.getBankerNPC();
+                            getBankerNPC();
                             if (!Rs2Bank.isOpen()) {openNearestBank();}
                             sleepUntil(Rs2Bank::isOpen, 30000);}
                         sleep(1200, 1600);
@@ -230,9 +228,8 @@ public class BurnBakingScript extends Script {
             return;
         }
 
-        // Select a random banker from the list
-        NPC banker = bankers.get(random.nextInt(bankers.size()));
-        LocalPoint bankerLocation = banker.getLocalLocation();
+        Rs2NpcModel banker = bankers.get(random.nextInt(bankers.size()));
+        LocalPoint bankerLocation = banker.getNpc().getLocalLocation();
 
         if (bankerLocation == null) {
             Microbot.log("Failed to get the banker's location.");
@@ -283,18 +280,18 @@ public class BurnBakingScript extends Script {
     }
 
     public static Rs2NpcModel getBankerNPC() {
-        return Rs2Npc.getNpcs()
-                .filter(npc -> npc.getComposition() != null && npc.getComposition().getActions() != null &&
-                        Arrays.asList(npc.getComposition().getActions()).contains("Bank"))
-                .min(Comparator.comparingInt(npc -> npc.getWorldLocation().distanceTo(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))))
-                .orElse(null);
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
+                        && npc.getNpc().getComposition().getActions() != null
+                        && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Bank"))
+                .nearest();
     }
 
     public void openNearestBank() {
         if (!Rs2Bank.isOpen()) {
-            Rs2NpcModel nearestBanker = getBankerNPC();  // Find the closest NPC that has "Bank" action
+            Rs2NpcModel nearestBanker = getBankerNPC();
             if (nearestBanker != null) {
-                Rs2Npc.interact(nearestBanker, "Bank");
+                nearestBanker.click("Bank");
                 sleepUntil(Rs2Bank::isOpen, 5000);
             }
         }
@@ -327,11 +324,12 @@ public class BurnBakingScript extends Script {
 
 
     public static List<Rs2NpcModel> getBankerNPCs() {
-        return getNpcs()
-                .filter(value -> (value.getComposition() != null && value.getComposition().getActions() != null &&
-                        Arrays.asList(value.getComposition().getActions()).contains("Bank")))
-                .limit(4) // Collect only up to 4 bankers
-                .collect(Collectors.toList());
+        List<Rs2NpcModel> bankers = Microbot.getRs2NpcCache().query()
+                .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
+                        && npc.getNpc().getComposition().getActions() != null
+                        && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Bank"))
+                .toList();
+        return bankers.size() > 4 ? bankers.subList(0, 4) : bankers;
     }
 
 
@@ -632,54 +630,31 @@ public class BurnBakingScript extends Script {
         }
         System.out.println("Player location: " + playerPosition);
 
-        // Step 2: Retrieve all game objects within 15 tiles of the player
-        List<GameObject> nearbyObjects = Rs2GameObject.getGameObjects();
-        if (nearbyObjects == null || nearbyObjects.isEmpty()) {
-            System.out.println("Found 0 nearby objects.");
+        int[] rangeObjectIds = getRangeObjectIds();
+        net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel rangeObj = Microbot.getRs2TileObjectCache().query()
+                .withIds(rangeObjectIds)
+                .nearest();
+        if (rangeObj == null) {
+            System.out.println("No range found within nearby tiles.");
             return;
         }
 
-        // Step 3: Fetch the list of range object IDs from the getRangeObjectIds method
-        int[] rangeObjectIds = getRangeObjectIds();
+        Rs2Camera.turnTo(rangeObj.getLocalLocation());
 
-        // Step 4: Iterate over nearby objects to find any matching range or stove
-        boolean rangeFound = false;
-        for (GameObject obj : nearbyObjects) {
-            int objId = obj.getId();
-
-            // Step 5: Check if the object ID matches any of the range object IDs
-            if (Arrays.stream(rangeObjectIds).anyMatch(id -> id == objId)) {
-
-                    Rs2Camera.turnTo(obj.getLocalLocation());
-
-
-                // If a match is found, interact with the object using the "Cook" action
-                boolean interactionSuccess = Rs2GameObject.interact(obj, "Cook");
-                if (interactionSuccess) {
-                    System.out.println("Successfully interacted with object ID: " + objId + " using 'Cook'");
-                } else {
-                    System.out.println("Failed to interact with object ID: " + objId);
-                }
-
-                // Step 6: Wait until the player stops moving and the cooking widget appears
-                boolean widgetAppeared = sleepUntil(() -> !Rs2Player.isMoving() &&
-                        Rs2Widget.findWidget("How many would you like to cook?", null, false) != null, 35000);
-                if (widgetAppeared) {
-                    System.out.println("Cooking widget appeared, pressing space to confirm.");
-                    Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                } else {
-                    System.out.println("Cooking widget did not appear.");
-                }
-
-                rangeFound = true;
-                break;
-            } else {
-                System.out.println("No match for object ID: " + objId);
-            }
+        boolean interactionSuccess = rangeObj.click("Cook");
+        if (interactionSuccess) {
+            System.out.println("Successfully interacted with range using 'Cook'");
+        } else {
+            System.out.println("Failed to interact with range");
         }
 
-        if (!rangeFound) {
-            System.out.println("No range found within 15 tiles.");
+        boolean widgetAppeared = sleepUntil(() -> !Rs2Player.isMoving() &&
+                Rs2Widget.findWidget("How many would you like to cook?", null, false) != null, 35000);
+        if (widgetAppeared) {
+            System.out.println("Cooking widget appeared, pressing space to confirm.");
+            Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+        } else {
+            System.out.println("Cooking widget did not appear.");
         }
     }
 

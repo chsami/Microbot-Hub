@@ -14,8 +14,7 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -147,7 +146,7 @@ public class GiantSeaweedFarmerScript extends Script {
                 sleep(2000, 3000);
                 Rs2Walker.walkTo(FarmGuildSpiritTree);
                 sleep(550, 750);
-                Rs2GameObject.interact(FARMGUILD_SPIRITTREE, "Travel");
+                Microbot.getRs2TileObjectCache().query().interact(FARMGUILD_SPIRITTREE, "Travel");
                 sleep(550, 750);
                 Rs2Keyboard.keyPress(KeyEvent.VK_C);
                 sleep(550, 750);
@@ -165,8 +164,9 @@ public class GiantSeaweedFarmerScript extends Script {
 
 
     // Using official RuneLite varbit ranges for seaweed patches
-    private static String getSeaweedPatchState(TileObject rs2TileObject) {
-        var game_obj = Rs2GameObject.convertToObjectComposition(rs2TileObject, true);
+    private static String getSeaweedPatchState(int patchId) {
+        var game_obj = Rs2GameObject.getObjectComposition(patchId);
+        if (game_obj == null) return "Empty";
         var varbitValue = Microbot.getVarbitValue(game_obj.getVarbitId());
 
         // Only log when varbit value changes
@@ -301,7 +301,7 @@ public class GiantSeaweedFarmerScript extends Script {
     }
 
     private void handleDiving() {
-        Rs2GameObject.interact(BOAT, "Dive");
+        Microbot.getRs2TileObjectCache().query().interact(BOAT, "Dive");
         sleepUntil(() -> Rs2Player.getWorldLocation().getPlane() == 1, 5000);
         if (Rs2Player.getWorldLocation().getPlane() != 1) {
             Microbot.log("We failed to get underwater - Make sure to handle the warning dialog manually once");
@@ -351,11 +351,11 @@ public class GiantSeaweedFarmerScript extends Script {
     }
 
     private void handleNoting(){
-        Rs2NpcModel leprechaun = Rs2Npc.getNpc("Tool leprechaun");
+        Rs2NpcModel leprechaun = Microbot.getRs2NpcCache().query().withName("Tool leprechaun").nearest();
         if (leprechaun == null) {return;}
         Rs2ItemModel unNoted = Rs2Inventory.getUnNotedItem("Giant seaweed", true);
         Rs2Inventory.use(unNoted);
-        Rs2Npc.interact(leprechaun, "Talk-to");
+        leprechaun.click("Talk-to");
         Rs2Inventory.waitForInventoryChanges(10000);
 
     }
@@ -365,40 +365,28 @@ public class GiantSeaweedFarmerScript extends Script {
             handleNoting();
         }
 
-        Integer[] ids = {
-                patchId
-        };
-        var obj = Rs2GameObject.findObject(ids);
+        var objModel = Microbot.getRs2TileObjectCache().query().withId(patchId).nearest();
 
-        // If not found by ID, look for patch objects by name
-        if (obj == null) {
-            obj = Rs2GameObject.getGameObjects()
-                    .stream()
-                    .filter(o -> {
-                        var objComp = Rs2GameObject.convertToObjectComposition(o, false);
-                        if (objComp == null || objComp.getName() == null) return false;
-                        String name = objComp.getName();
-                        // Look for seaweed patch objects or dead seaweed
-                        return name.equalsIgnoreCase("Dead seaweed") ||
-                                name.equalsIgnoreCase("Seaweed patch") ||
-                                (name.equalsIgnoreCase("Seaweed") && objComp.getId() == patchId);
-                    })
-                    .findFirst()
-                    .orElse(null);
+        if (objModel == null) {
+            objModel = Microbot.getRs2TileObjectCache().query().where(o -> {
+                var objComp = o.getObjectComposition();
+                if (objComp == null || objComp.getName() == null) return false;
+                String name = objComp.getName();
+                return name.equalsIgnoreCase("Dead seaweed") ||
+                        name.equalsIgnoreCase("Seaweed patch") ||
+                        (name.equalsIgnoreCase("Seaweed") && objComp.getId() == patchId);
+            }).nearest();
         }
 
-        if (obj == null) return false;
+        if (objModel == null) return false;
 
-        // Make final reference for lambda usage
-        final var patchObj = obj;
-        var state = getSeaweedPatchState(patchObj);
+        final var patchObjModel = objModel;
+        var state = getSeaweedPatchState(patchId);
         logDebug("Patch state detected as: " + state);
         switch (state) {
             case "Empty":
-                // Enter critical section to prevent spore looting interruption
                 inCriticalSection = true;
                 try {
-                    // Verify we have materials before starting atomic operation
                     boolean hasCompost = Rs2Inventory.contains("compost") ||
                             Rs2Inventory.contains("Supercompost") ||
                             Rs2Inventory.contains("Ultracompost") ||
@@ -406,24 +394,21 @@ public class GiantSeaweedFarmerScript extends Script {
 
                     if (hasCompost) {
                         Rs2Inventory.use("compost");
-                        Rs2GameObject.interact(patchObj, "Compost");
+                        patchObjModel.click("Compost");
                         Rs2Player.waitForXpDrop(Skill.FARMING);
                     }
 
-                    // Always attempt planting if we have spores
                     if (Rs2Inventory.contains("seaweed spore")) {
                         Rs2Inventory.use(" spore");
-                        Rs2GameObject.interact(patchObj, "Plant");
-                        sleepUntil(() -> getSeaweedPatchState(patchObj).equals("Growing"), 10000);
+                        patchObjModel.click("Plant");
+                        sleepUntil(() -> getSeaweedPatchState(patchId).equals("Growing"), 10000);
                     }
                     return true;
                 } finally {
-                    // Always release critical section, even if error occurs
                     inCriticalSection = false;
                 }
             case "Harvestable":
 
-                // EQUIP FARMING CAPE FOR HARVEST BONUS
                 if (config.FarmingCape()) {
                     if (Rs2Inventory.contains("Farming cape") && !Rs2Equipment.isWearing("Farming cape")) {
                         Rs2Inventory.interact("Farming cape", "Wear");
@@ -435,54 +420,31 @@ public class GiantSeaweedFarmerScript extends Script {
                     }
                 }
 
-                Rs2GameObject.interact(patchObj, "Pick");
+                patchObjModel.click("Pick");
                 sleepUntil(() -> {
-                    // Re-find the patch object at the same location to get updated state
-                    var currentPatch = Rs2GameObject.getGameObjects()
-                            .stream()
-                            .filter(o -> o.getWorldLocation().equals(patchObj.getWorldLocation()))
-                            .findFirst()
-                            .orElse(null);
-                    if (currentPatch == null) return false;
-                    String currentState = getSeaweedPatchState(currentPatch);
-                    // Harvesting is complete when patch becomes empty or inventory is full
+                    String currentState = getSeaweedPatchState(patchId);
                     return currentState.equals("Empty") || Rs2Inventory.isFull();
                 }, 20000);
 
-                // IMMEDIATELY RE-EQUIP DIVING APPARATUS
                 if (!Rs2Equipment.isWearing("Diving apparatus") && Rs2Inventory.contains("Diving apparatus")) {
                     Rs2Inventory.interact("Diving apparatus", "Wear");
                     sleep(200, 300);
                 }
-                return false; // Don't mark as handled - needs planting after harvesting
+                return false;
             case "Weeds":
-                Rs2GameObject.interact(patchObj, "Rake");
+                patchObjModel.click("Rake");
                 sleepUntil(() -> {
-                    // Re-find the patch object at the same location to get updated state
-                    var currentPatch = Rs2GameObject.getGameObjects()
-                            .stream()
-                            .filter(o -> o.getWorldLocation().equals(patchObj.getWorldLocation()))
-                            .findFirst()
-                            .orElse(null);
-                    if (currentPatch == null) return false;
-                    String currentState = getSeaweedPatchState(currentPatch);
+                    String currentState = getSeaweedPatchState(patchId);
                     return !currentState.equals("Weeds");
                 }, 10000);
-                return false; // Don't mark as handled - needs planting after raking
+                return false;
             case "Dead":
-                Rs2GameObject.interact(patchObj, "Clear");
+                patchObjModel.click("Clear");
                 sleepUntil(() -> {
-                    // Re-find the patch object at the same location to get updated state
-                    var currentPatch = Rs2GameObject.getGameObjects()
-                            .stream()
-                            .filter(o -> o.getWorldLocation().equals(patchObj.getWorldLocation()))
-                            .findFirst()
-                            .orElse(null);
-                    if (currentPatch == null) return false;
-                    String currentState = getSeaweedPatchState(currentPatch);
+                    String currentState = getSeaweedPatchState(patchId);
                     return !currentState.equals("Dead");
                 }, 10000);
-                return false; // Don't mark as handled - needs planting after clearing
+                return false;
             case "Diseased":
                 Microbot.showMessage("Diseased patch! Please turn off the script and then cure me manually as i cant do this automatically yet.");
                 return false;
@@ -498,7 +460,7 @@ public class GiantSeaweedFarmerScript extends Script {
             Rs2Walker.walkTo(UnderWaterAnchor);
             // Brief pause to allow spore detection before climbing
             sleep(300, 500);
-            Rs2GameObject.interact(UNDERWATER_ANCHOR, "Climb");
+            Microbot.getRs2TileObjectCache().query().interact(UNDERWATER_ANCHOR, "Climb");
             sleepUntil(() -> Rs2Player.getWorldLocation().getPlane() == 0, 7000);
         }
 

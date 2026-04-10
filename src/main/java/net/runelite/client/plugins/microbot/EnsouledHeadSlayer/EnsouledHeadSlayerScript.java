@@ -13,13 +13,11 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.item.Rs2EnsouledHead;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.magic.Spell;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -114,7 +112,7 @@ public class EnsouledHeadSlayerScript extends Script {
 	*/
         if (Microbot.getVarbitValue(Varbits.SPELLBOOK) != 3) {
             Microbot.log("On wrong spellbook, switching to Arceuus...");
-            Rs2Npc.interact("Tyss", "Spellbook");
+            Microbot.getRs2NpcCache().query().withName("Tyss").interact("Spellbook");
         }
         Rs2Combat.enableAutoRetialiate();
         var ensouledHead = Rs2Inventory.count("ensouled");
@@ -138,9 +136,12 @@ public class EnsouledHeadSlayerScript extends Script {
             return;
         }
 
-        var enemy = Rs2Npc.getNpcsForPlayer("Reanimated", false).stream().filter(x -> !x.isDead() &&
-                x.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= 2).collect(Collectors.toList());
-        if (enemy.isEmpty() && Rs2Player.getInteracting() == null && Rs2GameObject.getGroundObject(ENSOULED_GROUND_GRAPHICS) == null) {
+        var enemy = Microbot.getRs2NpcCache().query()
+                .where(n -> n.getName() != null && n.getName().contains("Reanimated") && n.isInteractingWithPlayer())
+                .toList().stream()
+                .filter(x -> !x.getNpc().isDead() && x.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= 2)
+                .collect(Collectors.toList());
+        if (enemy.isEmpty() && Rs2Player.getInteracting() == null && Microbot.getRs2TileObjectCache().query().withId(ENSOULED_GROUND_GRAPHICS).nearest() == null) {
             var ensouledHeadItem = Rs2Inventory.get("ensouled");
             var spell = Arrays.stream(Rs2EnsouledHead.values())
                     .filter(x -> x.hasRequirements() && Objects.equals(x.getName(), ensouledHeadItem.getName()))
@@ -150,17 +151,14 @@ public class EnsouledHeadSlayerScript extends Script {
                 Rs2Magic.cast(spell.getMagicSpell());
                 sleepUntil(() -> Rs2Tab.getCurrentTab() == InterfaceTab.INVENTORY, 1000);
                 Rs2Inventory.interact(ensouledHeadItem);
-                // NPC animation getting cast
-                sleepUntil(() -> Rs2GameObject.getGroundObject(ENSOULED_GROUND_GRAPHICS) != null, 4000);
-                // NPC animation finished - NPC should be spawned
-                sleepUntil(() -> Rs2GameObject.getGroundObject(ENSOULED_GROUND_GRAPHICS) == null, 4000);
-                // Without this delay, we won't wait for the NPC to spawn before trying other actions
+                sleepUntil(() -> Microbot.getRs2TileObjectCache().query().withId(ENSOULED_GROUND_GRAPHICS).nearest() != null, 4000);
+                sleepUntil(() -> Microbot.getRs2TileObjectCache().query().withId(ENSOULED_GROUND_GRAPHICS).nearest() == null, 4000);
                 sleep(3500, 4500);
             }
         } else {
             var animmatedEnemy = enemy.stream().findFirst().orElse(null);
-            if (animmatedEnemy != null && !animmatedEnemy.isDead()) {
-                Rs2Npc.attack(animmatedEnemy);
+            if (animmatedEnemy != null && !animmatedEnemy.getNpc().isDead()) {
+                animmatedEnemy.click("Attack");
             }
         }
     }

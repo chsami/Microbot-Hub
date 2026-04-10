@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.pyrefox.managers;
 
 import net.runelite.api.GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
@@ -169,7 +170,6 @@ public class PyreFoxScript extends Script
      */
     private void _handleCatching()
     {
-        // Check what GameObject ID we're dealing with.
         if (_getTrapObjectAtTrapLocation() == null)
         {
             Microbot.log("No Trap GameObject found.");
@@ -179,20 +179,15 @@ public class PyreFoxScript extends Script
         var trap = _getTrapObjectAtTrapLocation();
         if (trap == null)
         {
-
             Microbot.log("No trap found.");
             return;
         }
 
-        if (!Rs2Camera.isTileOnScreen(trap))
-            Rs2Camera.turnTo(trap);
+        if (!Rs2Camera.isTileOnScreen(trap.getLocalLocation()))
+            Rs2Camera.turnTo(trap.getLocalLocation());
 
-        int trapId = _getTrapObjectAtTrapLocation().getId();
+        int trapId = trap.getId();
 
-        // 1. Check if a trap is active.
-        // 1a. Wait until fail / success
-        // i. collect/reset & re-lay
-        // 1b. Lay trap
         switch (trapId)
         {
             case PyreFoxConstants.GAMEOBJECT_ROCK_NO_TRAP:
@@ -200,7 +195,6 @@ public class PyreFoxScript extends Script
                 _handleSettingUpTrap(trap);
                 break;
             case PyreFoxConstants.GAMEOBJECT_ROCK_TRAP:
-//                _log("Rock trap is set up, waiting.");
                 break;
             case PyreFoxConstants.GAMEOBJECT_ROCK_FOX_CAUGHT:
                 _log("We caught a fox!");
@@ -212,16 +206,16 @@ public class PyreFoxScript extends Script
         }
     }
 
-    private void _handleSettingUpTrap(GameObject trap)
+    private void _handleSettingUpTrap(Rs2TileObjectModel trap)
     {
-        Rs2GameObject.interact(trap, "Set-trap");
+        trap.click("Set-trap");
         Rs2Player.waitForWalking();
         Rs2Player.waitForAnimation();
     }
 
-    private void _handleFailedTrap(GameObject trap)
+    private void _handleFailedTrap(Rs2TileObjectModel trap)
     {
-        if (!Rs2GameObject.interact(trap, "reset"))
+        if (!trap.click("reset"))
         {
             _log("Did not find reset interaction.");
             return;
@@ -230,20 +224,19 @@ public class PyreFoxScript extends Script
         Rs2Player.waitForAnimation();
     }
 
-    private void _handleFoxCaught(GameObject trap)
+    private void _handleFoxCaught(Rs2TileObjectModel trap)
     {
-        Rs2GameObject.interact(trap, "Check");
+        trap.click("Check");
         Rs2Player.waitForWalking();
         Rs2Player.waitForXpDrop(Skill.HUNTER);
     }
 
     @Nullable
-    private GameObject _getTrapObjectAtTrapLocation()
+    private Rs2TileObjectModel _getTrapObjectAtTrapLocation()
     {
-        var object = Rs2GameObject.getGameObject(_getTrapObjectWorldPoint());
-        if (object == null)
-            return null;
-        return object;
+        WorldPoint point = _getTrapObjectWorldPoint();
+        if (point == null) return null;
+        return Microbot.getRs2TileObjectCache().query().within(point, 0).first();
     }
 
     @Nullable
@@ -251,7 +244,7 @@ public class PyreFoxScript extends Script
     {
         if (PyreFoxConstants.TRAP_OBJECT_POINT == null)
         {
-            var rock = Rs2GameObject.findObjectByIdAndDistance(PyreFoxConstants.GAMEOBJECT_ROCK_NO_TRAP, 10);
+            var rock = Microbot.getRs2TileObjectCache().query().withId(PyreFoxConstants.GAMEOBJECT_ROCK_NO_TRAP).within(10).nearest();
             if (rock == null)
             {
                 _log("No rock found");

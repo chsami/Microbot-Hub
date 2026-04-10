@@ -18,8 +18,7 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.timetracking.Tab;
@@ -185,13 +184,13 @@ public class HerbrunScript extends Script {
         // If the inventory is full mid-harvest, note herbs then immediately
         // continue so we don't stall on the same patch forever.
         if (Rs2Inventory.isFull()) {
-            Rs2NpcModel leprechaun = Rs2Npc.getNpc("Tool leprechaun");
+            Rs2NpcModel leprechaun = Microbot.getRs2NpcCache().query().withName("Tool leprechaun").nearest();
             if (leprechaun != null) {
                 Rs2ItemModel unNoted = Rs2Inventory.getUnNotedItem("Grimy", false);
                 if (unNoted != null) {
                     HerbrunPlugin.status = "Inventory full — noting herbs";
                     Rs2Inventory.use(unNoted);
-                    Rs2Npc.interact(leprechaun, "Talk-to");
+                    leprechaun.click("Talk-to");
                     Rs2Inventory.waitForInventoryChanges(10000);
                     // Don't return — fall through so the patch loop continues this tick
                 } else {
@@ -211,7 +210,7 @@ public class HerbrunScript extends Script {
             }
         }
 
-        Integer[] ids = {
+        var obj = Microbot.getRs2TileObjectCache().query().withIds(
                 ObjectID.MYARM_HERBPATCH,
                 ObjectID.FARMING_HERB_PATCH_2,
                 ObjectID.FARMING_HERB_PATCH_4,
@@ -222,14 +221,13 @@ public class HerbrunScript extends Script {
                 ObjectID.FARMING_HERB_PATCH_7,
                 ObjectID.MY2ARM_HERBPATCH,
                 ObjectID.FARMING_HERB_PATCH_5
-        };
-        var obj = Rs2GameObject.findObject(ids);
+        ).nearest();
         if (obj == null) return false;
-        var state = getHerbPatchState(obj);
-
+        var tileObj = Rs2GameObject.findObjectById(obj.getId());
+        if (tileObj == null) return false;
+        var state = getHerbPatchState(tileObj);
         switch (state) {
             case "Empty":
-                // Apply compost if configured
                 if (config.compostType() != CompostType.NONE) {
                     CompostType compost = config.compostType();
                     if (!Rs2Inventory.hasItem(compost.getItemId())) {
@@ -237,49 +235,44 @@ public class HerbrunScript extends Script {
                         return false;
                     }
                     Rs2Inventory.use(compost.getItemId());
-                    Rs2GameObject.interact(obj, "Compost");
+                    obj.click("Compost");
                     Rs2Player.waitForXpDrop(Skill.FARMING, 10000, false);
 
-                    // Drop empty bucket if configured (not for bottomless bucket)
                     if (config.dropEmptyBuckets() && !config.compostType().isBottomless()) {
                         Rs2Inventory.drop(ItemID.BUCKET_EMPTY);
                     }
                 }
-                // Find the first herb seed in inventory and plant it
                 HerbSeedType seedInInventory = getFirstHerbSeedInInventory();
                 if (seedInInventory != null) {
                     Rs2Inventory.use(seedInInventory.getItemId());
-                    Rs2GameObject.interact(obj, "Plant");
-                    sleepUntil(() -> getHerbPatchState(obj).equals("Growing"), 10000);
+                    obj.click("Plant");
+                    sleepUntil(() -> {
+                        var re = Rs2GameObject.findObjectById(obj.getId());
+                        return re != null && getHerbPatchState(re).equals("Growing");
+                    }, 10000);
                 } else {
                     log("No herb seeds found in inventory for planting");
                 }
                 return false;
 
             case "Harvestable":
-                HerbrunPlugin.status = "Harvesting " + currentPatch.getRegionName();
-                Rs2GameObject.interact(obj, "Pick");
-                // Wait until patch is empty OR inventory fills up
-                sleepUntil(() -> getHerbPatchState(obj).equals("Empty") || Rs2Inventory.isFull(), 20000);
-
-                // ── Post-harvest noting ───────────────────────────────────────
-                // If the patch is now empty and the user wants herbs noted, do it
-                // before we hand off to the next patch.
-                if (getHerbPatchState(obj).equals("Empty") && config.noteHerbsAfterHarvest()) {
-                    noteHerbsWithLeprechaun();
-                }
-                // If inventory is STILL full after noting (shouldn't happen, but guard anyway),
-                // stay on this patch so the full-inventory block handles it next tick.
-                return getHerbPatchState(obj).equals("Empty");
-
+                obj.click("Pick");
+                sleepUntil(() -> {
+                    var re = Rs2GameObject.findObjectById(obj.getId());
+                    return (re != null && getHerbPatchState(re).equals("Empty")) || Rs2Inventory.isFull();
+                }, 20000);
+                return false;
             case "Weeds":
-                Rs2GameObject.interact(obj, "Rake");
+                obj.click("Rake");
                 Rs2Player.waitForAnimation(10000);
                 return false;
 
             case "Dead":
-                Rs2GameObject.interact(obj, "Clear");
-                sleepUntil(() -> getHerbPatchState(obj).equals("Empty"), 10000);
+                obj.click("Clear");
+                sleepUntil(() -> {
+                    var re = Rs2GameObject.findObjectById(obj.getId());
+                    return re != null && getHerbPatchState(re).equals("Empty");
+                }, 10000);
                 return false;
 
             default:

@@ -11,7 +11,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 import net.runelite.client.plugins.cluescrolls.clues.MapClue;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -112,11 +112,11 @@ public class MapClueTask extends ClueTask {
     private boolean interactWithObject() {
         if (objectId == -1) return false;
 
-        boolean interactionSuccessful = Rs2GameObject.interact(objectId, "Search")
-                || Rs2GameObject.interact(objectId, "Investigate")
-                || Rs2GameObject.interact(objectId, "Examine")
-                || Rs2GameObject.interact(objectId, "Look-at")
-                || Rs2GameObject.interact(objectId, "Open");
+        boolean interactionSuccessful = Microbot.getRs2TileObjectCache().query().interact(objectId, "Search")
+                || Microbot.getRs2TileObjectCache().query().interact(objectId, "Investigate")
+                || Microbot.getRs2TileObjectCache().query().interact(objectId, "Examine")
+                || Microbot.getRs2TileObjectCache().query().interact(objectId, "Look-at")
+                || Microbot.getRs2TileObjectCache().query().interact(objectId, "Open");
 
         if (interactionSuccessful) {
             log.info("Interacted with required object for the clue.");

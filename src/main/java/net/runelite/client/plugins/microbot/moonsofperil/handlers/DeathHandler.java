@@ -11,7 +11,6 @@ import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilScript;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -81,7 +80,7 @@ public class DeathHandler implements BaseHandler {
         if (debugLogging) {Microbot.log("Attempting to walk back to grave site");}
         Rs2Walker.walkTo(graveLocation, 2);
         sleepUntil(() -> (Rs2Player.getWorldLocation().distanceTo(graveLocation) <= 3), 60_000);
-        if (Rs2Npc.interact(NpcID.GRAVESTONE_DEFAULT, "Loot")) {
+        if (Microbot.getRs2NpcCache().query().withId(NpcID.GRAVESTONE_DEFAULT).interact("Loot")) {
             if (debugLogging) {Microbot.log("Successfully looted gravestone");}
             return true;
         }

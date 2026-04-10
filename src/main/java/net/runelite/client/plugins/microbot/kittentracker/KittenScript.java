@@ -5,7 +5,6 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 
 import java.util.concurrent.TimeUnit;
 
@@ -44,12 +43,12 @@ public class KittenScript extends Script {
     }
 
     private void feedKitten() {
-        Rs2Npc.getNpcs("Kitten").findFirst().ifPresent(kitten -> Rs2Inventory.useItemOnNpc(ItemID.TBWT_RAW_KARAMBWANJI, kitten));
+        Microbot.getRs2NpcCache().query().withName("Kitten").toList().stream().findFirst().ifPresent(kitten -> Rs2Inventory.useItemOnNpc(ItemID.TBWT_RAW_KARAMBWANJI, kitten.getNpc()));
         sleep(1000, 2000);
     }
 
     private void giveKittenAttention() {
-        Rs2Npc.getNpcs("Kitten").findFirst().ifPresent(kitten -> Rs2Inventory.useItemOnNpc(ItemID.BALL_OF_WOOL, kitten));
+        Microbot.getRs2NpcCache().query().withName("Kitten").toList().stream().findFirst().ifPresent(kitten -> Rs2Inventory.useItemOnNpc(ItemID.BALL_OF_WOOL, kitten.getNpc()));
         sleep(1000, 2000);
     }
 

@@ -10,8 +10,7 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -120,12 +119,15 @@ public class HunterKabbitsScript extends Script {
         NPC hintNpc = Microbot.getClient().getHintArrowNpc();
 
         if (hintNpc != null && VALID_FALCON_NPC_IDS.contains(hintNpc.getId())) {
-            Rs2NpcModel model = new Rs2NpcModel(hintNpc);
+            Rs2NpcModel model = Microbot.getRs2NpcCache().query()
+                    .where(n -> n.getNpc() == hintNpc)
+                    .nearest();
             boolean retrieved = false;
             for (int i = 0; i < 5; i++) {
                 if (!isRunning()) break;
+                if (model == null) break;
 
-                if (Rs2Npc.interact(model, "Retrieve")) {
+                if (model.click("Retrieve")) {
                     retrieved = true;
                     break;
                 }
@@ -138,8 +140,9 @@ public class HunterKabbitsScript extends Script {
                 currentState = State.CATCHING;
             }
         } else {
-            boolean anyFalconStillActive = Rs2Npc.getNpcs()
-                    .anyMatch(npc -> VALID_FALCON_NPC_IDS.contains(npc.getId()));
+            boolean anyFalconStillActive = Microbot.getRs2NpcCache().query()
+                    .where(npc -> VALID_FALCON_NPC_IDS.contains(npc.getId()))
+                    .count() > 0;
             if (!anyFalconStillActive) {
                 currentState = State.CATCHING;
             }
@@ -152,12 +155,15 @@ public class HunterKabbitsScript extends Script {
     private void handleCatchingState(HunterKebbitsConfig config) {
         String npcName = getKebbit(config).getNpcName();
 
-        if (Rs2Npc.interact(npcName, "Catch")) {
+        Rs2NpcModel kebbit = Microbot.getRs2NpcCache().query().withName(npcName).nearest();
+        if (kebbit != null && kebbit.click("Catch")) {
             boolean falconActive = false;
             for (int i = 0; i < 10; i++) {
                 if (!isRunning()) break;
 
-                boolean found = Rs2Npc.getNpcs().anyMatch(npc -> VALID_FALCON_NPC_IDS.contains(npc.getId()));
+                boolean found = Microbot.getRs2NpcCache().query()
+                        .where(npc -> VALID_FALCON_NPC_IDS.contains(npc.getId()))
+                        .count() > 0;
                 if (found || isHintArrowNpcActive()) {
                     falconActive = true;
                     break;
@@ -213,7 +219,9 @@ public class HunterKabbitsScript extends Script {
      * Returns true if falcon is with player (not visible and no active hint arrow).
      */
     private boolean isFalconWithPlayer() {
-        boolean falconVisible = Rs2Npc.getNpcs().anyMatch(npc -> VALID_FALCON_NPC_IDS.contains(npc.getId()));
+        boolean falconVisible = Microbot.getRs2NpcCache().query()
+                .where(npc -> VALID_FALCON_NPC_IDS.contains(npc.getId()))
+                .count() > 0;
         return !falconVisible && !isHintArrowNpcActive();
     }
 

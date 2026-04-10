@@ -1,12 +1,12 @@
 package net.runelite.client.plugins.microbot.chaosaltar;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.GameObject;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
@@ -14,7 +14,6 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2Pvp;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
@@ -98,17 +97,15 @@ public class ChaosAltarScript extends Script {
         return true;
     }
 
-    private GameObject getChaosAltar() {
-        return (GameObject) Rs2GameObject
-                .getAll(obj -> obj.getId() == CHAOS_ALTAR && obj instanceof GameObject)
-                .stream().findFirst().orElse(null);
+    private Rs2TileObjectModel getChaosAltar() {
+        return Microbot.getRs2TileObjectCache().query().withId(CHAOS_ALTAR).nearest();
     }
 
     public boolean isAtChaosAltar() {
-        final GameObject gameObject = getChaosAltar();
+        final Rs2TileObjectModel gameObject = getChaosAltar();
         if (gameObject == null) return false;
 
-        final boolean reachable = Rs2GameObject.isReachable(gameObject);
+        final boolean reachable = gameObject.isReachable();
         log.info("Found Chaos Altar GameObject at: {}. Reachable={}", gameObject.getWorldLocation(), reachable);
         return reachable;
     }
@@ -117,9 +114,8 @@ public class ChaosAltarScript extends Script {
     private void dieToNpc() {
         Microbot.log("Walking to dangerous NPC to die");
         Rs2Walker.walkTo(2979, 3845, 0);
-        sleepUntil(() -> Rs2Npc.getNpc(CHAOS_FANATIC) != null, 60000);
-        // Attack chaos fanatic to die
-        Rs2Npc.attack("Chaos Fanatic");
+        sleepUntil(() -> Microbot.getRs2NpcCache().query().withId(CHAOS_FANATIC).nearest() != null, 60000);
+        Microbot.getRs2NpcCache().query().withName("Chaos Fanatic").interact("Attack");
         // Wait until player dies
         sleepUntil(() -> Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) == 0, 60000);
         sleepUntil(() -> !Rs2Pvp.isInWilderness(), 15000);
@@ -164,7 +160,7 @@ public class ChaosAltarScript extends Script {
         if (lastBones != null && isRunning()) {
             Rs2Inventory.interact(lastBones, "use");
             sleep(300, 500);
-            Rs2GameObject.interact(CHAOS_ALTAR);
+            Microbot.getRs2TileObjectCache().query().interact(CHAOS_ALTAR);
             sleep(300, 500);
 
             Rs2Inventory.waitForInventoryChanges(Rs2Random.between(500, 2000));
@@ -188,7 +184,7 @@ public class ChaosAltarScript extends Script {
                 && Rs2GameObject.exists(CHAOS_ALTAR)) {
             Rs2Inventory.interact(lastBones, "use");
             sleep(100, 300);
-            Rs2GameObject.interact(CHAOS_ALTAR);
+            Microbot.getRs2TileObjectCache().query().interact(CHAOS_ALTAR);
             Rs2Player.waitForXpDrop(Skill.PRAYER);
 
             // Small random delay between offerings

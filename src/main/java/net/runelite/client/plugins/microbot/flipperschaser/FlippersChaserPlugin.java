@@ -20,8 +20,8 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -103,7 +103,8 @@ public class FlippersChaserPlugin extends Plugin {
         NPC npc = event.getNpc();
         if (npc.getName().equals("Mogre")) {
             inCombat = true;
-            clientThread.invoke(() -> attackNpc(new Rs2NpcModel(npc)));
+            var rs2Npc = Microbot.getRs2NpcCache().query().where(n -> n.getNpc().equals(npc)).nearest();
+            if (rs2Npc != null) clientThread.invoke(() -> attackNpc(rs2Npc));
         }
     }
 
@@ -121,16 +122,16 @@ public class FlippersChaserPlugin extends Plugin {
     private void useFishingExplosive() {
         Rs2NpcModel fishingSpot = findFishingSpot();
         if (fishingSpot != null) {
-            Rs2Inventory.useItemOnNpc(ItemID.FISHING_EXPLOSIVE, fishingSpot);
+            Rs2Inventory.useItemOnNpc(ItemID.FISHING_EXPLOSIVE, fishingSpot.getNpc());
         }
     }
 
     private Rs2NpcModel findFishingSpot() {
-        return Rs2Npc.getNpc("Ominous Fishing Spot");
+        return Microbot.getRs2NpcCache().query().withName("Ominous Fishing Spot").nearest();
     }
 
     private void attackNpc(Rs2NpcModel npc) {
-        Rs2Npc.interact(npc);
+        npc.click("Attack");
         if (Rs2Player.hasPrayerPoints()) {
             Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE);
         }

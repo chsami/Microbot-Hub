@@ -23,7 +23,7 @@ public class VarrockTeaStallThievingSpot implements IStallThievingSpot {
             return;
         }
 
-        final GameObject stall = botApi.getGameObject(STALL_ID, new WorldPoint(3269, 3410, 0));
+        final var stall = botApi.getGameObject(STALL_ID, new WorldPoint(3269, 3410, 0));
         if (stall == null)
         {
             return;

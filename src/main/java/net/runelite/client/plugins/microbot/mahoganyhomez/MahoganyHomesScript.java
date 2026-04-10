@@ -13,13 +13,11 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -27,6 +25,7 @@ import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.*;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -191,7 +190,7 @@ public class MahoganyHomesScript extends Script {
     private void interactWithObject(GameObject object) {
         Hotspot hotspot = Hotspot.getByObjectId(object.getId());
         String action = Objects.requireNonNull(hotspot).getRequiredAction();
-        if (Rs2GameObject.interact(object, action)) {
+        if (Microbot.getRs2TileObjectCache().query().withId(object.getId()).interact(action)) {
             sleepUntil(() -> {
                 String newAction = Objects.requireNonNull(Hotspot.getByObjectId(object.getId())).getRequiredAction();
                 return !newAction.equals(action);
@@ -217,7 +216,9 @@ public class MahoganyHomesScript extends Script {
 
             if (door == null) continue;
 
-            var objectComp = Rs2GameObject.getObjectComposition(door.getId());
+            var doorModel = Microbot.getRs2TileObjectCache().query().withId(door.getId()).nearest();
+            if (doorModel == null) continue;
+            var objectComp = doorModel.getObjectComposition();
             if (objectComp == null) continue;
 
             String name = objectComp.getName();
@@ -229,7 +230,10 @@ public class MahoganyHomesScript extends Script {
         }
 
         List<String> doorNames = doors.stream()
-                .map(d -> Rs2GameObject.getObjectComposition(d.getId()).getName())
+                .map(d -> {
+                    var m = Microbot.getRs2TileObjectCache().query().withId(d.getId()).nearest();
+                    return m != null ? m.getObjectComposition().getName() : "unknown";
+                })
                 .collect(Collectors.toList());
 
         System.out.println("Doors found: " + doorNames + " Size: " + doors.size());
@@ -238,7 +242,8 @@ public class MahoganyHomesScript extends Script {
 //        log("Doors found: %s", doors.size());
 
         for (TileObject door : doors) {
-            ObjectComposition doorComp = Rs2GameObject.getObjectComposition(door.getId());
+            var doorObj = Microbot.getRs2TileObjectCache().query().withId(door.getId()).nearest();
+            ObjectComposition doorComp = doorObj != null ? doorObj.getObjectComposition() : null;
             List<String> actions = null;
             if (doorComp != null) {
                 actions = Arrays.asList(doorComp.getActions());
@@ -247,7 +252,7 @@ public class MahoganyHomesScript extends Script {
 
                 log("Opening door at: %s", door.getWorldLocation());
                 logInfo("Opening door at: {}", door.getWorldLocation());
-                if (Rs2GameObject.interact(door, "Open")) {
+                if (Microbot.getRs2TileObjectCache().query().withId(door.getId()).interact("Open")) {
                     Rs2Player.waitForWalking();
                     sleep(200, 500);
                     // if it's the last door in the list return true
@@ -262,8 +267,8 @@ public class MahoganyHomesScript extends Script {
     private void tryToUseLadder() {
         log("Walker missing transport, trying to find ladder manually.");
         int plane = Rs2Player.getWorldLocation().getPlane();
-        TileObject closestLadder = Rs2GameObject.findObject(plugin.getCurrentHome().getLadders());
-        if (Rs2GameObject.interact(closestLadder)) {
+        var closestLadder = Microbot.getRs2TileObjectCache().query().withIds(Arrays.stream(plugin.getCurrentHome().getLadders()).mapToInt(Integer::intValue).toArray()).nearest();
+        if (closestLadder != null && closestLadder.click()) {
             sleepUntil(() -> Rs2Player.getWorldLocation().getPlane() != plane, 5000);
             sleep(200, 600);
         }
@@ -284,35 +289,31 @@ public class MahoganyHomesScript extends Script {
                     }
                 }
             }
-            var npc = Rs2Npc.getNpc(plugin.getCurrentHome().getNpcId());
+            var npc = Microbot.getRs2NpcCache().query().withId(plugin.getCurrentHome().getNpcId()).nearest();
             if (npc == null && Rs2Player.getWorldLocation().getPlane() > 0) {
                 log("We are on the wrong floor, Trying to find ladder to go down");
                 int playerPlane = Rs2Player.getWorldLocation().getPlane();
 
-                List<GameObject> ladders = Rs2GameObject.getGameObjects(
-                        obj -> Arrays.stream(plugin.getCurrentHome().getLadders())
-                                .anyMatch(id -> id == obj.getId())
-                                && obj.getWorldLocation().getPlane() == playerPlane
-                );
-                GameObject closestLadder = ladders.stream()
+                var ladders = Microbot.getRs2TileObjectCache().query()
+                        .withIds(Arrays.stream(plugin.getCurrentHome().getLadders()).mapToInt(Integer::intValue).toArray())
+                        .where(obj -> obj.getWorldLocation().getPlane() == playerPlane)
+                        .toList();
+                var closestLadder2 = ladders.stream()
                         .min(Comparator.comparingInt(obj ->
                                 obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
                         .orElse(null);
-                Rs2WorldPoint objectLocation = Rs2Tile.getNearestWalkableTile(closestLadder);
-                    if (!openDoorToObject(closestLadder, objectLocation)) {
-                        if (Rs2GameObject.interact(closestLadder)) {
+                    if (closestLadder2 != null && closestLadder2.click()) {
                             sleepUntil(
                                     () -> Rs2Player.getWorldLocation().getPlane() == 0
                                     , 5000);
                             return;
-                        }
                     }
             }
             if (npc != null) {
                 Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
                 log("Local NPC path distance: " + npcLocation.distanceToPath(Rs2Player.getWorldLocation()));
                 if (npcLocation.distanceToPath(Rs2Player.getWorldLocation()) < 20) {
-                    if (Rs2Npc.interact(npc, "Talk-to")) {
+                    if (npc.click("Talk-to")) {
                         log("Getting reward from NPC");
                         sleepUntil(Rs2Dialogue::hasContinue, 10000);
                         if (Rs2Dialogue.hasDialogueText("Please excuse me, I'm rather busy.")) {
@@ -350,14 +351,7 @@ public class MahoganyHomesScript extends Script {
 
 
                 // Search for Mahogany Homes contract NPCs directly by name
-                var npc = Rs2Npc.getNpcs()
-                    .filter(n -> n.getName() != null && 
-                           (n.getName().equals("Amy") || 
-                            n.getName().equals("Marlo") || 
-                            n.getName().equals("Ellie") || 
-                            n.getName().equals("Angelo")))
-                    .findFirst()
-                    .orElse(null);
+                var npc = Microbot.getRs2NpcCache().query().withNames("Amy", "Marlo", "Ellie", "Angelo").nearest();
                 
                 if (npc == null) {
                     log("No contract NPC found, waiting before retry");
@@ -365,7 +359,7 @@ public class MahoganyHomesScript extends Script {
                     return;
                 }
                 log("NPC found: " + npc.getName());
-                if (Rs2Npc.interact(npc, "Contract")) {
+                if (npc.click("Contract")) {
                     handleContractDialogue();
                 }
 

@@ -9,7 +9,7 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -199,15 +199,18 @@ public class ShadesKillerScript extends Script {
                     case FIGHT_SHADES:
                         boolean isLooting = Rs2GroundItem.lootAtGePrice(config.priceOfItemsToLoot());
                         if (isLooting) return;
-                        var npc = Rs2Npc.getNpcsForPlayer(config.SHADES().names.get(0)).stream().findFirst().orElse(null);
-                        //if npc is attacking us, then attack back
+                        Rs2NpcModel npc = Microbot.getRs2NpcCache().query()
+                                .withName(config.SHADES().names.get(0))
+                                .where(Rs2NpcModel::isInteractingWithPlayer)
+                                .nearest();
                         if (npc != null && !Microbot.getClient().getLocalPlayer().isInteracting()) {
-                            Rs2Npc.attack(npc);
+                            npc.click("Attack");
                             return;
                         }
-                        //if no npc is attacking us, attack a new npc
                         if (!Rs2Combat.inCombat() && !isLooting) {
-                            Rs2Npc.attack(config.SHADES().names);
+                            Microbot.getRs2NpcCache().query()
+                                    .withNames(config.SHADES().names.toArray(new String[0]))
+                                    .interact("Attack");
                         }
                         Rs2Combat.setSpecState(true, config.specialAttack() * 10);
                         if (Rs2Inventory.isFull() && config.useCoffin()) {

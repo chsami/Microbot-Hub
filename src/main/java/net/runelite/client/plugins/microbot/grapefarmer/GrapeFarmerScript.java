@@ -7,11 +7,9 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.grapefarmer.GrapeFarmerConfig;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import java.util.LinkedHashMap;
@@ -175,13 +173,13 @@ public class GrapeFarmerScript extends Script {
         Rs2ItemModel grapeSeed = Rs2Inventory.get(ItemID.GRAPE_SEED);
         System.out.println("Planting seed...");
         if (Rs2Inventory.use(grapeSeed)) {
-            Rs2GameObject.interact(gameObjectId);
+            Microbot.getRs2TileObjectCache().query().withId(gameObjectId).interact();
             Rs2Player.waitForXpDrop(Skill.FARMING);
         }
     }
 
     private void addSaltpetre(int gameObjectId) {
-        if (Rs2GameObject.interact(gameObjectId)) {
+        if (Microbot.getRs2TileObjectCache().query().withId(gameObjectId).interact()) {
             sleep(4000, 4500);
         }
 
@@ -189,7 +187,7 @@ public class GrapeFarmerScript extends Script {
 
     private void clearVine(int gameObjectId) {
         if (!Rs2Player.isMoving() && !Rs2Player.isAnimating(5000) && !Rs2Player.isInteracting()) {
-            if (Rs2GameObject.interact(gameObjectId)) {
+            if (Microbot.getRs2TileObjectCache().query().withId(gameObjectId).interact()) {
                 Rs2Player.waitForAnimation(2500);
                 sleepUntil(() -> !Rs2Player.isAnimating() &&
                         !Rs2Player.isMoving() &&
@@ -199,22 +197,22 @@ public class GrapeFarmerScript extends Script {
     }
 
     private void pickGrapes(int gameObjectId) {
-        Rs2NpcModel leprechaun = Rs2Npc.getNpc(0);
+        Rs2NpcModel leprechaun = Microbot.getRs2NpcCache().query().withId(0).nearest();
         if (leprechaun != null) {
             if (Rs2Inventory.isFull()) {
-                Rs2Inventory.useItemOnNpc(ItemID.ZAMORAK_GRAPES, leprechaun);
+                Rs2Inventory.useItemOnNpc(ItemID.ZAMORAK_GRAPES, leprechaun.getNpc());
                 sleepUntil(() -> !Rs2Inventory.contains(ItemID.ZAMORAK_GRAPES), 5000);
                 sleep(100,600);
                 if (Rs2Inventory.contains(ItemID.GRAPES)) {
                     Rs2Inventory.use(ItemID.GRAPES);
-                    Rs2Npc.interact(leprechaun);
+                    leprechaun.click();
                     sleepUntil(() -> !Rs2Inventory.contains(ItemID.GRAPES), 5000);
                     sleep(50, 500);
                 }
             }
         }
 
-        if (!Rs2Inventory.isFull() && Rs2GameObject.interact(gameObjectId)) {
+        if (!Rs2Inventory.isFull() && Microbot.getRs2TileObjectCache().query().withId(gameObjectId).interact()) {
             Rs2Player.waitForAnimation(500);
         }
     }
@@ -247,7 +245,7 @@ public class GrapeFarmerScript extends Script {
 
     private static void checkHealth(int gameObjectId) {
         System.out.println("Interacting with GroundObject ID: " + gameObjectId + " using action: Check-health");
-        Rs2GameObject.interact(gameObjectId);
+        Microbot.getRs2TileObjectCache().query().withId(gameObjectId).interact();
         Rs2Player.waitForXpDrop(Skill.FARMING);
     }
 

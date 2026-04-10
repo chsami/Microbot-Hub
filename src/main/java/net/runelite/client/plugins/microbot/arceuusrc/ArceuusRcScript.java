@@ -2,7 +2,6 @@ package net.runelite.client.plugins.microbot.arceuusrc;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.GameObject;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
@@ -12,7 +11,6 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.arceuusrc.enums.Altar;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -223,9 +221,9 @@ public class ArceuusRcScript extends Script {
     }
 
     public void useAltar() {
-        final GameObject altar = Rs2GameObject.getGameObject(getAltarName(), true, 11);
+        var altar = Microbot.getRs2TileObjectCache().query().withName(getAltarName()).within(11).nearest();
         if (altar != null) {
-            if (Rs2GameObject.interact(altar,"Bind")) Rs2Inventory.waitForInventoryChanges(6_000);
+            if (altar.click("Bind")) Rs2Inventory.waitForInventoryChanges(6_000);
             hasChippedEssence = Rs2Inventory.hasItem(DARK_ESSENCE_FRAGMENTS);
         }
     }
@@ -303,10 +301,10 @@ public class ArceuusRcScript extends Script {
     }
 
     public void useDarkAltar() {
-        final GameObject darkAltar = Rs2GameObject.getGameObject(DARK_ALTAR, true, 11);
+        var darkAltar = Microbot.getRs2TileObjectCache().query().withName(DARK_ALTAR).within(11).nearest();
         if (darkAltar == null) return;
 
-        Rs2GameObject.interact(darkAltar,"Venerate");
+        darkAltar.click("Venerate");
         sleepUntil(()->!Rs2Inventory.hasItem(DENSE_ESSENCE_BLOCK),6_000);
     }
 
@@ -314,12 +312,12 @@ public class ArceuusRcScript extends Script {
         if(getAltar() == Altar.BLOOD && !Rs2Inventory.hasItem(BLOOD_ESSENCE_ACTIVE)){
             Rs2Inventory.interact(BLOOD_ESSENCE, "Activate");
         }
-        final GameObject runeStone = Rs2GameObject.getGameObject(STR_DENSE_RUNESTONE, true, 11);
-        if (runeStone == null) { // should never happen bc shouldMineEssence checks for the runestone
+        var runeStone = Microbot.getRs2TileObjectCache().query().withName(STR_DENSE_RUNESTONE).within(11).nearest();
+        if (runeStone == null) {
             Microbot.log("Cannot find runestone");
             return;
         }
-        Rs2GameObject.interact(runeStone,"Chip");
+        runeStone.click("Chip");
 
         // this checks if we are gaining essence from mining
         final AtomicInteger emptyCount = new AtomicInteger(Rs2Inventory.emptySlotCount());

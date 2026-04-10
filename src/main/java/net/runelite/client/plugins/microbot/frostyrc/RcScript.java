@@ -18,7 +18,7 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
@@ -31,9 +31,7 @@ import javax.inject.Inject;
 import java.awt.event.KeyEvent;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public class RcScript extends Script {
     private final RcPlugin plugin;
@@ -364,7 +362,7 @@ public class RcScript extends Script {
 
             if (plugin.getMyWorldPoint().distanceTo(feroxPoolWp) < 5) {
                 Microbot.log("Interacting with the Ferox pool");
-                Rs2GameObject.interact(feroxPool, "Drink");
+                Microbot.getRs2TileObjectCache().query().interact(feroxPool, "Drink");
             }
             sleepUntil(() -> (!Rs2Player.isInteracting()) && !Rs2Player.isAnimating() && Rs2Player.getRunEnergy() > 90);
             sleepGaussian(1100, 200);
@@ -396,15 +394,12 @@ public class RcScript extends Script {
             sleepGaussian(900, 200);
         }
 
-        TileObject fairyRing = Rs2GameObject.getAll().stream()
-                .filter(Objects::nonNull)
-                .filter(obj -> obj.getLocalLocation().distanceTo(Microbot.getClient().getLocalPlayer().getLocalLocation()) < 5000)
-                .filter(obj -> {
-                    ObjectComposition composition = Rs2GameObject.getObjectComposition(obj.getId());
-                    if (composition == null) return false;
-                    return composition.getName().toLowerCase().contains("fairy");
+        Rs2TileObjectModel fairyRing = Microbot.getRs2TileObjectCache().query()
+                .where(obj -> {
+                    String name = obj.getName();
+                    return name != null && name.toLowerCase().contains("fairy");
                 })
-                .findFirst().orElse(null);
+                .within(10).nearest();
 
         if (plugin.getMyWorldPoint().distanceTo(monasteryFairyRing) < 7) {
             if (fairyRing == null) {
@@ -413,7 +408,7 @@ public class RcScript extends Script {
                 return;
             } else {
                 Microbot.log("Interacting with fairies");
-                Rs2GameObject.interact(fairyRing, "Last-destination (DLS)");
+                fairyRing.click("Last-destination (DLS)");
                 sleepUntil(() -> plugin.getMyWorldPoint().equals(caveFairyRing));
             }
         }
@@ -433,7 +428,7 @@ public class RcScript extends Script {
                 if (plugin.getMyWorldPoint().distanceTo(guildSpiritTreeLoc) > 10) {
                     Rs2Walker.walkTo(guildSpiritTreeLoc);
                 } else {
-                    Rs2GameObject.interact(guildSpiritTree, "Travel");
+                    Microbot.getRs2TileObjectCache().query().interact(guildSpiritTree, "Travel");
                     sleepUntil(() -> Rs2Widget.isWidgetVisible(187, 3), 10000);
                     sleepGaussian(1100, 200);
 
@@ -453,12 +448,11 @@ public class RcScript extends Script {
                     if (Rs2Player.getRunEnergy() < 45) {
                         sleepGaussian(700, 200);
                         Microbot.log("We are thirsty..let us Drink");
-                        List<Integer> poolObjectIds = Arrays.asList(29241, 29240, 29239, 29238, 29237);
-                        poolObjectIds.stream().filter(Rs2GameObject::exists).findFirst()
-                                .ifPresent(objectId -> {
-                                    Rs2GameObject.interact(objectId, "Drink");
-                                    sleepUntil(() -> !Rs2Player.isInteracting() && Rs2Player.getRunEnergy() > 90);
-                                });
+                        Rs2TileObjectModel poolObj = Microbot.getRs2TileObjectCache().query().withIds(29241, 29240, 29239, 29238, 29237).nearest();
+                        if (poolObj != null) {
+                            poolObj.click("Drink");
+                            sleepUntil(() -> !Rs2Player.isInteracting() && Rs2Player.getRunEnergy() > 90);
+                        }
                     }
                     if (Rs2Player.getRunEnergy() > 45) {
                         if (config.runeType() == RuneType.BLOOD) {
@@ -485,9 +479,9 @@ public class RcScript extends Script {
             sleepUntil(() -> plugin.getMyWorldPoint().getRegionID() == mythicStatueRegion);
             sleepGaussian(600, 200);
 
-			GameObject statue = Rs2GameObject.get("Mythic Statue");
+			Rs2TileObjectModel statue = Microbot.getRs2TileObjectCache().query().withName("Mythic Statue").nearest();
 			if (statue != null && !Rs2Player.isAnimating()) {
-				Rs2GameObject.interact(statue, "Teleport");
+				statue.click("Teleport");
 			}
 
             if (plugin.getMyWorldPoint().getRegionID() == mythicStatueRegion) {
@@ -497,7 +491,7 @@ public class RcScript extends Script {
                 Microbot.log("Current position " + plugin.getMyWorldPoint());
 
                 if (plugin.getMyWorldPoint() == outsideWrathRuins) {
-                    Rs2GameObject.interact(wrathRuins, "Enter");
+                    Microbot.getRs2TileObjectCache().query().interact(wrathRuins, "Enter");
                     sleepUntil(() -> plugin.getMyWorldPoint().getRegionID() == wrathAltarRegion);
                 }
             }
@@ -558,12 +552,11 @@ public class RcScript extends Script {
             if (Rs2Player.getRunEnergy() < 45) {
                 sleepGaussian(700, 200);
                 Microbot.log("We are thirsty..let us Drink");
-                List<Integer> poolObjectIds = Arrays.asList(29241, 29240, 29239, 29238, 29237);
-                poolObjectIds.stream().filter(Rs2GameObject::exists).findFirst()
-                        .ifPresent(objectId -> {
-                            Rs2GameObject.interact(objectId, "Drink");
-                            sleepUntil(() -> !Rs2Player.isInteracting() && Rs2Player.getRunEnergy() > 90);
-                        });
+                Rs2TileObjectModel poolObj = Microbot.getRs2TileObjectCache().query().withIds(29241, 29240, 29239, 29238, 29237).nearest();
+                if (poolObj != null) {
+                    poolObj.click("Drink");
+                    sleepUntil(() -> !Rs2Player.isInteracting() && Rs2Player.getRunEnergy() > 90);
+                }
             }
 
             if (Rs2Player.getRunEnergy() > 45) {
@@ -605,12 +598,11 @@ public class RcScript extends Script {
             if (Rs2Player.getRunEnergy() < 45) {
                 sleepGaussian(700, 200);
                 Microbot.log("We are thirsty..let us Drink");
-                List<Integer> poolObjectIds = Arrays.asList(29241, 29240, 29239, 29238, 29237);
-                poolObjectIds.stream().filter(Rs2GameObject::exists).findFirst()
-                        .ifPresent(objectId -> {
-                            Rs2GameObject.interact(objectId, "Drink");
-                            sleepUntil(() -> !Rs2Player.isInteracting() && Rs2Player.getRunEnergy() > 90);
-                        });
+                Rs2TileObjectModel poolObj = Microbot.getRs2TileObjectCache().query().withIds(29241, 29240, 29239, 29238, 29237).nearest();
+                if (poolObj != null) {
+                    poolObj.click("Drink");
+                    sleepUntil(() -> !Rs2Player.isInteracting() && Rs2Player.getRunEnergy() > 90);
+                }
             }
 
             if (Rs2Player.getRunEnergy() > 45) {
@@ -623,26 +615,21 @@ public class RcScript extends Script {
     }
 
     private void handlePohFairyRing() {
-        if (Rs2GameObject.findObjectById(ObjectID.POH_FAIRY_RING) != null) {
-            Rs2GameObject.interact(ObjectID.POH_FAIRY_RING, "Last-destination (DLS)");
+        if (Microbot.getRs2TileObjectCache().query().withId(ObjectID.POH_FAIRY_RING).nearest() != null) {
+            Microbot.getRs2TileObjectCache().query().interact(ObjectID.POH_FAIRY_RING, "Last-destination (DLS)");
             Microbot.log("Using fairy ring");
             Rs2Player.waitForAnimation(1200);
             sleepUntil(() -> plugin.getMyWorldPoint().equals(caveFairyRing), 1200);
             state = State.WALKING_TO;
         } else {
-            List<TileObject> allGameObjects = Rs2GameObject.getAll().stream()
-                    .filter(Objects::nonNull)
-                    .filter(obj -> obj.getLocalLocation().distanceTo(Microbot.getClient().getLocalPlayer().getLocalLocation()) < 5000)
-                    .collect(Collectors.toList());
-
-            TileObject pohTreeRing = allGameObjects.stream()
-                    .filter(obj -> {
-                        ObjectComposition composition = Rs2GameObject.getObjectComposition(obj.getId());
-                        return composition != null && composition.getName().toLowerCase().contains("spirit");
+            Rs2TileObjectModel pohTreeRing = Microbot.getRs2TileObjectCache().query()
+                    .where(obj -> {
+                        String name = obj.getName();
+                        return name != null && name.toLowerCase().contains("spirit");
                     })
-                    .findFirst().orElse(null);
+                    .within(10).nearest();
             if (pohTreeRing != null) {
-                Rs2GameObject.interact(pohTreeRing, "Ring-last-destination (DLS)");
+                pohTreeRing.click("Ring-last-destination (DLS)");
                 Microbot.log("Using fairy tree");
                 Rs2Player.waitForAnimation();
                 sleepUntil(() -> plugin.getMyWorldPoint().equals(caveFairyRing));
@@ -671,7 +658,7 @@ public class RcScript extends Script {
             Microbot.log("Current location after waiting: " + plugin.getMyWorldPoint());
             if (plugin.getMyWorldPoint().equals(caveFairyRing)) {
                 sleepGaussian(900, 200);
-                Rs2GameObject.interact(16308, "Enter");
+                Microbot.getRs2TileObjectCache().query().interact(16308, "Enter");
                 sleepUntil(() -> Rs2Player.getWorldLocation().equals(firstCaveExit), 1200);
                 sleepGaussian(900, 200);
             }
@@ -691,7 +678,7 @@ public class RcScript extends Script {
                 sleepUntil(() -> plugin.getMyWorldPoint().equals(outsideBloodRuins74), 1200);
             }
 
-            TileObject ruins = Rs2GameObject.findObjectById(bloodRuins);
+            Rs2TileObjectModel ruins = Microbot.getRs2TileObjectCache().query().withId(bloodRuins).nearest();
 
             if (plugin.getMyWorldPoint().equals(firstCaveExit) && Rs2Player.getRealSkillLevel(Skill.AGILITY) < 74) {
                 Microbot.log("Walking to ruins: " + outsideBloodRuins73);
@@ -713,10 +700,10 @@ public class RcScript extends Script {
         }
 
         if (config.runeType() == RuneType.BLOOD) {
-            Rs2GameObject.interact(bloodRuins, "Enter");
+            Microbot.getRs2TileObjectCache().query().interact(bloodRuins, "Enter");
             sleepUntil(() -> !Rs2Player.isAnimating() && plugin.getMyWorldPoint().getRegionID() == bloodAltarRegion);
             sleepGaussian(700, 200);
-            Rs2GameObject.interact(bloodAltar, "Craft-rune");
+            Microbot.getRs2TileObjectCache().query().interact(bloodAltar, "Craft-rune");
             Rs2Player.waitForXpDrop(Skill.RUNECRAFT);
             plugin.updateXpGained();
             handleEmptyPouch();
@@ -733,7 +720,7 @@ public class RcScript extends Script {
 
         if (config.runeType() == RuneType.WRATH) {
             Microbot.log("Entering wrath ruins");
-            Rs2GameObject.interact(wrathRuins, "Enter");
+            Microbot.getRs2TileObjectCache().query().interact(wrathRuins, "Enter");
             sleepUntil(() -> plugin.getMyWorldPoint().getRegionID() == wrathAltarRegion);
             sleepGaussian(1100, 200);
             Microbot.log("Crafting runes");
@@ -759,10 +746,10 @@ public class RcScript extends Script {
             Rs2Inventory.waitForInventoryChanges(600);
             sleepGaussian(700, 200);
             if (config.runeType() == RuneType.BLOOD) {
-                Rs2GameObject.interact(bloodAltar, "Craft-rune");
+                Microbot.getRs2TileObjectCache().query().interact(bloodAltar, "Craft-rune");
             }
             if (config.runeType() == RuneType.WRATH) {
-                Rs2GameObject.interact(wrathAltar, "Craft-rune");
+                Microbot.getRs2TileObjectCache().query().interact(wrathAltar, "Craft-rune");
             }
             Rs2Player.waitForXpDrop(Skill.RUNECRAFT);
             plugin.updateXpGained();

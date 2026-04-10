@@ -7,7 +7,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -73,7 +72,7 @@ public class ResupplyHandler implements BaseHandler {
             /* Take herblore supplies */
             while (Rs2Inventory.count(ItemID.VIAL_WATER) < amountToCreate) {
                 if (debugLogging) {Microbot.log("Take herblore supplies from supply crate");}
-                if (Rs2GameObject.interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) {
                     Rs2Dialogue.sleepUntilHasDialogueOption("Take herblore supplies.");
                     Rs2Dialogue.clickOption("Take herblore supplies.");
                     Rs2Inventory.waitForInventoryChanges(1_500);
@@ -84,7 +83,7 @@ public class ResupplyHandler implements BaseHandler {
             while (Rs2Inventory.count(ItemID.MOONLIGHT_GRUB)
                     + Rs2Inventory.count(ItemID.MOONLIGHT_GRUB_PASTE) < amountToCreate) {
                 if (debugLogging) {Microbot.log("Collect Moonlight Grub");}
-                if (Rs2GameObject.interact(ObjectID.PMOON_GRUB_SAPLING, "Collect-from")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_GRUB_SAPLING, "Collect-from")) {
                     sleepUntil(() -> Rs2Inventory.count(ItemID.MOONLIGHT_GRUB)
                             + Rs2Inventory.count(ItemID.MOONLIGHT_GRUB_PASTE) >= amountToCreate, 8_000);
                 }
@@ -130,7 +129,7 @@ public class ResupplyHandler implements BaseHandler {
         long start = System.currentTimeMillis();
         while (!Rs2Inventory.contains(ItemID.BIG_NET) && System.currentTimeMillis() - start < 15_000) {
 
-            if (Rs2GameObject.interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) { // interact exists :contentReference[oaicite:1]{index=1}
+            if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) { // interact exists :contentReference[oaicite:1]{index=1}
                 Rs2Dialogue.sleepUntilHasDialogueOption("Take fishing supplies.");
                 Rs2Dialogue.clickOption("Take fishing supplies.");
 
@@ -182,7 +181,7 @@ public class ResupplyHandler implements BaseHandler {
             }
 
             if (!Rs2Player.isAnimating()) {
-                Rs2GameObject.interact(51367, "Fish");
+                Microbot.getRs2TileObjectCache().query().interact(51367, "Fish");
                 sleep(3000, 4000);
             }
             sleep(300, 500);
@@ -201,7 +200,7 @@ public class ResupplyHandler implements BaseHandler {
 
         while (Rs2Inventory.contains(ItemID.BREAM_FISH_RAW)) {
             if (!Rs2Player.isAnimating()) {
-                if (Rs2GameObject.interact(ObjectID.PMOON_RANGE, "Cook")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_RANGE, "Cook")) {
                     sleep(600, 900);
                 }
             }

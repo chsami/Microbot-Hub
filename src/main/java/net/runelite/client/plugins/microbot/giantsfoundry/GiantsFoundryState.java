@@ -2,12 +2,11 @@ package net.runelite.client.plugins.microbot.giantsfoundry;
 
 import lombok.Getter;
 import lombok.Setter;
-import net.runelite.api.GameObject;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.giantsfoundry.enums.Heat;
 import net.runelite.client.plugins.microbot.giantsfoundry.enums.Stage;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.ArrayList;
@@ -124,14 +123,14 @@ public class GiantsFoundryState {
         return stages;
     }
 
-    public static GameObject getStageObject(Stage stage) {
+    public static Rs2TileObjectModel getStageObject(Stage stage) {
         switch (stage) {
             case TRIP_HAMMER:
-                return Rs2GameObject.getGameObject("trip hammer");
+                return Microbot.getRs2TileObjectCache().query().withName("trip hammer").nearest();
             case GRINDSTONE:
-                return Rs2GameObject.getGameObject("grindstone");
+                return Microbot.getRs2TileObjectCache().query().withName("grindstone").nearest();
             case POLISHING_WHEEL:
-                return Rs2GameObject.getGameObject("polishing wheel");
+                return Microbot.getRs2TileObjectCache().query().withName("polishing wheel").nearest();
         }
         return null;
     }

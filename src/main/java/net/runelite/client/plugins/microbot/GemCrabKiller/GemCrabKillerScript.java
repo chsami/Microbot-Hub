@@ -1,19 +1,18 @@
 package net.runelite.client.plugins.microbot.GemCrabKiller;
 
-import net.runelite.api.GameObject;
 import net.runelite.api.ItemID;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -124,7 +123,7 @@ public class GemCrabKillerScript extends Script {
         if (waitingTimeStart == null) {
             waitingTimeStart = Instant.now();
         }
-        if (Rs2Npc.getNpc(CRAB_NPC_ID) != null) {
+        if (Microbot.getRs2NpcCache().query().withId(CRAB_NPC_ID).nearest() != null) {
             gemCrabKillerState = GemCrabKillerState.FIGHTING;
             waitingTimeStart = null;
             return;
@@ -171,12 +170,12 @@ public class GemCrabKillerScript extends Script {
     }
 
     private void handleFighting(GemCrabKillerConfig config) {
-        var npc = Rs2Npc.getNpc(CRAB_NPC_ID);
-        var deadNpc = Rs2Npc.getNpc(CRAB_NPC_DEAD_ID);
+        Rs2NpcModel npc = Microbot.getRs2NpcCache().query().withId(CRAB_NPC_ID).nearest();
+        Rs2NpcModel deadNpc = Microbot.getRs2NpcCache().query().withId(CRAB_NPC_DEAD_ID).nearest();
         if (deadNpc != null) {
             totalCrabKills++;
             if (config.lootCrab() && Rs2Inventory.hasItem(" pickaxe", false) && !hasLooted) {
-                Rs2Npc.interact(deadNpc, "Mine");
+                deadNpc.click("Mine");
                 Rs2Inventory.waitForInventoryChanges(2400);
                 sleep(3000, 5000);
                 hasLooted = true;
@@ -185,7 +184,7 @@ public class GemCrabKillerScript extends Script {
                     return;
                 }
             }
-            Rs2GameObject.interact(CAVE_ENTRANCE_ID, "Crawl-through");
+            Microbot.getRs2TileObjectCache().query().withId(CAVE_ENTRANCE_ID).interact("Crawl-through");
             gemCrabKillerState = GemCrabKillerState.WAITING;
             return;
         } else {
@@ -196,7 +195,7 @@ public class GemCrabKillerScript extends Script {
             return;
         }
         if (!Rs2Player.isInCombat()) {
-            Rs2Npc.attack(npc);
+            npc.click("Attack");
         } else {
             waitingTimeStart = null;
         }
@@ -208,23 +207,19 @@ public class GemCrabKillerScript extends Script {
         }
 
 
-        var npc = Rs2Npc.getNpc(CRAB_NPC_ID);
+        Rs2NpcModel npc = Microbot.getRs2NpcCache().query().withId(CRAB_NPC_ID).nearest();
         if (npc != null) {
             gemCrabKillerState = GemCrabKillerState.FIGHTING;
             return;
         }
 
-        // Check if we're near the cave entrance before walking
-        WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
-        GameObject caveEntrance = Rs2GameObject.getGameObject(CAVE_ENTRANCE_ID, playerLoc);
+        Rs2TileObjectModel caveEntrance = Microbot.getRs2TileObjectCache().query().withId(CAVE_ENTRANCE_ID).nearest();
         if (caveEntrance != null) {
-            // Check if the cave entrance has the "Crawl-through" action
-            var composition = Microbot.getClientThread().runOnClientThreadOptional(() ->
-                    Microbot.getClient().getObjectDefinition(CAVE_ENTRANCE_ID)).orElse(null);
-            if (composition != null && Rs2GameObject.hasAction(composition, "Crawl-through")) {
-                Rs2GameObject.interact(CAVE_ENTRANCE_ID, "Crawl-through");
-                sleepUntil(() -> Rs2Npc.getNpc(CRAB_NPC_ID) != null, 5000);
-                if (Rs2Npc.getNpc(CRAB_NPC_ID) != null) {
+            var composition = caveEntrance.getObjectComposition();
+            if (composition != null && java.util.Arrays.stream(composition.getActions()).anyMatch("Crawl-through"::equals)) {
+                Microbot.getRs2TileObjectCache().query().withId(CAVE_ENTRANCE_ID).interact("Crawl-through");
+                sleepUntil(() -> Microbot.getRs2NpcCache().query().withId(CRAB_NPC_ID).nearest() != null, 5000);
+                if (Microbot.getRs2NpcCache().query().withId(CRAB_NPC_ID).nearest() != null) {
                     gemCrabKillerState = GemCrabKillerState.FIGHTING;
                 }
                 return;

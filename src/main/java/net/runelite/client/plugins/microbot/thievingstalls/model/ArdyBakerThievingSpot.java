@@ -25,7 +25,7 @@ public class ArdyBakerThievingSpot implements IStallThievingSpot {
             return;
         }
 
-        final GameObject stall = botApi.getGameObject(STALL_ID, SAFESPOT.dx(-2));
+        final var stall = botApi.getGameObject(STALL_ID, SAFESPOT.dx(-2));
         if (stall == null)
         {
             return;

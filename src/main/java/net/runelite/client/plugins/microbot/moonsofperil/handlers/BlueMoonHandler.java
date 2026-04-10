@@ -12,8 +12,7 @@ import net.runelite.client.plugins.microbot.moonsofperil.enums.Widgets;
 import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -74,7 +73,7 @@ public class BlueMoonHandler implements BaseHandler {
             sleepUntil(() -> Rs2Widget.isWidgetVisible(bossHealthBarWidgetID),5_000);
         }
         int bossNpcID = NpcID.PMOON_BOSS_BLUE_MOON_VIS;
-        while (Rs2Widget.isWidgetVisible(bossHealthBarWidgetID) || Rs2Npc.getNpc(bossNpcID) != null) {
+        while (Rs2Widget.isWidgetVisible(bossHealthBarWidgetID) || Microbot.getRs2NpcCache().query().withId(bossNpcID).nearest() != null) {
             if (isSpecialAttack1Sequence()) {
                 specialAttack1Sequence();
             }
@@ -100,7 +99,7 @@ public class BlueMoonHandler implements BaseHandler {
      * Returns True if the tornado NPC is found.
      */
     public boolean isSpecialAttack1Sequence() {
-        return (Rs2Npc.getNpc(NpcID.PMOON_BOSS_WINTER_STORM) != null && Rs2Widget.isWidgetVisible(bossHealthBarWidgetID) && Rs2Npc.getNpc(sigilNpcID) == null);
+        return (Microbot.getRs2NpcCache().query().withId(NpcID.PMOON_BOSS_WINTER_STORM).nearest() != null && Rs2Widget.isWidgetVisible(bossHealthBarWidgetID) && Microbot.getRs2NpcCache().query().withId(sigilNpcID).nearest() == null);
     }
 
     public void specialAttack1Sequence()
@@ -112,7 +111,7 @@ public class BlueMoonHandler implements BaseHandler {
         boss.eatIfNeeded();
         boss.drinkIfNeeded();
         if (debugLogging) {Microbot.log("Sleeping until the special attack sequence is over");}
-        sleepUntil(() -> Rs2Npc.getNpc(sigilNpcID) != null || !Rs2Widget.isWidgetVisible(bossHealthBarWidgetID), 35_000);
+        sleepUntil(() -> Microbot.getRs2NpcCache().query().withId(sigilNpcID).nearest() != null || !Rs2Widget.isWidgetVisible(bossHealthBarWidgetID), 35_000);
     }
 
     public void specialAttack2IdleSequence()
@@ -124,7 +123,7 @@ public class BlueMoonHandler implements BaseHandler {
         boss.eatIfNeeded();
         boss.drinkIfNeeded();
         if (debugLogging) {Microbot.log("Sleeping until the special attack sequence is over");}
-        sleepUntil(() -> Rs2Npc.getNpc(sigilNpcID) != null || !Rs2Widget.isWidgetVisible(bossHealthBarWidgetID), 35_000);
+        sleepUntil(() -> Microbot.getRs2NpcCache().query().withId(sigilNpcID).nearest() != null || !Rs2Widget.isWidgetVisible(bossHealthBarWidgetID), 35_000);
     }
 
 
@@ -132,8 +131,8 @@ public class BlueMoonHandler implements BaseHandler {
      * Returns True if the icicle NPC is found.
      */
     public boolean isSpecialAttack2Sequence() {
-        Rs2NpcModel icicle = Rs2Npc.getNpc(NpcID.PMOON_BOSS_ICICLE_UNCRACKED);
-        Rs2NpcModel sigil = Rs2Npc.getNpc(sigilNpcID);
+        Rs2NpcModel icicle = Microbot.getRs2NpcCache().query().withId(NpcID.PMOON_BOSS_ICICLE_UNCRACKED).nearest();
+        Rs2NpcModel sigil = Microbot.getRs2NpcCache().query().withId(sigilNpcID).nearest();
         if (icicle != null && sigil == null) {
             if (debugLogging) {Microbot.log("An icicle has spawned – We've entered Special Attack 2 Sequence");}
             return true;
@@ -163,10 +162,10 @@ public class BlueMoonHandler implements BaseHandler {
         while (isSpecialAttack2Sequence() && matches.isEmpty() &&
                 System.currentTimeMillis() - pollStart < POLL_TIMEOUT_MS)
         {
-            matches = Rs2Npc.getNpcs(n ->
+            matches = Microbot.getRs2NpcCache().query().where(n ->
                             n.getId() == ICICLE_NPC_ID &&
-                                    n.getAnimation() == ICICLE_ANIM_ID)
-                    .collect(Collectors.toList());
+                                    n.getNpc().getAnimation() == ICICLE_ANIM_ID)
+                    .toList();
             if (matches.isEmpty()) sleep(300);
         }
 
@@ -193,7 +192,7 @@ public class BlueMoonHandler implements BaseHandler {
                 System.currentTimeMillis() - phaseStart < PHASE_TIMEOUT_MS)
         {
             if (!Rs2Combat.inCombat()) {
-                Rs2Npc.attack(icicle);
+                icicle.click("Attack");
             }
             WorldPoint attackTile = Rs2Player.getWorldLocation();
             if (debugLogging) {Microbot.log(ts.get() + "Attack location calculated as: " + attackTile);}
@@ -222,7 +221,7 @@ public class BlueMoonHandler implements BaseHandler {
         boss.drinkIfNeeded();
 
         if (debugLogging) {Microbot.log(ts.get() + "Waiting for all icicles to despawn…");}
-        sleepUntil(() -> Rs2Npc.getNpc(ICICLE_NPC_ID) == null);
+        sleepUntil(() -> Microbot.getRs2NpcCache().query().withId(ICICLE_NPC_ID).nearest() == null);
 
         if (debugLogging) {Microbot.log(ts.get() + "specialAttack2Sequence() COMPLETE");}
     }

@@ -14,12 +14,10 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
-import net.runelite.client.plugins.microbot.util.reflection.Rs2Reflection;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -29,7 +27,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity.EXTREME;
 
@@ -218,7 +215,7 @@ public class DemonicGorillaScript extends Script {
     }
 
     private void handleFighting(DemonicGorillaConfig config) {
-        if (currentTarget == null || currentTarget.isDead()) {
+        if (currentTarget == null || currentTarget.getNpc().isDead()) {
             npcAnimationCount = 0;
             logOnceToChat("Target is null or dead");
             handleNewTarget(config);
@@ -246,7 +243,7 @@ public class DemonicGorillaScript extends Script {
         // Ensure currently selected target is also who we are attacking
         if (currentTarget != null) {
             var tempTarget = getTarget(true);
-            if ((tempTarget != null && tempTarget.getIndex() != currentTarget.getIndex()) || currentTarget.isDead()) {
+            if ((tempTarget != null && tempTarget.getIndex() != currentTarget.getIndex()) || currentTarget.getNpc().isDead()) {
                 logOnceToChat("Invalid target was selected, switching to correct enemy");
                 currentTarget = tempTarget;
             }
@@ -258,14 +255,13 @@ public class DemonicGorillaScript extends Script {
                 logOnceToChat("Out of combat for 6 seconds, forcing new target");
                 currentTarget = getTarget(true);
                 if (currentTarget != null) {
-                    Rs2Npc.attack(currentTarget);
+                    currentTarget.click("Attack");
                 } else {
                     logOnceToChat("Unable to force new target, walking to gorillas and trying again");
                     Rs2Walker.walkTo(GORILLA_LOCATION);
                     currentTarget = getTarget(true);
-                    // Last attempt, just attack a gorilla
                     if (currentTarget == null) {
-                        Rs2Npc.attack("Demonic gorilla");
+                        Microbot.getRs2NpcCache().query().withName("Demonic gorilla").interact("Attack");
                     }
                 }
                 outOfCombatTime = null; // Reset after forcing new target
@@ -294,7 +290,7 @@ public class DemonicGorillaScript extends Script {
             Rs2Player.eatAt(80);
             Rs2Player.drinkPrayerPotionAt(config.minEatPercent());
             lootAttempted = true;
-            if (currentTarget != null && currentTarget.isDead()) {
+            if (currentTarget != null && currentTarget.getNpc().isDead()) {
                 killCount++;
                 currentTripKillCount++;
             }
@@ -323,16 +319,16 @@ public class DemonicGorillaScript extends Script {
     }
 
     private void attackGorilla(DemonicGorillaConfig config) {
-        if (currentTarget != null && !currentTarget.isDead()) {
+        if (currentTarget != null && !currentTarget.getNpc().isDead()) {
             Rs2Player.eatAt(config.minEatPercent());
             Rs2Player.drinkPrayerPotionAt(config.minPrayerPercent());
             if (currentTarget != null) {
                 if (!Rs2Player.isAnimating(1600)) {
-                    if (currentTarget != null && !currentTarget.isDead()) {
+                    if (currentTarget != null && !currentTarget.getNpc().isDead()) {
                         if (config.enableAutoSpecialAttacks()) {
                             Rs2Combat.setSpecState(true, 500);
                         }
-                        var didWeAttack = Rs2Npc.attack(currentTarget);
+                        var didWeAttack = currentTarget.click("Attack");
                         if (didWeAttack) {
                             failedAttacks = 0;
                         } else {
@@ -354,8 +350,8 @@ public class DemonicGorillaScript extends Script {
         Rs2PrayerEnum newDefensivePrayer = null;
         boolean dodgedRock = false;
 
-        if (currentTarget != null && !currentTarget.isDead()) {
-            int currentAnimation = currentTarget.getAnimation();
+        if (currentTarget != null && !currentTarget.getNpc().isDead()) {
+            int currentAnimation = currentTarget.getNpc().getAnimation();
             var location = currentTarget.getWorldLocation();
             // Handle prayer switching
             if (currentAnimation == DEMONIC_GORILLA_MAGIC_ATTACK) {
@@ -405,7 +401,7 @@ public class DemonicGorillaScript extends Script {
             }
             if (!dodgedRock) {
                 if ((currentGear == ArmorEquiped.RANGED || currentGear == ArmorEquiped.MAGIC) && (currentAnimation != DEMONIC_GORILLA_MELEE_ATTACK && currentAnimation != -1 && currentDefensivePrayer != Rs2PrayerEnum.PROTECT_MELEE)) {
-                    var isMeleeDist = currentTarget.getWorldArea().isInMeleeDistance(Microbot.getClient().getLocalPlayer().getWorldArea());
+                    var isMeleeDist = currentTarget.getNpc().getWorldArea().isInMeleeDistance(Microbot.getClient().getLocalPlayer().getWorldArea());
                     if (isMeleeDist) {
                         moveAwayFromTarget();
                     }
@@ -502,36 +498,38 @@ public class DemonicGorillaScript extends Script {
     }
 
     public Rs2NpcModel getTarget(boolean force) {
-        if (currentTarget != null && !currentTarget.isDead() && !force) {
+        if (currentTarget != null && !currentTarget.getNpc().isDead() && !force) {
             return currentTarget;
         }
         var interacting = Rs2Player.getInteracting();
         if (interacting != null) {
             if (Objects.equals(interacting.getName(), "Demonic gorilla")) {
-                return (Rs2NpcModel) interacting;
+                var match = Microbot.getRs2NpcCache().query().withName("Demonic gorilla")
+                        .where(n -> n.isInteractingWithPlayer()).nearest();
+                if (match != null) return match;
             }
         }
         var playerLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 
-        var alreadyInteractingNpcs = Rs2Npc.getNpcsForPlayer("Demonic gorilla");
+        var alreadyInteractingNpcs = Microbot.getRs2NpcCache().query().withName("Demonic gorilla")
+                .where(n -> n.isInteractingWithPlayer()).toList();
         if (!alreadyInteractingNpcs.isEmpty()) {
             return alreadyInteractingNpcs.stream()
                     .min(Comparator.comparingInt(npc -> npc.getWorldLocation().distanceTo(playerLocation))).get();
         }
 
-        var demonicGorillaStream = Rs2Npc.getNpcs("Demonic gorilla");
-        if (demonicGorillaStream == null) {
+        List<Rs2NpcModel> demonicGorillas = Microbot.getRs2NpcCache().query().withName("Demonic gorilla").toList();
+        if (demonicGorillas.isEmpty()) {
             logOnceToChat("No demonic gorilla found.");
             return null;
         }
 
         var player = Rs2Player.getLocalPlayer();
         String playerName = player.getName();
-        List<Rs2NpcModel> demonicGorillas = demonicGorillaStream.collect(Collectors.toList());
 
         for (Rs2NpcModel demonicGorilla : demonicGorillas) {
             if (demonicGorilla != null) {
-                var interactingTwo = demonicGorilla.getInteracting();
+                var interactingTwo = demonicGorilla.getNpc().getInteracting();
                 String interactingName = interactingTwo != null ? interactingTwo.getName() : "None";
                 if (interactingTwo != null && Objects.equals(interactingName, playerName)) {
                     return demonicGorilla;
@@ -541,8 +539,8 @@ public class DemonicGorillaScript extends Script {
 
         logOnceToChat("Finding closest demonic gorilla.");
         return demonicGorillas.stream()
-                .filter(npc -> npc != null && !npc.isDead() && !npc.isInteracting())
-                .min(Comparator.comparingInt(npc -> npc.getWorldLocation().distanceTo(playerLocation))).stream().findFirst()
+                .filter(npc -> npc != null && !npc.getNpc().isDead() && npc.getNpc().getInteracting() == null)
+                .min(Comparator.comparingInt(npc -> npc.getWorldLocation().distanceTo(playerLocation)))
                 .orElse(null);
     }
 

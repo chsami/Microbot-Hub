@@ -5,9 +5,8 @@ import net.runelite.api.Player;
 import net.runelite.api.Point;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcManager;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.ui.overlay.OverlayLayer;
@@ -20,7 +19,6 @@ import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static net.runelite.client.plugins.microbot.Microbot.log;
 
@@ -57,20 +55,18 @@ public class QoLOverlay extends OverlayPanel {
 
     private void renderNpcs(Graphics2D graphics) {
         List<Rs2NpcModel> npcs;
-        npcs = Microbot.getClientThread().runOnClientThreadOptional(() -> Rs2Npc.getNpcs()
-                .filter(npc -> npc.getName() != null)
-                .collect(Collectors.toList()))
+        npcs = Microbot.getClientThread().runOnClientThreadOptional(() ->
+                Microbot.getRs2NpcCache().query().where(npc -> npc.getName() != null).toList())
                 .orElse(new ArrayList<>());
 
         for (Rs2NpcModel npc : npcs) {
-            if (npc != null && npc.getCanvasTilePoly() != null) {
+            if (npc != null && npc.getLocalLocation() != null) {
                 try {
                     String text = ("Max Hit: " + Objects.requireNonNull(Rs2NpcManager.getStats(npc.getId())).getMaxHit());
 
 
-                    //npc.setOverheadText(text);
                     LocalPoint lp = npc.getLocalLocation();
-                    Point textLocation = Perspective.getCanvasTextLocation(Microbot.getClient(), graphics, lp, text, npc.getLogicalHeight());
+                    Point textLocation = Perspective.getCanvasTextLocation(Microbot.getClient(), graphics, lp, text, npc.getNpc().getLogicalHeight());
                     if (textLocation == null) {
                         continue;
                     }

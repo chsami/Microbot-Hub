@@ -14,10 +14,9 @@ import net.runelite.client.plugins.microbot.valetotems.utils.CoordinateUtils;
 import net.runelite.client.plugins.microbot.valetotems.utils.GameObjectUtils;
 import net.runelite.client.plugins.microbot.valetotems.utils.InventoryUtils;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
@@ -181,7 +180,7 @@ public class TotemHandler {
                 progress.clearIdentifiedAnimals();
 
                 // Search for spirit animals in the area
-                List<Rs2NpcModel> nearbyNpcs = Rs2Npc.getNpcs()
+                List<Rs2NpcModel> nearbyNpcs = Microbot.getRs2NpcCache().query().toList().stream()
                         .filter(npc -> npc.getWorldLocation().distanceTo(location) <= ANIMAL_SEARCH_RADIUS)
                         .filter(npc -> SpiritAnimal.isSpiritAnimal(npc.getId()))
                         .collect(Collectors.toList());
@@ -298,7 +297,7 @@ public class TotemHandler {
     private static boolean carveAnimalIntoTotem(SpiritAnimal animal) {
         try {
             if (!sleepUntil(() -> Rs2Widget.hasWidgetText("What animal would you like to carve?",270,5, false), 5000)) {
-                Rs2GameObject.interact(GameObjectId.EMPTY_TOTEM.getSearchTerm(), "Carve");
+                Microbot.getRs2TileObjectCache().query().withName(GameObjectId.EMPTY_TOTEM.getSearchTerm()).interact("Carve");
                 if (!sleepUntil(() -> Rs2Widget.hasWidgetText("What animal would you like to carve?",270,5, false), 5000)) {
                     System.err.println("Failed to carve animal");
                     return false;
@@ -462,7 +461,7 @@ public class TotemHandler {
         sleepGaussian(300,100);
 
         // Get the spirit animal's location
-        WorldPoint animalLocation = Rs2Npc.getNpcs()
+        WorldPoint animalLocation = Microbot.getRs2NpcCache().query().toList().stream()
                 .filter(npc -> npc.getId() == animal.getNpcId())
                 .findFirst()
                 .map(npc -> npc.getWorldLocation())
@@ -480,7 +479,7 @@ public class TotemHandler {
         }
 
         // Get the spirit animal's NPC model
-        Rs2NpcModel animalNpc = Rs2Npc.getNpcs()
+        Rs2NpcModel animalNpc = Microbot.getRs2NpcCache().query().toList().stream()
                 .filter(npc -> npc.getId() == animal.getNpcId())
                 .findFirst()
                 .orElse(null);
@@ -491,14 +490,14 @@ public class TotemHandler {
         }
 
         // Check if we have line of sight to the animal
-        if (Rs2Npc.hasLineOfSight(animalNpc)) {
+        if (animalNpc.hasLineOfSight()) {
             System.out.println("Spirit animal has line of sight");
             return;
         }
 
         System.out.println("Hovering over spirit animal");
 
-        if (Rs2Npc.hoverOverActor(animalNpc)) {
+        if (Rs2Npc.hoverOverActor(animalNpc.getNpc())) {
             System.out.println("Successfully hovered over spirit animal");
         } else {
             System.out.println("Failed to hover over spirit animal");
