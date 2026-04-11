@@ -261,7 +261,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/PestControlPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/PestControlPlugin/assets/card.png",
         "disable": false,
-        "sha256": "77bc873fa885bc3ac9df91b4a5a52d21f5a2bbed3cffcd70e348037df13866c0",
+        "sha256": "83376b65a18cb051db7f2eafca784267164198dec819f8e7e603ff6bc760387a",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/pestcontrolplugin-2.3.2.jar"
     },
     {
@@ -690,7 +690,7 @@
             "QoL",
             "microbot"
         ],
-        "version": "1.8.10",
+        "version": "1.8.11",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -698,8 +698,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "f56d468cc7649e3a696ce46b04147f60dd1a44ce7af1ce9213301e842d314b48",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.10.jar"
+        "sha256": "be537b1ae5f4ff695224f2b3041bdf178c9f6c0e26cb867959cfb5a95f8dfb9c",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.11.jar"
     },
     {
         "internalName": "PumperPlugin",
@@ -1025,7 +1025,7 @@
             "star",
             "shooting"
         ],
-        "version": "1.4.4",
+        "version": "1.4.7",
         "minClientVersion": "1.9.8",
         "authors": [
             "g-mason0"
@@ -1033,8 +1033,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/ShootingStarPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ShootingStarPlugin/assets/card.png",
         "disable": false,
-        "sha256": "cf1ff3ad049ad27073a3c0273c8a09461a53579bc029e979fc5ed062daf73cd8",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/shootingstarplugin-1.4.4.jar"
+        "sha256": "68653a09160ae7afcad5019ae514527922a4052ddae7e431865e9d8949fb1701",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/shootingstarplugin-1.4.7.jar"
     },
     {
         "internalName": "LunarTabletsPlugin",
