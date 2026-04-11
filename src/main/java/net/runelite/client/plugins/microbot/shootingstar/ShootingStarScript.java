@@ -9,6 +9,7 @@ import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.GameState;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -437,7 +438,17 @@ public class ShootingStarScript extends Script
 		if (state == ShootingStarState.MINING)
 		{
 			var starModel = Microbot.getRs2TileObjectCache().query()
-					.where(n -> n.getName() != null && n.getName().toLowerCase().contains("crashed star"))
+					.withIds(
+						ObjectID.STAR_SIZE_ONE_STAR,
+						ObjectID.STAR_SIZE_TWO_STAR,
+						ObjectID.STAR_SIZE_THREE_STAR,
+						ObjectID.STAR_SIZE_FOUR_STAR,
+						ObjectID.STAR_SIZE_FIVE_STAR,
+						ObjectID.STAR_SIZE_SIX_STAR,
+						ObjectID.STAR_SIZE_SEVEN_STAR,
+						ObjectID.STAR_SIZE_EIGHT_STAR,
+						ObjectID.STAR_SIZE_NINE_STAR
+					)
 					.nearest(initialPlayerLocation, 10);
 
 			if (currentStar == null || starModel == null)
@@ -492,7 +503,17 @@ public class ShootingStarScript extends Script
 		if (state == ShootingStarState.MINING)
 		{
 			var starModel = Microbot.getRs2TileObjectCache().query()
-					.where(n -> n.getName() != null && n.getName().toLowerCase().contains("crashed star"))
+					.withIds(
+						ObjectID.STAR_SIZE_ONE_STAR,
+						ObjectID.STAR_SIZE_TWO_STAR,
+						ObjectID.STAR_SIZE_THREE_STAR,
+						ObjectID.STAR_SIZE_FOUR_STAR,
+						ObjectID.STAR_SIZE_FIVE_STAR,
+						ObjectID.STAR_SIZE_SIX_STAR,
+						ObjectID.STAR_SIZE_SEVEN_STAR,
+						ObjectID.STAR_SIZE_EIGHT_STAR,
+						ObjectID.STAR_SIZE_NINE_STAR
+					)
 					.nearest(initialPlayerLocation, 10);
 			return hasStarModelChanged(starModel);
 		}
