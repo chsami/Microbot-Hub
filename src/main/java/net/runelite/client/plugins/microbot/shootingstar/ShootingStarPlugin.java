@@ -73,7 +73,7 @@ import net.runelite.client.util.ImageUtil;
 public class ShootingStarPlugin extends Plugin
 {
 
-	static final String version = "1.4.6";
+	static final String version = "1.4.7";
 
 	@Getter
 	private final List<Star> starList = new ArrayList<>();
