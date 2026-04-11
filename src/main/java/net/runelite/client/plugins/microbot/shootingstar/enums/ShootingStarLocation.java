@@ -121,7 +121,13 @@ public enum ShootingStarLocation
 			return false;
 		}
 
-		boolean hasLineOfSight = Microbot.getClient().getLocalPlayer().getWorldArea().hasLineOfSightTo(Microbot.getClient().getTopLevelWorldView(), this.getWorldPoint());
+		boolean hasLineOfSight = Boolean.TRUE.equals(Microbot.getClientThread().runOnClientThreadOptional(() -> {
+			if (Microbot.getClient().getLocalPlayer() == null || Microbot.getClient().getLocalPlayer().getWorldArea() == null)
+			{
+				return false;
+			}
+			return Microbot.getClient().getLocalPlayer().getWorldArea().hasLineOfSightTo(Microbot.getClient().getTopLevelWorldView(), this.getWorldPoint());
+		}).orElse(false));
 		switch (this)
 		{
 			case CRAFTING_GUILD:

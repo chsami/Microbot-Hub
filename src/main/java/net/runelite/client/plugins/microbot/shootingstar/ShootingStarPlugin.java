@@ -73,7 +73,7 @@ import net.runelite.client.util.ImageUtil;
 public class ShootingStarPlugin extends Plugin
 {
 
-	static final String version = "1.4.4";
+	static final String version = "1.4.6";
 
 	@Getter
 	private final List<Star> starList = new ArrayList<>();
@@ -398,6 +398,8 @@ public class ShootingStarPlugin extends Plugin
 	{
 		// Get the highest tier available
 		int highestTier = starList.stream()
+			.filter(Objects::nonNull)
+			.filter(s -> s.getShootingStarLocation() != null)
 			.filter(s -> !s.isHidden() && s.hasRequirements())
 			.mapToInt(Star::getTier)
 			.max()
@@ -413,6 +415,8 @@ public class ShootingStarPlugin extends Plugin
 		int maxTier = Math.min(9, highestTier + 1); // The highest tier to consider (up to 9)
 
 		List<Star> accessibleStars = starList.stream()
+			.filter(Objects::nonNull)
+			.filter(s -> s.getShootingStarLocation() != null)
 			.filter(s -> !s.isHidden() && s.hasRequirements())
 			.filter(s -> s.getTier() >= minTier && s.getTier() <= maxTier)
 			.sorted(Comparator.comparingInt(Star::getTier).reversed())
@@ -434,7 +438,20 @@ public class ShootingStarPlugin extends Plugin
 			ShortestPathPlugin.getPathfinderConfig().refresh();
 		}
 
-		Pathfinder pathfinder = new Pathfinder(ShortestPathPlugin.getPathfinderConfig(), Microbot.getClient().getLocalPlayer().getWorldLocation(), accessibleStarPoints);
+		WorldPoint playerLocation = Microbot.getClientThread().runOnClientThreadOptional(() -> {
+			if (Microbot.getClient().getLocalPlayer() == null)
+			{
+				return null;
+			}
+			return Microbot.getClient().getLocalPlayer().getWorldLocation();
+		}).orElse(null);
+
+		if (playerLocation == null)
+		{
+			return null;
+		}
+
+		Pathfinder pathfinder = new Pathfinder(ShortestPathPlugin.getPathfinderConfig(), playerLocation, accessibleStarPoints);
 		pathfinder.run();
 		List<WorldPoint> path = pathfinder.getPath();
 
