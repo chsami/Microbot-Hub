@@ -226,11 +226,11 @@ public class NavigationHandler {
                             while (FletchingHandler.isFletchingWhileWalking() &&
                                    System.currentTimeMillis() - fletchStartTime < 20000) { // 20 sec timeout
                                 
-                                // Check for ent trails during fletching - they have absolute priority
-                                List<GameObject> nearbyEntTrails = GameObjectUtils.findGameObjectsByName(
-                                        GameObjectId.ENT_TRAIL_1.getSearchTerm(), 
-                                        CoordinateUtils.getPlayerLocation(), 
-                                        ENT_TRAIL_SEARCH_RADIUS);
+                                WorldPoint fletchCheckPos = CoordinateUtils.getPlayerLocation();
+                                List<GameObject> nearbyEntTrails = GameObjectUtils.findGameObjects(
+                                        GameObjectId.ENT_TRAIL_1.getId(), fletchCheckPos, ENT_TRAIL_SEARCH_RADIUS);
+                                nearbyEntTrails.addAll(GameObjectUtils.findGameObjects(
+                                        GameObjectId.ENT_TRAIL_2.getId(), fletchCheckPos, ENT_TRAIL_SEARCH_RADIUS));
                                 
                                 if (!hasWalkedOverEntTrailsThisNavigation && nearbyEntTrails.size() >= 2) {
                                     System.out.println("Ent trails detected during fletching - interrupting to prioritize trails");
@@ -521,17 +521,17 @@ public class NavigationHandler {
     }
 
     private static List<GameObject> findAndFilterEntTrails(WorldPoint playerLocation, int searchRadius) {
-        // Search for ent trails nearby using string search
-        List<GameObject> entTrails = GameObjectUtils.findGameObjectsByName(
-            GameObjectId.ENT_TRAIL_1.getSearchTerm(), playerLocation, searchRadius);
-                
-        // Filter trails that are within the search radius of the player
-        entTrails = entTrails.stream()
-            .filter(trail -> trail.getWorldLocation().distanceTo(playerLocation) <= searchRadius)
-            .sorted((a, b) -> Integer.compare(
-                    a.getWorldLocation().distanceTo(playerLocation),
-                    b.getWorldLocation().distanceTo(playerLocation)))
-            .collect(java.util.stream.Collectors.toList());
+        List<GameObject> trail1 = GameObjectUtils.findGameObjects(
+            GameObjectId.ENT_TRAIL_1.getId(), playerLocation, searchRadius);
+        List<GameObject> trail2 = GameObjectUtils.findGameObjects(
+            GameObjectId.ENT_TRAIL_2.getId(), playerLocation, searchRadius);
+
+        List<GameObject> entTrails = new java.util.ArrayList<>(trail1);
+        entTrails.addAll(trail2);
+
+        entTrails.sort((a, b) -> Integer.compare(
+                a.getWorldLocation().distanceTo(playerLocation),
+                b.getWorldLocation().distanceTo(playerLocation)));
 
         return entTrails;
     }
