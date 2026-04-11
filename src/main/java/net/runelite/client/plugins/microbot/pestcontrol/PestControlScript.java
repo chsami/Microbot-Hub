@@ -5,6 +5,7 @@ import net.runelite.api.NPCComposition;
 import net.runelite.api.NpcID;
 import net.runelite.api.ObjectID;
 import net.runelite.api.Skill;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
@@ -15,6 +16,7 @@ import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
@@ -149,9 +151,10 @@ public class PestControlScript extends Script {
                     Rs2Combat.setSpecState(true, config.specialAttackPercentage() * 10);
                     Widget activity = Rs2Widget.getWidget(26738700); //145 = 100%
                     if (activity != null && activity.getChild(0).getWidth() <= 20 && !Rs2Combat.inCombat()) {
-                        Rs2NpcModel attackableNpc = Microbot.getRs2NpcCache().query()
-                                .where(n -> n.getNpc() != null && !n.getNpc().isDead() && n.getNpc().getCombatLevel() > 0)
-                                .nearest();
+                        Rs2NpcModel attackableNpc = Microbot.getClientThread().invoke(() ->
+                                Microbot.getRs2NpcCache().query()
+                                        .where(n -> n.getNpc() != null && !n.getNpc().isDead() && n.getNpc().getCombatLevel() > 0)
+                                        .nearest());
                         if (attackableNpc != null) attackableNpc.click("Attack");
                         return;
                     }
@@ -198,7 +201,7 @@ public class PestControlScript extends Script {
                         if (!Microbot.getClient().getLocalPlayer().isInteracting()) {
                             Rs2NpcModel attackableNpc = Microbot.getRs2NpcCache().query()
                                     .where(n -> n.getNpc() != null && !n.getNpc().isDead() && n.getNpc().getCombatLevel() > 0)
-                                    .nearest();
+                                    .nearestOnClientThread();
                             if (attackableNpc != null) attackableNpc.click("Attack");
                         }
                     }
@@ -363,6 +366,21 @@ public class PestControlScript extends Script {
             if (npc == null) return false;
 
             if (Arrays.stream(npc.getActions()).anyMatch(x -> x != null && x.equalsIgnoreCase("attack"))) {
+                LocalPoint localPoint = npcPortal.getLocalLocation();
+                if (localPoint != null && !Rs2Camera.isTileOnScreen(localPoint)) {
+                    WorldPoint npcWp = Microbot.getClientThread().runOnClientThreadOptional(() ->
+                            npcPortal.getNpc().getWorldLocation()).orElse(null);
+                    WorldPoint playerWp = Rs2Player.getWorldLocation();
+                    if (npcWp != null && playerWp != null) {
+                        int angle = (int) Math.toDegrees(Math.atan2(
+                                npcWp.getY() - playerWp.getY(),
+                                npcWp.getX() - playerWp.getX()));
+                        if (angle < 0) angle += 360;
+                        angle = (angle - 90) % 360;
+                        if (angle < 0) angle += 360;
+                        Rs2Camera.setAngle(angle, 40);
+                    }
+                }
                 return npcPortal.click("Attack");
             } else {
                 return false;
