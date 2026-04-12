@@ -872,7 +872,7 @@
             "minigame",
             "microbot"
         ],
-        "version": "1.1.7",
+        "version": "1.1.8",
         "minClientVersion": "1.9.6",
         "authors": [
             "Basche"
@@ -880,8 +880,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MageTrainingArenaPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MageTrainingArenaPlugin/assets/card.png",
         "disable": false,
-        "sha256": "c3d1d4b8ef71f3d06825d2c8425ec1e6a81ff8bcf19a9db00369609422fef568",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/magetrainingarenaplugin-1.1.7.jar"
+        "sha256": "69d63e69a00637b103118426eb2691e4c16c5477baa7dde9d6cad1c21b585d23",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/magetrainingarenaplugin-1.1.8.jar"
     },
     {
         "internalName": "TheatrePlugin",
