@@ -22,6 +22,7 @@ public class ValeTotemScript extends Script {
     private ValeTotemConfig config;
     private GameSession gameSession;
     private boolean isRunning = false;
+    private long lastStateLogTime = 0;
 
     public boolean run(ValeTotemConfig config) {
         this.config = config;
@@ -71,7 +72,12 @@ public class ValeTotemScript extends Script {
      */
     private void executeMainLoop() {
         GameState currentState = gameSession.getCurrentState();
-        
+        long now = System.currentTimeMillis();
+        if (now - lastStateLogTime > 5000) {
+            lastStateLogTime = now;
+            Microbot.log("[ValeTotem] State: " + currentState.name() + " | Player: " + net.runelite.client.plugins.microbot.valetotems.utils.CoordinateUtils.getPlayerLocation());
+        }
+
         switch (currentState) {
             case IDLE:
                 handleIdleState();
@@ -127,8 +133,9 @@ public class ValeTotemScript extends Script {
      * Handle banking operations
      */
     private void handleBankingState() {
-        // Use unified banking method that detects route type and updates game session
+        Microbot.log("[ValeTotem] handleBankingState: starting unified banking cycle");
         boolean bankingSuccess = BankingHandler.performUnifiedBankingCycle(gameSession);
+        Microbot.log("[ValeTotem] handleBankingState: result=" + bankingSuccess);
 
         if (bankingSuccess) {
             gameSession.startNewRound();
@@ -139,7 +146,7 @@ public class ValeTotemScript extends Script {
             gameSession.setCurrentTotem(TotemLocation.getFirst(currentRouteType));
 
             // Calculate reward collection frequency
-            RewardHandler.COLLECTION_FREQUENCY = config.collectOfferingsFrequency() - 2 + RandomUtils.nextInt(1, 4);
+            RewardHandler.COLLECTION_FREQUENCY = Math.max(1, config.collectOfferingsFrequency() - 2 + RandomUtils.nextInt(1, 4));
             Microbot.log("Reward collection frequency set to: " + RewardHandler.COLLECTION_FREQUENCY);
             
             // Log the route being used
@@ -304,9 +311,8 @@ public class ValeTotemScript extends Script {
      * Handle error states
      */
     private void handleErrorState() {
-        System.err.println("Bot in error state. Attempting recovery...");
-        
-        // Try emergency procedures
+        Microbot.log("[ValeTotem] ERROR state. Errors so far: " + gameSession.getErrorMessages().size() + ". Attempting recovery...");
+
         FletchingHandler.emergencyStopFletching();
         NavigationHandler.emergencyReturnToBank();
 

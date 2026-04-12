@@ -108,7 +108,6 @@ public class TotemHandler {
             for (int attempt = 1; attempt <= maxRetries; attempt++) {
                 System.out.println("Building totem base attempt " + attempt + "/" + maxRetries + " at " + totemLocation.getDescription());
 
-                // Look for totem site using string search
                 GameObject totemSite = GameObjectUtils.findObjectAtLocationByName(
                         GameObjectId.TOTEM_SITE.getSearchTerm(), location);
                 
@@ -297,7 +296,8 @@ public class TotemHandler {
     private static boolean carveAnimalIntoTotem(SpiritAnimal animal) {
         try {
             if (!sleepUntil(() -> Rs2Widget.hasWidgetText("What animal would you like to carve?",270,5, false), 5000)) {
-                Microbot.getRs2TileObjectCache().query().withName(GameObjectId.EMPTY_TOTEM.getSearchTerm()).interact("Carve");
+                Microbot.getClientThread().invoke(() ->
+                        Microbot.getRs2TileObjectCache().query().withNameContains(GameObjectId.EMPTY_TOTEM.getSearchTerm()).interact("Carve"));
                 if (!sleepUntil(() -> Rs2Widget.hasWidgetText("What animal would you like to carve?",270,5, false), 5000)) {
                     System.err.println("Failed to carve animal");
                     return false;
@@ -346,7 +346,6 @@ public class TotemHandler {
                 return false;
             }
 
-            // Find the totem object to interact with.
             GameObject decorationTotem = GameObjectUtils.findObjectAtLocationByName(
                     GameObjectId.TOTEM_READY_FOR_DECORATION.getSearchTerm(), location);
 

@@ -50,26 +50,26 @@ public class RewardHandler {
     public static boolean collectOfferings(TotemLocation totemLocation, TotemProgress progress, GameSession gameSession) {
         try {
             WorldPoint location = totemLocation.getLocation();
-            
-            // Check if already collected for this totem
+
             if (progress.areOfferingsCollected()) {
                 return true;
             }
 
-            if (!shouldCollectOfferings(gameSession)) {
+            boolean shouldCollect = shouldCollectOfferings(gameSession);
+            Microbot.log("[Offerings] shouldCollect=" + shouldCollect + " rounds=" + gameSession.getTotalRounds() + " freq=" + COLLECTION_FREQUENCY);
+            if (!shouldCollect) {
                 return false;
             }
 
-            // Find claimable offerings nearby using string search
             GameObject offerings = GameObjectUtils.findClaimableOfferings(location, OFFERINGS_SEARCH_RADIUS);
-            
+            Microbot.log("[Offerings] findClaimable at " + location + " radius=" + OFFERINGS_SEARCH_RADIUS + " found=" + (offerings != null));
+
             if (offerings == null) {
-                System.out.println("No claimable offerings found at " + totemLocation.getDescription());
                 return false;
             }
 
-            // Check offerings state
             GameObjectId offeringsState = GameObjectUtils.getOfferingsStateNearLocation(location, OFFERINGS_SEARCH_RADIUS);
+            Microbot.log("[Offerings] state=" + (offeringsState != null ? offeringsState.name() : "null"));
             if (offeringsState == null || !GameObjectId.hasClaimableOfferings(offeringsState.getId())) {
                 return false;
             }

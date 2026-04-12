@@ -57,26 +57,28 @@ public class BankingHandler {
      */
     public static boolean navigateToBank() {
         try {
-            // Check if already near bank
-            if (CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE)) {
-                // Move to optimal banking position if not there
+            boolean alreadyNear = CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE);
+            Microbot.log("[Banking] navigateToBank: alreadyNear=" + alreadyNear + " pos=" + CoordinateUtils.getPlayerLocation());
+
+            if (alreadyNear) {
                 if (!CoordinateUtils.isAtBankingPosition()) {
+                    Microbot.log("[Banking] Walking to optimal banking tile");
                     return Rs2Walker.walkTo(BankLocation.PLAYER_STANDING_TILE.getLocation());
                 }
                 return true;
             }
 
-            // Walk to bank area
+            Microbot.log("[Banking] Walking to bank booth at " + BankLocation.BANK_BOOTH.getLocation());
             boolean walked = Rs2Walker.walkTo(BankLocation.BANK_BOOTH.getLocation());
+            Microbot.log("[Banking] walkTo bank result=" + walked);
             if (walked) {
-                // Wait for arrival and position correctly
                 Rs2Player.waitForWalking();
                 return Rs2Walker.walkTo(BankLocation.PLAYER_STANDING_TILE.getLocation());
             }
 
             return false;
         } catch (Exception e) {
-            Microbot.log("Error navigating to bank: " + e.getMessage());
+            Microbot.log("[Banking] Error navigating to bank: " + e.getMessage());
             return false;
         }
     }
@@ -87,37 +89,39 @@ public class BankingHandler {
      */
     public static boolean openBank() {
         try {
-            // Check if bank is already open
             if (Rs2Bank.isOpen()) {
+                Microbot.log("[Banking] Bank already open");
                 return true;
             }
 
-            // Ensure we're close enough to the bank
             if (!CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE)) {
+                Microbot.log("[Banking] openBank: not near bank, navigating first");
                 if (!navigateToBank()) {
                     return false;
                 }
             }
 
-            // Interact with bank booth using string search
-            boolean interacted = GameObjectUtils.findAndInteractAtLocationByName(
-                    GameObjectId.BANK_BOOTH.getSearchTerm(),
+            Microbot.log("[Banking] Interacting with bank booth (id=" + GameObjectId.BANK_BOOTH.getId() + " at " + BankLocation.BANK_BOOTH.getLocation() + ")");
+            boolean interacted = GameObjectUtils.findAndInteractAtLocation(
+                    GameObjectId.BANK_BOOTH.getId(),
                     BankLocation.BANK_BOOTH.getLocation(),
                     "Bank"
             );
+            Microbot.log("[Banking] Bank booth interact result=" + interacted);
 
             if (interacted) {
-                // Wait for bank to open
                 long startTime = System.currentTimeMillis();
                 while (!Rs2Bank.isOpen() && System.currentTimeMillis() - startTime < BANK_TIMEOUT_MS) {
                     sleep(100);
                 }
-                return Rs2Bank.isOpen();
+                boolean opened = Rs2Bank.isOpen();
+                Microbot.log("[Banking] Bank opened=" + opened);
+                return opened;
             }
 
             return false;
         } catch (Exception e) {
-            Microbot.log("Error opening bank: " + e.getMessage());
+            Microbot.log("[Banking] Error opening bank: " + e.getMessage());
             return false;
         }
     }
@@ -251,19 +255,26 @@ public class BankingHandler {
      */
     public static boolean performUnifiedBankingCycle(GameSession gameSession) {
         try {
-            // Navigate to bank if needed
-            if (!CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE)) {
-                if (!navigateToBank()) {
-                    Microbot.log("Failed to navigate to bank");
+            var playerPos = CoordinateUtils.getPlayerLocation();
+            int distToBank = CoordinateUtils.getDistanceToBank();
+            boolean nearBank = CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE);
+            Microbot.log("[Banking] Start cycle. Player=" + playerPos + " distToBank=" + distToBank + " nearBank=" + nearBank);
+
+            if (!nearBank) {
+                Microbot.log("[Banking] Not near bank, navigating...");
+                boolean navResult = navigateToBank();
+                Microbot.log("[Banking] Navigate result=" + navResult + " newPos=" + CoordinateUtils.getPlayerLocation());
+                if (!navResult) {
                     return false;
                 }
             }
 
-            // Open bank first
+            Microbot.log("[Banking] Opening bank...");
             if (!openBank()) {
-                Microbot.log("Failed to open bank");
+                Microbot.log("[Banking] Failed to open bank");
                 return false;
             }
+            Microbot.log("[Banking] Bank opened successfully");
 
             // Now detect route type with bank open
             TotemLocation.RouteType detectedRouteType = detectRouteTypeWithBankOpen();
