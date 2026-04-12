@@ -181,12 +181,14 @@ public class HouseTabScript extends Script {
         if (hasSoftClay() || Microbot.getRs2TileObjectCache().query().withId(HOUSE_ADVERTISEMENT_OBJECT).nearest() == null)
             return;
         if (Microbot.getClient().getWidget(14352385) == null) {
-            do {
+            while (true) {
                 Microbot.getClientThread().invoke(() -> {
                     Rs2Inventory.use("Soft clay");
                 });
                 sleep(300, 380);
-            } while (!Microbot.getRs2NpcCache().query().withName("Phials").interact("Use"));
+                var phials = Microbot.getRs2NpcCache().query().withName("Phials").nearestOnClientThread();
+                if (phials != null && phials.click("Use")) break;
+            }
         }
 
         sleep(2500, 5000);

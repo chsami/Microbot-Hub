@@ -177,7 +177,7 @@ public class EmoteClueTask extends ClueTask {
     }
 
     private void interactWithUri() {
-        Microbot.getRs2NpcCache().query().withName("Uri").interact("Talk-to");
+        Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Uri").interact("Talk-to"));
         log.info("Interacted with Uri.");
     }
 

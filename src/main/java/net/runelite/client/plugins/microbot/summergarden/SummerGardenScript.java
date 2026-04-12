@@ -272,7 +272,7 @@ public class SummerGardenScript extends Script {
         }
 
         // Check if the player has arrived at Osman's location, if not then walk there.
-        var npcOsman = Microbot.getRs2NpcCache().query().withName(NPC_NAME_OSMAN).nearest();
+        var npcOsman = Microbot.getRs2NpcCache().query().withName(NPC_NAME_OSMAN).nearestOnClientThread();
         if (npcOsman == null) {
             var osmanLocalLocation = LocalPoint.fromWorld(Microbot.getClient(), osmanLocation);
             if (osmanLocalLocation != null) {
@@ -284,7 +284,7 @@ public class SummerGardenScript extends Script {
 
         // Interact with Osman.
         if (lastInteractedActor == null || !Objects.equals(lastInteractedActor.getName(), NPC_NAME_OSMAN)) {
-            Microbot.getRs2NpcCache().query().withName(NPC_NAME_OSMAN).interact("Talk-to");
+            Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName(NPC_NAME_OSMAN).interact("Talk-to"));
             sleepUntil(() -> Rs2Player.getInteracting() != null, 2000);
             return;
         }
@@ -362,14 +362,14 @@ public class SummerGardenScript extends Script {
         }
 
         // Check if the player has arrived at the Apprentice's location.
-        var npcApprentice = Microbot.getRs2NpcCache().query().withName(NPC_NAME_APPRENTICE).nearest();
+        var npcApprentice = Microbot.getRs2NpcCache().query().withName(NPC_NAME_APPRENTICE).nearestOnClientThread();
         if (npcApprentice == null) {
             return;
         }
 
         // Interact with the apprentice.
         if (lastInteractedActor == null || !Objects.equals(lastInteractedActor.getName(), NPC_NAME_APPRENTICE)) {
-            Microbot.getRs2NpcCache().query().withName(NPC_NAME_APPRENTICE).interact("Teleport");
+            Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName(NPC_NAME_APPRENTICE).interact("Teleport"));
             sleepUntil(() -> isInGarden(), 10000);
         }
 

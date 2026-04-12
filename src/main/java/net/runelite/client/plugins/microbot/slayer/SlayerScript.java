@@ -344,7 +344,7 @@ public class SlayerScript extends Script {
 
         if (distance <= 5) {
             // We're at the master, interact to get task
-            var masterNpc = Microbot.getRs2NpcCache().query().withName(master.getName()).nearest();
+            var masterNpc = Microbot.getRs2NpcCache().query().withName(master.getName()).nearestOnClientThread();
             if (masterNpc != null) {
                 if (masterNpc.click("Assignment")) {
                     log.info("Requesting task from {}", master.getName());
@@ -536,7 +536,7 @@ public class SlayerScript extends Script {
 
         if (distance <= 5) {
             // We're at the master, interact to open rewards
-            var masterNpc = Microbot.getRs2NpcCache().query().withName(master.getName()).nearest();
+            var masterNpc = Microbot.getRs2NpcCache().query().withName(master.getName()).nearestOnClientThread();
             if (masterNpc != null) {
                 if (masterNpc.click("Rewards")) {
                     log.info("Opening rewards menu to skip task (attempt {})", skipAttemptCounter + 1);
@@ -1044,7 +1044,7 @@ public class SlayerScript extends Script {
 
         if (distance <= 5) {
             // We're at the master, interact to open rewards
-            var masterNpc = Microbot.getRs2NpcCache().query().withName(master.getName()).nearest();
+            var masterNpc = Microbot.getRs2NpcCache().query().withName(master.getName()).nearestOnClientThread();
             if (masterNpc != null) {
                 if (masterNpc.click("Rewards")) {
                     log.info("Opening rewards menu to block task (attempt {})", blockAttemptCounter + 1);
@@ -2770,7 +2770,7 @@ public class SlayerScript extends Script {
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
                 .where(npc -> taskDestination == null ||
                         npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius())
-                .toList()
+                .toListOnClientThread()
                 .stream()
                 .sorted(Comparator
                         .comparingInt((Rs2NpcModel npc) ->
@@ -2788,7 +2788,7 @@ public class SlayerScript extends Script {
                     .where(npc -> npc.getName() != null)
                     .where(npc -> taskDestination == null ||
                             npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius())
-                    .toList()
+                    .toListOnClientThread()
                     .stream()
                     .map(Rs2NpcModel::getName)
                     .distinct()
@@ -3945,7 +3945,7 @@ public class SlayerScript extends Script {
      */
     private boolean handleCannonPickup() {
         // Check if cannon still exists
-        var cannon = Microbot.getRs2TileObjectCache().query().withName("Dwarf multicannon").within(Rs2Player.getWorldLocation(), 50).nearest();
+        var cannon = Microbot.getRs2TileObjectCache().query().withName("Dwarf multicannon").within(Rs2Player.getWorldLocation(), 50).nearestOnClientThread();
         if (cannon == null) {
             log.info("Cannon already picked up or not found");
             return true;
@@ -3983,7 +3983,8 @@ public class SlayerScript extends Script {
      * @return true if pickup was initiated successfully
      */
     private boolean pickupCannon() {
-        if (Microbot.getRs2TileObjectCache().query().withName("Dwarf multicannon").interact("Pick-up")) {
+        var cannon = Microbot.getRs2TileObjectCache().query().withName("Dwarf multicannon").nearestOnClientThread();
+        if (cannon != null && cannon.click("Pick-up")) {
             log.info("Picking up cannon...");
             return true;
         }
@@ -3995,7 +3996,7 @@ public class SlayerScript extends Script {
      * @return true if cannon object is found nearby
      */
     private boolean isCannonPlacedNearby() {
-        return Microbot.getRs2TileObjectCache().query().withName("Dwarf multicannon").within(Rs2Player.getWorldLocation(), 10).nearest() != null;
+        return Microbot.getRs2TileObjectCache().query().withName("Dwarf multicannon").within(Rs2Player.getWorldLocation(), 10).nearestOnClientThread() != null;
     }
 
     /**

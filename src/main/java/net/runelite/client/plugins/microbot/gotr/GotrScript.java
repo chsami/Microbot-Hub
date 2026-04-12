@@ -294,7 +294,7 @@ public class GotrScript extends Script {
     private boolean powerUpGreatGuardian() {
         if (Rs2Inventory.hasItem("guardian stone") && !shouldMineGuardianRemains && !isInLargeMine() && !isInHugeMine()) {
             state = GotrState.POWERING_UP;
-            Microbot.getRs2NpcCache().query().withName("The great guardian").interact("power-up");
+            Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("The great guardian").interact("power-up"));
             log("Powering up the great guardian...");
             sleepUntil(Rs2Player::isAnimating);
             sleep(Rs2Random.randomGaussian(Rs2Random.between(1000, 2000), Rs2Random.between(100, 300)));

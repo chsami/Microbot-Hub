@@ -205,7 +205,7 @@ public class SandCrabScript extends Script {
      * @return true if npc is aggressive
      */
     private boolean isNpcAggressive() {
-        List<Rs2NpcModel> npcs = Microbot.getRs2NpcCache().query().withName("Sandy rocks").toList();
+        List<Rs2NpcModel> npcs = Microbot.getRs2NpcCache().query().withName("Sandy rocks").toListOnClientThread();
         if (npcs.isEmpty()) {
             return false;
         }

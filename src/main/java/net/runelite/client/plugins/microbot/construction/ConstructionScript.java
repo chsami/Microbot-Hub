@@ -40,7 +40,7 @@ public class ConstructionScript extends Script {
     }
 
     public Rs2NpcModel getButler() {
-        return Microbot.getRs2NpcCache().query().withName("Demon butler").nearest();
+        return Microbot.getRs2NpcCache().query().withName("Demon butler").nearestOnClientThread();
     }
 
     public boolean hasDialogueOptionToUnnote() {
@@ -178,7 +178,7 @@ public class ConstructionScript extends Script {
     }
 
     private void returnToTheHouse(){
-        Rs2TileObjectModel housePortal = Microbot.getRs2TileObjectCache().query().withName("Portal").nearest();
+        Rs2TileObjectModel housePortal = Microbot.getRs2TileObjectCache().query().withName("Portal").nearestOnClientThread();
         if(housePortal != null){
             if(housePortal.click("Build mode")){
                 sleepUntil(()-> Rs2Player.getWorldLocation() != null

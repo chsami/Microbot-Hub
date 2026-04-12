@@ -112,7 +112,7 @@ public class EnsouledHeadSlayerScript extends Script {
 	*/
         if (Microbot.getVarbitValue(Varbits.SPELLBOOK) != 3) {
             Microbot.log("On wrong spellbook, switching to Arceuus...");
-            Microbot.getRs2NpcCache().query().withName("Tyss").interact("Spellbook");
+            Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Tyss").interact("Spellbook"));
         }
         Rs2Combat.enableAutoRetialiate();
         var ensouledHead = Rs2Inventory.count("ensouled");

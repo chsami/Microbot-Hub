@@ -48,7 +48,7 @@ import java.nio.charset.StandardCharsets;
 )
 @Slf4j
 public class FlippersChaserPlugin extends Plugin {
-    public static final String version = "1.0.1";
+    public static final String version = "1.0.2";
 
     @Inject
     private Client client;
@@ -127,7 +127,7 @@ public class FlippersChaserPlugin extends Plugin {
     }
 
     private Rs2NpcModel findFishingSpot() {
-        return Microbot.getRs2NpcCache().query().withName("Ominous Fishing Spot").nearest();
+        return Microbot.getRs2NpcCache().query().withName("Ominous Fishing Spot").nearestOnClientThread();
     }
 
     private void attackNpc(Rs2NpcModel npc) {

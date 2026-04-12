@@ -45,7 +45,7 @@ public class StrugglingSaplingEvent implements BlockingEvent {
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;        
             var strugglingSaplings = Microbot.getRs2TileObjectCache().query()
                     .withName("Struggling sapling")
-                    .toList();
+                    .toListOnClientThread();
             if (strugglingSaplings.isEmpty()) return false;
             return strugglingSaplings.stream().anyMatch(obj ->
                     Rs2GameObject.hasAction(obj.getObjectComposition(), "Add-mulch") &&
@@ -65,7 +65,7 @@ public class StrugglingSaplingEvent implements BlockingEvent {
             // Find the struggling sapling
             var sapling = Microbot.getRs2TileObjectCache().query()
                     .withName("Struggling sapling")
-                    .toList()
+                    .toListOnClientThread()
                     .stream()
                     .filter(obj ->
                             Rs2GameObject.hasAction(obj.getObjectComposition(), "Add-mulch") &&

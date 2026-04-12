@@ -104,7 +104,7 @@ public class StunTeleAlchScript extends Script {
                 // 1) STUN target from user config using queryable NPC cache
                 var target = Microbot.getRs2NpcCache().query()
                         .withName(configuredTargetNpc)
-                        .nearest();
+                        .nearestOnClientThread();
                 if (target == null) {
                     attemptNpcRecoveryTeleport(configuredTargetNpc);
                     return;

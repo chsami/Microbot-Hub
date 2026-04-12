@@ -2893,7 +2893,7 @@ public class MKE_WintertodtScript extends Script {
 
             // Find Brew'ma NPC
             Rs2NpcModel brewmaNpc = Microbot.getRs2NpcCache().query().withName("Brew'ma")
-                    .where(n -> n.hasLineOfSight()).nearest();
+                    .where(n -> n.hasLineOfSight()).nearestOnClientThread();
             if (brewmaNpc == null) {
                 Microbot.log("Could not find Brew'ma NPC - walking closer");
                 Rs2Walker.walkFastCanvas(BREWMA_NPC_INTERACT_LOCATION);
@@ -5205,7 +5205,8 @@ public class MKE_WintertodtScript extends Script {
         lastRewardCartInteraction = System.currentTimeMillis();
 
         // Try to interact with reward cart by searching for the "Reward" text on the object
-        if (Microbot.getRs2TileObjectCache().query().withName("Reward").interact("Big-search")) {
+        var rewardCart = Microbot.getRs2TileObjectCache().query().withName("Reward").nearestOnClientThread();
+        if (rewardCart != null && rewardCart.click("Big-search")) {
             Microbot.status = "Interacting with reward cart";
             return true;
         }

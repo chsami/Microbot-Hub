@@ -1125,7 +1125,7 @@ public class PyramidCourse implements AgilityCourseHandler {
             }
             
             // Try to find Simon
-            Rs2NpcModel simon = Microbot.getRs2NpcCache().query().withName(SIMON_NAME).nearest();
+            Rs2NpcModel simon = Microbot.getRs2NpcCache().query().withName(SIMON_NAME).nearestOnClientThread();
             
             // If Simon is found and reachable, use pyramid top on him
             if (simon != null && Rs2GameObject.canReach(simon.getWorldLocation())) {

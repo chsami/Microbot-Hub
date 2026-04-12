@@ -105,7 +105,7 @@ public class BlueDragonsOverlay extends OverlayPanel {
         // Dragon tracking section
         addSectionDivider("Dragon Tracking");
 
-        Rs2NpcModel nearestDragon = Microbot.getRs2NpcCache().query().withName("Blue dragon").nearest();
+        Rs2NpcModel nearestDragon = Microbot.getRs2NpcCache().query().withName("Blue dragon").nearestOnClientThread();
         boolean isTargeting = nearestDragon != null &&
                 script.getCurrentTargetId() != null &&
                 script.getCurrentTargetId() == nearestDragon.getId();

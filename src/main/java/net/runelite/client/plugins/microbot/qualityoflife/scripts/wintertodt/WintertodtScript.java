@@ -148,10 +148,10 @@ public class WintertodtScript extends Script {
 
     public void onNpcDespawned(NpcDespawned event) {
         if (incapitatedPyromancer != null && event.getNpc().equals(incapitatedPyromancer.getNpc())) {
-            incapitatedPyromancer = Microbot.getRs2NpcCache().query().withName("Incapacitated Pyromancer").nearest();
+            incapitatedPyromancer = Microbot.getRs2NpcCache().query().withName("Incapacitated Pyromancer").nearestOnClientThread();
         }
         if (pyromancer != null && event.getNpc().equals(pyromancer.getNpc())) {
-            pyromancer = Microbot.getRs2NpcCache().query().withName("Pyromancer").nearest();
+            pyromancer = Microbot.getRs2NpcCache().query().withName("Pyromancer").nearestOnClientThread();
         }
     }
 

@@ -155,7 +155,7 @@ public class CrypticClueTask extends ClueTask {
             state = State.KILLING_ENEMY;
         } else if (clue.getObjectId() != -1) {
             state = State.INTERACTING_WITH_OBJECT;
-        } else if (clue.getNpc(clueScrollPlugin) != null && Microbot.getRs2NpcCache().query().withName(clue.getNpc(clueScrollPlugin)).nearest() != null) {
+        } else if (clue.getNpc(clueScrollPlugin) != null && Microbot.getRs2NpcCache().query().withName(clue.getNpc(clueScrollPlugin)).nearestOnClientThread() != null) {
             state = State.INTERACTING_WITH_NPC;
         } else {
             state = State.COMPLETED;
@@ -164,7 +164,7 @@ public class CrypticClueTask extends ClueTask {
     }
 
     private boolean killEnemy() {
-        Rs2NpcModel enemy = Microbot.getRs2NpcCache().query().withName(clue.getEnemy().name()).nearest();
+        Rs2NpcModel enemy = Microbot.getRs2NpcCache().query().withName(clue.getEnemy().name()).nearestOnClientThread();
         if (enemy == null || enemy.getNpc().getHealthRatio() <= 0) {
             log.info("Enemy {} is defeated. Searching for loot.", clue.getEnemy());
             return true;
@@ -207,7 +207,7 @@ public class CrypticClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        Rs2NpcModel targetNpc = Microbot.getRs2NpcCache().query().withName(clue.getNpc(clueScrollPlugin)).nearest();
+        Rs2NpcModel targetNpc = Microbot.getRs2NpcCache().query().withName(clue.getNpc(clueScrollPlugin)).nearestOnClientThread();
         if (targetNpc == null) {
             log.warn("NPC {} not found at the location.", clue.getNpc(clueScrollPlugin));
             return false;

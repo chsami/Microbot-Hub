@@ -115,7 +115,7 @@ public class ChaosAltarScript extends Script {
         Microbot.log("Walking to dangerous NPC to die");
         Rs2Walker.walkTo(2979, 3845, 0);
         sleepUntil(() -> Microbot.getRs2NpcCache().query().withId(CHAOS_FANATIC).nearest() != null, 60000);
-        Microbot.getRs2NpcCache().query().withName("Chaos Fanatic").interact("Attack");
+        Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Chaos Fanatic").interact("Attack"));
         // Wait until player dies
         sleepUntil(() -> Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) == 0, 60000);
         sleepUntil(() -> !Rs2Pvp.isInWilderness(), 15000);

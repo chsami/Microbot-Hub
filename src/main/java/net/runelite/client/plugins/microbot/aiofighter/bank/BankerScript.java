@@ -481,7 +481,7 @@ public class BankerScript extends Script {
         // silently dispatching a click against an unreachable pool.
         Rs2TileObjectModel pool = Microbot.getRs2TileObjectCache().query()
                 .withName("Pool of Refreshment")
-                .nearest(20);
+                .nearestOnClientThread(20);
         if (pool != null) {
             if (pool.click("Drink")) {
                 sleepUntil(Rs2Player::isMoving, 2000);

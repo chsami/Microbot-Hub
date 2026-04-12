@@ -110,7 +110,7 @@ public class FishingTrawlerScript extends Script {
                 if (!Rs2Player.isInteracting() && !Rs2Player.isMoving()) {
                     log.debug("Tentacle phase");
 
-                    Rs2NpcModel tentacleNpc = Microbot.getRs2NpcCache().query().withName("Enormous Tentacle").nearest();
+                    Rs2NpcModel tentacleNpc = Microbot.getRs2NpcCache().query().withName("Enormous Tentacle").nearestOnClientThread();
 
                     if (tentacleNpc != null) {
                         if (!tentacle) {
@@ -118,9 +118,9 @@ public class FishingTrawlerScript extends Script {
                             Rs2Camera.turnTo(tentacleNpc.getNpc());
                         }
                         sleepUntil(() -> tentacleNpc.getNpc().getAnimation() == 8953, 10000);
-                        Microbot.getRs2NpcCache().query().withName("Enormous Tentacle").interact("Chop");
+                        Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Enormous Tentacle").interact("Chop"));
                         sleepUntilTick(2);
-                        if (!Rs2Player.isInteracting()) Microbot.getRs2NpcCache().query().withName("Enormous Tentacle").interact("Chop");
+                        if (!Rs2Player.isInteracting()) Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Enormous Tentacle").interact("Chop"));
                         tentacle = true;
                         wasInsideBoat = true;
                         sleepUntil(() -> !Rs2Player.isInteracting());

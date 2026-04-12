@@ -202,7 +202,7 @@ public class BlastoiseFurnaceScript extends Script {
         sleep(500, 1200);
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen());
-        var blastie = Microbot.getRs2NpcCache().query().withName("Blast Furnace Foreman").nearest();
+        var blastie = Microbot.getRs2NpcCache().query().withName("Blast Furnace Foreman").nearestOnClientThread();
         if (blastie != null) blastie.click("Pay");
         sleepUntil(Rs2Dialogue::isInDialogue, 10000);
         if (Rs2Dialogue.hasSelectAnOption()) {

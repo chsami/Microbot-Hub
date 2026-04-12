@@ -71,7 +71,7 @@ import java.util.List;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class KittenPlugin extends Plugin {
-    public static final String version = "1.3.0";
+    public static final String version = "1.3.1";
     private static final int VAR_PLAYER_FOLLOWER = 447;
     private static final int WIDGET_ID_DIALOG_NOTIFICATION_GROUP_ID = 229;
     private static final int WIDGET_ID_DIALOG_PLAYER_TEXT = 6;

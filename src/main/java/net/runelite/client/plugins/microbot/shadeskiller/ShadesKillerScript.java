@@ -202,15 +202,15 @@ public class ShadesKillerScript extends Script {
                         Rs2NpcModel npc = Microbot.getRs2NpcCache().query()
                                 .withName(config.SHADES().names.get(0))
                                 .where(Rs2NpcModel::isInteractingWithPlayer)
-                                .nearest();
+                                .nearestOnClientThread();
                         if (npc != null && !Microbot.getClient().getLocalPlayer().isInteracting()) {
                             npc.click("Attack");
                             return;
                         }
                         if (!Rs2Combat.inCombat() && !isLooting) {
-                            Microbot.getRs2NpcCache().query()
+                            Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query()
                                     .withNames(config.SHADES().names.toArray(new String[0]))
-                                    .interact("Attack");
+                                    .interact("Attack"));
                         }
                         Rs2Combat.setSpecState(true, config.specialAttack() * 10);
                         if (Rs2Inventory.isFull() && config.useCoffin()) {

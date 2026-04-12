@@ -351,7 +351,7 @@ public class GiantSeaweedFarmerScript extends Script {
     }
 
     private void handleNoting(){
-        Rs2NpcModel leprechaun = Microbot.getRs2NpcCache().query().withName("Tool leprechaun").nearest();
+        Rs2NpcModel leprechaun = Microbot.getRs2NpcCache().query().withName("Tool leprechaun").nearestOnClientThread();
         if (leprechaun == null) {return;}
         Rs2ItemModel unNoted = Rs2Inventory.getUnNotedItem("Giant seaweed", true);
         Rs2Inventory.use(unNoted);

@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
 )
 public class EnsouledHeadSlayerPlugin extends Plugin {
 
-    public final static String version = "1.0.1";
+    public final static String version = "1.0.2";
 
     private Instant scriptStartTime;
     @Inject

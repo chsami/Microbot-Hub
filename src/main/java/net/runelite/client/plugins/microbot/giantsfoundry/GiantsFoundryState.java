@@ -126,11 +126,11 @@ public class GiantsFoundryState {
     public static Rs2TileObjectModel getStageObject(Stage stage) {
         switch (stage) {
             case TRIP_HAMMER:
-                return Microbot.getRs2TileObjectCache().query().withName("trip hammer").nearest();
+                return Microbot.getRs2TileObjectCache().query().withName("trip hammer").nearestOnClientThread();
             case GRINDSTONE:
-                return Microbot.getRs2TileObjectCache().query().withName("grindstone").nearest();
+                return Microbot.getRs2TileObjectCache().query().withName("grindstone").nearestOnClientThread();
             case POLISHING_WHEEL:
-                return Microbot.getRs2TileObjectCache().query().withName("polishing wheel").nearest();
+                return Microbot.getRs2TileObjectCache().query().withName("polishing wheel").nearestOnClientThread();
         }
         return null;
     }

@@ -103,7 +103,7 @@ public class CannonballSmelterScript extends Script {
         Rs2TileObjectModel furnace = Microbot.getRs2TileObjectCache().query().withId(config.getFurnace().furnaceID).nearest();
 
         if(config.getFurnace() == Furnace.SHILO_VILLAGE) {
-            furnace = Microbot.getRs2TileObjectCache().query().withName("Furnace").nearest();
+            furnace = Microbot.getRs2TileObjectCache().query().withName("Furnace").nearestOnClientThread();
         }
 
         if (furnace != null) {
@@ -135,7 +135,7 @@ public class CannonballSmelterScript extends Script {
             if (!isRunning()) break;
 
             if(config.getFurnace() == Furnace.SHILO_VILLAGE) {
-                var banker = Microbot.getRs2NpcCache().query().withName("Banker").nearest();
+                var banker = Microbot.getRs2NpcCache().query().withName("Banker").nearestOnClientThread();
                 if (banker != null) banker.click("Bank");
             } else {
                 Rs2Bank.openBank();
@@ -167,7 +167,7 @@ public class CannonballSmelterScript extends Script {
         if(!Rs2Inventory.hasItem("ammo mould") && !Rs2Inventory.hasItem("double ammo mould")) {
             if(!Rs2Bank.isOpen()) {
                 if(config.getFurnace() == Furnace.SHILO_VILLAGE) {
-                    var banker = Microbot.getRs2NpcCache().query().withName("Banker").nearest();
+                    var banker = Microbot.getRs2NpcCache().query().withName("Banker").nearestOnClientThread();
                     if (banker != null) banker.click("Bank");
                 } else {
                     Rs2Bank.openBank();

@@ -26,7 +26,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class GiantSeaweedFarmerPlugin extends Plugin {
-    public final static String version = "1.2.0";
+    public final static String version = "1.2.1";
     private Instant scriptStartTime;
     @Inject
     private GiantSeaweedFarmerConfig config;

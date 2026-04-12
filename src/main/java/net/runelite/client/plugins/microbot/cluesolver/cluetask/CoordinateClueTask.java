@@ -134,7 +134,7 @@ public class CoordinateClueTask extends ClueTask {
     }
 
     private boolean engageEnemy() {
-        Rs2NpcModel targetNpc = Microbot.getRs2NpcCache().query().withName(enemy.getText()).nearest();
+        Rs2NpcModel targetNpc = Microbot.getRs2NpcCache().query().withName(enemy.getText()).nearestOnClientThread();
         if (targetNpc == null) {
             log.warn("Expected enemy not found.");
             completeTask(false);

@@ -351,7 +351,7 @@ public class MahoganyHomesScript extends Script {
 
 
                 // Search for Mahogany Homes contract NPCs directly by name
-                var npc = Microbot.getRs2NpcCache().query().withNames("Amy", "Marlo", "Ellie", "Angelo").nearest();
+                var npc = Microbot.getRs2NpcCache().query().withNames("Amy", "Marlo", "Ellie", "Angelo").nearestOnClientThread();
                 
                 if (npc == null) {
                     log("No contract NPC found, waiting before retry");

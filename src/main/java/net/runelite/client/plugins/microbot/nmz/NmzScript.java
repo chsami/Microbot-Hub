@@ -205,7 +205,7 @@ public class NmzScript extends Script {
     public void startNmzDream() {
         // Set new center so that it is random for every time joining the dream
         center = new WorldPoint(Rs2Random.between(2270, 2276), Rs2Random.between(4693, 4696), 0);
-        Rs2NpcModel dominic = npcCache.query().withName("Dominic Onion").nearest();
+        Rs2NpcModel dominic = npcCache.query().withName("Dominic Onion").nearestOnClientThread();
         if (dominic != null) dominic.click("Dream");
         sleepUntil(() -> Rs2Widget.hasWidget("Which dream would you like to experience?"));
         Rs2Widget.clickWidget("Previous:");

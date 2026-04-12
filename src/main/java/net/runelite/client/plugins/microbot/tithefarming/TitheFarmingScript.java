@@ -449,7 +449,7 @@ public class TitheFarmingScript extends Script {
                 Rs2Inventory.interact(ItemID.ZEAH_WATERINGCAN, "Use");
                 Rs2TileObjectModel barrel = Microbot.getRs2TileObjectCache().query()
                         .withName("Water barrel")
-                        .nearest();
+                        .nearestOnClientThread();
                 if (barrel != null) barrel.click();
                 sleepUntil(Rs2Player::isAnimating, 10000);
             } else {

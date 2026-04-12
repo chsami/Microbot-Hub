@@ -143,7 +143,7 @@ public class MusicClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        Rs2NpcModel npc = Microbot.getRs2NpcCache().query().withName(npcName).nearest();
+        Rs2NpcModel npc = Microbot.getRs2NpcCache().query().withName(npcName).nearestOnClientThread();
         if (npc == null) {
             log.warn("NPC {} not found near the clue location.", npcName);
             return false;

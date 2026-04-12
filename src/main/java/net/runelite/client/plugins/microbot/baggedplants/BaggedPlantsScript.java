@@ -168,7 +168,7 @@ public class BaggedPlantsScript extends Script {
 
     private boolean isInHouse() {
         // Similar to gilded altar script - check if Phials NPC is not present
-        return Microbot.getRs2NpcCache().query().withName("Phials").nearest() == null;
+        return Microbot.getRs2NpcCache().query().withName("Phials").nearestOnClientThread() == null;
     }
 
     private void checkInventory() {
@@ -244,7 +244,7 @@ public class BaggedPlantsScript extends Script {
                 if (!Rs2Inventory.isItemSelected()) {
                     Rs2Inventory.use(NOTED_BAGGED_PLANT);
                 } else {
-                    Microbot.getRs2NpcCache().query().withName("Phials").interact("Use");
+                    Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Phials").interact("Use"));
                     Rs2Player.waitForWalking();
                 }
                 return; // Wait for dialogue to open

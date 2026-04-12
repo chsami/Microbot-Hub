@@ -84,7 +84,7 @@ import static net.runelite.client.plugins.microbot.util.Global.awaitExecutionUnt
 )
 @Slf4j
 public class QoLPlugin extends Plugin implements KeyListener {
-    public static final String version = "1.8.11";
+    public static final String version = "1.8.12";
     public static final List<NewMenuEntry> bankMenuEntries = new LinkedList<>();
     public static final List<NewMenuEntry> furnaceMenuEntries = new LinkedList<>();
     public static final List<NewMenuEntry> anvilMenuEntries = new LinkedList<>();
@@ -385,7 +385,7 @@ public class QoLPlugin extends Plugin implements KeyListener {
                     Global.sleepUntil(() -> !Rs2Inventory.anyPouchFull(), () -> {
                                 Rs2Inventory.emptyPouches();
                                 Rs2Inventory.waitForInventoryChanges(3000);
-                                Microbot.getRs2TileObjectCache().query().withName("Altar").interact();
+                                Microbot.getClientThread().invoke(() -> Microbot.getRs2TileObjectCache().query().withName("Altar").interact());
                                 Rs2Inventory.waitForInventoryChanges(3000);
                             }
                             , 10000, 200);

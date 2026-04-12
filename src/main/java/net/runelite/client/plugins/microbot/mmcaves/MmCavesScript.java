@@ -304,7 +304,7 @@ public class MmCavesScript extends Script {
                 .withName("Maniacal monkey")
                 .where(npc -> npc.getWorldLocation().equals(new WorldPoint(2451, 9159, 1))
                         && !npc.getNpc().isDead())
-                .nearest();
+                .nearestOnClientThread();
 
         boolean attacked = attemptAttack(target);
         if (attacked) walkBetweenTiles();

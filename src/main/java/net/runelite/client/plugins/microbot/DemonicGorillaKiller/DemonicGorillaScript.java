@@ -261,7 +261,7 @@ public class DemonicGorillaScript extends Script {
                     Rs2Walker.walkTo(GORILLA_LOCATION);
                     currentTarget = getTarget(true);
                     if (currentTarget == null) {
-                        Microbot.getRs2NpcCache().query().withName("Demonic gorilla").interact("Attack");
+                        Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Demonic gorilla").interact("Attack"));
                     }
                 }
                 outOfCombatTime = null; // Reset after forcing new target
@@ -518,7 +518,7 @@ public class DemonicGorillaScript extends Script {
                     .min(Comparator.comparingInt(npc -> npc.getWorldLocation().distanceTo(playerLocation))).get();
         }
 
-        List<Rs2NpcModel> demonicGorillas = Microbot.getRs2NpcCache().query().withName("Demonic gorilla").toList();
+        List<Rs2NpcModel> demonicGorillas = Microbot.getRs2NpcCache().query().withName("Demonic gorilla").toListOnClientThread();
         if (demonicGorillas.isEmpty()) {
             logOnceToChat("No demonic gorilla found.");
             return null;

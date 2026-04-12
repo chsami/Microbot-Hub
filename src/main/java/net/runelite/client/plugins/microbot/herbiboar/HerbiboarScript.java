@@ -583,7 +583,7 @@ public class HerbiboarScript extends Script {
                     case TUNNEL:
                         Microbot.status = "Attacking tunnel";
                         Microbot.log(Level.INFO,"Attacking tunnel");
-                        if (!attackedTunnel || (Microbot.getRs2NpcCache().query().withName("Herbiboar").nearest() == null && attackedTunnel)) {
+                        if (!attackedTunnel || (Microbot.getRs2NpcCache().query().withName("Herbiboar").nearestOnClientThread() == null && attackedTunnel)) {
                             int finishId = herbiboarPlugin.getFinishId();
                             if (finishId > 0) {
                                 WorldPoint finishLoc = herbiboarPlugin.getEndLocations().get(finishId - 1);
@@ -601,14 +601,14 @@ public class HerbiboarScript extends Script {
                                 }
                             }
                         } else {
-                            Rs2NpcModel herbCheck = Microbot.getRs2NpcCache().query().withName("Herbiboar").nearest();
+                            Rs2NpcModel herbCheck = Microbot.getRs2NpcCache().query().withName("Herbiboar").nearestOnClientThread();
                             if (herbCheck != null) setState(HerbiboarState.HARVEST);
                         }
                         break;
                     case HARVEST:
                         Microbot.status = "Harvesting herbiboar";
                         Microbot.log(Level.INFO,"Harvesting herbiboar");
-                        Rs2NpcModel herb = Microbot.getRs2NpcCache().query().withName("Herbiboar").nearest();
+                        Rs2NpcModel herb = Microbot.getRs2NpcCache().query().withName("Herbiboar").nearestOnClientThread();
                         if (herb != null) {
                             WorldPoint loc = herb.getWorldLocation();
                             if (Rs2Player.getWorldLocation().distanceTo(loc) <= 8) {
