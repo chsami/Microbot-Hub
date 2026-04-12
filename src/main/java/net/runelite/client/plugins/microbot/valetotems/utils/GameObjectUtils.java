@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 public class GameObjectUtils {
 
     private static final java.util.Set<Integer> discoveredTotemIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final java.util.Set<Integer> discoveredOfferingIds = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     // Cache configuration
     private static final long CACHE_EXPIRY_MS = 10000; // 10 seconds cache expiry
@@ -374,8 +375,20 @@ public class GameObjectUtils {
      */
     public static GameObjectId getOfferingsStateNearLocation(WorldPoint location, int radius) {
         var nearbyObjects = Microbot.getRs2TileObjectCache().query()
-                .where(obj -> GameObjectId.isOfferingsPile(obj.getId()))
+                .where(obj -> GameObjectId.isOfferingsPile(obj.getId()) || discoveredOfferingIds.contains(obj.getId()))
                 .within(location, radius).toList();
+
+        if (nearbyObjects.isEmpty()) {
+            nearbyObjects = Microbot.getClientThread().invoke(() ->
+                    Microbot.getRs2TileObjectCache().query()
+                            .withNameContains(GameObjectId.OFFERINGS_MANY.getSearchTerm())
+                            .within(location, radius).toList());
+            for (var obj : nearbyObjects) {
+                discoveredOfferingIds.add(obj.getId());
+                Microbot.log("[ValeTotem] Discovered offering id=" + obj.getId()
+                        + " name='" + obj.getName() + "' — future lookups will use fast ID path");
+            }
+        }
 
         if (!nearbyObjects.isEmpty()) {
             return GameObjectId.OFFERINGS_MANY;
@@ -390,9 +403,23 @@ public class GameObjectUtils {
      * @return the offerings game object if claimable, null otherwise
      */
     public static GameObject findClaimableOfferings(WorldPoint location, int radius) {
-        return toGameObject(Microbot.getRs2TileObjectCache().query()
-                .where(obj -> GameObjectId.isOfferingsPile(obj.getId()))
-                .within(location, radius).nearest());
+        var model = Microbot.getRs2TileObjectCache().query()
+                .where(obj -> GameObjectId.isOfferingsPile(obj.getId()) || discoveredOfferingIds.contains(obj.getId()))
+                .within(location, radius).nearest();
+
+        if (model == null) {
+            model = Microbot.getClientThread().invoke(() ->
+                    Microbot.getRs2TileObjectCache().query()
+                            .withNameContains(GameObjectId.OFFERINGS_MANY.getSearchTerm())
+                            .within(location, radius).nearest());
+            if (model != null) {
+                discoveredOfferingIds.add(model.getId());
+                Microbot.log("[ValeTotem] Discovered offering id=" + model.getId()
+                        + " name='" + model.getName() + "' — future lookups will use fast ID path");
+            }
+        }
+
+        return toGameObject(model);
     }
 
     /**

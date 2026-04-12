@@ -146,7 +146,7 @@ public class ValeTotemScript extends Script {
             gameSession.setCurrentTotem(TotemLocation.getFirst(currentRouteType));
 
             // Calculate reward collection frequency
-            RewardHandler.COLLECTION_FREQUENCY = config.collectOfferingsFrequency() - 2 + RandomUtils.nextInt(1, 4);
+            RewardHandler.COLLECTION_FREQUENCY = Math.max(1, config.collectOfferingsFrequency() - 2 + RandomUtils.nextInt(1, 4));
             Microbot.log("Reward collection frequency set to: " + RewardHandler.COLLECTION_FREQUENCY);
             
             // Log the route being used
