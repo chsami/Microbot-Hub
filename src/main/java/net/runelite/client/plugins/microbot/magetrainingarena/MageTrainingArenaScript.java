@@ -216,7 +216,8 @@ public class MageTrainingArenaScript extends Script {
 
                 sleepGaussian(600, 150);
             } catch (Exception ex) {
-                if (ex instanceof InterruptedException)
+                if (ex instanceof InterruptedException
+                        || ex.getCause() instanceof InterruptedException)
                     return;
 
                 System.out.println(ex.getMessage());
@@ -445,11 +446,12 @@ public class MageTrainingArenaScript extends Script {
                     .runOnClientThreadOptional(() -> StreamSupport.stream(Microbot.getClient().getProjectiles().spliterator(), false)
                             .noneMatch(x -> x.getId() == SpotanimID.TELEGRAB_TRAVEL))
                     .orElse(true);
+            var position = Microbot.getClientThread().invoke(room::getPosition);
             if (!Rs2Player.isAnimating()
                     && !Rs2Player.isMoving()
                     && noTelegrabProjectile
                     && !TelekineticRoom.getMoves().isEmpty()
-                    && TelekineticRoom.getMoves().peek() == room.getPosition()
+                    && TelekineticRoom.getMoves().peek() == position
                     && room.getGuardian().getId() != NpcID.MAGICTRAINING_GUARD_MAZE_MOVING
                     && !room.getGuardian().getLocalLocation().equals(room.getDestination())) {
                 Rs2Magic.cast(MagicAction.TELEKINETIC_GRAB);
