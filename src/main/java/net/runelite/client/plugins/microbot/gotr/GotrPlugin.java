@@ -41,7 +41,7 @@ import java.util.regex.Matcher;
 )
 @Slf4j
 public class GotrPlugin extends Plugin {
-    public static final String version = "1.5.2";
+    public static final String version = "1.5.4";
 
     @Inject
     private GotrConfig config;
@@ -50,6 +50,9 @@ public class GotrPlugin extends Plugin {
     GotrConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(GotrConfig.class);
     }
+
+    @Inject
+    private ConfigManager configManager;
 
     @Inject
     private OverlayManager overlayManager;
@@ -71,6 +74,10 @@ public class GotrPlugin extends Plugin {
 
     @Override
     protected void startUp() throws AWTException {
+        if (config.maxFragmentAmount() == 0) {
+            configManager.setConfiguration("gotr", "maxFragmentAmount", 100);
+        }
+
         if (overlayManager != null) {
             overlayManager.add(pouchOverlay);
             overlayManager.add(gotrOverlay);
