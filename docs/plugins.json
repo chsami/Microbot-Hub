@@ -1943,7 +1943,7 @@
             "nmz",
             "microbot"
         ],
-        "version": "2.3.1",
+        "version": "2.4.0",
         "minClientVersion": "2.1.0",
         "authors": [
             "Mocrosoft"
@@ -1951,8 +1951,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/NmzPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/NmzPlugin/assets/card.png",
         "disable": false,
-        "sha256": "3e8cd7fd98f305b81f35e3db94db035412e5375c0c8074d6b2c51cc58fc4069c",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/nmzplugin-2.3.1.jar"
+        "sha256": "b29e0b93482c1850b01fb20e3ecb83c78ec1c89d1348a3fcbc36f2dce9670a53",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/nmzplugin-2.4.0.jar"
     },
     {
         "internalName": "GemCrabKillerPlugin",
@@ -2387,7 +2387,7 @@
             "fletching",
             "minigame"
         ],
-        "version": "1.0.7",
+        "version": "1.0.9",
         "minClientVersion": "1.9.7",
         "authors": [
             "Make"
@@ -2395,8 +2395,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         "disable": false,
-        "sha256": "a779f100e40d6ff8dccf770c4f33971c3c39e7bdc423ea2af9bfcf99d6b65f5d",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/valetotemplugin-1.0.7.jar"
+        "sha256": "19ff3d19c6a74c23aecbc1014b5d27f17048e9692258936ac2246a1a17fce6ec",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/valetotemplugin-1.0.9.jar"
     },
     {
         "internalName": "GECookerPlugin",
