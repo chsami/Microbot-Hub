@@ -415,8 +415,8 @@ public class MageTrainingArenaScript extends Script {
             sleep(400, 600);
         }
 
-        var localTarget = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), target);
-        var targetConverted = WorldPoint.fromLocalInstance(Microbot.getClient(), Objects.requireNonNull(localTarget));
+        var localTarget = Microbot.getClientThread().invoke(() -> LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), target));
+        var targetConverted = Microbot.getClientThread().invoke(() -> WorldPoint.fromLocalInstance(Microbot.getClient(), Objects.requireNonNull(localTarget)));
 
         if (Rs2Camera.getZoom() < 40 || Rs2Camera.getZoom() > 60) {
             Rs2Camera.setZoom(Rs2Random.betweenInclusive(40,60));
@@ -431,8 +431,7 @@ public class MageTrainingArenaScript extends Script {
             sleepUntil(() -> Rs2Player.getWorldLocation().distanceTo(teleRoom.getArea()) != 0);
         } else {
             while (!Rs2Player.getWorldLocation().equals(targetConverted)
-                    && (Microbot.getClient().getLocalDestinationLocation() == null
-                    || !Microbot.getClient().getLocalDestinationLocation().equals(localTarget))) {
+                    && !Objects.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalDestinationLocation()), localTarget)) {
                 if (Rs2Camera.isTileOnScreen(localTarget)) {
                     Rs2Walker.walkFastCanvas(targetConverted);
                     sleepGaussian(600, 150);
@@ -442,9 +441,13 @@ public class MageTrainingArenaScript extends Script {
                 sleepUntil(() -> !Rs2Player.isMoving());
             }
 
+            boolean noTelegrabProjectile = Microbot.getClientThread()
+                    .runOnClientThreadOptional(() -> StreamSupport.stream(Microbot.getClient().getProjectiles().spliterator(), false)
+                            .noneMatch(x -> x.getId() == SpotanimID.TELEGRAB_TRAVEL))
+                    .orElse(true);
             if (!Rs2Player.isAnimating()
                     && !Rs2Player.isMoving()
-                    && StreamSupport.stream(Microbot.getClient().getProjectiles().spliterator(), false).noneMatch(x -> x.getId() == SpotanimID.TELEGRAB_TRAVEL)
+                    && noTelegrabProjectile
                     && !TelekineticRoom.getMoves().isEmpty()
                     && TelekineticRoom.getMoves().peek() == room.getPosition()
                     && room.getGuardian().getId() != NpcID.MAGICTRAINING_GUARD_MAZE_MOVING
