@@ -334,10 +334,10 @@ public class VorkathScript extends Script {
                         togglePrayer(false);
                         Rs2Player.eatAt(80);
                         drinkPrayer();
-                        Rs2NpcModel zombieSpawn = Microbot.getRs2NpcCache().query().withName(ZOMBIFIED_SPAWN).first();
+                        Rs2NpcModel zombieSpawn = Microbot.getRs2NpcCache().query().withName(ZOMBIFIED_SPAWN).firstOnClientThread();
                         if (zombieSpawn != null) {
                             Rs2NpcModel currentSpawn;
-                            while ((currentSpawn = Microbot.getRs2NpcCache().query().withName(ZOMBIFIED_SPAWN).first()) != null
+                            while ((currentSpawn = Microbot.getRs2NpcCache().query().withName(ZOMBIFIED_SPAWN).firstOnClientThread()) != null
                                     && !currentSpawn.isDead()
                                     && !doesProjectileExistById(146)) {
                                 Rs2Magic.castOn(MagicAction.CRUMBLE_UNDEAD, currentSpawn);
@@ -347,7 +347,7 @@ public class VorkathScript extends Script {
                             togglePrayer(true);
                             Rs2Tab.switchTo(InterfaceTab.INVENTORY);
                             state = State.FIGHT_VORKATH;
-                            sleepUntil(() -> Microbot.getRs2NpcCache().query().withName(ZOMBIFIED_SPAWN).first() == null);
+                            sleepUntil(() -> Microbot.getRs2NpcCache().query().withName(ZOMBIFIED_SPAWN).firstOnClientThread() == null);
                             if (doesProjectileExistById(redProjectileId)) {
                                 handleRedBall();
                                 sleep(300);
@@ -580,7 +580,7 @@ public class VorkathScript extends Script {
     private void handleRedBall() {
         if (doesProjectileExistById(redProjectileId)) {
             redBallWalk();
-            Rs2NpcModel vorkathNpc = Microbot.getRs2NpcCache().query().withName("Vorkath").first();
+            Rs2NpcModel vorkathNpc = Microbot.getRs2NpcCache().query().withName("Vorkath").firstOnClientThread();
             if (vorkathNpc != null) {
                 vorkathNpc.click("Attack");
             }

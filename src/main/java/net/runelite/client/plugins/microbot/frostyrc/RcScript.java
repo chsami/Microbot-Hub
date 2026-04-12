@@ -479,7 +479,7 @@ public class RcScript extends Script {
             sleepUntil(() -> plugin.getMyWorldPoint().getRegionID() == mythicStatueRegion);
             sleepGaussian(600, 200);
 
-			Rs2TileObjectModel statue = Microbot.getRs2TileObjectCache().query().withName("Mythic Statue").nearest();
+			Rs2TileObjectModel statue = Microbot.getRs2TileObjectCache().query().withName("Mythic Statue").nearestOnClientThread();
 			if (statue != null && !Rs2Player.isAnimating()) {
 				statue.click("Teleport");
 			}

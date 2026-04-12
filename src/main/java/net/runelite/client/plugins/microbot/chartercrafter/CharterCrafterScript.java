@@ -163,7 +163,7 @@ public class CharterCrafterScript extends Script {
             Rs2Inventory.dropAll("Empty light orb", "Light orb");
         }
 
-        Rs2NpcModel trader = Microbot.getRs2NpcCache().query().withName(TRADER_NAME).nearest();
+        Rs2NpcModel trader = Microbot.getRs2NpcCache().query().withName(TRADER_NAME).nearestOnClientThread();
         if (trader == null) {
             update("Bootstrap", "Trader not nearby", false, true);
             state = State.STOP;

@@ -29,7 +29,7 @@ import java.awt.*;
 )
 @Slf4j
 public class npcTannerPlugin extends Plugin {
-    public static final String version = "2.0.1";
+    public static final String version = "2.0.2";
     @Inject
     private npcTannerConfig config;
     @Provides

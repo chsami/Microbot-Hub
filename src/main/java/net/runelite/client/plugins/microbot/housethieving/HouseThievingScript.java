@@ -89,7 +89,7 @@ public class HouseThievingScript extends Script {
                 if (currentThievingHouse == null)
                     currentThievingHouse = getThievingHouse();
 
-                var houseNpc = Microbot.getRs2NpcCache().query().withName(currentThievingHouse.npcName).nearest();
+                var houseNpc = Microbot.getRs2NpcCache().query().withName(currentThievingHouse.npcName).nearestOnClientThread();
                 switch (state) {
                     case PICKPOCKETING:
                         handlePickPocketing(config);
@@ -154,7 +154,7 @@ public class HouseThievingScript extends Script {
             }
         }
 
-        var aureliaNpc = Microbot.getRs2NpcCache().query().withName("Aurelia").nearest();
+        var aureliaNpc = Microbot.getRs2NpcCache().query().withName("Aurelia").nearestOnClientThread();
         Rs2NpcModel distractedWealthyCitizen = null;
         if (aureliaNpc != null) {
             var aureliaAnim = aureliaNpc.getAnimation();
@@ -163,7 +163,7 @@ public class HouseThievingScript extends Script {
                 if (distractedWealthyCitizen != null)
                     pickpocketNpc = null;
             } else if (pickpocketNpc == null) {
-                var nearbyWealthyCitizens = Microbot.getRs2NpcCache().query().withName(WEALTHY_CITIZEN).toList().stream();
+                var nearbyWealthyCitizens = Microbot.getRs2NpcCache().query().withName(WEALTHY_CITIZEN).toListOnClientThread().stream();
                 var aureliaLocation = aureliaNpc.getWorldLocation();
                 var closestWealthyCitizen = nearbyWealthyCitizens.min(Comparator.comparingInt(a -> a.getWorldLocation().distanceTo(aureliaLocation)));
                 closestWealthyCitizen.ifPresent(rs2NpcModel -> pickpocketNpc = rs2NpcModel);
@@ -253,7 +253,7 @@ public class HouseThievingScript extends Script {
                 currentThievingHouse.lockedDoorEgress.getY());
         if (lockedDoorTile != null) {
             var wallObject = lockedDoorTile.getWallObject();
-            var houseNpc = Microbot.getRs2NpcCache().query().withName(currentThievingHouse.npcName).nearest();
+            var houseNpc = Microbot.getRs2NpcCache().query().withName(currentThievingHouse.npcName).nearestOnClientThread();
             if (wallObject != null && wallObject.getId() == LOCKED_DOOR_ID) {
                 Microbot.log(currentThievingHouse.npcName + " house can be thieved", Level.INFO);
                 attemptWaitForHouseNpc(houseNpc);

@@ -159,7 +159,7 @@ public class HerbrunScript extends Script {
 
     private boolean handleHerbPatch() {
         if (Rs2Inventory.isFull()) {
-            Rs2NpcModel leprechaun = Microbot.getRs2NpcCache().query().withName("Tool leprechaun").nearest();
+            Rs2NpcModel leprechaun = Microbot.getRs2NpcCache().query().withName("Tool leprechaun").nearestOnClientThread();
             if (leprechaun != null) {
                 Rs2ItemModel unNoted = Rs2Inventory.getUnNotedItem("Grimy", false);
                 if (unNoted != null) {

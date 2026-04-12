@@ -53,7 +53,7 @@ public class FlaxScript extends Script {
                         }
                         if (config.worldHop() && Rs2Player.hopIfPlayerDetected(1, 10, 10)) return;
                         
-                        Rs2TileObjectModel flaxObject = Microbot.getRs2TileObjectCache().query().withName("flax").within(initialPlayerLocation, config.distanceToStray()).nearest();
+                        Rs2TileObjectModel flaxObject = Microbot.getRs2TileObjectCache().query().withName("flax").within(initialPlayerLocation, config.distanceToStray()).nearestOnClientThread();
                         if (flaxObject != null) {
                             if(flaxObject.click("pick")){
                                 Rs2Antiban.actionCooldown();

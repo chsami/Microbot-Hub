@@ -155,7 +155,7 @@ public class HunterKabbitsScript extends Script {
     private void handleCatchingState(HunterKebbitsConfig config) {
         String npcName = getKebbit(config).getNpcName();
 
-        Rs2NpcModel kebbit = Microbot.getRs2NpcCache().query().withName(npcName).nearest();
+        Rs2NpcModel kebbit = Microbot.getRs2NpcCache().query().withName(npcName).nearestOnClientThread();
         if (kebbit != null && kebbit.click("Catch")) {
             boolean falconActive = false;
             for (int i = 0; i < 10; i++) {

@@ -26,7 +26,7 @@ public class KittenAttentionEvent implements BlockingEvent
     @Override
     public boolean execute()
     {
-        Microbot.getRs2NpcCache().query().withName("Kitten").toList().stream().findFirst().ifPresent(kitten -> kitten.click("Interact"));
+        Microbot.getRs2NpcCache().query().withName("Kitten").toListOnClientThread().stream().findFirst().ifPresent(kitten -> kitten.click("Interact"));
         if (Rs2Dialogue.sleepUntilHasDialogueOption("Stroke")) {
             Rs2Dialogue.clickOption("Stroke");
         }

@@ -183,7 +183,7 @@ public class TzhaarVenatorBowScript extends Script {
                 .where(npc -> npc.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= 6)
                 .where(npc -> VALID_NPCS.contains(npc.getName()))
                 .where(npc -> !INVALID_NPCS.contains(npc.getName()))
-                .toList();
+                .toListOnClientThread();
     }
 
     private List<Rs2NpcModel> getInvalidNpcs() {
@@ -192,7 +192,7 @@ public class TzhaarVenatorBowScript extends Script {
                 .where(npc -> npc.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= 15)
                 .where(npc -> !npc.isDead() && npc.isInteracting())
                 .where(npc -> npc.hasLineOfSight())
-                .toList();
+                .toListOnClientThread();
     }
 
     private void handleTravel(TzHaarVenatorBowConfig config) {

@@ -127,7 +127,7 @@ public class revKillerScript extends Script {
 
                 if(firstRun || weDied) {
                     Microbot.log("It's our first run or we died!");
-                    if(firstRun && Microbot.getRs2NpcCache().query().withName(config.selectedRev().getName()).nearest() != null){
+                    if(firstRun && Microbot.getRs2NpcCache().query().withName(config.selectedRev().getName()).nearestOnClientThread() != null){
                         // we're all ready geared and there
                         firstRun = false;
                         Microbot.log("It's our first run and we're all ready here!");

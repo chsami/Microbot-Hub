@@ -163,7 +163,7 @@ public class AutoEssenceMiningScript extends Script {
         }
         
         // find Aubury NPC
-        Rs2NpcModel aubury = Microbot.getRs2NpcCache().query().withName("Aubury").nearest();
+        Rs2NpcModel aubury = Microbot.getRs2NpcCache().query().withName("Aubury").nearestOnClientThread();
         if (aubury != null) {
             log.info("Found Aubury, attempting teleport");
             if (aubury.click("Teleport")) {
@@ -196,7 +196,7 @@ public class AutoEssenceMiningScript extends Script {
         }
         
         // find essence rock to mine
-        var essenceRock = Microbot.getRs2TileObjectCache().query().withName("Rune Essence").nearest();
+        var essenceRock = Microbot.getRs2TileObjectCache().query().withName("Rune Essence").nearestOnClientThread();
 
         if (essenceRock != null) {
             log.info("Found rune essence rock, attempting to mine");
@@ -230,7 +230,7 @@ public class AutoEssenceMiningScript extends Script {
         }
 
         // find the portal to exit
-        var portal = Microbot.getRs2TileObjectCache().query().withName("Portal").nearest();
+        var portal = Microbot.getRs2TileObjectCache().query().withName("Portal").nearestOnClientThread();
 
         if (portal != null) {
             log.info("Found portal, attempting to use it");

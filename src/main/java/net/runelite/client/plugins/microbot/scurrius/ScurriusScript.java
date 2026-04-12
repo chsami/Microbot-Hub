@@ -67,7 +67,7 @@ public class ScurriusScript extends Script {
                     previousState = state;
                 }
 
-                scurrius = Microbot.getRs2NpcCache().query().withName("Scurrius").nearest();
+                scurrius = Microbot.getRs2NpcCache().query().withName("Scurrius").nearestOnClientThread();
 
                 boolean hasFood = !Rs2Inventory.getInventoryFood().isEmpty();
                 boolean hasPrayerPotions = Rs2Inventory.hasItem("prayer potion") || Rs2Inventory.hasItem("super restore");

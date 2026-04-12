@@ -110,7 +110,8 @@ public class FaloTheBardClueTask extends ClueTask {
 
     private boolean interactWithNpc() {
         log.info("Interacting with Falo the Bard NPC.");
-        return Microbot.getRs2NpcCache().query().withName("Falo the Bard").interact("Talk-to");
+        var falo = Microbot.getRs2NpcCache().query().withName("Falo the Bard").nearestOnClientThread();
+        return falo != null && falo.click("Talk-to");
     }
 
     private boolean confirmClueCompletion() {

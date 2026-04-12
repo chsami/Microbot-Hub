@@ -159,7 +159,7 @@ public class PestControlScript extends Script {
                         return;
                     }
 
-                    var brawler = Microbot.getRs2NpcCache().query().withName("brawler").nearest();
+                    var brawler = Microbot.getRs2NpcCache().query().withName("brawler").nearestOnClientThread();
                     if (brawler != null && brawler.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) < 3) {
                         brawler.click("Attack");
                         sleepUntil(() -> !Rs2Combat.inCombat());
@@ -359,7 +359,7 @@ public class PestControlScript extends Script {
 
     private static boolean attackPortal() {
         if (!Microbot.getClient().getLocalPlayer().isInteracting()) {
-            Rs2NpcModel npcPortal = Microbot.getRs2NpcCache().query().withName("portal").nearest();
+            Rs2NpcModel npcPortal = Microbot.getRs2NpcCache().query().withName("portal").nearestOnClientThread();
             if (npcPortal == null) return false;
             NPCComposition npc = Microbot.getClientThread().runOnClientThreadOptional(() ->
                     Microbot.getClient().getNpcDefinition(npcPortal.getId())).orElse(null);

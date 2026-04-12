@@ -482,7 +482,7 @@ public class BlueDragonsScript extends Script {
 
 
     private Rs2NpcModel getAvailableDragon() {
-        Rs2NpcModel dragon = Microbot.getRs2NpcCache().query().withName("Blue dragon").nearest();
+        Rs2NpcModel dragon = Microbot.getRs2NpcCache().query().withName("Blue dragon").nearestOnClientThread();
         logOnceToChat("Found dragon: " + (dragon != null ? "Yes (ID: " + dragon.getId() + ")" : "No"), true, config);
 
         if (dragon != null) {

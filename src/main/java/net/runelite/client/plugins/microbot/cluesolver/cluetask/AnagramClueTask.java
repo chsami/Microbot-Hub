@@ -133,7 +133,7 @@ public class AnagramClueTask extends ClueTask {
     private void transitionToInteractionState() {
         if (clue.getObjectId() != -1) {
             state = State.INTERACTING_WITH_OBJECT;
-        } else if (clue.getNpcProvider() != null && Microbot.getRs2NpcCache().query().withName(clue.getNpcName(clueScrollPlugin)).nearest() != null) {
+        } else if (clue.getNpcProvider() != null && Microbot.getRs2NpcCache().query().withName(clue.getNpcName(clueScrollPlugin)).nearestOnClientThread() != null) {
             state = State.INTERACTING_WITH_NPC;
         } else {
             log.warn("No valid interaction target found.");
@@ -158,7 +158,7 @@ public class AnagramClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        var targetNpc = Microbot.getRs2NpcCache().query().withName(clue.getNpcName(clueScrollPlugin)).nearest();
+        var targetNpc = Microbot.getRs2NpcCache().query().withName(clue.getNpcName(clueScrollPlugin)).nearestOnClientThread();
         if (targetNpc == null) {
             log.warn("NPC {} not found.", clue.getNpcName(clueScrollPlugin));
             return false;

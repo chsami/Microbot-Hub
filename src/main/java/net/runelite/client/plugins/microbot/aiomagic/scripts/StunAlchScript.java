@@ -107,7 +107,7 @@ public class StunAlchScript extends Script {
                 } else {
                     var configuredNpc = Microbot.getRs2NpcCache().query()
                             .withName(targetNpcName)
-                            .nearest();
+                            .nearestOnClientThread();
                     if (configuredNpc == null) {
                         Microbot.log("Unable to find NPC: " + targetNpcName);
                         return;

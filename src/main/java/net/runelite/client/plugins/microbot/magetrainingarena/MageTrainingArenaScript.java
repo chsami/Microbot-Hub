@@ -544,7 +544,7 @@ public class MageTrainingArenaScript extends Script {
         }
 
         if (room.getSuggestion() == null) {
-            Microbot.getRs2TileObjectCache().query().withName("Cupboard").interact("Search");
+            Microbot.getClientThread().invoke(() -> Microbot.getRs2TileObjectCache().query().withName("Cupboard").interact("Search"));
             sleep(300,600);
 
             if (sleepUntilTrue(Rs2Player::isMoving, 100, 1000))

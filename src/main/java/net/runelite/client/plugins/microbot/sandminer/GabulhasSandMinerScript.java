@@ -111,7 +111,7 @@ public class GabulhasSandMinerScript extends Script {
                                 new WorldPoint(3164, 2905, 0) : new WorldPoint(3166, 2905, 0);
                         var innerSandstoneRock = Microbot.getRs2TileObjectCache().query()
                                 .withName("Sandstone rocks")
-                                .nearest(innerMiningPoint, 0);
+                                .nearestOnClientThread(innerMiningPoint, 0);
                         if (innerSandstoneRock != null) innerSandstoneRock.click("Mine");
                         Rs2Player.waitForXpDrop(Skill.MINING, 15000);
                         Rs2Antiban.actionCooldown();
@@ -121,7 +121,7 @@ public class GabulhasSandMinerScript extends Script {
                 }
                 var sandstoneRock = Microbot.getRs2TileObjectCache().query()
                         .withName("Sandstone rocks")
-                        .nearest(miningPoint, 5);
+                        .nearestOnClientThread(miningPoint, 5);
                 if (sandstoneRock != null) {
                     sandstoneRock.click("Mine");
                     if (config.turboMode()) {

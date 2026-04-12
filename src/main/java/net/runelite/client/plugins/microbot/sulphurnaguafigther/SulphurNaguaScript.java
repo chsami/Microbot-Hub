@@ -524,7 +524,7 @@ public class SulphurNaguaScript extends Script {
                 var nagua = Microbot.getRs2NpcCache().query()
                         .withName("Sulphur Nagua")
                         .where(n -> !n.isDead())
-                        .first();
+                        .firstOnClientThread();
 
                 if (nagua != null) {
                     if (nagua.click("Attack")) {

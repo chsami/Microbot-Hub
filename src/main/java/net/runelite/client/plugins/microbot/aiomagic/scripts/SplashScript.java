@@ -63,7 +63,7 @@ public class SplashScript extends Script {
 
 					Rs2NpcModel targetNpc = Microbot.getRs2NpcCache().query()
 							.withName(targetNpcName)
-							.nearest();
+							.nearestOnClientThread();
 					if (targetNpc == null) {
 						Microbot.log("Unable to find NPC: " + targetNpcName);
 						return;

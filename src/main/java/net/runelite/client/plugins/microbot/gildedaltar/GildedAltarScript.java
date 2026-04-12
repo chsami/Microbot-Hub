@@ -35,7 +35,7 @@ public class GildedAltarScript extends Script {
     public static GildedAltarPlayerState state = GildedAltarPlayerState.IDLE;
 
     private boolean inHouse() {
-        return Microbot.getRs2NpcCache().query().withName("Phials").nearest() == null;
+        return Microbot.getRs2NpcCache().query().withName("Phials").nearestOnClientThread() == null;
     }
 
     private boolean hasUnNotedBones() {
@@ -155,7 +155,7 @@ public class GildedAltarScript extends Script {
             if (!Rs2Inventory.isItemSelected()) {
                 Rs2Inventory.use("bones");
             } else {
-                Microbot.getRs2NpcCache().query().withName("Phials").interact("Use");
+                Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Phials").interact("Use"));
                 Rs2Player.waitForWalking();
             }
         } else if (Microbot.getClient().getWidget(14352385) != null) {
@@ -242,7 +242,7 @@ public class GildedAltarScript extends Script {
         }
 
 
-        Rs2TileObjectModel altar = Microbot.getRs2TileObjectCache().query().withName("Altar").nearest();
+        Rs2TileObjectModel altar = Microbot.getRs2TileObjectCache().query().withName("Altar").nearestOnClientThread();
         if (altar != null) {
             Rs2Inventory.useUnNotedItemOnObject("bones", altar.getId());
         Rs2Player.waitForAnimation();

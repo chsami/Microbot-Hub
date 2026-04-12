@@ -813,7 +813,7 @@ public class BarrowsScript extends Script {
 
                 //strange old man body blocking us
 
-                Rs2NpcModel strangeOldMan = rs2NpcCache.query().withName("Strange Old Man").nearest();
+                Rs2NpcModel strangeOldMan = rs2NpcCache.query().withName("Strange Old Man").nearestOnClientThread();
 
                 if(strangeOldMan !=null){
                     if(strangeOldMan.getWorldLocation() != null){
@@ -878,7 +878,7 @@ public class BarrowsScript extends Script {
             if(RP>870) return;
 
 
-            Rs2NpcModel skele = rs2NpcCache.query().withName("Skeleton").nearest();
+            Rs2NpcModel skele = rs2NpcCache.query().withName("Skeleton").nearestOnClientThread();
 
             if(skele == null || skele.isDead()) return;
 

@@ -104,7 +104,7 @@ public class npcTannerScript extends Script {
                 }
             } else {
                 Microbot.status="Tanning: "+npcTannerScript.whattotan;
-                Rs2NpcModel ellis = Microbot.getRs2NpcCache().query().withName("Ellis").nearest();
+                Rs2NpcModel ellis = Microbot.getRs2NpcCache().query().withName("Ellis").nearestOnClientThread();
                 if(ellis != null && ellis.click("Trade")){
                     sleep(1000, 3000);
                 }

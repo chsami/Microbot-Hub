@@ -1000,9 +1000,9 @@ public class FarmTreeRunScript extends Script {
      * @return true if gardener interaction successful, else false
      */
     private void handleExoticGardeners() {
-        var nikkie = Microbot.getRs2NpcCache().query().withName("Nikkie").nearest();
+        var nikkie = Microbot.getRs2NpcCache().query().withName("Nikkie").nearestOnClientThread();
 
-        var rosie = Microbot.getRs2NpcCache().query().withName("Rosie").nearest();
+        var rosie = Microbot.getRs2NpcCache().query().withName("Rosie").nearestOnClientThread();
 
         String paymentAction = "";
         net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel npcToInteract = null;

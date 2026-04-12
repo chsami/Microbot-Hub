@@ -143,7 +143,7 @@ public class TheMessScript extends Script {
                     return;
                 }
                 if (Rs2GameObject.canReach(BUFFET_TABLE_LOC)) {
-                    Microbot.getRs2TileObjectCache().query().withName("Buffet table").interact("Serve");
+                    Microbot.getClientThread().invoke(() -> Microbot.getRs2TileObjectCache().query().withName("Buffet table").interact("Serve"));
                     sleepUntil(() -> Rs2Player.waitForXpDrop(Skill.COOKING), 10000);
                 } else {
                     debug("Cannot reach the buffet table, waiting...");

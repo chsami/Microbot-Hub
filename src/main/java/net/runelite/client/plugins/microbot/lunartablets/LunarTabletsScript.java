@@ -135,7 +135,8 @@ public class LunarTabletsScript extends Script {
                 }
             } else {
                 // interact with lecturn
-                if(Microbot.getRs2TileObjectCache().query().withName("Lectern").interact("Study")){
+                var lectern = Microbot.getRs2TileObjectCache().query().withName("Lectern").nearestOnClientThread();
+                if(lectern != null && lectern.click("Study")){
                     sleep(generateRandomNumber(0,1000));
                 }
             }

@@ -32,7 +32,7 @@ import java.time.Instant;
 )
 public class HunterKebbitsPlugin extends Plugin {
 
-    public static final String version = "1.1.0";
+    public static final String version = "1.1.1";
 
     @Inject
     private Client client;

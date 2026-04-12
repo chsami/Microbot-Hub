@@ -103,7 +103,8 @@ public class GiantsFoundryScript extends Script {
     public void getCommission() {
         if (!hasCommission()) {
             GiantsFoundryState.reset();
-            if (Microbot.getRs2NpcCache().query().withName("kovac").interact("Commission"))
+            var kovac = Microbot.getRs2NpcCache().query().withName("kovac").nearestOnClientThread();
+            if (kovac != null && kovac.click("Commission"))
                 sleepUntil(this::hasCommission, 5000);
         }
     }
@@ -330,7 +331,7 @@ public class GiantsFoundryScript extends Script {
     }
 
     private void handIn() {
-        Microbot.getRs2NpcCache().query().withName("kovac").interact("Hand-in");
+        Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("kovac").interact("Hand-in"));
     }
 
 }

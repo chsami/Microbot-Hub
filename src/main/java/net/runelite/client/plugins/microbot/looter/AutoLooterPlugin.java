@@ -25,7 +25,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class AutoLooterPlugin extends Plugin {
-    public static final String version = "1.1.1";
+    public static final String version = "1.1.2";
     @Inject
     DefaultScript defaultScript;
     @Inject

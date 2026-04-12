@@ -25,7 +25,7 @@ import java.time.Instant;
 )
 public class TzhaarVenatorBowPlugin extends Plugin {
 
-    public final static String version = "1.0.1";
+    public final static String version = "1.0.2";
 
     private Instant scriptStartTime;
     @Inject

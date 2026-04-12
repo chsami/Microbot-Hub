@@ -236,7 +236,7 @@ public class AmmoniteCrabScript extends Script {
      * @return true if npc is aggressive
      */
     private boolean isNpcAggressive() {
-        List<Rs2NpcModel> npcs = Microbot.getRs2NpcCache().query().withName("Fossil Rock").toList();
+        List<Rs2NpcModel> npcs = Microbot.getRs2NpcCache().query().withName("Fossil Rock").toListOnClientThread();
         if (npcs.isEmpty()) {
             return true;
         }

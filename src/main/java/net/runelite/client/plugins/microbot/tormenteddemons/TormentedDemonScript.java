@@ -333,7 +333,7 @@ public class TormentedDemonScript extends Script {
                     logOnceToChat("Null HeadIcon for NPC " + npc.getName());
                     return false;
                 })
-                .first();
+                .firstOnClientThread();
     }
 
     private void switchGear(TormentedDemonConfig config, HeadIcon combatNpcHeadIcon) {

@@ -19,7 +19,7 @@ import java.time.Instant;
 @PluginDescriptor(
         name = PluginConstants.CRANNY + "Bagged Plants",
         description = "Cranny's Bagged Plant Planter",
-        version = "1.0.0",
+        version = "1.0.1",
         minClientVersion = "1.9.8",
         tags = {"skilling", "construction", "farming"},
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,

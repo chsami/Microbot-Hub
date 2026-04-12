@@ -596,7 +596,7 @@ public class TutorialIslandScript extends Script {
         } else if (Microbot.getVarbitPlayerValue(281) == 500) {
             Rs2Walker.walkTo(new WorldPoint(3111, 9526, Rs2Player.getWorldLocation().getPlane()));
             Rs2Player.waitForWalking();
-            Microbot.getRs2TileObjectCache().query().withName("Ladder").interact("Climb-up");
+            Microbot.getClientThread().invoke(() -> Microbot.getRs2TileObjectCache().query().withName("Ladder").interact("Climb-up"));
             sleepUntil(() -> Microbot.getVarbitPlayerValue(281) != 500);
         } else if (Microbot.getVarbitPlayerValue(281) == 480 || Microbot.getVarbitPlayerValue(281) == 490) {
             Actor rat = Rs2Player.getInteracting();
@@ -609,7 +609,7 @@ public class TutorialIslandScript extends Script {
                 Rs2Walker.walkTo(new WorldPoint(3110, 9523, 0), 4);
             }
             Rs2Player.waitForWalking();
-            Microbot.getRs2NpcCache().query().withName("Giant rat").interact("Attack");
+            Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Giant rat").interact("Attack"));
         } else if (Microbot.getVarbitPlayerValue(281) == 470) {
             Rs2Walker.walkTo(npc.getWorldLocation());
             Rs2Player.waitForWalking();
@@ -625,7 +625,7 @@ public class TutorialIslandScript extends Script {
                 WorldPoint worldPoint = new WorldPoint(3105, 9517, 0);
                 Rs2Walker.walkTo(worldPoint, 3);
                 Rs2Player.waitForWalking();
-                Microbot.getRs2NpcCache().query().withName("Giant rat").interact("Attack");
+                Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Giant rat").interact("Attack"));
             } else {
                 Rs2Tab.switchTo(InterfaceTab.INVENTORY);
                 Rs2Random.waitEx(600, 100);
@@ -651,7 +651,7 @@ public class TutorialIslandScript extends Script {
                 return;
             }
             if (Rs2Inventory.contains("Bronze bar") && Rs2Inventory.contains("Hammer")) {
-                Microbot.getRs2TileObjectCache().query().withName("Anvil").interact("Smith");
+                Microbot.getClientThread().invoke(() -> Microbot.getRs2TileObjectCache().query().withName("Anvil").interact("Smith"));
                 sleepUntil(Rs2Widget::isSmithingWidgetOpen);
                 Rs2Widget.clickWidget(312, 9); // Smith Bronze Dagger
                 Rs2Random.waitEx(1200, 300);
@@ -757,7 +757,7 @@ public class TutorialIslandScript extends Script {
     }
 
     public void CutTree() {
-        Microbot.getRs2TileObjectCache().query().withName("Tree").interact("Chop down");
+        Microbot.getClientThread().invoke(() -> Microbot.getRs2TileObjectCache().query().withName("Tree").interact("Chop down"));
         sleepUntil(() -> Rs2Inventory.hasItem("Logs") && !Rs2Player.isAnimating(2400));
     }
 
@@ -799,7 +799,7 @@ public class TutorialIslandScript extends Script {
         Rs2Widget.clickWidget(windStrike);
         Rs2Random.waitEx(150, 50);
 
-        Rs2NpcModel chicken = Microbot.getRs2NpcCache().query().withName("chicken").nearest();
+        Rs2NpcModel chicken = Microbot.getRs2NpcCache().query().withName("chicken").nearestOnClientThread();
         if (chicken == null) return false;
 
         if (!chicken.click("Cast")) {
