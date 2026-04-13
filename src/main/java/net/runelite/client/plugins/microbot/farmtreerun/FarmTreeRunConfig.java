@@ -26,6 +26,8 @@ import net.runelite.client.plugins.microbot.farmtreerun.enums.TreeEnums;
         "<ol>\n" +
         "    <li>Taverley teleport tab</li>\n" +
         "    <li>Skills necklace (2 to 6)</li>\n" +
+        "    <li>Construction cape (at 99 Construction) - auto-grabbed for POH teleports</li>\n" +
+        "    <li>Crystal tree sapling (for Prifddinas patch, requires Song of the Elves)</li>\n" +
         "</ol>" +
         "<br> Optional:\n" +
         "<ol>\n" +
@@ -260,6 +262,15 @@ public interface FarmTreeRunConfig extends Config {
             section = treePatchesSection
     )
     default boolean auburnTreePatch() { return true; }
+
+    @ConfigItem(
+            keyName = "priffddinasCrystalTree",
+            name = "Prifddinas (Crystal)",
+            description = "Prifddinas Crystal tree patch (requires 74 Farming and Song of the Elves). Uses a Crystal tree sapling.",
+            position = 7,
+            section = treePatchesSection
+    )
+    default boolean priffddinasCrystalTreePatch() { return false; }
 
     /* =========================
      * Fruit tree patches — ordered to match run:
