@@ -82,6 +82,7 @@ public class FarmTreeRunScript extends Script {
         FOSSIL_TREE_PATCH_C(30481, new WorldPoint(3701, 3840, 0), TreeKind.HARD_TREE, 1, 0),
         AUBURNVALE_TREE_PATCH(56953, new WorldPoint(1365, 3320, 0), TreeKind.TREE, 1, 0),
         KASTORI_FRUIT_TREE_PATCH(56955, new WorldPoint(1349, 3058, 0), TreeKind.FRUIT_TREE, 1, 12765),
+        PRIFFDDINAS_CRYSTAL_TREE_PATCH(34906, new WorldPoint(3291, 6117, 0), TreeKind.TREE, 74, 0),
         AVIUM_SAVANNAH_HARDWOOD_PATCH(50692, new WorldPoint(1684, 2974, 0), TreeKind.HARD_TREE,1,0);
 
         private final int id;
@@ -119,6 +120,7 @@ public class FarmTreeRunScript extends Script {
                 }
                 calculatePatches(config);
                 checkSaplingLevelRequirement(config);
+                if (!validateSpecialPatches(config)) return;
 
                 dropEmptyPlantPots();
                 Patch patch = null;
@@ -318,6 +320,17 @@ public class FarmTreeRunScript extends Script {
                             }
                             if (!handledPatch) return;
                         }
+                        botStatus = net.runelite.client.plugins.microbot.farmtreerun.enums.FarmTreeRunState.HANDLE_PRIFFDDINAS_CRYSTAL_TREE_PATCH;
+                        break;
+                    }
+                    case HANDLE_PRIFFDDINAS_CRYSTAL_TREE_PATCH: {
+                        patch = Patch.PRIFFDDINAS_CRYSTAL_TREE_PATCH;
+                        if (config.priffddinasCrystalTreePatch() && patch.hasRequiredLevel()) {
+                            if (walkToLocation(patch.getLocation())) {
+                                handledPatch = handlePatch(config, patch);
+                            }
+                            if (!handledPatch) return;
+                        }
                         botStatus = net.runelite.client.plugins.microbot.farmtreerun.enums.FarmTreeRunState.HANDLE_AVIUM_SAVANNAH_HARDWOOD_PATCH;
                         break;
                     }
@@ -363,6 +376,23 @@ public class FarmTreeRunScript extends Script {
             shutdown();
 
         }
+    }
+
+    private boolean validateSpecialPatches(FarmTreeRunConfig config) {
+        if (config.priffddinasCrystalTreePatch()) {
+            int farmingLevel = Rs2Player.getRealSkillLevel(Skill.FARMING);
+            if (farmingLevel < 74) {
+                Microbot.showMessage("Prifddinas Crystal tree requires 74 Farming (you have " + farmingLevel + "). Disable the Prifddinas patch or train Farming before starting. Shutting down.");
+                shutdown();
+                return false;
+            }
+            if (Rs2Player.getQuestState(Quest.SONG_OF_THE_ELVES) != QuestState.FINISHED) {
+                Microbot.showMessage("Prifddinas Crystal tree requires Song of the Elves to be completed. Disable the Prifddinas patch before starting. Shutting down.");
+                shutdown();
+                return false;
+            }
+        }
+        return true;
     }
 
     private void checkSaplingLevelRequirement(FarmTreeRunConfig config) {
@@ -450,6 +480,15 @@ public class FarmTreeRunScript extends Script {
                 }
             }
 
+            // Construction cape (99 Construction): useful for POH/teleport options
+            if (Rs2Player.getRealSkillLevel(Skill.CONSTRUCTION) >= 99) {
+                if (Rs2Bank.hasItem(ItemID.CONSTRUCT_CAPET)) {
+                    items.add(new FarmingItem(ItemID.CONSTRUCT_CAPET, 1, false, true));
+                } else if (Rs2Bank.hasItem(ItemID.CONSTRUCT_CAPE)) {
+                    items.add(new FarmingItem(ItemID.CONSTRUCT_CAPE, 1, false, true));
+                }
+            }
+
             if (config.useSkillsNecklace() && (config.farmingGuildTreePatch() || config.farmingGuildFruitTreePatch())) {
                 if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE2)) {
                     items.add(new FarmingItem(ItemID.SKILLS_NECKLACE2, 1));
@@ -475,8 +514,16 @@ public class FarmTreeRunScript extends Script {
             int fruitTreeSaplingsCount = getSelectedFruitTreePatches(config).size();
             int hardTreeSaplingsCount = getSelectedHardTreePatches(config).size();
 
-            if (treeSaplingsCount > 0)
-                items.add(new FarmingItem(selectedTree.getSaplingId(), treeSaplingsCount));
+            // Crystal tree patch uses its own sapling, not the selected regular tree sapling
+            boolean priffEnabled = config.priffddinasCrystalTreePatch()
+                    && Patch.PRIFFDDINAS_CRYSTAL_TREE_PATCH.hasRequiredLevel();
+            int regularTreeSaplingsCount = priffEnabled ? treeSaplingsCount - 1 : treeSaplingsCount;
+
+            if (regularTreeSaplingsCount > 0)
+                items.add(new FarmingItem(selectedTree.getSaplingId(), regularTreeSaplingsCount));
+
+            if (priffEnabled)
+                items.add(new FarmingItem(ItemID.CRYSTAL_SAPLING, 1));
 
             if (fruitTreeSaplingsCount > 0)
                 items.add(new FarmingItem(selectedFruitTree.getSaplingId(), fruitTreeSaplingsCount));
@@ -484,8 +531,8 @@ public class FarmTreeRunScript extends Script {
             if (hardTreeSaplingsCount > 0)
                 items.add(new FarmingItem(selectedHardTree.getSaplingId(), hardTreeSaplingsCount));
 
-            if (config.protectTrees())
-                items.add(new FarmingItem(selectedTree.getPaymentId(), selectedTree.getPaymentAmount() * treeSaplingsCount, true));
+            if (config.protectTrees() && regularTreeSaplingsCount > 0)
+                items.add(new FarmingItem(selectedTree.getPaymentId(), selectedTree.getPaymentAmount() * regularTreeSaplingsCount, true));
 
             if (config.protectHardTrees())
                 items.add(new FarmingItem(selectedHardTree.getPaymentId(), selectedHardTree.getPaymentAmount() * hardTreeSaplingsCount, true));
@@ -899,7 +946,8 @@ public class FarmTreeRunScript extends Script {
                 config::taverleyTreePatch,
                 config::varrockTreePatch,
                 config::farmingGuildTreePatch,
-                config::auburnTreePatch
+                config::auburnTreePatch,
+                config::priffddinasCrystalTreePatch
         );
 
         // Filter the patches to include only those that return true
@@ -985,6 +1033,9 @@ public class FarmTreeRunScript extends Script {
     private static int getSaplingToUse(Patch patch, FarmTreeRunConfig config) {
         if (patch == Patch.FOSSIL_TREE_PATCH_A || patch == Patch.FOSSIL_TREE_PATCH_B || patch == Patch.FOSSIL_TREE_PATCH_C ) {
             return config.selectedHardTree().getSaplingId();
+
+        } else if (patch == Patch.PRIFFDDINAS_CRYSTAL_TREE_PATCH) {
+            return ItemID.CRYSTAL_SAPLING;
 
         } else return patch.kind == TreeKind.TREE ?
                 config.selectedTree().getSaplingId() :
