@@ -13,8 +13,25 @@ All casting is dispatched through the Microbot client's existing `Rs2Magic.castO
 | Option | Default | Description |
 | --- | --- | --- |
 | **Enabled** | `true` | Master switch. When off, no menu entries are inserted. |
-| **Spell** | `Fire Strike` | The spell cast on left-click. Only spells in the dropdown are supported. |
+| **Spell** | `Fire Strike` | Legacy single-spell setting. On startup the plugin migrates this into **Slot 1 Spell** if Slot 1 is still at its default — keeps existing configs working without any manual action. |
 | **Require magic weapon** | `true` | When on, the Cast entry only shows while a staff, bladed staff, powered staff, or powered wand is equipped (detected via varbit `EQUIPPED_WEAPON_TYPE`). Disable to cast regardless of weapon. |
+
+### Spell slots and hotkeys
+
+The plugin exposes five independently configurable spell slots, grouped under two sections in the config panel:
+
+| Section | Options |
+| --- | --- |
+| **Spell Slots** | `Slot 1 Spell` … `Slot 5 Spell` — each picks any spell from the full supported-spells dropdown. All five default to `Fire Strike`. |
+| **Hotkeys** | `Slot 1 Hotkey` … `Slot 5 Hotkey` — RuneLite-standard hotkey pickers, all unbound by default. `Chat feedback on slot change` — toggles the chat message posted when a hotkey switches slots (default on). |
+
+**How slot switching works:**
+
+- **Slot 1 is always active at startup.** Enabling the plugin (or restarting the client) resets the active slot to Slot 1. The active slot is runtime-only — it is never written to config.
+- **Press a bound slot hotkey** (while the game window is focused and no text field is active) to make that slot the active slot. The next menu-sort uses the new slot's spell.
+- **Unbound hotkeys are inert.** A slot whose hotkey is `Not set` cannot be activated by keypress. RuneLite's hotkey plumbing suppresses hotkeys while you're typing in a chat or search widget, so hotkey letters won't accidentally swap slots during text entry.
+- **Slot 1 needs no hotkey.** Because it's the startup default, leave its hotkey unbound unless you want to explicitly return to it from another slot.
+- **Chat feedback** (when enabled) prints `Left-Click Cast: now casting <SpellName>` on every slot change. Toggle it off if it's noisy during combat rotations.
 
 ## Limitations
 
