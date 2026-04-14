@@ -1,15 +1,18 @@
 package net.runelite.client.plugins.microbot.leftclickcast;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Provides;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import javax.inject.Inject;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.api.EnumComposition;
+import net.runelite.api.EnumID;
+import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
+import net.runelite.api.Menu;
 import net.runelite.api.NPC;
-import net.runelite.api.events.MenuEntryAdded;
+import net.runelite.api.ParamID;
+import net.runelite.api.StructComposition;
+import net.runelite.api.events.PostMenuSort;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -29,14 +32,9 @@ import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL
 )
-@Slf4j
 public class LeftClickCastPlugin extends Plugin
 {
 	static final String version = "1.0.0";
-
-	// Magic WeaponType ordinals against varbit 357 (EQUIPPED_WEAPON_TYPE).
-	// Sourced from the RuneLite core WeaponType enum: STAFF, BLADED_STAFF, POWERED_STAFF, POWERED_WAND.
-	private static final Set<Integer> MAGIC_WEAPON_TYPES = ImmutableSet.of(22, 23, 26, 27);
 
 	@Inject
 	private Client client;
@@ -51,47 +49,94 @@ public class LeftClickCastPlugin extends Plugin
 	}
 
 	@Subscribe
-	public void onMenuEntryAdded(MenuEntryAdded event)
+	public void onPostMenuSort(PostMenuSort event)
 	{
+		// Don't mutate while the right-click menu is open — entries are frozen at open-time.
+		if (client.isMenuOpen())
+		{
+			return;
+		}
 		if (!config.enabled())
 		{
 			return;
 		}
-
 		PertTargetSpell spell = config.spell();
 		if (spell == null)
 		{
 			return;
 		}
-
-		if (!"Attack".equals(event.getOption()))
-		{
-			return;
-		}
-
-		MenuEntry entry = event.getMenuEntry();
-		NPC npc = entry.getNpc();
-		if (npc == null)
-		{
-			return;
-		}
-
 		if (config.requireMagicWeapon() && !isMagicWeaponEquipped())
 		{
 			return;
 		}
 
-		client.getMenu().createMenuEntry(-1)
-			.setOption("Cast")
-			.setTarget("<col=00ff00>" + spell.getDisplayName() + "</col> " + event.getTarget())
-			.setType(net.runelite.api.MenuAction.RUNELITE)
-			// Rs2Magic.castOn uses sleepUntil, which is a no-op on the client thread — dispatch off-thread.
-			.onClick(e -> CompletableFuture.runAsync(
-				() -> Rs2Magic.castOn(spell.getMagicAction(), new Rs2NpcModel(npc))));
+		Menu menu = client.getMenu();
+		MenuEntry[] entries = menu.getMenuEntries();
+
+		// Find the top-most NPC Attack entry (the game's already-sorted left-click candidate).
+		int attackIdx = -1;
+		NPC npc = null;
+		for (int i = entries.length - 1; i >= 0; i--)
+		{
+			MenuEntry e = entries[i];
+			if ("Attack".equals(e.getOption()) && e.getNpc() != null)
+			{
+				attackIdx = i;
+				npc = e.getNpc();
+				break;
+			}
+		}
+		if (attackIdx < 0)
+		{
+			return;
+		}
+
+		MenuEntry attack = entries[attackIdx];
+		final NPC target = npc;
+		attack.setOption("Cast " + spell.getDisplayName());
+		attack.setType(MenuAction.RUNELITE);
+		// Rs2Magic.castOn uses sleepUntil, which is a no-op on the client thread — dispatch off-thread.
+		attack.onClick(e -> CompletableFuture.runAsync(
+			() -> Rs2Magic.castOn(spell.getMagicAction(), new Rs2NpcModel(target))));
+
+		// Move to the tail of the array — that slot is the left-click action in RuneLite's menu model.
+		if (attackIdx != entries.length - 1)
+		{
+			entries[attackIdx] = entries[entries.length - 1];
+			entries[entries.length - 1] = attack;
+			menu.setMenuEntries(entries);
+		}
 	}
 
+	// A weapon counts as "magic" when its style struct exposes Casting or Defensive Casting.
+	// Mirrors the core AttackStylesPlugin logic (EnumID.WEAPON_STYLES + ParamID.ATTACK_STYLE_NAME).
 	private boolean isMagicWeaponEquipped()
 	{
-		return MAGIC_WEAPON_TYPES.contains(client.getVarbitValue(VarbitID.COMBAT_WEAPON_CATEGORY));
+		int weaponType = client.getVarbitValue(VarbitID.COMBAT_WEAPON_CATEGORY);
+		EnumComposition weaponStyles = client.getEnum(EnumID.WEAPON_STYLES);
+		if (weaponStyles == null)
+		{
+			return false;
+		}
+		int styleEnumId = weaponStyles.getIntValue(weaponType);
+		if (styleEnumId == -1)
+		{
+			return false;
+		}
+		int[] styleStructs = client.getEnum(styleEnumId).getIntVals();
+		for (int structId : styleStructs)
+		{
+			StructComposition sc = client.getStructComposition(structId);
+			if (sc == null)
+			{
+				continue;
+			}
+			String name = sc.getStringValue(ParamID.ATTACK_STYLE_NAME);
+			if ("Casting".equalsIgnoreCase(name) || "Defensive Casting".equalsIgnoreCase(name))
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 }
