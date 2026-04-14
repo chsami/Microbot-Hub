@@ -1,6 +1,6 @@
 # Left-Click Cast
 
-Replaces the left-click **Attack** option on attackable NPCs with a preconfigured **Cast Spell** action. The plugin stays invisible when you swap to a melee or ranged weapon, so leaving it enabled is safe.
+Replaces the left-click **Attack** option on attackable NPCs and on players (wilderness / PvP) with a preconfigured **Cast Spell** action. The plugin stays invisible when you swap to a melee or ranged weapon, so leaving it enabled is safe.
 
 ## How it works
 
@@ -22,7 +22,6 @@ All casting is dispatched through the Microbot client's existing `Rs2Magic.castO
 - **No auto-spellbook switching.** If the selected spell is not on your current spellbook, the cast fails silently. Switch spellbooks manually.
 - **The dropdown is the source of truth.** Spells not listed in the dropdown are not supported by this plugin.
 - **Staff-only default.** With `Require magic weapon` enabled (default), non-magic weapon types produce normal Attack behavior. Disable the toggle if you want to cast from melee/ranged weapons as well.
-- **PvP out of scope.** Left-click cast on players is not implemented; OSRS's native autocast already handles staves in PvP.
 - **Cooperative menu composition.** If another plugin inserts menu entries after this one on the same tick, its entry becomes the top entry instead — a known limitation of RuneLite's menu model.
 
 ## Supported spells

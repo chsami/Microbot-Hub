@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.leftclickcast;
 import com.google.inject.Provides;
 import java.util.concurrent.CompletableFuture;
 import javax.inject.Inject;
+import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.EnumComposition;
 import net.runelite.api.EnumID;
@@ -11,6 +12,7 @@ import net.runelite.api.MenuEntry;
 import net.runelite.api.Menu;
 import net.runelite.api.NPC;
 import net.runelite.api.ParamID;
+import net.runelite.api.Player;
 import net.runelite.api.StructComposition;
 import net.runelite.api.events.PostMenuSort;
 import net.runelite.api.gameval.VarbitID;
@@ -73,16 +75,26 @@ public class LeftClickCastPlugin extends Plugin
 		Menu menu = client.getMenu();
 		MenuEntry[] entries = menu.getMenuEntries();
 
-		// Find the top-most NPC Attack entry (the game's already-sorted left-click candidate).
+		// Find the top-most NPC or Player Attack entry (the game's already-sorted left-click candidate).
 		int attackIdx = -1;
-		NPC npc = null;
+		Actor targetActor = null;
 		for (int i = entries.length - 1; i >= 0; i--)
 		{
 			MenuEntry e = entries[i];
-			if ("Attack".equals(e.getOption()) && e.getNpc() != null)
+			if (!"Attack".equals(e.getOption()))
+			{
+				continue;
+			}
+			if (e.getNpc() != null)
 			{
 				attackIdx = i;
-				npc = e.getNpc();
+				targetActor = e.getNpc();
+				break;
+			}
+			if (e.getPlayer() != null)
+			{
+				attackIdx = i;
+				targetActor = e.getPlayer();
 				break;
 			}
 		}
@@ -92,12 +104,15 @@ public class LeftClickCastPlugin extends Plugin
 		}
 
 		MenuEntry attack = entries[attackIdx];
-		final NPC target = npc;
+		// Rs2Magic.castOn requires Rs2NpcModel for NPCs but accepts raw Player (Rs2PlayerModel implements Player).
+		final Actor dispatchTarget = targetActor instanceof NPC
+			? new Rs2NpcModel((NPC) targetActor)
+			: (Player) targetActor;
 		attack.setOption("Cast " + spell.getDisplayName());
 		attack.setType(MenuAction.RUNELITE);
 		// Rs2Magic.castOn uses sleepUntil, which is a no-op on the client thread — dispatch off-thread.
 		attack.onClick(e -> CompletableFuture.runAsync(
-			() -> Rs2Magic.castOn(spell.getMagicAction(), new Rs2NpcModel(target))));
+			() -> Rs2Magic.castOn(spell.getMagicAction(), dispatchTarget)));
 
 		// Move to the tail of the array — that slot is the left-click action in RuneLite's menu model.
 		if (attackIdx != entries.length - 1)
