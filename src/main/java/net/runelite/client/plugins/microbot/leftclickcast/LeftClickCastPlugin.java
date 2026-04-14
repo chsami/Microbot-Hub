@@ -9,8 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
-import net.runelite.api.Varbits;
 import net.runelite.api.events.MenuEntryAdded;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -92,6 +92,6 @@ public class LeftClickCastPlugin extends Plugin
 
 	private boolean isMagicWeaponEquipped()
 	{
-		return MAGIC_WEAPON_TYPES.contains(client.getVarbitValue(Varbits.EQUIPPED_WEAPON_TYPE));
+		return MAGIC_WEAPON_TYPES.contains(client.getVarbitValue(VarbitID.COMBAT_WEAPON_CATEGORY));
 	}
 }
