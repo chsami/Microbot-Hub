@@ -18,6 +18,7 @@ import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldArea;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
+import net.runelite.client.plugins.microbot.util.equipment.JewelleryLocationEnum;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -149,6 +150,10 @@ public class BarrowsScript extends Script {
 
                 if(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID() == ItemID.TELEPORT_TO_HOUSE) {
                     if (!inTunnels && !shouldBank && Rs2Player.getWorldLocation().distanceTo(new WorldPoint(3573, 3296, 0)) > 60) {
+                        if(Rs2Bank.isOpen()){
+                            closeBank();
+                            return;
+                        }
                         //needed to intercept the walker
                         if(rs2TileObjectCache.query().withId(4525).nearest() == null){
                             Rs2Inventory.interact("Teleport to house", "Inside");
@@ -447,6 +452,10 @@ public class BarrowsScript extends Script {
                                     WhoisTun = "Unknown";
                                     inTunnels = false;
                                 } else {
+                                    if(Rs2Bank.isOpen()){
+                                        closeBank();
+                                        return;
+                                    }
                                     Rs2Inventory.interact("Teleport to house", "Inside");
                                     sleepUntil(() -> Rs2Player.getWorldLocation().getY() < 9600 || Rs2Player.getWorldLocation().getY() > 9730, Rs2Random.between(6000, 10000));
                                     ChestsOpened++;
@@ -467,7 +476,6 @@ public class BarrowsScript extends Script {
                         stopFutureWalker();
                         //tele out
                         outOfSupplies(config);
-                        //walk to and open the bank
                         Rs2Bank.walkToBankAndUseBank(BankLocation.FEROX_ENCLAVE);
                         BreakHandlerScript.lockState.set(false);
                     } else {
@@ -693,36 +701,61 @@ public class BarrowsScript extends Script {
     }
 
     public void handlePOH(BarrowsConfig config){
-        if(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID() == ItemID.TELEPORT_TO_HOUSE){
-            Rs2TileObjectModel pohThing = rs2TileObjectCache.query().withId(4525).nearest();
-            if(pohThing != null){
-                Microbot.log("We're in our POH");
-                Rs2TileObjectModel rejPool = rs2TileObjectCache.query().withIds(29238,29239,29241,29240).nearest();
-                if(rejPool != null){
-                    if(rejPool.click("Drink")){
-                        sleepUntil(()-> Rs2Player.isMoving(), Rs2Random.between(2000,4000));
-                        sleepUntil(()-> !Rs2Player.isMoving(), Rs2Random.between(10000,15000));
-                    }
+        if(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID() != ItemID.TELEPORT_TO_HOUSE){
+            return;
+        }
+        Client client = Microbot.getClient();
+        if(client == null){
+            return;
+        }
+        WorldView worldView = client.getTopLevelWorldView();
+        if(worldView == null){
+            return;
+        }
+        if(!worldView.isInstance()){
+            return;
+        }
+        Rs2TileObjectModel pohThing = rs2TileObjectCache.query().withId(4525).nearestOnClientThread();
+        if(pohThing == null){
+            return;
+        }
+        Microbot.log("We're in our POH");
+        Rs2TileObjectModel rejPool = rs2TileObjectCache.query().withIds(29238,29239,29241,29240).nearestOnClientThread();
+        if(rejPool != null){
+            if(rejPool.click("Drink")){
+                sleepUntil(()-> Rs2Player.isMoving(), Rs2Random.between(2000,4000));
+                sleepUntil(()-> !Rs2Player.isMoving(), Rs2Random.between(10000,15000));
+            }
+        }
+        Rs2TileObjectModel regularPortal = rs2TileObjectCache.query().withIds(37603,37615,37591).nearestOnClientThread();
+        if(regularPortal != null){
+            for(int pohPortalAttempts = 0; pohPortalAttempts < 40; pohPortalAttempts++){
+                if(!super.isRunning()){
+                    break;
                 }
-                Rs2TileObjectModel regularPortal = rs2TileObjectCache.query().withIds(37603,37615,37591).nearest();
-                if(regularPortal != null){
-                    while(pohThing != null){
-                        if(!super.isRunning()){break;}
-                        if(!Rs2Player.isMoving()){
-                            if(regularPortal.click("Enter")){
-                                sleepUntil(()-> Rs2Player.isMoving(), Rs2Random.between(2000,4000));
-                                sleepUntil(()-> !Rs2Player.isMoving(), Rs2Random.between(10000,15000));
-                                sleepUntil(()-> rs2TileObjectCache.query().withIds(37603,37615,37591).nearest() == null, Rs2Random.between(10000,15000));
-                            }
-                        }
-                    }
-
+                pohThing = rs2TileObjectCache.query().withId(4525).nearestOnClientThread();
+                if(pohThing == null){
+                    break;
+                }
+                regularPortal = rs2TileObjectCache.query().withIds(37603,37615,37591).nearestOnClientThread();
+                if(regularPortal == null){
+                    break;
+                }
+                if(Rs2Player.isMoving()){
+                    sleep(Rs2Random.between(200, 600));
+                    continue;
+                }
+                if(regularPortal.click("Enter")){
+                    sleepUntil(()-> Rs2Player.isMoving(), Rs2Random.between(2000,4000));
+                    sleepUntil(()-> !Rs2Player.isMoving(), Rs2Random.between(10000,15000));
+                    sleepUntil(()-> rs2TileObjectCache.query().withIds(37603,37615,37591).nearestOnClientThread() == null, Rs2Random.between(10000,15000));
                 } else {
-                    // we have a nexus 33410
-                    Microbot.log("No nexus support yet, shutting down");
-                    super.shutdown();
+                    break;
                 }
             }
+        } else {
+            Microbot.log("No nexus support yet, shutting down");
+            super.shutdown();
         }
     }
 
@@ -1105,15 +1138,98 @@ public class BarrowsScript extends Script {
     }
     public void outOfSupplies(BarrowsConfig config){
         suppliesCheck(config);
-        // Needed because the walker won't teleport to the enclave while in the tunnels or in a barrow
-        if(shouldBank && (inTunnels || Rs2Player.getWorldLocation().getPlane() == 3)){
-            if(Rs2Equipment.interact(EquipmentInventorySlot.RING, "Ferox Enclave")){
-                Microbot.log("We're out of supplies. Teleporting.");
-                if(inTunnels) inTunnels=false;
-                sleepUntil(() -> Rs2Player.isAnimating(), Rs2Random.between(2000, 4000));
-                sleepUntil(() -> !Rs2Player.isAnimating(), Rs2Random.between(6000, 10000));
+        if(!shouldBank){
+            return;
+        }
+        boolean needFeroxRingTeleport = false;
+        if(inTunnels){
+            needFeroxRingTeleport = true;
+        }
+        if(Rs2Player.getWorldLocation().getPlane() == 3){
+            needFeroxRingTeleport = true;
+        }
+        if(isInPlayerOwnedHouse()){
+            needFeroxRingTeleport = true;
+        }
+        if(!needFeroxRingTeleport){
+            return;
+        }
+        if(tryFeroxTeleportViaRingOfDueling()){
+            Microbot.log("We're out of supplies. Teleporting to Ferox Enclave.");
+            if(inTunnels){
+                inTunnels = false;
+            }
+            sleepUntil(() -> Rs2Player.isAnimating(), Rs2Random.between(2000, 4000));
+            sleepUntil(() -> !Rs2Player.isAnimating(), Rs2Random.between(6000, 10000));
+        }
+    }
+
+    private boolean isInPlayerOwnedHouse(){
+        Client c = Microbot.getClient();
+        if(c == null){
+            return false;
+        }
+        WorldView wv = c.getTopLevelWorldView();
+        if(wv == null){
+            return false;
+        }
+        if(!wv.isInstance()){
+            return false;
+        }
+        if(inTunnels){
+            return false;
+        }
+        Rs2TileObjectModel portal = rs2TileObjectCache.query().withId(4525).nearestOnClientThread();
+        return portal != null;
+    }
+
+    private boolean tryFeroxTeleportViaRingOfDueling(){
+        Rs2ItemModel equippedRing = Rs2Equipment.get(EquipmentInventorySlot.RING);
+        if(equippedRing != null){
+            String equippedName = equippedRing.getName();
+            if(equippedName != null){
+                if(equippedName.contains("Ring of dueling")){
+                    if(Rs2Equipment.interact(EquipmentInventorySlot.RING, "Ferox Enclave")){
+                        return true;
+                    }
+                }
             }
         }
+        int[] duelingRingIds = new int[]{
+                ItemID.RING_OF_DUELING1,
+                ItemID.RING_OF_DUELING2,
+                ItemID.RING_OF_DUELING3,
+                ItemID.RING_OF_DUELING4,
+                ItemID.RING_OF_DUELING5,
+                ItemID.RING_OF_DUELING6,
+                ItemID.RING_OF_DUELING7,
+                ItemID.RING_OF_DUELING8
+        };
+        for(int idx = duelingRingIds.length - 1; idx >= 0; idx--){
+            int ringId = duelingRingIds[idx];
+            if(!Rs2Inventory.hasItem(ringId)){
+                continue;
+            }
+            if(tryRubInventoryRingToFerox(ringId)){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean tryRubInventoryRingToFerox(int ringId){
+        String feroxLabel = JewelleryLocationEnum.FEROX_ENCLAVE.getDestination();
+        if(Rs2Inventory.interact(ringId, feroxLabel)){
+            return true;
+        }
+        if(Rs2Inventory.interact(ringId, "Rub")){
+            sleepUntil(() -> Rs2Dialogue.hasDialogueOption(feroxLabel), Rs2Random.between(1500, 3500));
+            if(Rs2Dialogue.clickOption(feroxLabel)){
+                return true;
+            }
+            return Rs2Dialogue.clickOption(feroxLabel, false);
+        }
+        return false;
     }
     public void disablePrayer(){
         if(Rs2Random.between(0,100) >= Rs2Random.between(0,5)) {
