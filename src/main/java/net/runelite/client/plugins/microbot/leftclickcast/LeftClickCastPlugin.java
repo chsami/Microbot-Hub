@@ -21,7 +21,10 @@ import net.runelite.client.chat.ChatMessageManager;
 import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.config.Keybind;
+import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.ExternalPluginsChanged;
 import net.runelite.client.input.KeyManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -46,7 +49,7 @@ import net.runelite.client.util.HotkeyListener;
 )
 public class LeftClickCastPlugin extends Plugin
 {
-	static final String version = "1.2.0";
+	static final String version = "1.3.0";
 
 	private static final int SLOT_COUNT = 5;
 
@@ -65,9 +68,14 @@ public class LeftClickCastPlugin extends Plugin
 	@Inject
 	private ConfigManager configManager;
 
+	@Inject
+	private EventBus eventBus;
+
 	private volatile int activeSlot = 0;
 
 	private final HotkeyListener[] hotkeyListeners = new HotkeyListener[SLOT_COUNT];
+
+	private HotkeyListener enabledToggleListener;
 
 	@Provides
 	LeftClickCastConfig provideConfig(ConfigManager configManager)
@@ -78,6 +86,9 @@ public class LeftClickCastPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+		// MicrobotConfigPanel renders boolean checkboxes from raw stored values; missing keys read as false
+		// even when the @ConfigItem default is true. Materialize defaults so the UI and the proxy agree.
+		configManager.setDefaultConfiguration(config, false);
 		activeSlot = 0;
 		for (int i = 0; i < SLOT_COUNT; i++)
 		{
@@ -93,6 +104,15 @@ public class LeftClickCastPlugin extends Plugin
 			hotkeyListeners[i] = listener;
 			keyManager.registerKeyListener(listener);
 		}
+		enabledToggleListener = new HotkeyListener(() -> config.enabledToggleHotkey())
+		{
+			@Override
+			public void hotkeyPressed()
+			{
+				onEnabledToggleHotkey();
+			}
+		};
+		keyManager.registerKeyListener(enabledToggleListener);
 		migrateLegacySpellKey();
 	}
 
@@ -107,6 +127,11 @@ public class LeftClickCastPlugin extends Plugin
 				keyManager.unregisterKeyListener(listener);
 				hotkeyListeners[i] = null;
 			}
+		}
+		if (enabledToggleListener != null)
+		{
+			keyManager.unregisterKeyListener(enabledToggleListener);
+			enabledToggleListener = null;
 		}
 	}
 
@@ -220,7 +245,7 @@ public class LeftClickCastPlugin extends Plugin
 	private void onSlotHotkey(int index)
 	{
 		activeSlot = index;
-		if (config.activeSlotChatMessage())
+		if (config.chatFeedback())
 		{
 			PertTargetSpell spell = slotSpellFor(index);
 			String display = spell != null ? spell.getDisplayName() : "(no spell)";
@@ -229,6 +254,35 @@ public class LeftClickCastPlugin extends Plugin
 				.value("Left-Click Cast: now casting " + display)
 				.build());
 		}
+	}
+
+	private void onEnabledToggleHotkey()
+	{
+		boolean newValue = !config.enabled();
+		configManager.setConfiguration("leftclickcast", "enabled", newValue);
+		// MicrobotConfigPanel doesn't subscribe to ConfigChanged for individual checkbox refresh, but it does
+		// rebuild on ExternalPluginsChanged. Posting that here makes the open config panel re-read this and
+		// every other config item, so the "Enabled" checkbox visually flips to match the keybind toggle.
+		eventBus.post(new ExternalPluginsChanged());
+		// Chat feedback is emitted by onConfigChanged so checkbox clicks and hotkey presses share one path.
+	}
+
+	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+		if (!"leftclickcast".equals(event.getGroup()) || !"enabled".equals(event.getKey()))
+		{
+			return;
+		}
+		if (!config.chatFeedback())
+		{
+			return;
+		}
+		boolean enabled = "true".equals(event.getNewValue());
+		chatMessageManager.queue(QueuedMessage.builder()
+			.type(ChatMessageType.GAMEMESSAGE)
+			.value("Left-Click Cast: " + (enabled ? "enabled" : "disabled"))
+			.build());
 	}
 
 	// Fast-path cast: fire two synchronous client.menuAction packets back-to-back so the server processes

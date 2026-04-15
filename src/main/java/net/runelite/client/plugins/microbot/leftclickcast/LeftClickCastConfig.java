@@ -118,11 +118,23 @@ public interface LeftClickCastConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "enabledToggleHotkey",
+		name = "Enable/Disable Hotkey",
+		description = "Hotkey that toggles the plugin on and off.",
+		section = hotkeysSection,
+		position = 0
+	)
+	default Keybind enabledToggleHotkey()
+	{
+		return Keybind.NOT_SET;
+	}
+
+	@ConfigItem(
 		keyName = "slot1Hotkey",
 		name = "Slot 1 Hotkey",
 		description = "Hotkey that activates slot 1.",
 		section = hotkeysSection,
-		position = 0
+		position = 1
 	)
 	default Keybind slot1Hotkey()
 	{
@@ -134,7 +146,7 @@ public interface LeftClickCastConfig extends Config
 		name = "Slot 2 Hotkey",
 		description = "Hotkey that activates slot 2.",
 		section = hotkeysSection,
-		position = 1
+		position = 2
 	)
 	default Keybind slot2Hotkey()
 	{
@@ -146,7 +158,7 @@ public interface LeftClickCastConfig extends Config
 		name = "Slot 3 Hotkey",
 		description = "Hotkey that activates slot 3.",
 		section = hotkeysSection,
-		position = 2
+		position = 3
 	)
 	default Keybind slot3Hotkey()
 	{
@@ -158,7 +170,7 @@ public interface LeftClickCastConfig extends Config
 		name = "Slot 4 Hotkey",
 		description = "Hotkey that activates slot 4.",
 		section = hotkeysSection,
-		position = 3
+		position = 4
 	)
 	default Keybind slot4Hotkey()
 	{
@@ -170,7 +182,7 @@ public interface LeftClickCastConfig extends Config
 		name = "Slot 5 Hotkey",
 		description = "Hotkey that activates slot 5.",
 		section = hotkeysSection,
-		position = 4
+		position = 5
 	)
 	default Keybind slot5Hotkey()
 	{
@@ -178,13 +190,13 @@ public interface LeftClickCastConfig extends Config
 	}
 
 	@ConfigItem(
-		keyName = "activeSlotChatMessage",
-		name = "Chat feedback on slot change",
-		description = "Post a game chat message when a hotkey switches the active slot.",
+		keyName = "chatFeedback",
+		name = "Chat feedback",
+		description = "Post a game chat message on plugin events (active slot change, enable/disable toggle).",
 		section = hotkeysSection,
-		position = 5
+		position = 6
 	)
-	default boolean activeSlotChatMessage()
+	default boolean chatFeedback()
 	{
 		return true;
 	}
