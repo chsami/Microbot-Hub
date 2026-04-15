@@ -25,9 +25,13 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.input.KeyManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
+import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
+import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 import net.runelite.client.util.HotkeyListener;
 
 @PluginDescriptor(
@@ -42,7 +46,7 @@ import net.runelite.client.util.HotkeyListener;
 )
 public class LeftClickCastPlugin extends Plugin
 {
-	static final String version = "1.1.0";
+	static final String version = "1.2.0";
 
 	private static final int SLOT_COUNT = 5;
 
@@ -160,16 +164,11 @@ public class LeftClickCastPlugin extends Plugin
 		}
 
 		MenuEntry attack = entries[attackIdx];
-		// Rs2Magic.castOn requires Rs2NpcModel for NPCs but accepts raw Player (Rs2PlayerModel implements Player).
-		final Actor dispatchTarget = targetActor instanceof NPC
-			? new Rs2NpcModel((NPC) targetActor)
-			: (Player) targetActor;
+		final Actor dispatchTarget = targetActor;
 		final PertTargetSpell dispatchSpell = spell;
 		attack.setOption("Cast " + dispatchSpell.getDisplayName());
 		attack.setType(MenuAction.RUNELITE);
-		// Rs2Magic.castOn uses sleepUntil, which is a no-op on the client thread — dispatch off-thread.
-		attack.onClick(e -> CompletableFuture.runAsync(
-			() -> Rs2Magic.castOn(dispatchSpell.getMagicAction(), dispatchTarget)));
+		attack.onClick(e -> castOnTargetFast(dispatchSpell, dispatchTarget));
 
 		// Move to the tail of the array — that slot is the left-click action in RuneLite's menu model.
 		if (attackIdx != entries.length - 1)
@@ -230,6 +229,54 @@ public class LeftClickCastPlugin extends Plugin
 				.value("Left-Click Cast: now casting " + display)
 				.build());
 		}
+	}
+
+	// Fast-path cast: fire two synchronous client.menuAction packets back-to-back so the server processes
+	// the spell selection and the spell-on-target dispatch on the same game tick. Falls back to
+	// Rs2Magic.castOn (tab switch + sleeps + clicks) if the spellbook widget isn't loaded yet or the
+	// spell isn't on the current spellbook.
+	private void castOnTargetFast(PertTargetSpell spell, Actor target)
+	{
+		if (target == null)
+		{
+			return;
+		}
+		MagicAction magic = spell.getMagicAction();
+		Widget magicRoot = client.getWidget(218, 0);
+		boolean widgetReady = magicRoot != null && magicRoot.getStaticChildren() != null;
+		if (widgetReady)
+		{
+			try
+			{
+				int spellWidgetId = magic.getWidgetId();
+				// Packet 1: select the spell client-side (WIDGET_TARGET on the spell widget).
+				client.menuAction(-1, spellWidgetId, MenuAction.WIDGET_TARGET, 1, -1, "Cast", magic.getName());
+				// Packet 2: dispatch the selected spell on the target, same tick.
+				if (target instanceof NPC)
+				{
+					NPC npc = (NPC) target;
+					client.menuAction(0, 0, MenuAction.WIDGET_TARGET_ON_NPC, npc.getIndex(), -1, "Use", npc.getName());
+				}
+				else if (target instanceof Player)
+				{
+					Player p = (Player) target;
+					client.menuAction(0, 0, MenuAction.WIDGET_TARGET_ON_PLAYER, p.getId(), -1, "Use", p.getName());
+				}
+				return;
+			}
+			catch (Exception ignored)
+			{
+				// Spell not on the active spellbook (e.g., modern while on ancients) — fall through.
+			}
+		}
+		else
+		{
+			// Spellbook widget not yet loaded this session; nudge it open so the next click is fast.
+			Rs2Tab.switchTo(InterfaceTab.MAGIC);
+		}
+		// Slow fallback path. Rs2Magic.castOn uses sleepUntil which is a no-op on the client thread, so dispatch async.
+		final Actor dispatch = target instanceof NPC ? new Rs2NpcModel((NPC) target) : target;
+		CompletableFuture.runAsync(() -> Rs2Magic.castOn(magic, dispatch));
 	}
 
 	// Best-effort: if the user had previously set the legacy `spell` key to a non-default value and
