@@ -49,10 +49,6 @@ public class BirdHunterScript extends Script {
         this.plugin = plugin;
         Microbot.log("Bird Hunter script started.");
 
-        if (!hasRequiredSnares()) {
-            Microbot.log("Not enough bird snares in inventory. Stopping the script.");
-            return false;
-        }
         initialStartTile = Rs2Player.getWorldLocation();
 
         randomBoneThreshold = ThreadLocalRandom.current().nextInt(boneThresholdRange.getLeft(), boneThresholdRange.getRight());
@@ -68,6 +64,14 @@ public class BirdHunterScript extends Script {
 
             try {
                 if (!super.run() || !Microbot.isLoggedIn()) return;
+
+                if (!hasRequiredSnares()) {
+                    int required = getAvailableTraps(Rs2Player.getRealSkillLevel(Skill.HUNTER));
+                    Microbot.showMessage("Bird Hunter needs at least " + required
+                            + " bird snares in inventory for your Hunter level. Stopping plugin.");
+                    Microbot.stopPlugin(plugin);
+                    return;
+                }
 
                 if (!isInHuntingArea()) {
                     Microbot.log("Player is outside the designated hunting area.");
@@ -88,12 +92,12 @@ public class BirdHunterScript extends Script {
 
     private boolean hasRequiredSnares() {
         int hunterLevel = Rs2Player.getRealSkillLevel(Skill.HUNTER);
-        int allowedSnares = getAvailableTraps(hunterLevel);  // Calculate the allowed number of snares
+        int allowedSnares = getAvailableTraps(hunterLevel);
 
         int snaresInInventory = Rs2Inventory.itemQuantity(ItemID.HUNTING_OJIBWAY_BIRD_SNARE);
         Microbot.log("Allowed snares: " + allowedSnares + ", Snares in inventory: " + snaresInInventory);
 
-        return snaresInInventory >= allowedSnares;  // Return true if enough snares, false otherwise
+        return snaresInInventory >= allowedSnares;
     }
 
     public void updateHuntingArea(BirdHunterConfig config) {
@@ -212,7 +216,11 @@ public class BirdHunterScript extends Script {
     private void setTrap(BirdHunterConfig config) {
         if (!Rs2Inventory.contains(ItemID.HUNTING_OJIBWAY_BIRD_SNARE)) return;
 
-        if (Rs2Player.isStandingOnGameObject()) {
+        // Rs2Player.isStandingOnGameObject() also returns true for ground items
+        // (dropped loot), which don't actually block snare placement in-game.
+        // Only skip the tile when there's a real game object on it (existing
+        // trap, tree, rock).
+        if (isGameObjectAt(Rs2Player.getWorldLocation())) {
             if (!movePlayerOffObject())
                 return;
         }
@@ -284,11 +292,16 @@ public class BirdHunterScript extends Script {
 
     private boolean interactWithTrap(Rs2TileObjectModel birdSnare) {
         if (!plugin.getTraps().containsKey(birdSnare.getWorldLocation())) return false;
-        sleep(Rs2Random.randomGaussian(2000, 1250));
-        birdSnare.click();
-        sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(7000));
-        sleep(Rs2Random.randomGaussian(2000, 1250));
 
+        // Retry the click until inventory changes (snare returned / loot received).
+        // Previously a single click with a 7s inventory-changes wait and 2×2s
+        // gaussian sleeps meant ~13s of stall on a missed click.
+        int invBefore = Rs2Inventory.count();
+        for (int attempt = 0; attempt < 3; attempt++) {
+            birdSnare.click();
+            if (sleepUntil(() -> Rs2Inventory.count() != invBefore, 2500)) break;
+        }
+        sleep(Rs2Random.randomGaussian(600, 200));
         return false;
     }
 
