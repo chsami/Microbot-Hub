@@ -265,7 +265,7 @@ public class GotrScript extends Script {
             int cellTier = CellType.GetCellTier(cell.getId());
             List<Rs2TileObjectModel> shieldCells = Microbot.getRs2TileObjectCache().query()
                 .where(o -> o.getName() != null && o.getName().toLowerCase().contains("cell_tile"))
-                .toList();
+                .toListOnClientThread();
 
             if (Rs2Inventory.hasItemAmount(GUARDIAN_ESSENCE, 10)) {
                 for (Rs2TileObjectModel shieldCell : shieldCells) {

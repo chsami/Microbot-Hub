@@ -22,7 +22,8 @@ public enum Rocks {
     URT_SALT("Urt salt rocks", 72),
     EFH_SALT("Efh salt rocks", 72),
     TE_SALT("Te salt rocks", 72),
-    RUNITE("runite rocks", 85);
+    RUNITE("runite rocks", 85),
+    NONE("None", 1);
 
     private final String name;
     private final int miningLevel;
