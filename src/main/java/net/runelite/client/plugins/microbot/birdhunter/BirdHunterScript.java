@@ -23,8 +23,10 @@ import org.apache.commons.lang3.tuple.Pair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 public class BirdHunterScript extends Script {
 
@@ -41,13 +43,12 @@ public class BirdHunterScript extends Script {
     private final Pair<Integer, Integer> boneThresholdRange = Pair.of(3, 10);
     private final Pair<Integer, Integer> HandleInventoryThresholdRange = Pair.of(18, 25);
 
-    public boolean run(BirdHunterConfig config) {
+    private BirdHunterPlugin plugin;
+
+    public boolean run(BirdHunterConfig config, BirdHunterPlugin plugin) {
+        this.plugin = plugin;
         Microbot.log("Bird Hunter script started.");
 
-        if (!hasRequiredSnares()) {
-            Microbot.log("Not enough bird snares in inventory. Stopping the script.");
-            return false;
-        }
         initialStartTile = Rs2Player.getWorldLocation();
 
         randomBoneThreshold = ThreadLocalRandom.current().nextInt(boneThresholdRange.getLeft(), boneThresholdRange.getRight());
@@ -63,6 +64,14 @@ public class BirdHunterScript extends Script {
 
             try {
                 if (!super.run() || !Microbot.isLoggedIn()) return;
+
+                if (!hasRequiredSnares()) {
+                    int required = getAvailableTraps(Rs2Player.getRealSkillLevel(Skill.HUNTER));
+                    Microbot.showMessage("Bird Hunter needs at least " + required
+                            + " bird snares in inventory for your Hunter level. Stopping plugin.");
+                    Microbot.stopPlugin(plugin);
+                    return;
+                }
 
                 if (!isInHuntingArea()) {
                     Microbot.log("Player is outside the designated hunting area.");
@@ -83,20 +92,21 @@ public class BirdHunterScript extends Script {
 
     private boolean hasRequiredSnares() {
         int hunterLevel = Rs2Player.getRealSkillLevel(Skill.HUNTER);
-        int allowedSnares = getAvailableTraps(hunterLevel);  // Calculate the allowed number of snares
+        int allowedSnares = getAvailableTraps(hunterLevel);
 
         int snaresInInventory = Rs2Inventory.itemQuantity(ItemID.HUNTING_OJIBWAY_BIRD_SNARE);
         Microbot.log("Allowed snares: " + allowedSnares + ", Snares in inventory: " + snaresInInventory);
 
-        return snaresInInventory >= allowedSnares;  // Return true if enough snares, false otherwise
+        return snaresInInventory >= allowedSnares;
     }
 
     public void updateHuntingArea(BirdHunterConfig config) {
         huntingRadius = config.huntingRadiusValue();
+        int side = (2 * huntingRadius) + 1;
         dynamicHuntingArea = new WorldArea(
                 initialStartTile.getX() - huntingRadius,
                 initialStartTile.getY() - huntingRadius,
-                (huntingRadius * huntingRadius) + 1, (huntingRadius * huntingRadius) + 1,
+                side, side,
                 initialStartTile.getPlane()
         );
     }
@@ -107,7 +117,7 @@ public class BirdHunterScript extends Script {
     }
 
     private void walkBackToArea() {
-        WorldPoint walkableTile = getSafeWalkableTile(dynamicHuntingArea);
+        WorldPoint walkableTile = getNearestSafeWalkableTileInArea(dynamicHuntingArea);
 
         if (walkableTile != null) {
             Rs2Walker.walkFastCanvas(walkableTile);
@@ -115,6 +125,28 @@ public class BirdHunterScript extends Script {
         } else {
             Microbot.log("No safe walkable tile found inside the hunting area.");
         }
+    }
+
+    private WorldPoint getNearestSafeWalkableTileInArea(WorldArea huntingArea) {
+        WorldPoint from = Rs2Player.getWorldLocation();
+        WorldPoint nearest = null;
+        int bestDist = Integer.MAX_VALUE;
+
+        for (int x = initialStartTile.getX() - huntingRadius; x <= initialStartTile.getX() + huntingRadius; x++) {
+            for (int y = initialStartTile.getY() - huntingRadius; y <= initialStartTile.getY() + huntingRadius; y++) {
+                WorldPoint candidate = new WorldPoint(x, y, huntingArea.getPlane());
+                LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), candidate);
+                if (localPoint == null || !huntingArea.contains(candidate)) continue;
+                if (!Rs2Tile.isWalkable(localPoint) || isGameObjectAt(candidate)) continue;
+
+                int dist = from.distanceTo(candidate);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    nearest = candidate;
+                }
+            }
+        }
+        return nearest;
     }
 
     private void handleTraps(BirdHunterConfig config) {
@@ -134,9 +166,19 @@ public class BirdHunterScript extends Script {
         catchingTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_TRAPPING_POLAR).toList());
         catchingTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_FULL_JUNGLE).toList());
 
-        List<Rs2TileObjectModel> failedTraps = Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_BROKEN).toList();
+        List<Rs2TileObjectModel> failedTraps = new ArrayList<>(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_BROKEN).toList());
         List<Rs2TileObjectModel> idleTraps = new ArrayList<>(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP).toList());
         idleTraps.addAll(Microbot.getRs2TileObjectCache().query().withId(ObjectID.HUNTING_OJIBWAY_TRAP_FAILING).toList());
+
+        // Ownership filter: the plugin records a trap's WorldPoint when it spawns
+        // on the player's previous-tick tile. Skip everything else — other players'
+        // snares should not be clicked, and they must not inflate totalTraps below.
+        Set<WorldPoint> owned = plugin.getTraps().keySet();
+        Predicate<Rs2TileObjectModel> mine = t -> owned.contains(t.getWorldLocation());
+        successfulTraps.removeIf(mine.negate());
+        catchingTraps.removeIf(mine.negate());
+        failedTraps.removeIf(mine.negate());
+        idleTraps.removeIf(mine.negate());
 
         int availableTraps = getAvailableTraps(Rs2Player.getRealSkillLevel(Skill.HUNTER));
         int totalTraps = successfulTraps.size() + failedTraps.size() + idleTraps.size() + catchingTraps.size();
@@ -174,7 +216,11 @@ public class BirdHunterScript extends Script {
     private void setTrap(BirdHunterConfig config) {
         if (!Rs2Inventory.contains(ItemID.HUNTING_OJIBWAY_BIRD_SNARE)) return;
 
-        if (Rs2Player.isStandingOnGameObject()) {
+        // Rs2Player.isStandingOnGameObject() also returns true for ground items
+        // (dropped loot), which don't actually block snare placement in-game.
+        // Only skip the tile when there's a real game object on it (existing
+        // trap, tree, rock).
+        if (isGameObjectAt(Rs2Player.getWorldLocation())) {
             if (!movePlayerOffObject())
                 return;
         }
@@ -245,11 +291,17 @@ public class BirdHunterScript extends Script {
 
 
     private boolean interactWithTrap(Rs2TileObjectModel birdSnare) {
-        sleep(Rs2Random.randomGaussian(2000, 1250));
-        birdSnare.click();
-        sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(7000));
-        sleep(Rs2Random.randomGaussian(2000, 1250));
+        if (!plugin.getTraps().containsKey(birdSnare.getWorldLocation())) return false;
 
+        // Retry the click until inventory changes (snare returned / loot received).
+        // Previously a single click with a 7s inventory-changes wait and 2×2s
+        // gaussian sleeps meant ~13s of stall on a missed click.
+        int invBefore = Rs2Inventory.count();
+        for (int attempt = 0; attempt < 3; attempt++) {
+            birdSnare.click();
+            if (sleepUntil(() -> Rs2Inventory.count() != invBefore, 2500)) break;
+        }
+        sleep(Rs2Random.randomGaussian(600, 200));
         return false;
     }
 
@@ -274,11 +326,9 @@ public class BirdHunterScript extends Script {
     }
 
     private void handleInventory(BirdHunterConfig config) {
-        if (config.buryBones() && Rs2Inventory.count("Bones") > randomBoneThreshold) {
+        if (config.buryBones()) {
             buryBones(config);
-
         }
-        buryBones(config);
         dropItems(config);
     }
 
@@ -294,14 +344,16 @@ public class BirdHunterScript extends Script {
         }
     }
 
+    // Strict drop whitelist. Replaces an earlier dropAllExcept(keepList) that would
+    // nuke the entire inventory if the keep list was misconfigured. Bird snaring
+    // only produces Raw bird meat, Bones, and feathers — feathers stack so we let
+    // them ride; bones are buried when the config is enabled, dropped otherwise.
     private void dropItems(BirdHunterConfig config) {
-        String keepItemsConfig = config.keepItemNames();
-        List<String> keepItemNames = List.of(keepItemsConfig.split("\\s*,\\s*"));
-
-        if (!keepItemNames.contains("Bird snare")) {
-            keepItemNames.add("Bird snare");
+        if (config.buryBones()) {
+            Rs2Inventory.dropAll("Raw bird meat");
+        } else {
+            Rs2Inventory.dropAll("Raw bird meat", "Bones");
         }
-        Rs2Inventory.dropAllExcept(keepItemNames.toArray(new String[0]));
     }
 
     public int getAvailableTraps(int hunterLevel) {
