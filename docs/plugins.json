@@ -847,7 +847,7 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.1.5",
+        "version": "2.1.6",
         "minClientVersion": "2.1.32",
         "authors": [
             "Mocrosoft",
@@ -856,8 +856,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "13e78cbf3e83ef23366a41269e7a9b953cc47a1ba1afa83b16173cb3816e135e",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.1.5.jar"
+        "sha256": "034f74eb9e2edb20215bbf2e4db40c569fa332f8c62e03052d0e501318655489",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.1.6.jar"
     },
     {
         "internalName": "MageTrainingArenaPlugin",
@@ -1404,7 +1404,7 @@
             "mm",
             "barrows"
         ],
-        "version": "2.0.4",
+        "version": "2.0.9",
         "minClientVersion": "2.1.0",
         "authors": [
             "Gage"
@@ -1412,8 +1412,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/BarrowsPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/BarrowsPlugin/assets/card.png",
         "disable": false,
-        "sha256": "bb96fbc3b840bde92702640b64ff09e24265f5e997a0075ef82fdaf06b4c6b98",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/barrowsplugin-2.0.4.jar"
+        "sha256": "e8beaf60bc588f01f63e703620d98ca908f3f9387385ba2ca6c96f78bd95a359",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/barrowsplugin-2.0.9.jar"
     },
     {
         "internalName": "FlippersChaserPlugin",
@@ -1435,6 +1435,27 @@
         "disable": false,
         "sha256": "bf3bc4ba4d3a7c33d400351d5e877f586e8a83139cf7cd5ee567104d167042a1",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/flipperschaserplugin-1.0.2.jar"
+    },
+    {
+        "internalName": "LeaguesFiremakingPlugin",
+        "name": "AI Firemaking",
+        "description": "Lights fires in lines anywhere \u2014 withdraws logs, scans for open tiles, adapts around obstacles",
+        "tags": [
+            "firemaking",
+            "leagues",
+            "microbot",
+            "skilling"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.0.13",
+        "authors": [
+            "Unknown Author"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "bd4942e2a77773dab74ba884fce336823097dce30001b99042c34695e6492acc",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/leaguesfiremakingplugin-1.0.0.jar"
     },
     {
         "internalName": "ZulrahPlugin",
@@ -1695,7 +1716,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.0.11",
+        "version": "1.0.12",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1703,8 +1724,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "9b0ea557f1649576a1993641d2b385e62783bc45c1d81f4b5116120fcf3faf53",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autominingplugin-1.0.11.jar"
+        "sha256": "7441762228b20da891c3d837b385631007f19a797731d5edebd3cd0cef8c5779",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autominingplugin-1.0.12.jar"
     },
     {
         "internalName": "VolcanicAshMinerPlugin",
@@ -2024,6 +2045,30 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/barbarianvillagefisherplugin-1.0.1.jar"
     },
     {
+        "internalName": "LeftClickCastPlugin",
+        "name": "Left-Click Cast",
+        "description": "Replaces left-click Attack on NPCs with a preconfigured Cast Spell action.",
+        "tags": [
+            "magic",
+            "combat",
+            "spell",
+            "left-click",
+            "cast",
+            "pvm",
+            "pvp"
+        ],
+        "version": "1.3.0",
+        "minClientVersion": "2.0.13",
+        "authors": [
+            "Pert"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "294a83d429fddb9c19f5d0fd795c6b1a5eee79342bbeeb3bc7f6c6a7d096db20",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/leftclickcastplugin-1.3.0.jar"
+    },
+    {
         "internalName": "GiantMolePlugin",
         "name": "Giant Mole",
         "description": "Giant Mole plugin",
@@ -2072,7 +2117,7 @@
             "Farming",
             "Tree run"
         ],
-        "version": "1.1.1",
+        "version": "1.1.2",
         "minClientVersion": "2.1.0",
         "authors": [
             "Acun"
@@ -2080,8 +2125,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FarmTreeRunPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FarmTreeRunPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "bbfc36f372646c1c20f92a5c9b1c3baea2a4f775461dfdcd56a08e5ea97b4df0",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmtreerunplugin-1.1.1.jar"
+        "sha256": "9589a3b654f6e39382c7e400ccce911efe0cb9c86cf18c7859cda66c32509ca9",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmtreerunplugin-1.1.2.jar"
     },
     {
         "internalName": "FletchingPlugin",
@@ -2259,7 +2304,7 @@
             "gotr",
             "microbot"
         ],
-        "version": "1.5.2",
+        "version": "1.5.4",
         "minClientVersion": "2.1.0",
         "authors": [
             "Unknown Author"
@@ -2267,8 +2312,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "6e469e0008485f4a7e11a12ddfe2d0d809798e5349764df5cc43b9864c734ae6",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gotrplugin-1.5.2.jar"
+        "sha256": "8028b90d0a0286bf2f9eca01d8538fd91be167713315e952ea8585c423c8d1c6",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gotrplugin-1.5.4.jar"
     },
     {
         "internalName": "GEFiremakerPlugin",
@@ -2450,7 +2495,7 @@
             "bird",
             "skilling"
         ],
-        "version": "1.0.1",
+        "version": "1.0.2",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -2458,8 +2503,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "ff5ca1d7ff172abd6b1a0c36800a2e784637ba632ca6a8ecf6cf3dc928617067",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/birdhunterplugin-1.0.1.jar"
+        "sha256": "1b08c88e4976e2bad044d20d9a5e546c055a4c0dbf25715873447b37f58ceda6",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/birdhunterplugin-1.0.2.jar"
     },
     {
         "internalName": "TheMessPlugin",
