@@ -71,7 +71,7 @@ public class FletchingScript extends Script {
                 primaryItemToFletch = fletchingMode.getItemName();
 
                 if (fletchingMode == FletchingMode.PROGRESSIVE) {
-                    secondaryItemToFletch = (model.getFletchingMaterial().getName() + " logs").trim();
+                    secondaryItemToFletch = model.getFletchingMaterial().getLogItemName();
                     hasRequirementsToFletch = Rs2Inventory.hasItem(primaryItemToFletch)
                             && Rs2Inventory.hasItemAmount(secondaryItemToFletch, model.getFletchingItem().getAmountRequired());
                     hasRequirementsToBank = !Rs2Inventory.hasItem(primaryItemToFletch)
@@ -84,7 +84,7 @@ public class FletchingScript extends Script {
                 } else {
                     secondaryItemToFletch = fletchingMode == FletchingMode.STRUNG
                             ? config.fletchingMaterial().getName() + " " + config.fletchingItem().getContainsInventoryName() + " (u)"
-                            : (config.fletchingMaterial().getName() + " logs").trim();
+                            : config.fletchingMaterial().getLogItemName();
                     hasRequirementsToFletch = Rs2Inventory.hasItem(primaryItemToFletch)
                             && Rs2Inventory.hasItemAmount(secondaryItemToFletch, config.fletchingItem().getAmountRequired());
                     hasRequirementsToBank = !Rs2Inventory.hasItem(primaryItemToFletch)
@@ -115,7 +115,7 @@ public class FletchingScript extends Script {
             case PROGRESSIVE:
                 Rs2Bank.depositAll(model.getFletchingItem().getContainsInventoryName());
                 calculateItemToFletch();
-                secondaryItemToFletch = (model.getFletchingMaterial().getName() + " logs").trim();
+                secondaryItemToFletch = model.getFletchingMaterial().getLogItemName();
                 break;
             case PROGRESSIVE_STRUNG:
                 Rs2Bank.depositAll();
