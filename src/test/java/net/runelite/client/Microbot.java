@@ -10,6 +10,7 @@ import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
 import net.runelite.client.plugins.microbot.astralrc.AstralRunesPlugin;
 import net.runelite.client.plugins.microbot.autofishing.AutoFishingPlugin;
 import net.runelite.client.plugins.microbot.example.ExamplePlugin;
+import net.runelite.client.plugins.microbot.leftclickcast.LeftClickCastPlugin;
 import net.runelite.client.plugins.microbot.sailing.MSailingPlugin;
 import net.runelite.client.plugins.microbot.thieving.ThievingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
@@ -20,7 +21,8 @@ public class Microbot
 
 	private static final Class<?>[] debugPlugins = {
 		AIOFighterPlugin.class,
-		AgentServerPlugin.class
+		AgentServerPlugin.class,
+		LeftClickCastPlugin.class
 	};
 
     public static void main(String[] args) throws Exception
