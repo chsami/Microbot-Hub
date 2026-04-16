@@ -1854,6 +1854,27 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/minnowsplugin-1.0.4.jar"
     },
     {
+        "internalName": "LeaguesToolkitPlugin",
+        "name": "Leagues Toolkit",
+        "description": "Quality-of-life utilities for Leagues (anti-AFK, and more to come)",
+        "tags": [
+            "leagues",
+            "microbot",
+            "utility",
+            "afk"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.0.13",
+        "authors": [
+            "Unknown Author"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "ca230c3f64dd9a7d9058ed1c232797ef1d8e23eb88edda4f5fa5ae09aef6b4a9",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/leaguestoolkitplugin-1.0.0.jar"
+    },
+    {
         "internalName": "CannonballSmelterPlugin",
         "name": "Cannonball Smelter",
         "description": "Makes cannonballs",
@@ -2137,7 +2158,7 @@
             "microbot",
             "skills"
         ],
-        "version": "1.6.3",
+        "version": "1.6.4",
         "minClientVersion": "1.9.9.1",
         "authors": [
             "Mocrosoft"
@@ -2145,8 +2166,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FletchingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FletchingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "c5a23f7d70f39c20771e266e7f4796ca88036ba5e840053eef5097cd0bcf69b4",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/fletchingplugin-1.6.3.jar"
+        "sha256": "1bb71a43fcab9b36bde5142d6d948a354ea8c7508b2d3e7369ad5dafaee1a56c",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/fletchingplugin-1.6.4.jar"
     },
     {
         "internalName": "VorkathPlugin",
