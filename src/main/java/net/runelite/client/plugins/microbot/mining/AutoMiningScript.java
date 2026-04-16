@@ -65,6 +65,11 @@ public class AutoMiningScript extends Script {
                     initialPlayerLocation = Rs2Player.getWorldLocation();
                 }
 
+                // Skip cycle if we don't have a valid location
+                if (initialPlayerLocation == null) {
+                    return;
+                }
+
                 updateActiveRock(config);
 
                 if (config.progressiveMode() && ensureProgressiveLocation(config)) {
@@ -124,6 +129,16 @@ public class AutoMiningScript extends Script {
 
                         if (activeRock == null) {
                             return;
+                        }
+
+                        // Check if we're too far from mining location - walk back first
+                        if (initialPlayerLocation != null) {
+                            int distanceFromStart = Rs2Player.getWorldLocation().distanceTo(initialPlayerLocation);
+                            if (distanceFromStart > config.distanceToStray()) {
+                                Microbot.status = "Walking back to mining location...";
+                                Rs2Walker.walkTo(initialPlayerLocation, config.distanceToStray());
+                                return;
+                            }
                         }
 
                         GameObject rock = Rs2GameObject.findReachableObject(activeRock.getName(), true, config.distanceToStray(), initialPlayerLocation);
@@ -258,7 +273,9 @@ public class AutoMiningScript extends Script {
 
         WorldPoint targetPoint = activeLocation.getWorldPoint();
 
-        if (initialPlayerLocation == null || !initialPlayerLocation.equals(targetPoint)) {
+        // Only update initialPlayerLocation if it's null
+        // Don't update just because player is far away (e.g., at bank) - that breaks return-to-location
+        if (initialPlayerLocation == null) {
             initialPlayerLocation = targetPoint;
         }
 

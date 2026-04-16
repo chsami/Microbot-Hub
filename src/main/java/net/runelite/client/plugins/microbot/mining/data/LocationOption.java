@@ -131,8 +131,7 @@ public class LocationOption {
                     // bolt ammo slot ? when the ids is any ammo
 
                     if (numberOfItems+numberOfItemsInPouch +numberOfItemsInBank< requiredAmount) {
-                        log.warn("Missing required item: {} x{} (have {})", itemId, requiredAmount, numberOfItems);
-                        Microbot.log("Missing required item: " + itemId + " x" + requiredAmount + " (have " + numberOfItems + ")");
+                        log.debug("Missing required item: {} x{} (have {})", itemId, requiredAmount, numberOfItems);
                         return false;
                     }
                     return true;
