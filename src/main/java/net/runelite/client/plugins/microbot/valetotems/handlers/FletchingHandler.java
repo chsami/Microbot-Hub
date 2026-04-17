@@ -295,19 +295,20 @@ public class FletchingHandler {
             }
 
             sleepGaussian(300,100);
-            
-            // Click the configured bow option using the mapper
-            if (config != null) {
-                int bowChildId = FletchingItemMapper.getFletchingInterfaceChildId(config.logType(), config.bowType());
-                String description = FletchingItemMapper.getFletchingDescriptionWithShortcut(config.logType(), config.bowType());
-                interactWithWidget(bowChildId, description);
-                Microbot.log("Selected " + FletchingItemMapper.getFletchingDescription(config.logType(), config.bowType()));
-            } else {
-                // Fallback to yew longbow
-                interactWithWidget(16, "Yew Longbow (u) (expected key: 3)");
-                Microbot.log("Selected Yew Longbow (u) - fallback");
+
+            // Select the configured bow option by name — resolves the correct hotkey dynamically
+            // against the actual fletching interface layout, instead of assuming fixed child IDs.
+            // The previous child-ID scheme mapped SHORTBOW → child 15 with hotkey-index 1, but the
+            // sparse dynamic-children layout of widget 270,13 in skillmulti could produce "3" at
+            // that slot for some log types, so shortbow-selected was pressing the longbow key.
+            String bowAction = (config != null && config.bowType() == ValeTotemConfig.BowType.SHORTBOW)
+                    ? "shortbow" : "longbow";
+            if (!Rs2Widget.handleProcessingInterface(bowAction)) {
+                Microbot.log("Failed to select " + bowAction + " from fletching interface");
+                return false;
             }
-            
+            Microbot.log("Selected " + bowAction);
+
             sleepGaussian(200,100);
 
             return true;
