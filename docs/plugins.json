@@ -1863,7 +1863,7 @@
             "utility",
             "afk"
         ],
-        "version": "1.0.0",
+        "version": "1.1.0",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1871,8 +1871,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "ca230c3f64dd9a7d9058ed1c232797ef1d8e23eb88edda4f5fa5ae09aef6b4a9",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/leaguestoolkitplugin-1.0.0.jar"
+        "sha256": "48a160d3104c3bfa195174dc289f299d0d8cd5023418c6c54f7aee99a944f70e",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/leaguestoolkitplugin-1.1.0.jar"
     },
     {
         "internalName": "CannonballSmelterPlugin",
