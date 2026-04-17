@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.leaguestoolkit;
 
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -18,6 +19,11 @@ public class LeaguesToolkitScript extends Script {
             KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT, KeyEvent.VK_UP, KeyEvent.VK_DOWN
     };
 
+    @Getter
+    private final GemCutter gemCutter = new GemCutter();
+
+    private boolean gemCutterWasEnabled = false;
+
     public boolean run(LeaguesToolkitConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -26,6 +32,16 @@ public class LeaguesToolkitScript extends Script {
 
                 if (config.enableAntiAfk()) {
                     runAntiAfk(config);
+                }
+
+                if (config.enableGemCutter()) {
+                    if (!gemCutterWasEnabled) {
+                        gemCutter.reset();
+                        gemCutterWasEnabled = true;
+                    }
+                    gemCutter.tick(config);
+                } else {
+                    gemCutterWasEnabled = false;
                 }
             } catch (Exception ex) {
                 log.error("LeaguesToolkitScript loop error", ex);

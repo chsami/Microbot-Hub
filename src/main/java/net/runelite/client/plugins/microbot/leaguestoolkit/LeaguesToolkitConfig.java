@@ -66,4 +66,57 @@ public interface LeaguesToolkitConfig extends Config {
     default int antiAfkBufferMax() {
         return 1500;
     }
+
+    @ConfigSection(
+            name = "Toci's Gem Cutter",
+            description = "Buys uncut gems from Toci in Aldarin, cuts them, sells them back",
+            position = 1,
+            closedByDefault = true
+    )
+    String gemCutterSection = "gemCutterSection";
+
+    @ConfigItem(
+            keyName = "enableGemCutter",
+            name = "Enable gem cutter",
+            description = "Walks to Toci, buys uncut gems, cuts them, sells cut gems back — repeats",
+            position = 0,
+            section = gemCutterSection
+    )
+    default boolean enableGemCutter() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "gemType",
+            name = "Gem",
+            description = "Which gem to cut (requires chisel + coins + crafting level)",
+            position = 1,
+            section = gemCutterSection
+    )
+    default GemType gemType() {
+        return GemType.RUBY;
+    }
+
+    @Range(min = 1000, max = 1_000_000)
+    @ConfigItem(
+            keyName = "gemCutterMinCoins",
+            name = "Min coins to keep",
+            description = "When coins drop below this, withdraw more from the bank",
+            position = 2,
+            section = gemCutterSection
+    )
+    default int gemCutterMinCoins() {
+        return 10_000;
+    }
+
+    @ConfigItem(
+            keyName = "gemCutterUseBriefcase",
+            name = "Use Bank Heist briefcase",
+            description = "Use the banker's briefcase to bank (Leagues relic) instead of walking to a bank",
+            position = 3,
+            section = gemCutterSection
+    )
+    default boolean gemCutterUseBriefcase() {
+        return false;
+    }
 }
