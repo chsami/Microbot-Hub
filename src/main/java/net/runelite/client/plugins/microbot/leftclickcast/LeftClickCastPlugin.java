@@ -49,7 +49,7 @@ import net.runelite.client.util.HotkeyListener;
 )
 public class LeftClickCastPlugin extends Plugin
 {
-	static final String version = "1.3.0";
+	static final String version = "1.3.1";
 
 	private static final int SLOT_COUNT = 5;
 
@@ -114,6 +114,7 @@ public class LeftClickCastPlugin extends Plugin
 		};
 		keyManager.registerKeyListener(enabledToggleListener);
 		migrateLegacySpellKey();
+		syncTopSpellToActiveSlot();
 	}
 
 	@Override
@@ -242,12 +243,57 @@ public class LeftClickCastPlugin extends Plugin
 		}
 	}
 
+	private static String slotSpellKeyFor(int index)
+	{
+		switch (index)
+		{
+			case 0:
+				return "slot1Spell";
+			case 1:
+				return "slot2Spell";
+			case 2:
+				return "slot3Spell";
+			case 3:
+				return "slot4Spell";
+			case 4:
+				return "slot5Spell";
+			default:
+				return "slot1Spell";
+		}
+	}
+
+	private static int slotIndexForKey(String key)
+	{
+		switch (key)
+		{
+			case "slot1Spell":
+				return 0;
+			case "slot2Spell":
+				return 1;
+			case "slot3Spell":
+				return 2;
+			case "slot4Spell":
+				return 3;
+			case "slot5Spell":
+				return 4;
+			default:
+				return -1;
+		}
+	}
+
 	private void onSlotHotkey(int index)
 	{
 		activeSlot = index;
+		PertTargetSpell spell = slotSpellFor(index);
+		if (spell != null && config.spell() != spell)
+		{
+			configManager.setConfiguration("leftclickcast", "spell", spell);
+			// MicrobotConfigPanel doesn't refresh individual widgets on ConfigChanged — force a rebuild
+			// so the top dropdown visibly matches the newly active slot.
+			eventBus.post(new ExternalPluginsChanged());
+		}
 		if (config.chatFeedback())
 		{
-			PertTargetSpell spell = slotSpellFor(index);
 			String display = spell != null ? spell.getDisplayName() : "(no spell)";
 			chatMessageManager.queue(QueuedMessage.builder()
 				.type(ChatMessageType.GAMEMESSAGE)
@@ -270,19 +316,57 @@ public class LeftClickCastPlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (!"leftclickcast".equals(event.getGroup()) || !"enabled".equals(event.getKey()))
+		if (!"leftclickcast".equals(event.getGroup()))
 		{
 			return;
 		}
-		if (!config.chatFeedback())
+		String key = event.getKey();
+		if ("enabled".equals(key))
 		{
+			if (!config.chatFeedback())
+			{
+				return;
+			}
+			boolean enabled = "true".equals(event.getNewValue());
+			chatMessageManager.queue(QueuedMessage.builder()
+				.type(ChatMessageType.GAMEMESSAGE)
+				.value("Left-Click Cast: " + (enabled ? "enabled" : "disabled"))
+				.build());
 			return;
 		}
-		boolean enabled = "true".equals(event.getNewValue());
-		chatMessageManager.queue(QueuedMessage.builder()
-			.type(ChatMessageType.GAMEMESSAGE)
-			.value("Left-Click Cast: " + (enabled ? "enabled" : "disabled"))
-			.build());
+		if ("spell".equals(key))
+		{
+			// User edited the top dropdown — mirror the value into the currently active slot's config.
+			// The equality guard stops the ConfigChanged→write→ConfigChanged loop.
+			PertTargetSpell newSpell = config.spell();
+			PertTargetSpell activeSpell = slotSpellFor(activeSlot);
+			if (newSpell != null && newSpell != activeSpell)
+			{
+				configManager.setConfiguration("leftclickcast", slotSpellKeyFor(activeSlot), newSpell);
+				eventBus.post(new ExternalPluginsChanged());
+			}
+			return;
+		}
+		int slot = slotIndexForKey(key);
+		if (slot == activeSlot && slot >= 0)
+		{
+			// User edited the spell for the currently active slot — mirror into the top dropdown.
+			PertTargetSpell newSpell = slotSpellFor(slot);
+			if (newSpell != null && newSpell != config.spell())
+			{
+				configManager.setConfiguration("leftclickcast", "spell", newSpell);
+				eventBus.post(new ExternalPluginsChanged());
+			}
+		}
+	}
+
+	private void syncTopSpellToActiveSlot()
+	{
+		PertTargetSpell active = slotSpellFor(activeSlot);
+		if (active != null && config.spell() != active)
+		{
+			configManager.setConfiguration("leftclickcast", "spell", active);
+		}
 	}
 
 	// Fast-path cast: fire two synchronous client.menuAction packets back-to-back so the server processes
