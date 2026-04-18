@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.huey;
+package net.runelite.client.plugins.microbot.HueycoatlPrayer;
 
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayPosition;
