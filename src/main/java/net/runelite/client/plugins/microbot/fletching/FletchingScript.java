@@ -35,6 +35,9 @@ public class FletchingScript extends Script {
     // The fletching interface widget group ID
     private static final int FLETCHING_WIDGET_GROUP_ID = 17694736;
 
+    private static final String FLETCHING_KNIFE = "fletching knife";
+    private static final String KNIFE = "knife";
+
     ProgressiveFletchingModel model = new ProgressiveFletchingModel();
 
     String primaryItemToFletch = "";
@@ -68,7 +71,7 @@ public class FletchingScript extends Script {
 
                 boolean hasRequirementsToFletch;
                 boolean hasRequirementsToBank;
-                primaryItemToFletch = fletchingMode.getItemName();
+                primaryItemToFletch = usesKnife() ? getPreferredKnife() : fletchingMode.getItemName();
 
                 if (fletchingMode == FletchingMode.PROGRESSIVE) {
                     secondaryItemToFletch = model.getFletchingMaterial().getLogItemName();
@@ -130,7 +133,9 @@ public class FletchingScript extends Script {
         }
 
         // Check if the primary item is available
-        if (!Rs2Bank.hasItem(primaryItemToFletch) && !Rs2Inventory.hasItem(primaryItemToFletch)) {
+        boolean hasPrimaryInBank = usesKnife() ? bankHasAnyKnife() : Rs2Bank.hasItem(primaryItemToFletch);
+        boolean hasPrimaryInInventory = usesKnife() ? hasAnyKnife() : Rs2Inventory.hasItem(primaryItemToFletch);
+        if (!hasPrimaryInBank && !hasPrimaryInInventory) {
             Rs2Bank.closeBank();
             Microbot.status = "[Shutting down] - Reason: " + primaryItemToFletch + " not found in the bank.";
             Microbot.showMessage(Microbot.status);
@@ -139,12 +144,12 @@ public class FletchingScript extends Script {
         }
 
         // Ensure the inventory isn't full without the primary item
-        if (!Rs2Inventory.hasItem(primaryItemToFletch)) {
+        if (!hasPrimaryInInventory) {
             Rs2Bank.depositAll();
         }
 
         // Withdraw the primary item if not already in the inventory
-        if (!Rs2Inventory.hasItem(primaryItemToFletch)) {
+        if (!hasPrimaryInInventory) {
             Rs2Bank.withdrawX(primaryItemToFletch, fletchingMode.getAmount(), true);
         }
 
@@ -181,7 +186,8 @@ public class FletchingScript extends Script {
         }
 
         // Final check to ensure both items are in the inventory
-        if (!Rs2Inventory.hasItem(primaryItemToFletch) || !Rs2Inventory.hasItem(secondaryItemToFletch)) {
+        boolean hasPrimaryFinal = usesKnife() ? hasAnyKnife() : Rs2Inventory.hasItem(primaryItemToFletch);
+        if (!hasPrimaryFinal || !Rs2Inventory.hasItem(secondaryItemToFletch)) {
             Microbot.log("waiting for inventory changes.");
             Rs2Inventory.waitForInventoryChanges(5000);
         }
@@ -192,7 +198,8 @@ public class FletchingScript extends Script {
 
 
     private void fletch(FletchingConfig config) {
-        Rs2Inventory.combineClosest(primaryItemToFletch, secondaryItemToFletch);
+        String itemToUse = usesKnife() ? getKnifeInInventory() : primaryItemToFletch;
+        Rs2Inventory.combineClosest(itemToUse, secondaryItemToFletch);
         sleepUntil(() -> Rs2Widget.getWidget(FLETCHING_WIDGET_GROUP_ID) != null, 5000);
         char option;
         if (fletchingMode == FletchingMode.PROGRESSIVE || fletchingMode == FletchingMode.PROGRESSIVE_STRUNG) {
@@ -217,6 +224,34 @@ public class FletchingScript extends Script {
             return false;
         }
         return true;
+    }
+
+    private String getPreferredKnife() {
+        if (Rs2Inventory.hasItem(FLETCHING_KNIFE) || Rs2Bank.hasItem(FLETCHING_KNIFE)) {
+            return FLETCHING_KNIFE;
+        }
+        return KNIFE;
+    }
+
+    private boolean hasAnyKnife() {
+        return Rs2Inventory.hasItem(FLETCHING_KNIFE) || Rs2Inventory.hasItem(KNIFE);
+    }
+
+    private String getKnifeInInventory() {
+        if (Rs2Inventory.hasItem(FLETCHING_KNIFE)) {
+            return FLETCHING_KNIFE;
+        }
+        return KNIFE;
+    }
+
+    private boolean bankHasAnyKnife() {
+        return Rs2Bank.hasItem(FLETCHING_KNIFE) || Rs2Bank.hasItem(KNIFE);
+    }
+
+    private boolean usesKnife() {
+        return fletchingMode == FletchingMode.UNSTRUNG
+                || fletchingMode == FletchingMode.UNSTRUNG_STRUNG
+                || fletchingMode == FletchingMode.PROGRESSIVE;
     }
 
     public void calculateItemToFletch() {
