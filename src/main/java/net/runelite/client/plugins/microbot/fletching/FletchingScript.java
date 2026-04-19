@@ -108,7 +108,11 @@ public class FletchingScript extends Script {
     }
 
     private void bankItems(FletchingConfig config) {
-        Rs2Bank.openBank();
+        if (!Rs2Bank.isOpen()) {
+            if (!Rs2Bank.openBank()) {
+                return; // Bank didn't open, retry next iteration
+            }
+        }
 
         // Deposit items based on the fletching mode
         switch (fletchingMode) {
