@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.huey;
+package net.runelite.client.plugins.microbot.HueycoatlPrayer;
 
 import net.runelite.client.config.*;
 
@@ -11,6 +11,16 @@ public interface HueyPrayerConfig extends Config
             description = "Enable auto prayer"
     )
     default boolean enabled()
+    {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "disableAfterImpact",
+            name = "Disable after impact",
+            description = "When enabled, turns off protection prayer after the projectile hits (saves prayer). When disabled, prayers stay on until the next attack switches them."
+    )
+    default boolean disableAfterImpact()
     {
         return true;
     }
