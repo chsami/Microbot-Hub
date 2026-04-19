@@ -1324,7 +1324,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "1c56fb5cbc9df4f5867908ca6903dcd97062637d3814e63f5064c57a0e0f2dce",
+        "sha256": "015392292b7069f698d934c43ac3c76bf41013fddc70877607f66a6b8514541a",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/craftingplugin-1.0.1.jar"
     },
     {
@@ -2158,7 +2158,7 @@
             "microbot",
             "skills"
         ],
-        "version": "1.6.4",
+        "version": "1.7.0",
         "minClientVersion": "1.9.9.1",
         "authors": [
             "Mocrosoft"
@@ -2166,8 +2166,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FletchingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FletchingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "1bb71a43fcab9b36bde5142d6d948a354ea8c7508b2d3e7369ad5dafaee1a56c",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/fletchingplugin-1.6.4.jar"
+        "sha256": "4aac17d37d3145a96b4c3e36c4c9593eb9ba9a6e47888bfc405a7455fb2eadfb",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/fletchingplugin-1.7.0.jar"
     },
     {
         "internalName": "VorkathPlugin",
@@ -2453,7 +2453,7 @@
             "fletching",
             "minigame"
         ],
-        "version": "1.0.9",
+        "version": "1.0.10",
         "minClientVersion": "1.9.7",
         "authors": [
             "Make"
@@ -2461,8 +2461,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         "disable": false,
-        "sha256": "19ff3d19c6a74c23aecbc1014b5d27f17048e9692258936ac2246a1a17fce6ec",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/valetotemplugin-1.0.9.jar"
+        "sha256": "76e5a2c9456c79a2524fba6877091ccf7c9436ba54e662769b6b97bfbbf297bf",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/valetotemplugin-1.0.10.jar"
     },
     {
         "internalName": "GECookerPlugin",
@@ -2851,7 +2851,7 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "b9173eb467b7fc71ba1225f31599099319be3cf6b962253ae4ee4e8988ef3d66",
+        "sha256": "64007574205d41c8f2c9348c555fcca4f343cedddf35840bf78d0169bac5f5d4",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/hueyprayerplugin-1.0.0.jar"
     },
     {
