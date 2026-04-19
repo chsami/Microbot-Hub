@@ -18,6 +18,9 @@ public enum FletchingMaterial
 
     private final String name;
 
+    public String getLogItemName() {
+        return this == LOG ? "Logs" : name + " logs";
+    }
 
     @Override
     public String toString()

@@ -34,6 +34,8 @@ public final class PluginConstants
     public static final String NATE = "<html>[<font color=orange>N</font>] ";
     public static final String SYN = "<html>[<font color=orange>Syn</font>] ";
     public static final String BIGL = "<html>[<font color=#b8f704>BL</font>] ";
+    public static final String PERT = "<html>[<font color=#FFFF00>P</font>] ";
+    public static final String DV = "<html>[<font color=#800080>DV</font>] ";
 
     public static final boolean DEFAULT_ENABLED = false;
     public static final boolean IS_EXTERNAL = true; //test
