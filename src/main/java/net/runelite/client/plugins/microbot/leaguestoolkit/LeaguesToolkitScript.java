@@ -23,8 +23,17 @@ public class LeaguesToolkitScript extends Script {
     private final GemCutter gemCutter = new GemCutter();
     @Getter
     private final Transmuter transmuter = new Transmuter();
+    @Getter
+    private final WealthyCitizenThiever wealthyCitizenThiever = new WealthyCitizenThiever();
+    @Getter
+    private final EasyClueOpener easyClueOpener = new EasyClueOpener();
+    @Getter
+    private final SnapeGrassTelegrabber snapeGrassTelegrabber = new SnapeGrassTelegrabber();
 
     private boolean gemCutterWasEnabled = false;
+    private boolean thievingWasEnabled = false;
+    private boolean easyClueWasEnabled = false;
+    private boolean snapeGrassWasEnabled = false;
     private boolean transmuteWasEnabled = false;
 
     public boolean run(LeaguesToolkitConfig config) {
@@ -46,6 +55,36 @@ public class LeaguesToolkitScript extends Script {
                     gemCutter.tick(config);
                 } else {
                     gemCutterWasEnabled = false;
+                }
+
+                if (config.enableThieving()) {
+                    if (!thievingWasEnabled) {
+                        wealthyCitizenThiever.reset();
+                        thievingWasEnabled = true;
+                    }
+                    wealthyCitizenThiever.tick(config);
+                } else {
+                    thievingWasEnabled = false;
+                }
+
+                if (config.enableEasyClue()) {
+                    if (!easyClueWasEnabled) {
+                        easyClueOpener.reset();
+                        easyClueWasEnabled = true;
+                    }
+                    easyClueOpener.tick(config);
+                } else {
+                    easyClueWasEnabled = false;
+                }
+
+                if (config.enableSnapeGrass()) {
+                    if (!snapeGrassWasEnabled) {
+                        snapeGrassTelegrabber.reset();
+                        snapeGrassWasEnabled = true;
+                    }
+                    snapeGrassTelegrabber.tick(config);
+                } else {
+                    snapeGrassWasEnabled = false;
                 }
 
                 if (config.enableTransmute()) {

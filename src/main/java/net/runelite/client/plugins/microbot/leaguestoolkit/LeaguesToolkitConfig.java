@@ -19,6 +19,16 @@ import net.runelite.client.config.Range;
         "<li><em>Buy, Cut &amp; Sell</em> — buy uncut, cut with chisel, sell cut gems back to Toci for profit.</li>" +
         "<li><em>Buy, Cut &amp; Bank</em> — buy uncut, cut, bank via briefcase, walk back, repeat.</li>" +
         "</ul>" +
+        "<p><strong>Wealthy Citizen Thieving:</strong> Pickpockets Wealthy citizens with auto coin pouch opening. " +
+        "Requires the <strong>Larcenist relic</strong> for 100% success rate (no stuns). " +
+        "Configure the pouch threshold (max 280 before they auto-destroy).</p>" +
+        "<p><strong>Easy Clue Opener:</strong> Farms reward caskets using the Aldarin bank easy clue method. " +
+        "Opens Scroll box (easy) — if the clue is a dig type, digs with spade repeatedly until a casket " +
+        "or a different clue appears. Non-dig clues are dropped and the next scroll box opens. " +
+        "Caskets stack in your inventory. Configurable action speed. Requires a spade and scroll boxes.</p>" +
+        "<p><strong>Snape Grass Telegrab:</strong> Walks to the snape grass spawn and casts Telekinetic Grab " +
+        "on repeat. Requires 33 Magic, law runes, and air runes (or air staff equipped). " +
+        "Stops when inventory is full.</p>" +
         "<p><strong>Transmutation:</strong> Casts Alchemic Divergence or Convergence on noted items " +
         "to upgrade/downgrade through tiers (e.g. Iron ore all the way to Runite ore). " +
         "Have the starting items noted in your inventory before enabling. " +
@@ -134,9 +144,120 @@ public interface LeaguesToolkitConfig extends Config {
     }
 
     @ConfigSection(
+            name = "Wealthy Citizen Thieving",
+            description = "Pickpockets Wealthy citizens, opens coin pouches at a threshold",
+            position = 2,
+            closedByDefault = true
+    )
+    String thievingSection = "thievingSection";
+
+    @ConfigItem(
+            keyName = "enableThieving",
+            name = "Enable",
+            description = "Pickpockets the nearest Wealthy citizen with 100% success (Larcenist relic required). " +
+                    "Opens coin pouches at the configured threshold. Stand near a Wealthy citizen before enabling.",
+            position = 0,
+            section = thievingSection
+    )
+    default boolean enableThieving() {
+        return false;
+    }
+
+    @Range(min = 1, max = 280)
+    @ConfigItem(
+            keyName = "coinPouchThreshold",
+            name = "Open pouches at",
+            description = "Open coin pouches when this many have accumulated (max 280 before they auto-destroy)",
+            position = 1,
+            section = thievingSection
+    )
+    default int coinPouchThreshold() {
+        return 200;
+    }
+
+    @ConfigSection(
+            name = "Snape Grass Telegrab",
+            description = "Telegrab snape grass at a fixed location",
+            position = 2,
+            closedByDefault = true
+    )
+    String snapeGrassSection = "snapeGrassSection";
+
+    @ConfigItem(
+            keyName = "enableSnapeGrass",
+            name = "Enable",
+            description = "Walks to snape grass spawn (1736, 3170), casts Telekinetic Grab, waits for respawn, repeats. " +
+                    "Requires 33 Magic, law runes, and air runes or air staff equipped.",
+            position = 0,
+            section = snapeGrassSection
+    )
+    default boolean enableSnapeGrass() {
+        return false;
+    }
+
+    @ConfigSection(
+            name = "Easy Clue Opener",
+            description = "Opens scroll boxes, digs dig-clues, drops non-dig clues, opens reward caskets",
+            position = 4,
+            closedByDefault = true
+    )
+    String easyClueSection = "easyClueSection";
+
+    @ConfigItem(
+            keyName = "enableEasyClue",
+            name = "Enable",
+            description = "Uses the Aldarin bank easy clue method to farm reward caskets. " +
+                    "Opens Scroll box (easy), checks if the clue is a dig type (ID 29853) — " +
+                    "if so, digs with spade repeatedly until you get a casket or a different clue. " +
+                    "Non-dig clues are dropped and the next scroll box is opened. " +
+                    "Caskets stack in your inventory. Requires a spade and scroll boxes.",
+            position = 0,
+            section = easyClueSection
+    )
+    default boolean enableEasyClue() {
+        return false;
+    }
+
+    @Range(min = 100, max = 3000)
+    @ConfigItem(
+            keyName = "clueDigDelayMin",
+            name = "Dig delay min (ms)",
+            description = "Minimum delay after digging before the next action",
+            position = 1,
+            section = easyClueSection
+    )
+    default int clueDigDelayMin() {
+        return 400;
+    }
+
+    @Range(min = 100, max = 3000)
+    @ConfigItem(
+            keyName = "clueDigDelayMax",
+            name = "Dig delay max (ms)",
+            description = "Maximum delay after digging before the next action",
+            position = 2,
+            section = easyClueSection
+    )
+    default int clueDigDelayMax() {
+        return 700;
+    }
+
+    @Range(min = 50, max = 2000)
+    @ConfigItem(
+            keyName = "clueActionDelay",
+            name = "Action delay (ms)",
+            description = "Delay between opening scroll boxes, dropping clues, etc.",
+            position = 3,
+            section = easyClueSection
+    )
+    default int clueActionDelay() {
+        return 300;
+    }
+
+    @ConfigSection(
             name = "Transmutation",
             description = "Casts Alchemic Divergence/Convergence to upgrade or downgrade noted items through tiers",
-            position = 2,
+            position = 5,
             closedByDefault = true
     )
     String transmuteSection = "transmuteSection";
