@@ -209,6 +209,35 @@ Key capabilities for Hub plugin testing:
 - **Script lifecycle**: Start/stop plugins by class name via HTTP, poll runtime status, submit and retrieve structured test results.
 - **Java result API**: Hub scripts can call `ScriptResultStore.submit(className, data)` directly from within the JVM.
 
+## Dynamic Script Deployment (Hot-Reload)
+
+**Core Mechanism:** Compile Java source → load via custom URLClassLoader → inject into Guice → start as a RuneLite plugin. No client restart needed.
+
+**HTTP endpoints (127.0.0.1:8081):**
+- `POST /scripts/deploy` — compile & start
+- `POST /scripts/deploy/reload` — recompile in place
+- `POST /scripts/deploy/undeploy` — stop & unload
+- `GET /scripts/deploy` — list deployments
+
+**Core files:** `agentserver/scripting/DynamicScriptManager.java`, `DynamicScriptCompiler.java`, `handler/DynamicScriptDeployHandler.java`
+
+### Supporting Systems
+
+1. **microbot-cli** — bash wrapper for the agent server (`./microbot-cli scripts deploy|reload|undeploy|health|results`)
+2. **Agent Server API** — query state (NPCs, objects, inventory, widgets) and drive the client (walk, interact, dialogue). Full reference in `docs/AGENT_SERVER.md`.
+3. **Probe plugin pattern** — minimal `@PluginDescriptor` classes deployed to inspect engine state, iterate with hot-reload. Used by the `/debugger` skill.
+4. **StateMachineScript** — base class for multi-phase scripts; transitions observable via `GET /debug/snapshot?script=Name`.
+5. **ScriptResultStore** — scripts submit results in-process; retrieve via `/scripts/results` for test workflows.
+6. **`scripts/test_hot_reload.py`** — working end-to-end example of the deploy/reload/undeploy lifecycle.
+
+### Typical Loop
+
+```
+edit source → microbot-cli scripts reload → microbot-cli scripts health → observe logs → repeat
+```
+
+Everything binds to `127.0.0.1` only.
+
 ## Common Patterns
 
 - Plugins extending `SchedulablePlugin` implement `getStartCondition()` and `getStopCondition()` for scheduler integration
