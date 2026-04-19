@@ -215,10 +215,11 @@ public class FletchingScript extends Script {
             Rs2Keyboard.keyPress(option);
         }
 
+        Rs2Bank.preHover();
+
         sleepUntil(() -> !Rs2Inventory.hasItem(secondaryItemToFletch), 60000);
         Rs2Antiban.actionCooldown();
         Rs2Antiban.takeMicroBreakByChance();
-        Rs2Bank.preHover();
     }
 
     private boolean configChecks(FletchingConfig config) {
