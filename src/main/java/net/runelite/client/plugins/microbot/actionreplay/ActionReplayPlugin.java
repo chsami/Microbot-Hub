@@ -21,12 +21,9 @@ import net.runelite.client.RuneLite;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.ui.overlay.OverlayManager;
-import net.runelite.client.util.ImageUtil;
 
-import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import java.awt.image.BufferedImage;
-import java.awt.image.RenderedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,7 +34,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 @PluginDescriptor(
-	name = PluginConstants.DEFAULT_PREFIX + "AIO AIO</html>",
+	name = PluginConstants.RED_BRACKET + "AIO AIO</html>",
 	description = "Record and replay sequences of in-game actions. 80/20 automation for one-off tasks.",
 	tags = {"microbot", "aio", "record", "replay", "macro", "automation"},
 	authors = { "Red Bracket" },
@@ -50,7 +47,7 @@ import java.util.stream.Stream;
 )
 public class ActionReplayPlugin extends Plugin
 {
-	public static final String version = "1.0.0";
+	public static final String version = "1.1.0";
 
 	static final Path RECORDINGS_DIR = RuneLite.RUNELITE_DIR.toPath().resolve("microbot-recordings");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -77,7 +74,8 @@ public class ActionReplayPlugin extends Plugin
 
 	@Getter
 	private Recording currentRecording;
-	private long lastActionMs;
+	@Getter
+	private boolean appendingToExisting;
 	private int gameTickCounter;
 	private int lastActionTickCounter;
 
@@ -106,10 +104,9 @@ public class ActionReplayPlugin extends Plugin
 		panel.setPlugin(this);
 		panel.refresh();
 
-		BufferedImage icon = loadIcon();
 		navButton = NavigationButton.builder()
 			.tooltip("AIO AIO")
-			.icon(icon)
+			.icon(buildIcon())
 			.priority(7)
 			.panel(panel)
 			.build();
@@ -148,15 +145,10 @@ public class ActionReplayPlugin extends Plugin
 			return;
 		}
 
-		long now = System.currentTimeMillis();
-		long gap = lastActionMs == 0 ? 0 : now - lastActionMs;
-		lastActionMs = now;
-
 		int tickDelta = rec.size() == 0 ? 0 : Math.max(0, gameTickCounter - lastActionTickCounter);
 		lastActionTickCounter = gameTickCounter;
 
 		RecordedAction a = new RecordedAction();
-		a.setDelayMsBefore(gap);
 		a.setDelayTicksBefore(tickDelta);
 		a.setMenuOption(stripColorTags(e.getMenuOption()));
 		a.setMenuTarget(stripColorTags(e.getMenuTarget()));
@@ -180,15 +172,10 @@ public class ActionReplayPlugin extends Plugin
 				if (e.getMenuEntry() != null && e.getMenuEntry().getNpc() != null)
 				{
 					a.setTargetName(e.getMenuEntry().getNpc().getName());
-					a.setTargetId(e.getMenuEntry().getNpc().getId());
 				}
 				break;
 			case GAME_OBJECT:
-				a.setTargetId(e.getId());
-				a.setTargetName(stripColorTags(e.getMenuTarget()));
-				break;
 			case GROUND_ITEM:
-				a.setTargetId(e.getId());
 				a.setTargetName(stripColorTags(e.getMenuTarget()));
 				break;
 			default:
@@ -202,22 +189,29 @@ public class ActionReplayPlugin extends Plugin
 		}
 	}
 
-	public void startRecording()
+	public void startRecording(Recording existing)
 	{
 		if (recording)
 		{
 			return;
 		}
-		long now = System.currentTimeMillis();
-		currentRecording = new Recording();
-		currentRecording.setCreatedAtEpochMs(now);
-		currentRecording.setLastUsedAtEpochMs(now);
-		currentRecording.setName("Recording");
-		lastActionMs = 0;
+		if (existing != null)
+		{
+			currentRecording = existing;
+			appendingToExisting = true;
+			log.info("ActionReplay: recording started (appending to '{}')", existing.getName());
+		}
+		else
+		{
+			currentRecording = new Recording();
+			currentRecording.setLastUsedAtEpochMs(System.currentTimeMillis());
+			currentRecording.setName("Recording");
+			appendingToExisting = false;
+			log.info("ActionReplay: recording started (new)");
+		}
 		gameTickCounter = 0;
 		lastActionTickCounter = 0;
 		recording = true;
-		log.info("ActionReplay: recording started");
 	}
 
 	public Recording stopRecording(boolean save)
@@ -240,8 +234,11 @@ public class ActionReplayPlugin extends Plugin
 		}
 		if (save)
 		{
-			enrichName(r);
-			r.setName(uniqueName(r.getName()));
+			if (!appendingToExisting)
+			{
+				enrichName(r);
+				r.setName(uniqueName(r.getName()));
+			}
 			try
 			{
 				save(r);
@@ -264,7 +261,7 @@ public class ActionReplayPlugin extends Plugin
 		return currentRecording == null ? 0 : currentRecording.size();
 	}
 
-	public void play(Recording r, boolean loop)
+	public void play(Recording r)
 	{
 		if (playing)
 		{
@@ -293,7 +290,7 @@ public class ActionReplayPlugin extends Plugin
 		{
 			panel.refresh();
 		}
-		boolean started = script.play(r, config, loop, () ->
+		boolean started = script.play(r, () ->
 		{
 			playing = false;
 			if (panel != null)
@@ -463,26 +460,19 @@ public class ActionReplayPlugin extends Plugin
 		return s.replaceAll("<[^>]+>", "");
 	}
 
-	private BufferedImage loadIcon()
+	private static BufferedImage buildIcon()
 	{
+		BufferedImage img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+		java.awt.Graphics2D g = img.createGraphics();
 		try
 		{
-			return ImageUtil.loadImageResource(ActionReplayPlugin.class, "panel_icon.png");
+			g.setColor(new java.awt.Color(220, 40, 40));
+			g.fillOval(2, 2, 12, 12);
 		}
-		catch (Exception ex)
+		finally
 		{
-			BufferedImage img = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-			java.awt.Graphics2D g = img.createGraphics();
-			try
-			{
-				g.setColor(new java.awt.Color(220, 40, 40));
-				g.fillOval(2, 2, 12, 12);
-			}
-			finally
-			{
-				g.dispose();
-			}
-			return img;
+			g.dispose();
 		}
+		return img;
 	}
 }

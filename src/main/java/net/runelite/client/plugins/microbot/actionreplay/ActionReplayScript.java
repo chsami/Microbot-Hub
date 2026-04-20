@@ -9,13 +9,10 @@ import net.runelite.client.plugins.microbot.actionreplay.model.RecordedAction;
 import net.runelite.client.plugins.microbot.actionreplay.model.Recording;
 import net.runelite.client.plugins.microbot.actionreplay.model.TargetType;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
-import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -27,19 +24,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public class ActionReplayScript extends Script
 {
-	private static final int PLAYBACK_SPEED_PERCENT = 100;
-	private static final int MIN_STEP_DELAY_MS = 600;
-	private static final boolean SKIP_MISSING_TARGETS = true;
 	private static final int TARGET_LOOKUP_RADIUS = 20;
 
 	private final AtomicBoolean abortFlag = new AtomicBoolean(false);
 	private Recording recording;
-	private boolean loop;
 	private Runnable onFinished;
-	private int currentIndex;
 	private boolean priorNaturalMouse;
 
-	public boolean play(Recording recording, ActionReplayConfig config, boolean loop, Runnable onFinished)
+	public boolean play(Recording recording, Runnable onFinished)
 	{
 		if (recording == null || recording.getActions() == null || recording.getActions().isEmpty())
 		{
@@ -47,7 +39,6 @@ public class ActionReplayScript extends Script
 			return false;
 		}
 		this.recording = recording;
-		this.loop = loop;
 		this.onFinished = onFinished;
 		this.abortFlag.set(false);
 
@@ -57,11 +48,6 @@ public class ActionReplayScript extends Script
 
 		mainScheduledFuture = scheduledExecutorService.schedule(this::playbackLoop, 0, TimeUnit.MILLISECONDS);
 		return true;
-	}
-
-	public int getCurrentIndex()
-	{
-		return currentIndex;
 	}
 
 	@Override
@@ -75,11 +61,10 @@ public class ActionReplayScript extends Script
 	{
 		try
 		{
-			do
+			while (!abortFlag.get())
 			{
 				runOnce();
 			}
-			while (loop && !abortFlag.get());
 		}
 		catch (Exception e)
 		{
@@ -105,23 +90,12 @@ public class ActionReplayScript extends Script
 			{
 				return;
 			}
-			currentIndex = i;
 			RecordedAction action = recording.getActions().get(i);
 
 			Integer ticks = action.getDelayTicksBefore();
-			long delayMs;
-			if (ticks != null)
+			if (ticks != null && ticks > 0)
 			{
-				delayMs = ticks * 600L;
-			}
-			else
-			{
-				delayMs = Math.max(MIN_STEP_DELAY_MS, action.getDelayMsBefore());
-			}
-			long scaled = (delayMs * 100L) / PLAYBACK_SPEED_PERCENT;
-			if (scaled > 0)
-			{
-				sleep((int) scaled);
+				sleep(ticks * 600);
 			}
 
 			if (!Microbot.isLoggedIn())
@@ -130,18 +104,16 @@ public class ActionReplayScript extends Script
 				return;
 			}
 
-			boolean ok = executeStep(action);
-			if (!ok)
+			if (action.getCondition() != null && !action.getCondition().check())
 			{
-				if (SKIP_MISSING_TARGETS)
-				{
-					log.warn("ActionReplay: skipping step #{} ({})", i, action.describe());
-				}
-				else
-				{
-					log.warn("ActionReplay: aborting playback at step #{} ({})", i, action.describe());
-					return;
-				}
+				log.info("ActionReplay: skipping step #{} ({}) — condition '{}' false",
+					i, action.describe(), action.getCondition().describe());
+				continue;
+			}
+
+			if (!executeStep(action))
+			{
+				log.warn("ActionReplay: skipping step #{} ({})", i, action.describe());
 			}
 		}
 	}
@@ -155,7 +127,7 @@ public class ActionReplayScript extends Script
 		}
 
 		String option = a.getMenuOption();
-		log.debug("ActionReplay: step {} {} (id={}, type={})", option, a.getTargetName(), a.getTargetId(), type);
+		log.debug("ActionReplay: step {} {} (type={})", option, a.getTargetName(), type);
 
 		switch (type)
 		{
@@ -176,19 +148,13 @@ public class ActionReplayScript extends Script
 
 	private boolean replayNpc(RecordedAction a)
 	{
-		Rs2NpcModel match = null;
-		if (a.getTargetId() != null)
+		if (a.getTargetName() == null)
 		{
-			match = Microbot.getRs2NpcCache().query()
-				.withId(a.getTargetId())
-				.nearest(TARGET_LOOKUP_RADIUS);
+			return false;
 		}
-		if (match == null && a.getTargetName() != null)
-		{
-			match = Microbot.getRs2NpcCache().query()
-				.withName(a.getTargetName())
-				.nearest(TARGET_LOOKUP_RADIUS);
-		}
+		Rs2NpcModel match = Microbot.getRs2NpcCache().query()
+			.withName(a.getTargetName())
+			.nearest(TARGET_LOOKUP_RADIUS);
 		if (match == null)
 		{
 			return false;
@@ -198,44 +164,27 @@ public class ActionReplayScript extends Script
 
 	private boolean replayGameObject(RecordedAction a)
 	{
-		Rs2TileObjectModel match = null;
-		if (a.getTargetId() != null)
+		if (a.getTargetName() == null)
 		{
-			match = Microbot.getRs2TileObjectCache().query()
-				.withId(a.getTargetId())
-				.nearest(TARGET_LOOKUP_RADIUS);
+			return false;
 		}
-		if (match == null && a.getTargetName() != null)
-		{
-			match = Microbot.getRs2TileObjectCache().query()
-				.withName(a.getTargetName())
-				.nearest(TARGET_LOOKUP_RADIUS);
-		}
+		Rs2TileObjectModel match = Microbot.getRs2TileObjectCache().query()
+			.withName(a.getTargetName())
+			.nearest(TARGET_LOOKUP_RADIUS);
 		if (match == null)
 		{
-			return Rs2GameObject.interact(a.getIdentifier(), a.getMenuOption());
+			return false;
 		}
 		return match.click(a.getMenuOption());
 	}
 
 	private boolean replayGroundItem(RecordedAction a)
 	{
-		if (a.getItemId() != 0)
+		if (a.getTargetName() == null)
 		{
-			Rs2TileItemModel match = Microbot.getRs2TileItemCache().query()
-				.withId(a.getItemId())
-				.nearest(TARGET_LOOKUP_RADIUS);
-			if (match == null)
-			{
-				return false;
-			}
-			return Rs2GroundItem.loot(a.getItemId(), TARGET_LOOKUP_RADIUS);
+			return false;
 		}
-		if (a.getTargetName() != null)
-		{
-			return Rs2GroundItem.loot(a.getTargetName(), TARGET_LOOKUP_RADIUS);
-		}
-		return false;
+		return Rs2GroundItem.loot(a.getTargetName(), TARGET_LOOKUP_RADIUS);
 	}
 
 	private boolean replayRaw(RecordedAction a)
@@ -261,15 +210,23 @@ public class ActionReplayScript extends Script
 		// stored NewMenuEntry directly is fragile: stale canvas coords mean the
 		// physical click may land on an empty slot, at which point no MenuEntryAdded
 		// fires and MicrobotPlugin's targetMenu injection silently no-ops.
+		// Match by name (exact, case-insensitive) rather than id — stack-count
+		// variants (e.g. Coin pouch x1 vs x3) have different ids but the same name.
 		if (a.getItemId() > 0 && param1 > 0 && (param1 >>> 16) == InterfaceID.INVENTORY
 			&& a.getMenuOption() != null && !a.getMenuOption().isEmpty())
 		{
-			if (!Rs2Inventory.hasItem(a.getItemId()))
+			String itemName = a.getMenuTarget();
+			if (itemName == null || itemName.isEmpty())
 			{
-				log.warn("ActionReplay: item {} not in inventory, skipping '{}'", a.getItemId(), a.describe());
+				log.warn("ActionReplay: no item name for inventory step, skipping '{}'", a.describe());
 				return false;
 			}
-			return Rs2Inventory.interact(a.getItemId(), a.getMenuOption());
+			if (!Rs2Inventory.hasItem(itemName, true))
+			{
+				log.warn("ActionReplay: item '{}' not in inventory, skipping '{}'", itemName, a.describe());
+				return false;
+			}
+			return Rs2Inventory.interact(itemName, a.getMenuOption(), true);
 		}
 
 		String target = a.getMenuTarget() != null ? a.getMenuTarget() : "";

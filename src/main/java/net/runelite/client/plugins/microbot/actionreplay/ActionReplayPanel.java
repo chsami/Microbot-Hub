@@ -1,7 +1,12 @@
 package net.runelite.client.plugins.microbot.actionreplay;
 
+import net.runelite.client.plugins.microbot.actionreplay.model.Condition;
+import net.runelite.client.plugins.microbot.actionreplay.model.ConditionComparator;
+import net.runelite.client.plugins.microbot.actionreplay.model.ConditionType;
 import net.runelite.client.plugins.microbot.actionreplay.model.RecordedAction;
 import net.runelite.client.plugins.microbot.actionreplay.model.Recording;
+import net.runelite.client.plugins.microbot.actionreplay.model.StatKind;
+import net.runelite.client.plugins.microbot.actionreplay.model.TargetType;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
@@ -18,11 +23,13 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
+import javax.swing.JTextField;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -39,12 +46,13 @@ import java.util.List;
 public class ActionReplayPanel extends PluginPanel
 {
 	private static final Color MUTED = new Color(160, 160, 160);
-	private static final String CURRENT_LABEL = "(Current recording)";
+	private static final String NO_SCRIPTS_PLACEHOLDER = "(no scripts)";
 
 	private ActionReplayPlugin plugin;
 
 	private final JLabel countLabel = new JLabel(" ");
 	private final JButton recordButton = new JButton("● Record script");
+	private final JButton appendButton = new JButton("⊕");
 	private final JButton stopPlaybackButton = new JButton("■ Stop script");
 
 	private final JComboBox<String> scriptSelector = new JComboBox<>();
@@ -55,13 +63,11 @@ public class ActionReplayPanel extends PluginPanel
 	private final JButton downButton = new JButton("↓");
 	private final JButton deleteStepButton = new JButton("✕");
 	private final JButton editStepButton = new JButton("✎");
-	private final JButton duplicateStepButton = new JButton("⧉");
 	private final JButton playButton = new JButton("▶ Run script");
 	private final JButton renameButton = new JButton("✎ Rename");
 	private final JButton deleteScriptButton = new JButton("🗑 Delete");
 
 	private Recording viewedRecording;
-	private Recording lastLiveRecording;
 	private List<Recording> savedRecordings = new ArrayList<>();
 	private boolean suppressSelectorEvents = false;
 
@@ -102,7 +108,7 @@ public class ActionReplayPanel extends PluginPanel
 		playButton.setAlignmentX(Component.LEFT_ALIGNMENT);
 		playButton.setForeground(Color.WHITE);
 		playButton.setToolTipText("Loop selected script until stopped");
-		playButton.addActionListener(e -> onPlay(true));
+		playButton.addActionListener(e -> onPlay());
 
 		stopPlaybackButton.setAlignmentX(Component.LEFT_ALIGNMENT);
 		stopPlaybackButton.setForeground(Color.WHITE);
@@ -186,9 +192,9 @@ public class ActionReplayPanel extends PluginPanel
 		editStepButton.addActionListener(e -> onEditStep());
 		editRow.add(editStepButton);
 
-		initSmallButton(duplicateStepButton, "Duplicate selected step");
-		duplicateStepButton.addActionListener(e -> onDuplicateStep());
-		editRow.add(duplicateStepButton);
+		initSmallButton(appendButton, "Append more actions to the selected script");
+		appendButton.addActionListener(e -> onAppendClicked());
+		editRow.add(appendButton);
 
 		initSmallButton(deleteStepButton, "Delete selected step(s)");
 		deleteStepButton.addActionListener(e -> onDeleteStep());
@@ -237,36 +243,30 @@ public class ActionReplayPanel extends PluginPanel
 		{
 			boolean rec = plugin.isRecording();
 			boolean play = plugin.isPlaying();
+			boolean appending = plugin.isAppendingToExisting();
 
 			if (rec)
 			{
-				recordButton.setText("■ Stop recording");
 				countLabel.setText("Captured: " + plugin.getCurrentRecordingSize() + " actions");
 				countLabel.setForeground(MUTED);
 			}
 			else
 			{
-				recordButton.setText("● Record script");
 				countLabel.setText(" ");
 			}
-			recordButton.setEnabled(!play);
-			stopPlaybackButton.setEnabled(play);
 
-			if (rec)
-			{
-				viewedRecording = null;
-			}
+			stopPlaybackButton.setEnabled(play);
 
 			refreshSelector();
 			reloadActionList();
-			updateButtonEnabled(rec, play);
+			updateButtonEnabled(rec, play, appending);
 
 			revalidate();
 			repaint();
 		});
 	}
 
-	private void updateButtonEnabled(boolean rec, boolean play)
+	private void updateButtonEnabled(boolean rec, boolean play, boolean appending)
 	{
 		Recording selected = getSelectedRecording();
 		boolean hasActions = selected != null && selected.size() > 0;
@@ -276,13 +276,34 @@ public class ActionReplayPanel extends PluginPanel
 		downButton.setEnabled(canEditSteps);
 		deleteStepButton.setEnabled(canEditSteps);
 		editStepButton.setEnabled(canEditSteps);
-		duplicateStepButton.setEnabled(canEditSteps);
 
 		playButton.setEnabled(!rec && !play && hasActions);
 		renameButton.setEnabled(!rec && !play && viewedRecording != null);
 		deleteScriptButton.setEnabled(!rec && !play && viewedRecording != null);
 
-		scriptSelector.setEnabled(!rec);
+		scriptSelector.setEnabled(!rec && !savedRecordings.isEmpty());
+
+		if (rec && !appending)
+		{
+			recordButton.setText("■ Stop recording");
+			recordButton.setEnabled(true);
+			appendButton.setText("⊕");
+			appendButton.setEnabled(false);
+		}
+		else if (rec)
+		{
+			recordButton.setText("● Record script");
+			recordButton.setEnabled(false);
+			appendButton.setText("■");
+			appendButton.setEnabled(true);
+		}
+		else
+		{
+			recordButton.setText("● Record script");
+			recordButton.setEnabled(!play);
+			appendButton.setText("⊕");
+			appendButton.setEnabled(!play && viewedRecording != null);
+		}
 	}
 
 	private void refreshSelector()
@@ -290,29 +311,37 @@ public class ActionReplayPanel extends PluginPanel
 		suppressSelectorEvents = true;
 		try
 		{
-			String prev = viewedRecording != null ? viewedRecording.getName() : CURRENT_LABEL;
-			scriptSelector.removeAllItems();
-			scriptSelector.addItem(CURRENT_LABEL);
 			savedRecordings = plugin.listRecordings();
+			scriptSelector.removeAllItems();
+
+			if (savedRecordings.isEmpty())
+			{
+				scriptSelector.addItem(NO_SCRIPTS_PLACEHOLDER);
+				scriptSelector.setSelectedIndex(0);
+				viewedRecording = null;
+				return;
+			}
+
 			for (Recording r : savedRecordings)
 			{
 				scriptSelector.addItem(r.getName());
 			}
-			boolean matched = false;
-			for (int i = 0; i < scriptSelector.getItemCount(); i++)
+
+			String targetName = viewedRecording != null ? viewedRecording.getName() : null;
+			int selectedIdx = 0;
+			if (targetName != null)
 			{
-				if (prev.equals(scriptSelector.getItemAt(i)))
+				for (int i = 0; i < savedRecordings.size(); i++)
 				{
-					scriptSelector.setSelectedIndex(i);
-					matched = true;
-					break;
+					if (targetName.equals(savedRecordings.get(i).getName()))
+					{
+						selectedIdx = i;
+						break;
+					}
 				}
 			}
-			if (!matched)
-			{
-				scriptSelector.setSelectedIndex(0);
-				viewedRecording = null;
-			}
+			scriptSelector.setSelectedIndex(selectedIdx);
+			viewedRecording = savedRecordings.get(selectedIdx);
 		}
 		finally
 		{
@@ -323,33 +352,25 @@ public class ActionReplayPanel extends PluginPanel
 	private void onSelectorChanged()
 	{
 		int idx = scriptSelector.getSelectedIndex();
-		if (idx <= 0)
+		if (idx >= 0 && idx < savedRecordings.size())
 		{
-			viewedRecording = null;
+			viewedRecording = savedRecordings.get(idx);
 		}
 		else
 		{
-			int savedIdx = idx - 1;
-			if (savedIdx >= 0 && savedIdx < savedRecordings.size())
-			{
-				viewedRecording = savedRecordings.get(savedIdx);
-			}
+			viewedRecording = null;
 		}
 		reloadActionList();
-		updateButtonEnabled(plugin.isRecording(), plugin.isPlaying());
+		updateButtonEnabled(plugin.isRecording(), plugin.isPlaying(), plugin.isAppendingToExisting());
 	}
 
 	private Recording getSelectedRecording()
 	{
-		if (viewedRecording != null)
-		{
-			return viewedRecording;
-		}
 		if (plugin.isRecording())
 		{
 			return plugin.getCurrentRecording();
 		}
-		return lastLiveRecording;
+		return viewedRecording;
 	}
 
 	private void reloadActionList()
@@ -375,7 +396,7 @@ public class ActionReplayPanel extends PluginPanel
 	{
 		SwingUtilities.invokeLater(() ->
 		{
-			if (viewedRecording == null)
+			if (plugin.isRecording())
 			{
 				int idx = actionsModel.size();
 				actionsModel.addElement(format(idx, action));
@@ -393,17 +414,33 @@ public class ActionReplayPanel extends PluginPanel
 			Recording saved = plugin.stopRecording(true);
 			if (saved != null)
 			{
-				lastLiveRecording = saved;
+				viewedRecording = saved;
 			}
-			viewedRecording = null;
 			refresh();
 		}
 		else
 		{
 			actionsModel.clear();
 			viewedRecording = null;
-			lastLiveRecording = null;
-			plugin.startRecording();
+			plugin.startRecording(null);
+			refresh();
+		}
+	}
+
+	private void onAppendClicked()
+	{
+		if (plugin.isRecording())
+		{
+			plugin.stopRecording(true);
+			refresh();
+		}
+		else
+		{
+			if (viewedRecording == null)
+			{
+				return;
+			}
+			plugin.startRecording(viewedRecording);
 			refresh();
 		}
 	}
@@ -489,75 +526,205 @@ public class ActionReplayPanel extends PluginPanel
 		SpinnerNumberModel spinnerModel = new SpinnerNumberModel(currentTicks, 0, 1000, 1);
 		JSpinner ticksSpinner = new JSpinner(spinnerModel);
 
+		String[] typeOptions = {"None", "HP", "Prayer", "NPC nearby", "Object nearby", "Inventory"};
+		JComboBox<String> typeCombo = new JComboBox<>(typeOptions);
+		JComboBox<String> statCmpCombo = new JComboBox<>(new String[]{"below", "above"});
+		JSpinner statSpinner = new JSpinner(new SpinnerNumberModel(20, 0, 9999, 1));
+		JTextField npcNameField = new JTextField(15);
+		JComboBox<String> npcPresentCombo = new JComboBox<>(new String[]{"present", "absent"});
+		JTextField objNameField = new JTextField(15);
+		JComboBox<String> objPresentCombo = new JComboBox<>(new String[]{"present", "absent"});
+		JTextField invNameField = new JTextField(15);
+		JSpinner invCountSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 9999, 1));
+		JComboBox<String> invPresentCombo = new JComboBox<>(new String[]{"present", "absent"});
+
+		Condition existing = a.getCondition();
+		if (existing != null && existing.getType() != null)
+		{
+			switch (existing.getType())
+			{
+				case STAT:
+					typeCombo.setSelectedItem(existing.getStat() == StatKind.PRAYER ? "Prayer" : "HP");
+					statCmpCombo.setSelectedItem(existing.getComparator() == ConditionComparator.ABOVE ? "above" : "below");
+					if (existing.getThreshold() != null) statSpinner.setValue(existing.getThreshold());
+					break;
+				case NPC_NEARBY:
+					typeCombo.setSelectedItem("NPC nearby");
+					if (existing.getName() != null) npcNameField.setText(existing.getName());
+					npcPresentCombo.setSelectedItem(Boolean.FALSE.equals(existing.getPresent()) ? "absent" : "present");
+					break;
+				case OBJECT_NEARBY:
+					typeCombo.setSelectedItem("Object nearby");
+					if (existing.getName() != null) objNameField.setText(existing.getName());
+					objPresentCombo.setSelectedItem(Boolean.FALSE.equals(existing.getPresent()) ? "absent" : "present");
+					break;
+				case INVENTORY:
+					typeCombo.setSelectedItem("Inventory");
+					if (existing.getName() != null) invNameField.setText(existing.getName());
+					if (existing.getMinCount() != null && existing.getMinCount() > 0) invCountSpinner.setValue(existing.getMinCount());
+					invPresentCombo.setSelectedItem(Boolean.FALSE.equals(existing.getPresent()) ? "absent" : "present");
+					break;
+			}
+		}
+
+		JPanel statPanel = hBox(statCmpCombo, statSpinner);
+		JPanel npcPanel = hBox(new JLabel("name:"), npcNameField, npcPresentCombo);
+		JPanel objPanel = hBox(new JLabel("name:"), objNameField, objPresentCombo);
+		JPanel invPanel = hBox(new JLabel("item:"), invNameField, new JLabel("min:"), invCountSpinner, invPresentCombo);
+
+		CardLayout cardLayout = new CardLayout();
+		JPanel cards = new JPanel(cardLayout);
+		cards.add(new JPanel(), "None");
+		cards.add(statPanel, "Stat");
+		cards.add(npcPanel, "NPC nearby");
+		cards.add(objPanel, "Object nearby");
+		cards.add(invPanel, "Inventory");
+
+		Runnable showCard = () ->
+		{
+			String sel = (String) typeCombo.getSelectedItem();
+			String card;
+			if ("HP".equals(sel) || "Prayer".equals(sel)) card = "Stat";
+			else if (sel == null || "None".equals(sel)) card = "None";
+			else card = sel;
+			cardLayout.show(cards, card);
+		};
+		typeCombo.addActionListener(e -> showCard.run());
+		showCard.run();
+
 		JPanel form = new JPanel(new GridBagLayout());
 		GridBagConstraints gc = new GridBagConstraints();
 		gc.insets = new Insets(4, 4, 4, 4);
 		gc.anchor = GridBagConstraints.WEST;
 
 		gc.gridx = 0;
+		JTextField verbField = new JTextField(a.getMenuOption() == null ? "" : a.getMenuOption(), 12);
+		JTextField targetField = new JTextField(a.getMenuTarget() == null ? "" : a.getMenuTarget(), 15);
+
 		gc.gridy = 0;
 		form.add(new JLabel("Action:"), gc);
 		gc.gridx = 1;
-		form.add(new JLabel(a.describe()), gc);
+		form.add(verbField, gc);
 
 		gc.gridx = 0;
 		gc.gridy = 1;
+		form.add(new JLabel("Target:"), gc);
+		gc.gridx = 1;
+		form.add(targetField, gc);
+
+		gc.gridx = 0;
+		gc.gridy = 2;
 		form.add(new JLabel("Delay before (ticks):"), gc);
 		gc.gridx = 1;
 		form.add(ticksSpinner, gc);
 
-		int choice = JOptionPane.showConfirmDialog(this, form, "Edit step #" + (idx + 1),
-			JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-		if (choice != JOptionPane.OK_OPTION)
+		gc.gridx = 0;
+		gc.gridy = 3;
+		form.add(new JLabel("Condition:"), gc);
+		gc.gridx = 1;
+		form.add(typeCombo, gc);
+
+		gc.gridx = 0;
+		gc.gridy = 4;
+		gc.gridwidth = 2;
+		form.add(cards, gc);
+
+		Object[] options = {"OK", "Delete", "Cancel"};
+		int choice = JOptionPane.showOptionDialog(this, form, "Edit step #" + (idx + 1),
+			JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
+		if (choice == 1)
+		{
+			r.getActions().remove(idx);
+			reloadActionList();
+			persistIfSaved(r);
+			return;
+		}
+		if (choice != 0)
 		{
 			return;
 		}
 
 		int newTicks = (Integer) ticksSpinner.getValue();
 		a.setDelayTicksBefore(newTicks);
-		a.setDelayMsBefore(newTicks * 600L);
+		String newVerb = verbField.getText().trim();
+		a.setMenuOption(newVerb.isEmpty() ? null : newVerb);
+		String newTarget = targetField.getText().trim();
+		a.setMenuTarget(newTarget.isEmpty() ? null : newTarget);
+		TargetType tt = a.getTargetType();
+		if (tt == TargetType.NPC || tt == TargetType.GAME_OBJECT || tt == TargetType.GROUND_ITEM)
+		{
+			a.setTargetName(newTarget.isEmpty() ? null : newTarget);
+		}
+		a.setCondition(buildCondition(typeCombo, statCmpCombo, statSpinner, npcNameField, npcPresentCombo,
+			objNameField, objPresentCombo, invNameField, invCountSpinner, invPresentCombo));
 		reloadActionList();
 		actionsList.setSelectedIndex(idx);
 		persistIfSaved(r);
 	}
 
-	private void onDuplicateStep()
+	private static JPanel hBox(Component... components)
 	{
-		Recording r = getSelectedRecording();
-		if (r == null)
+		JPanel p = new JPanel();
+		p.setLayout(new BoxLayout(p, BoxLayout.X_AXIS));
+		for (int i = 0; i < components.length; i++)
 		{
-			return;
+			if (i > 0) p.add(Box.createHorizontalStrut(4));
+			p.add(components[i]);
 		}
-		int idx = actionsList.getSelectedIndex();
-		if (idx < 0 || idx >= r.getActions().size())
-		{
-			return;
-		}
-		RecordedAction copy = cloneAction(r.getActions().get(idx));
-		r.getActions().add(idx + 1, copy);
-		reloadActionList();
-		actionsList.setSelectedIndex(idx + 1);
-		persistIfSaved(r);
+		return p;
 	}
 
-	private static RecordedAction cloneAction(RecordedAction src)
+	private static Condition buildCondition(JComboBox<String> typeCombo, JComboBox<String> statCmpCombo, JSpinner statSpinner,
+		JTextField npcNameField, JComboBox<String> npcPresentCombo,
+		JTextField objNameField, JComboBox<String> objPresentCombo,
+		JTextField invNameField, JSpinner invCountSpinner, JComboBox<String> invPresentCombo)
 	{
-		RecordedAction dst = new RecordedAction();
-		dst.setDelayMsBefore(src.getDelayMsBefore());
-		dst.setDelayTicksBefore(src.getDelayTicksBefore());
-		dst.setMenuOption(src.getMenuOption());
-		dst.setMenuTarget(src.getMenuTarget());
-		dst.setMenuAction(src.getMenuAction());
-		dst.setTargetType(src.getTargetType());
-		dst.setIdentifier(src.getIdentifier());
-		dst.setParam0(src.getParam0());
-		dst.setParam1(src.getParam1());
-		dst.setItemId(src.getItemId());
-		dst.setTargetName(src.getTargetName());
-		dst.setTargetId(src.getTargetId());
-		dst.setCanvasX(src.getCanvasX());
-		dst.setCanvasY(src.getCanvasY());
-		return dst;
+		String sel = (String) typeCombo.getSelectedItem();
+		if (sel == null || "None".equals(sel))
+		{
+			return null;
+		}
+		Condition c = new Condition();
+		switch (sel)
+		{
+			case "HP":
+			case "Prayer":
+				c.setType(ConditionType.STAT);
+				c.setStat("Prayer".equals(sel) ? StatKind.PRAYER : StatKind.HEALTH);
+				c.setComparator("above".equals(statCmpCombo.getSelectedItem()) ? ConditionComparator.ABOVE : ConditionComparator.BELOW);
+				c.setThreshold((Integer) statSpinner.getValue());
+				return c;
+			case "NPC nearby":
+			{
+				String nm = npcNameField.getText().trim();
+				if (nm.isEmpty()) return null;
+				c.setType(ConditionType.NPC_NEARBY);
+				c.setName(nm);
+				c.setPresent(!"absent".equals(npcPresentCombo.getSelectedItem()));
+				return c;
+			}
+			case "Object nearby":
+			{
+				String nm = objNameField.getText().trim();
+				if (nm.isEmpty()) return null;
+				c.setType(ConditionType.OBJECT_NEARBY);
+				c.setName(nm);
+				c.setPresent(!"absent".equals(objPresentCombo.getSelectedItem()));
+				return c;
+			}
+			case "Inventory":
+			{
+				String nm = invNameField.getText().trim();
+				if (nm.isEmpty()) return null;
+				c.setType(ConditionType.INVENTORY);
+				c.setName(nm);
+				c.setMinCount((Integer) invCountSpinner.getValue());
+				c.setPresent(!"absent".equals(invPresentCombo.getSelectedItem()));
+				return c;
+			}
+			default:
+				return null;
+		}
 	}
 
 	private void persistIfSaved(Recording r)
@@ -578,14 +745,14 @@ public class ActionReplayPanel extends PluginPanel
 		}
 	}
 
-	private void onPlay(boolean loop)
+	private void onPlay()
 	{
 		Recording r = getSelectedRecording();
 		if (r == null || r.size() == 0)
 		{
 			return;
 		}
-		plugin.play(r, loop);
+		plugin.play(r);
 	}
 
 	private void onRename()
@@ -643,6 +810,15 @@ public class ActionReplayPanel extends PluginPanel
 	{
 		Integer ticks = a.getDelayTicksBefore();
 		String delay = ticks == null ? "—" : ticks + "t";
-		return String.format("%03d  %s  (%s)", idx + 1, a.describe(), delay);
+		String prefix = "";
+		if (a.getCondition() != null)
+		{
+			String desc = a.getCondition().describe();
+			if (!desc.isEmpty())
+			{
+				prefix = "[" + desc + "]  ";
+			}
+		}
+		return prefix + a.describe() + "  (" + delay + ")";
 	}
 }

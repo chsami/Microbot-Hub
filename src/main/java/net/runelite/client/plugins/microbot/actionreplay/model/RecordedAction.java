@@ -5,7 +5,6 @@ import lombok.Data;
 @Data
 public class RecordedAction
 {
-	private long delayMsBefore;
 	private Integer delayTicksBefore;
 	private String menuOption;
 	private String menuTarget;
@@ -16,9 +15,9 @@ public class RecordedAction
 	private int param1;
 	private int itemId;
 	private String targetName;
-	private Integer targetId;
 	private int canvasX;
 	private int canvasY;
+	private Condition condition;
 
 	public String describe()
 	{
