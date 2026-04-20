@@ -5,5 +5,7 @@ public enum GemCutterState {
     WALKING_TO_SHOP,
     BUYING,
     CUTTING,
-    SELLING
+    SELLING,
+    BRIEFCASE_BANKING,
+    TELEPORTING_BACK
 }
