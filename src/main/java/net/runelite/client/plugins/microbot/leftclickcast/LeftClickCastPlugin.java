@@ -49,7 +49,7 @@ import net.runelite.client.util.HotkeyListener;
 )
 public class LeftClickCastPlugin extends Plugin
 {
-	static final String version = "1.3.1";
+	static final String version = "1.3.2";
 
 	private static final int SLOT_COUNT = 5;
 
@@ -192,17 +192,20 @@ public class LeftClickCastPlugin extends Plugin
 		MenuEntry attack = entries[attackIdx];
 		final Actor dispatchTarget = targetActor;
 		final PertTargetSpell dispatchSpell = spell;
-		attack.setOption("Cast " + dispatchSpell.getDisplayName());
-		attack.setType(MenuAction.RUNELITE);
-		attack.onClick(e -> castOnTargetFast(dispatchSpell, dispatchTarget));
 
-		// Move to the tail of the array — that slot is the left-click action in RuneLite's menu model.
-		if (attackIdx != entries.length - 1)
-		{
-			entries[attackIdx] = entries[entries.length - 1];
-			entries[entries.length - 1] = attack;
-			menu.setMenuEntries(entries);
-		}
+		// Append a new RUNELITE-type "Cast X" entry at the tail. The tail is the left-click action in
+		// RuneLite's menu model, so Cast becomes left-click while the original Attack entry stays in the
+		// list — preserving right-click "Attack" access. Identifier/param0/param1/worldViewId are copied
+		// from the original so target highlighting behaves the same as a real Attack hover.
+		MenuEntry cast = menu.createMenuEntry(-1)
+			.setOption("Cast " + dispatchSpell.getDisplayName())
+			.setTarget(attack.getTarget())
+			.setType(MenuAction.RUNELITE)
+			.setIdentifier(attack.getIdentifier())
+			.setParam0(attack.getParam0())
+			.setParam1(attack.getParam1())
+			.onClick(e -> castOnTargetFast(dispatchSpell, dispatchTarget));
+		cast.setWorldViewId(attack.getWorldViewId());
 	}
 
 	private Keybind slotHotkeyFor(int index)
