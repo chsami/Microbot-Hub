@@ -116,6 +116,11 @@ public class AutoChinScript extends Script {
                 currentState = State.CATCHING;
                 return;
             }
+            // Black chinchompa shaking box
+            if (Microbot.getRs2TileObjectCache().query().withId(ObjectID.SHAKING_BOX).within(4).interact("reset")) {
+                currentState = State.CATCHING;
+                return;
+            }
 
             if (Microbot.getRs2TileObjectCache().query().withId(ObjectID.BOX_TRAP_9385).within(4).interact("reset")) {
                 currentState = State.CATCHING;
