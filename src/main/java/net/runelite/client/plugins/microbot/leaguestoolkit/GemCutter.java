@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -13,6 +14,7 @@ import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.shop.Rs2Shop;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.event.KeyEvent;
 
@@ -22,7 +24,6 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 @Slf4j
 public class GemCutter {
 
-    // Toci's actual tile in Aldarin, Varlamore
     private static final WorldPoint TOCI_LOCATION = new WorldPoint(1428, 2975, 0);
     private static final String TOCI_NPC_NAME = "Toci";
     private static final String CHISEL_NAME = "Chisel";
@@ -43,20 +44,13 @@ public class GemCutter {
         GemType gem = config.gemType();
         if (gem == null) {
             status = "No gem selected";
+            log.info("[GemCutter] tick: no gem selected");
             return false;
         }
 
-        if (!gem.hasRequiredLevel()) {
-            status = "Crafting level too low for " + gem.getCutName() + " (need " + gem.getCraftingLevel() + ")";
-            return false;
-        }
+        log.info("[GemCutter] tick: state={}, cutGems={}, mode={}", state, shouldCut(config), config.gemCutterMode());
 
-        if (!Rs2Inventory.hasItem(CHISEL_NAME)) {
-            status = "No chisel in inventory";
-            return false;
-        }
-
-        // Need to bank for coins if we're idle (no gems in hand) and low on coins
+        // Need to bank for coins if idle with low funds
         if (state == GemCutterState.WALKING_TO_SHOP
                 && Rs2Inventory.itemQuantity(COINS_ID) < config.gemCutterMinCoins()
                 && !Rs2Inventory.hasItem(gem.getUncutName())
@@ -70,11 +64,15 @@ public class GemCutter {
             case WALKING_TO_SHOP:
                 return handleWalkingToShop();
             case BUYING:
-                return handleBuying(gem);
+                return handleBuying(gem, config);
             case CUTTING:
-                return handleCutting(gem);
+                return handleCutting(gem, config);
             case SELLING:
                 return handleSelling(gem, config);
+            case BRIEFCASE_BANKING:
+                return handleBriefcaseBanking(gem, config);
+            case TELEPORTING_BACK:
+                return handleTeleportingBack();
         }
         return true;
     }
@@ -85,7 +83,14 @@ public class GemCutter {
             return true;
         }
 
-        if (config.gemCutterUseBriefcase() && Rs2Inventory.hasItem(BRIEFCASE_NAME)) {
+        if (Rs2Equipment.isWearing(BRIEFCASE_NAME)) {
+            if (!Rs2Bank.isOpen()) {
+                status = "Using equipped briefcase to bank";
+                Rs2Equipment.interact(BRIEFCASE_NAME, "Last-destination");
+                sleepUntil(Rs2Bank::isOpen, 5000);
+                return true;
+            }
+        } else if (Rs2Inventory.hasItem(BRIEFCASE_NAME)) {
             if (!Rs2Bank.isOpen()) {
                 status = "Using briefcase to bank";
                 Rs2Inventory.interact(BRIEFCASE_NAME, "Bank");
@@ -115,19 +120,66 @@ public class GemCutter {
     }
 
     private boolean handleWalkingToShop() {
-        if (Rs2Npc.getNpc(TOCI_NPC_NAME) != null) {
-            status = "At Toci";
+        log.info("[GemCutter] handleWalkingToShop entered");
+
+        if (Rs2Shop.isOpen()) {
+            log.info("[GemCutter] Shop already open — transitioning to BUYING");
+            status = "Shop already open";
             state = GemCutterState.BUYING;
             return true;
         }
-        status = "Walking to Toci";
-        if (!Rs2Player.isMoving()) {
-            Rs2Walker.walkTo(TOCI_LOCATION, 6);
+
+        WorldPoint playerPos = Rs2Player.getWorldLocation();
+        if (playerPos == null) {
+            log.info("[GemCutter] Player position is null");
+            status = "Waiting for player position...";
+            return true;
+        }
+
+        int distance = playerPos.distanceTo(TOCI_LOCATION);
+        log.info("[GemCutter] Player at {}, Toci at {}, distance={}", playerPos, TOCI_LOCATION, distance);
+
+        // Far away — walk first, don't try to open shop
+        if (distance > 15) {
+            status = "Walking to Toci (" + distance + " tiles away)";
+            log.info("[GemCutter] Walking to Toci...");
+            Rs2Walker.walkTo(TOCI_LOCATION, 4);
+            sleep(3000, 5000);
+            return true;
+        }
+
+        // Close enough — try to open shop
+        status = "Near Toci — opening shop";
+        log.info("[GemCutter] Close enough, opening shop");
+        boolean opened = Rs2Shop.openShop(TOCI_NPC_NAME);
+        log.info("[GemCutter] openShop returned {}", opened);
+        if (opened) {
+            sleepUntil(Rs2Shop::isOpen, 5000);
+            if (Rs2Shop.isOpen()) {
+                state = GemCutterState.BUYING;
+                return true;
+            }
         }
         return true;
     }
 
-    private boolean handleBuying(GemType gem) {
+    private boolean shouldCut(LeaguesToolkitConfig config) {
+        GemCutterMode mode = config.gemCutterMode();
+        return mode == GemCutterMode.BUY_CUT_SELL || mode == GemCutterMode.BUY_CUT_BANK;
+    }
+
+    private boolean shouldUseBriefcase(LeaguesToolkitConfig config) {
+        GemCutterMode mode = config.gemCutterMode();
+        return mode == GemCutterMode.BUY_AND_BANK || mode == GemCutterMode.BUY_CUT_BANK;
+    }
+
+    private GemCutterState nextStateAfterCutting(LeaguesToolkitConfig config) {
+        return shouldUseBriefcase(config)
+                ? GemCutterState.BRIEFCASE_BANKING
+                : GemCutterState.SELLING;
+    }
+
+    private boolean handleBuying(GemType gem, LeaguesToolkitConfig config) {
         if (!Rs2Shop.isOpen()) {
             status = "Opening Toci's shop";
             if (!Rs2Shop.openShop(TOCI_NPC_NAME)) {
@@ -141,17 +193,17 @@ public class GemCutter {
         int uncutCount = Rs2Inventory.count(gem.getUncutName());
 
         if (Rs2Inventory.isFull()) {
-            status = "Inventory full — moving to cut";
+            status = "Inventory full";
             Rs2Shop.closeShop();
-            state = GemCutterState.CUTTING;
+            state = shouldCut(config) ? GemCutterState.CUTTING : nextStateAfterCutting(config);
             return true;
         }
 
         if (!Rs2Shop.hasStock(gem.getUncutName())) {
             if (uncutCount > 0) {
-                status = "Shop out of stock — cutting what we have";
+                status = "Shop out of stock";
                 Rs2Shop.closeShop();
-                state = GemCutterState.CUTTING;
+                state = shouldCut(config) ? GemCutterState.CUTTING : nextStateAfterCutting(config);
                 return true;
             }
             status = "Shop out of " + gem.getUncutName() + " — waiting";
@@ -159,8 +211,7 @@ public class GemCutter {
             return true;
         }
 
-        // Mass-click buy at 100-250ms intervals. Stop when 2 consecutive clicks
-        // fail to add a ruby to inventory (inventory full OR shop out of stock).
+        // Mass-click buy at 100-250ms intervals
         status = "Rapid-buying " + gem.getUncutName();
         int safetyMax = 32;
         int missedInRow = 0;
@@ -179,24 +230,33 @@ public class GemCutter {
         return true;
     }
 
-    private boolean handleCutting(GemType gem) {
-        if (!Rs2Inventory.hasItem(gem.getUncutName())) {
-            status = "All gems cut — moving to sell";
-            state = GemCutterState.SELLING;
+    private boolean handleCutting(GemType gem, LeaguesToolkitConfig config) {
+        // Skip cutting if disabled OR no chisel — go straight to sell/bank
+        if (!shouldCut(config) || !Rs2Inventory.hasItem(CHISEL_NAME)) {
+            log.info("[GemCutter] Skipping CUTTING (cutGems={}, hasChisel={}), going to next state",
+                    shouldCut(config), Rs2Inventory.hasItem(CHISEL_NAME));
+            state = nextStateAfterCutting(config);
             return true;
         }
 
-        // Start the cut: chisel on uncut gem
+        if (!Rs2Inventory.hasItem(gem.getUncutName())) {
+            status = "All gems cut";
+            if (shouldUseBriefcase(config)) {
+                state = GemCutterState.BRIEFCASE_BANKING;
+            } else {
+                state = GemCutterState.SELLING;
+            }
+            return true;
+        }
+
         status = "Starting to cut " + gem.getCutName();
         Rs2Inventory.use(CHISEL_NAME);
         sleep(300, 500);
         Rs2Inventory.use(gem.getUncutName());
 
-        // Wait for "How many do you wish to make?" dialog, then press space for All
         sleep(600, 900);
         Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
 
-        // Wait for cutting to finish (XP stops flowing OR all uncut gems gone)
         sleep(2000, 3000);
         status = "Cutting " + gem.getCutName() + "...";
         sleepUntil(() -> !Microbot.isGainingExp || !Rs2Inventory.hasItem(gem.getUncutName()), 60000);
@@ -204,15 +264,16 @@ public class GemCutter {
         return true;
     }
 
+    // === SELL MODE ===
+
     private boolean handleSelling(GemType gem, LeaguesToolkitConfig config) {
         if (!Rs2Inventory.hasItem(gem.getCutName())) {
             status = "All cut gems sold — looping";
             if (Rs2Inventory.itemQuantity(COINS_ID) < config.gemCutterMinCoins()) {
-                // Only close when we need to walk somewhere (banking)
                 if (Rs2Shop.isOpen()) Rs2Shop.closeShop();
                 state = GemCutterState.BANKING;
             } else {
-                // Leave shop open — handleBuying will use the already-open shop next tick
+                // Keep shop open for next buy cycle
                 state = GemCutterState.BUYING;
             }
             return true;
@@ -228,8 +289,7 @@ public class GemCutter {
             return true;
         }
 
-        // Mass-click sell at 100-250ms intervals — click the LAST slot containing
-        // a cut gem, repeat until inventory runs out. Two consecutive misses = stop.
+        // Mass-click sell from bottom of inventory
         int initialCount = Rs2Inventory.count(gem.getCutName());
         status = "Rapid-selling " + gem.getCutName() + " x" + initialCount;
 
@@ -257,6 +317,74 @@ public class GemCutter {
             }
         }
 
+        return true;
+    }
+
+    // === BRIEFCASE BANKING MODE ===
+
+    private boolean handleBriefcaseBanking(GemType gem, LeaguesToolkitConfig config) {
+        log.info("[GemCutter] handleBriefcaseBanking: bankOpen={}, wearing={}, hasInInv={}",
+                Rs2Bank.isOpen(),
+                Rs2Equipment.isWearing(BRIEFCASE_NAME),
+                Rs2Inventory.hasItem(BRIEFCASE_NAME));
+
+        // Step 1: Teleport to bank via briefcase, then open bank
+        if (!Rs2Bank.isOpen()) {
+            // First teleport to the bank
+            status = "Teleporting to bank via briefcase";
+            if (Rs2Equipment.isWearing(BRIEFCASE_NAME)) {
+                log.info("[GemCutter] Clicking equipped briefcase 'Last-destination'");
+                Rs2Equipment.interact(BRIEFCASE_NAME, "Last-destination");
+            } else {
+                status = "No briefcase equipped — walking to bank";
+                if (!Rs2Bank.walkToBankAndUseBank()) return true;
+                sleepUntil(Rs2Bank::isOpen, 10000);
+                return true;
+            }
+
+            // Wait for teleport to finish
+            sleep(2000, 3000);
+            sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isMoving(), 8000);
+            sleep(500, 1000);
+
+            // Now open the bank normally
+            status = "Opening bank";
+            log.info("[GemCutter] Teleported, now opening bank");
+            Rs2Bank.openBank();
+            sleepUntil(Rs2Bank::isOpen, 5000);
+            log.info("[GemCutter] Bank open: {}", Rs2Bank.isOpen());
+            return true;
+        }
+
+        // Step 2: Deposit gems (cut or uncut depending on config)
+        status = "Depositing gems";
+        if (shouldCut(config) && Rs2Inventory.hasItem(gem.getCutName())) {
+            Rs2Bank.depositAll(gem.getCutName());
+            sleep(300, 500);
+        }
+        if (!shouldCut(config) && Rs2Inventory.hasItem(gem.getUncutName())) {
+            Rs2Bank.depositAll(gem.getUncutName());
+            sleep(300, 500);
+        }
+
+        // Step 3: Withdraw coins if low
+        if (Rs2Inventory.itemQuantity(COINS_ID) < config.gemCutterMinCoins() && Rs2Bank.hasItem(COINS_ID)) {
+            Rs2Bank.withdrawAll(COINS_ID);
+            sleep(300, 500);
+        }
+
+        Rs2Bank.closeBank();
+        sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
+
+        state = GemCutterState.TELEPORTING_BACK;
+        return true;
+    }
+
+    private boolean handleTeleportingBack() {
+        // Walk back to Toci using the web walker
+        status = "Walking back to Toci";
+        log.info("[GemCutter] TELEPORTING_BACK → transitioning to WALKING_TO_SHOP");
+        state = GemCutterState.WALKING_TO_SHOP;
         return true;
     }
 }

@@ -21,8 +21,20 @@ public class LeaguesToolkitScript extends Script {
 
     @Getter
     private final GemCutter gemCutter = new GemCutter();
+    @Getter
+    private final Transmuter transmuter = new Transmuter();
+    @Getter
+    private final WealthyCitizenThiever wealthyCitizenThiever = new WealthyCitizenThiever();
+    @Getter
+    private final EasyClueOpener easyClueOpener = new EasyClueOpener();
+    @Getter
+    private final SnapeGrassTelegrabber snapeGrassTelegrabber = new SnapeGrassTelegrabber();
 
     private boolean gemCutterWasEnabled = false;
+    private boolean thievingWasEnabled = false;
+    private boolean easyClueWasEnabled = false;
+    private boolean snapeGrassWasEnabled = false;
+    private boolean transmuteWasEnabled = false;
 
     public boolean run(LeaguesToolkitConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -38,10 +50,54 @@ public class LeaguesToolkitScript extends Script {
                     if (!gemCutterWasEnabled) {
                         gemCutter.reset();
                         gemCutterWasEnabled = true;
+                        log.info("[LeaguesToolkit] Gem cutter enabled — state: {}", gemCutter.getState());
                     }
                     gemCutter.tick(config);
                 } else {
                     gemCutterWasEnabled = false;
+                }
+
+                if (config.enableThieving()) {
+                    if (!thievingWasEnabled) {
+                        wealthyCitizenThiever.reset();
+                        thievingWasEnabled = true;
+                    }
+                    wealthyCitizenThiever.tick(config);
+                } else {
+                    thievingWasEnabled = false;
+                }
+
+                if (config.enableEasyClue()) {
+                    if (!easyClueWasEnabled) {
+                        easyClueOpener.reset();
+                        easyClueWasEnabled = true;
+                    }
+                    easyClueOpener.tick(config);
+                } else {
+                    easyClueWasEnabled = false;
+                }
+
+                if (config.enableSnapeGrass()) {
+                    if (!snapeGrassWasEnabled) {
+                        snapeGrassTelegrabber.reset();
+                        snapeGrassWasEnabled = true;
+                    }
+                    snapeGrassTelegrabber.tick(config);
+                } else {
+                    snapeGrassWasEnabled = false;
+                }
+
+                if (config.enableTransmute()) {
+                    if (!transmuteWasEnabled) {
+                        transmuter.reset();
+                        transmuteWasEnabled = true;
+                    }
+                    if (!transmuter.tick(config)) {
+                        // Transmuter finished or errored — keep running plugin but stop transmuting
+                        log.info("Transmuter stopped: {}", transmuter.getStatus());
+                    }
+                } else {
+                    transmuteWasEnabled = false;
                 }
             } catch (Exception ex) {
                 log.error("LeaguesToolkitScript loop error", ex);
@@ -74,5 +130,6 @@ public class LeaguesToolkitScript extends Script {
     @Override
     public void shutdown() {
         super.shutdown();
+        transmuter.reset();
     }
 }

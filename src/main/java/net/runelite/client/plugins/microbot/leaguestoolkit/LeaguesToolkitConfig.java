@@ -10,8 +10,29 @@ import net.runelite.client.config.Range;
 @ConfigGroup("LeaguesToolkit")
 @ConfigInformation("<h2>Leagues Toolkit</h2>" +
         "<h3>Version: " + LeaguesToolkitPlugin.version + "</h3>" +
-        "<p>A grab-bag of Leagues-focused utilities. Start with <strong>Anti-AFK</strong> to keep long, " +
-        "auto-banking skilling sessions from getting logged out.</p>")
+        "<p><strong>Anti-AFK:</strong> Presses a random arrow key before the idle timer kicks in. " +
+        "Great for long AFK sessions with auto-bank relics (e.g. Endless Harvest).</p>" +
+        "<p><strong>Toci's Gem Store:</strong> Walks to Toci in Aldarin, buys uncut gems, " +
+        "and either sells cut gems back or banks them via the Banker's Briefcase. Three modes:</p>" +
+        "<ul>" +
+        "<li><em>Buy &amp; Bank</em> — fast stockpile: buy uncut gems, briefcase to bank, walk back, repeat.</li>" +
+        "<li><em>Buy, Cut &amp; Sell</em> — buy uncut, cut with chisel, sell cut gems back to Toci for profit.</li>" +
+        "<li><em>Buy, Cut &amp; Bank</em> — buy uncut, cut, bank via briefcase, walk back, repeat.</li>" +
+        "</ul>" +
+        "<p><strong>Wealthy Citizen Thieving:</strong> Pickpockets Wealthy citizens with auto coin pouch opening. " +
+        "Requires the <strong>Larcenist relic</strong> for 100% success rate (no stuns). " +
+        "Configure the pouch threshold (max 280 before they auto-destroy).</p>" +
+        "<p><strong>Easy Clue Opener:</strong> Farms reward caskets using the Aldarin bank easy clue method. " +
+        "Opens Scroll box (easy) — if the clue is a dig type, digs with spade repeatedly until a casket " +
+        "or a different clue appears. Non-dig clues are dropped and the next scroll box opens. " +
+        "Caskets stack in your inventory. Configurable action speed. Requires a spade and scroll boxes.</p>" +
+        "<p><strong>Snape Grass Telegrab:</strong> Walks to the snape grass spawn and casts Telekinetic Grab " +
+        "on repeat. Requires 33 Magic, law runes, and air runes (or air staff equipped). " +
+        "Stops when inventory is full.</p>" +
+        "<p><strong>Transmutation:</strong> Casts Alchemic Divergence or Convergence on noted items " +
+        "to upgrade/downgrade through tiers (e.g. Iron ore all the way to Runite ore). " +
+        "Have the starting items noted in your inventory before enabling. " +
+        "Requires the Transmutation relic and the transmutation ledger.</p>")
 public interface LeaguesToolkitConfig extends Config {
 
     @ConfigSection(
@@ -68,8 +89,8 @@ public interface LeaguesToolkitConfig extends Config {
     }
 
     @ConfigSection(
-            name = "Toci's Gem Cutter",
-            description = "Buys uncut gems from Toci in Aldarin, cuts them, sells them back",
+            name = "Toci's Gem Store",
+            description = "Automated gem buying, cutting, and selling/banking at Toci in Aldarin",
             position = 1,
             closedByDefault = true
     )
@@ -77,8 +98,8 @@ public interface LeaguesToolkitConfig extends Config {
 
     @ConfigItem(
             keyName = "enableGemCutter",
-            name = "Enable gem cutter",
-            description = "Walks to Toci, buys uncut gems, cuts them, sells cut gems back — repeats",
+            name = "Enable",
+            description = "Walks to Toci's Gem Store in Aldarin and runs the selected mode. Requires coins in inventory.",
             position = 0,
             section = gemCutterSection
     )
@@ -87,10 +108,23 @@ public interface LeaguesToolkitConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "gemCutterMode",
+            name = "Mode",
+            description = "Buy & Bank: fast stockpile uncut gems (briefcase required). " +
+                    "Buy, Cut & Sell: buy uncut, cut with chisel, sell cut back to Toci. " +
+                    "Buy, Cut & Bank: buy uncut, cut, bank via briefcase.",
+            position = 1,
+            section = gemCutterSection
+    )
+    default GemCutterMode gemCutterMode() {
+        return GemCutterMode.BUY_AND_BANK;
+    }
+
+    @ConfigItem(
             keyName = "gemType",
             name = "Gem",
-            description = "Which gem to cut (requires chisel + coins + crafting level)",
-            position = 1,
+            description = "Which gem to buy/cut. Cut modes require a chisel and the crafting level.",
+            position = 2,
             section = gemCutterSection
     )
     default GemType gemType() {
@@ -102,21 +136,175 @@ public interface LeaguesToolkitConfig extends Config {
             keyName = "gemCutterMinCoins",
             name = "Min coins to keep",
             description = "When coins drop below this, withdraw more from the bank",
-            position = 2,
+            position = 3,
             section = gemCutterSection
     )
     default int gemCutterMinCoins() {
         return 10_000;
     }
 
-    @ConfigItem(
-            keyName = "gemCutterUseBriefcase",
-            name = "Use Bank Heist briefcase",
-            description = "Use the banker's briefcase to bank (Leagues relic) instead of walking to a bank",
-            position = 3,
-            section = gemCutterSection
+    @ConfigSection(
+            name = "Wealthy Citizen Thieving",
+            description = "Pickpockets Wealthy citizens, opens coin pouches at a threshold",
+            position = 2,
+            closedByDefault = true
     )
-    default boolean gemCutterUseBriefcase() {
+    String thievingSection = "thievingSection";
+
+    @ConfigItem(
+            keyName = "enableThieving",
+            name = "Enable",
+            description = "Pickpockets the nearest Wealthy citizen with 100% success (Larcenist relic required). " +
+                    "Opens coin pouches at the configured threshold. Stand near a Wealthy citizen before enabling.",
+            position = 0,
+            section = thievingSection
+    )
+    default boolean enableThieving() {
         return false;
+    }
+
+    @Range(min = 1, max = 280)
+    @ConfigItem(
+            keyName = "coinPouchThreshold",
+            name = "Open pouches at",
+            description = "Open coin pouches when this many have accumulated (max 280 before they auto-destroy)",
+            position = 1,
+            section = thievingSection
+    )
+    default int coinPouchThreshold() {
+        return 200;
+    }
+
+    @ConfigSection(
+            name = "Snape Grass Telegrab",
+            description = "Telegrab snape grass at a fixed location",
+            position = 2,
+            closedByDefault = true
+    )
+    String snapeGrassSection = "snapeGrassSection";
+
+    @ConfigItem(
+            keyName = "enableSnapeGrass",
+            name = "Enable",
+            description = "Walks to snape grass spawn (1736, 3170), casts Telekinetic Grab, waits for respawn, repeats. " +
+                    "Requires 33 Magic, law runes, and air runes or air staff equipped.",
+            position = 0,
+            section = snapeGrassSection
+    )
+    default boolean enableSnapeGrass() {
+        return false;
+    }
+
+    @ConfigSection(
+            name = "Easy Clue Opener",
+            description = "Opens scroll boxes, digs dig-clues, drops non-dig clues, opens reward caskets",
+            position = 4,
+            closedByDefault = true
+    )
+    String easyClueSection = "easyClueSection";
+
+    @ConfigItem(
+            keyName = "enableEasyClue",
+            name = "Enable",
+            description = "Uses the Aldarin bank easy clue method to farm reward caskets. " +
+                    "Opens Scroll box (easy), checks if the clue is a dig type (ID 29853) — " +
+                    "if so, digs with spade repeatedly until you get a casket or a different clue. " +
+                    "Non-dig clues are dropped and the next scroll box is opened. " +
+                    "Caskets stack in your inventory. Requires a spade and scroll boxes.",
+            position = 0,
+            section = easyClueSection
+    )
+    default boolean enableEasyClue() {
+        return false;
+    }
+
+    @Range(min = 100, max = 3000)
+    @ConfigItem(
+            keyName = "clueDigDelayMin",
+            name = "Dig delay min (ms)",
+            description = "Minimum delay after digging before the next action",
+            position = 1,
+            section = easyClueSection
+    )
+    default int clueDigDelayMin() {
+        return 400;
+    }
+
+    @Range(min = 100, max = 3000)
+    @ConfigItem(
+            keyName = "clueDigDelayMax",
+            name = "Dig delay max (ms)",
+            description = "Maximum delay after digging before the next action",
+            position = 2,
+            section = easyClueSection
+    )
+    default int clueDigDelayMax() {
+        return 700;
+    }
+
+    @Range(min = 50, max = 2000)
+    @ConfigItem(
+            keyName = "clueActionDelay",
+            name = "Action delay (ms)",
+            description = "Delay between opening scroll boxes, dropping clues, etc.",
+            position = 3,
+            section = easyClueSection
+    )
+    default int clueActionDelay() {
+        return 300;
+    }
+
+    @ConfigSection(
+            name = "Transmutation",
+            description = "Casts Alchemic Divergence/Convergence to upgrade or downgrade noted items through tiers",
+            position = 5,
+            closedByDefault = true
+    )
+    String transmuteSection = "transmuteSection";
+
+    @ConfigItem(
+            keyName = "enableTransmute",
+            name = "Enable transmutation",
+            description = "Have the starting noted items in your inventory before enabling. " +
+                    "The script casts the spell on each tier until it reaches the target. " +
+                    "Requires the Transmutation relic and the transmutation ledger equipped or in inventory.",
+            position = 0,
+            section = transmuteSection
+    )
+    default boolean enableTransmute() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "transmuteStartItem",
+            name = "Starting item",
+            description = "The item you currently have noted in your inventory. Must be in the same category as the target.",
+            position = 1,
+            section = transmuteSection
+    )
+    default TransmuteItem transmuteStartItem() {
+        return TransmuteItem.IRON_ORE;
+    }
+
+    @ConfigItem(
+            keyName = "transmuteTargetItem",
+            name = "Target item",
+            description = "The final item you want. Must be in the same category as the starting item.",
+            position = 2,
+            section = transmuteSection
+    )
+    default TransmuteItem transmuteTargetItem() {
+        return TransmuteItem.RUNITE_ORE;
+    }
+
+    @ConfigItem(
+            keyName = "transmuteDirection",
+            name = "Direction",
+            description = "Upgrade (Alchemic Divergence / High Alch) or Downgrade (Alchemic Convergence / Low Alch)",
+            position = 4,
+            section = transmuteSection
+    )
+    default TransmuteDirection transmuteDirection() {
+        return TransmuteDirection.UPGRADE;
     }
 }

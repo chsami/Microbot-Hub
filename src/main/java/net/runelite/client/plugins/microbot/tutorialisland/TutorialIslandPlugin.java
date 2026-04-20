@@ -1,8 +1,6 @@
 package net.runelite.client.plugins.microbot.tutorialisland;
 
 import com.google.inject.Provides;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -26,20 +24,20 @@ import java.awt.*;
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
-@Slf4j
 public class TutorialIslandPlugin extends Plugin {
-    public static final String version = "1.3.2";
+    public static final String version = "1.3.16";
 
-    @Getter
     private boolean toggleMusic;
-    @Getter
     private boolean toggleRoofs;
-    @Getter
     private boolean toggleLevelUp;
-    @Getter
     private boolean toggleShiftDrop;
-    @Getter
     private boolean toggleDevOverlay;
+
+    public boolean isToggleMusic() { return toggleMusic; }
+    public boolean isToggleRoofs() { return toggleRoofs; }
+    public boolean isToggleLevelUp() { return toggleLevelUp; }
+    public boolean isToggleShiftDrop() { return toggleShiftDrop; }
+    public boolean isToggleDevOverlay() { return toggleDevOverlay; }
     
     
     @Inject

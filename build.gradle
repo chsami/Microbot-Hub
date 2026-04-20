@@ -16,6 +16,19 @@ apply from: 'gradle/plugin-utils.gradle'
 def microbotClientVersion = project.ext.getMicrobotClientVersion()
 def microbotClientPath = project.findProperty("microbotClientPath")
 
+if (!microbotClientPath && project.hasProperty("microbotClientDir")) {
+    def clientDir = file(project.findProperty("microbotClientDir"))
+    if (clientDir.isDirectory()) {
+        def match = clientDir.listFiles()?.findAll { it.name ==~ /microbot-.*\.jar/ && !it.name.contains('sources') && !it.name.contains('shaded') }
+                ?.sort { -it.lastModified() }
+                ?.first()
+        if (match) {
+            microbotClientPath = match.absolutePath
+            logger.lifecycle("🤖 Resolved local microbot client JAR: ${microbotClientPath}")
+        }
+    }
+}
+
 // Java toolchain configuration
 java {
     toolchain {
