@@ -6,7 +6,11 @@ import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.api.Client;
+import net.runelite.api.HeadIcon;
+import net.runelite.api.Player;
 import net.runelite.api.Projectile;
+import net.runelite.api.WorldView;
+import net.runelite.api.coords.WorldPoint;
 
 import net.runelite.api.events.ProjectileMoved;
 
@@ -35,7 +39,7 @@ import java.util.Set;
 )
 public class HueyPrayerPlugin extends Plugin
 {
-    static final String VERSION = "1.0.4";
+    static final String VERSION = "1.0.7";
     @Inject
     private Client client;
 
@@ -129,8 +133,7 @@ public class HueyPrayerPlugin extends Plugin
                     incomingHueyProjectiles.remove(projectile);
                     if (incomingHueyProjectiles.isEmpty())
                     {
-                        Rs2Prayer.disableAllPrayers();
-                        currentPrayer = null;
+                        onHueyProjectilePhaseEnded();
                     }
                 }
                 return;
@@ -173,14 +176,158 @@ public class HueyPrayerPlugin extends Plugin
     {
         int tick = client.getTickCount();
 
-        // prevent spam + duplicate toggles
-        if (currentPrayer == prayer) return;
-        if (tick == lastSwitchTick) return;
+        if (Rs2Prayer.isPrayerActive(prayer))
+        {
+            currentPrayer = prayer;
+            return;
+        }
+
+        if (tick == lastSwitchTick)
+        {
+            return;
+        }
 
         Rs2Prayer.disableAllPrayers();
         Rs2Prayer.toggle(prayer, true);
 
         currentPrayer = prayer;
         lastSwitchTick = tick;
+    }
+
+    /**
+     * Last Huey projectile toward us has landed — either clear prayers or switch to trio pillar protection.
+     */
+    private void onHueyProjectilePhaseEnded()
+    {
+        if (config.trioMode())
+        {
+            Rs2PrayerEnum pillar = resolveTrioProtectionPrayer();
+            if (pillar != null)
+            {
+                switchPrayer(pillar);
+            }
+            return;
+        }
+        Rs2Prayer.disableAllPrayers();
+        currentPrayer = null;
+    }
+
+    /**
+     * Fixed or autobalance protection for pillar charging (after projectiles, not during).
+     */
+    private Rs2PrayerEnum resolveTrioProtectionPrayer()
+    {
+        if (config.trioRoleStyle() == HueyPrayerConfig.TrioRoleStyle.FIXED)
+        {
+            return config.trioFixedProtection().getPrayer();
+        }
+        return pickAutobalanceProtectionPrayer();
+    }
+
+    private Rs2PrayerEnum pickAutobalanceProtectionPrayer()
+    {
+        Player local = client.getLocalPlayer();
+        if (local == null)
+        {
+            return null;
+        }
+        WorldPoint localPoint = local.getWorldLocation();
+        WorldView worldView = client.getTopLevelWorldView();
+        if (worldView == null)
+        {
+            return null;
+        }
+
+        int melee = 0;
+        int ranged = 0;
+        int magic = 0;
+        int radius = config.trioRadius();
+        if (radius < 1)
+        {
+            radius = 1;
+        }
+
+        for (Player p : worldView.players())
+        {
+            if (p == null)
+            {
+                continue;
+            }
+            if (p == local)
+            {
+                continue;
+            }
+            WorldPoint wp = p.getWorldLocation();
+            if (wp == null)
+            {
+                continue;
+            }
+            if (wp.distanceTo(localPoint) > radius)
+            {
+                continue;
+            }
+            HeadIcon overhead = p.getOverheadIcon();
+            if (overhead == HeadIcon.MELEE)
+            {
+                melee++;
+            }
+            else if (overhead == HeadIcon.RANGED)
+            {
+                ranged++;
+            }
+            else if (overhead == HeadIcon.MAGIC)
+            {
+                magic++;
+            }
+        }
+
+        if (melee == 0)
+        {
+            if (ranged == 0)
+            {
+                if (magic == 0)
+                {
+                    return protectionMatchingLocalOverhead(local);
+                }
+            }
+        }
+
+        int minCount = melee;
+        if (ranged < minCount)
+        {
+            minCount = ranged;
+        }
+        if (magic < minCount)
+        {
+            minCount = magic;
+        }
+
+        if (melee == minCount)
+        {
+            return Rs2PrayerEnum.PROTECT_MELEE;
+        }
+        if (ranged == minCount)
+        {
+            return Rs2PrayerEnum.PROTECT_RANGE;
+        }
+        return Rs2PrayerEnum.PROTECT_MAGIC;
+    }
+
+    private static Rs2PrayerEnum protectionMatchingLocalOverhead(Player local)
+    {
+        HeadIcon overhead = local.getOverheadIcon();
+        if (overhead == HeadIcon.MELEE)
+        {
+            return Rs2PrayerEnum.PROTECT_MELEE;
+        }
+        if (overhead == HeadIcon.RANGED)
+        {
+            return Rs2PrayerEnum.PROTECT_RANGE;
+        }
+        if (overhead == HeadIcon.MAGIC)
+        {
+            return Rs2PrayerEnum.PROTECT_MAGIC;
+        }
+        return Rs2PrayerEnum.PROTECT_MELEE;
     }
 }
