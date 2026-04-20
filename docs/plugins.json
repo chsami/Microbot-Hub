@@ -1359,7 +1359,7 @@
             "TutorialIsland",
             "microbot"
         ],
-        "version": "1.3.2",
+        "version": "1.3.16",
         "minClientVersion": "1.9.9.2",
         "authors": [
             "Mocrosoft"
@@ -1367,8 +1367,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/TutorialIslandPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/TutorialIslandPlugin/assets/card.png",
         "disable": false,
-        "sha256": "45e06a25199a0fac729dc37f8ec5344cf38f01e1004b88e638ae43a632977dfc",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tutorialislandplugin-1.3.2.jar"
+        "sha256": "5c92e3468f1ffb314348c86bb698848863a220f9eefc797c9fbc5483874589a7",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tutorialislandplugin-1.3.16.jar"
     },
     {
         "internalName": "TowerOfLifeCCPlugin",
@@ -1623,7 +1623,7 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "9f412e196e475d2032742775fb67b02f4ba567718c90c4beb31dbd6ca5b7bf2c",
+        "sha256": "87f7aed97c6ae9356bb1705abf21e9d931b451b83af9c1145dd9f2e2e0c311f8",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autohunterplugin-1.1.1.jar"
     },
     {
@@ -1863,7 +1863,7 @@
             "utility",
             "afk"
         ],
-        "version": "1.1.0",
+        "version": "1.2.0",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1871,8 +1871,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "48a160d3104c3bfa195174dc289f299d0d8cd5023418c6c54f7aee99a944f70e",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/leaguestoolkitplugin-1.1.0.jar"
+        "sha256": "0f310296b9f791e01bfead56881322cb6ef1b6d25e9e3403d2af83a96087102d",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/leaguestoolkitplugin-1.2.0.jar"
     },
     {
         "internalName": "CannonballSmelterPlugin",
