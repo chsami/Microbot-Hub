@@ -7,7 +7,6 @@ public class RecordedAction
 {
 	private Integer delayTicksBefore;
 	private String menuOption;
-	private String menuTarget;
 	private String menuAction;
 	private TargetType targetType;
 	private int identifier;
@@ -21,11 +20,10 @@ public class RecordedAction
 
 	public String describe()
 	{
-		String target = targetName != null ? targetName : menuTarget;
-		if (target == null || target.isEmpty())
+		if (targetName == null || targetName.isEmpty())
 		{
 			return menuOption;
 		}
-		return menuOption + " → " + target;
+		return menuOption + " → " + targetName;
 	}
 }

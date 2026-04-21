@@ -151,7 +151,7 @@ public class ActionReplayPlugin extends Plugin
 		RecordedAction a = new RecordedAction();
 		a.setDelayTicksBefore(tickDelta);
 		a.setMenuOption(stripColorTags(e.getMenuOption()));
-		a.setMenuTarget(stripColorTags(e.getMenuTarget()));
+		a.setTargetName(cleanTarget(e.getMenuTarget()));
 		a.setMenuAction(e.getMenuAction() == null ? null : e.getMenuAction().name());
 		a.setTargetType(TargetType.fromMenuAction(e.getMenuAction()));
 		a.setIdentifier(e.getId());
@@ -164,22 +164,6 @@ public class ActionReplayPlugin extends Plugin
 		{
 			a.setCanvasX(mouse.getX());
 			a.setCanvasY(mouse.getY());
-		}
-
-		switch (a.getTargetType())
-		{
-			case NPC:
-				if (e.getMenuEntry() != null && e.getMenuEntry().getNpc() != null)
-				{
-					a.setTargetName(e.getMenuEntry().getNpc().getName());
-				}
-				break;
-			case GAME_OBJECT:
-			case GROUND_ITEM:
-				a.setTargetName(stripColorTags(e.getMenuTarget()));
-				break;
-			default:
-				break;
 		}
 
 		rec.getActions().add(a);
@@ -415,7 +399,7 @@ public class ActionReplayPlugin extends Plugin
 		}
 		RecordedAction first = r.getActions().get(0);
 		String verb = sanitize(first.getMenuOption());
-		String target = sanitize(first.getTargetName() != null ? first.getTargetName() : first.getMenuTarget());
+		String target = sanitize(first.getTargetName());
 		StringBuilder name = new StringBuilder();
 		if (!verb.isEmpty())
 		{
@@ -458,6 +442,16 @@ public class ActionReplayPlugin extends Plugin
 			return null;
 		}
 		return s.replaceAll("<[^>]+>", "");
+	}
+
+	private static String cleanTarget(String menuTarget)
+	{
+		String s = stripColorTags(menuTarget);
+		if (s == null)
+		{
+			return null;
+		}
+		return s.replaceAll("\\s*\\(level-\\d+\\)\\s*$", "").trim();
 	}
 
 	private static BufferedImage buildIcon()

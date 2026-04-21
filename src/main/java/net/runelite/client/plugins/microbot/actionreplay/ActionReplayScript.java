@@ -10,10 +10,10 @@ import net.runelite.client.plugins.microbot.actionreplay.model.Recording;
 import net.runelite.client.plugins.microbot.actionreplay.model.TargetType;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
-import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
+import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
@@ -29,7 +29,6 @@ public class ActionReplayScript extends Script
 	private final AtomicBoolean abortFlag = new AtomicBoolean(false);
 	private Recording recording;
 	private Runnable onFinished;
-	private boolean priorNaturalMouse;
 
 	public boolean play(Recording recording, Runnable onFinished)
 	{
@@ -42,9 +41,7 @@ public class ActionReplayScript extends Script
 		this.onFinished = onFinished;
 		this.abortFlag.set(false);
 
-		priorNaturalMouse = Rs2AntibanSettings.naturalMouse;
-		Rs2AntibanSettings.naturalMouse = true;
-		log.info("ActionReplay: enabling naturalMouse for playback (was {})", priorNaturalMouse);
+		log.info("ActionReplay: starting playback of '{}' ({} actions)", recording.getName(), recording.size());
 
 		mainScheduledFuture = scheduledExecutorService.schedule(this::playbackLoop, 0, TimeUnit.MILLISECONDS);
 		return true;
@@ -66,13 +63,19 @@ public class ActionReplayScript extends Script
 				runOnce();
 			}
 		}
-		catch (Exception e)
+		catch (RuntimeException e)
 		{
-			log.error("ActionReplay playback failed", e);
+			if (e.getCause() instanceof InterruptedException || abortFlag.get())
+			{
+				log.info("ActionReplay: playback stopped");
+			}
+			else
+			{
+				log.error("ActionReplay playback failed", e);
+			}
 		}
 		finally
 		{
-			Rs2AntibanSettings.naturalMouse = priorNaturalMouse;
 			Runnable cb = onFinished;
 			onFinished = null;
 			if (cb != null)
@@ -152,9 +155,9 @@ public class ActionReplayScript extends Script
 		{
 			return false;
 		}
-		Rs2NpcModel match = Microbot.getRs2NpcCache().query()
+Rs2NpcModel match = Microbot.getRs2NpcCache().query()
 			.withName(a.getTargetName())
-			.nearest(TARGET_LOOKUP_RADIUS);
+			.nearestOnClientThread(TARGET_LOOKUP_RADIUS);
 		if (match == null)
 		{
 			return false;
@@ -166,13 +169,16 @@ public class ActionReplayScript extends Script
 	{
 		if (a.getTargetName() == null)
 		{
+			log.warn("ActionReplay: no target name for game object step, skipping '{}'", a.describe());
 			return false;
 		}
-		Rs2TileObjectModel match = Microbot.getRs2TileObjectCache().query()
+Rs2TileObjectModel match = Microbot.getRs2TileObjectCache().query()
 			.withName(a.getTargetName())
-			.nearest(TARGET_LOOKUP_RADIUS);
+			.nearestOnClientThread(TARGET_LOOKUP_RADIUS);
 		if (match == null)
 		{
+			log.warn("ActionReplay: no '{}' within {} tiles, skipping '{}'",
+				a.getTargetName(), TARGET_LOOKUP_RADIUS, a.describe());
 			return false;
 		}
 		return match.click(a.getMenuOption());
@@ -198,24 +204,16 @@ public class ActionReplayScript extends Script
 
 		int param1 = a.getParam1();
 
-		if (param1 > 0 && !Rs2Widget.isWidgetVisible(param1))
+		if ((param1 >>> 16) > 0 && !Rs2Widget.isWidgetVisible(param1))
 		{
 			log.warn("ActionReplay: widget {} not visible, skipping '{}'", param1, a.describe());
 			return false;
 		}
 
-		// Inventory item actions → delegate to Rs2Inventory.interact. It resolves the
-		// correct inventory widget (normal/bank/deposit/GE/shop), finds the item's
-		// current slot + bounds, and invokes with the correct params. Replaying a
-		// stored NewMenuEntry directly is fragile: stale canvas coords mean the
-		// physical click may land on an empty slot, at which point no MenuEntryAdded
-		// fires and MicrobotPlugin's targetMenu injection silently no-ops.
-		// Match by name (exact, case-insensitive) rather than id — stack-count
-		// variants (e.g. Coin pouch x1 vs x3) have different ids but the same name.
 		if (a.getItemId() > 0 && param1 > 0 && (param1 >>> 16) == InterfaceID.INVENTORY
 			&& a.getMenuOption() != null && !a.getMenuOption().isEmpty())
 		{
-			String itemName = a.getMenuTarget();
+			String itemName = a.getTargetName();
 			if (itemName == null || itemName.isEmpty())
 			{
 				log.warn("ActionReplay: no item name for inventory step, skipping '{}'", a.describe());
@@ -229,10 +227,9 @@ public class ActionReplayScript extends Script
 			return Rs2Inventory.interact(itemName, a.getMenuOption(), true);
 		}
 
-		String target = a.getMenuTarget() != null ? a.getMenuTarget() : "";
 		NewMenuEntry entry = new NewMenuEntry(
 			a.getMenuOption(),
-			target,
+			a.getTargetName() != null ? a.getTargetName() : "",
 			a.getIdentifier(),
 			ma,
 			a.getParam0(),

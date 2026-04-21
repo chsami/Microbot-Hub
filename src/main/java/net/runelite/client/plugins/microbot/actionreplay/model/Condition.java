@@ -59,7 +59,7 @@ public class Condition
 		}
 		boolean found = Microbot.getRs2NpcCache().query()
 			.withName(name)
-			.nearest(NEARBY_RADIUS) != null;
+			.nearestOnClientThread(NEARBY_RADIUS) != null;
 		return found == present;
 	}
 
@@ -71,7 +71,7 @@ public class Condition
 		}
 		boolean found = Microbot.getRs2TileObjectCache().query()
 			.withName(name)
-			.nearest(NEARBY_RADIUS) != null;
+			.nearestOnClientThread(NEARBY_RADIUS) != null;
 		return found == present;
 	}
 

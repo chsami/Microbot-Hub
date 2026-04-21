@@ -6,7 +6,6 @@ import net.runelite.client.plugins.microbot.actionreplay.model.ConditionType;
 import net.runelite.client.plugins.microbot.actionreplay.model.RecordedAction;
 import net.runelite.client.plugins.microbot.actionreplay.model.Recording;
 import net.runelite.client.plugins.microbot.actionreplay.model.StatKind;
-import net.runelite.client.plugins.microbot.actionreplay.model.TargetType;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
@@ -599,7 +598,7 @@ public class ActionReplayPanel extends PluginPanel
 
 		gc.gridx = 0;
 		JTextField verbField = new JTextField(a.getMenuOption() == null ? "" : a.getMenuOption(), 12);
-		JTextField targetField = new JTextField(a.getMenuTarget() == null ? "" : a.getMenuTarget(), 15);
+		JTextField targetField = new JTextField(a.getTargetName() == null ? "" : a.getTargetName(), 15);
 
 		gc.gridy = 0;
 		form.add(new JLabel("Action:"), gc);
@@ -649,12 +648,7 @@ public class ActionReplayPanel extends PluginPanel
 		String newVerb = verbField.getText().trim();
 		a.setMenuOption(newVerb.isEmpty() ? null : newVerb);
 		String newTarget = targetField.getText().trim();
-		a.setMenuTarget(newTarget.isEmpty() ? null : newTarget);
-		TargetType tt = a.getTargetType();
-		if (tt == TargetType.NPC || tt == TargetType.GAME_OBJECT || tt == TargetType.GROUND_ITEM)
-		{
-			a.setTargetName(newTarget.isEmpty() ? null : newTarget);
-		}
+		a.setTargetName(newTarget.isEmpty() ? null : newTarget);
 		a.setCondition(buildCondition(typeCombo, statCmpCombo, statSpinner, npcNameField, npcPresentCombo,
 			objNameField, objPresentCombo, invNameField, invCountSpinner, invPresentCombo));
 		reloadActionList();
