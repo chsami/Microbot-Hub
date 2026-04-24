@@ -37,19 +37,34 @@ public final class BossHandler {
         this.debugLogging = cfg.debugLogging();
     }
 
-    /** Walks to the chosen boss lobby. */
+    /** Walks to the chosen boss lobby.
+     *
+     * Loops the walker with a reached-distance tolerance. The previous implementation called
+     * {@code walkWithState(bossWorldPoint, 0)} (exact-tile match) followed by a
+     * {@code walkFastCanvas(bossWorldPoint)} fallback; when the walker exited early on a single
+     * pass (e.g. cross-region transport, door handler interrupt) the canvas-click fallback tried
+     * to click a tile dozens of tiles off-screen, {@code LocalPoint.fromWorld} returned null,
+     * and the plugin looped forever without the player ever moving.
+     */
     public void walkToBoss(Rs2InventorySetup inventorySetup, String bossName, WorldPoint bossWorldPoint) {
         if (inventorySetup != null) {
             equipInventorySetup(inventorySetup);
         }
         if (debugLogging) {Microbot.log("Walking to " + bossName + " lobby");}
-        Rs2Walker.walkWithState(bossWorldPoint, 0);
-        sleep(600);
-        if (!Rs2Player.getWorldLocation().equals(bossWorldPoint)) {
-            Rs2Walker.walkFastCanvas(bossWorldPoint);
-            sleepUntil(() -> Rs2Player.getWorldLocation().equals(bossWorldPoint));
+
+        final int reachedDistance = 3;
+        final long deadlineMs = System.currentTimeMillis() + 90_000L;
+        while (System.currentTimeMillis() < deadlineMs) {
+            WorldPoint loc = Rs2Player.getWorldLocation();
+            if (loc != null && loc.distanceTo(bossWorldPoint) <= reachedDistance) {
+                break;
+            }
+            Rs2Walker.walkWithState(bossWorldPoint, reachedDistance);
+            sleep(600);
         }
-        if (Rs2Player.getWorldLocation().distanceTo(bossWorldPoint) <= 3) {
+
+        WorldPoint finalLoc = Rs2Player.getWorldLocation();
+        if (finalLoc != null && finalLoc.distanceTo(bossWorldPoint) <= reachedDistance) {
             if (debugLogging) {Microbot.log("Arrived at " + bossName + " lobby");}
             return;
         }
