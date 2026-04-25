@@ -2,7 +2,10 @@ package net.runelite.client.plugins.microbot.kraken;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
@@ -51,6 +54,23 @@ public class KrakenPlugin extends Plugin {
         script.shutdown();
         if (overlayManager != null) {
             overlayManager.remove(overlay);
+        }
+    }
+
+    @Subscribe
+    public void onChatMessage(ChatMessage event) {
+        if (event.getType() != ChatMessageType.GAMEMESSAGE) return;
+        String msg = event.getMessage().toLowerCase();
+        if (msg.contains("stick to your slayer")
+                || msg.contains("not on a slayer task")
+                || msg.contains("not currently assigned")) {
+            script.requestStop("Off-task chat message: \"" + event.getMessage() + "\"");
+            return;
+        }
+        if (msg.contains("you've completed your task")
+                || msg.contains("you have completed your task")
+                || msg.contains("completed your slayer task")) {
+            script.requestStop("Slayer task completed.");
         }
     }
 }

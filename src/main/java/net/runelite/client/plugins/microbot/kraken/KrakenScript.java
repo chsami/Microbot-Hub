@@ -13,6 +13,7 @@ import net.runelite.client.plugins.microbot.util.grounditem.Rs2LootEngine;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.skills.slayer.Rs2Slayer;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -74,11 +75,33 @@ public class KrakenScript extends Script {
 
     private void handleIdle(KrakenConfig config) {
         Microbot.status = "Kraken: waiting for whirlpools";
+        // Slayer-task gate: Kraken can only be killed while assigned. Re-checked every
+        // cycle so we exit the moment the task finishes.
+        if (!isOnKrakenTask()) {
+            requestStop("Not on a Kraken slayer task.");
+            return;
+        }
+        // Out-of-food gate. Only checked here (between kills) so we never abort mid-fight.
+        if (config.stopWhenOutOfFood() && Rs2Inventory.getInventoryFood().isEmpty()) {
+            requestStop("Out of food.");
+            return;
+        }
         if (anyWhirlpoolSpawned()) {
             // Small human reaction delay before the first click fires.
             sleep((int) Rs2Random.normalRange(150L, 400L, 0.0));
             state = KrakenState.DISTURBING;
         }
+    }
+
+    public void requestStop(String reason) {
+        if (state == KrakenState.STOPPED) return;
+        Microbot.log("[Kraken] Stopping: " + reason);
+        state = KrakenState.STOPPED;
+    }
+
+    private static boolean isOnKrakenTask() {
+        String task = Rs2Slayer.getSlayerTask();
+        return task != null && task.toLowerCase().contains("kraken");
     }
 
     private void handleDisturb(KrakenConfig config) {
@@ -122,6 +145,17 @@ public class KrakenScript extends Script {
 
     private void handleFighting(KrakenConfig config) {
         Microbot.status = "Kraken: fighting";
+        // Confirm the 5-click sequence actually spawned the boss. If a small was
+        // missed, the main stays as a whirlpool and Kraken never emerges.
+        boolean spawned = sleepUntil(() -> Microbot.getRs2NpcCache().query()
+                .withId(KRAKEN_NPC_ID)
+                .first() != null, 8_000);
+        if (!spawned) {
+            Microbot.log("[Kraken] Boss didn't spawn — retrying disturb sequence.");
+            clickedSmallIndexes.clear();
+            state = KrakenState.IDLE;
+            return;
+        }
         // Death signal: the attackable Kraken NPC despawns the moment it dies.
         // (isInCombat() lingers ~8s after the last hit — don't use that here.)
         sleepUntil(() -> Microbot.getRs2NpcCache().query()
@@ -150,11 +184,11 @@ public class KrakenScript extends Script {
         Rs2LootEngine.Builder builder = Rs2LootEngine.with(params)
                 .withLootAction(Rs2GroundItem::coreLoot);
 
-        // Always: uniques, name list, coins, untradables. Value threshold is opt-in.
+        // Only: hardcoded uniques + user's name list. Value threshold is opt-in.
+        // No addCoins/addUntradables — on Leagues, drops are account-bound and report
+        // as untradeable, which would sweep up every noted stack (monkfish, staves, runes).
         builder.addCustom("kraken-uniques", KrakenScript::isKrakenUnique, null);
         addCustomNames(builder, config.listOfItemsToLoot());
-        builder.addCoins();
-        builder.addUntradables();
         if (config.toggleLootByValue()) {
             builder.addByValue();
         }

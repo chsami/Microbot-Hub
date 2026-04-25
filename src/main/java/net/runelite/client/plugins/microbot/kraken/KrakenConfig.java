@@ -36,4 +36,14 @@ public interface KrakenConfig extends Config {
     default int minPriceOfItemsToLoot() {
         return 5000;
     }
+
+    @ConfigItem(
+            keyName = "stopWhenOutOfFood",
+            name = "Stop when out of food",
+            description = "If on, stop the plugin when the inventory has no edible food. Only checked between kills (during IDLE) so a kill is never aborted mid-fight.",
+            position = 3
+    )
+    default boolean stopWhenOutOfFood() {
+        return true;
+    }
 }
