@@ -7,7 +7,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.MenuAction;
 import net.runelite.api.Point;
-import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
@@ -82,8 +81,7 @@ public class ActionReplayPlugin extends Plugin
 	private boolean appendingToExisting;
 	private int gameTickCounter;
 	private int lastActionTickCounter;
-	private WorldPoint pendingSideEffectTarget;
-	private int sideEffectExpiryTicks;
+	private MenuAction lastMenuAction;
 	private WorldPoint lastSeenDestination;
 
 	private ActionReplayPanel panel;
@@ -142,36 +140,25 @@ public class ActionReplayPlugin extends Plugin
 			return;
 		}
 		gameTickCounter++;
-		if (sideEffectExpiryTicks > 0)
+		WorldPoint dest = currentDestination();
+		if ((lastMenuAction == MenuAction.WALK || lastMenuAction == MenuAction.CANCEL)
+			&& dest != null
+			&& !java.util.Objects.equals(dest, lastSeenDestination))
 		{
-			sideEffectExpiryTicks--;
-			if (sideEffectExpiryTicks == 0)
-			{
-				pendingSideEffectTarget = null;
-			}
-		}
-		captureWalkIfDestinationChanged();
-	}
-
-	private void captureWalkIfDestinationChanged()
-	{
-		LocalPoint local = Microbot.getClient().getLocalDestinationLocation();
-		WorldPoint dest = local != null ? WorldPoint.fromLocalInstance(Microbot.getClient(), local) : null;
-		if (java.util.Objects.equals(dest, lastSeenDestination))
-		{
-			return;
+			lastMenuAction = null;
+			addWalkAction(dest);
 		}
 		lastSeenDestination = dest;
-		if (dest == null)
-		{
-			return;
-		}
-		if (pendingSideEffectTarget != null && dest.distanceTo(pendingSideEffectTarget) <= 3)
-		{
-			pendingSideEffectTarget = null;
-			sideEffectExpiryTicks = 0;
-			return;
-		}
+	}
+
+	private WorldPoint currentDestination()
+	{
+		LocalPoint local = Microbot.getClient().getLocalDestinationLocation();
+		return local != null ? WorldPoint.fromLocalInstance(Microbot.getClient(), local) : null;
+	}
+
+	private void addWalkAction(WorldPoint dest)
+	{
 		Recording rec = currentRecording;
 		if (rec == null)
 		{
@@ -179,7 +166,6 @@ public class ActionReplayPlugin extends Plugin
 		}
 		int tickDelta = rec.size() == 0 ? 0 : Math.max(0, gameTickCounter - lastActionTickCounter);
 		lastActionTickCounter = gameTickCounter;
-
 		RecordedAction a = new RecordedAction();
 		a.setDelayTicksBefore(tickDelta);
 		a.setMenuOption("Walk to");
@@ -205,16 +191,10 @@ public class ActionReplayPlugin extends Plugin
 			return;
 		}
 		MenuAction action = e.getMenuAction();
+		lastMenuAction = action;
 		if (action == MenuAction.WALK || action == MenuAction.CANCEL)
 		{
 			return;
-		}
-		TargetType tt = TargetType.fromMenuAction(action);
-		WorldPoint clickTarget = computeClickTarget(e, tt);
-		if (clickTarget != null)
-		{
-			pendingSideEffectTarget = clickTarget;
-			sideEffectExpiryTicks = 10;
 		}
 
 		int tickDelta = rec.size() == 0 ? 0 : Math.max(0, gameTickCounter - lastActionTickCounter);
@@ -224,8 +204,8 @@ public class ActionReplayPlugin extends Plugin
 		a.setDelayTicksBefore(tickDelta);
 		a.setMenuOption(stripColorTags(e.getMenuOption()));
 		a.setTargetName(cleanTarget(e.getMenuTarget()));
-		a.setMenuAction(e.getMenuAction() == null ? null : e.getMenuAction().name());
-		a.setTargetType(TargetType.fromMenuAction(e.getMenuAction()));
+		a.setMenuAction(action == null ? null : action.name());
+		a.setTargetType(TargetType.fromMenuAction(action));
 		a.setIdentifier(e.getId());
 		a.setParam0(e.getParam0());
 		a.setParam1(e.getParam1());
@@ -267,10 +247,8 @@ public class ActionReplayPlugin extends Plugin
 		}
 		gameTickCounter = 0;
 		lastActionTickCounter = 0;
-		pendingSideEffectTarget = null;
-		sideEffectExpiryTicks = 0;
-		LocalPoint cur = Microbot.getClient().getLocalDestinationLocation();
-		lastSeenDestination = cur != null ? WorldPoint.fromLocalInstance(Microbot.getClient(), cur) : null;
+		lastMenuAction = null;
+		lastSeenDestination = currentDestination();
 		recording = true;
 	}
 
@@ -509,25 +487,6 @@ public class ActionReplayPlugin extends Plugin
 			n++;
 		}
 		return candidate;
-	}
-
-	private static WorldPoint computeClickTarget(MenuOptionClicked e, TargetType tt)
-	{
-		if (tt == TargetType.NPC && e.getMenuEntry() != null && e.getMenuEntry().getNpc() != null)
-		{
-			return e.getMenuEntry().getNpc().getWorldLocation();
-		}
-		if (tt == TargetType.GAME_OBJECT || tt == TargetType.GROUND_ITEM)
-		{
-			WorldView wv = Microbot.getClient().getTopLevelWorldView();
-			if (wv == null)
-			{
-				return null;
-			}
-			LocalPoint local = LocalPoint.fromScene(e.getParam0(), e.getParam1(), wv);
-			return WorldPoint.fromLocalInstance(Microbot.getClient(), local);
-		}
-		return null;
 	}
 
 	private static String stripColorTags(String s)
