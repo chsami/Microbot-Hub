@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.MenuAction;
 import net.runelite.api.Point;
+import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
@@ -81,7 +82,8 @@ public class ActionReplayPlugin extends Plugin
 	private boolean appendingToExisting;
 	private int gameTickCounter;
 	private int lastActionTickCounter;
-	private int ticksSinceLastNonWalkClick = 10;
+	private WorldPoint pendingSideEffectTarget;
+	private int sideEffectExpiryTicks;
 	private WorldPoint lastSeenDestination;
 
 	private ActionReplayPanel panel;
@@ -140,9 +142,13 @@ public class ActionReplayPlugin extends Plugin
 			return;
 		}
 		gameTickCounter++;
-		if (ticksSinceLastNonWalkClick < 10)
+		if (sideEffectExpiryTicks > 0)
 		{
-			ticksSinceLastNonWalkClick++;
+			sideEffectExpiryTicks--;
+			if (sideEffectExpiryTicks == 0)
+			{
+				pendingSideEffectTarget = null;
+			}
 		}
 		captureWalkIfDestinationChanged();
 	}
@@ -160,8 +166,10 @@ public class ActionReplayPlugin extends Plugin
 		{
 			return;
 		}
-		if (ticksSinceLastNonWalkClick <= 1)
+		if (pendingSideEffectTarget != null && dest.distanceTo(pendingSideEffectTarget) <= 3)
 		{
+			pendingSideEffectTarget = null;
+			sideEffectExpiryTicks = 0;
 			return;
 		}
 		Recording rec = currentRecording;
@@ -201,7 +209,13 @@ public class ActionReplayPlugin extends Plugin
 		{
 			return;
 		}
-		ticksSinceLastNonWalkClick = 0;
+		TargetType tt = TargetType.fromMenuAction(action);
+		WorldPoint clickTarget = computeClickTarget(e, tt);
+		if (clickTarget != null)
+		{
+			pendingSideEffectTarget = clickTarget;
+			sideEffectExpiryTicks = 10;
+		}
 
 		int tickDelta = rec.size() == 0 ? 0 : Math.max(0, gameTickCounter - lastActionTickCounter);
 		lastActionTickCounter = gameTickCounter;
@@ -253,7 +267,8 @@ public class ActionReplayPlugin extends Plugin
 		}
 		gameTickCounter = 0;
 		lastActionTickCounter = 0;
-		ticksSinceLastNonWalkClick = 10;
+		pendingSideEffectTarget = null;
+		sideEffectExpiryTicks = 0;
 		LocalPoint cur = Microbot.getClient().getLocalDestinationLocation();
 		lastSeenDestination = cur != null ? WorldPoint.fromLocalInstance(Microbot.getClient(), cur) : null;
 		recording = true;
@@ -494,6 +509,25 @@ public class ActionReplayPlugin extends Plugin
 			n++;
 		}
 		return candidate;
+	}
+
+	private static WorldPoint computeClickTarget(MenuOptionClicked e, TargetType tt)
+	{
+		if (tt == TargetType.NPC && e.getMenuEntry() != null && e.getMenuEntry().getNpc() != null)
+		{
+			return e.getMenuEntry().getNpc().getWorldLocation();
+		}
+		if (tt == TargetType.GAME_OBJECT || tt == TargetType.GROUND_ITEM)
+		{
+			WorldView wv = Microbot.getClient().getTopLevelWorldView();
+			if (wv == null)
+			{
+				return null;
+			}
+			LocalPoint local = LocalPoint.fromScene(e.getParam0(), e.getParam1(), wv);
+			return WorldPoint.fromLocalInstance(Microbot.getClient(), local);
+		}
+		return null;
 	}
 
 	private static String stripColorTags(String s)
