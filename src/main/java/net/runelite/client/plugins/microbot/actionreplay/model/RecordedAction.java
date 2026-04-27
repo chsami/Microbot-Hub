@@ -16,6 +16,9 @@ public class RecordedAction
 	private String targetName;
 	private int canvasX;
 	private int canvasY;
+	private int targetX;
+	private int targetY;
+	private int targetPlane;
 	private Condition condition;
 
 	public String describe()
