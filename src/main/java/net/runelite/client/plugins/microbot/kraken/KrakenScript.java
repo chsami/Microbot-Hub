@@ -105,8 +105,8 @@ public class KrakenScript extends Script {
     }
 
     private void handleDisturb(KrakenConfig config) {
-        // Fire all 5 clicks in sequence: 4 small whirlpools + main. 2s between clicks —
-        // enough to queue each attack. We don't wait for transforms; NPC index dedup
+        // Fire all 5 clicks in sequence: 4 small whirlpools + main. The click alone is
+        // enough — we don't need to wait for an attack to land. NPC index dedup
         // guarantees no double-clicks on the smalls.
         java.util.List<Rs2NpcModel> smalls = Microbot.getRs2NpcCache().query()
                 .withId(SMALL_WHIRLPOOL_NPC_ID)
@@ -138,9 +138,10 @@ public class KrakenScript extends Script {
         state = KrakenState.FIGHTING;
     }
 
-    // Skewed-Gaussian around 2000ms, bounded to [1800, 2400] with a long right tail.
+    // Smooth click cadence — mode ~180ms, bounded to [100, 350] with a long right tail.
+    // Just enough variance to avoid metronomic timing without slowing the sequence down.
     private static int clickDelayMs() {
-        return (int) Rs2Random.skewedRand(2000L, 1800L, 2400L, 0.0);
+        return (int) Rs2Random.skewedRand(180L, 100L, 350L, 0.0);
     }
 
     private void handleFighting(KrakenConfig config) {
