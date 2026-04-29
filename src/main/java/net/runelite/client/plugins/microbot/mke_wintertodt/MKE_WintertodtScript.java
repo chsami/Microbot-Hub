@@ -1824,12 +1824,18 @@ public class MKE_WintertodtScript extends Script {
             return;
         }
 
+        // Brazier maintenance is THE priority. When snowfall breaks the
+        // brazier, the fix window closes fast (other players race to repair),
+        // and an unlit brazier means zero points until it's relit. Both of
+        // those beat eating — we'll eat next tick once the brazier is back.
+        if (handleBrazierMaintenance(gameState)) {
+            return;
+        }
+
         // Drop unnecessary items
         dropUnnecessaryItems();
 
-        // Eat first — survival before antiban. If anything later in this method
-        // ever blocks (the dodge logic has wedged in the past), we still want
-        // warmth/HP recovery to have a chance to run this tick.
+        // Eat — survival. Runs only after brazier is fixed/lit (handled above).
         handleEating(gameState);
 
         // Dodge falling snow/damage (opt-in; most players just rely on food/potions)
@@ -2422,7 +2428,9 @@ public class MKE_WintertodtScript extends Script {
                 if (random.nextInt(100) < 10) {
                     sleepGaussian(400, 600);
                 }
-                navigateToBrazier();
+                // Fletch on a snowfall-safe tile rather than at the brazier.
+                // Feeding still walks back to the brazier-stand tile.
+                navigateToFletchSpot();
 
                 // Keep knife in slot-27 optimisation
                 Rs2ItemModel knife = Rs2Inventory.get(WintertodtInventoryManager.knifeToUse);
@@ -3112,6 +3120,47 @@ public class MKE_WintertodtScript extends Script {
      * @param gameState Current game state
      * @return true if food was consumed
      */
+    /**
+     * Top-of-loop brazier priority handler: fix a broken brazier, then relight
+     * an unlit one. Runs before {@link #handleEating} so a snowfall-induced
+     * break doesn't lose us the repair window to another player. Returns true
+     * if a click was issued (caller should skip the rest of the tick).
+     */
+    private boolean handleBrazierMaintenance(GameState gameState) {
+        if (gameState.brokenBrazier != null && config.fixBrazier()) {
+            if (fletchingState.isActive()) {
+                fletchingState.stopFletching(FletchingInterruptType.BRAZIER_BROKEN);
+            }
+            if (feedingState.isActive()) {
+                feedingState.stopFeeding(FeedingInterruptType.BRAZIER_BROKEN);
+            }
+            deselectSelectedItem();
+            gameState.brokenBrazier.click("fix");
+            Microbot.log("Fixing broken brazier (priority over eating)");
+            resetActions = true;
+            actionsPerformed++;
+            return true;
+        }
+
+        if (gameState.burningBrazier == null && gameState.brazier != null
+                && config.relightBrazier() && gameState.isWintertodtAlive) {
+            if (fletchingState.isActive()) {
+                fletchingState.stopFletching(FletchingInterruptType.BRAZIER_WENT_OUT);
+            }
+            if (feedingState.isActive()) {
+                feedingState.stopFeeding(FeedingInterruptType.BRAZIER_WENT_OUT);
+            }
+            deselectSelectedItem();
+            gameState.brazier.click("light");
+            Microbot.log("Relighting brazier (priority over eating)");
+            resetActions = true;
+            actionsPerformed++;
+            return true;
+        }
+
+        return false;
+    }
+
     private boolean handleEating(GameState gameState) {
         if (gameState.playerWarmth <= config.eatAtWarmthLevel()) {
             try {
@@ -3349,6 +3398,34 @@ public class MKE_WintertodtScript extends Script {
 
         } catch (Exception e) {
             System.err.println("Error navigating to brazier: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Navigates to the snowfall-safe fletch tile (one tile south of the
+     * brazier-stand tile). Used only while fletching so we don't tank
+     * snowfall AoE for the entire root pile.
+     */
+    private void navigateToFletchSpot() {
+        try {
+            WorldPoint fletchLocation = config.brazierLocation().getFLETCH_LOCATION();
+            double distance = Rs2Player.getWorldLocation().distanceTo(fletchLocation);
+
+            if (!BreakHandlerScript.isLockState()) {
+                BreakHandlerScript.setLockState(true);
+                Microbot.log("Locking break handler");
+            }
+
+            if (distance > 8) {
+                Rs2Walker.walkTo(fletchLocation, 1);
+                Rs2Player.waitForWalking();
+            } else if (distance >= 1) {
+                Rs2Walker.walkFastCanvas(fletchLocation);
+                sleepGaussian(400, 100);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error navigating to fletch spot: " + e.getMessage());
         }
     }
 
