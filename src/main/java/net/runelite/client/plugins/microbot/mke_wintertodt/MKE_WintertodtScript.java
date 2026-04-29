@@ -1272,7 +1272,9 @@ public class MKE_WintertodtScript extends Script {
             Microbot.log("Activity: " + Rs2Antiban.getActivity().getMethod());
             Microbot.log("Play Style: " + Rs2Antiban.getPlayStyle().getName());
             Microbot.log("Micro Breaks: " + (Rs2AntibanSettings.takeMicroBreaks ? "Enabled" : "Disabled"));
-            Microbot.log("Action Cooldown: " + (Rs2AntibanSettings.usePlayStyle ? "Enabled" : "Disabled"));
+            Microbot.log("Action Cooldown: " + (Rs2AntibanSettings.usePlayStyle
+                    ? "Enabled (chance " + Rs2AntibanSettings.actionCooldownChance + ")"
+                    : "Disabled"));
             Microbot.log("Mouse Randomization: " + (Rs2AntibanSettings.moveMouseRandomly ? "Enabled" : "Disabled"));
             Microbot.log("============================");
             
@@ -2530,11 +2532,13 @@ public class MKE_WintertodtScript extends Script {
             
             /* ---------- PRIORITY BLOCK 1: FIX BROKEN BRAZIER FIRST ----------- */
             if (gameState.brokenBrazier != null && config.fixBrazier()) {
+                sleepGaussian(200, 150);
+
                 // Stop feeding temporarily to fix brazier
                 if (feedingState.isActive()) {
                     feedingState.stopFeeding(FeedingInterruptType.BRAZIER_BROKEN);
                 }
-                
+
                 gameState.brokenBrazier.click("fix");
                 Microbot.log("Fixing broken brazier");
                 resetActions = true;
@@ -2591,6 +2595,10 @@ public class MKE_WintertodtScript extends Script {
                     actionsPerformed++;
                     Microbot.log("Started feeding brazier");
                     maybeNudgeMouse();
+
+                    if (Rs2AntibanSettings.usePlayStyle) {
+                        Rs2Antiban.actionCooldown();
+                    }
                 }
             }
 
@@ -3142,6 +3150,12 @@ public class MKE_WintertodtScript extends Script {
      * if a click was issued (caller should skip the rest of the tick).
      */
     private boolean handleBrazierMaintenance(GameState gameState) {
+        // Without this guard the 60ms loop would re-issue the same click every
+        // tick while the repair/light animation runs (~30 clicks in 2s) — an
+        // obvious bot signature. resetActions is cleared once the next action
+        // begins, so a single repair click can trigger.
+        if (resetActions) return false;
+
         if (gameState.brokenBrazier != null && config.fixBrazier()) {
             if (fletchingState.isActive()) {
                 fletchingState.stopFletching(FletchingInterruptType.BRAZIER_BROKEN);
@@ -3150,6 +3164,7 @@ public class MKE_WintertodtScript extends Script {
                 feedingState.stopFeeding(FeedingInterruptType.BRAZIER_BROKEN);
             }
             deselectSelectedItem();
+            sleepGaussian(200, 150);
             gameState.brokenBrazier.click("fix");
             Microbot.log("Fixing broken brazier (priority)");
             resetActions = true;
@@ -3166,6 +3181,7 @@ public class MKE_WintertodtScript extends Script {
                 feedingState.stopFeeding(FeedingInterruptType.BRAZIER_WENT_OUT);
             }
             deselectSelectedItem();
+            sleepGaussian(200, 150);
             gameState.brazier.click("light");
             Microbot.log("Relighting brazier (priority)");
             resetActions = true;

@@ -103,7 +103,7 @@ public interface MKE_WintertodtConfig extends Config {
 
     @ConfigItem(
             keyName = "FletchRoots",
-            name = "🔪 Fletch Roots to Kindling",
+            name = "➳ Fletch Roots to Kindling",
             description = "Convert bruma roots to kindling for fletching XP and more points",
             position = 2,
             section = generalSection
@@ -114,7 +114,7 @@ public interface MKE_WintertodtConfig extends Config {
 
     @ConfigItem(
             keyName = "FixBrazier",
-            name = "🔧 Fix Broken Braziers",
+            name = "⚒️ Fix Broken Braziers",
             description = "Repair broken braziers with hammer",
             position = 3,
             section = generalSection
