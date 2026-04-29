@@ -1459,13 +1459,22 @@ public class MKE_WintertodtScript extends Script {
 
             gameState.playerWarmth      = getWarmthLevel();
 
-            // Object detection
+            // Object detection. The previous filter required the brazier object's
+            // worldLocation to *exactly equal* a hardcoded constant in the Brazier
+            // enum, but the actual SW-corner of the brazier object differs by a
+            // tile from that constant (verified live: SE brazier at (1638,3997)
+            // while OBJECT_BRAZIER_LOCATION is (1639,3998)). Result: every brazier
+            // slot was permanently null → no light, no relight, no fix, NPE on
+            // feed. Switch to a tolerant within-radius filter anchored on the
+            // player-stand tile (BRAZIER_LOCATION). The two sides are 17 tiles
+            // apart, so a radius of 3 unambiguously selects the chosen side.
+            WorldPoint brazierAnchor = config.brazierLocation().getBRAZIER_LOCATION();
             gameState.brazier        = Microbot.getRs2TileObjectCache().query().withId(BRAZIER_29312)
-                                          .where(o -> o.getWorldLocation().equals(config.brazierLocation().getOBJECT_BRAZIER_LOCATION())).nearest();
+                                          .within(brazierAnchor, 3).nearest();
             gameState.brokenBrazier  = Microbot.getRs2TileObjectCache().query().withId(BRAZIER_29313)
-                                          .where(o -> o.getWorldLocation().equals(config.brazierLocation().getOBJECT_BRAZIER_LOCATION())).nearest();
+                                          .within(brazierAnchor, 3).nearest();
             gameState.burningBrazier = Microbot.getRs2TileObjectCache().query().withId(BURNING_BRAZIER_29314)
-                                          .where(o -> o.getWorldLocation().equals(config.brazierLocation().getOBJECT_BRAZIER_LOCATION())).nearest();
+                                          .within(brazierAnchor, 3).nearest();
 
             // Health and food management - determine healing strategy
             if (!autoAdjustedPotionUsage) {
@@ -1818,11 +1827,15 @@ public class MKE_WintertodtScript extends Script {
         // Drop unnecessary items
         dropUnnecessaryItems();
 
-        // Dodge falling snow/damage
-        dodgeSnowfallDamage(gameState);
-
-        // Handle eating
+        // Eat first — survival before antiban. If anything later in this method
+        // ever blocks (the dodge logic has wedged in the past), we still want
+        // warmth/HP recovery to have a chance to run this tick.
         handleEating(gameState);
+
+        // Dodge falling snow/damage (opt-in; most players just rely on food/potions)
+        if (config.dodgeSnowfall()) {
+            dodgeSnowfallDamage(gameState);
+        }
 
         // Periodic camera check (every 2 minutes during normal operation)
         if (System.currentTimeMillis() - lastCameraMovement > 120000) {
@@ -1996,10 +2009,12 @@ public class MKE_WintertodtScript extends Script {
             if (shouldLightBrazier(gameState)) {
                 Microbot.log("Prioritizing brazier lighting at round start (state: " + state + ")");
                 return; // Light the brazier first, then resume normal flow next tick
-            } else {
-                // Brazier is already lit or doesn't need lighting, reset the flag
+            } else if (gameState.burningBrazier != null) {
+                // Only consume the priority when a brazier is *definitively* burning
+                // (someone else lit it). If both burning- and unlit- slots are null,
+                // the cache may just be lagging — keep the flag and retry next tick.
                 shouldPriorizeBrazierAtStart = false;
-                Microbot.log("Brazier lighting priority completed or not needed (state: " + state + ")");
+                Microbot.log("Brazier lighting priority completed - already burning (state: " + state + ")");
             }
         }
 
@@ -2398,7 +2413,11 @@ public class MKE_WintertodtScript extends Script {
             }
 
             /* ---------- start / continue fletching ------------------- */
-            if (!isCurrentlyFletching() && gameState.burningBrazier != null) {
+            // Fletching only needs knife + roots; a burning brazier nearby isn't a
+            // precondition. Gating on burningBrazier caused silent idles when the
+            // brazier went out and the relight priority block didn't fire (e.g. the
+            // brazier object briefly fell out of the cache).
+            if (!isCurrentlyFletching()) {
                 sleepGaussian(250, 150);
                 if (random.nextInt(100) < 10) {
                     sleepGaussian(400, 600);
@@ -2452,7 +2471,7 @@ public class MKE_WintertodtScript extends Script {
             }
 
             /* Pre-select knife and hover when we have many roots */
-            if (rootCount > knifePreselectThreshold && !isKnifeSelected() && gameState.burningBrazier != null) {
+            if (rootCount > knifePreselectThreshold && !isKnifeSelected()) {
                 Rs2Inventory.interact(WintertodtInventoryManager.knifeToUse, "Use");
                 sleepGaussian(120, 40);
 
@@ -2532,14 +2551,15 @@ public class MKE_WintertodtScript extends Script {
             }
 
             /* ---------- start / continue feeding ------------------- */
-            if (!isCurrentlyFeeding() && 
-                gameState.hasItemsToBurn) {
+            if (!isCurrentlyFeeding() &&
+                gameState.hasItemsToBurn &&
+                burningBrazier != null) {
 
                 sleepGaussian(200, 150);
                 if (random.nextInt(100) < 10) {
                     sleepGaussian(400, 600);
                 }
-                
+
                 if (burningBrazier.click("feed")) {
                     feedingState.startFeeding();
                     // Initialize animation tracking for new feeding session
@@ -3260,10 +3280,14 @@ public class MKE_WintertodtScript extends Script {
 
         if (gameState.brazier == null || gameState.burningBrazier != null) {
             setLockState(State.LIGHT_BRAZIER, false);
-            // Reset priority flag if brazier is already lit or doesn't exist
-            if (shouldPriorizeBrazierAtStart) {
+            // Only consume the round-start priority when a brazier is *definitively*
+            // burning. If both are null, the cache hasn't seen the brazier yet
+            // (common right after the round-start tick) — keep the flag so we'll
+            // retry once detection catches up, instead of giving up and chopping
+            // for the rest of the round with an unlit brazier.
+            if (shouldPriorizeBrazierAtStart && gameState.burningBrazier != null) {
                 shouldPriorizeBrazierAtStart = false;
-                Microbot.log("Brazier priority reset - brazier already lit or unavailable");
+                Microbot.log("Brazier priority reset - brazier already lit");
             }
             return false;
         }
@@ -3369,29 +3393,15 @@ public class MKE_WintertodtScript extends Script {
                                 Rs2Player.waitForWalking(1500);
                                 resetActions = true;
                                 Microbot.log("Dodged snowfall damage (80% chance triggered)");
-                                Microbot.log("Waiting for burning brazier to go out after snowfall damage...");
-                                Rs2TileObjectModel hoverTarget = Microbot.getRs2TileObjectCache().query()
-                                        .where(o -> o.getName() != null && o.getName().toLowerCase().contains("brazier") && o.isReachable())
-                                        .within(4).nearest();
-                                if (hoverTarget != null && hoverTarget.getClickbox() != null) {
-                                    Microbot.getMouse().move(hoverTarget.getClickbox().getBounds());
-                                }
-
-                                boolean brazierWentOut = sleepUntilTrue(
-                                        () -> {
-                                            // Wait until burning brazier is gone OR we're no longer in burn state
-                                            Rs2TileObjectModel burningBrazier = Microbot.getRs2TileObjectCache().query().withId(BURNING_BRAZIER_29314).within(5).nearest();
-                                            return burningBrazier == null || (state != State.BURN_LOGS && state != State.FLETCH_LOGS);
-                                        },
-                                        100,  // Check every 100ms
-                                        5000 // Timeout after 5 seconds
-                                );
-
-                                if (brazierWentOut) {
-                                    Microbot.log("Brazier state changed, continuing...");
-                                } else {
-                                    Microbot.log("Timeout waiting for brazier change - continuing anyway");
-                                }
+                                // Don't block here. The previous implementation sleepUntilTrue'd
+                                // for the brazier to go out (timeout 5s, but in practice the
+                                // executor wedged for ~140s — see "avg loop time: 141100ms" in
+                                // the round logs), which starved handleEating and nearly killed
+                                // the player. The dodge already moved us out of the AoE; let
+                                // the next script tick re-analyze: the priority blocks in
+                                // handleFletchLogsState / handleBurnLogsState will detect a
+                                // broken brazier and click "fix" (auto-walks back), or relight
+                                // an unlit brazier — exactly what we want here.
                             } else {
                                 Microbot.log("Snowfall detected but purposely NOT dodging (20% chance - staying put for realism ;) )");
                             }

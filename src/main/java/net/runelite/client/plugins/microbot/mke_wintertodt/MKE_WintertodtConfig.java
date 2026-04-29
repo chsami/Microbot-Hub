@@ -123,6 +123,17 @@ public interface MKE_WintertodtConfig extends Config {
         return true;
     }
 
+    @ConfigItem(
+            keyName = "DodgeSnowfall",
+            name = "❄️ Dodge Snowfall",
+            description = "Step out of incoming snowfall AoE damage. Most players don't bother — eating food/potions is usually more efficient than interrupting your action to step.",
+            position = 4,
+            section = generalSection
+    )
+    default boolean dodgeSnowfall() {
+        return false;
+    }
+
     // ==================== HEALING METHOD ====================
     @ConfigItem(
             keyName = "HealingMethod",
