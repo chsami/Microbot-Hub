@@ -151,6 +151,11 @@ public class MKE_WintertodtScript extends Script {
     // Flag to prioritize brazier lighting at round start
     private static boolean shouldPriorizeBrazierAtStart = false;
 
+    // One-shot: walk to the snowfall-safe fletch tile only on a fresh entry to
+    // FLETCH_LOGS (i.e. coming from chopping). Resumed fletches after a brazier
+    // fix/light or an eat tick don't count — we fletch in place.
+    private static boolean needFletchTileWalk = false;
+
     // For overlay
     public static double historicalEstimateSecondsLeft = 0;
 
@@ -905,6 +910,11 @@ public class MKE_WintertodtScript extends Script {
         if (state == State.CHOP_ROOTS)  lastWoodcuttingXpDropTime = 0;
         if (state == State.FLETCH_LOGS) lastFletchingXpDropTime   = 0;
         if (state == State.BURN_LOGS)   lastFiremakingXpDropTime  = 0;
+
+        // Fresh entry to FLETCH_LOGS → arm the one-shot walk to the safe tile.
+        if (newState == State.FLETCH_LOGS) {
+            needFletchTileWalk = true;
+        }
 
         System.out.println(String.format("[%d] State transition: %s -> %s %s",
                 System.currentTimeMillis(), state, newState, lock ? "(LOCKED)" : ""));
@@ -2428,9 +2438,14 @@ public class MKE_WintertodtScript extends Script {
                 if (random.nextInt(100) < 10) {
                     sleepGaussian(400, 600);
                 }
-                // Fletch on a snowfall-safe tile rather than at the brazier.
-                // Feeding still walks back to the brazier-stand tile.
-                navigateToFletchSpot();
+                // Walk to the snowfall-safe fletch tile only on the first
+                // fletch of this state entry (i.e. fresh from chopping).
+                // Resumed fletches after a brazier fix/light/eat happen in
+                // place — no point trekking back for a partial pile.
+                if (needFletchTileWalk) {
+                    navigateToFletchSpot();
+                    needFletchTileWalk = false;
+                }
 
                 // Keep knife in slot-27 optimisation
                 Rs2ItemModel knife = Rs2Inventory.get(WintertodtInventoryManager.knifeToUse);
@@ -3136,7 +3151,7 @@ public class MKE_WintertodtScript extends Script {
             }
             deselectSelectedItem();
             gameState.brokenBrazier.click("fix");
-            Microbot.log("Fixing broken brazier (priority over eating)");
+            Microbot.log("Fixing broken brazier (priority)");
             resetActions = true;
             actionsPerformed++;
             return true;
@@ -3152,7 +3167,7 @@ public class MKE_WintertodtScript extends Script {
             }
             deselectSelectedItem();
             gameState.brazier.click("light");
-            Microbot.log("Relighting brazier (priority over eating)");
+            Microbot.log("Relighting brazier (priority)");
             resetActions = true;
             actionsPerformed++;
             return true;
