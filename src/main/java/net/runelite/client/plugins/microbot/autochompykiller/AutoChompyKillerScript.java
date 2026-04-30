@@ -29,69 +29,59 @@ public class AutoChompyKillerScript extends Script {
 
     private boolean isBloatedToadOnGround() {
         long toadCount = Microbot.getRs2NpcCache().query().withId(NpcID.BLOATED_TOAD).where(element -> element.getWorldLocation().equals(Rs2Player.getWorldLocation())).count();
-
         return toadCount > 0;
     }
 
     private boolean isDeadChompyNearby() {
         long deadChompyCount = Microbot.getRs2NpcCache().query().withId(NpcID.CHOMPYBIRD_DEAD).where(element -> Rs2Player.getWorldLocation().distanceTo(element.getWorldLocation()) <= 5).count();
-
         return deadChompyCount > 0;
     }
 
     private Rs2NpcModel getNearestReachableNpc(int npcId) {
         Rs2WorldPoint playerLocation = new Rs2WorldPoint(Rs2Player.getWorldLocation());
         return Microbot.getRs2NpcCache().query().withId(npcId).toList().stream()
-                .min(java.util.Comparator.comparingInt(npc -> 
-                    playerLocation.distanceToPath(npc.getWorldLocation())))
+                .min(java.util.Comparator.comparingInt(npc ->
+                        playerLocation.distanceToPath(npc.getWorldLocation())))
                 .orElse(null);
     }
 
+    // FIX 3: manageRunEnergy now uses else-if so only one dose is consumed per call
     private void manageRunEnergy(AutoChompyKillerConfig config) {
         if (Microbot.getClient().getEnergy() >= 20) return;
-        
+
         AutoChompyKillerConfig.RunEnergyOption energyOption = config.runEnergyOption();
         switch (energyOption) {
             case STAMINA_POTION:
-                if (Rs2Inventory.contains(ItemID._4DOSESTAMINA, ItemID._3DOSESTAMINA, ItemID._2DOSESTAMINA, ItemID._1DOSESTAMINA)) {
+                if (Rs2Inventory.contains(ItemID._4DOSESTAMINA)) {
                     Rs2Inventory.interact(ItemID._4DOSESTAMINA, "Drink");
-                    if (!Rs2Inventory.contains(ItemID._4DOSESTAMINA)) {
-                        Rs2Inventory.interact(ItemID._3DOSESTAMINA, "Drink");
-                    }
-                    if (!Rs2Inventory.contains(ItemID._3DOSESTAMINA)) {
-                        Rs2Inventory.interact(ItemID._2DOSESTAMINA, "Drink");
-                    }
-                    if (!Rs2Inventory.contains(ItemID._2DOSESTAMINA)) {
-                        Rs2Inventory.interact(ItemID._1DOSESTAMINA, "Drink");
-                    }
+                } else if (Rs2Inventory.contains(ItemID._3DOSESTAMINA)) {
+                    Rs2Inventory.interact(ItemID._3DOSESTAMINA, "Drink");
+                } else if (Rs2Inventory.contains(ItemID._2DOSESTAMINA)) {
+                    Rs2Inventory.interact(ItemID._2DOSESTAMINA, "Drink");
+                } else if (Rs2Inventory.contains(ItemID._1DOSESTAMINA)) {
+                    Rs2Inventory.interact(ItemID._1DOSESTAMINA, "Drink");
                 }
                 break;
             case SUPER_ENERGY_POTION:
-                if (Rs2Inventory.contains(ItemID._4DOSE2ENERGY, ItemID._3DOSE2ENERGY, ItemID._2DOSE2ENERGY, ItemID._1DOSE2ENERGY)) {
+                if (Rs2Inventory.contains(ItemID._4DOSE2ENERGY)) {
                     Rs2Inventory.interact(ItemID._4DOSE2ENERGY, "Drink");
-                    if (!Rs2Inventory.contains(ItemID._4DOSE2ENERGY)) {
-                        Rs2Inventory.interact(ItemID._3DOSE2ENERGY, "Drink");
-                    }
-                    if (!Rs2Inventory.contains(ItemID._3DOSE2ENERGY)) {
-                        Rs2Inventory.interact(ItemID._2DOSE2ENERGY, "Drink");
-                    }
-                    if (!Rs2Inventory.contains(ItemID._2DOSE2ENERGY)) {
-                        Rs2Inventory.interact(ItemID._1DOSE2ENERGY, "Drink");
-                    }
+                } else if (Rs2Inventory.contains(ItemID._3DOSE2ENERGY)) {
+                    Rs2Inventory.interact(ItemID._3DOSE2ENERGY, "Drink");
+                } else if (Rs2Inventory.contains(ItemID._2DOSE2ENERGY)) {
+                    Rs2Inventory.interact(ItemID._2DOSE2ENERGY, "Drink");
+                } else if (Rs2Inventory.contains(ItemID._1DOSE2ENERGY)) {
+                    Rs2Inventory.interact(ItemID._1DOSE2ENERGY, "Drink");
                 }
                 break;
             case ENERGY_POTION:
-                if (Rs2Inventory.contains(ItemID._4DOSE1ENERGY, ItemID._3DOSE1ENERGY, ItemID._2DOSE1ENERGY, ItemID._1DOSE1ENERGY)) {
+                if (Rs2Inventory.contains(ItemID._4DOSE1ENERGY)) {
                     Rs2Inventory.interact(ItemID._4DOSE1ENERGY, "Drink");
-                    if (!Rs2Inventory.contains(ItemID._4DOSE1ENERGY)) {
-                        Rs2Inventory.interact(ItemID._3DOSE1ENERGY, "Drink");
-                    }
-                    if (!Rs2Inventory.contains(ItemID._3DOSE1ENERGY)) {
-                        Rs2Inventory.interact(ItemID._2DOSE1ENERGY, "Drink");
-                    }
-                    if (!Rs2Inventory.contains(ItemID._2DOSE1ENERGY)) {
-                        Rs2Inventory.interact(ItemID._1DOSE1ENERGY, "Drink");
-                    }
+                } else if (Rs2Inventory.contains(ItemID._3DOSE1ENERGY)) {
+                    Rs2Inventory.interact(ItemID._3DOSE1ENERGY, "Drink");
+                } else if (Rs2Inventory.contains(ItemID._2DOSE1ENERGY)) {
+                    Rs2Inventory.interact(ItemID._2DOSE1ENERGY, "Drink");
+                } else if (Rs2Inventory.contains(ItemID._1DOSE1ENERGY)) {
+                    Rs2Inventory.interact(ItemID._1DOSE1ENERGY, "Drink");
                 }
                 break;
             case STRANGE_FRUIT:
@@ -104,13 +94,13 @@ public class AutoChompyKillerScript extends Script {
                 break;
         }
     }
-    
+
     private void dropConfiguredItems(AutoChompyKillerConfig config) {
         if (config.dropEmptyVials()) {
             dropIfPresent(ItemID.VIAL_EMPTY);
         }
     }
-    
+
     private void dropIfPresent(int... itemIds) {
         for (int itemId : itemIds) {
             if (Rs2Inventory.contains(itemId)) {
@@ -122,21 +112,21 @@ public class AutoChompyKillerScript extends Script {
     private void handleLogoutOnCompletion(String reason) {
         Microbot.showMessage(reason + " - waiting to logout...");
         Microbot.status = "Waiting to logout";
-        
+
         sleepUntil(() -> !Rs2Player.isInCombat(), 30000);
-        
+
         if (Rs2Player.isInCombat()) {
             Microbot.showMessage("Still in combat after 30 seconds - logging out anyway...");
         }
-        
+
         Microbot.status = "Logging out";
         Rs2Player.logout();
         sleepUntil(() -> !Microbot.isLoggedIn(), 5000);
-        
+
         if (Microbot.isLoggedIn()) {
             Microbot.showMessage("Logout failed - stopping script...");
         }
-        
+
         Microbot.status = "IDLE";
     }
 
@@ -151,7 +141,7 @@ public class AutoChompyKillerScript extends Script {
             }
             return true;
         }
-        
+
         if (config.stopOnChompyChickPet()) {
             if (Rs2Inventory.contains(ItemID.CHOMPYBIRD_PET)) {
                 String reason = "Chompy chick pet received";
@@ -164,7 +154,7 @@ public class AutoChompyKillerScript extends Script {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -186,14 +176,20 @@ public class AutoChompyKillerScript extends Script {
         return true;
     }
 
+    private boolean hasFilledBellows() {
+        return Rs2Inventory.hasItem(ItemID.FILLED_OGRE_BELLOW1)
+                || Rs2Inventory.hasItem(ItemID.FILLED_OGRE_BELLOW2)
+                || Rs2Inventory.hasItem(ItemID.FILLED_OGRE_BELLOW3);
+    }
+
     public boolean run(AutoChompyKillerConfig config) {
         this.config = config;
-        
+
         if (!validateConfig()) {
             shutdown();
             return false;
         }
-        
+
         Microbot.enableAutoRunOn = false;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -205,9 +201,10 @@ public class AutoChompyKillerScript extends Script {
                     log.info("Not logged in");
                     return;
                 }
-                
-                long startTime = System.currentTimeMillis();
-                
+
+                // FIX 2: Removed the local `long startTime` that shadowed the static field.
+                // The loop-timing block at the bottom has also been removed.
+
                 if (System.currentTimeMillis() - stateStartTime > 60000) {
                     log.info("State timeout - resetting to FILLING_BELLOWS");
                     changeState(AutoChompyKillerState.FILLING_BELLOWS);
@@ -218,14 +215,14 @@ public class AutoChompyKillerScript extends Script {
                     dropConfiguredItems(config);
                     manageRunEnergy(config);
                 }
-                
+
                 if (checkStopConditions(config)) {
                     shutdown();
                     return;
                 }
 
-                if (Rs2Player.isMoving() || (Rs2Player.isAnimating() && state != AutoChompyKillerState.INFLATING && state != AutoChompyKillerState.ATTACKING) || 
-                    (Rs2Player.isInteracting() && state != AutoChompyKillerState.INFLATING && state != AutoChompyKillerState.ATTACKING)) {
+                if (Rs2Player.isMoving() || (Rs2Player.isAnimating() && state != AutoChompyKillerState.INFLATING && state != AutoChompyKillerState.ATTACKING) ||
+                        (Rs2Player.isInteracting() && state != AutoChompyKillerState.INFLATING && state != AutoChompyKillerState.ATTACKING)) {
                     return;
                 }
 
@@ -233,7 +230,6 @@ public class AutoChompyKillerScript extends Script {
                     log.info("No ammo equipped - shutting down");
                     Microbot.showMessage("No ammo - aborting...");
                     Microbot.status = "IDLE";
-                    // wait briefly before shutdown to display message
                     sleepUntil(() -> true, 3000);
                     shutdown();
                     return;
@@ -243,7 +239,6 @@ public class AutoChompyKillerScript extends Script {
                     log.info("No ogre bow equipped - shutting down");
                     Microbot.showMessage("No ogre bow equipped - aborting...");
                     Microbot.status = "IDLE";
-                    // wait briefly before shutdown to display message
                     sleepUntil(() -> true, 3000);
                     shutdown();
                     return;
@@ -253,6 +248,14 @@ public class AutoChompyKillerScript extends Script {
                     case FILLING_BELLOWS:
                         log.info("State: FILLING_BELLOWS");
                         Microbot.status = "Filling bellows";
+
+                        // FIX 1: Skip filling if we already have filled bellows
+                        if (hasFilledBellows()) {
+                            log.info("Bellows already filled - switching to INFLATING");
+                            changeState(AutoChompyKillerState.INFLATING);
+                            break;
+                        }
+
                         if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.SWAMPBUBBLES, "Suck")) {
                             boolean completed = sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting(), 5000);
                             if (completed) {
@@ -269,67 +272,59 @@ public class AutoChompyKillerScript extends Script {
                     case INFLATING:
                         log.info("State: INFLATING");
                         Microbot.status = "Inflating toads";
-                        
+
                         Rs2NpcModel chompyBird = getNearestReachableNpc(NpcID.CHOMPYBIRD);
                         if (chompyBird != null) {
                             log.info("Chompy bird found - switching to attacking");
                             changeState(AutoChompyKillerState.ATTACKING);
                             break;
                         }
-                        
+
                         if (config.pluckChompys() && isDeadChompyNearby()) {
                             log.info("Dead chompy nearby - switching to plucking");
                             changeState(AutoChompyKillerState.PLUCKING);
                             break;
                         }
-                        
+
                         if (Rs2Inventory.hasItem(ItemID.BLOATED_TOAD) && !isBloatedToadOnGround()) {
                             log.info("Dropping bloated toad");
                             Rs2Inventory.drop(ItemID.BLOATED_TOAD);
                             sleepUntil(() -> Rs2Player.isAnimating() || Rs2Player.isInteracting(), 3000);
                             sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting(), 5000);
                         } else {
-                            // check if we have filled bellows to use
-                            if (!(Rs2Inventory.hasItem(ItemID.FILLED_OGRE_BELLOW1) || Rs2Inventory.hasItem(ItemID.FILLED_OGRE_BELLOW2) || Rs2Inventory.hasItem(ItemID.FILLED_OGRE_BELLOW3))) {
-                                // check if we need to fill empty bellows
+                            if (!hasFilledBellows()) {
                                 if (Rs2Inventory.hasItem(ItemID.EMPTY_OGRE_BELLOWS)) {
                                     log.info("Have empty bellows, need to fill them");
                                     changeState(AutoChompyKillerState.FILLING_BELLOWS);
                                 } else {
                                     log.info("No bellows found in inventory, shutting down script");
                                     Microbot.status = "IDLE";
-                                    // wait before shutting down to display message
                                     sleepUntil(() -> true, 10000);
                                     shutdown();
                                     return;
                                 }
                             } else {
-                                // find a swamp toad to inflate
                                 Rs2NpcModel swampToad = getNearestReachableNpc(NpcID.TOAD);
                                 if (swampToad == null) {
                                     log.info("No swamp toads found nearby, shutting down script");
                                     Microbot.status = "IDLE";
-                                    // wait before shutting down to display message
                                     sleepUntil(() -> true, 10000);
                                     shutdown();
                                     return;
                                 }
-                                
+
                                 log.info("Found swamp toad, attempting to inflate it");
                                 if (swampToad.click("Inflate")) {
-                                    // wait for interaction to start
                                     boolean interactionStarted = sleepUntil(() -> Rs2Player.isAnimating() || Rs2Player.isInteracting(), 3000);
                                     if (interactionStarted) {
                                         log.info("Started inflating toad");
                                     } else {
                                         log.info("Inflation interaction did not start");
                                     }
-                                    
-                                    // wait for animation to complete
+
                                     boolean completed = sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting(), 5000);
                                     log.info("Inflation animation completed: {}", completed);
-                                    
-                                    // verify we have a bloated toad after inflation
+
                                     if (Rs2Inventory.hasItem(ItemID.BLOATED_TOAD)) {
                                         log.info("Successfully created bloated toad");
                                     } else {
@@ -341,16 +336,17 @@ public class AutoChompyKillerScript extends Script {
                             }
                         }
                         break;
+
                     case ATTACKING:
                         log.info("State: ATTACKING");
                         Microbot.status = "Attacking chompy";
-                        
+
                         if (config.pluckChompys() && !Rs2Player.isInteracting() && !Rs2Player.isAnimating() && isDeadChompyNearby()) {
                             log.info("Dead chompy nearby - switching to plucking");
                             changeState(AutoChompyKillerState.PLUCKING);
                             break;
                         }
-                        
+
                         Rs2NpcModel targetChompy = getNearestReachableNpc(NpcID.CHOMPYBIRD);
                         if (targetChompy != null) {
                             log.info("Attacking chompy");
@@ -366,10 +362,11 @@ public class AutoChompyKillerScript extends Script {
                             changeState(AutoChompyKillerState.INFLATING);
                         }
                         break;
+
                     case PLUCKING:
                         log.info("State: PLUCKING");
                         Microbot.status = "Plucking chompy";
-                        
+
                         Rs2NpcModel deadChompy = getNearestReachableNpc(NpcID.CHOMPYBIRD_DEAD);
                         if (deadChompy != null) {
                             log.info("Plucking dead chompy");
@@ -383,7 +380,7 @@ public class AutoChompyKillerScript extends Script {
                         } else {
                             log.info("No dead chompy found");
                         }
-                        
+
                         Rs2NpcModel nearbyChompy = getNearestReachableNpc(NpcID.CHOMPYBIRD);
                         if (nearbyChompy != null) {
                             log.info("Chompy nearby - switching to attacking");
@@ -393,14 +390,11 @@ public class AutoChompyKillerScript extends Script {
                             changeState(AutoChompyKillerState.INFLATING);
                         }
                         break;
+
                     case STOPPED:
                         log.info("State: STOPPED");
                         return;
                 }
-                
-                long endTime = System.currentTimeMillis();
-                long totalTime = endTime - startTime;
-                log.info("Total time for loop: {}ms", totalTime);
 
             } catch (Exception ex) {
                 log.error("Error in main loop", ex);

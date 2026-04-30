@@ -1,7 +1,7 @@
 package net.runelite.client.plugins.microbot.autochompykiller;
 
 public enum AutoChompyKillerState {
-    STOPPED, 
+    STOPPED,
     FILLING_BELLOWS,
     WAIT_FOR_BELLOWS,
     INFLATING,

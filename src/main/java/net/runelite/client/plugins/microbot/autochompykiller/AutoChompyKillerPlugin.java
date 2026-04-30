@@ -9,23 +9,16 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginConstants.DEFAULT_PREFIX + "Chompy Killer",
+        name = "Chompy Killer",
         description = "Automated chompy bird hunting plugin...",
         tags = {"chompy", "combat"},
-        authors = {"Unknown"},
-        version = AutoChompyKillerPlugin.version,
-        minClientVersion = "1.9.8",
-        iconUrl = "https://chsami.github.io/Microbot-Hub/AutoChompyKillerPlugin/assets/icon.png",
-        cardUrl = "https://chsami.github.io/Microbot-Hub/AutoChompyKillerPlugin/assets/card.png",
-        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
-        isExternal = PluginConstants.IS_EXTERNAL
+        enabledByDefault = false
 )
 @Slf4j
 public class AutoChompyKillerPlugin extends Plugin {
@@ -70,7 +63,7 @@ public class AutoChompyKillerPlugin extends Plugin {
         if (message.contains("you scratch a notch on your bow for the chompy bird kill")) {
             autoChompyKillerScript.incrementChompyKills();
         }
-        if (message.contains("This is not your Chompy Bird to shoot".toLowerCase())) {
+        if (message.contains("this is not your chompy bird to shoot")) {
             autoChompyKillerScript.handleNotMyChompy();
         }
         if (message.contains("can't reach that")) {
@@ -79,8 +72,8 @@ public class AutoChompyKillerPlugin extends Plugin {
         if (message.contains("your bow isn't powerful enough for those arrows")) {
             autoChompyKillerScript.handleBowNotPowerfulEnough();
         }
-        if (config.stopOnChompyChickPet() && (message.contains("you have a funny feeling like you're being followed") || 
-            message.contains("you feel something weird sneaking into your backpack"))) {
+        if (config.stopOnChompyChickPet() && (message.contains("you have a funny feeling like you're being followed") ||
+                message.contains("you feel something weird sneaking into your backpack"))) {
             autoChompyKillerScript.handlePetReceived(config.logoutOnCompletion());
         }
     }

@@ -1,0 +1,765 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HOST="${MICROBOT_HOST:-127.0.0.1}"
+PORT="${MICROBOT_PORT:-8081}"
+BASE="http://${HOST}:${PORT}"
+TIMEOUT="${MICROBOT_TIMEOUT:-30}"
+
+json_escape() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g'
+}
+
+usage() {
+    cat <<'EOF'
+Usage: microbot-cli <command> [options]
+
+Widget Commands:
+  widgets list [--limit N] [--offset M]
+  widgets search <keywords> [--limit N]
+  widgets describe <groupId> <childId> [--depth N]
+  widgets click <groupId> <childId>
+  widgets click --text "some text"
+  widgets invoke <groupId> <childId> --param0 N [--action Select] [--identifier 1]
+
+Game State:
+  state                                  Current game state and player info
+  skills [--name Attack]                 Skill levels and XP
+  varbit <id>                            Read a varbit value
+
+Inventory:
+  inventory                              List inventory items
+  inventory interact <name> <action>     Use/eat/equip an item
+  inventory drop <name> [--all]          Drop item(s)
+
+NPCs:
+  npcs [--name Guard] [--name-contains Guar] [--id 3265] [--distance 20] [--limit N]
+  npcs interact <name> <action>          Interact with nearest NPC
+
+Objects:
+  objects [--name "Oak tree"] [--name-contains Oak] [--id 1278] [--distance 20] [--limit N]
+  objects interact <name> <action>       Interact with nearest object
+
+Ground Items:
+  ground-items [--name Bones] [--name-contains Bone] [--id 526] [--distance 20] [--limit N]
+  ground-items pickup <name>             Pick up nearest ground item
+
+Movement:
+  walk <x> <y> [plane] [--wait] [--timeout SECONDS]
+                                         Walk to coordinates (non-blocking by default;
+                                         --wait blocks until arrival or timeout, default 30s)
+
+Banking:
+  bank                                   Bank status (open/closed, items)
+  bank open                              Open nearest bank
+  bank close                             Close bank
+  bank deposit <name> [--all]            Deposit items
+  bank deposit-all                       Deposit entire inventory
+  bank withdraw <name> <quantity>        Withdraw items
+
+Dialogue:
+  dialogue                               Current dialogue state
+  dialogue continue                      Click continue
+  dialogue select <option>               Select dialogue option
+
+Login:
+  login                                  Login status (game state, profile)
+  login now [--world 360] [--timeout 60] Login using active profile (blocks until done)
+
+Scripts:
+  scripts                                List all plugins with status
+  scripts start --class <className>      Start plugin by fully qualified class
+  scripts start --name <name>            Start plugin by display name
+  scripts stop --class <className>       Stop a running plugin
+  scripts status --class <className>     Plugin runtime status
+  scripts health [--class <c>|--name <n>]  Loop heartbeat (stall detection)
+  scripts results --class <className>    Get test results
+  scripts results post --class <c> --data <json>  Submit test results
+
+Keyboard:
+  keyboard type <text>                     Type text into the game
+  keyboard enter                           Press Enter key
+  keyboard escape | esc                    Press Escape key
+  keyboard backspace                       Press Backspace key
+
+Settings:
+  settings search <term>                   Open settings, search, and show results
+
+Plugin Config (any @ConfigGroup, no allowlist):
+  plugin-config get <group> <key>          Read a plugin config value
+  plugin-config set <group> <key> <value>  Write a plugin config value
+
+Screenshot:
+  screenshot                               Get screenshot as PNG (binary)
+  screenshot save [--label name] [--dir path]  Save screenshot to disk (returns path)
+
+Client thread (offline lookup):
+  client-thread <name>                     Look up if a method needs the client thread
+    [--class <substr>]                     Restrict matches to classes matching substring
+    [--like]                               Substring match (default: exact method name)
+    [--evidence ASSERT|SUBSCRIBE|LAMBDA]   Filter by evidence kind
+    [--json]                               Emit JSON instead of text
+  ct <name>                                Alias for `client-thread`
+  Examples:
+    microbot-cli ct getItems
+    microbot-cli ct Player.getName
+    microbot-cli ct getItem --like
+    microbot-cli ct getDynamicChildren --json
+
+Environment:
+  MICROBOT_HOST      Server host (default: 127.0.0.1)
+  MICROBOT_PORT      Server port (default: 8081)
+  MICROBOT_TIMEOUT   Request timeout in seconds (default: 30)
+EOF
+    exit 1
+}
+
+do_get() {
+    curl -sf --max-time "$TIMEOUT" "$1" 2>/dev/null || { echo '{"error":"Connection refused - is the Agent Server plugin enabled?"}'; exit 1; }
+}
+
+do_post() {
+    curl -sf --max-time "$TIMEOUT" -X POST -H "Content-Type: application/json" -d "$2" "$1" 2>/dev/null || { echo '{"error":"Connection refused - is the Agent Server plugin enabled?"}'; exit 1; }
+}
+
+build_query() {
+    local params=""
+    local sep="?"
+    while [[ $# -gt 0 ]]; do
+        local key="$1" val="$2"
+        if [[ -n "$val" ]]; then
+            params="${params}${sep}${key}=$(curl -Gso /dev/null -w '%{url_effective}' --data-urlencode "=${val}" '' 2>/dev/null | cut -c3- || echo "$val")"
+            sep="&"
+        fi
+        shift 2
+    done
+    echo "$params"
+}
+
+parse_named_args() {
+    NAME_OUT="" DISTANCE_OUT="" LIMIT_OUT="" ID_OUT="" NAME_CONTAINS_OUT=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --name) NAME_OUT="$2"; shift 2 ;;
+            --name-contains) NAME_CONTAINS_OUT="$2"; shift 2 ;;
+            --id) ID_OUT="$2"; shift 2 ;;
+            --distance) DISTANCE_OUT="$2"; shift 2 ;;
+            --limit) LIMIT_OUT="$2"; shift 2 ;;
+            *) echo "{\"error\":\"Unknown flag: $1\"}" >&2; shift ;;
+        esac
+    done
+}
+
+[[ $# -lt 1 ]] && usage
+
+case "$1" in
+    widgets)
+        [[ $# -lt 2 ]] && usage
+        case "$2" in
+            list)
+                shift 2
+                limit="" offset=""
+                while [[ $# -gt 0 ]]; do
+                    case "$1" in
+                        --limit) limit="$2"; shift 2 ;;
+                        --offset) offset="$2"; shift 2 ;;
+                        *) shift ;;
+                    esac
+                done
+                q=$(build_query "limit" "${limit:-}" "offset" "${offset:-}")
+                do_get "${BASE}/widgets/list${q}"
+                ;;
+            search)
+                [[ $# -lt 3 ]] && { echo '{"error":"Usage: microbot-cli widgets search <keywords> [--limit N]"}'; exit 1; }
+                keywords="$3"
+                limit=""
+                shift 3
+                while [[ $# -gt 0 ]]; do
+                    case "$1" in
+                        --limit) limit="$2"; shift 2 ;;
+                        *) shift ;;
+                    esac
+                done
+                q=$(build_query "q" "$keywords" "limit" "${limit:-}")
+                do_get "${BASE}/widgets/search${q}"
+                ;;
+            describe)
+                [[ $# -lt 4 ]] && { echo '{"error":"Usage: microbot-cli widgets describe <groupId> <childId> [--depth N]"}'; exit 1; }
+                group_id="$3"
+                child_id="$4"
+                depth=""
+                shift 4
+                while [[ $# -gt 0 ]]; do
+                    case "$1" in
+                        --depth) depth="$2"; shift 2 ;;
+                        *) shift ;;
+                    esac
+                done
+                q=$(build_query "groupId" "$group_id" "childId" "$child_id" "depth" "${depth:-}")
+                do_get "${BASE}/widgets/describe${q}"
+                ;;
+            click)
+                shift 2
+                if [[ $# -ge 2 ]] && [[ "$1" == "--text" ]]; then
+                    escaped=$(json_escape "$2")
+                    do_post "${BASE}/widgets/click" "{\"text\":\"${escaped}\"}"
+                elif [[ $# -ge 2 ]]; then
+                    do_post "${BASE}/widgets/click" "{\"groupId\":$1,\"childId\":$2}"
+                else
+                    echo '{"error":"Usage: microbot-cli widgets click <groupId> <childId> | --text \"text\""}'
+                    exit 1
+                fi
+                ;;
+            invoke)
+                [[ $# -lt 4 ]] && { echo '{"error":"Usage: microbot-cli widgets invoke <groupId> <childId> --param0 N [--action Select] [--identifier 1]"}'; exit 1; }
+                group_id="$3"
+                child_id="$4"
+                shift 4
+                param0="" action="Select" identifier="1"
+                while [[ $# -gt 0 ]]; do
+                    case "$1" in
+                        --param0) param0="$2"; shift 2 ;;
+                        --action) action="$2"; shift 2 ;;
+                        --identifier) identifier="$2"; shift 2 ;;
+                        *) shift ;;
+                    esac
+                done
+                [[ -z "$param0" ]] && { echo '{"error":"--param0 is required"}'; exit 1; }
+                escaped_action=$(json_escape "$action")
+                do_post "${BASE}/widgets/invoke" "{\"groupId\":${group_id},\"childId\":${child_id},\"param0\":${param0},\"action\":\"${escaped_action}\",\"identifier\":${identifier}}"
+                ;;
+            *) usage ;;
+        esac
+        ;;
+
+    varbit)
+        [[ $# -lt 2 ]] && { echo '{"error":"Usage: microbot-cli varbit <id>"}'; exit 1; }
+        do_get "${BASE}/varbit?id=$2"
+        ;;
+
+    state)
+        do_get "${BASE}/state"
+        ;;
+
+    skills)
+        shift
+        name=""
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --name) name="$2"; shift 2 ;;
+                *) shift ;;
+            esac
+        done
+        q=$(build_query "name" "${name:-}")
+        do_get "${BASE}/skills${q}"
+        ;;
+
+    inventory)
+        [[ $# -lt 2 ]] && { do_get "${BASE}/inventory"; exit 0; }
+        case "$2" in
+            interact)
+                [[ $# -lt 4 ]] && { echo '{"error":"Usage: microbot-cli inventory interact <name> <action>"}'; exit 1; }
+                escaped_name=$(json_escape "$3")
+                escaped_action=$(json_escape "$4")
+                do_post "${BASE}/inventory/interact" "{\"name\":\"${escaped_name}\",\"action\":\"${escaped_action}\"}"
+                ;;
+            drop)
+                [[ $# -lt 3 ]] && { echo '{"error":"Usage: microbot-cli inventory drop <name> [--all]"}'; exit 1; }
+                escaped_name=$(json_escape "$3")
+                all="false"
+                [[ $# -ge 4 ]] && [[ "$4" == "--all" ]] && all="true"
+                do_post "${BASE}/inventory/drop" "{\"name\":\"${escaped_name}\",\"all\":${all}}"
+                ;;
+            *) usage ;;
+        esac
+        ;;
+
+    npcs)
+        [[ $# -lt 2 ]] || [[ "$2" == --* ]] && {
+            shift
+            parse_named_args "$@"
+            q=$(build_query "name" "${NAME_OUT}" "nameContains" "${NAME_CONTAINS_OUT}" "id" "${ID_OUT}" "maxDistance" "${DISTANCE_OUT}" "limit" "${LIMIT_OUT}")
+            do_get "${BASE}/npcs${q}"
+            exit 0
+        }
+        case "$2" in
+            interact)
+                [[ $# -lt 4 ]] && { echo '{"error":"Usage: microbot-cli npcs interact <name> <action>"}'; exit 1; }
+                escaped_name=$(json_escape "$3")
+                escaped_action=$(json_escape "$4")
+                do_post "${BASE}/npcs/interact" "{\"name\":\"${escaped_name}\",\"action\":\"${escaped_action}\"}"
+                ;;
+            *) usage ;;
+        esac
+        ;;
+
+    objects)
+        [[ $# -lt 2 ]] || [[ "$2" == --* ]] && {
+            shift
+            parse_named_args "$@"
+            q=$(build_query "name" "${NAME_OUT}" "nameContains" "${NAME_CONTAINS_OUT}" "id" "${ID_OUT}" "maxDistance" "${DISTANCE_OUT}" "limit" "${LIMIT_OUT}")
+            do_get "${BASE}/objects${q}"
+            exit 0
+        }
+        case "$2" in
+            interact)
+                [[ $# -lt 4 ]] && { echo '{"error":"Usage: microbot-cli objects interact <name> <action>"}'; exit 1; }
+                escaped_name=$(json_escape "$3")
+                escaped_action=$(json_escape "$4")
+                do_post "${BASE}/objects/interact" "{\"name\":\"${escaped_name}\",\"action\":\"${escaped_action}\"}"
+                ;;
+            *) usage ;;
+        esac
+        ;;
+
+    ground-items)
+        [[ $# -lt 2 ]] || [[ "$2" == --* ]] && {
+            shift
+            parse_named_args "$@"
+            q=$(build_query "name" "${NAME_OUT}" "nameContains" "${NAME_CONTAINS_OUT}" "id" "${ID_OUT}" "maxDistance" "${DISTANCE_OUT}" "limit" "${LIMIT_OUT}")
+            do_get "${BASE}/ground-items${q}"
+            exit 0
+        }
+        case "$2" in
+            pickup)
+                [[ $# -lt 3 ]] && { echo '{"error":"Usage: microbot-cli ground-items pickup <name>"}'; exit 1; }
+                escaped_name=$(json_escape "$3")
+                do_post "${BASE}/ground-items/pickup" "{\"name\":\"${escaped_name}\"}"
+                ;;
+            *) usage ;;
+        esac
+        ;;
+
+    walk)
+        [[ $# -lt 3 ]] && { echo '{"error":"Usage: microbot-cli walk <x> <y> [plane] [--wait] [--timeout SECONDS]"}'; exit 1; }
+        walk_x="$2"
+        walk_y="$3"
+        walk_plane=0
+        walk_wait="false"
+        walk_timeout=30
+        shift 3
+        if [[ $# -gt 0 ]] && [[ "$1" != --* ]]; then
+            walk_plane="$1"
+            shift
+        fi
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --wait) walk_wait="true"; shift ;;
+                --timeout) walk_timeout="$2"; shift 2 ;;
+                *) shift ;;
+            esac
+        done
+        walk_body="{\"x\":${walk_x},\"y\":${walk_y},\"plane\":${walk_plane},\"wait\":${walk_wait},\"timeout\":${walk_timeout}}"
+        if [[ "$walk_wait" == "true" ]]; then
+            curl_timeout=$((walk_timeout + 5))
+            curl -sf --max-time "$curl_timeout" -X POST -H "Content-Type: application/json" -d "$walk_body" "${BASE}/walk" 2>/dev/null \
+                || { echo '{"error":"Connection refused - is the Agent Server plugin enabled?"}'; exit 1; }
+        else
+            do_post "${BASE}/walk" "$walk_body"
+        fi
+        ;;
+
+    bank)
+        [[ $# -lt 2 ]] && { do_get "${BASE}/bank"; exit 0; }
+        case "$2" in
+            open)
+                do_post "${BASE}/bank/open" "{}"
+                ;;
+            close)
+                do_post "${BASE}/bank/close" "{}"
+                ;;
+            deposit-all)
+                do_post "${BASE}/bank/deposit" '{"all":true}'
+                ;;
+            deposit)
+                [[ $# -lt 3 ]] && { echo '{"error":"Usage: microbot-cli bank deposit <name> [--all]"}'; exit 1; }
+                escaped_name=$(json_escape "$3")
+                do_post "${BASE}/bank/deposit" "{\"name\":\"${escaped_name}\"}"
+                ;;
+            withdraw)
+                [[ $# -lt 4 ]] && { echo '{"error":"Usage: microbot-cli bank withdraw <name> <quantity>"}'; exit 1; }
+                escaped_name=$(json_escape "$3")
+                do_post "${BASE}/bank/withdraw" "{\"name\":\"${escaped_name}\",\"quantity\":$4}"
+                ;;
+            *) usage ;;
+        esac
+        ;;
+
+    dialogue)
+        [[ $# -lt 2 ]] && { do_get "${BASE}/dialogue"; exit 0; }
+        case "$2" in
+            continue)
+                do_post "${BASE}/dialogue/continue" "{}"
+                ;;
+            select)
+                [[ $# -lt 3 ]] && { echo '{"error":"Usage: microbot-cli dialogue select <option>"}'; exit 1; }
+                escaped=$(json_escape "$3")
+                do_post "${BASE}/dialogue/select" "{\"option\":\"${escaped}\"}"
+                ;;
+            *) usage ;;
+        esac
+        ;;
+
+    login)
+        [[ $# -lt 2 ]] && { do_get "${BASE}/login"; exit 0; }
+        case "$2" in
+            now)
+                shift 2
+                world="" login_timeout="60"
+                while [[ $# -gt 0 ]]; do
+                    case "$1" in
+                        --world) world="$2"; shift 2 ;;
+                        --timeout) login_timeout="$2"; shift 2 ;;
+                        *) shift ;;
+                    esac
+                done
+                body="{\"timeout\":${login_timeout}}"
+                if [[ -n "$world" ]]; then
+                    body="{\"world\":${world},\"timeout\":${login_timeout}}"
+                fi
+                result=$(curl -s --max-time "$((login_timeout + 5))" -X POST -H "Content-Type: application/json" -d "$body" "${BASE}/login" 2>/dev/null) || { echo '{"error":"Connection refused - is the Agent Server plugin enabled?"}'; exit 1; }
+                echo "$result"
+                echo "$result" | grep -q '"success": *true' || exit 1
+                ;;
+            *) usage ;;
+        esac
+        ;;
+
+    scripts)
+        [[ $# -lt 2 ]] && { do_get "${BASE}/scripts"; exit 0; }
+        case "$2" in
+            start)
+                shift 2
+                class_name="" name=""
+                while [[ $# -gt 0 ]]; do
+                    case "$1" in
+                        --class) class_name="$2"; shift 2 ;;
+                        --name) name="$2"; shift 2 ;;
+                        *) shift ;;
+                    esac
+                done
+                if [[ -n "$class_name" ]]; then
+                    escaped=$(json_escape "$class_name")
+                    do_post "${BASE}/scripts/start" "{\"className\":\"${escaped}\"}"
+                elif [[ -n "$name" ]]; then
+                    escaped=$(json_escape "$name")
+                    do_post "${BASE}/scripts/start" "{\"name\":\"${escaped}\"}"
+                else
+                    echo '{"error":"Usage: microbot-cli scripts start --class <className> | --name <name>"}'
+                    exit 1
+                fi
+                ;;
+            stop)
+                shift 2
+                class_name="" name=""
+                while [[ $# -gt 0 ]]; do
+                    case "$1" in
+                        --class) class_name="$2"; shift 2 ;;
+                        --name) name="$2"; shift 2 ;;
+                        *) shift ;;
+                    esac
+                done
+                if [[ -n "$class_name" ]]; then
+                    escaped=$(json_escape "$class_name")
+                    do_post "${BASE}/scripts/stop" "{\"className\":\"${escaped}\"}"
+                elif [[ -n "$name" ]]; then
+                    escaped=$(json_escape "$name")
+                    do_post "${BASE}/scripts/stop" "{\"name\":\"${escaped}\"}"
+                else
+                    echo '{"error":"Usage: microbot-cli scripts stop --class <className> | --name <name>"}'
+                    exit 1
+                fi
+                ;;
+            status)
+                shift 2
+                class_name="" name=""
+                while [[ $# -gt 0 ]]; do
+                    case "$1" in
+                        --class) class_name="$2"; shift 2 ;;
+                        --name) name="$2"; shift 2 ;;
+                        *) shift ;;
+                    esac
+                done
+                if [[ -n "$class_name" ]]; then
+                    q=$(build_query "className" "$class_name")
+                    do_get "${BASE}/scripts/status${q}"
+                elif [[ -n "$name" ]]; then
+                    q=$(build_query "name" "$name")
+                    do_get "${BASE}/scripts/status${q}"
+                else
+                    echo '{"error":"Usage: microbot-cli scripts status --class <className> | --name <name>"}'
+                    exit 1
+                fi
+                ;;
+            health)
+                shift 2
+                class_name="" name=""
+                while [[ $# -gt 0 ]]; do
+                    case "$1" in
+                        --class) class_name="$2"; shift 2 ;;
+                        --name) name="$2"; shift 2 ;;
+                        *) shift ;;
+                    esac
+                done
+                if [[ -n "$class_name" ]]; then
+                    q=$(build_query "className" "$class_name")
+                    do_get "${BASE}/scripts/health${q}"
+                elif [[ -n "$name" ]]; then
+                    q=$(build_query "name" "$name")
+                    do_get "${BASE}/scripts/health${q}"
+                else
+                    do_get "${BASE}/scripts/health"
+                fi
+                ;;
+            results)
+                shift 2
+                if [[ $# -ge 1 ]] && [[ "$1" == "post" ]]; then
+                    shift
+                    class_name="" data="{}"
+                    while [[ $# -gt 0 ]]; do
+                        case "$1" in
+                            --class) class_name="$2"; shift 2 ;;
+                            --data) data="$2"; shift 2 ;;
+                            *) shift ;;
+                        esac
+                    done
+                    if [[ -z "$class_name" ]]; then
+                        echo '{"error":"Usage: microbot-cli scripts results post --class <className> --data <json>"}'
+                        exit 1
+                    fi
+                    escaped=$(json_escape "$class_name")
+                    merged=$(echo "$data" | sed "s/^{/{\"className\":\"${escaped}\",/; s/{,/{/")
+                    do_post "${BASE}/scripts/results" "$merged"
+                else
+                    class_name="" name=""
+                    while [[ $# -gt 0 ]]; do
+                        case "$1" in
+                            --class) class_name="$2"; shift 2 ;;
+                            --name) name="$2"; shift 2 ;;
+                            *) shift ;;
+                        esac
+                    done
+                    if [[ -n "$class_name" ]]; then
+                        q=$(build_query "className" "$class_name")
+                        do_get "${BASE}/scripts/results${q}"
+                    elif [[ -n "$name" ]]; then
+                        q=$(build_query "name" "$name")
+                        do_get "${BASE}/scripts/results${q}"
+                    else
+                        echo '{"error":"Usage: microbot-cli scripts results --class <className> | --name <name>"}'
+                        exit 1
+                    fi
+                fi
+                ;;
+            *) usage ;;
+        esac
+        ;;
+
+    keyboard)
+        [[ $# -lt 2 ]] && { echo '{"error":"Usage: microbot-cli keyboard type <text> | enter | escape | backspace"}'; exit 1; }
+        case "$2" in
+            type)
+                [[ $# -lt 3 ]] && { echo '{"error":"Usage: microbot-cli keyboard type <text>"}'; exit 1; }
+                escaped=$(json_escape "$3")
+                do_post "${BASE}/keyboard" "{\"text\":\"${escaped}\"}"
+                ;;
+            enter)
+                do_post "${BASE}/keyboard" '{"key":"enter"}'
+                ;;
+            escape|esc)
+                do_post "${BASE}/keyboard" '{"key":"escape"}'
+                ;;
+            backspace)
+                do_post "${BASE}/keyboard" '{"key":"backspace"}'
+                ;;
+            *) echo '{"error":"Unknown keyboard command. Use: type, enter, escape, backspace"}'; exit 1 ;;
+        esac
+        ;;
+
+    settings)
+        [[ $# -lt 2 ]] && { do_get "${BASE}/settings/config"; exit 0; }
+        case "$2" in
+            search)
+                [[ $# -lt 3 ]] && { echo '{"error":"Usage: microbot-cli settings search <term>"}'; exit 1; }
+                search_term="$3"
+                do_post "${BASE}/keyboard" '{"key":"escape"}' >/dev/null
+                sleep 0.5
+                do_post "${BASE}/widgets/click" '{"groupId":134,"childId":11}' >/dev/null
+                sleep 0.5
+                escaped=$(json_escape "$search_term")
+                do_post "${BASE}/keyboard" "{\"text\":\"${escaped}\"}" >/dev/null
+                sleep 1
+                q=$(build_query "q" "$search_term" "limit" "20")
+                do_get "${BASE}/widgets/search${q}"
+                ;;
+            level-up)
+                shift 2
+                if [[ $# -eq 0 ]]; then
+                    do_get "${BASE}/settings/level-up"
+                else
+                    case "$1" in
+                        enable) do_post "${BASE}/settings/level-up" '{"enable":true}' ;;
+                        disable) do_post "${BASE}/settings/level-up" '{"enable":false}' ;;
+                        *) echo '{"error":"Usage: microbot-cli settings level-up [enable|disable]"}'; exit 1 ;;
+                    esac
+                fi
+                ;;
+            config)
+                shift 2
+                if [[ $# -eq 0 ]]; then
+                    do_get "${BASE}/settings/config"
+                else
+                    key="$1" val="$2"
+                    do_post "${BASE}/settings/config" "{\"key\":\"${key}\",\"value\":${val}}"
+                fi
+                ;;
+            *) echo '{"error":"Unknown settings command. Use: search, level-up, config"}'; exit 1 ;;
+        esac
+        ;;
+
+    screenshot)
+        shift
+        if [[ $# -ge 1 ]] && [[ "$1" == "save" ]]; then
+            shift
+            label="" dir=""
+            while [[ $# -gt 0 ]]; do
+                case "$1" in
+                    --label) label="$2"; shift 2 ;;
+                    --dir) dir="$2"; shift 2 ;;
+                    *) shift ;;
+                esac
+            done
+            q=$(build_query "save" "true" "label" "${label:-screenshot}" "dir" "${dir:-}")
+            do_get "${BASE}/screenshot${q}"
+        else
+            curl -sf --max-time "$TIMEOUT" -o "${1:-screenshot.png}" "${BASE}/screenshot" 2>/dev/null || { echo '{"error":"Connection refused - is the Agent Server plugin enabled?"}'; exit 1; }
+            echo "{\"success\":true,\"path\":\"$(pwd)/${1:-screenshot.png}\"}"
+        fi
+        ;;
+
+    plugin-config)
+        [[ $# -lt 2 ]] && { echo '{"error":"Usage: microbot-cli plugin-config get <group> <key> | set <group> <key> <value>"}'; exit 1; }
+        case "$2" in
+            get)
+                [[ $# -lt 4 ]] && { echo '{"error":"Usage: microbot-cli plugin-config get <group> <key>"}'; exit 1; }
+                q=$(build_query "group" "$3" "key" "$4")
+                do_get "${BASE}/settings/plugin${q}"
+                ;;
+            set)
+                [[ $# -lt 5 ]] && { echo '{"error":"Usage: microbot-cli plugin-config set <group> <key> <value>"}'; exit 1; }
+                escaped_group=$(json_escape "$3")
+                escaped_key=$(json_escape "$4")
+                escaped_value=$(json_escape "$5")
+                do_post "${BASE}/settings/plugin" "{\"group\":\"${escaped_group}\",\"key\":\"${escaped_key}\",\"value\":\"${escaped_value}\"}"
+                ;;
+            *) echo '{"error":"Unknown plugin-config command. Use: get, set"}'; exit 1 ;;
+        esac
+        ;;
+
+    client-thread|ct)
+        shift
+        [[ $# -lt 1 ]] && { echo '{"error":"Usage: microbot-cli client-thread <name> [--class S] [--like] [--evidence ASSERT|SUBSCRIBE|LAMBDA] [--json]"}'; exit 1; }
+        ct_name="$1"; shift
+        ct_class="" ct_like="false" ct_evidence="" ct_json="false"
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --class) ct_class="$2"; shift 2 ;;
+                --like) ct_like="true"; shift ;;
+                --exact) ct_like="false"; shift ;;
+                --evidence) ct_evidence="$2"; shift 2 ;;
+                --json) ct_json="true"; shift ;;
+                *) shift ;;
+            esac
+        done
+
+        # Allow `Class.method` shorthand → split into class filter + method name
+        if [[ -z "$ct_class" ]] && [[ "$ct_name" == *.* ]]; then
+            ct_class="${ct_name%.*}"
+            ct_name="${ct_name##*.}"
+        fi
+
+        ct_lookup="$(dirname "$(readlink -f "$0")")/docs/client-thread-lookup.tsv"
+        if [[ ! -f "$ct_lookup" ]]; then
+            echo "{\"error\":\"Lookup file not found at $ct_lookup. Run: ./gradlew :client:runClientThreadScanner\"}"
+            exit 1
+        fi
+
+        awk -F'\t' \
+            -v needle="$ct_name" \
+            -v cls="$ct_class" \
+            -v fuzzy="$ct_like" \
+            -v evidence="$ct_evidence" \
+            -v json="$ct_json" \
+            'BEGIN {
+                IGNORECASE = 1
+                count = 0
+                if (json == "true") printf "{\"matches\":["
+            }
+            /^#/ { next }
+            {
+                sig = $2
+                # Strip param + return for matching, keep "name" portion only
+                mname = sig
+                paren = index(mname, "(")
+                if (paren > 0) mname = substr(mname, 1, paren - 1)
+
+                if (fuzzy == "true") {
+                    if (index(tolower(mname), tolower(needle)) == 0) next
+                } else {
+                    if (tolower(mname) != tolower(needle)) next
+                }
+                if (cls != "" && index(tolower($1), tolower(cls)) == 0) next
+                if (evidence != "" && index($3, toupper(evidence)) == 0) next
+
+                count++
+                if (json == "true") {
+                    if (count > 1) printf ","
+                    # split evidence csv into json array
+                    n = split($3, evs, ",")
+                    ev_json = "["
+                    for (i = 1; i <= n; i++) {
+                        if (i > 1) ev_json = ev_json ","
+                        ev_json = ev_json "\"" evs[i] "\""
+                    }
+                    ev_json = ev_json "]"
+
+                    # verdict
+                    has_assert = (index($3, "ASSERT") > 0)
+                    nkinds = n
+                    if (has_assert) verdict = "required"
+                    else if (nkinds >= 2) verdict = "strongly-indicated"
+                    else verdict = "single-signal"
+
+                    printf "{\"class\":\"%s\",\"signature\":\"%s\",\"evidence\":%s,\"callers\":%d,\"verdict\":\"%s\"}", \
+                        $1, $2, ev_json, $4, verdict
+                } else {
+                    has_assert = (index($3, "ASSERT") > 0)
+                    n = split($3, evs, ",")
+                    if (has_assert) verdict = "REQUIRED (asserted)"
+                    else if (n >= 2) verdict = "Strongly indicated (" n " signals)"
+                    else verdict = "Likely (single signal)"
+
+                    printf "%s.%s\n", $1, $2
+                    printf "  Evidence: %s\n", $3
+                    printf "  Callers : %d\n", $4
+                    printf "  Verdict : %s\n\n", verdict
+                }
+            }
+            END {
+                if (json == "true") {
+                    printf "],\"count\":%d}\n", count
+                } else if (count == 0) {
+                    printf "No matches in client-thread manifest for \"%s\"%s.\n", needle, (cls != "" ? " in class \"" cls "\"" : "")
+                    printf "Note: absence does not prove safety. Many API methods are silently unsafe off-thread\n"
+                    printf "      without any assertion or subscriber wrapper. When in doubt, marshal via\n"
+                    printf "      Microbot.getClientThread().runOnClientThreadOptional(...).\n"
+                } else {
+                    printf "%d match(es).\n", count
+                }
+            }' "$ct_lookup"
+        ;;
+
+    *)
+        usage
+        ;;
+esac
