@@ -43,6 +43,12 @@ public class ArceuusLibraryScript extends Script
 
     private final KourendLibraryBridge bridge;
     private ArceuusLibraryConfig config;
+    /**
+     * The customer we most recently delivered to. They will not request another book
+     * until we deliver to one of the other two customers, so we must exclude them from
+     * the "find next customer to talk to" fallback. Cleared/replaced on each delivery.
+     */
+    private volatile int lastDeliveredCustomerId = -1;
 
     @Getter private volatile ArceuusLibraryState state = ArceuusLibraryState.IDLE;
     @Getter private volatile int delivered = 0;
@@ -163,6 +169,12 @@ public class ArceuusLibraryScript extends Script
             return;
         }
 
+        // Don't re-click while a prior interaction is still resolving — the walker
+        // is delivering us, or click("Help") is auto-walking the last few tiles to
+        // the NPC. Re-clicking restarts the walker mid-walk and produces redundant
+        // clicks that look like spam.
+        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+
         Rs2NpcModel customer = findActiveCustomer();
         if (customer == null)
         {
@@ -180,7 +192,6 @@ public class ArceuusLibraryScript extends Script
         if (here == null) return;
         if (here.getPlane() != customerLoc.getPlane() || here.distanceTo(customerLoc) > IN_SCENE_REACH)
         {
-            if (Rs2Player.isMoving()) return;
             log.info("[{}] walking to {} at {}", reason, customer.getName(), customerLoc);
             Rs2Walker.walkTo(customerLoc, CUSTOMER_REACH);
             return;
@@ -245,6 +256,12 @@ public class ArceuusLibraryScript extends Script
             return;
         }
 
+        // Don't re-click while a prior interaction is still resolving — the walker
+        // is delivering us, the search click's menu-invoke is auto-walking the last
+        // few tiles, or the search animation is running. Re-clicking restarts the
+        // walker mid-walk and produces the redundant clicks the user reported.
+        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+
         List<BookcaseSnapshot> candidates = candidatesFor(wanted);
         candidateCount = candidates.size();
         if (candidates.isEmpty())
@@ -267,7 +284,6 @@ public class ArceuusLibraryScript extends Script
                         loc, loc.getPlane(), candidates.size(), bridge.getBookcases().size(), solverState);
             }
             state = ArceuusLibraryState.WALK_TO_BOOKCASE;
-            if (Rs2Player.isMoving()) return;
             Rs2Walker.walkTo(loc, 5);
             return;
         }
@@ -288,11 +304,13 @@ public class ArceuusLibraryScript extends Script
             sleep(400, 700);
             return;
         }
-        // Exit as soon as upstream has a definitive outcome: isBookSet flips on either the
-        // item-box widget appearing OR the "you don't find anything useful" chat line.
-        sleepUntil(() -> Rs2Inventory.hasItem(wanted.getItemId())
-                        || isBookcaseSearched(loc),
-                10_000);
+        // Wait for the search animation to actually run, then complete. Polling
+        // upstream's isBookSet doesn't work as the search-completion signal because
+        // it stays true for the whole layout — on a re-visit (modal-dismiss click,
+        // or stale-state re-search) the condition is true at entry and we'd exit
+        // before the animation even started, producing spam-clicks.
+        sleepUntil(Rs2Player::isAnimating, 1_500);
+        sleepUntil(() -> Rs2Inventory.hasItem(wanted.getItemId()) || !Rs2Player.isAnimating(), 5_000);
     }
 
     private boolean isBookcaseSearched(WorldPoint loc)
@@ -311,9 +329,13 @@ public class ArceuusLibraryScript extends Script
         List<BookcaseSnapshot> filtered = new ArrayList<>();
         for (BookcaseSnapshot bc : raw)
         {
-            // Already searched: include only if confirmed to hold the wanted book.
-            // Empty searched bookcases and bookcases known to hold a different book
-            // are skipped permanently.
+            // Already searched: include only if upstream still believes it holds the
+            // wanted book. That covers two cases this layout: (a) we just searched it
+            // and the modal is pending — re-clicking dismisses the modal and the book
+            // lands in inventory; (b) we previously delivered this book to another
+            // customer and upstream's known=wanted is stale — re-clicking searches
+            // the now-empty bookcase, upstream observes "nothing useful" and clears
+            // known to null, so candidatesFor excludes it next tick.
             if (bc.isBookSet())
             {
                 if (bc.getKnown() != null
@@ -381,6 +403,11 @@ public class ArceuusLibraryScript extends Script
     {
         state = ArceuusLibraryState.DELIVER;
 
+        // Don't re-click while a prior interaction is still resolving — walker
+        // motion, click-Help auto-walk to the NPC, or the read animation for
+        // Soul Journey. Re-clicking restarts the walker mid-walk.
+        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+
         if (config.readSoulJourney() && "SOUL_JOURNEY".equals(wanted.getEnumName()))
         {
             Rs2Inventory.interact(wanted.getItemId(), "Read");
@@ -402,11 +429,17 @@ public class ArceuusLibraryScript extends Script
         if (here == null) return;
         if (here.getPlane() != customerLoc.getPlane() || here.distanceTo(customerLoc) > IN_SCENE_REACH)
         {
-            if (Rs2Player.isMoving()) return;
             log.info("Walking to deliver to {} at {}", customer.getName(), customerLoc);
             Rs2Walker.walkTo(customerLoc, CUSTOMER_REACH);
             return;
         }
+
+        // Don't click the customer if we don't actually hold the book yet — that path
+        // produces a non-progressing dialogue and a spurious delivered++ when
+        // sleepUntil(!hasItem) trivially returns. The walk above (re-entering this
+        // method from the dispatcher) dismisses any pending item-box modal; we'll
+        // come back next tick with the book in inventory.
+        if (!Rs2Inventory.hasItem(wanted.getItemId())) return;
 
         log.info("Delivering {} to {} at {}", wanted.getShortName(), customer.getName(), customerLoc);
         Rs2Npc.hoverOverActor(customer.getNpc());
@@ -418,6 +451,7 @@ public class ArceuusLibraryScript extends Script
             if (!Rs2Inventory.hasItem(wanted.getItemId()))
             {
                 delivered++;
+                lastDeliveredCustomerId = customer.getId();
                 state = ArceuusLibraryState.IDLE;
             }
         }
@@ -480,27 +514,28 @@ public class ArceuusLibraryScript extends Script
     }
 
     /**
-     * Closest customer NPC strictly farther than 1 tile from the player. Used to
-     * cycle past whichever customer we just talked to (since we end up standing
-     * next to them after dialogue, we'll naturally pick a different one next).
-     * Filtered by NPC IDs — never matches stray same-named NPCs elsewhere.
+     * Closest customer NPC strictly farther than 1 tile from the player, excluding
+     * the last-delivered customer (who is "satisfied" until we deliver to one of the
+     * other two and so will only respond with "go talk to someone else"). Falls back
+     * to ignoring the adjacency filter — but never the last-delivered filter.
      */
     private Rs2NpcModel findCustomerNotAdjacent()
     {
-        Rs2NpcModel candidate = findCustomer(1);
-        return candidate != null ? candidate : findCustomer(Integer.MIN_VALUE);
+        Rs2NpcModel candidate = findCustomer(1, true);
+        return candidate != null ? candidate : findCustomer(Integer.MIN_VALUE, true);
     }
 
     private Rs2NpcModel findNearestCustomer()
     {
-        return findCustomer(Integer.MIN_VALUE);
+        return findCustomer(Integer.MIN_VALUE, false);
     }
 
     /**
      * Closest library customer NPC (by id) strictly farther than {@code minDist}
-     * tiles from the player.
+     * tiles from the player. When {@code excludeLastDelivered} is true, skips the
+     * customer we most recently delivered to (they cannot be the next requester).
      */
-    private Rs2NpcModel findCustomer(int minDist)
+    private Rs2NpcModel findCustomer(int minDist, boolean excludeLastDelivered)
     {
         WorldPoint here = Rs2Player.getWorldLocation();
         Rs2NpcModel best = null;
@@ -510,6 +545,7 @@ public class ArceuusLibraryScript extends Script
                 .toListOnClientThread())
         {
             if (npc.getWorldLocation() == null) continue;
+            if (excludeLastDelivered && npc.getId() == lastDeliveredCustomerId) continue;
             int d = here == null ? 0 : here.distanceTo(npc.getWorldLocation());
             if (d <= minDist) continue;
             if (d < bestDist)
