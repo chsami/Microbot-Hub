@@ -2,11 +2,13 @@ package net.runelite.client.plugins.microbot.arceuuslibrary;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.arceuuslibrary.KourendLibraryBridge.BookSnapshot;
 import net.runelite.client.plugins.microbot.arceuuslibrary.KourendLibraryBridge.BookcaseSnapshot;
 import net.runelite.client.plugins.microbot.arceuuslibrary.KourendLibraryBridge.Solved;
@@ -184,6 +186,7 @@ public class ArceuusLibraryScript extends Script
             return;
         }
         log.info("[{}] helping {} at {}", reason, customer.getName(), customerLoc);
+        Rs2Npc.hoverOverActor(customer.getNpc());
         if (customer.click("Help"))
         {
             sleepUntil(Rs2Dialogue::isInDialogue, 4_000);
@@ -277,6 +280,8 @@ public class ArceuusLibraryScript extends Script
     private void searchBookcase(WorldPoint loc, BookSnapshot wanted)
     {
         log.info("Searching bookcase at {} for {}", loc, wanted.getShortName());
+        TileObject bookcase = Rs2GameObject.findObjectByLocation(loc);
+        if (bookcase != null) Rs2GameObject.hoverOverObject(bookcase);
         if (!Rs2GameObject.interact(loc, "Search"))
         {
             log.warn("Search interaction returned false at {}", loc);
@@ -404,6 +409,7 @@ public class ArceuusLibraryScript extends Script
         }
 
         log.info("Delivering {} to {} at {}", wanted.getShortName(), customer.getName(), customerLoc);
+        Rs2Npc.hoverOverActor(customer.getNpc());
         if (customer.click("Help"))
         {
             sleepUntil(Rs2Dialogue::isInDialogue, 4_000);
