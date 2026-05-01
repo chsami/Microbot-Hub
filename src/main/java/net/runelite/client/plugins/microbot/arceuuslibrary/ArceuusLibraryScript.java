@@ -42,6 +42,15 @@ public class ArceuusLibraryScript extends Script
      * fallback when we need a customer but none are visible (e.g. we're on plane 1/2).
      */
     private static final WorldPoint CUSTOMER_HUB = new WorldPoint(1627, 3801, 0);
+    /**
+     * Section sweep tuning. The radius is a BFS-tile cap that keeps the sweep within
+     * one library wing — the wings are ~10–14 tiles across, so 14 lets us sweep the
+     * whole section we're standing in without straying into the next building. The
+     * per-round cap bounds the worst case where solver=INCOMPLETE keeps surfacing
+     * informative neighbours; 6 covers a typical wing pass with one wanted-fetch.
+     */
+    private static final int SECTION_SWEEP_RADIUS = 14;
+    private static final int SECTION_SWEEP_MAX_PER_ROUND = 6;
 
     private final KourendLibraryBridge bridge;
     private ArceuusLibraryConfig config;
@@ -53,7 +62,7 @@ public class ArceuusLibraryScript extends Script
     private volatile int lastDeliveredCustomerId = -1;
     /**
      * Counter of section-sweep searches performed since the current wanted book was
-     * fetched. Reset on each successful delivery. Capped by config.sectionSweepMaxBookcases().
+     * fetched. Reset on each successful delivery. Capped by {@link #SECTION_SWEEP_MAX_PER_ROUND}.
      */
     private volatile int sweepSearchesThisTrip = 0;
     /**
@@ -82,7 +91,7 @@ public class ArceuusLibraryScript extends Script
     {
         this.config = config;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(
-                this::tick, 0, 200, TimeUnit.MILLISECONDS);
+                this::tick, 0, 600, TimeUnit.MILLISECONDS);
         return true;
     }
 
@@ -137,19 +146,19 @@ public class ArceuusLibraryScript extends Script
             BookSnapshot wanted = wantedOpt.get();
             if (Rs2Inventory.hasItem(wanted.getItemId()))
             {
-                // Wanted book is in inventory. Before delivering, see if there's a
-                // nearby known-positive bookcase whose book we don't already hold —
-                // sweeping it now saves a future fetch trip.
-                if (config.sectionSweepMaxBookcases() > 0
-                        && config.enableSectionSweep()
-                        && trySectionSweep())
-                {
-                    return;
-                }
+                // Wanted book is in inventory. Before delivering, sweep nearby
+                // unsearched bookcases — narrows the solver and may stash books
+                // we don't already hold for future deliveries.
+                if (trySectionSweep()) return;
                 handleDeliver(wanted);
                 return;
             }
 
+            // Fetch path. While solver is INCOMPLETE the wanted candidate may be
+            // far away with closer informative bookcases between us — sweep them
+            // first. Radius caps the detour; once nothing useful is in range, fall
+            // through to the long walk.
+            if (trySectionSweep()) return;
             handleFetch(wanted);
         }
         catch (Exception e)
@@ -206,9 +215,31 @@ public class ArceuusLibraryScript extends Script
             {
                 state = ArceuusLibraryState.TALK_TO_CUSTOMER;
                 currentCustomerLabel = untried.getNpcName() + " (loading)";
+
+                // If we already walked to this customer's roam and they still aren't in
+                // the NPC cache, re-issuing the same walkTo each tick won't help. Mark
+                // them as attempted so the rotation advances to the next customer (who
+                // may already be in cache, just adjacent or excluded earlier).
+                WorldPoint here = Rs2Player.getWorldLocation();
+                WorldPoint roam = untried.getRoamCenter();
+                if (here != null
+                        && here.getPlane() == roam.getPlane()
+                        && here.distanceTo(roam) <= 4)
+                {
+                    log.info("[{}] {} not in cache at roam {}, marking attempted",
+                            reason, untried.getNpcName(), roam);
+                    recentlyAttempted.add(untried.getNpcId());
+                    if (recentlyAttempted.size() >= Customer.values().length)
+                    {
+                        log.info("[{}] all customers attempted without progress; resetting rotation", reason);
+                        recentlyAttempted.clear();
+                    }
+                    return;
+                }
+
                 log.info("[{}] no candidate clickable; walking to {}'s roam {}",
-                        reason, untried.getNpcName(), untried.getRoamCenter());
-                Rs2Walker.walkTo(untried.getRoamCenter(), 4);
+                        reason, untried.getNpcName(), roam);
+                Rs2Walker.walkTo(roam, 4);
                 return;
             }
             state = ArceuusLibraryState.IDLE;
@@ -318,7 +349,6 @@ public class ArceuusLibraryScript extends Script
                 }
             }
             sleep(400, 700);
-            if (bridge.getCustomerBook().isPresent()) return;
         }
     }
 
@@ -479,25 +509,31 @@ public class ArceuusLibraryScript extends Script
     /* --------------- SECTION SWEEP ------------------ */
 
     /**
-     * Opportunistic prefetch: when we hold the wanted book and there's a known-positive
-     * bookcase on our plane (within walking distance) holding a book we don't already
-     * carry, walk + search it before delivering. Returns true when an action was taken
-     * (caller should yield the tick); false when there's nothing to sweep.
+     * Opportunistic search of a nearby unsearched bookcase. Two regimes:
+     *  - Solver narrowed to 1 (size==1): search yields that exact book. Skip if we
+     *    already hold it.
+     *  - Solver still ambiguous (size>1): search returns one of the possibilities
+     *    and collapses the others via upstream inference — pure narrowing value
+     *    even when the yielded book is one we already hold.
      *
-     * Capped per fetch trip via {@link ArceuusLibraryConfig#sectionSweepMaxBookcases()}.
-     * The counter resets on successful delivery.
+     * Capped per fetch+deliver round via {@link #SECTION_SWEEP_MAX_PER_ROUND}; counter
+     * resets on successful delivery. Returns true when an action was taken (caller
+     * should yield the tick); false when there's nothing to sweep.
      */
     private boolean trySectionSweep()
     {
-        if (sweepSearchesThisTrip >= config.sectionSweepMaxBookcases()) return false;
+        if (sweepSearchesThisTrip >= SECTION_SWEEP_MAX_PER_ROUND) return false;
 
         WorldPoint here = Rs2Player.getWorldLocation();
         if (here == null) return false;
 
-        BookcaseSnapshot best = nearestUnheldKnownOnSamePlane(here, config.sectionSweepRadius());
+        BookcaseSnapshot best = nearestInformativeOnSamePlane(here, SECTION_SWEEP_RADIUS);
         if (best == null) return false;
 
-        BookSnapshot expected = best.getKnown();
+        // Representative book for the search-completion wait predicate. For multi-
+        // possible bookcases this is a guess; the animation-stop fallback in
+        // searchBookcase() handles a wrong guess correctly.
+        BookSnapshot expected = best.getPossible().iterator().next();
         WorldPoint loc = best.getLocation();
 
         if (Rs2Dialogue.isInDialogue())
@@ -512,9 +548,9 @@ public class ArceuusLibraryScript extends Script
             if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return true;
             if (state != ArceuusLibraryState.SECTION_SWEEP)
             {
-                log.info("Sweep: walking to {} for {} ({}/{})",
-                        loc, expected.getShortName(),
-                        sweepSearchesThisTrip + 1, config.sectionSweepMaxBookcases());
+                log.info("Sweep: walking to {} (possible={}); {}/{}",
+                        loc, best.getPossible().size(),
+                        sweepSearchesThisTrip + 1, SECTION_SWEEP_MAX_PER_ROUND);
             }
             state = ArceuusLibraryState.SECTION_SWEEP;
             Rs2Walker.walkTo(loc, 5);
@@ -535,21 +571,30 @@ public class ArceuusLibraryScript extends Script
     }
 
     /**
-     * Same-plane BFS: find the closest known-positive bookcase whose book is not
-     * already in inventory, capped by {@code radius}. Library bookcases are walls,
-     * so we BFS through the local collision map and look at each candidate's
-     * cardinal-neighbor tile (the tile a player stands on to search).
+     * Same-plane BFS: find the closest unsearched bookcase within {@code radius}
+     * whose search would either yield a useful book or narrow the upstream solver.
+     *
+     * Skip rules:
+     *  - {@code isBookSet} (already searched, empty)
+     *  - {@code possible.isEmpty()} (NO_DATA before solver runs, or ruled out)
+     *  - {@code possible.size()==1} and we already hold that book (no gain)
+     *
+     * Library bookcases are walls, so we BFS through the local collision map and
+     * read each candidate's cardinal-neighbor tile (the tile a player stands on
+     * to search).
      */
-    private BookcaseSnapshot nearestUnheldKnownOnSamePlane(WorldPoint here, int radius)
+    private BookcaseSnapshot nearestInformativeOnSamePlane(WorldPoint here, int radius)
     {
         Map<WorldPoint, Integer> reachable = Rs2Tile.getReachableTilesFromTile(here, radius);
         BookcaseSnapshot best = null;
         int bestDist = Integer.MAX_VALUE;
         for (BookcaseSnapshot bc : bridge.getBookcases())
         {
-            if (!bc.isBookSet() || bc.getKnown() == null) continue;
+            if (bc.isBookSet()) continue;
+            if (bc.getPossible().isEmpty()) continue;
             if (bc.getLocation().getPlane() != here.getPlane()) continue;
-            if (holdsBook(bc.getKnown())) continue;
+            if (bc.getPossible().size() == 1
+                    && holdsBook(bc.getPossible().iterator().next())) continue;
             int d = nearestReachableNeighborDist(bc.getLocation(), reachable);
             if (d == Integer.MAX_VALUE || d > radius) continue;
             if (d < bestDist)
@@ -589,9 +634,20 @@ public class ArceuusLibraryScript extends Script
             {
                 currentCustomerLabel = target.getNpcName() + " (loading)";
                 if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
-                log.info("Active customer {} not in cache; walking to roam {}",
-                        target.getNpcName(), target.getRoamCenter());
-                Rs2Walker.walkTo(target.getRoamCenter(), 4);
+                // If we're already standing at the roam tile and the cache still misses,
+                // re-issuing the same walkTo is a no-op (walker reports ARRIVED). Bounce
+                // to the customer hub instead — actually moving the player refreshes the
+                // scene/NPC cache, and from the hub we'll bounce back to roam next tick.
+                WorldPoint here = Rs2Player.getWorldLocation();
+                WorldPoint roam = target.getRoamCenter();
+                WorldPoint dest = (here != null
+                        && here.getPlane() == roam.getPlane()
+                        && here.distanceTo(roam) <= 4)
+                        ? CUSTOMER_HUB
+                        : roam;
+                log.info("Active customer {} not in cache (at {}); walking to {}",
+                        target.getNpcName(), here, dest);
+                Rs2Walker.walkTo(dest, 4);
             }
             else
             {
