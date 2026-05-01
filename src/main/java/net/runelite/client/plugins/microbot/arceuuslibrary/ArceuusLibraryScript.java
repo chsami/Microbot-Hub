@@ -254,9 +254,9 @@ public class ArceuusLibraryScript extends Script
 
         WorldPoint here = Rs2Player.getWorldLocation();
         if (here == null) return;
-        if (here.getPlane() != customerLoc.getPlane() || here.distanceTo(customerLoc) > IN_SCENE_REACH)
+        if (!isInWalkingReach(here, customerLoc))
         {
-            // Out of scene — let Rs2Walker drive us closer; wait if it's already moving.
+            // Out of scene or behind walls — let Rs2Walker route via stairs/transports.
             if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
             log.info("[{}] walking to {} at {}", reason, customer.getName(), customerLoc);
             Rs2Walker.walkTo(customerLoc, CUSTOMER_REACH);
@@ -376,9 +376,9 @@ public class ArceuusLibraryScript extends Script
         BookcaseSnapshot target = candidates.get(0);
         WorldPoint loc = target.getLocation();
 
-        if (here.getPlane() != loc.getPlane() || here.distanceTo(loc) > IN_SCENE_REACH)
+        if (!isInWalkingReach(here, loc))
         {
-            // Out of scene — let Rs2Walker drive us closer; wait if it's already moving.
+            // Out of scene or behind walls — let Rs2Walker route via stairs/transports.
             if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
             if (state != ArceuusLibraryState.WALK_TO_BOOKCASE)
             {
@@ -506,6 +506,27 @@ public class ArceuusLibraryScript extends Script
         return min;
     }
 
+    /**
+     * Walking-reachable gate. Same plane and either {@code loc} itself or one of its
+     * cardinal neighbours sits within {@link #IN_SCENE_REACH} BFS tiles of the player.
+     *
+     * Replaces a {@link WorldPoint#distanceTo}-based gate that produced false positives:
+     * Chebyshev measures straight-line tile distance and ignores walls, so a bookcase 18
+     * tiles away on the same upstairs plane can read "in scene" while the actual walking
+     * route requires going down stairs, across, and back up. The BFS uses the local
+     * collision map, so walls are honoured. Bookcases are walls themselves — we test the
+     * standing tile (a cardinal neighbour) — while NPC tiles are walkable so the direct
+     * lookup catches them.
+     */
+    private boolean isInWalkingReach(WorldPoint here, WorldPoint loc)
+    {
+        if (here == null || loc == null) return false;
+        if (here.getPlane() != loc.getPlane()) return false;
+        Map<WorldPoint, Integer> reachable = Rs2Tile.getReachableTilesFromTile(here, IN_SCENE_REACH);
+        if (reachable.containsKey(loc)) return true;
+        return nearestReachableNeighborDist(loc, reachable) <= IN_SCENE_REACH;
+    }
+
     /* --------------- SECTION SWEEP ------------------ */
 
     /**
@@ -542,9 +563,9 @@ public class ArceuusLibraryScript extends Script
             return true;
         }
 
-        if (here.getPlane() != loc.getPlane() || here.distanceTo(loc) > IN_SCENE_REACH)
+        if (!isInWalkingReach(here, loc))
         {
-            // Out of scene — let Rs2Walker drive us closer; wait if it's already moving.
+            // Out of scene or behind walls — let Rs2Walker route via stairs/transports.
             if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return true;
             if (state != ArceuusLibraryState.SECTION_SWEEP)
             {
@@ -661,9 +682,9 @@ public class ArceuusLibraryScript extends Script
 
         WorldPoint here = Rs2Player.getWorldLocation();
         if (here == null) return;
-        if (here.getPlane() != customerLoc.getPlane() || here.distanceTo(customerLoc) > IN_SCENE_REACH)
+        if (!isInWalkingReach(here, customerLoc))
         {
-            // Out of scene — let Rs2Walker drive us closer; wait if already moving.
+            // Out of scene or behind walls — let Rs2Walker route via stairs/transports.
             if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
             log.info("Walking to deliver to {} at {}", customer.getName(), customerLoc);
             Rs2Walker.walkTo(customerLoc, CUSTOMER_REACH);
