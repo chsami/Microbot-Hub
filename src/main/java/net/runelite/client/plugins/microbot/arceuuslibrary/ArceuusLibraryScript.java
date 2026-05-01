@@ -183,15 +183,12 @@ public class ArceuusLibraryScript extends Script
             return;
         }
 
-        // Don't re-click while a prior interaction is still resolving — the walker
-        // is delivering us, or click("Help") is auto-walking the last few tiles to
-        // the NPC. Re-clicking restarts the walker mid-walk and produces redundant
-        // clicks that look like spam.
-        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
-
         Rs2NpcModel customer = findActiveCustomer();
         if (customer == null)
         {
+            // No customer resolvable yet; let the dispatcher's invariant pass walk us
+            // toward the hub. Wait if a prior walk is still resolving.
+            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
             state = ArceuusLibraryState.IDLE;
             currentCustomerLabel = "(searching)";
             return;
@@ -206,10 +203,20 @@ public class ArceuusLibraryScript extends Script
         if (here == null) return;
         if (here.getPlane() != customerLoc.getPlane() || here.distanceTo(customerLoc) > IN_SCENE_REACH)
         {
+            // Out of scene — let Rs2Walker drive us closer; wait if it's already moving.
+            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
             log.info("[{}] walking to {} at {}", reason, customer.getName(), customerLoc);
             Rs2Walker.walkTo(customerLoc, CUSTOMER_REACH);
             return;
         }
+
+        // In scene reach. Take over from Rs2Walker — click("Help") will auto-walk
+        // the remaining tiles, faster than Rs2Walker's final approach.
+        Rs2Walker.setTarget(null);
+
+        // Don't re-click during click-auto-walk or any animation.
+        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+
         log.info("[{}] helping {} at {}", reason, customer.getName(), customerLoc);
         Rs2Npc.hoverOverActor(customer.getNpc());
         if (customer.click("Help"))
@@ -270,12 +277,6 @@ public class ArceuusLibraryScript extends Script
             return;
         }
 
-        // Don't re-click while a prior interaction is still resolving — the walker
-        // is delivering us, the search click's menu-invoke is auto-walking the last
-        // few tiles, or the search animation is running. Re-clicking restarts the
-        // walker mid-walk and produces the redundant clicks the user reported.
-        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
-
         List<BookcaseSnapshot> candidates = candidatesFor(wanted);
         candidateCount = candidates.size();
         if (candidates.isEmpty())
@@ -292,6 +293,8 @@ public class ArceuusLibraryScript extends Script
 
         if (here.getPlane() != loc.getPlane() || here.distanceTo(loc) > IN_SCENE_REACH)
         {
+            // Out of scene — let Rs2Walker drive us closer; wait if it's already moving.
+            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
             if (state != ArceuusLibraryState.WALK_TO_BOOKCASE)
             {
                 log.info("Walking to bookcase {} (plane {}); {}/{} candidates, solver={}",
@@ -301,6 +304,13 @@ public class ArceuusLibraryScript extends Script
             Rs2Walker.walkTo(loc, 5);
             return;
         }
+
+        // In scene reach. Take over from Rs2Walker — its final approach is slow,
+        // and the menu-invoke from interact() will auto-walk the remaining tiles.
+        Rs2Walker.setTarget(null);
+
+        // Don't re-click during menu-invoke auto-walk or the search animation.
+        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
 
         state = ArceuusLibraryState.SEARCH_BOOKCASE;
         searchBookcase(loc, wanted);
@@ -440,10 +450,11 @@ public class ArceuusLibraryScript extends Script
             advanceDialogue();
             return true;
         }
-        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return true;
 
         if (here.getPlane() != loc.getPlane() || here.distanceTo(loc) > IN_SCENE_REACH)
         {
+            // Out of scene — let Rs2Walker drive us closer; wait if it's already moving.
+            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return true;
             if (state != ArceuusLibraryState.SECTION_SWEEP)
             {
                 log.info("Sweep: walking to {} for {} ({}/{})",
@@ -454,6 +465,13 @@ public class ArceuusLibraryScript extends Script
             Rs2Walker.walkTo(loc, 5);
             return true;
         }
+
+        // In scene reach. Take over from Rs2Walker — its final approach is slow,
+        // and the menu-invoke from interact() will auto-walk the remaining tiles.
+        Rs2Walker.setTarget(null);
+
+        // Don't re-click during menu-invoke auto-walk or the search animation.
+        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return true;
 
         state = ArceuusLibraryState.SECTION_SWEEP;
         searchBookcase(loc, expected);
@@ -499,18 +517,6 @@ public class ArceuusLibraryScript extends Script
     {
         state = ArceuusLibraryState.DELIVER;
 
-        // Don't re-click while a prior interaction is still resolving — walker
-        // motion, click-Help auto-walk to the NPC, or the read animation for
-        // Soul Journey. Re-clicking restarts the walker mid-walk.
-        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
-
-        if (config.readSoulJourney() && "SOUL_JOURNEY".equals(wanted.getEnumName()))
-        {
-            Rs2Inventory.interact(wanted.getItemId(), "Read");
-            sleep(800, 1200);
-            advanceDialogue();
-        }
-
         Rs2NpcModel customer = findActiveCustomer();
         if (customer == null)
         {
@@ -525,9 +531,26 @@ public class ArceuusLibraryScript extends Script
         if (here == null) return;
         if (here.getPlane() != customerLoc.getPlane() || here.distanceTo(customerLoc) > IN_SCENE_REACH)
         {
+            // Out of scene — let Rs2Walker drive us closer; wait if already moving.
+            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
             log.info("Walking to deliver to {} at {}", customer.getName(), customerLoc);
             Rs2Walker.walkTo(customerLoc, CUSTOMER_REACH);
             return;
+        }
+
+        // In scene reach. Take over from Rs2Walker — its final approach is slow;
+        // click("Help") will auto-walk the remaining tiles.
+        Rs2Walker.setTarget(null);
+
+        // Don't re-click during click-auto-walk or any animation (read anim for
+        // Soul Journey, walking to NPC, etc.).
+        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+
+        if (config.readSoulJourney() && "SOUL_JOURNEY".equals(wanted.getEnumName()))
+        {
+            Rs2Inventory.interact(wanted.getItemId(), "Read");
+            sleep(800, 1200);
+            advanceDialogue();
         }
 
         // Don't click the customer if we don't actually hold the book yet — that path
