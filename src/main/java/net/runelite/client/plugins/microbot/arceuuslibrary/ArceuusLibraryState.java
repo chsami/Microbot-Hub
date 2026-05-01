@@ -7,6 +7,7 @@ public enum ArceuusLibraryState
     LOCATE_BOOK,
     WALK_TO_BOOKCASE,
     SEARCH_BOOKCASE,
+    SECTION_SWEEP,
     DELIVER,
     UPSTREAM_DISABLED,
     UNKNOWN

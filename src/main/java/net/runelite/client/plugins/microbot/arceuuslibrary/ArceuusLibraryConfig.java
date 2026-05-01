@@ -4,6 +4,8 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigInformation;
 import net.runelite.client.config.ConfigItem;
+import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.Range;
 
 @ConfigGroup("arceuusLibrary")
 @ConfigInformation("<div style='font-family: Arial, sans-serif; line-height: 1.5;'>"
@@ -32,4 +34,40 @@ public interface ArceuusLibraryConfig extends Config
             position = 2
     )
     default boolean readSoulJourney() { return true; }
+
+    @ConfigSection(
+            name = "Section sweep",
+            description = "Opportunistic prefetch — after fetching the wanted book, search nearby same-floor bookcases for books we don't already hold so future deliveries can skip the fetch trip entirely",
+            position = 10
+    )
+    String sectionSweepSection = "sectionSweep";
+
+    @ConfigItem(
+            keyName = "enableSectionSweep",
+            name = "Enable section sweep",
+            description = "Pick up books we don't already hold from nearby known bookcases on the same floor",
+            position = 11,
+            section = sectionSweepSection
+    )
+    default boolean enableSectionSweep() { return true; }
+
+    @Range(min = 4, max = 30)
+    @ConfigItem(
+            keyName = "sectionSweepRadius",
+            name = "Sweep radius (tiles)",
+            description = "Maximum walking distance from the player to a sweep candidate. Bookcases beyond this are ignored.",
+            position = 12,
+            section = sectionSweepSection
+    )
+    default int sectionSweepRadius() { return 14; }
+
+    @Range(min = 0, max = 16)
+    @ConfigItem(
+            keyName = "sectionSweepMaxBookcases",
+            name = "Max sweeps per trip",
+            description = "Maximum number of extra bookcase searches per fetch trip before delivering. 0 disables sweep entirely.",
+            position = 13,
+            section = sectionSweepSection
+    )
+    default int sectionSweepMaxBookcases() { return 6; }
 }

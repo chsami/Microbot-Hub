@@ -49,6 +49,11 @@ public class ArceuusLibraryScript extends Script
      * the "find next customer to talk to" fallback. Cleared/replaced on each delivery.
      */
     private volatile int lastDeliveredCustomerId = -1;
+    /**
+     * Counter of section-sweep searches performed since the current wanted book was
+     * fetched. Reset on each successful delivery. Capped by config.sectionSweepMaxBookcases().
+     */
+    private volatile int sweepSearchesThisTrip = 0;
 
     @Getter private volatile ArceuusLibraryState state = ArceuusLibraryState.IDLE;
     @Getter private volatile int delivered = 0;
@@ -122,6 +127,15 @@ public class ArceuusLibraryScript extends Script
             BookSnapshot wanted = wantedOpt.get();
             if (Rs2Inventory.hasItem(wanted.getItemId()))
             {
+                // Wanted book is in inventory. Before delivering, see if there's a
+                // nearby known-positive bookcase whose book we don't already hold —
+                // sweeping it now saves a future fetch trip.
+                if (config.sectionSweepMaxBookcases() > 0
+                        && config.enableSectionSweep()
+                        && trySectionSweep())
+                {
+                    return;
+                }
                 handleDeliver(wanted);
                 return;
             }
@@ -397,6 +411,88 @@ public class ArceuusLibraryScript extends Script
         return min;
     }
 
+    /* --------------- SECTION SWEEP ------------------ */
+
+    /**
+     * Opportunistic prefetch: when we hold the wanted book and there's a known-positive
+     * bookcase on our plane (within walking distance) holding a book we don't already
+     * carry, walk + search it before delivering. Returns true when an action was taken
+     * (caller should yield the tick); false when there's nothing to sweep.
+     *
+     * Capped per fetch trip via {@link ArceuusLibraryConfig#sectionSweepMaxBookcases()}.
+     * The counter resets on successful delivery.
+     */
+    private boolean trySectionSweep()
+    {
+        if (sweepSearchesThisTrip >= config.sectionSweepMaxBookcases()) return false;
+
+        WorldPoint here = Rs2Player.getWorldLocation();
+        if (here == null) return false;
+
+        BookcaseSnapshot best = nearestUnheldKnownOnSamePlane(here, config.sectionSweepRadius());
+        if (best == null) return false;
+
+        BookSnapshot expected = best.getKnown();
+        WorldPoint loc = best.getLocation();
+
+        if (Rs2Dialogue.isInDialogue())
+        {
+            advanceDialogue();
+            return true;
+        }
+        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return true;
+
+        if (here.getPlane() != loc.getPlane() || here.distanceTo(loc) > IN_SCENE_REACH)
+        {
+            if (state != ArceuusLibraryState.SECTION_SWEEP)
+            {
+                log.info("Sweep: walking to {} for {} ({}/{})",
+                        loc, expected.getShortName(),
+                        sweepSearchesThisTrip + 1, config.sectionSweepMaxBookcases());
+            }
+            state = ArceuusLibraryState.SECTION_SWEEP;
+            Rs2Walker.walkTo(loc, 5);
+            return true;
+        }
+
+        state = ArceuusLibraryState.SECTION_SWEEP;
+        searchBookcase(loc, expected);
+        sweepSearchesThisTrip++;
+        return true;
+    }
+
+    /**
+     * Same-plane BFS: find the closest known-positive bookcase whose book is not
+     * already in inventory, capped by {@code radius}. Library bookcases are walls,
+     * so we BFS through the local collision map and look at each candidate's
+     * cardinal-neighbor tile (the tile a player stands on to search).
+     */
+    private BookcaseSnapshot nearestUnheldKnownOnSamePlane(WorldPoint here, int radius)
+    {
+        Map<WorldPoint, Integer> reachable = Rs2Tile.getReachableTilesFromTile(here, radius);
+        BookcaseSnapshot best = null;
+        int bestDist = Integer.MAX_VALUE;
+        for (BookcaseSnapshot bc : bridge.getBookcases())
+        {
+            if (!bc.isBookSet() || bc.getKnown() == null) continue;
+            if (bc.getLocation().getPlane() != here.getPlane()) continue;
+            if (holdsBook(bc.getKnown())) continue;
+            int d = nearestReachableNeighborDist(bc.getLocation(), reachable);
+            if (d == Integer.MAX_VALUE || d > radius) continue;
+            if (d < bestDist)
+            {
+                best = bc;
+                bestDist = d;
+            }
+        }
+        return best;
+    }
+
+    private boolean holdsBook(BookSnapshot book)
+    {
+        return book != null && Rs2Inventory.hasItem(book.getItemId());
+    }
+
     /* --------------- DELIVER ------------------ */
 
     private void handleDeliver(BookSnapshot wanted)
@@ -452,6 +548,7 @@ public class ArceuusLibraryScript extends Script
             {
                 delivered++;
                 lastDeliveredCustomerId = customer.getId();
+                sweepSearchesThisTrip = 0;
                 state = ArceuusLibraryState.IDLE;
             }
         }
@@ -578,6 +675,22 @@ public class ArceuusLibraryScript extends Script
     public String getWantedBookLabel() { return wantedBookLabel; }
     public String getCurrentCustomerLabel() { return currentCustomerLabel; }
     public int getCandidateCount() { return candidateCount; }
+    public int getSweepSearchesThisTrip() { return sweepSearchesThisTrip; }
+
+    /**
+     * Count of distinct library books currently in the player's inventory. Used by
+     * the overlay to surface prefetch progress (target: 16 unique books, after which
+     * every assignment is satisfied without a fetch trip until the next reshuffle).
+     */
+    public int distinctBooksHeldCount()
+    {
+        return (int) Rs2Inventory.items()
+                .map(item -> bridge.bookForItemId(item.getId()))
+                .filter(java.util.Objects::nonNull)
+                .map(BookSnapshot::getEnumName)
+                .distinct()
+                .count();
+    }
 
     @Override
     public void shutdown()

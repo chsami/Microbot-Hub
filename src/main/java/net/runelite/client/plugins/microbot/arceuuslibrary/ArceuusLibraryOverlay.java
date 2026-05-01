@@ -55,6 +55,10 @@ public class ArceuusLibraryOverlay extends OverlayPanel
             panelComponent.getChildren().add(LineComponent.builder()
                     .left("Candidates").right(String.valueOf(script.getCandidateCount())).build());
             panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Held").right(script.distinctBooksHeldCount() + " / 16").build());
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Sweeps").right(String.valueOf(script.getSweepSearchesThisTrip())).build());
+            panelComponent.getChildren().add(LineComponent.builder()
                     .left("Delivered").right(String.valueOf(script.getDelivered())).build());
         }
         catch (Exception ex)
