@@ -169,15 +169,22 @@ public class ArceuusLibraryScript extends Script
     }
 
     /**
-     * Returns true if a customer is resolvable (upstream id or in NPC cache);
-     * otherwise issues a walk to the ground-floor hub and returns false. Callers
-     * should early-return on false so the walk progresses without further work.
+     * Returns true if downstream handlers can take over routing; otherwise issues a
+     * walk to the customer hub and returns false so the caller early-returns.
+     *
+     * When upstream knows the active customer ({@link KourendLibraryBridge#getCustomerId()}
+     * != -1), {@link #handleDeliver} owns the routing — its cache-miss branch walks
+     * directly to that customer's roam tile. Pre-walking to a generic hub on every
+     * cross-floor return trip is a detour for every customer that isn't Gracklebone
+     * (Sam's roam is +11 east, Villia's is +14 east and +12 north of the hub).
+     *
+     * Only when there's no active customer (we just delivered, or we're cycling for
+     * a fresh request via the held-book branch) do we fall back to the generic hub —
+     * that brings any customer into scene so {@link #talkToCustomer} can pick one.
      */
     private boolean ensureCustomerReachableInvariant()
     {
-        // Don't trust bridge.getCustomerId() — that's upstream's last-known customer and
-        // can be set while the NPC is on a different floor. Only "in our NPC cache right
-        // now" counts as reachable.
+        if (bridge.getCustomerId() != -1) return true;
         if (findNearestCustomer() != null) return true;
         currentCustomerLabel = "(searching)";
         if (walkToCustomerHubIfFar()) return false;
