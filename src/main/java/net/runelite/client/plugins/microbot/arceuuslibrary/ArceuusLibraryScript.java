@@ -21,9 +21,11 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -54,6 +56,14 @@ public class ArceuusLibraryScript extends Script
      * fetched. Reset on each successful delivery. Capped by config.sectionSweepMaxBookcases().
      */
     private volatile int sweepSearchesThisTrip = 0;
+    /**
+     * Customer IDs we've clicked "Help" on since the last time we made progress
+     * (got a new request or handed off a held book). Used to round-robin when the
+     * upstream solver doesn't know who's active and the first customer we reach
+     * declines (they tell us to "speak to whoever is asking for a book"). Cleared
+     * the moment any customer accepts our held book or gives us a new request.
+     */
+    private final Set<Integer> recentlyAttempted = new HashSet<>();
 
     @Getter private volatile ArceuusLibraryState state = ArceuusLibraryState.IDLE;
     @Getter private volatile int delivered = 0;
@@ -186,9 +196,21 @@ public class ArceuusLibraryScript extends Script
         Rs2NpcModel customer = findActiveCustomer();
         if (customer == null)
         {
-            // No customer resolvable yet; let the dispatcher's invariant pass walk us
-            // toward the hub. Wait if a prior walk is still resolving.
+            // Nobody clickable in cache. If we've recently attempted some customers
+            // without progress, the un-attempted one is most likely the actual active
+            // customer and just isn't loaded — walk to their roam tile to bring them
+            // into scene. Otherwise let the dispatcher's invariant pass handle it.
             if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+            Customer untried = pickUnattemptedCustomer();
+            if (untried != null)
+            {
+                state = ArceuusLibraryState.TALK_TO_CUSTOMER;
+                currentCustomerLabel = untried.getNpcName() + " (loading)";
+                log.info("[{}] no candidate clickable; walking to {}'s roam {}",
+                        reason, untried.getNpcName(), untried.getRoamCenter());
+                Rs2Walker.walkTo(untried.getRoamCenter(), 4);
+                return;
+            }
             state = ArceuusLibraryState.IDLE;
             currentCustomerLabel = "(searching)";
             return;
@@ -222,26 +244,59 @@ public class ArceuusLibraryScript extends Script
         if (customer.click("Help"))
         {
             sleepUntil(Rs2Dialogue::isInDialogue, 4_000);
+            int booksHeldBefore = countLibraryBooksHeld();
             advanceDialogue();
+            boolean gotRequest = bridge.getCustomerBook().isPresent();
+            boolean gaveBook = countLibraryBooksHeld() < booksHeldBefore;
+            if (gotRequest || gaveBook)
+            {
+                recentlyAttempted.clear();
+            }
+            else
+            {
+                recentlyAttempted.add(customer.getId());
+                if (recentlyAttempted.size() >= Customer.values().length)
+                {
+                    log.info("[{}] all customers declined; resetting rotation", reason);
+                    recentlyAttempted.clear();
+                }
+            }
         }
     }
 
+    private int countLibraryBooksHeld()
+    {
+        return (int) Rs2Inventory.items()
+                .map(item -> bridge.bookForItemId(item.getId()))
+                .filter(java.util.Objects::nonNull)
+                .count();
+    }
+
+    private Customer pickUnattemptedCustomer()
+    {
+        for (Customer c : Customer.values())
+        {
+            if (recentlyAttempted.contains(c.getNpcId())) continue;
+            if (c.getNpcId() == lastDeliveredCustomerId) continue;
+            return c;
+        }
+        return null;
+    }
+
     /**
-     * If the player isn't near the ground-floor customer hub, walk there. Returns true
-     * when a walk was issued. Used when we need a customer but none are in the NPC cache
-     * (typically because we're on a different floor).
+     * Walk to the ground-floor customer hub. Caller guarantees we got here because no
+     * customer is in the NPC cache, so we must keep moving toward the hub regardless
+     * of how {@link WorldPoint#distanceTo} measures "close" — that's Chebyshev, which
+     * can read 19 from the west wing of the library while the customer NPCs are still
+     * outside the loaded scene chunks. {@link Rs2Walker#walkTo} is idempotent: if we're
+     * already within {@code reach=5} of the destination it returns without moving, so
+     * re-issuing each tick is safe.
      */
     private boolean walkToCustomerHubIfFar()
     {
-        WorldPoint here = Rs2Player.getWorldLocation();
-        if (here == null) return false;
-        if (here.getPlane() == CUSTOMER_HUB.getPlane()
-                && here.distanceTo(CUSTOMER_HUB) <= IN_SCENE_REACH)
-        {
-            return false;
-        }
         if (Rs2Player.isMoving()) return true;
-        log.info("No customer in scene; walking to ground-floor hub {}", CUSTOMER_HUB);
+        log.info("No customer in scene; walking to ground-floor hub {} from {}",
+                CUSTOMER_HUB, Rs2Player.getWorldLocation());
         Rs2Walker.walkTo(CUSTOMER_HUB, 5);
         return true;
     }
@@ -517,10 +572,31 @@ public class ArceuusLibraryScript extends Script
     {
         state = ArceuusLibraryState.DELIVER;
 
-        Rs2NpcModel customer = findActiveCustomer();
+        // Upstream tells us *exactly* who asked for this book. Don't fall back to
+        // findCustomerNotAdjacent here — that picks the nearest non-adjacent customer
+        // (e.g. Gracklebone) when the actual active one (e.g. Sam) is briefly out of
+        // the NPC cache, and we'd walk to and click the wrong NPC.
+        int activeId = bridge.getCustomerId();
+        Rs2NpcModel customer = activeId != -1
+                ? Microbot.getRs2NpcCache().query().withId(activeId).nearestOnClientThread()
+                : findCustomerNotAdjacent();
         if (customer == null)
         {
-            currentCustomerLabel = "(searching)";
+            // Active customer isn't reachable in cache — walk to their roam tile to
+            // bring them into scene. Don't deliver to anyone else.
+            Customer target = activeId != -1 ? Customer.byId(activeId) : null;
+            if (target != null)
+            {
+                currentCustomerLabel = target.getNpcName() + " (loading)";
+                if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+                log.info("Active customer {} not in cache; walking to roam {}",
+                        target.getNpcName(), target.getRoamCenter());
+                Rs2Walker.walkTo(target.getRoamCenter(), 4);
+            }
+            else
+            {
+                currentCustomerLabel = "(searching)";
+            }
             return;
         }
         currentCustomerLabel = customer.getName();
@@ -572,6 +648,7 @@ public class ArceuusLibraryScript extends Script
                 delivered++;
                 lastDeliveredCustomerId = customer.getId();
                 sweepSearchesThisTrip = 0;
+                recentlyAttempted.clear();
                 state = ArceuusLibraryState.IDLE;
             }
         }
@@ -636,26 +713,29 @@ public class ArceuusLibraryScript extends Script
     /**
      * Closest customer NPC strictly farther than 1 tile from the player, excluding
      * the last-delivered customer (who is "satisfied" until we deliver to one of the
-     * other two and so will only respond with "go talk to someone else"). Falls back
-     * to ignoring the adjacency filter — but never the last-delivered filter.
+     * other two and so will only respond with "go talk to someone else") and any
+     * customer we've already attempted in this no-progress cycle. Falls back to
+     * ignoring the adjacency filter — but never the exclusion filters.
      */
     private Rs2NpcModel findCustomerNotAdjacent()
     {
-        Rs2NpcModel candidate = findCustomer(1, true);
-        return candidate != null ? candidate : findCustomer(Integer.MIN_VALUE, true);
+        Rs2NpcModel candidate = findCustomer(1, true, true);
+        return candidate != null ? candidate : findCustomer(Integer.MIN_VALUE, true, true);
     }
 
     private Rs2NpcModel findNearestCustomer()
     {
-        return findCustomer(Integer.MIN_VALUE, false);
+        return findCustomer(Integer.MIN_VALUE, false, false);
     }
 
     /**
      * Closest library customer NPC (by id) strictly farther than {@code minDist}
      * tiles from the player. When {@code excludeLastDelivered} is true, skips the
      * customer we most recently delivered to (they cannot be the next requester).
+     * When {@code excludeRecentlyAttempted} is true, skips customers already clicked
+     * in this no-progress cycle so we round-robin through the three.
      */
-    private Rs2NpcModel findCustomer(int minDist, boolean excludeLastDelivered)
+    private Rs2NpcModel findCustomer(int minDist, boolean excludeLastDelivered, boolean excludeRecentlyAttempted)
     {
         WorldPoint here = Rs2Player.getWorldLocation();
         Rs2NpcModel best = null;
@@ -666,6 +746,7 @@ public class ArceuusLibraryScript extends Script
         {
             if (npc.getWorldLocation() == null) continue;
             if (excludeLastDelivered && npc.getId() == lastDeliveredCustomerId) continue;
+            if (excludeRecentlyAttempted && recentlyAttempted.contains(npc.getId())) continue;
             int d = here == null ? 0 : here.distanceTo(npc.getWorldLocation());
             if (d <= minDist) continue;
             if (d < bestDist)
