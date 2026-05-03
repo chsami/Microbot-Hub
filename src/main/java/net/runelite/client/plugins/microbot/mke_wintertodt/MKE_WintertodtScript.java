@@ -4358,7 +4358,7 @@ public class MKE_WintertodtScript extends Script {
             if (!hoveredForNextRound && !spamClickingActive && timeUntilStart > 0 && timeUntilStart <= hoverBeforeStartTime) {
                 Rs2TileObjectModel nextObject = getNextInteractiveObject(gameState);
                 if (nextObject != null) {
-                    if (nextObject.getClickbox() != null) Microbot.getMouse().move(nextObject.getClickbox().getBounds());
+                    if (nextObject.getClickbox() != null) moveCursorHumanized(nextObject.getClickbox().getBounds());
                     hoveredForNextRound = true;
                     Microbot.log("Hovering over next interactive object: " + nextObject.getId() + 
                                " (" + (timeUntilStart / 1000.0) + "s before round start)");
@@ -4578,7 +4578,7 @@ public class MKE_WintertodtScript extends Script {
             dx = Math.max(-80, Math.min(80, dx));
             dy = Math.max(-80, Math.min(80, dy));
 
-            Microbot.getMouse().move(start.x + dx, start.y + dy);
+            moveCursorHumanized(start.x + dx, start.y + dy);
 
             /* 3. ~50 % chance of a quick follow-up wobble             */
             if (random.nextBoolean())
@@ -4590,11 +4590,36 @@ public class MKE_WintertodtScript extends Script {
                 dx2 = Math.max(-30, Math.min(30, dx2));
                 dy2 = Math.max(-30, Math.min(30, dy2));
 
-                Microbot.getMouse().move(start.x + dx + dx2,
-                                          start.y + dy + dy2);
+                moveCursorHumanized(start.x + dx + dx2,
+                                    start.y + dy + dy2);
             }
         }
         catch (Exception ignored) {}
+    }
+
+    /**
+     * Routes cursor movement through NaturalMouse when available. Direct
+     * Microbot.getMouse().move(x, y) dispatches a teleport MOUSE_MOVED event
+     * with no path — visually obvious and trivially bot-detectable. Whenever
+     * we want to *move* the cursor (hover, nudge, pre-position before a spam
+     * click), use this so the move follows a smooth Bezier-style curve.
+     */
+    private static void moveCursorHumanized(int x, int y)
+    {
+        if (x <= 1 || y <= 1) return;
+        if (Microbot.naturalMouse != null) {
+            Microbot.naturalMouse.moveTo(x, y);
+        } else {
+            Microbot.getMouse().move(x, y);
+        }
+    }
+
+    private static void moveCursorHumanized(java.awt.Rectangle rect)
+    {
+        if (rect == null) return;
+        int cx = (int) (rect.getX() + rect.getWidth() / 2.0);
+        int cy = (int) (rect.getY() + rect.getHeight() / 2.0);
+        moveCursorHumanized(cx, cy);
     }
 
     /* ------------ knife selection helpers ------------------------------ */
@@ -4888,7 +4913,7 @@ public class MKE_WintertodtScript extends Script {
             }
             
             // Just hover and click without actually interacting
-            if (spamClickTarget.getClickbox() != null) Microbot.getMouse().move(spamClickTarget.getClickbox().getBounds());
+            if (spamClickTarget.getClickbox() != null) moveCursorHumanized(spamClickTarget.getClickbox().getBounds());
             
             // Small delay between hover and click for realism
             sleepGaussian(60, 40);
