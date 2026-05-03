@@ -32,7 +32,6 @@ import net.runelite.client.plugins.microbot.qualityoflife.scripts.pvp.PvpScript;
 import net.runelite.client.plugins.microbot.qualityoflife.scripts.wintertodt.WintertodtOverlay;
 import net.runelite.client.plugins.microbot.qualityoflife.scripts.wintertodt.WintertodtScript;
 import net.runelite.client.plugins.microbot.util.Global;
-import net.runelite.client.plugins.microbot.util.antiban.FieldUtil;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -47,7 +46,6 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
-import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.SplashScreen;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.ImageUtil;
@@ -55,16 +53,25 @@ import org.apache.commons.lang3.reflect.FieldUtils;
 
 import javax.inject.Inject;
 import javax.swing.*;
+import javax.swing.plaf.ColorUIResource;
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
-import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import static net.runelite.client.plugins.microbot.qualityoflife.scripts.wintertodt.WintertodtScript.isInWintertodtRegion;
@@ -84,17 +91,49 @@ import static net.runelite.client.plugins.microbot.util.Global.awaitExecutionUnt
 )
 @Slf4j
 public class QoLPlugin extends Plugin implements KeyListener {
-    public static final String version = "1.8.12";
+    public static final String version = "1.8.13";
     public static final List<NewMenuEntry> bankMenuEntries = new LinkedList<>();
     public static final List<NewMenuEntry> furnaceMenuEntries = new LinkedList<>();
     public static final List<NewMenuEntry> anvilMenuEntries = new LinkedList<>();
-    private static final AtomicReference<List<?>> pluginList = new AtomicReference<>();
+    private static final AtomicBoolean uiUpdateQueued = new AtomicBoolean(false);
+    private static final AtomicBoolean uiRestoreQueued = new AtomicBoolean(false);
+    private static final AtomicBoolean uiQueuedDuringSplash = new AtomicBoolean(false);
+    private static final AtomicBoolean uiUpdatePendingAfterRestore = new AtomicBoolean(false);
+
+    private static final AtomicBoolean loggedMissingSwitcherOn = new AtomicBoolean(false);
+    private static final AtomicBoolean loggedMissingSwitcherOff = new AtomicBoolean(false);
+    private static final AtomicBoolean loggedThemeException = new AtomicBoolean(false);
+    private static final AtomicBoolean loggedRestoreException = new AtomicBoolean(false);
+    private static final AtomicBoolean loggedToggleReflectionException = new AtomicBoolean(false);
+    private static final AtomicBoolean loggedMissingUiManagerKey = new AtomicBoolean(false);
+    private static final AtomicBoolean loggedMicrobotPluginCacheFailure = new AtomicBoolean(false);
+    private static final AtomicBoolean loggedMicrobotPluginFallbackScan = new AtomicBoolean(false);
+
+    private static final AtomicReference<QoLPlugin> selfRef = new AtomicReference<>();
+    private static final AtomicReference<MicrobotPlugin> microbotPluginRef = new AtomicReference<>();
+
+    // Use explicit synchronization everywhere (avoid mixing synchronizedMap + synchronized blocks).
+    private static final Map<JToggleButton, IconState> originalToggleIcons = new WeakHashMap<>();
+    private static final Map<JLabel, Color> originalLabelColors = new WeakHashMap<>();
+    private static final Set<JLabel> touchedLabels = Collections.newSetFromMap(new WeakHashMap<>());
+    private static final Map<String, Object> originalUiManagerValues = new HashMap<>();
+    private static final String[] UI_KEYS_TO_PATCH = new String[]{
+            "Component.accentColor",
+            "ProgressBar.selectionForeground",
+            "ProgressBar.selectionBackground",
+            "Button.default.focusColor"
+    };
     private static final int HALF_ROTATION = 1024;
     private static final int FULL_ROTATION = 2048;
     private static final int PITCH_INDEX = 0;
     private static final int YAW_INDEX = 1;
     private static final BufferedImage SWITCHER_ON_IMG = getImageFromConfigResource("switcher_on");
+    private static final BufferedImage SWITCHER_OFF_IMG = getImageFromConfigResource("switcher_off");
     private static final BufferedImage STAR_ON_IMG = getImageFromConfigResource("star_on");
+    private static volatile Color lastAccentApplied = null;
+    private static volatile Color lastToggleColorApplied = null;
+    private static volatile ImageIcon lastToggleOnIcon = null;
+    private static volatile Window lastWindowPatched = null;
     public static InventorySetup loadoutToLoad = null;
     private static GameState lastGameState = GameState.UNKNOWN;
     private final int[] deltaCamera = new int[3];
@@ -166,28 +205,59 @@ public class QoLPlugin extends Plugin implements KeyListener {
             Class<?> clazz = Class.forName("net.runelite.client.plugins.config.ConfigPanel");
             return ImageUtil.loadImageResource(clazz, imgName.concat(".png"));
         } catch (Exception e) {
-            e.printStackTrace();
+            log.debug("QoL: failed to load ConfigPanel image {}", imgName, e);
             return null;
         }
     }
 
     private static ImageIcon remapImage(BufferedImage image, Color color) {
-        if (color != null) {
-            BufferedImage img = new BufferedImage(image.getWidth(), image.getHeight(), 2);
-            Graphics2D graphics = img.createGraphics();
-            graphics.drawImage(image, 0, 0, null);
-            graphics.setColor(color);
-            graphics.setComposite(AlphaComposite.getInstance(10, 1));
-            graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
-            graphics.dispose();
-            return new ImageIcon(img);
-        } else {
+        if (image == null || color == null) {
             return null;
         }
+        BufferedImage img = new BufferedImage(image.getWidth(), image.getHeight(), 2);
+        Graphics2D graphics = img.createGraphics();
+        graphics.drawImage(image, 0, 0, null);
+        graphics.setColor(color);
+        graphics.setComposite(AlphaComposite.getInstance(10, 1));
+        graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+        graphics.dispose();
+        return new ImageIcon(img);
+    }
+
+    private static MicrobotPlugin findMicrobotPluginOnce()
+    {
+        MicrobotPlugin cached = microbotPluginRef.get();
+        if (cached != null)
+        {
+            return cached;
+        }
+
+        MicrobotPlugin found = (MicrobotPlugin) Microbot.getPluginManager().getPlugins().stream()
+                .filter(plugin -> plugin instanceof MicrobotPlugin)
+                .findAny().orElse(null);
+        if (found != null)
+        {
+            microbotPluginRef.compareAndSet(null, found);
+        }
+        return found;
     }
 
     @Override
     protected void startUp() throws AWTException {
+        selfRef.set(this);
+        // Cache MicrobotPlugin once (avoid scanning plugin list in steady-state UI updates).
+        try
+        {
+            findMicrobotPluginOnce();
+        }
+        catch (Exception ex)
+        {
+            // Best-effort cache; updateUiElements() can still fall back if needed.
+            if (loggedMicrobotPluginCacheFailure.compareAndSet(false, true))
+            {
+                log.debug("QoL: failed to cache MicrobotPlugin during startup", ex);
+            }
+        }
         if (overlayManager != null) {
             overlayManager.add(qoLOverlay);
             overlayManager.add(wintertodtOverlay);
@@ -219,7 +289,10 @@ public class QoLPlugin extends Plugin implements KeyListener {
         autoPrayer.run(config);
         keyManager.registerKeyListener(this);
         // pvpScript.run(config);
-        awaitExecutionUntil(() -> Microbot.getClientThread().invokeLater(this::updateUiElements), () -> !SplashScreen.isOpen(), 600);
+        uiQueuedDuringSplash.set(false);
+        awaitExecutionUntil(() -> queueUpdateUiElementsDuringSplash(), () -> !SplashScreen.isOpen(), 600);
+        // Splash closed; allow future splash-guarded queues.
+        uiQueuedDuringSplash.set(false);
     }
 
     @Override
@@ -238,6 +311,56 @@ public class QoLPlugin extends Plugin implements KeyListener {
         potionManagerScript.shutdown();
         autoPrayer.shutdown();
         keyManager.unregisterKeyListener(this);
+
+        // Best-effort restore of any UI theming we applied.
+        try
+        {
+            if (SwingUtilities.isEventDispatchThread())
+            {
+                restoreUiElements();
+            }
+            else
+            {
+                FutureTask<Void> restoreTask = new FutureTask<>(() ->
+                {
+                    restoreUiElements();
+                    return null;
+                });
+                SwingUtilities.invokeLater(restoreTask);
+                try
+                {
+                    restoreTask.get(750, TimeUnit.MILLISECONDS);
+                }
+                catch (TimeoutException ignored)
+                {
+                    log.warn("QoL: UI restore timed out during shutdown; continuing teardown.");
+                    // Restore UIManager defaults immediately to reduce lingering accent.
+                    if (SwingUtilities.isEventDispatchThread())
+                    {
+                        restoreOriginalUiDefaultsOnly();
+                    }
+                    else
+                    {
+                        SwingUtilities.invokeLater(QoLPlugin::restoreOriginalUiDefaultsOnly);
+                    }
+                    // Best-effort restore is already queued via `restoreTask`.
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // shutdown path: avoid throwing; log once and continue teardown
+            if (loggedRestoreException.compareAndSet(false, true))
+            {
+                log.warn("QoL: UI restore during shutdown failed", ex);
+            }
+        }
+        finally
+        {
+            // Always clear the ref so queued updates don't run post-shutdown.
+            selfRef.compareAndSet(this, null);
+            microbotPluginRef.set(null);
+        }
     }
 
     @Subscribe(
@@ -247,7 +370,9 @@ public class QoLPlugin extends Plugin implements KeyListener {
         log.info("Profile changed");
         log.info("Updating UI elements");
         // Wait for the splash screen to close before updating the UI elements
-        awaitExecutionUntil(() -> Microbot.getClientThread().invokeLater(this::updateUiElements), () -> !SplashScreen.isOpen(), 1000);
+        uiQueuedDuringSplash.set(false);
+        awaitExecutionUntil(() -> queueUpdateUiElementsDuringSplash(), () -> !SplashScreen.isOpen(), 1000);
+        uiQueuedDuringSplash.set(false);
 
     }
 
@@ -283,7 +408,7 @@ public class QoLPlugin extends Plugin implements KeyListener {
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
         if (event.getGameState() != GameState.UNKNOWN && lastGameState == GameState.UNKNOWN) {
-            updateUiElements();
+            queueUpdateUiElements();
         }
 
         if (event.getGameState() == GameState.LOGIN_SCREEN) {
@@ -747,73 +872,506 @@ public class QoLPlugin extends Plugin implements KeyListener {
      * @return true if the UI elements are successfully updated, false otherwise.
      */
     private boolean updateUiElements() {
+        // Swing/FlatLaf layout is not thread-safe; enforce EDT execution.
+        if (!SwingUtilities.isEventDispatchThread()) {
+            QoLPlugin self = selfRef.get();
+            if (self == null)
+            {
+                return false;
+            }
+            // If a run is already queued and we still have a live plugin, consider it pending.
+            if (uiUpdateQueued.get())
+            {
+                return true;
+            }
+            return queueUpdateUiElements();
+        }
+
         try {
-            // Get the Field object for the accent color (BRAND_ORANGE) in the ColorScheme class
-            Field accentColorField = ColorScheme.class.getDeclaredField("BRAND_ORANGE");
-            // Update the accent color with the value from the config
-            FieldUtil.setFinalStatic(accentColorField, config.accentColor());
-
-            // Get the PluginToggleButton class to access its ON_SWITCHER field
-            Class<?> pluginButton = Class.forName("net.runelite.client.plugins.microbot.ui.MicrobotPluginToggleButton");
-            Field onSwitcherPluginPanel = pluginButton.getDeclaredField("ON_SWITCHER");
-            onSwitcherPluginPanel.setAccessible(true);
-            // Update the ON_SWITCHER field with a remapped image based on the config toggle button color
-            FieldUtil.setFinalStatic(onSwitcherPluginPanel, remapImage(SWITCHER_ON_IMG, config.toggleButtonColor()));
-
             // Find the ConfigPlugin instance from the plugin manager
-            MicrobotPlugin microbotPlugin = (MicrobotPlugin) Microbot.getPluginManager().getPlugins().stream()
-                    .filter(plugin -> plugin instanceof MicrobotPlugin)
-                    .findAny().orElse(null);
+            MicrobotPlugin microbotPlugin = findMicrobotPluginOnce();
+            if (microbotPlugin == null && loggedMicrobotPluginFallbackScan.compareAndSet(false, true))
+            {
+                log.debug("QoL: MicrobotPlugin ref was empty; fell back to plugin manager scan.");
+            }
 
             // If ConfigPlugin is not found, log an error and return false
             if (microbotPlugin == null) {
                 Microbot.log("Config Plugin not found");
                 return false;
             }
+            microbotPluginRef.set(microbotPlugin);
 
             // Get the plugin list panel from the ConfigPlugin instance
             JPanel pluginListPanel = getPluginListPanel(microbotPlugin);
+            Window pluginWindow = SwingUtilities.getWindowAncestor(pluginListPanel);
+            if (pluginWindow != lastWindowPatched)
+            {
+                // If the config window closed while we had an accent applied, restore defaults now.
+                if (pluginWindow == null && lastAccentApplied != null)
+                {
+                    restoreOriginalUiDefaultsOnly();
+                    lastAccentApplied = null;
+                }
+                lastWindowPatched = pluginWindow;
+                synchronized (originalToggleIcons)
+                {
+                    originalToggleIcons.clear();
+                }
+                synchronized (originalLabelColors)
+                {
+                    originalLabelColors.clear();
+                }
+                synchronized (touchedLabels)
+                {
+                    touchedLabels.clear();
+                }
+                lastAccentApplied = null;
+                lastToggleColorApplied = null;
+                lastToggleOnIcon = null;
+            }
+
+            // Best-effort accent color behavior (no static-final mutation / no Unsafe).
+            try
+            {
+                Color accent = config.accentColor();
+                if (accent != null)
+                {
+                    ColorUIResource accentRes = new ColorUIResource(accent);
+                    rememberOriginalUiDefaults();
+                    // Only apply+refresh when accent actually changed.
+                    if (!accent.equals(lastAccentApplied))
+                    {
+                        UIManager.put("Component.accentColor", accentRes);
+                        UIManager.put("ProgressBar.selectionForeground", accentRes);
+                        UIManager.put("ProgressBar.selectionBackground", accentRes);
+                        UIManager.put("Button.default.focusColor", accentRes);
+                        lastAccentApplied = accent;
+
+                        // Refresh UI tree to apply defaults.
+                        try
+                        {
+                            if (pluginWindow != null)
+                            {
+                                SwingUtilities.updateComponentTreeUI(pluginWindow);
+                                pluginWindow.invalidate();
+                                pluginWindow.validate();
+                                pluginWindow.repaint();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            if (loggedThemeException.compareAndSet(false, true))
+                            {
+                                log.warn("QoL: UI refresh after accent update failed", ex);
+                            }
+                        }
+                    }
+                }
+                else if (lastAccentApplied != null)
+                {
+                    // Accent cleared; restore original defaults (if we captured them) and refresh UI.
+                    restoreOriginalUiDefaultsOnly();
+                    lastAccentApplied = null;
+
+                    try
+                    {
+                        if (pluginWindow != null)
+                        {
+                            SwingUtilities.updateComponentTreeUI(pluginWindow);
+                            pluginWindow.invalidate();
+                            pluginWindow.validate();
+                            pluginWindow.repaint();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        if (loggedThemeException.compareAndSet(false, true))
+                        {
+                            log.warn("QoL: UI refresh after accent restore failed", ex);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (loggedThemeException.compareAndSet(false, true))
+                {
+                    log.warn("QoL: UI theme update failed", ex);
+                }
+            }
+
             // Set the plugin list using the retrieved plugin list panel
-            pluginList.set(getPluginList(pluginListPanel));
+            List<?> currentPluginList = getPluginList(pluginListPanel);
 
             // If the plugin list is still null, log an error and return false
-            if (pluginList.get() == null) {
+            if (currentPluginList == null) {
                 Microbot.log("Plugin list is null, waiting for it to be initialized");
                 return false;
             }
 
-            // Iterate through each plugin in the plugin list
-            for (Object plugin : pluginList.get()) {
+            // Pass 1: capture originals (before applying any changes).
+            for (Object plugin : currentPluginList)
+            {
+                try
+                {
+                    if (plugin instanceof JPanel)
+                    {
+                        for (Component component : ((JPanel) plugin).getComponents())
+                        {
+                            if (component instanceof JLabel)
+                            {
+                                JLabel label = (JLabel) component;
+                                synchronized (originalLabelColors)
+                                {
+                                    originalLabelColors.computeIfAbsent(label, l -> l.getForeground());
+                                }
+                            }
+                        }
+                    }
+
+                    JToggleButton onOffToggle = (JToggleButton) FieldUtils.readDeclaredField(plugin, "onOffToggle", true);
+                    if (onOffToggle == null)
+                    {
+                        continue;
+                    }
+                    synchronized (originalToggleIcons)
+                    {
+                        originalToggleIcons.computeIfAbsent(onOffToggle, t -> new IconState(t.getIcon(), t.getSelectedIcon()));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Best-effort: one broken row shouldn't abort the whole update.
+                    if (loggedToggleReflectionException.compareAndSet(false, true))
+                    {
+                        log.debug("QoL: reflection lookup for plugin toggle failed; UI theming may be partial.", ex);
+                    }
+                }
+            }
+
+            // Pass 2: apply theming changes.
+            final Color labelColor = config.pluginLabelColor();
+            final ImageIcon onIcon = getCachedToggleOnIcon(config.toggleButtonColor());
+            for (Object plugin : currentPluginList) {
                 // If the plugin is a JPanel, update the color of any JLabel components within it
                 if (plugin instanceof JPanel) {
                     for (Component component : ((JPanel) plugin).getComponents()) {
                         if (component instanceof JLabel) {
+                            JLabel label = (JLabel) component;
                             // Set the label color based on the config
-                            component.setForeground(config.pluginLabelColor());
+                            if (labelColor != null)
+                            {
+                                if (!labelColor.equals(label.getForeground()))
+                                {
+                                    synchronized (touchedLabels)
+                                    {
+                                        touchedLabels.add(label);
+                                    }
+                                    label.setForeground(labelColor);
+                                }
+                            }
                         }
                     }
                 }
 
                 // Get the on/off toggle button for the plugin and update its selected icon
-                JToggleButton onOffToggle = (JToggleButton) FieldUtils.readDeclaredField(plugin, "onOffToggle", true);
-                onOffToggle.setSelectedIcon(remapImage(SWITCHER_ON_IMG, config.toggleButtonColor()));
+                JToggleButton onOffToggle;
+                try
+                {
+                    onOffToggle = (JToggleButton) FieldUtils.readDeclaredField(plugin, "onOffToggle", true);
+                    if (onOffToggle == null)
+                    {
+                        continue;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    continue;
+                }
+                // Only recolor the "ON" (selected) icon. Do not overwrite the "OFF" icon,
+                // otherwise disabled plugins will also appear enabled.
+                Icon offIcon = onOffToggle.getIcon();
+                if (onIcon == null)
+                {
+                    if (loggedMissingSwitcherOn.compareAndSet(false, true))
+                    {
+                        log.warn("QoL: missing ConfigPanel switcher_on.png; leaving plugin toggle icons unchanged.");
+                    }
+                    continue;
+                }
+                onOffToggle.setSelectedIcon(onIcon);
+                if (offIcon != null) {
+                    onOffToggle.setIcon(offIcon);
+                } else if (SWITCHER_OFF_IMG != null) {
+                    // Fallback: ensure OFF icon is distinct if missing.
+                    onOffToggle.setIcon(new ImageIcon(SWITCHER_OFF_IMG));
+                } else {
+                    if (loggedMissingSwitcherOff.compareAndSet(false, true))
+                    {
+                        log.warn("QoL: missing ConfigPanel switcher_off.png; OFF icon fallback unavailable.");
+                    }
+                }
             }
 
             return true;
         } catch (Exception e) {
             // Log any exceptions that occur during the UI update process
             String errorMessage = "QoL Error updating UI elements: " + e.getMessage();
-            log.error(errorMessage);
+            log.error(errorMessage, e);
             Microbot.log(errorMessage);
             return false;
         }
+    }
+
+    private static ImageIcon getCachedToggleOnIcon(Color toggleColor)
+    {
+        if (SWITCHER_ON_IMG == null)
+        {
+            return null;
+        }
+
+        if (toggleColor == null)
+        {
+            lastToggleColorApplied = null;
+            lastToggleOnIcon = null;
+            return null;
+        }
+
+        if (!toggleColor.equals(lastToggleColorApplied) || lastToggleOnIcon == null)
+        {
+            lastToggleOnIcon = remapImage(SWITCHER_ON_IMG, toggleColor);
+            lastToggleColorApplied = toggleColor;
+        }
+
+        return lastToggleOnIcon;
+    }
+
+    private static final class IconState
+    {
+        private final Icon icon;
+        private final Icon selectedIcon;
+
+        private IconState(Icon icon, Icon selectedIcon)
+        {
+            this.icon = icon;
+            this.selectedIcon = selectedIcon;
+        }
+    }
+
+    private static void rememberOriginalUiDefaults()
+    {
+        synchronized (originalUiManagerValues)
+        {
+            if (!originalUiManagerValues.isEmpty())
+            {
+                return;
+            }
+
+            for (String k : UI_KEYS_TO_PATCH)
+            {
+                Object v = UIManager.get(k);
+                originalUiManagerValues.put(k, v);
+                if (v == null && !UIManager.getDefaults().containsKey(k) && loggedMissingUiManagerKey.compareAndSet(false, true))
+                {
+                    log.debug("QoL: UIManager key '{}' not present in defaults; accent patch may be FlatLaf-version dependent.", k);
+                }
+            }
+        }
+    }
+
+    private static void restoreOriginalUiDefaultsOnly()
+    {
+        synchronized (originalUiManagerValues)
+        {
+            if (originalUiManagerValues.isEmpty())
+            {
+                return;
+            }
+
+            for (String k : UI_KEYS_TO_PATCH)
+            {
+                UIManager.put(k, originalUiManagerValues.get(k));
+            }
+        }
+    }
+
+    private static void queueRestoreUiElements()
+    {
+        if (!uiRestoreQueued.compareAndSet(false, true))
+        {
+            return;
+        }
+
+        SwingUtilities.invokeLater(() ->
+        {
+            try
+            {
+                restoreUiElements();
+            }
+            finally
+            {
+                uiRestoreQueued.set(false);
+            }
+        });
+    }
+
+    private static void restoreUiElements()
+    {
+        if (!SwingUtilities.isEventDispatchThread())
+        {
+            log.warn("QoL: restoreUiElements called off-EDT; skipping.");
+            return;
+        }
+
+        // Restore UIManager defaults.
+        synchronized (originalUiManagerValues)
+        {
+            if (!originalUiManagerValues.isEmpty())
+            {
+                for (String k : UI_KEYS_TO_PATCH)
+                {
+                    UIManager.put(k, originalUiManagerValues.get(k));
+                }
+            }
+        }
+
+        // Restore per-component UI state (best-effort; components may be gone/rebuilt).
+        synchronized (originalToggleIcons)
+        {
+            for (Map.Entry<JToggleButton, IconState> e : originalToggleIcons.entrySet())
+            {
+                JToggleButton t = e.getKey();
+                IconState s = e.getValue();
+                if (t != null && s != null)
+                {
+                    t.setIcon(s.icon);
+                    t.setSelectedIcon(s.selectedIcon);
+                }
+            }
+        }
+
+        synchronized (originalLabelColors)
+        {
+            for (Map.Entry<JLabel, Color> e : originalLabelColors.entrySet())
+            {
+                JLabel l = e.getKey();
+                boolean touched;
+                synchronized (touchedLabels)
+                {
+                    touched = touchedLabels.contains(l);
+                }
+                if (l != null && touched)
+                {
+                    l.setForeground(e.getValue());
+                }
+            }
+        }
+
+        // Refresh UI tree to apply restored defaults.
+        try
+        {
+            QoLPlugin self = selfRef.get();
+            MicrobotPlugin microbotPlugin = microbotPluginRef.get();
+            if (self != null && microbotPlugin != null)
+            {
+                JPanel pluginListPanel = self.getPluginListPanel(microbotPlugin);
+                Window w = SwingUtilities.getWindowAncestor(pluginListPanel);
+                if (w != null)
+                {
+                    SwingUtilities.updateComponentTreeUI(w);
+                    w.invalidate();
+                    w.validate();
+                    w.repaint();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (loggedRestoreException.compareAndSet(false, true))
+            {
+                log.warn("QoL: UI restore refresh failed", ex);
+            }
+        }
+
+        // Clear caches so re-enable re-captures fresh state.
+        synchronized (originalToggleIcons)
+        {
+            originalToggleIcons.clear();
+        }
+        synchronized (originalLabelColors)
+        {
+            originalLabelColors.clear();
+        }
+        synchronized (touchedLabels)
+        {
+            touchedLabels.clear();
+        }
+        // Intentionally keep captured defaults for plugin lifetime so we can restore later.
+        lastAccentApplied = null;
+        lastToggleColorApplied = null;
+        lastToggleOnIcon = null;
+        lastWindowPatched = null;
+
+        // If an update was requested while restore was in-progress, run it now.
+        if (uiUpdatePendingAfterRestore.compareAndSet(true, false))
+        {
+            queueUpdateUiElements();
+        }
+    }
+
+    private static boolean queueUpdateUiElements()
+    {
+        // Don't interleave apply with restore.
+        if (uiRestoreQueued.get())
+        {
+            uiUpdatePendingAfterRestore.set(true);
+            return false;
+        }
+
+        // Prevent re-entrant scheduling during layout/validate cascades.
+        if (!uiUpdateQueued.compareAndSet(false, true))
+        {
+            return selfRef.get() != null;
+        }
+
+        SwingUtilities.invokeLater(() ->
+        {
+            try
+            {
+                QoLPlugin self = selfRef.get();
+                if (self != null)
+                {
+                    self.updateUiElements();
+                }
+            }
+            finally
+            {
+                uiUpdateQueued.set(false);
+            }
+        });
+
+        return true;
+    }
+
+    private static boolean queueUpdateUiElementsDuringSplash()
+    {
+        // Prevent repeated enqueue spam while waiting for splash to close.
+        if (!uiQueuedDuringSplash.compareAndSet(false, true))
+        {
+            return false;
+        }
+        return queueUpdateUiElements();
     }
 
 
     private JPanel getPluginListPanel(MicrobotPlugin microbotPlugin) throws ClassNotFoundException {
 
         Class<?> pluginListPanelClass = Class.forName("net.runelite.client.plugins.microbot.ui.MicrobotPluginListPanel");
-        assert microbotPlugin != null;
+        if (microbotPlugin == null)
+        {
+            throw new IllegalStateException("MicrobotPlugin instance is null");
+        }
         return (JPanel) microbotPlugin.getInjector().getProvider(pluginListPanelClass).get();
     }
 

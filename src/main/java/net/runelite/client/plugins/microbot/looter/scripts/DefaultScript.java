@@ -50,6 +50,10 @@ public class DefaultScript extends Script {
 
                 switch (state) {
                     case LOOTING:
+                        // Walker may still be carrying us back (post-bank or post-stray).
+                        // Scanning from the wrong tile would trip the world-hop counter.
+                        if (isAwayFromBase(config)) return;
+
                         if (config.worldHop()) {
                             if (config.looterStyle() == DefaultLooterStyle.ITEM_LIST) {
                                 lootExists = Arrays.stream(config.listOfItemsToLoot().trim().split(","))
@@ -129,7 +133,12 @@ public class DefaultScript extends Script {
                         break;
 
                     case BANKING:
+                        // Stay in BANKING until the bank trip is fully complete: items deposited
+                        // AND we're back at the loot spot. Flipping to LOOTING mid-walk-back
+                        // would let the loot scan run from the bank tile.
                         if (Rs2Inventory.emptySlotCount() <= config.minFreeSlots()) return;
+                        if (isAwayFromBase(config)) return;
+                        failedLootAttempts = 0;
                         state = LooterState.LOOTING;
                         break;
                 }
@@ -182,6 +191,12 @@ public class DefaultScript extends Script {
             }
         }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    private boolean isAwayFromBase(AutoLooterConfig config) {
+        return initialPlayerLocation == null
+                || Rs2Player.isMoving()
+                || Rs2Player.getWorldLocation().distanceTo(initialPlayerLocation) > config.distanceToStray();
     }
 
     private void applyAntiBanSettings() {

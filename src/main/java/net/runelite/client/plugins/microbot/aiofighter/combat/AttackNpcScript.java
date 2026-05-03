@@ -4,6 +4,8 @@ import lombok.SneakyThrows;
 import net.runelite.api.Actor;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
+import net.runelite.api.WorldView;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -135,14 +137,18 @@ public class AttackNpcScript extends Script {
                 final int attackRadius = config.attackRadius();
                 final boolean requireReachable = config.attackReachableNpcs();
                 final Rs2WorldPoint rs2PlayerPoint = Rs2Player.getRs2WorldPoint();
+                // Inside an instance, npc.getWorldLocation() returns the instance-side coord
+                // (high-corner template region), but centerLocation/centre-tile and
+                // Rs2Player.getWorldLocation() are template/overworld coords. Convert via the
+                // npc's scene-local point so both sides of the radius/path checks match.
+                final WorldView worldView = Microbot.getClient().getTopLevelWorldView();
+                final boolean instanced = worldView != null && worldView.getScene().isInstance();
 
                 List<Rs2NpcModel> attackableNpcs = Microbot.getRs2NpcCache().query()
                         .where(npc -> npc.getCombatLevel() > 0 && !npc.isDead())
                         .where(npc -> !npc.isInteracting() || Objects.equals(npc.getInteracting(), localPlayer))
                         .where(npc -> {
-                            // Single getWorldLocation() call combines the radius and reachable filters
-                            // (each model access is a client-thread invoke; one fetch per NPC per tick).
-                            WorldPoint loc = npc.getWorldLocation();
+                            WorldPoint loc = npcWorldLocation(npc, instanced);
                             if (loc == null) return false;
                             if (loc.distanceTo(centerLocation) > attackRadius) return false;
                             return !requireReachable || rs2PlayerPoint.distanceToPath(loc) < Integer.MAX_VALUE;
@@ -155,7 +161,7 @@ public class AttackNpcScript extends Script {
                         .stream()
                         .sorted(Comparator
                                 .comparingInt((Rs2NpcModel npc) -> Objects.equals(npc.getInteracting(), localPlayer) ? 0 : 1)
-                                .thenComparingInt(npc -> rs2PlayerPoint.distanceToPath(npc.getWorldLocation())))
+                                .thenComparingInt(npc -> rs2PlayerPoint.distanceToPath(npcWorldLocation(npc, instanced))))
                         .collect(Collectors.toList());
 
                 filteredAttackableNpcs.set(attackableNpcs);
@@ -332,6 +338,23 @@ public class AttackNpcScript extends Script {
                     return name != null && name.contains("Reanimated");
                 })
                 .first();
+    }
+
+    /**
+     * Returns the npc's world location in the same coordinate space as
+     * {@code config.centerLocation()} / {@code Rs2Player.getWorldLocation()}.
+     * Inside an instance the raw {@code npc.getWorldLocation()} reports the
+     * instance-side coord (high-corner template region) while the centre tile
+     * is stored as a template/overworld coord, so distances would never match.
+     */
+    private static WorldPoint npcWorldLocation(Rs2NpcModel npc, boolean instanced) {
+        if (instanced) {
+            LocalPoint lp = npc.getLocalLocation();
+            if (lp != null) {
+                return WorldPoint.fromLocalInstance(Microbot.getClient(), lp);
+            }
+        }
+        return npc.getWorldLocation();
     }
 
     @Override

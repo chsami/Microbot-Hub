@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.actionreplay;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.MenuAction;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -15,6 +16,7 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.Rectangle;
@@ -140,8 +142,9 @@ public class ActionReplayScript extends Script
 				return replayGameObject(a);
 			case GROUND_ITEM:
 				return replayGroundItem(a);
-			case WIDGET:
 			case WALK:
+				return replayWalk(a);
+			case WIDGET:
 			case PLAYER:
 			case UNKNOWN:
 			default:
@@ -182,6 +185,12 @@ Rs2TileObjectModel match = Microbot.getRs2TileObjectCache().query()
 			return false;
 		}
 		return match.click(a.getMenuOption());
+	}
+
+	private boolean replayWalk(RecordedAction a)
+	{
+		WorldPoint dest = new WorldPoint(a.getTargetX(), a.getTargetY(), a.getTargetPlane());
+		return Rs2Walker.walkTo(dest);
 	}
 
 	private boolean replayGroundItem(RecordedAction a)

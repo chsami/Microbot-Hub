@@ -5,7 +5,10 @@ import com.google.gson.GsonBuilder;
 import com.google.inject.Provides;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.MenuAction;
 import net.runelite.api.Point;
+import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.client.config.ConfigManager;
@@ -78,6 +81,8 @@ public class ActionReplayPlugin extends Plugin
 	private boolean appendingToExisting;
 	private int gameTickCounter;
 	private int lastActionTickCounter;
+	private MenuAction lastMenuAction;
+	private WorldPoint lastSeenDestination;
 
 	private ActionReplayPanel panel;
 	private NavigationButton navButton;
@@ -130,9 +135,50 @@ public class ActionReplayPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
-		if (recording)
+		if (!recording)
 		{
-			gameTickCounter++;
+			return;
+		}
+		gameTickCounter++;
+		WorldPoint dest = currentDestination();
+		if ((lastMenuAction == MenuAction.WALK || lastMenuAction == MenuAction.CANCEL)
+			&& dest != null
+			&& !java.util.Objects.equals(dest, lastSeenDestination))
+		{
+			lastMenuAction = null;
+			addWalkAction(dest);
+		}
+		lastSeenDestination = dest;
+	}
+
+	private WorldPoint currentDestination()
+	{
+		LocalPoint local = Microbot.getClient().getLocalDestinationLocation();
+		return local != null ? WorldPoint.fromLocalInstance(Microbot.getClient(), local) : null;
+	}
+
+	private void addWalkAction(WorldPoint dest)
+	{
+		Recording rec = currentRecording;
+		if (rec == null)
+		{
+			return;
+		}
+		int tickDelta = rec.size() == 0 ? 0 : Math.max(0, gameTickCounter - lastActionTickCounter);
+		lastActionTickCounter = gameTickCounter;
+		RecordedAction a = new RecordedAction();
+		a.setDelayTicksBefore(tickDelta);
+		a.setMenuOption("Walk to");
+		a.setTargetName("(" + dest.getX() + ", " + dest.getY() + ", " + dest.getPlane() + ")");
+		a.setMenuAction("WALK");
+		a.setTargetType(TargetType.WALK);
+		a.setTargetX(dest.getX());
+		a.setTargetY(dest.getY());
+		a.setTargetPlane(dest.getPlane());
+		rec.getActions().add(a);
+		if (panel != null)
+		{
+			panel.onActionRecorded(a);
 		}
 	}
 
@@ -144,6 +190,12 @@ public class ActionReplayPlugin extends Plugin
 		{
 			return;
 		}
+		MenuAction action = e.getMenuAction();
+		lastMenuAction = action;
+		if (action == MenuAction.WALK || action == MenuAction.CANCEL)
+		{
+			return;
+		}
 
 		int tickDelta = rec.size() == 0 ? 0 : Math.max(0, gameTickCounter - lastActionTickCounter);
 		lastActionTickCounter = gameTickCounter;
@@ -152,8 +204,8 @@ public class ActionReplayPlugin extends Plugin
 		a.setDelayTicksBefore(tickDelta);
 		a.setMenuOption(stripColorTags(e.getMenuOption()));
 		a.setTargetName(cleanTarget(e.getMenuTarget()));
-		a.setMenuAction(e.getMenuAction() == null ? null : e.getMenuAction().name());
-		a.setTargetType(TargetType.fromMenuAction(e.getMenuAction()));
+		a.setMenuAction(action == null ? null : action.name());
+		a.setTargetType(TargetType.fromMenuAction(action));
 		a.setIdentifier(e.getId());
 		a.setParam0(e.getParam0());
 		a.setParam1(e.getParam1());
@@ -195,6 +247,8 @@ public class ActionReplayPlugin extends Plugin
 		}
 		gameTickCounter = 0;
 		lastActionTickCounter = 0;
+		lastMenuAction = null;
+		lastSeenDestination = currentDestination();
 		recording = true;
 	}
 
