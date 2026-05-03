@@ -2354,17 +2354,14 @@ public class MKE_WintertodtScript extends Script {
             
             /* ---------- PRIORITY BLOCK 1: FIX BROKEN BRAZIER FIRST ----------- */
             if (gameState.brokenBrazier != null && config.fixBrazier()) {
-
-                sleepGaussian(200, 150);
-
                 // Stop fletching temporarily to fix brazier
                 if (fletchingState.isActive()) {
                     fletchingState.stopFletching(FletchingInterruptType.BRAZIER_BROKEN);
                 }
-                
+
                 // Deselect any items before fixing
                 deselectSelectedItem();
-                
+
                 gameState.brokenBrazier.click("fix");
                 Microbot.log("Fixing broken brazier (priority during fletching)");
                 resetActions = true;
@@ -2374,19 +2371,16 @@ public class MKE_WintertodtScript extends Script {
             /* ----------------------------------------------------------------- */
 
             /* ---------- PRIORITY BLOCK 2: RELIGHT BRAZIER SECOND ------------ */
-            if (gameState.burningBrazier == null && gameState.brazier != null && 
+            if (gameState.burningBrazier == null && gameState.brazier != null &&
                 config.relightBrazier() && gameState.isWintertodtAlive) {
-
-                sleepGaussian(200, 150);
-                
                 // Stop fletching temporarily to relight brazier
                 if (fletchingState.isActive()) {
                     fletchingState.stopFletching(FletchingInterruptType.BRAZIER_WENT_OUT);
                 }
-                
+
                 // Deselect any items before relighting
                 deselectSelectedItem();
-                
+
                 gameState.brazier.click("light");
                 Microbot.log("Relighting brazier (priority during fletching)");
                 resetActions = true;
@@ -2532,8 +2526,6 @@ public class MKE_WintertodtScript extends Script {
             
             /* ---------- PRIORITY BLOCK 1: FIX BROKEN BRAZIER FIRST ----------- */
             if (gameState.brokenBrazier != null && config.fixBrazier()) {
-                sleepGaussian(200, 150);
-
                 // Stop feeding temporarily to fix brazier
                 if (feedingState.isActive()) {
                     feedingState.stopFeeding(FeedingInterruptType.BRAZIER_BROKEN);
@@ -2549,16 +2541,13 @@ public class MKE_WintertodtScript extends Script {
 
             /* ---------- PRIORITY BLOCK 2: RELIGHT BRAZIER SECOND ------------ */
             Rs2TileObjectModel burningBrazier = gameState.burningBrazier;  // side-specific
-            if (burningBrazier == null && gameState.brazier != null && 
+            if (burningBrazier == null && gameState.brazier != null &&
                 config.relightBrazier() && gameState.isWintertodtAlive) {
-
-                sleepGaussian(200, 150);
-                
                 // Stop feeding temporarily to relight brazier
                 if (feedingState.isActive()) {
                     feedingState.stopFeeding(FeedingInterruptType.BRAZIER_WENT_OUT);
                 }
-                
+
                 gameState.brazier.click("light");
                 Microbot.log("Relighting brazier");
                 resetActions = true;
@@ -3164,7 +3153,6 @@ public class MKE_WintertodtScript extends Script {
                 feedingState.stopFeeding(FeedingInterruptType.BRAZIER_BROKEN);
             }
             deselectSelectedItem();
-            sleepGaussian(200, 150);
             gameState.brokenBrazier.click("fix");
             Microbot.log("Fixing broken brazier (priority)");
             resetActions = true;
@@ -3181,7 +3169,6 @@ public class MKE_WintertodtScript extends Script {
                 feedingState.stopFeeding(FeedingInterruptType.BRAZIER_WENT_OUT);
             }
             deselectSelectedItem();
-            sleepGaussian(200, 150);
             gameState.brazier.click("light");
             Microbot.log("Relighting brazier (priority)");
             resetActions = true;
