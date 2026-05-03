@@ -193,7 +193,7 @@
             "firemaking",
             "minigame"
         ],
-        "version": "2.1.3",
+        "version": "2.2.0",
         "minClientVersion": "1.9.7",
         "authors": [
             "Make"
@@ -201,8 +201,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MKE_WintertodtPlugin/assets/card.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MKE_WintertodtPlugin/assets/card.png",
         "disable": false,
-        "sha256": "5003090c1797068e5213f3f6e606d9115798324f20e8d4a837a86e4b86511715",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mke_wintertodtplugin-2.1.3.jar"
+        "sha256": "330fbb31a814a56ebe45808828e717bc959b53e8174fe856731c2e4a48d2bab8",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mke_wintertodtplugin-2.2.0.jar"
     },
     {
         "internalName": "BlueDragonsPlugin",
@@ -690,7 +690,7 @@
             "QoL",
             "microbot"
         ],
-        "version": "1.8.12",
+        "version": "1.8.13",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -698,8 +698,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "e7935f5aaee920c2b6da3d583a0f3dfcecd8dda42fa9c5e001491f4d83ef513b",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.12.jar"
+        "sha256": "b20eaeb79ee2f3c2c0561d9b41ef1767a25882bf5f29a1cdd2a120191c5acbfe",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.13.jar"
     },
     {
         "internalName": "PumperPlugin",
@@ -847,7 +847,7 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.1.6",
+        "version": "2.1.7",
         "minClientVersion": "2.1.32",
         "authors": [
             "Mocrosoft",
@@ -856,8 +856,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "034f74eb9e2edb20215bbf2e4db40c569fa332f8c62e03052d0e501318655489",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.1.6.jar"
+        "sha256": "2d09b35f94d90f2f554edd11f845e2ccb61f4398f520f0ebb05e5f39f75bf778",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.1.7.jar"
     },
     {
         "internalName": "MageTrainingArenaPlugin",
@@ -1276,7 +1276,7 @@
             "combat",
             "microbot"
         ],
-        "version": "1.0.3",
+        "version": "1.0.4",
         "minClientVersion": "2.0.14",
         "authors": [
             "The Funk"
@@ -1284,8 +1284,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/card.png",
         "disable": false,
-        "sha256": "22782411fbc9e042ac90612e16a3cf7008578bff29162c19f4243870d8b89175",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/moonsofperilplugin-1.0.3.jar"
+        "sha256": "1a2916553cd936ba0741b324ed1e0027054fa1129fb016c50990ce5783f9af9a",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/moonsofperilplugin-1.0.4.jar"
     },
     {
         "internalName": "npcTannerPlugin",
@@ -1324,7 +1324,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "015392292b7069f698d934c43ac3c76bf41013fddc70877607f66a6b8514541a",
+        "sha256": "caeecd32b81a40861d54ad3d12bf64820a99b9cf65f930207d1c806dd3f50e91",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/craftingplugin-1.0.1.jar"
     },
     {
@@ -1435,7 +1435,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/ActionReplayPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ActionReplayPlugin/assets/card.png",
         "disable": false,
-        "sha256": "96fbcb022c82e52407662ecba0d2e2268da8f84cd04c718dee4ee8e17a25764a",
+        "sha256": "37dbdfcbc04a476d7fd9f785a82ad19f5308956238a8e296ca99cba281ba04a7",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/actionreplayplugin-1.1.0.jar"
     },
     {
@@ -2154,6 +2154,27 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sulphurnaguaplugin-2.0.1.jar"
     },
     {
+        "internalName": "KrakenPlugin",
+        "name": "Kraken",
+        "description": "AFK Kraken boss: disturbs whirlpools, auto-fights, loots.",
+        "tags": [
+            "kraken",
+            "boss",
+            "slayer",
+            "afk"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.0.13",
+        "authors": [
+            "Pert"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "98cbd44c7afc0648476b30c0e561de66cb42a9ba1a32e59cd62eebf623c50e4d",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/krakenplugin-1.0.0.jar"
+    },
+    {
         "internalName": "FarmTreeRunPlugin",
         "name": "Farm tree runner",
         "description": "Acun's farm tree runner. Supports regular, fruit and hardwood trees",
@@ -2468,6 +2489,30 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/bonestobananasplugin-1.0.1.jar"
     },
     {
+        "internalName": "SisyphusInfernalPactPlugin",
+        "name": "<html>[<font color=#ff4c4c>SIS</font>] ",
+        "description": "Automates Yama's stepping-stone circuit \u2014 avoids fire, loops the route, spam-clicks safe stones.",
+        "tags": [
+            "leagues",
+            "sisyphus",
+            "yama",
+            "demonic",
+            "pacts",
+            "infernal",
+            "stepping stones"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.0.13",
+        "authors": [
+            "Sisyphus"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "d326ccc58997f44c0f4a117e1b5ef2b01bcf7fd5c2365fadd5a237f60aa0a10b",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sisyphusinfernalpactplugin-1.0.0.jar"
+    },
+    {
         "internalName": "ValeTotemPlugin",
         "name": "Vale Totems",
         "description": "Automated Vale Totems minigame bot with advanced optimizations",
@@ -2744,7 +2789,7 @@
             "looter",
             "microbot"
         ],
-        "version": "1.1.2",
+        "version": "1.1.3",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -2752,8 +2797,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "0d523c7f820ae33fe89ae69c38aa028b01075a695da39868bf281c6e6f9d63a8",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autolooterplugin-1.1.2.jar"
+        "sha256": "164958af146176cba785e62ef991722e89af7e6ce4ac07f8196985f9ad880795",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autolooterplugin-1.1.3.jar"
     },
     {
         "internalName": "GabulhasGlassMakePlugin",
