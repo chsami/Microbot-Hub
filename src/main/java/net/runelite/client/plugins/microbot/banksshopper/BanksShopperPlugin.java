@@ -4,6 +4,7 @@ import com.google.inject.Provides;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -74,6 +75,18 @@ public class BanksShopperPlugin extends Plugin {
     private boolean blastFurnaceOptimization;
     @Getter
     private boolean useKeyboardWorldHop;
+    @Getter
+    private boolean unlimitedStock;
+    @Getter
+    private boolean fastMode;
+    @Getter
+    private String bankName;
+    @Getter
+    private boolean useGameObject;
+    @Getter
+    private String shopAction;
+    @Getter
+    private WorldPoint shopLocation;
 
     @Override
     protected void startUp() throws AWTException {
@@ -87,6 +100,12 @@ public class BanksShopperPlugin extends Plugin {
         useNextWorld = config.useNextWorld();
         blastFurnaceOptimization = config.blastFurnaceOptimization();
         useKeyboardWorldHop = config.useKeyboardWorldHop();
+        unlimitedStock = config.unlimitedStock();
+        fastMode = config.fastMode();
+        bankName = config.bankName();
+        useGameObject = config.useGameObject();
+        shopAction = config.shopAction();
+        updateShopLocation();
         updateItemList(config.itemNames());
 
         if (overlayManager != null) {
@@ -154,6 +173,32 @@ public class BanksShopperPlugin extends Plugin {
             useKeyboardWorldHop = config.useKeyboardWorldHop();
         }
 
+        if (event.getKey().equals(BanksShopperConfig.unlimitedStock)) {
+            unlimitedStock = config.unlimitedStock();
+        }
+
+        if (event.getKey().equals(BanksShopperConfig.fastMode)) {
+            fastMode = config.fastMode();
+        }
+
+        if (event.getKey().equals(BanksShopperConfig.bankName)) {
+            bankName = config.bankName();
+        }
+
+        if (event.getKey().equals(BanksShopperConfig.useGameObject)) {
+            useGameObject = config.useGameObject();
+        }
+
+        if (event.getKey().equals(BanksShopperConfig.shopAction)) {
+            shopAction = config.shopAction();
+        }
+
+        if (event.getKey().equals(BanksShopperConfig.shopX)
+                || event.getKey().equals(BanksShopperConfig.shopY)
+                || event.getKey().equals(BanksShopperConfig.shopZ)) {
+            updateShopLocation();
+        }
+
         if (event.getKey().equals(BanksShopperConfig.itemNames)) {
             updateItemList(config.itemNames());
         }
@@ -170,5 +215,12 @@ public class BanksShopperPlugin extends Plugin {
         } else {
             itemNames = Collections.singletonList(items.trim().toLowerCase());
         }
+    }
+
+    private void updateShopLocation() {
+        int x = config.shopX();
+        int y = config.shopY();
+        int z = config.shopZ();
+        shopLocation = (x > 0 && y > 0) ? new WorldPoint(x, y, z) : null;
     }
 }

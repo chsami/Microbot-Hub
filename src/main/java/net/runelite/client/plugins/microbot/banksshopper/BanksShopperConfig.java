@@ -13,6 +13,9 @@ import net.runelite.client.config.*;
                 "<li>Hop to the next world for better stock.</li>" +
                 "<li>Specify items to trade and maintain minimum stock.</li>" +
                 "<li>Trade with specific NPCs using exact naming if needed.</li>" +
+                "<li>Unlimited Stock mode: loops buying until full, then banks (no hopping).</li>" +
+                "<li>Fast Mode: skips closing bank/shop interfaces for faster cycles.</li>" +
+                "<li>Set shop coordinates for precise walk-back after banking.</li>" +
                 "</ul>"
 )
 public interface BanksShopperConfig extends Config {
@@ -28,6 +31,14 @@ public interface BanksShopperConfig extends Config {
     String useNextWorld = "useNextWorld";
         String blastFurnaceOptimization = "blastFurnaceOptimization";
         String useKeyboardWorldHop = "useKeyboardWorldHop";
+        String unlimitedStock = "unlimitedStock";
+        String fastMode = "fastMode";
+        String bankName = "bankName";
+        String shopX = "shopX";
+        String shopY = "shopY";
+        String shopZ = "shopZ";
+        String useGameObject = "useGameObject";
+        String shopAction = "shopAction";
 
     @ConfigSection(
             name = "Action Settings",
@@ -130,6 +141,28 @@ public interface BanksShopperConfig extends Config {
                 return false;
         }
 
+        @ConfigItem(
+                        position = 7,
+                        keyName = unlimitedStock,
+                        name = "Unlimited Stock",
+                        description = "Shop has unlimited stock - keep buying until inventory is full, then bank (no world hopping)",
+                        section = actionSection
+        )
+        default boolean unlimitedStock() {
+                return false;
+        }
+
+        @ConfigItem(
+                        position = 8,
+                        keyName = fastMode,
+                        name = "Fast Mode",
+                        description = "Don't close bank/shop interfaces - interact directly with bank object and shop NPC by name",
+                        section = actionSection
+        )
+        default boolean fastMode() {
+                return false;
+        }
+
     @ConfigItem(
             keyName = itemNames,
             name = "Item Name(s)/ID(s)",
@@ -156,8 +189,8 @@ public interface BanksShopperConfig extends Config {
 
     @ConfigItem(
             keyName = npcName,
-            name = "NPC Name",
-            description = "Name of the NPC to trade with",
+            name = "NPC/Object Name",
+            description = "Name of the NPC or Game Object to trade with (e.g., Shop keeper, Culinaromancer's chest)",
             position = 0,
             section = shopSection
     )
@@ -175,5 +208,71 @@ public interface BanksShopperConfig extends Config {
     )
     default boolean useExactNaming() {
         return true;
+    }
+
+    @ConfigItem(
+            position = 2,
+            keyName = useGameObject,
+            name = "Shop is a Game Object",
+            description = "Enable if the shop is a Game Object instead of an NPC (e.g., Culinaromancer's chest)",
+            section = shopSection
+    )
+    default boolean useGameObject() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = shopAction,
+            name = "Shop Action",
+            description = "Action to open the shop (e.g., Trade, Buy-food, Buy-items)",
+            position = 3,
+            section = shopSection
+    )
+    default String shopAction() {
+        return "Trade";
+    }
+
+    @ConfigItem(
+            keyName = bankName,
+            name = "Bank Object/NPC Name",
+            description = "Name of the bank booth, chest, or NPC to interact with in Fast Mode (e.g., Bank chest, Bank booth)",
+            position = 2,
+            section = shopSection
+    )
+    default String bankName() {
+        return "Bank chest";
+    }
+
+    @ConfigItem(
+            keyName = shopX,
+            name = "Shop X",
+            description = "X coordinate of the shop location (0 to use current position)",
+            position = 3,
+            section = shopSection
+    )
+    default int shopX() {
+        return 0;
+    }
+
+    @ConfigItem(
+            keyName = shopY,
+            name = "Shop Y",
+            description = "Y coordinate of the shop location (0 to use current position)",
+            position = 4,
+            section = shopSection
+    )
+    default int shopY() {
+        return 0;
+    }
+
+    @ConfigItem(
+            keyName = shopZ,
+            name = "Shop Plane",
+            description = "Plane/floor of the shop location (usually 0)",
+            position = 5,
+            section = shopSection
+    )
+    default int shopZ() {
+        return 0;
     }
 }

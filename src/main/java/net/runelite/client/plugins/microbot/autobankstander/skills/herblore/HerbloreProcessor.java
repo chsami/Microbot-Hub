@@ -135,6 +135,9 @@ public class HerbloreProcessor implements BankStandingProcessor {
             return false;
         }
         
+        // Reset processing flag from previous cycle
+        currentlyMakingPotions = false;
+        
         log.info("Depositing all items");
         Rs2Bank.depositAll();
         sleepUntil(() -> Rs2Inventory.isEmpty(), 3000);
@@ -347,9 +350,9 @@ public class HerbloreProcessor implements BankStandingProcessor {
         if (Rs2Inventory.hasItem(currentHerbForUnfinished.clean) && Rs2Inventory.hasItem(ItemID.VIAL_WATER)) {
             log.info("Combining {} with vial of water", currentHerbForUnfinished.name());
             
-            sleep(400, 600);
+            sleep(400, 550);
             if (Rs2Inventory.combine(currentHerbForUnfinished.clean, ItemID.VIAL_WATER)) {
-                sleep(600, 800);
+              sleep(250, 350);
                 if (withdrawnAmount > 1) {
                     sleepUntil(() -> Rs2Dialogue.hasCombinationDialogue(), 3000);
                     Rs2Keyboard.keyPress('1');
@@ -379,8 +382,9 @@ public class HerbloreProcessor implements BankStandingProcessor {
         if (Rs2Inventory.hasItem(ItemID.TORSTOL) && Rs2Inventory.hasItem(ItemID._4DOSE2ATTACK)) {
             log.info("Combining torstol with super attack for super combat");
             
+            sleep(400, 550);
             if (Rs2Inventory.combine(ItemID.TORSTOL, ItemID._4DOSE2ATTACK)) {
-                sleep(600, 800);
+              sleep(250, 350);
                 if (withdrawnAmount > 1) {
                     sleepUntil(() -> Rs2Dialogue.hasQuestion("How many do you wish to make?"), 3000);
                     Rs2Keyboard.keyPress('1');
@@ -397,8 +401,9 @@ public class HerbloreProcessor implements BankStandingProcessor {
         if (Rs2Inventory.hasItem(currentPotion.unfinished) && Rs2Inventory.hasItem(currentPotion.secondary)) {
             log.info("Combining {} unfinished with secondary ingredient", currentPotion.name());
             
+            sleep(400, 550);
             if (Rs2Inventory.combine(currentPotion.unfinished, currentPotion.secondary)) {
-                sleep(600, 800);
+                sleep(250, 350);
                 if (withdrawnAmount > 1) {
                     sleepUntil(() -> Rs2Dialogue.hasQuestion("How many do you wish to make?"), 3000);
                     Rs2Keyboard.keyPress('1');

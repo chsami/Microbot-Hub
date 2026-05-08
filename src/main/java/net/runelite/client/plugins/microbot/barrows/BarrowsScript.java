@@ -1191,6 +1191,7 @@ public class BarrowsScript extends Script {
                 sleepUntil(() -> !Rs2Player.isAnimating(), Rs2Random.between(6000, 10000));
             }
         }
+        return false;
     }
     public void disablePrayer(){
         if(Rs2Random.between(0,100) >= Rs2Random.between(0,2)) {

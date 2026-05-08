@@ -1,17 +1,22 @@
 package net.runelite.client.plugins.microbot.banksshopper;
 
 import net.runelite.api.GameState;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
+import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
+import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.shop.Rs2Shop;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.event.KeyEvent;
@@ -30,6 +35,18 @@ public class BanksShopperScript extends Script {
 
     public BanksShopperScript(final BanksShopperPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Opens the shop - handles both NPC shops and game object shops (e.g., Culinaromancer's chest).
+     */
+    private boolean openShopInterface() {
+        if (Rs2Shop.isOpen()) return true;
+        if (plugin.isUseGameObject()) {
+            return Rs2GameObject.interact(plugin.getNpcName(), plugin.getShopAction());
+        } else {
+            return Rs2Shop.openShop(plugin.getNpcName(), plugin.isUseExactNaming());
+        }
     }
 
     public boolean run(BanksShopperConfig config) {
@@ -67,7 +84,7 @@ public class BanksShopperScript extends Script {
                             return;
                         }
 
-                        sleepUntil(() -> Rs2Shop.openShop(plugin.getNpcName(), plugin.isUseExactNaming()), 5000);
+                        sleepUntil(this::openShopInterface, 5000);
 
                         boolean successfullAction = false;
                         boolean outOfStock = false;
@@ -86,18 +103,38 @@ public class BanksShopperScript extends Script {
                                                     plugin.getMinStock());
                                             if (outOfStock)
                                                 continue;
-                                            successfullAction = processBuyAction(Integer.parseInt(itemName),
-                                                    plugin.getSelectedQuantity().toString());
+                                            if (plugin.isUnlimitedStock()) {
+                                                while (isRunning() && !Rs2Inventory.isFull()) {
+                                                    if (!processBuyAction(Integer.parseInt(itemName),
+                                                            plugin.getSelectedQuantity().toString()))
+                                                        break;
+                                                    sleepGaussian(200, 40);
+                                                }
+                                                successfullAction = true;
+                                            } else {
+                                                successfullAction = processBuyAction(Integer.parseInt(itemName),
+                                                        plugin.getSelectedQuantity().toString());
+                                            }
                                         } else {
                                             outOfStock = !Rs2Shop.hasMinimumStock(itemName, plugin.getMinStock());
                                             if (outOfStock)
                                                 continue;
-                                            successfullAction = processBuyAction(itemName,
-                                                    plugin.getSelectedQuantity().toString());
+                                            if (plugin.isUnlimitedStock()) {
+                                                while (isRunning() && !Rs2Inventory.isFull()) {
+                                                    if (!processBuyAction(itemName,
+                                                            plugin.getSelectedQuantity().toString()))
+                                                        break;
+                                                    sleepGaussian(200, 40);
+                                                }
+                                                successfullAction = true;
+                                            } else {
+                                                successfullAction = processBuyAction(itemName,
+                                                        plugin.getSelectedQuantity().toString());
+                                            }
                                         }
                                         if (Rs2Inventory.isFull()) {
                                             System.out.println("Inventory is full, stopping buy action to bank.");
-                                            if (!plugin.isBlastFurnaceOptimization()) {
+                                            if (!plugin.isBlastFurnaceOptimization() && !plugin.isFastMode()) {
                                                 Rs2Shop.closeShop();
                                             }
                                             state = ShopperState.BANKING;
@@ -137,9 +174,15 @@ public class BanksShopperScript extends Script {
                                         System.out.println("Invalid action specified in config.");
                                 }
                             }
-                            Rs2Shop.closeShop();
+                            if (!plugin.isFastMode()) {
+                                Rs2Shop.closeShop();
+                            }
                             if (successfullAction) {
-                                state = ShopperState.HOPPING;
+                                if (plugin.isUnlimitedStock()) {
+                                    state = ShopperState.SHOPPING;
+                                } else {
+                                    state = ShopperState.HOPPING;
+                                }
                                 return;
                             } else if (outOfStock) {
                                 System.out.println("Out of stock for all items, hopping worlds...");
@@ -149,13 +192,21 @@ public class BanksShopperScript extends Script {
                         }
                         break;
                     case BANKING:
-                        if (plugin.isBlastFurnaceOptimization()) {
+                        if (plugin.isFastMode()) {
+                            if (!bankItemsFastMode()) {
+                                return;
+                            }
+                        } else if (plugin.isBlastFurnaceOptimization()) {
                             if (!bankItemsWithoutWalkBack()) {
                                 return;
                             }
-                        } else if (!Rs2Bank.bankItemsAndWalkBackToOriginalPosition(plugin.getItemNames(),
-                                initialPlayerLocation)) {
-                            return;
+                        } else {
+                            var walkBackLocation = plugin.getShopLocation() != null
+                                    ? plugin.getShopLocation() : initialPlayerLocation;
+                            if (!Rs2Bank.bankItemsAndWalkBackToOriginalPosition(plugin.getItemNames(),
+                                    walkBackLocation)) {
+                                return;
+                            }
                         }
                         state = ShopperState.SHOPPING;
                         break;
@@ -338,13 +389,81 @@ public class BanksShopperScript extends Script {
 
         if (Rs2Bank.isOpen()) {
             if (plugin.isBlastFurnaceOptimization()) {
-                sleepUntil(() -> Rs2Shop.openShop(plugin.getNpcName(), plugin.isUseExactNaming()), 5000);
+                sleepUntil(this::openShopInterface, 5000);
                 return true;
             }
 
             Rs2Bank.closeBank();
             sleepUntil(() -> !Rs2Bank.isOpen(), 2000);
         }
+
+        return true;
+    }
+
+    /**
+     * Fast mode banking: don't close shop/bank interfaces, interact directly by name.
+     * Uses walkFastCanvas for short distances, checks if NPC is on screen before walking.
+     */
+    private boolean bankItemsFastMode() {
+        String bankObjectName = plugin.getBankName();
+
+        // Open bank - interact directly by name (Rs2GameObject.interact walks if needed)
+        if (!Rs2Bank.isOpen()) {
+            boolean interacted = Rs2GameObject.interact(bankObjectName, "Bank") ||
+                    Rs2GameObject.interact(bankObjectName, "Use");
+            if (!interacted) {
+                if (!Rs2Bank.walkToBankAndUseBank()) {
+                    System.out.println("[FastMode] Failed to interact with bank: " + bankObjectName);
+                    return false;
+                }
+            }
+            if (!sleepUntil(Rs2Bank::isOpen, 5000)) {
+                System.out.println("[FastMode] Bank did not open in time.");
+                return false;
+            }
+        }
+
+        // Deposit all items
+        Rs2Bank.depositAll();
+        sleepGaussian(200, 40);
+
+        // Check if the shop is already interactable from here
+        if (plugin.isUseGameObject()) {
+            // For game object shops (e.g., Culinaromancer's chest) - try interacting directly
+            if (openShopInterface()) {
+                sleepUntil(Rs2Shop::isOpen, 5000);
+                return true;
+            }
+        } else {
+            // Check if the shop NPC is already on screen - if so, just click it directly
+            var shopNpc = Rs2Npc.getNpc(plugin.getNpcName(), plugin.isUseExactNaming());
+            if (shopNpc != null && Rs2Camera.isTileOnScreen(shopNpc.getLocalLocation())) {
+                sleepUntil(this::openShopInterface, 5000);
+                return true;
+            }
+        }
+
+        // NPC not on screen - walk back to shop location using fast canvas if close enough
+        var walkBackLocation = plugin.getShopLocation() != null
+                ? plugin.getShopLocation() : initialPlayerLocation;
+        if (walkBackLocation != null && Rs2Player.getWorldLocation().distanceTo(walkBackLocation) > 1) {
+            int distance = Rs2Player.getWorldLocation().distanceTo(walkBackLocation);
+            if (distance <= 12) {
+                LocalPoint local = LocalPoint.fromWorld(
+                        Microbot.getClient().getTopLevelWorldView(), walkBackLocation);
+                if (local != null && Rs2Camera.isTileOnScreen(local)) {
+                    Rs2Walker.walkFastCanvas(walkBackLocation);
+                } else {
+                    Rs2Walker.walkTo(walkBackLocation, 1);
+                }
+            } else {
+                Rs2Walker.walkTo(walkBackLocation, 1);
+            }
+            sleepUntil(() -> Rs2Player.getWorldLocation().distanceTo(walkBackLocation) <= 2, 10000);
+        }
+
+        // Re-open shop
+        sleepUntil(this::openShopInterface, 5000);
 
         return true;
     }

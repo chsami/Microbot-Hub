@@ -13,6 +13,7 @@ import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
+import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -74,41 +75,35 @@ public class PlankRunnerScript extends Script {
                             Rs2Inventory.waitForInventoryChanges(1800);
                         }
 
-                        if (plugin.isUseEnergyRestorePotions() && Rs2Player.getRunEnergy() <= plugin.getDrinkAtPercent()) {
+                        while (plugin.isUseEnergyRestorePotions() && Rs2Player.getRunEnergy() <= plugin.getDrinkAtPercent()) {
                             boolean hasStaminaPotion = Rs2Bank.hasItem(Rs2Potion.getStaminaPotion());
                             boolean hasEnergyRestorePotion = Rs2Bank.hasItem(Rs2Potion.getRestoreEnergyPotionsVariants());
-                            
+
+                            if (!hasStaminaPotion && !hasEnergyRestorePotion) {
+                                Microbot.showMessage("Unable to find Stamina Potion OR Energy Restore Potions");
+                                shutdown();
+                                return;
+                            }
+
                             if ((Rs2Player.hasStaminaBuffActive() && hasEnergyRestorePotion) || (!hasStaminaPotion && hasEnergyRestorePotion)) {
                                 Rs2ItemModel energyRestoreItem = Rs2Bank.bankItems().stream()
                                         .filter(rs2Item -> Rs2Potion.getRestoreEnergyPotionsVariants().stream()
                                                 .anyMatch(variant -> rs2Item.getName().toLowerCase().contains(variant.toLowerCase())))
-                                        .min(Comparator.comparingInt(rs2Item -> getDoseFromName(rs2Item.getName())))
+                                        .max(Comparator.comparingInt(rs2Item -> getDoseFromName(rs2Item.getName())))
                                         .orElse(null);
-                                
-                                if (energyRestoreItem == null) {
-                                    Microbot.showMessage("Unable to find Restore Energy Potion but hasItem?");
-                                    shutdown();
-                                    return;
-                                }
-                                
+
+                                if (energyRestoreItem == null) break;
+
                                 withdrawAndDrink(energyRestoreItem.getName());
                             } else if (hasStaminaPotion) {
                                 Rs2ItemModel staminaPotionItem = Rs2Bank.bankItems().stream()
                                         .filter(rs2Item -> rs2Item.getName().toLowerCase().contains(Rs2Potion.getStaminaPotion().toLowerCase()))
-                                        .min(Comparator.comparingInt(rs2Item -> getDoseFromName(rs2Item.getName())))
+                                        .max(Comparator.comparingInt(rs2Item -> getDoseFromName(rs2Item.getName())))
                                         .orElse(null);
-                                
-                                if (staminaPotionItem == null) {
-                                    Microbot.showMessage("Unable to find Stamina Potion but hasItem?");
-                                    shutdown();
-                                    return;
-                                }
-                                
+
+                                if (staminaPotionItem == null) break;
+
                                 withdrawAndDrink(staminaPotionItem.getName());
-                            } else {
-                                Microbot.showMessage("Unable to find Stamina Potion OR Energy Restore Potions");
-                                shutdown();
-                                return;
                             }
                         }
 
@@ -124,25 +119,22 @@ public class PlankRunnerScript extends Script {
                         sleepUntil(() -> !Rs2Bank.isOpen());
                         break;
                     case RUNNING_TO_SAWMILL:
-                        boolean isNearSawmill = Rs2Walker.getTotalTiles(plugin.getSawmillLocation().getWorldPoint()) < 15;
-                        if (!isNearSawmill) {
-                            Microbot.status = "Running to Sawmill";
-                            Rs2Walker.walkTo(plugin.getSawmillLocation().getWorldPoint());
-                            return;
-                        }
-
                         Set<Integer> sawmillNpcs = Set.of(NpcID.POH_SAWMILL_OPP, NpcID.AUBURN_SAWMILL_OPERATOR);
                         var sawmillOperator = Microbot.getRs2NpcCache().query()
                                 .where(n -> sawmillNpcs.contains(n.getId()))
                                 .nearest();
 
-                        if (sawmillOperator == null) {
-                            Microbot.showMessage("Unable to find Sawmill Operator!");
-                            shutdown();
+                        if (sawmillOperator != null && Rs2Camera.isTileOnScreen(sawmillOperator.getLocalLocation())) {
+                            Rs2Walker.setTarget(null);
+                            sleepUntil(() -> !Rs2Player.isMoving());
+                            sawmillOperator.click("Buy-plank");
+                        } else {
+                            Microbot.status = "Running to Sawmill";
+                            if (!Rs2Player.isMoving()) {
+                                Rs2Walker.walkFastCanvas(plugin.getSawmillLocation().getWorldPoint());
+                            }
                             return;
                         }
-
-                        sawmillOperator.click("Buy-plank");
                         Microbot.status = "Buying Planks";
                         Rs2Dialogue.sleepUntilHasCombinationDialogue();
                         Rs2Dialogue.clickCombinationOption(plugin.getPlank().getDialogueOption());
@@ -193,8 +185,10 @@ public class PlankRunnerScript extends Script {
         String simplifiedPotionName = potionItemName.replaceAll("\\s*\\(\\d+\\)", "").trim();
         Rs2Bank.withdrawOne(potionItemName);
         Rs2Inventory.waitForInventoryChanges(1800);
-        Rs2Inventory.interact(potionItemName, "drink");
-        Rs2Inventory.waitForInventoryChanges(1800);
+        while (Rs2Player.getRunEnergy() <= plugin.getDrinkAtPercent() && Rs2Inventory.hasItem(simplifiedPotionName)) {
+            Rs2Inventory.interact(simplifiedPotionName, "drink");
+            Rs2Inventory.waitForInventoryChanges(1800);
+        }
         if (Rs2Inventory.hasItem(simplifiedPotionName)) {
             Rs2Bank.depositOne(simplifiedPotionName);
             Rs2Inventory.waitForInventoryChanges(1800);

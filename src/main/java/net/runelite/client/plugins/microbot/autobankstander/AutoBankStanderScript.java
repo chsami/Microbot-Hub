@@ -124,6 +124,7 @@ public class AutoBankStanderScript extends Script {
         if (processor.hasRequiredItems()) {
             log.info("Have all required items - switching to processing");
             Rs2Bank.closeBank(); // close the bank interface
+            sleepUntil(() -> !Rs2Bank.isOpen(), 2000); // wait for bank to fully close
             changeState(AutoBankStanderState.PROCESSING); // switch to processing mode
             return;
         }
@@ -133,6 +134,7 @@ public class AutoBankStanderScript extends Script {
         if (bankingSuccess) {
             log.info("Banking complete - switching to processing");
             Rs2Bank.closeBank(); // close the bank interface
+            sleepUntil(() -> !Rs2Bank.isOpen(), 2000); // wait for bank to fully close
             changeState(AutoBankStanderState.PROCESSING); // switch to processing mode
         } else {
             log.info("Banking failed - no required items available, shutting down");

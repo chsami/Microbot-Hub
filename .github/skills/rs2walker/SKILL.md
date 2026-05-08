@@ -376,3 +376,129 @@ Need to interact with NPC/object?
 └── Distance > 14 tiles?
     └── Rs2Walker.walkTo() first, then interact when close
 ```
+
+## Pattern 6: Boss Arena Navigation (Moons of Peril Patterns)
+
+Boss arenas are instanced areas where all movement is short-range (typically <15 tiles). Use `walkFastCanvas` exclusively and never the web walker, since instanced regions have no web graph.
+
+### Two-Step Approach to Boss Lobby
+
+Use `walkWithState` for long-range travel to the lobby, then `walkFastCanvas` for precise tile placement:
+
+```java
+// Phase 1: Walk to boss lobby (non-instanced, uses web walker)
+Rs2Walker.walkWithState(bossLobbyLocation, 0);
+sleep(600);
+
+// Phase 2: Precise placement on the statue tile (short range, canvas)
+if (!Rs2Player.getWorldLocation().equals(bossLobbyLocation)) {
+    Rs2Walker.walkFastCanvas(bossLobbyLocation);
+    sleepUntil(() -> Rs2Player.getWorldLocation().equals(bossLobbyLocation));
+}
+```
+
+### walkFastCanvas with `shiftClick` Parameter
+
+`Rs2Walker.walkFastCanvas(WorldPoint, boolean shiftClick)` — the second parameter controls whether to shift-click (which forces a walk without queuing actions). Use `true` when you need to interrupt combat or cancel the current action:
+
+```java
+// Normal walk — click without shift (good for non-combat scenarios)
+Rs2Walker.walkFastCanvas(safeTile, false);
+
+// Shift-click walk — interrupts current action (good for dodging during combat)
+Rs2Walker.walkFastCanvas(evadeTile, true);
+```
+
+**When to use shiftClick=true:**
+- Dodging boss special attacks mid-combat
+- Cancelling an attack animation to move immediately
+- Any movement that must override the current action queue
+
+### Exact Tile Placement in Boss Arenas
+
+Boss mechanics often require standing on an exact tile. Always use `sleepUntil` with an exact WorldPoint match:
+
+```java
+WorldPoint attackTile = Locations.ATTACK_TILE.getWorldPoint();
+Rs2Walker.walkFastCanvas(attackTile, true);
+sleepUntil(() -> Rs2Player.getWorldLocation().equals(attackTile), 3_000);
+```
+
+### Running a Lap (Sequential Anchor Tiles)
+
+For mechanics that require running a path (e.g., Eclipse Moon shield dodge), walk through a sequence of anchor tiles:
+
+```java
+WorldPoint[] lap = {
+    new WorldPoint(1483, 9627, 0),  // SW
+    new WorldPoint(1483, 9637, 0),  // NW
+    new WorldPoint(1493, 9637, 0),  // NE
+    new WorldPoint(1493, 9627, 0)   // SE
+};
+
+for (WorldPoint p : lap) {
+    Rs2Walker.walkFastCanvas(p, false);
+    // Eat/drink between tiles if needed
+    boss.eatIfNeeded();
+    boss.drinkIfNeeded();
+    // Break early if mechanic ends
+    if (!isSpecialAttackActive()) return;
+    sleepUntil(() -> Rs2Player.getWorldLocation().equals(p));
+}
+```
+
+### Avoiding Dangerous Tiles (Rs2Tile.getDangerousGraphicsObjectTiles)
+
+Check if the player's current tile is dangerous and move to a safe adjacent tile:
+
+```java
+WorldPoint playerTile = Rs2Player.getWorldLocation();
+if (Rs2Tile.getDangerousGraphicsObjectTiles().containsKey(playerTile)) {
+    WorldPoint safeTile = Rs2Tile.getSafeTiles(1).get(0);
+    if (safeTile != null) {
+        Rs2Walker.walkFastCanvas(safeTile, true);
+        sleepUntil(() -> Rs2Player.getWorldLocation().equals(safeTile), 600);
+    }
+}
+```
+
+For custom dangerous objects (not in the standard graphics objects), query the tile object cache:
+
+```java
+Set<WorldPoint> dangerTiles = Microbot.getRs2TileObjectCache().query()
+    .withId(DANGEROUS_OBJECT_ID)
+    .within(distance)
+    .toList().stream()
+    .map(o -> o.getWorldLocation())
+    .collect(Collectors.toSet());
+
+// Build safe candidates within radius
+List<WorldPoint> candidates = new ArrayList<>();
+for (int dx = -1; dx <= 1; dx++) {
+    for (int dy = -1; dy <= 1; dy++) {
+        WorldPoint wp = new WorldPoint(centre.getX() + dx, centre.getY() + dy, centre.getPlane());
+        if (!dangerTiles.contains(wp)) candidates.add(wp);
+    }
+}
+WorldPoint safeTile = candidates.get(ThreadLocalRandom.current().nextInt(candidates.size()));
+Rs2Walker.walkFastCanvas(safeTile, true);
+```
+
+### walkCanvas for NPC Tile Targeting (Clone Parrying)
+
+When you need to click an NPC's tile directly (e.g., parrying clones), use `Rs2Walker.walkCanvas()` with the NPC's local-to-world location:
+
+```java
+Rs2NpcModel clone = /* find the clone NPC */;
+WorldPoint cloneLocalLocation = WorldPoint.fromLocal(Microbot.getClient(), clone.getLocalLocation());
+Rs2Walker.walkCanvas(cloneLocalLocation);
+```
+
+### Key Boss Arena Rules
+
+1. **Never use `Rs2Walker.walkTo()` inside instanced boss arenas** — no web graph exists
+2. **Always use `walkFastCanvas`** — all boss tiles are within canvas range
+3. **Use shiftClick=true for dodge mechanics** — ensures immediate movement
+4. **Use `walkWithState` for non-instanced lobby travel** — handles long distances with state tracking
+5. **Camera reset before boss fights** — `Rs2Camera.resetPitch()` + `Rs2Camera.resetZoom()` ensures all arena tiles are visible on canvas
+6. **sleepUntil with exact tile match** — boss mechanics require precision, use `.equals()` not distance checks
