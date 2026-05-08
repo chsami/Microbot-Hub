@@ -2,14 +2,21 @@ package net.runelite.client.plugins.microbot.jad;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Projectile;
+import net.runelite.api.events.ProjectileMoved;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 @PluginDescriptor(
         name = PluginConstants.MOCROSOFT + "Jad Helper",
@@ -25,7 +32,7 @@ import java.awt.*;
 )
 @Slf4j
 public class JadPlugin extends Plugin {
-    static final String version = "1.0.7";
+    static final String version = "1.0.9";
 
     @Inject
     private JadConfig config;
@@ -41,6 +48,8 @@ public class JadPlugin extends Plugin {
 
     @Inject
     JadScript jadScript;
+    private final Set<Projectile> trackedJadProjectiles =
+            Collections.newSetFromMap(new IdentityHashMap<>());
 
 
     @Override
@@ -54,5 +63,27 @@ public class JadPlugin extends Plugin {
     protected void shutDown() {
         jadScript.shutdown();
         overlayManager.remove(jadOverlay);
+        trackedJadProjectiles.clear();
+    }
+
+    @Subscribe
+    public void onProjectileMoved(ProjectileMoved event) {
+        Projectile projectile = event.getProjectile();
+        if (projectile == null || !jadScript.isInJadFight()) {
+            return;
+        }
+
+        if (projectile.getInteracting() != Microbot.getClient().getLocalPlayer()) {
+            return;
+        }
+
+        if (projectile.getRemainingCycles() > 0) {
+            trackedJadProjectiles.add(projectile);
+            return;
+        }
+
+        if (trackedJadProjectiles.remove(projectile)) {
+            jadScript.onTrackedProjectileImpact();
+        }
     }
 }

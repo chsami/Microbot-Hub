@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.crafting.jewelry;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.ItemID;
 import net.runelite.api.Skill;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.crafting.jewelry.enums.*;
@@ -308,11 +309,17 @@ public class JewelryScript extends Script {
                         
                         break;
                     case CRAFTING:
+                        WorldPoint furnaceLocation = plugin.getCraftingLocation().getFurnaceLocation();
+                        WorldPoint anchor = furnaceLocation != null ? furnaceLocation : Rs2Player.getWorldLocation();
                         Rs2TileObjectModel furnaceObject = Microbot.getRs2TileObjectCache().query()
-                                .withId(plugin.getCraftingLocation().getFurnanceObjectID()).nearest();
+                                .withName("Furnace")
+                                .where(o -> Rs2GameObject.hasAction(o, "Smelt"))
+                                .nearest(anchor, 20);
 
                         if (furnaceObject == null) {
-                            Rs2Walker.walkTo(plugin.getCraftingLocation().getFurnaceLocation());
+                            if (furnaceLocation != null) {
+                                Rs2Walker.walkTo(furnaceLocation);
+                            }
                             return;
                         }
 
