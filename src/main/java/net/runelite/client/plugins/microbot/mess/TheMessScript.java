@@ -124,8 +124,13 @@ public class TheMessScript extends Script {
         if (has(ItemID.HOSIDIUS_SERVERY_MEATWATER) && has(ItemID.HOSIDIUS_SERVERY_POTATO)){ combineAll(ItemID.HOSIDIUS_SERVERY_MEATWATER, ItemID.HOSIDIUS_SERVERY_POTATO, "Combining stew"); return; }
         if (has(ItemID.HOSIDIUS_SERVERY_MEATWATER))                                     { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_POTATO, count(ItemID.HOSIDIUS_SERVERY_MEATWATER)); return; }
         if (has(ItemID.HOSIDIUS_SERVERY_COOKED_MEAT) && has(ItemID.BOWL_WATER))         { combineAll(ItemID.BOWL_WATER, ItemID.HOSIDIUS_SERVERY_COOKED_MEAT, "Combining meat + water"); return; }
-        if (has(ItemID.BOWL_WATER) && !has(ItemID.HOSIDIUS_SERVERY_RAW_MEAT))           { takeRawMeat(count(ItemID.BOWL_WATER)); return; }
+        // Finish filling bowls before sizing the raw-meat withdrawal — otherwise a partial bowl_water
+        // count (e.g., fillBowls timed out at 12/14) would drive takeRawMeat to under-fetch.
         if (has(ItemID.BOWL_EMPTY))                                                     { fillBowls(); return; }
+        // Only advance to the raw-meat phase with a full batch of bowl_water. With fewer (e.g., burns
+        // left some unused last round), fall through to the bowl chain to top up to BATCH_SIZE rather
+        // than running a tiny 2-stew loop with all its withdraw/cook/combine round-trips.
+        if (count(ItemID.BOWL_WATER) >= BATCH_SIZE && !has(ItemID.HOSIDIUS_SERVERY_RAW_MEAT))    { takeRawMeat(BATCH_SIZE); return; }
 
         // Fresh batch — top up to BATCH_SIZE accounting for any leftover items in the chain.
         int leftover = count(ItemID.BOWL_WATER) + count(ItemID.HOSIDIUS_SERVERY_MEATWATER) + count(ItemID.HOSIDIUS_SERVERY_UNCOOKED_STEW);
@@ -258,11 +263,15 @@ public class TheMessScript extends Script {
         Rs2Widget.clickWidgetFast(children[idx], idx, 5);
         if (!sleepUntil(() -> Rs2Widget.hasWidget("Enter amount"), 2000)) { log.warn("[mess] Enter amount widget never appeared"); closeShop(); return false; }
 
-        // Set the chatbox input directly via VarClientStr instead of typing.
-        // typeString routes KEY_TYPED to the canvas, which leaks into game chat
-        // if the chatbox input hasn't taken focus yet — observed symptom: the
-        // amount being typed as a chat message instead of withdrawing.
+        // Mirror Rs2GrandExchange.setQuantity timing: the chatbox input doesn't reliably
+        // accept the value if you set it the same tick the widget appeared — small qty
+        // (e.g., 2) silently drops the value, large qty happens to race past the issue.
+        // typeString is unsafe here too: KEY_TYPED routes to canvas if the chatbox
+        // hasn't focused, leaking digits into game chat. Direct VarClientStr write +
+        // ~1s of sleep around it matches the pattern that works in GE.
+        sleep(600);
         setChatboxAmount(need);
+        sleep(400);
         Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
 
         boolean got = sleepUntil(() -> count(itemId) >= targetCount, 4000);
@@ -288,7 +297,10 @@ public class TheMessScript extends Script {
         if (!ok) return false;
         if (!sleepUntil(() -> Rs2Widget.hasWidget("Enter amount"), 2000)) { log.warn("[mess] Enter amount widget never appeared for raw meat"); return false; }
 
+        // See withdrawFromCupboard for the timing rationale — small-qty values race past the input.
+        sleep(600);
         setChatboxAmount(need);
+        sleep(400);
         Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
         return sleepUntil(() -> count(ItemID.HOSIDIUS_SERVERY_RAW_MEAT) >= targetCount, 4000);
     }
@@ -303,7 +315,7 @@ public class TheMessScript extends Script {
         if (sink == null) { log.warn("[mess] sink not found at {}", SINK_LOC); return false; }
         boolean used = Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, sink.getId());
         log.info("[mess] use bowl on sink id={} -> {}", sink.getId(), used);
-        return sleepUntil(() -> !has(ItemID.BOWL_EMPTY), 8000);
+        return sleepUntil(() -> !has(ItemID.BOWL_EMPTY), 15000);
     }
 
     private boolean returnEmptyBowls() {
@@ -421,19 +433,24 @@ public class TheMessScript extends Script {
     /**
      * Wait for a combine chain to consume an ingredient. Returns when either
      * {@code item1} or {@code item2} reaches 0. Stall guard: returns false if
-     * the smaller count hasn't dropped for 5s. Hard cap 60s.
+     * the combined count hasn't dropped for 5s. Hard cap 60s.
+     * <p>
+     * Tracks the SUM of counts so any per-action depletion registers as
+     * progress. A min-based guard breaks for combines where one ingredient
+     * persists (e.g., knife+pineapple — knife stays at 2 while pineapple
+     * counts down, so min stays pinned at 2 and the stall trips early).
      */
     private boolean waitForCombineChain(int item1, int item2, int before1, int before2) {
         long start = System.currentTimeMillis();
-        int lastMin = Math.min(before1, before2);
+        int lastSum = before1 + before2;
         long lastChangeMs = start;
         while (System.currentTimeMillis() - start < 60_000) {
             int c1 = count(item1);
             int c2 = count(item2);
             if (c1 == 0 || c2 == 0) return true;
-            int currentMin = Math.min(c1, c2);
-            if (currentMin < lastMin) {
-                lastMin = currentMin;
+            int currentSum = c1 + c2;
+            if (currentSum < lastSum) {
+                lastSum = currentSum;
                 lastChangeMs = System.currentTimeMillis();
             } else if (System.currentTimeMillis() - lastChangeMs > 5000) {
                 return false;
