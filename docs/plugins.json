@@ -856,7 +856,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "2d09b35f94d90f2f554edd11f845e2ccb61f4398f520f0ebb05e5f39f75bf778",
+        "sha256": "6d9a9c685655df9d8dee21fd5c27f146b8777ab291a6a2589aa6b212e2966fb2",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.1.7.jar"
     },
     {
@@ -2467,6 +2467,27 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tearsofguthixplugin-1.0.4.jar"
     },
     {
+        "internalName": "ColosseumPrayerPlugin",
+        "name": "Fortis Colosseum Prayer",
+        "description": "Prayer helper for Fortis Colosseum waves 1\u201311: manticore, javelin colossus, serpent shaman, jaguar warrior, shockwave colossus.",
+        "tags": [
+            "colosseum",
+            "fortis",
+            "prayer",
+            "microbot"
+        ],
+        "version": "1.0.3",
+        "minClientVersion": "1.9.8.8",
+        "authors": [
+            "Microbot Hub"
+        ],
+        "iconUrl": "https://chsami.github.io/Microbot-Hub/ColosseumPrayerPlugin/assets/icon.png",
+        "cardUrl": "https://chsami.github.io/Microbot-Hub/ColosseumPrayerPlugin/assets/card.png",
+        "disable": false,
+        "sha256": "35fb6775ca197e80e6321aa6fa6166914ee9edda30181926380ec3f53ed613ca",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/colosseumprayerplugin-1.0.3.jar"
+    },
+    {
         "internalName": "BonesToBananasPlugin",
         "name": "Bones to Bananas",
         "description": "Casts Bones to Bananas, using staves to save runes.",
@@ -2604,7 +2625,7 @@
             "skilling",
             "microbot"
         ],
-        "version": "1.0.3",
+        "version": "1.1.0",
         "minClientVersion": "1.9.8",
         "authors": [
             "Bolado"
@@ -2612,8 +2633,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/TheMessPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/TheMessPlugin/assets/card.png",
         "disable": false,
-        "sha256": "496b04a60f71ee60609c83a25e533da4ca8fa2f14fea389b9fcd20baedfa05ff",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/themessplugin-1.0.3.jar"
+        "sha256": "aa67f041ee8ee2771f26d9882d2b5462599cb98bb15ed418c4f9b177693e7295",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/themessplugin-1.1.0.jar"
     },
     {
         "internalName": "DelvePrayerHelperPlugin",
