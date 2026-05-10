@@ -38,6 +38,7 @@ import net.runelite.client.util.Text;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -263,13 +264,30 @@ public class AIOFighterPlugin extends Plugin {
     }
 
     public static void addBlacklistedSlayerNpcs(String npcName) {
-        String existing = getConfig("blacklistedSlayerNpcs", String.class);
-        setConfig("blacklistedSlayerNpcs", existing + npcName + ",");
+        if (npcName == null || npcName.trim().isEmpty()) {
+            return;
+        }
+
+        LinkedHashSet<String> blacklistedNpcs = getBlacklistedSlayerNpcSet();
+        blacklistedNpcs.add(npcName.trim());
+        setConfig("blacklistedSlayerNpcs", String.join(",", blacklistedNpcs) + ",");
     }
 
     public static List<String> getBlacklistedSlayerNpcs() {
+        return new ArrayList<>(getBlacklistedSlayerNpcSet());
+    }
+
+    private static LinkedHashSet<String> getBlacklistedSlayerNpcSet() {
         String stored = getConfig("blacklistedSlayerNpcs", String.class);
-        return Arrays.asList(stored.split(","));
+        if (stored == null || stored.trim().isEmpty()) {
+            return new LinkedHashSet<>();
+        }
+
+        return Arrays.stream(stored.split(","))
+                .map(String::trim)
+                .filter(entry -> !entry.isEmpty())
+                .filter(entry -> !"null".equalsIgnoreCase(entry))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private static LinkedHashSet<String> normalizeCsvEntries(String rawCsv) {
