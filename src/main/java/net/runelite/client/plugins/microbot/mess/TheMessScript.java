@@ -1,10 +1,11 @@
 package net.runelite.client.plugins.microbot.mess;
 
 import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.GameState;
 import net.runelite.api.Skill;
+import net.runelite.api.TileObject;
+import net.runelite.api.VarClientStr;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
@@ -19,7 +20,6 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -27,756 +27,640 @@ import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
-import net.runelite.client.plugins.microbot.util.settings.Rs2Settings;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
-import org.slf4j.event.Level;
 
 import java.awt.event.KeyEvent;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @Slf4j
 public class TheMessScript extends Script {
 
     private static final WorldPoint UTENSIL_CUPBOARD_LOC = new WorldPoint(1644, 3624, 0);
-    private static final WorldPoint FOOD_CUPBOARD_LOC = new WorldPoint(1645, 3623, 0);
-    private static final WorldPoint SINK_LOC = new WorldPoint(1644, 3628, 0);
-    private static final WorldPoint MEAT_TABLE_LOC = new WorldPoint(1645, 3630, 0);
-    private static final WorldPoint CLAY_OVEN_LOC = new WorldPoint(1648, 3627, 0);
-    private static final WorldPoint BUFFET_TABLE_LOC = new WorldPoint(1640, 3629, 0);
-    private static final int STEW_WIDGET_BAR_ID = 15400974;
-    private static final int PIE_WIDGET_BAR_ID = 15400966;
-    private static final int PIZZA_WIDGET_BAR_ID = 15400970;
-    private TheMessOverlay overlay;
-    private TheMessConfig config;
+    private static final WorldPoint FOOD_CUPBOARD_LOC    = new WorldPoint(1645, 3623, 0);
+    private static final WorldPoint SINK_LOC             = new WorldPoint(1644, 3628, 0);
+    private static final WorldPoint MEAT_TABLE_LOC       = new WorldPoint(1645, 3630, 0);
+    private static final WorldPoint CLAY_OVEN_LOC        = new WorldPoint(1648, 3627, 0);
+    private static final WorldPoint BUFFET_TABLE_LOC     = new WorldPoint(1640, 3629, 0);
+    private static final WorldPoint MESS_HUB             = new WorldPoint(1645, 3627, 0);
 
-    @Getter
-    @Setter
-    private State currentState = State.WAITING;
+    private static final int SHOP_WIDGET_ID    = 15859715;
+    private static final int SHOP_CLOSE_PARENT = 15859713;
+
+    private static final int APPRECIATION_BAR_PIE   = 15400966;
+    private static final int APPRECIATION_BAR_PIZZA = 15400970;
+    private static final int APPRECIATION_BAR_STEW  = 15400974;
+
+    private static final int BATCH_SIZE = 14;
+    private static final int PIZZA_BATCH_SIZE = 13; // 2 knife slots reserved
+
+    private TheMessConfig config;
+    private TheMessOverlay overlay;
 
     public boolean run(TheMessConfig config, TheMessOverlay overlay) {
-        debug("The Mess Script is starting up...");
-        Microbot.enableAutoRunOn = false;
-        this.overlay = overlay;
         this.config = config;
-
-        setCurrentState(State.WAITING);
-        setOrderOfStates();
+        this.overlay = overlay;
+        Microbot.enableAutoRunOn = false;
 
         Rs2Antiban.setActivity(Activity.GENERAL_COOKING);
         Rs2AntibanSettings.naturalMouse = true;
-        Rs2AntibanSettings.actionCooldownActive = true;
-        Rs2Antiban.setTIMEOUT(Rs2Random.betweenInclusive(1, 4));
 
-        /*
-         * Set camera settings for the script.
-         * To avoid clicking through UI elements like inventory and such.
-         */
         Rs2Camera.setZoom(Rs2Random.randomGaussian(200, 20));
-        Rs2Camera.setYaw((Rs2Random.dicePercentage(50)? Rs2Random.randomGaussian(750, 50) : Rs2Random.randomGaussian(1700, 50)));
+        Rs2Camera.setYaw(Rs2Random.dicePercentage(50)
+                ? Rs2Random.randomGaussian(750, 50)
+                : Rs2Random.randomGaussian(1700, 50));
         Rs2Camera.setPitch(Rs2Random.betweenInclusive(418, 512));
 
-        mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
-            try {
-                if (!Microbot.isLoggedIn() || !super.run() || !isRunning()) return;
-                if (BreakHandlerScript.isBreakActive() && getCurrentState() == State.WAITING) return;
-
-                handleState();
-
-            } catch (Exception ex) {
-                System.out.println(ex.getMessage());
-            }
-        }, 0, 600, TimeUnit.MILLISECONDS);
+        setStatus("Starting");
+        mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this::tick,
+                0, 600, TimeUnit.MILLISECONDS);
         return true;
     }
 
-    private void handleState() {
-        switch (getCurrentState()) {
-            case WAITING:
-                if (!Microbot.isLoggedIn() || !super.run() || !isRunning()) return;
-                if (BreakHandlerScript.isBreakActive()) return;
-                break;
-            case GET_EMPTY_BOWLS:
-            case GET_KNIFE:
-            case GET_EMPTY_PIE_DISHES:
-                sleepUntil(getUtensils());
-                break;
-            case RETURN_EMPTY_BOWLS:
-                sleepUntil(returnEmptyBowls());
-                break;
-            case USE_SINK:
-                sleepUntil(fillBowl());
-                break;
-            case GET_MEAT:
-                sleepUntil(getMeat());
-                break;
-            case USE_CLAY_OVEN:
-            case FINISH_COOKING:
-                sleepUntil(cook());
-                break;
-            case COMBINE_MEAT_PIE:
-            case COMBINE_MEAT_WATER:
-            case COMBINE_STEW:
-            case COMBINE_PASTRY_DOUGH:
-            case COMBINE_PIE_SHELL:
-            case COMBINE_PIZZA_BASE:
-            case COMBINE_PIZZA_TOMATO:
-            case COMBINE_PIZZA_CHEESE:
-            case COMBINE_PIZZA_PINEAPPLE:
-            case CUT_PINEAPPLE:
-                sleepUntil(combineItems(), 60000);
-                break;
-            case GET_CHEESE:
-            case GET_TOMATOES:
-            case GET_PINEAPPLES:
-            case GET_FLOUR:
-            case GET_POTATOES:
-                sleepUntil(getFood());
-                break;
-            case USE_BUFFET_TABLE:
-                if (isUnderAppreciationThreshold()) {
-                    setCurrentState(State.HOP_WORLD);
-                    return;
-                }
-                if (Rs2GameObject.canReach(BUFFET_TABLE_LOC)) {
-                    Microbot.getClientThread().invoke(() -> Microbot.getRs2TileObjectCache().query().withName("Buffet table").interact("Serve"));
-                    sleepUntil(() -> Rs2Player.waitForXpDrop(Skill.COOKING), 10000);
-                } else {
-                    debug("Cannot reach the buffet table, waiting...");
-                }
-                break;
-            case GETTING_READY:
-                if (!inTheMess()) return;
-                sleepUntil(cleanInventory());
-                break;
-            case HOP_WORLD:
-                if (!hopWorlds()) return;
-                break;
-            default:
-                break;
-        }
-        if (currentState.getNext() != null) {
-            setCurrentState(currentState.getNext());
-            overlay.setStatus(currentState.getStatus());
-        }
-    }
+    private long lastDecisionLogMs = 0;
+    private String lastDecision = "";
 
-    private BooleanSupplier returnEmptyBowls() {
-        return () -> {
-            if (Rs2Inventory.hasItem(ItemID.BOWL_EMPTY)) {
-                Rs2TileObjectModel cupboard = Microbot.getRs2TileObjectCache().query().within(UTENSIL_CUPBOARD_LOC, 1).nearest();
-                if (cupboard != null) Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, cupboard.getId());
-                sleepUntil(() -> Rs2Inventory.count(ItemID.BOWL_EMPTY) == 0, 10000);
-                Rs2Antiban.actionCooldown();
-                return !Rs2Inventory.hasItem(ItemID.BOWL_EMPTY);
+    private void tick() {
+        try {
+            if (!Microbot.isLoggedIn() || !super.run() || !isRunning()) return;
+            if (BreakHandlerScript.isBreakActive()) { setStatus("Break"); return; }
+
+            if (!inMess()) { logDecision("walkToMess"); walkToMess(); return; }
+            if (hasJunk()) { logDecision("cleanInventory"); runCleanInventory(); return; }
+            if (violatesBatchInvariant()) { setStatus("FAIL: batch invariant"); shutdown(); return; }
+            dropBurnt();
+
+            switch (config.dish()) {
+                case STEW:     stewTick();    break;
+                case MEAT_PIE: meatPieTick(); break;
+                case PIZZA:    pizzaTick();   break;
             }
-            return true;
-        };
-    }
-
-    private boolean hopWorlds() {
-        info("Hopping worlds...");
-        int currentWorld = Microbot.getClient().getWorld();
-        Microbot.hopToWorld(Login.getRandomWorld(true));
-        sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
-        sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
-        if (Microbot.getClient().getWorld() != currentWorld) {
-            info("Successfully hopped to a new world.");
-            return true;
-        } else {
-            debug("Failed to hop worlds, retrying...");
+        } catch (Exception ex) {
+            log.warn("tick failed: {}", ex.getMessage(), ex);
         }
-        return false;
     }
 
-    private boolean isUnderAppreciationThreshold() {
-        Widget appreciationBarWidget;
-        switch (config.dish()) {
-            case MEAT_PIE:
-                appreciationBarWidget = Rs2Widget.getWidget(PIE_WIDGET_BAR_ID);
-                break;
-            case STEW:
-                appreciationBarWidget = Rs2Widget.getWidget(STEW_WIDGET_BAR_ID);
-                break;
-            case PIZZA:
-                appreciationBarWidget = Rs2Widget.getWidget(PIZZA_WIDGET_BAR_ID);
-                break;
-            default:
-                debug("Unknown dish selected, cannot check appreciation.");
+    private void logDecision(String decision) {
+        long now = System.currentTimeMillis();
+        // Only log when the decision changes, or every 10s on the same decision (so a stuck loop is visible).
+        if (!decision.equals(lastDecision) || now - lastDecisionLogMs > 10_000) {
+            log.info("[mess] step={} pos={} invCount={} dish={}",
+                    decision, Rs2Player.getWorldLocation(), Rs2Inventory.count(), config.dish());
+            lastDecision = decision;
+            lastDecisionLogMs = now;
+        }
+    }
+
+    // ---------- per-dish flows ----------
+
+    private void stewTick() {
+        // Consume-to-zero phases (cooking) take priority over any combine that uses their output.
+        // Withdrawal targets size to predecessor counts so leftovers from burns carry into the next batch.
+        if (has(ItemID.HOSIDIUS_SERVERY_STEW))                                          { serveAndMaybeHop(APPRECIATION_BAR_STEW); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_UNCOOKED_STEW))                                 { cookOnOven(ItemID.HOSIDIUS_SERVERY_UNCOOKED_STEW); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_RAW_MEAT))                                      { cookOnOven(ItemID.HOSIDIUS_SERVERY_RAW_MEAT); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_MEATWATER) && has(ItemID.HOSIDIUS_SERVERY_POTATO)){ combineAll(ItemID.HOSIDIUS_SERVERY_MEATWATER, ItemID.HOSIDIUS_SERVERY_POTATO, "Combining stew"); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_MEATWATER))                                     { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_POTATO, count(ItemID.HOSIDIUS_SERVERY_MEATWATER)); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_COOKED_MEAT) && has(ItemID.BOWL_WATER))         { combineAll(ItemID.BOWL_WATER, ItemID.HOSIDIUS_SERVERY_COOKED_MEAT, "Combining meat + water"); return; }
+        // Finish filling bowls before sizing the raw-meat withdrawal — otherwise a partial bowl_water
+        // count (e.g., fillBowls timed out at 12/14) would drive takeRawMeat to under-fetch.
+        if (has(ItemID.BOWL_EMPTY))                                                     { fillBowls(); return; }
+        // Only advance to the raw-meat phase with a full batch of bowl_water. With fewer (e.g., burns
+        // left some unused last round), fall through to the bowl chain to top up to BATCH_SIZE rather
+        // than running a tiny 2-stew loop with all its withdraw/cook/combine round-trips.
+        if (count(ItemID.BOWL_WATER) >= BATCH_SIZE && !has(ItemID.HOSIDIUS_SERVERY_RAW_MEAT))    { takeRawMeat(BATCH_SIZE); return; }
+
+        // Fresh batch — top up to BATCH_SIZE accounting for any leftover items in the chain.
+        int leftover = count(ItemID.BOWL_WATER) + count(ItemID.HOSIDIUS_SERVERY_MEATWATER) + count(ItemID.HOSIDIUS_SERVERY_UNCOOKED_STEW);
+        int needed = Math.max(1, BATCH_SIZE - leftover);
+        withdrawFromUtensil(ItemID.BOWL_EMPTY, needed);
+    }
+
+    private void meatPieTick() {
+        // Consume-to-zero phases (cooking) take priority over any combine that uses their output.
+        // Withdrawal targets size to predecessor counts so burn-induced leftovers (extra shells)
+        // carry into the next loop and the chain tops up rather than over-fetching.
+        if (has(ItemID.HOSIDIUS_SERVERY_MEAT_PIE))                                                   { serveAndMaybeHop(APPRECIATION_BAR_PIE); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_UNCOOKED_MEAT_PIE))                                          { cookOnOven(ItemID.HOSIDIUS_SERVERY_UNCOOKED_MEAT_PIE); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_RAW_MEAT))                                                   { cookOnOven(ItemID.HOSIDIUS_SERVERY_RAW_MEAT); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PIE_SHELL) && has(ItemID.HOSIDIUS_SERVERY_COOKED_MEAT))      { combineAll(ItemID.HOSIDIUS_SERVERY_PIE_SHELL, ItemID.HOSIDIUS_SERVERY_COOKED_MEAT, "Filling pies"); return; }
+        // Return bowls only when shells are at full batch (post-combine state of piedish+dough).
+        // Before that, any BOWL_EMPTY in inventory is feedstock for the dough chain — returning
+        // it would infinite-loop (withdraw → return → withdraw...).
+        if (count(ItemID.HOSIDIUS_SERVERY_PIE_SHELL) >= BATCH_SIZE && has(ItemID.BOWL_EMPTY))       { returnEmptyBowls(); return; }
+        // Only proceed to raw-meat phase when we have a full batch of shells. With fewer shells
+        // (e.g., burns left some unused), fall through to the dough chain to top up to BATCH_SIZE.
+        if (count(ItemID.HOSIDIUS_SERVERY_PIE_SHELL) >= BATCH_SIZE)                                  { takeRawMeat(BATCH_SIZE); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PIEDISH) && has(ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH))       { combineAll(ItemID.HOSIDIUS_SERVERY_PIEDISH, ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH, "Forming shells"); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH) && has(ItemID.BOWL_EMPTY))                     { returnEmptyBowls(); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH) && !has(ItemID.HOSIDIUS_SERVERY_PIEDISH))      { withdrawFromUtensil(ItemID.HOSIDIUS_SERVERY_PIEDISH, count(ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH)); return; }
+        if (has(ItemID.BOWL_WATER) && has(ItemID.HOSIDIUS_SERVERY_POT_FLOUR))                        { combineDoughDialog(ItemID.BOWL_WATER, ItemID.HOSIDIUS_SERVERY_POT_FLOUR, "Pastry dough"); return; }
+        if (has(ItemID.BOWL_EMPTY) && !has(ItemID.HOSIDIUS_SERVERY_POT_FLOUR))                       { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_POT_FLOUR, count(ItemID.BOWL_EMPTY)); return; }
+        if (has(ItemID.BOWL_EMPTY))                                                                  { fillBowls(); return; }
+
+        // Fresh batch — top up to BATCH_SIZE accounting for any leftover items in the chain.
+        int leftover = count(ItemID.HOSIDIUS_SERVERY_PIE_SHELL)
+                + count(ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH)
+                + count(ItemID.BOWL_WATER);
+        int needed = Math.max(1, BATCH_SIZE - leftover);
+        withdrawFromUtensil(ItemID.BOWL_EMPTY, needed);
+    }
+
+    private void pizzaTick() {
+        // Consume-to-zero phases (cooking) take priority over any combine that uses their output.
+        // Withdrawal targets size to predecessor counts so leftovers from burns carry into the next batch.
+        if (has(ItemID.HOSIDIUS_SERVERY_PINEAPPLE_PIZZA))                                                 { serveAndMaybeHop(APPRECIATION_BAR_PIZZA); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_UNCOOKED_PIZZA))                                                  { cookOnOven(ItemID.HOSIDIUS_SERVERY_UNCOOKED_PIZZA); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA) && has(ItemID.HOSIDIUS_SERVERY_PINEAPPLE_CHUNKS))    { combineAll(ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA, ItemID.HOSIDIUS_SERVERY_PINEAPPLE_CHUNKS, "Adding pineapple"); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PINEAPPLE) && has(ItemID.KNIFE))                                  { combineAll(ItemID.KNIFE, ItemID.HOSIDIUS_SERVERY_PINEAPPLE, "Cutting pineapple"); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA) && has(ItemID.HOSIDIUS_SERVERY_CHEESE))         { combineAll(ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA, ItemID.HOSIDIUS_SERVERY_CHEESE, "Adding cheese"); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA) && !has(ItemID.HOSIDIUS_SERVERY_CHEESE))        { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_CHEESE, count(ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA)); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE) && has(ItemID.HOSIDIUS_SERVERY_TOMATO))               { combineAll(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE, ItemID.HOSIDIUS_SERVERY_TOMATO, "Adding tomato"); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE) && !has(ItemID.HOSIDIUS_SERVERY_TOMATO))              { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_TOMATO, count(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE)); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA) && !has(ItemID.HOSIDIUS_SERVERY_PINEAPPLE_CHUNKS) && !has(ItemID.HOSIDIUS_SERVERY_PINEAPPLE)) { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_PINEAPPLE, count(ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA)); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE) && has(ItemID.BOWL_EMPTY))                            { returnEmptyBowls(); return; }
+        if (has(ItemID.BOWL_WATER) && has(ItemID.HOSIDIUS_SERVERY_POT_FLOUR))                             { combineDoughDialog(ItemID.BOWL_WATER, ItemID.HOSIDIUS_SERVERY_POT_FLOUR, "Pizza base"); return; }
+        if (has(ItemID.BOWL_EMPTY) && !has(ItemID.HOSIDIUS_SERVERY_POT_FLOUR))                            { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_POT_FLOUR, count(ItemID.BOWL_EMPTY)); return; }
+        if (has(ItemID.BOWL_EMPTY))                                                                       { fillBowls(); return; }
+        if (count(ItemID.KNIFE) < 2)                                                                      { withdrawFromUtensil(ItemID.KNIFE, 2); return; }
+
+        // Fresh batch — top up to PIZZA_BATCH_SIZE accounting for any leftovers in the chain.
+        int leftover = count(ItemID.BOWL_WATER)
+                + count(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE)
+                + count(ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA)
+                + count(ItemID.HOSIDIUS_SERVERY_UNCOOKED_PIZZA)
+                + count(ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA);
+        int needed = Math.max(1, PIZZA_BATCH_SIZE - leftover);
+        withdrawFromUtensil(ItemID.BOWL_EMPTY, needed);
+    }
+
+    // ---------- step handlers ----------
+
+    private void walkToMess() {
+        setStatus("Walking to Mess");
+        Rs2Walker.walkTo(MESS_HUB, 4);
+    }
+
+    private boolean inMess() {
+        return Microbot.getClientThread().runOnClientThreadOptional(
+                () -> Rs2Widget.getWidget(InterfaceID.HosidiusServeryHud.CONTENT) != null
+        ).orElse(false);
+    }
+
+    private boolean withdrawFromUtensil(int itemId, int targetCount) { return withdrawFromCupboard(UTENSIL_CUPBOARD_LOC, itemId, targetCount); }
+    private boolean withdrawFromFood(int itemId, int targetCount)    { return withdrawFromCupboard(FOOD_CUPBOARD_LOC,    itemId, targetCount); }
+
+    private boolean withdrawFromCupboard(WorldPoint loc, int itemId, int targetCount) {
+        int have = count(itemId);
+        if (have >= targetCount) return true;
+
+        int free = 28 - Rs2Inventory.count();
+        int need = Math.min(targetCount - have, free);
+        if (need <= 0) {
+            log.warn("[mess] withdraw blocked: itemId={} target={} have={} free=0", itemId, targetCount, have);
+            return false;
+        }
+
+        logDecision("withdraw[loc=" + loc + ",itemId=" + itemId + ",need=" + need + "]");
+        setStatus("Getting supplies");
+
+        if (!Rs2GameObject.canReach(loc)) { log.info("[mess] walking to cupboard {}", loc); Rs2Walker.walkTo(loc, 4); return false; }
+
+        if (!Rs2Widget.isWidgetVisible(SHOP_WIDGET_ID)) {
+            // Exact-tile interact: cupboards at (1644,3624) and (1645,3623) are 1 tile apart, so a within(loc,1)
+            // query catches both and may interact with the wrong one. findObjectByLocation matches the exact tile.
+            boolean interacted = Rs2GameObject.interact(loc, "Search");
+            log.info("[mess] cupboard interact(Search) at {} -> {}", loc, interacted);
+            if (!interacted) return false;
+            if (!sleepUntil(() -> Rs2Widget.isWidgetVisible(SHOP_WIDGET_ID), 3000)) {
+                log.warn("[mess] shop widget never appeared after Search at {}", loc);
                 return false;
+            }
         }
 
-        Widget filledBar = appreciationBarWidget.getChild(0);
+        Widget shop = Rs2Widget.getWidget(SHOP_WIDGET_ID);
+        Widget[] children = shop != null ? shop.getDynamicChildren() : null;
+        if (children == null) { log.warn("[mess] shop widget has no children"); closeShop(); return false; }
 
-        if (filledBar == null) {
-            debug("Appreciation bar widget not found, cannot check appreciation.");
+        int idx = -1;
+        for (int i = 0; i < children.length; i++) {
+            if (children[i].getItemId() == itemId) { idx = i; break; }
+        }
+        if (idx < 0) {
+            // Help diagnose mis-targeted cupboard / wrong item ID by logging what's actually on offer.
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < Math.min(children.length, 16); i++) {
+                if (children[i].getItemId() > 0) sb.append(children[i].getItemId()).append(',');
+            }
+            log.warn("[mess] item {} not in cupboard at {}; items found: [{}]", itemId, loc, sb);
+            closeShop();
             return false;
         }
 
-        int filledPercentage = filledBar.getWidth() * 100 / appreciationBarWidget.getWidth();
+        log.info("[mess] clicking shop slot {} for itemId {} (qty {})", idx, itemId, need);
+        Rs2Widget.clickWidgetFast(children[idx], idx, 5);
+        if (!sleepUntil(() -> Rs2Widget.hasWidget("Enter amount"), 2000)) { log.warn("[mess] Enter amount widget never appeared"); closeShop(); return false; }
 
-        if (filledPercentage < config.appreciation_threshold()) {
-            debug("Appreciation is below threshold.");
-            return true;
+        // Mirror Rs2GrandExchange.setQuantity timing: the chatbox input doesn't reliably
+        // accept the value if you set it the same tick the widget appeared — small qty
+        // (e.g., 2) silently drops the value, large qty happens to race past the issue.
+        // typeString is unsafe here too: KEY_TYPED routes to canvas if the chatbox
+        // hasn't focused, leaking digits into game chat. Direct VarClientStr write +
+        // ~1s of sleep around it matches the pattern that works in GE.
+        sleep(600);
+        setChatboxAmount(need);
+        sleep(400);
+        Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
+
+        boolean got = sleepUntil(() -> count(itemId) >= targetCount, 4000);
+        log.info("[mess] withdraw result for itemId {}: have={} target={} ok={}", itemId, count(itemId), targetCount, got);
+        closeShop();
+        return got;
+    }
+
+    private boolean takeRawMeat(int targetCount) {
+        int have = count(ItemID.HOSIDIUS_SERVERY_RAW_MEAT);
+        if (have >= targetCount) return true;
+
+        int free = 28 - Rs2Inventory.count();
+        int need = Math.min(targetCount - have, free);
+        if (need <= 0) return false;
+
+        logDecision("takeRawMeat[need=" + need + "]");
+        setStatus("Taking raw meat");
+        if (!Rs2GameObject.canReach(MEAT_TABLE_LOC)) { Rs2Walker.walkTo(MEAT_TABLE_LOC, 4); return false; }
+
+        boolean ok = Rs2GameObject.interact(MEAT_TABLE_LOC, "Take-X");
+        log.info("[mess] meat-table interact(Take-X) -> {}", ok);
+        if (!ok) return false;
+        if (!sleepUntil(() -> Rs2Widget.hasWidget("Enter amount"), 2000)) { log.warn("[mess] Enter amount widget never appeared for raw meat"); return false; }
+
+        // See withdrawFromCupboard for the timing rationale — small-qty values race past the input.
+        sleep(600);
+        setChatboxAmount(need);
+        sleep(400);
+        Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
+        return sleepUntil(() -> count(ItemID.HOSIDIUS_SERVERY_RAW_MEAT) >= targetCount, 4000);
+    }
+
+    private boolean fillBowls() {
+        if (!has(ItemID.BOWL_EMPTY)) return true;
+        logDecision("fillBowls");
+        setStatus("Filling bowls");
+        if (!Rs2GameObject.canReach(SINK_LOC)) { Rs2Walker.walkTo(SINK_LOC, 4); return false; }
+
+        TileObject sink = Rs2GameObject.findObjectByLocation(SINK_LOC);
+        if (sink == null) { log.warn("[mess] sink not found at {}", SINK_LOC); return false; }
+        boolean used = Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, sink.getId());
+        log.info("[mess] use bowl on sink id={} -> {}", sink.getId(), used);
+        return sleepUntil(() -> !has(ItemID.BOWL_EMPTY), 15000);
+    }
+
+    private boolean returnEmptyBowls() {
+        if (!has(ItemID.BOWL_EMPTY)) return true;
+        logDecision("returnEmptyBowls");
+        setStatus("Returning empty bowls");
+        if (!Rs2GameObject.canReach(UTENSIL_CUPBOARD_LOC)) { Rs2Walker.walkTo(UTENSIL_CUPBOARD_LOC, 4); return false; }
+
+        TileObject cupboard = Rs2GameObject.findObjectByLocation(UTENSIL_CUPBOARD_LOC);
+        if (cupboard == null) { log.warn("[mess] utensil cupboard not found at {}", UTENSIL_CUPBOARD_LOC); return false; }
+        boolean used = Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, cupboard.getId());
+        log.info("[mess] return bowl on cupboard id={} -> {}", cupboard.getId(), used);
+        return sleepUntil(() -> !has(ItemID.BOWL_EMPTY), 8000);
+    }
+
+    /**
+     * Cook all of {@code rawId} on the clay oven in one phase: issue the cook
+     * (Make-All via SPACE on the production widget), then BLOCK until the raw
+     * ingredient is fully consumed. Returning mid-chain lets the dispatcher
+     * pick a different guard (e.g., a combine that depends on the partial
+     * cooked-meat output), interrupting cooking — this is what the user
+     * explicitly forbids.
+     */
+    private boolean cookOnOven(int rawId) {
+        if (!has(rawId)) return true;
+        logDecision("cookOnOven[rawId=" + rawId + "]");
+        setStatus("Cooking");
+        if (!Rs2GameObject.canReach(CLAY_OVEN_LOC)) { Rs2Walker.walkTo(CLAY_OVEN_LOC, 4); return false; }
+
+        int before = count(rawId);
+
+        if (Rs2Widget.isProductionWidgetOpen()) {
+            // Dialog already up from a previous tick — confirm Cook-All.
+            Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
         } else {
-            debug("Appreciation is above threshold.");
+            TileObject oven = Rs2GameObject.findObjectByLocation(CLAY_OVEN_LOC);
+            if (oven == null) { log.warn("[mess] clay oven not found at {}", CLAY_OVEN_LOC); return false; }
+            boolean used = Rs2Inventory.useItemOnObject(rawId, oven.getId());
+            log.info("[mess] use {} on oven id={} -> {}", rawId, oven.getId(), used);
+            if (sleepUntil(Rs2Widget::isProductionWidgetOpen, 2500)) {
+                Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+            }
+        }
+
+        // Block until raw is fully consumed. Per-cook ~3 ticks (~1.8s), so an
+        // 8s stall guard is generous; hard cap 90s covers a 14-batch comfortably.
+        boolean done = waitForDepleted(rawId, before, 8000);
+        log.info("[mess] cookOnOven id={} done={} ({}->{})", rawId, done, before, count(rawId));
+        return true;
+    }
+
+    /** Set the chatbox numeric input field directly. Avoids focus-routing race in typeString. */
+    private static void setChatboxAmount(int amount) {
+        Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Widget input = Rs2Widget.getWidget(InterfaceID.Chatbox.MES_TEXT2);
+            if (input != null) {
+                input.setText(amount + "*");
+            }
+            Microbot.getClient().setVarcStrValue(VarClientStr.INPUT_TEXT, String.valueOf(amount));
+            return null;
+        });
+    }
+
+    /**
+     * Combine two items with Make-All semantics.
+     * <p>
+     * Issues one combine, presses SPACE on the Make-X production widget, then
+     * waits for one ingredient to deplete. Combine actions in this minigame
+     * have no sustained player animation (the bowl/pot/dish recipes are pure
+     * inventory transformations), so we cannot use {@code isAnimating} to
+     * detect the chain — we wait on {@link #count} change with a stall guard.
+     */
+    private boolean combineAll(int item1, int item2, String statusText) {
+        if (!has(item1) || !has(item2)) return true;
+        logDecision("combineAll[" + item1 + "+" + item2 + "]");
+        setStatus(statusText);
+        int before1 = count(item1);
+        int before2 = count(item2);
+
+        Rs2Inventory.combine(item1, item2);
+        if (sleepUntil(Rs2Widget::isProductionWidgetOpen, 1500)) {
+            Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+        }
+        boolean done = waitForCombineChain(item1, item2, before1, before2);
+        log.info("[mess] combineAll {} + {} -> done={} ({}->{} / {}->{})",
+                item1, item2, done, before1, count(item1), before2, count(item2));
+        return true;
+    }
+
+    /**
+     * Bowl-water + pot-flour combine: first pops a "Select an option" chat
+     * dialog (Pastry dough vs Pizza base), then a Make-X widget. Picks the
+     * option, presses SPACE for All, then blocks for full chain completion.
+     */
+    private boolean combineDoughDialog(int item1, int item2, String dialogOption) {
+        if (!has(item1) || !has(item2)) return true;
+        logDecision("combineDough[" + dialogOption + "]");
+        setStatus("Making " + dialogOption);
+        int before1 = count(item1);
+        int before2 = count(item2);
+
+        Rs2Inventory.combine(item1, item2);
+        if (Rs2Dialogue.sleepUntilSelectAnOption()) {
+            Rs2Dialogue.keyPressForDialogueOption(dialogOption);
+        }
+        if (sleepUntil(Rs2Widget::isProductionWidgetOpen, 1500)) {
+            Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+        }
+        boolean done = waitForCombineChain(item1, item2, before1, before2);
+        log.info("[mess] combineDough {} + {} -> done={} (flour {}->{})",
+                item1, item2, done, before2, count(item2));
+        return true;
+    }
+
+    /**
+     * Wait for a combine chain to consume an ingredient. Returns when either
+     * {@code item1} or {@code item2} reaches 0. Stall guard: returns false if
+     * the combined count hasn't dropped for 5s. Hard cap 60s.
+     * <p>
+     * Tracks the SUM of counts so any per-action depletion registers as
+     * progress. A min-based guard breaks for combines where one ingredient
+     * persists (e.g., knife+pineapple — knife stays at 2 while pineapple
+     * counts down, so min stays pinned at 2 and the stall trips early).
+     */
+    private boolean waitForCombineChain(int item1, int item2, int before1, int before2) {
+        long start = System.currentTimeMillis();
+        int lastSum = before1 + before2;
+        long lastChangeMs = start;
+        while (System.currentTimeMillis() - start < 60_000) {
+            int c1 = count(item1);
+            int c2 = count(item2);
+            if (c1 == 0 || c2 == 0) return true;
+            int currentSum = c1 + c2;
+            if (currentSum < lastSum) {
+                lastSum = currentSum;
+                lastChangeMs = System.currentTimeMillis();
+            } else if (System.currentTimeMillis() - lastChangeMs > 5000) {
+                return false;
+            }
+            sleep(300);
         }
         return false;
     }
 
-    private boolean inTheMess() {
-        if (Rs2Widget.getWidget(InterfaceID.HosidiusServeryHud.CONTENT) != null) {
-            debug("Already in the area, no need to move location.");
-            return true;
-        }
-        info("Walking to the Hosidius Servery area...");
-        return Rs2Walker.walkTo(new WorldPoint(1645, 3627, 0), 4);
-    }
-
-    private BooleanSupplier cleanInventory() {
-        return () -> {
-            if (!Rs2Inventory.isEmpty()) {
-                if (Rs2Inventory.count() == 2 && Rs2Inventory.count(ItemID.KNIFE) == 2 && config.dish() == Dish.PIZZA) {
-                    debug("Only knife in inventory, skipping inventory cleanup.");
-                    return true;
-                }
-
-                Set<Integer> itemsToDrop = Set.of(
-                        ItemID.BOWL_EMPTY,
-                        ItemID.BOWL_WATER,
-                        ItemID.KNIFE,
-                        ItemID.HOSIDIUS_SERVERY_PIEDISH,
-                        ItemID.BURNT_PIZZA,
-                        ItemID.BURNT_PIE,
-                        ItemID.BURNT_STEW,
-                        ItemID.BURNT_MEAT,
-                        ItemID.HOSIDIUS_SERVERY_RAW_MEAT,
-                        ItemID.HOSIDIUS_SERVERY_PINEAPPLE,
-                        ItemID.HOSIDIUS_SERVERY_PINEAPPLE_CHUNKS,
-                        ItemID.HOSIDIUS_SERVERY_TOMATO,
-                        ItemID.HOSIDIUS_SERVERY_CHEESE,
-                        ItemID.HOSIDIUS_SERVERY_POTATO,
-                        ItemID.HOSIDIUS_SERVERY_POT_FLOUR,
-                        ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH,
-                        ItemID.HOSIDIUS_SERVERY_PIZZA_BASE,
-                        ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA,
-                        ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA,
-                        ItemID.HOSIDIUS_SERVERY_PIE_SHELL,
-                        ItemID.HOSIDIUS_SERVERY_COOKED_MEAT,
-                        ItemID.HOSIDIUS_SERVERY_UNCOOKED_MEAT_PIE,
-                        ItemID.HOSIDIUS_SERVERY_UNCOOKED_STEW,
-                        ItemID.HOSIDIUS_SERVERY_UNCOOKED_PIZZA,
-                        ItemID.HOSIDIUS_SERVERY_MEATWATER
-                );
-
-                int droppedItemsCount = 0;
-                
-                info("Starting inventory cleanup. Total slots to check: 28");
-                debug("Items to drop: " + itemsToDrop.toString());
-
-                // Iterate through inventory slots to drop items slot by slot
-                for (int slot = 0; slot < 28; slot++) {
-                    if (!Rs2Inventory.isSlotEmpty(slot)) {
-                        Rs2ItemModel item = Rs2Inventory.getItemInSlot(slot);
-                        if (item != null) {
-                            debug("Slot " + slot + ": Found item ID " + item.getId() + " (name: " + item.getName() + ")");
-                            if (itemsToDrop.contains(item.getId())) {
-                                debug("Slot " + slot + ": Item ID " + item.getId() + " is in drop list, attempting to drop");
-                                Rs2Inventory.slotInteract(slot, "Drop");
-                                sleepGaussian(120, 40);
-                                droppedItemsCount++;
-                                debug("Slot " + slot + ": Drop action completed for item ID " + item.getId());
-                            } else {
-                                debug("Slot " + slot + ": Item ID " + item.getId() + " NOT in drop list, keeping");
-                            }
-                        } else {
-                            debug("Slot " + slot + ": Item is null despite slot not being empty");
-                        }
-                    } else {
-                        debug("Slot " + slot + ": Empty slot, skipping");
-                    }
-                }
-
-                info("Inventory cleanup completed. Total items dropped: " + droppedItemsCount);
-
-                if (droppedItemsCount > 0) {
-                    info("Dropped " + droppedItemsCount + " items from inventory.");
-                    Rs2Antiban.actionCooldown();
-                    return false;
-                }
-                info("Walking to the bank to deposit items...");
-                return Rs2Bank.bankItemsAndWalkBackToOriginalPosition(
-                        Rs2Inventory.items().map(Rs2ItemModel::getName).collect(Collectors.toList()),
-                        false,
-                        BankLocation.HOSIDIUS_KITCHEN,
-                        Rs2Player.getWorldLocation(),
-                        28,
-                        3
-                );
+    /**
+     * Wait for a single inventory item to be fully consumed (count → 0).
+     * Stall guard {@code stallMs}: returns false if the count hasn't dropped
+     * for that long. Hard cap 90s.
+     */
+    private boolean waitForDepleted(int itemId, int beforeCount, long stallMs) {
+        long start = System.currentTimeMillis();
+        int lastCount = beforeCount;
+        long lastChangeMs = start;
+        while (System.currentTimeMillis() - start < 90_000) {
+            int now = count(itemId);
+            if (now == 0) return true;
+            if (now < lastCount) {
+                lastCount = now;
+                lastChangeMs = System.currentTimeMillis();
+            } else if (System.currentTimeMillis() - lastChangeMs > stallMs) {
+                return false;
             }
-
-            debug("Inventory is clean, no action needed");
-            return true;
-        };
-    }
-
-    private BooleanSupplier getUtensils() {
-        int itemId;
-        switch (getCurrentState()) {
-            case GET_EMPTY_BOWLS:
-                itemId = ItemID.BOWL_EMPTY;
-                break;
-            case GET_KNIFE:
-                if (Rs2Inventory.count(ItemID.KNIFE) >= 2) {
-                    debug("Already have 2 knives, skipping getting knife.");
-                    return () -> true;
-                }
-                itemId = ItemID.KNIFE;
-                break;
-            case GET_EMPTY_PIE_DISHES:
-                itemId = ItemID.HOSIDIUS_SERVERY_PIEDISH;
-                break;
-            default:
-                debug("Unknown state for getting utensils, cannot proceed.");
-                return () -> false;
+            sleep(400);
         }
-        return () -> {
-            if (Rs2GameObject.canReach(UTENSIL_CUPBOARD_LOC)) {
-                Rs2GameObject.interact(UTENSIL_CUPBOARD_LOC, "Search");
-                sleepUntil(() -> Rs2Widget.isWidgetVisible(15859715));
-                if (Rs2Widget.isWidgetVisible(15859715)) {
-                    Widget utensilShop = Rs2Widget.getWidget(15859715);
-                    if (utensilShop != null) {
-                        Widget[] children = utensilShop.getDynamicChildren();
-                        int index = IntStream.range(0, children.length)
-                                .filter(i -> children[i].getItemId() == itemId)
-                                .findFirst()
-                                .orElse(-1);
-                        if (index != -1) {
-                            Rs2Widget.clickWidgetFast(children[index], index, 5);
-                            sleepUntil(() -> Rs2Widget.hasWidget("Enter amount"));
-                            if (Rs2Widget.hasWidget("Enter amount")) {
-                                String amount;
-                                switch (getCurrentState()) {
-                                    case GET_KNIFE:
-                                        amount = "2";
-                                        break;
-                                    case GET_EMPTY_BOWLS:
-                                        if (config.dish() == Dish.PIZZA) {
-                                            amount = "13";
-                                            break;
-                                        }
-                                    default:
-                                        amount = "14";
-                                }
-                                Rs2Keyboard.typeString(amount);
-                                Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
-                                Rs2Antiban.actionCooldown();
-                                sleepUntil(() -> closeMessShop());
-                                Rs2Inventory.waitForInventoryChanges(2000);
-                                return Rs2Inventory.hasItem(itemId);
-                            }
-                        }
-                    }
-                }
-            }
-            return false;
-        };
+        return false;
     }
 
-    private BooleanSupplier fillBowl() {
-        return () -> {
-            if (Rs2Inventory.hasItem(ItemID.BOWL_EMPTY)) {
-                Rs2TileObjectModel sink = Microbot.getRs2TileObjectCache().query().within(SINK_LOC, 1).nearest();
-                if (sink != null) Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, sink.getId());
-                sleepUntil(() -> !Rs2Inventory.hasItem(ItemID.BOWL_EMPTY),
-                        10000);
-                Rs2Antiban.actionCooldown();
+    /**
+     * Hard-fail invariant: no chain item should ever exceed {@link #BATCH_SIZE}
+     * (or {@link #PIZZA_BATCH_SIZE} for pizza). Exceeding it means our top-up
+     * math overshot or a leftover state went unhandled — we'd start over-fetching
+     * ingredients we'll never use, so stop loudly rather than waste resources.
+     */
+    private boolean violatesBatchInvariant() {
+        int max = config.dish() == Dish.PIZZA ? PIZZA_BATCH_SIZE : BATCH_SIZE;
+        for (int id : chainItemsForDish()) {
+            int c = count(id);
+            if (c > max) {
+                log.error("[mess] BATCH INVARIANT VIOLATED: itemId={} count={} > max={} for dish={}",
+                        id, c, max, config.dish());
                 return true;
             }
-            return false;
-        };
-    }
-
-    private BooleanSupplier getMeat() {
-        return () -> {
-            if (Rs2GameObject.canReach(MEAT_TABLE_LOC)) {
-                Rs2GameObject.interact(MEAT_TABLE_LOC, "Take-X");
-                sleepUntil(() -> Rs2Widget.hasWidget("Enter amount"));
-                if (Rs2Widget.hasWidget("Enter amount")) {
-                    Rs2Keyboard.typeString("14");
-                    Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
-                    Rs2Antiban.actionCooldown();
-                }
-                Rs2Inventory.waitForInventoryChanges(2000);
-                Rs2Antiban.actionCooldown();
-                return Rs2Inventory.hasItem(ItemID.HOSIDIUS_SERVERY_RAW_MEAT);
-            }
-            return false;
-        };
-    }
-
-    private BooleanSupplier cook() {
-        int itemId;
-        switch (getCurrentState()) {
-            case USE_CLAY_OVEN:
-                itemId = ItemID.HOSIDIUS_SERVERY_RAW_MEAT;
-                break;
-            case FINISH_COOKING:
-                if (config.dish() == Dish.MEAT_PIE) {
-                    itemId = ItemID.HOSIDIUS_SERVERY_UNCOOKED_MEAT_PIE;
-                } else if (config.dish() == Dish.STEW) {
-                    itemId = ItemID.HOSIDIUS_SERVERY_UNCOOKED_STEW;
-                } else if (config.dish() == Dish.PIZZA) {
-                    itemId = ItemID.HOSIDIUS_SERVERY_UNCOOKED_PIZZA;
-                } else {
-                    debug("Unknown dish selected, cannot finish cooking.");
-                    return () -> false;
-                }
-                break;
-            default:
-                debug("Unknown state for cooking, cannot proceed.");
-                return () -> false;
         }
-        return () -> {
-            if (Rs2GameObject.canReach(CLAY_OVEN_LOC)) {
-                Rs2TileObjectModel oven = Microbot.getRs2TileObjectCache().query().within(CLAY_OVEN_LOC, 1).nearest();
-                if (oven != null) Rs2Inventory.useItemOnObject(itemId, oven.getId());
-                sleepUntil(() -> Rs2Widget.hasWidget("How many would you like to cook?"));
-                if (Rs2Widget.hasWidget("How many would you like to cook?")) {
-                    Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                    Rs2Antiban.actionCooldown();
-                }
-                Rs2Inventory.waitForInventoryChanges(5000);
-                sleepUntil(() -> !Rs2Player.isAnimating(1000), 50000);
-                Rs2Antiban.actionCooldown();
-            }
-            return false;
-        };
-
+        return false;
     }
 
-    private BooleanSupplier combineItems() {
-        int item1;
-        int item2;
-        switch (getCurrentState()) {
-            case COMBINE_PASTRY_DOUGH:
-            case COMBINE_PIZZA_BASE:
-                item1 = ItemID.BOWL_WATER;
-                item2 = ItemID.HOSIDIUS_SERVERY_POT_FLOUR;
-                break;
-            case COMBINE_PIE_SHELL:
-                item1 = ItemID.HOSIDIUS_SERVERY_PIEDISH;
-                item2 = ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH;
-                break;
-            case COMBINE_MEAT_PIE:
-                item1 = ItemID.HOSIDIUS_SERVERY_PIE_SHELL;
-                item2 = ItemID.HOSIDIUS_SERVERY_COOKED_MEAT;
-                break;
-            case COMBINE_MEAT_WATER:
-                item1 = ItemID.BOWL_WATER;
-                item2 = ItemID.HOSIDIUS_SERVERY_COOKED_MEAT;
-                break;
-            case COMBINE_STEW:
-                item1 = ItemID.HOSIDIUS_SERVERY_MEATWATER;
-                item2 = ItemID.HOSIDIUS_SERVERY_POTATO;
-                break;
-            case COMBINE_PIZZA_TOMATO:
-                item1 = ItemID.HOSIDIUS_SERVERY_PIZZA_BASE;
-                item2 = ItemID.HOSIDIUS_SERVERY_TOMATO;
-                break;
-            case COMBINE_PIZZA_CHEESE:
-                item1 = ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA;
-                item2 = ItemID.HOSIDIUS_SERVERY_CHEESE;
-                break;
-            case COMBINE_PIZZA_PINEAPPLE:
-                item1 = ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA;
-                item2 = ItemID.HOSIDIUS_SERVERY_PINEAPPLE_CHUNKS;
-                break;
-            case CUT_PINEAPPLE:
-                item1 = ItemID.KNIFE;
-                item2 = ItemID.HOSIDIUS_SERVERY_PINEAPPLE;
-                break;
-            default:
-                debug("Unknown state for combining items, cannot proceed.");
-                return () -> false;
-        }
-        return () -> {
-            if (Rs2Inventory.hasItem(item1) && Rs2Inventory.hasItem(item2)) {
-                boolean alreadyInRightSlots = (Rs2Inventory.slotContains(26, item1) && Rs2Inventory.slotContains(27, item2)) ||
-                        (Rs2Inventory.slotContains(26, item2) && Rs2Inventory.slotContains(27, item1));
-
-                if (!alreadyInRightSlots) {
-                    Rs2ItemModel lastOfItem1 = Rs2Inventory.getLast(item1);
-                    Rs2ItemModel lastOfItem2 = Rs2Inventory.getLast(item2);
-
-                    if (lastOfItem1 != null && lastOfItem2 != null) {
-                        if (lastOfItem1.getSlot() != 26 && lastOfItem1.getSlot() != 27) {
-                            if (lastOfItem2.getSlot() == 26) {
-                                Rs2Inventory.moveItemToSlot(lastOfItem1, 27);
-                            } else if (lastOfItem2.getSlot() == 27) {
-                                Rs2Inventory.moveItemToSlot(lastOfItem1, 26);
-                            } else {
-                                Rs2Inventory.moveItemToSlot(lastOfItem1, 26);
-                                sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(2000));
-                                Rs2Inventory.moveItemToSlot(lastOfItem2, 27);
-                                sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(2000));
-                            }
-                        }
-                    } else {
-                        debug("Failed to find items in inventory, cannot combine.");
-                        return false;
-                    }
-                }
-
-                Widget item1Widget = Rs2Inventory.getInventoryWidget().getChild(26);
-                Widget item2Widget = Rs2Inventory.getInventoryWidget().getChild(27);
-                if (getCurrentState() == State.COMBINE_PASTRY_DOUGH || getCurrentState() == State.COMBINE_PIZZA_BASE) {
-                    String option = (getCurrentState() == State.COMBINE_PASTRY_DOUGH) ? "Pastry dough" : "Pizza base";
-                    Rs2Widget.clickWidget(item1Widget);
-                    Rs2Widget.clickWidget(item2Widget);
-                    Rs2Dialogue.sleepUntilSelectAnOption();
-                    Rs2Dialogue.keyPressForDialogueOption(option);
-                    sleepUntil(() -> !Rs2Inventory.hasItem(item1), 30000);
-                    Rs2Antiban.actionCooldown();
-                    return true;
-                } else if (getCurrentState() == State.CUT_PINEAPPLE) {
-                    while (Rs2Inventory.hasItem(ItemID.HOSIDIUS_SERVERY_PINEAPPLE) && canContinue()) {
-                        Rs2Widget.clickWidget(item1Widget);
-                        sleepGaussian(120, 40);
-                        Rs2Widget.clickWidget(item2Widget);
-                        sleepGaussian(120, 40);
-                    }
-
-                    Rs2ItemModel knife = Rs2Inventory.getLast(ItemID.KNIFE);
-                    if (knife != null) {
-                        Rs2Inventory.moveItemToSlot(knife, (Rs2Inventory.slotContains(0, ItemID.KNIFE)) ? 1 : 0);
-                        sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(2000));
-                        return true;
-                    } else {
-                        debug("Failed to find knife in inventory, cannot move knife.");
-                        return false;
-                    }
-                } else {
-                    while (Rs2Inventory.hasItem(item1) && canContinue()) {
-                        Rs2Widget.clickWidget(item1Widget);
-                        sleepGaussian(120, 40);
-                        Rs2Widget.clickWidget(item2Widget);
-                        sleepGaussian(120, 40);
-                    }
-                    return true;
-                }
-
-            }
-            return false;
-        };
-    }
-
-    private BooleanSupplier getFood() {
-        int itemId;
-        switch (getCurrentState()) {
-            case GET_POTATOES:
-                itemId = ItemID.HOSIDIUS_SERVERY_POTATO;
-                break;
-            case GET_PINEAPPLES:
-                itemId = ItemID.HOSIDIUS_SERVERY_PINEAPPLE;
-                break;
-            case GET_TOMATOES:
-                itemId = ItemID.HOSIDIUS_SERVERY_TOMATO;
-                break;
-            case GET_CHEESE:
-                itemId = ItemID.HOSIDIUS_SERVERY_CHEESE;
-                break;
-            case GET_FLOUR:
-                itemId = ItemID.HOSIDIUS_SERVERY_POT_FLOUR;
-                break;
-            default:
-                debug("Unknown state for getting food, cannot proceed.");
-                return () -> false;
-        }
-        return () -> {
-            if (Rs2GameObject.canReach(FOOD_CUPBOARD_LOC)) {
-                Rs2GameObject.interact(FOOD_CUPBOARD_LOC, "Search");
-                sleepUntil(() -> Rs2Widget.isWidgetVisible(15859715));
-                if (Rs2Widget.isWidgetVisible(15859715)) {
-                    Widget foodShop = Rs2Widget.getWidget(15859715);
-                    if (foodShop != null) {
-                        Widget[] children = foodShop.getDynamicChildren();
-                        int index = IntStream.range(0, children.length)
-                                .filter(i -> children[i].getItemId() == itemId)
-                                .findFirst()
-                                .orElse(-1);
-                        if (index != -1) {
-                            Rs2Widget.clickWidgetFast(children[index], index, 4);
-                            Rs2Inventory.waitForInventoryChanges(2000);
-                            sleepUntil(() -> closeMessShop());
-                            Rs2Antiban.actionCooldown();
-                            return Rs2Inventory.hasItem(itemId);
-                        }
-                    }
-                }
-            }
-            return false;
-        };
-    }
-
-    private void setOrderOfStates() {
+    private int[] chainItemsForDish() {
         switch (config.dish()) {
-            case MEAT_PIE:
-                State.GETTING_READY.setNext(State.GET_EMPTY_BOWLS);
-                State.GET_EMPTY_BOWLS.setNext(State.GET_FLOUR);
-                State.GET_FLOUR.setNext(State.USE_SINK);
-                State.USE_SINK.setNext(State.COMBINE_PASTRY_DOUGH);
-                State.COMBINE_PASTRY_DOUGH.setNext(State.RETURN_EMPTY_BOWLS);
-                State.RETURN_EMPTY_BOWLS.setNext(State.GET_EMPTY_PIE_DISHES);
-                State.GET_EMPTY_PIE_DISHES.setNext(State.COMBINE_PIE_SHELL);
-                State.COMBINE_PIE_SHELL.setNext(State.GET_MEAT);
-                State.GET_MEAT.setNext(State.USE_CLAY_OVEN);
-                State.USE_CLAY_OVEN.setNext(State.COMBINE_MEAT_PIE);
-                State.COMBINE_MEAT_PIE.setNext(State.FINISH_COOKING);
-                State.FINISH_COOKING.setNext(State.USE_BUFFET_TABLE);
-                break;
-            case STEW:
-                State.GETTING_READY.setNext(State.GET_EMPTY_BOWLS);
-                State.GET_EMPTY_BOWLS.setNext(State.USE_SINK);
-                State.USE_SINK.setNext(State.GET_MEAT);
-                State.GET_MEAT.setNext(State.USE_CLAY_OVEN);
-                State.USE_CLAY_OVEN.setNext(State.COMBINE_MEAT_WATER);
-                State.COMBINE_MEAT_WATER.setNext(State.GET_POTATOES);
-                State.GET_POTATOES.setNext(State.COMBINE_STEW);
-                State.COMBINE_STEW.setNext(State.FINISH_COOKING);
-                State.FINISH_COOKING.setNext(State.USE_BUFFET_TABLE);
-                break;
-            case PIZZA:
-                State.GETTING_READY.setNext(State.GET_KNIFE);
-                State.GET_KNIFE.setNext(State.GET_EMPTY_BOWLS);
-                State.GET_EMPTY_BOWLS.setNext(State.GET_FLOUR);
-                State.GET_FLOUR.setNext(State.USE_SINK);
-                State.USE_SINK.setNext(State.COMBINE_PIZZA_BASE);
-                State.COMBINE_PIZZA_BASE.setNext(State.RETURN_EMPTY_BOWLS);
-                State.RETURN_EMPTY_BOWLS.setNext(State.GET_TOMATOES);
-                State.GET_TOMATOES.setNext(State.COMBINE_PIZZA_TOMATO);
-                State.COMBINE_PIZZA_TOMATO.setNext(State.GET_CHEESE);
-                State.GET_CHEESE.setNext(State.COMBINE_PIZZA_CHEESE);
-                State.COMBINE_PIZZA_CHEESE.setNext(State.GET_PINEAPPLES);
-                State.GET_PINEAPPLES.setNext(State.CUT_PINEAPPLE);
-                State.CUT_PINEAPPLE.setNext(State.FINISH_COOKING);
-                State.FINISH_COOKING.setNext(State.COMBINE_PIZZA_PINEAPPLE);
-                State.COMBINE_PIZZA_PINEAPPLE.setNext(State.USE_BUFFET_TABLE);
-                break;
-            default:
-                debug("Unknown dish selected, cannot set order of states.");
+            case STEW: return new int[] {
+                    ItemID.BOWL_EMPTY, ItemID.BOWL_WATER,
+                    ItemID.HOSIDIUS_SERVERY_RAW_MEAT, ItemID.HOSIDIUS_SERVERY_COOKED_MEAT,
+                    ItemID.HOSIDIUS_SERVERY_MEATWATER, ItemID.HOSIDIUS_SERVERY_POTATO,
+                    ItemID.HOSIDIUS_SERVERY_UNCOOKED_STEW, ItemID.HOSIDIUS_SERVERY_STEW,
+            };
+            case MEAT_PIE: return new int[] {
+                    ItemID.BOWL_EMPTY, ItemID.BOWL_WATER,
+                    ItemID.HOSIDIUS_SERVERY_POT_FLOUR, ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH,
+                    ItemID.HOSIDIUS_SERVERY_PIEDISH, ItemID.HOSIDIUS_SERVERY_PIE_SHELL,
+                    ItemID.HOSIDIUS_SERVERY_RAW_MEAT, ItemID.HOSIDIUS_SERVERY_COOKED_MEAT,
+                    ItemID.HOSIDIUS_SERVERY_UNCOOKED_MEAT_PIE, ItemID.HOSIDIUS_SERVERY_MEAT_PIE,
+            };
+            case PIZZA: return new int[] {
+                    ItemID.BOWL_EMPTY, ItemID.BOWL_WATER,
+                    ItemID.HOSIDIUS_SERVERY_POT_FLOUR, ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH,
+                    ItemID.HOSIDIUS_SERVERY_PIZZA_BASE, ItemID.HOSIDIUS_SERVERY_TOMATO,
+                    ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA, ItemID.HOSIDIUS_SERVERY_CHEESE,
+                    ItemID.HOSIDIUS_SERVERY_UNCOOKED_PIZZA, ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA,
+                    ItemID.HOSIDIUS_SERVERY_PINEAPPLE, ItemID.HOSIDIUS_SERVERY_PINEAPPLE_CHUNKS,
+                    ItemID.HOSIDIUS_SERVERY_PINEAPPLE_PIZZA,
+            };
         }
-        State.USE_BUFFET_TABLE.setNext(State.WAITING);
-        State.WAITING.setNext(State.GETTING_READY);
-        State.HOP_WORLD.setNext(State.USE_BUFFET_TABLE);
+        return new int[0];
     }
 
-    private boolean closeMessShop() {
-        if (!Rs2Settings.isEscCloseInterfaceSettingEnabled()){
-            closeWithESCKey();
-        } else {
-            Widget w = Rs2Widget.getWidget(15859713);
-            if (w == null) {
-                debug("Closing button was not found, trying to close the shop using ESC key.");
-                closeWithESCKey();
-            } else {
-                Widget[] children = w.getChildren();
-                if (children != null && children.length > 0) {
-                    Rs2Widget.clickWidget(children[children.length - 1]);
-                } else {
-                    debug("No children found in the widget, trying to close the shop using ESC key.");
-                    closeWithESCKey();
-                }
+    /**
+     * Drop any burnt food, but only between phases — never mid-cook.
+     * Dropping during a Cook-All chain interrupts the player's cooking animation
+     * and breaks the chain, so we gate on "not currently cooking."
+     */
+    private void dropBurnt() {
+        if (!has(ItemID.BURNT_MEAT) && !has(ItemID.BURNT_PIE) && !has(ItemID.BURNT_STEW) && !has(ItemID.BURNT_PIZZA)) return;
+        if (Rs2Player.isAnimating(3500) || Rs2Widget.isProductionWidgetOpen()) return;
+        log.info("[mess] dropping burnt food");
+        Rs2Inventory.dropAll(ItemID.BURNT_MEAT, ItemID.BURNT_PIE, ItemID.BURNT_STEW, ItemID.BURNT_PIZZA);
+    }
+
+    private void serveAndMaybeHop(int appreciationWidgetId) {
+        if (isUnderAppreciationThreshold(appreciationWidgetId)) {
+            hopWorld();
+            return;
+        }
+        if (!Rs2GameObject.canReach(BUFFET_TABLE_LOC)) { Rs2Walker.walkTo(BUFFET_TABLE_LOC, 4); return; }
+
+        logDecision("serve");
+        setStatus("Serving");
+        boolean ok = Rs2GameObject.interact(BUFFET_TABLE_LOC, "Serve");
+        log.info("[mess] buffet interact(Serve) -> {}", ok);
+        Rs2Player.waitForXpDrop(Skill.COOKING, 2500, false);
+    }
+
+    private boolean isUnderAppreciationThreshold(int widgetId) {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Widget bar = Rs2Widget.getWidget(widgetId);
+            if (bar == null) return false;
+            Widget filled = bar.getChild(0);
+            if (filled == null || bar.getWidth() <= 0) return false;
+            int pct = filled.getWidth() * 100 / bar.getWidth();
+            return pct < config.appreciation_threshold();
+        }).orElse(false);
+    }
+
+    private void hopWorld() {
+        setStatus("Hopping worlds");
+        int currentWorld = Microbot.getClient().getWorld();
+        Microbot.hopToWorld(Login.getRandomWorld(true));
+        sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING, 5000);
+        sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN, 15000);
+        if (Microbot.getClient().getWorld() == currentWorld) {
+            log.warn("World hop failed; will retry next tick.");
+        }
+    }
+
+    // ---------- inventory cleanup ----------
+
+    private static final Set<Integer> JUNK_ITEMS = Set.of(
+            ItemID.BOWL_EMPTY, ItemID.BOWL_WATER, ItemID.KNIFE,
+            ItemID.HOSIDIUS_SERVERY_PIEDISH,
+            ItemID.BURNT_PIZZA, ItemID.BURNT_PIE, ItemID.BURNT_STEW, ItemID.BURNT_MEAT,
+            ItemID.HOSIDIUS_SERVERY_RAW_MEAT, ItemID.HOSIDIUS_SERVERY_COOKED_MEAT,
+            ItemID.HOSIDIUS_SERVERY_PINEAPPLE, ItemID.HOSIDIUS_SERVERY_PINEAPPLE_CHUNKS,
+            ItemID.HOSIDIUS_SERVERY_TOMATO, ItemID.HOSIDIUS_SERVERY_CHEESE, ItemID.HOSIDIUS_SERVERY_POTATO,
+            ItemID.HOSIDIUS_SERVERY_POT_FLOUR, ItemID.HOSIDIUS_SERVERY_PASTRY_DOUGH,
+            ItemID.HOSIDIUS_SERVERY_PIZZA_BASE, ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA,
+            ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA, ItemID.HOSIDIUS_SERVERY_PIE_SHELL,
+            ItemID.HOSIDIUS_SERVERY_UNCOOKED_MEAT_PIE, ItemID.HOSIDIUS_SERVERY_UNCOOKED_STEW,
+            ItemID.HOSIDIUS_SERVERY_UNCOOKED_PIZZA, ItemID.HOSIDIUS_SERVERY_MEATWATER,
+            // Cooked dishes — drop these too rather than walking to the bank with them
+            ItemID.HOSIDIUS_SERVERY_MEAT_PIE, ItemID.HOSIDIUS_SERVERY_STEW, ItemID.HOSIDIUS_SERVERY_PINEAPPLE_PIZZA
+    );
+
+    /** Inventory has any item that isn't (a) currently mid-batch (handled by tick predicates) or (b) reserved for the active dish. */
+    private boolean hasJunk() {
+        if (Rs2Inventory.isEmpty()) return false;
+        // The per-dish flow handles every Hosidius/bowl/knife item. Junk = anything outside JUNK_ITEMS that we shouldn't process.
+        // Conversely, if everything in inventory IS in JUNK_ITEMS we don't need to clean — let the dish flow consume it.
+        // We only clean when there's a non-Mess item that the script can't progress with.
+        return Rs2Inventory.items().anyMatch(item -> !JUNK_ITEMS.contains(item.getId()));
+    }
+
+    private void runCleanInventory() {
+        setStatus("Cleaning inventory");
+        // Drop everything we recognize first (faster than banking).
+        int dropped = 0;
+        for (int slot = 0; slot < 28; slot++) {
+            if (Rs2Inventory.isSlotEmpty(slot)) continue;
+            Rs2ItemModel item = Rs2Inventory.getItemInSlot(slot);
+            if (item != null && JUNK_ITEMS.contains(item.getId())) {
+                Rs2Inventory.slotInteract(slot, "Drop");
+                sleepGaussian(120, 40);
+                dropped++;
             }
         }
-        return true;
+        if (dropped > 0) return;
+
+        // Anything left is unrecognized. Bank it.
+        if (Rs2Inventory.isEmpty()) return;
+        log.info("Banking {} unrecognized items at Hosidius Kitchen.", Rs2Inventory.count());
+        Rs2Bank.bankItemsAndWalkBackToOriginalPosition(
+                Rs2Inventory.items().map(Rs2ItemModel::getName).collect(Collectors.toList()),
+                false,
+                BankLocation.HOSIDIUS_KITCHEN,
+                Rs2Player.getWorldLocation(),
+                28,
+                3
+        );
     }
 
-    private void closeWithESCKey() {
-        Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
-        if (!Rs2Inventory.isOpen()) {
-            Rs2Inventory.open();
+    // ---------- shop close ----------
+
+    private void closeShop() {
+        if (!Rs2Widget.isWidgetVisible(SHOP_WIDGET_ID)) return;
+        Widget closeParent = Rs2Widget.getWidget(SHOP_CLOSE_PARENT);
+        Widget[] kids = closeParent != null ? closeParent.getChildren() : null;
+        if (kids != null && kids.length > 0) {
+            Rs2Widget.clickWidget(kids[kids.length - 1]);
+        } else {
+            Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
         }
+        sleepUntil(() -> !Rs2Widget.isWidgetVisible(SHOP_WIDGET_ID), 1500);
     }
 
-    private boolean canContinue() {
-        return isRunning() && super.isRunning() && Microbot.isLoggedIn() && !BreakHandlerScript.isBreakActive() && super.run();
-    }
+    // ---------- helpers ----------
 
-    private void info(String message) {
-        Microbot.log(Level.INFO, message);
-    }
+    private boolean has(int id) { return Rs2Inventory.hasItem(id); }
+    private int count(int id)   { return Rs2Inventory.count(id); }
 
-    private void debug(String message) {
-        Microbot.log(Level.DEBUG, message);
+    private void setStatus(String s) {
+        if (overlay != null) overlay.setStatus(s);
     }
 
     @Override
     public void shutdown() {
         super.shutdown();
-        setCurrentState(State.WAITING);
         if (mainScheduledFuture != null && !mainScheduledFuture.isCancelled()) {
             mainScheduledFuture.cancel(true);
-        }
-        debug("The Mess script has been shut down.");
-    }
-
-    public enum State {
-        WAITING("Waiting", null),
-        GETTING_READY("Getting ready", null),
-
-        GET_EMPTY_BOWLS("Getting empty bowls", null),
-        GET_EMPTY_PIE_DISHES("Getting empty pie dishes", null),
-        GET_KNIFE("Getting knife", null),
-
-        RETURN_EMPTY_BOWLS("Returning empty bowls", null),
-
-        GET_MEAT("Getting raw meat", null),
-
-        GET_POTATOES("Getting supplies", null),
-        GET_PINEAPPLES("Getting supplies", null),
-        GET_TOMATOES("Getting supplies", null),
-        GET_CHEESE("Getting supplies", null),
-        GET_FLOUR("Getting supplies", null),
-
-        USE_SINK("Using sink", null),
-
-        USE_CLAY_OVEN("Cooking", null),
-        FINISH_COOKING("Finishing cooking", null),
-
-        COMBINE_PASTRY_DOUGH("Combining ingredients", null),
-        COMBINE_PIE_SHELL("Combining ingredients", null),
-        COMBINE_MEAT_PIE("Combining ingredients", null),
-
-        COMBINE_MEAT_WATER("Combining ingredients", null),
-        COMBINE_STEW("Combining ingredients", null),
-
-        COMBINE_PIZZA_BASE("Combining ingredients", null),
-        COMBINE_PIZZA_TOMATO("Combining ingredients", null),
-        COMBINE_PIZZA_CHEESE("Combining ingredients", null),
-        COMBINE_PIZZA_PINEAPPLE("Combining ingredients", null),
-
-        CUT_PINEAPPLE("Cutting the pineapples", null),
-
-        USE_BUFFET_TABLE("Serving the food", null),
-        HOP_WORLD("Hopping worlds", null);
-
-
-        @Getter
-        private final String status;
-
-        @Setter
-        @Getter
-        private State next;
-
-        State(String status, State next) {
-            this.status = status;
-            this.next = next;
         }
     }
 
@@ -785,11 +669,7 @@ public class TheMessScript extends Script {
         STEW("Servery Stew"),
         PIZZA("Servery Pineapple Pizza");
 
-        @Getter
-        private final String name;
-
-        Dish(String name) {
-            this.name = name;
-        }
+        @Getter private final String name;
+        Dish(String name) { this.name = name; }
     }
 }

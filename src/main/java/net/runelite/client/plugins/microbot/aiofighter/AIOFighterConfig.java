@@ -915,7 +915,7 @@ public interface AIOFighterConfig extends Config {
             hidden = true
     )
     default String blacklistedSlayerNpcs() {
-        return "null,";
+        return "";
     }
 
 
@@ -964,4 +964,3 @@ public interface AIOFighterConfig extends Config {
     }
 
 }
-
