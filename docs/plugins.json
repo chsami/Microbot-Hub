@@ -1231,7 +1231,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.0.3",
+        "version": "1.0.4",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1239,8 +1239,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "ade9a531d062c35f7c266f39c3b6310af5dacd2f80fd5c4ed03622d864314881",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autosmeltingplugin-1.0.3.jar"
+        "sha256": "2406bd4bbbbc15a72625ae90a975db40bb2c04f29dcdba8a293b8539c4d6213b",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autosmeltingplugin-1.0.4.jar"
     },
     {
         "internalName": "FlipperPlugin",
