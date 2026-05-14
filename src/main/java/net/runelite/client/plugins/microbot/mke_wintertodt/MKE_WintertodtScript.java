@@ -3145,6 +3145,12 @@ public class MKE_WintertodtScript extends Script {
         // begins, so a single repair click can trigger.
         if (resetActions) return false;
 
+        // Skip while chopping — the roots are several tiles from the brazier,
+        // so by the time we abandon the chop and walk over, another player
+        // has already repaired/relit. The interruption costs us a chop cycle
+        // for nothing.
+        if (state == State.CHOP_ROOTS) return false;
+
         if (gameState.brokenBrazier != null && config.fixBrazier()) {
             if (fletchingState.isActive()) {
                 fletchingState.stopFletching(FletchingInterruptType.BRAZIER_BROKEN);
