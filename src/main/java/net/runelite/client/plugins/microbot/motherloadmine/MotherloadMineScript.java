@@ -133,7 +133,7 @@ public class MotherloadMineScript extends Script
         }
 
         if (Rs2AntibanSettings.actionCooldownActive) return;
-        if (Rs2Player.isAnimating() || Microbot.getClient().getLocalPlayer().isInteracting()) return;
+        if (Rs2Player.isAnimating()) return;
 
         determineStatusFromInventory();
         logStatusTransitionIfChanged();
