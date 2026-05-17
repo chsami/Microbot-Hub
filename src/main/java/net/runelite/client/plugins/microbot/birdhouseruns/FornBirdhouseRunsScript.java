@@ -428,16 +428,17 @@ public class FornBirdhouseRunsScript extends Script {
             return false;
         }
         if (!sleepUntil(() ->
-                Rs2Inventory.count(seedId) < seedsBefore
-                        || Microbot.getVarbitPlayerValue(varpId) != varpBefore,
+                findInventoryBirdhouseSeed(1).map(Rs2ItemModel::getQuantity).orElse(0) < seedsBefore,
                 10000)) {
-            log.warn("Seed[{}]: no completion signal within 10s. seedCount={} (before {}), varp={} (before {})",
-                    varpId, Rs2Inventory.count(seedId), seedsBefore,
+            int seedsNow = findInventoryBirdhouseSeed(1).map(Rs2ItemModel::getQuantity).orElse(0);
+            log.warn("Seed[{}]: no completion signal within 10s. seeds={} (before {}), varp={} (before {})",
+                    varpId, seedsNow, seedsBefore,
                     Microbot.getVarbitPlayerValue(varpId), varpBefore);
             return false;
         }
+        int seedsAfter = findInventoryBirdhouseSeed(1).map(Rs2ItemModel::getQuantity).orElse(0);
         log.info("Seed[{}]: success (varp={}, seeds left={})",
-                varpId, Microbot.getVarbitPlayerValue(varpId), Rs2Inventory.count(seedId));
+                varpId, Microbot.getVarbitPlayerValue(varpId), seedsAfter);
         return true;
     }
 
