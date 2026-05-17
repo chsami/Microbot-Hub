@@ -46,11 +46,7 @@ public class FornBirdhouseRunsScript extends Script {
     private static final int VARP_HOUSE_3 = VarPlayerID.BIRDHOUSE_TRANSMIT_A; // Meadow N
     private static final int VARP_HOUSE_4 = VarPlayerID.BIRDHOUSE_TRANSMIT_B; // Meadow S
     private static final int ARRIVAL_RADIUS = 4;
-    // For same-plane hops within this distance, use a direct canvas-click walk
-    // (in-game pathfinder) instead of Rs2Walker.walkTo, which spends ~12s in
-    // raw-scene/transport scans even when the destination is a few tiles away.
-    // House 1 → House 2 is 11 tiles; H3→H4 is 71 (still routed via WebWalker).
-    private static final int SHORT_HOP_MAX_TILES = 15;
+    private static final int SCENE_INTERACT_RANGE = 25;
     // Canonical Fossil Island region IDs (matches RuneLite's BirdHouseTracker).
     private static final java.util.Set<Integer> FOSSIL_ISLAND_REGIONS = java.util.Set.of(
             14650, 14651, 14652, 14906, 14907, 15162, 15163);
@@ -142,121 +138,131 @@ public class FornBirdhouseRunsScript extends Script {
                 }
                 if (!super.run()) return;
 
-                if (botStatus != lastObservedStatus) {
-                    log.info("State → {} (player at {}, region={}, onFossilIsland={}, inv=[{}])",
-                            botStatus,
-                            Rs2Player.getWorldLocation(),
-                            Rs2Player.getWorldLocation() == null ? "null" : Rs2Player.getWorldLocation().getRegionID(),
-                            isOnFossilIsland(),
-                            dumpInventory());
-                    lastObservedStatus = botStatus;
-                    stateEnteredAtMs = System.currentTimeMillis();
-                } else if (botStatus != states.FINISHED
-                        && System.currentTimeMillis() - stateEnteredAtMs > STATE_STALL_TIMEOUT_MS) {
-                    log.error("Birdhouse run stalled in state {} for >{}ms — player at {}, inv=[{}] — aborting",
-                            botStatus, STATE_STALL_TIMEOUT_MS,
-                            Rs2Player.getWorldLocation(), dumpInventory());
-                    shutdown();
-                    return;
-                }
+                boolean advanced = true;
+                while (advanced) {
+                    advanced = false;
+                    if (botStatus != lastObservedStatus) {
+                        log.info("State → {} (player at {}, region={}, onFossilIsland={}, inv=[{}])",
+                                botStatus,
+                                Rs2Player.getWorldLocation(),
+                                Rs2Player.getWorldLocation() == null ? "null" : Rs2Player.getWorldLocation().getRegionID(),
+                                isOnFossilIsland(),
+                                dumpInventory());
+                        lastObservedStatus = botStatus;
+                        stateEnteredAtMs = System.currentTimeMillis();
+                    } else if (botStatus != states.FINISHED
+                            && System.currentTimeMillis() - stateEnteredAtMs > STATE_STALL_TIMEOUT_MS) {
+                        log.error("Birdhouse run stalled in state {} for >{}ms — player at {}, inv=[{}] — aborting",
+                                botStatus, STATE_STALL_TIMEOUT_MS,
+                                Rs2Player.getWorldLocation(), dumpInventory());
+                        shutdown();
+                        return;
+                    }
+                    switch (botStatus) {
+                        case TELEPORTING:
+                        case VERDANT_TELEPORT:
+                            botStatus = states.DISMANTLE_HOUSE_1;
+                            advanced = true;
+                            break;
+                        case DISMANTLE_HOUSE_1:
+                            if (dismantleBirdhouse(birdhouseLocation1, VARP_HOUSE_1)) {
+                                botStatus = states.BUILD_HOUSE_1;
+                                advanced = true;
+                            }
+                            break;
+                        case BUILD_HOUSE_1:
+                            if (buildBirdhouse(birdhouseLocation1, VARP_HOUSE_1)) {
+                                botStatus = states.SEED_HOUSE_1;
+                                advanced = true;
+                            }
+                            break;
+                        case SEED_HOUSE_1:
+                            if (seedHouse(birdhouseLocation1, VARP_HOUSE_1)) {
+                                botStatus = states.DISMANTLE_HOUSE_2;
+                                advanced = true;
+                            }
+                            break;
+                        case DISMANTLE_HOUSE_2:
+                            if (dismantleBirdhouse(birdhouseLocation2, VARP_HOUSE_2)) {
+                                botStatus = states.BUILD_HOUSE_2;
+                                advanced = true;
+                            }
+                            break;
+                        case BUILD_HOUSE_2:
+                            if (buildBirdhouse(birdhouseLocation2, VARP_HOUSE_2)) {
+                                botStatus = states.SEED_HOUSE_2;
+                                advanced = true;
+                            }
+                            break;
+                        case SEED_HOUSE_2:
+                            if (seedHouse(birdhouseLocation2, VARP_HOUSE_2)) {
+                                botStatus = states.MUSHROOM_TELEPORT;
+                                advanced = true;
+                            }
+                            break;
+                        case MUSHROOM_TELEPORT:
+                            botStatus = states.DISMANTLE_HOUSE_3;
+                            advanced = true;
+                            break;
+                        case DISMANTLE_HOUSE_3:
+                            if (dismantleBirdhouse(birdhouseLocation3, VARP_HOUSE_3)) {
+                                botStatus = states.BUILD_HOUSE_3;
+                                advanced = true;
+                            }
+                            break;
+                        case BUILD_HOUSE_3:
+                            if (buildBirdhouse(birdhouseLocation3, VARP_HOUSE_3)) {
+                                botStatus = states.SEED_HOUSE_3;
+                                advanced = true;
+                            }
+                            break;
+                        case SEED_HOUSE_3:
+                            if (seedHouse(birdhouseLocation3, VARP_HOUSE_3)) {
+                                botStatus = states.DISMANTLE_HOUSE_4;
+                                advanced = true;
+                            }
+                            break;
+                        case DISMANTLE_HOUSE_4:
+                            if (dismantleBirdhouse(birdhouseLocation4, VARP_HOUSE_4)) {
+                                botStatus = states.BUILD_HOUSE_4;
+                                advanced = true;
+                            }
+                            break;
+                        case BUILD_HOUSE_4:
+                            if (buildBirdhouse(birdhouseLocation4, VARP_HOUSE_4)) {
+                                botStatus = states.SEED_HOUSE_4;
+                                advanced = true;
+                            }
+                            break;
+                        case SEED_HOUSE_4:
+                            if (seedHouse(birdhouseLocation4, VARP_HOUSE_4)) {
+                                botStatus = states.FINISHING;
+                                advanced = true;
+                            }
+                            break;
+                        case FINISHING:
+                            emptyNests();
 
-                switch (botStatus) {
-                    case TELEPORTING:
-                    case VERDANT_TELEPORT:
-                        // Rs2Walker knows about the mycelium-tree transports (see
-                        // shortest-path transports.tsv) — let it route to house 1 from
-                        // anywhere. dismantleBirdhouse's arrivedAndStill drives the walk.
-                        botStatus = states.DISMANTLE_HOUSE_1;
-                        break;
-                    case DISMANTLE_HOUSE_1:
-                        if (dismantleBirdhouse(birdhouseLocation1, VARP_HOUSE_1)) {
-                            botStatus = states.BUILD_HOUSE_1;
-                        }
-                        break;
-                    case BUILD_HOUSE_1:
-                        if (buildBirdhouse(birdhouseLocation1, VARP_HOUSE_1)) {
-                            botStatus = states.SEED_HOUSE_1;
-                        }
-                        break;
-                    case SEED_HOUSE_1:
-                        if (seedHouse(birdhouseLocation1, VARP_HOUSE_1)) {
-                            botStatus = states.DISMANTLE_HOUSE_2;
-                        }
-                        break;
-                    case DISMANTLE_HOUSE_2:
-                        if (dismantleBirdhouse(birdhouseLocation2, VARP_HOUSE_2)) {
-                            botStatus = states.BUILD_HOUSE_2;
-                        }
-                        break;
-                    case BUILD_HOUSE_2:
-                        if (buildBirdhouse(birdhouseLocation2, VARP_HOUSE_2)) {
-                            botStatus = states.SEED_HOUSE_2;
-                        }
-                        break;
-                    case SEED_HOUSE_2:
-                        if (seedHouse(birdhouseLocation2, VARP_HOUSE_2)) {
-                            botStatus = states.MUSHROOM_TELEPORT;
-                        }
-                        break;
-                    case MUSHROOM_TELEPORT:
-                        // Walker handles transport — no special teleport-state logic needed.
-                        botStatus = states.DISMANTLE_HOUSE_3;
-                        break;
-                    case DISMANTLE_HOUSE_3:
-                        if (dismantleBirdhouse(birdhouseLocation3, VARP_HOUSE_3)) {
-                            botStatus = states.BUILD_HOUSE_3;
-                        }
-                        break;
-                    case BUILD_HOUSE_3:
-                        if (buildBirdhouse(birdhouseLocation3, VARP_HOUSE_3)) {
-                            botStatus = states.SEED_HOUSE_3;
-                        }
-                        break;
-                    case SEED_HOUSE_3:
-                        if (seedHouse(birdhouseLocation3, VARP_HOUSE_3)) {
-                            botStatus = states.DISMANTLE_HOUSE_4;
-                        }
-                        break;
-                    case DISMANTLE_HOUSE_4:
-                        if (dismantleBirdhouse(birdhouseLocation4, VARP_HOUSE_4)) {
-                            botStatus = states.BUILD_HOUSE_4;
-                        }
-                        break;
-                    case BUILD_HOUSE_4:
-                        if (buildBirdhouse(birdhouseLocation4, VARP_HOUSE_4)) {
-                            botStatus = states.SEED_HOUSE_4;
-                        }
-                        break;
-                    case SEED_HOUSE_4:
-                        if (seedHouse(birdhouseLocation4, VARP_HOUSE_4)) {
-                            botStatus = states.FINISHING;
-                        }
-                        break;
-                    case FINISHING:
-                        emptyNests();
-                        
-                        if (config.goToBank()) {
-                            Rs2Walker.walkTo(BankLocation.FOSSIL_ISLAND_WRECK.getWorldPoint());
-                            if (!Rs2Bank.isOpen()) Rs2Bank.openBank();
-                            Rs2Bank.depositAll();
-                        }
+                            if (config.goToBank()) {
+                                Rs2Walker.walkTo(BankLocation.FOSSIL_ISLAND_WRECK.getWorldPoint());
+                                if (!Rs2Bank.isOpen()) Rs2Bank.openBank();
+                                Rs2Bank.depositAll();
+                            }
 
-                        botStatus = states.FINISHED;
-                        notifier.notify(Notification.ON, "Birdhouse run is finished.");
-                        log.info("Birdhouse run finished — disabling plugin.");
-                        // stopPlugin disables the panel toggle AND tears down the
-                        // script. Plain this.shutdown() only stops the scheduled
-                        // future, leaving the plugin row toggled on.
-                        Microbot.stopPlugin(plugin);
-                        break;
-                    case FINISHED:
-
+                            botStatus = states.FINISHED;
+                            notifier.notify(Notification.ON, "Birdhouse run is finished.");
+                            log.info("Birdhouse run finished — disabling plugin.");
+                            Microbot.stopPlugin(plugin);
+                            break;
+                        case FINISHED:
+                            break;
+                    }
                 }
 
             } catch (Exception ex) {
                 log.error("Error in birdhouse run script", ex);
             }
-        }, 0, 1000, TimeUnit.MILLISECONDS);
+        }, 0, 600, TimeUnit.MILLISECONDS);
         return true;
     }
 
@@ -308,22 +314,14 @@ public class FornBirdhouseRunsScript extends Script {
             }
             return false;
         }
-        if (dist > ARRIVAL_RADIUS) {
-            boolean shortHop = pos != null && pos.getPlane() == loc.getPlane() && dist <= SHORT_HOP_MAX_TILES;
-            if (logThisTick) {
-                log.info("arrivedAndStill[{}]: not arrived (at {}, dist={} > {}); walking via {}",
-                        loc, pos, dist, ARRIVAL_RADIUS, shortHop ? "canvas (short-hop)" : "WebWalker");
-                lastArrivedLogMs = now;
-                lastArrivedLogTarget = loc;
-            }
-            if (shortHop) {
-                Rs2Walker.walkFastCanvas(loc);
-            } else {
-                Rs2Walker.walkTo(loc, ARRIVAL_RADIUS);
-            }
-            return false;
+        if (logThisTick) {
+            log.info("arrivedAndStill[{}]: not arrived (at {}, dist={}); walking via WebWalker (stop at {})",
+                    loc, pos, dist, SCENE_INTERACT_RANGE);
+            lastArrivedLogMs = now;
+            lastArrivedLogTarget = loc;
         }
-        return true;
+        Rs2Walker.walkTo(loc, SCENE_INTERACT_RANGE);
+        return false;
     }
 
     // Canonical state predicates, matching BirdHouseState.fromVarpValue:
@@ -336,7 +334,6 @@ public class FornBirdhouseRunsScript extends Script {
 
     /** Click Empty on the birdhouse at {@code loc}. Wait for varp to hit 0. */
     private boolean dismantleBirdhouse(WorldPoint loc, int varpId) {
-        if (!arrivedAndStill(loc)) return false;
         int varp = Microbot.getVarbitPlayerValue(varpId);
         if (!isSeeded(varp)) {
             log.info("Dismantle[{}]: varp={} not seeded (empty={}, built={}) — skipping",
@@ -345,7 +342,8 @@ public class FornBirdhouseRunsScript extends Script {
         }
         log.info("Dismantle[{}]: varp={} → Empty at {}", varpId, varp, loc);
         if (!Rs2GameObject.interact(loc, "Empty")) {
-            log.warn("Dismantle[{}]: Rs2GameObject.interact returned false at {} — no matching object on tile", varpId, loc);
+            if (!arrivedAndStill(loc)) return false;
+            log.warn("Dismantle[{}]: object not found at {} after arriving", varpId, loc);
             return false;
         }
         if (!sleepUntil(() -> isEmpty(Microbot.getVarbitPlayerValue(varpId)), 10000)) {
@@ -359,7 +357,6 @@ public class FornBirdhouseRunsScript extends Script {
 
     /** Click Build at {@code loc}. Game auto-combines hammer+log. Wait for varp != 0. */
     private boolean buildBirdhouse(WorldPoint loc, int varpId) {
-        if (!arrivedAndStill(loc)) return false;
         int varp = Microbot.getVarbitPlayerValue(varpId);
         if (!isEmpty(varp)) {
             log.info("Build[{}]: varp={} not empty (built={}, seeded={}) — skipping",
@@ -375,7 +372,8 @@ public class FornBirdhouseRunsScript extends Script {
         }
         log.info("Build[{}]: varp=0 → Build at {} (logs in inv: {})", varpId, loc, logCount);
         if (!Rs2GameObject.interact(loc, "Build")) {
-            log.warn("Build[{}]: Rs2GameObject.interact returned false at {} — no matching object on tile", varpId, loc);
+            if (!arrivedAndStill(loc)) return false;
+            log.warn("Build[{}]: object not found at {} after arriving", varpId, loc);
             return false;
         }
         if (!sleepUntil(() -> !isEmpty(Microbot.getVarbitPlayerValue(varpId)), 15000)) {
@@ -390,7 +388,6 @@ public class FornBirdhouseRunsScript extends Script {
 
     /** Use a seed stack on the birdhouse at {@code loc}. Wait for seeds-down OR varp change. */
     private boolean seedHouse(WorldPoint loc, int varpId) {
-        if (!arrivedAndStill(loc)) return false;
         int varp = Microbot.getVarbitPlayerValue(varpId);
         if (isEmpty(varp)) {
             log.error("Seed[{}]: varp=0, can't seed empty space — aborting. Inventory: [{}]",
@@ -426,7 +423,8 @@ public class FornBirdhouseRunsScript extends Script {
         }
         log.info("Seed[{}]: seed selected (id={}); clicking birdhouse at {}", varpId, seedId, loc);
         if (!Rs2GameObject.interact(loc)) {
-            log.warn("Seed[{}]: Rs2GameObject.interact returned false at {} — no matching object on tile", varpId, loc);
+            if (!arrivedAndStill(loc)) return false;
+            log.warn("Seed[{}]: object not found at {} after arriving", varpId, loc);
             return false;
         }
         if (!sleepUntil(() ->
