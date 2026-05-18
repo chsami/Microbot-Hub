@@ -37,6 +37,7 @@ import static net.runelite.api.gameval.VarbitID.*;
 
 @Slf4j
 public class BlastoiseFurnaceScript extends Script {
+    private static final Pattern ITEM_NAME_SUFFIX_PATTERN = Pattern.compile("^(.*?)(?:\\s*\\((\\d+)\\))?$");
     static final int coalBag = 12019;
     private static final Pattern ITEM_NAME_SUFFIX_PATTERN = Pattern.compile("^(.*?)(?:\\s*\\((\\d+)\\))?$");
     private static final int MAX_ORE_PER_INTERACTION = 27;
