@@ -6,6 +6,7 @@ import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.farmtreerun.enums.CompostType;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.HardTreeEnums;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.FruitTreeEnum;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.TreeEnums;
@@ -132,7 +133,7 @@ public class FarmTreeRunScript extends Script {
 							bank(config);
 						} else {
 							if (isCompostEnabled(config)) {
-								compostItemId = ItemID.BOTTOMLESS_COMPOST_BUCKET_22997;
+								compostItemId = config.compostType().getItemId();
 							}
 							botStatus = net.runelite.client.plugins.microbot.farmtreerun.enums.FarmTreeRunState.HANDLE_GNOME_STRONGHOLD_FRUIT_PATCH;
 						}
@@ -458,11 +459,33 @@ public class FarmTreeRunScript extends Script {
             }
 
             if (isCompostEnabled(config)) {
-                if (Rs2Bank.hasItem(ItemID.BOTTOMLESS_COMPOST_BUCKET_22997)) {
-                    compostItemId = ItemID.BOTTOMLESS_COMPOST_BUCKET_22997;
-                    items.add(new FarmingItem(compostItemId, 1));
+                CompostType compostType = config.compostType();
+                compostItemId = compostType.getItemId();
+                if (compostType.isReusable()) {
+                    if (Rs2Bank.hasItem(compostItemId)) {
+                        items.add(new FarmingItem(compostItemId, 1));
+                    } else {
+                        Microbot.log("Bottomless compost bucket not found in bank. Skipping composting.");
+                        compostItemId = null;
+                    }
                 } else {
-                    Microbot.log("Only bottomless compost is supported. Skipping composting.");
+                    int unprotectedCount = 0;
+                    if (!config.protectTrees())
+                        unprotectedCount += getSelectedTreePatches(config).size();
+                    if (!config.protectFruitTrees())
+                        unprotectedCount += getSelectedFruitTreePatches(config).size();
+                    if (!config.protectHardTrees())
+                        unprotectedCount += getSelectedHardTreePatches(config).size();
+                    if (unprotectedCount > 0) {
+                        if (Rs2Bank.hasItem(compostItemId)) {
+                            items.add(new FarmingItem(compostItemId, unprotectedCount));
+                        } else {
+                            Microbot.log("Selected compost not found in bank. Skipping composting.");
+                            compostItemId = null;
+                        }
+                    } else {
+                        compostItemId = null;
+                    }
                 }
             }
 
@@ -808,6 +831,10 @@ public class FarmTreeRunScript extends Script {
             Rs2Inventory.useItemOnObject(compostItemId, treePatch.getId());
             Rs2Player.waitForXpDrop(Skill.FARMING, 2000);
             sleep(550, 2200);
+            if (!config.compostType().isReusable() && Rs2Inventory.hasItem(ItemID.BUCKET)) {
+                Rs2Inventory.drop(ItemID.BUCKET);
+                sleep(300, 600);
+            }
         }
 
         sleep(250, 1000);
@@ -925,7 +952,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean useCompostOnPatch(FarmTreeRunConfig config, Patch patch) {
-        if (!config.useCompost() || compostItemId == null)
+        if (config.compostType() == CompostType.NONE || compostItemId == null)
             return false;
 
         if (!config.protectTrees() && patch.kind == TreeKind.TREE)
@@ -996,7 +1023,7 @@ public class FarmTreeRunScript extends Script {
      * @return true if configured by player, else false
      */
     private boolean isCompostEnabled(FarmTreeRunConfig config) {
-        if (!config.useCompost())
+        if (config.compostType() == CompostType.NONE)
             return false;
 
         if (!getSelectedTreePatches(config).isEmpty() && !config.protectTrees())
