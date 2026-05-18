@@ -20,6 +20,8 @@ public class LeaguesToolkitScript extends Script {
     };
 
     @Getter
+    private final DemonicGorillaPrayerHelper gorillaPrayerHelper = new DemonicGorillaPrayerHelper();
+    @Getter
     private final GemCutter gemCutter = new GemCutter();
     @Getter
     private final Transmuter transmuter = new Transmuter();
@@ -28,11 +30,21 @@ public class LeaguesToolkitScript extends Script {
     @Getter
     private final EasyClueOpener easyClueOpener = new EasyClueOpener();
     @Getter
+    private final HesporiBossHelper hesporiBossHelper = new HesporiBossHelper();
+    @Getter
+    private final KrakenBossHelper krakenBossHelper = new KrakenBossHelper();
+    @Getter
+    private final OuraniaRunner ouraniaRunner = new OuraniaRunner();
+    @Getter
     private final SnapeGrassTelegrabber snapeGrassTelegrabber = new SnapeGrassTelegrabber();
 
+    private boolean gorillaPrayerWasEnabled = false;
     private boolean gemCutterWasEnabled = false;
     private boolean thievingWasEnabled = false;
     private boolean easyClueWasEnabled = false;
+    private boolean hesporiWasEnabled = false;
+    private boolean krakenWasEnabled = false;
+    private boolean ouraniaWasEnabled = false;
     private boolean snapeGrassWasEnabled = false;
     private boolean transmuteWasEnabled = false;
 
@@ -44,6 +56,20 @@ public class LeaguesToolkitScript extends Script {
 
                 if (config.enableAntiAfk()) {
                     runAntiAfk(config);
+                }
+
+                if (config.enableGorillaPrayer()) {
+                    if (!gorillaPrayerWasEnabled) {
+                        gorillaPrayerHelper.reset();
+                        gorillaPrayerHelper.setActive(true);
+                        gorillaPrayerWasEnabled = true;
+                    }
+                    // Fully event-driven — no tick/poll needed
+                } else {
+                    if (gorillaPrayerWasEnabled) {
+                        gorillaPrayerHelper.setActive(false);
+                    }
+                    gorillaPrayerWasEnabled = false;
                 }
 
                 if (config.enableGemCutter()) {
@@ -75,6 +101,42 @@ public class LeaguesToolkitScript extends Script {
                     easyClueOpener.tick(config);
                 } else {
                     easyClueWasEnabled = false;
+                }
+
+                if (config.enableHespori()) {
+                    if (!hesporiWasEnabled) {
+                        hesporiBossHelper.start(config);
+                        hesporiWasEnabled = true;
+                    }
+                    // Combat runs from the main loop (safe thread for doInvoke)
+                    if (!config.hesporiPrayerOnly()) {
+                        hesporiBossHelper.tickCombat();
+                    }
+                } else {
+                    if (hesporiWasEnabled) {
+                        hesporiBossHelper.stop();
+                    }
+                    hesporiWasEnabled = false;
+                }
+
+                if (config.enableKraken()) {
+                    if (!krakenWasEnabled) {
+                        krakenBossHelper.reset();
+                        krakenWasEnabled = true;
+                    }
+                    krakenBossHelper.tick(config);
+                } else {
+                    krakenWasEnabled = false;
+                }
+
+                if (config.enableOurania()) {
+                    if (!ouraniaWasEnabled) {
+                        ouraniaRunner.reset();
+                        ouraniaWasEnabled = true;
+                    }
+                    ouraniaRunner.tick(config);
+                } else {
+                    ouraniaWasEnabled = false;
                 }
 
                 if (config.enableSnapeGrass()) {
@@ -130,6 +192,8 @@ public class LeaguesToolkitScript extends Script {
     @Override
     public void shutdown() {
         super.shutdown();
+        gorillaPrayerHelper.setActive(false);
+        hesporiBossHelper.stop();
         transmuter.reset();
     }
 }
