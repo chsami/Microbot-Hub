@@ -49,7 +49,7 @@ public class FornBirdhouseRunsScript extends Script {
     private static final int SCENE_INTERACT_RANGE = 25;
     // Canonical Fossil Island region IDs (matches RuneLite's BirdHouseTracker).
     private static final java.util.Set<Integer> FOSSIL_ISLAND_REGIONS = java.util.Set.of(
-            14650, 14651, 14652, 14906, 14907, 15162, 15163);
+            14650, 14651, 14652, 14906, 14907, 14908, 15162, 15163);
     // Single source of truth: a birdhouse-accepted seed is one whose item name
     // (lowercased) is in this set. Bank lookup, inventory lookup, and seed pick
     // all match the same way — no id-list drift, no placeholder/variant gotchas.
@@ -334,6 +334,9 @@ public class FornBirdhouseRunsScript extends Script {
 
     /** Click Empty on the birdhouse at {@code loc}. Wait for varp to hit 0. */
     private boolean dismantleBirdhouse(WorldPoint loc, int varpId) {
+        if (!isOnFossilIsland()) {
+            if (!arrivedAndStill(loc)) return false;
+        }
         int varp = Microbot.getVarbitPlayerValue(varpId);
         if (!isSeeded(varp)) {
             log.info("Dismantle[{}]: varp={} not seeded (empty={}, built={}) — skipping",
@@ -357,6 +360,9 @@ public class FornBirdhouseRunsScript extends Script {
 
     /** Click Build at {@code loc}. Game auto-combines hammer+log. Wait for varp != 0. */
     private boolean buildBirdhouse(WorldPoint loc, int varpId) {
+        if (!isOnFossilIsland()) {
+            if (!arrivedAndStill(loc)) return false;
+        }
         int varp = Microbot.getVarbitPlayerValue(varpId);
         if (!isEmpty(varp)) {
             log.info("Build[{}]: varp={} not empty (built={}, seeded={}) — skipping",
@@ -388,6 +394,9 @@ public class FornBirdhouseRunsScript extends Script {
 
     /** Use a seed stack on the birdhouse at {@code loc}. Wait for seeds-down OR varp change. */
     private boolean seedHouse(WorldPoint loc, int varpId) {
+        if (!isOnFossilIsland()) {
+            if (!arrivedAndStill(loc)) return false;
+        }
         int varp = Microbot.getVarbitPlayerValue(varpId);
         if (isEmpty(varp)) {
             log.error("Seed[{}]: varp=0, can't seed empty space — aborting. Inventory: [{}]",
