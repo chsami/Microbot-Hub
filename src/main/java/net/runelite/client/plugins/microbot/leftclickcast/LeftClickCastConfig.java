@@ -20,11 +20,10 @@ public interface LeftClickCastConfig extends Config
 		return true;
 	}
 
-	// Retained so existing stored config is not invalidated. Read once at startUp for migration into slot1Spell.
 	@ConfigItem(
 		keyName = "spell",
 		name = "Spell",
-		description = "Legacy single-spell setting — migrated into Slot 1 on startup.",
+		description = "The currently active spell. Synced with the active slot — pressing a slot hotkey updates this, and editing this updates the active slot's spell.",
 		position = 1
 	)
 	default PertTargetSpell spell()
