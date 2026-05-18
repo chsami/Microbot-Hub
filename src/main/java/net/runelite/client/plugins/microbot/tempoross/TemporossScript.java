@@ -638,6 +638,7 @@ public class TemporossScript extends Script {
                 isFilling = false;
 
                 var fishSpot = fishSpots.stream()
+                        .filter(npc -> !inCloud(npc.getWorldLocation(), 1))
                         .findFirst()
                         .orElse(null);
 
