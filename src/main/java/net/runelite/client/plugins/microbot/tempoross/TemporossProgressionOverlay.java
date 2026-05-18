@@ -42,6 +42,16 @@ public class TemporossProgressionOverlay extends OverlayPanel {
                         .color(Color.CYAN)
                         .build());
 
+                // Runtime
+                long elapsed = System.currentTimeMillis() - TemporossScript.startTime;
+                long seconds = (elapsed / 1000) % 60;
+                long minutes = (elapsed / (1000 * 60)) % 60;
+                long hours = elapsed / (1000 * 60 * 60);
+                panelComponent.getChildren().add(LineComponent.builder()
+                        .left("Runtime:")
+                        .right(String.format("%02d:%02d:%02d", hours, minutes, seconds))
+                        .build());
+
                 // Add current state as a line component
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Current State:")
@@ -86,7 +96,7 @@ public class TemporossProgressionOverlay extends OverlayPanel {
                 // Get interacting
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Interacting with:")
-                        .right(Rs2Player.getInteracting() != null ? Text.removeTags(Rs2Player.getInteracting().getName()) : "None")
+                        .right(Rs2Player.getInteracting() != null && Rs2Player.getInteracting().getName() != null ? Text.removeTags(Rs2Player.getInteracting().getName()) : "None")
                         .build());
 
                 if(currentState.isComplete()){

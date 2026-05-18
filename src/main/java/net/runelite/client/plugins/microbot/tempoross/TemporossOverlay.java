@@ -9,6 +9,7 @@ import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
@@ -57,17 +58,24 @@ public class TemporossOverlay extends Overlay {
         }
         // Render NPC overlays if the list is not null
         if (npcList != null) {
-            for (Rs2NpcModel npc : npcList) {
-                Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
-                Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClient().getLocalPlayer().getWorldLocation());
-                renderNpcOverlay(graphics, npc, Color.RED,    npcLocation.distanceToPath(playerLocation.getWorldPoint()) + " tiles");
+            WorldPoint playerWp = Rs2Player.getWorldLocation();
+            if (playerWp != null) {
+                Rs2WorldPoint playerLocation = new Rs2WorldPoint(playerWp);
+                for (Rs2NpcModel npc : npcList) {
+                    Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
+                    renderNpcOverlay(graphics, npc, Color.RED, npcLocation.distanceToPath(playerLocation.getWorldPoint()) + " tiles");
+                }
             }
         }
         if (ammoList != null) {
-            for (Rs2NpcModel npc : ammoList) {
-                Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
-                Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClient().getLocalPlayer().getWorldLocation());
-                renderNpcOverlay(graphics, npc, Color.RED,    npcLocation.distanceToPath(playerLocation.getWorldPoint()) + " " + Text.removeTags(npc.getName()));
+            WorldPoint playerWp = Rs2Player.getWorldLocation();
+            if (playerWp != null) {
+                Rs2WorldPoint playerLocation = new Rs2WorldPoint(playerWp);
+                for (Rs2NpcModel npc : ammoList) {
+                    Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
+                    String name = npc.getName();
+                    renderNpcOverlay(graphics, npc, Color.RED, npcLocation.distanceToPath(playerLocation.getWorldPoint()) + " " + (name != null ? Text.removeTags(name) : ""));
+                }
             }
         }
         if (fishList != null) {

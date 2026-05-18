@@ -2,10 +2,12 @@ package net.runelite.client.plugins.microbot.tempoross;
 
 import net.runelite.api.NullObjectID;
 import net.runelite.api.ObjectID;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 
 public class TemporossWorkArea
@@ -22,8 +24,11 @@ public class TemporossWorkArea
     public final WorldPoint rangePoint;
     public final WorldPoint spiritPoolPoint;
 
+    public final boolean isWest;
+
     public TemporossWorkArea(WorldPoint exitNpc, boolean isWest)
     {
+        this.isWest = isWest;
         this.exitNpc = exitNpc;
         this.safePoint = exitNpc.dx(1).dy(1);
 
@@ -79,20 +84,19 @@ public class TemporossWorkArea
     }
 
     public Rs2TileObjectModel getMast() {
-    Rs2TileObjectModel mast = Microbot.getRs2TileObjectCache().query().withIds(NullObjectID.NULL_41352, NullObjectID.NULL_41353).within(mastPoint, 2).nearest();
-    return mast;
+    return Microbot.getRs2TileObjectCache().query().withIds(NullObjectID.NULL_41352, NullObjectID.NULL_41353).within(mastPoint, 10).nearest();
 }
 
     public Rs2TileObjectModel getBrokenMast() {
-    return Microbot.getRs2TileObjectCache().query().withIds(ObjectID.DAMAGED_MAST_40996, ObjectID.DAMAGED_MAST_40997).within(mastPoint, 2).nearest();
+    return Microbot.getRs2TileObjectCache().query().withIds(ObjectID.DAMAGED_MAST_40996, ObjectID.DAMAGED_MAST_40997).within(mastPoint, 10).nearest();
     }
 
     public Rs2TileObjectModel getTotem() {
-    return Microbot.getRs2TileObjectCache().query().withIds(NullObjectID.NULL_41355, NullObjectID.NULL_41354).within(totemPoint, 2).nearest();
+    return Microbot.getRs2TileObjectCache().query().withIds(NullObjectID.NULL_41355, NullObjectID.NULL_41354).within(totemPoint, 10).nearest();
 }
 
     public Rs2TileObjectModel getBrokenTotem() {
-    return Microbot.getRs2TileObjectCache().query().withIds(ObjectID.DAMAGED_TOTEM_POLE, ObjectID.DAMAGED_TOTEM_POLE_41011).within(totemPoint, 2).nearest();
+    return Microbot.getRs2TileObjectCache().query().withIds(ObjectID.DAMAGED_TOTEM_POLE, ObjectID.DAMAGED_TOTEM_POLE_41011).within(totemPoint, 10).nearest();
     }
 
     public Rs2TileObjectModel getRange()
@@ -101,24 +105,38 @@ public class TemporossWorkArea
     }
 
     public Rs2TileObjectModel getClosestTether() {
-    Rs2TileObjectModel mast = getMast();
-    Rs2TileObjectModel totem = getTotem();
+        Rs2TileObjectModel mast = getMast();
+        Rs2TileObjectModel totem = getTotem();
 
-    if (mast == null) {
-        return totem;
+        if (mast == null) {
+            return totem;
+        }
+
+        if (totem == null) {
+            return mast;
+        }
+
+        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
+                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        if (playerLocal == null) {
+            return mast;
+        }
+
+        int mastDist = playerLocal.distanceTo(mast.getLocalLocation());
+        int totemDist = playerLocal.distanceTo(totem.getLocalLocation());
+        return mastDist <= totemDist ? mast : totem;
     }
 
-    if (totem == null) {
-        return mast;
+    private static final int CENTER_X = 3047;
+
+    public boolean isOnOurSide(WorldPoint point) {
+        if (point == null) return false;
+        if (isWest) {
+            return point.getX() <= CENTER_X;
+        } else {
+            return point.getX() >= CENTER_X;
+        }
     }
-
-    Rs2WorldPoint mastLocation = new Rs2WorldPoint(mast.getWorldLocation());
-    Rs2WorldPoint totemLocation = new Rs2WorldPoint(totem.getWorldLocation());
-    Rs2WorldPoint playerLocation = new Rs2WorldPoint(Microbot.getClient().getLocalPlayer().getWorldLocation());
-
-    return mastLocation.distanceToPath(playerLocation.getWorldPoint()) <
-            totemLocation.distanceToPath(playerLocation.getWorldPoint()) ? mast : totem;
-}
 
     public String getAllPointsAsString() {
         String sb = "exitNpc=" + exitNpc +
