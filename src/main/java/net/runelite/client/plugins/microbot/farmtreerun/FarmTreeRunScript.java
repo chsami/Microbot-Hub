@@ -123,7 +123,7 @@ public class FarmTreeRunScript extends Script {
                 checkSaplingLevelRequirement(config);
                 if (!validateSpecialPatches(config)) return;
 
-                dropEmptyPlantPots();
+                dropCrap();
                 Patch patch = null;
                 boolean handledPatch = false;
 
@@ -404,12 +404,13 @@ public class FarmTreeRunScript extends Script {
             config.selectedFruitTree().hasRequiredLevel();
     }
 
-    private void dropEmptyPlantPots() {
-        int emptyPlantPot = ItemID.EMPTY_PLANT_POT;
-        if (!Rs2Player.isAnimating() && !Rs2Player.isMoving() && !Rs2Player.isInteracting()) {
-            if (Rs2Inventory.hasItem(emptyPlantPot)) {
-                Rs2Inventory.dropAll(emptyPlantPot);
-                sleepUntil(() -> !Rs2Inventory.hasItem(emptyPlantPot), 8000);
+    private void dropCrap() {
+        if (Rs2Player.isAnimating()) return;
+        int[] junk = {ItemID.EMPTY_PLANT_POT, ItemID.BUCKET, ItemID.WEEDS};
+        for (int id : junk) {
+            if (Rs2Inventory.hasItem(id)) {
+                Rs2Inventory.dropAll(id);
+                sleepUntil(() -> !Rs2Inventory.hasItem(id), 8000);
             }
         }
     }
@@ -513,18 +514,20 @@ public class FarmTreeRunScript extends Script {
             }
 
             if (config.useSkillsNecklace() && (config.farmingGuildTreePatch() || config.farmingGuildFruitTreePatch())) {
-                if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE2)) {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE2, 1));
-                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE3)) {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE3, 1));
-                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE4)) {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE4, 1));
+                if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE6)) {
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE6, 1, false, true));
                 } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE5)) {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE5, 1));
-                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE6)) {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE6, 1));
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE5, 1, false, true));
+                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE4)) {
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE4, 1, false, true));
+                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE3)) {
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE3, 1, false, true));
+                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE2)) {
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE2, 1, false, true));
+                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE1)) {
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE1, 1, false, true));
                 } else {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE1, 2));
+                    Microbot.log("No skills necklace found in bank. Skipping.");
                 }
             }
 
@@ -803,14 +806,21 @@ public class FarmTreeRunScript extends Script {
         sleep(500, 850);
 
         if (Rs2Dialogue.hasSelectAnOption()) {
+            if (action == PaymentKind.PROTECT) {
+                if (!Rs2Dialogue.clickOption("don't ask")) {
+                    Rs2Dialogue.clickOption("Yes");
+                }
+                sleep(500, 1500);
+                Rs2Dialogue.clickContinue();
+                sleepUntil(() -> !Rs2Dialogue.isInDialogue(), 6000);
+                return true;
+            }
             Rs2Dialogue.clickOption("Yes");
             sleepUntil(() -> isPatchEmpty(patch), 6000);
             if (isPatchEmpty(patch)) {
                 return true;
             }
-            shutdown();
-
-            System.out.println("Failed gardener money payment.");
+            System.out.println("Failed gardener clear payment.");
             return false;
         } else {
             System.out.println("Failed gardener payment.");
@@ -831,10 +841,6 @@ public class FarmTreeRunScript extends Script {
             Rs2Inventory.useItemOnObject(compostItemId, treePatch.getId());
             Rs2Player.waitForXpDrop(Skill.FARMING, 2000);
             sleep(550, 2200);
-            if (!config.compostType().isReusable() && Rs2Inventory.hasItem(ItemID.BUCKET)) {
-                Rs2Inventory.drop(ItemID.BUCKET);
-                sleep(300, 600);
-            }
         }
 
         sleep(250, 1000);
@@ -873,17 +879,8 @@ public class FarmTreeRunScript extends Script {
         Rs2GameObject.interact(treePatch, "rake");
 
         Rs2Player.waitForAnimation();
-        sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting());
+        sleepUntil(() -> !Rs2Player.isAnimating());
 
-        // Drop the weeds (assuming weeds are added to the inventory)
-        if (!Rs2Player.isMoving() &&
-                !Rs2Player.isAnimating() &&
-                !Rs2Player.isInteracting() && !Rs2Player.isMoving()) {
-            System.out.println("Dropping weeds...");
-            Rs2Inventory.dropAll(ItemID.WEEDS);
-            Rs2Player.waitForAnimation();
-            sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting());
-        }
     }
 
     private void handleClearAction(GameObject treePatch) {
@@ -901,7 +898,7 @@ public class FarmTreeRunScript extends Script {
 
         // Wait for the clearing animation to finish
         Rs2Player.waitForAnimation();
-        sleepUntil(() -> !Rs2Player.isAnimating() && Rs2Player.isInteracting() && Rs2Player.isMoving());
+        sleepUntil(() -> !Rs2Player.isAnimating() && Rs2Player.isMoving());
     }
 
     private void equipGraceful() {
