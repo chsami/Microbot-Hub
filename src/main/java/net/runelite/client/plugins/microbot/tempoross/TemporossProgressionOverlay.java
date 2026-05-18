@@ -12,9 +12,6 @@ import net.runelite.client.util.Text;
 import javax.inject.Inject;
 import java.awt.*;
 
-import static net.runelite.client.plugins.microbot.tempoross.State.getAllFish;
-import static net.runelite.client.plugins.microbot.tempoross.State.getTotalAvailableFishSlots;
-
 public class TemporossProgressionOverlay extends OverlayPanel {
 
     private final TemporossPlugin plugin;
@@ -29,7 +26,7 @@ public class TemporossProgressionOverlay extends OverlayPanel {
 
     @Override
     public Dimension render(Graphics2D graphics) {
-        if (TemporossScript.isInMinigame()) {
+        if (TemporossScript.cachedInMinigame) {
             State currentState = TemporossScript.state;
             if (currentState != null) {
                 // Set up the panel's visual properties
@@ -60,28 +57,28 @@ public class TemporossProgressionOverlay extends OverlayPanel {
 
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Is completed:")
-                        .right(currentState.isComplete() ? "Yes" : "No")
+                        .right(currentState.next != null && currentState == TemporossScript.state ? "No" : "Yes")
                         .build());
 
                 // Add fish count
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Fish count:")
-                        .right(String.valueOf(getAllFish()))
+                        .right(String.valueOf(TemporossScript.cachedAllFish))
                         .build());
                 // Add cooked fish count
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Cooked fish count:")
-                        .right(String.valueOf(State.getCookedFish()))
+                        .right(String.valueOf(TemporossScript.cachedCookedFish))
                         .build());
                 // Add raw fish count
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Raw fish count:")
-                        .right(String.valueOf(State.getRawFish()))
+                        .right(String.valueOf(TemporossScript.cachedRawFish))
                         .build());
                 // Add total available fish slots
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Total available fish slots:")
-                        .right(String.valueOf(getTotalAvailableFishSlots()))
+                        .right(String.valueOf(TemporossScript.cachedTotalSlots))
                         .build());
                 // Is filling
                 panelComponent.getChildren().add(LineComponent.builder()
@@ -98,11 +95,6 @@ public class TemporossProgressionOverlay extends OverlayPanel {
                         .left("Interacting with:")
                         .right(Rs2Player.getInteracting() != null && Rs2Player.getInteracting().getName() != null ? Text.removeTags(Rs2Player.getInteracting().getName()) : "None")
                         .build());
-
-                if(currentState.isComplete()){
-                    TemporossScript.isFilling = false;
-                    TemporossScript.state = currentState.next == null ? State.THIRD_CATCH : currentState.next;
-                }
 
                 // Add progression bar
                 double progression = calculateProgression(currentState);
@@ -121,61 +113,35 @@ public class TemporossProgressionOverlay extends OverlayPanel {
     }
 
     private double calculateProgression(State state) {
+        int cooked = TemporossScript.cachedCookedFish;
+        int all = TemporossScript.cachedAllFish;
+        int raw = TemporossScript.cachedRawFish;
+        int slots = TemporossScript.cachedTotalSlots;
+        boolean solo = TemporossScript.temporossConfig != null && TemporossScript.temporossConfig.solo();
+
         switch (state) {
             case ATTACK_TEMPOROSS:
-                // Progression based on energy level, capped at 94 (target).
                 return Math.min(TemporossScript.ENERGY / 94.0, 1.0);
-
             case SECOND_FILL:
-                // Progression goes up as cooked fish decreases (0 fish = 100% progress).
-                int cookedFishSecondFill = State.getCookedFish();
-                return 1.0 - Math.min((double) cookedFishSecondFill / (TemporossScript.temporossConfig.solo() ? 19 : getTotalAvailableFishSlots()), 1.0);
-
+                return 1.0 - Math.min((double) cooked / (solo ? 19 : slots), 1.0);
             case INITIAL_FILL:
-                // Progression goes up as cooked fish decreases (0 fish = 100% progress).
-                int cookedFishInitialFill = State.getCookedFish();
-                return 1.0 - Math.min((double) cookedFishInitialFill / (TemporossScript.temporossConfig.solo() ? 17 : getTotalAvailableFishSlots()), 1.0);
-
+                return 1.0 - Math.min((double) cooked / (solo ? 17 : slots), 1.0);
             case THIRD_COOK:
-                // Progression based on cooked fish count or intensity threshold.
-                int cookedFishThirdCook = State.getCookedFish();
-                return Math.min((double) cookedFishThirdCook / (TemporossScript.temporossConfig.solo() ? 19 : getAllFish()), 1.0);
-
+                return Math.min((double) cooked / (solo ? 19 : Math.max(all, 1)), 1.0);
             case THIRD_CATCH:
-                // Progression based on total fish count, target is 19.
-                int allFishThirdCatch = getAllFish();
-                return Math.min((double) allFishThirdCatch / (TemporossScript.temporossConfig.solo() ? 19 : getTotalAvailableFishSlots()), 1.0);
-
+                return Math.min((double) all / (solo ? 19 : slots), 1.0);
             case EMERGENCY_FILL:
-                // Progression reaches 100% when all fish count is zero.
-                int allFishEmergencyFill = getAllFish();
-                return allFishEmergencyFill == 0 ? 1.0 : 0.0;
-
+                return all == 0 ? 1.0 : 0.0;
             case SECOND_COOK:
-                // Progression based on cooked fish count reaching 17.
-                int cookedFishSecondCook = State.getCookedFish();
-                return Math.min((double) cookedFishSecondCook / (TemporossScript.temporossConfig.solo() ? 17 : getAllFish()), 1.0);
-
+                return Math.min((double) cooked / (solo ? 17 : Math.max(all, 1)), 1.0);
             case SECOND_CATCH:
-                // Progression based on total fish count, target is 17.
-                int allFishSecondCatch = getAllFish();
-                return Math.min((double) allFishSecondCatch / (TemporossScript.temporossConfig.solo() ? 17 : getTotalAvailableFishSlots()), 1.0);
-
+                return Math.min((double) all / (solo ? 17 : slots), 1.0);
             case INITIAL_COOK:
-                // Progression reaches 100% when raw fish count is zero.
-                int cookedFishInitialCook = State.getCookedFish();
-                int allFishInitialCook = getAllFish();
-                return Math.min((double) cookedFishInitialCook / allFishInitialCook, 1.0);
-
+                return Math.min((double) cooked / Math.max(all, 1), 1.0);
             case INITIAL_CATCH:
-                // Progression based on raw fish count or total fish count; targets are 7 or 10.
-                int rawFishInitialCatch = State.getRawFish();
-                int allFishInitialCatch = getAllFish();
                 return Math.max(
-                        Math.min((double) rawFishInitialCatch / 7.0, 1.0),
-                        Math.min((double) allFishInitialCatch / 10.0, 1.0)
-                );
-
+                        Math.min((double) raw / 7.0, 1.0),
+                        Math.min((double) all / 10.0, 1.0));
             default:
                 return 0.0;
         }

@@ -60,6 +60,11 @@ public class TemporossScript extends Script {
     private static boolean walkedToFishArea = false;
     public static List<WorldPoint> walkPath = new ArrayList<>();
     public static long startTime;
+    public static int cachedRawFish;
+    public static int cachedCookedFish;
+    public static int cachedAllFish;
+    public static int cachedTotalSlots;
+    public static boolean cachedInMinigame;
 
     public boolean run(TemporossConfig config) {
         temporossConfig = config;
@@ -92,17 +97,19 @@ public class TemporossScript extends Script {
                         sleep(300, 600);
                     } else {
 
+                        if (TemporossPlugin.incomingWave) {
+                            handleTether();
+                            return;
+                        }
                         handleMinigame();
                         handleStateLoop();
                         if (handleCloudDodge())
                             return;
                         if(areItemsMissing())
                             return;
-                        // In solo mode, continuously handle fires.
-                        // In mass world mode, fire-fighting is now handled dynamically before objectives.
                         handleFires();
                         handleTether();
-                        if(isFightingFire || TemporossPlugin.isTethered || TemporossPlugin.incomingWave)
+                        if(isFightingFire || TemporossPlugin.isTethered)
                             return;
                         handleDamagedMast();
                         handleDamagedTotem();
@@ -444,8 +451,9 @@ public class TemporossScript extends Script {
                         && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Douse"))
                 .toList();
         WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        int fireRadius = temporossConfig != null && temporossConfig.solo() ? 35 : 5;
         sortedFires = allFires.stream()
-                .filter(y -> playerLocation.distanceTo(y.getWorldLocation()) <= 5)
+                .filter(y -> playerLocation.distanceTo(y.getWorldLocation()) <= fireRadius)
                 .sorted(Comparator.comparingInt(x -> playerLocation.distanceTo(x.getWorldLocation())))
                 .collect(Collectors.toList());
         TemporossOverlay.setNpcList(sortedFires);
@@ -501,8 +509,7 @@ public class TemporossScript extends Script {
      * is only triggered dynamically when an objective is set.
      */
     private void handleFires() {
-        if (!temporossConfig.solo()) {
-            // Mass world mode: skip continuous fire-fighting.
+        if (TemporossPlugin.incomingWave) {
             return;
         }
         if (sortedFires.isEmpty() || state == State.ATTACK_TEMPOROSS) {
@@ -580,7 +587,7 @@ public class TemporossScript extends Script {
                 }
                 ShortestPathPlugin.exit();
                 Rs2Walker.setTarget(null);
-                Rs2Camera.turnTo(lockedTether.getLocalLocation());
+                lockedTether.click("Tether");
                 log("Tethering");
                 sleepUntil(() -> TemporossPlugin.isTethered, () -> lockedTether.click("Tether"), 8000, 600);
             } else {
@@ -618,8 +625,8 @@ public class TemporossScript extends Script {
             return;
         }
 
-        if (((TemporossScript.ENERGY < 30 && State.getAllFish() > 6)
-            || (TemporossScript.ENERGY < 50 && State.getAllFish() >= State.getTotalAvailableFishSlots()))
+        if (((TemporossScript.ENERGY < 30 && cachedAllFish > 6)
+            || (TemporossScript.ENERGY < 50 && cachedAllFish >= cachedTotalSlots))
             && !temporossConfig.solo()
             && TemporossScript.state != State.ATTACK_TEMPOROSS) {
             log("Low energy, going for emergency fill");
@@ -639,16 +646,29 @@ public class TemporossScript extends Script {
 
                 var fishSpot = fishSpots.stream()
                         .filter(npc -> !inCloud(npc.getWorldLocation(), 1))
+                        .filter(npc -> {
+                            boolean fireAdjacent = hasAdjacentFire(npc.getWorldLocation());
+                            return !fireAdjacent || Rs2Inventory.contains(ItemID.BUCKET_OF_WATER);
+                        })
                         .findFirst()
                         .orElse(null);
 
                 if (fishSpot != null && fishSpot.getNpc() != null) {
+                    Rs2NpcModel adjacentFire = getAdjacentFire(fishSpot.getWorldLocation());
+                    if (adjacentFire != null && Rs2Inventory.contains(ItemID.BUCKET_OF_WATER)) {
+                        if (adjacentFire.click("Douse")) {
+                            log("Dousing fire adjacent to fish spot");
+                            sleepUntil(() -> !Rs2Player.isInteracting(), 5000);
+                        }
+                        return;
+                    }
+
                     walkedToFishArea = false;
                     if (!temporossConfig.solo()) {
                         if(!fightFiresInPath(fishSpot.getWorldLocation()))
                             return;
                     }
-                    if (fishSpot.getNpc() == lastCatchSpotNpc && (Rs2Player.isAnimating() || Rs2Player.isMoving())) {
+                    if (lastCatchSpotNpc != null && (Rs2Player.isAnimating() || Rs2Player.isMoving())) {
                         return;
                     }
                     Rs2Camera.turnTo(fishSpot.getNpc());
@@ -889,6 +909,18 @@ public class TemporossScript extends Script {
             LocalPoint cloudLocal = cloud.getLocalLocation();
             return cloudLocal != null && playerLocal.distanceTo(cloudLocal) <= threshold;
         });
+    }
+
+    private boolean hasAdjacentFire(WorldPoint point) {
+        return sortedFires.stream()
+                .anyMatch(fire -> fire.getWorldLocation().distanceTo(point) <= 1);
+    }
+
+    private Rs2NpcModel getAdjacentFire(WorldPoint point) {
+        return sortedFires.stream()
+                .filter(fire -> fire.getWorldLocation().distanceTo(point) <= 1)
+                .findFirst()
+                .orElse(null);
     }
 
     // method to fight fires that is in a path to a location

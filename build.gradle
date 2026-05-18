@@ -133,6 +133,11 @@ tasks.register('runDebug', JavaExec) {
     dependsOn 'testClasses'
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'net.runelite.client.Microbot'
+    jvmArgs '-Xmx2048M', '-Xss2m'
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(project.ext.TARGET_JDK_VERSION)
+        vendor = JvmVendorSpec."${project.ext.JDK_VENDOR}"
+    }
 }
 
 // Plugin Logic

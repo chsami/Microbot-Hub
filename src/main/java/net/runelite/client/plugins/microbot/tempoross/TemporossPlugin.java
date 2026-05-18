@@ -92,22 +92,19 @@ public class TemporossPlugin extends Plugin {
 
     @Subscribe
     public void onNpcChanged(NpcChanged event) {
-
-        if (!TemporossScript.isInMinigame())
-            return;
-        if (TemporossScript.workArea == null)
-            return;
-        TemporossScript.handleWidgetInfo();
-        TemporossScript.updateFireData();
-        TemporossScript.updateFishSpotData();
-        TemporossScript.updateCloudData();
-        TemporossScript.updateAmmoCrateData();
     }
 
     @Subscribe
     public void onGameTick(GameTick e) {
-        if (!TemporossScript.isInMinigame())
+        TemporossScript.cachedInMinigame = TemporossScript.isInMinigame();
+        if (!TemporossScript.cachedInMinigame)
             return;
+        if (incomingWave)
+            return;
+        TemporossScript.cachedRawFish = State.getRawFish();
+        TemporossScript.cachedCookedFish = State.getCookedFish();
+        TemporossScript.cachedAllFish = State.getAllFish();
+        TemporossScript.cachedTotalSlots = State.getTotalAvailableFishSlots();
         if (TemporossScript.workArea == null)
             return;
         TemporossScript.handleWidgetInfo();
@@ -129,6 +126,11 @@ public class TemporossPlugin extends Plugin {
 
         if (TemporossScript.state == null) {
             TemporossScript.state = State.THIRD_CATCH;
+        }
+
+        if (TemporossScript.state != null && TemporossScript.state.isComplete()) {
+            TemporossScript.isFilling = false;
+            TemporossScript.state = TemporossScript.state.next == null ? State.THIRD_CATCH : TemporossScript.state.next;
         }
     }
 

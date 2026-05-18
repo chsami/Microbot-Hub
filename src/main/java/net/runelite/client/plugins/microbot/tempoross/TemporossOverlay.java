@@ -8,7 +8,6 @@ import net.runelite.api.Point;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.ui.overlay.Overlay;
@@ -53,35 +52,24 @@ public class TemporossOverlay extends Overlay {
 
     @Override
     public Dimension render(Graphics2D graphics) {
-        if (!TemporossScript.isInMinigame()){
+        if (!TemporossScript.cachedInMinigame){
             return null;
         }
         // Render NPC overlays if the list is not null
         if (npcList != null) {
-            WorldPoint playerWp = Rs2Player.getWorldLocation();
-            if (playerWp != null) {
-                Rs2WorldPoint playerLocation = new Rs2WorldPoint(playerWp);
-                for (Rs2NpcModel npc : npcList) {
-                    Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
-                    renderNpcOverlay(graphics, npc, Color.RED, npcLocation.distanceToPath(playerLocation.getWorldPoint()) + " tiles");
-                }
+            for (Rs2NpcModel npc : npcList) {
+                renderNpcOverlay(graphics, npc, Color.RED, "Fire");
             }
         }
         if (ammoList != null) {
-            WorldPoint playerWp = Rs2Player.getWorldLocation();
-            if (playerWp != null) {
-                Rs2WorldPoint playerLocation = new Rs2WorldPoint(playerWp);
-                for (Rs2NpcModel npc : ammoList) {
-                    Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
-                    String name = npc.getName();
-                    renderNpcOverlay(graphics, npc, Color.RED, npcLocation.distanceToPath(playerLocation.getWorldPoint()) + " " + (name != null ? Text.removeTags(name) : ""));
-                }
+            for (Rs2NpcModel npc : ammoList) {
+                String name = npc.getName();
+                renderNpcOverlay(graphics, npc, Color.RED, name != null ? Text.removeTags(name) : "Ammo");
             }
         }
         if (fishList != null) {
             for (Rs2NpcModel npc : fishList) {
-                Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
-                renderNpcOverlay(graphics, npc, Color.RED,   "Duck was here");
+                renderNpcOverlay(graphics, npc, Color.RED, "Fish spot");
             }
         }
         if (cloudList != null) {
@@ -90,7 +78,7 @@ public class TemporossOverlay extends Overlay {
             }
         }
 
-        if (TemporossScript.isInMinigame() && workArea != null) {
+        if (TemporossScript.cachedInMinigame && workArea != null) {
             // draw each work area WorldPoint
 
             renderWorldPoint(graphics, workArea.exitNpc, Color.RED, "Exit NPC");
