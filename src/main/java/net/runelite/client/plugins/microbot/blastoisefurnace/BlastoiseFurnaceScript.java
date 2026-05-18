@@ -29,15 +29,16 @@ import java.awt.event.KeyEvent;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static net.runelite.api.gameval.ItemID.*;
 import static net.runelite.api.gameval.ObjectID.*;
 import static net.runelite.api.gameval.VarbitID.*;
-import static net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper.ITEM_NAME_SUFFIX_PATTERN;
 
 @Slf4j
 public class BlastoiseFurnaceScript extends Script {
     static final int coalBag = 12019;
+    private static final Pattern ITEM_NAME_SUFFIX_PATTERN = Pattern.compile("^(.*?)(?:\\s*\\((\\d+)\\))?$");
     private static final int MAX_ORE_PER_INTERACTION = 27;
     private static final int MAX_ORE_PER_HYBRID_INTERACTION = 26;
     public static State state = State.BANKING;
@@ -699,4 +700,3 @@ public class BlastoiseFurnaceScript extends Script {
         return coffer == 1;
     }
 }
-
