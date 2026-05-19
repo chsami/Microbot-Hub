@@ -26,7 +26,7 @@ import java.awt.*;
 )
 @Slf4j
 public class FornBirdhouseRunsPlugin extends Plugin {
-    final static String version = "1.1.0";
+    final static String version = "1.1.1";
     @Provides
     FornBirdhouseRunsConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(FornBirdhouseRunsConfig.class);
