@@ -57,7 +57,6 @@ public class TemporossScript extends Script {
     public static List<GameObject> sortedClouds = new ArrayList<>();
     public static List<Rs2NpcModel> fishSpots = new ArrayList<>();
     private static NPC lastCatchSpotNpc = null;
-    private static boolean walkedToFishArea = false;
     public static List<WorldPoint> walkPath = new ArrayList<>();
     public static long startTime;
     public static int cachedRawFish;
@@ -109,7 +108,7 @@ public class TemporossScript extends Script {
                             return;
                         handleFires();
                         handleTether();
-                        if(isFightingFire || TemporossPlugin.isTethered)
+                        if(isFightingFire)
                             return;
                         handleDamagedMast();
                         handleDamagedTotem();
@@ -145,8 +144,27 @@ public class TemporossScript extends Script {
 
     private void determineWorkArea() {
         if (workArea == null) {
-            Rs2NpcModel forfeitNpc = Microbot.getRs2NpcCache().query().where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Forfeit")).nearest();
-            Rs2NpcModel ammoCrate = Microbot.getRs2NpcCache().query().where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Fill")).nearest();
+            LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
+                    ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+            if (playerLocal == null) return;
+
+            List<Rs2NpcModel> forfeitNpcs = Microbot.getRs2NpcCache().query()
+                    .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
+                            && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Forfeit"))
+                    .toList();
+            Rs2NpcModel forfeitNpc = forfeitNpcs.stream()
+                    .filter(npc -> npc.getNpc().getLocalLocation() != null)
+                    .min(Comparator.comparingInt(npc -> playerLocal.distanceTo(npc.getNpc().getLocalLocation())))
+                    .orElse(null);
+
+            List<Rs2NpcModel> ammoCrates = Microbot.getRs2NpcCache().query()
+                    .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
+                            && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Fill"))
+                    .toList();
+            Rs2NpcModel ammoCrate = ammoCrates.stream()
+                    .filter(npc -> npc.getNpc().getLocalLocation() != null)
+                    .min(Comparator.comparingInt(npc -> playerLocal.distanceTo(npc.getNpc().getLocalLocation())))
+                    .orElse(null);
 
             if (forfeitNpc == null || ammoCrate == null) {
                 log("Can't find forfeit NPC or ammo crate");
@@ -154,11 +172,9 @@ public class TemporossScript extends Script {
             }
             boolean isWest = forfeitNpc.getWorldLocation().getX() < ammoCrate.getWorldLocation().getX();
             workArea = new TemporossWorkArea(forfeitNpc.getWorldLocation(), isWest);
-            // log tempoross work area if its west or east
-            if(Rs2AntibanSettings.devDebug) {
-                log("Tempoross work area: " + (isWest ? "west" : "east"));
-                log(workArea.getAllPointsAsString());
-            }
+            log("Tempoross work area: " + (isWest ? "west" : "east"));
+            log("Forfeit NPC at " + forfeitNpc.getWorldLocation() + " | Ammo crate at " + ammoCrate.getWorldLocation());
+            log(workArea.getAllPointsAsString());
         }
     }
 
@@ -202,7 +218,8 @@ public class TemporossScript extends Script {
         workArea = null;
         isFilling = false;
         isFightingFire = false;
-        walkedToFishArea = false;
+
+        lastCatchSpotNpc = null;
         walkPath = null;
         TemporossPlugin.incomingWave = false;
         TemporossPlugin.isTethered = false;
@@ -213,19 +230,21 @@ public class TemporossScript extends Script {
 
     public void handleForfeit() {
         if ((INTENSITY >= 94 && state == State.THIRD_COOK)) {
-            var forfeitNpc = Microbot.getRs2NpcCache().query().where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Forfeit")).nearest();
-            if (forfeitNpc != null) {
-                if (forfeitNpc.click("Forfeit")) {
-                    sleepUntil(() -> !isInMinigame(), 15000);
-                    reset();
-                    BreakHandlerScript.setLockState(false);
-                }
-            }
+            forfeit();
         }
     }
 
     private void forfeit() {
-        var forfeitNpc = Microbot.getRs2NpcCache().query().where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Forfeit")).nearest();
+        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
+                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        if (playerLocal == null) return;
+        var forfeitNpc = Microbot.getRs2NpcCache().query()
+                .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
+                        && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Forfeit"))
+                .toList().stream()
+                .filter(npc -> npc.getNpc().getLocalLocation() != null)
+                .min(Comparator.comparingInt(npc -> playerLocal.distanceTo(npc.getNpc().getLocalLocation())))
+                .orElse(null);
         if (forfeitNpc != null) {
             if (forfeitNpc.click("Forfeit")) {
                 sleepUntil(() -> !isInMinigame(), 15000);
@@ -450,11 +469,26 @@ public class TemporossScript extends Script {
                 .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
                         && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Douse"))
                 .toList();
-        WorldPoint playerLocation = Rs2Player.getWorldLocation();
-        int fireRadius = temporossConfig != null && temporossConfig.solo() ? 35 : 5;
+        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
+                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        LocalPoint exitLocal = workArea != null
+                ? LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.exitNpc) : null;
+        int fireRadius = temporossConfig != null && temporossConfig.solo() ? 35 : 20;
+        int fireRadiusLocal = fireRadius * Perspective.LOCAL_TILE_SIZE;
+        int workAreaRadius = 30 * Perspective.LOCAL_TILE_SIZE;
         sortedFires = allFires.stream()
-                .filter(y -> playerLocation.distanceTo(y.getWorldLocation()) <= fireRadius)
-                .sorted(Comparator.comparingInt(x -> playerLocation.distanceTo(x.getWorldLocation())))
+                .filter(y -> {
+                    if (playerLocal == null || y.getNpc() == null || y.getNpc().getLocalLocation() == null)
+                        return false;
+                    if (exitLocal != null && y.getNpc().getLocalLocation().distanceTo(exitLocal) > workAreaRadius)
+                        return false;
+                    return y.getNpc().getLocalLocation().distanceTo(playerLocal) <= fireRadiusLocal;
+                })
+                .sorted(Comparator.comparingInt(x -> {
+                    if (playerLocal == null || x.getNpc() == null || x.getNpc().getLocalLocation() == null)
+                        return Integer.MAX_VALUE;
+                    return x.getNpc().getLocalLocation().distanceTo(playerLocal);
+                }))
                 .collect(Collectors.toList());
         TemporossOverlay.setNpcList(sortedFires);
     }
@@ -478,11 +512,12 @@ public class TemporossScript extends Script {
 
     // update ammo crate data
     public static void updateAmmoCrateData(){
+        LocalPoint mastLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.mastPoint);
         List<Rs2NpcModel> ammoCrates = Microbot.getRs2NpcCache().query()
                 .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
                         && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Fill")
-                        && workArea.isOnOurSide(npc.getWorldLocation())
-                        && npc.getWorldLocation().distanceTo(workArea.mastPoint) <= 4
+                        && mastLocal != null && npc.getNpc().getLocalLocation() != null
+                        && npc.getNpc().getLocalLocation().distanceTo(mastLocal) <= 4 * 128
                         && !inCloud(npc.getWorldLocation(), 2))
                 .toList();
         TemporossOverlay.setAmmoList(ammoCrates);
@@ -513,6 +548,10 @@ public class TemporossScript extends Script {
             return;
         }
         if (sortedFires.isEmpty() || state == State.ATTACK_TEMPOROSS) {
+            isFightingFire = false;
+            return;
+        }
+        if (!temporossConfig.solo()) {
             isFightingFire = false;
             return;
         }
@@ -628,7 +667,8 @@ public class TemporossScript extends Script {
         if (((TemporossScript.ENERGY < 30 && cachedAllFish > 6)
             || (TemporossScript.ENERGY < 50 && cachedAllFish >= cachedTotalSlots))
             && !temporossConfig.solo()
-            && TemporossScript.state != State.ATTACK_TEMPOROSS) {
+            && TemporossScript.state != State.ATTACK_TEMPOROSS
+            && TemporossScript.state != State.EMERGENCY_FILL) {
             log("Low energy, going for emergency fill");
             TemporossScript.state = State.EMERGENCY_FILL;
         }
@@ -644,14 +684,28 @@ public class TemporossScript extends Script {
             case THIRD_CATCH:
                 isFilling = false;
 
+                if (lastCatchSpotNpc != null && fishSpots.stream().noneMatch(npc -> npc.getNpc() == lastCatchSpotNpc)) {
+                    lastCatchSpotNpc = null;
+                }
+
+                long inCloudCount = fishSpots.stream().filter(npc -> inCloud(npc.getWorldLocation(), 1)).count();
+                long fireCount = fishSpots.stream().filter(npc -> hasAdjacentFire(npc.getWorldLocation())).count();
+                boolean alreadyFishing = Rs2Player.isAnimating() || Rs2Player.isInteracting();
+                int emptySlots = cachedTotalSlots - cachedAllFish;
                 var fishSpot = fishSpots.stream()
                         .filter(npc -> !inCloud(npc.getWorldLocation(), 1))
                         .filter(npc -> {
+                            if (alreadyFishing && npc.getId() == NpcID.FISHING_SPOT_10569 && emptySlots <= 4)
+                                return false;
                             boolean fireAdjacent = hasAdjacentFire(npc.getWorldLocation());
                             return !fireAdjacent || Rs2Inventory.contains(ItemID.BUCKET_OF_WATER);
                         })
                         .findFirst()
                         .orElse(null);
+
+                if (fishSpot == null && !fishSpots.isEmpty()) {
+                    log("CATCH: " + fishSpots.size() + " spots found but all filtered (inCloud=" + inCloudCount + " fire=" + fireCount + ")");
+                }
 
                 if (fishSpot != null && fishSpot.getNpc() != null) {
                     Rs2NpcModel adjacentFire = getAdjacentFire(fishSpot.getWorldLocation());
@@ -663,32 +717,35 @@ public class TemporossScript extends Script {
                         return;
                     }
 
-                    walkedToFishArea = false;
+            
                     if (!temporossConfig.solo()) {
                         if(!fightFiresInPath(fishSpot.getWorldLocation()))
                             return;
                     }
-                    if (lastCatchSpotNpc != null && (Rs2Player.isAnimating() || Rs2Player.isMoving())) {
-                        return;
+                    if (fishSpot.getNpc() == lastCatchSpotNpc) {
+                        if (Rs2Player.isMoving()) {
+                            return;
+                        }
+                        if (Rs2Player.isAnimating()) {
+                            LocalPoint spotLocal = fishSpot.getNpc().getLocalLocation();
+                            LocalPoint pLocal = Microbot.getClient().getLocalPlayer() != null
+                                    ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+                            if (spotLocal != null && pLocal != null && pLocal.distanceTo(spotLocal) <= Perspective.LOCAL_TILE_SIZE) {
+                                return;
+                            }
+                        }
                     }
                     Rs2Camera.turnTo(fishSpot.getNpc());
                     fishSpot.click("Harpoon");
                     lastCatchSpotNpc = fishSpot.getNpc();
                     log("Interacting with " + (fishSpot.getId() == NpcID.FISHING_SPOT_10569 ? "double" : "single") + " fish spot");
                 } else {
-                    if (Rs2Player.isMoving() || walkedToFishArea) {
+                    if (Rs2Player.isMoving()) {
                         return;
-                    }
-                    if (!temporossConfig.solo()) {
-                        if(!fightFiresInPath(workArea.totemPoint))
-                            return;
                     }
                     LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.totemPoint);
                     if (localPoint == null) return;
-                    Rs2Camera.turnTo(localPoint);
-                    WorldPoint instancePoint = WorldPoint.fromLocalInstance(Microbot.getClient(), localPoint);
-                    Rs2Walker.walkFastCanvas(instancePoint);
-                    walkedToFishArea = true;
+                    Rs2Walker.walkFastLocal(localPoint);
                     log("Can't find the fish spot, walking to the totem pole");
                     return;
                 }
@@ -717,26 +774,17 @@ public class TemporossScript extends Script {
             case EMERGENCY_FILL:
             case SECOND_FILL:
             case INITIAL_FILL:
+                LocalPoint mastLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.mastPoint);
                 List<Rs2NpcModel> ammoCrates = Microbot.getRs2NpcCache().query()
                         .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
                                 && npc.getNpc().getComposition().getActions() != null
                                 && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Fill")
-                                && workArea.isOnOurSide(npc.getWorldLocation())
-                                && npc.getWorldLocation().distanceTo(workArea.mastPoint) <= 4
+                                && mastLocal != null && npc.getNpc().getLocalLocation() != null
+                                && npc.getNpc().getLocalLocation().distanceTo(mastLocal) <= 4 * 128
                                 && !inCloud(npc.getWorldLocation(), 1))
                         .toList();
 
                 WorldPoint fillPlayerLoc = Rs2Player.getWorldLocation();
-                if (inCloud(fillPlayerLoc,5) && !isFilling) {
-                    GameObject cloud = sortedClouds.stream()
-                            .findFirst()
-                            .orElse(null);
-                    if (cloud != null) {
-                        Rs2Walker.walkNextToInstance(cloud);
-                    }
-                    return;
-                }
-
                 if (ammoCrates.isEmpty()) {
                     if (!Rs2Player.isMoving()) {
                         log("Can't find ammo crate, walking to the safe point");
@@ -832,12 +880,14 @@ public class TemporossScript extends Script {
      * In mass world mode, before walking to the safe point, clear fires along the path.
      */
     private void walkToSafePoint() {
-        if (!temporossConfig.solo()) {
-            if(!fightFiresInPath(workArea.safePoint))
-                return;
-        }
-        LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(),workArea.safePoint);
-        Rs2Camera.turnTo(localPoint);
+        LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.safePoint);
+        if (localPoint == null) return;
+        if (Objects.equals(Microbot.getClient().getLocalDestinationLocation(), localPoint))
+            return;
+        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
+                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        if (playerLocal != null && playerLocal.distanceTo(localPoint) < 3 * 128)
+            return;
         Rs2Walker.walkFastLocal(localPoint);
     }
 
@@ -845,17 +895,13 @@ public class TemporossScript extends Script {
      * In mass world mode, before walking to the spirit pool, clear fires along the path.
      */
     private void walkToSpiritPool() {
-        if (!temporossConfig.solo()) {
-            if(!fightFiresInPath(workArea.safePoint))
-                return;
-        }
-        LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(),workArea.spiritPoolPoint);
-        Rs2Camera.turnTo(localPoint);
+        LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.spiritPoolPoint);
         if (localPoint == null) return;
-        WorldPoint playerLoc = Rs2Player.getWorldLocation();
-        if (playerLoc != null && playerLoc.distanceTo(workArea.spiritPoolPoint) <= 2)
+        if (Objects.equals(Microbot.getClient().getLocalDestinationLocation(), localPoint))
             return;
-        if(Objects.equals(Microbot.getClient().getLocalDestinationLocation(), localPoint))
+        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
+                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        if (playerLocal != null && playerLocal.distanceTo(localPoint) < 3 * 128)
             return;
         Rs2Walker.walkFastLocal(localPoint);
     }
@@ -923,43 +969,53 @@ public class TemporossScript extends Script {
                 .orElse(null);
     }
 
-    // method to fight fires that is in a path to a location
     public boolean fightFiresInPath(WorldPoint location) {
-        Rs2WorldPoint playerLocation = new Rs2WorldPoint(Rs2Player.getWorldLocation());
-        List<WorldPoint> walkerPath = playerLocation.pathTo(location,true);
-        walkPath = walkerPath;
         if (sortedFires.isEmpty()) {
             return true;
         }
 
+        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
+                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        LocalPoint destLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), location);
+        if (playerLocal == null || destLocal == null) {
+            return true;
+        }
+
+        int distToDest = playerLocal.distanceTo(destLocal);
         int fullBucketCount = Rs2Inventory.count(ItemID.BUCKET_OF_WATER);
 
-
-        // Filter fires that are actually on the path. getWorldArea() now
-        // requires the client thread (upstream RuneLite change).
-        List<Rs2NpcModel> firesInPath = Microbot.getClientThread().invoke(() -> sortedFires.stream()
-                .filter(fire -> walkerPath.stream().anyMatch(pathPoint -> fire.getNpc().getWorldArea().contains(pathPoint)))
-                .collect(Collectors.toList()));
+        List<Rs2NpcModel> firesInPath = sortedFires.stream()
+                .filter(fire -> {
+                    if (fire.getNpc() == null || fire.getNpc().getLocalLocation() == null) return false;
+                    LocalPoint fireLocal = fire.getNpc().getLocalLocation();
+                    int distToFire = playerLocal.distanceTo(fireLocal);
+                    int fireToDestDist = fireLocal.distanceTo(destLocal);
+                    return distToFire < distToDest && fireToDestDist < distToDest;
+                })
+                .sorted(Comparator.comparingInt(fire ->
+                        playerLocal.distanceTo(fire.getNpc().getLocalLocation())))
+                .collect(Collectors.toList());
 
         if (firesInPath.isEmpty()) {
             return true;
         }
 
-        // Limit the number of fires doused based on available full buckets.
         if (firesInPath.size() > fullBucketCount) {
             firesInPath = firesInPath.subList(0, fullBucketCount);
         }
 
         for (Rs2NpcModel fire : firesInPath) {
             if (fire.click("Douse")) {
-                log("Dousing fire in path (mass world mode)");
+                log("Dousing fire in path");
                 sleepUntil(Rs2Player::isInteracting, 2000);
                 sleepUntil(() -> !Rs2Player.isInteracting(), 10000);
             }
         }
 
-        // Return true if sortedFires does not contain any fires in the path.
-        return sortedFires.stream().noneMatch(fire -> walkerPath.stream().anyMatch(pathPoint -> fire.getNpc().getWorldArea().contains(pathPoint)));
+        return firesInPath.stream().allMatch(fire -> {
+            if (fire.getNpc() == null || fire.getNpc().getLocalLocation() == null) return true;
+            return !sortedFires.contains(fire);
+        });
     }
 
     @Override
