@@ -352,41 +352,42 @@ public class TemporossScript extends Script {
                 harpoonType = HarpoonType.HARPOON;
                 log("Missing selected harpoon, setting to default harpoon");
                 TemporossPlugin.setHarpoonType(harpoonType);
-                if (!fightFiresInPath(workArea.harpoonPoint)) { forfeit(); return; }
+                fightFiresInPath(workArea.harpoonPoint);
                 if (workArea.getHarpoonCrate() != null && workArea.getHarpoonCrate().click("Take")) {
                     log("Taking harpoon");
-                    sleepUntil(this::hasHarpoon, 10000);
+                    sleepUntil(() -> hasHarpoon() || TemporossPlugin.incomingWave, 10000);
                 }
                 break;
             case 1: // Buckets
-                if (!fightFiresInPath(workArea.bucketPoint)) { forfeit(); return; }
+                fightFiresInPath(workArea.bucketPoint);
                 sleepUntil(() -> Rs2Inventory.count(item ->
-                        item.getId() == ItemID.BUCKET || item.getId() == ItemID.BUCKET_OF_WATER) >= temporossConfig.buckets(), () -> {
-                    if (workArea.getBucketCrate() != null && workArea.getBucketCrate().click("Take")) {
+                        item.getId() == ItemID.BUCKET || item.getId() == ItemID.BUCKET_OF_WATER) >= temporossConfig.buckets()
+                        || TemporossPlugin.incomingWave, () -> {
+                    if (!TemporossPlugin.incomingWave && workArea.getBucketCrate() != null && workArea.getBucketCrate().click("Take")) {
                         log("Taking buckets");
                         Rs2Inventory.waitForInventoryChanges(3000);
                     }
                 }, 10000, 300);
                 break;
             case 2: // Fill buckets
-                if (!fightFiresInPath(workArea.pumpPoint)) { forfeit(); return; }
+                fightFiresInPath(workArea.pumpPoint);
                 if (workArea.getPump() != null && workArea.getPump().click("Use")) {
                     log("Filling buckets");
-                    sleepUntil(() -> Rs2Inventory.count(ItemID.BUCKET) <= 0, 10000);
+                    sleepUntil(() -> Rs2Inventory.count(ItemID.BUCKET) <= 0 || TemporossPlugin.incomingWave, 10000);
                 }
                 break;
             case 3: // Rope
-                if (!fightFiresInPath(workArea.ropePoint)) { forfeit(); return; }
+                fightFiresInPath(workArea.ropePoint);
                 if (workArea.getRopeCrate() != null && workArea.getRopeCrate().click("Take")) {
                     log("Taking rope");
-                    sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(10000));
+                    sleepUntil(() -> Rs2Inventory.contains(ItemID.ROPE) || TemporossPlugin.incomingWave, 10000);
                 }
                 break;
             case 4: // Hammer
-                if (!fightFiresInPath(workArea.hammerPoint)) { forfeit(); return; }
+                fightFiresInPath(workArea.hammerPoint);
                 if (workArea.getHammerCrate() != null && workArea.getHammerCrate().click("Take")) {
                     log("Taking hammer");
-                    sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(10000));
+                    sleepUntil(() -> Rs2Inventory.contains(ItemID.HAMMER) || TemporossPlugin.incomingWave, 10000);
                 }
                 break;
         }
@@ -518,7 +519,7 @@ public class TemporossScript extends Script {
                         && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Fill")
                         && mastLocal != null && npc.getNpc().getLocalLocation() != null
                         && npc.getNpc().getLocalLocation().distanceTo(mastLocal) <= 4 * 128
-                        && !inCloud(npc.getWorldLocation(), 2))
+                        && !inCloud(npc.getWorldLocation(), 0))
                 .toList();
         TemporossOverlay.setAmmoList(ammoCrates);
     }
@@ -781,7 +782,7 @@ public class TemporossScript extends Script {
                                 && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Fill")
                                 && mastLocal != null && npc.getNpc().getLocalLocation() != null
                                 && npc.getNpc().getLocalLocation().distanceTo(mastLocal) <= 4 * 128
-                                && !inCloud(npc.getWorldLocation(), 1))
+                                && !inCloud(npc.getWorldLocation(), 0))
                         .toList();
 
                 WorldPoint fillPlayerLoc = Rs2Player.getWorldLocation();
