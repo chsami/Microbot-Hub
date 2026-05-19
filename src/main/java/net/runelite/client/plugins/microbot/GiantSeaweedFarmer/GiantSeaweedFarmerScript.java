@@ -39,7 +39,6 @@ public class GiantSeaweedFarmerScript extends Script {
     private boolean BankSuccess = false;
     private List<Integer> handledPatches = new ArrayList<>();
     private final List<Integer> patches = List.of(30500, 30501);
-    private long lastApparatusCheck = System.currentTimeMillis();
 
     private static final WorldPoint FossilIslandDiveChest = new WorldPoint(3766, 3899, 0);
     private static final WorldPoint FarmGuildSpiritTree = new WorldPoint(1250, 3749, 0);
@@ -450,22 +449,6 @@ public class GiantSeaweedFarmerScript extends Script {
 
     }
 
-    private void safetyCheck() {
-        if (Rs2Player.getWorldLocation().getPlane() != 1) return; // only underwater
-
-        if (!Rs2Equipment.isWearing("Diving apparatus")) {
-            // if > 2000 ms without apparatus underwater, force equip
-            if (System.currentTimeMillis() - lastApparatusCheck > 2000) {
-                if (Rs2Inventory.contains("Diving apparatus")) {
-                    Rs2Inventory.interact("Diving apparatus", "Wear");
-                    Microbot.log("SAFETY: Diving apparatus re-equipped automatically!");
-                }
-            }
-        } else {
-            lastApparatusCheck = System.currentTimeMillis();
-        }
-    }
-
     private void GSF_AntiBan_Setup(){
         Microbot.enableAutoRunOn = false;
         Rs2Antiban.resetAntibanSettings();
@@ -491,15 +474,16 @@ public class GiantSeaweedFarmerScript extends Script {
     }
 
     private void shutdownSequence(){
-        this.shutdown();
+        Microbot.stopPlugin(giantSeaweedPlugin);
     }
 
     @Override
     public void shutdown() {
         GSF_Running = false;
         BOT_STATE = GiantSeaweedFarmerStatus.IDLE;
+        BankSuccess = false;
         handledPatches = new ArrayList<>();
-        inCriticalSection = false; // Ensure flag is cleared on shutdown
+        inCriticalSection = false;
         super.shutdown();
     }
 }
