@@ -56,6 +56,13 @@ public class GiantSeaweedFarmerScript extends Script {
     public boolean run(GiantSeaweedFarmerConfig config) {
         Microbot.enableAutoRunOn = false;
         this.config = config;
+
+        BOT_STATE = GiantSeaweedFarmerStatus.BANKING;
+        BankSuccess = false;
+        GSF_Running = true;
+        handledPatches.clear();
+        inCriticalSection = false;
+
         if (config.useAntiBan()){GSF_AntiBan_Setup();}
 
         if (config.override()) {
