@@ -105,7 +105,7 @@ public class TemporossScript extends Script {
                         handleStateLoop();
                         if (handleCloudDodge())
                             return;
-                        if(areItemsMissing())
+                        if(areItemsMissing() && (state == State.INITIAL_CATCH || state == State.SECOND_CATCH || state == State.THIRD_CATCH))
                             return;
                         handleFires();
                         handleTether();
@@ -194,7 +194,7 @@ public class TemporossScript extends Script {
                         && npc.getNpc().getComposition().getActions() != null
                         && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Leave")
                         && npc.getNpc().getLocalLocation() != null
-                        && npc.getNpc().getLocalLocation().distanceTo(exitLocal) <= 20 * Perspective.LOCAL_TILE_SIZE)
+                        && npc.getNpc().getLocalLocation().distanceTo(exitLocal) <= 40 * Perspective.LOCAL_TILE_SIZE)
                 .toList().stream()
                 .min(Comparator.comparingInt(value -> playerLocal.distanceTo(value.getNpc().getLocalLocation())))
                 .orElse(null);
@@ -260,23 +260,16 @@ public class TemporossScript extends Script {
 
     private void handleMinigame()
     {
-        // Do not proceed if the minigame phase is too advanced
         if (getPhase() > 2)
             return;
 
-        // Update the current harpoon type from the configuration
         harpoonType = temporossConfig.harpoonType();
 
-        // Check if any required item is missing. If so, fetch it and return.
-        if (areItemsMissing())
-        {
-            // Before interacting with crates, clear fires along the path to the crate.
-            // In mass world mode, only fires blocking the path will be doused.
-            fetchMissingItems();
+        if (state == State.INITIAL_CATCH || state == State.SECOND_CATCH || state == State.THIRD_CATCH) {
+            if (areItemsMissing()) {
+                fetchMissingItems();
+            }
         }
-
-        // Continue with further minigame logic if all items are available
-        // ...
     }
 
     private boolean areItemsMissing()
@@ -704,6 +697,10 @@ public class TemporossScript extends Script {
                     lastCatchSpotNpc = null;
                 }
 
+                if (lastCatchSpotNpc != null && Rs2Player.isMoving()) {
+                    return;
+                }
+
                 long inCloudCount = fishSpots.stream().filter(npc -> inCloud(npc.getWorldLocation(), 1)).count();
                 long fireCount = fishSpots.stream().filter(npc -> hasAdjacentFire(npc.getWorldLocation())).count();
                 boolean alreadyFishing = Rs2Player.isAnimating() || Rs2Player.isInteracting();
@@ -760,8 +757,11 @@ public class TemporossScript extends Script {
                         return;
                     }
                     LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.totemPoint);
-                    if (localPoint == null) return;
-                    Rs2Walker.walkFastLocal(localPoint);
+                    if (localPoint == null) {
+                        Rs2Walker.walkTo(workArea.totemPoint);
+                    } else {
+                        Rs2Walker.walkFastLocal(localPoint);
+                    }
                     log("Can't find the fish spot, walking to the totem pole");
                     return;
                 }
@@ -781,9 +781,13 @@ public class TemporossScript extends Script {
                     log("Interacting with range");
                 } else if (range == null) {
                     log("Can't find the range, walking to the range point");
-                    LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(),workArea.rangePoint);
-                    Rs2Camera.turnTo(localPoint);
-                    Rs2Walker.walkFastLocal(localPoint);
+                    LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.rangePoint);
+                    if (localPoint == null) {
+                        Rs2Walker.walkTo(workArea.rangePoint);
+                    } else {
+                        Rs2Camera.turnTo(localPoint);
+                        Rs2Walker.walkFastLocal(localPoint);
+                    }
                 }
                 break;
 
@@ -856,23 +860,16 @@ public class TemporossScript extends Script {
                         }
                         return;
                     }
-                    // --- Check and trigger the special attack if conditions are met ---
-                    int currentSpecEnergy = Rs2Combat.getSpecEnergy()/ 10;
-                    log("Current Spec Energy: " + currentSpecEnergy);
-                    // Check if special attack is enabled and the harpoon is the correct type
-                    if (temporossConfig.enableHarpoonSpec()  // Check if special attack is enabled in config
+                    if (temporossConfig.enableHarpoonSpec()
                             && (temporossConfig.harpoonType() == HarpoonType.DRAGON_HARPOON
                             || temporossConfig.harpoonType() == HarpoonType.INFERNAL_HARPOON
-                            || temporossConfig.harpoonType() == HarpoonType.CRYSTAL_HARPOON)
-                            && currentSpecEnergy >= 100) {  // Ensure spec energy is >= 100%
-
-                        // Trigger the special attack only if energy is 100% or more
-                        Rs2Combat.setSpecState(true, 100);  // Activate special attack at 100% energy
-                        sleep(600);  // Wait for the special animation to complete
-                        log("Using harpoon special attack at 100% energy");
-                    } else {
-                        // Log message when special energy is below 100%
-                        log("Special energy is below 100%, not using harpoon special attack.");
+                            || temporossConfig.harpoonType() == HarpoonType.CRYSTAL_HARPOON)) {
+                        int currentSpecEnergy = Rs2Combat.getSpecEnergy() / 10;
+                        if (currentSpecEnergy >= 100) {
+                            Rs2Combat.setSpecState(true, 100);
+                            sleep(600);
+                            log("Using harpoon special attack");
+                        }
                     }
                 temporossPool.click("Harpoon");
                 log("Harpooning Tempoross");
@@ -882,7 +879,13 @@ public class TemporossScript extends Script {
                         return;
                     }
                     if (!Rs2Player.isMoving()) {
-                        log("Can't find Tempoross, walking to the Tempoross pool");
+                        LocalPoint poolLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.spiritPoolPoint);
+                        LocalPoint pLocal = Microbot.getClient().getLocalPlayer() != null
+                                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+                        log("Walking to spirit pool: target=" + workArea.spiritPoolPoint
+                                + " localTarget=" + poolLocal
+                                + " playerLocal=" + pLocal
+                                + " dist=" + (poolLocal != null && pLocal != null ? pLocal.distanceTo(poolLocal) : "?"));
                         walkToSpiritPool();
                     }
                 }
@@ -901,7 +904,11 @@ public class TemporossScript extends Script {
      */
     private void walkToSafePoint() {
         LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.safePoint);
-        if (localPoint == null) return;
+        if (localPoint == null) {
+            log("Safe point off-screen, using Rs2Walker");
+            Rs2Walker.walkTo(workArea.safePoint);
+            return;
+        }
         if (Objects.equals(Microbot.getClient().getLocalDestinationLocation(), localPoint))
             return;
         LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
@@ -916,7 +923,11 @@ public class TemporossScript extends Script {
      */
     private void walkToSpiritPool() {
         LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.spiritPoolPoint);
-        if (localPoint == null) return;
+        if (localPoint == null) {
+            log("Spirit pool off-screen, using Rs2Walker");
+            Rs2Walker.walkTo(workArea.spiritPoolPoint);
+            return;
+        }
         if (Objects.equals(Microbot.getClient().getLocalDestinationLocation(), localPoint))
             return;
         LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
@@ -1025,10 +1036,11 @@ public class TemporossScript extends Script {
         }
 
         for (Rs2NpcModel fire : firesInPath) {
+            if (TemporossPlugin.incomingWave) return false;
             if (fire.click("Douse")) {
                 log("Dousing fire in path");
-                sleepUntil(Rs2Player::isInteracting, 2000);
-                sleepUntil(() -> !Rs2Player.isInteracting(), 10000);
+                sleepUntil(() -> Rs2Player.isInteracting() || TemporossPlugin.incomingWave, 2000);
+                sleepUntil(() -> !Rs2Player.isInteracting() || TemporossPlugin.incomingWave, 5000);
             }
         }
 
