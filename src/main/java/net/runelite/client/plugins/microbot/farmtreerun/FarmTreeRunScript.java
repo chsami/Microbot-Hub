@@ -4,8 +4,10 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.farmtreerun.enums.CompostType;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.HardTreeEnums;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.FruitTreeEnum;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.TreeEnums;
@@ -22,7 +24,11 @@ import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
+import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+
+import java.awt.event.KeyEvent;
 
 import javax.inject.Inject;
 import java.util.*;
@@ -122,7 +128,7 @@ public class FarmTreeRunScript extends Script {
                 checkSaplingLevelRequirement(config);
                 if (!validateSpecialPatches(config)) return;
 
-                dropEmptyPlantPots();
+                dropCrap();
                 Patch patch = null;
                 boolean handledPatch = false;
 
@@ -132,7 +138,7 @@ public class FarmTreeRunScript extends Script {
 							bank(config);
 						} else {
 							if (isCompostEnabled(config)) {
-								compostItemId = ItemID.BOTTOMLESS_COMPOST_BUCKET_22997;
+								compostItemId = config.compostType().getItemId();
 							}
 							botStatus = net.runelite.client.plugins.microbot.farmtreerun.enums.FarmTreeRunState.HANDLE_GNOME_STRONGHOLD_FRUIT_PATCH;
 						}
@@ -349,6 +355,13 @@ public class FarmTreeRunScript extends Script {
 
 
                     case FINISHED:
+						if (!Rs2Bank.isOpen()) {
+							if (!Rs2Bank.walkToBank()) return;
+							if (!Rs2Bank.openBank()) return;
+						}
+						Rs2Bank.depositAll();
+						sleepUntil(() -> Rs2Inventory.isEmpty(), 3000);
+						Rs2Bank.closeBank();
 						Microbot.getClientThread().runOnClientThreadOptional(() -> {
 								Microbot.getClient().addChatMessage(ChatMessageType.ENGINE, "", "Tree run completed.", "Acun", false);
 								Microbot.getClient().addChatMessage(ChatMessageType.ENGINE, "", "Made with love by Acun.", "Acun", false);
@@ -403,12 +416,13 @@ public class FarmTreeRunScript extends Script {
             config.selectedFruitTree().hasRequiredLevel();
     }
 
-    private void dropEmptyPlantPots() {
-        int emptyPlantPot = ItemID.EMPTY_PLANT_POT;
-        if (!Rs2Player.isAnimating() && !Rs2Player.isMoving() && !Rs2Player.isInteracting()) {
-            if (Rs2Inventory.hasItem(emptyPlantPot)) {
-                Rs2Inventory.dropAll(emptyPlantPot);
-                sleepUntil(() -> !Rs2Inventory.hasItem(emptyPlantPot), 8000);
+    private void dropCrap() {
+        if (Rs2Player.isAnimating()) return;
+        int[] junk = {ItemID.EMPTY_PLANT_POT, ItemID.BUCKET, ItemID.WEEDS};
+        for (int id : junk) {
+            if (Rs2Inventory.hasItem(id)) {
+                Rs2Inventory.dropAll(id);
+                sleepUntil(() -> !Rs2Inventory.hasItem(id), 8000);
             }
         }
     }
@@ -458,11 +472,15 @@ public class FarmTreeRunScript extends Script {
             }
 
             if (isCompostEnabled(config)) {
-                if (Rs2Bank.hasItem(ItemID.BOTTOMLESS_COMPOST_BUCKET_22997)) {
-                    compostItemId = ItemID.BOTTOMLESS_COMPOST_BUCKET_22997;
-                    items.add(new FarmingItem(compostItemId, 1));
-                } else {
-                    Microbot.log("Only bottomless compost is supported. Skipping composting.");
+                CompostType compostType = config.compostType();
+                compostItemId = compostType.getItemId();
+                if (compostType.isReusable()) {
+                    if (Rs2Bank.hasItem(compostItemId)) {
+                        items.add(new FarmingItem(compostItemId, 1));
+                    } else {
+                        Microbot.log("Bottomless compost bucket not found in bank. Skipping composting.");
+                        compostItemId = null;
+                    }
                 }
             }
 
@@ -490,18 +508,20 @@ public class FarmTreeRunScript extends Script {
             }
 
             if (config.useSkillsNecklace() && (config.farmingGuildTreePatch() || config.farmingGuildFruitTreePatch())) {
-                if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE2)) {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE2, 1));
-                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE3)) {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE3, 1));
-                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE4)) {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE4, 1));
+                if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE6)) {
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE6, 1, false, true));
                 } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE5)) {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE5, 1));
-                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE6)) {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE6, 1));
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE5, 1, false, true));
+                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE4)) {
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE4, 1, false, true));
+                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE3)) {
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE3, 1, false, true));
+                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE2)) {
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE2, 1, false, true));
+                } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE1)) {
+                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE1, 1, false, true));
                 } else {
-                    items.add(new FarmingItem(ItemID.SKILLS_NECKLACE1, 2));
+                    Microbot.log("No skills necklace found in bank. Skipping.");
                 }
             }
 
@@ -780,14 +800,21 @@ public class FarmTreeRunScript extends Script {
         sleep(500, 850);
 
         if (Rs2Dialogue.hasSelectAnOption()) {
+            if (action == PaymentKind.PROTECT) {
+                if (!Rs2Dialogue.clickOption("don't ask")) {
+                    Rs2Dialogue.clickOption("Yes");
+                }
+                sleep(500, 1500);
+                Rs2Dialogue.clickContinue();
+                sleepUntil(() -> !Rs2Dialogue.isInDialogue(), 6000);
+                return true;
+            }
             Rs2Dialogue.clickOption("Yes");
             sleepUntil(() -> isPatchEmpty(patch), 6000);
             if (isPatchEmpty(patch)) {
                 return true;
             }
-            shutdown();
-
-            System.out.println("Failed gardener money payment.");
+            System.out.println("Failed gardener clear payment.");
             return false;
         } else {
             System.out.println("Failed gardener payment.");
@@ -803,11 +830,21 @@ public class FarmTreeRunScript extends Script {
 
         int saplingToUse = getSaplingToUse(patch, config);
 
-        Microbot.log("Reached here");
         if (useCompostOnPatch(config, patch)) {
-            Rs2Inventory.useItemOnObject(compostItemId, treePatch.getId());
-            Rs2Player.waitForXpDrop(Skill.FARMING, 2000);
-            sleep(550, 2200);
+            boolean hasCompost = Rs2Inventory.hasItem(compostItemId);
+            if (!hasCompost && !config.compostType().isReusable()) {
+                hasCompost = withdrawCompostFromLeprechaun(config.compostType());
+                if (!hasCompost) {
+                    Microbot.showMessage("Tool Leprechaun has no " + config.compostType() + ". Store compost with the leprechaun before starting.");
+                    shutdown();
+                    return false;
+                }
+            }
+            if (hasCompost) {
+                Rs2Inventory.useItemOnObject(compostItemId, treePatch.getId());
+                Rs2Player.waitForXpDrop(Skill.FARMING, 2000);
+                sleep(550, 2200);
+            }
         }
 
         sleep(250, 1000);
@@ -846,17 +883,8 @@ public class FarmTreeRunScript extends Script {
         Rs2GameObject.interact(treePatch, "rake");
 
         Rs2Player.waitForAnimation();
-        sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting());
+        sleepUntil(() -> !Rs2Player.isAnimating());
 
-        // Drop the weeds (assuming weeds are added to the inventory)
-        if (!Rs2Player.isMoving() &&
-                !Rs2Player.isAnimating() &&
-                !Rs2Player.isInteracting() && !Rs2Player.isMoving()) {
-            System.out.println("Dropping weeds...");
-            Rs2Inventory.dropAll(ItemID.WEEDS);
-            Rs2Player.waitForAnimation();
-            sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting());
-        }
     }
 
     private void handleClearAction(GameObject treePatch) {
@@ -874,7 +902,7 @@ public class FarmTreeRunScript extends Script {
 
         // Wait for the clearing animation to finish
         Rs2Player.waitForAnimation();
-        sleepUntil(() -> !Rs2Player.isAnimating() && Rs2Player.isInteracting() && Rs2Player.isMoving());
+        sleepUntil(() -> !Rs2Player.isAnimating() && Rs2Player.isMoving());
     }
 
     private void equipGraceful() {
@@ -924,8 +952,47 @@ public class FarmTreeRunScript extends Script {
         return patch.kind == TreeKind.FRUIT_TREE;
     }
 
+    private boolean withdrawCompostFromLeprechaun(CompostType compostType) {
+        Rs2NpcModel leprechaun = Rs2Npc.getNpc("Tool Leprechaun");
+        if (leprechaun == null) {
+            Microbot.log("Tool Leprechaun not found nearby.");
+            return false;
+        }
+
+        Rs2Npc.interact(leprechaun, "Exchange");
+        sleepUntil(() -> Rs2Widget.isWidgetVisible(125, 0), 5000);
+        if (!Rs2Widget.isWidgetVisible(125, 0)) {
+            Microbot.log("Tool Leprechaun exchange interface did not open.");
+            return false;
+        }
+        sleep(300, 600);
+
+        int childId;
+        switch (compostType) {
+            case COMPOST: childId = 17; break;
+            case SUPERCOMPOST: childId = 18; break;
+            case ULTRACOMPOST: childId = 19; break;
+            default: return false;
+        }
+
+        Widget compostWidget = Rs2Widget.getWidget(125, childId);
+        if (compostWidget == null) {
+            Microbot.log("Compost widget not found in leprechaun interface.");
+            return false;
+        }
+
+        Rs2Widget.clickWidget(compostWidget);
+        sleepUntil(() -> Rs2Inventory.hasItem(compostType.getItemId()), 3000);
+        sleep(300, 600);
+
+        Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
+        sleepUntil(() -> !Rs2Widget.isWidgetVisible(125, 0), 2000);
+
+        return Rs2Inventory.hasItem(compostType.getItemId());
+    }
+
     private boolean useCompostOnPatch(FarmTreeRunConfig config, Patch patch) {
-        if (!config.useCompost() || compostItemId == null)
+        if (config.compostType() == CompostType.NONE || compostItemId == null)
             return false;
 
         if (!config.protectTrees() && patch.kind == TreeKind.TREE)
@@ -996,7 +1063,7 @@ public class FarmTreeRunScript extends Script {
      * @return true if configured by player, else false
      */
     private boolean isCompostEnabled(FarmTreeRunConfig config) {
-        if (!config.useCompost())
+        if (config.compostType() == CompostType.NONE)
             return false;
 
         if (!getSelectedTreePatches(config).isEmpty() && !config.protectTrees())
