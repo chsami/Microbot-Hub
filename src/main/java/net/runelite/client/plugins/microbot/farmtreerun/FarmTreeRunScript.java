@@ -145,7 +145,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_GNOME_STRONGHOLD_FRUIT_PATCH:
 						patch = Patch.GNOME_STRONGHOLD_FRUIT_TREE_PATCH;
-						if (config.gnomeStrongholdFruitTreePatch()) {
+						if (config.enableFruitTrees() && config.gnomeStrongholdFruitTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -156,7 +156,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_GNOME_STRONGHOLD_TREE_PATCH:
 						patch = Patch.GNOME_STRONGHOLD_TREE_PATCH;
-						if (config.gnomeStrongholdTreePatch()) {
+						if (config.enableTrees() && config.gnomeStrongholdTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -167,7 +167,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FARMING_GUILD_TREE_PATCH:
 						patch = Patch.FARMING_GUILD_TREE_PATCH;
-						if (config.farmingGuildTreePatch() && patch.hasRequiredLevel()) {
+						if (config.enableTrees() && config.farmingGuildTreePatch() && patch.hasRequiredLevel()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -178,7 +178,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FARMING_GUILD_FRUIT_PATCH:
 						patch = Patch.FARMING_GUILD_FRUIT_TREE_PATCH;
-						if (config.farmingGuildFruitTreePatch() && patch.hasRequiredLevel()) {
+						if (config.enableFruitTrees() && config.farmingGuildFruitTreePatch() && patch.hasRequiredLevel()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -189,7 +189,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_BRIMHAVEN_FRUIT_TREE_PATCH:
 						patch = Patch.BRIMHAVEN_FRUIT_TREE_PATCH;
-						if (config.brimhavenFruitTreePatch()) {
+						if (config.enableFruitTrees() && config.brimhavenFruitTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -200,7 +200,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_TREE_GNOME_VILLAGE_FRUIT_TREE_PATCH:
 						patch = Patch.TREE_GNOME_VILLAGE_FRUIT_TREE_PATCH;
-						if (config.treeGnomeVillageFruitTreePatch()) {
+						if (config.enableFruitTrees() && config.treeGnomeVillageFruitTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -211,7 +211,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_TAVERLEY_TREE_PATCH:
 						patch = Patch.TAVERLEY_TREE_PATCH;
-						if (config.taverleyTreePatch()) {
+						if (config.enableTrees() && config.taverleyTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -221,7 +221,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FALADOR_TREE_PATCH:
 						patch = Patch.FALADOR_TREE_PATCH;
-						if (config.faladorTreePatch()) {
+						if (config.enableTrees() && config.faladorTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -231,7 +231,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_LUMBRIDGE_TREE_PATCH:
 						patch = Patch.LUMBRIDGE_TREE_PATCH;
-						if (config.lumbridgeTreePatch()) {
+						if (config.enableTrees() && config.lumbridgeTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -242,7 +242,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_VARROCK_TREE_PATCH:
 						patch = Patch.VARROCK_TREE_PATCH;
-						if (config.varrockTreePatch()) {
+						if (config.enableTrees() && config.varrockTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -253,7 +253,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_CATHERBY_FRUIT_TREE_PATCH:
 						patch = Patch.CATHERBY_FRUIT_TREE_PATCH;
-						if (config.catherbyFruitTreePatch()) {
+						if (config.enableFruitTrees() && config.catherbyFruitTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -264,7 +264,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FOSSIL_TREE_PATCH_A:
 						patch = Patch.FOSSIL_TREE_PATCH_A;
-						if (config.fossilTreePatch()) {
+						if (config.enableHardTrees() && config.fossilTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -275,7 +275,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FOSSIL_TREE_PATCH_B:
 						patch = Patch.FOSSIL_TREE_PATCH_B;
-						if (config.fossilTreePatch()) {
+						if (config.enableHardTrees() && config.fossilTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -286,7 +286,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FOSSIL_TREE_PATCH_C:
 						patch = Patch.FOSSIL_TREE_PATCH_C;
-						if (config.fossilTreePatch()) {
+						if (config.enableHardTrees() && config.fossilTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -297,7 +297,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_LLETYA_FRUIT_TREE_PATCH:
 						patch = Patch.LLETYA_FRUIT_TREE_PATCH;
-						if (config.lletyaFruitTreePatch()) {
+						if (config.enableFruitTrees() && config.lletyaFruitTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -309,7 +309,7 @@ public class FarmTreeRunScript extends Script {
 
                     case HANDLE_AUBURNVALE_TREE_PATCH: {
                         patch = Patch.AUBURNVALE_TREE_PATCH;
-                        if (config.auburnTreePatch()) {
+                        if (config.enableTrees() && config.auburnTreePatch()) {
                             if (walkToLocation(patch.getLocation())) {
                                 handledPatch = handlePatch(config, patch);
                             }
@@ -320,7 +320,7 @@ public class FarmTreeRunScript extends Script {
                     }
                     case HANDLE_KASTORI_FRUIT_TREE_PATCH: {
                         patch = Patch.KASTORI_FRUIT_TREE_PATCH;
-                        if (config.kastoriFruitTreePatch()) {
+                        if (config.enableFruitTrees() && config.kastoriFruitTreePatch()) {
                             if (walkToLocation(patch.getLocation())) {
                                 handledPatch = handlePatch(config, patch);
                             }
@@ -331,7 +331,7 @@ public class FarmTreeRunScript extends Script {
                     }
                     case HANDLE_PRIFFDDINAS_CRYSTAL_TREE_PATCH: {
                         patch = Patch.PRIFFDDINAS_CRYSTAL_TREE_PATCH;
-                        if (config.priffddinasCrystalTreePatch() && patch.hasRequiredLevel()) {
+                        if (config.enableTrees() && config.priffddinasCrystalTreePatch() && patch.hasRequiredLevel()) {
                             if (walkToLocation(patch.getLocation())) {
                                 handledPatch = handlePatch(config, patch);
                             }
@@ -343,7 +343,7 @@ public class FarmTreeRunScript extends Script {
 
                     case HANDLE_AVIUM_SAVANNAH_HARDWOOD_PATCH: {
                         patch = Patch.AVIUM_SAVANNAH_HARDWOOD_PATCH;
-                        if (config.aviumSavannahHardwoodPatch()) {
+                        if (config.enableHardTrees() && config.aviumSavannahHardwoodPatch()) {
                             if (walkToLocation(patch.getLocation())) {
                                 handledPatch = handlePatch(config, patch);
                             }
@@ -875,9 +875,12 @@ public class FarmTreeRunScript extends Script {
     private void handleRakeAction(GameObject treePatch) {
         System.out.println("Raking the patch...");
 
-        // Rake the patch
         Rs2GameObject.interact(treePatch, "rake");
-        Rs2Player.waitForXpDrop(Skill.FARMING, 5000);
+        Rs2Player.waitForXpDrop(Skill.FARMING, 10000);
+        if (Rs2Inventory.hasItem(ItemID.WEEDS)) {
+            Rs2Inventory.dropAll(ItemID.WEEDS);
+            sleepUntil(() -> !Rs2Inventory.hasItem(ItemID.WEEDS), 5000);
+        }
     }
 
     private void handleClearAction(GameObject treePatch) {
@@ -991,7 +994,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private List<BooleanSupplier> getSelectedTreePatches(FarmTreeRunConfig config) {
-        // Create a list of all possible tree patches
+        if (!config.enableTrees()) return Collections.emptyList();
         List<BooleanSupplier> allTreePatches = List.of(
                 config::faladorTreePatch,
                 config::gnomeStrongholdTreePatch,
@@ -1010,7 +1013,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private List<BooleanSupplier> getSelectedHardTreePatches(FarmTreeRunConfig config) {
-        // Create a list of all possible tree patches
+        if (!config.enableHardTrees()) return Collections.emptyList();
         List<BooleanSupplier> allHardTreePatches = List.of(
                 config::fossilTreePatch,
                 config::fossilTreePatch,
@@ -1025,7 +1028,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private List<BooleanSupplier> getSelectedFruitTreePatches(FarmTreeRunConfig config) {
-        // Create a list of all possible fruit tree patches
+        if (!config.enableFruitTrees()) return Collections.emptyList();
         List<BooleanSupplier> allFruitTreePatches = List.of(
                 config::brimhavenFruitTreePatch,
                 config::catherbyFruitTreePatch,
@@ -1131,6 +1134,7 @@ public class FarmTreeRunScript extends Script {
         if(isRunning()) {
             items.clear();
             super.shutdown();
+            Microbot.stopPlugin(plugin);
         }
     }
 }
