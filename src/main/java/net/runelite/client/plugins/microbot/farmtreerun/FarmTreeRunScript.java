@@ -417,7 +417,6 @@ public class FarmTreeRunScript extends Script {
     }
 
     private void dropCrap() {
-        if (Rs2Player.isAnimating()) return;
         int[] junk = {ItemID.EMPTY_PLANT_POT, ItemID.BUCKET, ItemID.WEEDS};
         for (int id : junk) {
             if (Rs2Inventory.hasItem(id)) {
@@ -428,18 +427,15 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean walkToLocation(WorldPoint location) {
-        if (!Rs2Player.isAnimating()) {
-            Rs2Walker.walkTo(location);
-            sleepUntil(() -> Rs2Player.distanceTo(location) < 16);
-            return Rs2Player.distanceTo(location) < 16;
-        }
-        return false;
+        Rs2Walker.walkTo(location);
+        sleepUntil(() -> Rs2Player.distanceTo(location) < 16);
+        return Rs2Player.distanceTo(location) < 16;
     }
 
     private void bank(FarmTreeRunConfig config) {
         items.clear();
         if (Rs2Bank.openBank() || Rs2Bank.walkToBank()) {
-            sleepUntil(() -> !Rs2Player.isAnimating());
+            sleepUntil(Rs2Bank::isOpen, 5000);
             if (!Rs2Bank.isOpen())
                 return;
             sleep(600, 2200);
@@ -755,7 +751,7 @@ public class FarmTreeRunScript extends Script {
                 ItemID.DRAGONFRUIT
         };
 
-        if (!Rs2Inventory.hasItem(fruitIds) || Rs2Player.isAnimating()) return;
+        if (!Rs2Inventory.hasItem(fruitIds)) return;
 
         // Iterate through the fruit IDs
         for (int fruitId : fruitIds) {
@@ -881,28 +877,18 @@ public class FarmTreeRunScript extends Script {
 
         // Rake the patch
         Rs2GameObject.interact(treePatch, "rake");
-
-        Rs2Player.waitForAnimation();
-        sleepUntil(() -> !Rs2Player.isAnimating());
-
+        Rs2Player.waitForXpDrop(Skill.FARMING, 5000);
     }
 
     private void handleClearAction(GameObject treePatch) {
         System.out.println("Clearing dead tree...");
 
-        // Try to interact with the patch using the "clear" action
         boolean interactionSuccess = Rs2GameObject.interact(treePatch, "clear");
-        Rs2Player.waitForAnimation();
-        sleepUntil(() -> !Rs2Player.isAnimating());
-
         if (!interactionSuccess) {
             System.out.println("Failed to interact with the tree patch to clear it.");
             return;
         }
-
-        // Wait for the clearing animation to finish
-        Rs2Player.waitForAnimation();
-        sleepUntil(() -> !Rs2Player.isAnimating() && Rs2Player.isMoving());
+        Rs2Player.waitForXpDrop(Skill.FARMING, 10000);
     }
 
     private void equipGraceful() {
