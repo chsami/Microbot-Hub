@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.farmtreerun;
 
 import net.runelite.client.config.*;
+import net.runelite.client.plugins.microbot.farmtreerun.enums.CompostType;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.FruitTreeEnum;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.HardTreeEnums;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.TreeEnums;
@@ -32,7 +33,7 @@ import net.runelite.client.plugins.microbot.farmtreerun.enums.TreeEnums;
         "<br> Optional:\n" +
         "<ol>\n" +
         "    <li>Items for protection payment</li>\n" +
-        "    <li>Filled Bottomless compost bucket</li>\n" +
+        "    <li>Compost / Supercompost / Ultracompost / Bottomless compost bucket</li>\n" +
         "</ol>" +
         "<br> Extra information:\n" +
         "<br> If you want to stop the script during your farm run (maybe it gets stuck or whatever reason), make sure to disable 'Banking' and disable patches you previously ran." +
@@ -161,13 +162,13 @@ public interface FarmTreeRunConfig extends Config {
     default boolean banking() { return true; }
 
     @ConfigItem(
-            keyName = "useCompost",
-            name = "Use compost",
-            description = "Only bottomless compost bucket is supported",
+            keyName = "compostType",
+            name = "Compost type",
+            description = "Select compost type. Only applied at patches without protection enabled.",
             position = 1,
             section = gearSection
     )
-    default boolean useCompost() { return true; }
+    default CompostType compostType() { return CompostType.NONE; }
 
     @ConfigItem(
             keyName = "useGraceful",
