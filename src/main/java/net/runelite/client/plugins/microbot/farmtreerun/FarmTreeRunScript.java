@@ -4,8 +4,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.Rs2Leprechaun;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.CompostType;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.HardTreeEnums;
@@ -24,11 +24,7 @@ import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
-import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
-
-import java.awt.event.KeyEvent;
 
 import javax.inject.Inject;
 import java.util.*;
@@ -586,6 +582,15 @@ public class FarmTreeRunScript extends Script {
 
 //              TODO: Need to handle what happens if a required item does not exist
 
+            // Merge entries with the same itemId + noted flag so withdrawal doesn't under-count
+            Map<Long, FarmingItem> merged = new LinkedHashMap<>();
+            for (FarmingItem item : items) {
+                long key = ((long) item.getItemId() << 1) | (item.isNoted() ? 1 : 0);
+                merged.merge(key, item, (a, b) ->
+                    new FarmingItem(a.getItemId(), a.getQuantity() + b.getQuantity(), a.isNoted(), a.isOptional()));
+            }
+            items = new ArrayList<>(merged.values());
+
             // Deposit only what we don't need: keep desired ids and their noted variants
             Set<Integer> keepIds = new HashSet<>();
             for (FarmingItem item : items) {
@@ -942,42 +947,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean withdrawCompostFromLeprechaun(CompostType compostType) {
-        Rs2NpcModel leprechaun = Rs2Npc.getNpc("Tool Leprechaun");
-        if (leprechaun == null) {
-            Microbot.log("Tool Leprechaun not found nearby.");
-            return false;
-        }
-
-        Rs2Npc.interact(leprechaun, "Exchange");
-        sleepUntil(() -> Rs2Widget.isWidgetVisible(125, 0), 5000);
-        if (!Rs2Widget.isWidgetVisible(125, 0)) {
-            Microbot.log("Tool Leprechaun exchange interface did not open.");
-            return false;
-        }
-        sleep(300, 600);
-
-        int childId;
-        switch (compostType) {
-            case COMPOST: childId = 17; break;
-            case SUPERCOMPOST: childId = 18; break;
-            case ULTRACOMPOST: childId = 19; break;
-            default: return false;
-        }
-
-        Widget compostWidget = Rs2Widget.getWidget(125, childId);
-        if (compostWidget == null) {
-            Microbot.log("Compost widget not found in leprechaun interface.");
-            return false;
-        }
-
-        Rs2Widget.clickWidget(compostWidget);
-        sleepUntil(() -> Rs2Inventory.hasItem(compostType.getItemId()), 3000);
-        sleep(300, 600);
-
-        Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
-        sleepUntil(() -> !Rs2Widget.isWidgetVisible(125, 0), 2000);
-
-        return Rs2Inventory.hasItem(compostType.getItemId());
+        return Rs2Leprechaun.withdrawCompost(compostType.getItemId());
     }
 
     private boolean useCompostOnPatch(FarmTreeRunConfig config, Patch patch) {
