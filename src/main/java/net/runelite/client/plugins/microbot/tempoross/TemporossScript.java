@@ -66,6 +66,15 @@ public class TemporossScript extends Script {
     public static int cachedTotalSlots;
     public static boolean cachedInMinigame;
 
+    // Per-game randomized thresholds (regenerated each game for humanization)
+    public static int thresholdForfeitIntensity = 94;
+    private int thresholdLowEnergy = 5;
+    private int thresholdAttackEnergy = 94;
+    private int thresholdFullEnergy = 95;
+    private int thresholdEmergencyEnergyLow = 30;
+    private int thresholdEmergencyEnergyHigh = 50;
+    private int thresholdEmergencyFishMin = 6;
+
     public boolean run(TemporossConfig config) {
         temporossConfig = config;
         startTime = System.currentTimeMillis();
@@ -185,16 +194,14 @@ public class TemporossScript extends Script {
         }
         LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
                 ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
-        LocalPoint exitLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.exitNpc);
-        if (playerLocal == null || exitLocal == null) {
+        if (playerLocal == null) {
             return;
         }
         Rs2NpcModel exitNpc = Microbot.getRs2NpcCache().query()
                 .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
                         && npc.getNpc().getComposition().getActions() != null
                         && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Leave")
-                        && npc.getNpc().getLocalLocation() != null
-                        && npc.getNpc().getLocalLocation().distanceTo(exitLocal) <= 40 * Perspective.LOCAL_TILE_SIZE)
+                        && npc.getNpc().getLocalLocation() != null)
                 .toList().stream()
                 .min(Comparator.comparingInt(value -> playerLocal.distanceTo(value.getNpc().getLocalLocation())))
                 .orElse(null);
@@ -230,10 +237,28 @@ public class TemporossScript extends Script {
         TemporossPlugin.fireClouds = 0;
         TemporossPlugin.waves = 0;
         state = State.INITIAL_CATCH;
+        randomizeThresholds();
+    }
+
+    private void randomizeThresholds() {
+        thresholdForfeitIntensity = Rs2Random.fancyNormalSample(91, 96);
+        thresholdLowEnergy = Rs2Random.fancyNormalSample(2, 8);
+        thresholdAttackEnergy = Rs2Random.fancyNormalSample(90, 97);
+        thresholdFullEnergy = Math.max(thresholdAttackEnergy + 1, Rs2Random.fancyNormalSample(92, 98));
+        thresholdEmergencyEnergyLow = Rs2Random.fancyNormalSample(24, 36);
+        thresholdEmergencyEnergyHigh = Math.max(thresholdEmergencyEnergyLow + 10, Rs2Random.fancyNormalSample(44, 56));
+        thresholdEmergencyFishMin = Rs2Random.fancyNormalSample(4, 8);
+        log("Game thresholds: forfeit=" + thresholdForfeitIntensity
+                + " lowE=" + thresholdLowEnergy
+                + " attackE=" + thresholdAttackEnergy
+                + " fullE=" + thresholdFullEnergy
+                + " emergLow=" + thresholdEmergencyEnergyLow
+                + " emergHigh=" + thresholdEmergencyEnergyHigh
+                + " emergFish=" + thresholdEmergencyFishMin);
     }
 
     public void handleForfeit() {
-        if ((INTENSITY >= 94 && state == State.THIRD_COOK)) {
+        if ((INTENSITY >= thresholdForfeitIntensity && state == State.THIRD_COOK)) {
             forfeit();
         }
     }
@@ -593,7 +618,7 @@ public class TemporossScript extends Script {
         if (playerLocal != null && mastLocal != null && playerLocal.distanceTo(mastLocal) <= 5 * Perspective.LOCAL_TILE_SIZE) {
             if (damagedMast.click("Repair")) {
                 log("Repairing mast");
-                Rs2Player.waitForXpDrop(Skill.CONSTRUCTION, 2500);
+                sleepUntil(() -> workArea.getBrokenMast() == null || TemporossPlugin.incomingWave, 5000);
             }
         }
     }
@@ -611,7 +636,7 @@ public class TemporossScript extends Script {
         if (playerLocal != null && totemLocal != null && playerLocal.distanceTo(totemLocal) <= 5 * Perspective.LOCAL_TILE_SIZE) {
             if (damagedTotem.click("Repair")) {
                 log("Repairing totem");
-                Rs2Player.waitForXpDrop(Skill.CONSTRUCTION, 2500);
+                sleepUntil(() -> workArea.getBrokenTotem() == null || TemporossPlugin.incomingWave, 5000);
             }
         }
     }
@@ -637,7 +662,7 @@ public class TemporossScript extends Script {
                 Rs2Walker.setTarget(null);
                 lockedTether.click("Tether");
                 log("Tethering");
-                sleepUntil(() -> TemporossPlugin.isTethered, () -> lockedTether.click("Tether"), 8000, Rs2Random.randomGaussian(2000, 400));
+                sleepUntil(() -> TemporossPlugin.isTethered, () -> lockedTether.click("Tether"), 8000, Rs2Random.fancyNormalSample(1200, 2800));
             } else {
                 lockedTether = null;
             }
@@ -660,21 +685,21 @@ public class TemporossScript extends Script {
         }
 
         if ((TemporossScript.state == State.THIRD_CATCH || TemporossScript.state == State.EMERGENCY_FILL)
-            && TemporossScript.ENERGY <= ( isFilling ? 0 : 5)
+            && TemporossScript.ENERGY <= ( isFilling ? 0 : thresholdLowEnergy)
             && !temporossConfig.solo()) {
             log("Very low energy, better wait on Tempoross pool");
             TemporossScript.state = State.ATTACK_TEMPOROSS;
             return;
         }
 
-        if (temporossPool != null && TemporossScript.state != State.SECOND_FILL && TemporossScript.state != State.ATTACK_TEMPOROSS && TemporossScript.ENERGY < 94) {
+        if (temporossPool != null && TemporossScript.state != State.SECOND_FILL && TemporossScript.state != State.ATTACK_TEMPOROSS && TemporossScript.ENERGY < thresholdAttackEnergy) {
             log("Tempoross pool detected, attacking Tempoross");
             TemporossScript.state = State.ATTACK_TEMPOROSS;
             return;
         }
 
-        if (((TemporossScript.ENERGY < 30 && cachedAllFish > 6)
-            || (TemporossScript.ENERGY < 50 && cachedAllFish >= cachedTotalSlots))
+        if (((TemporossScript.ENERGY < thresholdEmergencyEnergyLow && cachedAllFish > thresholdEmergencyFishMin)
+            || (TemporossScript.ENERGY < thresholdEmergencyEnergyHigh && cachedAllFish >= cachedTotalSlots))
             && !temporossConfig.solo()
             && TemporossScript.state != State.ATTACK_TEMPOROSS
             && TemporossScript.state != State.EMERGENCY_FILL) {
@@ -693,23 +718,21 @@ public class TemporossScript extends Script {
             case THIRD_CATCH:
                 isFilling = false;
 
-                if (lastCatchSpotNpc != null && fishSpots.stream().noneMatch(npc -> npc.getNpc() == lastCatchSpotNpc)) {
-                    lastCatchSpotNpc = null;
-                }
-
-                if (lastCatchSpotNpc != null && Rs2Player.isMoving()) {
-                    return;
+                if (Rs2Player.isAnimating() || Rs2Player.isMoving()) {
+                    boolean atDouble = lastCatchSpotNpc != null && lastCatchSpotNpc.getId() == NpcID.FISHING_SPOT_10569;
+                    boolean doubleAvailable = fishSpots.stream().anyMatch(
+                            npc -> npc.getId() == NpcID.FISHING_SPOT_10569 && !inCloud(npc.getWorldLocation(), 1));
+                    if (atDouble || !doubleAvailable) {
+                        return;
+                    }
                 }
 
                 long inCloudCount = fishSpots.stream().filter(npc -> inCloud(npc.getWorldLocation(), 1)).count();
                 long fireCount = fishSpots.stream().filter(npc -> hasAdjacentFire(npc.getWorldLocation())).count();
-                boolean alreadyFishing = Rs2Player.isAnimating() || Rs2Player.isInteracting();
                 int emptySlots = cachedTotalSlots - cachedAllFish;
                 var fishSpot = fishSpots.stream()
                         .filter(npc -> !inCloud(npc.getWorldLocation(), 1))
                         .filter(npc -> {
-                            if (alreadyFishing && npc.getId() == NpcID.FISHING_SPOT_10569 && emptySlots <= 4)
-                                return false;
                             boolean fireAdjacent = hasAdjacentFire(npc.getWorldLocation());
                             return !fireAdjacent || Rs2Inventory.contains(ItemID.BUCKET_OF_WATER);
                         })
@@ -730,23 +753,9 @@ public class TemporossScript extends Script {
                         return;
                     }
 
-            
                     if (!temporossConfig.solo()) {
                         if(!fightFiresInPath(fishSpot.getWorldLocation()))
                             return;
-                    }
-                    if (fishSpot.getNpc() == lastCatchSpotNpc) {
-                        if (Rs2Player.isMoving()) {
-                            return;
-                        }
-                        if (Rs2Player.isAnimating()) {
-                            LocalPoint spotLocal = fishSpot.getNpc().getLocalLocation();
-                            LocalPoint pLocal = Microbot.getClient().getLocalPlayer() != null
-                                    ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
-                            if (spotLocal != null && pLocal != null && pLocal.distanceTo(spotLocal) <= Perspective.LOCAL_TILE_SIZE) {
-                                return;
-                            }
-                        }
                     }
                     Rs2Camera.turnTo(fishSpot.getNpc());
                     fishSpot.click("Harpoon");
@@ -854,7 +863,7 @@ public class TemporossScript extends Script {
                 isFilling = false;
                 if (temporossPool != null && temporossPool.getNpc() != null) {
                     if (Rs2Player.isAnimating() || Rs2Player.isMoving()) {
-                        if (ENERGY >= 95) {
+                        if (ENERGY >= thresholdFullEnergy) {
                             log("Energy is full, stopping attack");
                             state = null;
                         }
@@ -871,21 +880,15 @@ public class TemporossScript extends Script {
                             log("Using harpoon special attack");
                         }
                     }
-                temporossPool.click("Harpoon");
-                log("Harpooning Tempoross");
+                    log("Harpooning Tempoross at " + temporossPool.getWorldLocation()
+                            + " local=" + temporossPool.getNpc().getLocalLocation());
+                    temporossPool.click("Harpoon");
                 } else {
-                    if (ENERGY > 5) {
+                    if (ENERGY > thresholdLowEnergy) {
                         state = null;
                         return;
                     }
                     if (!Rs2Player.isMoving()) {
-                        LocalPoint poolLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), workArea.spiritPoolPoint);
-                        LocalPoint pLocal = Microbot.getClient().getLocalPlayer() != null
-                                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
-                        log("Walking to spirit pool: target=" + workArea.spiritPoolPoint
-                                + " localTarget=" + poolLocal
-                                + " playerLocal=" + pLocal
-                                + " dist=" + (poolLocal != null && pLocal != null ? pLocal.distanceTo(poolLocal) : "?"));
                         walkToSpiritPool();
                     }
                 }
@@ -990,12 +993,14 @@ public class TemporossScript extends Script {
 
     private boolean hasAdjacentFire(WorldPoint point) {
         return sortedFires.stream()
-                .anyMatch(fire -> fire.getWorldLocation().distanceTo(point) <= 1);
+                .anyMatch(fire -> fire.getNpc() != null && fire.getNpc().getComposition() != null
+                        && fire.getWorldLocation().distanceTo(point) <= 1);
     }
 
     private Rs2NpcModel getAdjacentFire(WorldPoint point) {
         return sortedFires.stream()
-                .filter(fire -> fire.getWorldLocation().distanceTo(point) <= 1)
+                .filter(fire -> fire.getNpc() != null && fire.getNpc().getComposition() != null
+                        && fire.getWorldLocation().distanceTo(point) <= 1)
                 .findFirst()
                 .orElse(null);
     }
@@ -1041,13 +1046,11 @@ public class TemporossScript extends Script {
                 log("Dousing fire in path");
                 sleepUntil(() -> Rs2Player.isInteracting() || TemporossPlugin.incomingWave, 2000);
                 sleepUntil(() -> !Rs2Player.isInteracting() || TemporossPlugin.incomingWave, 5000);
+                sortedFires.remove(fire);
             }
         }
 
-        return firesInPath.stream().allMatch(fire -> {
-            if (fire.getNpc() == null || fire.getNpc().getLocalLocation() == null) return true;
-            return !sortedFires.contains(fire);
-        });
+        return true;
     }
 
     @Override

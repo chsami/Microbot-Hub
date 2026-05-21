@@ -120,7 +120,7 @@ public class TemporossPlugin extends Plugin {
             TemporossScript.state = TemporossScript.state.next;
         }
 
-        if (TemporossScript.INTENSITY >= 94 && TemporossScript.state == State.THIRD_COOK) {
+        if (TemporossScript.INTENSITY >= TemporossScript.thresholdForfeitIntensity && TemporossScript.state == State.THIRD_COOK) {
             return;
         }
 
