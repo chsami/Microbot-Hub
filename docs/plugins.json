@@ -363,7 +363,7 @@
             "FornBirdhouseRuns",
             "forn"
         ],
-        "version": "1.1.1",
+        "version": "1.1.2",
         "minClientVersion": "2.1.0",
         "authors": [
             "Forn"
@@ -371,8 +371,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FornBirdhouseRunsPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FornBirdhouseRunsPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "7d5b4f71128b8bd97f3c9eed5b678f250c2dfd7307101b83fd339442f3078eaf",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/fornbirdhouserunsplugin-1.1.1.jar"
+        "sha256": "55a059ef83c3af92aa33d6496535c26b79b838ee1983f068869acd9729a4d127",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/fornbirdhouserunsplugin-1.1.2.jar"
     },
     {
         "internalName": "MoonlightMothPlugin",
@@ -424,7 +424,7 @@
             "Farming",
             "Tree run"
         ],
-        "version": "1.1.2",
+        "version": "1.2.0",
         "minClientVersion": "2.1.0",
         "authors": [
             "Acun"
@@ -432,8 +432,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FarmTreeRunPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FarmTreeRunPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "a4c563a9ea0ca1c37914bc5ddd4c7483143cfaab0e75c9caa10df7074b7523be",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmtreerunplugin-1.1.2.jar"
+        "sha256": "a49dd52ea72e410469a0e5330c052ab3b0a89666dd6a94cf4ef5dd2bfb41fe03",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmtreerunplugin-1.2.0.jar"
     },
     {
         "internalName": "JadPlugin",
@@ -867,7 +867,7 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "c5e292edaf249dd9392f1550ff9e4894ac4bd8d6feda1596f71163afcf8dc977",
+        "sha256": "e046e1ce65ad2ee7a93ab1913da0c73d56b2c51fdb252e5c2234b9c9ccc27f69",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/giantseaweedfarmerplugin-1.2.1.jar"
     },
     {
@@ -2046,7 +2046,7 @@
             "hotkeys",
             "microbot"
         ],
-        "version": "1.1.0",
+        "version": "1.1.2",
         "minClientVersion": "2.0.8",
         "authors": [
             "Cicire"
@@ -2054,8 +2054,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/CombatHotkeysPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "356676b9987c60c04c0e468f75ba88ea01fb80a7fed68f66fe1ddb9adf32d164",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/combathotkeysplugin-1.1.0.jar"
+        "sha256": "163f59b07138d6fe1b880e9fc0e1bb596f7c591f343c0dbb47bbf7e6ec66014f",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/combathotkeysplugin-1.1.2.jar"
     },
     {
         "internalName": "ConstructionPlugin",
@@ -3004,6 +3004,31 @@
         "disable": false,
         "sha256": "a34cd77cef6e2c0a1014d30824b53f679c8a4e314c9c797783a848cb52c82f4f",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/thievingplugin-2.1.0.jar"
+    },
+    {
+        "internalName": "ButterflyCatcherPlugin",
+        "name": "Butterfly Catcher",
+        "description": "Automates butterfly and moth catching for Hunter XP. Stand near a spawn, pick your species and mode, start the plugin.",
+        "tags": [
+            "hunter",
+            "butterfly",
+            "moth",
+            "sunlight",
+            "moonlight",
+            "net",
+            "microbot",
+            "stonkscode"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.0.8",
+        "authors": [
+            "StonksCode"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "9c50060cdae21d92048ea09f6be674a83b421cb3ec176fa177322dd4342c7aab",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/butterflycatcherplugin-1.0.0.jar"
     },
     {
         "internalName": "BlastoiseFurnacePlugin",
