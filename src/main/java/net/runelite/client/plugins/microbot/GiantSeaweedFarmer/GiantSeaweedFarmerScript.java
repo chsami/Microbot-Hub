@@ -1,20 +1,20 @@
 package net.runelite.client.plugins.microbot.GiantSeaweedFarmer;
 
+import net.runelite.api.ObjectComposition;
 import net.runelite.api.Skill;
-import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -37,11 +37,8 @@ public class GiantSeaweedFarmerScript extends Script {
     public static GiantSeaweedFarmerStatus BOT_STATE = GiantSeaweedFarmerStatus.BANKING;
     public boolean GSF_Running = true;
     private boolean BankSuccess = false;
-    private TileObject currentPatch;
     private List<Integer> handledPatches = new ArrayList<>();
     private final List<Integer> patches = List.of(30500, 30501);
-    private static int lastVarbitValue = -1;
-    private long lastApparatusCheck = System.currentTimeMillis();
 
     private static final WorldPoint FossilIslandDiveChest = new WorldPoint(3766, 3899, 0);
     private static final WorldPoint FarmGuildSpiritTree = new WorldPoint(1250, 3749, 0);
@@ -58,6 +55,13 @@ public class GiantSeaweedFarmerScript extends Script {
     public boolean run(GiantSeaweedFarmerConfig config) {
         Microbot.enableAutoRunOn = false;
         this.config = config;
+
+        BOT_STATE = GiantSeaweedFarmerStatus.BANKING;
+        BankSuccess = false;
+        GSF_Running = true;
+        handledPatches.clear();
+        inCriticalSection = false;
+
         if (config.useAntiBan()){GSF_AntiBan_Setup();}
 
         if (config.override()) {
@@ -160,48 +164,23 @@ public class GiantSeaweedFarmerScript extends Script {
 
     }
 
-    // Track last varbit value to reduce log spam
-
-
-    // Using official RuneLite varbit ranges for seaweed patches
-    private static String getSeaweedPatchState(int patchId) {
-        var game_obj = Rs2GameObject.getObjectComposition(patchId);
-        if (game_obj == null) return "Empty";
-        var varbitValue = Microbot.getVarbitValue(game_obj.getVarbitId());
-
-        // Only log when varbit value changes
-        if (varbitValue != lastVarbitValue) {
-            Microbot.log("Seaweed patch varbit value changed: " + lastVarbitValue + " -> " + varbitValue);
-            lastVarbitValue = varbitValue;
+    private static String getPatchState(Rs2TileObjectModel objModel) {
+        if (objModel == null) return "Unknown";
+        ObjectComposition comp = objModel.getObjectComposition();
+        if (comp == null) return "Unknown";
+        String[] actions = comp.getActions();
+        if (actions == null) return "Unknown";
+        for (String action : actions) {
+            if (action == null) continue;
+            if (action.equalsIgnoreCase("Pick")) return "Harvestable";
+            if (action.equalsIgnoreCase("Cure")) return "Diseased";
+            if (action.equalsIgnoreCase("Clear")) return "Dead";
+            if (action.equalsIgnoreCase("Rake")) return "Weeds";
         }
-
-        // Official RuneLite varbit ranges for SEAWEED patches from PatchImplementation.java
-        // Note: varbit 3 means fully raked (0 rakes remaining) so it's ready for planting
-        if (varbitValue == 3) {
-            return "Empty";  // Fully raked, ready for planting
-        }
-
-        if ((varbitValue >= 0 && varbitValue <= 2) || (varbitValue >= 17 && varbitValue <= 255)) {
-            return "Weeds";  // Needs raking (0=full weeds, 1=partial, 2=almost done)
-        }
-
-        if (varbitValue >= 4 && varbitValue <= 7) {
-            return "Growing";
-        }
-
-        if (varbitValue >= 8 && varbitValue <= 10) {
-            return "Harvestable";
-        }
-
-        if (varbitValue >= 11 && varbitValue <= 13) {
-            return "Diseased";
-        }
-
-        if (varbitValue >= 14 && varbitValue <= 16) {
-            return "Dead";  // Needs clearing - Dead seaweed objects 30497,30498,30499
-        }
-
-        return "Empty";
+        String name = comp.getName();
+        if (name != null && name.equalsIgnoreCase("Seaweed patch")) return "Empty";
+        if (name != null && name.equalsIgnoreCase("Seaweed")) return "Growing";
+        return "Unknown";
     }
 
 
@@ -381,9 +360,33 @@ public class GiantSeaweedFarmerScript extends Script {
         if (objModel == null) return false;
 
         final var patchObjModel = objModel;
-        var state = getSeaweedPatchState(patchId);
+        var state = getPatchState(patchObjModel);
         logDebug("Patch state detected as: " + state);
         switch (state) {
+            case "Harvestable":
+                if (config.FarmingCape()) {
+                    if (Rs2Inventory.contains("Farming cape") && !Rs2Equipment.isWearing("Farming cape")) {
+                        Rs2Inventory.interact("Farming cape", "Wear");
+                        sleep(150, 250);
+                    }
+                    if (Rs2Inventory.contains("Farming cape(t)") && !Rs2Equipment.isWearing("Farming cape(t)")) {
+                        Rs2Inventory.interact("Farming cape(t)", "Wear");
+                        sleep(150, 250);
+                    }
+                }
+
+                patchObjModel.click("Pick");
+                sleepUntil(() -> !getPatchState(patchObjModel).equals("Harvestable") || Rs2Inventory.isFull(), 20000);
+
+                if (!Rs2Equipment.isWearing("Diving apparatus") && Rs2Inventory.contains("Diving apparatus")) {
+                    Rs2Inventory.interact("Diving apparatus", "Wear");
+                    sleep(200, 300);
+                }
+                return false;
+            case "Weeds":
+                patchObjModel.click("Rake");
+                sleepUntil(() -> !getPatchState(patchObjModel).equals("Weeds"), 15000);
+                return false;
             case "Empty":
                 inCriticalSection = true;
                 try {
@@ -401,56 +404,23 @@ public class GiantSeaweedFarmerScript extends Script {
                     if (Rs2Inventory.contains("seaweed spore")) {
                         Rs2Inventory.use(" spore");
                         patchObjModel.click("Plant");
-                        sleepUntil(() -> getSeaweedPatchState(patchId).equals("Growing"), 10000);
+                        sleepUntil(() -> getPatchState(patchObjModel).equals("Growing"), 10000);
                     }
                     return true;
                 } finally {
                     inCriticalSection = false;
                 }
-            case "Harvestable":
-
-                if (config.FarmingCape()) {
-                    if (Rs2Inventory.contains("Farming cape") && !Rs2Equipment.isWearing("Farming cape")) {
-                        Rs2Inventory.interact("Farming cape", "Wear");
-                        sleep(150, 250);
-                    }
-                    if (Rs2Inventory.contains("Farming cape(t)") && !Rs2Equipment.isWearing("Farming cape(t)")) {
-                        Rs2Inventory.interact("Farming cape(t)", "Wear");
-                        sleep(150, 250);
-                    }
-                }
-
-                patchObjModel.click("Pick");
-                sleepUntil(() -> {
-                    String currentState = getSeaweedPatchState(patchId);
-                    return currentState.equals("Empty") || Rs2Inventory.isFull();
-                }, 20000);
-
-                if (!Rs2Equipment.isWearing("Diving apparatus") && Rs2Inventory.contains("Diving apparatus")) {
-                    Rs2Inventory.interact("Diving apparatus", "Wear");
-                    sleep(200, 300);
-                }
-                return false;
-            case "Weeds":
-                patchObjModel.click("Rake");
-                sleepUntil(() -> {
-                    String currentState = getSeaweedPatchState(patchId);
-                    return !currentState.equals("Weeds");
-                }, 10000);
-                return false;
             case "Dead":
                 patchObjModel.click("Clear");
-                sleepUntil(() -> {
-                    String currentState = getSeaweedPatchState(patchId);
-                    return !currentState.equals("Dead");
-                }, 10000);
+                sleepUntil(() -> !getPatchState(patchObjModel).equals("Dead"), 10000);
                 return false;
             case "Diseased":
                 Microbot.showMessage("Diseased patch! Please turn off the script and then cure me manually as i cant do this automatically yet.");
                 return false;
-            default:
-                currentPatch = null;
+            case "Growing":
                 return true;
+            default:
+                return false;
         }
     }
 
@@ -479,22 +449,6 @@ public class GiantSeaweedFarmerScript extends Script {
 
     }
 
-    private void safetyCheck() {
-        if (Rs2Player.getWorldLocation().getPlane() != 1) return; // only underwater
-
-        if (!Rs2Equipment.isWearing("Diving apparatus")) {
-            // if > 2000 ms without apparatus underwater, force equip
-            if (System.currentTimeMillis() - lastApparatusCheck > 2000) {
-                if (Rs2Inventory.contains("Diving apparatus")) {
-                    Rs2Inventory.interact("Diving apparatus", "Wear");
-                    Microbot.log("SAFETY: Diving apparatus re-equipped automatically!");
-                }
-            }
-        } else {
-            lastApparatusCheck = System.currentTimeMillis();
-        }
-    }
-
     private void GSF_AntiBan_Setup(){
         Microbot.enableAutoRunOn = false;
         Rs2Antiban.resetAntibanSettings();
@@ -520,15 +474,16 @@ public class GiantSeaweedFarmerScript extends Script {
     }
 
     private void shutdownSequence(){
-        this.shutdown();
+        Microbot.stopPlugin(giantSeaweedPlugin);
     }
 
     @Override
     public void shutdown() {
         GSF_Running = false;
         BOT_STATE = GiantSeaweedFarmerStatus.IDLE;
+        BankSuccess = false;
         handledPatches = new ArrayList<>();
-        inCriticalSection = false; // Ensure flag is cleared on shutdown
+        inCriticalSection = false;
         super.shutdown();
     }
 }

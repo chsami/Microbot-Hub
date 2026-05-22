@@ -24,8 +24,8 @@ public interface GiantSeaweedFarmerConfig extends Config {
 
     @ConfigItem(
             keyName = "override",
-            name = "Overide Start State?",
-            description = "Should we use digsite pendant from inventory/bank?",
+            name = "Override Start State?",
+            description = "Skip to a specific state instead of starting from Banking",
             position = 0
     )
     default boolean override() {

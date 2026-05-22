@@ -93,28 +93,55 @@ public interface FarmTreeRunConfig extends Config {
      * Sapling selection
      * ========================= */
     @ConfigItem(
+            keyName = "enableTrees",
+            name = "Run trees",
+            description = "Enable regular tree patches",
+            position = 0,
+            section = saplingSection
+    )
+    default boolean enableTrees() { return true; }
+
+    @ConfigItem(
             keyName = "treeSapling",
             name = "Tree sapling",
             description = "Select tree sapling to use",
-            position = 0,
+            position = 1,
             section = saplingSection
     )
     default TreeEnums selectedTree() { return TreeEnums.MAPLE; }
 
     @ConfigItem(
+            keyName = "enableFruitTrees",
+            name = "Run fruit trees",
+            description = "Enable fruit tree patches",
+            position = 2,
+            section = saplingSection
+    )
+    default boolean enableFruitTrees() { return true; }
+
+    @ConfigItem(
             keyName = "fruitTreeSapling",
             name = "Fruit tree sapling",
             description = "Select fruit tree sapling to use",
-            position = 1,
+            position = 3,
             section = saplingSection
     )
     default FruitTreeEnum selectedFruitTree() { return FruitTreeEnum.PAPAYA; }
 
     @ConfigItem(
+            keyName = "enableHardTrees",
+            name = "Run hardwood trees",
+            description = "Enable hardwood tree patches",
+            position = 4,
+            section = saplingSection
+    )
+    default boolean enableHardTrees() { return true; }
+
+    @ConfigItem(
             keyName = "Fossil Island Tree",
             name = "Hard sapling",
             description = "Select Hard tree sapling to use",
-            position = 2,
+            position = 5,
             section = saplingSection
     )
     default HardTreeEnums selectedHardTree() { return HardTreeEnums.MAHOGANY; }
