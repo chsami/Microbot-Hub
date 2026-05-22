@@ -12,6 +12,35 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 @ConfigGroup("combathotkeys")
 public interface CombatHotkeysConfig extends Config {
 
+    // =========================================================================
+    // DEBUG SECTION — appears at the top (position 0) so it's always visible
+    // =========================================================================
+
+    @ConfigSection(
+            name = "Debug",
+            description = "Enable the on-screen debug panel and verbose logging to the RuneLite log",
+            position = 0,
+            closedByDefault = true
+    )
+    String debugSection = "debugSection";
+
+    @ConfigItem(
+            keyName = "debugMode",
+            name = "Show debug panel",
+            description = "Renders a debug overlay showing the last key received, last action dispatched, "
+                    + "submitted/succeeded/failed counters, and any error. Also enables TRACE-level logging "
+                    + "from the plugin — check the RuneLite log (Help → Open logs folder) for full detail.",
+            position = 0,
+            section = debugSection
+    )
+    default boolean debugMode() {
+        return false;
+    }
+
+    // =========================================================================
+    // OFFENSIVE SECTION
+    // =========================================================================
+
     @ConfigSection(
             name = "Offensive Hotkeys",
             description = "Offensive Prayer and attack hotkeys",
@@ -86,6 +115,10 @@ public interface CombatHotkeysConfig extends Config {
     )
     default Keybind specialAttackKey() { return Keybind.NOT_SET; }
 
+    // =========================================================================
+    // DEFENSIVE PRAYERS SECTION
+    // =========================================================================
+
     @ConfigSection(
             name = "Defensive Prayers",
             description = "Defensive Prayer hotkeys",
@@ -128,6 +161,10 @@ public interface CombatHotkeysConfig extends Config {
     {
         return Keybind.NOT_SET;
     }
+
+    // =========================================================================
+    // FOOD & POTIONS SECTION
+    // =========================================================================
 
     @ConfigSection(
             name = "Food & Potions",
@@ -172,12 +209,27 @@ public interface CombatHotkeysConfig extends Config {
         return Keybind.NOT_SET;
     }
 
+    // =========================================================================
+    // GEAR SETUPS SECTION
+    // =========================================================================
+
     @ConfigSection(
             name = "Gear setups",
             description = "Gear setups",
             position = 4
     )
     String gearSetup = "gearSetup";
+
+    @ConfigItem(
+            keyName = "maxDelay",
+            name = "Max Equip Delay (ms)",
+            description = "Maximum random delay (in milliseconds) between equipping items",
+            position = 0,
+            section = gearSetup
+    )
+    default int maxDelay() {
+        return 500;
+    }
 
     @ConfigItem(
             keyName = "Hotkey for gear 1",
@@ -286,64 +338,16 @@ public interface CombatHotkeysConfig extends Config {
             keyName = "Gear IDs 5",
             name = "Gear IDs 5",
             description = "List of Gear IDs comma separated",
-            position = 2,
+            position = 10,
             section = gearSetup
     )
     default String gearList5() {
         return "";
     }
 
-    @ConfigItem(
-            keyName = "dance boolean",
-            name = "dance",
-            description = "Select this if you want to setup dance",
-            position = 9
-    )
-    default boolean yesDance() {
-        return false;
-    }
-
-    // config item for a keybind to enable the dance feature
-    @ConfigItem(
-            keyName = "dance",
-            name = "Dance",
-            description = "Dance",
-            position = 7
-    )
-    default Keybind dance() {
-        return Keybind.NOT_SET;
-    }
-
-    // hidden config for worldpoint called tile1
-    @ConfigItem(
-            keyName = "tile1",
-            name = "",
-            description = "",
-            hidden = true
-    )
-    default WorldPoint tile1() {
-        return null;
-    }
-    @ConfigItem(
-            keyName = "tile2",
-            name = "",
-            description = "",
-            hidden = true
-    )
-    default WorldPoint tile2() {
-        return null;
-    }
-
-    @ConfigItem(
-            keyName = "maxDelay",
-            name = "Max Equip Delay (ms)",
-            description = "Maximum random delay (in milliseconds) between equipping items",
-            position = 0,
-            section = gearSetup
-    )
-    default int maxDelay() {
-        return 500; // default max delay of 500ms
-    }
+    // =========================================================================
+    // MULTISKILLING SECTION
+    // =========================================================================
 
     @ConfigSection(
             name = "Multiskilling",
@@ -370,24 +374,66 @@ public interface CombatHotkeysConfig extends Config {
     )
     default String itemToAlch() { return null; }
 
-    public enum MeleePrayerOption {
+    // =========================================================================
+    // DANCE SECTION
+    // =========================================================================
+
+    @ConfigItem(
+            keyName = "dance boolean",
+            name = "dance",
+            description = "Select this if you want to setup dance",
+            position = 9
+    )
+    default boolean yesDance() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "dance",
+            name = "Dance",
+            description = "Dance",
+            position = 7
+    )
+    default Keybind dance() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "tile1",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default WorldPoint tile1() {
+        return null;
+    }
+
+    @ConfigItem(
+            keyName = "tile2",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default WorldPoint tile2() {
+        return null;
+    }
+
+    // =========================================================================
+    // ENUMS
+    // =========================================================================
+
+    enum MeleePrayerOption {
         SUPERHUMAN_STRENGTH(Rs2PrayerEnum.SUPERHUMAN_STRENGTH),
         ULTIMATE_STRENGTH(Rs2PrayerEnum.ULTIMATE_STRENGTH),
         CHIVALRY(Rs2PrayerEnum.CHIVALRY),
         PIETY(Rs2PrayerEnum.PIETY);
 
         private final Rs2PrayerEnum prayer;
-
-        MeleePrayerOption(Rs2PrayerEnum prayer) {
-            this.prayer = prayer;
-        }
-
-        public Rs2PrayerEnum getPrayer() {
-            return prayer;
-        }
+        MeleePrayerOption(Rs2PrayerEnum prayer) { this.prayer = prayer; }
+        public Rs2PrayerEnum getPrayer() { return prayer; }
     }
 
-    public enum RangedPrayerOption {
+    enum RangedPrayerOption {
         SHARP_EYE(Rs2PrayerEnum.SHARP_EYE),
         HAWK_EYE(Rs2PrayerEnum.HAWK_EYE),
         EAGLE_EYE(Rs2PrayerEnum.EAGLE_EYE),
@@ -395,30 +441,18 @@ public interface CombatHotkeysConfig extends Config {
         RIGOUR(Rs2PrayerEnum.RIGOUR);
 
         private final Rs2PrayerEnum prayer;
-
-        RangedPrayerOption(Rs2PrayerEnum prayer) {
-            this.prayer = prayer;
-        }
-
-        public Rs2PrayerEnum getPrayer() {
-            return prayer;
-        }
+        RangedPrayerOption(Rs2PrayerEnum prayer) { this.prayer = prayer; }
+        public Rs2PrayerEnum getPrayer() { return prayer; }
     }
 
-    public enum MagicPrayerOption {
+    enum MagicPrayerOption {
         MYSTIC_WILL(Rs2PrayerEnum.MYSTIC_WILL),
         MYSTIC_LORE(Rs2PrayerEnum.MYSTIC_LORE),
         MYSTIC_MIGHT(Rs2PrayerEnum.MYSTIC_MIGHT),
         AUGURY(Rs2PrayerEnum.AUGURY);
 
         private final Rs2PrayerEnum prayer;
-
-        MagicPrayerOption(Rs2PrayerEnum prayer) {
-            this.prayer = prayer;
-        }
-
-        public Rs2PrayerEnum getPrayer() {
-            return prayer;
-        }
+        MagicPrayerOption(Rs2PrayerEnum prayer) { this.prayer = prayer; }
+        public Rs2PrayerEnum getPrayer() { return prayer; }
     }
 }
