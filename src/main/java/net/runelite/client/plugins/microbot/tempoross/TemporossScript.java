@@ -618,7 +618,8 @@ public class TemporossScript extends Script {
         if (playerLocal != null && mastLocal != null && playerLocal.distanceTo(mastLocal) <= 5 * Perspective.LOCAL_TILE_SIZE) {
             if (damagedMast.click("Repair")) {
                 log("Repairing mast");
-                sleepUntil(() -> workArea.getBrokenMast() == null || TemporossPlugin.incomingWave, 5000);
+                sleepUntil(() -> Rs2Player.isAnimating() || Rs2Player.isMoving() || TemporossPlugin.incomingWave, 3000);
+                sleepUntil(() -> workArea.getBrokenMast() == null || TemporossPlugin.incomingWave, 10000);
             }
         }
     }
@@ -636,7 +637,8 @@ public class TemporossScript extends Script {
         if (playerLocal != null && totemLocal != null && playerLocal.distanceTo(totemLocal) <= 5 * Perspective.LOCAL_TILE_SIZE) {
             if (damagedTotem.click("Repair")) {
                 log("Repairing totem");
-                sleepUntil(() -> workArea.getBrokenTotem() == null || TemporossPlugin.incomingWave, 5000);
+                sleepUntil(() -> Rs2Player.isAnimating() || Rs2Player.isMoving() || TemporossPlugin.incomingWave, 3000);
+                sleepUntil(() -> workArea.getBrokenTotem() == null || TemporossPlugin.incomingWave, 10000);
             }
         }
     }
@@ -673,7 +675,9 @@ public class TemporossScript extends Script {
 
     private void handleStateLoop() {
         temporossPool = Microbot.getRs2NpcCache().query().withId(NpcID.SPIRIT_POOL)
-                .where(npc -> npc.getWorldLocation().distanceTo(workArea.spiritPoolPoint) <= 15)
+                .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
+                        && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Harpoon")
+                        && npc.getWorldLocation().distanceTo(workArea.spiritPoolPoint) <= 15)
                 .toList().stream()
                 .min(Comparator.comparingInt(x -> workArea.spiritPoolPoint.distanceTo(x.getWorldLocation())))
                 .orElse(null);
