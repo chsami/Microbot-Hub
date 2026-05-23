@@ -71,11 +71,10 @@ public abstract class ClueTask implements Runnable {
     /**
      * v1.0.3 fix: thread-safe player location read.
      *
-     * <p>Subclasses' processGameTick is submitted to a background executor (see EmoteClueTask
-     * line 97, CrypticClueTask line 77, etc.), so direct {@code client.getLocalPlayer().getWorldLocation()}
-     * calls from those code paths throw {@code IllegalStateException: must be called on client thread}.
-     * Use this helper instead -- it hops to the client thread, reads the location, and returns
-     * null if the player isn't available.
+     * <p>Subclasses submit {@code processGameTick} to a background executor, so direct
+     * {@code client.getLocalPlayer().getWorldLocation()} calls from those code paths throw
+     * {@code IllegalStateException: must be called on client thread}. Use this helper instead --
+     * it hops to the client thread, reads the location, and returns null if the player isn't available.
      */
     protected WorldPoint getPlayerLocationSafe() {
         return Microbot.getClientThread().runOnClientThreadOptional(() -> {

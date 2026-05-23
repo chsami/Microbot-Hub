@@ -3,7 +3,6 @@ package net.runelite.client.plugins.microbot.cluesolver.cluetask;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
-import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.eventbus.EventBus;
@@ -195,10 +194,6 @@ public class AnagramClueTask extends ClueTask {
         }
         log.warn("Dialogue handling failed.");
         return false;
-    }
-
-    private boolean hasArrived(Player player) {
-        return player.getWorldLocation().equals(location);
     }
 
     private boolean isWithinRadius(WorldPoint targetLocation, WorldPoint playerLocation, int radius) {
