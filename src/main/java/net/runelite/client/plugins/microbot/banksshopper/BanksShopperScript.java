@@ -2,17 +2,26 @@ package net.runelite.client.plugins.microbot.banksshopper;
 
 import net.runelite.api.GameState;
 import net.runelite.api.coords.LocalPoint;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.concurrent.CompletableFuture;
+
+import net.runelite.api.TileObject;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
+import net.runelite.client.plugins.microbot.util.depositbox.Rs2DepositBox;
+import net.runelite.client.plugins.microbot.util.gameobject.Rs2BankID;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.shop.Rs2Shop;
@@ -32,6 +41,7 @@ public class BanksShopperScript extends Script {
 
     private final BanksShopperPlugin plugin;
     private ShopperState state = ShopperState.SHOPPING;
+    private WorldPoint shopNpcLocation;
 
     public BanksShopperScript(final BanksShopperPlugin plugin) {
         this.plugin = plugin;
@@ -53,6 +63,7 @@ public class BanksShopperScript extends Script {
         Microbot.pauseAllScripts.compareAndSet(true, false);
         Microbot.enableAutoRunOn = false;
         initialPlayerLocation = null;
+        shopNpcLocation = null;
         Rs2Antiban.resetAntibanSettings();
         Rs2AntibanSettings.naturalMouse = true;
 
@@ -84,11 +95,17 @@ public class BanksShopperScript extends Script {
                             return;
                         }
 
-                        sleepUntil(this::openShopInterface, 5000);
+                        if (!Rs2Shop.isOpen() && !ensureShopOpen()) return;
 
                         boolean successfullAction = false;
                         boolean outOfStock = false;
                         if (Rs2Shop.isOpen()) {
+                            // First successful interaction pins the return-trip target to the
+                            // NPC's actual tile, not whatever tile the user toggled the plugin on.
+                            if (shopNpcLocation == null) {
+                                Rs2NpcModel npc = Rs2Shop.getNearestShopNpc(plugin.getNpcName(), plugin.isUseExactNaming());
+                                if (npc != null) shopNpcLocation = npc.getWorldLocation();
+                            }
                             for (String itemName : plugin.getItemNames()) {
                                 if (!isRunning() || Microbot.pauseAllScripts.get())
                                     break;
@@ -234,9 +251,118 @@ public class BanksShopperScript extends Script {
 
         state = ShopperState.SHOPPING; // Reset state to SHOPPING for next run
         initialPlayerLocation = null; // Reset initial player location
+        shopNpcLocation = null;
 
         Rs2Antiban.resetAntibanSettings();
         super.shutdown();
+    }
+
+    /**
+     * Fast-path bank deposit: if a bank booth or banker is loaded in the current scene
+     * and the pathfinder can reach its tile, click it directly so the game server handles
+     * pathing — no Rs2Walker invocation. After depositing, only invoke the walker for the
+     * return trip if the shop NPC isn't itself loaded + reachable from the new position.
+     *
+     * @return true when the bank was opened + deposited via direct interaction; false to
+     *         signal the caller should fall back to the walker-based round trip.
+     */
+    private boolean tryDirectBankDeposit() {
+        // Closest in-scene Rs2BankID-matched object — booths use "Bank", chests use "Use",
+        // deposit boxes use "Deposit". Same gate the agent server uses ("reachable" = same
+        // WorldView as player): if Rs2GameObject.getAll returns it, it's in scene. Clicking
+        // the default left-click action lets the server walk the player to an adjacent tile
+        // and open the appropriate UI (bank widget or deposit-box widget).
+        boolean alreadyOpen = Rs2Bank.isOpen() || Rs2DepositBox.isOpen();
+        if (!alreadyOpen) {
+            TileObject bankObject = Rs2GameObject.getAll(o -> Rs2BankID.BANK_ID_SET.contains(o.getId())).stream()
+                    .min(Comparator.comparingInt(o -> o.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                    .orElse(null);
+
+            if (bankObject != null) {
+                Microbot.log("[BanksShopper] direct-click bank id=" + bankObject.getId()
+                        + " at " + bankObject.getWorldLocation()
+                        + " from " + Rs2Player.getWorldLocation());
+                if (!Rs2GameObject.interact(bankObject)) return false;
+                if (!sleepUntil(() -> Rs2Bank.isOpen() || Rs2DepositBox.isOpen(), 15_000)) {
+                    Microbot.log("[BanksShopper] click sent but no bank/deposit UI opened");
+                    return false;
+                }
+            } else {
+                Rs2NpcModel banker = Rs2Npc.getBankerNPC();
+                if (banker == null || !Rs2Bank.openBank(banker)) return false;
+            }
+        }
+
+        if (Rs2Bank.isOpen()) {
+            for (String itemName : plugin.getItemNames()) {
+                if (itemName.matches("\\d+")) {
+                    Rs2Bank.depositAll(Integer.parseInt(itemName));
+                } else {
+                    Rs2Bank.depositAll(itemName, false);
+                }
+            }
+            Rs2Bank.closeBank();
+        } else if (Rs2DepositBox.isOpen()) {
+            for (String itemName : plugin.getItemNames()) {
+                if (itemName.matches("\\d+")) {
+                    Rs2DepositBox.depositAll(Integer.parseInt(itemName));
+                } else {
+                    Rs2DepositBox.depositAll(Collections.singletonList(itemName));
+                }
+            }
+            Rs2DepositBox.closeDepositBox();
+        } else {
+            return false;
+        }
+
+        // Return-trip walker is owned by SHOPPING (see ensureShopOpen): drive only when the
+        // NPC is missing from the loaded scene, then cancel + await so the visual route
+        // disappears immediately and the next SHOPPING tick can issue a clean Trade click.
+        return true;
+    }
+
+    /**
+     * One-shot "open the shop" gate for the SHOPPING state. Handles the two failure modes
+     * separately so we never re-click while waiting:
+     * <ul>
+     *   <li>NPC not loaded in the scene → start a background {@code Rs2Walker.walkTo}
+     *       toward {@link #shopNpcLocation} (captured on the first trade), poll for the
+     *       NPC to enter the scene, then {@code clearWalkingRoute} + await the async
+     *       thread so the ShortestPath overlay clears and no late {@code currentTarget}
+     *       write resurrects the route.</li>
+     *   <li>NPC in scene but shop UI not yet open → send exactly one
+     *       {@code Rs2Npc.interact(npc, "Trade")} and wait. The previous polling pattern
+     *       ({@code sleepUntil(() -> Rs2Shop.openShop(...), 5000)}) re-invoked
+     *       {@code Rs2Npc.interact} every scheduler tick, queuing redundant Trade clicks
+     *       while the player was still walking to the NPC.</li>
+     * </ul>
+     * @return true when the shop UI is open and the caller can proceed with trades;
+     *         false to defer to the next scheduler tick.
+     */
+    private boolean ensureShopOpen() {
+        Rs2NpcModel npc = Rs2Shop.getNearestShopNpc(plugin.getNpcName(), plugin.isUseExactNaming());
+        if (npc == null) {
+            WorldPoint walkTarget = shopNpcLocation != null ? shopNpcLocation : initialPlayerLocation;
+            if (walkTarget == null) return false;
+
+            CompletableFuture<Void> walkFuture = CompletableFuture.runAsync(
+                    () -> Rs2Walker.walkTo(walkTarget, 4));
+            sleepUntil(() -> Rs2Shop.getNearestShopNpc(plugin.getNpcName(), plugin.isUseExactNaming()) != null
+                            || Rs2Player.getWorldLocation().distanceTo(walkTarget) <= 4,
+                    30_000);
+            Rs2Walker.clearWalkingRoute("banksshopper:shop-npc-in-range");
+            try {
+                walkFuture.get(2, TimeUnit.SECONDS);
+            } catch (Exception ignored) {
+                // walker thread already exited (most common) or interrupted — either way
+                // we've cleared the route; let the next tick retry.
+            }
+            return false;
+        }
+
+        Rs2Npc.interact(npc, "Trade");
+        sleepUntil(Rs2Shop::isOpen, 5000);
+        return Rs2Shop.isOpen();
     }
 
     /**

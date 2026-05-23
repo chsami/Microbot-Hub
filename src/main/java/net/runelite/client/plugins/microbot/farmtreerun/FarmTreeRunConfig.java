@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.farmtreerun;
 
 import net.runelite.client.config.*;
+import net.runelite.client.plugins.microbot.farmtreerun.enums.CompostType;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.FruitTreeEnum;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.HardTreeEnums;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.TreeEnums;
@@ -32,7 +33,7 @@ import net.runelite.client.plugins.microbot.farmtreerun.enums.TreeEnums;
         "<br> Optional:\n" +
         "<ol>\n" +
         "    <li>Items for protection payment</li>\n" +
-        "    <li>Filled Bottomless compost bucket</li>\n" +
+        "    <li>Compost / Supercompost / Ultracompost / Bottomless compost bucket</li>\n" +
         "</ol>" +
         "<br> Extra information:\n" +
         "<br> If you want to stop the script during your farm run (maybe it gets stuck or whatever reason), make sure to disable 'Banking' and disable patches you previously ran." +
@@ -92,28 +93,55 @@ public interface FarmTreeRunConfig extends Config {
      * Sapling selection
      * ========================= */
     @ConfigItem(
+            keyName = "enableTrees",
+            name = "Run trees",
+            description = "Enable regular tree patches",
+            position = 0,
+            section = saplingSection
+    )
+    default boolean enableTrees() { return true; }
+
+    @ConfigItem(
             keyName = "treeSapling",
             name = "Tree sapling",
             description = "Select tree sapling to use",
-            position = 0,
+            position = 1,
             section = saplingSection
     )
     default TreeEnums selectedTree() { return TreeEnums.MAPLE; }
 
     @ConfigItem(
+            keyName = "enableFruitTrees",
+            name = "Run fruit trees",
+            description = "Enable fruit tree patches",
+            position = 2,
+            section = saplingSection
+    )
+    default boolean enableFruitTrees() { return true; }
+
+    @ConfigItem(
             keyName = "fruitTreeSapling",
             name = "Fruit tree sapling",
             description = "Select fruit tree sapling to use",
-            position = 1,
+            position = 3,
             section = saplingSection
     )
     default FruitTreeEnum selectedFruitTree() { return FruitTreeEnum.PAPAYA; }
 
     @ConfigItem(
+            keyName = "enableHardTrees",
+            name = "Run hardwood trees",
+            description = "Enable hardwood tree patches",
+            position = 4,
+            section = saplingSection
+    )
+    default boolean enableHardTrees() { return true; }
+
+    @ConfigItem(
             keyName = "Fossil Island Tree",
             name = "Hard sapling",
             description = "Select Hard tree sapling to use",
-            position = 2,
+            position = 5,
             section = saplingSection
     )
     default HardTreeEnums selectedHardTree() { return HardTreeEnums.MAHOGANY; }
@@ -161,13 +189,13 @@ public interface FarmTreeRunConfig extends Config {
     default boolean banking() { return true; }
 
     @ConfigItem(
-            keyName = "useCompost",
-            name = "Use compost",
-            description = "Only bottomless compost bucket is supported",
+            keyName = "compostType",
+            name = "Compost type",
+            description = "Select compost type. Only applied at patches without protection enabled.",
             position = 1,
             section = gearSection
     )
-    default boolean useCompost() { return true; }
+    default CompostType compostType() { return CompostType.NONE; }
 
     @ConfigItem(
             keyName = "useGraceful",
