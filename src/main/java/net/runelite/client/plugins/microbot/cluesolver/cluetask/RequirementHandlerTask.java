@@ -90,7 +90,18 @@ public class RequirementHandlerTask extends ClueTask {
     private void walkToBank() {
         if (Rs2Bank.isOpen()) {
             fetchNextItem();
-        } else if (client.getLocalPlayer().getWorldLocation().distanceTo(Rs2Bank.getNearestBank().getWorldPoint()) > 10) {
+            return;
+        }
+        // v1.0.4 fix: read player location via the client-thread-safe helper. walkToBank() may
+        // be called from off-client-thread code paths (executeTask flow). Direct
+        // client.getLocalPlayer().getWorldLocation() throws IllegalStateException, which
+        // cascaded into "Failed to open the bank" + walker deadlock.
+        net.runelite.api.coords.WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) {
+            log.debug("Player location unavailable in walkToBank; will retry next tick");
+            return;
+        }
+        if (playerLocation.distanceTo(Rs2Bank.getNearestBank().getWorldPoint()) > 10) {
             Rs2Bank.walkToBankAndUseBank();
         } else {
             openBank();
@@ -149,7 +160,13 @@ public class RequirementHandlerTask extends ClueTask {
     public void onGameTick(GameTick event) {
         if (Rs2Bank.isOpen() && currentRequirement == null) {
             fetchNextItem();
-        } else if (!Rs2Bank.isOpen() && client.getLocalPlayer().getWorldLocation().distanceTo(Rs2Bank.getNearestBank().getWorldPoint()) <= 5) {
+            return;
+        }
+        // v1.0.4 fix: defensive client-thread-safe read. onGameTick is @Subscribe-annotated so
+        // it normally runs on the client thread, but using the helper is harmless and consistent.
+        net.runelite.api.coords.WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) return;
+        if (!Rs2Bank.isOpen() && playerLocation.distanceTo(Rs2Bank.getNearestBank().getWorldPoint()) <= 5) {
             openBank();
         }
     }

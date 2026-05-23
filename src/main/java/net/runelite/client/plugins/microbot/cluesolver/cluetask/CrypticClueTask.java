@@ -85,8 +85,14 @@ public class CrypticClueTask extends ClueTask {
     }
 
     private void processGameTick(GameTick event) {
-        Player player = client.getLocalPlayer();
-        WorldPoint playerLocation = player.getWorldLocation();
+        // v1.0.3 fix: read player location via the client-thread-safe helper instead of
+        // calling client.getLocalPlayer().getWorldLocation() directly from the background
+        // executor (which throws IllegalStateException: must be called on client thread).
+        WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) {
+            log.debug("Player location unavailable; will retry next tick");
+            return;
+        }
         WorldPoint clueLocation = clue.getLocation(clueScrollPlugin);
 
         switch (state) {

@@ -85,12 +85,13 @@ public class MusicClueTask extends ClueTask {
     }
 
     private void processGameTick(GameTick event) {
-        Player player = client.getLocalPlayer();
-        if (player == null) return;
+        // v1.0.5 fix: client-thread-safe location read.
+        net.runelite.api.coords.WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) return;
 
         switch (state) {
             case WALKING_TO_LOCATION:
-                if (isWithinRadius(location, player.getWorldLocation(), 5)) {
+                if (isWithinRadius(location, playerLocation, 5)) {
                     log.info("Arrived at music clue location.");
                     state = State.PLAYING_SONG;
                 }

@@ -95,12 +95,13 @@ public class CoordinateClueTask extends ClueTask {
     }
 
     private void processGameTick(GameTick event) {
-        Player player = client.getLocalPlayer();
-        if (player == null) return;
+        // v1.0.5 fix: client-thread-safe location read.
+        net.runelite.api.coords.WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) return;
 
         switch (state) {
             case WALKING_TO_LOCATION:
-                if (isWithinRadius(location, player.getWorldLocation(), 5)) {
+                if (isWithinRadius(location, playerLocation, 5)) {
                     log.info("Arrived at coordinate clue location.");
                     state = (enemy != null) ? State.FIGHTING_ENEMY : State.DIGGING;
                 }
@@ -153,8 +154,10 @@ public class CoordinateClueTask extends ClueTask {
     }
 
     private boolean prepareToDig() {
-        Player player = client.getLocalPlayer();
-        if (!isWithinRadius(location, player.getWorldLocation(), 1)) {
+        // v1.0.5 fix: client-thread-safe location read. Called from processGameTick (background executor).
+        net.runelite.api.coords.WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) return false;
+        if (!isWithinRadius(location, playerLocation, 1)) {
             log.info("Adjusting position to exact location.");
             Rs2Walker.walkFastCanvas(location);
             return false;

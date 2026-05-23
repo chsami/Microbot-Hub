@@ -3,7 +3,9 @@ package net.runelite.client.plugins.microbot.cluesolver.cluetask;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
 
 import java.util.concurrent.CompletableFuture;
@@ -64,5 +66,21 @@ public abstract class ClueTask implements Runnable {
      */
     protected boolean preTaskCheck() {
         return client != null && client.getLocalPlayer() != null;
+    }
+
+    /**
+     * v1.0.3 fix: thread-safe player location read.
+     *
+     * <p>Subclasses' processGameTick is submitted to a background executor (see EmoteClueTask
+     * line 97, CrypticClueTask line 77, etc.), so direct {@code client.getLocalPlayer().getWorldLocation()}
+     * calls from those code paths throw {@code IllegalStateException: must be called on client thread}.
+     * Use this helper instead -- it hops to the client thread, reads the location, and returns
+     * null if the player isn't available.
+     */
+    protected WorldPoint getPlayerLocationSafe() {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            if (client == null || client.getLocalPlayer() == null) return null;
+            return client.getLocalPlayer().getWorldLocation();
+        }).orElse(null);
     }
 }
