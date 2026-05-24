@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.pitfallhunter;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import net.runelite.api.Actor;
 import net.runelite.api.NPCComposition;
 import net.runelite.api.ObjectComposition;
 import net.runelite.api.coords.WorldPoint;
@@ -10,6 +11,7 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
+import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -27,6 +29,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Singleton
@@ -57,12 +60,12 @@ public class PitfallHunterScript extends Script
      * - all small pouch IDs, if needed
      */
     private static final int SUNLIGHT_ANTELOPE_NPC_ID = 13133;
-    private static final int TODO_EMPTY_PIT_OBJECT_ID = -1;
-    private static final int TODO_TRAPPED_PIT_OBJECT_ID = -1;
-    private static final int TODO_COLLAPSED_PIT_OBJECT_ID = -1;
     private static final int[] OBSERVED_PIT_OBJECT_IDS = {
             51673, 51674, 51675, 51676, 51677,
-            51679, 51682, 51686, 51687, 51688, 51689, 51691, 51701
+            51679, 51680, 51681, 51682, 51683, 51684, 51685,
+            51686, 51687, 51688, 51689,
+            51691, 51692, 51693, 51694,
+            51701, 51702, 51703, 51704
     };
     private static final int TEASING_STICK_ITEM_ID = 10029;
     private static final int LARGE_MEAT_POUCH_CLOSED_ID = 29297;
@@ -77,11 +80,28 @@ public class PitfallHunterScript extends Script
     private static final String JUMP_PIT_ACTION = "Jump";
     private static final String DISMANTLE_TRAP_ACTION = "Dismantle";
     private static final String LURE_NPC_ACTION = "Tease";
+    private static final int LURE_INTERACTION_TIMEOUT_MS = 2400;
+    private static final int LURE_MOVEMENT_TIMEOUT_MS = 3600;
+    private static final int LURE_CONFIRMATION_GRACE_MS = 15000;
+    private static final int LURE_MAX_ATTEMPTS = 2;
+    private static final int BUSY_WATCHDOG_TIMEOUT_MS = 15000;
+    private static final int STATE_WATCHDOG_TIMEOUT_MS = 30000;
+    private static final int CAPTURE_TIMEOUT_MIN_MS = 12000;
+    private static final int PREPARE_TRAP_TIMEOUT_MS = 6500;
+    private static final int JUMP_OBJECT_APPEAR_TIMEOUT_MS = 3500;
+    private static final int WALK_TIMEOUT_MS = 5000;
+    private static final int PREPARE_PIT_MAX_ATTEMPTS = 3;
+    private static final int PIT_OBJECT_MATCH_RADIUS = 2;
+    private static final int[] CAPTURE_DEATH_GRAPHIC_IDS = {993};
+    private static final int CAPTURE_LOOT_DELAY_MIN_MS = 2500;
+    private static final int CAPTURE_LOOT_DELAY_MAX_MS = 3000;
+    private static final int FLETCH_ANTLERS_CHANCE_PERCENT = 50;
     private static final String LOG_NAME = "Logs";
     private static final String WILLOW_LOG_NAME = "Willow logs";
     private static final String[] LOG_ITEM_NAMES = {LOG_NAME, WILLOW_LOG_NAME, "Oak logs"};
     private static final String BIG_BONES_NAME = "Big bones";
     private static final String CHISEL_NAME = "Chisel";
+    private static final String KNIFE_NAME = "Knife";
     private static final String SUNLIGHT_ANTELOPE_ANTLER_NAME = "Sunlight antelope antler";
     private static final String[] SUNLIGHT_ANTELOPE_DROP_ITEM_NAMES = {
             "Sunlight antelope",
@@ -100,9 +120,10 @@ public class PitfallHunterScript extends Script
      * Pit footprints:
      * - Pits are 2x2 objects. Store the known footprint tiles together so object lookups,
      *   NPC scoring, and future jump-tile logic stay pit-first.
-     * - Pit 1 is fully known.
-     * - Other pits currently have only the top-left tile/id recorded. Add their other three
-     *   footprint tiles here once verified through the Agent Server or live menu probing.
+     * - All known local pitfall traps are stored as 2x2 footprints.
+     * - Pit 1 has verified per-tile object IDs.
+     * - Object IDs increment in the same role order as Pit 1:
+     *   top-left, bottom-left, top-right, bottom-right.
      */
     public static final List<PitfallDefinition> PITFALL_ORDER = List.of(
             new PitfallDefinition(
@@ -124,7 +145,12 @@ public class PitfallHunterScript extends Script
                     "Pit 2 - east",
                     PitOrientation.NORTH_SOUTH,
                     JumpAxis.EAST_WEST,
-                    List.of(new PitfallTile("top-left", 51682, new WorldPoint(1749, 3015, 0))),
+                    List.of(
+                            new PitfallTile("top-left", 51682, new WorldPoint(1749, 3015, 0)),
+                            new PitfallTile("bottom-left", 51683, new WorldPoint(1749, 3014, 0)),
+                            new PitfallTile("top-right", 51684, new WorldPoint(1750, 3015, 0)),
+                            new PitfallTile("bottom-right", 51685, new WorldPoint(1750, 3014, 0))
+                    ),
                     null,
                     null,
                     null,
@@ -134,7 +160,12 @@ public class PitfallHunterScript extends Script
                     "Pit 3 - south-east",
                     PitOrientation.WEST_EAST,
                     JumpAxis.NORTH_SOUTH,
-                    List.of(new PitfallTile("top-left", 51691, new WorldPoint(1751, 3010, 0))),
+                    List.of(
+                            new PitfallTile("top-left", 51691, new WorldPoint(1751, 3010, 0)),
+                            new PitfallTile("bottom-left", 51692, new WorldPoint(1751, 3009, 0)),
+                            new PitfallTile("top-right", 51693, new WorldPoint(1752, 3010, 0)),
+                            new PitfallTile("bottom-right", 51694, new WorldPoint(1752, 3009, 0))
+                    ),
                     null,
                     null,
                     null,
@@ -144,7 +175,12 @@ public class PitfallHunterScript extends Script
                     "Pit 4 - south-west",
                     PitOrientation.NORTH_SOUTH,
                     JumpAxis.EAST_WEST,
-                    List.of(new PitfallTile("top-left", 51679, new WorldPoint(1738, 3002, 0))),
+                    List.of(
+                            new PitfallTile("top-left", 51679, new WorldPoint(1738, 3002, 0)),
+                            new PitfallTile("bottom-left", 51680, new WorldPoint(1738, 3001, 0)),
+                            new PitfallTile("top-right", 51681, new WorldPoint(1739, 3002, 0)),
+                            new PitfallTile("bottom-right", 51682, new WorldPoint(1739, 3001, 0))
+                    ),
                     null,
                     null,
                     null,
@@ -154,7 +190,12 @@ public class PitfallHunterScript extends Script
                     "Pit 5 - south",
                     PitOrientation.NORTH_SOUTH,
                     JumpAxis.EAST_WEST,
-                    List.of(new PitfallTile("top-left", 51701, new WorldPoint(1749, 3000, 0))),
+                    List.of(
+                            new PitfallTile("top-left", 51701, new WorldPoint(1749, 3000, 0)),
+                            new PitfallTile("bottom-left", 51702, new WorldPoint(1749, 2999, 0)),
+                            new PitfallTile("top-right", 51703, new WorldPoint(1750, 3000, 0)),
+                            new PitfallTile("bottom-right", 51704, new WorldPoint(1750, 2999, 0))
+                    ),
                     null,
                     null,
                     null,
@@ -169,12 +210,30 @@ public class PitfallHunterScript extends Script
     private Rs2NpcModel selectedNpc;
     private final Set<String> skippedTrappedPits = new HashSet<>();
     private long stateStartedAt;
+    private long busyStartedAt;
+    private long captureDetectedAt;
+    private long captureLootReadyAt;
+    private JumpRoute activeJumpRoute;
+    private WorldPoint npcJumpStartTile;
+    private WorldPoint npcLastTrackedTile;
+    private String npcJumpStartSide = TrapSide.UNKNOWN.name();
+    private String npcLastTrackedSide = TrapSide.UNKNOWN.name();
+    private boolean npcCrossedTrapLogged;
     private boolean kandarinHeadgearAvailable;
     private boolean meatPouchAvailable;
+    private String lastDecision = "Starting";
+    private String lastFailure = "";
+    private String lastLureEvidence = "None";
+    private String lastNpcQuery = "None";
+    private String lastPitQuery = "None";
+    private int luredNpcIndex = -1;
+    private long lureConfirmedAt;
 
     public boolean run(PitfallHunterConfig config)
     {
         this.config = config;
+        lastNpcQuery = "None";
+        lastPitQuery = "None";
         transition(State.CHECK_REQUIREMENTS);
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -183,7 +242,11 @@ public class PitfallHunterScript extends Script
                     return;
                 }
 
-                if (isBusy()) {
+                if (handleBusySkip()) {
+                    return;
+                }
+
+                if (recoverTimedOutState()) {
                     return;
                 }
 
@@ -262,6 +325,11 @@ public class PitfallHunterScript extends Script
             return;
         }
 
+        if (!hasKnife()) {
+            stop("No knife available");
+            return;
+        }
+
         if (configuredPits().isEmpty()) {
             stop("No configured pits. Fill PITFALL_ORDER with verified Sunlight Antelope pit tiles.");
             return;
@@ -275,7 +343,17 @@ public class PitfallHunterScript extends Script
         selectedPit = null;
         selectedPitState = PitfallState.UNKNOWN;
         selectedNpc = null;
+        captureDetectedAt = 0;
+        captureLootReadyAt = 0;
+        resetNpcJumpTracking();
+        resetLureTracking();
         skippedTrappedPits.clear();
+
+        if (selectCollapsedPit()) {
+            return;
+        }
+
+        recordDecision("Looking for nearest antelope");
         transition(State.SELECT_NPC);
     }
 
@@ -299,13 +377,16 @@ public class PitfallHunterScript extends Script
 
         selectedNpc = findClosestSunlightAntelope();
         if (selectedNpc == null) {
-            stop("No valid Sunlight Antelope found nearby");
+            recordDecision("No antelope nearby; refreshing");
+            sleep(600, 1000);
+            transition(State.REFRESH_PITS);
             return;
         }
 
         log("Selected closest NPC: id=" + selectedNpc.getId()
                 + " tile=" + selectedNpc.getWorldLocation()
                 + " playerTile=" + Rs2Player.getWorldLocation());
+        recordDecision("Teasing selected NPC");
         transition(State.LURE_NPC);
     }
 
@@ -326,6 +407,7 @@ public class PitfallHunterScript extends Script
         selectedPitState = getPitState(selectedPit);
         log("Selected pit: " + selectedPit.name + " state=" + selectedPitState
                 + (selectedNpc == null ? "" : " npc=" + selectedNpc.getId() + " tile=" + selectedNpc.getWorldLocation()));
+        recordDecision("Preparing selected pit");
 
         transition(State.PREPARE_PIT);
     }
@@ -342,23 +424,18 @@ public class PitfallHunterScript extends Script
             return;
         }
 
-        Rs2TileObjectModel pitObject = getPitObject(selectedPit);
-        if (pitObject == null) {
-            log("Prepare failed: pit object missing for " + selectedPit.name, Level.WARN);
+        if (!hasKnife()) {
+            stop("No knife available");
+            return;
+        }
+
+        if (!prepareSelectedPit()) {
+            recordDecision("Trap setup was not detected; recovering");
             transition(State.RECOVER);
             return;
         }
 
-        log("Preparing pit with logs: " + selectedPit.name);
-        boolean clicked = clickPitObject(pitObject, TRAP_PIT_ACTION);
-        log("Prepare result: " + clicked);
-
-        if (!clicked) {
-            transition(State.RECOVER);
-            return;
-        }
-
-        sleep(900, 1200);
+        recordDecision("Jumping prepared pit");
         transition(State.JUMP_PIT);
     }
 
@@ -370,49 +447,52 @@ public class PitfallHunterScript extends Script
             return;
         }
 
-        String action = getLureAction(selectedNpc);
-        boolean lured = false;
-        if (!action.isEmpty()) {
-            log("Luring NPC with action: " + action);
-            lured = selectedNpc.click(action);
-        }
-
-        if (!lured) {
-            log("Trying teasing stick on NPC");
-            lured = useTeasingStickOnNpc(selectedNpc);
-        }
-
-        log("Lure result: " + lured);
+        recordDecision("Watching for tease lure evidence");
+        boolean lured = teaseNpcUntilInteraction(selectedNpc);
+        log("Lure interaction result: " + lured);
         if (!lured) {
             transition(State.RECOVER);
             return;
         }
 
-        boolean followDetected = waitUntil(() -> isNpcFollowingPlayer(selectedNpc), 1800);
-        log("Lure follow detected: " + followDetected);
-        transition(State.SELECT_PIT);
+        if (!selectClosestPitForNpc(selectedNpc, "after-tease")) {
+            log("No usable pit found after tease; refreshing instead of stopping", Level.WARN);
+            transition(State.REFRESH_PITS);
+            return;
+        }
+
+        recordDecision("Preparing closest pit after tease");
+        transition(State.PREPARE_PIT);
     }
 
     private void jumpPit()
     {
-        if (selectedPit == null || selectedNpc == null || !isSunlightAntelope(selectedNpc)) {
-            log("Jump aborted: missing selected pit or NPC", Level.WARN);
+        if (selectedPit == null) {
+            log("Jump aborted: missing selected pit", Level.WARN);
             transition(State.RECOVER);
             return;
         }
 
-        if (!isNpcFollowingPlayer(selectedNpc)) {
-            log("Jump continuing even though follow is not reflected by NPC model", Level.WARN);
-        }
-
-        walkTo(selectedPit.getPreJumpTile());
-        Rs2TileObjectModel pitObject = getPitObject(selectedPit);
+        recordDecision("Waiting for Jump action on " + selectedPit.name);
+        Rs2TileObjectModel pitObject = waitForPitObject(selectedPit, JUMP_PIT_ACTION, JUMP_OBJECT_APPEAR_TIMEOUT_MS);
         if (pitObject == null) {
-            log("Jump failed: trapped pit object missing", Level.WARN);
+            selectedPitState = getPitState(selectedPit);
+            log("Jump failed: trapped pit object missing. state=" + selectedPitState, Level.WARN);
             transition(State.RECOVER);
             return;
         }
 
+        JumpRoute jumpRoute = selectedPit.getNearestJumpRoute(Rs2Player.getWorldLocation());
+        log("Jump route selected: pit=" + selectedPit.name
+                + " from=" + (jumpRoute == null ? "none" : jumpRoute.from)
+                + " to=" + (jumpRoute == null ? "none" : jumpRoute.to)
+                + " playerTile=" + Rs2Player.getWorldLocation()
+                + " npcTile=" + (selectedNpc == null ? "none" : selectedNpc.getWorldLocation()));
+
+        if (jumpRoute != null && selectedNpc != null) {
+            startNpcJumpTracking(jumpRoute);
+        }
+        recordDecision("Clicking Jump on " + selectedPit.name);
         boolean jumped = clickPitObject(pitObject, JUMP_PIT_ACTION);
         log("Jump result: " + jumped);
 
@@ -421,7 +501,9 @@ public class PitfallHunterScript extends Script
             return;
         }
 
-        walkTo(selectedPit.getPostJumpTile());
+        captureDetectedAt = 0;
+        captureLootReadyAt = 0;
+        recordDecision("Waiting for capture");
         transition(State.WAIT_FOR_CAPTURE);
     }
 
@@ -429,14 +511,37 @@ public class PitfallHunterScript extends Script
     {
         selectedPitState = getPitState(selectedPit);
         log("Capture wait state: " + selectedPit.name + " -> " + selectedPitState);
+        trackNpcJumpAcrossTrap();
 
-        if (selectedPitState == PitfallState.COLLAPSED) {
+        if (captureDetectedAt == 0 && selectedPitState == PitfallState.COLLAPSED) {
+            markCaptureDetected("collapsed trap state");
+        } else if (captureDetectedAt == 0 && getSelectedNpcCaptureGraphic() > 0) {
+            markCaptureDetected("NPC graphic " + getSelectedNpcCaptureGraphic());
+        }
+
+        if (captureDetectedAt > 0) {
+            long remainingDelay = captureLootReadyAt - System.currentTimeMillis();
+            if (remainingDelay > 0) {
+                recordDecision("Loot delay " + remainingDelay + "ms");
+                return;
+            }
+
             skippedTrappedPits.remove(selectedPit.name);
+            recordDecision("Looting collapsed trap");
             transition(State.LOOT_PIT);
             return;
         }
 
-        if (timedOut(config.captureTimeoutMs())) {
+        if (timedOut(getCaptureTimeoutMs())) {
+            PitfallObjectCandidate collapsed = findNearestPitObjectCandidate(DISMANTLE_TRAP_ACTION, 25);
+            if (collapsed != null) {
+                selectedPit = collapsed.pit;
+                selectedPitState = PitfallState.COLLAPSED;
+                lastPitQuery = formatPitCandidate("Late collapsed", collapsed, null);
+                markCaptureDetected("late collapsed pit scan");
+                return;
+            }
+
             log("No collapse after jump; rotating away from pit: " + selectedPit.name, Level.WARN);
             if (selectedPitState == PitfallState.TRAPPED) {
                 skippedTrappedPits.add(selectedPit.name);
@@ -444,16 +549,84 @@ public class PitfallHunterScript extends Script
             if (isNpcFollowingPlayer(selectedNpc)) {
                 selectedPit = null;
                 selectedPitState = PitfallState.UNKNOWN;
+                recordDecision("NPC still lured; selecting another pit");
                 transition(State.SELECT_PIT);
             } else {
+                recordDecision("Lure lost; refreshing");
                 transition(State.REFRESH_PITS);
             }
         }
+
+        if (isNpcFollowingPlayer(selectedNpc)) {
+            return;
+        }
+    }
+
+    private void markCaptureDetected(String evidence)
+    {
+        captureDetectedAt = System.currentTimeMillis();
+        int delay = ThreadLocalRandom.current().nextInt(CAPTURE_LOOT_DELAY_MIN_MS, CAPTURE_LOOT_DELAY_MAX_MS + 1);
+        captureLootReadyAt = captureDetectedAt + delay;
+        log("Capture detected by " + evidence + "; loot ready in " + delay + "ms");
+        recordDecision("Waiting before loot");
+    }
+
+    private int getCaptureTimeoutMs()
+    {
+        return Math.max(config.captureTimeoutMs(), CAPTURE_TIMEOUT_MIN_MS);
+    }
+
+    private boolean prepareSelectedPit()
+    {
+        for (int attempt = 1; attempt <= PREPARE_PIT_MAX_ATTEMPTS; attempt++) {
+            if (!clearSelectedItem("before Trap")) {
+                log("Prepare attempt " + attempt + " could not clear selected item", Level.WARN);
+            }
+
+            Rs2TileObjectModel pitObject = getPitObject(selectedPit, TRAP_PIT_ACTION);
+            if (pitObject == null) {
+                selectedPitState = getPitState(selectedPit);
+                log("Prepare attempt " + attempt + " failed: no Trap action object for "
+                        + selectedPit.name + " currentState=" + selectedPitState, Level.WARN);
+                return selectedPitState == PitfallState.TRAPPED;
+            }
+
+            if (!clearSelectedItem("before Trap click")) {
+                log("Prepare attempt " + attempt + " still has selected item before clicking Trap", Level.WARN);
+            }
+
+            log("Preparing pit with logs: " + selectedPit.name + " attempt=" + attempt);
+            recordDecision("Clicking Trap on " + selectedPit.name + " attempt " + attempt);
+            boolean clicked = clickPitObject(pitObject, TRAP_PIT_ACTION);
+            log("Prepare attempt " + attempt + " click result: " + clicked);
+
+            if (!clicked) {
+                sleep(300, 600);
+                continue;
+            }
+
+            boolean jumpReady = waitUntil(() -> getPitObject(selectedPit, JUMP_PIT_ACTION) != null,
+                    PREPARE_TRAP_TIMEOUT_MS);
+            selectedPitState = getPitState(selectedPit);
+            log("Prepare attempt " + attempt + " jump action detected: " + jumpReady
+                    + " state=" + selectedPitState);
+            if (jumpReady || selectedPitState == PitfallState.TRAPPED) {
+                selectedPitState = PitfallState.TRAPPED;
+                return true;
+            }
+
+            log("Prepare attempt " + attempt + " advancing after Trap click; Jump step will verify object", Level.WARN);
+            sleep(500, 800);
+            return true;
+        }
+
+        selectedPitState = getPitState(selectedPit);
+        return selectedPitState == PitfallState.TRAPPED;
     }
 
     private void lootPit()
     {
-        Rs2TileObjectModel pitObject = getPitObject(selectedPit);
+        Rs2TileObjectModel pitObject = getPitObject(selectedPit, DISMANTLE_TRAP_ACTION);
         if (pitObject == null) {
             log("Loot failed: pit object missing", Level.WARN);
             transition(State.RECOVER);
@@ -461,6 +634,7 @@ public class PitfallHunterScript extends Script
         }
 
         int before = Rs2Inventory.count();
+        recordDecision("Dismantling collapsed trap");
         boolean clicked = clickPitObject(pitObject, DISMANTLE_TRAP_ACTION);
         boolean changed = clicked && waitUntil(() -> Rs2Inventory.count() != before
                 || getPitState(selectedPit) != PitfallState.COLLAPSED, 8000);
@@ -476,7 +650,8 @@ public class PitfallHunterScript extends Script
 
     private void handleMeatPouch()
     {
-        if (!meatPouchAvailable) {
+        if (!meatPouchAvailable || !hasPouchableMeat()) {
+            recordDecision("Handling inventory after loot");
             handlePostLootInventory(true);
             transition(State.REFRESH_PITS);
             return;
@@ -504,6 +679,7 @@ public class PitfallHunterScript extends Script
         }
 
         log("Meat pouch store result: " + stored);
+        recordDecision("Handling inventory after pouch");
         handlePostLootInventory(true);
         transition(State.REFRESH_PITS);
     }
@@ -514,46 +690,52 @@ public class PitfallHunterScript extends Script
         selectedNpc = null;
         selectedPit = null;
         selectedPitState = PitfallState.UNKNOWN;
+        captureDetectedAt = 0;
+        captureLootReadyAt = 0;
+        resetNpcJumpTracking();
+        resetLureTracking();
         sleep(600, 1000);
         transition(State.REFRESH_PITS);
     }
 
     private boolean selectCollapsedPit()
     {
-        PitfallDefinition pit = configuredPits().stream()
-                .filter(candidate -> getPitState(candidate) == PitfallState.COLLAPSED)
-                .min(Comparator.comparingInt(candidate -> distanceToPlayer(candidate.getAnchorTile())))
-                .orElse(null);
+        PitfallObjectCandidate candidate = findNearestPitObjectCandidate(DISMANTLE_TRAP_ACTION, 25);
 
-        if (pit == null) {
+        if (candidate == null) {
+            lastPitQuery = "Collapsed: none";
             return false;
         }
 
-        selectedPit = pit;
+        selectedPit = candidate.pit;
         selectedPitState = PitfallState.COLLAPSED;
         selectedNpc = null;
-        log("Selected collapsed pit: " + selectedPit.name);
+        lastPitQuery = formatPitCandidate("Collapsed", candidate, null);
+        log("Selected collapsed pit: " + selectedPit.name
+                + " object=" + candidate.object.getId()
+                + " tile=" + candidate.object.getWorldLocation());
+        recordDecision("Found collapsed pit; looting first");
         transition(State.LOOT_PIT);
         return true;
     }
 
     private Rs2NpcModel findClosestSunlightAntelope()
     {
-        WorldPoint playerTile = Rs2Player.getWorldLocation();
-        if (playerTile == null) {
-            return null;
-        }
-
-        return Microbot.getRs2NpcCache().query()
+        Rs2NpcModel npc = Microbot.getRs2NpcCache().query()
                 .withName(SUNLIGHT_ANTELOPE_NAME)
-                .within(20)
-                .toListOnClientThread()
-                .stream()
-                .filter(this::isSunlightAntelope)
-                .filter(npc -> npc.getWorldLocation() != null)
-                .filter(npc -> !npc.isInteracting() || npc.isInteractingWithPlayer())
-                .min(Comparator.comparingInt(npc -> npc.getWorldLocation().distanceTo(playerTile)))
-                .orElse(null);
+                .where(this::isSunlightAntelope)
+                .where(candidate -> candidate.getWorldLocation() != null)
+                .where(candidate -> !candidate.isInteracting()
+                        || candidate.isInteractingWithPlayer()
+                        || isRecentlyConfirmedLure(candidate))
+                .nearestOnClientThread(20);
+
+        lastNpcQuery = npc == null
+                ? "Nearest antelope: none"
+                : "Nearest antelope: " + npc.getId()
+                + " d=" + distanceBetween(npc.getWorldLocation(), Rs2Player.getWorldLocation())
+                + " tile=" + npc.getWorldLocation();
+        return npc;
     }
 
     private PitfallDefinition findClosestUsablePitForNpc(Rs2NpcModel npc)
@@ -562,14 +744,57 @@ public class PitfallHunterScript extends Script
             return null;
         }
 
+        if (!hasLogs()) {
+            lastPitQuery = "Usable pit: no logs";
+            return null;
+        }
+
         WorldPoint npcTile = npc.getWorldLocation();
-        return configuredPits().stream()
-                .filter(pit -> !skippedTrappedPits.contains(pit.name))
-                .filter(pit -> hasLogs())
-                .filter(pit -> getPitState(pit) == PitfallState.EMPTY)
-                .min(Comparator.comparingInt((PitfallDefinition pit) -> pit.getAnchorTile().distanceTo(npcTile))
-                        .thenComparingInt(PitfallDefinition::getPriority))
+        PitfallObjectCandidate selectedCandidate = Microbot.getRs2TileObjectCache().query()
+                .within(25)
+                .where(this::isPitfallObject)
+                .where(object -> object.getWorldLocation() != null)
+                .where(object -> hasPitObjectAction(object, TRAP_PIT_ACTION))
+                .toListOnClientThread()
+                .stream()
+                .map(this::toPitObjectCandidate)
+                .filter(pitCandidate -> pitCandidate.pit != null)
+                .filter(pitCandidate -> !skippedTrappedPits.contains(pitCandidate.pit.name))
+                .min(Comparator.comparingInt((PitfallObjectCandidate pitCandidate) -> distanceToPlayer(pitCandidate.object))
+                        .thenComparingInt(pitCandidate -> distanceBetween(pitCandidate.object.getWorldLocation(), npcTile))
+                        .thenComparingInt(pitCandidate -> pitCandidate.pit.getPriority()))
                 .orElse(null);
+
+        lastPitQuery = formatPitCandidate("Usable", selectedCandidate, npcTile);
+        return selectedCandidate == null ? null : selectedCandidate.pit;
+    }
+
+    private boolean selectClosestPitForNpc(Rs2NpcModel npc, String phase)
+    {
+        PitfallDefinition pit = findClosestUsablePitForNpc(npc);
+        if (pit == null) {
+            return false;
+        }
+
+        selectedPit = pit;
+        selectedPitState = getPitState(selectedPit);
+        Rs2TileObjectModel selectedPitObject = getPitObject(selectedPit, TRAP_PIT_ACTION);
+        log("Selected closest pit " + phase + ": " + selectedPit.name + " state=" + selectedPitState
+                + " playerDistance=" + distanceToPlayer(selectedPit)
+                + " npcDistance=" + distanceTo(selectedPit, npc.getWorldLocation())
+                + " objectId=" + (selectedPitObject == null ? "none" : selectedPitObject.getId())
+                + " objectTile=" + (selectedPitObject == null ? "none" : selectedPitObject.getWorldLocation())
+                + " npc=" + npc.getId() + " tile=" + npc.getWorldLocation());
+        return true;
+    }
+
+    private int distanceToPlayer(PitfallDefinition pit)
+    {
+        WorldPoint playerTile = Rs2Player.getWorldLocation();
+        if (playerTile == null || pit == null) {
+            return Integer.MAX_VALUE;
+        }
+        return distanceTo(pit, playerTile);
     }
 
     private int distanceToPlayer(WorldPoint tile)
@@ -579,6 +804,28 @@ public class PitfallHunterScript extends Script
             return Integer.MAX_VALUE;
         }
         return playerTile.distanceTo(tile);
+    }
+
+    private int distanceToPlayer(Rs2TileObjectModel object)
+    {
+        return object == null ? Integer.MAX_VALUE : distanceToPlayer(object.getWorldLocation());
+    }
+
+    private int distanceBetween(WorldPoint first, WorldPoint second)
+    {
+        if (first == null || second == null) {
+            return Integer.MAX_VALUE;
+        }
+        return first.distanceTo(second);
+    }
+
+    private int distanceTo(PitfallDefinition pit, WorldPoint tile)
+    {
+        if (pit == null || tile == null) {
+            return Integer.MAX_VALUE;
+        }
+
+        return pit.distanceTo(tile);
     }
 
     private boolean isSunlightAntelope(Rs2NpcModel npc)
@@ -592,7 +839,103 @@ public class PitfallHunterScript extends Script
 
     private boolean isNpcFollowingPlayer(Rs2NpcModel npc)
     {
-        return npc != null && npc.isInteractingWithPlayer();
+        return npc != null
+                && (npc.isInteractingWithPlayer()
+                || isPlayerInteractingWithNpc(npc)
+                || isRecentlyConfirmedLure(npc));
+    }
+
+    private boolean isPlayerInteractingWithNpc(Rs2NpcModel npc)
+    {
+        Actor interacting = Rs2Player.getInteracting();
+        if (!(interacting instanceof Rs2NpcModel)) {
+            return false;
+        }
+
+        Rs2NpcModel interactingNpc = (Rs2NpcModel) interacting;
+        return interactingNpc.getId() == npc.getId()
+                && interactingNpc.getIndex() == npc.getIndex();
+    }
+
+    private void startNpcJumpTracking(JumpRoute jumpRoute)
+    {
+        activeJumpRoute = jumpRoute;
+        npcJumpStartTile = selectedNpc == null ? null : selectedNpc.getWorldLocation();
+        npcLastTrackedTile = npcJumpStartTile;
+        npcJumpStartSide = selectedPit == null ? TrapSide.UNKNOWN.name() : selectedPit.getTrapSide(npcJumpStartTile).name();
+        npcLastTrackedSide = npcJumpStartSide;
+        npcCrossedTrapLogged = false;
+
+        log("NPC jump tracking start: pit=" + selectedPit.name
+                + " route=" + selectedPit.getTrapSide(jumpRoute.from) + "->" + selectedPit.getTrapSide(jumpRoute.to)
+                + " npcStartTile=" + npcJumpStartTile
+                + " npcStartSide=" + npcJumpStartSide
+                + " playerFrom=" + jumpRoute.from
+                + " playerTo=" + jumpRoute.to);
+    }
+
+    private void trackNpcJumpAcrossTrap()
+    {
+        if (selectedPit == null || selectedNpc == null || activeJumpRoute == null || npcJumpStartTile == null) {
+            return;
+        }
+
+        WorldPoint currentTile = selectedNpc.getWorldLocation();
+        if (currentTile == null || currentTile.equals(npcLastTrackedTile)) {
+            return;
+        }
+
+        String currentSide = selectedPit.getTrapSide(currentTile).name();
+        if (!Objects.equals(currentSide, npcLastTrackedSide)) {
+            log("NPC trap side changed: pit=" + selectedPit.name
+                    + " from=" + npcLastTrackedSide
+                    + " to=" + currentSide
+                    + " startTile=" + npcJumpStartTile
+                    + " currentTile=" + currentTile);
+        }
+
+        if (!npcCrossedTrapLogged && selectedPit.hasCrossedTrap(npcJumpStartTile, currentTile)) {
+            npcCrossedTrapLogged = true;
+            log("NPC crossed trap after player jump: pit=" + selectedPit.name
+                    + " startTile=" + npcJumpStartTile
+                    + " startSide=" + npcJumpStartSide
+                    + " currentTile=" + currentTile
+                    + " currentSide=" + currentSide);
+        }
+
+        npcLastTrackedTile = currentTile;
+        npcLastTrackedSide = currentSide;
+    }
+
+    private void resetNpcJumpTracking()
+    {
+        activeJumpRoute = null;
+        npcJumpStartTile = null;
+        npcLastTrackedTile = null;
+        npcJumpStartSide = TrapSide.UNKNOWN.name();
+        npcLastTrackedSide = TrapSide.UNKNOWN.name();
+        npcCrossedTrapLogged = false;
+    }
+
+    private int getSelectedNpcCaptureGraphic()
+    {
+        if (selectedNpc == null) {
+            return -1;
+        }
+
+        try {
+            int graphic = selectedNpc.getGraphic();
+            if (contains(CAPTURE_DEATH_GRAPHIC_IDS, graphic)) {
+                return graphic;
+            }
+
+            return Arrays.stream(CAPTURE_DEATH_GRAPHIC_IDS)
+                    .filter(selectedNpc::hasSpotAnim)
+                    .findFirst()
+                    .orElse(-1);
+        } catch (RuntimeException ex) {
+            return -1;
+        }
     }
 
     private String getLureAction(Rs2NpcModel npc)
@@ -602,6 +945,114 @@ public class PitfallHunterScript extends Script
             log("No direct Tease/Poke action found on NPC");
         }
         return action;
+    }
+
+    private boolean teaseNpcUntilInteraction(Rs2NpcModel npc)
+    {
+        if (isNpcFollowingPlayer(npc)) {
+            return true;
+        }
+
+        for (int attempt = 1; attempt <= LURE_MAX_ATTEMPTS; attempt++) {
+            WorldPoint npcStartTile = npc.getWorldLocation();
+            WorldPoint playerStartTile = Rs2Player.getWorldLocation();
+            int startDistance = distanceBetween(npcStartTile, playerStartTile);
+            String action = getLureAction(npc);
+            boolean clicked = false;
+            if (!action.isEmpty()) {
+                log("Tease attempt " + attempt + " using NPC action: " + action);
+                clicked = npc.click(action);
+            }
+
+            if (!clicked) {
+                log("Tease attempt " + attempt + " using teasing stick on NPC");
+                clicked = useTeasingStickOnNpc(npc);
+            }
+
+            LureEvidence evidence = waitForLureEvidence(npc, npcStartTile, playerStartTile, startDistance, clicked);
+            log("Tease attempt " + attempt + " result: clicked=" + clicked
+                    + " evidence=" + evidence);
+            if (evidence != LureEvidence.NONE) {
+                markLureConfirmed(npc, evidence);
+                return true;
+            }
+
+            sleep(300, 600);
+        }
+
+        log("Tease failed: no interaction or NPC movement evidence was detected", Level.WARN);
+        return false;
+    }
+
+    private LureEvidence waitForLureEvidence(Rs2NpcModel npc, WorldPoint npcStartTile, WorldPoint playerStartTile,
+                                             int startDistance, boolean clicked)
+    {
+        int timeout = clicked ? LURE_MOVEMENT_TIMEOUT_MS : LURE_INTERACTION_TIMEOUT_MS;
+        long start = System.currentTimeMillis();
+        while (isRunning() && System.currentTimeMillis() - start < timeout) {
+            LureEvidence evidence = getLureEvidence(npc, npcStartTile, playerStartTile, startDistance, clicked);
+            if (evidence != LureEvidence.NONE) {
+                return evidence;
+            }
+            sleep(100, 150);
+        }
+        return LureEvidence.NONE;
+    }
+
+    private LureEvidence getLureEvidence(Rs2NpcModel npc, WorldPoint npcStartTile, WorldPoint playerStartTile,
+                                         int startDistance, boolean clicked)
+    {
+        if (npc == null) {
+            return LureEvidence.NONE;
+        }
+
+        if (npc.isInteractingWithPlayer()) {
+            return LureEvidence.NPC_TARGETS_PLAYER;
+        }
+
+        if (isPlayerInteractingWithNpc(npc)) {
+            return LureEvidence.PLAYER_TARGETS_NPC;
+        }
+
+        if (!clicked || npcStartTile == null || playerStartTile == null || startDistance == Integer.MAX_VALUE) {
+            return LureEvidence.NONE;
+        }
+
+        WorldPoint currentNpcTile = npc.getWorldLocation();
+        if (currentNpcTile == null || currentNpcTile.equals(npcStartTile)) {
+            return LureEvidence.NONE;
+        }
+
+        int currentDistanceToStartPlayer = currentNpcTile.distanceTo(playerStartTile);
+        int currentDistanceToPlayer = distanceBetween(currentNpcTile, Rs2Player.getWorldLocation());
+        if (currentDistanceToStartPlayer < startDistance || currentDistanceToPlayer <= 3) {
+            return LureEvidence.NPC_MOVED_TOWARD_PLAYER;
+        }
+
+        return LureEvidence.NONE;
+    }
+
+    private void markLureConfirmed(Rs2NpcModel npc, LureEvidence evidence)
+    {
+        luredNpcIndex = npc == null ? -1 : npc.getIndex();
+        lureConfirmedAt = System.currentTimeMillis();
+        lastLureEvidence = evidence.name();
+        recordDecision("Lure confirmed by " + lastLureEvidence);
+    }
+
+    private boolean isRecentlyConfirmedLure(Rs2NpcModel npc)
+    {
+        return npc != null
+                && luredNpcIndex == npc.getIndex()
+                && lureConfirmedAt > 0
+                && System.currentTimeMillis() - lureConfirmedAt <= LURE_CONFIRMATION_GRACE_MS;
+    }
+
+    private void resetLureTracking()
+    {
+        luredNpcIndex = -1;
+        lureConfirmedAt = 0;
+        lastLureEvidence = "None";
     }
 
     private String getAvailableNpcAction(Rs2NpcModel npc, List<String> possibleActions)
@@ -646,15 +1097,28 @@ public class PitfallHunterScript extends Script
 
         log("Pit object query interact: action=" + action
                 + " id=" + object.getId()
-                + " tile=" + object.getWorldLocation());
+                + " tile=" + object.getWorldLocation()
+                + " onScreen=" + isTileObjectOnScreen(object));
 
-        return Microbot.getRs2TileObjectCache().query().interact(object.getId(), action);
+        return object.click(action);
+    }
+
+    private boolean isTileObjectOnScreen(Rs2TileObjectModel object)
+    {
+        return object != null
+                && object.getLocalLocation() != null
+                && Rs2Camera.isTileOnScreen(object.getLocalLocation());
     }
 
     private void handlePostLootInventory(boolean afterLoot)
     {
-        if (config.fletchAntlers()) {
-            fletchSunlightAntlers();
+        boolean fletched = config.fletchAntlers()
+                && ThreadLocalRandom.current().nextInt(100) < FLETCH_ANTLERS_CHANCE_PERCENT
+                && fletchSunlightAntlers();
+
+        if (fletched && (Rs2Player.isAnimating() || Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_ANTLER_NAME, true))) {
+            log("Skipping bones while fletching is still in progress");
+            return;
         }
 
         handleBigBones(afterLoot);
@@ -690,6 +1154,9 @@ public class PitfallHunterScript extends Script
                 break;
             }
             buried++;
+            if (Rs2Inventory.hasItem(BIG_BONES_NAME, true)) {
+                sleep(600, 950);
+            }
         }
         log("Big bones bury count: " + buried);
     }
@@ -719,10 +1186,10 @@ public class PitfallHunterScript extends Script
         }
     }
 
-    private void fletchSunlightAntlers()
+    private boolean fletchSunlightAntlers()
     {
         if (!Rs2Inventory.hasItem(CHISEL_NAME, true) || !Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_ANTLER_NAME, true)) {
-            return;
+            return false;
         }
 
         int before = Rs2Inventory.count(SUNLIGHT_ANTELOPE_ANTLER_NAME, true);
@@ -730,7 +1197,7 @@ public class PitfallHunterScript extends Script
         boolean combined = Rs2Inventory.combineClosest(CHISEL_NAME, SUNLIGHT_ANTELOPE_ANTLER_NAME);
         if (!combined) {
             log("Fletch antlers failed: could not use chisel on antler", Level.WARN);
-            return;
+            return false;
         }
 
         if (waitUntil(Rs2Dialogue::hasSelectAnOption, 1500)) {
@@ -742,9 +1209,12 @@ public class PitfallHunterScript extends Script
             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
         }
 
-        boolean finished = waitUntil(() -> Rs2Inventory.count(SUNLIGHT_ANTELOPE_ANTLER_NAME, true) < before
-                || !Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_ANTLER_NAME, true), 30000);
+        boolean finished = waitUntil(() -> !Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_ANTLER_NAME, true)
+                || (Rs2Inventory.count(SUNLIGHT_ANTELOPE_ANTLER_NAME, true) < before
+                && !Rs2Player.isAnimating()
+                && !Rs2Widget.isProductionWidgetOpen()), 45000);
         log("Fletch antlers result: " + finished);
+        return combined;
     }
 
     private PitfallState getPitState(PitfallDefinition pit)
@@ -761,17 +1231,6 @@ public class PitfallHunterScript extends Script
             return PitfallState.TRAPPED;
         }
         if (hasPitObjectAction(object, TRAP_PIT_ACTION)) {
-            return PitfallState.EMPTY;
-        }
-
-        int id = object.getId();
-        if (id == TODO_COLLAPSED_PIT_OBJECT_ID && id > 0) {
-            return PitfallState.COLLAPSED;
-        }
-        if (id == TODO_TRAPPED_PIT_OBJECT_ID && id > 0) {
-            return PitfallState.TRAPPED;
-        }
-        if (id == TODO_EMPTY_PIT_OBJECT_ID && id > 0) {
             return PitfallState.EMPTY;
         }
 
@@ -803,20 +1262,112 @@ public class PitfallHunterScript extends Script
 
     private Rs2TileObjectModel getPitObject(PitfallDefinition pit)
     {
+        return getPitObject(pit, null);
+    }
+
+    private Rs2TileObjectModel getPitObject(PitfallDefinition pit, String action)
+    {
         if (pit == null || pit.getAnchorTile() == null) {
             return null;
         }
 
         return Microbot.getRs2TileObjectCache().query()
                 .within(pit.getAnchorTile(), config.pitObjectSearchRadius())
+                .where(this::isPitfallObject)
+                .where(object -> object.getWorldLocation() != null)
+                .where(object -> action == null || hasPitObjectAction(object, action))
                 .toListOnClientThread()
                 .stream()
-                .filter(object -> object.getWorldLocation() != null)
-                .filter(object -> pit.contains(object.getId(), object.getWorldLocation())
-                        || object.getWorldLocation().distanceTo(pit.getAnchorTile()) <= config.pitObjectSearchRadius())
-                .filter(this::isPitfallObject)
-                .min(Comparator.comparingInt(object -> object.getWorldLocation().distanceTo(pit.getAnchorTile())))
+                .filter(object -> matchesPitFootprint(pit, object))
+                .min(Comparator.comparingInt((Rs2TileObjectModel object) -> pitObjectMatchRank(pit, object))
+                        .thenComparingInt(object -> pit.distanceTo(object.getWorldLocation()))
+                        .thenComparingInt(this::distanceToPlayer))
                 .orElse(null);
+    }
+
+    private Rs2TileObjectModel waitForPitObject(PitfallDefinition pit, String action, int timeoutMs)
+    {
+        final Rs2TileObjectModel[] found = new Rs2TileObjectModel[1];
+        waitUntil(() -> {
+            found[0] = getPitObject(pit, action);
+            return found[0] != null;
+        }, timeoutMs);
+        return found[0];
+    }
+
+    private PitfallDefinition findConfiguredPit(Rs2TileObjectModel object)
+    {
+        if (object == null || object.getWorldLocation() == null) {
+            return null;
+        }
+
+        WorldPoint objectTile = object.getWorldLocation();
+        PitfallDefinition exactMatch = configuredPits().stream()
+                .filter(pit -> pit.contains(object.getId(), objectTile))
+                .min(Comparator.comparingInt(PitfallDefinition::getPriority))
+                .orElse(null);
+        if (exactMatch != null) {
+            return exactMatch;
+        }
+
+        return configuredPits().stream()
+                .filter(pit -> pit.distanceTo(objectTile) <= PIT_OBJECT_MATCH_RADIUS)
+                .min(Comparator.comparingInt((PitfallDefinition pit) -> pit.distanceTo(objectTile))
+                        .thenComparingInt(pit -> distanceBetween(pit.getAnchorTile(), objectTile))
+                        .thenComparingInt(PitfallDefinition::getPriority))
+                .orElse(null);
+    }
+
+    private PitfallObjectCandidate toPitObjectCandidate(Rs2TileObjectModel object)
+    {
+        return new PitfallObjectCandidate(findConfiguredPit(object), object);
+    }
+
+    private PitfallObjectCandidate findNearestPitObjectCandidate(String action, int maxDistance)
+    {
+        return Microbot.getRs2TileObjectCache().query()
+                .within(maxDistance)
+                .where(this::isPitfallObject)
+                .where(object -> object.getWorldLocation() != null)
+                .where(object -> action == null || hasPitObjectAction(object, action))
+                .toListOnClientThread()
+                .stream()
+                .map(this::toPitObjectCandidate)
+                .filter(candidate -> candidate.pit != null)
+                .min(Comparator.comparingInt((PitfallObjectCandidate candidate) -> distanceToPlayer(candidate.object))
+                        .thenComparingInt(candidate -> candidate.pit.distanceTo(candidate.object.getWorldLocation()))
+                        .thenComparingInt(candidate -> candidate.pit.getPriority()))
+                .orElse(null);
+    }
+
+    private boolean matchesPitFootprint(PitfallDefinition pit, Rs2TileObjectModel object)
+    {
+        return pit != null
+                && object != null
+                && object.getWorldLocation() != null
+                && (pit.contains(object.getId(), object.getWorldLocation())
+                || pit.distanceTo(object.getWorldLocation()) <= PIT_OBJECT_MATCH_RADIUS);
+    }
+
+    private int pitObjectMatchRank(PitfallDefinition pit, Rs2TileObjectModel object)
+    {
+        return pit != null
+                && object != null
+                && object.getWorldLocation() != null
+                && pit.contains(object.getId(), object.getWorldLocation()) ? 0 : 1;
+    }
+
+    private String formatPitCandidate(String phase, PitfallObjectCandidate candidate, WorldPoint npcTile)
+    {
+        if (candidate == null || candidate.pit == null || candidate.object == null) {
+            return phase + ": none";
+        }
+
+        return phase + ": " + candidate.pit.name
+                + " pD=" + distanceToPlayer(candidate.object)
+                + (npcTile == null ? "" : " nD=" + distanceBetween(candidate.object.getWorldLocation(), npcTile))
+                + " obj=" + candidate.object.getId()
+                + " @ " + candidate.object.getWorldLocation();
     }
 
     private boolean isPitfallObject(Rs2TileObjectModel object)
@@ -826,10 +1377,7 @@ public class PitfallHunterScript extends Script
         }
 
         int id = object.getId();
-        if (contains(OBSERVED_PIT_OBJECT_IDS, id)
-                || id == TODO_EMPTY_PIT_OBJECT_ID
-                || id == TODO_TRAPPED_PIT_OBJECT_ID
-                || id == TODO_COLLAPSED_PIT_OBJECT_ID) {
+        if (contains(OBSERVED_PIT_OBJECT_IDS, id)) {
             return true;
         }
 
@@ -845,10 +1393,20 @@ public class PitfallHunterScript extends Script
         return Rs2Inventory.hasItem(LOG_ITEM_NAMES, true);
     }
 
+    private boolean hasKnife()
+    {
+        return Rs2Inventory.hasItem(KNIFE_NAME, true);
+    }
+
     private boolean hasMeatPouch()
     {
         return Rs2Inventory.hasItem(LARGE_MEAT_POUCH_CLOSED_ID, LARGE_MEAT_POUCH_OPEN_ID)
                 || Arrays.stream(MEAT_POUCH_NAMES).anyMatch(name -> Rs2Inventory.hasItem(name, false));
+    }
+
+    private boolean hasPouchableMeat()
+    {
+        return Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_DROP_ITEM_NAMES, true);
     }
 
     private boolean hasKandarinHeadgear()
@@ -866,24 +1424,14 @@ public class PitfallHunterScript extends Script
         log("Logs needed and Kandarin headgear exists. Trying local log cutting.");
         Rs2TileObjectModel tree = Microbot.getRs2TileObjectCache().query()
                 .withIds(LOCAL_TREE_IDS)
-                .within(20)
-                .toListOnClientThread()
-                .stream()
-                .filter(Objects::nonNull)
-                .filter(Rs2TileObjectModel::isReachable)
-                .findFirst()
-                .orElse(null);
+                .where(this::isReachableTree)
+                .nearestOnClientThread(20);
 
         if (tree == null) {
             tree = Microbot.getRs2TileObjectCache().query()
                     .withNameContains("tree")
-                    .within(15)
-                    .toListOnClientThread()
-                    .stream()
-                    .filter(Objects::nonNull)
-                    .filter(Rs2TileObjectModel::isReachable)
-                    .findFirst()
-                    .orElse(null);
+                    .where(this::isReachableTree)
+                    .nearestOnClientThread(15);
         }
 
         if (tree == null) {
@@ -895,27 +1443,80 @@ public class PitfallHunterScript extends Script
         return clicked && waitUntil(this::hasLogs, 10000);
     }
 
-    private void walkTo(WorldPoint tile)
+    private boolean isReachableTree(Rs2TileObjectModel tree)
+    {
+        return tree != null && tree.getWorldLocation() != null && tree.isReachable();
+    }
+
+    private boolean clearSelectedItem(String phase)
+    {
+        if (!Rs2Inventory.isItemSelected()) {
+            return true;
+        }
+
+        String selectedName = Rs2Inventory.getSelectedItemName();
+        int selectedId = Rs2Inventory.getSelectedItemId();
+        log("Deselecting selected item " + selectedName + " (" + selectedId + ") " + phase);
+        Rs2Inventory.deselect();
+        return waitUntil(() -> !Rs2Inventory.isItemSelected(), 1200);
+    }
+
+    private boolean walkTo(WorldPoint tile)
     {
         if (tile == null) {
-            return;
+            return false;
         }
 
         WorldPoint playerTile = Rs2Player.getWorldLocation();
         if (playerTile != null && playerTile.distanceTo(tile) <= 1) {
-            return;
+            return true;
         }
 
         Rs2Walker.walkTo(tile);
-        waitUntil(() -> {
+        return waitUntil(() -> {
             WorldPoint current = Rs2Player.getWorldLocation();
             return current != null && current.distanceTo(tile) <= 1;
-        }, 5000);
+        }, WALK_TIMEOUT_MS);
     }
 
     private boolean isBusy()
     {
         return Rs2Player.isMoving() || Rs2Player.isAnimating();
+    }
+
+    private boolean handleBusySkip()
+    {
+        if (!isBusy()) {
+            busyStartedAt = 0;
+            return false;
+        }
+
+        long now = System.currentTimeMillis();
+        if (busyStartedAt == 0) {
+            busyStartedAt = now;
+        }
+
+        recordDecision("Waiting for player movement/animation");
+        if (state != State.STOP && now - busyStartedAt > BUSY_WATCHDOG_TIMEOUT_MS) {
+            log("Busy watchdog recovered from state " + state, Level.WARN);
+            busyStartedAt = 0;
+            transition(State.RECOVER);
+        }
+        return true;
+    }
+
+    private boolean recoverTimedOutState()
+    {
+        if (state == State.STOP || state == State.WAIT_FOR_CAPTURE) {
+            return false;
+        }
+
+        if (timedOut(STATE_WATCHDOG_TIMEOUT_MS)) {
+            log("State watchdog recovered from " + state, Level.WARN);
+            transition(State.RECOVER);
+            return true;
+        }
+        return false;
     }
 
     private List<PitfallDefinition> configuredPits()
@@ -952,13 +1553,21 @@ public class PitfallHunterScript extends Script
     {
         state = next;
         stateStartedAt = System.currentTimeMillis();
+        busyStartedAt = 0;
         log("State -> " + state);
     }
 
     private void stop(String reason)
     {
+        lastFailure = reason;
+        recordDecision("Stopped: " + reason);
         log("Stopping: " + reason, Level.WARN);
         transition(State.STOP);
+    }
+
+    private void recordDecision(String decision)
+    {
+        lastDecision = decision == null ? "" : decision;
     }
 
     private void log(String message)
@@ -977,6 +1586,108 @@ public class PitfallHunterScript extends Script
         selectedPit = null;
         selectedNpc = null;
         super.shutdown();
+    }
+
+    public String getStateDisplay()
+    {
+        return state.name();
+    }
+
+    public long getStateAgeMillis()
+    {
+        return System.currentTimeMillis() - stateStartedAt;
+    }
+
+    public String getSelectedPitDisplay()
+    {
+        return selectedPit == null ? "None" : selectedPit.name;
+    }
+
+    public String getSelectedPitStateDisplay()
+    {
+        return selectedPitState.name();
+    }
+
+    public String getSelectedNpcDisplay()
+    {
+        if (selectedNpc == null) {
+            return "None";
+        }
+        return selectedNpc.getId() + " @ " + selectedNpc.getWorldLocation();
+    }
+
+    public String getSelectedNpcInteractionDisplay()
+    {
+        if (selectedNpc == null) {
+            return "None";
+        }
+        return "P->N " + isPlayerInteractingWithNpc(selectedNpc)
+                + " / N->P " + selectedNpc.isInteractingWithPlayer();
+    }
+
+    public String getLastLureEvidence()
+    {
+        return lastLureEvidence;
+    }
+
+    public String getLastNpcQuery()
+    {
+        return lastNpcQuery;
+    }
+
+    public String getLastPitQuery()
+    {
+        return lastPitQuery;
+    }
+
+    public String getSelectedItemDisplay()
+    {
+        if (!Rs2Inventory.isItemSelected()) {
+            return "None";
+        }
+        return Rs2Inventory.getSelectedItemName() + " (" + Rs2Inventory.getSelectedItemId() + ")";
+    }
+
+    public String getLastDecision()
+    {
+        return lastDecision;
+    }
+
+    public String getLastFailure()
+    {
+        return lastFailure;
+    }
+
+    public String getNextStepDisplay()
+    {
+        switch (state) {
+            case CHECK_REQUIREMENTS:
+                return "Check tools/logs";
+            case REFRESH_PITS:
+                return "Reset target state";
+            case SELECT_NPC:
+                return "Find nearest antelope";
+            case LURE_NPC:
+                return "Tease until lure evidence";
+            case SELECT_PIT:
+                return "Choose usable pit";
+            case PREPARE_PIT:
+                return "Trap pit with logs";
+            case JUMP_PIT:
+                return "Walk and jump pit";
+            case WAIT_FOR_CAPTURE:
+                return "Wait for collapse";
+            case LOOT_PIT:
+                return "Dismantle trap";
+            case HANDLE_MEAT_POUCH:
+                return "Store/drop/fletch loot";
+            case RECOVER:
+                return "Clear targets and retry";
+            case STOP:
+                return "Stopped";
+            default:
+                return "Unknown";
+        }
     }
 
     private enum State
@@ -1024,32 +1735,6 @@ public class PitfallHunterScript extends Script
             return footprint.get(0).getTile();
         }
 
-        private WorldPoint getLureTile()
-        {
-            if (lureTile != null) {
-                return lureTile;
-            }
-
-            WorldPoint anchor = getAnchorTile();
-            if (anchor == null) {
-                return null;
-            }
-
-            /*
-             * Best-effort defaults:
-             * - Antelopes are 2x2, so lure from two tiles behind the pre-jump tile.
-             * - For north/south pits, jump east/west: stand west, then jump east.
-             * - For west/east pits, jump north/south: stand south, then jump north.
-             *
-             * These should be replaced with exact per-pit tiles if any pit has blocked
-             * terrain or if the antelope pathing wedges on a corner.
-             */
-            if (jumpAxis == JumpAxis.EAST_WEST) {
-                return new WorldPoint(minX() - 3, centerY(), anchor.getPlane());
-            }
-            return new WorldPoint(centerX(), minY() - 3, anchor.getPlane());
-        }
-
         private WorldPoint getPreJumpTile()
         {
             if (preJumpTile != null) {
@@ -1082,6 +1767,67 @@ public class PitfallHunterScript extends Script
                 return new WorldPoint(maxX() + 1, centerY(), anchor.getPlane());
             }
             return new WorldPoint(centerX(), maxY() + 1, anchor.getPlane());
+        }
+
+        private JumpRoute getNearestJumpRoute(WorldPoint from)
+        {
+            WorldPoint firstSide = getPreJumpTile();
+            WorldPoint secondSide = getPostJumpTile();
+            if (firstSide == null || secondSide == null) {
+                return null;
+            }
+
+            if (from == null || firstSide.distanceTo(from) <= secondSide.distanceTo(from)) {
+                return new JumpRoute(firstSide, secondSide);
+            }
+            return new JumpRoute(secondSide, firstSide);
+        }
+
+        private int distanceTo(WorldPoint tile)
+        {
+            if (tile == null || footprint == null || footprint.isEmpty()) {
+                return Integer.MAX_VALUE;
+            }
+
+            return footprint.stream()
+                    .map(PitfallTile::getTile)
+                    .filter(Objects::nonNull)
+                    .mapToInt(footprintTile -> footprintTile.distanceTo(tile))
+                    .min()
+                    .orElse(Integer.MAX_VALUE);
+        }
+
+        private TrapSide getTrapSide(WorldPoint tile)
+        {
+            if (tile == null) {
+                return TrapSide.UNKNOWN;
+            }
+
+            if (jumpAxis == JumpAxis.EAST_WEST) {
+                if (tile.getX() < minX()) {
+                    return TrapSide.BEFORE;
+                }
+                if (tile.getX() > maxX()) {
+                    return TrapSide.AFTER;
+                }
+                return TrapSide.ON_TRAP;
+            }
+
+            if (tile.getY() < minY()) {
+                return TrapSide.BEFORE;
+            }
+            if (tile.getY() > maxY()) {
+                return TrapSide.AFTER;
+            }
+            return TrapSide.ON_TRAP;
+        }
+
+        private boolean hasCrossedTrap(WorldPoint from, WorldPoint to)
+        {
+            TrapSide fromSide = getTrapSide(from);
+            TrapSide toSide = getTrapSide(to);
+            return (fromSide == TrapSide.BEFORE && toSide == TrapSide.AFTER)
+                    || (fromSide == TrapSide.AFTER && toSide == TrapSide.BEFORE);
         }
 
         private int minX()
@@ -1143,6 +1889,20 @@ public class PitfallHunterScript extends Script
         private final WorldPoint tile;
     }
 
+    @RequiredArgsConstructor
+    private static class JumpRoute
+    {
+        private final WorldPoint from;
+        private final WorldPoint to;
+    }
+
+    @RequiredArgsConstructor
+    private static class PitfallObjectCandidate
+    {
+        private final PitfallDefinition pit;
+        private final Rs2TileObjectModel object;
+    }
+
     private enum PitOrientation
     {
         NORTH_SOUTH,
@@ -1153,6 +1913,22 @@ public class PitfallHunterScript extends Script
     {
         EAST_WEST,
         NORTH_SOUTH
+    }
+
+    private enum TrapSide
+    {
+        BEFORE,
+        AFTER,
+        ON_TRAP,
+        UNKNOWN
+    }
+
+    private enum LureEvidence
+    {
+        NONE,
+        NPC_TARGETS_PLAYER,
+        PLAYER_TARGETS_NPC,
+        NPC_MOVED_TOWARD_PLAYER
     }
 
     private interface Check

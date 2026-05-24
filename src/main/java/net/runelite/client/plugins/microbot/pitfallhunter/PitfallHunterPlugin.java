@@ -6,6 +6,7 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 
@@ -22,13 +23,19 @@ import javax.inject.Inject;
 @Slf4j
 public class PitfallHunterPlugin extends Plugin
 {
-    public static final String version = "0.1.12";
+    public static final String version = "0.1.38";
 
     @Inject
     private PitfallHunterConfig config;
 
     @Inject
     private PitfallHunterScript script;
+
+    @Inject
+    private OverlayManager overlayManager;
+
+    @Inject
+    private PitfallHunterOverlay overlay;
 
     @Provides
     PitfallHunterConfig provideConfig(ConfigManager configManager)
@@ -39,6 +46,9 @@ public class PitfallHunterPlugin extends Plugin
     @Override
     protected void startUp()
     {
+        if (overlayManager != null) {
+            overlayManager.add(overlay);
+        }
         script.run(config);
         log.info("[PitfallHunter] Started");
     }
@@ -47,6 +57,9 @@ public class PitfallHunterPlugin extends Plugin
     protected void shutDown()
     {
         script.shutdown();
+        if (overlayManager != null) {
+            overlayManager.remove(overlay);
+        }
         log.info("[PitfallHunter] Stopped");
     }
 }
