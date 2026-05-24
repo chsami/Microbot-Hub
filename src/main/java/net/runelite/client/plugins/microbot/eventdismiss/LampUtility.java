@@ -29,6 +29,7 @@ public class LampUtility {
         SKILL_WIDGET_MAP.put(Skill.RANGED, WIDGET_RANGED);
         SKILL_WIDGET_MAP.put(Skill.MAGIC, WIDGET_MAGIC);
         SKILL_WIDGET_MAP.put(Skill.DEFENCE, WIDGET_DEFENCE);
+        SKILL_WIDGET_MAP.put(Skill.SAILING, WIDGET_SAILING);
         SKILL_WIDGET_MAP.put(Skill.HITPOINTS, WIDGET_HITPOINTS);
         SKILL_WIDGET_MAP.put(Skill.PRAYER, WIDGET_PRAYER);
         SKILL_WIDGET_MAP.put(Skill.AGILITY, WIDGET_AGILITY);
@@ -81,7 +82,11 @@ public class LampUtility {
         Global.sleep(600, 1200);
 
         Rs2Widget.clickWidget(LAMP_WIDGET_GROUP, LAMP_CONFIRM_BUTTON);
-        Global.sleep(600, 1200);
+
+        if (!Global.sleepUntil(() -> !Rs2Inventory.contains(ItemID.LAMP), 3000)) {
+            log.warn("Lamp was not consumed after confirm");
+            return false;
+        }
 
         lampsUsed++;
         lastLampTime = System.currentTimeMillis();
