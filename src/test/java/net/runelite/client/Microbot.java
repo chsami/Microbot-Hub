@@ -15,6 +15,7 @@ import net.runelite.client.plugins.microbot.crafting.jewelry.JewelryPlugin;
 import net.runelite.client.plugins.microbot.example.ExamplePlugin;
 import net.runelite.client.plugins.microbot.kraken.KrakenPlugin;
 import net.runelite.client.plugins.microbot.leftclickcast.LeftClickCastPlugin;
+import net.runelite.client.plugins.microbot.pitfallhunter.PitfallHunterPlugin;
 import net.runelite.client.plugins.microbot.sailing.MSailingPlugin;
 import net.runelite.client.plugins.microbot.thieving.ThievingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
@@ -27,7 +28,8 @@ public class Microbot
 		AIOFighterPlugin.class,
 		AgentServerPlugin.class,
 		FornBirdhouseRunsPlugin.class,
-		GiantSeaweedFarmerPlugin.class
+		GiantSeaweedFarmerPlugin.class,
+		PitfallHunterPlugin.class
 	};
 
     public static void main(String[] args) throws Exception
