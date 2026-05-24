@@ -18,22 +18,23 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.events.PluginMessage;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class ArceuusLibraryScript extends Script
 {
     private static final int LIBRARY_REGION = 6459;
-    /** Tiles within which we trust the menu-invoke click to walk the player itself. */
-    private static final int IN_SCENE_REACH = 20;
     private static final int CUSTOMER_REACH = 2;
     private static final int BOOK_OF_ARCANE_KNOWLEDGE = ItemID.ARCEUUS_LIBRARY_REWARD;
     /**
@@ -43,13 +44,13 @@ public class ArceuusLibraryScript extends Script
      */
     private static final WorldPoint CUSTOMER_HUB = new WorldPoint(1627, 3801, 0);
     /**
-     * Section sweep tuning. The radius is a BFS-tile cap that keeps the sweep within
-     * one library wing — the wings are ~10–14 tiles across, so 14 lets us sweep the
-     * whole section we're standing in without straying into the next building. The
-     * per-round cap bounds the worst case where solver=INCOMPLETE keeps surfacing
-     * informative neighbours; 6 covers a typical wing pass with one wanted-fetch.
+     * Section sweep tuning. With state=COMPLETE only ~5 layout bookcases per plane have
+     * non-empty {@code possibleBooks}; radius 25 lets one same-plane sweep reach across
+     * two adjacent wings (each ~10–15 tiles), which is the granularity at which sibling
+     * candidates cluster. The per-round cap bounds the worst-case detour when
+     * solver=INCOMPLETE keeps surfacing informative neighbours.
      */
-    private static final int SECTION_SWEEP_RADIUS = 14;
+    private static final int SECTION_SWEEP_RADIUS = 25;
     private static final int SECTION_SWEEP_MAX_PER_ROUND = 6;
 
     private final KourendLibraryBridge bridge;
@@ -65,6 +66,17 @@ public class ArceuusLibraryScript extends Script
      * fetched. Reset on each successful delivery. Capped by {@link #SECTION_SWEEP_MAX_PER_ROUND}.
      */
     private volatile int sweepSearchesThisTrip = 0;
+    /**
+     * Sticky sweep target. Once {@link #trySectionSweep} commits to a candidate we keep
+     * walking toward it across ticks, even if the player crosses planes mid-walk and a
+     * fresh same-plane scan would return no candidates. Cleared on successful search,
+     * delivery, or when the candidate becomes invalid (already searched / book held).
+     * Without this the dispatcher silently abandons sweep mid-trip — observed in logs
+     * as {@code state=SECTION_SWEEP} ticks with zero matching {@code Searching bookcase}
+     * follow-ups, because the sweep returned false on a later tick (player on different
+     * plane than committed target) and {@code handleDeliver} re-routed to the customer.
+     */
+    private volatile WorldPoint pendingSweepTarget = null;
     /**
      * Customer IDs we've clicked "Help" on since the last time we made progress
      * (got a new request or handed off a held book). Used to round-robin when the
@@ -90,6 +102,7 @@ public class ArceuusLibraryScript extends Script
     public boolean run(ArceuusLibraryConfig config)
     {
         this.config = config;
+        restrictPathfinderToLocal();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(
                 this::tick, 0, 600, TimeUnit.MILLISECONDS);
         return true;
@@ -101,17 +114,22 @@ public class ArceuusLibraryScript extends Script
         try
         {
             tickCount++;
-            if (tickCount % 25 == 1)
+            boolean superRun = super.run();
+            boolean loggedIn = Microbot.isLoggedIn();
+            if (tickCount % 10 == 1)
             {
-                log.info("[hb] tick #{} state={} solver={} wanted={} customerLabel={}",
-                        tickCount, state, solverState, wantedBookLabel, currentCustomerLabel);
+                log.info("[hb] tick #{} state={} solver={} wanted={} customer={} super={} login={}",
+                        tickCount, state, solverState, wantedBookLabel, currentCustomerLabel,
+                        superRun, loggedIn);
             }
-            if (!super.run() || !Microbot.isLoggedIn()) return;
+            if (!superRun || !loggedIn) return;
 
             if (!bridge.isUpstreamRunning())
             {
+                log.info("[tick#{}] upstream not running, attempting enable", tickCount);
                 state = ArceuusLibraryState.UPSTREAM_DISABLED;
                 if (!bridge.ensureUpstreamEnabled()) return;
+                log.info("[tick#{}] upstream enabled successfully", tickCount);
             }
 
             // Always claim a pending reward before starting the next loop
@@ -129,16 +147,34 @@ public class ArceuusLibraryScript extends Script
             BookSnapshot held = wantedOpt.isPresent() ? null : findHeldLibraryBook();
             if (held != null) wantedBookLabel = held.getShortName() + " (held)";
 
+            if (tickCount % 10 == 1)
+            {
+                log.info("[tick#{}] solver={} wanted={} held={} custId={}",
+                        tickCount, solverState, wantedBookLabel,
+                        held != null ? held.getShortName() : "none",
+                        bridge.getCustomerId());
+            }
+
             // Anything except plain bookcase-fetch needs a customer in scene. If we'd
             // hit a customer-bound branch without one, walk to the hub first.
             boolean needsCustomer = wantedOpt.isPresent()
                     ? Rs2Inventory.hasItem(wantedOpt.get().getItemId())  // about to deliver
                     : held != null;                                      // resume with held book or cycle for a request
-            if (needsCustomer && !ensureCustomerReachableInvariant()) return;
+            if (needsCustomer && !ensureCustomerReachableInvariant())
+            {
+                log.info("[tick#{}] ensureCustomerReachable=false, yielding", tickCount);
+                return;
+            }
 
             if (!wantedOpt.isPresent())
             {
-                if (held != null) { talkToCustomer("held-book"); return; }
+                if (held != null)
+                {
+                    log.info("[tick#{}] branch=held-book → talkToCustomer", tickCount);
+                    talkToCustomer("held-book");
+                    return;
+                }
+                log.info("[tick#{}] branch=no-customer → talkToCustomer", tickCount);
                 talkToCustomer("no-customer");
                 return;
             }
@@ -146,19 +182,14 @@ public class ArceuusLibraryScript extends Script
             BookSnapshot wanted = wantedOpt.get();
             if (Rs2Inventory.hasItem(wanted.getItemId()))
             {
-                // Wanted book is in inventory. Before delivering, sweep nearby
-                // unsearched bookcases — narrows the solver and may stash books
-                // we don't already hold for future deliveries.
                 if (trySectionSweep()) return;
+                log.info("[tick#{}] branch=deliver {}", tickCount, wanted.getShortName());
                 handleDeliver(wanted);
                 return;
             }
 
-            // Fetch path. While solver is INCOMPLETE the wanted candidate may be
-            // far away with closer informative bookcases between us — sweep them
-            // first. Radius caps the detour; once nothing useful is in range, fall
-            // through to the long walk.
             if (trySectionSweep()) return;
+            log.info("[tick#{}] branch=fetch {}", tickCount, wanted.getShortName());
             handleFetch(wanted);
         }
         catch (Exception e)
@@ -184,7 +215,7 @@ public class ArceuusLibraryScript extends Script
      */
     private boolean ensureCustomerReachableInvariant()
     {
-        if (bridge.getCustomerId() != -1) return true;
+        if (bridge.getCustomerId() > 0) return true;
         if (findNearestCustomer() != null) return true;
         currentCustomerLabel = "(searching)";
         if (walkToCustomerHubIfFar()) return false;
@@ -244,9 +275,9 @@ public class ArceuusLibraryScript extends Script
                     return;
                 }
 
-                log.info("[{}] no candidate clickable; walking to {}'s roam {}",
+                log.info("[{}] no candidate clickable; walking toward {}'s roam {}",
                         reason, untried.getNpcName(), roam);
-                Rs2Walker.walkTo(roam, 4);
+                walkInBackground(roam);
                 return;
             }
             state = ArceuusLibraryState.IDLE;
@@ -261,33 +292,29 @@ public class ArceuusLibraryScript extends Script
 
         WorldPoint here = Rs2Player.getWorldLocation();
         if (here == null) return;
-        if (!isInWalkingReach(here, customerLoc))
+        if (here.getPlane() != customerLoc.getPlane()
+                || !isWalkReachable(here, customerLoc))
         {
-            // Out of scene or behind walls — let Rs2Walker route via stairs/transports.
-            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
             log.info("[{}] walking to {} at {}", reason, customer.getName(), customerLoc);
-            Rs2Walker.walkTo(customerLoc, CUSTOMER_REACH);
+            walkInBackground(customerLoc);
             return;
         }
 
-        // In scene reach. Take over from Rs2Walker — click("Help") will auto-walk
-        // the remaining tiles, faster than Rs2Walker's final approach.
-        Rs2Walker.setTarget(null);
-
-        // Don't re-click during click-auto-walk or any animation.
-        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+        // Same plane and reachable — cancel walker and interact immediately.
+        cancelBackgroundWalk();
 
         log.info("[{}] helping {} at {}", reason, customer.getName(), customerLoc);
         Rs2Npc.hoverOverActor(customer.getNpc());
         if (customer.click("Help"))
         {
-            sleepUntil(Rs2Dialogue::isInDialogue, 4_000);
+            sleepUntil(Rs2Dialogue::isInDialogue, 10_000);
             int booksHeldBefore = countLibraryBooksHeld();
             advanceDialogue();
             boolean gotRequest = bridge.getCustomerBook().isPresent();
             boolean gaveBook = countLibraryBooksHeld() < booksHeldBefore;
             if (gotRequest || gaveBook)
             {
+                lastDeliveredCustomerId = customer.getId();
                 recentlyAttempted.clear();
             }
             else
@@ -333,9 +360,8 @@ public class ArceuusLibraryScript extends Script
     private boolean walkToCustomerHubIfFar()
     {
         if (Rs2Player.isMoving()) return true;
-        log.info("No customer in scene; walking to ground-floor hub {} from {}",
-                CUSTOMER_HUB, Rs2Player.getWorldLocation());
-        Rs2Walker.walkTo(CUSTOMER_HUB, 5);
+        log.info("No customer in scene; walking to ground-floor hub from {}", Rs2Player.getWorldLocation());
+        walkInBackground(CUSTOMER_HUB);
         return true;
     }
 
@@ -383,29 +409,30 @@ public class ArceuusLibraryScript extends Script
         BookcaseSnapshot target = candidates.get(0);
         WorldPoint loc = target.getLocation();
 
-        if (!isInWalkingReach(here, loc))
+        if (here.getPlane() == loc.getPlane()
+                && Rs2GameObject.findObjectByLocation(loc) != null
+                && isWalkReachable(here, loc))
         {
-            // Out of scene or behind walls — let Rs2Walker route via stairs/transports.
-            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+            cancelBackgroundWalk();
+            state = ArceuusLibraryState.SEARCH_BOOKCASE;
+            searchBookcase(loc, wanted);
+            return;
+        }
+
+        // Not yet interactable (different plane, not in scene, or same plane but
+        // blocked by walls/rooms) — Rs2Walker navigates on a background thread.
+        // Re-issue if the previous walk completed without arriving (e.g. stuck/failed).
+        if (state != ArceuusLibraryState.WALK_TO_BOOKCASE
+                || (backgroundWalk != null && backgroundWalk.isDone()))
+        {
             if (state != ArceuusLibraryState.WALK_TO_BOOKCASE)
             {
                 log.info("Walking to bookcase {} (plane {}); {}/{} candidates, solver={}",
                         loc, loc.getPlane(), candidates.size(), bridge.getBookcases().size(), solverState);
             }
             state = ArceuusLibraryState.WALK_TO_BOOKCASE;
-            Rs2Walker.walkTo(loc, 5);
-            return;
+            walkInBackground(loc);
         }
-
-        // In scene reach. Take over from Rs2Walker — its final approach is slow,
-        // and the menu-invoke from interact() will auto-walk the remaining tiles.
-        Rs2Walker.setTarget(null);
-
-        // Don't re-click during menu-invoke auto-walk or the search animation.
-        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
-
-        state = ArceuusLibraryState.SEARCH_BOOKCASE;
-        searchBookcase(loc, wanted);
     }
 
     @SuppressWarnings("deprecation")
@@ -425,8 +452,7 @@ public class ArceuusLibraryScript extends Script
         // it stays true for the whole layout — on a re-visit (modal-dismiss click,
         // or stale-state re-search) the condition is true at entry and we'd exit
         // before the animation even started, producing spam-clicks.
-        sleepUntil(Rs2Player::isAnimating, 1_500);
-        sleepUntil(() -> Rs2Inventory.hasItem(wanted.getItemId()) || !Rs2Player.isAnimating(), 5_000);
+        sleepUntil(() -> isBookcaseSearched(loc), 10_000);
     }
 
     private boolean isBookcaseSearched(WorldPoint loc)
@@ -496,6 +522,13 @@ public class ArceuusLibraryScript extends Script
     private void sortByReachableDistance(List<BookcaseSnapshot> list, WorldPoint here)
     {
         Map<WorldPoint, Integer> reachable = Rs2Tile.getReachableTilesFromTile(here, 60);
+        if (reachable == null || reachable.isEmpty())
+        {
+            list.sort(Comparator
+                    .comparingInt((BookcaseSnapshot b) -> b.getLocation().getPlane() == here.getPlane() ? 0 : 1)
+                    .thenComparingInt(b -> b.getLocation().distanceTo(here)));
+            return;
+        }
         list.sort(Comparator
                 .comparingInt((BookcaseSnapshot b) -> b.getLocation().getPlane() == here.getPlane() ? 0 : 1)
                 .thenComparingInt(b -> nearestReachableNeighborDist(b.getLocation(), reachable))
@@ -511,27 +544,6 @@ public class ArceuusLibraryScript extends Script
         if ((d = reachable.get(bookcase.dy(1))) != null) min = Math.min(min, d);
         if ((d = reachable.get(bookcase.dy(-1))) != null) min = Math.min(min, d);
         return min;
-    }
-
-    /**
-     * Walking-reachable gate. Same plane and either {@code loc} itself or one of its
-     * cardinal neighbours sits within {@link #IN_SCENE_REACH} BFS tiles of the player.
-     *
-     * Replaces a {@link WorldPoint#distanceTo}-based gate that produced false positives:
-     * Chebyshev measures straight-line tile distance and ignores walls, so a bookcase 18
-     * tiles away on the same upstairs plane can read "in scene" while the actual walking
-     * route requires going down stairs, across, and back up. The BFS uses the local
-     * collision map, so walls are honoured. Bookcases are walls themselves — we test the
-     * standing tile (a cardinal neighbour) — while NPC tiles are walkable so the direct
-     * lookup catches them.
-     */
-    private boolean isInWalkingReach(WorldPoint here, WorldPoint loc)
-    {
-        if (here == null || loc == null) return false;
-        if (here.getPlane() != loc.getPlane()) return false;
-        Map<WorldPoint, Integer> reachable = Rs2Tile.getReachableTilesFromTile(here, IN_SCENE_REACH);
-        if (reachable.containsKey(loc)) return true;
-        return nearestReachableNeighborDist(loc, reachable) <= IN_SCENE_REACH;
     }
 
     /* --------------- SECTION SWEEP ------------------ */
@@ -555,7 +567,7 @@ public class ArceuusLibraryScript extends Script
         WorldPoint here = Rs2Player.getWorldLocation();
         if (here == null) return false;
 
-        BookcaseSnapshot best = nearestInformativeOnSamePlane(here, SECTION_SWEEP_RADIUS);
+        BookcaseSnapshot best = resolveSweepTarget(here);
         if (best == null) return false;
 
         // Representative book for the search-completion wait predicate. For multi-
@@ -563,6 +575,7 @@ public class ArceuusLibraryScript extends Script
         // searchBookcase() handles a wrong guess correctly.
         BookSnapshot expected = best.getPossible().iterator().next();
         WorldPoint loc = best.getLocation();
+        pendingSweepTarget = loc;
 
         if (Rs2Dialogue.isInDialogue())
         {
@@ -570,31 +583,71 @@ public class ArceuusLibraryScript extends Script
             return true;
         }
 
-        if (!isInWalkingReach(here, loc))
+        if (here.getPlane() == loc.getPlane()
+                && Rs2GameObject.findObjectByLocation(loc) != null
+                && isWalkReachable(here, loc))
         {
-            // Out of scene or behind walls — let Rs2Walker route via stairs/transports.
-            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return true;
-            if (state != ArceuusLibraryState.SECTION_SWEEP)
-            {
-                log.info("Sweep: walking to {} (possible={}); {}/{}",
-                        loc, best.getPossible().size(),
-                        sweepSearchesThisTrip + 1, SECTION_SWEEP_MAX_PER_ROUND);
-            }
+            cancelBackgroundWalk();
             state = ArceuusLibraryState.SECTION_SWEEP;
-            Rs2Walker.walkTo(loc, 5);
+            log.info("Sweep: searching {} ({}/{}) for {}",
+                    loc, sweepSearchesThisTrip + 1, SECTION_SWEEP_MAX_PER_ROUND, expected.getShortName());
+            searchBookcase(loc, expected);
+            sweepSearchesThisTrip++;
+            pendingSweepTarget = null;
             return true;
         }
 
-        // In scene reach. Take over from Rs2Walker — its final approach is slow,
-        // and the menu-invoke from interact() will auto-walk the remaining tiles.
-        Rs2Walker.setTarget(null);
+        // Not yet interactable — Rs2Walker navigates on a background thread.
+        if (state != ArceuusLibraryState.SECTION_SWEEP
+                || (backgroundWalk != null && backgroundWalk.isDone()))
+        {
+            if (state != ArceuusLibraryState.SECTION_SWEEP)
+            {
+                log.info("Sweep: walking to {} on plane {} (possible={}); {}/{}",
+                        loc, loc.getPlane(), best.getPossible().size(),
+                        sweepSearchesThisTrip + 1, SECTION_SWEEP_MAX_PER_ROUND);
+            }
+            state = ArceuusLibraryState.SECTION_SWEEP;
+            walkInBackground(loc);
+        }
+        return true;
+    }
 
-        // Don't re-click during menu-invoke auto-walk or the search animation.
-        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return true;
+    /**
+     * Stick with {@link #pendingSweepTarget} while it remains useful so a single fetch
+     * trip commits to one detour bookcase even if the player crosses planes mid-walk.
+     * If the pending target was searched / its book is now held / it was ruled out,
+     * fall back to a fresh nearest-on-same-plane scan.
+     */
+    private BookcaseSnapshot resolveSweepTarget(WorldPoint here)
+    {
+        if (pendingSweepTarget != null)
+        {
+            BookcaseSnapshot pending = bookcaseAt(pendingSweepTarget);
+            if (pending != null && isUsefulSweepCandidate(pending))
+            {
+                return pending;
+            }
+            pendingSweepTarget = null;
+        }
+        return nearestInformativeOnSamePlane(here, SECTION_SWEEP_RADIUS);
+    }
 
-        state = ArceuusLibraryState.SECTION_SWEEP;
-        searchBookcase(loc, expected);
-        sweepSearchesThisTrip++;
+    private BookcaseSnapshot bookcaseAt(WorldPoint loc)
+    {
+        for (BookcaseSnapshot bc : bridge.getBookcases())
+        {
+            if (loc.equals(bc.getLocation())) return bc;
+        }
+        return null;
+    }
+
+    private boolean isUsefulSweepCandidate(BookcaseSnapshot bc)
+    {
+        if (bc.isBookSet()) return false;
+        if (bc.getPossible().isEmpty()) return false;
+        if (bc.getPossible().size() == 1
+                && holdsBook(bc.getPossible().iterator().next())) return false;
         return true;
     }
 
@@ -614,15 +667,13 @@ public class ArceuusLibraryScript extends Script
     private BookcaseSnapshot nearestInformativeOnSamePlane(WorldPoint here, int radius)
     {
         Map<WorldPoint, Integer> reachable = Rs2Tile.getReachableTilesFromTile(here, radius);
+        if (reachable == null || reachable.isEmpty()) return null;
         BookcaseSnapshot best = null;
         int bestDist = Integer.MAX_VALUE;
         for (BookcaseSnapshot bc : bridge.getBookcases())
         {
-            if (bc.isBookSet()) continue;
-            if (bc.getPossible().isEmpty()) continue;
+            if (!isUsefulSweepCandidate(bc)) continue;
             if (bc.getLocation().getPlane() != here.getPlane()) continue;
-            if (bc.getPossible().size() == 1
-                    && holdsBook(bc.getPossible().iterator().next())) continue;
             int d = nearestReachableNeighborDist(bc.getLocation(), reachable);
             if (d == Integer.MAX_VALUE || d > radius) continue;
             if (d < bestDist)
@@ -650,32 +701,23 @@ public class ArceuusLibraryScript extends Script
         // (e.g. Gracklebone) when the actual active one (e.g. Sam) is briefly out of
         // the NPC cache, and we'd walk to and click the wrong NPC.
         int activeId = bridge.getCustomerId();
-        Rs2NpcModel customer = activeId != -1
+        Rs2NpcModel customer = activeId > 0
                 ? Microbot.getRs2NpcCache().query().withId(activeId).nearestOnClientThread()
                 : findCustomerNotAdjacent();
         if (customer == null)
         {
-            // Active customer isn't reachable in cache — walk to their roam tile to
-            // bring them into scene. Don't deliver to anyone else.
+            // Active customer isn't in cache — walk toward their roam tile (non-blocking)
+            // to bring them into scene. Don't deliver to anyone else.
             Customer target = activeId != -1 ? Customer.byId(activeId) : null;
             if (target != null)
             {
                 currentCustomerLabel = target.getNpcName() + " (loading)";
                 if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
-                // If we're already standing at the roam tile and the cache still misses,
-                // re-issuing the same walkTo is a no-op (walker reports ARRIVED). Bounce
-                // to the customer hub instead — actually moving the player refreshes the
-                // scene/NPC cache, and from the hub we'll bounce back to roam next tick.
                 WorldPoint here = Rs2Player.getWorldLocation();
                 WorldPoint roam = target.getRoamCenter();
-                WorldPoint dest = (here != null
-                        && here.getPlane() == roam.getPlane()
-                        && here.distanceTo(roam) <= 4)
-                        ? CUSTOMER_HUB
-                        : roam;
-                log.info("Active customer {} not in cache (at {}); walking to {}",
-                        target.getNpcName(), here, dest);
-                Rs2Walker.walkTo(dest, 4);
+                log.info("Active customer {} not in cache; walking toward {}",
+                        target.getNpcName(), roam);
+                walkInBackground(roam);
             }
             else
             {
@@ -689,22 +731,16 @@ public class ArceuusLibraryScript extends Script
 
         WorldPoint here = Rs2Player.getWorldLocation();
         if (here == null) return;
-        if (!isInWalkingReach(here, customerLoc))
+        if (here.getPlane() != customerLoc.getPlane()
+                || !isWalkReachable(here, customerLoc))
         {
-            // Out of scene or behind walls — let Rs2Walker route via stairs/transports.
-            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
             log.info("Walking to deliver to {} at {}", customer.getName(), customerLoc);
-            Rs2Walker.walkTo(customerLoc, CUSTOMER_REACH);
+            walkInBackground(customerLoc);
             return;
         }
 
-        // In scene reach. Take over from Rs2Walker — its final approach is slow;
-        // click("Help") will auto-walk the remaining tiles.
-        Rs2Walker.setTarget(null);
-
-        // Don't re-click during click-auto-walk or any animation (read anim for
-        // Soul Journey, walking to NPC, etc.).
-        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+        // Same plane and reachable — cancel walker and interact immediately.
+        cancelBackgroundWalk();
 
         if (config.readSoulJourney() && "SOUL_JOURNEY".equals(wanted.getEnumName()))
         {
@@ -732,6 +768,7 @@ public class ArceuusLibraryScript extends Script
                 delivered++;
                 lastDeliveredCustomerId = customer.getId();
                 sweepSearchesThisTrip = 0;
+                pendingSweepTarget = null;
                 recentlyAttempted.clear();
                 state = ArceuusLibraryState.IDLE;
             }
@@ -784,7 +821,7 @@ public class ArceuusLibraryScript extends Script
     private Rs2NpcModel findActiveCustomer()
     {
         int id = bridge.getCustomerId();
-        if (id != -1)
+        if (id > 0)
         {
             Rs2NpcModel npc = Microbot.getRs2NpcCache().query()
                     .withId(id)
@@ -851,6 +888,47 @@ public class ArceuusLibraryScript extends Script
                 .orElse(null);
     }
 
+    /**
+     * BFS reachability check: can the player walk from {@code from} to a cardinal
+     * neighbor of {@code target} without crossing planes or using transports?
+     * Returns false when the target is in scene but in a different room (common in
+     * the multi-staircase Arceuus Library upper floors).
+     */
+    private boolean isWalkReachable(WorldPoint from, WorldPoint target)
+    {
+        if (from.getPlane() != target.getPlane()) return false;
+        int dist = from.distanceTo(target);
+        Map<WorldPoint, Integer> reachable = Rs2Tile.getReachableTilesFromTile(from, Math.max(dist + 5, 30));
+        if (reachable == null || reachable.isEmpty()) return false;
+        return nearestReachableNeighborDist(target, reachable) < Integer.MAX_VALUE;
+    }
+
+    private volatile CompletableFuture<Void> backgroundWalk = null;
+
+    private void walkInBackground(WorldPoint target)
+    {
+        if (backgroundWalk != null && !backgroundWalk.isDone()) return;
+        log.info("[walk] starting background walk to {}", target);
+        backgroundWalk = CompletableFuture.runAsync(() -> {
+            try
+            {
+                Rs2Walker.walkTo(target, 2);
+            }
+            catch (Exception e)
+            {
+                log.warn("[walk] background walk to {} failed: {}", target, e.getMessage());
+            }
+        });
+    }
+
+    private void cancelBackgroundWalk()
+    {
+        Rs2Walker.setTarget(null);
+        if (backgroundWalk != null) backgroundWalk.cancel(true);
+        backgroundWalk = null;
+    }
+
+
     private void ensureInsideLibrary()
     {
         WorldPoint here = Rs2Player.getWorldLocation();
@@ -880,10 +958,48 @@ public class ArceuusLibraryScript extends Script
                 .count();
     }
 
+    /**
+     * Disable all teleports/transports in the pathfinder so it only searches
+     * local walking + staircase routes. Cuts pathfinding from ~1.5s / 2M nodes
+     * to near-instant for intra-library walks.
+     */
+    private void restrictPathfinderToLocal()
+    {
+        Map<String, Object> overrides = new HashMap<>();
+        overrides.put("useTeleportationSpells", false);
+        overrides.put("useTeleportationItems", "NONE");
+        overrides.put("useTeleportationMinigames", false);
+        overrides.put("useTeleportationPortals", false);
+        overrides.put("useTeleportationLevers", false);
+        overrides.put("useFairyRings", false);
+        overrides.put("useGnomeGliders", false);
+        overrides.put("useSpiritTrees", false);
+        overrides.put("useBoats", false);
+        overrides.put("useCanoes", false);
+        overrides.put("useCharterShips", false);
+        overrides.put("useShips", false);
+        overrides.put("useMagicCarpets", false);
+        overrides.put("useWildernessObelisks", false);
+        overrides.put("useMinecarts", false);
+        overrides.put("useQuetzals", false);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("config", overrides);
+        Microbot.getEventBus().post(new PluginMessage("shortestpath", "path", data));
+        log.info("Pathfinder restricted to local routes (no teleports/transports)");
+    }
+
+    private void clearPathfinderRestrictions()
+    {
+        Microbot.getEventBus().post(new PluginMessage("shortestpath", "clear"));
+        log.info("Pathfinder restrictions cleared");
+    }
+
     @Override
     public void shutdown()
     {
         super.shutdown();
+        clearPathfinderRestrictions();
         state = ArceuusLibraryState.IDLE;
     }
 }

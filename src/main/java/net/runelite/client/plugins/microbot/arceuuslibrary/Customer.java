@@ -14,8 +14,8 @@ import net.runelite.api.coords.WorldPoint;
  */
 public enum Customer
 {
-    VILLIA("Villia", 7047, new WorldPoint(1644, 3812, 0)),
-    GRACKLEBONE("Professor Gracklebone", 7048, new WorldPoint(1627, 3801, 0)),
+    VILLIA("Villia", 7047, new WorldPoint(1625, 3815, 0)),
+    GRACKLEBONE("Professor Gracklebone", 7048, new WorldPoint(1625, 3800, 0)),
     SAM("Sam", 7049, new WorldPoint(1638, 3800, 0));
 
     private final String npcName;
