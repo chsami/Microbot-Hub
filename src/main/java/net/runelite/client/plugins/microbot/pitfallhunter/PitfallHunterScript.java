@@ -87,6 +87,9 @@ public class PitfallHunterScript extends Script
     private static final int BUSY_WATCHDOG_TIMEOUT_MS = 15000;
     private static final int STATE_WATCHDOG_TIMEOUT_MS = 30000;
     private static final int CAPTURE_TIMEOUT_MIN_MS = 12000;
+    private static final int CAPTURE_REJUMP_DELAY_MS = 3000;
+    private static final int CAPTURE_REJUMP_MAX_ATTEMPTS = 3;
+    private static final int DISMANTLE_OBJECT_APPEAR_TIMEOUT_MS = 5000;
     private static final int PREPARE_TRAP_TIMEOUT_MS = 6500;
     private static final int JUMP_OBJECT_APPEAR_TIMEOUT_MS = 3500;
     private static final int WALK_TIMEOUT_MS = 5000;
@@ -213,6 +216,8 @@ public class PitfallHunterScript extends Script
     private long busyStartedAt;
     private long captureDetectedAt;
     private long captureLootReadyAt;
+    private long lastCaptureJumpAt;
+    private int captureRejumpAttempts;
     private JumpRoute activeJumpRoute;
     private WorldPoint npcJumpStartTile;
     private WorldPoint npcLastTrackedTile;
@@ -345,6 +350,8 @@ public class PitfallHunterScript extends Script
         selectedNpc = null;
         captureDetectedAt = 0;
         captureLootReadyAt = 0;
+        lastCaptureJumpAt = 0;
+        captureRejumpAttempts = 0;
         resetNpcJumpTracking();
         resetLureTracking();
         skippedTrappedPits.clear();
@@ -503,6 +510,8 @@ public class PitfallHunterScript extends Script
 
         captureDetectedAt = 0;
         captureLootReadyAt = 0;
+        lastCaptureJumpAt = System.currentTimeMillis();
+        captureRejumpAttempts = 0;
         recordDecision("Waiting for capture");
         transition(State.WAIT_FOR_CAPTURE);
     }
@@ -519,10 +528,22 @@ public class PitfallHunterScript extends Script
             markCaptureDetected("NPC graphic " + getSelectedNpcCaptureGraphic());
         }
 
+        if (captureDetectedAt == 0 && retryJumpIfStillTrapped()) {
+            return;
+        }
+
         if (captureDetectedAt > 0) {
             long remainingDelay = captureLootReadyAt - System.currentTimeMillis();
             if (remainingDelay > 0) {
                 recordDecision("Loot delay " + remainingDelay + "ms");
+                return;
+            }
+
+            Rs2TileObjectModel lootObject = waitForPitObject(selectedPit, DISMANTLE_TRAP_ACTION, DISMANTLE_OBJECT_APPEAR_TIMEOUT_MS);
+            if (lootObject == null) {
+                captureLootReadyAt = System.currentTimeMillis() + 1000;
+                recordDecision("Waiting for Dismantle");
+                log("Capture delay elapsed but Dismantle is not available yet", Level.WARN);
                 return;
             }
 
@@ -569,6 +590,40 @@ public class PitfallHunterScript extends Script
         captureLootReadyAt = captureDetectedAt + delay;
         log("Capture detected by " + evidence + "; loot ready in " + delay + "ms");
         recordDecision("Waiting before loot");
+    }
+
+    private boolean retryJumpIfStillTrapped()
+    {
+        if (captureRejumpAttempts >= CAPTURE_REJUMP_MAX_ATTEMPTS) {
+            return false;
+        }
+
+        long now = System.currentTimeMillis();
+        long lastJumpAt = lastCaptureJumpAt == 0 ? stateStartedAt : lastCaptureJumpAt;
+        if (now - lastJumpAt < CAPTURE_REJUMP_DELAY_MS) {
+            return false;
+        }
+
+        Rs2TileObjectModel pitObject = getPitObject(selectedPit, JUMP_PIT_ACTION);
+        if (pitObject == null) {
+            PitfallObjectCandidate jumpCandidate = findNearestPitObjectCandidate(JUMP_PIT_ACTION, 25);
+            if (jumpCandidate == null) {
+                return false;
+            }
+            selectedPit = jumpCandidate.pit;
+            selectedPitState = PitfallState.TRAPPED;
+            lastPitQuery = formatPitCandidate("Retry jump", jumpCandidate, null);
+            pitObject = jumpCandidate.object;
+        }
+
+        captureRejumpAttempts++;
+        lastCaptureJumpAt = now;
+        stateStartedAt = now;
+        recordDecision("Retrying Jump " + captureRejumpAttempts);
+        log("Capture wait still has Jump option; retrying jump attempt " + captureRejumpAttempts, Level.WARN);
+        boolean clicked = clickPitObject(pitObject, JUMP_PIT_ACTION);
+        log("Capture retry jump result: " + clicked);
+        return clicked;
     }
 
     private int getCaptureTimeoutMs()
@@ -626,7 +681,7 @@ public class PitfallHunterScript extends Script
 
     private void lootPit()
     {
-        Rs2TileObjectModel pitObject = getPitObject(selectedPit, DISMANTLE_TRAP_ACTION);
+        Rs2TileObjectModel pitObject = waitForPitObject(selectedPit, DISMANTLE_TRAP_ACTION, DISMANTLE_OBJECT_APPEAR_TIMEOUT_MS);
         if (pitObject == null) {
             log("Loot failed: pit object missing", Level.WARN);
             transition(State.RECOVER);
@@ -692,6 +747,8 @@ public class PitfallHunterScript extends Script
         selectedPitState = PitfallState.UNKNOWN;
         captureDetectedAt = 0;
         captureLootReadyAt = 0;
+        lastCaptureJumpAt = 0;
+        captureRejumpAttempts = 0;
         resetNpcJumpTracking();
         resetLureTracking();
         sleep(600, 1000);
@@ -1613,7 +1670,7 @@ public class PitfallHunterScript extends Script
         if (selectedNpc == null) {
             return "None";
         }
-        return selectedNpc.getId() + " @ " + selectedNpc.getWorldLocation();
+        return Integer.toString(selectedNpc.getId());
     }
 
     public String getSelectedNpcInteractionDisplay()
@@ -1637,7 +1694,12 @@ public class PitfallHunterScript extends Script
 
     public String getLastPitQuery()
     {
-        return lastPitQuery;
+        if (lastPitQuery == null) {
+            return "";
+        }
+
+        int tileMarker = lastPitQuery.indexOf(" @ ");
+        return tileMarker < 0 ? lastPitQuery : lastPitQuery.substring(0, tileMarker);
     }
 
     public String getSelectedItemDisplay()
