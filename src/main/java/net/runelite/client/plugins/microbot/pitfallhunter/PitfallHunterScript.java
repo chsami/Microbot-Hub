@@ -46,7 +46,7 @@ public class PitfallHunterScript extends Script
      *   top-right 51688 at 1745,3011,0; bottom-right 51689 at 1745,3010,0.
      * - Inventory: Teasing stick id 10029, Logs id 1511, Willow logs id 1519,
      *   Large meat pouch closed id 29297, Large meat pouch open id 29464
-     * - Nearby local trees: Tree ids 51762/51764, Acacia tree id 51768
+     * - Nearby local trees: Tree ids 51762/51764
      *
      * Still TODO verify:
      * - which pit object IDs represent empty, trapped, or collapsed states
@@ -70,7 +70,7 @@ public class PitfallHunterScript extends Script
     private static final int TEASING_STICK_ITEM_ID = 10029;
     private static final int LARGE_MEAT_POUCH_CLOSED_ID = 29297;
     private static final int LARGE_MEAT_POUCH_OPEN_ID = 29464;
-    private static final int[] LOCAL_TREE_IDS = {51762, 51764, 51768};
+    private static final int[] LOCAL_TREE_IDS = {51762, 51764};
 
     private static final String SUNLIGHT_ANTELOPE_NAME = "Sunlight antelope";
     private static final String PIT_OBJECT_NAME = "Pit";
@@ -87,7 +87,9 @@ public class PitfallHunterScript extends Script
     private static final int BUSY_WATCHDOG_TIMEOUT_MS = 15000;
     private static final int STATE_WATCHDOG_TIMEOUT_MS = 30000;
     private static final int CAPTURE_TIMEOUT_MIN_MS = 12000;
-    private static final int CAPTURE_REJUMP_DELAY_MS = 3000;
+    private static final int CAPTURE_REJUMP_DELAY_MS = 3200;
+    private static final int CAPTURE_REJUMP_EXTRA_DELAY_MIN_MS = 400;
+    private static final int CAPTURE_REJUMP_EXTRA_DELAY_MAX_MS = 600;
     private static final int CAPTURE_REJUMP_MAX_ATTEMPTS = 3;
     private static final int DISMANTLE_OBJECT_APPEAR_TIMEOUT_MS = 5000;
     private static final int PREPARE_TRAP_TIMEOUT_MS = 6500;
@@ -98,7 +100,7 @@ public class PitfallHunterScript extends Script
     private static final int[] CAPTURE_DEATH_GRAPHIC_IDS = {993};
     private static final int CAPTURE_LOOT_DELAY_MIN_MS = 2500;
     private static final int CAPTURE_LOOT_DELAY_MAX_MS = 3000;
-    private static final int FLETCH_ANTLERS_CHANCE_PERCENT = 50;
+    private static final int FLETCH_ANTLERS_CHANCE_PERCENT = 40;
     private static final String LOG_NAME = "Logs";
     private static final String WILLOW_LOG_NAME = "Willow logs";
     private static final String[] LOG_ITEM_NAMES = {LOG_NAME, WILLOW_LOG_NAME, "Oak logs"};
@@ -108,7 +110,8 @@ public class PitfallHunterScript extends Script
     private static final String SUNLIGHT_ANTELOPE_ANTLER_NAME = "Sunlight antelope antler";
     private static final String[] SUNLIGHT_ANTELOPE_DROP_ITEM_NAMES = {
             "Sunlight antelope",
-            "Sunlight antelope meat"
+            "Sunlight antelope meat",
+            "Sunlight antelope fur"
     };
     private static final String TEASING_STICK_NAME = "Teasing stick";
     private static final String KANDARIN_HEADGEAR_NAME = "Kandarin headgear";
@@ -217,6 +220,7 @@ public class PitfallHunterScript extends Script
     private long captureDetectedAt;
     private long captureLootReadyAt;
     private long lastCaptureJumpAt;
+    private int captureRejumpDelayMs = CAPTURE_REJUMP_DELAY_MS;
     private int captureRejumpAttempts;
     private JumpRoute activeJumpRoute;
     private WorldPoint npcJumpStartTile;
@@ -322,12 +326,23 @@ public class PitfallHunterScript extends Script
         log("Kandarin headgear available: " + kandarinHeadgearAvailable);
         log("Meat pouch available: " + meatPouchAvailable);
 
-        if (!hasLogs()) {
-            if (kandarinHeadgearAvailable && cutLogsLocally()) {
+        if (!hasLogs() || shouldPrepareMoreLogs()) {
+            recordDecision("Preparing logs " + logCount() + "/" + targetPreparedLogs());
+            boolean prepared = cutLogsLocally();
+            if (prepared) {
                 return;
             }
-            stop("No verified log type available");
-            return;
+            if (shouldPrepareMoreLogs()) {
+                return;
+            }
+            if (hasLogs()) {
+                return;
+            }
+
+            if (!hasLogs()) {
+                stop("No verified log type available");
+                return;
+            }
         }
 
         if (!hasKnife()) {
@@ -351,6 +366,7 @@ public class PitfallHunterScript extends Script
         captureDetectedAt = 0;
         captureLootReadyAt = 0;
         lastCaptureJumpAt = 0;
+        captureRejumpDelayMs = CAPTURE_REJUMP_DELAY_MS;
         captureRejumpAttempts = 0;
         resetNpcJumpTracking();
         resetLureTracking();
@@ -375,10 +391,9 @@ public class PitfallHunterScript extends Script
         }
 
         if (!hasLogs()) {
-            if (kandarinHeadgearAvailable && cutLogsLocally()) {
-                return;
-            }
-            stop("No logs available");
+            kandarinHeadgearAvailable = hasKandarinHeadgear();
+            recordDecision("Out of logs; returning to log preparation");
+            transition(State.CHECK_REQUIREMENTS);
             return;
         }
 
@@ -511,6 +526,7 @@ public class PitfallHunterScript extends Script
         captureDetectedAt = 0;
         captureLootReadyAt = 0;
         lastCaptureJumpAt = System.currentTimeMillis();
+        scheduleNextCaptureRejumpDelay();
         captureRejumpAttempts = 0;
         recordDecision("Waiting for capture");
         transition(State.WAIT_FOR_CAPTURE);
@@ -600,7 +616,7 @@ public class PitfallHunterScript extends Script
 
         long now = System.currentTimeMillis();
         long lastJumpAt = lastCaptureJumpAt == 0 ? stateStartedAt : lastCaptureJumpAt;
-        if (now - lastJumpAt < CAPTURE_REJUMP_DELAY_MS) {
+        if (now - lastJumpAt < captureRejumpDelayMs) {
             return false;
         }
 
@@ -618,12 +634,20 @@ public class PitfallHunterScript extends Script
 
         captureRejumpAttempts++;
         lastCaptureJumpAt = now;
+        scheduleNextCaptureRejumpDelay();
         stateStartedAt = now;
         recordDecision("Retrying Jump " + captureRejumpAttempts);
-        log("Capture wait still has Jump option; retrying jump attempt " + captureRejumpAttempts, Level.WARN);
+        log("Capture wait still has Jump option; retrying jump attempt " + captureRejumpAttempts
+                + "; next retry delay=" + captureRejumpDelayMs + "ms", Level.WARN);
         boolean clicked = clickPitObject(pitObject, JUMP_PIT_ACTION);
         log("Capture retry jump result: " + clicked);
         return clicked;
+    }
+
+    private void scheduleNextCaptureRejumpDelay()
+    {
+        captureRejumpDelayMs = CAPTURE_REJUMP_DELAY_MS + ThreadLocalRandom.current()
+                .nextInt(CAPTURE_REJUMP_EXTRA_DELAY_MIN_MS, CAPTURE_REJUMP_EXTRA_DELAY_MAX_MS + 1);
     }
 
     private int getCaptureTimeoutMs()
@@ -1447,7 +1471,25 @@ public class PitfallHunterScript extends Script
 
     private boolean hasLogs()
     {
-        return Rs2Inventory.hasItem(LOG_ITEM_NAMES, true);
+        return logCount() > 0;
+    }
+
+    private int logCount()
+    {
+        return Arrays.stream(LOG_ITEM_NAMES)
+                .mapToInt(logName -> Rs2Inventory.count(logName, true))
+                .sum();
+    }
+
+    private int targetPreparedLogs()
+    {
+        return Math.max(1, Math.min(28, config.logsToPrepare()));
+    }
+
+    private boolean shouldPrepareMoreLogs()
+    {
+        return logCount() < targetPreparedLogs()
+                && Rs2Inventory.emptySlotCount() > 0;
     }
 
     private boolean hasKnife()
@@ -1474,30 +1516,41 @@ public class PitfallHunterScript extends Script
 
     private boolean cutLogsLocally()
     {
-        if (hasLogs()) {
+        int targetLogs = Math.min(targetPreparedLogs(), logCount() + Math.max(0, Rs2Inventory.emptySlotCount()));
+        if (logCount() >= targetLogs) {
             return true;
         }
 
-        log("Logs needed and Kandarin headgear exists. Trying local log cutting.");
-        Rs2TileObjectModel tree = Microbot.getRs2TileObjectCache().query()
-                .withIds(LOCAL_TREE_IDS)
-                .where(this::isReachableTree)
-                .nearestOnClientThread(20);
-
-        if (tree == null) {
-            tree = Microbot.getRs2TileObjectCache().query()
-                    .withNameContains("tree")
+        log("Preparing logs: current=" + logCount() + " target=" + targetLogs);
+        while (isRunning() && logCount() < targetLogs && Rs2Inventory.emptySlotCount() > 0) {
+            int before = logCount();
+            Rs2TileObjectModel tree = Microbot.getRs2TileObjectCache().query()
+                    .withIds(LOCAL_TREE_IDS)
                     .where(this::isReachableTree)
-                    .nearestOnClientThread(15);
+                    .nearestOnClientThread(20);
+
+            if (tree == null) {
+                tree = Microbot.getRs2TileObjectCache().query()
+                        .withIds(LOCAL_TREE_IDS)
+                        .where(this::isReachableTree)
+                        .nearestOnClientThread(15);
+            }
+
+            if (tree == null) {
+                log("Local log cutting failed: no nearby tree");
+                return logCount() >= targetLogs;
+            }
+
+            boolean clicked = tree.click("Chop down");
+            if (!clicked || !waitUntil(() -> logCount() >= targetLogs
+                    || (logCount() > before && !isBusy()), 12000)) {
+                log("Local log cutting stopped: clicked=" + clicked + " current=" + logCount() + " target=" + targetLogs);
+                return logCount() >= targetLogs;
+            }
         }
 
-        if (tree == null) {
-            log("Local log cutting failed: no nearby tree");
-            return false;
-        }
-
-        boolean clicked = tree.click("Chop down");
-        return clicked && waitUntil(this::hasLogs, 10000);
+        log("Prepared logs: " + logCount() + "/" + targetLogs);
+        return logCount() >= targetLogs;
     }
 
     private boolean isReachableTree(Rs2TileObjectModel tree)

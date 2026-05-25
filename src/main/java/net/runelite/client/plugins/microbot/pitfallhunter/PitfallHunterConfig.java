@@ -91,8 +91,8 @@ public interface PitfallHunterConfig extends Config
     @ConfigItem(
             position = 4,
             keyName = "antelopeDropThreshold",
-            name = "Drop antelope meat",
-            description = "Drop Sunlight antelope inventory items when empty slots fall below the selected threshold."
+            name = "Drop antelope loot",
+            description = "Drop Sunlight antelope meat and fur when empty slots fall below the selected threshold."
     )
     default AntelopeDropThreshold antelopeDropThreshold()
     {
@@ -108,5 +108,16 @@ public interface PitfallHunterConfig extends Config
     default boolean fletchAntlers()
     {
         return false;
+    }
+
+    @ConfigItem(
+            position = 6,
+            keyName = "logsToPrepare",
+            name = "Logs to prepare",
+            description = "Number of logs to cut when preparing tools/logs with Kandarin headgear."
+    )
+    default int logsToPrepare()
+    {
+        return 1;
     }
 }
