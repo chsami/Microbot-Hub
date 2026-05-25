@@ -131,7 +131,15 @@ public class EmoteClueTask extends ClueTask {
 
     private void handleWalkingToLocation() {
         WorldPoint location = clue.getLocation(clueScrollPlugin);
-        if (client.getLocalPlayer().getWorldLocation().equals(location)) {
+        // v1.0.3 fix: read player location via the client-thread-safe helper instead of
+        // calling client.getLocalPlayer().getWorldLocation() directly from the background
+        // executor (which throws IllegalStateException: must be called on client thread).
+        WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) {
+            log.debug("Player location unavailable; will retry next tick");
+            return;
+        }
+        if (playerLocation.equals(location)) {
             log.info("Arrived at Emote Clue location.");
             state = State.PERFORMING_EMOTES;
         } else {
