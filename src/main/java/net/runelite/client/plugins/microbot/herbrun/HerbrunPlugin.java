@@ -26,7 +26,7 @@ import java.awt.*;
 @Slf4j
 
 public class HerbrunPlugin extends Plugin {
-    public static final String version = "1.1.1";
+    public static final String version = "1.2.0";
     @Inject
     private HerbrunConfig config;
 
