@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.pitfallhunter;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.runelite.api.Actor;
+import net.runelite.api.ItemID;
 import net.runelite.api.NPCComposition;
 import net.runelite.api.ObjectComposition;
 import net.runelite.api.coords.WorldPoint;
@@ -14,6 +15,7 @@ import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -75,12 +77,13 @@ public class PitfallHunterScript extends Script
     private static final String SUNLIGHT_ANTELOPE_NAME = "Sunlight antelope";
     private static final String PIT_OBJECT_NAME = "Pit";
     private static final String SPIKED_PIT_OBJECT_NAME = "Spiked Pit";
+    private static final String SPIKED_TRAP_OBJECT_NAME = "Spiked trap";
     private static final String COLLAPSED_TRAP_OBJECT_NAME = "Collapsed Trap";
     private static final String TRAP_PIT_ACTION = "Trap";
     private static final String JUMP_PIT_ACTION = "Jump";
     private static final String DISMANTLE_TRAP_ACTION = "Dismantle";
     private static final String LURE_NPC_ACTION = "Tease";
-    private static final int LURE_INTERACTION_TIMEOUT_MS = 2400;
+    private static final int LURE_INTERACTION_TIMEOUT_MS = 2700;
     private static final int LURE_MOVEMENT_TIMEOUT_MS = 3600;
     private static final int LURE_CONFIRMATION_GRACE_MS = 15000;
     private static final int LURE_MAX_ATTEMPTS = 2;
@@ -88,9 +91,11 @@ public class PitfallHunterScript extends Script
     private static final int STATE_WATCHDOG_TIMEOUT_MS = 30000;
     private static final int CAPTURE_TIMEOUT_MIN_MS = 12000;
     private static final int CAPTURE_REJUMP_DELAY_MS = 3200;
-    private static final int CAPTURE_REJUMP_EXTRA_DELAY_MIN_MS = 400;
-    private static final int CAPTURE_REJUMP_EXTRA_DELAY_MAX_MS = 600;
+    private static final int CAPTURE_REJUMP_EXTRA_DELAY_MIN_MS = 520;
+    private static final int CAPTURE_REJUMP_EXTRA_DELAY_MAX_MS = 700;
     private static final int CAPTURE_REJUMP_MAX_ATTEMPTS = 3;
+    private static final int PIT_JUMP_ANIMATION_ID = 3067;
+    private static final int PIT_JUMP_ANIMATION_START_TIMEOUT_MS = 5000;
     private static final int DISMANTLE_OBJECT_APPEAR_TIMEOUT_MS = 5000;
     private static final int PREPARE_TRAP_TIMEOUT_MS = 6500;
     private static final int JUMP_OBJECT_APPEAR_TIMEOUT_MS = 3500;
@@ -110,8 +115,20 @@ public class PitfallHunterScript extends Script
     private static final String SUNLIGHT_ANTELOPE_ANTLER_NAME = "Sunlight antelope antler";
     private static final String[] SUNLIGHT_ANTELOPE_DROP_ITEM_NAMES = {
             "Sunlight antelope",
+            "Raw sunlight antelope",
             "Sunlight antelope meat",
             "Sunlight antelope fur"
+    };
+    private static final int[] SUNLIGHT_ANTELOPE_DROP_ITEM_IDS = {
+            ItemID.SUNLIGHT_ANTELOPE,
+            ItemID.RAW_SUNLIGHT_ANTELOPE,
+            ItemID.SUNLIGHT_ANTELOPE_FUR
+    };
+    private static final int[] SUNLIGHT_ANTELOPE_POUCHABLE_MEAT_IDS = {
+            ItemID.RAW_SUNLIGHT_ANTELOPE
+    };
+    private static final String[] SUNLIGHT_ANTELOPE_POUCHABLE_MEAT_NAMES = {
+            "Raw sunlight antelope"
     };
     private static final String TEASING_STICK_NAME = "Teasing stick";
     private static final String KANDARIN_HEADGEAR_NAME = "Kandarin headgear";
@@ -220,8 +237,10 @@ public class PitfallHunterScript extends Script
     private long captureDetectedAt;
     private long captureLootReadyAt;
     private long lastCaptureJumpAt;
+    private long pendingJumpClickedAt;
     private int captureRejumpDelayMs = CAPTURE_REJUMP_DELAY_MS;
     private int captureRejumpAttempts;
+    private boolean waitingForJumpAnimation;
     private JumpRoute activeJumpRoute;
     private WorldPoint npcJumpStartTile;
     private WorldPoint npcLastTrackedTile;
@@ -366,8 +385,10 @@ public class PitfallHunterScript extends Script
         captureDetectedAt = 0;
         captureLootReadyAt = 0;
         lastCaptureJumpAt = 0;
+        pendingJumpClickedAt = 0;
         captureRejumpDelayMs = CAPTURE_REJUMP_DELAY_MS;
         captureRejumpAttempts = 0;
+        waitingForJumpAnimation = false;
         resetNpcJumpTracking();
         resetLureTracking();
         skippedTrappedPits.clear();
@@ -523,20 +544,22 @@ public class PitfallHunterScript extends Script
             return;
         }
 
-        captureDetectedAt = 0;
-        captureLootReadyAt = 0;
-        lastCaptureJumpAt = System.currentTimeMillis();
-        scheduleNextCaptureRejumpDelay();
-        captureRejumpAttempts = 0;
+        startCaptureTimersOnNextJumpAnimation(true);
         recordDecision("Waiting for capture");
         transition(State.WAIT_FOR_CAPTURE);
     }
 
     private void waitForCapture()
     {
+        updateJumpAnimationTimer();
         selectedPitState = getPitState(selectedPit);
         log("Capture wait state: " + selectedPit.name + " -> " + selectedPitState);
         trackNpcJumpAcrossTrap();
+
+        if (waitingForJumpAnimation) {
+            recordDecision("Waiting for jump animation");
+            return;
+        }
 
         if (captureDetectedAt == 0 && selectedPitState == PitfallState.COLLAPSED) {
             markCaptureDetected("collapsed trap state");
@@ -610,13 +633,16 @@ public class PitfallHunterScript extends Script
 
     private boolean retryJumpIfStillTrapped()
     {
+        if (waitingForJumpAnimation) {
+            return false;
+        }
+
         if (captureRejumpAttempts >= CAPTURE_REJUMP_MAX_ATTEMPTS) {
             return false;
         }
 
         long now = System.currentTimeMillis();
-        long lastJumpAt = lastCaptureJumpAt == 0 ? stateStartedAt : lastCaptureJumpAt;
-        if (now - lastJumpAt < captureRejumpDelayMs) {
+        if (lastCaptureJumpAt == 0 || now - lastCaptureJumpAt < captureRejumpDelayMs) {
             return false;
         }
 
@@ -633,15 +659,54 @@ public class PitfallHunterScript extends Script
         }
 
         captureRejumpAttempts++;
-        lastCaptureJumpAt = now;
-        scheduleNextCaptureRejumpDelay();
-        stateStartedAt = now;
         recordDecision("Retrying Jump " + captureRejumpAttempts);
         log("Capture wait still has Jump option; retrying jump attempt " + captureRejumpAttempts
                 + "; next retry delay=" + captureRejumpDelayMs + "ms", Level.WARN);
         boolean clicked = clickPitObject(pitObject, JUMP_PIT_ACTION);
         log("Capture retry jump result: " + clicked);
+        if (clicked) {
+            startCaptureTimersOnNextJumpAnimation(false);
+        }
         return clicked;
+    }
+
+    private void startCaptureTimersOnNextJumpAnimation(boolean resetAttempts)
+    {
+        captureDetectedAt = 0;
+        captureLootReadyAt = 0;
+        lastCaptureJumpAt = 0;
+        pendingJumpClickedAt = System.currentTimeMillis();
+        waitingForJumpAnimation = true;
+        scheduleNextCaptureRejumpDelay();
+        if (resetAttempts) {
+            captureRejumpAttempts = 0;
+        }
+    }
+
+    private void updateJumpAnimationTimer()
+    {
+        if (!waitingForJumpAnimation) {
+            return;
+        }
+
+        if (Rs2Player.getAnimation() == PIT_JUMP_ANIMATION_ID) {
+            long now = System.currentTimeMillis();
+            waitingForJumpAnimation = false;
+            pendingJumpClickedAt = 0;
+            lastCaptureJumpAt = now;
+            stateStartedAt = now;
+            log("Pit jump animation detected; capture timers started. anim=" + PIT_JUMP_ANIMATION_ID
+                    + " retryDelay=" + captureRejumpDelayMs + "ms");
+            return;
+        }
+
+        if (System.currentTimeMillis() - pendingJumpClickedAt > PIT_JUMP_ANIMATION_START_TIMEOUT_MS) {
+            waitingForJumpAnimation = false;
+            pendingJumpClickedAt = 0;
+            lastCaptureJumpAt = System.currentTimeMillis();
+            stateStartedAt = lastCaptureJumpAt;
+            log("Pit jump animation was not observed after click; starting capture timers from fallback", Level.WARN);
+        }
     }
 
     private void scheduleNextCaptureRejumpDelay()
@@ -712,6 +777,11 @@ public class PitfallHunterScript extends Script
             return;
         }
 
+        if (isSpikedTrapObject(pitObject)) {
+            jumpSpikedTrapInsteadOfLooting(pitObject);
+            return;
+        }
+
         int before = Rs2Inventory.count();
         recordDecision("Dismantling collapsed trap");
         boolean clicked = clickPitObject(pitObject, DISMANTLE_TRAP_ACTION);
@@ -729,6 +799,10 @@ public class PitfallHunterScript extends Script
 
     private void handleMeatPouch()
     {
+        if (dropSunlightAntelopesForSpace() > 0) {
+            recordDecision("Dropped antelope loot after loot");
+        }
+
         if (!meatPouchAvailable || !hasPouchableMeat()) {
             recordDecision("Handling inventory after loot");
             handlePostLootInventory(true);
@@ -772,7 +846,9 @@ public class PitfallHunterScript extends Script
         captureDetectedAt = 0;
         captureLootReadyAt = 0;
         lastCaptureJumpAt = 0;
+        pendingJumpClickedAt = 0;
         captureRejumpAttempts = 0;
+        waitingForJumpAnimation = false;
         resetNpcJumpTracking();
         resetLureTracking();
         sleep(600, 1000);
@@ -789,12 +865,20 @@ public class PitfallHunterScript extends Script
         }
 
         selectedPit = candidate.pit;
-        selectedPitState = PitfallState.COLLAPSED;
         selectedNpc = null;
         lastPitQuery = formatPitCandidate("Collapsed", candidate, null);
         log("Selected collapsed pit: " + selectedPit.name
                 + " object=" + candidate.object.getId()
                 + " tile=" + candidate.object.getWorldLocation());
+
+        if (isSpikedTrapObject(candidate.object)) {
+            selectedPitState = PitfallState.TRAPPED;
+            recordDecision("Found spiked trap; jumping instead of looting");
+            transition(State.JUMP_PIT);
+            return true;
+        }
+
+        selectedPitState = PitfallState.COLLAPSED;
         recordDecision("Found collapsed pit; looting first");
         transition(State.LOOT_PIT);
         return true;
@@ -1198,6 +1282,7 @@ public class PitfallHunterScript extends Script
                 && fletchSunlightAntlers();
 
         if (fletched && (Rs2Player.isAnimating() || Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_ANTLER_NAME, true))) {
+            dropSunlightAntelopesForSpace();
             log("Skipping bones while fletching is still in progress");
             return;
         }
@@ -1242,20 +1327,18 @@ public class PitfallHunterScript extends Script
         log("Big bones bury count: " + buried);
     }
 
-    private void dropSunlightAntelopesForSpace()
+    private int dropSunlightAntelopesForSpace()
     {
         int threshold = config.antelopeDropThreshold().emptySlots();
         if (threshold <= 0 || Rs2Inventory.emptySlotCount() >= threshold) {
-            return;
+            return 0;
         }
 
         int dropped = 0;
         while (isRunning()
-                && Rs2Inventory.emptySlotCount() < threshold
-                && Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_DROP_ITEM_NAMES, true)) {
+                && hasSunlightAntelopeDrop()) {
             int beforeSlots = Rs2Inventory.emptySlotCount();
-            boolean clicked = Rs2Inventory.drop(item -> Arrays.stream(SUNLIGHT_ANTELOPE_DROP_ITEM_NAMES)
-                    .anyMatch(name -> name.equalsIgnoreCase(item.getName())));
+            boolean clicked = Rs2Inventory.drop(this::isSunlightAntelopeDrop);
             if (!clicked || !waitUntil(() -> Rs2Inventory.emptySlotCount() > beforeSlots, 2000)) {
                 break;
             }
@@ -1265,6 +1348,21 @@ public class PitfallHunterScript extends Script
         if (dropped > 0) {
             log("Dropped Sunlight antelope items for space: " + dropped);
         }
+        return dropped;
+    }
+
+    private boolean hasSunlightAntelopeDrop()
+    {
+        return Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_DROP_ITEM_IDS)
+                || Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_DROP_ITEM_NAMES, true);
+    }
+
+    private boolean isSunlightAntelopeDrop(Rs2ItemModel item)
+    {
+        return item != null
+                && (contains(SUNLIGHT_ANTELOPE_DROP_ITEM_IDS, item.getId())
+                || Arrays.stream(SUNLIGHT_ANTELOPE_DROP_ITEM_NAMES)
+                .anyMatch(name -> name.equalsIgnoreCase(item.getName())));
     }
 
     private boolean fletchSunlightAntlers()
@@ -1305,6 +1403,9 @@ public class PitfallHunterScript extends Script
             return PitfallState.UNKNOWN;
         }
 
+        if (isSpikedTrapObject(object)) {
+            return PitfallState.TRAPPED;
+        }
         if (hasPitObjectAction(object, DISMANTLE_TRAP_ACTION)) {
             return PitfallState.COLLAPSED;
         }
@@ -1316,6 +1417,32 @@ public class PitfallHunterScript extends Script
         }
 
         return PitfallState.UNKNOWN;
+    }
+
+    private void jumpSpikedTrapInsteadOfLooting(Rs2TileObjectModel pitObject)
+    {
+        if (!hasPitObjectAction(pitObject, JUMP_PIT_ACTION)) {
+            log("Spiked trap cannot be looted and has no Jump action: id=" + pitObject.getId()
+                    + " tile=" + pitObject.getWorldLocation(), Level.WARN);
+            transition(State.RECOVER);
+            return;
+        }
+
+        selectedPitState = PitfallState.TRAPPED;
+        startCaptureTimersOnNextJumpAnimation(true);
+
+        recordDecision("Jumping spiked trap instead of dismantling");
+        log("Spiked trap selected for loot; clicking Jump instead of Dismantle: id=" + pitObject.getId()
+                + " tile=" + pitObject.getWorldLocation(), Level.WARN);
+        boolean jumped = clickPitObject(pitObject, JUMP_PIT_ACTION);
+        log("Spiked trap jump result: " + jumped);
+
+        if (!jumped) {
+            transition(State.RECOVER);
+            return;
+        }
+
+        transition(State.WAIT_FOR_CAPTURE);
     }
 
     private boolean hasPitObjectAction(Rs2TileObjectModel object, String action)
@@ -1451,6 +1578,12 @@ public class PitfallHunterScript extends Script
                 + " @ " + candidate.object.getWorldLocation();
     }
 
+    private boolean isSpikedTrapObject(Rs2TileObjectModel object)
+    {
+        return object != null
+                && String.valueOf(object.getName()).equalsIgnoreCase(SPIKED_TRAP_OBJECT_NAME);
+    }
+
     private boolean isPitfallObject(Rs2TileObjectModel object)
     {
         if (object == null) {
@@ -1465,6 +1598,7 @@ public class PitfallHunterScript extends Script
         String name = String.valueOf(object.getName()).toLowerCase();
         return name.equalsIgnoreCase(PIT_OBJECT_NAME)
                 || name.equalsIgnoreCase(SPIKED_PIT_OBJECT_NAME)
+                || name.equalsIgnoreCase(SPIKED_TRAP_OBJECT_NAME)
                 || name.equalsIgnoreCase(COLLAPSED_TRAP_OBJECT_NAME)
                 || name.contains("pitfall");
     }
@@ -1505,7 +1639,8 @@ public class PitfallHunterScript extends Script
 
     private boolean hasPouchableMeat()
     {
-        return Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_DROP_ITEM_NAMES, true);
+        return Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_POUCHABLE_MEAT_IDS)
+                || Rs2Inventory.hasItem(SUNLIGHT_ANTELOPE_POUCHABLE_MEAT_NAMES, true);
     }
 
     private boolean hasKandarinHeadgear()
@@ -1596,6 +1731,8 @@ public class PitfallHunterScript extends Script
 
     private boolean handleBusySkip()
     {
+        updateJumpAnimationTimer();
+
         if (!isBusy()) {
             busyStartedAt = 0;
             return false;
