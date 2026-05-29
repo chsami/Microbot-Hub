@@ -2,6 +2,8 @@ package net.runelite.client.plugins.microbot.autobankstander.skills.herblore;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.stream.Collectors;
 
 import net.runelite.api.Skill;
 import net.runelite.api.gameval.ItemID;
@@ -15,7 +17,9 @@ import net.runelite.client.plugins.microbot.autobankstander.skills.herblore.enum
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.inventory.InteractOrder;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
@@ -33,7 +37,17 @@ public class HerbloreProcessor implements BankStandingProcessor {
     private UnfinishedPotionMode unfinishedPotionMode;
     private HerblorePotion finishedPotion;
     private boolean useAmuletOfChemistry;
-    
+
+    // cleaning tuning (from recovered HerbloreScript)
+    private final boolean turboModeEnabled;
+    private final int turboHerbLimit;
+    private final int sleepMin;
+    private final int sleepMax;
+    private final int sleepTarget;
+    private boolean turboActive;
+    private int turboHerbsCleanedCount = 0;
+    private final Random sleepRandom = new Random();
+
     // processing state
     private Herb currentHerb;
     private Herb currentHerbForUnfinished;
@@ -41,14 +55,28 @@ public class HerbloreProcessor implements BankStandingProcessor {
     private boolean currentlyMakingPotions;
     private int withdrawnAmount;
     private boolean amuletBroken = false;
-    
-    public HerbloreProcessor(Mode mode, CleanHerbMode cleanHerbMode, UnfinishedPotionMode unfinishedPotionMode, 
+
+    public HerbloreProcessor(Mode mode, CleanHerbMode cleanHerbMode, UnfinishedPotionMode unfinishedPotionMode,
                            HerblorePotion finishedPotion, boolean useAmuletOfChemistry) {
+        this(mode, cleanHerbMode, unfinishedPotionMode, finishedPotion, useAmuletOfChemistry,
+             false, 0, 60, 300, 150);
+    }
+
+    public HerbloreProcessor(Mode mode, CleanHerbMode cleanHerbMode, UnfinishedPotionMode unfinishedPotionMode,
+                           HerblorePotion finishedPotion, boolean useAmuletOfChemistry,
+                           boolean turboMode, int turboHerbLimit,
+                           int sleepMin, int sleepMax, int sleepTarget) {
         this.mode = mode;
         this.cleanHerbMode = cleanHerbMode;
         this.unfinishedPotionMode = unfinishedPotionMode;
         this.finishedPotion = finishedPotion;
         this.useAmuletOfChemistry = useAmuletOfChemistry;
+        this.turboModeEnabled = turboMode;
+        this.turboHerbLimit = turboHerbLimit;
+        this.sleepMin = sleepMin;
+        this.sleepMax = sleepMax;
+        this.sleepTarget = sleepTarget;
+        this.turboActive = turboMode;
         this.currentlyMakingPotions = false;
         this.withdrawnAmount = 0;
     }
@@ -332,14 +360,59 @@ public class HerbloreProcessor implements BankStandingProcessor {
     }
     
     private boolean processCleanHerbs() {
-        if (Rs2Inventory.hasItem("grimy")) {
-            log.info("Cleaning herbs using zigzag pattern");
-            Rs2Inventory.cleanHerbs(InteractOrder.ZIGZAG);
-            sleepUntil(() -> !Rs2Inventory.hasItem("grimy"), 5000);
+        if (turboActive && turboHerbLimit > 0 && turboHerbsCleanedCount >= turboHerbLimit) {
+            log.info("Turbo auto-disabled after {} herbs (limit {})", turboHerbsCleanedCount, turboHerbLimit);
+            turboActive = false;
+        }
+
+        if (!Rs2Inventory.hasItem("grimy")) {
+            log.info("No grimy herbs in inventory - returning to banking");
             return true;
         }
-        log.info("No grimy herbs in inventory - returning to banking");
-        return true; // return true to go back to banking for more herbs
+
+        if (turboActive) {
+            cleanHerbsTurbo();
+        } else {
+            cleanHerbsNormal();
+        }
+        return true;
+    }
+
+    private void cleanHerbsNormal() {
+        log.info("Cleaning herbs (normal, zigzag)");
+        Rs2Inventory.cleanHerbs(InteractOrder.ZIGZAG);
+        sleepUntil(() -> !Rs2Inventory.hasItem("grimy"), 5000);
+        sleep(gaussianSleep());
+    }
+
+    private void cleanHerbsTurbo() {
+        List<Rs2ItemModel> grimy = Rs2Inventory.items()
+                .filter(item -> item.getName() != null && item.getName().toLowerCase().contains("grimy"))
+                .collect(Collectors.toList());
+        if (grimy.isEmpty()) return;
+
+        log.info("Cleaning {} herbs (turbo)", grimy.size());
+        List<Rs2ItemModel> ordered = Rs2Inventory.calculateInteractOrder(grimy, InteractOrder.ZIGZAG);
+        for (Rs2ItemModel herb : ordered) {
+            if (herb == null || herb.getName() == null) continue;
+            if (!herb.getName().toLowerCase().contains("grimy")) continue;
+            Rs2Inventory.interact(herb, "Clean");
+            turboHerbsCleanedCount++;
+            sleep(Rs2Random.between(5, 15));
+        }
+        Rs2Inventory.waitForInventoryChanges(3000);
+        sleep(Rs2Random.between(50, 100));
+    }
+
+    private int gaussianSleep() {
+        double mean = (sleepMin + sleepMax + sleepTarget) / 3.0;
+        double std = Math.abs(sleepTarget - mean) / 3.0;
+        if (std <= 0) return sleepTarget;
+        int duration;
+        do {
+            duration = (int) Math.round(mean + sleepRandom.nextGaussian() * std);
+        } while (duration < sleepMin || duration > sleepMax);
+        return duration;
     }
     
     private boolean processUnfinishedPotions() {
