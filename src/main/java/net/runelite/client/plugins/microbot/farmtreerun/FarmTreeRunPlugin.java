@@ -30,7 +30,7 @@ import java.awt.*;
 )
 @Slf4j
 public class FarmTreeRunPlugin extends Plugin {
-    public static final String version = "1.1.2";
+    public static final String version = "1.2.1";
     @Inject
     private FarmTreeRunConfig config;
     @Provides

@@ -20,6 +20,8 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.shortestpath.Restriction;
+import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
 
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 
@@ -39,6 +41,7 @@ public class FornBirdhouseRunsScript extends Script {
     private static final WorldPoint birdhouseLocation2 = new WorldPoint(3768, 3761, 0);
     private static final WorldPoint birdhouseLocation3 = new WorldPoint(3677, 3882, 0);
     private static final WorldPoint birdhouseLocation4 = new WorldPoint(3679, 3815, 0);
+    private static final WorldPoint SOUTH_ROWBOAT = new WorldPoint(3724, 3807, 0);
     // Each location maps to a BIRDHOUSE_TRANSMIT_* varp. See isEmpty/isBuilt/isSeeded
     // below for the canonical state decoding (matches RuneLite's BirdHouseState).
     private static final int VARP_HOUSE_1 = VarPlayerID.BIRDHOUSE_TRANSMIT_D; // Verdant SW
@@ -105,8 +108,12 @@ public class FornBirdhouseRunsScript extends Script {
                         return;
                     }
                     initialized = true;
-                    
-                    if (config.useInventorySetup()) {
+
+                    states startOverride = config.enableOverrideStartState() ? config.overrideStartState() : states.GEARING;
+                    if (startOverride != states.GEARING) {
+                        log.info("Override start state → {}", startOverride);
+                        botStatus = startOverride;
+                    } else if (config.useInventorySetup()) {
                         boolean hasInventorySetup = config.inventorySetup() != null && Rs2InventorySetup.isInventorySetup(config.inventorySetup().getName());
                         if (hasInventorySetup) {
                             var inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
@@ -134,9 +141,17 @@ public class FornBirdhouseRunsScript extends Script {
                     } else {
                         log.info("Inventory already prepared — skipping bank trip");
                     }
-                    botStatus = states.TELEPORTING;
+                    if (startOverride == states.GEARING) {
+                        botStatus = states.TELEPORTING;
+                    }
                 }
                 if (!super.run()) return;
+
+                if (!Rs2Walker.disableTeleports && isOnFossilIsland()) {
+                    Rs2Walker.disableTeleports = true;
+                    blockRubberCapMushrooms();
+                    log.info("On Fossil Island — disabling teleports and rubber cap mushrooms for remaining walks");
+                }
 
                 boolean advanced = true;
                 while (advanced) {
@@ -244,6 +259,7 @@ public class FornBirdhouseRunsScript extends Script {
                             emptyNests();
 
                             if (config.goToBank()) {
+                                Rs2Walker.walkTo(SOUTH_ROWBOAT, 3);
                                 Rs2Walker.walkTo(BankLocation.FOSSIL_ISLAND_WRECK.getWorldPoint());
                                 if (!Rs2Bank.isOpen()) Rs2Bank.openBank();
                                 Rs2Bank.depositAll();
@@ -252,6 +268,14 @@ public class FornBirdhouseRunsScript extends Script {
                             botStatus = states.FINISHED;
                             notifier.notify(Notification.ON, "Birdhouse run is finished.");
                             log.info("Birdhouse run finished — disabling plugin.");
+
+                            if (config.startGiantSeaweedAfter()) {
+                                log.info("Starting Giant Seaweed Farmer plugin");
+                                if (!Microbot.startPlugin("net.runelite.client.plugins.microbot.GiantSeaweedFarmer.GiantSeaweedFarmerPlugin")) {
+                                    log.warn("Failed to start Giant Seaweed Farmer — is it installed?");
+                                }
+                            }
+
                             Microbot.stopPlugin(plugin);
                             break;
                         case FINISHED:
@@ -287,10 +311,23 @@ public class FornBirdhouseRunsScript extends Script {
     @Override
     public void shutdown() {
         super.shutdown();
+        Rs2Walker.disableTeleports = false;
+        ShortestPathPlugin.getPathfinderConfig().setRestrictedTiles();
         initialized = false;
         botStatus = states.TELEPORTING;
         lastObservedStatus = null;
         stateEnteredAtMs = 0L;
+    }
+
+    private static void blockRubberCapMushrooms() {
+        Restriction[] restrictions = new Restriction[] {
+                new Restriction(3663, 3808, 0),
+                new Restriction(3664, 3808, 0),
+                new Restriction(3665, 3808, 0),
+                new Restriction(3666, 3809, 0),
+                new Restriction(3666, 3810, 0)
+        };
+        ShortestPathPlugin.getPathfinderConfig().setRestrictedTiles(restrictions);
     }
 
     /** Throttle for arrivedAndStill log lines (one per second per target). */
@@ -643,13 +680,13 @@ public class FornBirdhouseRunsScript extends Script {
             return false;
         }
         Rs2Inventory.waitForInventoryChanges(3000);
-        int invAfter = Rs2Inventory.count(bankSeed.getId());
-        int invAfterByName = findInventoryBirdhouseSeed(1).map(Rs2ItemModel::getQuantity).orElse(0);
-        log.info("withdrawSeeds: withdrew 40 {} (id={}); inv after = {} of id={} (by-name lookup = {})",
-                bankSeed.getName(), bankSeed.getId(), invAfter, bankSeed.getId(), invAfterByName);
+        int invAfter = findInventoryBirdhouseSeed(1).map(Rs2ItemModel::getQuantity).orElse(0);
+        log.info("withdrawSeeds: withdrew 40 {} (id={}); inv seed qty = {}",
+                bankSeed.getName(), bankSeed.getId(), invAfter);
         if (invAfter < 40) {
-            log.warn("withdrawSeeds: inventory count of id={} after withdraw is {} (<40). Full inv: [{}]",
-                    bankSeed.getId(), invAfter, dumpInventory());
+            setupErrorMessage = "Withdrew seeds but only got " + invAfter + " (need 40)";
+            log.error(setupErrorMessage);
+            return false;
         }
         return true;
     }

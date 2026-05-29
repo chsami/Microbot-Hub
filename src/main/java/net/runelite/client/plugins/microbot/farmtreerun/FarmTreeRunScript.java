@@ -4,8 +4,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.Rs2Leprechaun;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.CompostType;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.HardTreeEnums;
@@ -24,11 +24,7 @@ import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
-import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
-
-import java.awt.event.KeyEvent;
 
 import javax.inject.Inject;
 import java.util.*;
@@ -145,7 +141,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_GNOME_STRONGHOLD_FRUIT_PATCH:
 						patch = Patch.GNOME_STRONGHOLD_FRUIT_TREE_PATCH;
-						if (config.gnomeStrongholdFruitTreePatch()) {
+						if (config.enableFruitTrees() && config.gnomeStrongholdFruitTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -156,7 +152,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_GNOME_STRONGHOLD_TREE_PATCH:
 						patch = Patch.GNOME_STRONGHOLD_TREE_PATCH;
-						if (config.gnomeStrongholdTreePatch()) {
+						if (config.enableTrees() && config.gnomeStrongholdTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -167,7 +163,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FARMING_GUILD_TREE_PATCH:
 						patch = Patch.FARMING_GUILD_TREE_PATCH;
-						if (config.farmingGuildTreePatch() && patch.hasRequiredLevel()) {
+						if (config.enableTrees() && config.farmingGuildTreePatch() && patch.hasRequiredLevel()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -178,7 +174,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FARMING_GUILD_FRUIT_PATCH:
 						patch = Patch.FARMING_GUILD_FRUIT_TREE_PATCH;
-						if (config.farmingGuildFruitTreePatch() && patch.hasRequiredLevel()) {
+						if (config.enableFruitTrees() && config.farmingGuildFruitTreePatch() && patch.hasRequiredLevel()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -189,7 +185,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_BRIMHAVEN_FRUIT_TREE_PATCH:
 						patch = Patch.BRIMHAVEN_FRUIT_TREE_PATCH;
-						if (config.brimhavenFruitTreePatch()) {
+						if (config.enableFruitTrees() && config.brimhavenFruitTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -200,7 +196,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_TREE_GNOME_VILLAGE_FRUIT_TREE_PATCH:
 						patch = Patch.TREE_GNOME_VILLAGE_FRUIT_TREE_PATCH;
-						if (config.treeGnomeVillageFruitTreePatch()) {
+						if (config.enableFruitTrees() && config.treeGnomeVillageFruitTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -211,7 +207,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_TAVERLEY_TREE_PATCH:
 						patch = Patch.TAVERLEY_TREE_PATCH;
-						if (config.taverleyTreePatch()) {
+						if (config.enableTrees() && config.taverleyTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -221,7 +217,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FALADOR_TREE_PATCH:
 						patch = Patch.FALADOR_TREE_PATCH;
-						if (config.faladorTreePatch()) {
+						if (config.enableTrees() && config.faladorTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -231,7 +227,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_LUMBRIDGE_TREE_PATCH:
 						patch = Patch.LUMBRIDGE_TREE_PATCH;
-						if (config.lumbridgeTreePatch()) {
+						if (config.enableTrees() && config.lumbridgeTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -242,7 +238,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_VARROCK_TREE_PATCH:
 						patch = Patch.VARROCK_TREE_PATCH;
-						if (config.varrockTreePatch()) {
+						if (config.enableTrees() && config.varrockTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -253,7 +249,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_CATHERBY_FRUIT_TREE_PATCH:
 						patch = Patch.CATHERBY_FRUIT_TREE_PATCH;
-						if (config.catherbyFruitTreePatch()) {
+						if (config.enableFruitTrees() && config.catherbyFruitTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -264,7 +260,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FOSSIL_TREE_PATCH_A:
 						patch = Patch.FOSSIL_TREE_PATCH_A;
-						if (config.fossilTreePatch()) {
+						if (config.enableHardTrees() && config.fossilTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -275,7 +271,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FOSSIL_TREE_PATCH_B:
 						patch = Patch.FOSSIL_TREE_PATCH_B;
-						if (config.fossilTreePatch()) {
+						if (config.enableHardTrees() && config.fossilTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -286,7 +282,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_FOSSIL_TREE_PATCH_C:
 						patch = Patch.FOSSIL_TREE_PATCH_C;
-						if (config.fossilTreePatch()) {
+						if (config.enableHardTrees() && config.fossilTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -297,7 +293,7 @@ public class FarmTreeRunScript extends Script {
 						break;
 					case HANDLE_LLETYA_FRUIT_TREE_PATCH:
 						patch = Patch.LLETYA_FRUIT_TREE_PATCH;
-						if (config.lletyaFruitTreePatch()) {
+						if (config.enableFruitTrees() && config.lletyaFruitTreePatch()) {
 							if (walkToLocation(patch.getLocation())) {
 								handledPatch = handlePatch(config, patch);
 							}
@@ -309,7 +305,7 @@ public class FarmTreeRunScript extends Script {
 
                     case HANDLE_AUBURNVALE_TREE_PATCH: {
                         patch = Patch.AUBURNVALE_TREE_PATCH;
-                        if (config.auburnTreePatch()) {
+                        if (config.enableTrees() && config.auburnTreePatch()) {
                             if (walkToLocation(patch.getLocation())) {
                                 handledPatch = handlePatch(config, patch);
                             }
@@ -320,7 +316,7 @@ public class FarmTreeRunScript extends Script {
                     }
                     case HANDLE_KASTORI_FRUIT_TREE_PATCH: {
                         patch = Patch.KASTORI_FRUIT_TREE_PATCH;
-                        if (config.kastoriFruitTreePatch()) {
+                        if (config.enableFruitTrees() && config.kastoriFruitTreePatch()) {
                             if (walkToLocation(patch.getLocation())) {
                                 handledPatch = handlePatch(config, patch);
                             }
@@ -331,7 +327,7 @@ public class FarmTreeRunScript extends Script {
                     }
                     case HANDLE_PRIFFDDINAS_CRYSTAL_TREE_PATCH: {
                         patch = Patch.PRIFFDDINAS_CRYSTAL_TREE_PATCH;
-                        if (config.priffddinasCrystalTreePatch() && patch.hasRequiredLevel()) {
+                        if (config.enableTrees() && config.priffddinasCrystalTreePatch() && patch.hasRequiredLevel()) {
                             if (walkToLocation(patch.getLocation())) {
                                 handledPatch = handlePatch(config, patch);
                             }
@@ -343,7 +339,7 @@ public class FarmTreeRunScript extends Script {
 
                     case HANDLE_AVIUM_SAVANNAH_HARDWOOD_PATCH: {
                         patch = Patch.AVIUM_SAVANNAH_HARDWOOD_PATCH;
-                        if (config.aviumSavannahHardwoodPatch()) {
+                        if (config.enableHardTrees() && config.aviumSavannahHardwoodPatch()) {
                             if (walkToLocation(patch.getLocation())) {
                                 handledPatch = handlePatch(config, patch);
                             }
@@ -392,7 +388,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean validateSpecialPatches(FarmTreeRunConfig config) {
-        if (config.priffddinasCrystalTreePatch()) {
+        if (config.enableTrees() && config.priffddinasCrystalTreePatch()) {
             int farmingLevel = Rs2Player.getRealSkillLevel(Skill.FARMING);
             if (farmingLevel < 74) {
                 Microbot.showMessage("Prifddinas Crystal tree requires 74 Farming (you have " + farmingLevel + "). Disable the Prifddinas patch or train Farming before starting. Shutting down.");
@@ -417,8 +413,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private void dropCrap() {
-        if (Rs2Player.isAnimating()) return;
-        int[] junk = {ItemID.EMPTY_PLANT_POT, ItemID.BUCKET, ItemID.WEEDS};
+        int[] junk = {ItemID.EMPTY_PLANT_POT, ItemID.BUCKET};
         for (int id : junk) {
             if (Rs2Inventory.hasItem(id)) {
                 Rs2Inventory.dropAll(id);
@@ -428,18 +423,17 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean walkToLocation(WorldPoint location) {
-        if (!Rs2Player.isAnimating()) {
+        if (Rs2Player.distanceTo(location) >= 16) {
             Rs2Walker.walkTo(location);
             sleepUntil(() -> Rs2Player.distanceTo(location) < 16);
-            return Rs2Player.distanceTo(location) < 16;
         }
-        return false;
+        return Rs2Player.distanceTo(location) < 16;
     }
 
     private void bank(FarmTreeRunConfig config) {
         items.clear();
         if (Rs2Bank.openBank() || Rs2Bank.walkToBank()) {
-            sleepUntil(() -> !Rs2Player.isAnimating());
+            sleepUntil(Rs2Bank::isOpen, 5000);
             if (!Rs2Bank.isOpen())
                 return;
             sleep(600, 2200);
@@ -484,7 +478,7 @@ public class FarmTreeRunScript extends Script {
                 }
             }
 
-            if(config.fossilTreePatch()){
+            if(config.enableHardTrees() && config.fossilTreePatch()){
                 if (Rs2Bank.hasItem(ItemID.DIGSITE_PENDANT_5)) {
                     items.add(new FarmingItem(ItemID.DIGSITE_PENDANT_5, 1));
                 } else if (Rs2Bank.hasItem(ItemID.DIGSITE_PENDANT_4)) {
@@ -507,7 +501,7 @@ public class FarmTreeRunScript extends Script {
                 }
             }
 
-            if (config.useSkillsNecklace() && (config.farmingGuildTreePatch() || config.farmingGuildFruitTreePatch())) {
+            if (config.useSkillsNecklace() && ((config.enableTrees() && config.farmingGuildTreePatch()) || (config.enableFruitTrees() && config.farmingGuildFruitTreePatch()))) {
                 if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE6)) {
                     items.add(new FarmingItem(ItemID.SKILLS_NECKLACE6, 1, false, true));
                 } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE5)) {
@@ -551,19 +545,19 @@ public class FarmTreeRunScript extends Script {
             if (hardTreeSaplingsCount > 0)
                 items.add(new FarmingItem(selectedHardTree.getSaplingId(), hardTreeSaplingsCount));
 
-            if (config.protectTrees() && regularTreeSaplingsCount > 0)
+            if (config.enableTrees() && config.protectTrees() && regularTreeSaplingsCount > 0)
                 items.add(new FarmingItem(selectedTree.getPaymentId(), selectedTree.getPaymentAmount() * regularTreeSaplingsCount, true));
 
-            if (config.protectHardTrees())
+            if (config.enableHardTrees() && config.protectHardTrees())
                 items.add(new FarmingItem(selectedHardTree.getPaymentId(), selectedHardTree.getPaymentAmount() * hardTreeSaplingsCount, true));
 
-            if (config.protectFruitTrees())
+            if (config.enableFruitTrees() && config.protectFruitTrees())
                 items.add(new FarmingItem(selectedFruitTree.getPaymentId(), selectedFruitTree.getPaymentAmount() * fruitTreeSaplingsCount, true));
 
-            if (config.taverleyTreePatch())
+            if (config.enableTrees() && config.taverleyTreePatch())
                 items.add(new FarmingItem(ItemID.TAVERLEY_TELEPORT, 1, false, true));
 
-            if (config.lletyaFruitTreePatch()) {
+            if (config.enableFruitTrees() && config.lletyaFruitTreePatch()) {
                 if (Rs2Bank.hasItem(ItemID.ETERNAL_TELEPORT_CRYSTAL)) {
                     items.add(new FarmingItem(ItemID.ETERNAL_TELEPORT_CRYSTAL, 1));
                 } else if (Rs2Bank.hasItem(ItemID.TELEPORT_CRYSTAL_1)) {
@@ -589,6 +583,15 @@ public class FarmTreeRunScript extends Script {
             items.add(new FarmingItem(ItemID.WATER_RUNE, 30));
 
 //              TODO: Need to handle what happens if a required item does not exist
+
+            // Merge entries with the same itemId + noted flag so withdrawal doesn't under-count
+            Map<Long, FarmingItem> merged = new LinkedHashMap<>();
+            for (FarmingItem item : items) {
+                long key = ((long) item.getItemId() << 1) | (item.isNoted() ? 1 : 0);
+                merged.merge(key, item, (a, b) ->
+                    new FarmingItem(a.getItemId(), a.getQuantity() + b.getQuantity(), a.isNoted(), a.isOptional()));
+            }
+            items = new ArrayList<>(merged.values());
 
             // Deposit only what we don't need: keep desired ids and their noted variants
             Set<Integer> keepIds = new HashSet<>();
@@ -755,7 +758,7 @@ public class FarmTreeRunScript extends Script {
                 ItemID.DRAGONFRUIT
         };
 
-        if (!Rs2Inventory.hasItem(fruitIds) || Rs2Player.isAnimating()) return;
+        if (!Rs2Inventory.hasItem(fruitIds)) return;
 
         // Iterate through the fruit IDs
         for (int fruitId : fruitIds) {
@@ -879,30 +882,24 @@ public class FarmTreeRunScript extends Script {
     private void handleRakeAction(GameObject treePatch) {
         System.out.println("Raking the patch...");
 
-        // Rake the patch
         Rs2GameObject.interact(treePatch, "rake");
-
-        Rs2Player.waitForAnimation();
-        sleepUntil(() -> !Rs2Player.isAnimating());
-
+        sleepUntil(() -> !Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(treePatch.getId()), "Rake"), 30000);
+        sleep(400, 1200);
+        if (Rs2Inventory.hasItem(ItemID.WEEDS)) {
+            Rs2Inventory.dropAll(ItemID.WEEDS);
+            sleepUntil(() -> !Rs2Inventory.hasItem(ItemID.WEEDS), 5000);
+        }
     }
 
     private void handleClearAction(GameObject treePatch) {
         System.out.println("Clearing dead tree...");
 
-        // Try to interact with the patch using the "clear" action
         boolean interactionSuccess = Rs2GameObject.interact(treePatch, "clear");
-        Rs2Player.waitForAnimation();
-        sleepUntil(() -> !Rs2Player.isAnimating());
-
         if (!interactionSuccess) {
             System.out.println("Failed to interact with the tree patch to clear it.");
             return;
         }
-
-        // Wait for the clearing animation to finish
-        Rs2Player.waitForAnimation();
-        sleepUntil(() -> !Rs2Player.isAnimating() && Rs2Player.isMoving());
+        Rs2Player.waitForXpDrop(Skill.FARMING, 10000);
     }
 
     private void equipGraceful() {
@@ -953,42 +950,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean withdrawCompostFromLeprechaun(CompostType compostType) {
-        Rs2NpcModel leprechaun = Rs2Npc.getNpc("Tool Leprechaun");
-        if (leprechaun == null) {
-            Microbot.log("Tool Leprechaun not found nearby.");
-            return false;
-        }
-
-        Rs2Npc.interact(leprechaun, "Exchange");
-        sleepUntil(() -> Rs2Widget.isWidgetVisible(125, 0), 5000);
-        if (!Rs2Widget.isWidgetVisible(125, 0)) {
-            Microbot.log("Tool Leprechaun exchange interface did not open.");
-            return false;
-        }
-        sleep(300, 600);
-
-        int childId;
-        switch (compostType) {
-            case COMPOST: childId = 17; break;
-            case SUPERCOMPOST: childId = 18; break;
-            case ULTRACOMPOST: childId = 19; break;
-            default: return false;
-        }
-
-        Widget compostWidget = Rs2Widget.getWidget(125, childId);
-        if (compostWidget == null) {
-            Microbot.log("Compost widget not found in leprechaun interface.");
-            return false;
-        }
-
-        Rs2Widget.clickWidget(compostWidget);
-        sleepUntil(() -> Rs2Inventory.hasItem(compostType.getItemId()), 3000);
-        sleep(300, 600);
-
-        Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
-        sleepUntil(() -> !Rs2Widget.isWidgetVisible(125, 0), 2000);
-
-        return Rs2Inventory.hasItem(compostType.getItemId());
+        return Rs2Leprechaun.withdrawCompost(compostType.getItemId());
     }
 
     private boolean useCompostOnPatch(FarmTreeRunConfig config, Patch patch) {
@@ -1005,7 +967,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private List<BooleanSupplier> getSelectedTreePatches(FarmTreeRunConfig config) {
-        // Create a list of all possible tree patches
+        if (!config.enableTrees()) return Collections.emptyList();
         List<BooleanSupplier> allTreePatches = List.of(
                 config::faladorTreePatch,
                 config::gnomeStrongholdTreePatch,
@@ -1024,7 +986,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private List<BooleanSupplier> getSelectedHardTreePatches(FarmTreeRunConfig config) {
-        // Create a list of all possible tree patches
+        if (!config.enableHardTrees()) return Collections.emptyList();
         List<BooleanSupplier> allHardTreePatches = List.of(
                 config::fossilTreePatch,
                 config::fossilTreePatch,
@@ -1039,7 +1001,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private List<BooleanSupplier> getSelectedFruitTreePatches(FarmTreeRunConfig config) {
-        // Create a list of all possible fruit tree patches
+        if (!config.enableFruitTrees()) return Collections.emptyList();
         List<BooleanSupplier> allFruitTreePatches = List.of(
                 config::brimhavenFruitTreePatch,
                 config::catherbyFruitTreePatch,
@@ -1145,6 +1107,7 @@ public class FarmTreeRunScript extends Script {
         if(isRunning()) {
             items.clear();
             super.shutdown();
+            Microbot.stopPlugin(plugin);
         }
     }
 }
