@@ -29,7 +29,7 @@ import java.util.HashMap;
 )
 @Slf4j
 public class RoguesDenPlugin extends Plugin {
-    public static final String version = "1.0.0";
+    public static final String version = "1.0.1";
     private final HashMap<TileObject, Tile> obstaclesHull = new HashMap();
     private final HashMap<TileObject, Tile> obstaclesTile = new HashMap();
     private boolean hasGem;

@@ -144,6 +144,8 @@ public class RoguesDenScript extends Script {
                         return;
                     }
 
+                    hasStaminaPotionInBank = true;
+                    hasEnergyPotionInBank = true;
                     Rs2Camera.setPitch(Rs2Random.between(300, 383));
                     initObstacles();
                     Microbot.enableAutoRunOn = false;
