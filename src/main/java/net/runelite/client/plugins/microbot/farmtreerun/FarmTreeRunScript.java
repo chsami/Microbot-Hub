@@ -388,7 +388,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean validateSpecialPatches(FarmTreeRunConfig config) {
-        if (config.priffddinasCrystalTreePatch()) {
+        if (config.enableTrees() && config.priffddinasCrystalTreePatch()) {
             int farmingLevel = Rs2Player.getRealSkillLevel(Skill.FARMING);
             if (farmingLevel < 74) {
                 Microbot.showMessage("Prifddinas Crystal tree requires 74 Farming (you have " + farmingLevel + "). Disable the Prifddinas patch or train Farming before starting. Shutting down.");
@@ -413,7 +413,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private void dropCrap() {
-        int[] junk = {ItemID.EMPTY_PLANT_POT, ItemID.BUCKET, ItemID.WEEDS};
+        int[] junk = {ItemID.EMPTY_PLANT_POT, ItemID.BUCKET};
         for (int id : junk) {
             if (Rs2Inventory.hasItem(id)) {
                 Rs2Inventory.dropAll(id);
@@ -423,8 +423,10 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean walkToLocation(WorldPoint location) {
-        Rs2Walker.walkTo(location);
-        sleepUntil(() -> Rs2Player.distanceTo(location) < 16);
+        if (Rs2Player.distanceTo(location) >= 16) {
+            Rs2Walker.walkTo(location);
+            sleepUntil(() -> Rs2Player.distanceTo(location) < 16);
+        }
         return Rs2Player.distanceTo(location) < 16;
     }
 
@@ -476,7 +478,7 @@ public class FarmTreeRunScript extends Script {
                 }
             }
 
-            if(config.fossilTreePatch()){
+            if(config.enableHardTrees() && config.fossilTreePatch()){
                 if (Rs2Bank.hasItem(ItemID.DIGSITE_PENDANT_5)) {
                     items.add(new FarmingItem(ItemID.DIGSITE_PENDANT_5, 1));
                 } else if (Rs2Bank.hasItem(ItemID.DIGSITE_PENDANT_4)) {
@@ -499,7 +501,7 @@ public class FarmTreeRunScript extends Script {
                 }
             }
 
-            if (config.useSkillsNecklace() && (config.farmingGuildTreePatch() || config.farmingGuildFruitTreePatch())) {
+            if (config.useSkillsNecklace() && ((config.enableTrees() && config.farmingGuildTreePatch()) || (config.enableFruitTrees() && config.farmingGuildFruitTreePatch()))) {
                 if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE6)) {
                     items.add(new FarmingItem(ItemID.SKILLS_NECKLACE6, 1, false, true));
                 } else if (Rs2Bank.hasItem(ItemID.SKILLS_NECKLACE5)) {
@@ -543,19 +545,19 @@ public class FarmTreeRunScript extends Script {
             if (hardTreeSaplingsCount > 0)
                 items.add(new FarmingItem(selectedHardTree.getSaplingId(), hardTreeSaplingsCount));
 
-            if (config.protectTrees() && regularTreeSaplingsCount > 0)
+            if (config.enableTrees() && config.protectTrees() && regularTreeSaplingsCount > 0)
                 items.add(new FarmingItem(selectedTree.getPaymentId(), selectedTree.getPaymentAmount() * regularTreeSaplingsCount, true));
 
-            if (config.protectHardTrees())
+            if (config.enableHardTrees() && config.protectHardTrees())
                 items.add(new FarmingItem(selectedHardTree.getPaymentId(), selectedHardTree.getPaymentAmount() * hardTreeSaplingsCount, true));
 
-            if (config.protectFruitTrees())
+            if (config.enableFruitTrees() && config.protectFruitTrees())
                 items.add(new FarmingItem(selectedFruitTree.getPaymentId(), selectedFruitTree.getPaymentAmount() * fruitTreeSaplingsCount, true));
 
-            if (config.taverleyTreePatch())
+            if (config.enableTrees() && config.taverleyTreePatch())
                 items.add(new FarmingItem(ItemID.TAVERLEY_TELEPORT, 1, false, true));
 
-            if (config.lletyaFruitTreePatch()) {
+            if (config.enableFruitTrees() && config.lletyaFruitTreePatch()) {
                 if (Rs2Bank.hasItem(ItemID.ETERNAL_TELEPORT_CRYSTAL)) {
                     items.add(new FarmingItem(ItemID.ETERNAL_TELEPORT_CRYSTAL, 1));
                 } else if (Rs2Bank.hasItem(ItemID.TELEPORT_CRYSTAL_1)) {
@@ -881,7 +883,8 @@ public class FarmTreeRunScript extends Script {
         System.out.println("Raking the patch...");
 
         Rs2GameObject.interact(treePatch, "rake");
-        Rs2Player.waitForXpDrop(Skill.FARMING, 10000);
+        sleepUntil(() -> !Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(treePatch.getId()), "Rake"), 30000);
+        sleep(400, 1200);
         if (Rs2Inventory.hasItem(ItemID.WEEDS)) {
             Rs2Inventory.dropAll(ItemID.WEEDS);
             sleepUntil(() -> !Rs2Inventory.hasItem(ItemID.WEEDS), 5000);
