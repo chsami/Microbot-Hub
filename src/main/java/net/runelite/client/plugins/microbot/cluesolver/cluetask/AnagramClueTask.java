@@ -3,7 +3,6 @@ package net.runelite.client.plugins.microbot.cluesolver.cluetask;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
-import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.eventbus.EventBus;
@@ -79,15 +78,16 @@ public class AnagramClueTask extends ClueTask {
     }
 
     private void processGameTick(GameTick event) {
-        Player player = client.getLocalPlayer();
-        if (player == null)
-            return;
+        // v1.0.5 fix: client-thread-safe location read. processGameTick runs in the
+        // background executor; direct client.getLocalPlayer() throws IllegalStateException.
+        net.runelite.api.coords.WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) return;
 
         switch (state) {
             case WALKING_TO_LOCATION:
-                if (hasArrived(player)) {
+                if (playerLocation.equals(location)) {
                     transitionToInteractionState();
-                } else if (isWithinRadius(location, player.getWorldLocation(), 3)) {
+                } else if (isWithinRadius(location, playerLocation, 3)) {
                     Rs2Walker.walkFastCanvas(location);
                 }
                 break;
@@ -194,10 +194,6 @@ public class AnagramClueTask extends ClueTask {
         }
         log.warn("Dialogue handling failed.");
         return false;
-    }
-
-    private boolean hasArrived(Player player) {
-        return player.getWorldLocation().equals(location);
     }
 
     private boolean isWithinRadius(WorldPoint targetLocation, WorldPoint playerLocation, int radius) {

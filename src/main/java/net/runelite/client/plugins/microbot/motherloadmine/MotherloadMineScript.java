@@ -92,6 +92,8 @@ public class MotherloadMineScript extends Script
 
 	private boolean shouldEmptySack = false;
 	private boolean shouldRepairWaterwheel = false;
+	private long idleSince = 0;
+	private int idleThreshold = 0;
 	private boolean pickedUpHammer = false;
     private MLMStatus lastLoggedStatus = null;
 
@@ -127,13 +129,9 @@ public class MotherloadMineScript extends Script
     {
         if (!super.run() || !Microbot.isLoggedIn())
         {
-            log.debug("Execution paused: script not runnable or player not logged in");
             resetMiningState(true);
             return;
         }
-
-        if (Rs2AntibanSettings.actionCooldownActive) return;
-        if (Rs2Player.isAnimating() || Microbot.getClient().getLocalPlayer().isInteracting()) return;
 
         determineStatusFromInventory();
         logStatusTransitionIfChanged();
@@ -147,16 +145,20 @@ public class MotherloadMineScript extends Script
                 handleMining();
                 break;
             case EMPTY_SACK:
+                if (Rs2Player.isAnimating()) return;
                 Rs2Antiban.setActivityIntensity(ActivityIntensity.EXTREME);
                 emptySack();
                 break;
             case FIXING_WATERWHEEL:
+                if (Rs2Player.isAnimating()) return;
                 fixWaterwheel();
                 break;
             case DEPOSIT_HOPPER:
+                if (Rs2Player.isAnimating()) return;
                 depositHopper();
                 break;
             case DROP_GEMS:
+                if (Rs2Player.isAnimating()) return;
                 dropGems();
                 break;
         }
@@ -218,7 +220,17 @@ public class MotherloadMineScript extends Script
 
 	private void handleMining()
 	{
-		if (oreVein != null && AntibanPlugin.isMining()) return;
+		if (Rs2Player.getAnimation() != net.runelite.api.AnimationID.IDLE || Rs2Player.isMoving()) {
+			idleSince = 0;
+			return;
+		}
+		if (idleSince == 0) {
+			idleSince = System.currentTimeMillis();
+			idleThreshold = Math.max(2000, Rs2Random.randomGaussian(3000, 600));
+			return;
+		}
+		if (System.currentTimeMillis() - idleSince < idleThreshold) return;
+		idleSince = 0;
 
 		if (Rs2Gembag.isUnknown()) {
 			Rs2Gembag.checkGemBag();
@@ -233,20 +245,12 @@ public class MotherloadMineScript extends Script
 
 		if (isOnSelectedMiningFloor() && findClosestVein() != null && attemptToMineVein())
 		{
-			Rs2Antiban.actionCooldown();
-			Rs2Antiban.takeMicroBreakByChance();
 			return;
 		}
 
 		if (!walkToMiningSpot()) return;
 
-		if (attemptToMineVein())
-		{
-			Rs2Antiban.actionCooldown();
-			Rs2Antiban.takeMicroBreakByChance();
-		} else {
-			oreVein = null;
-		}
+		attemptToMineVein();
 	}
 
 	private boolean isOnSelectedMiningFloor()
@@ -736,8 +740,7 @@ public class MotherloadMineScript extends Script
 	}
 
 	private void dropHammerIfNeeded() {
-		if (pickedUpHammer) {
-            log.debug("Dropping temporary hammer");
+		if (pickedUpHammer || (!Rs2Equipment.isWearing("hammer") && Rs2Inventory.hasItem("hammer"))) {
 			Rs2Inventory.drop("hammer");
 			sleepUntil(() -> !Rs2Inventory.hasItem("hammer"));
 			pickedUpHammer = false;
