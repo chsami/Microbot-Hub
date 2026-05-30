@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.pitfallhunter;
 
+import net.runelite.api.ItemID;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigInformation;
@@ -8,7 +9,7 @@ import net.runelite.client.config.ConfigItem;
 @ConfigInformation("<html>"
         + "Local Sunlight Antelope pitfall hunter MVP.<br/>"
         + "Starts near the pitfall area and runs only the local NPC lure and closest-pit loop. "
-        + "No banking, travel, anti-ban, randomization, or profit tracking.<br/><br/>"
+        + "Includes optional low-HP banking and return-to-start travel.<br/><br/>"
         + "Required: knife and teasing stick.<br/>"
         + "Required if fletching: chisel.<br/>"
         + "Optional: meat pouch.<br/>"
@@ -41,6 +42,50 @@ public interface PitfallHunterConfig extends Config
         public int emptySlots()
         {
             return emptySlots;
+        }
+    }
+
+    enum BankFood
+    {
+        TROUT("Trout", ItemID.TROUT, 7),
+        SALMON("Salmon", ItemID.SALMON, 9),
+        TUNA("Tuna", ItemID.TUNA, 10),
+        LOBSTER("Lobster", ItemID.LOBSTER, 12),
+        BASS("Bass", ItemID.BASS, 13),
+        SWORDFISH("Swordfish", ItemID.SWORDFISH, 14),
+        POTATO_WITH_CHEESE("Potato with cheese", ItemID.POTATO_WITH_CHEESE, 16),
+        MONKFISH("Monkfish", ItemID.MONKFISH, 16),
+        COOKED_KARAMBWAN("Cooked karambwan", ItemID.COOKED_KARAMBWAN, 18),
+        SHARK("Shark", ItemID.SHARK, 20),
+        SEA_TURTLE("Sea turtle", ItemID.SEA_TURTLE, 21),
+        MANTA_RAY("Manta ray", ItemID.MANTA_RAY, 22),
+        TUNA_POTATO("Tuna potato", ItemID.TUNA_POTATO, 22);
+
+        private final String name;
+        private final int itemId;
+        private final int healAmount;
+
+        BankFood(String name, int itemId, int healAmount)
+        {
+            this.name = name;
+            this.itemId = itemId;
+            this.healAmount = healAmount;
+        }
+
+        public int itemId()
+        {
+            return itemId;
+        }
+
+        public int healAmount()
+        {
+            return healAmount;
+        }
+
+        @Override
+        public String toString()
+        {
+            return name + " (" + healAmount + " HP)";
         }
     }
 
@@ -119,5 +164,38 @@ public interface PitfallHunterConfig extends Config
     default int logsToPrepare()
     {
         return 1;
+    }
+
+    @ConfigItem(
+            position = 7,
+            keyName = "bankingEnabled",
+            name = "Banking",
+            description = "Walk to the manual bank tile, empty item containers, bank loot, heal to full HP, then return to the start tile."
+    )
+    default boolean bankingEnabled()
+    {
+        return false;
+    }
+
+    @ConfigItem(
+            position = 8,
+            keyName = "bankBelowHitpoints",
+            name = "Bank below HP",
+            description = "Bank when current hitpoints are at or below this value. Set to 0 to disable the HP trigger."
+    )
+    default int bankBelowHitpoints()
+    {
+        return 25;
+    }
+
+    @ConfigItem(
+            position = 9,
+            keyName = "bankFood",
+            name = "Bank food",
+            description = "Food to withdraw while healing at the bank."
+    )
+    default BankFood bankFood()
+    {
+        return BankFood.SHARK;
     }
 }

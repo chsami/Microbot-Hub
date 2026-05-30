@@ -11,10 +11,10 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import javax.inject.Inject;
 
 @PluginDescriptor(
-        name = PluginConstants.DEFAULT_PREFIX + "Pitfall Hunter",
+        name = PluginConstants.Bender + "Pitfall Hunter",
         description = "Local Sunlight Antelope pitfall loop. Lure closest NPC, then use closest pit.",
         tags = {"hunter", "pitfall", "sunlight antelope", "local", "mvp"},
-        authors = {"Microbot-Hub"},
+        authors = {"Bender"},
         version = PitfallHunterPlugin.version,
         minClientVersion = "2.1.0",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -23,7 +23,7 @@ import javax.inject.Inject;
 @Slf4j
 public class PitfallHunterPlugin extends Plugin
 {
-    public static final String version = "0.1.52";
+    public static final String version = "0.1.59";
 
     @Inject
     private PitfallHunterConfig config;

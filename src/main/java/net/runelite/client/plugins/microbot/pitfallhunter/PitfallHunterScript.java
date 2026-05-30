@@ -6,11 +6,13 @@ import net.runelite.api.Actor;
 import net.runelite.api.ItemID;
 import net.runelite.api.NPCComposition;
 import net.runelite.api.ObjectComposition;
+import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
@@ -91,8 +93,8 @@ public class PitfallHunterScript extends Script
     private static final int STATE_WATCHDOG_TIMEOUT_MS = 30000;
     private static final int CAPTURE_TIMEOUT_MIN_MS = 11000;
     private static final int CAPTURE_REJUMP_DELAY_MS = 3600;
-    private static final int CAPTURE_REJUMP_EXTRA_DELAY_MIN_MS = 600;
-    private static final int CAPTURE_REJUMP_EXTRA_DELAY_MAX_MS = 800;
+    private static final int CAPTURE_REJUMP_EXTRA_DELAY_MIN_MS = 900;
+    private static final int CAPTURE_REJUMP_EXTRA_DELAY_MAX_MS = 1200;
     private static final int CAPTURE_REJUMP_MAX_ATTEMPTS = 3;
     private static final int PIT_JUMP_ANIMATION_ID = 3067;
     private static final int PIT_JUMP_ANIMATION_START_TIMEOUT_MS = 5300;
@@ -103,8 +105,14 @@ public class PitfallHunterScript extends Script
     private static final int PREPARE_PIT_MAX_ATTEMPTS = 3;
     private static final int PIT_OBJECT_MATCH_RADIUS = 2;
     private static final int[] CAPTURE_DEATH_GRAPHIC_IDS = {993};
-    private static final int CAPTURE_LOOT_DELAY_MIN_MS = 2500;
-    private static final int CAPTURE_LOOT_DELAY_MAX_MS = 3000;
+    private static final int CAPTURE_LOOT_DELAY_MIN_MS = 600;
+    private static final int CAPTURE_LOOT_DELAY_MAX_MS = 1500;
+    private static final int SHORT_RANDOM_WAIT_MIN_MS = 600;
+    private static final int SHORT_RANDOM_WAIT_MAX_MS = 1500;
+    private static final int BANK_HEAL_MAX_FOOD_ATTEMPTS = 28;
+    private static final int BANK_LOCATION_REACHED_DISTANCE = 3;
+    private static final WorldPoint BANK_LOCATION = new WorldPoint(1779, 3095, 0);
+    private static final WorldPoint START_LOCATION = new WorldPoint(1743, 3019, 0);
     private static final int FLETCH_ANTLERS_CHANCE_PERCENT = 40;
     private static final String LOG_NAME = "Logs";
     private static final String WILLOW_LOG_NAME = "Willow logs";
@@ -290,6 +298,15 @@ public class PitfallHunterScript extends Script
 
     private void tick()
     {
+        if (forceLootPhaseBeforeAction()) {
+            return;
+        }
+
+        if (shouldStartBanking()) {
+            beginBanking();
+            return;
+        }
+
         switch (state) {
             case CHECK_REQUIREMENTS:
                 checkRequirements();
@@ -321,6 +338,12 @@ public class PitfallHunterScript extends Script
             case HANDLE_MEAT_POUCH:
                 handleMeatPouch();
                 break;
+            case BANK:
+                bank();
+                break;
+            case RETURN_TO_START:
+                returnToStart();
+                break;
             case RECOVER:
                 recover();
                 break;
@@ -328,6 +351,20 @@ public class PitfallHunterScript extends Script
                 shutdown();
                 break;
         }
+    }
+
+    private boolean forceLootPhaseBeforeAction()
+    {
+        if (selectedPit == null
+                || state == State.LOOT_PIT
+                || state == State.HANDLE_MEAT_POUCH
+                || state == State.BANK
+                || state == State.RETURN_TO_START
+                || state == State.STOP) {
+            return false;
+        }
+
+        return forceLootPhaseIfCollapsed("pre-action scan");
     }
 
     private void checkRequirements()
@@ -421,7 +458,7 @@ public class PitfallHunterScript extends Script
         selectedNpc = findClosestSunlightAntelope();
         if (selectedNpc == null) {
             recordDecision("No antelope nearby; refreshing");
-            sleep(600, 1000);
+            shortRandomWait();
             transition(State.REFRESH_PITS);
             return;
         }
@@ -462,6 +499,10 @@ public class PitfallHunterScript extends Script
             return;
         }
 
+        if (forceLootPhaseIfCollapsed("prepare state scan")) {
+            return;
+        }
+
         if (!hasLogs()) {
             transition(State.CHECK_REQUIREMENTS);
             return;
@@ -479,6 +520,7 @@ public class PitfallHunterScript extends Script
         }
 
         recordDecision("Jumping prepared pit");
+        shortRandomWait();
         transition(State.JUMP_PIT);
     }
 
@@ -505,6 +547,7 @@ public class PitfallHunterScript extends Script
         }
 
         recordDecision("Preparing closest pit after tease");
+        shortRandomWait();
         transition(State.PREPARE_PIT);
     }
 
@@ -520,6 +563,9 @@ public class PitfallHunterScript extends Script
         Rs2TileObjectModel pitObject = waitForPitObject(selectedPit, JUMP_PIT_ACTION, JUMP_OBJECT_APPEAR_TIMEOUT_MS);
         if (pitObject == null) {
             selectedPitState = getPitState(selectedPit);
+            if (selectedPitState == PitfallState.COLLAPSED && forceLootPhaseIfCollapsed("jump state scan")) {
+                return;
+            }
             log("Jump failed: trapped pit object missing. state=" + selectedPitState, Level.WARN);
             transition(State.RECOVER);
             return;
@@ -556,14 +602,16 @@ public class PitfallHunterScript extends Script
         log("Capture wait state: " + selectedPit.name + " -> " + selectedPitState);
         trackNpcJumpAcrossTrap();
 
+        if (selectedPitState == PitfallState.COLLAPSED && forceLootPhaseIfCollapsed("capture state scan")) {
+            return;
+        }
+
         if (waitingForJumpAnimation) {
             recordDecision("Waiting for jump animation");
             return;
         }
 
-        if (captureDetectedAt == 0 && selectedPitState == PitfallState.COLLAPSED) {
-            markCaptureDetected("collapsed trap state");
-        } else if (captureDetectedAt == 0 && getSelectedNpcCaptureGraphic() > 0) {
+        if (captureDetectedAt == 0 && getSelectedNpcCaptureGraphic() > 0) {
             markCaptureDetected("NPC graphic " + getSelectedNpcCaptureGraphic());
         }
 
@@ -578,14 +626,17 @@ public class PitfallHunterScript extends Script
                 return;
             }
 
-            Rs2TileObjectModel lootObject = waitForPitObject(selectedPit, DISMANTLE_TRAP_ACTION, DISMANTLE_OBJECT_APPEAR_TIMEOUT_MS);
+            selectedPitState = getPitState(selectedPit);
+            Rs2TileObjectModel lootObject = waitForCollapsedTrapObject(selectedPit, DISMANTLE_OBJECT_APPEAR_TIMEOUT_MS);
             if (lootObject == null) {
                 captureLootReadyAt = System.currentTimeMillis() + 1000;
-                recordDecision("Waiting for Dismantle");
-                log("Capture delay elapsed but Dismantle is not available yet", Level.WARN);
+                recordDecision("Waiting for collapsed trap");
+                log("Capture delay elapsed but Collapsed Trap with Dismantle is not available yet; state="
+                        + selectedPitState, Level.WARN);
                 return;
             }
 
+            selectedPitState = PitfallState.COLLAPSED;
             skippedTrappedPits.remove(selectedPit.name);
             recordDecision("Looting collapsed trap");
             transition(State.LOOT_PIT);
@@ -593,12 +644,12 @@ public class PitfallHunterScript extends Script
         }
 
         if (timedOut(getCaptureTimeoutMs())) {
-            PitfallObjectCandidate collapsed = findNearestPitObjectCandidate(DISMANTLE_TRAP_ACTION, 25);
+            PitfallObjectCandidate collapsed = findNearestCollapsedTrapCandidate(25);
             if (collapsed != null) {
                 selectedPit = collapsed.pit;
                 selectedPitState = PitfallState.COLLAPSED;
                 lastPitQuery = formatPitCandidate("Late collapsed", collapsed, null);
-                markCaptureDetected("late collapsed pit scan");
+                forceLootPhaseIfCollapsed("late collapsed pit scan");
                 return;
             }
 
@@ -631,6 +682,31 @@ public class PitfallHunterScript extends Script
         recordDecision("Waiting before loot");
     }
 
+    private boolean forceLootPhaseIfCollapsed(String evidence)
+    {
+        Rs2TileObjectModel collapsedTrap = getCollapsedTrapObject(selectedPit);
+        if (collapsedTrap == null) {
+            return false;
+        }
+
+        long now = System.currentTimeMillis();
+        selectedPitState = PitfallState.COLLAPSED;
+        captureDetectedAt = now;
+        captureLootReadyAt = now;
+        waitingForJumpAnimation = false;
+        pendingJumpClickedAt = 0;
+        if (selectedPit != null) {
+            skippedTrappedPits.remove(selectedPit.name);
+        }
+
+        log("Collapsed Trap with Dismantle detected by " + evidence + "; forcing loot phase"
+                + (selectedPit == null ? "" : " for " + selectedPit.name));
+        recordDecision("Looting collapsed trap");
+        shortRandomWait();
+        transition(State.LOOT_PIT);
+        return true;
+    }
+
     private boolean retryJumpIfStillTrapped()
     {
         if (waitingForJumpAnimation) {
@@ -638,6 +714,11 @@ public class PitfallHunterScript extends Script
         }
 
         if (captureRejumpAttempts >= CAPTURE_REJUMP_MAX_ATTEMPTS) {
+            return false;
+        }
+
+        selectedPitState = getPitState(selectedPit);
+        if (selectedPitState == PitfallState.COLLAPSED) {
             return false;
         }
 
@@ -658,6 +739,7 @@ public class PitfallHunterScript extends Script
             pitObject = jumpCandidate.object;
         }
 
+        selectedPitState = PitfallState.TRAPPED;
         captureRejumpAttempts++;
         recordDecision("Retrying Jump " + captureRejumpAttempts);
         log("Capture wait still has Jump option; retrying jump attempt " + captureRejumpAttempts
@@ -745,7 +827,7 @@ public class PitfallHunterScript extends Script
             log("Prepare attempt " + attempt + " click result: " + clicked);
 
             if (!clicked) {
-                sleep(300, 600);
+                shortRandomWait();
                 continue;
             }
 
@@ -760,7 +842,7 @@ public class PitfallHunterScript extends Script
             }
 
             log("Prepare attempt " + attempt + " advancing after Trap click; Jump step will verify object", Level.WARN);
-            sleep(500, 800);
+            shortRandomWait();
             return true;
         }
 
@@ -770,20 +852,24 @@ public class PitfallHunterScript extends Script
 
     private void lootPit()
     {
-        Rs2TileObjectModel pitObject = waitForPitObject(selectedPit, DISMANTLE_TRAP_ACTION, DISMANTLE_OBJECT_APPEAR_TIMEOUT_MS);
+        selectedPitState = getPitState(selectedPit);
+        Rs2TileObjectModel pitObject = waitForCollapsedTrapObject(selectedPit, DISMANTLE_OBJECT_APPEAR_TIMEOUT_MS);
         if (pitObject == null) {
-            log("Loot failed: pit object missing", Level.WARN);
-            transition(State.RECOVER);
+            selectedPitState = getPitState(selectedPit);
+            log("Loot deferred: Collapsed Trap with Dismantle missing. state=" + selectedPitState, Level.WARN);
+            if (selectedPitState == PitfallState.TRAPPED) {
+                recordDecision("Still trapped; waiting for capture");
+                transition(State.WAIT_FOR_CAPTURE);
+            } else {
+                transition(State.RECOVER);
+            }
             return;
         }
 
-        if (isSpikedTrapObject(pitObject)) {
-            jumpSpikedTrapInsteadOfLooting(pitObject);
-            return;
-        }
-
+        selectedPitState = PitfallState.COLLAPSED;
         int before = Rs2Inventory.count();
         recordDecision("Dismantling collapsed trap");
+        shortRandomWait();
         boolean clicked = clickPitObject(pitObject, DISMANTLE_TRAP_ACTION);
         boolean changed = clicked && waitUntil(() -> Rs2Inventory.count() != before
                 || getPitState(selectedPit) != PitfallState.COLLAPSED, 8000);
@@ -794,6 +880,9 @@ public class PitfallHunterScript extends Script
             return;
         }
 
+        if (changed) {
+            shortRandomWait();
+        }
         transition(State.HANDLE_MEAT_POUCH);
     }
 
@@ -837,6 +926,277 @@ public class PitfallHunterScript extends Script
         transition(State.REFRESH_PITS);
     }
 
+    private boolean shouldStartBanking()
+    {
+        if (!config.bankingEnabled()
+                || state == State.BANK
+                || state == State.RETURN_TO_START
+                || state == State.STOP) {
+            return false;
+        }
+
+        int threshold = Math.max(0, config.bankBelowHitpoints());
+        boolean lowHp = threshold > 0
+                && currentHitpoints() > 0
+                && currentHitpoints() <= threshold;
+        if (!lowHp) {
+            return false;
+        }
+
+        if (shouldFinishPitBeforeBanking()) {
+            recordDecision("Finish trapped pit before banking");
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean shouldFinishPitBeforeBanking()
+    {
+        if (state == State.JUMP_PIT
+                || state == State.WAIT_FOR_CAPTURE
+                || state == State.LOOT_PIT
+                || state == State.HANDLE_MEAT_POUCH) {
+            return true;
+        }
+
+        if (selectedPit == null) {
+            return false;
+        }
+
+        selectedPitState = getPitState(selectedPit);
+        return selectedPitState == PitfallState.TRAPPED
+                || selectedPitState == PitfallState.COLLAPSED;
+    }
+
+    private void beginBanking()
+    {
+        log("Banking triggered at HP " + currentHitpoints() + "/" + maxHitpoints());
+        recordDecision("Banking for low HP");
+        selectedNpc = null;
+        selectedPit = null;
+        selectedPitState = PitfallState.UNKNOWN;
+        captureDetectedAt = 0;
+        captureLootReadyAt = 0;
+        lastCaptureJumpAt = 0;
+        pendingJumpClickedAt = 0;
+        captureRejumpAttempts = 0;
+        waitingForJumpAnimation = false;
+        resetNpcJumpTracking();
+        resetLureTracking();
+        skippedTrappedPits.clear();
+        transition(State.BANK);
+    }
+
+    private void bank()
+    {
+        if (!clearSelectedItem("before banking")) {
+            log("Could not clear selected item before banking", Level.WARN);
+        }
+
+        recordDecision("Walking to bank");
+        if (!openBankAtBankLocation()) {
+            log("Banking: bank is not open yet", Level.WARN);
+            return;
+        }
+
+        recordDecision("Emptying containers");
+        boolean emptiedContainers = Rs2Bank.emptyContainers();
+        log("Bank empty containers result: " + emptiedContainers);
+
+        depositBankableInventory();
+
+        if (!healToFullAtBank()) {
+            stop("Banking failed: no edible food available to heal");
+            return;
+        }
+
+        if (!Rs2Bank.isOpen() && !openBankAtBankLocation()) {
+            log("Banking: could not reopen bank after healing", Level.WARN);
+            return;
+        }
+
+        depositBankableInventory();
+        Rs2Bank.closeBank();
+        waitUntil(() -> !Rs2Bank.isOpen(), 2000);
+
+        recordDecision("Returning to start");
+        transition(State.RETURN_TO_START);
+    }
+
+    private boolean healToFullAtBank()
+    {
+        PitfallHunterConfig.BankFood food = config.bankFood();
+        if (food == null) {
+            log("Banking heal failed: no supported food selected", Level.WARN);
+            return false;
+        }
+
+        while (isRunning() && !Rs2Player.isFullHealth()) {
+            if (!Rs2Bank.isOpen() && !openBankAtBankLocation()) {
+                return false;
+            }
+
+            int missingHp = Math.max(0, maxHitpoints() - currentHitpoints());
+            if (missingHp == 0) {
+                break;
+            }
+
+            int neededFood = Math.max(1, (int) Math.ceil((double) missingHp / food.healAmount()));
+            int availableFood = Rs2Bank.count(food.itemId());
+            if (availableFood <= 0) {
+                log("Banking heal failed: no " + food + " found in bank", Level.WARN);
+                return false;
+            }
+
+            int withdrawAmount = Math.min(neededFood, availableFood);
+            withdrawAmount = Math.min(withdrawAmount, Math.max(0, Rs2Inventory.emptySlotCount()));
+            if (withdrawAmount <= 0) {
+                log("Banking heal failed: no inventory space for " + food, Level.WARN);
+                return false;
+            }
+
+            int beforeFoodCount = Rs2Inventory.count(food.itemId());
+            int expectedFoodCount = beforeFoodCount + withdrawAmount;
+
+            recordDecision("Withdrawing " + withdrawAmount + " food");
+            boolean withdrew = withdrawAmount == 1
+                    ? Rs2Bank.withdrawOne(food.itemId())
+                    : Rs2Bank.withdrawX(food.itemId(), withdrawAmount);
+            if (!withdrew || !waitUntil(() -> Rs2Inventory.count(food.itemId()) >= expectedFoodCount, 5000)) {
+                log("Banking heal failed: could not withdraw " + withdrawAmount + " " + food, Level.WARN);
+                return false;
+            }
+
+            Rs2Bank.closeBank();
+            waitUntil(() -> !Rs2Bank.isOpen(), 2000);
+
+            recordDecision("Eating to full HP");
+            if (!eatWithdrawnFoodToFull(food)) {
+                return false;
+            }
+        }
+
+        if (!Rs2Bank.isOpen()) {
+            openBankAtBankLocation();
+        }
+        return Rs2Player.isFullHealth();
+    }
+
+    private boolean openBankAtBankLocation()
+    {
+        if (Rs2Bank.isOpen()) {
+            return true;
+        }
+
+        WorldPoint current = Rs2Player.getWorldLocation();
+        if (current == null) {
+            return false;
+        }
+
+        if (current.distanceTo(BANK_LOCATION) > BANK_LOCATION_REACHED_DISTANCE) {
+            recordDecision("Walking to bank tile");
+            Rs2Walker.walkTo(BANK_LOCATION, BANK_LOCATION_REACHED_DISTANCE);
+            waitUntil(() -> {
+                WorldPoint tile = Rs2Player.getWorldLocation();
+                return tile != null && tile.distanceTo(BANK_LOCATION) <= BANK_LOCATION_REACHED_DISTANCE;
+            }, WALK_TIMEOUT_MS);
+        }
+
+        current = Rs2Player.getWorldLocation();
+        if (current == null || current.distanceTo(BANK_LOCATION) > BANK_LOCATION_REACHED_DISTANCE) {
+            log("Banking: not at manual bank location " + BANK_LOCATION, Level.WARN);
+            return false;
+        }
+
+        recordDecision("Opening bank");
+        shortRandomWait();
+        return Rs2Bank.openBank();
+    }
+
+    private boolean eatWithdrawnFoodToFull(PitfallHunterConfig.BankFood food)
+    {
+        int attempts = 0;
+        while (isRunning()
+                && !Rs2Player.isFullHealth()
+                && Rs2Inventory.hasItem(food.itemId())
+                && attempts < BANK_HEAL_MAX_FOOD_ATTEMPTS) {
+            int beforeHp = currentHitpoints();
+            int beforeFoodCount = Rs2Inventory.count(food.itemId());
+            boolean ate = Rs2Inventory.interact(food.itemId(), "Eat");
+            if (!ate || !waitUntil(() -> Rs2Player.isFullHealth()
+                    || currentHitpoints() > beforeHp
+                    || Rs2Inventory.count(food.itemId()) < beforeFoodCount, 3000)) {
+                log("Banking heal failed: could not eat " + food, Level.WARN);
+                return false;
+            }
+
+            attempts++;
+            if (!Rs2Player.isFullHealth() && Rs2Inventory.hasItem(food.itemId())) {
+                shortRandomWait();
+            }
+        }
+
+        return Rs2Player.isFullHealth() || !Rs2Inventory.hasItem(food.itemId());
+    }
+
+    private void depositBankableInventory()
+    {
+        if (!Rs2Bank.isOpen()) {
+            return;
+        }
+
+        boolean deposited = Rs2Bank.depositAllExcept(this::shouldRetainAfterBanking);
+        log("Bank deposit loot result: " + deposited);
+        shortRandomWait();
+    }
+
+    private boolean shouldRetainAfterBanking(Rs2ItemModel item)
+    {
+        if (item == null || item.getName() == null) {
+            return false;
+        }
+
+        String name = item.getName();
+        return item.getId() == TEASING_STICK_ITEM_ID
+                || name.equalsIgnoreCase(TEASING_STICK_NAME)
+                || name.equalsIgnoreCase(KNIFE_NAME)
+                || name.equalsIgnoreCase(KANDARIN_HEADGEAR_NAME)
+                || Arrays.stream(LOG_ITEM_NAMES).anyMatch(logName -> logName.equalsIgnoreCase(name))
+                || Arrays.stream(MEAT_POUCH_NAMES).anyMatch(pouchName -> pouchName.equalsIgnoreCase(name))
+                || (config.fletchAntlers() && name.equalsIgnoreCase(CHISEL_NAME));
+    }
+
+    private void returnToStart()
+    {
+        if (Rs2Bank.isOpen()) {
+            Rs2Bank.closeBank();
+        }
+
+        recordDecision("Walking to start");
+        WorldPoint current = Rs2Player.getWorldLocation();
+        if (current != null && current.distanceTo(START_LOCATION) <= 2) {
+            transition(State.CHECK_REQUIREMENTS);
+            return;
+        }
+
+        Rs2Walker.walkTo(START_LOCATION);
+        waitUntil(() -> {
+            WorldPoint tile = Rs2Player.getWorldLocation();
+            return tile != null && tile.distanceTo(START_LOCATION) <= 2;
+        }, WALK_TIMEOUT_MS);
+    }
+
+    private int currentHitpoints()
+    {
+        return Rs2Player.getBoostedSkillLevel(Skill.HITPOINTS);
+    }
+
+    private int maxHitpoints()
+    {
+        return Rs2Player.getRealSkillLevel(Skill.HITPOINTS);
+    }
+
     private void recover()
     {
         log("Recovering from state: " + state + " pit=" + (selectedPit == null ? "none" : selectedPit.name));
@@ -851,13 +1211,13 @@ public class PitfallHunterScript extends Script
         waitingForJumpAnimation = false;
         resetNpcJumpTracking();
         resetLureTracking();
-        sleep(600, 1000);
+        shortRandomWait();
         transition(State.REFRESH_PITS);
     }
 
     private boolean selectCollapsedPit()
     {
-        PitfallObjectCandidate candidate = findNearestPitObjectCandidate(DISMANTLE_TRAP_ACTION, 25);
+        PitfallObjectCandidate candidate = findNearestCollapsedTrapCandidate(25);
 
         if (candidate == null) {
             lastPitQuery = "Collapsed: none";
@@ -870,13 +1230,6 @@ public class PitfallHunterScript extends Script
         log("Selected collapsed pit: " + selectedPit.name
                 + " object=" + candidate.object.getId()
                 + " tile=" + candidate.object.getWorldLocation());
-
-        if (isSpikedTrapObject(candidate.object)) {
-            selectedPitState = PitfallState.TRAPPED;
-            recordDecision("Found spiked trap; jumping instead of looting");
-            transition(State.JUMP_PIT);
-            return true;
-        }
 
         selectedPitState = PitfallState.COLLAPSED;
         recordDecision("Found collapsed pit; looting first");
@@ -1142,7 +1495,7 @@ public class PitfallHunterScript extends Script
                 return true;
             }
 
-            sleep(300, 600);
+            shortRandomWait();
         }
 
         log("Tease failed: no interaction or NPC movement evidence was detected", Level.WARN);
@@ -1321,7 +1674,7 @@ public class PitfallHunterScript extends Script
             }
             buried++;
             if (Rs2Inventory.hasItem(BIG_BONES_NAME, true)) {
-                sleep(600, 950);
+                shortRandomWait();
             }
         }
         log("Big bones bury count: " + buried);
@@ -1398,17 +1751,19 @@ public class PitfallHunterScript extends Script
 
     private PitfallState getPitState(PitfallDefinition pit)
     {
-        Rs2TileObjectModel object = getPitObject(pit);
-        if (object == null) {
-            return PitfallState.UNKNOWN;
-        }
-
-        if (isSpikedTrapObject(object)) {
-            return PitfallState.TRAPPED;
-        }
-        if (hasPitObjectAction(object, DISMANTLE_TRAP_ACTION)) {
+        if (getCollapsedTrapObject(pit) != null) {
             return PitfallState.COLLAPSED;
         }
+
+        Rs2TileObjectModel object = getPitObject(pit, JUMP_PIT_ACTION);
+        if (object == null) {
+            object = getPitObject(pit, TRAP_PIT_ACTION);
+        }
+
+        if (object == null) {
+            object = getPitObject(pit);
+        }
+
         if (hasPitObjectAction(object, JUMP_PIT_ACTION)) {
             return PitfallState.TRAPPED;
         }
@@ -1493,11 +1848,40 @@ public class PitfallHunterScript extends Script
                 .orElse(null);
     }
 
+    private Rs2TileObjectModel getCollapsedTrapObject(PitfallDefinition pit)
+    {
+        if (pit == null || pit.getAnchorTile() == null) {
+            return null;
+        }
+
+        return Microbot.getRs2TileObjectCache().query()
+                .within(pit.getAnchorTile(), config.pitObjectSearchRadius())
+                .where(this::isCollapsedTrapDismantleObject)
+                .where(object -> object.getWorldLocation() != null)
+                .toListOnClientThread()
+                .stream()
+                .filter(object -> matchesPitFootprint(pit, object))
+                .min(Comparator.comparingInt((Rs2TileObjectModel object) -> pitObjectMatchRank(pit, object))
+                        .thenComparingInt(object -> pit.distanceTo(object.getWorldLocation()))
+                        .thenComparingInt(this::distanceToPlayer))
+                .orElse(null);
+    }
+
     private Rs2TileObjectModel waitForPitObject(PitfallDefinition pit, String action, int timeoutMs)
     {
         final Rs2TileObjectModel[] found = new Rs2TileObjectModel[1];
         waitUntil(() -> {
             found[0] = getPitObject(pit, action);
+            return found[0] != null;
+        }, timeoutMs);
+        return found[0];
+    }
+
+    private Rs2TileObjectModel waitForCollapsedTrapObject(PitfallDefinition pit, int timeoutMs)
+    {
+        final Rs2TileObjectModel[] found = new Rs2TileObjectModel[1];
+        waitUntil(() -> {
+            found[0] = getCollapsedTrapObject(pit);
             return found[0] != null;
         }, timeoutMs);
         return found[0];
@@ -1548,6 +1932,22 @@ public class PitfallHunterScript extends Script
                 .orElse(null);
     }
 
+    private PitfallObjectCandidate findNearestCollapsedTrapCandidate(int maxDistance)
+    {
+        return Microbot.getRs2TileObjectCache().query()
+                .within(maxDistance)
+                .where(this::isCollapsedTrapDismantleObject)
+                .where(object -> object.getWorldLocation() != null)
+                .toListOnClientThread()
+                .stream()
+                .map(this::toPitObjectCandidate)
+                .filter(candidate -> candidate.pit != null)
+                .min(Comparator.comparingInt((PitfallObjectCandidate candidate) -> distanceToPlayer(candidate.object))
+                        .thenComparingInt(candidate -> candidate.pit.distanceTo(candidate.object.getWorldLocation()))
+                        .thenComparingInt(candidate -> candidate.pit.getPriority()))
+                .orElse(null);
+    }
+
     private boolean matchesPitFootprint(PitfallDefinition pit, Rs2TileObjectModel object)
     {
         return pit != null
@@ -1582,6 +1982,13 @@ public class PitfallHunterScript extends Script
     {
         return object != null
                 && String.valueOf(object.getName()).equalsIgnoreCase(SPIKED_TRAP_OBJECT_NAME);
+    }
+
+    private boolean isCollapsedTrapDismantleObject(Rs2TileObjectModel object)
+    {
+        return object != null
+                && String.valueOf(object.getName()).equalsIgnoreCase(COLLAPSED_TRAP_OBJECT_NAME)
+                && hasPitObjectAction(object, DISMANTLE_TRAP_ACTION);
     }
 
     private boolean isPitfallObject(Rs2TileObjectModel object)
@@ -1744,7 +2151,10 @@ public class PitfallHunterScript extends Script
         }
 
         recordDecision("Waiting for player movement/animation");
-        if (state != State.STOP && now - busyStartedAt > BUSY_WATCHDOG_TIMEOUT_MS) {
+        if (state != State.STOP
+                && state != State.BANK
+                && state != State.RETURN_TO_START
+                && now - busyStartedAt > BUSY_WATCHDOG_TIMEOUT_MS) {
             log("Busy watchdog recovered from state " + state, Level.WARN);
             busyStartedAt = 0;
             transition(State.RECOVER);
@@ -1754,7 +2164,10 @@ public class PitfallHunterScript extends Script
 
     private boolean recoverTimedOutState()
     {
-        if (state == State.STOP || state == State.WAIT_FOR_CAPTURE) {
+        if (state == State.STOP
+                || state == State.WAIT_FOR_CAPTURE
+                || state == State.BANK
+                || state == State.RETURN_TO_START) {
             return false;
         }
 
@@ -1777,6 +2190,11 @@ public class PitfallHunterScript extends Script
     private boolean contains(int[] values, int value)
     {
         return Arrays.stream(values).anyMatch(candidate -> candidate == value);
+    }
+
+    private void shortRandomWait()
+    {
+        sleep(SHORT_RANDOM_WAIT_MIN_MS, SHORT_RANDOM_WAIT_MAX_MS);
     }
 
     private boolean waitUntil(Check check, int timeoutMs)
@@ -1933,6 +2351,10 @@ public class PitfallHunterScript extends Script
                 return "Dismantle trap";
             case HANDLE_MEAT_POUCH:
                 return "Store/drop/fletch loot";
+            case BANK:
+                return "Bank loot and heal";
+            case RETURN_TO_START:
+                return "Return to start";
             case RECOVER:
                 return "Clear targets and retry";
             case STOP:
@@ -1954,6 +2376,8 @@ public class PitfallHunterScript extends Script
         WAIT_FOR_CAPTURE,
         LOOT_PIT,
         HANDLE_MEAT_POUCH,
+        BANK,
+        RETURN_TO_START,
         RECOVER,
         STOP
     }
