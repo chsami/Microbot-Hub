@@ -33,6 +33,13 @@ public class LootScript extends Script {
     private static final int DEFAULT_MIN_STACK_EXCLUSIVE_ARROWS = 9; // allow 2+
     private static final int DEFAULT_MIN_STACK_EXCLUSIVE_RUNES  = 1; // allow 2+
 
+    // Telegrab (unreachable-loot) tuning
+    private static final int TELEGRAB_ARM_MIN_MS = 300;       // min wait for the spell to arm before clicking
+    private static final int TELEGRAB_ARM_MAX_MS = 500;       // max wait for the spell to arm
+    private static final int TELEGRAB_RANGE_PADDING = 2;      // extra tiles beyond player->item distance when locating it
+    private static final int TELEGRAB_FALLBACK_RANGE = 10;    // search radius if player location is unavailable
+    private static final int TELEGRAB_GRAB_TIMEOUT_MS = 3000; // max wait for the grabbed pile to disappear
+
     private int minFreeSlots = 0;
 
     public LootScript() {}
@@ -107,22 +114,34 @@ public class LootScript extends Script {
             if (wp != null && !Rs2Tile.isTileReachable(wp)) {
                 // Unreachable wanted item (e.g. behind the bars at a caged demon): Telekinetic
                 // Grab it rather than walking, which would just spam "I can't reach that!".
+                // If we can't cast (missing runes/level) the item is skipped, not walked to.
                 final int id = groundItem.getId();
-                if (Rs2Magic.canCast(MagicAction.TELEKINETIC_GRAB) && Rs2Magic.cast(MagicAction.TELEKINETIC_GRAB)) {
-                    sleep(300, 500); // let the spell arm before clicking the item
-                    final WorldPoint me = Rs2Player.getWorldLocation();
-                    final int range = (me == null ? 10 : me.distanceTo(wp) + 2);
-                    Rs2GroundItem.interact(id, "Cast", range);
-                    // Block until this pile is actually grabbed (gone), bounded. Casting once per
-                    // pile stops the loot loop from re-casting mid-grab (the spellbook stutter)
-                    // and keeps the cast/reachability calls off the client thread's hot path,
-                    // which was saturating it and causing TimeoutExceptions in other scripts.
-                    sleepUntil(() -> Rs2GroundItem.getGroundItems().get(wp, id) == null, 3000);
+                if (Rs2Magic.canCast(MagicAction.TELEKINETIC_GRAB)) {
+                    final long before = groundCountById(id);
+                    if (Rs2Magic.cast(MagicAction.TELEKINETIC_GRAB)) {
+                        sleep(TELEGRAB_ARM_MIN_MS, TELEGRAB_ARM_MAX_MS); // let the spell arm before clicking
+                        final WorldPoint me = Rs2Player.getWorldLocation();
+                        final int range = (me == null ? TELEGRAB_FALLBACK_RANGE : me.distanceTo(wp) + TELEGRAB_RANGE_PADDING);
+                        Rs2GroundItem.interact(id, "Cast", range);
+                        // interact() grabs the nearest pile of this id; wait until a pile of this id
+                        // is removed (the same id selector the cast used), bounded. Casting once per
+                        // pile and blocking here stops the loot loop from re-casting mid-grab (the
+                        // spellbook stutter) and keeps cast/reachability calls off the client-thread
+                        // hot path, which was saturating it and causing TimeoutExceptions elsewhere.
+                        sleepUntil(() -> groundCountById(id) < before, TELEGRAB_GRAB_TIMEOUT_MS);
+                    }
                 }
                 return; // never walk to unreachable loot while this option is on
             }
         }
         Rs2GroundItem.coreLoot(groundItem);
+    }
+
+    /** Number of ground-item piles of the given id currently tracked nearby. */
+    private static long groundCountById(int id) {
+        return Rs2GroundItem.getGroundItems().values().stream()
+                .filter(gi -> gi.getId() == id)
+                .count();
     }
 
     /**
