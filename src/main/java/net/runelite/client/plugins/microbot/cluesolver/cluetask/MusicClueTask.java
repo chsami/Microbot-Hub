@@ -2,8 +2,6 @@ package net.runelite.client.plugins.microbot.cluesolver.cluetask;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
-import net.runelite.api.NPC;
-import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.eventbus.EventBus;
@@ -85,12 +83,13 @@ public class MusicClueTask extends ClueTask {
     }
 
     private void processGameTick(GameTick event) {
-        Player player = client.getLocalPlayer();
-        if (player == null) return;
+        // v1.0.5 fix: client-thread-safe location read.
+        net.runelite.api.coords.WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) return;
 
         switch (state) {
             case WALKING_TO_LOCATION:
-                if (isWithinRadius(location, player.getWorldLocation(), 5)) {
+                if (isWithinRadius(location, playerLocation, 5)) {
                     log.info("Arrived at music clue location.");
                     state = State.PLAYING_SONG;
                 }

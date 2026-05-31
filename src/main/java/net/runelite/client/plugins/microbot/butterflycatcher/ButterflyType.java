@@ -6,21 +6,21 @@ import lombok.Getter;
  * ButterflyType
  *
  * Defines all catchable butterflies and moths from the Hunter skill.
- * Data sourced from: https://oldschool.runescape.wiki/w/Butterfly_(Hunter)
+ * NPC IDs verified against: https://oldschool.runescape.wiki/w/Butterfly_(Hunter)
  *
  * Level requirements:
  *   The game requires a Hunter level 10 ABOVE the net level for barehanded catching.
  *   This enum stores the NET level as the baseline; the script derives the
  *   barehanded level by adding 10.
  *
- *   Species              Net   Barehanded
- *   ─────────────────── ────  ──────────
- *   Ruby Harvest          5       15
- *   Sapphire Glacialis   25       35
- *   Snowy Knight         35       45
- *   Black Warlock        45       55
- *   Sunlight Moth        65       75
- *   Moonlight Moth       75       85
+ *   Species              Net   Barehanded   NPC ID
+ *   ─────────────────── ────  ──────────   ──────
+ *   Ruby Harvest          5       15        5556
+ *   Sapphire Glacialis   25       35        5555
+ *   Snowy Knight         35       45        5554
+ *   Black Warlock        45       55        5553
+ *   Sunlight Moth        65       75        12770
+ *   Moonlight Moth       75       85        12771, 12772, 12773
  *
  * Item IDs:
  *   Butterfly net      : 10010
@@ -32,28 +32,28 @@ public enum ButterflyType {
 
     RUBY_HARVEST(
             "Ruby Harvest",
-            new int[]{ 5525 },
+            new int[]{ 5556 },  // was 5525 (wrong — wiki confirms 5556)
             5,
             10012,
             10009
     ),
     SAPPHIRE_GLACIALIS(
             "Sapphire Glacialis",
-            new int[]{ 5526 },
+            new int[]{ 5555 },  // was 5526 (wrong — wiki confirms 5555)
             25,
             10012,
             10011
     ),
     SNOWY_KNIGHT(
             "Snowy Knight",
-            new int[]{ 5527 },
+            new int[]{ 5554 },  // was 5527 (wrong — wiki confirms 5554)
             35,
             10012,
             10013
     ),
     BLACK_WARLOCK(
             "Black Warlock",
-            new int[]{ 5553 },
+            new int[]{ 5553 },  // correct
             45,
             10012,
             10010
@@ -65,7 +65,7 @@ public enum ButterflyType {
      */
     SUNLIGHT_MOTH(
             "Sunlight Moth",
-            new int[]{ 12770 },
+            new int[]{ 12770 },  // correct
             65,
             10012,
             28890
@@ -78,7 +78,7 @@ public enum ButterflyType {
      */
     MOONLIGHT_MOTH(
             "Moonlight Moth",
-            new int[]{ 12771, 12772, 12773 },
+            new int[]{ 12771, 12772, 12773 },  // correct
             75,
             10012,
             28893
