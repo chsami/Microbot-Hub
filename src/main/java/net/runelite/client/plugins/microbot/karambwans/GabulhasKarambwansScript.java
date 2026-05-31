@@ -28,7 +28,7 @@ import static net.runelite.client.plugins.microbot.karambwans.GabulhasKarambwans
 
 @Slf4j
 public class GabulhasKarambwansScript extends Script {
-    public static final int FAIRY_RING_ID = 29228;
+    public static final int FAIRY_RING_ID = 29560;
     public static final int SPIRITUAL_FAIRY_TREE_ID = 35003;
     private final WorldPoint zanarisRingPoint = new WorldPoint(2412, 4435, 0);
     private final WorldPoint fishingPoint = new WorldPoint(2899, 3118, 0);
@@ -181,9 +181,7 @@ public class GabulhasKarambwansScript extends Script {
             boolean interacted = false;
             if (zanarisRing != null) {
                 // Prefer the explicit last-destination option, fall back to a generic interact if needed.
-                interacted = zanarisRing.click("Last-destination (DKP)")
-                        || zanarisRing.click("Last-destination")
-                        || zanarisRing.click("Use");
+                interacted = Microbot.getRs2TileObjectCache().query().interact(FAIRY_RING_ID, "Last-destination");
             }
 
             if (interacted) {

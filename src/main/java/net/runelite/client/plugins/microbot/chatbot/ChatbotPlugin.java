@@ -16,7 +16,7 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-	name = PluginConstants.DEFAULT_PREFIX + "Chatbot",
+	name = PluginConstants.Bender + "Chatbot",
 	description = "AI-powered chatbot using OpenAI. Reads in-game chat and responds intelligently.",
 	tags = {"chatbot", "openai", "ai", "chat", "gpt"},
 	authors = { "Bender" },
