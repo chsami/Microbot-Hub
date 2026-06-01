@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.cooking.scripts;
 
 import net.runelite.api.AnimationID;
+import net.runelite.api.ObjectComposition;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.cooking.AutoCookingConfig;
@@ -84,29 +85,33 @@ public class AutoCookingScript extends Script {
 
                 switch (state) {
                     case COOKING:
-                        if (Rs2Bank.isOpen()) {
-                            Rs2Bank.closeBank();
-                            return;
-                        }
                         if (!cookingItem.hasRequirements()) {
                             Microbot.showMessage("You do not meet the requirements to cook this item");
                             shutdown();
                             return;
                         }
 
-                        Rs2TileObjectModel cookingObject = Microbot.getRs2TileObjectCache().query().withId(location.getCookingObjectID()).nearest();
-                        if (cookingObject == null) {
-                            cookingObject = Microbot.getRs2TileObjectCache().query()
-                                    .where(o -> o.getWorldLocation().equals(location.getCookingObjectWorldPoint()))
-                                    .nearest();
-                        }
+                        Rs2TileObjectModel cookingObject = getCookingObject(location);
 
                         if (cookingObject != null) {
+                            boolean useInteractOptimization = config.useInteractOptimization()
+                                    && hasObjectAction(cookingObject, "Cook");
+
+                            if (Rs2Bank.isOpen() && !useInteractOptimization) {
+                                Rs2Bank.closeBank();
+                                return;
+                            }
+
                             if (!Rs2Camera.isTileOnScreen(cookingObject.getLocalLocation())) {
                                 Rs2Camera.turnTo(cookingObject.getLocalLocation());
                                 return;
                             }
-                            Rs2Inventory.useItemOnObject(cookingItem.getRawItemID(), cookingObject.getId());
+
+                            if (useInteractOptimization) {
+                                cookingObject.click("Cook");
+                            } else if (!Rs2Inventory.useItemOnObject(cookingItem.getRawItemID(), cookingObject.getId())) {
+                                return;
+                            }
 
                             boolean productionWidgetOpen = Rs2Widget.isProductionWidgetOpen();
                             if (!productionWidgetOpen) {
@@ -190,8 +195,12 @@ public class AutoCookingScript extends Script {
                             Rs2Inventory.waitForInventoryChanges(1800);
                         }
                         
-                        state = CookingState.WALKING;
-                        Rs2Bank.closeBank();
+                        boolean canStartCookingFromOpenBank = config.useInteractOptimization()
+                                && isNearCookingLocation(location, 20);
+                        state = canStartCookingFromOpenBank ? CookingState.COOKING : CookingState.WALKING;
+                        if (!canStartCookingFromOpenBank) {
+                            Rs2Bank.closeBank();
+                        }
                         break;
                     case WALKING:
                         boolean hasRawItems = hasRawItem(cookingItem);
@@ -222,6 +231,41 @@ public class AutoCookingScript extends Script {
             }
         }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    private Rs2TileObjectModel getCookingObject(CookingLocation location) {
+        Rs2TileObjectModel cookingObject = Microbot.getRs2TileObjectCache().query()
+                .withId(location.getCookingObjectID())
+                .nearest();
+        if (cookingObject != null) {
+            return cookingObject;
+        }
+
+        return Microbot.getRs2TileObjectCache().query()
+                .where(o -> o.getWorldLocation().equals(location.getCookingObjectWorldPoint()))
+                .nearest();
+    }
+
+    private boolean hasObjectAction(Rs2TileObjectModel object, String action) {
+        ObjectComposition composition = object.getObjectComposition();
+        if (composition == null) {
+            return false;
+        }
+        if (composition.getImpostorIds() != null && composition.getImpostor() != null) {
+            composition = composition.getImpostor();
+        }
+
+        String[] actions = composition.getActions();
+        if (actions == null) {
+            return false;
+        }
+
+        for (String candidate : actions) {
+            if (candidate != null && candidate.equalsIgnoreCase(action)) {
+                return true;
+            }
+        }
+        return false;
     }
     
     @Override

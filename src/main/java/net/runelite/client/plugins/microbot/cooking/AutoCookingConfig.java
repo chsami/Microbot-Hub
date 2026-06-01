@@ -134,9 +134,20 @@ public interface AutoCookingConfig extends Config {
     }
 
     @ConfigItem(
+            name = "Interact Optimization",
+            keyName = "useInteractOptimization",
+            position = 4,
+            description = "Interact with the cooking object directly using Cook instead of using the raw item on it",
+            section = cookingSection
+    )
+    default boolean useInteractOptimization() {
+        return false;
+    }
+
+    @ConfigItem(
             name = "Drop Burnt Items",
             keyName = "shouldDropBurntItems",
-            position = 4,
+            position = 5,
             description = "Should drop burnt items when resetting inventory",
             section = cookingSection
     )
@@ -147,7 +158,7 @@ public interface AutoCookingConfig extends Config {
     @ConfigItem(
             name = "DropOrder",
             keyName = "dropOrder",
-            position = 5,
+            position = 6,
             description = "The order in which to drop items",
             section = cookingSection
     )
