@@ -33,6 +33,11 @@ public interface BlueDragonsConfig extends Config {
         return true;
     }
 
+    @ConfigItem(keyName = "lootUntradables", name = "Loot Untradables", description = "Loot untradable drops (clue scrolls, etc.)", section = lootSection)
+    default boolean lootUntradables() {
+        return false;
+    }
+
     @ConfigItem(keyName = "lootMiscItems", name = "Loot items above value", description = "Should we loot items above the specified value threshold?", section = lootSection)
     default boolean lootMiscItems() {
         return true;

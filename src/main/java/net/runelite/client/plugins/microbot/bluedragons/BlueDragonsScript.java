@@ -15,7 +15,6 @@ import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2RunePouch;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -30,7 +29,6 @@ import java.util.stream.Collectors;
 public class BlueDragonsScript extends Script {
 
     public static BlueDragonState currentState;
-    private String lastChatMessage = "";
     private BlueDragonsConfig config;
     public static final WorldPoint SAFE_SPOT = new WorldPoint(2918, 9781, 0);
     @Getter
@@ -47,7 +45,18 @@ public class BlueDragonsScript extends Script {
     private static final int MIN_WORLD = 302;
     private static final int MAX_WORLD = 580;
 
+    private static final String[] ITEMS_TO_KEEP = {
+            "Dusty key",
+            "Rune pouch", "Divine rune pouch",
+            "Law rune", "Water rune", "Air rune", "Dust rune",
+            "Falador teleport"
+    };
+
     public boolean run(BlueDragonsConfig config) {
+        if (mainScheduledFuture != null && !mainScheduledFuture.isDone()) {
+            mainScheduledFuture.cancel(true);
+        }
+
         this.config = config;
         currentState = BlueDragonState.STARTING;
 
@@ -63,25 +72,24 @@ public class BlueDragonsScript extends Script {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!super.run() || !Microbot.isLoggedIn()) return;
-
+                if (!isRunning()) return;
 
                 if (isInventoryFull() && currentState != BlueDragonState.BANKING && currentState != BlueDragonState.STARTING) {
-                    logOnceToChat("Global safety: Inventory is full. Switching to BANKING state.", false, config);
+                    Microbot.log("Inventory full. Switching to BANKING.");
                     currentState = BlueDragonState.BANKING;
                 }
 
                 switch (currentState) {
                     case STARTING:
-                        determineStartingState(config);
+                        determineStartingState();
                         break;
 
                     case ESCAPE:
-                        // TODO implement escape with tab and/or teleport - faster than webwalker and can have multiple triggers
                         handleEscape();
                         break;
 
                     case BANKING:
-                        HandleBankingSimple(config);
+                        handleBanking();
                         break;
 
                     case TRAVEL_TO_DRAGONS:
@@ -89,11 +97,11 @@ public class BlueDragonsScript extends Script {
                         break;
 
                     case FIGHTING:
-                        handleFighting(config);
+                        handleFighting();
                         break;
 
                     case LOOTING:
-                        handleLooting(config);
+                        handleLooting();
                         break;
                 }
 
@@ -101,63 +109,68 @@ public class BlueDragonsScript extends Script {
 
             } catch (Exception ex) {
                 consecutiveErrors[0]++;
-                logOnceToChat("Error in Blue Dragons script: " + ex.getMessage(), false, config);
+                Microbot.log("Error in Blue Dragons script: " + ex.getMessage());
 
                 if (config.debugLogs()) {
                     StringBuilder stackTrace = new StringBuilder();
                     for (StackTraceElement element : ex.getStackTrace()) {
                         stackTrace.append(element.toString()).append("\n");
                     }
-                    logOnceToChat("Stack trace: " + stackTrace.toString(), true, config);
+                    Microbot.log("Stack trace: " + stackTrace);
                 }
 
                 if (consecutiveErrors[0] >= MAX_CONSECUTIVE_ERRORS) {
-                    logOnceToChat("Too many consecutive errors. Stopping script for safety.", false, config);
+                    Microbot.log("Too many consecutive errors. Stopping script.");
                     shutdown();
+                    return;
                 }
 
                 if (Rs2Player.isInCombat()) {
-                    logOnceToChat("In combat during error - attempting to eat food", true, config);
                     Rs2Player.eatAt(config.eatAtHealthPercent());
                 }
-
-                sleep(1000 * Math.min(consecutiveErrors[0], 5));
             }
-        }, 0, 100, TimeUnit.MILLISECONDS);
+        }, 0, 600, TimeUnit.MILLISECONDS);
 
         return true;
     }
 
-    ///  --- End of Engine Code ----------------------------------------------------------------------------------------
-    ///-----------------------------------------------------------------------------------------------------------------
-
-    private void determineStartingState(BlueDragonsConfig config) {
-        boolean hasTeleport = hasTeleportToFalador2();
+    private void determineStartingState() {
         boolean hasAgilityOrKey = Microbot.getClient().getRealSkillLevel(Skill.AGILITY) >= 70 || hasDustyKey();
 
-        if (!hasTeleport) {
-            logOnceToChat("Missing teleport to Falador or required runes.", false, config);
-        }
-
         if (!hasAgilityOrKey) {
-            logOnceToChat("Requires Agility level 70 or a Dusty Key.", false, config);
+            Microbot.log("Requires Agility level 70 or a Dusty Key. Stopping.");
+            shutdown();
+            return;
         }
 
-        if (hasTeleport && hasAgilityOrKey) {
+        boolean hasTeleport = hasTeleportToFalador();
+        if (!hasTeleport) {
+            Microbot.log("Missing Falador teleport (tab or runes). Stopping.");
+            shutdown();
+            return;
+        }
+
+        if (needsBanking()) {
             currentState = BlueDragonState.BANKING;
         } else {
-            logOnceToChat("Starting conditions not met. Stopping the plugin.", false, config);
-            shutdown();
+            currentState = BlueDragonState.TRAVEL_TO_DRAGONS;
         }
+    }
+
+    private boolean needsBanking() {
+        int foodCount = Rs2Inventory.getInventoryFood().size();
+        boolean hasLoot = Rs2Inventory.contains("Dragon bones")
+                || Rs2Inventory.contains("Blue dragonhide")
+                || Rs2Inventory.contains("Scaly blue dragonhide")
+                || Rs2Inventory.contains("Dragon spear")
+                || Rs2Inventory.contains("Shield left half")
+                || Rs2Inventory.contains("Ensouled dragon head");
+
+        return hasLoot || foodCount < config.foodAmount();
     }
 
     private boolean isInventoryFull() {
-        boolean simpleFull = Rs2Inventory.isFull();
-        if (!simpleFull) {
-            return Rs2Inventory.emptySlotCount() <= 0;
-        }
-
-        return true;
+        return Rs2Inventory.isFull() || Rs2Inventory.emptySlotCount() <= 0;
     }
 
     private boolean hasDustyKey() {
@@ -165,144 +178,62 @@ public class BlueDragonsScript extends Script {
     }
 
     private boolean hasTeleportToFalador() {
-        logOnceToChat("Checking for Falador teleport or required runes.", true, config);
-
         if (Rs2Inventory.contains("Falador teleport")) {
-            logOnceToChat("Found Falador teleport in inventory.", true, config);
             return true;
         }
-        int lawRuneId = ItemID.LAWRUNE;
-        int waterRuneId = ItemID.WATERRUNE;
-        int dustRuneId = ItemID.DUSTRUNE;
-        int airRuneId = ItemID.AIRRUNE;
-
-        int requiredLawRunes = 1;
-        int requiredAirRunes = 3;
-        int requiredWaterRunes = 1;
-
-        boolean runePouchInInventory = Rs2Inventory.contains("Rune pouch") || Rs2Inventory.contains("Divine rune pouch");
-        boolean hasLawRunes = checkRuneAvailability(lawRuneId, requiredLawRunes, runePouchInInventory);
-        boolean hasWaterRunes = checkRuneAvailability(waterRuneId, requiredWaterRunes, runePouchInInventory);
-        boolean hasAirOrDustRunes = checkRuneAvailability(dustRuneId, requiredAirRunes, runePouchInInventory) ||
-                checkRuneAvailability(airRuneId, requiredAirRunes, runePouchInInventory);
-
-        return hasLawRunes && hasWaterRunes && hasAirOrDustRunes;
+        return Rs2Magic.canCast(MagicAction.FALADOR_TELEPORT);
     }
 
-    private boolean checkRuneAvailability(int runeId, int requiredAmount, boolean checkRunePouch) {
-        boolean inInventory = Rs2Inventory.hasItemAmount(runeId, requiredAmount);
-        boolean inRunePouch = checkRunePouch && Rs2RunePouch.contains(runeId, requiredAmount);
-        return inInventory || inRunePouch;
-    }
-
-
-    private boolean hasTeleportToFalador2() {
-        logOnceToChat("Checking for Falador teleport or required runes.", true, config);
-
-        if (Rs2Inventory.contains("Falador teleport")) {
-            logOnceToChat("Found Falador teleport in inventory.", true, config);
-            return true;
-        }
-
-        if (Rs2Magic.canCast(MagicAction.FALADOR_TELEPORT)){
-            return true;
-        }
-
-        return false;
-    };
-
-    private void handleEscape(){
+    private void handleEscape() {
         Rs2Magic.cast(MagicAction.FALADOR_TELEPORT);
     }
 
+    private void handleBanking() {
+        if (!Rs2Bank.walkToBankAndUseBank(BankLocation.FALADOR_WEST)) {
+            return;
+        }
 
-    private void HandleBankingSimple(BlueDragonsConfig config) {
-        logOnceToChat("Traveling to Falador West bank for depositing looted items.", true, config);
-        logOnceToChat("Current location: " + Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()), true, config);
+        int foodCount = Rs2Inventory.getInventoryFood().size();
+        boolean hasLoot = Rs2Inventory.contains("Dragon bones")
+                || Rs2Inventory.contains("Blue dragonhide")
+                || Rs2Inventory.contains("Scaly blue dragonhide")
+                || Rs2Inventory.contains("Dragon spear")
+                || Rs2Inventory.contains("Shield left half")
+                || Rs2Inventory.contains("Ensouled dragon head");
 
-        if (Rs2Bank.walkToBankAndUseBank(BankLocation.FALADOR_WEST)) {
+        int foodNeeded = config.foodAmount() - foodCount;
 
-            logOnceToChat("Opened bank. Depositing loot.", true, config);
-            Rs2Bank.depositAll();
-            Rs2Inventory.waitForInventoryChanges(600);
-            sleep(450,750);
-
-            logOnceToChat("Checking food for combat.", true, config);
-            int foodCount = Rs2Inventory.getInventoryFood().size();
-            Rs2Bank.withdrawX(config.foodType().getId(), config.foodAmount() - foodCount);
-            Rs2Inventory.waitForInventoryChanges(600);
+        if (!hasLoot && foodNeeded <= 0) {
             Rs2Bank.closeBank();
-            logOnceToChat("Banking complete. Transitioning to travel state.", true, config);
             currentState = BlueDragonState.TRAVEL_TO_DRAGONS;
-        } else {
-            logOnceToChat("Failed to reach the bank.", true, config);
-        }
-
-    }
-
-    private void withdrawFood(BlueDragonsConfig config) {
-        Rs2Food food = config.foodType();
-        int requiredAmount = config.foodAmount();
-
-        if (food == null || requiredAmount <= 0) {
-            logOnceToChat("Invalid food type or amount in configuration.", true, config);
             return;
         }
 
-        int currentFoodInInventory = Rs2Inventory.count(food.getName());
-        int deficit = requiredAmount - currentFoodInInventory;
-
-        if (deficit <= 0) {
-            logOnceToChat("Inventory already contains the required amount of " + food.getName() + ".", true, config);
-            return;
+        if (hasLoot) {
+            Rs2Bank.depositAllExcept(ITEMS_TO_KEEP);
+            Rs2Inventory.waitForInventoryChanges(600);
+            sleep(450, 750);
         }
 
-        if (!Rs2Bank.isOpen()) {
-            logOnceToChat("Bank is not open. Cannot withdraw food.", true, config);
-            return;
-        }
-
-        boolean bankLoaded = sleepUntil(() -> !Rs2Bank.bankItems().isEmpty(), 5000);
-        if (!bankLoaded) {
-            logOnceToChat("Bank items did not load in time.", true, config);
-            return;
-        }
-
-        if (!Rs2Bank.hasItem(food.getName())) {
-            logOnceToChat(food.getName() + " not found in the bank. Stopping script.", true, config);
-            shutdown();
-            return;
-        }
-
-        logOnceToChat("Attempting to withdraw " + deficit + "x " + food.getName(), false, config);
-
-        int retryCount = 0;
-        final int maxRetries = 3;
-        boolean success = false;
-
-        while (retryCount < maxRetries && !success) {
-            success = Rs2Bank.withdrawX(food.getName(), deficit, true);
-            if (!success) {
-                retryCount++;
-                sleep(500);
-                logOnceToChat("Retrying withdrawal of " + food.getName() + " (" + retryCount + ")", true, config);
+        foodCount = Rs2Inventory.getInventoryFood().size();
+        foodNeeded = config.foodAmount() - foodCount;
+        if (foodNeeded > 0) {
+            if (!Rs2Bank.hasItem(config.foodType().getName())) {
+                Microbot.log("No " + config.foodType().getName() + " in bank. Stopping.");
+                Rs2Bank.closeBank();
+                shutdown();
+                return;
             }
+            Rs2Bank.withdrawX(config.foodType().getId(), foodNeeded);
+            Rs2Inventory.waitForInventoryChanges(600);
         }
 
-        if (!success) {
-            logOnceToChat("Unable to withdraw " + food.getName() + " after multiple attempts. Stopping script.", true, config);
-            shutdown();
-        } else {
-            logOnceToChat("Successfully withdrew " + deficit + "x " + food.getName(), false, config);
-        }
+        Rs2Bank.closeBank();
+        currentState = BlueDragonState.TRAVEL_TO_DRAGONS;
     }
 
     private void handleTravelToDragons() {
-        logOnceToChat("Traveling to dragons.", false, config);
-        logOnceToChat("Player location before travel: " + Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()), true, config);
-
         if (isPlayerAtSafeSpot()) {
-            logOnceToChat("Already at safe spot. Transitioning to FIGHTING state.", true, config);
             currentState = BlueDragonState.FIGHTING;
             return;
         }
@@ -310,109 +241,77 @@ public class BlueDragonsScript extends Script {
         boolean walkAttemptSuccessful = Rs2Walker.walkTo(SAFE_SPOT, 0);
 
         if (!walkAttemptSuccessful) {
-            logOnceToChat("Failed to start walking to safe spot. Will retry next tick.", true, config);
             return;
         }
 
         boolean reachedNearSafeSpot = sleepUntil(() -> Rs2Player.distanceTo(SAFE_SPOT) <= 5, 60000);
 
         if (reachedNearSafeSpot || Rs2Player.distanceTo(SAFE_SPOT) <= 20) {
-            logOnceToChat("Close to safe spot. Using precise movement for final approach.", true, config);
             moveToSafeSpot();
         } else {
-            logOnceToChat("Failed to get close to safe spot within timeout.", true, config);
-
             int distance = Rs2Player.distanceTo(SAFE_SPOT);
-            logOnceToChat("Current distance to safe spot: " + distance, true, config);
-
             if (distance < 50) {
                 moveToSafeSpot();
             } else {
-                logOnceToChat("Too far from safe spot. Returning to banking state to try again.", true, config);
                 currentState = BlueDragonState.BANKING;
                 return;
             }
         }
 
         if (hopIfPlayerAtSafeSpot()) {
-            logOnceToChat("Hopped worlds due to player detection at safe spot.", true, config);
             return;
         }
 
-        if (isPlayerAtSafeSpot()) {
-            logOnceToChat("Reached safe spot. Transitioning to FIGHTING state.", true, config);
-            currentState = BlueDragonState.FIGHTING;
-        } else {
-            logOnceToChat("Still not at safe spot after multiple attempts. Will continue from current position.", true, config);
-            currentState = BlueDragonState.FIGHTING;
-        }
+        currentState = BlueDragonState.FIGHTING;
     }
 
-    private void handleFighting(BlueDragonsConfig config) {
+    private void handleFighting() {
         if (currentState != BlueDragonState.FIGHTING) {
-            logOnceToChat("Not in FIGHTING state but handleFighting was called. Current state: " + currentState, true, config);
             return;
         }
 
         if (isInventoryFull()) {
-            logOnceToChat("Inventory is full. Switching to BANKING state.", false, config);
             currentState = BlueDragonState.BANKING;
-            return;
-        }
-
-        if (checkForLoot()) {
-            long currentTime = System.currentTimeMillis();
-            if (currentTime - lastLootMessageTime > 10000) {
-                logOnceToChat("Found loot on the ground. Switching to LOOTING state.", false, config);
-                lastLootMessageTime = currentTime;
-            }
-            currentState = BlueDragonState.LOOTING;
-            return;
-        }
-
-        if (!isPlayerAtSafeSpot()) {
-            logOnceToChat("Not at safe spot. Moving back before continuing to fight.", true, config);
-            moveToSafeSpot();
             return;
         }
 
         Rs2Player.eatAt(config.eatAtHealthPercent());
 
+        if (!isPlayerAtSafeSpot()) {
+            moveToSafeSpot();
+            return;
+        }
+
+        if (hasLootNearby()) {
+            currentState = BlueDragonState.LOOTING;
+            return;
+        }
+
         if (!underAttack()) {
             Rs2NpcModel dragon = getAvailableDragon();
             if (dragon != null) {
-                logOnceToChat("Found available dragon. Attacking.", true, config);
                 if (attackDragon(dragon)) {
                     currentTargetId = dragon.getId();
                 }
-            } else {
-                logOnceToChat("No dragons available to attack.", true, config);
-            }
-        } else {
-            if (!isPlayerAtSafeSpot()) {
-                moveToSafeSpot();
             }
         }
     }
 
-    private boolean checkForLoot() {
-        String[] lootItems = {
-                "Dragon bones",
-                "Dragon spear", "Shield left half", "Scaly blue dragonhide"
-        };
-
-        LootingParameters params = new LootingParameters(15, 1, 1, 0, false, true, lootItems);
-
-        return Rs2GroundItem.lootItemsBasedOnNames(params);
+    private boolean hasLootNearby() {
+        if (Rs2GroundItem.exists("Dragon bones", 15)) return true;
+        if (Rs2GroundItem.exists("Dragon spear", 15)) return true;
+        if (Rs2GroundItem.exists("Shield left half", 15)) return true;
+        if (config.lootDragonhide() && Rs2GroundItem.exists("Blue dragonhide", 15)) return true;
+        if (config.lootEnsouledHead() && Rs2GroundItem.exists("Ensouled dragon head", 15)) return true;
+        return false;
     }
 
-    private void handleLooting(BlueDragonsConfig config) {
+    private void handleLooting() {
         if (currentState != BlueDragonState.LOOTING) {
             return;
         }
 
         if (isInventoryFull()) {
-            logOnceToChat("Inventory is full, switching to BANKING state.", false, config);
             currentState = BlueDragonState.BANKING;
             return;
         }
@@ -428,69 +327,58 @@ public class BlueDragonsScript extends Script {
         if (!isInventoryFull()) {
             lootedAnything |= lootItem("Shield left half");
         }
-        if (!isInventoryFull()) {
-            lootedAnything |= lootItem("Scaly blue dragonhide");
-        }
-
-        if (config.lootMiscItems() && !isInventoryFull()) {
-            Rs2GroundItem.lootItemBasedOnValue(new LootingParameters(config.lootValueThreshold(), 9999999, 8, 1, 1, false, true));
-        }
 
         if (config.lootDragonhide() && !isInventoryFull()) {
             lootedAnything |= lootItem("Blue dragonhide");
+            lootedAnything |= lootItem("Scaly blue dragonhide");
         }
 
         if (config.lootEnsouledHead() && !isInventoryFull()) {
             lootedAnything |= lootItem("Ensouled dragon head");
         }
 
+        if (config.lootUntradables() && !isInventoryFull()) {
+            Rs2GroundItem.lootUntradables(new LootingParameters(15, 1, 1, 0, false, true));
+        }
+
+        if (config.lootMiscItems() && !isInventoryFull()) {
+            Rs2GroundItem.lootItemBasedOnValue(new LootingParameters(config.lootValueThreshold(), 9999999, 8, 1, 1, false, true));
+        }
+
         sleep(300, 500);
 
         if (isInventoryFull()) {
-            logOnceToChat("Inventory is full after looting, switching to BANKING state.", false, config);
             currentState = BlueDragonState.BANKING;
             return;
         }
 
-        if (!checkForLoot() || !lootedAnything) {
-            logOnceToChat("Finished looting. Returning to combat.", true, config);
+        if (!hasLootNearby() || !lootedAnything) {
             currentState = BlueDragonState.FIGHTING;
             currentTargetId = null;
         }
     }
 
     private boolean lootItem(String itemName) {
-        if (!isInventoryFull()) {
-            LootingParameters params = new LootingParameters(15, 1, 1, 0, false, true, itemName);
-            boolean looted = Rs2GroundItem.lootItemsBasedOnNames(params);
-            if (looted) {
-                logOnceToChat("Looted: " + itemName, true, config);
+        if (isInventoryFull()) return false;
 
-                if (itemName.equalsIgnoreCase("Dragon bones")) {
-                    BlueDragonsOverlay.bonesCollected++;
-                    Microbot.log("Bones looted: " + BlueDragonsOverlay.bonesCollected);
-                } else if (itemName.equalsIgnoreCase("Blue dragonhide")) {
-                    BlueDragonsOverlay.hidesCollected++;
-                }
-
-                return true;
+        LootingParameters params = new LootingParameters(15, 1, 1, 0, false, true, itemName);
+        boolean looted = Rs2GroundItem.lootItemsBasedOnNames(params);
+        if (looted) {
+            if (itemName.equalsIgnoreCase("Dragon bones")) {
+                BlueDragonsOverlay.bonesCollected++;
+            } else if (itemName.equalsIgnoreCase("Blue dragonhide")) {
+                BlueDragonsOverlay.hidesCollected++;
             }
         }
-        return false;
+        return looted;
     }
-
-
 
     private Rs2NpcModel getAvailableDragon() {
         Rs2NpcModel dragon = Microbot.getRs2NpcCache().query().withName("Blue dragon").nearestOnClientThread();
-        logOnceToChat("Found dragon: " + (dragon != null ? "Yes (ID: " + dragon.getId() + ")" : "No"), true, config);
 
         if (dragon != null) {
             boolean correctId = (dragon.getId() == BLUE_DRAGON_ID_1 || dragon.getId() == BLUE_DRAGON_ID_2 || dragon.getId() == BLUE_DRAGON_ID_3);
-            logOnceToChat("Dragon has correct ID (265, 266, or 267): " + correctId, true, config);
-
             boolean hasLineOfSight = dragon.hasLineOfSight();
-            logOnceToChat("Has line of sight to dragon: " + hasLineOfSight, true, config);
 
             if (correctId && hasLineOfSight) {
                 return dragon;
@@ -503,7 +391,6 @@ public class BlueDragonsScript extends Script {
         final int dragonId = dragon.getId();
 
         if (Rs2Combat.inCombat() && !dragon.isInteractingWithPlayer()) {
-            logOnceToChat("Cannot attack dragon - player is in combat with different target.", true, config);
             return false;
         }
 
@@ -511,9 +398,7 @@ public class BlueDragonsScript extends Script {
             boolean dragonKilled = sleepUntil(() -> Microbot.getRs2NpcCache().query().withId(dragonId).nearest() == null, 60000);
 
             if (dragonKilled) {
-                logOnceToChat("Dragon killed. Transitioning to looting state.", true, config);
                 BlueDragonsOverlay.dragonKillCount++;
-
                 sleep(600, 900);
                 currentState = BlueDragonState.LOOTING;
             }
@@ -532,29 +417,18 @@ public class BlueDragonsScript extends Script {
 
         int distance = Rs2Player.distanceTo(SAFE_SPOT);
 
-        logOnceToChat("Moving to safe spot. Distance: " + distance, true, config);
-
         if (distance > 15) {
-            logOnceToChat("Using walkTo to approach safe spot", true, config);
             Rs2Walker.walkTo(SAFE_SPOT, 0);
-
             sleepUntil(() -> Rs2Player.distanceTo(SAFE_SPOT) <= 5, 30000);
         }
 
         if (!isPlayerAtSafeSpot()) {
-            logOnceToChat("Using walkFastCanvas for final approach to safe spot", true, config);
             Rs2Walker.walkFastCanvas(SAFE_SPOT);
             sleepUntil(this::isPlayerAtSafeSpot, 15000);
         }
 
         if (hopIfPlayerAtSafeSpot()) {
             return;
-        }
-
-        if (!isPlayerAtSafeSpot()) {
-            logOnceToChat("Failed to reach exact safe spot. Will continue with current position.", true, config);
-        } else {
-            logOnceToChat("Successfully reached safe spot.", true, config);
         }
 
         Microbot.pauseAllScripts.compareAndSet(true, false);
@@ -574,7 +448,7 @@ public class BlueDragonsScript extends Script {
         }
 
         if (otherPlayersAtSafeSpot) {
-            logOnceToChat("Player detected at safe spot. Pausing script and hopping worlds.", false, config);
+            Microbot.log("Player at safe spot. Hopping worlds.");
             Microbot.pauseAllScripts.set(true);
 
             boolean hopSuccess = Microbot.hopToWorld(findRandomWorld());
@@ -596,47 +470,22 @@ public class BlueDragonsScript extends Script {
         return targetWorld;
     }
 
-
-
     public void updateConfig(BlueDragonsConfig config) {
-        logOnceToChat("Applying new configuration to Blue Dragons script.", true, config);
         this.config = config;
 
         if (overlay != null) {
             overlay.setConfig(config);
         }
-
-        withdrawFood(config);
-    }
-
-    void logOnceToChat(String message, boolean isDebug, BlueDragonsConfig config) {
-        if (message == null || message.trim().isEmpty()) {
-            message = "Unknown log message (null or empty)...";
-        }
-        if (isDebug && (config == null || !config.debugLogs())) {
-            return;
-        }
-        if (!message.equals(lastChatMessage)) {
-            Microbot.log(message);
-            lastChatMessage = message;
-        }
     }
 
     private boolean underAttack() {
-        return Rs2Player.isAnimating(5000);
+        return Rs2Combat.inCombat();
     }
-
 
     public void shutdown() {
         super.shutdown();
         Rs2Walker.setTarget(null);
         Rs2Walker.disableTeleports = false;
-        if (overlay != null) {
-            overlay.resetStats();
-        }
-        currentState = BlueDragonState.STARTING;
         currentTargetId = null;
     }
-
-
 }
