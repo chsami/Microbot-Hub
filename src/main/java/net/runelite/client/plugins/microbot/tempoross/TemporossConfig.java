@@ -44,7 +44,7 @@ public interface TemporossConfig extends Config {
     @ConfigItem(
         keyName = "buckets",
         name = "Buckets",
-        description = "Number of buckets to bring",
+        description = "Buckets of water to douse fires and cool cannons. More buckets = more fire coverage but fewer inventory slots for fish.",
         position = 1,
         section = generalSection
     )
@@ -57,7 +57,7 @@ public interface TemporossConfig extends Config {
     @ConfigItem(
         keyName = "hammer",
         name = "Hammer",
-        description = "Bring a hammer",
+        description = "Bring a hammer to repair the mast and totem pole when damaged by waves. Earns Construction XP and prevents storm intensity from rising.",
         position = 2,
         section = generalSection
     )
@@ -70,7 +70,7 @@ public interface TemporossConfig extends Config {
     @ConfigItem(
         keyName = "rope",
         name = "Rope",
-        description = "Bring a rope",
+        description = "Bring a rope to tether to the mast or totem pole before waves hit. Without a rope, waves knock you back and deal damage. Not needed with Spirit Angler's outfit.",
         position = 3,
         section = generalSection
     )
@@ -81,7 +81,7 @@ public interface TemporossConfig extends Config {
     @ConfigItem(
         keyName = "solo",
         name = "Solo",
-        description = "Play solo",
+        description = "Solo mode starts a private instance. Requires Infernal Harpoon and at least 19 free inventory slots. Mass mode joins the public boat with other players.",
         position = 4,
         section = generalSection
     )
@@ -96,7 +96,7 @@ public interface TemporossConfig extends Config {
     @ConfigItem(
         keyName = "spiritAnglers",
         name = "Spirit Angler's",
-        description = "Spirit Angler's outfit",
+        description = "Enable if wearing the Spirit Angler's outfit. Grants automatic tethering during waves, so no rope is needed.",
         position = 1,
         section = equipmentSection
     )
@@ -109,7 +109,7 @@ public interface TemporossConfig extends Config {
     @ConfigItem(
         keyName = "harpoonType",
         name = "Harpoon",
-        description = "Harpoon type to use",
+        description = "Which harpoon to use for fishing. Dragon/Infernal/Crystal have special attacks. Infernal auto-cooks some fish. Barehand requires Barbarian Fishing training.",
         position = 1,
         section = harpoonSection
     )
@@ -120,7 +120,7 @@ public interface TemporossConfig extends Config {
     @ConfigItem(
             keyName = "enableHarpoonSpec",
             name = "Use Harpoon Special",
-            description = "Use the harpoon's special attack when attacking Tempoross.",
+            description = "Use the harpoon's special attack when harpooning the spirit pool. Boosts fishing speed temporarily. Only works with Dragon, Infernal, or Crystal harpoons.",
             position = 2,
             section = harpoonSection
     )

@@ -10,35 +10,6 @@ import net.runelite.client.plugins.microbot.PluginConstants;
 import javax.inject.Inject;
 import java.awt.*;
 
-/**
- * =====================================================================
- *  Butterfly Catcher
- *  Author: StonksCode
- * =====================================================================
- *
- *  Automates butterfly and moth catching for Hunter XP training.
- *
- *  Supported species:
- *    - Ruby Harvest       (net lvl 5  / bare lvl 15)
- *    - Sapphire Glacialis (net lvl 25 / bare lvl 35)
- *    - Snowy Knight       (net lvl 35 / bare lvl 45)
- *    - Black Warlock      (net lvl 45 / bare lvl 55)
- *    - Sunlight Moth      (net lvl 65 / bare lvl 75)
- *    - Moonlight Moth     (net lvl 75 / bare lvl 85)
- *
- *  Catch modes:
- *    BAREHANDED    — catch and release for XP; nothing enters inventory.
- *    BUTTERFLY_NET — equip a butterfly net or magic butterfly net before
- *                    starting; allows catching at 10 levels lower than
- *                    the barehanded requirement.
- *
- *  Usage:
- *    1. Stand near a spawn of your chosen species.
- *    2. If using Butterfly Net mode, equip your net first.
- *    3. Select your species and catch mode in the config panel.
- *    4. Start the plugin — it will run indefinitely with no banking.
- * =====================================================================
- */
 @PluginDescriptor(
         name = PluginConstants.STKS + "Butterfly Catcher",
         description = "Automates butterfly and moth catching for Hunter XP. Stand near a spawn, pick your species and mode, start the plugin.",
@@ -52,7 +23,10 @@ import java.awt.*;
 @Slf4j
 public class ButterflyCatcherPlugin extends Plugin {
 
-    public static final String version = "1.0.0";
+    // v1.0.1 — fix: corrected NPC IDs for Ruby Harvest (5556), Sapphire Glacialis (5555),
+    //               and Snowy Knight (5554). Original IDs (5525/5526/5527) were wrong,
+    //               causing those three species to never find targets and do nothing.
+    public static final String version = "1.0.1";
 
     @Inject
     private ButterflyCatcherConfig config;

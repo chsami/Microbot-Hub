@@ -1,9 +1,12 @@
 package net.runelite.client.plugins.microbot.pestcontrol;
 
 import com.google.common.collect.ImmutableSet;
+import net.runelite.api.Actor;
+import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.NPCComposition;
 import net.runelite.api.NpcID;
 import net.runelite.api.ObjectID;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
@@ -18,10 +21,13 @@ import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 
+import net.runelite.client.plugins.microbot.util.misc.SpecialAttackWeaponEnum;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -148,7 +154,7 @@ public class PestControlScript extends Script {
                         }
                     }
 
-                    Rs2Combat.setSpecState(true, config.specialAttackPercentage() * 10);
+                    activateSpecialAttackIfReady();
                     Widget activity = Rs2Widget.getWidget(26738700); //145 = 100%
                     if (activity != null && activity.getChild(0).getWidth() <= 20 && !Rs2Combat.inCombat()) {
                         Rs2NpcModel attackableNpc = Microbot.getClientThread().invoke(() ->
@@ -328,7 +334,7 @@ public class PestControlScript extends Script {
                 }
             }
         } else {
-            if (config.Priority2() == npcType) {
+            if (config.Priority3() == npcType) {
                 if (npcType == PestControlNpc.BRAWLER) {
                     return attackBrawler();
                 } else if (npcType == PestControlNpc.PORTAL) {
@@ -425,6 +431,46 @@ public class PestControlScript extends Script {
             }
         }
         return false;
+    }
+
+    private void activateSpecialAttackIfReady() {
+        Optional<SpecialAttackWeaponEnum> specialAttackWeapon = getEquippedSpecialAttackWeapon();
+        if (specialAttackWeapon.isEmpty() || !hasCombatTarget()) {
+            return;
+        }
+
+        int configuredEnergyRequired = config.specialAttackPercentage() * 10;
+        if (configuredEnergyRequired <= 0) {
+            return;
+        }
+
+        int energyRequired = Math.max(configuredEnergyRequired, specialAttackWeapon.get().getEnergyRequired());
+        Rs2Combat.setSpecState(true, energyRequired);
+    }
+
+    private Optional<SpecialAttackWeaponEnum> getEquippedSpecialAttackWeapon() {
+        Rs2ItemModel weapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+        if (weapon == null || weapon.getName() == null) {
+            return Optional.empty();
+        }
+
+        String weaponName = weapon.getName().toLowerCase(Locale.ROOT);
+        return Arrays.stream(SpecialAttackWeaponEnum.values())
+                .sorted(Comparator.comparingInt((SpecialAttackWeaponEnum specWeapon) -> specWeapon.getName().length()).reversed())
+                .filter(specWeapon -> weaponName.contains(specWeapon.getName()))
+                .findFirst();
+    }
+
+    private boolean hasCombatTarget() {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Player player = Microbot.getClient().getLocalPlayer();
+            if (player == null) {
+                return false;
+            }
+
+            Actor target = player.getInteracting();
+            return target != null && !target.isDead();
+        }).orElse(false);
     }
 
     @Override
