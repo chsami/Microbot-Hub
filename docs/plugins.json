@@ -936,7 +936,7 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.1.7",
+        "version": "2.2.0",
         "minClientVersion": "2.1.32",
         "authors": [
             "Mocrosoft",
@@ -945,8 +945,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
-        "sha256": "6d9a9c685655df9d8dee21fd5c27f146b8777ab291a6a2589aa6b212e2966fb2",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.1.7.jar"
+        "sha256": "ba94c8b6e11615f57dc13384e6e38a4a316e88103c216ab2b3e8a5b07f883578",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.2.0.jar"
     },
     {
         "internalName": "MixologyPlugin",
@@ -1626,7 +1626,7 @@
             "attack",
             "kill"
         ],
-        "version": "1.5.3",
+        "version": "1.5.4",
         "minClientVersion": "2.1.32",
         "authors": [
             "Unknown Author"
@@ -1634,8 +1634,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "37aba2fcf3ef25ef4cbccc9bb75309bfa4e82e7cf7036c9612cf4c9c86a03db4",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sandcrabplugin-1.5.3.jar"
+        "sha256": "488be25fba45ee70d5cfe37e7b026d011b14f99047da3f0b34e28b2d367a2169",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sandcrabplugin-1.5.4.jar"
     },
     {
         "internalName": "BlessedWinePlugin",
@@ -2452,7 +2452,7 @@
             "lamp",
             "genie"
         ],
-        "version": "2.0.0",
+        "version": "2.1.0",
         "minClientVersion": "2.0.7",
         "authors": [
             "Unknown"
@@ -2460,8 +2460,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/EventDismissPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/EventDismissPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "e1d3a5cf8e8f8ff6402e368edb3ae8cade87634b199717a45e97bf0cb48dfd63",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/eventdismissplugin-2.0.0.jar"
+        "sha256": "4a4cd494b2c42b1049463d177050cf4d19ca2ca0db52af10ccb1320bd9762724",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/eventdismissplugin-2.1.0.jar"
     },
     {
         "internalName": "GabulhasGoldRushPlugin",
@@ -3137,7 +3137,7 @@
             "skilling",
             "training"
         ],
-        "version": "1.2.7",
+        "version": "1.2.8",
         "minClientVersion": "2.0.7",
         "authors": [
             "Unknown Author"
@@ -3145,8 +3145,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AIOMagicPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOMagicPlugin/assets/card.png",
         "disable": false,
-        "sha256": "5a8154d8f6722aef7010da30ded33476e277a9eb06f87b30a9ddedf57d391a7d",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiomagicplugin-1.2.7.jar"
+        "sha256": "bae96216135e727dce7e2cc199ca3903e76f3e33703e37810528b6834ab0835a",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiomagicplugin-1.2.8.jar"
     },
     {
         "internalName": "FlipperPlugin",
