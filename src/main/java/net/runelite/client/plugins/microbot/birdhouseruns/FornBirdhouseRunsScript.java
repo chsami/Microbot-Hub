@@ -20,6 +20,8 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.shortestpath.Restriction;
+import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
 
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 
@@ -147,7 +149,8 @@ public class FornBirdhouseRunsScript extends Script {
 
                 if (!Rs2Walker.disableTeleports && isOnFossilIsland()) {
                     Rs2Walker.disableTeleports = true;
-                    log.info("On Fossil Island — disabling teleports for remaining walks");
+                    blockRubberCapMushrooms();
+                    log.info("On Fossil Island — disabling teleports and rubber cap mushrooms for remaining walks");
                 }
 
                 boolean advanced = true;
@@ -309,10 +312,22 @@ public class FornBirdhouseRunsScript extends Script {
     public void shutdown() {
         super.shutdown();
         Rs2Walker.disableTeleports = false;
+        ShortestPathPlugin.getPathfinderConfig().setRestrictedTiles();
         initialized = false;
         botStatus = states.TELEPORTING;
         lastObservedStatus = null;
         stateEnteredAtMs = 0L;
+    }
+
+    private static void blockRubberCapMushrooms() {
+        Restriction[] restrictions = new Restriction[] {
+                new Restriction(3663, 3808, 0),
+                new Restriction(3664, 3808, 0),
+                new Restriction(3665, 3808, 0),
+                new Restriction(3666, 3809, 0),
+                new Restriction(3666, 3810, 0)
+        };
+        ShortestPathPlugin.getPathfinderConfig().setRestrictedTiles(restrictions);
     }
 
     /** Throttle for arrivedAndStill log lines (one per second per target). */
