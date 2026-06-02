@@ -204,18 +204,55 @@ public class SandCrabScript extends Script {
      *
      * @return true if npc is aggressive
      */
-    private boolean isNpcAggressive() {
+    private boolean isNpcAggressive()
+    {
+        if (Microbot.getClient() == null || Microbot.getClientThread() == null)
+        {
+            return false;
+        }
+
+        java.util.concurrent.atomic.AtomicBoolean result = new java.util.concurrent.atomic.AtomicBoolean(false);
+        java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+
+        Microbot.getClientThread().invoke(() ->
+        {
+            try
+            {
+
         List<Rs2NpcModel> npcs = Microbot.getRs2NpcCache().query().withName("Sandy rocks").toListOnClientThread();
         if (npcs.isEmpty()) {
-            return false;
+            result.set(false); return;
         }
         for (Rs2NpcModel sandyRock : npcs) {
             if (!sandyRock.getNpc().getWorldArea().isInMeleeDistance(Rs2Player.getWorldLocation()))
                 continue;
 
+            result.set(false); return;
+        }
+        result.set(true); return;
+    
+            }
+            catch (Exception ignored)
+            {
+                result.set(false);
+            }
+            finally
+            {
+                done.countDown();
+            }
+        });
+
+        try
+        {
+            done.await(750, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
             return false;
         }
-        return true;
+
+        return result.get();
     }
 
     /**

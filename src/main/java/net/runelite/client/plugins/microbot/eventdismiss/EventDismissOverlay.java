@@ -22,6 +22,10 @@ public class EventDismissOverlay extends OverlayPanel {
 
     @Override
     public Dimension render(Graphics2D graphics) {
+        if (!config.showOverlay()) {
+            return null;
+        }
+
         boolean lampFeaturesActive = config.genieAction() == EventAction.ACCEPT
                 || config.countCheckAction() == EventAction.ACCEPT
                 || config.checkForLamps();

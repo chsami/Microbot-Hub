@@ -59,4 +59,15 @@ public interface EventDismissConfig extends Config {
     default boolean checkForLamps() {
         return false;
     }
+
+    @ConfigItem(
+            name = "Show Info Panel",
+            keyName = "showOverlay",
+            position = 4,
+            section = lampSection,
+            description = "Show the lamp info overlay panel"
+    )
+    default boolean showOverlay() {
+        return true;
+    }
 }
