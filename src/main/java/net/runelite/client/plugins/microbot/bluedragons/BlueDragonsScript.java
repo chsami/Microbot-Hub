@@ -4,7 +4,6 @@ import lombok.Getter;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
@@ -13,9 +12,7 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.inventory.Rs2RunePouch;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -37,7 +34,11 @@ public class BlueDragonsScript extends Script {
     @Inject
     private BlueDragonsOverlay overlay;
 
-    private long lastLootMessageTime = 0;
+    private boolean waitingForLoot = false;
+    private long waitForLootStart = 0;
+    private long lastActionClickTime = 0;
+    private static final long WAIT_FOR_LOOT_TIMEOUT = 5000;
+    private static final long ACTION_GRACE = 2400;
 
     private static final int BLUE_DRAGON_ID_1 = 265;
     private static final int BLUE_DRAGON_ID_2 = 266;
@@ -67,41 +68,24 @@ public class BlueDragonsScript extends Script {
         }
 
         final int[] consecutiveErrors = {0};
-        final int MAX_CONSECUTIVE_ERRORS = 5;
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!super.run() || !Microbot.isLoggedIn()) return;
                 if (!isRunning()) return;
 
-                if (isInventoryFull() && currentState != BlueDragonState.BANKING && currentState != BlueDragonState.STARTING) {
-                    Microbot.log("Inventory full. Switching to BANKING.");
-                    currentState = BlueDragonState.BANKING;
-                }
-
                 switch (currentState) {
                     case STARTING:
                         determineStartingState();
                         break;
-
-                    case ESCAPE:
-                        handleEscape();
-                        break;
-
                     case BANKING:
                         handleBanking();
                         break;
-
                     case TRAVEL_TO_DRAGONS:
                         handleTravelToDragons();
                         break;
-
-                    case FIGHTING:
-                        handleFighting();
-                        break;
-
-                    case LOOTING:
-                        handleLooting();
+                    case COMBAT:
+                        handleCombat();
                         break;
                 }
 
@@ -110,23 +94,9 @@ public class BlueDragonsScript extends Script {
             } catch (Exception ex) {
                 consecutiveErrors[0]++;
                 Microbot.log("Error in Blue Dragons script: " + ex.getMessage());
-
-                if (config.debugLogs()) {
-                    StringBuilder stackTrace = new StringBuilder();
-                    for (StackTraceElement element : ex.getStackTrace()) {
-                        stackTrace.append(element.toString()).append("\n");
-                    }
-                    Microbot.log("Stack trace: " + stackTrace);
-                }
-
-                if (consecutiveErrors[0] >= MAX_CONSECUTIVE_ERRORS) {
+                if (consecutiveErrors[0] >= 5) {
                     Microbot.log("Too many consecutive errors. Stopping script.");
                     shutdown();
-                    return;
-                }
-
-                if (Rs2Player.isInCombat()) {
-                    Rs2Player.eatAt(config.eatAtHealthPercent());
                 }
             }
         }, 0, 600, TimeUnit.MILLISECONDS);
@@ -136,15 +106,13 @@ public class BlueDragonsScript extends Script {
 
     private void determineStartingState() {
         boolean hasAgilityOrKey = Microbot.getClient().getRealSkillLevel(Skill.AGILITY) >= 70 || hasDustyKey();
-
         if (!hasAgilityOrKey) {
             Microbot.log("Requires Agility level 70 or a Dusty Key. Stopping.");
             shutdown();
             return;
         }
 
-        boolean hasTeleport = hasTeleportToFalador();
-        if (!hasTeleport) {
+        if (!hasTeleportToFalador()) {
             Microbot.log("Missing Falador teleport (tab or runes). Stopping.");
             shutdown();
             return;
@@ -165,12 +133,7 @@ public class BlueDragonsScript extends Script {
                 || Rs2Inventory.contains("Dragon spear")
                 || Rs2Inventory.contains("Shield left half")
                 || Rs2Inventory.contains("Ensouled dragon head");
-
         return hasLoot || foodCount < config.foodAmount();
-    }
-
-    private boolean isInventoryFull() {
-        return Rs2Inventory.isFull() || Rs2Inventory.emptySlotCount() <= 0;
     }
 
     private boolean hasDustyKey() {
@@ -178,20 +141,11 @@ public class BlueDragonsScript extends Script {
     }
 
     private boolean hasTeleportToFalador() {
-        if (Rs2Inventory.contains("Falador teleport")) {
-            return true;
-        }
-        return Rs2Magic.canCast(MagicAction.FALADOR_TELEPORT);
-    }
-
-    private void handleEscape() {
-        Rs2Magic.cast(MagicAction.FALADOR_TELEPORT);
+        return Rs2Inventory.contains("Falador teleport") || Rs2Magic.canCast(MagicAction.FALADOR_TELEPORT);
     }
 
     private void handleBanking() {
-        if (!Rs2Bank.walkToBankAndUseBank(BankLocation.FALADOR_WEST)) {
-            return;
-        }
+        if (!Rs2Bank.walkToBankAndUseBank(BankLocation.FALADOR_WEST)) return;
 
         int foodCount = Rs2Inventory.getInventoryFood().size();
         boolean hasLoot = Rs2Inventory.contains("Dragon bones")
@@ -200,7 +154,6 @@ public class BlueDragonsScript extends Script {
                 || Rs2Inventory.contains("Dragon spear")
                 || Rs2Inventory.contains("Shield left half")
                 || Rs2Inventory.contains("Ensouled dragon head");
-
         int foodNeeded = config.foodAmount() - foodCount;
 
         if (!hasLoot && foodNeeded <= 0) {
@@ -234,65 +187,82 @@ public class BlueDragonsScript extends Script {
 
     private void handleTravelToDragons() {
         if (isPlayerAtSafeSpot()) {
-            currentState = BlueDragonState.FIGHTING;
+            currentState = BlueDragonState.COMBAT;
             return;
         }
 
-        boolean walkAttemptSuccessful = Rs2Walker.walkTo(SAFE_SPOT, 0);
+        Rs2Walker.walkTo(SAFE_SPOT, 0);
+        sleepUntil(() -> Rs2Player.distanceTo(SAFE_SPOT) <= 5, 60000);
 
-        if (!walkAttemptSuccessful) {
-            return;
+        if (Rs2Player.distanceTo(SAFE_SPOT) <= 15) {
+            Rs2Walker.walkFastCanvas(SAFE_SPOT);
+            sleepUntil(this::isPlayerAtSafeSpot, 10000);
         }
 
-        boolean reachedNearSafeSpot = sleepUntil(() -> Rs2Player.distanceTo(SAFE_SPOT) <= 5, 60000);
+        if (isPlayerAtSafeSpot()) {
+            hopIfPlayerAtSafeSpot();
+            currentState = BlueDragonState.COMBAT;
+        }
+    }
 
-        if (reachedNearSafeSpot || Rs2Player.distanceTo(SAFE_SPOT) <= 20) {
-            moveToSafeSpot();
-        } else {
-            int distance = Rs2Player.distanceTo(SAFE_SPOT);
-            if (distance < 50) {
-                moveToSafeSpot();
-            } else {
+    /**
+     * Non-blocking combat loop — one action per tick, like AIO Fighter.
+     * Priority: eat → bank if full → loot → safe spot → attack
+     */
+    private void handleCombat() {
+        Rs2Player.eatAt(config.eatAtHealthPercent());
+
+        if (Rs2Inventory.isFull()) {
+            if (config.eatForLoot() && !Rs2Inventory.getInventoryFood().isEmpty()) {
+                Rs2Player.eatAt(100);
+            } else if (needsBanking()) {
                 currentState = BlueDragonState.BANKING;
                 return;
             }
         }
 
-        if (hopIfPlayerAtSafeSpot()) {
-            return;
-        }
-
-        currentState = BlueDragonState.FIGHTING;
-    }
-
-    private void handleFighting() {
-        if (currentState != BlueDragonState.FIGHTING) {
-            return;
-        }
-
-        if (isInventoryFull()) {
-            currentState = BlueDragonState.BANKING;
-            return;
-        }
-
-        Rs2Player.eatAt(config.eatAtHealthPercent());
-
-        if (!isPlayerAtSafeSpot()) {
-            moveToSafeSpot();
+        if (config.waitForLoot() && waitingForLoot) {
+            if (hasLootNearby()) {
+                waitingForLoot = false;
+                lootItems();
+                return;
+            }
+            if (System.currentTimeMillis() - waitForLootStart > WAIT_FOR_LOOT_TIMEOUT) {
+                waitingForLoot = false;
+            }
             return;
         }
 
         if (hasLootNearby()) {
-            currentState = BlueDragonState.LOOTING;
+            lootItems();
             return;
         }
 
-        if (!underAttack()) {
+        if (System.currentTimeMillis() - lastActionClickTime < ACTION_GRACE) return;
+
+        if (!isPlayerAtSafeSpot()) {
+            Rs2Walker.walkFastCanvas(SAFE_SPOT);
+            lastActionClickTime = System.currentTimeMillis();
+            return;
+        }
+
+        if (config.waitForLoot() && currentTargetId != null) {
+            Rs2NpcModel target = Microbot.getRs2NpcCache().query().withId(currentTargetId).nearestOnClientThread();
+            if (target != null && target.isDead()) {
+                waitingForLoot = true;
+                waitForLootStart = System.currentTimeMillis();
+                BlueDragonsOverlay.dragonKillCount++;
+                currentTargetId = null;
+                return;
+            }
+        }
+
+        if (!Rs2Combat.inCombat() && isPlayerAtSafeSpot()) {
             Rs2NpcModel dragon = getAvailableDragon();
             if (dragon != null) {
-                if (attackDragon(dragon)) {
-                    currentTargetId = dragon.getId();
-                }
+                dragon.click("Attack");
+                currentTargetId = dragon.getId();
+                lastActionClickTime = System.currentTimeMillis();
             }
         }
     }
@@ -302,163 +272,88 @@ public class BlueDragonsScript extends Script {
         if (Rs2GroundItem.exists("Dragon spear", 15)) return true;
         if (Rs2GroundItem.exists("Shield left half", 15)) return true;
         if (config.lootDragonhide() && Rs2GroundItem.exists("Blue dragonhide", 15)) return true;
+        if (config.lootDragonhide() && Rs2GroundItem.exists("Scaly blue dragonhide", 15)) return true;
         if (config.lootEnsouledHead() && Rs2GroundItem.exists("Ensouled dragon head", 15)) return true;
         return false;
     }
 
-    private void handleLooting() {
-        if (currentState != BlueDragonState.LOOTING) {
-            return;
+    private void lootItems() {
+        lootItem("Dragon bones");
+        lootItem("Dragon spear");
+        lootItem("Shield left half");
+
+        if (config.lootDragonhide()) {
+            lootItem("Blue dragonhide");
+            lootItem("Scaly blue dragonhide");
         }
 
-        if (isInventoryFull()) {
-            currentState = BlueDragonState.BANKING;
-            return;
+        if (config.lootEnsouledHead()) {
+            lootItem("Ensouled dragon head");
         }
 
-        boolean lootedAnything = false;
-
-        if (!isInventoryFull()) {
-            lootedAnything |= lootItem("Dragon bones");
-        }
-        if (!isInventoryFull()) {
-            lootedAnything |= lootItem("Dragon spear");
-        }
-        if (!isInventoryFull()) {
-            lootedAnything |= lootItem("Shield left half");
+        if (config.lootUntradables() && (!Rs2Inventory.isFull() || config.eatForLoot())) {
+            LootingParameters untradableParams = new LootingParameters(15, 1, 1, 0, false, true);
+            untradableParams.setEatFoodForSpace(config.eatForLoot());
+            Rs2GroundItem.lootUntradables(untradableParams);
         }
 
-        if (config.lootDragonhide() && !isInventoryFull()) {
-            lootedAnything |= lootItem("Blue dragonhide");
-            lootedAnything |= lootItem("Scaly blue dragonhide");
-        }
-
-        if (config.lootEnsouledHead() && !isInventoryFull()) {
-            lootedAnything |= lootItem("Ensouled dragon head");
-        }
-
-        if (config.lootUntradables() && !isInventoryFull()) {
-            Rs2GroundItem.lootUntradables(new LootingParameters(15, 1, 1, 0, false, true));
-        }
-
-        if (config.lootMiscItems() && !isInventoryFull()) {
-            Rs2GroundItem.lootItemBasedOnValue(new LootingParameters(config.lootValueThreshold(), 9999999, 8, 1, 1, false, true));
-        }
-
-        sleep(300, 500);
-
-        if (isInventoryFull()) {
-            currentState = BlueDragonState.BANKING;
-            return;
-        }
-
-        if (!hasLootNearby() || !lootedAnything) {
-            currentState = BlueDragonState.FIGHTING;
-            currentTargetId = null;
+        if (config.lootMiscItems() && (!Rs2Inventory.isFull() || config.eatForLoot())) {
+            String[] ignored = config.lootDragonhide() ? new String[0]
+                    : new String[]{"Blue dragonhide", "Scaly blue dragonhide"};
+            Microbot.log("[Loot] Value-based loot pass (threshold=" + config.lootValueThreshold()
+                    + ", lootDragonhide=" + config.lootDragonhide()
+                    + ", ignored=" + java.util.Arrays.toString(ignored) + ")");
+            LootingParameters valueParams = new LootingParameters(
+                    config.lootValueThreshold(), 9999999, 15, 1, 1, false, true, ignored);
+            valueParams.setEatFoodForSpace(config.eatForLoot());
+            Rs2GroundItem.lootItemBasedOnValue(valueParams);
         }
     }
 
-    private boolean lootItem(String itemName) {
-        if (isInventoryFull()) return false;
-
+    private void lootItem(String itemName) {
+        if (Rs2Inventory.isFull() && !config.eatForLoot()) return;
         LootingParameters params = new LootingParameters(15, 1, 1, 0, false, true, itemName);
-        boolean looted = Rs2GroundItem.lootItemsBasedOnNames(params);
-        if (looted) {
+        params.setEatFoodForSpace(config.eatForLoot());
+        if (Rs2GroundItem.lootItemsBasedOnNames(params)) {
+            Microbot.log("[Loot] Picked up: " + itemName);
             if (itemName.equalsIgnoreCase("Dragon bones")) {
                 BlueDragonsOverlay.bonesCollected++;
             } else if (itemName.equalsIgnoreCase("Blue dragonhide")) {
                 BlueDragonsOverlay.hidesCollected++;
             }
         }
-        return looted;
     }
 
     private Rs2NpcModel getAvailableDragon() {
-        Rs2NpcModel dragon = Microbot.getRs2NpcCache().query().withName("Blue dragon").nearestOnClientThread();
+        Rs2NpcModel dragon = Microbot.getRs2NpcCache().query()
+                .withName("Blue dragon")
+                .where(npc -> !npc.isDead())
+                .nearestOnClientThread();
+        if (dragon == null) return null;
 
-        if (dragon != null) {
-            boolean correctId = (dragon.getId() == BLUE_DRAGON_ID_1 || dragon.getId() == BLUE_DRAGON_ID_2 || dragon.getId() == BLUE_DRAGON_ID_3);
-            boolean hasLineOfSight = dragon.hasLineOfSight();
-
-            if (correctId && hasLineOfSight) {
-                return dragon;
-            }
+        int id = dragon.getId();
+        if ((id == BLUE_DRAGON_ID_1 || id == BLUE_DRAGON_ID_2 || id == BLUE_DRAGON_ID_3) && dragon.hasLineOfSight()) {
+            return dragon;
         }
         return null;
     }
 
-    private boolean attackDragon(Rs2NpcModel dragon) {
-        final int dragonId = dragon.getId();
-
-        if (Rs2Combat.inCombat() && !dragon.isInteractingWithPlayer()) {
-            return false;
-        }
-
-        if (dragon.click("Attack")) {
-            boolean dragonKilled = sleepUntil(() -> Microbot.getRs2NpcCache().query().withId(dragonId).nearest() == null, 60000);
-
-            if (dragonKilled) {
-                BlueDragonsOverlay.dragonKillCount++;
-                sleep(600, 900);
-                currentState = BlueDragonState.LOOTING;
-            }
-
-            return true;
-        }
-        return false;
-    }
-
     private boolean isPlayerAtSafeSpot() {
-        return SAFE_SPOT.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
+        return SAFE_SPOT.equals(Microbot.getClientThread().invoke(() ->
+                Microbot.getClient().getLocalPlayer().getWorldLocation()));
     }
 
-    private void moveToSafeSpot() {
-        Microbot.pauseAllScripts.compareAndSet(false, true);
-
-        int distance = Rs2Player.distanceTo(SAFE_SPOT);
-
-        if (distance > 15) {
-            Rs2Walker.walkTo(SAFE_SPOT, 0);
-            sleepUntil(() -> Rs2Player.distanceTo(SAFE_SPOT) <= 5, 30000);
-        }
-
-        if (!isPlayerAtSafeSpot()) {
-            Rs2Walker.walkFastCanvas(SAFE_SPOT);
-            sleepUntil(this::isPlayerAtSafeSpot, 15000);
-        }
-
-        if (hopIfPlayerAtSafeSpot()) {
-            return;
-        }
-
-        Microbot.pauseAllScripts.compareAndSet(true, false);
-    }
-
-    private boolean hopIfPlayerAtSafeSpot() {
-        boolean otherPlayersAtSafeSpot = false;
+    private void hopIfPlayerAtSafeSpot() {
         List<Player> players = Rs2Player.getPlayers(it -> it != null).collect(Collectors.toList());
+        boolean occupied = players.stream().anyMatch(p ->
+                p != null && !p.equals(Microbot.getClient().getLocalPlayer())
+                        && p.getWorldLocation().distanceTo(SAFE_SPOT) <= 1);
 
-        for (Player player : players) {
-            if (player != null &&
-                    !player.equals(Microbot.getClient().getLocalPlayer()) &&
-                    player.getWorldLocation().distanceTo(SAFE_SPOT) <= 1) {
-                otherPlayersAtSafeSpot = true;
-                break;
-            }
-        }
-
-        if (otherPlayersAtSafeSpot) {
+        if (occupied) {
             Microbot.log("Player at safe spot. Hopping worlds.");
-            Microbot.pauseAllScripts.set(true);
-
-            boolean hopSuccess = Microbot.hopToWorld(findRandomWorld());
+            Microbot.hopToWorld(findRandomWorld());
             sleep(5000);
-
-            Microbot.pauseAllScripts.set(false);
-            return hopSuccess;
         }
-
-        return false;
     }
 
     private int findRandomWorld() {
@@ -472,14 +367,7 @@ public class BlueDragonsScript extends Script {
 
     public void updateConfig(BlueDragonsConfig config) {
         this.config = config;
-
-        if (overlay != null) {
-            overlay.setConfig(config);
-        }
-    }
-
-    private boolean underAttack() {
-        return Rs2Combat.inCombat();
+        if (overlay != null) overlay.setConfig(config);
     }
 
     public void shutdown() {

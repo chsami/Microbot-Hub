@@ -25,12 +25,22 @@ public interface BlueDragonsConfig extends Config {
 
     @ConfigItem(keyName = "lootDragonhide", name = "Loot Blue Dragonhide", description = "Loot blue dragonhide dropped by the dragon", section = lootSection)
     default boolean lootDragonhide() {
-        return true;
+        return false;
     }
 
     @ConfigItem(keyName = "lootEnsouledHead", name = "Loot Ensouled heads", description = "LootEnsouled heads dropped by the dragon", section = lootSection)
     default boolean lootEnsouledHead() {
         return true;
+    }
+
+    @ConfigItem(keyName = "waitForLoot", name = "Wait for loot", description = "Wait for dragon death animation to finish and loot before attacking next", section = lootSection)
+    default boolean waitForLoot() {
+        return true;
+    }
+
+    @ConfigItem(keyName = "eatForLoot", name = "Eat food for loot space", description = "Eat food to make inventory space for loot", section = lootSection)
+    default boolean eatForLoot() {
+        return false;
     }
 
     @ConfigItem(keyName = "lootUntradables", name = "Loot Untradables", description = "Loot untradable drops (clue scrolls, etc.)", section = lootSection)

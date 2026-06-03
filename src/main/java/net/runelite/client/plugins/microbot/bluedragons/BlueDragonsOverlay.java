@@ -165,10 +165,8 @@ public class BlueDragonsOverlay extends OverlayPanel {
                 return Color.YELLOW;
             case TRAVEL_TO_DRAGONS:
                 return Color.ORANGE;
-            case FIGHTING:
+            case COMBAT:
                 return Color.GREEN;
-            case LOOTING:
-                return new Color(218, 165, 32);
             default:
                 return Color.WHITE;
         }
