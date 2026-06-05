@@ -597,6 +597,15 @@ public class ArceuusLibraryScript extends Script
             return true;
         }
 
+        // Sweeps are opportunistic same-floor detours — never chase across planes.
+        if (here.getPlane() != loc.getPlane())
+        {
+            log.info("Sweep: abandoning {} (player plane {} != target plane {})",
+                    loc, here.getPlane(), loc.getPlane());
+            pendingSweepTarget = null;
+            return false;
+        }
+
         // Not yet interactable — Rs2Walker navigates on a background thread.
         if (state != ArceuusLibraryState.SECTION_SWEEP
                 || (backgroundWalk != null && backgroundWalk.isDone()))
