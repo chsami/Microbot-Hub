@@ -177,6 +177,28 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/actionreplayplugin-1.1.0.jar"
     },
     {
+        "internalName": "PitfallHunterPlugin",
+        "name": "Pitfall Hunter",
+        "description": "Local Sunlight Antelope pitfall loop. Lure closest NPC, then use closest pit.",
+        "tags": [
+            "hunter",
+            "pitfall",
+            "sunlight antelope",
+            "local",
+            "mvp"
+        ],
+        "version": "0.1.52",
+        "minClientVersion": "2.1.0",
+        "authors": [
+            "Microbot-Hub"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "sha256": "ae726c775b83b7dccef9c2e09cded79a79e3f47875ec073fd9518c95a3a52575",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/pitfallhunterplugin-0.1.52.jar"
+    },
+    {
         "internalName": "AttackTimerMetronomePlugin",
         "name": "Prayer Helper",
         "description": "Prayer helper",
@@ -1754,7 +1776,7 @@
             "dragons",
             "prayer"
         ],
-        "version": "1.1.3",
+        "version": "1.2.0",
         "minClientVersion": "2.0.14",
         "authors": [
             "Unknown Author"
@@ -1762,8 +1784,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "3fc19b784b6ba7201dbbe8b9fc7ce351f64b45e66d9b81e048bae1cdc43bc069",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/bluedragonsplugin-1.1.3.jar"
+        "sha256": "c5b6264d59ffe037843e9898c65f3b64599d6ecfa55333aac8a9451365124366",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/bluedragonsplugin-1.2.0.jar"
     },
     {
         "internalName": "DeadFallTrapHunterPlugin",
@@ -3159,7 +3181,7 @@
             "exchange",
             "automation"
         ],
-        "version": "1.2.3",
+        "version": "1.2.4",
         "minClientVersion": "2.1.32",
         "authors": [
             "Choken",
@@ -3168,8 +3190,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "cff5c416375de79ff981215da14c2b1c1a4a3c25016961648a64a156ccf407c2",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/flipperplugin-1.2.3.jar"
+        "sha256": "50d2b3ee2945245d9ed81c006ab4ae2dc71d09a81871f8b6499c35e53efb8ce6",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/flipperplugin-1.2.4.jar"
     },
     {
         "internalName": "QoLPlugin",
