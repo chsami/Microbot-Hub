@@ -23,7 +23,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.3";
+    public static final String version = "1.2.4";
     @Inject
     private Client client;
     @Inject

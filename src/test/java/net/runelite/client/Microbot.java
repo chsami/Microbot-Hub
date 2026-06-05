@@ -13,8 +13,10 @@ import net.runelite.client.plugins.microbot.birdhouseruns.FornBirdhouseRunsPlugi
 import net.runelite.client.plugins.microbot.autofishing.AutoFishingPlugin;
 import net.runelite.client.plugins.microbot.crafting.jewelry.JewelryPlugin;
 import net.runelite.client.plugins.microbot.example.ExamplePlugin;
+import net.runelite.client.plugins.microbot.karambwans.GabulhasKarambwansPlugin;
 import net.runelite.client.plugins.microbot.kraken.KrakenPlugin;
 import net.runelite.client.plugins.microbot.leftclickcast.LeftClickCastPlugin;
+import net.runelite.client.plugins.microbot.pitfallhunter.PitfallHunterPlugin;
 import net.runelite.client.plugins.microbot.sailing.MSailingPlugin;
 import net.runelite.client.plugins.microbot.thieving.ThievingPlugin;
 import net.runelite.client.plugins.microbot.motherloadmine.MotherloadMinePlugin;
@@ -29,6 +31,8 @@ public class Microbot
 		AgentServerPlugin.class,
 		FornBirdhouseRunsPlugin.class,
 		GiantSeaweedFarmerPlugin.class,
+		PitfallHunterPlugin.class,
+		GabulhasKarambwansPlugin.class,
 		MotherloadMinePlugin.class
 	};
 
