@@ -24,6 +24,7 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -236,14 +237,14 @@ public class FlipperScript extends Script {
 		}
 	}
 
-	private String getSuggestionType(Object suggestion)
+	private Object getSuggestionType(Object suggestion)
 	{
 		if (suggestion == null) return null;
 		try
 		{
 			Field typeField = suggestion.getClass().getDeclaredField("type");
 			typeField.setAccessible(true);
-			return (String) typeField.get(suggestion);
+			return typeField.get(suggestion);
 		}
 		catch (Exception e)
 		{
@@ -279,6 +280,7 @@ public class FlipperScript extends Script {
 		}
 
 		List<Object> highlightOverlays = getHighlightOverlays(highlightController);
+		if (highlightOverlays == null) return highlightWidgets;
 
 		for (Object highlightOverlay : highlightOverlays)
 		{
@@ -288,10 +290,13 @@ public class FlipperScript extends Script {
 				widgetField.setAccessible(true);
 				highlightWidgets.add((Widget) widgetField.get(highlightOverlay));
 			}
+			catch (NoSuchFieldException e)
+			{
+				log.warn("Overlay {} does not have a widget field, skipping.", highlightOverlay.getClass().getSimpleName());
+			}
 			catch (Exception e)
 			{
 				log.error("Could not get widget from overlay: {} - ", e.getMessage(), e);
-				return highlightWidgets;
 			}
 		}
 
@@ -306,7 +311,7 @@ public class FlipperScript extends Script {
 			return null;
 		}
 
-		if (Objects.equals(suggestionType, "abort") || Objects.equals(suggestionType, "modify_buy") || Objects.equals(suggestionType, "modify_sell"))
+		if (Objects.equals(suggestionType, "abort") || Objects.equals(suggestionType, "modify"))
 		{
 			return getHighlightWidgets(highlightController).stream()
 				.filter(Objects::nonNull)
@@ -335,17 +340,21 @@ public class FlipperScript extends Script {
 			Object currentSuggestion = getSuggestion(suggestionManager);
 			if (currentSuggestion == null) return false;
 
-			String suggestionType = getSuggestionType(currentSuggestion);
+			// Use Suggestion helper methods (type is now SuggestionType enum, not String)
+			Method isAbortMethod = currentSuggestion.getClass().getMethod("isAbortSuggestion");
+			Method isModifyMethod = currentSuggestion.getClass().getMethod("isModifySuggestion");
+			boolean isAbort = (Boolean) isAbortMethod.invoke(currentSuggestion);
+			boolean isModify = (Boolean) isModifyMethod.invoke(currentSuggestion);
 
-			if (!Objects.equals(suggestionType, "abort") && !Objects.equals(suggestionType, "modify_buy") && !Objects.equals(suggestionType, "modify_sell")) return false;
+			if (!isAbort && !isModify) return false;
 
-			log.info("Found suggestion type '{}'.", suggestionType);
+			log.info("Found suggestion type: {}.", isAbort ? "ABORT" : "MODIFY");
 
-			Widget abortWidget = getWidgetFromOverlay(highlightController, suggestionType);
+			Widget abortWidget = getWidgetFromOverlay(highlightController, isAbort ? "abort" : "modify");
 			if (abortWidget != null)
 			{	
 				NewMenuEntry menuEntry;
-				if (Objects.equals(suggestionType, "modify_buy") || Objects.equals(suggestionType, "modify_sell"))
+				if (isModify)
 					menuEntry = new NewMenuEntry("Modify offer", "", 3, MenuAction.CC_OP, 2, abortWidget.getId(), false);
 				else
 					menuEntry = new NewMenuEntry("Abort offer", "", 2, MenuAction.CC_OP, 2, abortWidget.getId(), false);
@@ -422,7 +431,8 @@ public class FlipperScript extends Script {
                 actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 
 				// Sometimes, flipping copilot suggestions cost more than what's available in inventory, we should detect and avoid that
-				if (highlightedWidget.getText().contains("Confirm") || (highlightedWidget.getActions().length > 0 && highlightedWidget.getActions()[0].contains("Confirm"))) {
+				String[] actions = highlightedWidget.getActions();
+				if (highlightedWidget.getText() != null && highlightedWidget.getText().contains("Confirm") || (actions != null && actions.length > 0 && actions[0].contains("Confirm"))) {
 					if (!sleepUntil(() -> !Rs2GrandExchange.isOfferScreenOpen())) {
 						Rs2GrandExchange.backToOverview();
 						return false;
