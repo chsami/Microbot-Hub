@@ -27,7 +27,7 @@ import javax.inject.Inject;
 )
 public class BlueDragonsPlugin extends Plugin {
 
-    public static final String version = "1.1.3";
+    public static final String version = "1.2.0";
     static final String CONFIG = "bluedragons";
 
     @Inject
@@ -48,17 +48,12 @@ public class BlueDragonsPlugin extends Plugin {
     @Override
     protected void startUp() {
         overlay.setScript(script);
-
         overlay.setConfig(config);
-
         overlayManager.add(overlay);
 
         Rs2Antiban.activateAntiban();
-
         Rs2Antiban.resetAntibanSettings();
-
         Rs2Antiban.antibanSetupTemplates.applyCombatSetup();
-
         Rs2Antiban.setActivity(Activity.KILLING_BLUE_DRAGONS);
 
         if (config.startPlugin()) {
@@ -68,43 +63,24 @@ public class BlueDragonsPlugin extends Plugin {
 
     @Override
     protected void shutDown() {
-        script.logOnceToChat("Stopping Blue Dragons plugin...", false, config);
         overlayManager.remove(overlay);
         script.shutdown();
     }
 
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
-        if (!event.getGroup().equals("bluedragons")) return;
+        if (!event.getGroup().equals(CONFIG)) return;
 
-        switch (event.getKey()) {
-            case "startPlugin":
-                if (config.startPlugin()) {
-                    script.logOnceToChat("Starting Blue Dragon plugin...", false, config);
-                    script.run(config);
-                } else {
-                    script.logOnceToChat("Stopping Blue Dragon plugin!", false, config);
-                    script.shutdown();
-                }
-                break;
-
-            case "lootDragonhide":
-            case "foodType":
-            case "foodAmount":
-            case "eatAtHealthPercent":
-            case "lootEnsouledHead":
-            case "debugLogs":
-                script.logOnceToChat("Configuration changed. Updating script settings.", true, config);
-                if (config.startPlugin()) {
-                    script.updateConfig(config);
-                }
-                break;
-
-            default:
-                break;
+        if ("startPlugin".equals(event.getKey())) {
+            if (config.startPlugin()) {
+                script.run(config);
+            } else {
+                script.shutdown();
+            }
+        } else if (script.isRunning()) {
+            script.updateConfig(config);
         }
     }
-
 
     @Provides
     BlueDragonsConfig provideConfig(ConfigManager configManager) {

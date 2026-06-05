@@ -31,13 +31,9 @@ public class BlueDragonsOverlay extends OverlayPanel {
     public static int bonesCollected = 0;
     public static int hidesCollected = 0;
 
-    // For formatting hitpoint values
     private final NumberFormat formatter = NumberFormat.getInstance(Locale.US);
-
-    // Model outline renderer for highlighting NPCs
     private final ModelOutlineRenderer modelOutlineRenderer;
 
-    // Reference to the config
     @Setter
     private BlueDragonsConfig config;
 
@@ -57,31 +53,25 @@ public class BlueDragonsOverlay extends OverlayPanel {
             return null;
         }
 
-        // Always draw the safe spot location
         drawSafeSpot(graphics);
 
-        // Draw overlay panel with information
         panelComponent.setPreferredSize(new Dimension(280, 350));
 
-        // Title with blue dragon emoji and fancy formatting
         panelComponent.getChildren().add(
                 TitleComponent.builder()
-                        .text("\uD83D\uDC09 00 Blue Dragons \uD83D\uDC09")
+                        .text("🐉 00 Blue Dragons 🐉")
                         .color(new Color(0, 170, 255))
                         .build()
         );
 
-        // Runtime section
         panelComponent.getChildren().add(LineComponent.builder()
                 .left("Session Time:")
                 .right(formatDuration(Duration.between(startTime, Instant.now())))
-                .rightColor(new Color(255, 215, 0)) // Gold
+                .rightColor(new Color(255, 215, 0))
                 .build());
 
-        // Add section divider
         addSectionDivider("Current Status");
 
-        // Status section with improved colors
         panelComponent.getChildren().add(
                 LineComponent.builder()
                         .left("Bot State:")
@@ -90,7 +80,6 @@ public class BlueDragonsOverlay extends OverlayPanel {
                         .build()
         );
 
-        // Location information in a more compact format
         WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
         int distanceToSafeSpot = playerLocation.distanceTo(BlueDragonsScript.SAFE_SPOT);
 
@@ -102,7 +91,6 @@ public class BlueDragonsOverlay extends OverlayPanel {
                         .build()
         );
 
-        // Dragon tracking section
         addSectionDivider("Dragon Tracking");
 
         Rs2NpcModel nearestDragon = Microbot.getRs2NpcCache().query().withName("Blue dragon").nearestOnClientThread();
@@ -123,20 +111,18 @@ public class BlueDragonsOverlay extends OverlayPanel {
                     LineComponent.builder()
                             .left("Distance:")
                             .right(playerLocation.distanceTo(nearestDragon.getWorldLocation()) + " tiles")
-                            .rightColor(new Color(135, 206, 235)) // Sky Blue
+                            .rightColor(new Color(135, 206, 235))
                             .build()
             );
         }
 
-        // Statistics section
         addSectionDivider("Loot Tracker");
 
-        // Stats in a grid-like format
         panelComponent.getChildren().add(
                 LineComponent.builder()
                         .left("Dragons Killed:")
                         .right(formatNumber(dragonKillCount))
-                        .rightColor(new Color(50, 205, 50)) // Lime Green
+                        .rightColor(new Color(50, 205, 50))
                         .build()
         );
 
@@ -144,7 +130,7 @@ public class BlueDragonsOverlay extends OverlayPanel {
                 LineComponent.builder()
                         .left("Bones Collected:")
                         .right(formatNumber(bonesCollected))
-                        .rightColor(new Color(222, 184, 135)) // Burlywood
+                        .rightColor(new Color(222, 184, 135))
                         .build()
         );
 
@@ -152,7 +138,7 @@ public class BlueDragonsOverlay extends OverlayPanel {
                 LineComponent.builder()
                         .left("Hides Collected:")
                         .right(formatNumber(hidesCollected))
-                        .rightColor(new Color(70, 130, 180)) // Steel Blue
+                        .rightColor(new Color(70, 130, 180))
                         .build()
         );
 
@@ -179,17 +165,14 @@ public class BlueDragonsOverlay extends OverlayPanel {
                 return Color.YELLOW;
             case TRAVEL_TO_DRAGONS:
                 return Color.ORANGE;
-            case FIGHTING:
+            case COMBAT:
                 return Color.GREEN;
-            case LOOTING:
-                return new Color(218, 165, 32); // Gold
             default:
                 return Color.WHITE;
         }
     }
 
     private void drawSafeSpot(Graphics2D graphics) {
-        // Use the non-deprecated method to convert world point to local point
         LocalPoint localSafeSpot = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), BlueDragonsScript.SAFE_SPOT);
 
         if (localSafeSpot != null) {
@@ -222,7 +205,7 @@ public class BlueDragonsOverlay extends OverlayPanel {
         panelComponent.getChildren().add(
                 LineComponent.builder()
                         .left(sectionName)
-                        .leftColor(new Color(255, 165, 0)) // Orange
+                        .leftColor(new Color(255, 165, 0))
                         .build()
         );
     }
@@ -233,14 +216,14 @@ public class BlueDragonsOverlay extends OverlayPanel {
     }
 
     private Color getDragonStatusColor(Rs2NpcModel dragon, boolean isTargeting) {
-        if (dragon == null) return new Color(169, 169, 169); // Dark Gray
-        return isTargeting ? new Color(220, 20, 60) : new Color(50, 205, 50); // Crimson : Lime Green
+        if (dragon == null) return new Color(169, 169, 169);
+        return isTargeting ? new Color(220, 20, 60) : new Color(50, 205, 50);
     }
 
     private Color getSafeSpotColor(int distance) {
-        if (distance == 0) return new Color(50, 205, 50); // Lime Green
-        if (distance <= 5) return new Color(255, 165, 0); // Orange
-        return new Color(220, 20, 60); // Crimson
+        if (distance == 0) return new Color(50, 205, 50);
+        if (distance <= 5) return new Color(255, 165, 0);
+        return new Color(220, 20, 60);
     }
 
     private String formatNumber(int number) {
