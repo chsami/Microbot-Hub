@@ -21,6 +21,7 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.timetracking.Tab;
@@ -428,9 +429,14 @@ public class HerbrunScript extends Script {
                 Rs2Inventory.use(flowerSeed.getItemId());
                 obj.click("Plant");
                 Rs2Player.waitForWalking();
-                sleepUntil(() -> getPatchState(obj).equals("Growing"), 10000);
-                log("[Flower] Planted at " + obj.getWorldLocation());
-                return true;
+                // Only advance once Growing is confirmed; otherwise retry next tick (weeds may have
+                // regrown between clearing and planting, or the click missed).
+                if (sleepUntil(() -> getPatchState(obj).equals("Growing"), 10000)) {
+                    log("[Flower] Planted at " + obj.getWorldLocation());
+                    return true;
+                }
+                log("[Flower] Plant not confirmed (state=" + getPatchState(obj) + "), retrying");
+                return false;
             default:
                 log("[Flower] Patch is " + state + ", skipping");
                 return true;
@@ -438,6 +444,30 @@ public class HerbrunScript extends Script {
     }
 
     // --- Allotment patch handling ---
+
+    /**
+     * A multi-tile allotment patch shares one ObjectID across ~12 tiles. Interior tiles cannot be
+     * interacted with because the player has no adjacent tile to stand on — all four neighbours are
+     * other (blocked) patch tiles. An edge tile is interactable: at least one orthogonal neighbour is
+     * open ground (passes the BLOCK_MOVEMENT_FULL collision check). isReachable() can't distinguish
+     * these (it returns true for any same-worldview object), so we test for a standable neighbour here.
+     */
+    private static boolean hasStandableNeighbor(WorldPoint tile) {
+        if (tile == null) return false;
+        return Rs2Tile.isWalkable(tile.dx(1))
+                || Rs2Tile.isWalkable(tile.dx(-1))
+                || Rs2Tile.isWalkable(tile.dy(1))
+                || Rs2Tile.isWalkable(tile.dy(-1));
+    }
+
+    /** Squared Euclidean distance — finer than WorldPoint.distanceTo (Chebyshev), so ties between a
+     *  diagonal and an orthogonal tile resolve toward the orthogonal (genuinely nearest) one. */
+    private static int sqDist(WorldPoint a, WorldPoint b) {
+        if (a == null || b == null) return Integer.MAX_VALUE;
+        int dx = a.getX() - b.getX();
+        int dy = a.getY() - b.getY();
+        return dx * dx + dy * dy;
+    }
 
     private boolean handleAllotmentPatches(String region) {
         if (!ensureInventorySpace()) return false;
@@ -449,11 +479,15 @@ public class HerbrunScript extends Script {
             return true;
         }
 
+        // distanceTo() is Chebyshev (max(|dx|,|dy|)), so many tiles tie and the tie is broken by list
+        // order — picking a diagonal tile over the orthogonally-adjacent one. Compare by squared
+        // Euclidean distance instead so we land on the genuinely-nearest tile at decision time.
+        final WorldPoint playerLoc = Rs2Player.getWorldLocation();
         Rs2TileObjectModel pinned = null;
         if (currentAllotmentId >= 0) {
             pinned = allObjects.stream()
-                    .filter(o -> o.getId() == currentAllotmentId && o.isReachable())
-                    .min(Comparator.comparingInt(o -> o.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                    .filter(o -> o.getId() == currentAllotmentId && hasStandableNeighbor(o.getWorldLocation()))
+                    .min(Comparator.comparingInt(o -> sqDist(o.getWorldLocation(), playerLoc)))
                     .orElse(null);
             if (pinned == null || handledAllotmentIds.contains(currentAllotmentId)) {
                 log("[Allotment] Finished patch id=" + currentAllotmentId + ", looking for next");
@@ -463,8 +497,8 @@ public class HerbrunScript extends Script {
         }
         if (currentAllotmentId < 0) {
             pinned = allObjects.stream()
-                    .filter(o -> !handledAllotmentIds.contains(o.getId()) && o.isReachable())
-                    .min(Comparator.comparingInt(o -> o.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                    .filter(o -> !handledAllotmentIds.contains(o.getId()) && hasStandableNeighbor(o.getWorldLocation()))
+                    .min(Comparator.comparingInt(o -> sqDist(o.getWorldLocation(), playerLoc)))
                     .orElse(null);
             if (pinned == null) {
                 log("[Allotment] All patches handled at " + region);
@@ -507,10 +541,16 @@ public class HerbrunScript extends Script {
                 Rs2Inventory.use(allotmentSeed.getItemId());
                 obj.click("Plant");
                 Rs2Player.waitForWalking();
-                sleepUntil(() -> getPatchState(obj).equals("Growing"), 10000);
-                log("[Allotment] Planted id=" + currentAllotmentId);
-                handledAllotmentIds.add(currentAllotmentId);
-                currentAllotmentId = -1;
+                // Only mark done once the patch is confirmed Growing. If the plant didn't take
+                // (e.g. weeds regrew between clearing and planting, or the click missed), leave the
+                // patch pinned so the next tick re-rakes/re-plants instead of silently giving up.
+                if (sleepUntil(() -> getPatchState(obj).equals("Growing"), 10000)) {
+                    log("[Allotment] Planted id=" + currentAllotmentId);
+                    handledAllotmentIds.add(currentAllotmentId);
+                    currentAllotmentId = -1;
+                } else {
+                    log("[Allotment] Plant not confirmed (state=" + getPatchState(obj) + "), retrying id=" + currentAllotmentId);
+                }
                 return false;
             default:
                 log("[Allotment] Patch id=" + currentAllotmentId + " is " + state + ", marking done");
@@ -582,15 +622,26 @@ public class HerbrunScript extends Script {
         Rs2NpcModel leprechaun = Microbot.getRs2NpcCache().query().withName("Tool leprechaun").nearestOnClientThread();
         if (leprechaun == null) return false;
 
-        Rs2ItemModel unNoted = Rs2Inventory.getUnNotedItem("Grimy", false);
-        if (unNoted == null) unNoted = getFirstUnNotedProduce();
+        // Note EVERY notable produce type we hold more than one of, not just the patch we're currently
+        // harvesting. Otherwise produce from an earlier patch (e.g. grimy herbs) keeps occupying slots
+        // and space never actually gets freed. Using an item on the leprechaun notes its whole stack.
+        Set<Integer> seen = new HashSet<>();
+        List<Rs2ItemModel> toNote = new ArrayList<>();
+        for (Rs2ItemModel item : Rs2Inventory.all()) {
+            if (item == null || item.isNoted() || item.getName() == null) continue;
+            if (!isNotableProduce(item.getName())) continue;
+            if (Rs2Inventory.count(item.getId()) <= 1) continue;
+            if (seen.add(item.getId())) toNote.add(item);
+        }
 
-        if (unNoted != null) {
-            Rs2Inventory.use(unNoted);
+        boolean notedAny = false;
+        for (Rs2ItemModel item : toNote) {
+            Rs2Inventory.use(item);
             leprechaun.click("Talk-to");
             Rs2Inventory.waitForInventoryChanges(10000);
-            return true;
+            notedAny = true;
         }
+        if (notedAny) return true;
 
         if (Rs2Inventory.hasItem("Weeds")) {
             Rs2Inventory.dropAll("Weeds");
@@ -610,16 +661,13 @@ public class HerbrunScript extends Script {
             "Marigold", "Rosemary", "Nasturtium", "Woad leaf", "Limpwurt root", "White lily"
     };
 
-    private Rs2ItemModel getFirstUnNotedProduce() {
-        for (String name : ALLOTMENT_PRODUCE) {
-            Rs2ItemModel item = Rs2Inventory.getUnNotedItem(name, true);
-            if (item != null) return item;
-        }
-        for (String name : FLOWER_PRODUCE) {
-            Rs2ItemModel item = Rs2Inventory.getUnNotedItem(name, true);
-            if (item != null) return item;
-        }
-        return null;
+    /** A farming product worth noting for space: any grimy herb, or allotment/flower produce. Produce
+     *  names are matched exactly so seeds ("Potato seed", "Marigold seed") are never caught. */
+    private static boolean isNotableProduce(String name) {
+        if (name.startsWith("Grimy")) return true;
+        for (String p : ALLOTMENT_PRODUCE) if (name.equals(p)) return true;
+        for (String p : FLOWER_PRODUCE) if (name.equals(p)) return true;
+        return false;
     }
 
     // --- Seed helpers ---
