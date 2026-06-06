@@ -19,6 +19,8 @@ import javax.inject.Inject;
         version = ArceuusLibraryPlugin.version,
         minClientVersion = "2.1.34",
         tags = {"arceuus", "library", "kourend", "magic", "runecraft", "minigame"},
+        iconUrl = "https://chsami.github.io/Microbot-Hub/ArceuusLibraryPlugin/assets/card.jpg",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/ArceuusLibraryPlugin/assets/card.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
