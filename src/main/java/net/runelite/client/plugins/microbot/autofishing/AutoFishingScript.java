@@ -2,13 +2,11 @@ package net.runelite.client.plugins.microbot.autofishing;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.*;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
-import net.runelite.api.Skill;
-import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.gameval.InterfaceID;
-import net.runelite.api.gameval.VarbitID;
+
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.autofishing.enums.AutoFishingState;
@@ -18,14 +16,14 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 
 import java.util.Arrays;
 import java.util.List;
@@ -46,11 +44,13 @@ public class AutoFishingScript extends Script {
     private AutoFishingState currentState = AutoFishingState.IDLE;
     private WorldPoint fishingLocation;
     private String fishAction = "";
+    private long lastActionTime = System.currentTimeMillis();
 
     public boolean run(AutoFishingConfig config) {
         this.config = config;
         this.selectedFish = config.fishToCatch();
         this.selectedHarpoon = config.harpoonSpec();
+        this.lastActionTime = System.currentTimeMillis();
 
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyFishingSetup();
@@ -61,14 +61,32 @@ public class AutoFishingScript extends Script {
 
     private void loop() {
         try {
-            boolean isAnimation = sleepUntil(() -> Rs2Player.getAnimation() != -1, 2_000);
             if (!super.run() || !Microbot.isLoggedIn()) return;
-            // we wait until one of the actions is completed
-            if (isAnimation || (Rs2Player.isMoving() && currentState != AutoFishingState.TRAVELING)) {
+
+            currentState = determineState();
+
+            if (currentState == AutoFishingState.FISHING && !hasFishingMaterials()) {
+                log.info("Out of required fishing materials for {}. Logging out and shutting down script.", selectedFish);
+                Rs2Player.logout();
+                shutdown();
                 return;
             }
 
-            currentState = determineState();
+            if (Rs2Player.isMoving() && currentState != AutoFishingState.TRAVELING) {
+                return;
+            }
+
+            if (currentState == AutoFishingState.FISHING && (Rs2Player.isAnimating() || Rs2Player.isInteracting())) {
+                if (System.currentTimeMillis() - lastActionTime < 15000) {
+                    return;
+                }
+                log.info("Idle timeout reached in fishing state, re-evaluating...");
+            }
+
+            if (currentState == AutoFishingState.COOKING && (Rs2Player.isAnimating() || Rs2Player.isInteracting())) {
+                return;
+            }
+
             switch (currentState) {
                 case GETTING_GEAR: handleGettingGear(); break;
                 case TRAVELING: handleTraveling(); break;
@@ -88,13 +106,15 @@ public class AutoFishingScript extends Script {
     private AutoFishingState determineState() {
         if (Rs2Inventory.isFull()) {
             if (isSpecialFish(selectedFish)) return AutoFishingState.PROCESSING_FISH;
-            if (config.cookFish() && !getRawFishInInventory().isEmpty()) return AutoFishingState.COOKING;
+            if (config.cookFish() && !getRawFishInInventory().isEmpty() && canCookAtLeastOneRaw()) return AutoFishingState.COOKING;
             if (config.useBank()) return AutoFishingState.DEPOSITING;
             return AutoFishingState.DROPPING;
         }
 
         if (!hasRequiredGear()) {
-            return AutoFishingState.GETTING_GEAR;
+            if (findNearestFishingSpot() == null) {
+                return AutoFishingState.GETTING_GEAR;
+            }
         }
 
         if (!isAtFishingLocation()) {
@@ -108,59 +128,155 @@ public class AutoFishingScript extends Script {
      * Handle methods 
      */
     private void handleTraveling() {
-        if (fishingLocation == null) {
-            fishingLocation = selectedFish.getClosestLocation(Rs2Player.getWorldLocation());
-        }
+        fishingLocation = selectedFish.getClosestLocation(Rs2Player.getWorldLocation());
         if (fishingLocation != null) {
             Rs2Walker.walkTo(fishingLocation);
         }
     }
 
     private void handleFishing() {
-        Rs2NpcModel fishingSpot = findNearestFishingSpot();
-        if (fishingSpot == null) {
-            sleep(1_000, 2_000); // if by chance the same spotfish disappears, we wait to see if it reappears
+        if (Thread.currentThread().isInterrupted() || !Microbot.isLoggedIn()) {
             return;
         }
+        Rs2NpcModel fishingSpot = findNearestFishingSpot();
+        if (fishingSpot == null) {
+            return;
+        }
+
+        Actor interacting = Rs2Player.getInteracting();
+        if (interacting instanceof NPC && ((NPC) interacting).getIndex() == fishingSpot.getNpc().getIndex()) {
+            if (System.currentTimeMillis() - lastActionTime < 15000) {
+                return;
+            }
+        }
+
         activateSpec();
         if (fishAction.isEmpty()) {
-            fishAction = Rs2Npc.getAvailableAction(new net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel(fishingSpot.getNpc()), selectedFish.getActions());
+            fishAction = getAvailableAction(fishingSpot, selectedFish.getActions());
         }
+
+        int clickedSpotIndex = (fishingSpot.getNpc() != null) ? fishingSpot.getNpc().getIndex() : -1;
+
         if (!fishAction.isEmpty() && fishingSpot.click(fishAction)) {
-            Rs2Player.waitForXpDrop(Skill.FISHING);
-            Rs2Antiban.actionCooldown();
-            Rs2Antiban.takeMicroBreakByChance();
+            lastActionTime = System.currentTimeMillis();
+
+            Rs2Player.waitForXpDrop(Skill.FISHING, true);
+
+            // Wait using repeated xp drop waits until the specific spot despawns or inv is full.
+            // This gives one click per spot lifetime and catches full inv during the session.
+            if (clickedSpotIndex != -1) {
+                while (true) {
+                    if (Rs2Inventory.isFull()) {
+                        break;
+                    }
+                    Actor current = Rs2Player.getInteracting();
+                    if (current == null || !(current instanceof NPC) || ((NPC) current).getIndex() != clickedSpotIndex) {
+                        break;
+                    }
+                    Rs2Player.waitForXpDrop(Skill.FISHING, 10000, true);
+                }
+            }
+
+            lastActionTime = System.currentTimeMillis();
+            try {
+                Rs2Antiban.actionCooldown();
+                Rs2Antiban.takeMicroBreakByChance();
+            } catch (IllegalArgumentException e) {
+                log.warn("Antiban fishing cooldown skipped due to invalid bounds: {}", e.getMessage());
+            }
         }
     }
 
     private void handleDropping() {
-        Rs2Inventory.dropAll(selectedFish.getItemNames().toArray(new String[0]));
+        List<String> itemsToDrop = Rs2Inventory.all().stream()
+                .map(Rs2ItemModel::getName)
+                .filter(name -> name.startsWith("Raw") || 
+                                name.contains("Leaping") || 
+                                name.toLowerCase().contains("burnt"))
+                .distinct()
+                .collect(Collectors.toList());
+        
+        if (!itemsToDrop.isEmpty()) {
+            Rs2Inventory.dropAll(itemsToDrop.toArray(new String[0]));
+        } else {
+            // Fallback to selected fish item names if broad filter finds nothing
+            Rs2Inventory.dropAll(selectedFish.getItemNames().toArray(new String[0]));
+        }
     }
 
-    // we process fish that require special handling
+    // we process fish that require special handling (cut in inventory)
     private void handleProcessingFish() {
         if (selectedFish == Fish.SACRED_EEL && Rs2Inventory.hasItem("Knife") && Rs2Inventory.hasItem("Sacred eel")) {
-            Rs2Inventory.useItemOnObject(ItemID.KNIFE, ItemID.SNAKEBOSS_EEL);
+            Rs2Inventory.combine(ItemID.KNIFE, ItemID.SNAKEBOSS_EEL);
         } else if (selectedFish == Fish.INFERNAL_EEL && Rs2Inventory.hasItem("Hammer") && Rs2Inventory.hasItem("Infernal eel")) {
-            Rs2Inventory.useItemOnObject(ItemID.HAMMER, ItemID.INFERNAL_EEL);
+            Rs2Inventory.combine(ItemID.HAMMER, ItemID.INFERNAL_EEL);
         }
     }
 
     private void handleCooking() {
-        TileObject fireOrRange = getNearbyFireOrRange();
+        if (Thread.currentThread().isInterrupted() || !Microbot.isLoggedIn()) {
+            return;
+        }
+        Rs2TileObjectModel fireOrRange = getNearbyFireOrRange();
         if (fireOrRange == null) {
             log.error("There is no fire nearby, shutdown");
             shutdown();
             return;
         }
 
-        String fishToCook = getRawFishInInventory().stream().findFirst().orElse(null);
+        while (true) {
+            if (Thread.currentThread().isInterrupted() || !Microbot.isLoggedIn()) {
+                return;
+            }
+            if (Rs2Player.isAnimating() || Rs2Player.isInteracting()) {
+                sleepUntil(() -> !Rs2Player.isAnimating() && !Rs2Player.isInteracting(), 15000);
+            }
 
-        if (fishToCook != null) {
-            Rs2Inventory.useUnNotedItemOnObject(fishToCook, fireOrRange);
-            if (sleepUntil(() -> Rs2Widget.findWidget("How many would you like to cook?", null) != null)) {
+            List<String> raws = getRawFishInInventory();
+            if (raws.isEmpty()) {
+                break;
+            }
+
+            String fishToCook = raws.stream()
+                    .filter(this::hasCookingLevelForRaw)
+                    .findFirst()
+                    .orElse(null);
+            if (fishToCook == null) {
+                break;
+            }
+
+            // Ensure we are close enough to the fire before using item on it.
+            // If too far, the use may not open the widget, leading to repeated attempts (spam).
+            WorldPoint firePoint = fireOrRange.getWorldLocation();
+            if (Rs2Player.getWorldLocation().distanceTo(firePoint) > 4) {
+                Rs2Walker.walkTo(firePoint);
+                sleepUntil(() -> !Rs2Player.isMoving() || Rs2Player.getWorldLocation().distanceTo(firePoint) <= 3, 10000);
+                sleepUntil(() -> !Rs2Player.isMoving(), 5000);
+            }
+
+            Rs2Inventory.useUnNotedItemOnObject(fishToCook, fireOrRange.getId());
+            if (sleepUntil(() -> Rs2Widget.findWidget("How many would you like to cook?", null) != null, 3000)) {
                 Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                sleepUntil(() -> Rs2Player.getAnimation() != -1, 3_000);
+
+                Rs2Player.waitForXpDrop(Skill.COOKING, true);
+                sleepUntil(() -> Rs2Player.getAnimation() != AnimationID.IDLE);
+
+                String currentRaw = fishToCook;
+                sleepUntilTrue(() ->
+                                !Rs2Inventory.hasItem(currentRaw) &&
+                                !Rs2Player.isAnimating(3500),
+                        500, 150000);
+
+                try {
+                    Rs2Antiban.actionCooldown();
+                    Rs2Antiban.takeMicroBreakByChance();
+                } catch (IllegalArgumentException e) {
+                    log.warn("Antiban cooking cooldown skipped due to invalid bounds: {}", e.getMessage());
+                }
+            } else {
+                log.warn("Cooking widget did not appear for {}, delaying to avoid spam clicks.", fishToCook);
+                sleep(1500, 3000);
+                break;
             }
         }
     }
@@ -178,55 +294,71 @@ public class AutoFishingScript extends Script {
                     withdrawAndEquipItem(harpoonName);
                 }
             }
+            // Human delay + ensure cache updates before closing to prevent rapid re-open
+            sleep(400, 900);
             Rs2Bank.closeBank();
+            sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
+            Rs2Inventory.waitForInventoryChanges(1800);
+            try {
+                Rs2Antiban.actionCooldown();
+                Rs2Antiban.takeMicroBreakByChance();
+            } catch (IllegalArgumentException e) {
+                log.warn("Antiban banking cooldown skipped due to invalid bounds: {}", e.getMessage());
+            }
+
+            if (!hasRequiredGear()) {
+                log.info("Could not obtain required gear/materials from bank. Logging out and shutting down script.");
+                Rs2Player.logout();
+                shutdown();
+                return;
+            }
         }
     }
 
     private void handleDepositing() {
         if (Rs2Bank.walkToBankAndUseBank()) {
-            if (Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP) != 1 ||
-            Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS) != 0) {
-                Rs2Widget.clickWidget(InterfaceID.Bankmain.MENU_BUTTON);
-                sleepUntil(()->Rs2Widget.isWidgetVisible(InterfaceID.Bankmain.MENU_CONTAINER), 2000);
-                Rs2Widget.clickWidget(InterfaceID.Bankmain.LOCKS);
-                sleepUntil(()->Rs2Widget.isWidgetVisible(InterfaceID.BankSideLocks.DONE), 2000);
-                if (Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS) != 0) {
-                    Rs2Widget.clickWidget(InterfaceID.BankSideLocks.IGNORELOCKS);
-                    sleepUntil(() -> Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS) == 0, 2000);
-                }
-                if (Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP) != 1){
-                    Rs2Widget.clickWidget(InterfaceID.BankSideLocks.EXTRAOPTIONS);
-                    sleepUntil(()->Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP) == 1, 2000);
-                }
-                Rs2Widget.clickWidget(InterfaceID.BankSideLocks.DONE);
-                sleepUntil(()->!Rs2Widget.isWidgetVisible(InterfaceID.BankSideLocks.DONE), 2000);
-                Rs2Widget.clickWidget(InterfaceID.Bankmain.MENU_BUTTON);
-            }
+            // Use API: empty barrel (deposits its fish contents directly when bank open),
+            // then deposit everything except the protected tools/harpoon/barrel using ids.
+            // This replaces the manual side-slot widget config + locking dance entirely.
+            Rs2Bank.emptyFishBarrel();
+            Rs2Inventory.waitForInventoryChanges(1000);
 
-            Set<Integer> itemsLock = new HashSet<>();
-            if (Rs2Inventory.hasItem(selectedHarpoon.getName())) {
-                itemsLock.add(Rs2Inventory.get(selectedHarpoon.getName()).getSlot());
+            Set<Integer> keepIds = new HashSet<>();
+            if (selectedHarpoon != HarpoonType.NONE && Rs2Inventory.hasItem(selectedHarpoon.getName())) {
+                Rs2ItemModel h = Rs2Inventory.get(selectedHarpoon.getName());
+                if (h != null) keepIds.add(h.getId());
             }
-            for (String item : selectedFish.getMethod().getRequiredItems()) {
-                if (Rs2Inventory.hasItem(item)) {
-                    itemsLock.add(Rs2Inventory.get(item).getSlot());
+            for (String tool : selectedFish.getMethod().getRequiredItems()) {
+                if (Rs2Inventory.hasItem(tool)) {
+                    Rs2ItemModel t = Rs2Inventory.get(tool);
+                    if (t != null) keepIds.add(t.getId());
                 }
             }
             if (Rs2Inventory.hasItem(ItemID.FISH_BARREL_CLOSED)) {
-                itemsLock.add(Rs2Inventory.get(ItemID.FISH_BARREL_CLOSED).getSlot());
+                keepIds.add(ItemID.FISH_BARREL_CLOSED);
             } else if (Rs2Inventory.hasItem(ItemID.FISH_BARREL_OPEN)) {
-                itemsLock.add(Rs2Inventory.get(ItemID.FISH_BARREL_OPEN).getSlot());
+                keepIds.add(ItemID.FISH_BARREL_OPEN);
             }
-            int[] slotsToLock = itemsLock.stream()
-                             .mapToInt(Integer::intValue)
-                             .toArray();
 
-            sleepUntil(() -> Rs2Bank.lockAllBySlot(slotsToLock));
-            Rs2Bank.emptyFishBarrel();
-            Rs2Bank.depositAll();
-            sleepUntil(() -> !Rs2Inventory.isFull());
-            Rs2Bank.toggleAllLocks();
+            if (!keepIds.isEmpty()) {
+                Rs2Bank.depositAllExcept(keepIds.toArray(new Integer[0]));
+            } else {
+                Rs2Bank.depositAll();
+            }
+
+            Rs2Inventory.waitForInventoryChanges(1800);
+            sleepUntil(() -> !Rs2Inventory.isFull(), 5000);
+
+            // Human-like timing + antiban after banking action
             Rs2Bank.closeBank();
+            sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
+            Rs2Inventory.waitForInventoryChanges(1800);
+            try {
+                Rs2Antiban.actionCooldown();
+                Rs2Antiban.takeMicroBreakByChance();
+            } catch (IllegalArgumentException e) {
+                log.warn("Antiban banking cooldown skipped due to invalid bounds: {}", e.getMessage());
+            }
         }
     }
 
@@ -240,26 +372,51 @@ public class AutoFishingScript extends Script {
      * Helper methods
      */
     private Rs2NpcModel findNearestFishingSpot() {
+        if (Thread.currentThread().isInterrupted()) {
+            return null;
+        }
         int[] spotIds = selectedFish.getFishingSpot();
-        return Microbot.getRs2NpcCache().query()
-                .where(npc -> Arrays.stream(spotIds).anyMatch(id -> npc.getId() == id))
-                .nearest();
+        try {
+            return Microbot.getRs2NpcCache().query()
+                    .where(npc -> Arrays.stream(spotIds).anyMatch(id -> npc.getId() == id))
+                    .nearestOnClientThread();
+        } catch (RuntimeException e) {
+            if (e.getMessage() != null && e.getMessage().toLowerCase().contains("interrupted waiting for client thread")) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+            return null;
+        }
     }
 
     private List<String> getRawFishInInventory() {
-        return selectedFish.getItemNames().stream()
-                .filter(name -> name.startsWith("Raw") && Rs2Inventory.hasItem(name))
+        return Rs2Inventory.all().stream()
+                .map(Rs2ItemModel::getName)
+                .filter(name -> name.startsWith("Raw"))
+                .distinct()
                 .collect(Collectors.toList());
     }
     
-    private TileObject getNearbyFireOrRange() {
-        Integer[] fireIds = {
+    private Rs2TileObjectModel getNearbyFireOrRange() {
+        if (Thread.currentThread().isInterrupted()) {
+            return null;
+        }
+        int[] fireIds = {
             ObjectID.FIRE,
             ObjectID.FORESTRY_FIRE,
             ObjectID.EAGLEPEAK_CAMPFIRE_TIDY,
             ObjectID.FIRE_COOK
         };
-        return Rs2GameObject.getGameObject(fireIds, 15);
+        try {
+            return Microbot.getRs2TileObjectCache().query().withIds(fireIds).within(15).nearestOnClientThread();
+        } catch (RuntimeException e) {
+            if (e.getMessage() != null && e.getMessage().toLowerCase().contains("interrupted waiting for client thread")) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+            log.debug("Non-fatal error querying for fire: {}", e.getMessage());
+            return null;
+        }
     }
 
     private boolean isSpecialFish(Fish fish) {
@@ -276,9 +433,61 @@ public class AutoFishingScript extends Script {
         return hasTools;
     }
 
+    private boolean hasFishingMaterials() {
+        // Consumables that deplete while fishing (baits, feathers, etc.). Tools like rods/nets/pots are separate.
+        List<String> required = selectedFish.getMethod().getRequiredItems();
+        for (String item : required) {
+            String lower = item.toLowerCase();
+            if (lower.contains("bait") || lower.contains("feather") || lower.contains("sandworm") || lower.contains("karambwanji")) {
+                if (!Rs2Inventory.hasItem(item)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     private boolean isAtFishingLocation() {
-        if (fishingLocation == null) return false;
-        return Rs2Player.getWorldLocation().distanceTo(fishingLocation) <= 5;
+        if (fishingLocation != null) {
+            if (Rs2Player.getWorldLocation().distanceTo(fishingLocation) <= 5) {
+                return true;
+            }
+        }
+        // Bootstrap: if no target yet or far from it, treat as at location if a spot for this fish is visible.
+        return findNearestFishingSpot() != null;
+    }
+
+    private boolean canCookAtLeastOneRaw() {
+        return getRawFishInInventory().stream().anyMatch(this::hasCookingLevelForRaw);
+    }
+
+    private boolean hasCookingLevelForRaw(String rawName) {
+        if (rawName == null) return false;
+        return Rs2Player.getSkillRequirement(Skill.COOKING, getCookingLevelForRaw(rawName));
+    }
+
+    private int getCookingLevelForRaw(String rawName) {
+        if (rawName == null) return 99;
+        String lower = rawName.toLowerCase();
+        if (lower.contains("shrimp") || lower.contains("anchovies") || lower.contains("sardine")) return 1;
+        if (lower.contains("herring")) return 5;
+        if (lower.contains("mackerel")) return 10;
+        if (lower.contains("trout")) return 15;
+        if (lower.contains("cod")) return 18;
+        if (lower.contains("pike")) return 20;
+        if (lower.contains("salmon")) return 25;
+        if (lower.contains("tuna") || lower.contains("karambwan")) return 30;
+        if (lower.contains("lobster")) return 40;
+        if (lower.contains("bass")) return 43;
+        if (lower.contains("swordfish")) return 45;
+        if (lower.contains("monkfish")) return 62;
+        if (lower.contains("shark")) return 80;
+        if (lower.contains("anglerfish")) return 84;
+        if (lower.contains("dark crab")) return 90;
+        if (lower.contains("cave eel")) return 38;
+        if (lower.contains("lava eel")) return 53;
+        // sacred/infernal are processed, not standard cooked
+        return 1;
     }
 
     private void activateSpec() {
@@ -288,20 +497,29 @@ public class AutoFishingScript extends Script {
         }
     }
 
-    private boolean withdrawAndEquipItem(String itemName) {
+    private void withdrawAndEquipItem(String itemName) {
         if (Rs2Bank.hasItem(itemName)) {
             Rs2Bank.withdrawOne(itemName);
             if (sleepUntil(() -> Rs2Inventory.hasItem(itemName))) {
                 if (itemName.equalsIgnoreCase("Hammer") || itemName.equalsIgnoreCase("Knife")) {
-                    return true;
+                    return;
                 }
                 Rs2Inventory.wield(itemName);
-                return sleepUntil(() -> Rs2Equipment.isWearing(itemName));
+                sleepUntil(() -> Rs2Equipment.isWearing(itemName));
             }
         } else {
             log.warn("The object '{}' was not found in the bank", itemName);
         }
-        return false;
+    }
+
+    private String getAvailableAction(Rs2NpcModel npcModel, List<String> actions) {
+        if (npcModel == null || npcModel.getNpc() == null || actions == null) return "";
+        NPCComposition composition = npcModel.getNpc().getTransformedComposition();
+        if (composition == null || composition.getActions() == null) return "";
+        return Arrays.stream(composition.getActions())
+                .filter(action -> action != null && actions.stream().anyMatch(a -> a.equalsIgnoreCase(action)))
+                .findFirst()
+                .orElse("");
     }
 
     @Override
