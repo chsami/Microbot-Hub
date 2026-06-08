@@ -10,8 +10,7 @@ import net.runelite.client.plugins.microbot.varrockanvil.enums.Bars;
 
 
 @ConfigGroup("VarrockAnvil")
-@ConfigInformation("This plugin smiths bars at the Varrock anvil.<br /><br />" + 
-    "For bugs or feature requests, contact me through Discord (@StickToTheScript).")
+@ConfigInformation("Smiths bars and Sailing ship parts at the Varrock West anvil.<br /><br />Supports standard smithing (bronze–runite) and Sailing keels.<br><br>For bugs or feature requests, contact me through Discord (@StickToTheScript).")
 public interface VarrockAnvilConfig extends Config {
 
     @ConfigSection(
@@ -36,7 +35,7 @@ public interface VarrockAnvilConfig extends Config {
     @ConfigItem(
             keyName = "smithObject",
             name = "Smith Object",
-            description = "The desired object to smith at the anvil",
+            description = "The desired object to smith at the anvil. Supports classic items and Sailing ship parts: 'Keel parts' (regular) or 'Large keel parts'. Pick your bar type (e.g. Mithril), then the keel size as the object. Plugin builds the exact name (e.g. 'Mithril keel parts' or 'Large mithril keel parts') and handles the continue dialogue that often appears first for ship parts. Name fallback for robustness.",
             position = 1,
             section = smithingSection
     )

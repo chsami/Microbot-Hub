@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.varrockanvil;
 
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.LineComponent;
@@ -28,7 +27,7 @@ public class VarrockAnvilOverlay extends OverlayPanel {
         try {
             panelComponent.setPreferredSize(new Dimension(250, 300));
             panelComponent.getChildren().add(TitleComponent.builder()
-                    .text("STTS Varrock Anvil v" + plugin.getClass().getAnnotation(PluginDescriptor.class).version())
+                    .text("STTS Varrock Anvil v" + VarrockAnvilPlugin.version)
                     .color(Color.PINK)
                     .build());
 

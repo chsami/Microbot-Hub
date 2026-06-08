@@ -1,5 +1,7 @@
 package net.runelite.client.plugins.microbot.varrockanvil.enums;
 
+import lombok.Getter;
+
 public enum AnvilItem {
     DAGGER("Dagger", 9, 1),
     SWORD("Sword", 10, 1),
@@ -28,10 +30,14 @@ public enum AnvilItem {
     IRON_SPIT("Iron spit", 32, 1),
     BULLSEYE_LAMP("Bullseye lamp", 28, 1),
     STEEL_STUDS("Studs", 32, 1),
-    BOLTS("Bolts (unf)", 34, 1);
+    BOLTS("Bolts (unf)", 34, 1),
+    KEEL_PARTS("Keel parts", 0, 5),
+    LARGE_KEEL_PARTS("Large keel parts", 0, 5);  // consumes 5 small keel parts of the chosen tier (not raw bars)
 
     private final String itemName;
+    @Getter
     private final int childId;
+    @Getter
     private final int requiredBars;
 
     AnvilItem(final String _itemName, final int _childId, final int _requiredBars) {
@@ -43,10 +49,12 @@ public enum AnvilItem {
     public String getName() {
         return itemName;
     }
-    public int getChildId() {
-        return childId;
-    }
-    public int getRequiredBars() {
-        return requiredBars;
+
+    /**
+     * Returns true if this item has a valid widget child ID for the anvil interface.
+     * Items with childId=0 (keel parts, sailing items) must use name-based search instead.
+     */
+    public boolean hasValidChildId() {
+        return childId > 0;
     }
 }

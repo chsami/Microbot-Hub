@@ -12,21 +12,21 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-	name = PluginConstants.STICKTOTHESCRIPT + "Varrock Anvil",
-    authors = {"StickToTheScript"},
-	version = VarrockAnvilPlugin.version,
-	description = "Smith items at the anvils in Varrock West.",
-	tags = {"smithing", "varrock", "anvil"},
-	cardUrl = "https://chsami.github.io/Microbot-Hub/VarrockAnvilPlugin/assets/card.png",
-    iconUrl = "https://chsami.github.io/Microbot-Hub/VarrockAnvilPlugin/assets/icon.png",
-	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
-	isExternal = PluginConstants.IS_EXTERNAL,
-	minClientVersion = "1.9.6"
+        name = PluginConstants.STICKTOTHESCRIPT + "Varrock Anvil",
+        authors = {"StickToTheScript"},
+        version = VarrockAnvilPlugin.version,
+        description = "Smiths bars and Sailing ship parts at the Varrock West anvil. Supports standard items and Sailing keels (regular & large).",
+        tags = {"smithing", "varrock", "anvil"},
+        cardUrl = "https://chsami.github.io/Microbot-Hub/VarrockAnvilPlugin/assets/card.png",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/VarrockAnvilPlugin/assets/icon.png",
+        enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+        isExternal = PluginConstants.IS_EXTERNAL,
+        minClientVersion = "1.9.6"
 )
 
 @Slf4j
 public class VarrockAnvilPlugin extends Plugin {
-	static final String version = "1.0.3";
+    static final String version = "1.0.4";
     @Inject
     private VarrockAnvilConfig config;
     @Inject
@@ -47,12 +47,15 @@ public class VarrockAnvilPlugin extends Plugin {
         if (overlayManager != null) {
             overlayManager.add(overlay);
         }
-
+        // Ensure any previous scheduled task is cancelled before starting a fresh run
+        script.shutdown();
         script.run(config);
     }
 
     protected void shutDown() {
         script.shutdown();
-        overlayManager.remove(overlay);
+        if (overlayManager != null) {
+            overlayManager.remove(overlay);
+        }
     }
 }
