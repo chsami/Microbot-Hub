@@ -21,6 +21,7 @@ import net.runelite.client.plugins.microbot.pitfallhunter.PitfallHunterPlugin;
 import net.runelite.client.plugins.microbot.sailing.MSailingPlugin;
 import net.runelite.client.plugins.microbot.thieving.ThievingPlugin;
 import net.runelite.client.plugins.microbot.motherloadmine.MotherloadMinePlugin;
+import net.runelite.client.plugins.microbot.tithefarming.TitheFarmingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.woodcutting.WoodcuttingPlugin;
 
@@ -34,7 +35,8 @@ public class Microbot
 		GiantSeaweedFarmerPlugin.class,
 		AutoCookingPlugin.class,
 		PitfallHunterPlugin.class,
-		GabulhasKarambwansPlugin.class
+		GabulhasKarambwansPlugin.class,
+		TitheFarmingPlugin.class
 	};
 
     public static void main(String[] args) throws Exception
