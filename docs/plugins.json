@@ -752,7 +752,7 @@
             "fishing",
             "skilling"
         ],
-        "version": "1.0.8",
+        "version": "1.0.9",
         "minClientVersion": "1.9.8",
         "authors": [
             "AI Agent"
@@ -760,8 +760,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "2f98571d56bef49ce665e2623b41cc8755f1bfc294c0c660c60b86083a6e44fc",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autofishingplugin-1.0.8.jar"
+        "sha256": "2037ee763df8f5f997726c2091cb04b4a9a389a564c84cb48e5c711a3eee0dea",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autofishingplugin-1.0.9.jar"
     },
     {
         "internalName": "BanksBankStanderPlugin",
@@ -1365,6 +1365,29 @@
         "disable": false,
         "sha256": "4084fe96b9e4adeff36987120f37e815990ae165748fbbef4b0af5f7981f94ad",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/rcplugin-1.1.4.jar"
+    },
+    {
+        "internalName": "ArceuusLibraryPlugin",
+        "name": "Arceuus Library",
+        "description": "Runs the Arceuus Library book-fetch loop using the upstream Kourend Library solver",
+        "tags": [
+            "arceuus",
+            "library",
+            "kourend",
+            "magic",
+            "runecraft",
+            "minigame"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.1.34",
+        "authors": [
+            "runsonmypc"
+        ],
+        "iconUrl": "https://chsami.github.io/Microbot-Hub/ArceuusLibraryPlugin/assets/card.jpg",
+        "cardUrl": "https://chsami.github.io/Microbot-Hub/ArceuusLibraryPlugin/assets/card.jpg",
+        "disable": false,
+        "sha256": "fc9916d2193b83afe2ed9383a4436c97acab384e9b2334ae4a4fc5e410e07197",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/arceuuslibraryplugin-1.0.0.jar"
     },
     {
         "internalName": "GotrPlugin",
