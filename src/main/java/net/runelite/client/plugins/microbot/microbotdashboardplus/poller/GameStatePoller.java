@@ -190,8 +190,10 @@ public class GameStatePoller {
     }
 
     public void refreshNow() {
-        if (executor != null && !executor.isShutdown()) {
-            executor.submit(this::tickSafely);
+        // Capture locally: stop() can null the field between the check and the submit.
+        ScheduledExecutorService ex = executor;
+        if (ex != null && !ex.isShutdown()) {
+            ex.submit(this::tickSafely);
         }
     }
 
@@ -246,8 +248,10 @@ public class GameStatePoller {
         boolean alertFired = false;
         if (alertManager != null && alertManager.checkCrossing(skill, to)) {
             alertFired = true;
+            // thresholdFor is a separate call; if the config changed in between it can
+            // return null, so fall back to the level that triggered the crossing.
             Integer threshold = alertManager.thresholdFor(skill);
-            String alertMsg = skillName + " reached level " + threshold + "!";
+            String alertMsg = skillName + " reached level " + (threshold != null ? threshold : to) + "!";
             if (notifyAlerts && notifier != null) {
                 notifier.send("ALERT: " + alertMsg);
             }

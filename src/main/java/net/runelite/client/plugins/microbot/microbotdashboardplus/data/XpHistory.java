@@ -28,6 +28,13 @@ public class XpHistory {
     public static final long RETENTION_WINDOW_MS = 24 * 60 * 60 * 1000L; // 24 h
     /** Inner window used for XP/hr rate calculation. */
     public static final long RATE_WINDOW_MS = 5 * 60 * 1000L; // 5 min
+    /**
+     * Hard per-skill sample cap so memory stays bounded regardless of poll rate
+     * (24h at a 1s poll would otherwise be ~86k samples per skill). 17,280 covers
+     * the full 24h window at the default 5s poll; at faster polls the oldest
+     * samples roll off sooner, which only coarsens the far end of the chart.
+     */
+    public static final int MAX_SAMPLES_PER_SKILL = 17_280;
 
     private final Map<Skill, Integer> baselineXp = new EnumMap<>(Skill.class);
     private final Map<Skill, Deque<Sample>> samplesBySkill = new EnumMap<>(Skill.class);
@@ -46,6 +53,10 @@ public class XpHistory {
         // available; XP/hr filters internally for the rate window).
         long cutoff = now - RETENTION_WINDOW_MS;
         while (!samples.isEmpty() && samples.peekFirst().timestampMillis < cutoff) {
+            samples.pollFirst();
+        }
+        // Bound memory regardless of poll rate.
+        while (samples.size() > MAX_SAMPLES_PER_SKILL) {
             samples.pollFirst();
         }
     }

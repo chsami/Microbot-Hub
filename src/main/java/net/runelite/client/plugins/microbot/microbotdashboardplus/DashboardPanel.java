@@ -144,7 +144,8 @@ public class DashboardPanel extends PluginPanel {
             statusValue.setForeground(ColorScheme.PROGRESS_ERROR_COLOR);
         }
         playerValue.setText(snapshot.getPlayerName());
-        worldValue.setText(String.valueOf(snapshot.getWorldId()));
+        // World id is 0 before login; show a placeholder instead of a fake-looking "0".
+        worldValue.setText(snapshot.getWorldId() > 0 ? String.valueOf(snapshot.getWorldId()) : "--");
         scriptsValue.setText(snapshot.getActiveScripts() == null ? "0"
                 : Integer.toString(snapshot.getActiveScripts().size()));
 

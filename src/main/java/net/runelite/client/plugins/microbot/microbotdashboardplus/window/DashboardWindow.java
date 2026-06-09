@@ -53,8 +53,7 @@ import java.util.function.Consumer;
  * "Open Dashboard" button can re-show it.
  *
  * <p>Layout: 2-column GridBagLayout for the section grid, plus 3 full-width
- * sections (Plus Plugins, Event Dismiss Stats, Event Log) that span both
- * columns.
+ * sections (XP Over Time, Event Log, Guide) that span both columns.
  */
 @Slf4j
 public class DashboardWindow extends JFrame {
@@ -321,7 +320,9 @@ public class DashboardWindow extends JFrame {
         c.gridy = 6;
         c.gridwidth = 2;
         c.weighty = 1.0;
-        sectionGrid.add(new JPanel() {{ setOpaque(false); }}, c);
+        JPanel filler = new JPanel();
+        filler.setOpaque(false);
+        sectionGrid.add(filler, c);
 
         JScrollPane scroll = new JScrollPane(sectionGrid,
                 JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
@@ -369,7 +370,7 @@ public class DashboardWindow extends JFrame {
     public void showAlertBanner(String message) {
         SwingUtilities.invokeLater(() -> {
             if (alertBanner == null || alertBannerText == null) return;
-            alertBannerText.setText("🎯  " + (message == null ? "Threshold reached" : message));
+            alertBannerText.setText("ALERT: " + (message == null ? "Threshold reached" : message));
             alertBanner.setVisible(true);
             revalidate();
             repaint();
