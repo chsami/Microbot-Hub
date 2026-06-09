@@ -108,19 +108,19 @@ public class AutoFiremakingPlusScript extends Script {
                     return;
                 }
 
-                if (config.stopAfterMinutes() > 0
+                if (config.stopAfterMinutes() > 0 && !shutdownAfterCleanup
                         && (System.currentTimeMillis() - startTimeMillis) / 60000 >= config.stopAfterMinutes()) {
-                    Microbot.log("AutoFiremakingPlus: reached stopAfterMinutes. Shutting down.");
-                    super.shutdown();
-                    return;
+                    Microbot.log("AutoFiremakingPlus: reached stopAfterMinutes. Banking then shutting down.");
+                    shutdownAfterCleanup = true;
+                    state = State.BANKING;
                 }
-                if (config.stopAfterXp() > 0) {
+                if (config.stopAfterXp() > 0 && !shutdownAfterCleanup) {
                     int currentXp = Microbot.getClientThread().runOnClientThreadOptional(() ->
                             Microbot.getClient().getSkillExperience(Skill.FIREMAKING)).orElse(startSkillXp);
                     if (currentXp - startSkillXp >= config.stopAfterXp()) {
-                        Microbot.log("AutoFiremakingPlus: reached stopAfterXp. Shutting down.");
-                        super.shutdown();
-                        return;
+                        Microbot.log("AutoFiremakingPlus: reached stopAfterXp. Banking then shutting down.");
+                        shutdownAfterCleanup = true;
+                        state = State.BANKING;
                     }
                 }
                 if (config.targetLevel() > 0 && !shutdownAfterCleanup) {
@@ -280,10 +280,13 @@ public class AutoFiremakingPlusScript extends Script {
 
     /** Find a nearby walkable tile with no fire on it, so we can light our own there. */
     private WorldPoint findLightableTile(WorldPoint from) {
+        // One client-thread scan for nearby fires, then cheap local membership checks per offset,
+        // instead of streaming the tile-object cache once per candidate tile.
+        java.util.Set<WorldPoint> fires = TileScanner.fireTilesNear(from, 2);
         int[][] offsets = { {-1, 0}, {1, 0}, {0, -1}, {0, 1}, {-1, -1}, {1, 1}, {-1, 1}, {1, -1} };
         for (int[] o : offsets) {
             WorldPoint p = new WorldPoint(from.getX() + o[0], from.getY() + o[1], from.getPlane());
-            if (Rs2Tile.isWalkable(p) && !TileScanner.hasFire(p)) {
+            if (!fires.contains(p) && Rs2Tile.isWalkable(p)) {
                 return p;
             }
         }
