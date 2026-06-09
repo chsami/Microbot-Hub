@@ -42,6 +42,11 @@ public class DefaultScript extends Script {
                 if (!Microbot.isLoggedIn() || Rs2Combat.inCombat()) return;
                 if (Rs2AntibanSettings.actionCooldownActive) return;
 
+                if (config.priorityMode()) {
+                    handlePriorityLoot(config);
+                    return;
+                }
+
                 long startTime = System.currentTimeMillis();
 
                 if (initialPlayerLocation == null) {
@@ -55,48 +60,14 @@ public class DefaultScript extends Script {
                         if (isAwayFromBase(config)) return;
 
                         if (config.worldHop()) {
-                            if (config.looterStyle() == DefaultLooterStyle.ITEM_LIST) {
-                                lootExists = Arrays.stream(config.listOfItemsToLoot().trim().split(","))
-                                        .anyMatch(itemName -> Rs2GroundItem.exists(itemName, config.distanceToStray()));
-                            } else if (config.looterStyle() == DefaultLooterStyle.GE_PRICE_RANGE) {
-                                lootExists = Rs2GroundItem.isItemBasedOnValueOnGround(config.minPriceOfItem(), config.distanceToStray());
-                            } else if (config.looterStyle() == DefaultLooterStyle.MIXED) {
-                                lootExists = Arrays.stream(config.listOfItemsToLoot().trim().split(","))
-                                        .anyMatch(itemName -> Rs2GroundItem.exists(itemName, config.distanceToStray()))
-                                        || Rs2GroundItem.isItemBasedOnValueOnGround(config.minPriceOfItem(), config.distanceToStray());
-                            }
+                            lootExists = hasMatchingLoot(config);
                         } else {
                             lootExists = true;
                         }
 
                         if (lootExists) {
                             failedLootAttempts = 0;
-
-                            if (config.looterStyle() == DefaultLooterStyle.ITEM_LIST || config.looterStyle() == DefaultLooterStyle.MIXED) {
-                                LootingParameters itemLootParams = new LootingParameters(
-                                        config.distanceToStray(),
-                                        1,
-                                        1,
-                                        config.minFreeSlots(),
-                                        config.toggleDelayedLooting(),
-                                        config.toggleLootMyItemsOnly(),
-                                        config.listOfItemsToLoot().split(",")
-                                );
-                                Rs2GroundItem.lootItemsBasedOnNames(itemLootParams);
-                            }
-
-                            if (config.looterStyle() == DefaultLooterStyle.GE_PRICE_RANGE || config.looterStyle() == DefaultLooterStyle.MIXED) {
-                                LootingParameters valueParams = new LootingParameters(
-                                        config.minPriceOfItem(),
-                                        config.maxPriceOfItem(),
-                                        config.distanceToStray(),
-                                        1,
-                                        config.minFreeSlots(),
-                                        config.toggleDelayedLooting(),
-                                        config.toggleLootMyItemsOnly()
-                                );
-                                Rs2GroundItem.lootItemBasedOnValue(valueParams);
-                            }
+                            lootItems(config);
 
                             Microbot.pauseAllScripts.set(false);
                             Rs2Antiban.actionCooldown();
@@ -156,6 +127,7 @@ public class DefaultScript extends Script {
 
     @Override
     public void shutdown() {
+        Microbot.pauseAllScripts.set(false);
         super.shutdown();
         Rs2Antiban.resetAntibanSettings();
     }
@@ -191,6 +163,70 @@ public class DefaultScript extends Script {
             }
         }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    private void handlePriorityLoot(AutoLooterConfig config) {
+        if (!hasMatchingLoot(config)) return;
+        if (Rs2Inventory.emptySlotCount() <= config.minFreeSlots()) return;
+
+        Microbot.pauseAllScripts.set(true);
+        try {
+            while (hasMatchingLoot(config)
+                    && Rs2Inventory.emptySlotCount() > config.minFreeSlots()
+                    && this.isRunning()) {
+                lootItems(config);
+            }
+        } finally {
+            Microbot.pauseAllScripts.set(false);
+        }
+
+        Rs2Antiban.actionCooldown();
+        Rs2Antiban.takeMicroBreakByChance();
+    }
+
+    private boolean hasMatchingLoot(AutoLooterConfig config) {
+        int distance = config.distanceToStray();
+        switch (config.looterStyle()) {
+            case ITEM_LIST:
+                return Arrays.stream(config.listOfItemsToLoot().trim().split(","))
+                        .anyMatch(name -> Rs2GroundItem.exists(name.trim(), distance));
+            case GE_PRICE_RANGE:
+                return Rs2GroundItem.isItemBasedOnValueOnGround(config.minPriceOfItem(), distance);
+            case MIXED:
+                return Arrays.stream(config.listOfItemsToLoot().trim().split(","))
+                        .anyMatch(name -> Rs2GroundItem.exists(name.trim(), distance))
+                        || Rs2GroundItem.isItemBasedOnValueOnGround(config.minPriceOfItem(), distance);
+            default:
+                return false;
+        }
+    }
+
+    private void lootItems(AutoLooterConfig config) {
+        if (config.looterStyle() == DefaultLooterStyle.ITEM_LIST || config.looterStyle() == DefaultLooterStyle.MIXED) {
+            LootingParameters itemLootParams = new LootingParameters(
+                    config.distanceToStray(),
+                    1,
+                    1,
+                    config.minFreeSlots(),
+                    config.toggleDelayedLooting(),
+                    config.toggleLootMyItemsOnly(),
+                    config.listOfItemsToLoot().split(",")
+            );
+            Rs2GroundItem.lootItemsBasedOnNames(itemLootParams);
+        }
+
+        if (config.looterStyle() == DefaultLooterStyle.GE_PRICE_RANGE || config.looterStyle() == DefaultLooterStyle.MIXED) {
+            LootingParameters valueParams = new LootingParameters(
+                    config.minPriceOfItem(),
+                    config.maxPriceOfItem(),
+                    config.distanceToStray(),
+                    1,
+                    config.minFreeSlots(),
+                    config.toggleDelayedLooting(),
+                    config.toggleLootMyItemsOnly()
+            );
+            Rs2GroundItem.lootItemBasedOnValue(valueParams);
+        }
     }
 
     private boolean isAwayFromBase(AutoLooterConfig config) {

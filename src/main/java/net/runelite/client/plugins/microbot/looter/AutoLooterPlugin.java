@@ -25,7 +25,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class AutoLooterPlugin extends Plugin {
-    public static final String version = "1.1.3";
+    public static final String version = "1.2.0";
     @Inject
     DefaultScript defaultScript;
     @Inject
@@ -52,7 +52,9 @@ public class AutoLooterPlugin extends Plugin {
         switch (config.looterActivity()) {
             case DEFAULT:
                 defaultScript.run(config);
-                defaultScript.handleWalk(config);
+                if (!config.priorityMode()) {
+                    defaultScript.handleWalk(config);
+                }
                 break;
             case FLAX:
                 flaxScript.run(config);
