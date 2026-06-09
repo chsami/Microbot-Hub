@@ -48,7 +48,7 @@ public enum CookingItem
 	UNCOOKED_APPLE_PIE("uncooked apple pie", ItemID.UNCOOKED_APPLE_PIE, 30, "apple pie", ItemID.APPLE_PIE, "burnt pie", ItemID.BURNT_PIE, CookingAreaType.RANGE),
 	RAW_GARDEN_PIE("raw garden pie", ItemID.UNCOOKED_GARDEN_PIE, 34, "garden pie", ItemID.GARDEN_PIE, "burnt pie", ItemID.BURNT_PIE, CookingAreaType.RANGE),
 	RAW_FISH_PIE("raw fish pie", ItemID.UNCOOKED_FISH_PIE, 47, "fish pie", ItemID.FISH_PIE, "burnt pie", ItemID.BURNT_PIE, CookingAreaType.RANGE),
-	UNCOOKED_BOTANICAL_PIE("uncooked batanical pie", ItemID.UNCOOKED_BOTANICAL_PIE, 52, "botanical pie", ItemID.BOTANICAL_PIE, "burnt pie", ItemID.BURNT_PIE, CookingAreaType.RANGE),
+	UNCOOKED_BOTANICAL_PIE("uncooked botanical pie", ItemID.UNCOOKED_BOTANICAL_PIE, 52, "botanical pie", ItemID.BOTANICAL_PIE, "burnt pie", ItemID.BURNT_PIE, CookingAreaType.RANGE),
 	UNCOOKED_MUSHROOM_PIE("uncooked mushroom pie", ItemID.UNCOOKED_MUSHROOM_PIE, 60, "mushroom pie", ItemID.MUSHROOM_PIE, "burnt pie", ItemID.BURNT_PIE, CookingAreaType.RANGE),
 	RAW_ADMIRAL_PIE("raw admiral pie", ItemID.UNCOOKED_ADMIRAL_PIE, 70, "admiral pie", ItemID.ADMIRAL_PIE, "burnt pie", ItemID.BURNT_PIE, CookingAreaType.RANGE),
 	UNCOOKED_DRAGONFRUIT_PIE("uncooked dragonfruit pie", ItemID.UNCOOKED_DRAGONFRUIT_PIE, 73, "dragonfruit pie", ItemID.DRAGONFRUIT_PIE, "burnt pie", ItemID.BURNT_PIE, CookingAreaType.RANGE),
@@ -63,7 +63,7 @@ public enum CookingItem
 	UNCOOKED_CAKE("uncooked cake", ItemID.UNCOOKED_CAKE, 40, "cake", ItemID.CAKE, "burnt cake", ItemID.BURNT_CAKE, CookingAreaType.RANGE),
 	// Vegetable
 	POTATO("potato", ItemID.POTATO, 7, "baked potato", ItemID.POTATO_BAKED, "burnt potato", ItemID.POTATO_BURNT, CookingAreaType.RANGE),
-	UNCOOKED_EGG("uncooked egg", ItemID.SCRAMBLED_EGG, 13, "scrambled egg", ItemID.SCRAMBLED_EGG, "burnt egg", ItemID.BOWL_EGG_BURNT, CookingAreaType.BOTH),
+	UNCOOKED_EGG("uncooked egg", ItemID.BOWL_EGG_RAW, 13, "scrambled egg", ItemID.BOWL_EGG_SCRAMBLED, "burnt egg", ItemID.BOWL_EGG_BURNT, CookingAreaType.RANGE),
 	SWEETCORN("sweetcorn", ItemID.SWEETCORN, 28, "cooked sweetcorn", ItemID.SWEETCORN_COOKED, "burnt sweetcorn", ItemID.SWEETCORN_BURNT, CookingAreaType.BOTH),
 	;
 
