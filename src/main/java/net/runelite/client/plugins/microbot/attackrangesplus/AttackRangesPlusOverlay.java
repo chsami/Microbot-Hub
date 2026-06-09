@@ -110,8 +110,9 @@ class AttackRangesPlusOverlay extends Overlay
             lastTick = tick;
         }
 
+        final boolean buildFill = config.showFill();
         final boolean havePlayer = playerRegion.update(
-                local.getWorldArea(), wv, local.getWorldLocation(), cachedPlayerRadius, cameraChanged, tickChanged);
+                local.getWorldArea(), wv, local.getWorldLocation(), cachedPlayerRadius, cameraChanged, tickChanged, buildFill);
 
         boolean haveOpponent = false;
         if (config.showOpponent())
@@ -129,7 +130,7 @@ class AttackRangesPlusOverlay extends Overlay
                     cachedOpponentWeaponId = weaponId;
                 }
                 haveOpponent = opponentRegion.update(
-                        opp.getWorldArea(), wv, opp.getWorldLocation(), cachedOpponentRadius, cameraChanged, tickChanged);
+                        opp.getWorldArea(), wv, opp.getWorldLocation(), cachedOpponentRadius, cameraChanged, tickChanged, buildFill);
             }
             else
             {
@@ -254,7 +255,7 @@ class AttackRangesPlusOverlay extends Overlay
         private GeneralPath fill;
         private GeneralPath outline;
 
-        boolean update(WorldArea area, WorldView wv, WorldPoint o, int r, boolean cameraChanged, boolean tickChanged)
+        boolean update(WorldArea area, WorldView wv, WorldPoint o, int r, boolean cameraChanged, boolean tickChanged, boolean buildFill)
         {
             if (area == null || o == null || r <= 0)
             {
@@ -271,9 +272,10 @@ class AttackRangesPlusOverlay extends Overlay
                 origin = o;
                 radius = r;
             }
-            if (setChanged || cameraChanged || fill == null)
+            // The fill path is only constructed while the fill is enabled; toggling it on rebuilds once.
+            if (setChanged || cameraChanged || outline == null || (buildFill && fill == null))
             {
-                buildPaths(wv, o.getPlane());
+                buildPaths(wv, o.getPlane(), buildFill);
             }
             return outline != null;
         }
@@ -290,9 +292,9 @@ class AttackRangesPlusOverlay extends Overlay
             }
         }
 
-        private void buildPaths(WorldView wv, int plane)
+        private void buildPaths(WorldView wv, int plane, boolean buildFill)
         {
-            final GeneralPath f = new GeneralPath(GeneralPath.WIND_NON_ZERO);
+            final GeneralPath f = buildFill ? new GeneralPath(GeneralPath.WIND_NON_ZERO) : null;
             final GeneralPath o = new GeneralPath();
 
             for (WorldPoint tile : set)
@@ -310,7 +312,7 @@ class AttackRangesPlusOverlay extends Overlay
                 final Point ne = project(cx + HALF, cy + HALF, wv, plane);
                 final Point nw = project(cx - HALF, cy + HALF, wv, plane);
 
-                if (sw != null && se != null && ne != null && nw != null)
+                if (buildFill && sw != null && se != null && ne != null && nw != null)
                 {
                     f.moveTo(sw.getX(), sw.getY());
                     f.lineTo(se.getX(), se.getY());

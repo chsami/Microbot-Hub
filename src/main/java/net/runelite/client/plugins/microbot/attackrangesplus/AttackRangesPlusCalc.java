@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.attackrangesplus;
 
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.combat.weapons.Melee;
 import net.runelite.client.plugins.microbot.util.combat.weapons.Weapon;
@@ -22,6 +23,7 @@ import java.util.Map;
  * ({@link WeaponsGenerator#generate()}). That gives the weapon's base reach (no style modifier);
  * melee weapons resolve to 1 since their stored range is the special-attack range.</p>
  */
+@Slf4j
 public class AttackRangesPlusCalc
 {
     @Inject
@@ -31,17 +33,17 @@ public class AttackRangesPlusCalc
     private static final int RANGED_PREVIEW_RADIUS = 7;
     private static final int MAGIC_RADIUS = 10;
 
-    // Built once from the same data Rs2Combat uses; reused for opponent weapon lookups.
-    private static Map<Integer, Weapon> weaponsMap;
-
-    private static Map<Integer, Weapon> weapons()
+    /**
+     * Initialization-on-demand holder: the map is built once, thread-safely, on first use.
+     * Same data Rs2Combat uses; reused for opponent weapon lookups.
+     */
+    private static final class WeaponsHolder
     {
-        if (weaponsMap == null)
-        {
-            weaponsMap = WeaponsGenerator.generate();
-        }
-        return weaponsMap;
+        private static final Map<Integer, Weapon> MAP = WeaponsGenerator.generate();
     }
+
+    /** Set once when the AUTO range lookup fails, so the fallback is logged once rather than per tick. */
+    private boolean autoRangeFailureLogged;
 
     /**
      * @return the local player's attack radius in tiles (>= 0). Never throws.
@@ -64,6 +66,11 @@ public class AttackRangesPlusCalc
                 }
                 catch (Exception e)
                 {
+                    if (!autoRangeFailureLogged)
+                    {
+                        autoRangeFailureLogged = true;
+                        log.debug("Rs2Combat.getAttackRange failed; falling back to melee radius", e);
+                    }
                     return MELEE_RADIUS;
                 }
         }
@@ -78,7 +85,7 @@ public class AttackRangesPlusCalc
      */
     public int getWeaponRadius(int weaponId)
     {
-        final Weapon w = weapons().get(weaponId);
+        final Weapon w = WeaponsHolder.MAP.get(weaponId);
         if (w == null)
         {
             return MELEE_RADIUS; // unknown weapon -> assume melee reach
