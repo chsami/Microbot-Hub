@@ -63,7 +63,7 @@ public enum CookingItem
 	UNCOOKED_CAKE("uncooked cake", ItemID.UNCOOKED_CAKE, 40, "cake", ItemID.CAKE, "burnt cake", ItemID.BURNT_CAKE, CookingAreaType.RANGE),
 	// Vegetable
 	POTATO("potato", ItemID.POTATO, 7, "baked potato", ItemID.POTATO_BAKED, "burnt potato", ItemID.POTATO_BURNT, CookingAreaType.RANGE),
-	UNCOOKED_EGG("uncooked egg", ItemID.BOWL_EGG_RAW, 13, "scrambled egg", ItemID.BOWL_EGG_SCRAMBLED, "burnt egg", ItemID.BOWL_EGG_BURNT, CookingAreaType.RANGE),
+	UNCOOKED_EGG("uncooked egg", ItemID.BOWL_EGG_RAW, 13, "scrambled egg", ItemID.BOWL_EGG_SCRAMBLED, "burnt egg", ItemID.BOWL_EGG_BURNT, CookingAreaType.BOTH),
 	SWEETCORN("sweetcorn", ItemID.SWEETCORN, 28, "cooked sweetcorn", ItemID.SWEETCORN_COOKED, "burnt sweetcorn", ItemID.SWEETCORN_BURNT, CookingAreaType.BOTH),
 	;
 
