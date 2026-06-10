@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.aiomagic.scripts;
 
+import net.runelite.api.Actor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 public class SplashScript extends Script {
 
 	private final AIOMagicPlugin plugin;
+	private long lastAnimationTime = System.currentTimeMillis();
 	
 	@Inject
 	public SplashScript(AIOMagicPlugin plugin) {
@@ -34,6 +36,7 @@ public class SplashScript extends Script {
 		Rs2AntibanSettings.moveMouseOffScreen = true;
 		Rs2AntibanSettings.moveMouseOffScreenChance = 1.0;
 		Rs2Antiban.setActivity(Activity.SPLASHING);
+		lastAnimationTime = System.currentTimeMillis();
 		mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
 			try {
 				if (!Microbot.isLoggedIn()) return;
@@ -51,7 +54,21 @@ public class SplashScript extends Script {
 					return;
 				}
 
-					if (Rs2Player.isMoving() || Rs2Combat.inCombat()) return;
+					if (Rs2Player.isMoving()) return;
+					
+					if (Rs2Player.getAnimation() != -1) {
+						lastAnimationTime = System.currentTimeMillis();
+					}
+
+					Actor interacting = Rs2Player.getInteracting();
+					if (interacting != null && interacting.getName() != null && interacting.getName().equalsIgnoreCase(plugin.getNpcName())) {
+						// If we are interacting but haven't animated in 10 seconds, we've likely timed out
+						if (System.currentTimeMillis() - lastAnimationTime < 10000) {
+							return;
+						}
+						Microbot.log("Splashing stalled or timed out. Re-engaging...");
+					}
+
 					if (Rs2AntibanSettings.actionCooldownActive) return;
 
 					String targetNpcName = plugin.getNpcName() == null ? "" : plugin.getNpcName().trim();
