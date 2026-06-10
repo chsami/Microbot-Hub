@@ -14,6 +14,7 @@ import net.runelite.client.plugins.microbot.autofishing.AutoFishingPlugin;
 import net.runelite.client.plugins.microbot.cooking.AutoCookingPlugin;
 import net.runelite.client.plugins.microbot.crafting.jewelry.JewelryPlugin;
 import net.runelite.client.plugins.microbot.example.ExamplePlugin;
+import net.runelite.client.plugins.microbot.housetab.HouseTabPlugin;
 import net.runelite.client.plugins.microbot.karambwans.GabulhasKarambwansPlugin;
 import net.runelite.client.plugins.microbot.kraken.KrakenPlugin;
 import net.runelite.client.plugins.microbot.leftclickcast.LeftClickCastPlugin;
@@ -36,7 +37,8 @@ public class Microbot
 		AutoCookingPlugin.class,
 		PitfallHunterPlugin.class,
 		GabulhasKarambwansPlugin.class,
-		TitheFarmingPlugin.class
+		TitheFarmingPlugin.class,
+		HouseTabPlugin.class
 	};
 
     public static void main(String[] args) throws Exception
