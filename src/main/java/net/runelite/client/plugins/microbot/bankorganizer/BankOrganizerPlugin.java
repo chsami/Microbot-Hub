@@ -8,7 +8,6 @@ package net.runelite.client.plugins.microbot.bankorganizer;
 import net.runelite.client.plugins.microbot.PluginConstants;
 
 import com.google.inject.Provides;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,13 +19,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.function.IntFunction;
 import javax.inject.Inject;
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ItemComposition;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(
 	name = PluginConstants.BGA + "Bank Organizer",
@@ -40,18 +39,13 @@ import net.runelite.client.ui.overlay.OverlayManager;
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL
 )
+@Slf4j
 public class BankOrganizerPlugin extends Plugin
 {
 	public static final String version = "1.0.0";
 
 	@Inject
 	private BankOrganizerConfig config;
-
-	@Inject
-	private OverlayManager overlayManager;
-
-	@Inject
-	private BankOrganizerOverlay overlay;
 
 	@Inject
 	private BankSnapshotReader snapshotReader;
@@ -68,7 +62,6 @@ public class BankOrganizerPlugin extends Plugin
 	private ExecutorService executor;
 	private Future<?> task;
 	private volatile boolean stopRequested;
-	private volatile OverlayState overlayState = OverlayState.idle("Ready.");
 
 	@Provides
 	BankOrganizerConfig provideConfig(ConfigManager configManager)
@@ -81,8 +74,7 @@ public class BankOrganizerPlugin extends Plugin
 	{
 		stopRequested = false;
 		executor = Executors.newSingleThreadExecutor();
-		overlayManager.add(overlay);
-		overlayState = OverlayState.running("Starting", "Starting Bank Organizer.");
+		log.info("Starting Bank Organizer.");
 		startOrganizer();
 	}
 
@@ -96,20 +88,14 @@ public class BankOrganizerPlugin extends Plugin
 			executor = null;
 		}
 		task = null;
-		overlayManager.remove(overlay);
-		overlayState = OverlayState.idle("Stopped.");
-	}
-
-	OverlayState getOverlayStateSnapshot()
-	{
-		return overlayState;
+		log.info("Bank Organizer stopped.");
 	}
 
 	private void startOrganizer()
 	{
 		if (task != null && !task.isDone())
 		{
-			overlayState = overlayState.withMessage("Already running.");
+			log.info("Bank Organizer is already running.");
 			return;
 		}
 
@@ -120,7 +106,7 @@ public class BankOrganizerPlugin extends Plugin
 		}
 
 		stopRequested = false;
-		overlayState = OverlayState.running("Snapshot", "Reading bank snapshot.");
+		log.info("Reading bank snapshot.");
 		task = currentExecutor.submit(this::runOrganizer);
 	}
 
@@ -133,19 +119,18 @@ public class BankOrganizerPlugin extends Plugin
 				return;
 			}
 
-			overlayState = OverlayState.running("Layout", "Parsing configured bank tag layouts.");
+			log.info("Parsing configured bank tag layouts.");
 			List<BankTagLayoutTab> tabs = layoutParser.parse(config);
 			if (tabs.isEmpty())
 			{
-				overlayState = OverlayState.idle("No active layout tabs. Enable at least one Layout tab active toggle.")
-					.withPhase("Blocked", "No active layout tabs.");
+				log.warn("No active layout tabs. Enable at least one layout tab active toggle.");
 				return;
 			}
 
 			List<BankTagLayoutConflict> conflicts = layoutPlanner.conflicts(tabs);
 			if (!conflicts.isEmpty())
 			{
-				overlayState = OverlayState.fromConflicts(conflicts);
+				log.warn("Resolve duplicate layout item IDs before enabling organizer: {} conflict(s).", conflicts.size());
 				return;
 			}
 			if (stopRequested)
@@ -153,7 +138,7 @@ public class BankOrganizerPlugin extends Plugin
 				return;
 			}
 
-			overlayState = OverlayState.running("Bank", "Opening bank.");
+			log.info("Opening bank.");
 			if (!actuator.ensureBankOpen())
 			{
 				throw new IllegalStateException("Could not open bank.");
@@ -163,7 +148,7 @@ public class BankOrganizerPlugin extends Plugin
 				return;
 			}
 
-			overlayState = OverlayState.running("Mode", "Checking bank rearrange mode.");
+			log.info("Checking bank rearrange mode.");
 			BankActuator.ActuatorResult insertMode = actuator.ensureBankInsertMode();
 			if (!insertMode.success())
 			{
@@ -174,7 +159,7 @@ public class BankOrganizerPlugin extends Plugin
 				return;
 			}
 
-			overlayState = OverlayState.running("Snapshot", "Reading bank snapshot.");
+			log.info("Reading bank snapshot.");
 			BankSnapshot snapshot = snapshotReader.read();
 			if (stopRequested)
 			{
@@ -185,7 +170,7 @@ public class BankOrganizerPlugin extends Plugin
 		}
 		catch (Throwable t)
 		{
-			overlayState = OverlayState.idle("Failed: " + t.getMessage()).withPhase("Blocked", "Failed: " + t.getMessage());
+			log.warn("Bank Organizer failed: {}", t.getMessage(), t);
 		}
 	}
 
@@ -200,7 +185,7 @@ public class BankOrganizerPlugin extends Plugin
 			return;
 		}
 
-		overlayState = OverlayState.fromSnapshot("Layout", "Live layout delta organize requested.", snapshot, plan.actions().size());
+		log.info("Live layout delta organize requested: {} planned action(s).", plan.actions().size());
 		runLiveLayoutOrganizer(plan);
 	}
 
@@ -211,19 +196,16 @@ public class BankOrganizerPlugin extends Plugin
 			return;
 		}
 
-		overlayState = OverlayState.running("Organize", "Moving " + plan.actions().size()
-			+ " listed stacks into " + plan.tabs().size() + " configured layout tabs.");
+		log.info("Moving {} listed stack(s) into {} configured layout tab(s).", plan.actions().size(), plan.tabs().size());
 		BankActuator.FullOrganizeResult result = actuator.runBankTagLayoutDelta(plan, config.forceInsertVariants());
-		String phase = result.success() ? "Organize OK" : "Blocked";
-		if (result.finalSnapshot() != null)
+		if (result.success())
 		{
-			overlayState = OverlayState.fromSnapshot(phase, result.message(), result.finalSnapshot(), result.movedStacks());
+			log.info("Bank Organizer completed: {}", result.message());
 		}
 		else
 		{
-			overlayState = OverlayState.idle(result.message()).withPhase(phase, result.message());
+			log.warn("Bank Organizer blocked: {}", result.message());
 		}
-
 	}
 
 	private IntFunction<String> itemNameLookup(List<BankTagLayoutTab> tabs)
@@ -271,115 +253,4 @@ public class BankOrganizerPlugin extends Plugin
 		}
 	}
 
-	static final class OverlayState
-	{
-		final String phase;
-		final String message;
-		final int stackCount;
-		final int plannedStackCount;
-		final int categoryTabCount;
-		final int actionCount;
-		final int currentTab;
-		final int mainTabCount;
-		final List<DetailLine> detailLines;
-
-		private OverlayState(
-			String phase,
-			String message,
-			int stackCount,
-			int plannedStackCount,
-			int categoryTabCount,
-			int actionCount,
-			int currentTab,
-			int mainTabCount,
-			List<DetailLine> detailLines)
-		{
-			this.phase = phase;
-			this.message = message;
-			this.stackCount = stackCount;
-			this.plannedStackCount = plannedStackCount;
-			this.categoryTabCount = categoryTabCount;
-			this.actionCount = actionCount;
-			this.currentTab = currentTab;
-			this.mainTabCount = mainTabCount;
-			this.detailLines = Collections.unmodifiableList(new ArrayList<>(detailLines));
-		}
-
-		static OverlayState idle(String message)
-		{
-			return new OverlayState("Idle", message, 0, 0, 0, 0, 0, 0, Collections.emptyList());
-		}
-
-		static OverlayState running(String phase, String message)
-		{
-			return new OverlayState(phase, message, 0, 0, 0, 0, 0, 0, Collections.emptyList());
-		}
-
-		static OverlayState fromSnapshot(String phase, String message, BankSnapshot snapshot, int actionCount)
-		{
-			return new OverlayState(
-				phase,
-				message,
-				snapshot.stackCount(),
-				snapshot.stackCount(),
-				0,
-				actionCount,
-				snapshot.currentTab(),
-				snapshot.mainTabCount(),
-				Collections.emptyList());
-		}
-
-		static OverlayState fromConflicts(List<BankTagLayoutConflict> conflicts)
-		{
-			List<DetailLine> lines = new ArrayList<>();
-			int shown = 0;
-			for (BankTagLayoutConflict conflict : conflicts)
-			{
-				if (shown >= 8)
-				{
-					break;
-				}
-				lines.add(new DetailLine("Item ID " + conflict.itemId(), "tabs " + conflict.tabIndexesDisplay()));
-				shown++;
-			}
-			if (conflicts.size() > shown)
-			{
-				lines.add(new DetailLine("More conflicts", Integer.toString(conflicts.size() - shown)));
-			}
-			return new OverlayState(
-				"Blocked",
-				"Resolve duplicate layout item IDs before enabling organizer.",
-				0,
-				0,
-				0,
-				0,
-				0,
-				0,
-				lines);
-		}
-
-		OverlayState withMessage(String nextMessage)
-		{
-			return new OverlayState(phase, nextMessage, stackCount, plannedStackCount, categoryTabCount, actionCount,
-				currentTab, mainTabCount, detailLines);
-		}
-
-		OverlayState withPhase(String nextPhase, String nextMessage)
-		{
-			return new OverlayState(nextPhase, nextMessage, stackCount, plannedStackCount, categoryTabCount, actionCount,
-				currentTab, mainTabCount, detailLines);
-		}
-	}
-
-	static final class DetailLine
-	{
-		final String left;
-		final String right;
-
-		DetailLine(String left, String right)
-		{
-			this.left = left;
-			this.right = right;
-		}
-	}
 }
