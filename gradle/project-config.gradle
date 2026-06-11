@@ -8,7 +8,7 @@ project.ext.JDK_VENDOR = 'ADOPTIUM'
 // Common project paths
 project.ext.PLUGINS_SOURCE_PATH = 'src/main/java/net/runelite/client/plugins/microbot'
 project.ext.PLUGINS_RESOURCE_PATH = 'src/main/resources/net/runelite/client/plugins/microbot'
-project.ext.DOCS_OUTPUT_PATH = 'public/docs'
+project.ext.DOCS_OUTPUT_PATH = 'public'
 
 // Relative path for source set
 project.ext.PLUGINS_INCLUDE_PATH = 'net/runelite/client/plugins/microbot'
