@@ -1,7 +1,7 @@
 # Bank Organizer
 
-Organizes bank tabs from configured item layouts.
+Organizes bank tabs using bank tab CSVs like https://runetags.com/
 
 ## Setup
 
-Enable the plugin from Microbot Hub, configure the available options, and start it only after confirming the bank state is ready.
+Start with the bank open and your tabs marked as active with valid CSVs.
