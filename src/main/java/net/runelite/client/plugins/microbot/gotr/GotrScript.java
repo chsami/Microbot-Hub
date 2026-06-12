@@ -107,6 +107,23 @@ public class GotrScript extends Script {
 
     public boolean run(GotrConfig config) {
         this.config = config;
+        // Static (and singleton-instance) state persists for the whole JVM session and leaks
+        // across plugin disable/re-enable (see docs/PLUGIN_DEBUGGING_NOTES.md §5). Reset it here
+        // so a restart behaves like a first start instead of inheriting a stale state machine.
+        shouldMineGuardianRemains = true;
+        isInMiniGame = false;
+        isFirstPortal = true;
+        state = null;
+        nextGameStart = Optional.empty();
+        timeSincePortal = Optional.empty();
+        elementalRewardPoints = 0;
+        catalyticRewardPoints = 0;
+        useNpcContact = true;
+        initCheck = false;
+        optimizedEssenceLoop = false;
+        guardians.clear();
+        activeGuardianPortals.clear();
+        greatGuardian = null;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -121,8 +138,6 @@ public class GotrScript extends Script {
                     }
                     initCheck = true;
                 }
-
-                Rs2Walker.setTarget(null);
 
                 if (!Rs2Inventory.hasItem("pickaxe") && !Rs2Equipment.isWearing("pickaxe")) {
                     log("You need to have a pickaxe before you can participate in this minigame.");
@@ -243,7 +258,7 @@ public class GotrScript extends Script {
                 // Return to large mine if we were there before
                 if (!isInLargeMine() && shouldMineGuardianRemains) {
                     if (Rs2Walker.walkTo(new WorldPoint(3632, 9503, 0), 20)) {
-                        Microbot.getRs2TileObjectCache().query().interact(ObjectID.RUBBLE_43724);
+                        interactObject(ObjectID.RUBBLE_43724);
                         return true;
                     }
                 }
@@ -261,33 +276,42 @@ public class GotrScript extends Script {
 
     private boolean repairCells() {
         Rs2ItemModel cell = Rs2Inventory.get(CellType.PoweredCellList().stream().mapToInt(i -> i).toArray());
-        if (cell != null && isInMainRegion() && isInMiniGame() && !shouldMineGuardianRemains && !isInLargeMine() && !isInHugeMine()) {
-            int cellTier = CellType.GetCellTier(cell.getId());
-            List<Rs2TileObjectModel> shieldCells = Microbot.getRs2TileObjectCache().query()
-                .where(o -> o.getName() != null && o.getName().toLowerCase().contains("cell_tile"))
-                .toListOnClientThread();
+        if (cell == null || !isInMainRegion() || !isInMiniGame() || shouldMineGuardianRemains || isInLargeMine() || isInHugeMine()) {
+            return false;
+        }
+        int cellTier = CellType.GetCellTier(cell.getId());
+        // Identify the shield pylons by object id (CellType.GetShieldTier knows them all and
+        // returns -1 for anything else). The previous filter matched on a name containing
+        // "cell_tile", but the real pylon objects aren't named that, so the query always came
+        // back empty — yet the method still returned true unconditionally below. That made the
+        // main loop short-circuit at `if (repairCells()) return;` on every tick whenever a
+        // powered cell was held, leaving the bot standing idle until the next game start. Match
+        // by id, and only claim the tick when we actually place/use a cell.
+        List<Rs2TileObjectModel> shieldCells = Microbot.getRs2TileObjectCache().query()
+            .where(o -> CellType.GetShieldTier(o.getId()) >= 0)
+            .toListOnClientThread();
 
-            if (Rs2Inventory.hasItemAmount(GUARDIAN_ESSENCE, 10)) {
-                for (Rs2TileObjectModel shieldCell : shieldCells) {
-                    if (CellType.GetShieldTier(shieldCell.getId()) < cellTier) {
-                        Microbot.log("Upgrading power cell at " + shieldCell.getWorldLocation());
-                        shieldCell.click("Place-cell");
-                        sleepUntil(() -> !Rs2Player.isMoving());
-                        return true;
-                    }
+        if (Rs2Inventory.hasItemAmount(GUARDIAN_ESSENCE, 10)) {
+            for (Rs2TileObjectModel shieldCell : shieldCells) {
+                if (CellType.GetShieldTier(shieldCell.getId()) < cellTier) {
+                    Microbot.log("Upgrading power cell at " + shieldCell.getWorldLocation());
+                    shieldCell.click("Place-cell");
+                    sleepUntil(() -> !Rs2Player.isMoving());
+                    return true;
                 }
             }
-            Rs2TileObjectModel cellToUse = shieldCells.stream()
-                .filter(o -> o.getId() != ObjectID.CELL_TILE_BROKEN)
-                .findFirst().orElse(null);
-            if (cellToUse != null) {
-                cellToUse.click();
-                log("Using cell with id " + cellToUse.getId());
-                sleep(Rs2Random.randomGaussian(1000, 300));
-                sleepUntil(() -> !Rs2Player.isMoving());
-            }
+        }
+        Rs2TileObjectModel cellToUse = shieldCells.stream()
+            .filter(o -> CellType.GetShieldTier(o.getId()) > 0)
+            .findFirst().orElse(null);
+        if (cellToUse != null) {
+            cellToUse.click();
+            log("Using cell with id " + cellToUse.getId());
+            sleep(Rs2Random.randomGaussian(1000, 300));
+            sleepUntil(() -> !Rs2Player.isMoving());
             return true;
         }
+        // Nothing to place — don't pretend we handled the tick, or the loop will never craft.
         return false;
     }
 
@@ -314,7 +338,7 @@ public class GotrScript extends Script {
                 }
             }
 
-            Microbot.getRs2TileObjectCache().query().interact(ObjectID.UNCHARGED_CELLS_43732, "Take-10");
+            interactObject(ObjectID.UNCHARGED_CELLS_43732, "Take-10");
             log("Taking uncharged cells...");
             Rs2Player.waitForAnimation();
         }
@@ -338,7 +362,7 @@ public class GotrScript extends Script {
     private boolean depositRunesIntoPool() {
         if (config.shouldDepositRunes() && Rs2Inventory.hasItem(runeIds.stream().mapToInt(i -> i).toArray()) && !isInLargeMine() && !isInHugeMine() && !Rs2Inventory.isFull() && !optimizedEssenceLoop) {
             if (Rs2Player.isMoving()) return true;
-            if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.DEPOSIT_POOL)) {
+            if (interactObject(ObjectID.DEPOSIT_POOL)) {
                 log("Deposit runes into pool...");
                 sleep(600, 2400);
             }
@@ -362,7 +386,7 @@ public class GotrScript extends Script {
     }
 
     private boolean craftGuardianEssences() {
-        if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.WORKBENCH_43754)) {
+        if (interactObject(ObjectID.WORKBENCH_43754)) {
             state = GotrState.CRAFT_GUARDIAN_ESSENCE;
             sleep(Rs2Random.randomGaussian(Rs2Random.between(600, 900), Rs2Random.between(150, 300)));
             log("Crafting guardian essences...");
@@ -373,7 +397,7 @@ public class GotrScript extends Script {
 
     private boolean leaveLargeMine() {
         if (isInLargeMine()) {
-            Microbot.getRs2TileObjectCache().query().interact(ObjectID.RUBBLE_43726);
+            interactObject(ObjectID.RUBBLE_43726);
             Rs2Player.waitForAnimation();
             log("Leaving large mine...");
             state = GotrState.LEAVING_LARGE_MINE;
@@ -416,13 +440,13 @@ public class GotrScript extends Script {
                 if (Rs2Inventory.hasItem(GUARDIAN_ESSENCE)) {
                     state = GotrState.CRAFTING_RUNES;
                     optimizedEssenceLoop = false;
-                    Microbot.getRs2TileObjectCache().query().interact(rcAltar.getId());
+                    interactObject(rcAltar, null);
                     log("Crafting runes on altar " + rcAltar.getId());
                     sleep(Rs2Random.randomGaussian(Rs2Random.between(1000, 1500), 300));
                 } else if (!Rs2Player.isMoving()) {
                     state = GotrState.LEAVING_ALTAR;
                     Rs2TileObjectModel rcPortal = findPortalToLeaveAltar();
-                    if (Microbot.getRs2TileObjectCache().query().interact(rcPortal.getId())) {
+                    if (interactObject(rcPortal, null)) {
                         log("Leaving the altar...");
                         sleepUntilTrue(GotrScript::isInMainRegion,100,10000);
                         sleep(Rs2Random.randomGaussian(750, 150));
@@ -437,7 +461,7 @@ public class GotrScript extends Script {
     private static boolean waitForMinigameToStart() {
         if (!isInMainRegion()) {
             Rs2TileObjectModel rcPortal = findPortalToLeaveAltar();
-            if (rcPortal != null && Microbot.getRs2TileObjectCache().query().interact(rcPortal.getId())) {
+            if (rcPortal != null && interactObject(rcPortal, null)) {
                 state = GotrState.LEAVING_ALTAR;
                 return true;
             }
@@ -446,13 +470,13 @@ public class GotrScript extends Script {
         if (state != GotrState.WAITING) {
             state = GotrState.WAITING;
             log("Make sure to start the script near the minigame barrier.");
-            Microbot.getRs2TileObjectCache().query().interact(ObjectID.BARRIER_43849, "Peek");
+            interactObject(ObjectID.BARRIER_43849, "Peek");
         }
         return state == GotrState.WAITING;
     }
 
     private static boolean enterMinigame() {
-        if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.BARRIER_43700, "quick-pass")) {
+        if (interactObject(ObjectID.BARRIER_43700, "quick-pass")) {
             Rs2Player.waitForWalking();
             state = GotrState.ENTER_GAME;
             GotrScript.shouldMineGuardianRemains = true;
@@ -479,10 +503,10 @@ public class GotrScript extends Script {
             }
             if (!Rs2Inventory.isFull()) {
                 if (!Rs2Player.isAnimating()) {
-                    Microbot.getRs2TileObjectCache().query().interact(ObjectID.HUGE_GUARDIAN_REMAINS);
+                    interactObject(ObjectID.HUGE_GUARDIAN_REMAINS);
                     Rs2Player.waitForAnimation();
                     if (!Rs2Player.isAnimating())
-                        Microbot.getRs2TileObjectCache().query().interact(ObjectID.HUGE_GUARDIAN_REMAINS);
+                        interactObject(ObjectID.HUGE_GUARDIAN_REMAINS);
                 }
             } else {
                 if (Rs2Inventory.allPouchesFull()) {
@@ -493,7 +517,7 @@ public class GotrScript extends Script {
                     Rs2Inventory.fillPouches();
                     sleep(Rs2Random.randomGaussian(Rs2Random.between(600, 1200), Rs2Random.between(100, 300)));
                     if (!Rs2Inventory.isFull()) {
-                        Microbot.getRs2TileObjectCache().query().interact(ObjectID.HUGE_GUARDIAN_REMAINS);
+                        interactObject(ObjectID.HUGE_GUARDIAN_REMAINS);
                     }
                 }
             }
@@ -518,13 +542,13 @@ public class GotrScript extends Script {
             if (!isInLargeMine() && !isInHugeMine() && (!Rs2Inventory.hasItem(GUARDIAN_FRAGMENTS) || getStartTimer() == -1)) {
                 if (Rs2Walker.walkTo(new WorldPoint(3632, 9503, 0), 20)) {
                     log("Traveling to large mine...");
-                    Microbot.getRs2TileObjectCache().query().interact(ObjectID.RUBBLE_43724);
+                    interactObject(ObjectID.RUBBLE_43724);
                     if (sleepUntil(Rs2Player::isAnimating)) {
                         sleepUntil(GotrScript::isInLargeMine);
                         if (isInLargeMine()) {
                             sleep(Rs2Random.randomGaussian(Rs2Random.between(2000, 2400), Rs2Random.between(100, 300)));
                             log("Interacting with large guardian remains...");
-                            Microbot.getRs2TileObjectCache().query().interact(ObjectID.LARGE_GUARDIAN_REMAINS);
+                            interactObject(ObjectID.LARGE_GUARDIAN_REMAINS);
                             sleepGaussian(1200, 150);
                         }
                     }
@@ -538,7 +562,7 @@ public class GotrScript extends Script {
                     checkPouches(Rs2Random.between(1, 20) == 2, Rs2Random.between(100, 600), Rs2Random.between(100, 300));
 
                     repairPouches();
-                    Microbot.getRs2TileObjectCache().query().interact(ObjectID.LARGE_GUARDIAN_REMAINS);
+                    interactObject(ObjectID.LARGE_GUARDIAN_REMAINS);
                     sleepGaussian(1200, 150);
                 }
             }
@@ -552,7 +576,7 @@ public class GotrScript extends Script {
                     Rs2Combat.setSpecState(true, 1000);
                 }
                 repairPouches();
-                Microbot.getRs2TileObjectCache().query().interact(ObjectID.GUARDIAN_PARTS_43716);
+                interactObject(ObjectID.GUARDIAN_PARTS_43716);
                 sleepGaussian(1200, 150);
                 // we can assume that if the player is mining within the startTimer range, he will get enough guardian remains for the game
                 shouldMineGuardianRemains = false;
@@ -561,7 +585,7 @@ public class GotrScript extends Script {
     }
 
     private void leaveHugeMine() {
-        Microbot.getRs2TileObjectCache().query().interact(38044);
+        interactObject(38044);
         log("Leave huge mine...");
         Global.sleepUntil(() -> !isInHugeMine(), 5000);
 
@@ -765,6 +789,40 @@ public class GotrScript extends Script {
         Microbot.getClient().clearHintArrow();
     }
 
+    /**
+     * Walk-first object interaction.
+     *
+     * <p>The migrated Queryable API ({@code cache.query().interact(id, action)}) resolves
+     * {@code nearestReachable()} and clicks at the player's current tile — it does NOT walk into
+     * range. Legacy {@code Rs2GameObject.interact(id, action)} auto-walked when the target was
+     * more than 51 tiles away. After the query-API migration GOTR lost that auto-walk, so any
+     * interaction issued while out of range silently no-ops every tick and the bot just stands
+     * there (see docs/PLUGIN_DEBUGGING_NOTES.md §3). This restores the legacy behaviour: web-walk
+     * when far, hand off to the game's click-to-walk once close.
+     */
+    private static boolean interactObject(int id) {
+        return interactObject(id, null);
+    }
+
+    private static boolean interactObject(int id, String action) {
+        return interactObject(Microbot.getRs2TileObjectCache().query().withId(id).nearest(), action);
+    }
+
+    private static boolean interactObject(Rs2TileObjectModel obj, String action) {
+        if (obj == null) return false;
+        WorldPoint playerLoc = Rs2Player.getWorldLocation();
+        WorldPoint objLoc = obj.getWorldLocation();
+        if (playerLoc != null && objLoc != null && playerLoc.distanceTo(objLoc) > 51) {
+            log("Object " + obj.getId() + " is " + playerLoc.distanceTo(objLoc) + " tiles away, walking into range...");
+            Rs2Walker.walkTo(objLoc);
+            return false;
+        }
+        // In click range: drop any lingering web-walk target so the game's click-to-walk drives
+        // the final approach, then interact.
+        Rs2Walker.setTarget(null);
+        return (action == null || action.isEmpty()) ? obj.click() : obj.click(action);
+    }
+
     public static Rs2TileObjectModel findRcAltar() {
         return Microbot.getRs2TileObjectCache().query().withIds(
                 ObjectID.ALTAR_34760, ObjectID.ALTAR_34761, ObjectID.ALTAR_34762, ObjectID.ALTAR_34763, ObjectID.ALTAR_34764,
@@ -784,7 +842,7 @@ public class GotrScript extends Script {
             return true;    // Already outside the minigame, successfully left     
         }
         if(isInLargeMine()) {
-            Microbot.getRs2TileObjectCache().query().interact(ObjectID.RUBBLE_43726);
+            interactObject(ObjectID.RUBBLE_43726);
             Rs2Player.waitForAnimation();
             sleepUntil(()-> !isInLargeMine());
             if (isInLargeMine()){
@@ -793,7 +851,7 @@ public class GotrScript extends Script {
             }
 
         }
-        Microbot.getRs2TileObjectCache().query().interact(ObjectID.BARRIER_43700, "quick-pass");
+        interactObject(ObjectID.BARRIER_43700, "quick-pass");
         Rs2Player.waitForWalking();
         sleepUntil( ()-> {return !(!isOutsideBarrier() && isInMainRegion());}, 200);
         GotrScript.isInMiniGame  = !isOutsideBarrier() && isInMainRegion();
