@@ -2,6 +2,8 @@ package net.runelite.client.plugins.microbot.microbotdashboardplus;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -57,7 +59,7 @@ import java.awt.image.BufferedImage;
 @Slf4j
 public class MicrobotDashboardPlusPlugin extends Plugin {
 
-    public static final String version = "1.2.0";
+    public static final String version = "1.2.1";
 
     @Inject
     private MicrobotDashboardPlusConfig config;
@@ -148,6 +150,34 @@ public class MicrobotDashboardPlusPlugin extends Plugin {
         }
         alertManager = null;
         Microbot.log("MicrobotDashboardPlus v" + version + " stopped");
+    }
+
+    /**
+     * Pet-drop detection. The game announces a pet via one of three "funny feeling"
+     * game messages; matching on those needs no inventory or NPC scanning. Fires the
+     * in-window banner always (when enabled) and Discord when a webhook is set.
+     */
+    @Subscribe
+    public void onChatMessage(ChatMessage event) {
+        if (event.getType() != ChatMessageType.GAMEMESSAGE) return;
+        if (config == null || !config.notifyPetDrop()) return;
+        String msg = event.getMessage() == null ? "" : event.getMessage().toLowerCase();
+
+        final boolean backpack = msg.contains("something weird sneaking into your backpack");
+        final boolean duplicate = msg.contains("funny feeling like you would have been followed");
+        final boolean follower = msg.contains("funny feeling like you're being followed");
+        if (!backpack && !duplicate && !follower) return;
+
+        final String text = backpack ? "Pet drop! It went to your inventory."
+                : duplicate ? "Pet drop! (you already own it, check your collection log)"
+                : "Pet drop! It is now following you.";
+        if (window != null) {
+            window.showAlertBanner(text);
+        }
+        if (notifier != null) {
+            notifier.send("PET: " + text);
+        }
+        Microbot.log("MicrobotDashboardPlus: " + text);
     }
 
     @Subscribe

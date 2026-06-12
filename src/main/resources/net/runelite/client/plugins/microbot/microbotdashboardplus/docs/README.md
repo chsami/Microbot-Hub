@@ -20,7 +20,8 @@ Microbot Dashboard Plus is a passive monitoring plugin for the Microbot RuneLite
 | **Antiban State section** | Tells a silent stall apart from an intentional anti-AFK pause (micro break, action cooldown, global pause, blocking event) |
 | **XP Over Time chart** | Java2D line chart with skill and time-window selectors (5m to 24h) |
 | **Event Log section** | Rolling 10-entry ring buffer of login, logout, and world-hop events |
-| **Discord notifications** | Optional webhook for level-ups, alert threshold crossings, and session start/stop |
+| **Discord notifications** | Optional webhook for level-ups, pet drops, alert threshold crossings, and session start/stop |
+| **Pet drop alert** | In-dashboard banner plus optional Discord ping when you receive a pet, detected from the funny-feeling game messages |
 | **Alert thresholds** | Comma-separated SKILL:LEVEL pairs that fire an in-dashboard banner and optional Discord ping when crossed |
 | **Skill targets (ETA)** | Comma-separated SKILL:LEVEL pairs that drive the ETA column in the Skills section |
 | **Per-section visibility** | Toggle any of the nine panels on or off; the window updates immediately |
@@ -65,6 +66,7 @@ The plugin config has four sections.
 
 **Notifications** - requires a Discord webhook URL in the field (masked in the UI, treated as a secret):
 - Notify on level-up (default ON)
+- Notify on pet drop (default ON; also fires the in-dashboard banner without a webhook)
 - Notify on alert threshold crossing (default ON)
 - Notify on session start/stop (default OFF)
 

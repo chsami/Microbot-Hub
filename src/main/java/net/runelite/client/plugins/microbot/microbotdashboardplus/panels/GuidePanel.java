@@ -44,7 +44,7 @@ public class GuidePanel extends DashboardSection {
             "<li><b>Nearby NPCs max distance</b>: filter for the NPC panel (1-200 tiles, default 20).</li>" +
             "<li><b>Layout toggles</b>: nine on/off switches, one per panel (including this Guide).</li>" +
             "<li><b>Discord webhook URL</b>: paste your channel webhook (field is masked; blank disables Discord).</li>" +
-            "<li><b>Notify on level-up / session lifecycle / alert threshold</b>: three independent toggles.</li>" +
+            "<li><b>Notify on level-up / pet drop / session lifecycle / alert threshold</b>: four independent toggles.</li>" +
             "<li><b>Alert thresholds</b>: comma-separated <code>SKILL:LEVEL</code> pairs (e.g. <code>MINING:60, WOODCUTTING:80</code>). Crossings show an in-window banner and (if Discord is set) send a notification.</li>" +
             "<li><b>Skill targets (ETA)</b>: comma-separated <code>SKILL:LEVEL</code> pairs (e.g. <code>MINING:70, AGILITY:60</code>) that drive the Skills ETA column.</li>" +
             "</ol>" +
