@@ -248,6 +248,11 @@ public class GotrScript extends Script {
 
         if (getStartTimer() > Rs2Random.randomGaussian(35, Rs2Random.between(1, 5)) || getStartTimer() == -1 || timeToStart > 10) {
 
+            // A round just ended (or hasn't started yet) and this path runs instead of the
+            // craft branch — bank any crafted runes into the pool before prepping for the next
+            // game, so we never carry runes over.
+            if (depositRunesIntoPool()) return true;
+
             // Only take cells if we don't already have them
             if (!Rs2Inventory.hasItem("Uncharged cell")) {
                 // If in large mine and need cells, leave first
@@ -360,15 +365,24 @@ public class GotrScript extends Script {
     }
 
     private boolean depositRunesIntoPool() {
-        if (config.shouldDepositRunes() && Rs2Inventory.hasItem(runeIds.stream().mapToInt(i -> i).toArray()) && !isInLargeMine() && !isInHugeMine() && !Rs2Inventory.isFull() && !optimizedEssenceLoop) {
-            if (Rs2Player.isMoving()) return true;
-            if (interactObject(ObjectID.DEPOSIT_POOL)) {
-                log("Deposit runes into pool...");
-                sleep(600, 2400);
-            }
-            return true;
+        if (!config.shouldDepositRunes()
+                || !Rs2Inventory.hasItem(runeIds.stream().mapToInt(i -> i).toArray())
+                || isInLargeMine() || isInHugeMine()) {
+            return false;
         }
-        return false;
+        if (Rs2Player.isMoving()) return true;
+        // Walk-first interaction, but only claim the tick when the pool actually exists — otherwise
+        // return false so we never lock the loop standing around holding runes. Dropped the old
+        // !isFull / !optimizedEssenceLoop guards: they skipped exactly the end-of-round case, where
+        // a full inventory of crafted runes would otherwise never be deposited and carried into the
+        // next round.
+        Rs2TileObjectModel pool = Microbot.getRs2TileObjectCache().query().withId(ObjectID.DEPOSIT_POOL).nearest();
+        if (pool == null) return false;
+        if (interactObject(pool, null)) {
+            log("Deposit runes into pool...");
+            sleep(600, 2400);
+        }
+        return true;
     }
 
     private boolean enterAltar() {
