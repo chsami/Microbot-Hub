@@ -86,7 +86,7 @@ public class GabulhasKarambwansScript extends Script {
 
     private void fishingLoop() {
         while (!Rs2Inventory.isFull() && super.isRunning()) {
-            if (!Rs2Player.isInteracting() || !Rs2Player.isAnimating()) {
+            if (!Rs2Player.isAnimating()) {
                 if (Rs2Inventory.contains(ItemID.TBWT_RAW_KARAMBWANJI)) {
                     interactWithFishingSpot();
                     Rs2Player.waitForAnimation();
@@ -138,6 +138,11 @@ public class GabulhasKarambwansScript extends Script {
             Rs2Bank.depositAll("Scroll");
             Rs2Inventory.waitForInventoryChanges(2000);
         }
+        if (Rs2Inventory.contains("scrollbox") || Rs2Inventory.contains("Scrollbox")) {
+            Rs2Bank.depositAll("scrollbox");
+            Rs2Bank.depositAll("Scrollbox");
+            Rs2Inventory.waitForInventoryChanges(2000);
+        }
         if (Rs2Inventory.contains(ItemID.FISH_BARREL_OPEN) || Rs2Inventory.contains(ItemID.FISH_BARREL_CLOSED)) {
             Rs2Bank.emptyFishBarrel();
             Rs2Inventory.waitForInventoryChanges(2000);
@@ -174,17 +179,9 @@ public class GabulhasKarambwansScript extends Script {
             Rs2Walker.walkTo(zanarisRingPoint, 3);
             Rs2Player.waitForWalking();
 
-            // Ensure the fairy ring at Zanaris is actually loaded before trying to interact.
-            sleepUntil(() -> Microbot.getRs2TileObjectCache().query().nearest(zanarisRingPoint, 3) != null, 5000);
+            sleepUntil(() -> Microbot.getRs2TileObjectCache().query().withId(FAIRY_RING_ID).nearest(zanarisRingPoint, 3) != null, 5000);
 
-            var zanarisRing = Microbot.getRs2TileObjectCache().query().nearest(zanarisRingPoint, 3);
-            boolean interacted = false;
-            if (zanarisRing != null) {
-                // Prefer the explicit last-destination option, fall back to a generic interact if needed.
-                interacted = zanarisRing.click("Last-destination (DKP)")
-                        || zanarisRing.click("Last-destination")
-                        || zanarisRing.click("Use");
-            }
+            boolean interacted = Microbot.getRs2TileObjectCache().query().interact(FAIRY_RING_ID, "Last-destination (DKP)");
 
             if (interacted) {
                 waitTillPlayerNextToFishingSpot();
