@@ -28,9 +28,11 @@ import static net.runelite.client.plugins.microbot.karambwans.GabulhasKarambwans
 
 @Slf4j
 public class GabulhasKarambwansScript extends Script {
-    public static final int FAIRY_RING_ID = 29228;
+    // Zanaris fairy ring object ID — Rs2GameObject.getAll() does NOT find it; use the tile object cache.
+    public static final int FAIRY_RING_ID = 29560;
     public static final int SPIRITUAL_FAIRY_TREE_ID = 35003;
-    private final WorldPoint zanarisRingPoint = new WorldPoint(2412, 4435, 0);
+    // Fairy ring is at 4434, not 4435 — off-by-one causes findObjectByLocation to miss it.
+    private final WorldPoint zanarisRingPoint = new WorldPoint(2412, 4434, 0);
     private final WorldPoint fishingPoint = new WorldPoint(2899, 3118, 0);
     private final WorldPoint bankPoint = new WorldPoint(2381, 4455, 0);
     private GabulhasKarambwansConfig config;
@@ -179,9 +181,16 @@ public class GabulhasKarambwansScript extends Script {
             Rs2Walker.walkTo(zanarisRingPoint, 3);
             Rs2Player.waitForWalking();
 
-            sleepUntil(() -> Microbot.getRs2TileObjectCache().query().withId(FAIRY_RING_ID).nearest(zanarisRingPoint, 3) != null, 5000);
+            sleepUntil(() -> Microbot.getRs2TileObjectCache().query().withId(FAIRY_RING_ID).nearestOnClientThread() != null, 5000);
 
-            boolean interacted = Microbot.getRs2TileObjectCache().query().interact(FAIRY_RING_ID, "Last-destination (DKP)");
+            // Action is "Last-destination", NOT "Last-destination (DKP)" — the code suffix is not part of the action text.
+            boolean interacted = Microbot.getRs2TileObjectCache().query()
+                    .withId(FAIRY_RING_ID)
+                    .nearestOnClientThread() != null
+                    && Microbot.getRs2TileObjectCache().query()
+                    .withId(FAIRY_RING_ID)
+                    .nearestOnClientThread()
+                    .click("Last-destination");
 
             if (interacted) {
                 waitTillPlayerNextToFishingSpot();
