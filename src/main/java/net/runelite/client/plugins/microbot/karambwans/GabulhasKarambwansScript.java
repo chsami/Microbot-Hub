@@ -28,9 +28,11 @@ import static net.runelite.client.plugins.microbot.karambwans.GabulhasKarambwans
 
 @Slf4j
 public class GabulhasKarambwansScript extends Script {
-    public static final int FAIRY_RING_ID = 29228;
+    // Zanaris fairy ring object ID — Rs2GameObject.getAll() does NOT find it; use the tile object cache.
+    public static final int FAIRY_RING_ID = 29560;
     public static final int SPIRITUAL_FAIRY_TREE_ID = 35003;
-    private final WorldPoint zanarisRingPoint = new WorldPoint(2412, 4435, 0);
+    // Fairy ring is at 4434, not 4435 — off-by-one causes findObjectByLocation to miss it.
+    private final WorldPoint zanarisRingPoint = new WorldPoint(2412, 4434, 0);
     private final WorldPoint fishingPoint = new WorldPoint(2899, 3118, 0);
     private final WorldPoint bankPoint = new WorldPoint(2381, 4455, 0);
     private GabulhasKarambwansConfig config;
@@ -86,7 +88,7 @@ public class GabulhasKarambwansScript extends Script {
 
     private void fishingLoop() {
         while (!Rs2Inventory.isFull() && super.isRunning()) {
-            if (!Rs2Player.isInteracting() || !Rs2Player.isAnimating()) {
+            if (!Rs2Player.isAnimating()) {
                 if (Rs2Inventory.contains(ItemID.TBWT_RAW_KARAMBWANJI)) {
                     interactWithFishingSpot();
                     Rs2Player.waitForAnimation();
@@ -138,6 +140,11 @@ public class GabulhasKarambwansScript extends Script {
             Rs2Bank.depositAll("Scroll");
             Rs2Inventory.waitForInventoryChanges(2000);
         }
+        if (Rs2Inventory.contains("scrollbox") || Rs2Inventory.contains("Scrollbox")) {
+            Rs2Bank.depositAll("scrollbox");
+            Rs2Bank.depositAll("Scrollbox");
+            Rs2Inventory.waitForInventoryChanges(2000);
+        }
         if (Rs2Inventory.contains(ItemID.FISH_BARREL_OPEN) || Rs2Inventory.contains(ItemID.FISH_BARREL_CLOSED)) {
             Rs2Bank.emptyFishBarrel();
             Rs2Inventory.waitForInventoryChanges(2000);
@@ -174,17 +181,16 @@ public class GabulhasKarambwansScript extends Script {
             Rs2Walker.walkTo(zanarisRingPoint, 3);
             Rs2Player.waitForWalking();
 
-            // Ensure the fairy ring at Zanaris is actually loaded before trying to interact.
-            sleepUntil(() -> Microbot.getRs2TileObjectCache().query().nearest(zanarisRingPoint, 3) != null, 5000);
+            sleepUntil(() -> Microbot.getRs2TileObjectCache().query().withId(FAIRY_RING_ID).nearestOnClientThread() != null, 5000);
 
-            var zanarisRing = Microbot.getRs2TileObjectCache().query().nearest(zanarisRingPoint, 3);
-            boolean interacted = false;
-            if (zanarisRing != null) {
-                // Prefer the explicit last-destination option, fall back to a generic interact if needed.
-                interacted = zanarisRing.click("Last-destination (DKP)")
-                        || zanarisRing.click("Last-destination")
-                        || zanarisRing.click("Use");
-            }
+            // Action is "Last-destination", NOT "Last-destination (DKP)" — the code suffix is not part of the action text.
+            boolean interacted = Microbot.getRs2TileObjectCache().query()
+                    .withId(FAIRY_RING_ID)
+                    .nearestOnClientThread() != null
+                    && Microbot.getRs2TileObjectCache().query()
+                    .withId(FAIRY_RING_ID)
+                    .nearestOnClientThread()
+                    .click("Last-destination");
 
             if (interacted) {
                 waitTillPlayerNextToFishingSpot();
