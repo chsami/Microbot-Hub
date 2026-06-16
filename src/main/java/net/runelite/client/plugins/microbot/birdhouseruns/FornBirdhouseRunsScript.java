@@ -22,6 +22,7 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.shortestpath.Restriction;
 import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
+import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 
@@ -42,6 +43,8 @@ public class FornBirdhouseRunsScript extends Script {
     private static final WorldPoint birdhouseLocation3 = new WorldPoint(3677, 3882, 0);
     private static final WorldPoint birdhouseLocation4 = new WorldPoint(3679, 3815, 0);
     private static final WorldPoint SOUTH_ROWBOAT = new WorldPoint(3724, 3807, 0);
+    private static final WorldPoint VERDANT_MUSHTREE = new WorldPoint(3757, 3757, 0);
+    private static final int MUSHTREE_OBJECT_ID = 30924;
     // Each location maps to a BIRDHOUSE_TRANSMIT_* varp. See isEmpty/isBuilt/isSeeded
     // below for the canonical state decoding (matches RuneLite's BirdHouseState).
     private static final int VARP_HOUSE_1 = VarPlayerID.BIRDHOUSE_TRANSMIT_D; // Verdant SW
@@ -176,6 +179,7 @@ public class FornBirdhouseRunsScript extends Script {
                     switch (botStatus) {
                         case TELEPORTING:
                         case VERDANT_TELEPORT:
+                            Rs2Walker.walkTo(birdhouseLocation1);
                             botStatus = states.DISMANTLE_HOUSE_1;
                             advanced = true;
                             break;
@@ -216,6 +220,10 @@ public class FornBirdhouseRunsScript extends Script {
                             }
                             break;
                         case MUSHROOM_TELEPORT:
+                            Rs2GameObject.interact(MUSHTREE_OBJECT_ID, "Use");
+                            sleepUntil(() -> Rs2Widget.findWidget("Mycelium Transportation System") != null, 5000);
+                            Rs2Widget.clickWidget("Mushroom Meadow");
+                            sleepUntil(() -> Rs2Player.distanceTo(birdhouseLocation3) < 20, 10000);
                             botStatus = states.DISMANTLE_HOUSE_3;
                             advanced = true;
                             break;
