@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ItemID;
 import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.util.Global;
+import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
@@ -82,6 +83,15 @@ public class LampUtility {
         Global.sleep(600, 1200);
 
         Rs2Widget.clickWidget(LAMP_WIDGET_GROUP, LAMP_CONFIRM_BUTTON);
+
+        // Confirming the skill produces an XP-award "Click here to continue" dialogue.
+        // Dismiss it so the lamp is actually consumed and the leftover dialogue does not
+        // block other plugins once this blocking event releases the script-pause gate.
+        Global.sleepUntil(() -> Rs2Dialogue.hasContinue() || !Rs2Inventory.contains(ItemID.LAMP), 2000);
+        for (int i = 0; i < 5 && Rs2Dialogue.hasContinue(); i++) {
+            Rs2Dialogue.clickContinue();
+            Global.sleep(600, 1200);
+        }
 
         if (!Global.sleepUntil(() -> !Rs2Inventory.contains(ItemID.LAMP), 3000)) {
             log.warn("Lamp was not consumed after confirm");

@@ -13,7 +13,7 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginDescriptor.Default + "Event Dismiss",
+        name = PluginDescriptor.Default + "Random Event Handler",
         description = "Dismisses random events and optionally accepts lamps from Genie/Count Check",
         tags = {"random", "events", "microbot", "lamp", "genie"},
         authors = {"Unknown"},
@@ -26,7 +26,7 @@ import java.awt.*;
 )
 @Slf4j
 public class EventDismissPlugin extends Plugin {
-    public static final String version = "2.1.0";
+    public static final String version = "2.1.1";
 
     @Inject
     private EventDismissConfig config;
