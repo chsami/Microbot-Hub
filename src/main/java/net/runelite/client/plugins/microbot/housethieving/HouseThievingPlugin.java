@@ -16,7 +16,7 @@ import java.awt.*;
         name = PluginDescriptor.Maxxin + "House Thieving",
         description = "House Thieving",
         tags = {"thieving", "house thieving"},
-        authors = {"Maxxin"},
+        authors = {"Maxxin, VIP (just fixed something)"},
         version = HouseThievingPlugin.version,
         minClientVersion = "2.0.7",
         iconUrl = "https://chsami.github.io/Microbot-Hub/HouseThievingPlugin/assets/icon.png",

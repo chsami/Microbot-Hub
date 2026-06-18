@@ -24,6 +24,7 @@ import org.slf4j.event.Level;
 
 import javax.annotation.Nullable;
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -48,10 +49,12 @@ public class HouseThievingScript extends Script {
     private Long lastThievingSearch = null;
     private ThievingHouse currentThievingHouse = null;
     private Rs2NpcModel pickpocketNpc = null;
+
     private final static String HOUSE_KEYS = "House keys";
     private final static String DODGY_NECKLACE = "Dodgy necklace";
     private final static String COIN_POUCH = "Coin pouch";
     private final static String WEALTHY_CITIZEN = "Wealthy citizen";
+    private final static List<Integer> BANKER_IDS = List.of(13212, 13213, 13214, 13215);
 
     public boolean run(HouseThievingConfig config) {
         Microbot.pauseAllScripts.compareAndSet(true, false);
@@ -182,7 +185,7 @@ public class HouseThievingScript extends Script {
 
         var targetWealthyCitizen = distractedWealthyCitizen != null ? distractedWealthyCitizen : pickpocketNpc;
         if (targetWealthyCitizen != null) {
-            if (distractedWealthyCitizen == null) { // Regular pickpocketing
+            if (distractedWealthyCitizen == null) {
                 if (Rs2Inventory.getInventoryFood().isEmpty()) {
                     state = State.BANKING;
                     return;
@@ -283,7 +286,6 @@ public class HouseThievingScript extends Script {
     }
 
     private void attemptWaitForHouseNpc(Rs2NpcModel houseNpc) {
-        // Try to determine if NPC is leaving or not - could maybe look at overhead text?
         if (houseNpc != null) {
             var overheadText = houseNpc.getOverheadText();
             if (overheadText != null && !overheadText.isEmpty()) {
@@ -317,38 +319,40 @@ public class HouseThievingScript extends Script {
             }
         }
 
-        var hintArrow = Microbot.getClient().getHintArrowPoint();
-        var elapsedTime = lastThievingSearch == null ? null : System.currentTimeMillis() - lastThievingSearch;
-        if (hintArrow == null) {
-            if (currentThievingObject == null) {
-                var tileObject = Rs2Tile.getTile(currentThievingHouse.initialThievingChest.getX(), currentThievingHouse.initialThievingChest.getY());
-                if (tileObject != null) {
-                    currentThievingObject = Microbot.getRs2TileObjectCache().query().nearest(currentThievingHouse.initialThievingChest, 3);
-                    if (!Rs2Camera.isTileOnScreen(currentThievingObject.getLocalLocation())) {
-                        Rs2Camera.turnTo(currentThievingObject);
-                    }
-                    currentThievingObject.click("Search");
-                }
-                currentThievingObject = Microbot.getRs2TileObjectCache().query().nearest(currentThievingHouse.initialThievingChest, 3);
-            }
+        if (Rs2Player.isMoving()) {
+            return;
+        }
 
-            if (currentThievingObject != null && (lastThievingSearch == null || (elapsedTime != null && elapsedTime > 50000))) {
-                if (!Rs2Camera.isTileOnScreen(currentThievingObject.getLocalLocation())) {
-                    Rs2Camera.turnTo(currentThievingObject);
-                }
-                currentThievingObject.click("Search");
-                lastThievingSearch = System.currentTimeMillis();
-                Rs2Random.waitEx(1000.0, 200.0);
+        Rs2TileObjectModel targetObject = currentThievingObject;
+
+        var hintArrow = Microbot.getClient().getHintArrowPoint();
+        if (hintArrow != null) {
+            var arrowObject = Microbot.getRs2TileObjectCache().query().nearest(hintArrow, 3);
+            if (arrowObject != null) {
+                targetObject = arrowObject;
             }
-        } else {
-            currentThievingObject = Microbot.getRs2TileObjectCache().query().nearest(hintArrow, 3);
-            if (!Rs2Player.isInteracting() || lastThievingSearch == null || (elapsedTime != null && elapsedTime > 50000)) {
-                if (!Rs2Camera.isTileOnScreen(currentThievingObject.getLocalLocation())) {
-                    Rs2Camera.turnTo(currentThievingObject);
+        }
+
+        if (targetObject == null) {
+            targetObject = Microbot.getRs2TileObjectCache().query().nearest(currentThievingHouse.initialThievingChest, 3);
+        }
+
+        if (targetObject != null) {
+            boolean isNewTarget = currentThievingObject == null ||
+                    targetObject.getId() != currentThievingObject.getId() ||
+                    targetObject.getWorldLocation().distanceTo(currentThievingObject.getWorldLocation()) > 0;
+
+            if (isNewTarget) {
+                if (!Rs2Camera.isTileOnScreen(targetObject.getLocalLocation())) {
+                    Rs2Camera.turnTo(targetObject);
                 }
-                currentThievingObject.click("Search");
+
+                targetObject.click("Search");
+
+                currentThievingObject = targetObject;
                 lastThievingSearch = System.currentTimeMillis();
-                Rs2Random.waitEx(1000.0, 200.0);
+
+                Rs2Random.waitEx(600.0, 100.0);
             }
         }
     }
@@ -363,8 +367,10 @@ public class HouseThievingScript extends Script {
                 }
                 Microbot.getRs2TileObjectCache().query().withId(windowTileWallObject.getId()).interact("Exit-window");
                 Rs2Random.waitEx(5000.0, 200.0);
+
                 currentThievingObject = null;
                 lastThievingSearch = null;
+
                 setNextThievingHouse();
                 state = State.FINDING_HOUSE;
                 return true;
@@ -394,17 +400,31 @@ public class HouseThievingScript extends Script {
             return;
         }
 
-        if (Rs2Player.getWorldLocation().distanceTo(BANKING_LOCATION) > 3) {
-            Rs2Walker.walkTo(BANKING_LOCATION, 2);
+        if (Rs2Player.isMoving()) {
+            return;
         }
 
-        if (!Rs2Bank.isOpen() && Rs2Player.distanceTo(BANKING_LOCATION) <= 3) {
-            var bankingTile = Microbot.getRs2TileObjectCache().query().nearest(BANKING_TILE_LOCATION, 3);
-            if (bankingTile != null)
-                Rs2Bank.openBank(bankingTile);
-            else
+        if (!Rs2Bank.isOpen()) {
+            if (Rs2Player.getWorldLocation().distanceTo(BANKING_LOCATION) > 2) {
+                Rs2Walker.walkTo(BANKING_LOCATION, 2);
+                return;
+            }
+
+            var banker = Microbot.getRs2NpcCache().query()
+                    .where(npc -> BANKER_IDS.contains(npc.getId()))
+                    .nearestOnClientThread();
+
+            if (banker != null) {
+                if (!Rs2Camera.isTileOnScreen(banker.getLocalLocation())) {
+                    Rs2Camera.turnTo(banker);
+                }
+                banker.click("Bank");
+            } else {
                 Rs2Bank.openBank();
-            sleepUntil(Rs2Bank::isOpen, 2);
+            }
+
+            sleepUntil(Rs2Bank::isOpen, 5000);
+            return;
         }
 
         if (Rs2Bank.isOpen()) {
@@ -440,6 +460,7 @@ public class HouseThievingScript extends Script {
                     Rs2Inventory.waitForInventoryChanges(600);
                 }
             }
+            Rs2Bank.closeBank();
         }
     }
 
