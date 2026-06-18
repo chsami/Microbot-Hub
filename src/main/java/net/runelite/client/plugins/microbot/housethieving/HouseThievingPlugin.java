@@ -26,7 +26,7 @@ import java.awt.*;
 )
 @Slf4j
 public class HouseThievingPlugin extends Plugin {
-    public final static String version = "1.0.3";
+    public final static String version = "1.0.4";
     @Inject
     private HouseThievingConfig config;
 
