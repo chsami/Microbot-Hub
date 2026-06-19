@@ -52,7 +52,6 @@ public class HerbloreProcessor implements BankStandingProcessor {
     private Herb currentHerb;
     private Herb currentHerbForUnfinished;
     private HerblorePotion currentPotion;
-    private boolean currentlyMakingPotions;
     private int withdrawnAmount;
     private boolean amuletBroken = false;
 
@@ -77,7 +76,6 @@ public class HerbloreProcessor implements BankStandingProcessor {
         this.sleepMax = sleepMax;
         this.sleepTarget = sleepTarget;
         this.turboActive = turboMode;
-        this.currentlyMakingPotions = false;
         this.withdrawnAmount = 0;
     }
     
@@ -180,17 +178,6 @@ public class HerbloreProcessor implements BankStandingProcessor {
     
     @Override
     public boolean process() {
-        if (currentlyMakingPotions) {
-            // check if we need to stop making potions
-            if (!hasRequiredItems()) {
-                log.info("Finished making - no more ingredients");
-                currentlyMakingPotions = false;
-                return true; // return to banking
-            }
-            log.info("Still making potions - waiting for completion");
-            return true;
-        }
-        
         switch (mode) {
             case CLEAN_HERBS:
                 return processCleanHerbs();
@@ -224,10 +211,6 @@ public class HerbloreProcessor implements BankStandingProcessor {
     
     @Override
     public String getStatusMessage() {
-        if (currentlyMakingPotions) {
-            return "Making potions...";
-        }
-        
         switch (mode) {
             case CLEAN_HERBS:
                 return "Cleaning herbs...";
@@ -425,7 +408,6 @@ public class HerbloreProcessor implements BankStandingProcessor {
                     sleepUntil(() -> Rs2Dialogue.hasCombinationDialogue(), 3000);
                     Rs2Keyboard.keyPress('1');
                 }
-                currentlyMakingPotions = true;
                 log.info("Started making unfinished potions");
                 return true;
             }
@@ -453,10 +435,9 @@ public class HerbloreProcessor implements BankStandingProcessor {
             if (Rs2Inventory.combine(ItemID.TORSTOL, ItemID._4DOSE2ATTACK)) {
                 sleep(600, 800);
                 if (withdrawnAmount > 1) {
-                    sleepUntil(() -> Rs2Dialogue.hasQuestion("How many do you wish to make?"), 3000);
+                    sleepUntil(() -> Rs2Dialogue.hasCombinationDialogue(), 3000);
                     Rs2Keyboard.keyPress('1');
                 }
-                currentlyMakingPotions = true;
                 log.info("Started making super combat potions");
                 return true;
             }
@@ -471,10 +452,9 @@ public class HerbloreProcessor implements BankStandingProcessor {
             if (Rs2Inventory.combine(currentPotion.unfinished, currentPotion.secondary)) {
                 sleep(600, 800);
                 if (withdrawnAmount > 1) {
-                    sleepUntil(() -> Rs2Dialogue.hasQuestion("How many do you wish to make?"), 3000);
+                    sleepUntil(() -> Rs2Dialogue.hasCombinationDialogue(), 3000);
                     Rs2Keyboard.keyPress('1');
                 }
-                currentlyMakingPotions = true;
                 log.info("Started making {} potions", currentPotion.name());
                 return true;
             }
