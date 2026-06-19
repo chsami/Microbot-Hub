@@ -42,7 +42,7 @@ import java.awt.*;
 @Slf4j
 public class SlayerPlugin extends Plugin {
 
-    static final String version = "1.0.2";
+    static final String version = "1.1.0";
 
     @Inject
     private SlayerConfig config;

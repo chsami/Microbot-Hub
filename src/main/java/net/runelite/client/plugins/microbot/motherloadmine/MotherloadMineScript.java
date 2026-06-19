@@ -127,40 +127,50 @@ public class MotherloadMineScript extends Script
 
     private void executeTask()
     {
-        if (!super.run() || !Microbot.isLoggedIn())
+        // Guard the whole loop body: an unhandled exception on a single tick would otherwise
+        // silently cancel the scheduleWithFixedDelay task (JDK semantics), freezing the plugin
+        // on its last status with no log. Catching here lets the next 600ms tick recover state.
+        try
         {
-            resetMiningState(true);
-            return;
+            if (!super.run() || !Microbot.isLoggedIn())
+            {
+                resetMiningState(true);
+                return;
+            }
+
+            determineStatusFromInventory();
+            logStatusTransitionIfChanged();
+
+            switch (status)
+            {
+                case IDLE:
+                    break;
+                case MINING:
+                    Rs2Antiban.setActivityIntensity(Rs2Antiban.getActivity().getActivityIntensity());
+                    handleMining();
+                    break;
+                case EMPTY_SACK:
+                    if (Rs2Player.isAnimating()) return;
+                    Rs2Antiban.setActivityIntensity(ActivityIntensity.EXTREME);
+                    emptySack();
+                    break;
+                case FIXING_WATERWHEEL:
+                    if (Rs2Player.isAnimating()) return;
+                    fixWaterwheel();
+                    break;
+                case DEPOSIT_HOPPER:
+                    if (Rs2Player.isAnimating()) return;
+                    depositHopper();
+                    break;
+                case DROP_GEMS:
+                    if (Rs2Player.isAnimating()) return;
+                    dropGems();
+                    break;
+            }
         }
-
-        determineStatusFromInventory();
-        logStatusTransitionIfChanged();
-
-        switch (status)
+        catch (Exception ex)
         {
-            case IDLE:
-                break;
-            case MINING:
-                Rs2Antiban.setActivityIntensity(Rs2Antiban.getActivity().getActivityIntensity());
-                handleMining();
-                break;
-            case EMPTY_SACK:
-                if (Rs2Player.isAnimating()) return;
-                Rs2Antiban.setActivityIntensity(ActivityIntensity.EXTREME);
-                emptySack();
-                break;
-            case FIXING_WATERWHEEL:
-                if (Rs2Player.isAnimating()) return;
-                fixWaterwheel();
-                break;
-            case DEPOSIT_HOPPER:
-                if (Rs2Player.isAnimating()) return;
-                depositHopper();
-                break;
-            case DROP_GEMS:
-                if (Rs2Player.isAnimating()) return;
-                dropGems();
-                break;
+            log.error("MLM executeTask error; recovering on next tick", ex);
         }
     }
 

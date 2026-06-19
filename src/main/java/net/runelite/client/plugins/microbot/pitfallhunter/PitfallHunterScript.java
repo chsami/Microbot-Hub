@@ -866,6 +866,11 @@ public class PitfallHunterScript extends Script
             return;
         }
 
+        if (isSpikedTrapObject(pitObject)) {
+            jumpSpikedTrapInsteadOfLooting(pitObject);
+            return;
+        }
+
         selectedPitState = PitfallState.COLLAPSED;
         int before = Rs2Inventory.count();
         recordDecision("Dismantling collapsed trap");
@@ -1220,8 +1225,29 @@ public class PitfallHunterScript extends Script
         PitfallObjectCandidate candidate = findNearestCollapsedTrapCandidate(25);
 
         if (candidate == null) {
-            lastPitQuery = "Collapsed: none";
-            return false;
+            PitfallObjectCandidate spikedCandidate = findNearestSpikedTrapCandidate(25);
+            if (spikedCandidate == null) {
+                lastPitQuery = "Collapsed: none";
+                return false;
+            }
+
+            selectedPit = spikedCandidate.pit;
+            selectedNpc = null;
+            selectedPitState = PitfallState.TRAPPED;
+            lastPitQuery = formatPitCandidate("Spiked trap", spikedCandidate, null);
+            recordDecision("Found spiked trap; jumping instead of looting");
+            transition(State.JUMP_PIT);
+            return true;
+        }
+
+        if (isSpikedTrapObject(candidate.object)) {
+            selectedPit = candidate.pit;
+            selectedNpc = null;
+            selectedPitState = PitfallState.TRAPPED;
+            lastPitQuery = formatPitCandidate("Spiked trap", candidate, null);
+            recordDecision("Found spiked trap; jumping instead of looting");
+            transition(State.JUMP_PIT);
+            return true;
         }
 
         selectedPit = candidate.pit;
@@ -1764,6 +1790,16 @@ public class PitfallHunterScript extends Script
             object = getPitObject(pit);
         }
 
+        if (object == null) {
+            return PitfallState.UNKNOWN;
+        }
+
+        if (isSpikedTrapObject(object)) {
+            return PitfallState.TRAPPED;
+        }
+        if (hasPitObjectAction(object, DISMANTLE_TRAP_ACTION)) {
+            return PitfallState.COLLAPSED;
+        }
         if (hasPitObjectAction(object, JUMP_PIT_ACTION)) {
             return PitfallState.TRAPPED;
         }
@@ -1937,6 +1973,22 @@ public class PitfallHunterScript extends Script
         return Microbot.getRs2TileObjectCache().query()
                 .within(maxDistance)
                 .where(this::isCollapsedTrapDismantleObject)
+                .where(object -> object.getWorldLocation() != null)
+                .toListOnClientThread()
+                .stream()
+                .map(this::toPitObjectCandidate)
+                .filter(candidate -> candidate.pit != null)
+                .min(Comparator.comparingInt((PitfallObjectCandidate candidate) -> distanceToPlayer(candidate.object))
+                        .thenComparingInt(candidate -> candidate.pit.distanceTo(candidate.object.getWorldLocation()))
+                        .thenComparingInt(candidate -> candidate.pit.getPriority()))
+                .orElse(null);
+    }
+
+    private PitfallObjectCandidate findNearestSpikedTrapCandidate(int maxDistance)
+    {
+        return Microbot.getRs2TileObjectCache().query()
+                .within(maxDistance)
+                .where(this::isSpikedTrapObject)
                 .where(object -> object.getWorldLocation() != null)
                 .toListOnClientThread()
                 .stream()

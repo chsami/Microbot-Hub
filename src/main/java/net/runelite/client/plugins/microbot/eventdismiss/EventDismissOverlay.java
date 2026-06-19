@@ -37,7 +37,7 @@ public class EventDismissOverlay extends OverlayPanel {
         panelComponent.setPreferredSize(new Dimension(200, 0));
 
         panelComponent.getChildren().add(TitleComponent.builder()
-                .text("Event Dismiss")
+                .text("Random Event Handler")
                 .color(Color.CYAN)
                 .build());
 

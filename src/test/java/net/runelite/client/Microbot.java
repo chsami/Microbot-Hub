@@ -4,10 +4,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import net.runelite.client.plugins.fishing.FishingPlugin;
+import net.runelite.client.plugins.kourendlibrary.KourendLibraryPlugin;
 import net.runelite.client.plugins.microbot.GiantSeaweedFarmer.GiantSeaweedFarmerPlugin;
 import net.runelite.client.plugins.microbot.agentserver.AgentServerPlugin;
-import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
+import net.runelite.client.plugins.microbot.arceuuslibrary.ArceuusLibraryPlugin;
 import net.runelite.client.plugins.microbot.astralrc.AstralRunesPlugin;
 import net.runelite.client.plugins.microbot.birdhouseruns.FornBirdhouseRunsPlugin;
 import net.runelite.client.plugins.microbot.autofishing.AutoFishingPlugin;
@@ -30,7 +30,6 @@ public class Microbot
 {
 
 	private static final Class<?>[] debugPlugins = {
-		AIOFighterPlugin.class,
 		AgentServerPlugin.class,
 		FornBirdhouseRunsPlugin.class,
 		GiantSeaweedFarmerPlugin.class,
@@ -38,7 +37,10 @@ public class Microbot
 		PitfallHunterPlugin.class,
 		GabulhasKarambwansPlugin.class,
 		TitheFarmingPlugin.class,
-		HouseTabPlugin.class
+		HouseTabPlugin.class,
+		MotherloadMinePlugin.class,
+		KourendLibraryPlugin.class,
+		ArceuusLibraryPlugin.class
 	};
 
     public static void main(String[] args) throws Exception
