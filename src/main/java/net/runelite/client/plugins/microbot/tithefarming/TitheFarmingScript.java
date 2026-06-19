@@ -1,5 +1,7 @@
 package net.runelite.client.plugins.microbot.tithefarming;
 
+import net.runelite.api.Perspective;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.ItemID;
@@ -59,6 +61,7 @@ public class TitheFarmingScript extends Script {
     public static final int WATERING_CANS_AMOUNT = 8;
 
     public static final int DISTANCE_THRESHOLD_MINIMAP_WALK = 8;
+    private static final WorldPoint PREFERRED_FRUIT_SACK = new WorldPoint(1820, 3500, 0);
 
     public static int gricollerCanCharges = -1;
 
@@ -418,20 +421,43 @@ public class TitheFarmingScript extends Script {
     }
 
     private static boolean interactWithObject(int id, String action) {
-        Rs2TileObjectModel model = Microbot.getRs2TileObjectCache().query()
-                .withId(id)
-                .nearest();
+        return interactWithObject(id, action, null);
+    }
+
+    private static boolean interactWithObject(int id, String action, WorldPoint preferredWorldPoint) {
+        Rs2TileObjectModel model = Microbot.getClientThread().invoke(() -> {
+            if (Microbot.getClient().getLocalPlayer() == null) return null;
+            LocalPoint playerLoc = Microbot.getClient().getLocalPlayer().getLocalLocation();
+            return Microbot.getRs2TileObjectCache().query()
+                        .fromWorldView()
+                        .withId(id)
+                        .toList()
+                        .stream()
+                        .filter(object -> object.getLocalLocation() != null)
+                        .min(Comparator
+                                .comparingInt((Rs2TileObjectModel object) -> normalizedDistance(object, preferredWorldPoint))
+                                .thenComparingInt(object -> playerLoc.distanceTo(object.getLocalLocation())))
+                        .orElse(null);
+        });
         if (model == null) {
             Microbot.log("Object id " + id + " not in scene");
             return false;
         }
-        WorldPoint playerLoc = Rs2Player.getWorldLocation();
-        if (playerLoc != null && playerLoc.distanceTo(model.getWorldLocation()) > 51) {
-            Microbot.log("Object id " + id + " is " + playerLoc.distanceTo(model.getWorldLocation()) + " tiles away, walking...");
-            Rs2Walker.walkTo(model.getWorldLocation());
+        LocalPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getLocalLocation());
+        LocalPoint objectLoc = model.getLocalLocation();
+        int localDistance = playerLoc != null && objectLoc != null ? playerLoc.distanceTo(objectLoc) : Integer.MAX_VALUE;
+        if (localDistance > 51 * Perspective.LOCAL_TILE_SIZE) {
+            Microbot.log("Object id " + id + " is " + (localDistance / Perspective.LOCAL_TILE_SIZE) + " tiles away, walking via minimap...");
+            Rs2Walker.walkMiniMap(model.getWorldLocation(), 1);
             return false;
         }
         return action == null ? model.click() : model.click(action);
+    }
+
+    private static int normalizedDistance(Rs2TileObjectModel object, WorldPoint preferredWorldPoint) {
+        if (preferredWorldPoint == null) return 0;
+        WorldPoint normalized = WorldPoint.fromLocalInstance(Microbot.getClient(), object.getLocalLocation(), object.getPlane());
+        return normalized != null ? normalized.distanceTo(preferredWorldPoint) : Integer.MAX_VALUE;
     }
 
     private static void DropFertiliser() {
@@ -511,9 +537,11 @@ public class TitheFarmingScript extends Script {
     private boolean depositSack() {
         if (Rs2Inventory.hasItem(TitheFarmMaterial.getSeedForLevel().getFruitId())) {
             Microbot.log("Storing fruits into sack for experience...");
-            interactWithObject(ObjectID.TITHE_SACK_OF_FRUIT_EMPTY, null);
+            boolean interacted = interactWithObject(ObjectID.TITHE_SACK_OF_FRUIT_EMPTY, null, PREFERRED_FRUIT_SACK);
             Rs2Player.waitForWalking();
-            Rs2Player.waitForAnimation();
+            if (interacted) {
+                Rs2Player.waitForAnimation();
+            }
             return true;
         }
         return false;

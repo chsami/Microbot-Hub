@@ -11,8 +11,10 @@ import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
 import net.runelite.client.plugins.microbot.astralrc.AstralRunesPlugin;
 import net.runelite.client.plugins.microbot.birdhouseruns.FornBirdhouseRunsPlugin;
 import net.runelite.client.plugins.microbot.autofishing.AutoFishingPlugin;
+import net.runelite.client.plugins.microbot.cooking.AutoCookingPlugin;
 import net.runelite.client.plugins.microbot.crafting.jewelry.JewelryPlugin;
 import net.runelite.client.plugins.microbot.example.ExamplePlugin;
+import net.runelite.client.plugins.microbot.housetab.HouseTabPlugin;
 import net.runelite.client.plugins.microbot.karambwans.GabulhasKarambwansPlugin;
 import net.runelite.client.plugins.microbot.kraken.KrakenPlugin;
 import net.runelite.client.plugins.microbot.leftclickcast.LeftClickCastPlugin;
@@ -20,6 +22,7 @@ import net.runelite.client.plugins.microbot.pitfallhunter.PitfallHunterPlugin;
 import net.runelite.client.plugins.microbot.sailing.MSailingPlugin;
 import net.runelite.client.plugins.microbot.thieving.ThievingPlugin;
 import net.runelite.client.plugins.microbot.motherloadmine.MotherloadMinePlugin;
+import net.runelite.client.plugins.microbot.tithefarming.TitheFarmingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.woodcutting.WoodcuttingPlugin;
 
@@ -31,8 +34,11 @@ public class Microbot
 		AgentServerPlugin.class,
 		FornBirdhouseRunsPlugin.class,
 		GiantSeaweedFarmerPlugin.class,
+		AutoCookingPlugin.class,
 		PitfallHunterPlugin.class,
-		GabulhasKarambwansPlugin.class
+		GabulhasKarambwansPlugin.class,
+		TitheFarmingPlugin.class,
+		HouseTabPlugin.class
 	};
 
     public static void main(String[] args) throws Exception

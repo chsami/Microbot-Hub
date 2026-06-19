@@ -8,6 +8,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.housetab.enums.HOUSETABS_CONFIG;
+import net.runelite.client.plugins.microbot.housetab.enums.HouseTablet;
 
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2RunePouch;
@@ -148,16 +149,16 @@ public class HouseTabScript extends Script {
         }
     }
 
-    public void createHouseTablet() {
+    public void createHouseTablet(HouseTabConfig config) {
         Widget houseTabInterface = Microbot.getClient().getWidget(lecternTabletWidgetId);
         if (houseTabInterface == null) return;
         if (!hasSoftClay() || Microbot.getRs2TileObjectCache().query().withId(HOUSE_PORTAL_OBJECT).nearest() == null)
             return;
 
+        HouseTablet tablet = config.tablet();
         while (Microbot.getClient().getWidget(lecternTabletWidgetId) != null) {
             if (mainScheduledFuture.isCancelled()) break;
-            Microbot.getMouse()
-                    .click(houseTabInterface.getCanvasLocation());
+            Rs2Widget.clickWidget(tablet.getWidgetId());
             sleep(1000, 2000);
             Rs2Widget.clickWidget(26411022); // create button on spell tablet widget
             sleep(1000, 2000);
@@ -218,7 +219,7 @@ public class HouseTabScript extends Script {
                 boolean isInHouse = getHouseLectern() != null;
                 if (isInHouse) {
                     lookForLectern();
-                    createHouseTablet();
+                    createHouseTablet(config);
                     leaveHouse();
                 } else {
                     unnoteClay();
