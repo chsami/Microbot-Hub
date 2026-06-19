@@ -33,4 +33,8 @@ public class HouseThievingConstants {
     public final static WorldPoint BANKING_TILE_LOCATION = new WorldPoint(1648, 3119, 0);
 
     public final static int LOCKED_DOOR_ID = 51998;
+
+    // Searchable valuables inside the houses: wardrobes, chests, glass case, jewellery case (ObjectID 52002-52011).
+    // Windows (52000-52001) and staircases (52012-52013) are deliberately excluded.
+    public final static int[] VALUABLES_OBJECT_IDS = {52002, 52003, 52004, 52005, 52006, 52007, 52008, 52009, 52010, 52011};
 }

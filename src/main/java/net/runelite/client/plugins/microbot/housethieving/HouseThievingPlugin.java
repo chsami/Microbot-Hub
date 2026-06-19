@@ -2,7 +2,9 @@ package net.runelite.client.plugins.microbot.housethieving;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
@@ -26,7 +28,7 @@ import java.awt.*;
 )
 @Slf4j
 public class HouseThievingPlugin extends Plugin {
-    public final static String version = "1.0.3";
+    public final static String version = "1.1.0";
     @Inject
     private HouseThievingConfig config;
 
@@ -40,7 +42,7 @@ public class HouseThievingPlugin extends Plugin {
     @Inject
     private HouseThievingOverlay houseThievingOverlay;
 
-    private HouseThievingScript houseThievingScript;
+    HouseThievingScript houseThievingScript;
 
     @Override
     protected void startUp() throws AWTException {
@@ -53,7 +55,15 @@ public class HouseThievingPlugin extends Plugin {
     }
 
     protected void shutDown() {
-        houseThievingScript.shutdown();
+        new Thread(() -> houseThievingScript.shutdown()).start();
         overlayManager.remove(houseThievingOverlay);
+    }
+
+    @Subscribe
+    public void onChatMessage(ChatMessage event) {
+        // "You can't spot anything else worth taking from the <furniture>." => current piece is emptied, switch.
+        if (houseThievingScript != null && event.getMessage().toLowerCase().contains("worth taking")) {
+            houseThievingScript.onValuablesExhausted();
+        }
     }
 }
