@@ -20,6 +20,7 @@ import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -404,9 +405,13 @@ public class HerbrunScript extends Script {
 
         switch (state) {
             case "Harvestable":
+                // A flower patch harvests in one action. Free as much space as possible first so a
+                // bulk yield (e.g. limpwurt roots) fits rather than overflowing onto the ground.
+                noteProduceViaLeprechaun();
                 obj.click("Pick");
                 Rs2Player.waitForWalking();
                 sleepUntil(() -> getPatchState(obj).equals("Empty") || Rs2Inventory.isFull(), 10000);
+                recoverOwnLimpwurtDrops();
                 return false;
             case "Weeds":
                 obj.click("Rake");
@@ -652,6 +657,23 @@ public class HerbrunScript extends Script {
             return true;
         }
         return false;
+    }
+
+    /** A limpwurt patch harvests in bulk; if the inventory fills mid-harvest the surplus roots drop
+     *  to the ground. Reclaim ONLY our own dropped roots (never another player's), noting between
+     *  pickups to make room. Bounded loop so a contested/uncollectable drop can't spin forever. */
+    private void recoverOwnLimpwurtDrops() {
+        for (int i = 0; i < 10; i++) {
+            Rs2TileItemModel root = Microbot.getRs2TileItemCache().query()
+                    .withId(ItemID.LIMPWURT_ROOT)
+                    .where(Rs2TileItemModel::isOwned)
+                    .within(3)
+                    .nearest();
+            if (root == null) return;
+            if (Rs2Inventory.isFull() && !noteProduceViaLeprechaun()) return; // can't free space, give up
+            if (!root.pickup()) return;
+            Rs2Inventory.waitForInventoryChanges(3000);
+        }
     }
 
     private static final String[] ALLOTMENT_PRODUCE = {
