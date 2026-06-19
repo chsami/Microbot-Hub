@@ -20,12 +20,14 @@ import javax.inject.Inject;
     authors = {"Pert"},
     version = FarmingContractPlugin.VERSION,
     minClientVersion = "2.6.0",
+    iconUrl = "https://chsami.github.io/Microbot-Hub/FarmingContractPlugin/assets/icon.png",
+    cardUrl = "https://chsami.github.io/Microbot-Hub/FarmingContractPlugin/assets/card.png",
     enabledByDefault = PluginConstants.DEFAULT_ENABLED,
     isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class FarmingContractPlugin extends Plugin {
-    static final String VERSION = "0.2.1";
+    static final String VERSION = "0.2.2";
 
     @Getter
     @Setter
