@@ -15,9 +15,12 @@ import javax.inject.Inject;
 import java.awt.*;
 
 public class BarbarianFishingOverlay extends OverlayPanel {
+    private final BarbarianFishingPlugin plugin;
+
     @Inject
     BarbarianFishingOverlay(BarbarianFishingPlugin plugin) {
         super(plugin);
+        this.plugin = plugin;
         setPosition(OverlayPosition.TOP_LEFT);
         setNaughty();
     }
@@ -48,6 +51,11 @@ public class BarbarianFishingOverlay extends OverlayPanel {
                     .build());
 
             panelComponent.getChildren().add(LineComponent.builder().build());
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Status: " + plugin.fishingScript.status)
+                    .build());
+            panelComponent.getChildren().add(LineComponent.builder().build());
+
             Rs2Antiban.renderAntibanOverlayComponents(panelComponent);
 
             panelComponent.getChildren().add(LineComponent.builder()
