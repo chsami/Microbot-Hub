@@ -511,8 +511,21 @@ public class TitheFarmingScript extends Script {
     private boolean depositSack() {
         if (Rs2Inventory.hasItem(TitheFarmMaterial.getSeedForLevel().getFruitId())) {
             Microbot.log("Storing fruits into sack for experience...");
-            interactWithObject(ObjectID.TITHE_SACK_OF_FRUIT_EMPTY, null);
-            Rs2Player.waitForWalking();
+            Rs2TileObjectModel sack = Microbot.getRs2TileObjectCache().query()
+                    .withId(ObjectID.TITHE_SACK_OF_FRUIT_EMPTY)
+                    .nearest();
+            if (sack == null) {
+                Microbot.log("Sack not found in scene");
+                return true;
+            }
+            WorldPoint sackLoc = sack.getWorldLocation();
+            WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+            if (sackLoc.distanceTo2D(playerLoc) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
+                Rs2Walker.walkMiniMap(sackLoc, 1);
+                sleepUntil(Rs2Player::isMoving);
+                sleepUntil(() -> sackLoc.distanceTo2D(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())) < DISTANCE_THRESHOLD_MINIMAP_WALK);
+            }
+            sack.click();
             Rs2Player.waitForAnimation();
             return true;
         }
