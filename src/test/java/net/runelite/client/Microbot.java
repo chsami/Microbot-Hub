@@ -35,8 +35,8 @@ public class Microbot
 		GabulhasKarambwansPlugin.class,
 		MotherloadMinePlugin.class,
 		KourendLibraryPlugin.class,
-		ArceuusLibraryPlugin.class
-			VorkathHelperPlugin.class
+		ArceuusLibraryPlugin.class,
+		VorkathHelperPlugin.class
 	};
 
     public static void main(String[] args) throws Exception
