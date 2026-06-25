@@ -1308,7 +1308,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/card.png",
         "disable": false,
-        "sha256": "d9b2ad61be7b76abee576cde56ba475327d9aa948d9512bf99fdfe356ad9f419",
+        "sha256": "9dadc467202169867e21862dfe198493c2e3b258e1b3f6ebfd9979fe80a024a4",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/herbiboarplugin-1.2.5.jar"
     },
     {
@@ -1365,7 +1365,7 @@
             "agility",
             "microbot"
         ],
-        "version": "1.2.6",
+        "version": "1.2.7",
         "minClientVersion": "2.1.0",
         "authors": [
             "Mocrosoft"
@@ -1373,8 +1373,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/card.png",
         "disable": false,
-        "sha256": "44d72f156b2a875c2a32ad63723f4795e8d4598a0248d367aeb68001e92422f2",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/microagilityplugin-1.2.6.jar"
+        "sha256": "dcbc7d353e8d77ff57fd75eff435aedde1710e7f8a7e9696a963ae43f8d7079e",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/microagilityplugin-1.2.7.jar"
     },
     {
         "internalName": "FarmTreeRunPlugin",
@@ -1551,7 +1551,7 @@
             "QoL",
             "microbot"
         ],
-        "version": "1.8.13",
+        "version": "1.8.14",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1559,8 +1559,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "b20eaeb79ee2f3c2c0561d9b41ef1767a25882bf5f29a1cdd2a120191c5acbfe",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.13.jar"
+        "sha256": "9149ce2a80756cd24ead5a941e1ac347c95b25adf35e5b908aa259ef5d5eeae6",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.14.jar"
     },
     {
         "internalName": "PitfallHunterPlugin",
