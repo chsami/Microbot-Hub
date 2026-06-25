@@ -202,7 +202,12 @@ public class AutoBankStanderScript extends Script {
                     configData.getCleanHerbMode(),
                     configData.getUnfinishedPotionMode(),
                     configData.getFinishedPotion(),
-                    configData.isUseAmuletOfChemistry()
+                    configData.isUseAmuletOfChemistry(),
+                    configData.isHerbloreTurboMode(),
+                    configData.getHerbloreTurboLimit(),
+                    configData.getHerbloreSleepMin(),
+                    configData.getHerbloreSleepMax(),
+                    configData.getHerbloreSleepTarget()
                 );
             case FLETCHING:
                 log.info("Entering fletching processor creation");
