@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.qualityoflife.scripts.wintertodt;
 
+import net.runelite.api.GameState;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.NpcChanged;
 import net.runelite.api.events.NpcDespawned;
@@ -40,7 +41,18 @@ public class WintertodtScript extends Script {
     private QoLPlugin qolPlugin;
 
     public static boolean isInWintertodtRegion() {
-        var location = Rs2Player.getWorldLocation();
+        if (!Microbot.isLoggedIn()) {
+            return false;
+        }
+
+        var location = Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            if (Microbot.getClient().getGameState() != GameState.LOGGED_IN || Microbot.getClient().getLocalPlayer() == null) {
+                return null;
+            }
+
+            return Microbot.getClient().getLocalPlayer().getWorldLocation();
+        }).orElse(null);
+
         return location != null && location.getRegionID() == 6462;
     }
 
