@@ -21,6 +21,7 @@ public interface HouseThievingConfig extends Config {
     String foodEatPercentage = "foodEatPercentage";
     String useDodgyNecklace = "useDodgyNecklace";
     String dodgyNecklaceAmount = "dodgyNecklaceAmount";
+    String onlyPickpocketDistracted = "onlyPickpocketDistracted";
     String worldHopForDistractedCitizens = "worldHopForDistractedCitizens";
     String worldHopWaitTime = "worldHopWaitTime";
 
@@ -109,10 +110,21 @@ public interface HouseThievingConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = onlyPickpocketDistracted,
+            name = "Only Pickpocket Distracted",
+            description = "Only pickpocket when a distraction event is active (no food needed)",
+            position = 8,
+            section = generalSection
+    )
+    default boolean onlyPickpocketDistracted() {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = worldHopForDistractedCitizens,
             name = "World Hop For Distracted Citizens",
-            description = "World hop for Aurelia distracted citizen event",
-            position = 8,
+            description = "World hop if no distraction event within wait time",
+            position = 9,
             section = generalSection
     )
     default boolean worldHopForDistractedCitizens() {
@@ -122,8 +134,8 @@ public interface HouseThievingConfig extends Config {
     @ConfigItem(
             keyName = worldHopWaitTime,
             name = "World Hop Wait Time",
-            description = "How long to wait before world hopping for distracted ctizens",
-            position = 9,
+            description = "How long to wait before world hopping for distracted citizens",
+            position = 10,
             section = generalSection
     )
     default int worldHopWaitTime() {
