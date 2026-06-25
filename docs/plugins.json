@@ -383,7 +383,7 @@
         "tags": [
             "misc"
         ],
-        "version": "1.0.1",
+        "version": "1.1.0",
         "minClientVersion": "2.1.0",
         "authors": [
             "Unknown"
@@ -391,8 +391,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/DailyTasksPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/DailyTasksPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "ec865dee42b1d5d4e12021d34e65b9071d5f15eed723b7eb3659fff912867fb2",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/dailytasksplugin-1.0.1.jar"
+        "sha256": "aec94614f0e7b0bfb86223c3a7d47ccab3d93a9d9fcabbaf78234a02796cfe70",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/dailytasksplugin-1.1.0.jar"
     },
     {
         "internalName": "AIOFighterPlugin",
@@ -454,7 +454,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/TitheFarmingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/TitheFarmingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "45e682db2be14bec65fc082423200c3d6b975bb3fa208a78d29e036205f46ae7",
+        "sha256": "d958c759c13f92903def77767dcf87a7724221eed7cd05b102ec6a0bfd6ddc69",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tithefarmingplugin-1.1.13.jar"
     },
     {
@@ -1460,6 +1460,27 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sisyphusinfernalpactplugin-1.0.0.jar"
     },
     {
+        "internalName": "FarmingContractPlugin",
+        "name": "Farming Contracts",
+        "description": "Automates Farming Guild contracts. Start the plugin while inside the Farming Guild.",
+        "tags": [
+            "farming",
+            "contract",
+            "guild",
+            "jane"
+        ],
+        "version": "1.0.0",
+        "minClientVersion": "2.6.0",
+        "authors": [
+            "Pert"
+        ],
+        "iconUrl": "https://chsami.github.io/Microbot-Hub/FarmingContractPlugin/assets/icon.png",
+        "cardUrl": "https://chsami.github.io/Microbot-Hub/FarmingContractPlugin/assets/card.png",
+        "disable": false,
+        "sha256": "a8984159f569802c99f48a76384e7b369acb939bfb9d91d3eb8389b4f7136b44",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmingcontractplugin-1.0.0.jar"
+    },
+    {
         "internalName": "LeaguesFiremakingPlugin",
         "name": "AI Firemaking",
         "description": "Lights fires in lines anywhere \u2014 withdraws logs, scans for open tiles, adapts around obstacles",
@@ -1869,7 +1890,7 @@
             "barbarian",
             "skilling"
         ],
-        "version": "1.0.0",
+        "version": "1.1.0",
         "minClientVersion": "2.0.7",
         "authors": [
             "See1Duck"
@@ -1877,8 +1898,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/BarbarianFishingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/BarbarianFishingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "40b30aec278470a681fd2fb5741a61745a08730ef773f6032b82eb73273d74a8",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/barbarianfishingplugin-1.0.0.jar"
+        "sha256": "957a04db26ef1fcab6a0995cf4a0143a53b420ba07598bc91277e10a9abfe64c",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/barbarianfishingplugin-1.1.0.jar"
     },
     {
         "internalName": "MoonsOfPerilPlugin",
@@ -2058,7 +2079,7 @@
             "thieving",
             "house thieving"
         ],
-        "version": "1.0.3",
+        "version": "1.1.0",
         "minClientVersion": "2.0.7",
         "authors": [
             "Maxxin"
@@ -2066,8 +2087,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/HouseThievingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/HouseThievingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "aae9a2503ba9a3e27270af481a9fb41cdfea03d09854e3b4fa13a0c1c6df6d8c",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/housethievingplugin-1.0.3.jar"
+        "sha256": "b9a78fa0566a23dd63e7fc36400dfc878c3e8e204531133229764c53f12ecd77",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/housethievingplugin-1.1.0.jar"
     },
     {
         "internalName": "AutoFiremakingPlusPlugin",
@@ -2508,7 +2529,7 @@
             "skilling",
             "processing"
         ],
-        "version": "1.0.2",
+        "version": "1.0.3",
         "minClientVersion": "1.9.8",
         "authors": [
             "Unknown"
@@ -2516,8 +2537,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoBankStanderPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoBankStanderPlugin/assets/card.png",
         "disable": false,
-        "sha256": "bd54cf0ad1a0baf9efb72581a293472119513b7854f759d042dbba56f5cb3d6a",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autobankstanderplugin-1.0.2.jar"
+        "sha256": "fe53acf5dd225a0220daa30d50622ee57280095f59b27893a2a5b5cc94b87ec5",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autobankstanderplugin-1.0.3.jar"
     },
     {
         "internalName": "GEFiremakerPlugin",
@@ -2551,7 +2572,7 @@
             "motherlode",
             "mlm"
         ],
-        "version": "1.9.6",
+        "version": "1.9.7",
         "minClientVersion": "1.9.8",
         "authors": [
             "Mocrosoft"
@@ -2559,8 +2580,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/card.png",
         "disable": false,
-        "sha256": "5cacc9ea8e619c7c03a0a400c5b3bbaf9d20c5e2b25f5456be29e51f75d16bba",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/motherloadmineplugin-1.9.6.jar"
+        "sha256": "da2ecf8eb7bac101b4baba61e880c3ed6b5ddae8ed674df24d702fe3b0446ae4",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/motherloadmineplugin-1.9.7.jar"
     },
     {
         "internalName": "HerbrunPlugin",
@@ -2572,7 +2593,7 @@
             "money making",
             "skilling"
         ],
-        "version": "1.1.1",
+        "version": "1.2.0",
         "minClientVersion": "2.1.0",
         "authors": [
             "Mocrosoft"
@@ -2580,8 +2601,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/HerbrunPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/HerbrunPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "fad248b8133231af6d245b36da61e0ec49efb1100fd2f6e5cc431c6eaf9c9b4f",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/herbrunplugin-1.1.1.jar"
+        "sha256": "4ee84832eba9331c0af0f8d04be86adfb3978368475d287bd1071c45d9513ee2",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/herbrunplugin-1.2.0.jar"
     },
     {
         "internalName": "VarrockAnvilPlugin",
