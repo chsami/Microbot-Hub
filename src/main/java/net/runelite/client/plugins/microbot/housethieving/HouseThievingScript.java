@@ -5,6 +5,7 @@ import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
 import net.runelite.api.TileObject;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
@@ -43,11 +44,19 @@ public class HouseThievingScript extends Script {
         BANKING
     }
 
-    public static State state = State.PICKPOCKETING;
-    private Rs2TileObjectModel currentThievingObject = null;
-    private Long lastThievingSearch = null;
+    State state = State.PICKPOCKETING;
     private ThievingHouse currentThievingHouse = null;
     private Rs2NpcModel pickpocketNpc = null;
+    private boolean clickedThisDistraction = false;
+    // Furniture we last searched, and the piece the game told us is emptied ("nothing else worth taking").
+    // We skip the emptied piece so we switch to another instead of spam-clicking it; it refills while we loot elsewhere.
+    private volatile WorldPoint lastSearchedValuables = null;
+    private volatile WorldPoint exhaustedValuables = null;
+    // True once a search has started auto-looting a piece. One click loots a piece for ~50-60s with no further
+    // input, so we leave it alone until the game reports the piece is emptied (onValuablesExhausted) - the same
+    // "click once, the game auto-repeats" mechanic as a distracted pickpocket. Gating on animation is wrong here:
+    // the auto-loot has long stretches with no animation, so any isAnimating() window goes false mid-loot and re-clicks.
+    private volatile boolean searchingPiece = false;
     private final static String HOUSE_KEYS = "House keys";
     private final static String DODGY_NECKLACE = "Dodgy necklace";
     private final static String COIN_POUCH = "Coin pouch";
@@ -59,13 +68,6 @@ public class HouseThievingScript extends Script {
         initialPlayerLocation = null;
         Rs2Antiban.resetAntibanSettings();
         Rs2AntibanSettings.naturalMouse = true;
-
-        var childrenOfTheSunComplete = Rs2Player.getQuestState(Quest.CHILDREN_OF_THE_SUN) == QuestState.FINISHED;
-        if (!childrenOfTheSunComplete) {
-            Microbot.showMessage("Children of the Sun quest is required to be complete to use this plugin.");
-            shutdown();
-            return false;
-        }
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -89,7 +91,6 @@ public class HouseThievingScript extends Script {
                 if (currentThievingHouse == null)
                     currentThievingHouse = getThievingHouse();
 
-                var houseNpc = Microbot.getRs2NpcCache().query().withName(currentThievingHouse.npcName).nearestOnClientThread();
                 switch (state) {
                     case PICKPOCKETING:
                         handlePickPocketing(config);
@@ -98,6 +99,7 @@ public class HouseThievingScript extends Script {
                         handleFindingHouse(config);
                         break;
                     case THIEVING_HOUSES:
+                        var houseNpc = Microbot.getRs2NpcCache().query().withName(currentThievingHouse.npcName).nearestOnClientThread();
                         handleThievingHouse(houseNpc);
                         break;
                     case BANKING:
@@ -114,10 +116,7 @@ public class HouseThievingScript extends Script {
     }
 
     private void handlePickPocketing(HouseThievingConfig config) {
-        if (Rs2Player.isInteracting()) {
-            Microbot.log("Player is already interacting with an NPC, waiting for interaction to finish", Level.DEBUG);
-            return;
-        }
+        if (Rs2Player.isAnimating()) return;
         var hasFood = !Rs2Inventory.getInventoryFood().isEmpty();
         var hasDodgyNecklaceInv = getDodgyNecklaceAmount() > 0;
         var hasDodgyNecklaceEquipped = Rs2Equipment.isWearing(DODGY_NECKLACE);
@@ -129,7 +128,7 @@ public class HouseThievingScript extends Script {
             Microbot.log("Have enough house keys, thieving houses", Level.INFO);
             state = State.FINDING_HOUSE;
             return;
-        } else if (!hasMaxHouseKeys(config) && (!hasFood || (!hasDodgyNecklaceInv && !hasDodgyNecklaceEquipped && config.useDodgyNecklace())) && !config.worldHopForDistractedCitizens()) {
+        } else if (!hasMaxHouseKeys(config) && (!hasFood || (!hasDodgyNecklaceInv && !hasDodgyNecklaceEquipped && config.useDodgyNecklace())) && !config.worldHopForDistractedCitizens() && !config.onlyPickpocketDistracted() && config.pickpocketFoodAmount() > 0) {
             Microbot.log("Need food or dodgy necklace to keep pickpocketing, withdrawing from bank", Level.INFO);
             state = State.BANKING;
             return;
@@ -151,6 +150,7 @@ public class HouseThievingScript extends Script {
             if (coinPouches.getQuantity() > 27) {
                 Rs2Inventory.interact(coinPouches, "Open-all");
                 Rs2Random.waitEx(200.0, 200.0);
+                clickedThisDistraction = false; // opening pouches interrupts auto-pickpocket; re-click needed
             }
         }
 
@@ -162,11 +162,14 @@ public class HouseThievingScript extends Script {
                 distractedWealthyCitizen = getDistractedWealthyCitizen(aureliaNpc);
                 if (distractedWealthyCitizen != null)
                     pickpocketNpc = null;
-            } else if (pickpocketNpc == null) {
-                var nearbyWealthyCitizens = Microbot.getRs2NpcCache().query().withName(WEALTHY_CITIZEN).toListOnClientThread().stream();
-                var aureliaLocation = aureliaNpc.getWorldLocation();
-                var closestWealthyCitizen = nearbyWealthyCitizens.min(Comparator.comparingInt(a -> a.getWorldLocation().distanceTo(aureliaLocation)));
-                closestWealthyCitizen.ifPresent(rs2NpcModel -> pickpocketNpc = rs2NpcModel);
+            } else {
+                clickedThisDistraction = false; // distraction ended; allow a click when the next one starts
+                if (pickpocketNpc == null) {
+                    var nearbyWealthyCitizens = Microbot.getRs2NpcCache().query().withName(WEALTHY_CITIZEN).toListOnClientThread().stream();
+                    var aureliaLocation = aureliaNpc.getWorldLocation();
+                    var closestWealthyCitizen = nearbyWealthyCitizens.min(Comparator.comparingInt(a -> a.getWorldLocation().distanceTo(aureliaLocation)));
+                    closestWealthyCitizen.ifPresent(rs2NpcModel -> pickpocketNpc = rs2NpcModel);
+                }
             }
             if (config.worldHopForDistractedCitizens()) {
                 Microbot.log(String.format("Waiting %s seconds for Aurelia pickpocket", config.worldHopWaitTime()), Level.INFO);
@@ -180,24 +183,31 @@ public class HouseThievingScript extends Script {
             }
         }
 
-        var targetWealthyCitizen = distractedWealthyCitizen != null ? distractedWealthyCitizen : pickpocketNpc;
-        if (targetWealthyCitizen != null) {
-            if (distractedWealthyCitizen == null) { // Regular pickpocketing
-                if (Rs2Inventory.getInventoryFood().isEmpty()) {
-                    state = State.BANKING;
-                    return;
-                }
-                if (Rs2Player.getHealthPercentage() <= config.foodEatPercentage()) {
-                    Rs2Player.useFood();
-                    Rs2Inventory.waitForInventoryChanges(600);
-                }
-            }
+        if (config.onlyPickpocketDistracted() && distractedWealthyCitizen == null)
+            return;
 
-            if (Rs2Player.isStunned() && distractedWealthyCitizen == null)
+        if (distractedWealthyCitizen != null) {
+            if (clickedThisDistraction)
+                return; // already pickpocketing this distraction; the game auto-repeats for ~24s
+            distractedWealthyCitizen.click("Pickpocket");
+            clickedThisDistraction = true;
+            return;
+        }
+
+        if (pickpocketNpc != null) {
+            if (Rs2Inventory.getInventoryFood().isEmpty()) {
+                state = State.BANKING;
+                return;
+            }
+            if (Rs2Player.getHealthPercentage() <= config.foodEatPercentage()) {
+                Rs2Player.useFood();
+                Rs2Inventory.waitForInventoryChanges(600);
+            }
+            if (Rs2Player.isStunned())
                 sleepUntil(() -> !Rs2Player.isStunned(), 600);
-            targetWealthyCitizen.click("Pickpocket");
+            pickpocketNpc.click("Pickpocket");
             Rs2Random.waitEx(600.0, 200.0);
-            sleepUntil(() -> !Rs2Player.isInteracting() && !Rs2Player.isAnimating(), 10000);
+            sleepUntil(() -> !Rs2Player.isAnimating(), 10000);
         }
 
         if (distractedWealthyCitizen != null && config.worldHopForDistractedCitizens()) {
@@ -219,11 +229,10 @@ public class HouseThievingScript extends Script {
 
     @Nullable
     private static Rs2NpcModel getDistractedWealthyCitizen(Rs2NpcModel aureliaNpc) {
-        return Microbot.getRs2NpcCache().query().where(npc ->
-                npc.getWorldLocation().distanceTo(aureliaNpc.getWorldLocation()) <= 5 &&
-                        npc.getName() != null && npc.getName().equalsIgnoreCase(WEALTHY_CITIZEN) &&
-                        npc.isInteractingWithPlayer()
-        ).toList().stream().findFirst().orElse(null);
+        var aureliaLoc = aureliaNpc.getWorldLocation();
+        return Microbot.getRs2NpcCache().query()
+                .withName(WEALTHY_CITIZEN)
+                .nearestOnClientThread(aureliaLoc, 5);
     }
 
     private void handleFindingHouse(HouseThievingConfig config) {
@@ -232,12 +241,10 @@ public class HouseThievingScript extends Script {
             return;
         }
 
-        if (Rs2Inventory.hasItem(HOUSE_KEYS)) {
-            var houseKeys = Rs2Inventory.get(HOUSE_KEYS);
-            if (houseKeys != null && houseKeys.getQuantity() < config.minHouseKeys()) {
-                state = State.PICKPOCKETING;
-                return;
-            }
+        var houseKeys = Rs2Inventory.get(HOUSE_KEYS);
+        if (houseKeys == null || houseKeys.getQuantity() < config.minHouseKeys()) {
+            state = State.PICKPOCKETING;
+            return;
         }
 
         var distanceToScout = Rs2Player.getWorldLocation().distanceTo(currentThievingHouse.scoutPosition);
@@ -261,14 +268,15 @@ public class HouseThievingScript extends Script {
                 if (!Rs2Tile.isTileReachable(currentThievingHouse.houseCenter)) {
                     Microbot.getRs2TileObjectCache().query().withId(wallObject.getId()).interact();
                     Rs2Random.waitEx(2000.0, 100.0);
-                    sleepUntil(() -> !Rs2Player.isInteracting() && !Rs2Player.isAnimating(600));
+                    sleepUntil(() -> !Rs2Player.isAnimating(600));
                     Rs2Random.waitEx(2000.0, 100.0);
                     sleepUntil(() -> Rs2Tile.isTileReachable(currentThievingHouse.houseCenter), 10000);
                     Microbot.log("Entered " + currentThievingHouse.npcName + " house", Level.INFO);
                 }
                 if (Rs2Tile.isTileReachable(currentThievingHouse.houseCenter)) {
-                    currentThievingObject = null;
-                    lastThievingSearch = null;
+                    lastSearchedValuables = null;
+                    exhaustedValuables = null;
+                    searchingPiece = false;
                     state = State.THIEVING_HOUSES;
                     Microbot.log("Starting thieving in " + currentThievingHouse.npcName + " house.", Level.INFO);
                     return;
@@ -317,40 +325,75 @@ public class HouseThievingScript extends Script {
             }
         }
 
-        var hintArrow = Microbot.getClient().getHintArrowPoint();
-        var elapsedTime = lastThievingSearch == null ? null : System.currentTimeMillis() - lastThievingSearch;
-        if (hintArrow == null) {
-            if (currentThievingObject == null) {
-                var tileObject = Rs2Tile.getTile(currentThievingHouse.initialThievingChest.getX(), currentThievingHouse.initialThievingChest.getY());
-                if (tileObject != null) {
-                    currentThievingObject = Microbot.getRs2TileObjectCache().query().nearest(currentThievingHouse.initialThievingChest, 3);
-                    if (!Rs2Camera.isTileOnScreen(currentThievingObject.getLocalLocation())) {
-                        Rs2Camera.turnTo(currentThievingObject);
-                    }
-                    currentThievingObject.click("Search");
-                }
-                currentThievingObject = Microbot.getRs2TileObjectCache().query().nearest(currentThievingHouse.initialThievingChest, 3);
-            }
-
-            if (currentThievingObject != null && (lastThievingSearch == null || (elapsedTime != null && elapsedTime > 50000))) {
-                if (!Rs2Camera.isTileOnScreen(currentThievingObject.getLocalLocation())) {
-                    Rs2Camera.turnTo(currentThievingObject);
-                }
-                currentThievingObject.click("Search");
-                lastThievingSearch = System.currentTimeMillis();
-                Rs2Random.waitEx(1000.0, 200.0);
-            }
-        } else {
-            currentThievingObject = Microbot.getRs2TileObjectCache().query().nearest(hintArrow, 3);
-            if (!Rs2Player.isInteracting() || lastThievingSearch == null || (elapsedTime != null && elapsedTime > 50000)) {
-                if (!Rs2Camera.isTileOnScreen(currentThievingObject.getLocalLocation())) {
-                    Rs2Camera.turnTo(currentThievingObject);
-                }
-                currentThievingObject.click("Search");
-                lastThievingSearch = System.currentTimeMillis();
-                Rs2Random.waitEx(1000.0, 200.0);
+        // A flashing hint arrow ("You notice something shine somewhere else in the house") marks a piece that
+        // grants a one-time bonus (+14 valuables, +630 xp) for switching to it. Claim it even mid-loot - the
+        // game rewards the switch. The arrow clears ~7s after we search it, and we skip it once we're already on
+        // that piece, so this fires once per highlight rather than spam-clicking.
+        var hintArrow = Microbot.getClientThread().runOnClientThreadOptional(() -> Microbot.getClient().getHintArrowPoint()).orElse(null);
+        if (hintArrow != null && (lastSearchedValuables == null || lastSearchedValuables.distanceTo(hintArrow) > 2)) {
+            if (Rs2Player.isMoving())
+                return; // en route to the bonus piece
+            var bonusPiece = Microbot.getRs2TileObjectCache().query()
+                    .withIds(VALUABLES_OBJECT_IDS)
+                    .nearestOnClientThread(hintArrow, 2);
+            if (bonusPiece != null) {
+                lastSearchedValuables = bonusPiece.getWorldLocation();
+                exhaustedValuables = null; // the arrow can re-highlight a refilled piece we'd otherwise skip
+                if (!Rs2Camera.isTileOnScreen(bonusPiece.getLocalLocation()))
+                    Rs2Camera.turnTo(bonusPiece);
+                bonusPiece.click("Search");
+                searchingPiece = sleepUntil(() -> Rs2Player.isAnimating(), 5000);
+                return;
             }
         }
+
+        // Already auto-looting a piece: one click keeps looting for ~50-60s, so don't touch it. We only act
+        // again when the game tells us the piece is emptied (onValuablesExhausted clears searchingPiece below).
+        if (searchingPiece)
+            return;
+
+        // Walking to the piece we just clicked - let the click register instead of firing another.
+        if (Rs2Player.isMoving())
+            return;
+
+        // Search the nearest piece of furniture, skipping the one the game just told us is emptied so we move
+        // on instead of spam-clicking it. It refills while we loot another piece.
+        var valuables = Microbot.getRs2TileObjectCache().query()
+                .withIds(VALUABLES_OBJECT_IDS)
+                .where(o -> exhaustedValuables == null || !exhaustedValuables.equals(o.getWorldLocation()))
+                .nearestOnClientThread();
+        if (valuables == null) {
+            exhaustedValuables = null; // nothing else within reach; let the emptied piece refill and retry it
+            return;
+        }
+        lastSearchedValuables = valuables.getWorldLocation();
+        if (!Rs2Camera.isTileOnScreen(valuables.getLocalLocation()))
+            Rs2Camera.turnTo(valuables);
+        valuables.click("Search");
+        // Confirm the search actually started (covers the walk to the piece) before marking it active; if it
+        // never starts we retry next loop instead of standing idle. This is a timeout, not a state-modeling cooldown.
+        searchingPiece = sleepUntil(() -> Rs2Player.isAnimating(), 5000);
+    }
+
+    /** True if the tile object exposes a "Bank" menu action (mirrors how Rs2TileObjectModel.click resolves it). */
+    private static boolean hasBankAction(Rs2TileObjectModel object) {
+        var comp = object.getObjectComposition();
+        if (comp == null)
+            return false;
+        var actions = (comp.getImpostorIds() != null && comp.getImpostor() != null)
+                ? comp.getImpostor().getActions() : comp.getActions();
+        if (actions == null)
+            return false;
+        for (var action : actions)
+            if ("Bank".equalsIgnoreCase(action))
+                return true;
+        return false;
+    }
+
+    /** Called when the game reports the current piece of furniture is emptied ("nothing else worth taking"). */
+    void onValuablesExhausted() {
+        exhaustedValuables = lastSearchedValuables;
+        searchingPiece = false; // auto-loot ended; let the loop search a different, non-exhausted piece
     }
 
     private boolean exitHouse() {
@@ -363,8 +406,7 @@ public class HouseThievingScript extends Script {
                 }
                 Microbot.getRs2TileObjectCache().query().withId(windowTileWallObject.getId()).interact("Exit-window");
                 Rs2Random.waitEx(5000.0, 200.0);
-                currentThievingObject = null;
-                lastThievingSearch = null;
+                searchingPiece = false;
                 setNextThievingHouse();
                 state = State.FINDING_HOUSE;
                 return true;
@@ -389,7 +431,7 @@ public class HouseThievingScript extends Script {
             return;
         }
 
-        if (!hasMaxHouseKeys(config) && ((hasFood && dodgyNecklaceReqsMet) || config.worldHopForDistractedCitizens())) {
+        if (!hasMaxHouseKeys(config) && ((hasFood && dodgyNecklaceReqsMet) || config.worldHopForDistractedCitizens() || config.onlyPickpocketDistracted())) {
             state = State.PICKPOCKETING;
             return;
         }
@@ -399,12 +441,18 @@ public class HouseThievingScript extends Script {
         }
 
         if (!Rs2Bank.isOpen() && Rs2Player.distanceTo(BANKING_LOCATION) <= 3) {
-            var bankingTile = Microbot.getRs2TileObjectCache().query().nearest(BANKING_TILE_LOCATION, 3);
-            if (bankingTile != null)
-                Rs2Bank.openBank(bankingTile);
+            // Resolve the actual bank object near the counter. The previous unfiltered nearest() grabbed whatever
+            // tile object was closest - often a floor/decoration with no "Bank" option - so click() fell back to
+            // that object's first menu entry ("Walk here") and the bank never opened. Filter to an object that
+            // actually has a "Bank" action (this counter's id isn't in Rs2Bank's known-bank set, so the no-arg
+            // openBank() can't find it either). openBank(object) waits internally for the bank to open.
+            var bankObject = Microbot.getRs2TileObjectCache().query()
+                    .where(HouseThievingScript::hasBankAction)
+                    .nearestOnClientThread(BANKING_TILE_LOCATION, 5);
+            if (bankObject != null)
+                Rs2Bank.openBank(bankObject);
             else
                 Rs2Bank.openBank();
-            sleepUntil(Rs2Bank::isOpen, 2);
         }
 
         if (Rs2Bank.isOpen()) {
@@ -415,7 +463,7 @@ public class HouseThievingScript extends Script {
             Rs2Inventory.waitForInventoryChanges(600);
 
             if (!hasMaxHouseKeys(config)) {
-                if (!hasFood && !config.worldHopForDistractedCitizens()) {
+                if (!hasFood && !config.worldHopForDistractedCitizens() && !config.onlyPickpocketDistracted()) {
                     if (!Rs2Bank.hasItem(config.foodSelection().getId())) {
                         Microbot.showMessage("No food found in bank!");
                         shutdown();
@@ -424,7 +472,7 @@ public class HouseThievingScript extends Script {
                     Rs2Bank.withdrawX(config.foodSelection().getId(), config.pickpocketFoodAmount());
                     Rs2Inventory.waitForInventoryChanges(600);
                 }
-                if (config.useDodgyNecklace() && !config.worldHopForDistractedCitizens()) {
+                if (config.useDodgyNecklace() && !config.worldHopForDistractedCitizens() && !config.onlyPickpocketDistracted()) {
                     if (!Rs2Bank.hasItem(DODGY_NECKLACE)) {
                         Microbot.showMessage("No dodgy necklace found in bank!");
                         shutdown();
