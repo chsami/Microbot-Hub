@@ -32,6 +32,11 @@ public class ConfigData {
     private UnfinishedPotionMode unfinishedPotionMode = UnfinishedPotionMode.ANY_AND_ALL;
     private HerblorePotion finishedPotion = HerblorePotion.ATTACK;
     private boolean useAmuletOfChemistry = false;
+    private boolean herbloreTurboMode = false;
+    private int herbloreTurboLimit = 0;
+    private int herbloreSleepMin = 60;
+    private int herbloreSleepMax = 300;
+    private int herbloreSleepTarget = 150;
     
     // Fletching settings
     private FletchingMode fletchingMode = FletchingMode.DARTS;
@@ -56,6 +61,11 @@ public class ConfigData {
         this.unfinishedPotionMode = other.unfinishedPotionMode;
         this.finishedPotion = other.finishedPotion;
         this.useAmuletOfChemistry = other.useAmuletOfChemistry;
+        this.herbloreTurboMode = other.herbloreTurboMode;
+        this.herbloreTurboLimit = other.herbloreTurboLimit;
+        this.herbloreSleepMin = other.herbloreSleepMin;
+        this.herbloreSleepMax = other.herbloreSleepMax;
+        this.herbloreSleepTarget = other.herbloreSleepTarget;
         this.fletchingMode = other.fletchingMode;
         this.dartType = other.dartType;
         this.fletchingBoltType = other.fletchingBoltType;
@@ -90,7 +100,22 @@ public class ConfigData {
     
     public boolean isUseAmuletOfChemistry() { return useAmuletOfChemistry; }
     public void setUseAmuletOfChemistry(boolean useAmuletOfChemistry) { this.useAmuletOfChemistry = useAmuletOfChemistry; }
-    
+
+    public boolean isHerbloreTurboMode() { return herbloreTurboMode; }
+    public void setHerbloreTurboMode(boolean herbloreTurboMode) { this.herbloreTurboMode = herbloreTurboMode; }
+
+    public int getHerbloreTurboLimit() { return herbloreTurboLimit; }
+    public void setHerbloreTurboLimit(int herbloreTurboLimit) { this.herbloreTurboLimit = herbloreTurboLimit; }
+
+    public int getHerbloreSleepMin() { return herbloreSleepMin; }
+    public void setHerbloreSleepMin(int herbloreSleepMin) { this.herbloreSleepMin = herbloreSleepMin; }
+
+    public int getHerbloreSleepMax() { return herbloreSleepMax; }
+    public void setHerbloreSleepMax(int herbloreSleepMax) { this.herbloreSleepMax = herbloreSleepMax; }
+
+    public int getHerbloreSleepTarget() { return herbloreSleepTarget; }
+    public void setHerbloreSleepTarget(int herbloreSleepTarget) { this.herbloreSleepTarget = herbloreSleepTarget; }
+
     public FletchingMode getFletchingMode() { return fletchingMode; }
     public void setFletchingMode(FletchingMode fletchingMode) { this.fletchingMode = fletchingMode; }
     

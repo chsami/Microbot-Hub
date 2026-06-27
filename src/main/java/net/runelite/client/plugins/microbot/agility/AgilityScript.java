@@ -4,22 +4,20 @@ import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
-import net.runelite.client.plugins.agility.AgilityPlugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.agility.courses.BrimhavenSpikeCourse;
 import net.runelite.client.plugins.microbot.agility.courses.GnomeStrongholdCourse;
 import net.runelite.client.plugins.microbot.agility.courses.PrifddinasCourse;
 import net.runelite.client.plugins.microbot.agility.courses.WerewolfCourse;
+import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
-import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.models.RS2Item;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -283,26 +281,31 @@ public class AgilityScript extends Script
 
 	private boolean lootMarksOfGrace()
 	{
-		final List<RS2Item> marksOfGrace = AgilityPlugin.getMarksOfGrace();
 		final int lootDistance = plugin.getCourseHandler().getLootDistance();
-		if (!marksOfGrace.isEmpty() && !Rs2Inventory.isFull())
+		if (Rs2Inventory.isFull() && !Rs2Inventory.contains(ItemID.GRACE))
 		{
-			for (RS2Item markOfGraceTile : marksOfGrace)
-			{
-				if (Microbot.getClient().getTopLevelWorldView().getPlane() != markOfGraceTile.getTile().getPlane())
-				{
-					continue;
-				}
-				if (!Rs2GameObject.canReach(markOfGraceTile.getTile().getWorldLocation(), lootDistance, lootDistance, lootDistance, lootDistance))
-				{
-					continue;
-				}
-				Rs2GroundItem.loot(markOfGraceTile.getItem().getId());
-				Rs2Player.waitForWalking();
-				return true;
-			}
+			return false;
 		}
-		return false;
+
+		Rs2TileItemModel markOfGrace = Microbot.getRs2TileItemCache().query()
+			.fromWorldView()
+			.withId(ItemID.GRACE)
+			.where(Rs2TileItemModel::isLootAble)
+			.where(item -> Rs2GameObject.canReach(item.getWorldLocation(), lootDistance, lootDistance, lootDistance, lootDistance))
+			.nearest(lootDistance);
+
+		if (markOfGrace == null)
+		{
+			return false;
+		}
+
+		if (!markOfGrace.pickup())
+		{
+			return false;
+		}
+
+		Rs2Player.waitForWalking();
+		return true;
 	}
 
 	private boolean handleFood()
