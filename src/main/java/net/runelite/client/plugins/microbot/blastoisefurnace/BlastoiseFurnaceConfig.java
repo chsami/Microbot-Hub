@@ -33,6 +33,22 @@ public interface BlastoiseFurnaceConfig extends Config {
     default Bars getBars() {
         return Bars.STEEL_BAR;
     }
+
+    @Range(
+            min = 0,
+            max = 10000
+    )
+    @ConfigItem(
+            keyName = "runEnergyThreshold",
+            name = "Run energy threshold",
+            description = "Drink stamina/energy potions below this run energy value (0-10000)",
+            position = 2,
+            section = "bFSettings"
+    )
+    default int runEnergyThreshold() {
+        return 8100;
+    }
+
     @ConfigSection(
             name = "Credits",
             description = "Credits",

@@ -138,6 +138,8 @@ public class MotherloadMineScript extends Script
                 return;
             }
 
+            if (Rs2AntibanSettings.actionCooldownActive) return;
+
             determineStatusFromInventory();
             logStatusTransitionIfChanged();
 
@@ -255,12 +257,22 @@ public class MotherloadMineScript extends Script
 
 		if (isOnSelectedMiningFloor() && findClosestVein() != null && attemptToMineVein())
 		{
+			Rs2Antiban.actionCooldown();
+			Rs2Antiban.takeMicroBreakByChance();
 			return;
 		}
 
 		if (!walkToMiningSpot()) return;
 
-		attemptToMineVein();
+		if (attemptToMineVein())
+		{
+			Rs2Antiban.actionCooldown();
+			Rs2Antiban.takeMicroBreakByChance();
+		}
+		else
+		{
+			oreVein = null;
+		}
 	}
 
 	private boolean isOnSelectedMiningFloor()
@@ -363,15 +375,16 @@ public class MotherloadMineScript extends Script
             }
         }
 
-        WorldPoint hopperDeposit = (isUpperFloor() && config.upstairsHopperUnlocked()) ? HOPPER_DEPOSIT_UP : HOPPER_DEPOSIT_DOWN;
-        Rs2TileObjectModel hopper = rs2TileObjectCache.query().where(x -> x.getWorldLocation().equals(hopperDeposit)).withId(ObjectID.MOTHERLODE_HOPPER).first();
-
         if(isUpperFloor() && !config.upstairsHopperUnlocked())
         {
             ensureLowerFloor();
         }
 
         final int paydirtToDeposit = payDirtCount();
+        sleep(800, 1200);
+
+        WorldPoint hopperDeposit = (isUpperFloor() && config.upstairsHopperUnlocked()) ? HOPPER_DEPOSIT_UP : HOPPER_DEPOSIT_DOWN;
+        Rs2TileObjectModel hopper = rs2TileObjectCache.query().where(x -> x.getWorldLocation().equals(hopperDeposit)).withId(ObjectID.MOTHERLODE_HOPPER).first();
 
         if (hopper != null && hopper.click()) {
             log.debug("Depositing pay-dirt into hopper");
@@ -562,6 +575,11 @@ public class MotherloadMineScript extends Script
             return false; // Wait until we've gone up
         }
 
+        if (miningSpot.isUpstairs() && isUpperFloor())
+        {
+            return true;
+        }
+
         if (miningSpot.isDownstairs() && isUpperFloor()) {
             goDown();
             return false; // Wait until we've gone down
@@ -750,7 +768,8 @@ public class MotherloadMineScript extends Script
 	}
 
 	private void dropHammerIfNeeded() {
-		if (pickedUpHammer || (!Rs2Equipment.isWearing("hammer") && Rs2Inventory.hasItem("hammer"))) {
+		if (pickedUpHammer) {
+            log.debug("Dropping temporary hammer");
 			Rs2Inventory.drop("hammer");
 			sleepUntil(() -> !Rs2Inventory.hasItem("hammer"));
 			pickedUpHammer = false;
