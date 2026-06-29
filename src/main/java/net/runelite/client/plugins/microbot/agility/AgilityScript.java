@@ -14,10 +14,10 @@ import net.runelite.client.plugins.microbot.agility.courses.PrifddinasCourse;
 import net.runelite.client.plugins.microbot.agility.courses.WerewolfCourse;
 import net.runelite.client.plugins.microbot.agility.enums.AgilityCourse;
 import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
@@ -44,7 +44,11 @@ public class AgilityScript extends Script
 	long lastTimeoutWarning = 0;  // For throttled timeout warnings
 	private AgilityCourse activeCourse = null;
 	private AgilityCourseHandler activeHandler = null;
-	private static final int MARK_OF_GRACE_SEARCH_DISTANCE = 8;
+	private static final int MARK_OF_GRACE_SEARCH_DISTANCE = 30;
+	private static final int MARK_OF_GRACE_PICKUP_TIMEOUT = 5000;
+	private WorldPoint pendingMarkOfGraceLocation = null;
+	private int pendingMarkOfGraceCount = 0;
+	private long pendingMarkOfGraceStartedAt = 0;
 	private volatile boolean shuttingDown = false;
 
 	@Inject
@@ -67,6 +71,7 @@ public class AgilityScript extends Script
 		activeHandler = null;
 		startPoint = null;
 		initialPlayerLocation = null;
+		clearPendingMarkOfGrace();
 
 		if (mainScheduledFuture != null && !mainScheduledFuture.isDone())
 		{
@@ -250,7 +255,7 @@ public class AgilityScript extends Script
 				}
 				
 				// Normal obstacle interaction
-				if (Rs2GameObject.interact(gameObject)) {
+				if (interactWithObstacle(gameObject)) {
 					// Wait for completion - this now returns quickly on XP drop
 					boolean completed = courseHandler.waitForCompletion(agilityExp,
 						Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).getPlane());
@@ -375,6 +380,28 @@ public class AgilityScript extends Script
 
 	private boolean lootMarksOfGrace(AgilityCourseHandler courseHandler)
 	{
+		if (shuttingDown)
+		{
+			clearPendingMarkOfGrace();
+			return false;
+		}
+
+		if (pendingMarkOfGraceLocation != null)
+		{
+			if (markPickupResolved() || System.currentTimeMillis() - pendingMarkOfGraceStartedAt > MARK_OF_GRACE_PICKUP_TIMEOUT)
+			{
+				clearPendingMarkOfGrace();
+			}
+			else if (Rs2Player.isMoving() || Rs2Player.isAnimating())
+			{
+				return true;
+			}
+			else
+			{
+				clearPendingMarkOfGrace();
+			}
+		}
+
 		if (Rs2Inventory.isFull() && !Rs2Inventory.contains(ItemID.GRACE))
 		{
 			return false;
@@ -392,7 +419,7 @@ public class AgilityScript extends Script
 			.where(Rs2TileItemModel::isLootAble)
 			.where(item -> item.getWorldLocation() != null && item.getWorldLocation().getPlane() == playerLocation.getPlane())
 			.where(item -> item.getWorldLocation().distanceTo(playerLocation) <= MARK_OF_GRACE_SEARCH_DISTANCE)
-			.where(item -> Rs2GameObject.canReach(item.getWorldLocation()))
+			.where(item -> Rs2Walker.canReach(item.getWorldLocation()))
 			.toList()
 			.stream()
 			.min(Comparator.comparingInt(item -> item.getWorldLocation().distanceTo(playerLocation)))
@@ -403,13 +430,64 @@ public class AgilityScript extends Script
 			return false;
 		}
 
-		if (!markOfGrace.pickup())
+		if (Rs2Player.isMoving() || Rs2Player.isAnimating())
+		{
+			return true;
+		}
+
+		WorldPoint markLocation = markOfGrace.getWorldLocation();
+		var markLocalLocation = markOfGrace.getLocalLocation();
+		if (markLocation == null || markLocalLocation == null)
 		{
 			return false;
 		}
 
-		Rs2Player.waitForWalking();
+		if (!Rs2Camera.isTileOnScreen(markLocalLocation))
+		{
+			Rs2Camera.turnTo(markLocalLocation);
+			sleep(300, 600);
+			return true;
+		}
+
+		int markCount = Rs2Inventory.itemQuantity(ItemID.GRACE);
+		if (!markOfGrace.pickup())
+		{
+			return false;
+		}
+		pendingMarkOfGraceLocation = markLocation;
+		pendingMarkOfGraceCount = markCount;
+		pendingMarkOfGraceStartedAt = System.currentTimeMillis();
+
+		sleepUntil(() -> shuttingDown || markPickupResolved() || Rs2Player.isMoving(), 1800);
+		if (markPickupResolved() || shuttingDown)
+		{
+			clearPendingMarkOfGrace();
+		}
 		return true;
+	}
+
+	private boolean markPickupResolved()
+	{
+		return pendingMarkOfGraceLocation != null
+			&& (Rs2Inventory.itemQuantity(ItemID.GRACE) > pendingMarkOfGraceCount
+			|| !hasLootableMarkAt(pendingMarkOfGraceLocation));
+	}
+
+	private void clearPendingMarkOfGrace()
+	{
+		pendingMarkOfGraceLocation = null;
+		pendingMarkOfGraceCount = 0;
+		pendingMarkOfGraceStartedAt = 0;
+	}
+
+	private boolean hasLootableMarkAt(WorldPoint markLocation)
+	{
+		return Microbot.getRs2TileItemCache().query()
+			.fromWorldView()
+			.withId(ItemID.GRACE)
+			.where(Rs2TileItemModel::isLootAble)
+			.where(item -> markLocation.equals(item.getWorldLocation()))
+			.first() != null;
 	}
 
 	private boolean handleFood()
@@ -497,11 +575,11 @@ public class AgilityScript extends Script
 		if (gameObject.getWorldLocation().distanceTo(playerLocation) >= 5)
 		{
 			// Efficient alching: click, alch, click
-			if (Rs2GameObject.interact(gameObject))
+			if (interactWithObstacle(gameObject))
 			{
 				sleep(100, 200);
 				Rs2Magic.alch(alchItem, 50, 75);
-				Rs2GameObject.interact(gameObject);
+				interactWithObstacle(gameObject);
 				boolean completed = getActiveHandler().waitForCompletion(agilityExp,
 					Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).getPlane());
 
@@ -556,5 +634,10 @@ public class AgilityScript extends Script
 			return courseHandler.handleWalkToStart(playerWorldLocation);
 		}
 		return false;
+	}
+
+	private boolean interactWithObstacle(TileObject gameObject)
+	{
+		return gameObject != null && new Rs2TileObjectModel(gameObject).click();
 	}
 }
