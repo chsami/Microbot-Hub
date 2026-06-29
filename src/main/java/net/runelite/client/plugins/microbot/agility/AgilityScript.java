@@ -6,10 +6,13 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.agentserver.handler.ScriptHeartbeatRegistry;
+import net.runelite.client.plugins.microbot.agility.courses.AgilityCourseHandler;
 import net.runelite.client.plugins.microbot.agility.courses.BrimhavenSpikeCourse;
 import net.runelite.client.plugins.microbot.agility.courses.GnomeStrongholdCourse;
 import net.runelite.client.plugins.microbot.agility.courses.PrifddinasCourse;
 import net.runelite.client.plugins.microbot.agility.courses.WerewolfCourse;
+import net.runelite.client.plugins.microbot.agility.enums.AgilityCourse;
 import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
@@ -22,7 +25,9 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import javax.inject.Inject;
+import java.awt.EventQueue;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -37,6 +42,10 @@ public class AgilityScript extends Script
 	WorldPoint startPoint = null;
 	int lastAgilityXp = 0;
 	long lastTimeoutWarning = 0;  // For throttled timeout warnings
+	private AgilityCourse activeCourse = null;
+	private AgilityCourseHandler activeHandler = null;
+	private static final int MARK_OF_GRACE_SEARCH_DISTANCE = 8;
+	private volatile boolean shuttingDown = false;
 
 	@Inject
 	public AgilityScript(MicroAgilityPlugin plugin, MicroAgilityConfig config)
@@ -48,22 +57,57 @@ public class AgilityScript extends Script
 	@Override
 	public void shutdown()
 	{
-		// Reset BrimhavenSpike course flags if applicable
-		if (plugin.getCourseHandler() instanceof BrimhavenSpikeCourse)
+		shuttingDown = true;
+		ScriptHeartbeatRegistry.remove(this.getClass().getName());
+		if (activeHandler != null)
 		{
-			BrimhavenSpikeCourse course = (BrimhavenSpikeCourse) plugin.getCourseHandler();
-			course.reset();
+			activeHandler.reset();
 		}
-		
-		super.shutdown();
+		activeCourse = null;
+		activeHandler = null;
+		startPoint = null;
+		initialPlayerLocation = null;
+
+		if (mainScheduledFuture != null && !mainScheduledFuture.isDone())
+		{
+			mainScheduledFuture.cancel(true);
+		}
+		if (scheduledFuture != null && !scheduledFuture.isDone())
+		{
+			scheduledFuture.cancel(true);
+		}
+
+		clearWalkingRouteForShutdown();
+		if (Microbot.getClientThread().scheduledFuture != null)
+		{
+			Microbot.getClientThread().scheduledFuture.cancel(true);
+		}
+		Microbot.pauseAllScripts.set(false);
+		Rs2Walker.disableTeleports = false;
+		Microbot.getSpecialAttackConfigs().reset();
+	}
+
+	private void clearWalkingRouteForShutdown()
+	{
+		if (!EventQueue.isDispatchThread())
+		{
+			Rs2Walker.clearWalkingRoute("agility:shutdown");
+			return;
+		}
+
+		Thread cleanupThread = new Thread(() -> Rs2Walker.clearWalkingRoute("agility:shutdown"), "AgilityScript-shutdown-cleanup");
+		cleanupThread.setDaemon(true);
+		cleanupThread.start();
 	}
 
 	public boolean run()
 	{
+		shuttingDown = false;
 		Microbot.enableAutoRunOn = true;
 		Rs2Antiban.resetAntibanSettings();
 		Rs2Antiban.antibanSetupTemplates.applyAgilitySetup();
-		startPoint = plugin.getCourseHandler().getStartPoint();
+		AgilityCourseHandler initialHandler = getActiveHandler();
+		startPoint = initialHandler.getStartPoint();
 		lastAgilityXp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
 		mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
 			try
@@ -76,9 +120,22 @@ public class AgilityScript extends Script
 				{
 					return;
 				}
-				
-				// Debug log to see if main loop is running
-				Microbot.log("AgilityScript main loop running - Course: " + config.agilityCourse().getTooltip());
+				AgilityCourseHandler courseHandler = getActiveHandler();
+
+				if (startPoint == null)
+				{
+					Microbot.log("Early return: Start point is null");
+					Microbot.showMessage("Agility course: " + config.agilityCourse().getTooltip() + " is not supported.");
+					sleep(10000);
+					return;
+				}
+
+				if (handleSummerPies(courseHandler))
+				{
+					Microbot.log("Early return: Handling summer pies");
+					return;
+				}
+
 				if (!plugin.hasRequiredLevel())
 				{
 					Microbot.log("Early return: Required level not met");
@@ -88,9 +145,9 @@ public class AgilityScript extends Script
 				}
 				
 				// Check coin requirement for BrimhavenSpike course (only before payment)
-				if (plugin.getCourseHandler() instanceof BrimhavenSpikeCourse)
+				if (courseHandler instanceof BrimhavenSpikeCourse)
 				{
-					BrimhavenSpikeCourse course = (BrimhavenSpikeCourse) plugin.getCourseHandler();
+					BrimhavenSpikeCourse course = (BrimhavenSpikeCourse) courseHandler;
 					if (!course.hasPaid() && !course.hasRequiredCoins())
 					{
 						Microbot.log("Early return: Not enough coins for BrimhavenSpike course");
@@ -104,14 +161,6 @@ public class AgilityScript extends Script
 					Microbot.log("Early return: Action cooldown active");
 					return;
 				}
-				if (startPoint == null)
-				{
-					Microbot.log("Early return: Start point is null");
-					Microbot.showMessage("Agility course: " + config.agilityCourse().getTooltip() + " is not supported.");
-					sleep(10000);
-					return;
-				}
-
 				final WorldPoint playerWorldLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
 				final int currentAgilityXp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
 
@@ -120,31 +169,19 @@ public class AgilityScript extends Script
 					Microbot.log("Early return: Handling food");
 					return;
 				}
-				if (handleSummerPies())
-				{
-					Microbot.log("Early return: Handling summer pies");
-					return;
-				}
-
-				if (lootMarksOfGrace())
+				if (lootMarksOfGrace(courseHandler))
 				{
 					Microbot.log("Early return: Looting marks of grace");
 					return;
 				}
 
-				if (handleCourseSpecificActions(playerWorldLocation))
+				if (handleCourseSpecificActions(courseHandler, playerWorldLocation))
 				{
 					return;
 				}
-				
-				// Debug log to see if script is running
-				if (plugin.getCourseHandler() instanceof BrimhavenSpikeCourse) {
-					Microbot.log("BrimhavenSpike course detected, but handleCourseSpecificActions returned false");
-				}
-
 				final int agilityExp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
 
-				TileObject gameObject = plugin.getCourseHandler().getCurrentObstacle();
+				TileObject gameObject = courseHandler.getCurrentObstacle();
 
 				if (gameObject == null)
 				{
@@ -158,7 +195,7 @@ public class AgilityScript extends Script
 				}
 
 				// Check if we should click (handles animation/XP logic)
-				if (!plugin.getCourseHandler().shouldClickObstacle(currentAgilityXp, lastAgilityXp))
+				if (!courseHandler.shouldClickObstacle(currentAgilityXp, lastAgilityXp))
 				{
 					return; // Not ready to click yet
 				}
@@ -215,7 +252,7 @@ public class AgilityScript extends Script
 				// Normal obstacle interaction
 				if (Rs2GameObject.interact(gameObject)) {
 					// Wait for completion - this now returns quickly on XP drop
-					boolean completed = plugin.getCourseHandler().waitForCompletion(agilityExp,
+					boolean completed = courseHandler.waitForCompletion(agilityExp,
 						Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).getPlane());
 					
 					if (!completed) {
@@ -241,10 +278,48 @@ public class AgilityScript extends Script
 			}
 			catch (Exception ex)
 			{
+				if (isExpectedShutdownInterrupt(ex))
+				{
+					return;
+				}
 				Microbot.log("An error occurred: " + ex.getMessage(), ex);
 			}
 		}, 0, 100, TimeUnit.MILLISECONDS);
 		return true;
+	}
+
+	public boolean isShuttingDown()
+	{
+		return shuttingDown;
+	}
+
+	private boolean isExpectedShutdownInterrupt(Exception ex)
+	{
+		if (!shuttingDown)
+		{
+			return false;
+		}
+
+		if (Thread.currentThread().isInterrupted())
+		{
+			return true;
+		}
+
+		Throwable current = ex;
+		while (current != null)
+		{
+			if (current instanceof InterruptedException)
+			{
+				return true;
+			}
+			if (current.getMessage() != null && current.getMessage().contains("Interrupted waiting for client thread"))
+			{
+				return true;
+			}
+			current = current.getCause();
+		}
+
+		return false;
 	}
 
 	private Optional<String> getAlchItem()
@@ -279,10 +354,34 @@ public class AgilityScript extends Script
 		return Optional.empty();
 	}
 
-	private boolean lootMarksOfGrace()
+	private AgilityCourseHandler getActiveHandler()
 	{
-		final int lootDistance = plugin.getCourseHandler().getLootDistance();
+		AgilityCourse selectedCourse = config.agilityCourse();
+		if (activeHandler == null || activeCourse != selectedCourse)
+		{
+			if (activeHandler != null)
+			{
+				activeHandler.reset();
+			}
+
+			activeCourse = selectedCourse;
+			activeHandler = selectedCourse.getHandler();
+			activeHandler.reset();
+			startPoint = activeHandler.getStartPoint();
+			lastAgilityXp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
+		}
+		return activeHandler;
+	}
+
+	private boolean lootMarksOfGrace(AgilityCourseHandler courseHandler)
+	{
 		if (Rs2Inventory.isFull() && !Rs2Inventory.contains(ItemID.GRACE))
+		{
+			return false;
+		}
+
+		WorldPoint playerLocation = courseHandler.getPlayerWorldLocation();
+		if (playerLocation == null)
 		{
 			return false;
 		}
@@ -291,8 +390,13 @@ public class AgilityScript extends Script
 			.fromWorldView()
 			.withId(ItemID.GRACE)
 			.where(Rs2TileItemModel::isLootAble)
-			.where(item -> Rs2GameObject.canReach(item.getWorldLocation(), lootDistance, lootDistance, lootDistance, lootDistance))
-			.nearest(lootDistance);
+			.where(item -> item.getWorldLocation() != null && item.getWorldLocation().getPlane() == playerLocation.getPlane())
+			.where(item -> item.getWorldLocation().distanceTo(playerLocation) <= MARK_OF_GRACE_SEARCH_DISTANCE)
+			.where(item -> Rs2GameObject.canReach(item.getWorldLocation()))
+			.toList()
+			.stream()
+			.min(Comparator.comparingInt(item -> item.getWorldLocation().distanceTo(playerLocation)))
+			.orElse(null);
 
 		if (markOfGrace == null)
 		{
@@ -310,6 +414,11 @@ public class AgilityScript extends Script
 
 	private boolean handleFood()
 	{
+		if (config.hitpoints() <= 0)
+		{
+			return false;
+		}
+
 		if (Rs2Player.getHealthPercentage() > config.hitpoints())
 		{
 			return false;
@@ -318,7 +427,9 @@ public class AgilityScript extends Script
 		List<Rs2ItemModel> foodItems = plugin.getInventoryFood();
 		if (foodItems.isEmpty())
 		{
-			return false;
+			Microbot.showMessage("Hitpoints are below the configured threshold and no food was found. Stopping agility.");
+			shutdown();
+			return true;
 		}
 		Rs2ItemModel foodItem = foodItems.get(0);
 
@@ -332,13 +443,17 @@ public class AgilityScript extends Script
 		return true;
 	}
 
-	private boolean handleSummerPies()
+	private boolean handleSummerPies(AgilityCourseHandler courseHandler)
 	{
-		if (plugin.getCourseHandler().getCurrentObstacleIndex() > 0)
+		if (!courseHandler.canBeBoosted())
 		{
 			return false;
 		}
-		if (Rs2Player.getBoostedSkillLevel(Skill.AGILITY) > plugin.getCourseHandler().getRequiredLevel())
+		if (courseHandler.getCurrentObstacleIndex() > 0)
+		{
+			return false;
+		}
+		if (Rs2Player.getBoostedSkillLevel(Skill.AGILITY) >= courseHandler.getRequiredLevel())
 		{
 			return false;
 		}
@@ -387,7 +502,7 @@ public class AgilityScript extends Script
 				sleep(100, 200);
 				Rs2Magic.alch(alchItem, 50, 75);
 				Rs2GameObject.interact(gameObject);
-				boolean completed = plugin.getCourseHandler().waitForCompletion(agilityExp,
+				boolean completed = getActiveHandler().waitForCompletion(agilityExp,
 					Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).getPlane());
 
 				if (!completed) {
@@ -415,34 +530,30 @@ public class AgilityScript extends Script
 		Rs2Magic.alch(alchItem, 50, 75);
 	}
 
-	private boolean handleCourseSpecificActions(WorldPoint playerWorldLocation)
+	private boolean handleCourseSpecificActions(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation)
 	{
-		Microbot.log("handleCourseSpecificActions called for: " + plugin.getCourseHandler().getClass().getSimpleName());
-		
-		if (plugin.getCourseHandler() instanceof PrifddinasCourse)
+		if (courseHandler instanceof PrifddinasCourse)
 		{
-			PrifddinasCourse course = (PrifddinasCourse) plugin.getCourseHandler();
+			PrifddinasCourse course = (PrifddinasCourse) courseHandler;
 			return course.handlePortal() || course.handleWalkToStart(playerWorldLocation);
 		}
-		else if (plugin.getCourseHandler() instanceof WerewolfCourse)
+		else if (courseHandler instanceof WerewolfCourse)
 		{
-			WerewolfCourse course = (WerewolfCourse) plugin.getCourseHandler();
+			WerewolfCourse course = (WerewolfCourse) courseHandler;
 			return course.handleFirstSteppingStone(playerWorldLocation)
 				|| course.handleStickPickup(playerWorldLocation)
 				|| course.handleSlide()
 				|| course.handleStickReturn(playerWorldLocation);
 		}
-		else if (plugin.getCourseHandler() instanceof BrimhavenSpikeCourse)
+		else if (courseHandler instanceof BrimhavenSpikeCourse)
 		{
-			Microbot.log("BrimhavenSpikeCourse detected, calling handleWalkToStart");
-			BrimhavenSpikeCourse course = (BrimhavenSpikeCourse) plugin.getCourseHandler();
+			BrimhavenSpikeCourse course = (BrimhavenSpikeCourse) courseHandler;
 			boolean result = course.handleWalkToStart(playerWorldLocation);
-			Microbot.log("BrimhavenSpikeCourse handleWalkToStart returned: " + result);
 			return result;
 		}
-		else if (!(plugin.getCourseHandler() instanceof GnomeStrongholdCourse))
+		else if (!(courseHandler instanceof GnomeStrongholdCourse))
 		{
-			return plugin.getCourseHandler().handleWalkToStart(playerWorldLocation);
+			return courseHandler.handleWalkToStart(playerWorldLocation);
 		}
 		return false;
 	}

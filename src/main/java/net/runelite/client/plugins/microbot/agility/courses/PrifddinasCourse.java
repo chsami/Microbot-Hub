@@ -63,6 +63,12 @@ public class PrifddinasCourse implements AgilityCourseHandler
 		return 75;
 	}
 
+	@Override
+	public void reset()
+	{
+		lastKnownHealth = -1;
+	}
+
 	public boolean handlePortal()
 	{
 		var portalModel = Microbot.getRs2TileObjectCache().query().withIds(PORTAL_OBSTACLE_IDS.stream().mapToInt(Integer::intValue).toArray()).within(10).nearest();
@@ -93,7 +99,7 @@ public class PrifddinasCourse implements AgilityCourseHandler
 		if (currentHealth < lastKnownHealth)
 		{
 			log.info("Health dropped from {}% to {}% - fall detected", lastKnownHealth, currentHealth);
-			WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+			WorldPoint playerLocation = getPlayerWorldLocation();
 			log.info("Player location when fall detected: {}", playerLocation);
 
 			// walk to exact fall recovery point
@@ -114,7 +120,7 @@ public class PrifddinasCourse implements AgilityCourseHandler
 	@Override
 	public TileObject getCurrentObstacle()
 	{
-		WorldPoint playerLocation = Microbot.getClient().getLocalPlayer().getWorldLocation();
+		WorldPoint playerLocation = getPlayerWorldLocation();
 
 		// if we're near the start point, just find the first obstacle by ID within 5 tiles
 		if (playerLocation.distanceTo(getStartPoint()) < 5)
@@ -135,12 +141,12 @@ public class PrifddinasCourse implements AgilityCourseHandler
 	@Override
 	public boolean handleWalkToStart(WorldPoint playerWorldLocation)
 	{
-		log.info("=== PrifddinasCourse.handleWalkToStart() called ===");
-		log.info("Player location: {}", playerWorldLocation);
-		log.info("Start point: {}", getStartPoint());
-		log.info("Distance to start: {}", playerWorldLocation.distanceTo(getStartPoint()));
-		log.info("Player plane: {}", Microbot.getClient().getTopLevelWorldView().getPlane());
-		log.info("getCurrentObstacleIndex(): {}", getCurrentObstacleIndex());
+		log.debug("Prifddinas handleWalkToStart: player={}, start={}, distance={}, plane={}, obstacleIndex={}",
+			playerWorldLocation,
+			getStartPoint(),
+			playerWorldLocation.distanceTo(getStartPoint()),
+			getClientPlane(),
+			getCurrentObstacleIndex());
 
 		// check for health-based fall detection
 		if (handleHealthMonitoring())
@@ -148,7 +154,7 @@ public class PrifddinasCourse implements AgilityCourseHandler
 			return true;
 		}
 
-		log.info("PrifddinasCourse.handleWalkToStart() returning false");
+		log.debug("PrifddinasCourse.handleWalkToStart() returning false");
 		return false;
 	}
 }

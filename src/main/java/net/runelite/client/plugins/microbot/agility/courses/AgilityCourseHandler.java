@@ -27,6 +27,25 @@ public interface AgilityCourseHandler
 
 	Integer getRequiredLevel();
 
+	default void reset()
+	{
+	}
+
+	default WorldPoint getPlayerWorldLocation()
+	{
+		return Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+	}
+
+	default int getClientPlane()
+	{
+		return Microbot.getClientThread().invoke(() -> Microbot.getClient().getTopLevelWorldView().getPlane());
+	}
+
+	default int getVarbitValue(int varbitId)
+	{
+		return Microbot.getClientThread().invoke(() -> Microbot.getClient().getVarbitValue(varbitId));
+	}
+
 	default boolean canBeBoosted()
 	{
 		return true;
@@ -34,7 +53,7 @@ public interface AgilityCourseHandler
 
 	default TileObject getCurrentObstacle()
 	{
-		WorldPoint playerLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+		WorldPoint playerLocation = getPlayerWorldLocation();
 
 		List<AgilityObstacleModel> matchingObstacles = getObstacles().stream()
 			.filter(o -> o.getOperationX().check(playerLocation.getX(), o.getRequiredX()) && o.getOperationY().check(playerLocation.getY(), o.getRequiredY()))
@@ -118,8 +137,8 @@ public interface AgilityCourseHandler
 			}
 			
 			// Check other completion conditions (health loss, plane change)
-			if (Rs2Player.getHealthPercentage() < initialHealth || 
-				Microbot.getClient().getTopLevelWorldView().getPlane() != plane)
+			if (Rs2Player.getHealthPercentage() < initialHealth ||
+				getClientPlane() != plane)
 			{
 				return true;
 			}
@@ -134,8 +153,8 @@ public interface AgilityCourseHandler
 
 	default int getCurrentObstacleIndex()
 	{
-		WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
-		int playerPlane = Microbot.getClient().getTopLevelWorldView().getPlane();
+		WorldPoint playerLoc = getPlayerWorldLocation();
+		int playerPlane = getClientPlane();
 
 		if (playerPlane == 0 && playerLoc.distanceTo(getStartPoint()) < 5)
 		{
@@ -188,7 +207,7 @@ public interface AgilityCourseHandler
 
 	default boolean handleWalkToStart(WorldPoint playerWorldLocation)
 	{
-		if (Microbot.getClient().getTopLevelWorldView().getPlane() != 0)
+		if (getClientPlane() != 0)
 		{
 			return false;
 		}

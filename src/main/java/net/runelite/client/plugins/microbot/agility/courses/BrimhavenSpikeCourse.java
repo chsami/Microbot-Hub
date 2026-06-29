@@ -26,13 +26,13 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
     /**
      * Reset all flags when script shuts down
      */
+    @Override
     public void reset() {
         hasPaid = false;
         hasClimbedLadder = false;
         lastAgilityXpForStep = -1;
         lastStepAtMs = 0;
         currentObstacleIndex = 0;
-        Microbot.log("BrimhavenSpike course flags reset");
     }
 
     @Override
@@ -214,6 +214,7 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
         WorldPoint target = chooseFirst
             ? new WorldPoint(2800, 9568, 3)
             : new WorldPoint(2799, 9568, 3);
+        double initialHealth = Rs2Player.getHealthPercentage();
 
         Microbot.log("Walking to spike tile: " + target);
         Rs2Walker.walkFastCanvas(target);
@@ -227,7 +228,6 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
         }
         
         // Check for damage (if player took damage, retry immediately)
-        double initialHealth = Rs2Player.getHealthPercentage();
         if (Rs2Player.getHealthPercentage() < initialHealth) {
             Microbot.log("Player took damage - retrying obstacle immediately");
             return false; // Let the script retry

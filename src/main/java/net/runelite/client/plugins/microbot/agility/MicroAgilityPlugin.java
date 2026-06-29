@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MicroAgilityPlugin extends Plugin
 {
-	public static final String version = "1.2.7";
+	public static final String version = "1.2.8";
 	@Inject
 	private MicroAgilityConfig config;
 	@Inject
@@ -65,10 +65,14 @@ public class MicroAgilityPlugin extends Plugin
         agilityScript.run();
     }
 
+	@Override
 	protected void shutDown()
 	{
+		if (overlayManager != null)
+		{
+			overlayManager.remove(agilityOverlay);
+		}
 		agilityScript.shutdown();
-		overlayManager.remove(agilityOverlay);
 	}
 
 	public AgilityCourseHandler getCourseHandler()
@@ -88,12 +92,18 @@ public class MicroAgilityPlugin extends Plugin
 
 	public boolean hasRequiredLevel()
 	{
-		if (getSummerPies().isEmpty() || !getCourseHandler().canBeBoosted())
+		int requiredLevel = getCourseHandler().getRequiredLevel();
+		if (Rs2Player.getRealSkillLevel(Skill.AGILITY) >= requiredLevel)
 		{
-			return Rs2Player.getRealSkillLevel(Skill.AGILITY) >= getCourseHandler().getRequiredLevel();
+			return true;
 		}
 
-		return Rs2Player.getBoostedSkillLevel(Skill.AGILITY) >= getCourseHandler().getRequiredLevel();
+		if (getSummerPies().isEmpty() || !getCourseHandler().canBeBoosted())
+		{
+			return false;
+		}
+
+		return Rs2Player.getBoostedSkillLevel(Skill.AGILITY) >= requiredLevel;
 	}
 
 	public AgilityScript getAgilityScript() {

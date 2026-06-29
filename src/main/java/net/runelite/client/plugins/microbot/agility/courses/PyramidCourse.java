@@ -60,6 +60,11 @@ public class PyramidCourse implements AgilityCourseHandler {
             new AgilityObstacleModel(10855)  // Doorway
         );
     }
+
+    @Override
+    public void reset() {
+        state.reset();
+    }
     
     @Override
     public TileObject getCurrentObstacle() {
@@ -878,9 +883,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         
         while (System.currentTimeMillis() - startTime < timeoutMs) {
             int currentXp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
-            int currentPlane = Microbot.getClient().getTopLevelWorldView() != null
-                ? Microbot.getClient().getTopLevelWorldView().getPlane()
-                : Rs2Player.getWorldLocation().getPlane();
+            int currentPlane = getClientPlane();
             double currentHealth = Rs2Player.getHealthPercentage();
             WorldPoint currentPos = Rs2Player.getWorldLocation();
             
