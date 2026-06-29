@@ -14,10 +14,10 @@ import net.runelite.client.plugins.microbot.agility.courses.PrifddinasCourse;
 import net.runelite.client.plugins.microbot.agility.courses.WerewolfCourse;
 import net.runelite.client.plugins.microbot.agility.enums.AgilityCourse;
 import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel;
-import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
+import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
@@ -638,6 +638,6 @@ public class AgilityScript extends Script
 
 	private boolean interactWithObstacle(TileObject gameObject)
 	{
-		return gameObject != null && new Rs2TileObjectModel(gameObject).click();
+		return Rs2GameObject.interact(gameObject);
 	}
 }
