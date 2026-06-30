@@ -2,6 +2,8 @@ package net.runelite.client.plugins.microbot.agility;
 
 import net.runelite.client.config.*;
 import net.runelite.client.plugins.microbot.agility.enums.AgilityCourse;
+import net.runelite.client.plugins.microbot.agility.enums.AgilityFoodOption;
+import net.runelite.client.plugins.microbot.agility.enums.AgilityPotionOption;
 
 @ConfigGroup("MicroAgility")
 @ConfigInformation("Enable the plugin near the start of your selected agility course. <br />" +
@@ -26,6 +28,22 @@ public interface MicroAgilityConfig extends Config
 	)
 	String generalSection = "general";
 
+	@ConfigSection(
+		name = "Banking",
+		description = "Banking",
+		position = 1,
+		closedByDefault = true
+	)
+	String bankingSection = "banking";
+
+	@ConfigSection(
+		name = "Safety",
+		description = "Safety",
+		position = 2,
+		closedByDefault = true
+	)
+	String safetySection = "safety";
+
 	@ConfigItem(
 		keyName = selectedCourse,
 		name = "Course",
@@ -48,6 +66,132 @@ public interface MicroAgilityConfig extends Config
 	default int hitpoints()
 	{
 		return 20;
+	}
+
+	@ConfigItem(
+		keyName = "bankFood",
+		name = "Food",
+		description = "Food to withdraw when banking. None disables food banking. Auto withdraws the best available configured food.",
+		position = 1,
+		section = bankingSection
+	)
+	default AgilityFoodOption bankFood()
+	{
+		return AgilityFoodOption.NONE;
+	}
+
+	@ConfigItem(
+		keyName = "foodWithdrawAmount",
+		name = "Food amount",
+		description = "Target amount of food to have after banking.",
+		position = 2,
+		section = bankingSection
+	)
+	@Range(min = 0, max = 28)
+	default int foodWithdrawAmount()
+	{
+		return 0;
+	}
+
+	@ConfigItem(
+		keyName = "bankFoodAt",
+		name = "Bank under food",
+		description = "Bank when inventory food count is at or below this amount. 0 disables food banking triggers.",
+		position = 3,
+		section = bankingSection
+	)
+	@Range(min = 0, max = 28)
+	default int bankFoodAt()
+	{
+		return 0;
+	}
+
+	@ConfigItem(
+		keyName = "bankPotion",
+		name = "Potion",
+		description = "Potion to withdraw when banking. None disables potion banking.",
+		position = 4,
+		section = bankingSection
+	)
+	default AgilityPotionOption bankPotion()
+	{
+		return AgilityPotionOption.NONE;
+	}
+
+	@ConfigItem(
+		keyName = "potionWithdrawAmount",
+		name = "Potion amount",
+		description = "Target amount of selected potion to have after banking.",
+		position = 5,
+		section = bankingSection
+	)
+	@Range(min = 0, max = 28)
+	default int potionWithdrawAmount()
+	{
+		return 0;
+	}
+
+	@ConfigItem(
+		keyName = "bankOnlyAtCourseStart",
+		name = "Bank at course start",
+		description = "Only bank from the ground near the course start. This avoids asking the walker to route from rooftops or awkward course positions.",
+		position = 6,
+		section = bankingSection
+	)
+	default boolean bankOnlyAtCourseStart()
+	{
+		return true;
+	}
+
+	@ConfigItem(
+		keyName = "summerPieWithdrawAmount",
+		name = "Summer pie amount",
+		description = "Target amount of summer pies to withdraw when banking. 0 disables summer pie banking.",
+		position = 7,
+		section = bankingSection
+	)
+	@Range(min = 0, max = 28)
+	default int summerPieWithdrawAmount()
+	{
+		return 0;
+	}
+
+	@ConfigItem(
+		keyName = "hpSafetyWait",
+		name = "Wait when unsafe",
+		description = "If out of food and HP is too low, wait instead of stopping or continuing.",
+		position = 1,
+		section = safetySection
+	)
+	default boolean hpSafetyWait()
+	{
+		return false;
+	}
+
+	@ConfigItem(
+		keyName = "hpSafetyWaitBelow",
+		name = "Wait below HP",
+		description = "When out of food, wait if HP percentage is below this value.",
+		position = 2,
+		section = safetySection
+	)
+	@Range(min = 1, max = 99)
+	default int hpSafetyWaitBelow()
+	{
+		return 20;
+	}
+
+	@ConfigItem(
+		keyName = "hpSafetyResumeAt",
+		name = "Resume at HP",
+		description = "Resume once HP percentage is at or above this value.",
+		position = 3,
+		section = safetySection
+	)
+	@Range(min = 1, max = 100)
+	default int hpSafetyResumeAt()
+	{
+		return 50;
 	}
 
 	@ConfigItem(
