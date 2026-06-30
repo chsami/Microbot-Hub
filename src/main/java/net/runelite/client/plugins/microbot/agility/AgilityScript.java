@@ -2,6 +2,10 @@ package net.runelite.client.plugins.microbot.agility;
 
 import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
+import net.runelite.api.ItemComposition;
+import net.runelite.api.MenuAction;
+import net.runelite.api.Perspective;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -16,10 +20,14 @@ import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
+import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.reflection.Rs2Reflection;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import javax.inject.Inject;
+import java.awt.Polygon;
+import java.awt.Rectangle;
 import java.awt.EventQueue;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -488,7 +496,7 @@ public class AgilityScript extends Script
 		}
 
 		int markCount = Rs2Inventory.itemQuantity(ItemID.GRACE);
-		if (!markOfGrace.pickup())
+		if (!pickupMarkOfGrace(markOfGrace))
 		{
 			return false;
 		}
@@ -527,6 +535,92 @@ public class AgilityScript extends Script
 			.where(Rs2TileItemModel::isLootAble)
 			.where(item -> markLocation.equals(item.getWorldLocation()))
 			.first() != null;
+	}
+
+	private boolean pickupMarkOfGrace(Rs2TileItemModel markOfGrace)
+	{
+		try
+		{
+			ItemComposition item = Microbot.getClientThread()
+				.runOnClientThreadOptional(() -> Microbot.getClient().getItemDefinition(markOfGrace.getId()))
+				.orElse(null);
+			if (item == null)
+			{
+				return false;
+			}
+
+			LocalPoint localPoint = markOfGrace.getLocalLocation();
+			if (localPoint == null)
+			{
+				return false;
+			}
+
+			MenuAction menuAction = getGroundItemMenuAction(item, "Take");
+			if (menuAction == null)
+			{
+				return false;
+			}
+
+			if (!Rs2Camera.isTileOnScreen(localPoint))
+			{
+				Rs2Camera.turnTo(localPoint);
+			}
+
+			Polygon canvasTile = Perspective.getCanvasTilePoly(Microbot.getClient(), localPoint);
+			Rectangle clickBounds = canvasTile == null
+				? new Rectangle(1, 1, Microbot.getClient().getCanvasWidth(), Microbot.getClient().getCanvasHeight())
+				: canvasTile.getBounds();
+
+			Microbot.doInvoke(new NewMenuEntry()
+					.param0(localPoint.getSceneX())
+					.param1(localPoint.getSceneY())
+					.opcode(menuAction.getId())
+					.identifier(markOfGrace.getId())
+					.itemId(-1)
+					.option("Take")
+					.target("<col=ff9040>" + item.getName())
+					.worldViewId(localPoint.getWorldView()),
+				clickBounds);
+			return true;
+		}
+		catch (Exception ex)
+		{
+			Microbot.log("Failed to pick up Mark of grace: " + ex.getMessage());
+			return false;
+		}
+	}
+
+	private MenuAction getGroundItemMenuAction(ItemComposition item, String action)
+	{
+		String[] groundActions = Rs2Reflection.getGroundItemActions(item);
+		for (int i = 0; i < groundActions.length; i++)
+		{
+			String groundAction = groundActions[i];
+			if (groundAction != null && groundAction.equalsIgnoreCase(action))
+			{
+				return groundItemMenuAction(i);
+			}
+		}
+		return null;
+	}
+
+	private MenuAction groundItemMenuAction(int index)
+	{
+		switch (index)
+		{
+			case 0:
+				return MenuAction.GROUND_ITEM_FIRST_OPTION;
+			case 1:
+				return MenuAction.GROUND_ITEM_SECOND_OPTION;
+			case 2:
+				return MenuAction.GROUND_ITEM_THIRD_OPTION;
+			case 3:
+				return MenuAction.GROUND_ITEM_FOURTH_OPTION;
+			case 4:
+				return MenuAction.GROUND_ITEM_FIFTH_OPTION;
+			default:
+				return null;
+		}
 	}
 
 	private boolean shouldPerformAlch(TileObject gameObject)
