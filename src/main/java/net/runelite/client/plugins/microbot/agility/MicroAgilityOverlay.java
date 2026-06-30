@@ -50,7 +50,7 @@ public class MicroAgilityOverlay extends OverlayPanel
 
 			panelComponent.getChildren().add(LineComponent.builder()
 				.left("Current Obstacle")
-				.right(Integer.toString(config.agilityCourse().getHandler().getCurrentObstacleIndex()))
+				.right(Integer.toString(plugin.getAgilityScript().getCurrentObstacleIndex()))
 				.build());
 
 		}

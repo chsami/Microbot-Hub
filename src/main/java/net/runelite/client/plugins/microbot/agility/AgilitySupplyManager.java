@@ -5,15 +5,18 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.agility.courses.AgilityCourseHandler;
+import net.runelite.client.plugins.microbot.agility.enums.AgilityEquipmentOption;
 import net.runelite.client.plugins.microbot.agility.enums.AgilityFoodOption;
 import net.runelite.client.plugins.microbot.agility.enums.AgilityPotionOption;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
+import java.util.Collections;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -25,6 +28,29 @@ public class AgilitySupplyManager
 	private static final long BANK_RETRY_COOLDOWN_MS = 30_000;
 	private static final long FOOD_BANK_UNAVAILABLE_RETRY_MS = 300_000;
 	private static final int SUMMER_PIE_ID = ItemID.SUMMER_PIE;
+	private static final String GRACEFUL_HOOD = "Graceful hood";
+	private static final String GRACEFUL_CAPE = "Graceful cape";
+	private static final String GRACEFUL_TOP = "Graceful top";
+	private static final String GRACEFUL_LEGS = "Graceful legs";
+	private static final String GRACEFUL_GLOVES = "Graceful gloves";
+	private static final String GRACEFUL_BOOTS = "Graceful boots";
+	private static final String AGILITY_CAPE = "Agility cape";
+	private static final String[] GRACEFUL_WITH_CAPE = {
+		GRACEFUL_HOOD,
+		GRACEFUL_CAPE,
+		GRACEFUL_TOP,
+		GRACEFUL_LEGS,
+		GRACEFUL_GLOVES,
+		GRACEFUL_BOOTS
+	};
+	private static final String[] GRACEFUL_WITH_AGILITY_CAPE = {
+		GRACEFUL_HOOD,
+		AGILITY_CAPE,
+		GRACEFUL_TOP,
+		GRACEFUL_LEGS,
+		GRACEFUL_GLOVES,
+		GRACEFUL_BOOTS
+	};
 	private static final int[] STAMINA_POTION_IDS = {
 		ItemID._4DOSESTAMINA,
 		ItemID._3DOSESTAMINA,
@@ -39,7 +65,7 @@ public class AgilitySupplyManager
 
 	private long lastBankFailureAt = 0;
 	private long lastFoodBankUnavailableAt = 0;
-	private long lastPreLevelBankBlockedMessageAt = 0;
+	private boolean summerPieBankUnavailable = false;
 
 	public AgilitySupplyManager(MicroAgilityPlugin plugin, MicroAgilityConfig config, BooleanSupplier shuttingDown, Runnable shutdown)
 	{
@@ -53,16 +79,21 @@ public class AgilitySupplyManager
 	{
 		lastBankFailureAt = 0;
 		lastFoodBankUnavailableAt = 0;
-		lastPreLevelBankBlockedMessageAt = 0;
+		summerPieBankUnavailable = false;
 	}
 
-	public boolean handleSummerPies(AgilityCourseHandler courseHandler)
+	public InventorySnapshot createInventorySnapshot()
+	{
+		return new InventorySnapshot(plugin.getInventoryFood(), plugin.getSummerPies(), getStaminaPotionCount());
+	}
+
+	public boolean handleSummerPies(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex, InventorySnapshot inventorySnapshot)
 	{
 		if (!courseHandler.canBeBoosted())
 		{
 			return false;
 		}
-		if (courseHandler.getCurrentObstacleIndex() > 0)
+		if (!isAtCourseStart(courseHandler, playerWorldLocation, currentObstacleIndex))
 		{
 			return false;
 		}
@@ -71,7 +102,7 @@ public class AgilitySupplyManager
 			return false;
 		}
 
-		List<Rs2ItemModel> summerPies = plugin.getSummerPies();
+		List<Rs2ItemModel> summerPies = inventorySnapshot.getSummerPies();
 		if (summerPies.isEmpty())
 		{
 			return false;
@@ -87,32 +118,73 @@ public class AgilitySupplyManager
 		return true;
 	}
 
-	public boolean handlePreLevelCheck(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, boolean hasRequiredLevel)
+	public boolean handlePreLevelCheck(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex,
+									   boolean hasRequiredLevel, InventorySnapshot inventorySnapshot)
 	{
-		if (hasRequiredLevel || !needsSummerPieBanking(courseHandler))
+		boolean requiresBoost = courseHandler.canBeBoosted() && !plugin.hasRealRequiredLevel(courseHandler);
+		if (!requiresBoost)
 		{
 			return false;
 		}
-		if (!canAttemptBanking(courseHandler, playerWorldLocation))
+		if (!isAtCourseStart(courseHandler, playerWorldLocation, currentObstacleIndex))
 		{
-			throttledPreLevelBankMessage();
+			if (!hasRequiredLevel)
+			{
+				stopAndLogout("You do not have the required agility level for this course.");
+				return true;
+			}
 			return false;
 		}
-		return handleBanking(courseHandler, playerWorldLocation);
+		if (hasRequiredLevel && inventorySnapshot.getSummerPies().isEmpty() && config.summerPieWithdrawAmount() <= 0)
+		{
+			stopAndLogout("You need summer pies in inventory before starting this boosted course.");
+			return true;
+		}
+		if (!needsSummerPieBanking(courseHandler, inventorySnapshot))
+		{
+			if (!hasRequiredLevel)
+			{
+				stopAndLogout("You do not have enough summer pies configured to start this course.");
+				return true;
+			}
+			return false;
+		}
+
+		summerPieBankUnavailable = false;
+		if (!handleBanking(courseHandler, playerWorldLocation, currentObstacleIndex, inventorySnapshot, true))
+		{
+			if (!hasRequiredLevel)
+			{
+				stopAndLogout("You do not have enough summer pies configured to start this course.");
+				return true;
+			}
+			return false;
+		}
+		if (summerPieBankUnavailable && plugin.getSummerPies().size() < config.summerPieWithdrawAmount())
+		{
+			stopAndLogout("No summer pies were available for the selected boosted course.");
+			return true;
+		}
+		return true;
 	}
 
-	public boolean handleFoodOrHealthSafety()
+	public boolean handleFoodOrHealthSafety(InventorySnapshot inventorySnapshot)
 	{
-		return handleFood() || handleHealthSafety();
+		return handleFood(inventorySnapshot) || handleHealthSafety(inventorySnapshot);
 	}
 
-	public boolean handleBeforeObstacle(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation)
+	public boolean handleBeforeObstacle(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex,
+										InventorySnapshot inventorySnapshot)
 	{
-		return handleBanking(courseHandler, playerWorldLocation)
-			|| handleHealthSafety();
+		if (wearConfiguredEquipmentFromInventory())
+		{
+			return true;
+		}
+		return handleBanking(courseHandler, playerWorldLocation, currentObstacleIndex, inventorySnapshot)
+			|| handleHealthSafety(inventorySnapshot);
 	}
 
-	private boolean handleFood()
+	private boolean handleFood(InventorySnapshot inventorySnapshot)
 	{
 		if (config.hitpoints() <= 0)
 		{
@@ -124,10 +196,10 @@ public class AgilitySupplyManager
 			return false;
 		}
 
-		List<Rs2ItemModel> foodItems = plugin.getInventoryFood();
+		List<Rs2ItemModel> foodItems = inventorySnapshot.getFoodItems();
 		if (foodItems.isEmpty())
 		{
-			if (needsFoodBanking() || config.hpSafetyWait())
+			if (needsFoodBanking(inventorySnapshot) || config.hpSafetyWait())
 			{
 				return false;
 			}
@@ -147,9 +219,9 @@ public class AgilitySupplyManager
 		return true;
 	}
 
-	private boolean handleHealthSafety()
+	private boolean handleHealthSafety(InventorySnapshot inventorySnapshot)
 	{
-		if (!shouldWaitForHealthInsteadOfBanking())
+		if (!shouldWaitForHealthInsteadOfBanking(inventorySnapshot))
 		{
 			return false;
 		}
@@ -162,18 +234,20 @@ public class AgilitySupplyManager
 		return true;
 	}
 
-	private boolean handleBanking(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation)
+	private boolean handleBanking(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex,
+								  InventorySnapshot inventorySnapshot)
 	{
-		return handleBanking(courseHandler, playerWorldLocation, false);
+		return handleBanking(courseHandler, playerWorldLocation, currentObstacleIndex, inventorySnapshot, false);
 	}
 
-	private boolean handleBanking(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, boolean blockUntilBankable)
+	private boolean handleBanking(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex,
+								  InventorySnapshot inventorySnapshot, boolean blockUntilBankable)
 	{
-		if (!shouldBankForSupplies(courseHandler))
+		if (!shouldBankForSupplies(courseHandler, inventorySnapshot) && !needsEquipmentBanking())
 		{
 			return false;
 		}
-		if (shouldWaitForHealthInsteadOfBanking())
+		if (shouldWaitForHealthInsteadOfBanking(inventorySnapshot))
 		{
 			return false;
 		}
@@ -181,10 +255,10 @@ public class AgilitySupplyManager
 		{
 			return true;
 		}
-		if (!canAttemptBanking(courseHandler, playerWorldLocation))
+		if (!canAttemptBanking(courseHandler, playerWorldLocation, currentObstacleIndex))
 		{
 			Microbot.status = "Finishing course before banking";
-			return blockUntilBankable || shouldPauseForUnsafeSupplyBanking();
+			return blockUntilBankable || shouldPauseForUnsafeSupplyBanking(inventorySnapshot);
 		}
 
 		long now = System.currentTimeMillis();
@@ -223,17 +297,22 @@ public class AgilitySupplyManager
 	private boolean withdrawConfiguredSupplies(AgilityCourseHandler courseHandler)
 	{
 		boolean success = true;
-		if (needsFoodBanking())
+		InventorySnapshot inventorySnapshot = createInventorySnapshot();
+		if (needsFoodBanking(inventorySnapshot))
 		{
 			success &= withdrawConfiguredFood();
 		}
-		if (needsPotionBanking())
+		if (needsPotionBanking(inventorySnapshot))
 		{
 			success &= withdrawConfiguredPotion();
 		}
-		if (needsSummerPieBanking(courseHandler))
+		if (needsSummerPieBanking(courseHandler, inventorySnapshot))
 		{
 			success &= withdrawSummerPies();
+		}
+		if (needsEquipmentBanking())
+		{
+			success &= withdrawAndWearConfiguredEquipment();
 		}
 		return success;
 	}
@@ -376,6 +455,7 @@ public class AgilitySupplyManager
 		int missingPies = targetAmount - currentPies;
 		if (missingPies <= 0)
 		{
+			summerPieBankUnavailable = false;
 			return true;
 		}
 		if (Rs2Inventory.emptySlotCount() <= 0)
@@ -387,26 +467,95 @@ public class AgilitySupplyManager
 		int amountToWithdraw = Math.min(missingPies, Rs2Inventory.emptySlotCount());
 		if (!Rs2Bank.hasBankItem(SUMMER_PIE_ID, amountToWithdraw))
 		{
+			summerPieBankUnavailable = true;
 			Microbot.showMessage("No summer pies found in the bank.");
 			return false;
 		}
 		if (!Rs2Bank.withdrawX(SUMMER_PIE_ID, amountToWithdraw))
 		{
+			summerPieBankUnavailable = true;
 			return false;
 		}
-		return Global.sleepUntil(() -> plugin.getSummerPies().size() >= currentPies + amountToWithdraw, 2400);
+		boolean receivedPies = Global.sleepUntil(() -> plugin.getSummerPies().size() >= currentPies + amountToWithdraw, 2400);
+		summerPieBankUnavailable = !receivedPies;
+		return receivedPies;
 	}
 
-	private boolean shouldBankForSupplies(AgilityCourseHandler courseHandler)
+	private boolean shouldBankForSupplies(AgilityCourseHandler courseHandler, InventorySnapshot inventorySnapshot)
 	{
-		return needsFoodBanking() || needsPotionBanking() || needsSummerPieBanking(courseHandler);
+		return needsFoodBanking(inventorySnapshot) || needsPotionBanking(inventorySnapshot) || needsSummerPieBanking(courseHandler, inventorySnapshot);
 	}
 
-	private boolean needsFoodBanking()
+	private boolean withdrawAndWearConfiguredEquipment()
+	{
+		boolean success = true;
+		for (String itemName : getConfiguredEquipmentNames())
+		{
+			success &= ensureEquipmentPieceEquipped(itemName);
+		}
+		return success && !needsEquipmentBanking();
+	}
+
+	private boolean ensureEquipmentPieceEquipped(String itemName)
+	{
+		if (Rs2Equipment.isWearing(itemName))
+		{
+			return true;
+		}
+		if (Rs2Inventory.hasItem(itemName))
+		{
+			return Rs2Bank.wearItem(itemName);
+		}
+		if (!Rs2Bank.hasBankItem(itemName))
+		{
+			Microbot.showMessage(itemName + " was not found in the bank.");
+			return false;
+		}
+		return Rs2Bank.withdrawXAndEquip(itemName, 1);
+	}
+
+	private boolean wearConfiguredEquipmentFromInventory()
+	{
+		if (config.bankEquipment().isNone())
+		{
+			return false;
+		}
+		for (String itemName : getConfiguredEquipmentNames())
+		{
+			if (!Rs2Equipment.isWearing(itemName) && Rs2Inventory.hasItem(itemName))
+			{
+				return Rs2Inventory.wear(itemName);
+			}
+		}
+		return false;
+	}
+
+	private boolean needsEquipmentBanking()
+	{
+		if (config.bankEquipment().isNone())
+		{
+			return false;
+		}
+		for (String itemName : getConfiguredEquipmentNames())
+		{
+			if (!Rs2Equipment.isWearing(itemName) && !Rs2Inventory.hasItem(itemName))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private String[] getConfiguredEquipmentNames()
+	{
+		return config.bankEquipment().useAgilityCape() ? GRACEFUL_WITH_AGILITY_CAPE : GRACEFUL_WITH_CAPE;
+	}
+
+	private boolean needsFoodBanking(InventorySnapshot inventorySnapshot)
 	{
 		return isFoodBankingConfigured()
-			&& plugin.getInventoryFood().size() <= config.bankFoodAt()
-			&& plugin.getInventoryFood().size() < config.foodWithdrawAmount();
+			&& inventorySnapshot.getFoodCount() <= config.bankFoodAt()
+			&& inventorySnapshot.getFoodCount() < config.foodWithdrawAmount();
 	}
 
 	private boolean isFoodBankingConfigured()
@@ -417,20 +566,20 @@ public class AgilitySupplyManager
 			&& config.bankFoodAt() > 0;
 	}
 
-	private boolean needsPotionBanking()
+	private boolean needsPotionBanking(InventorySnapshot inventorySnapshot)
 	{
 		AgilityPotionOption potion = config.bankPotion();
 		return !potion.isNone()
 			&& config.potionWithdrawAmount() > 0
-			&& getStaminaPotionCount() < config.potionWithdrawAmount();
+			&& inventorySnapshot.getStaminaPotionCount() < config.potionWithdrawAmount();
 	}
 
-	private boolean needsSummerPieBanking(AgilityCourseHandler courseHandler)
+	private boolean needsSummerPieBanking(AgilityCourseHandler courseHandler, InventorySnapshot inventorySnapshot)
 	{
 		return courseHandler != null
 			&& courseHandler.canBeBoosted()
 			&& config.summerPieWithdrawAmount() > 0
-			&& plugin.getSummerPies().size() < config.summerPieWithdrawAmount();
+			&& inventorySnapshot.getSummerPieCount() < config.summerPieWithdrawAmount();
 	}
 
 	private int getStaminaPotionCount()
@@ -438,23 +587,23 @@ public class AgilitySupplyManager
 		return Rs2Inventory.count(item -> item != null && Arrays.stream(STAMINA_POTION_IDS).anyMatch(id -> id == item.getId()));
 	}
 
-	private boolean shouldWaitForHealthInsteadOfBanking()
+	private boolean shouldWaitForHealthInsteadOfBanking(InventorySnapshot inventorySnapshot)
 	{
 		return config.hpSafetyWait()
-			&& plugin.getInventoryFood().isEmpty()
+			&& inventorySnapshot.getFoodItems().isEmpty()
 			&& Rs2Player.getHealthPercentage() < config.hpSafetyWaitBelow()
 			&& (!isFoodBankingConfigured() || isFoodBankUnavailable());
 	}
 
-	private boolean shouldPauseForUnsafeSupplyBanking()
+	private boolean shouldPauseForUnsafeSupplyBanking(InventorySnapshot inventorySnapshot)
 	{
 		return config.hpSafetyWait()
 			&& isFoodBankingConfigured()
-			&& plugin.getInventoryFood().isEmpty()
+			&& inventorySnapshot.getFoodItems().isEmpty()
 			&& Rs2Player.getHealthPercentage() < config.hpSafetyWaitBelow();
 	}
 
-	private boolean canAttemptBanking(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation)
+	private boolean canAttemptBanking(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex)
 	{
 		if (!config.bankOnlyAtCourseStart())
 		{
@@ -465,7 +614,17 @@ public class AgilitySupplyManager
 			return false;
 		}
 		return courseHandler.getClientPlane() == 0
-			&& courseHandler.getCurrentObstacleIndex() == 0
+			&& currentObstacleIndex == 0
+			&& playerWorldLocation.distanceTo(courseHandler.getStartPoint()) <= 12;
+	}
+
+	private boolean isAtCourseStart(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex)
+	{
+		return courseHandler != null
+			&& playerWorldLocation != null
+			&& courseHandler.getStartPoint() != null
+			&& courseHandler.getClientPlane() == 0
+			&& currentObstacleIndex == 0
 			&& playerWorldLocation.distanceTo(courseHandler.getStartPoint()) <= 12;
 	}
 
@@ -493,15 +652,53 @@ public class AgilitySupplyManager
 			&& System.currentTimeMillis() - lastFoodBankUnavailableAt < FOOD_BANK_UNAVAILABLE_RETRY_MS;
 	}
 
-	private void throttledPreLevelBankMessage()
+	private void stopAndLogout(String message)
 	{
-		long now = System.currentTimeMillis();
-		if (now - lastPreLevelBankBlockedMessageAt < 30_000)
+		Microbot.showMessage(message);
+		Microbot.status = "Stopping agility";
+		if (Microbot.isLoggedIn())
 		{
-			return;
+			Rs2Player.logout();
 		}
-		lastPreLevelBankBlockedMessageAt = now;
-		Microbot.showMessage("Summer pie banking is configured, but the script is not at a bankable course-start position.");
-		Microbot.status = "Move to course start to bank summer pies";
+		shutdown.run();
+	}
+
+	static final class InventorySnapshot
+	{
+		private final List<Rs2ItemModel> foodItems;
+		private final List<Rs2ItemModel> summerPies;
+		private final int staminaPotionCount;
+
+		private InventorySnapshot(List<Rs2ItemModel> foodItems, List<Rs2ItemModel> summerPies, int staminaPotionCount)
+		{
+			this.foodItems = Collections.unmodifiableList(foodItems);
+			this.summerPies = Collections.unmodifiableList(summerPies);
+			this.staminaPotionCount = staminaPotionCount;
+		}
+
+		List<Rs2ItemModel> getFoodItems()
+		{
+			return foodItems;
+		}
+
+		List<Rs2ItemModel> getSummerPies()
+		{
+			return summerPies;
+		}
+
+		int getFoodCount()
+		{
+			return foodItems.size();
+		}
+
+		int getSummerPieCount()
+		{
+			return summerPies.size();
+		}
+
+		int getStaminaPotionCount()
+		{
+			return staminaPotionCount;
+		}
 	}
 }

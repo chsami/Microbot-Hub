@@ -139,6 +139,12 @@ public class PrifddinasCourse implements AgilityCourseHandler
 	}
 
 	@Override
+	public boolean handleCourseActions(WorldPoint playerWorldLocation)
+	{
+		return handlePortal() || handleWalkToStart(playerWorldLocation);
+	}
+
+	@Override
 	public boolean handleWalkToStart(WorldPoint playerWorldLocation)
 	{
 		log.debug("Prifddinas handleWalkToStart: player={}, start={}, distance={}, plane={}, obstacleIndex={}",

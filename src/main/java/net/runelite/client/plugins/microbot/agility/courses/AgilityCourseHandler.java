@@ -51,6 +51,21 @@ public interface AgilityCourseHandler
 		return true;
 	}
 
+	default boolean hasRequiredCourseItems()
+	{
+		return true;
+	}
+
+	default String getMissingRequiredCourseItemsMessage()
+	{
+		return "You do not have the required items for this course.";
+	}
+
+	default boolean handleCourseActions(WorldPoint playerWorldLocation)
+	{
+		return handleWalkToStart(playerWorldLocation);
+	}
+
 	default TileObject getCurrentObstacle()
 	{
 		WorldPoint playerLocation = getPlayerWorldLocation();
@@ -94,7 +109,9 @@ public interface AgilityCourseHandler
 			return true;
 		};
 
-		return Rs2GameObject.getAll(validObjectPredicate).stream().findFirst().orElse(null);
+		return Rs2GameObject.getAll(validObjectPredicate).stream()
+			.min(Comparator.comparingInt(obj -> obj.getWorldLocation().distanceTo(playerLocation)))
+			.orElse(null);
 	}
 
 	// Simple method to check if we should click or wait
@@ -202,7 +219,7 @@ public interface AgilityCourseHandler
 			}
 		}
 
-		return (closestIndex != -1) ? closestIndex : 0;
+		return closestIndex;
 	}
 
 	default boolean handleWalkToStart(WorldPoint playerWorldLocation)

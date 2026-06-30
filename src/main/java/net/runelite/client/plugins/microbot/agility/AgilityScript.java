@@ -8,10 +8,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.agentserver.handler.ScriptHeartbeatRegistry;
 import net.runelite.client.plugins.microbot.agility.courses.AgilityCourseHandler;
-import net.runelite.client.plugins.microbot.agility.courses.BrimhavenSpikeCourse;
-import net.runelite.client.plugins.microbot.agility.courses.GnomeStrongholdCourse;
-import net.runelite.client.plugins.microbot.agility.courses.PrifddinasCourse;
-import net.runelite.client.plugins.microbot.agility.courses.WerewolfCourse;
 import net.runelite.client.plugins.microbot.agility.enums.AgilityCourse;
 import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
@@ -29,6 +25,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -43,11 +40,18 @@ public class AgilityScript extends Script
 	long lastTimeoutWarning = 0;  // For throttled timeout warnings
 	private AgilityCourse activeCourse = null;
 	private AgilityCourseHandler activeHandler = null;
+	private static final long MAIN_LOOP_DELAY_MS = 250;
+	private static final long MARK_OF_GRACE_SCAN_INTERVAL_MS = 750;
 	private static final int MARK_OF_GRACE_SEARCH_DISTANCE = 30;
 	private static final int MARK_OF_GRACE_PICKUP_TIMEOUT = 5000;
+	private volatile int currentObstacleIndex = -1;
 	private WorldPoint pendingMarkOfGraceLocation = null;
 	private int pendingMarkOfGraceCount = 0;
 	private long pendingMarkOfGraceStartedAt = 0;
+	private long lastMarkOfGraceScanAt = 0;
+	private WorldPoint alchDecisionObstacleLocation = null;
+	private int alchDecisionObstacleId = -1;
+	private boolean alchDecisionShouldAlch = false;
 	private final AgilitySupplyManager supplyManager;
 	private volatile boolean shuttingDown = false;
 
@@ -72,8 +76,10 @@ public class AgilityScript extends Script
 		activeHandler = null;
 		startPoint = null;
 		initialPlayerLocation = null;
+		currentObstacleIndex = -1;
 		supplyManager.reset();
 		clearPendingMarkOfGrace();
+		clearAlchDecision();
 
 		if (mainScheduledFuture != null && !mainScheduledFuture.isDone())
 		{
@@ -85,10 +91,6 @@ public class AgilityScript extends Script
 		}
 
 		clearWalkingRouteForShutdown();
-		if (Microbot.getClientThread().scheduledFuture != null)
-		{
-			Microbot.getClientThread().scheduledFuture.cancel(true);
-		}
 		Microbot.pauseAllScripts.set(false);
 		Rs2Walker.disableTeleports = false;
 		Microbot.getSpecialAttackConfigs().reset();
@@ -138,50 +140,48 @@ public class AgilityScript extends Script
 					return;
 				}
 
-				if (supplyManager.handleSummerPies(courseHandler))
+				boolean hasRequiredLevel = plugin.hasRequiredLevel(courseHandler);
+				currentObstacleIndex = courseHandler.getCurrentObstacleIndex();
+				AgilitySupplyManager.InventorySnapshot inventorySnapshot = supplyManager.createInventorySnapshot();
+				if (supplyManager.handleSummerPies(courseHandler, playerWorldLocation, currentObstacleIndex, inventorySnapshot))
 				{
 					Microbot.log("Early return: Handling summer pies");
 					return;
 				}
 
-				if (supplyManager.handleFoodOrHealthSafety())
+				if (supplyManager.handleFoodOrHealthSafety(inventorySnapshot))
 				{
 					Microbot.log("Early return: Handling agility safety");
 					return;
 				}
 
-				boolean hasRequiredLevel = plugin.hasRequiredLevel();
-				if (supplyManager.handlePreLevelCheck(courseHandler, playerWorldLocation, hasRequiredLevel))
+				if (supplyManager.handlePreLevelCheck(courseHandler, playerWorldLocation, currentObstacleIndex, hasRequiredLevel, inventorySnapshot))
 				{
 					Microbot.log("Early return: Banking agility supplies");
 					return;
 				}
 
-				if (supplyManager.handleBeforeObstacle(courseHandler, playerWorldLocation))
+				if (supplyManager.handleBeforeObstacle(courseHandler, playerWorldLocation, currentObstacleIndex, inventorySnapshot))
 				{
 					Microbot.log("Early return: Handling agility supplies");
 					return;
 				}
 
-				if (!plugin.hasRequiredLevel())
+				if (!hasRequiredLevel)
 				{
 					Microbot.log("Early return: Required level not met");
 					Microbot.showMessage("You do not have the required level for this course.");
+					Rs2Player.logout();
 					shutdown();
 					return;
 				}
 
-				// Check coin requirement for BrimhavenSpike course (only before payment)
-				if (courseHandler instanceof BrimhavenSpikeCourse)
+				if (!courseHandler.hasRequiredCourseItems())
 				{
-					BrimhavenSpikeCourse course = (BrimhavenSpikeCourse) courseHandler;
-					if (!course.hasPaid() && !course.hasRequiredCoins())
-					{
-						Microbot.log("Early return: Not enough coins for BrimhavenSpike course");
-						Microbot.showMessage("You need 200 coins to enter the Brimhaven Spike course!");
-						shutdown();
-						return;
-					}
+					Microbot.log("Early return: Missing required course items");
+					Microbot.showMessage(courseHandler.getMissingRequiredCourseItemsMessage());
+					shutdown();
+					return;
 				}
 				if (Rs2AntibanSettings.actionCooldownActive)
 				{
@@ -196,11 +196,11 @@ public class AgilityScript extends Script
 					return;
 				}
 
-				if (handleCourseSpecificActions(courseHandler, playerWorldLocation))
+				if (courseHandler.handleCourseActions(playerWorldLocation))
 				{
 					return;
 				}
-				final int agilityExp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
+				final int agilityExp = currentAgilityXp;
 
 				TileObject gameObject = courseHandler.getCurrentObstacle();
 
@@ -228,7 +228,7 @@ public class AgilityScript extends Script
 				}
 
 				// Handle alchemy if enabled
-				if (shouldPerformAlch())
+				if (shouldPerformAlch(gameObject))
 				{
 					Optional<String> alchItem = getAlchItem();
 					if (alchItem.isPresent())
@@ -249,7 +249,10 @@ public class AgilityScript extends Script
 								else
 								{
 									// Still do normal alch if far enough but efficient alching is disabled
-									performNormalAlch(alchItem.get());
+									if (performNormalAlch(alchItem.get()))
+									{
+										return;
+									}
 								}
 							}
 							// Skip alching if obstacle is too close
@@ -265,7 +268,10 @@ public class AgilityScript extends Script
 								}
 							}
 							// Fall back to normal alching
-							performNormalAlch(alchItem.get());
+							if (performNormalAlch(alchItem.get()))
+							{
+								return;
+							}
 						}
 					}
 				}
@@ -288,6 +294,7 @@ public class AgilityScript extends Script
 					
 					// XP tracking is already updated before clicking (line 137)
 					// Don't update here to avoid losing early action state
+					clearAlchDecision();
 					
 					// If we're still animating after XP, don't add delays - proceed immediately
 					if (!Rs2Player.isAnimating() && !Rs2Player.isMoving()) {
@@ -305,13 +312,18 @@ public class AgilityScript extends Script
 				}
 				Microbot.log("An error occurred: " + ex.getMessage(), ex);
 			}
-		}, 0, 100, TimeUnit.MILLISECONDS);
+		}, 0, MAIN_LOOP_DELAY_MS, TimeUnit.MILLISECONDS);
 		return true;
 	}
 
 	public boolean isShuttingDown()
 	{
 		return shuttingDown;
+	}
+
+	public int getCurrentObstacleIndex()
+	{
+		return currentObstacleIndex;
 	}
 
 	private boolean isExpectedShutdownInterrupt(Exception ex)
@@ -390,7 +402,9 @@ public class AgilityScript extends Script
 			activeHandler.reset();
 			startPoint = activeHandler.getStartPoint();
 			lastAgilityXp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
+			currentObstacleIndex = -1;
 			supplyManager.reset();
+			clearAlchDecision();
 		}
 		return activeHandler;
 	}
@@ -429,6 +443,13 @@ public class AgilityScript extends Script
 		{
 			return false;
 		}
+
+		long now = System.currentTimeMillis();
+		if (now - lastMarkOfGraceScanAt < MARK_OF_GRACE_SCAN_INTERVAL_MS)
+		{
+			return false;
+		}
+		lastMarkOfGraceScanAt = now;
 
 		Rs2TileItemModel markOfGrace = Microbot.getRs2TileItemCache().query()
 			.fromWorldView()
@@ -495,6 +516,7 @@ public class AgilityScript extends Script
 		pendingMarkOfGraceLocation = null;
 		pendingMarkOfGraceCount = 0;
 		pendingMarkOfGraceStartedAt = 0;
+		lastMarkOfGraceScanAt = 0;
 	}
 
 	private boolean hasLootableMarkAt(WorldPoint markLocation)
@@ -507,20 +529,24 @@ public class AgilityScript extends Script
 			.first() != null;
 	}
 
-	private boolean shouldPerformAlch()
+	private boolean shouldPerformAlch(TileObject gameObject)
 	{
 		if (!config.alchemy())
 		{
+			clearAlchDecision();
 			return false;
 		}
-		
-		// Check if we should skip alching based on configured chance
-		if (Math.random() * 100 < config.alchSkipChance())
+
+		WorldPoint obstacleLocation = gameObject.getWorldLocation();
+		if (gameObject.getId() == alchDecisionObstacleId && obstacleLocation.equals(alchDecisionObstacleLocation))
 		{
-			return false;
+			return alchDecisionShouldAlch;
 		}
-		
-		return true;
+
+		alchDecisionObstacleId = gameObject.getId();
+		alchDecisionObstacleLocation = obstacleLocation;
+		alchDecisionShouldAlch = ThreadLocalRandom.current().nextInt(100) >= config.alchSkipChance();
+		return alchDecisionShouldAlch;
 	}
 
 	private boolean performEfficientAlch(TileObject gameObject, String alchItem, int agilityExp)
@@ -551,44 +577,27 @@ public class AgilityScript extends Script
 				Rs2Antiban.actionCooldown();
 				Rs2Antiban.takeMicroBreakByChance();
 				lastAgilityXp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
+				clearAlchDecision();
 				return true;
 			}
 		}
 		return false;
 	}
 
-	private void performNormalAlch(String alchItem)
+	private boolean performNormalAlch(String alchItem)
 	{
-		// Simple alch - waitForCompletion handles all timing
+		int initialCount = Rs2Inventory.itemQuantity(alchItem);
 		Rs2Magic.alch(alchItem, 50, 75);
+		sleepUntil(() -> shuttingDown || Rs2Inventory.itemQuantity(alchItem) < initialCount, 1200);
+		alchDecisionShouldAlch = false;
+		return true;
 	}
 
-	private boolean handleCourseSpecificActions(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation)
+	private void clearAlchDecision()
 	{
-		if (courseHandler instanceof PrifddinasCourse)
-		{
-			PrifddinasCourse course = (PrifddinasCourse) courseHandler;
-			return course.handlePortal() || course.handleWalkToStart(playerWorldLocation);
-		}
-		else if (courseHandler instanceof WerewolfCourse)
-		{
-			WerewolfCourse course = (WerewolfCourse) courseHandler;
-			return course.handleFirstSteppingStone(playerWorldLocation)
-				|| course.handleStickPickup(playerWorldLocation)
-				|| course.handleSlide()
-				|| course.handleStickReturn(playerWorldLocation);
-		}
-		else if (courseHandler instanceof BrimhavenSpikeCourse)
-		{
-			BrimhavenSpikeCourse course = (BrimhavenSpikeCourse) courseHandler;
-			boolean result = course.handleWalkToStart(playerWorldLocation);
-			return result;
-		}
-		else if (!(courseHandler instanceof GnomeStrongholdCourse))
-		{
-			return courseHandler.handleWalkToStart(playerWorldLocation);
-		}
-		return false;
+		alchDecisionObstacleLocation = null;
+		alchDecisionObstacleId = -1;
+		alchDecisionShouldAlch = false;
 	}
 
 	private boolean interactWithObstacle(TileObject gameObject)

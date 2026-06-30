@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.agility;
 
 import net.runelite.client.config.*;
 import net.runelite.client.plugins.microbot.agility.enums.AgilityCourse;
+import net.runelite.client.plugins.microbot.agility.enums.AgilityEquipmentOption;
 import net.runelite.client.plugins.microbot.agility.enums.AgilityFoodOption;
 import net.runelite.client.plugins.microbot.agility.enums.AgilityPotionOption;
 
@@ -144,10 +145,22 @@ public interface MicroAgilityConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "bankEquipment",
+		name = "Equipment",
+		description = "Optional equipment to withdraw and wear when banking from a safe course-start position.",
+		position = 7,
+		section = bankingSection
+	)
+	default AgilityEquipmentOption bankEquipment()
+	{
+		return AgilityEquipmentOption.NONE;
+	}
+
+	@ConfigItem(
 		keyName = "summerPieWithdrawAmount",
 		name = "Summer pie amount",
 		description = "Target amount of summer pies to withdraw when banking. 0 disables summer pie banking.",
-		position = 7,
+		position = 8,
 		section = bankingSection
 	)
 	@Range(min = 0, max = 28)

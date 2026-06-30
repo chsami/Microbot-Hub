@@ -135,6 +135,14 @@ public class WerewolfCourse implements AgilityCourseHandler {
         return false;
     }
 
+    @Override
+    public boolean handleCourseActions(WorldPoint playerWorldLocation) {
+        return handleFirstSteppingStone(playerWorldLocation)
+                || handleStickPickup(playerWorldLocation)
+                || handleSlide()
+                || handleStickReturn(playerWorldLocation);
+    }
+
     public boolean handleStickPickup(WorldPoint playerWorldLocation) {
         if(matchingObject instanceof GameObject && matchingObject.getId() == ObjectID.WAA_PIPE && playerWorldLocation.getY() > matchingObstacle.getRequiredY()) {
             var stickTile = AgilityPlugin.getStickTile();
