@@ -16,9 +16,12 @@ import java.util.concurrent.TimeUnit;
 public class WineScript extends Script {
 
     public boolean run(WineConfig config) {
+        // Respect the user's antiban micro break setting: the reset + cooking template
+        // below would otherwise wipe it, so capture it first and restore it after.
+        boolean microBreaksEnabled = Rs2AntibanSettings.takeMicroBreaks;
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyCookingSetup();
-        Rs2AntibanSettings.takeMicroBreaks = true;
+        Rs2AntibanSettings.takeMicroBreaks = microBreaksEnabled;
         Rs2AntibanSettings.moveMouseRandomly = true;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -32,7 +35,9 @@ public class WineScript extends Script {
                     Rs2Keyboard.keyPress('1');
                     sleepUntil(() -> !Rs2Inventory.hasItem("jug of water"),25000);
                     Rs2Antiban.actionCooldown();
-                    Rs2Antiban.takeMicroBreakByChance();
+                    if (Rs2AntibanSettings.takeMicroBreaks) {
+                        Rs2Antiban.takeMicroBreakByChance();
+                    }
                 } else {
                     bank();
                 }
