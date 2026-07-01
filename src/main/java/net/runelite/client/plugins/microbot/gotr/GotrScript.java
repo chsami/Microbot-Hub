@@ -321,15 +321,32 @@ public class GotrScript extends Script {
     }
 
     private boolean powerUpGreatGuardian() {
-        if (Rs2Inventory.hasItem("guardian stone") && !shouldMineGuardianRemains && !isInLargeMine() && !isInHugeMine()) {
-            state = GotrState.POWERING_UP;
-            Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("The great guardian").interact("power-up"));
-            log("Powering up the great guardian...");
-            sleepUntil(Rs2Player::isAnimating);
-            sleep(Rs2Random.randomGaussian(Rs2Random.between(1000, 2000), Rs2Random.between(100, 300)));
+        if (!Rs2Inventory.hasItem("guardian stone") || shouldMineGuardianRemains || isInLargeMine() || isInHugeMine()) {
+            return false;
+        }
+
+        Rs2NpcModel guardian = Microbot.getRs2NpcCache().query().withName("The great guardian").nearest();
+        if (guardian == null) {
+            return false;
+        }
+
+        if (!Rs2Npc.canWalkTo(guardian.getNpc(), 10)) {
             return true;
         }
-        return false;
+
+        state = GotrState.POWERING_UP;
+        if (!guardian.click("power-up")) {
+            return false;
+        }
+
+        log("Powering up the great guardian...");
+        int stonesBefore = Rs2Inventory.count("guardian stone");
+        Global.sleepUntil(Rs2Player::isAnimating, 3000);
+        Global.sleepUntil(() -> !Rs2Player.isAnimating(), 5000);
+        sleep(Rs2Random.randomGaussian(Rs2Random.between(1000, 2000), Rs2Random.between(100, 300)));
+
+        // Only hold the tick if we actually consumed a stone; otherwise let the loop continue.
+        return Rs2Inventory.count("guardian stone") < stonesBefore;
     }
 
 
