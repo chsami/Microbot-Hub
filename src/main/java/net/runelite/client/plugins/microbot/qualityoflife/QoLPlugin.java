@@ -91,7 +91,7 @@ import static net.runelite.client.plugins.microbot.util.Global.awaitExecutionUnt
 )
 @Slf4j
 public class QoLPlugin extends Plugin implements KeyListener {
-    public static final String version = "1.8.14";
+    public static final String version = "1.8.15";
     public static final List<NewMenuEntry> bankMenuEntries = new LinkedList<>();
     public static final List<NewMenuEntry> furnaceMenuEntries = new LinkedList<>();
     public static final List<NewMenuEntry> anvilMenuEntries = new LinkedList<>();
@@ -671,7 +671,7 @@ public class QoLPlugin extends Plugin implements KeyListener {
     @Subscribe
     public void onConfigChanged(ConfigChanged ev) {
         if ("smoothRotation".equals(ev.getKey()) && config.smoothCameraTracking() && Microbot.isLoggedIn()) {
-            previousCamera[YAW_INDEX] = Microbot.getClient().getCameraYawTarget();
+            previousCamera[YAW_INDEX] = Rs2Camera.getYaw();
         }
         if (ev.getKey().equals("accentColor") || ev.getKey().equals("toggleButtonColor") || ev.getKey().equals("pluginLabelColor")) {
             updateUiElements();
@@ -807,7 +807,7 @@ public class QoLPlugin extends Plugin implements KeyListener {
 
 
     private void applySmoothingToAngle(int index) {
-        int currentAngle = index == YAW_INDEX ? Microbot.getClient().getCameraYawTarget() : 0;
+        int currentAngle = index == YAW_INDEX ? Rs2Camera.getYaw() : 0;
         int newDeltaAngle = getSmallestAngle(previousCamera[index], currentAngle);
         deltaCamera[index] += newDeltaAngle;
 
@@ -816,7 +816,7 @@ public class QoLPlugin extends Plugin implements KeyListener {
 
         deltaCamera[index] -= deltaChange;
         if (index == YAW_INDEX) {
-            Microbot.getClient().setCameraYawTarget(changed);
+            Rs2Camera.setYawInstant((changed % FULL_ROTATION + FULL_ROTATION) % FULL_ROTATION);
         }
         previousCamera[index] += deltaChange;
     }
