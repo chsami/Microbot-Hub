@@ -1572,7 +1572,7 @@
             "QoL",
             "microbot"
         ],
-        "version": "1.8.14",
+        "version": "1.8.15",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1580,8 +1580,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "9149ce2a80756cd24ead5a941e1ac347c95b25adf35e5b908aa259ef5d5eeae6",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.14.jar"
+        "sha256": "08e533c2d243cdf2b1aa8708ca730970cbb667cf0806e1fbf0070c847b93d323",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.15.jar"
     },
     {
         "internalName": "PitfallHunterPlugin",
@@ -3102,7 +3102,7 @@
             "gotr",
             "microbot"
         ],
-        "version": "1.5.7",
+        "version": "1.5.8",
         "minClientVersion": "2.1.0",
         "authors": [
             "Unknown Author"
@@ -3110,8 +3110,8 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "5be437b13b07369af820df7c86866342c5a65d1c767ddd065b3aaf8e2199521b",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gotrplugin-1.5.7.jar"
+        "sha256": "a3d9e19dd23ac1f49ecd4cf49b48b3d3fb4552f4ef0601d2fc4ab75850f82208",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gotrplugin-1.5.8.jar"
     },
     {
         "internalName": "GauntletHelperPlugin",
