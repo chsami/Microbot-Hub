@@ -16,13 +16,12 @@ import java.util.concurrent.TimeUnit;
 public class WineScript extends Script {
 
     public boolean run(WineConfig config) {
-        // Respect the user's antiban micro break setting: the reset + cooking template
-        // below would otherwise wipe it, so capture it first and restore it after.
-        boolean microBreaksEnabled = Rs2AntibanSettings.takeMicroBreaks;
+        // Apply the cooking template as a baseline, then overlay the user's saved
+        // antiban panel settings so anything toggled there wins over the template.
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyCookingSetup();
-        Rs2AntibanSettings.takeMicroBreaks = microBreaksEnabled;
         Rs2AntibanSettings.moveMouseRandomly = true;
+        Rs2AntibanSettings.loadFromProfile();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
 				if (!super.run()) return;
