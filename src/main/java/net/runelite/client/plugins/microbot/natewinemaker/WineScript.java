@@ -32,11 +32,15 @@ public class WineScript extends Script {
                     Rs2Inventory.combine("jug of water", "grapes");
                     sleepUntil(() -> Rs2Widget.getWidget(17694734) != null);
                     Rs2Keyboard.keyPress('1');
-                    sleepUntil(() -> !Rs2Inventory.hasItem("jug of water"),25000);
+                    // Trigger the cooldown (incl. mouse off screen / random moves) as soon as
+                    // the batch starts crafting, like a human looking away mid-batch, rather
+                    // than after the last wine finishes.
+                    Rs2Inventory.waitForInventoryChanges(3000);
                     Rs2Antiban.actionCooldown();
                     if (Rs2AntibanSettings.takeMicroBreaks) {
                         Rs2Antiban.takeMicroBreakByChance();
                     }
+                    sleepUntil(() -> !Rs2Inventory.hasItem("jug of water"),25000);
                 } else {
                     bank();
                 }
