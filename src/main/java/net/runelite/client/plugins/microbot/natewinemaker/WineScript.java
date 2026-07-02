@@ -18,6 +18,7 @@ public class WineScript extends Script {
 
     private static final int MAX_XP = 13_034_431; // 99 Cooking
     private static final int WINE_XP = 200; // xp per jug of wine
+    private static final int BATCH_SIZE = 14; // wines per inventory batch
 
     private WineConfig config;
 
@@ -35,18 +36,11 @@ public class WineScript extends Script {
 				if (!Microbot.isLoggedIn()) return;
                 if (Rs2AntibanSettings.actionCooldownActive) return;
                 if (Rs2AntibanSettings.microBreakActive) return;
-                if (config.stopBeforeMax() && winesLeftToCraft() <= 0) {
-                    logoutAndStop("close enough to 99 Cooking - " + config.winesToLeave() + " wine(s) left for you");
+                if (config.stopBeforeMax() && isMaxWithinOneBatch()) {
+                    logoutAndStop("99 Cooking is within one batch - the final wines are yours");
                     return;
                 }
                 if (Rs2Inventory.count("grapes") > 0 && (Rs2Inventory.count("jug of water") > 0)) {
-                    // Make-all crafts every pair in the inventory, so if the inventory
-                    // holds more pairs than the 99 budget allows, rebalance via the bank
-                    int pairs = Math.min(Rs2Inventory.count("grapes"), Rs2Inventory.count("jug of water"));
-                    if (pairs > winesLeftToCraft()) {
-                        bank();
-                        return;
-                    }
                     Rs2Inventory.combine("jug of water", "grapes");
                     sleepUntil(() -> Rs2Widget.getWidget(17694734) != null);
                     Rs2Keyboard.keyPress('1');
@@ -70,17 +64,12 @@ public class WineScript extends Script {
     }
 
     /**
-     * How many wines the script may still craft before it should hand over to the
-     * user. Unlimited when the stop-before-99 option is off. Batches are controlled
-     * at withdraw time (make-all crafts everything in the inventory), so this caps
-     * the final withdraw and triggers the stop once the budget is spent.
+     * True once 99 Cooking is reachable within a single 14-wine batch, i.e. the
+     * script should stop and leave the final batch for the user to craft.
      */
-    private int winesLeftToCraft() {
-        if (!config.stopBeforeMax()) return Integer.MAX_VALUE;
+    private boolean isMaxWithinOneBatch() {
         int xp = Microbot.getClient().getSkillExperience(Skill.COOKING);
-        if (xp >= MAX_XP) return 0;
-        int winesToMax = (MAX_XP - xp + WINE_XP - 1) / WINE_XP; // ceil - wines until 99
-        return Math.max(0, winesToMax - config.winesToLeave());
+        return xp >= MAX_XP - BATCH_SIZE * WINE_XP;
     }
 
     private void bank(){
@@ -89,23 +78,19 @@ public class WineScript extends Script {
             Rs2Bank.depositAll();
             int jugsInBank = Rs2Bank.count("jug of water");
             int grapesInBank = Rs2Bank.count("grapes");
-            // Withdraw up to 14 of each, capped by what is left in the bank (final
-            // partial batch) and by the stop-before-99 budget (final batch before 99)
-            int amount = Math.min(14, Math.min(jugsInBank, grapesInBank));
-            amount = Math.min(amount, winesLeftToCraft());
-            if (amount > 0) {
+            if (jugsInBank > 0 && grapesInBank > 0) {
+                // Withdraw up to 14 of each, or whatever is left for a final partial batch
+                int amount = Math.min(BATCH_SIZE, Math.min(jugsInBank, grapesInBank));
                 Rs2Bank.withdrawDeficit("jug of water", amount);
                 sleepUntil(() -> Rs2Inventory.hasItem("jug of water"));
                 Rs2Bank.withdrawDeficit("grapes", amount);
                 sleepUntil(() -> Rs2Inventory.hasItem("grapes"));
-            } else if (jugsInBank <= 0 || grapesInBank <= 0) {
+            } else {
                 // Out of grapes or jugs of water: log out and stop the plugin
                 Microbot.getNotifier().notify("Run out of Materials");
                 logoutAndStop("out of grapes or jugs of water");
                 return;
             }
-            // amount == 0 with materials available means the 99 gate stops us on the
-            // next loop tick - just close the bank and let the loop handle it
         }
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen());
