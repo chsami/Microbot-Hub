@@ -20,10 +20,24 @@ public class WineScript extends Script {
     private static final int WINE_XP = 200; // xp per jug of wine
     private static final int BATCH_SIZE = 14; // wines per inventory batch
 
+    // Cooking xp at session start; -1 until the first logged-in tick.
+    // Static fields leak across plugin restarts, so run() resets it.
+    private static int startXp = -1;
+
     private WineConfig config;
+
+    /**
+     * Wines made this session, derived from cooking xp gained (200 xp each).
+     * Safe to call from the overlay (client thread).
+     */
+    public static int getWinesMade() {
+        if (startXp < 0 || !Microbot.isLoggedIn()) return 0;
+        return Math.max(0, (Microbot.getClient().getSkillExperience(Skill.COOKING) - startXp) / WINE_XP);
+    }
 
     public boolean run(WineConfig config) {
         this.config = config;
+        startXp = -1;
         // Apply the cooking template as a baseline, then overlay the user's saved
         // antiban panel settings so anything toggled there wins over the template.
         Rs2Antiban.resetAntibanSettings();
@@ -34,6 +48,7 @@ public class WineScript extends Script {
             try {
 				if (!super.run()) return;
 				if (!Microbot.isLoggedIn()) return;
+                if (startXp < 0) startXp = Microbot.getClient().getSkillExperience(Skill.COOKING);
                 if (Rs2AntibanSettings.actionCooldownActive) return;
                 if (Rs2AntibanSettings.microBreakActive) return;
                 if (config.stopBeforeMax() && isMaxWithinOneBatch()) {

@@ -33,6 +33,11 @@ public class WineOverlay extends OverlayPanel {
                     .right("version: " + WinePlugin.version)
                     .build());
 
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Wines made:")
+                    .right(String.valueOf(WineScript.getWinesMade()))
+                    .build());
+
 
         } catch (Exception ex) {
             Microbot.logStackTrace(this.getClass().getSimpleName(), ex);
