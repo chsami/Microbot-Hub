@@ -415,25 +415,15 @@ public class MahoganyHomesScript extends Script {
                             sleep(Rs2Random.randomGaussian(800, 200));
                             Rs2ItemModel plankSack = Rs2Inventory.get(ItemID.PLANK_SACK);
                             if (plankSack != null) {
-                                NewMenuEntry plankSackEntry = new NewMenuEntry();
-                                plankSackEntry.setOption("Use");
-                                plankSackEntry.setTarget("<col=ff9040>Plank sack</col>");
-                                plankSackEntry.setIdentifier(9);
-                                plankSackEntry.setType(MenuAction.CC_OP);
-                                plankSackEntry.setParam0(plankSack.getSlot());
-                                plankSackEntry.setParam1(983043);
-                                plankSackEntry.setItemId(plankSack.getId());
-                                plankSackEntry.setWorldViewId(-1);
-                                plankSackEntry.setForceLeftClick(false);
-                                plankSackEntry.setDeprioritized(false);
-                                Microbot.doInvoke(plankSackEntry,Rs2Inventory.itemBounds(plankSack));
+                                Rs2Inventory.interact(plankSack, "Fill");
                                 Rs2Inventory.waitForInventoryChanges(1000);
                             }
                         }, 20000, 1000);
-                        if (Rs2Inventory.emptySlotCount() > 0)
+                        if (Rs2Inventory.emptySlotCount() > 0) {
                             Rs2Bank.openBank();
                             Rs2Bank.withdrawAll(plugin.getConfig().currentTier().getPlankSelection().getPlankId());
                             Rs2Bank.closeBank();
+                        }
                     } else {
                         // Withdraw steel bars first if needed
                         if (steelBarsNeeded() > steelBarsInInventory()) {
@@ -477,7 +467,6 @@ public class MahoganyHomesScript extends Script {
             Rs2Walker.walkWithState(plugin.getCurrentHome().getLocation(), 3);
         }
     }
-
     private boolean isMissingItems() {
         return (planksInInventory() + planksInPlankSack()) < planksNeeded()
                 || steelBarsInInventory() < steelBarsNeeded();
