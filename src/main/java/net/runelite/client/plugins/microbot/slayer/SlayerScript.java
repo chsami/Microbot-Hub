@@ -3,8 +3,13 @@ package net.runelite.client.plugins.microbot.slayer;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
 import net.runelite.api.GameState;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.ItemID;
+import static net.runelite.api.gameval.VarbitID.SLAYER_AUTOKILL_DESERTLIZARDS;
+import static net.runelite.api.gameval.VarbitID.SLAYER_AUTOKILL_GARGOYLES;
+import static net.runelite.api.gameval.VarbitID.SLAYER_AUTOKILL_ROCKSLUGS;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -1385,7 +1390,8 @@ public class SlayerScript extends Script {
 
         // Check if already matching
         if (inventorySetup.doesEquipmentMatch() && inventorySetup.doesInventoryMatch()) {
-            log.info("Inventory setup matches, closing bank");
+            log.info("Inventory setup matches");
+            withdrawFinishingItems();
             Rs2Bank.closeBank();
             sleepUntil(() -> !Rs2Bank.isOpen(), 2000);
             initialSetupDone = true;
@@ -1408,6 +1414,7 @@ public class SlayerScript extends Script {
 
         if (equipmentLoaded && inventoryLoaded) {
             log.info("Inventory setup loaded successfully");
+            withdrawFinishingItems();
             Rs2Bank.closeBank();
             sleepUntil(() -> !Rs2Bank.isOpen(), 2000);
             initialSetupDone = true;
@@ -1423,6 +1430,29 @@ public class SlayerScript extends Script {
             }
         } else {
             log.warn("Failed to load inventory setup completely");
+        }
+    }
+
+    private void withdrawFinishingItems() {
+        int finishingItemId = getRequiredFinishingItemId();
+        if (finishingItemId == -1) return;
+
+        int alreadyHave = Rs2Inventory.itemQuantity(finishingItemId);
+        int remaining = Rs2Slayer.getSlayerTaskSize();
+        int needed = remaining - alreadyHave;
+        if (needed <= 0) return;
+
+        if (alreadyHave == 0 && Rs2Inventory.isFull()) {
+            log.warn("Inventory is full, cannot withdraw finishing items — add a free slot to your inventory setup");
+            return;
+        }
+
+        if (Rs2Bank.hasBankItem(finishingItemId, 1)) {
+            log.info("Withdrawing {} finishing items (have {}, task remaining {})", needed, alreadyHave, remaining);
+            Rs2Bank.withdrawX(finishingItemId, needed);
+            sleep(300, 600);
+        } else {
+            log.warn("Finishing item (ID {}) not found in bank", finishingItemId);
         }
     }
 
@@ -2018,6 +2048,9 @@ public class SlayerScript extends Script {
         // Handle fungicide spray refill (for zygomite tasks)
         handleFungicideRefill();
 
+        // Handle slayer finishing items (ice cooler, bag of salt, rock hammer)
+        handleSlayerFinishingItems();
+
         // Handle eating food BEFORE POH check
         // This ensures we eat food first, only use POH if still low HP after eating
         boolean ateFood = handleEating();
@@ -2261,6 +2294,57 @@ public class SlayerScript extends Script {
             return Integer.parseInt(parts[parts.length - 1]);
         } catch (NumberFormatException e) {
             return -1;
+        }
+    }
+
+    private static final List<String> LIZARD_VARIANTS = Arrays.asList("Lizard", "Desert Lizard", "Small Lizard");
+
+    /**
+     * Returns the finishing item ID required for the current slayer task, or -1 if none needed.
+     * Checks the vanilla autokill varbit — if the player already has auto-finish enabled in-game
+     * for that monster, we don't need to carry the item.
+     */
+    private int getRequiredFinishingItemId() {
+        String task = Rs2Slayer.getSlayerTask();
+        if (task == null) return -1;
+        String taskLower = task.toLowerCase();
+        if (taskLower.contains("lizard") && !taskLower.contains("lizardm")
+                && Microbot.getVarbitValue(SLAYER_AUTOKILL_DESERTLIZARDS) == 0) {
+            return ItemID.SLAYER_ICY_WATER;
+        } else if (taskLower.contains("rockslug")
+                && Microbot.getVarbitValue(SLAYER_AUTOKILL_ROCKSLUGS) == 0) {
+            return ItemID.SLAYER_BAG_OF_SALT;
+        } else if (taskLower.contains("gargoyle")
+                && Microbot.getVarbitValue(SLAYER_AUTOKILL_GARGOYLES) == 0) {
+            return ItemID.SLAYER_ROCK_HAMMER;
+        }
+        return -1;
+    }
+
+    private void handleSlayerFinishingItems() {
+        final Player localPlayer = Microbot.getClient().getLocalPlayer();
+        if (localPlayer == null) return;
+
+        Rs2NpcModel npc = Microbot.getRs2NpcCache().query()
+                .where(n -> n.isDead() && java.util.Objects.equals(n.getInteracting(), localPlayer))
+                .first();
+        if (npc == null) return;
+
+        net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel legacyNpc =
+                new net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel(npc.getNpc());
+
+        if (Microbot.getVarbitValue(SLAYER_AUTOKILL_DESERTLIZARDS) == 0
+                && LIZARD_VARIANTS.contains(npc.getName()) && npc.getHealthRatio() < 5) {
+            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_ICY_WATER, legacyNpc);
+            Rs2Player.waitForAnimation();
+        } else if (Microbot.getVarbitValue(SLAYER_AUTOKILL_ROCKSLUGS) == 0
+                && "Rockslug".equalsIgnoreCase(npc.getName()) && npc.getHealthRatio() < 5) {
+            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_BAG_OF_SALT, legacyNpc);
+            Rs2Player.waitForAnimation();
+        } else if (Microbot.getVarbitValue(SLAYER_AUTOKILL_GARGOYLES) == 0
+                && "Gargoyle".equalsIgnoreCase(npc.getName()) && npc.getHealthRatio() < 3) {
+            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_ROCK_HAMMER, legacyNpc);
+            Rs2Player.waitForAnimation();
         }
     }
 
@@ -3263,6 +3347,13 @@ public class SlayerScript extends Script {
                 log.info("Fungicide spray empty and no refills remaining");
                 return true;
             }
+        }
+
+        // Check finishing items (ice cooler, bag of salt, rock hammer)
+        int finishingItemId = getRequiredFinishingItemId();
+        if (finishingItemId != -1 && Rs2Inventory.itemQuantity(finishingItemId) == 0) {
+            log.info("Out of finishing items (item ID {}), need to bank", finishingItemId);
+            return true;
         }
 
         return false;
