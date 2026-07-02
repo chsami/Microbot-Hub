@@ -8,6 +8,8 @@ import net.runelite.client.ui.overlay.components.TitleComponent;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.text.NumberFormat;
+import java.util.Locale;
 
 
 public class WineOverlay extends OverlayPanel {
@@ -33,9 +35,26 @@ public class WineOverlay extends OverlayPanel {
                     .right("version: " + WinePlugin.version)
                     .build());
 
+            NumberFormat fmt = NumberFormat.getIntegerInstance(Locale.ENGLISH);
+
             panelComponent.getChildren().add(LineComponent.builder()
                     .left("Wines made:")
-                    .right(String.valueOf(WineScript.getWinesMade()))
+                    .right(fmt.format(WineScript.getWinesMade()))
+                    .build());
+
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("XP to 99:")
+                    .right(fmt.format(WineScript.getXpToMax()))
+                    .build());
+
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Wines to 99:")
+                    .right(fmt.format(WineScript.getWinesToMax()))
+                    .build());
+
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Est. time to 99:")
+                    .right(WineScript.getTimeToMax())
                     .build());
 
 

@@ -20,9 +20,10 @@ public class WineScript extends Script {
     private static final int WINE_XP = 200; // xp per jug of wine
     private static final int BATCH_SIZE = 14; // wines per inventory batch
 
-    // Cooking xp at session start; -1 until the first logged-in tick.
-    // Static fields leak across plugin restarts, so run() resets it.
+    // Cooking xp / wall clock at session start; -1 until the first logged-in tick.
+    // Static fields leak across plugin restarts, so run() resets them.
     private static int startXp = -1;
+    private static long startTimeMillis = -1;
 
     private WineConfig config;
 
@@ -35,9 +36,43 @@ public class WineScript extends Script {
         return Math.max(0, (Microbot.getClient().getSkillExperience(Skill.COOKING) - startXp) / WINE_XP);
     }
 
+    /** Cooking xp remaining to 99, or 0 when maxed. */
+    public static int getXpToMax() {
+        if (!Microbot.isLoggedIn()) return 0;
+        return Math.max(0, MAX_XP - Microbot.getClient().getSkillExperience(Skill.COOKING));
+    }
+
+    /** Wines remaining to 99 (rounded up), or 0 when maxed. */
+    public static int getWinesToMax() {
+        return (getXpToMax() + WINE_XP - 1) / WINE_XP;
+    }
+
+    /**
+     * Estimated time to 99 based on this session's xp rate (includes breaks and
+     * cooldowns, which is what makes the projection honest). "-" until there is
+     * enough data to project from.
+     */
+    public static String getTimeToMax() {
+        if (startXp < 0 || !Microbot.isLoggedIn()) return "-";
+        int xpToMax = getXpToMax();
+        if (xpToMax == 0) return "Maxed!";
+        long elapsed = System.currentTimeMillis() - startTimeMillis;
+        int xpGained = Microbot.getClient().getSkillExperience(Skill.COOKING) - startXp;
+        if (xpGained <= 0 || elapsed < 60_000) return "-"; // need a minute of data
+        long msLeft = (long) (xpToMax / ((double) xpGained / elapsed));
+        long totalMinutes = msLeft / 60_000;
+        long days = totalMinutes / (24 * 60);
+        long hours = (totalMinutes / 60) % 24;
+        long minutes = totalMinutes % 60;
+        if (days > 0) return days + "d " + hours + "h";
+        if (hours > 0) return hours + "h " + minutes + "m";
+        return Math.max(1, minutes) + "m";
+    }
+
     public boolean run(WineConfig config) {
         this.config = config;
         startXp = -1;
+        startTimeMillis = -1;
         // Apply the cooking template as a baseline, then overlay the user's saved
         // antiban panel settings so anything toggled there wins over the template.
         Rs2Antiban.resetAntibanSettings();
@@ -48,7 +83,10 @@ public class WineScript extends Script {
             try {
 				if (!super.run()) return;
 				if (!Microbot.isLoggedIn()) return;
-                if (startXp < 0) startXp = Microbot.getClient().getSkillExperience(Skill.COOKING);
+                if (startXp < 0) {
+                    startXp = Microbot.getClient().getSkillExperience(Skill.COOKING);
+                    startTimeMillis = System.currentTimeMillis();
+                }
                 if (Rs2AntibanSettings.actionCooldownActive) return;
                 if (Rs2AntibanSettings.microBreakActive) return;
                 if (config.stopBeforeMax() && isMaxWithinOneBatch()) {
