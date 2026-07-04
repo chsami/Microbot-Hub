@@ -30,7 +30,7 @@ import java.awt.*;
 )
 @Slf4j
 public class WinePlugin extends Plugin {
-    public final static String version = "1.2.0";
+    public final static String version = "1.3.0";
 
     @Inject
     private Client client;

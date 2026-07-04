@@ -73,8 +73,8 @@ public class ColossalWyrmBasicCourse implements AgilityCourseHandler
 			}
 			
 			// Check other completion conditions (health loss, plane change)
-			if (Rs2Player.getHealthPercentage() < initialHealth || 
-				Microbot.getClient().getTopLevelWorldView().getPlane() != plane)
+			if (Rs2Player.getHealthPercentage() < initialHealth ||
+				getClientPlane() != plane)
 			{
 				return true;
 			}

@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.agility.courses;
 
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.agility.models.AgilityObstacleModel;
@@ -10,6 +11,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.List;
 
+@Slf4j
 public class BrimhavenSpikeCourse implements AgilityCourseHandler {
     
     private static final WorldPoint START_POINT = new WorldPoint(2809, 3192, 0);
@@ -26,13 +28,13 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
     /**
      * Reset all flags when script shuts down
      */
+    @Override
     public void reset() {
         hasPaid = false;
         hasClimbedLadder = false;
         lastAgilityXpForStep = -1;
         lastStepAtMs = 0;
         currentObstacleIndex = 0;
-        Microbot.log("BrimhavenSpike course flags reset");
     }
 
     @Override
@@ -66,7 +68,19 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
         return Rs2Inventory.itemQuantity(COINS_ID) >= REQUIRED_COINS;
     }
 
+    @Override
+    public boolean hasRequiredCourseItems() {
+        syncStateFromLocation(Rs2Player.getWorldLocation());
+        return hasPaid || hasClimbedLadder || hasRequiredCoins() || canSeeEntryLadder();
+    }
+
+    @Override
+    public String getMissingRequiredCourseItemsMessage() {
+        return "You need 200 coins to enter the Brimhaven Spike course!";
+    }
+
     public boolean hasPaid() {
+        syncStateFromLocation(Rs2Player.getWorldLocation());
         return hasPaid;
     }
 
@@ -147,61 +161,63 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
      */
     @Override
     public boolean handleWalkToStart(WorldPoint playerWorldLocation) {
-        Microbot.log("BrimhavenSpike handleWalkToStart called - Player at: " + playerWorldLocation + ", hasPaid: " + hasPaid + ", hasClimbedLadder: " + hasClimbedLadder);
+        syncStateFromLocation(playerWorldLocation);
+        log.debug("BrimhavenSpike handleWalkToStart: player={}, hasPaid={}, hasClimbedLadder={}, obstacleIndex={}",
+            playerWorldLocation, hasPaid, hasClimbedLadder, currentObstacleIndex);
         
         // If we're not at the start point (ground level), walk there first
         if (playerWorldLocation.getPlane() != 0 || playerWorldLocation.distanceTo(START_POINT) > 5) {
             // If we're already in the course area (plane 3), check if we need to handle obstacle 3
             if (playerWorldLocation.getPlane() == 3) {
-                Microbot.log("Already in the spike course area on plane 3 - checking obstacle 3");
+                log.debug("Already in the spike course area on plane 3");
                 
                 // If we've completed obstacles 1 and 2, force index to 2 for obstacle 3 (spikes)
                 if (currentObstacleIndex >= 2) {
                     currentObstacleIndex = 2; // Ensure we're on obstacle 3
-                    Microbot.log("Forcing to obstacle 3 (spikes) - using timed tile-walking");
+                    log.debug("Using timed tile-walking for Brimhaven spike obstacle");
                     return handleSpikeTileWalking();
                 }
                 
-                Microbot.log("In the spike course area on plane 3 - ready for obstacles (currentObstacleIndex: " + currentObstacleIndex + ")");
+                log.debug("Ready for Brimhaven spike obstacle {}", currentObstacleIndex);
                 return false; // Let the main script handle obstacles
             }
-            Microbot.log("Walking to Brimhaven Spike course start point");
+            log.debug("Walking to Brimhaven Spike course start point");
             Rs2Walker.walkTo(START_POINT, 2);
             return true;
         }
         
         // If we haven't paid yet, handle payment first
         if (!hasPaid) {
-            Microbot.log("Attempting to pay Cap'n Izzy...");
+            log.debug("Attempting to pay Cap'n Izzy");
             boolean paymentResult = handlePayment();
-            Microbot.log("Payment result: " + paymentResult);
+            log.debug("Payment result: {}", paymentResult);
             return paymentResult;
         }
         
         // If we haven't climbed the ladder yet, handle ladder descent
         if (!hasClimbedLadder) {
-            Microbot.log("Attempting to climb down ladder...");
+            log.debug("Attempting to climb down ladder");
             boolean ladderResult = handleLadderDescent();
-            Microbot.log("Ladder result: " + ladderResult);
+            log.debug("Ladder result: {}", ladderResult);
             return ladderResult;
         }
         
         // If we're on plane 3, we're in the course area
         if (playerWorldLocation.getPlane() == 3) {
-            Microbot.log("On plane 3 - currentObstacleIndex: " + currentObstacleIndex);
+            log.debug("On plane 3 - currentObstacleIndex: {}", currentObstacleIndex);
             
             // If we've completed obstacles 1 and 2, force index to 2 for obstacle 3 (spikes)
             if (currentObstacleIndex >= 2) {
                 currentObstacleIndex = 2; // Ensure we're on obstacle 3
-                Microbot.log("Forcing to obstacle 3 (spikes) - using timed tile-walking");
+                log.debug("Using timed tile-walking for Brimhaven spike obstacle");
                 return handleSpikeTileWalking();
             }
             
-            Microbot.log("In the spike course area on plane 3 - ready for obstacles (currentObstacleIndex: " + currentObstacleIndex + ")");
+            log.debug("Ready for Brimhaven spike obstacle {}", currentObstacleIndex);
             return false; // Let the main script handle obstacles
         }
         
-        Microbot.log("BrimhavenSpike handleWalkToStart returning false - no action needed");
+        log.debug("BrimhavenSpike handleWalkToStart returning false - no action needed");
         return false;
     }
     
@@ -214,22 +230,22 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
         WorldPoint target = chooseFirst
             ? new WorldPoint(2800, 9568, 3)
             : new WorldPoint(2799, 9568, 3);
+        double initialHealth = Rs2Player.getHealthPercentage();
 
-        Microbot.log("Walking to spike tile: " + target);
+        log.debug("Walking to spike tile: {}", target);
         Rs2Walker.walkFastCanvas(target);
         
         // Check if the player actually moved
         Global.sleep(500); // Give a moment for movement to start
         WorldPoint currentPos = Rs2Player.getWorldLocation();
         if (currentPos.distanceTo(target) > 2) {
-            Microbot.log("Walk failed - player didn't move to target tile, retrying");
+            log.debug("Walk failed - player did not move to target tile, retrying");
             return false; // Let the script retry
         }
         
         // Check for damage (if player took damage, retry immediately)
-        double initialHealth = Rs2Player.getHealthPercentage();
         if (Rs2Player.getHealthPercentage() < initialHealth) {
-            Microbot.log("Player took damage - retrying obstacle immediately");
+            log.debug("Player took damage - retrying obstacle immediately");
             return false; // Let the script retry
         }
         
@@ -241,18 +257,18 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
         }, 4000); // 4 second timeout
         
         if (!xpGained) {
-            Microbot.log("No XP gained within 4 seconds - walk may have failed, retrying");
+            log.debug("No XP gained within 4 seconds - walk may have failed, retrying");
             return false; // Let the script retry
         }
         
         // Wait for animation to finish (animation ID changes to -1)
-        Microbot.log("XP gained! Waiting for animation to finish...");
+        log.debug("XP gained, waiting for animation to finish");
         Global.sleepUntil(() -> {
             int animationId = Rs2Player.getAnimation();
             return animationId == -1; // Animation finished when ID is -1
         }, 10000); // 10 second timeout for animation to finish
         
-        Microbot.log("Animation finished, ready for next obstacle attempt");
+        log.debug("Animation finished, ready for next obstacle attempt");
         
         return true; // handled this tick
     }
@@ -267,6 +283,7 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
         // Only look for obstacles if we're actually in the spike course (plane 3)
         // Before that, we need to pay and climb down the ladder first
         if (playerLocation.getPlane() == 3) {
+            syncStateFromLocation(playerLocation);
             // Get the current obstacle based on the index
             List<AgilityObstacleModel> obstacles = getObstacles();
             if (currentObstacleIndex < obstacles.size()) {
@@ -274,13 +291,13 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
                 
                 // For obstacle 3 (spikes), there's no game object - return null to trigger timed tile-walking
                 if (currentObstacleIndex == obstacles.size() - 1) {
-                    Microbot.log("On obstacle 3 (spikes) - using timed tile-walking instead of game object");
+                    log.debug("On obstacle 3 (spikes) - using timed tile-walking instead of game object");
                     return null; // This will trigger the timed tile-walking logic in handleWalkToStart
                 }
                 
                 var gameObject = Microbot.getRs2TileObjectCache().query().withId(currentObstacle.getObjectID()).within(playerLocation, 10).nearest();
                 if (gameObject != null) {
-                    Microbot.log("Looking for obstacle " + (currentObstacleIndex + 1) + "/" + obstacles.size() + " (ID: " + currentObstacle.getObjectID() + ")");
+                    log.debug("Looking for obstacle {}/{} (ID: {})", currentObstacleIndex + 1, obstacles.size(), currentObstacle.getObjectID());
                     return gameObject;
                 }
             }
@@ -309,14 +326,14 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
             // Advance to next obstacle
             currentObstacleIndex++;
             List<AgilityObstacleModel> obstacles = getObstacles();
-            Microbot.log("XP gained! Current obstacle index: " + currentObstacleIndex + ", obstacles size: " + obstacles.size());
+            log.debug("XP gained. Current obstacle index: {}, obstacles size: {}", currentObstacleIndex, obstacles.size());
             
             if (currentObstacleIndex >= obstacles.size()) {
                 // For BrimhavenSpike, stay on obstacle 3 (spikes) forever instead of looping back
                 currentObstacleIndex = obstacles.size() - 1; // Stay on last obstacle (spikes)
-                Microbot.log("Completed all obstacles, staying on obstacle 3 (spikes) for timed tile-walking");
+                log.debug("Completed all obstacles, staying on obstacle 3 for timed tile-walking");
             } else {
-                Microbot.log("Obstacle completed! Moving to obstacle " + (currentObstacleIndex + 1) + "/" + obstacles.size());
+                log.debug("Obstacle completed. Moving to obstacle {}/{}", currentObstacleIndex + 1, obstacles.size());
             }
             
             return true;
@@ -329,5 +346,28 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
         
         // Check if we've waited long enough after movement stopped
         return System.currentTimeMillis() - lastMovingTime >= waitDelay;
+    }
+
+    private void syncStateFromLocation(WorldPoint playerLocation) {
+        if (isInsideSpikeCourse(playerLocation)) {
+            hasPaid = true;
+            hasClimbedLadder = true;
+        }
+    }
+
+    private boolean canSeeEntryLadder() {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        return playerLocation != null
+            && playerLocation.distanceTo(START_POINT) <= 10
+            && Microbot.getRs2TileObjectCache().query().withId(3617).within(playerLocation, 12).nearest() != null;
+    }
+
+    private boolean isInsideSpikeCourse(WorldPoint playerLocation) {
+        return playerLocation != null
+            && playerLocation.getPlane() == 3
+            && playerLocation.getX() >= 2788
+            && playerLocation.getX() <= 2820
+            && playerLocation.getY() >= 9548
+            && playerLocation.getY() <= 9585;
     }
 }
