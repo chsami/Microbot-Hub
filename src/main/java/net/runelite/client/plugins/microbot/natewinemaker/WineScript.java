@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.natewinemaker;
 
+import net.runelite.api.Skill;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -15,7 +16,78 @@ import java.util.concurrent.TimeUnit;
 
 public class WineScript extends Script {
 
+    private static final int MAX_XP = 13_034_431; // 99 Cooking
+    private static final int WINE_XP = 200; // xp per jug of wine
+    private static final int BATCH_SIZE = 14; // wines per inventory batch
+
+    // Cooking xp / wall clock at session start; -1 until the first logged-in tick.
+    // Static fields leak across plugin restarts, so run() resets them.
+    private static int startXp = -1;
+    private static long startTimeMillis = -1;
+
+    // Wines mixed this session, counted at mix time. Wine xp does NOT drop per
+    // wine: the fermentation timer is global and resets to ~13s on every mix, so
+    // while crafting continuously the xp for ALL pending wines arrives in one
+    // burst 13s after the last mix. Counting mixes keeps the overlay live and
+    // lets the stop-before-99 gate project xp that hasn't dropped yet.
+    private static int winesMixed = 0;
+
+    private WineConfig config;
+
+    /**
+     * Cooking xp including wines that are mixed but not yet fermented (the xp for
+     * those is guaranteed but deferred by the global 13s fermentation timer).
+     * Uses max() so fermentation bursts and manual wines never regress the value.
+     */
+    private static int projectedXp() {
+        int current = Microbot.getClient().getSkillExperience(Skill.COOKING);
+        if (startXp < 0) return current;
+        return Math.max(current, startXp + winesMixed * WINE_XP);
+    }
+
+    /** Wines mixed this session. Safe to call from the overlay (client thread). */
+    public static int getWinesMade() {
+        return winesMixed;
+    }
+
+    /** Cooking xp remaining to 99 (counting pending unfermented wines), or 0 when maxed. */
+    public static int getXpToMax() {
+        if (!Microbot.isLoggedIn()) return 0;
+        return Math.max(0, MAX_XP - projectedXp());
+    }
+
+    /** Wines remaining to 99 (rounded up), or 0 when maxed. */
+    public static int getWinesToMax() {
+        return (getXpToMax() + WINE_XP - 1) / WINE_XP;
+    }
+
+    /**
+     * Estimated time to 99 based on this session's mixing rate (includes breaks
+     * and cooldowns, which is what makes the projection honest). "-" until there
+     * is enough data to project from.
+     */
+    public static String getTimeToMax() {
+        if (startXp < 0 || !Microbot.isLoggedIn()) return "-";
+        int xpToMax = getXpToMax();
+        if (xpToMax == 0) return "Maxed!";
+        long elapsed = System.currentTimeMillis() - startTimeMillis;
+        int xpGained = projectedXp() - startXp;
+        if (xpGained <= 0 || elapsed < 60_000) return "-"; // need a minute of data
+        long msLeft = (long) (xpToMax / ((double) xpGained / elapsed));
+        long totalMinutes = msLeft / 60_000;
+        long days = totalMinutes / (24 * 60);
+        long hours = (totalMinutes / 60) % 24;
+        long minutes = totalMinutes % 60;
+        if (days > 0) return days + "d " + hours + "h";
+        if (hours > 0) return hours + "h " + minutes + "m";
+        return Math.max(1, minutes) + "m";
+    }
+
     public boolean run(WineConfig config) {
+        this.config = config;
+        startXp = -1;
+        startTimeMillis = -1;
+        winesMixed = 0;
         // Apply the cooking template as a baseline, then overlay the user's saved
         // antiban panel settings so anything toggled there wins over the template.
         Rs2Antiban.resetAntibanSettings();
@@ -26,9 +98,18 @@ public class WineScript extends Script {
             try {
 				if (!super.run()) return;
 				if (!Microbot.isLoggedIn()) return;
+                if (startXp < 0) {
+                    startXp = Microbot.getClient().getSkillExperience(Skill.COOKING);
+                    startTimeMillis = System.currentTimeMillis();
+                }
                 if (Rs2AntibanSettings.actionCooldownActive) return;
                 if (Rs2AntibanSettings.microBreakActive) return;
+                if (config.stopBeforeMax() && isMaxWithinOneBatch()) {
+                    logoutAndStop("99 Cooking is within one batch - the final wines are yours");
+                    return;
+                }
                 if (Rs2Inventory.count("grapes") > 0 && (Rs2Inventory.count("jug of water") > 0)) {
+                    int jugsBefore = Rs2Inventory.count("jug of water");
                     Rs2Inventory.combine("jug of water", "grapes");
                     sleepUntil(() -> Rs2Widget.getWidget(17694734) != null);
                     Rs2Keyboard.keyPress('1');
@@ -41,6 +122,7 @@ public class WineScript extends Script {
                         Rs2Antiban.takeMicroBreakByChance();
                     }
                     sleepUntil(() -> !Rs2Inventory.hasItem("jug of water"),25000);
+                    winesMixed += Math.max(0, jugsBefore - Rs2Inventory.count("jug of water"));
                 } else {
                     bank();
                 }
@@ -51,15 +133,25 @@ public class WineScript extends Script {
         return true;
     }
 
+    /**
+     * True once 99 Cooking is reachable within a single 14-wine batch, i.e. the
+     * script should stop and leave the final batch for the user to craft.
+     * Uses projected xp: raw xp can lag hundreds of wines behind because the
+     * fermentation timer resets on every mix, and gating on it would overshoot.
+     */
+    private boolean isMaxWithinOneBatch() {
+        return projectedXp() >= MAX_XP - BATCH_SIZE * WINE_XP;
+    }
+
     private void bank(){
         Rs2Bank.openBank();
         if(Rs2Bank.isOpen()){
             Rs2Bank.depositAll();
             int jugsInBank = Rs2Bank.count("jug of water");
             int grapesInBank = Rs2Bank.count("grapes");
-            if(jugsInBank > 0 && grapesInBank > 0) {
+            if (jugsInBank > 0 && grapesInBank > 0) {
                 // Withdraw up to 14 of each, or whatever is left for a final partial batch
-                int amount = Math.min(14, Math.min(jugsInBank, grapesInBank));
+                int amount = Math.min(BATCH_SIZE, Math.min(jugsInBank, grapesInBank));
                 Rs2Bank.withdrawDeficit("jug of water", amount);
                 sleepUntil(() -> Rs2Inventory.hasItem("jug of water"));
                 Rs2Bank.withdrawDeficit("grapes", amount);
@@ -67,22 +159,29 @@ public class WineScript extends Script {
             } else {
                 // Out of grapes or jugs of water: log out and stop the plugin
                 Microbot.getNotifier().notify("Run out of Materials");
-                Microbot.status = "[Shutting down] - Reason: out of grapes or jugs of water.";
-                Rs2Bank.closeBank();
-                sleepUntil(() -> !Rs2Bank.isOpen());
-                Rs2Player.logout();
-                sleepUntil(() -> !Microbot.isLoggedIn(), 10000);
-                Plugin wineMakerPlugin = Microbot.getPluginManager().getPlugins().stream()
-                        .filter(x -> x.getClass().getName().equals(WinePlugin.class.getName()))
-                        .findFirst()
-                        .orElse(null);
-                Microbot.stopPlugin(wineMakerPlugin);
-                shutdown();
+                logoutAndStop("out of grapes or jugs of water");
                 return;
             }
         }
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen());
+    }
+
+    private void logoutAndStop(String reason) {
+        Microbot.status = "[Shutting down] - Reason: " + reason + ".";
+        Microbot.getNotifier().notify("Wine Maker stopping: " + reason);
+        if (Rs2Bank.isOpen()) {
+            Rs2Bank.closeBank();
+            sleepUntil(() -> !Rs2Bank.isOpen());
+        }
+        Rs2Player.logout();
+        sleepUntil(() -> !Microbot.isLoggedIn(), 10000);
+        Plugin wineMakerPlugin = Microbot.getPluginManager().getPlugins().stream()
+                .filter(x -> x.getClass().getName().equals(WinePlugin.class.getName()))
+                .findFirst()
+                .orElse(null);
+        Microbot.stopPlugin(wineMakerPlugin);
+        shutdown();
     }
 
     @Override
