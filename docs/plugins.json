@@ -1365,7 +1365,7 @@
             "agility",
             "microbot"
         ],
-        "version": "1.2.7",
+        "version": "1.3.0",
         "minClientVersion": "2.1.0",
         "authors": [
             "Mocrosoft"
@@ -1373,8 +1373,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/card.png",
         "disable": false,
-        "sha256": "dcbc7d353e8d77ff57fd75eff435aedde1710e7f8a7e9696a963ae43f8d7079e",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/microagilityplugin-1.2.7.jar"
+        "sha256": "d99223d4d71e503b052e0965ac041cab691e2af6919aeb0dec99ee9bb8866441",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/microagilityplugin-1.3.0.jar"
     },
     {
         "internalName": "FarmTreeRunPlugin",
@@ -1532,7 +1532,7 @@
             "wine",
             "cooking"
         ],
-        "version": "1.2.0",
+        "version": "1.3.0",
         "minClientVersion": "2.0.7",
         "authors": [
             "Nate"
@@ -1540,8 +1540,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/WinePlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/WinePlugin/assets/card.png",
         "disable": false,
-        "sha256": "3176b5baa022c25692cb42ddb48f516db59aff047a9f6ee511370f74511b7db5",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/wineplugin-1.2.0.jar"
+        "sha256": "67cc9fab76e35d9ad431f42b7aa4686dd81e0ecc5ba343246c65164fd5e9f5e8",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/wineplugin-1.3.0.jar"
     },
     {
         "internalName": "LeaguesToolkitPlugin",
@@ -3442,7 +3442,7 @@
             "essence",
             "skilling"
         ],
-        "version": "1.0.2",
+        "version": "1.0.3",
         "minClientVersion": "1.9.8",
         "authors": [
             "Unknown"
@@ -3450,7 +3450,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoEssenceMiningPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoEssenceMiningPlugin/assets/card.png",
         "disable": false,
-        "sha256": "1112b360a4452e36ff465d457847511609cf3f83a69ee759d06b6bb784fbef27",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autoessenceminingplugin-1.0.2.jar"
+        "sha256": "f786bda9a736ceaa041b7bd8608c923f502652608d7b024e4d459b2a8e0ab3eb",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autoessenceminingplugin-1.0.3.jar"
     }
 ]
