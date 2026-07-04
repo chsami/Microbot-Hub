@@ -28,9 +28,11 @@ public class PyramidCourse implements AgilityCourseHandler {
     private static final WorldPoint SIMON_LOCATION = new WorldPoint(3343, 2827, 0);
     private static final String SIMON_NAME = "Simon Templeton";
     private static final int PYRAMID_TOP_REGION = 12105;
+    private static final long START_WALK_FAILURE_COOLDOWN_MS = 30_000;
     
     // Centralized state tracking
     private final PyramidState state = new PyramidState();
+    private long lastStartWalkFailureAt = 0;
     
     
     // Obstacle areas are now defined in PyramidObstacleData for better maintainability
@@ -59,6 +61,12 @@ public class PyramidCourse implements AgilityCourseHandler {
             new AgilityObstacleModel(10851), // Climbing rocks
             new AgilityObstacleModel(10855)  // Doorway
         );
+    }
+
+    @Override
+    public void reset() {
+        state.reset();
+        lastStartWalkFailureAt = 0;
     }
     
     @Override
@@ -838,11 +846,33 @@ public class PyramidCourse implements AgilityCourseHandler {
                 if (log.isDebugEnabled()) {
                     log.debug("Walking to pyramid start point - stairs not reachable directly (distance: {})", distanceToStart);
                 }
-                Rs2Walker.walkTo(START_POINT, 2);
+                if (shouldRetryStartWalk())
+                {
+                    boolean arrived = Rs2Walker.walkTo(START_POINT, 2);
+                    if (!arrived)
+                    {
+                        lastStartWalkFailureAt = System.currentTimeMillis();
+                        log.warn("Pyramid start walk failed; backing off for {} seconds before retrying", START_WALK_FAILURE_COOLDOWN_MS / 1000);
+                    }
+                }
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean shouldRetryStartWalk()
+    {
+        long elapsed = System.currentTimeMillis() - lastStartWalkFailureAt;
+        if (elapsed < START_WALK_FAILURE_COOLDOWN_MS)
+        {
+            if (log.isDebugEnabled())
+            {
+                log.debug("Skipping pyramid start walk retry for {}ms after failed walker route", START_WALK_FAILURE_COOLDOWN_MS - elapsed);
+            }
+            return false;
+        }
+        return true;
     }
     
     @Override
@@ -878,9 +908,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         
         while (System.currentTimeMillis() - startTime < timeoutMs) {
             int currentXp = Microbot.getClient().getSkillExperience(Skill.AGILITY);
-            int currentPlane = Microbot.getClient().getTopLevelWorldView() != null
-                ? Microbot.getClient().getTopLevelWorldView().getPlane()
-                : Rs2Player.getWorldLocation().getPlane();
+            int currentPlane = getClientPlane();
             double currentHealth = Rs2Player.getHealthPercentage();
             WorldPoint currentPos = Rs2Player.getWorldLocation();
             

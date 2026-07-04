@@ -34,4 +34,10 @@ public class GnomeStrongholdCourse implements AgilityCourseHandler
 	{
 		return 1;
 	}
+
+	@Override
+	public boolean handleCourseActions(WorldPoint playerWorldLocation)
+	{
+		return false;
+	}
 }
