@@ -2,10 +2,12 @@ package net.runelite.client.plugins.microbot.agility;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Skill;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.agility.courses.AgilityCourseHandler;
 import net.runelite.api.gameval.ItemID;
@@ -35,7 +37,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MicroAgilityPlugin extends Plugin
 {
-	public static final String version = "1.3.0";
+	public static final String version = "1.3.1";
 	@Inject
 	private MicroAgilityConfig config;
 	@Inject
@@ -81,6 +83,23 @@ public class MicroAgilityPlugin extends Plugin
 		return config.agilityCourse().getHandler();
 	}
 
+	public void notifyUser(String message)
+	{
+		try
+		{
+			if (Microbot.getClient() != null)
+			{
+				Microbot.getClientThread().invoke(() ->
+					Microbot.getClient().addChatMessage(ChatMessageType.ENGINE, "", message, "Micro Agility", false));
+			}
+		}
+		catch (Exception ex)
+		{
+			log.debug("Unable to add agility message to chat", ex);
+		}
+		Microbot.showMessage(message);
+	}
+
 	public List<Rs2ItemModel> getInventoryFood()
 	{
 		return Rs2Inventory.getInventoryFood().stream().filter(i -> !isSummerPie(i)).collect(Collectors.toList());
@@ -104,7 +123,7 @@ public class MicroAgilityPlugin extends Plugin
 			return true;
 		}
 
-		if (getSummerPies().isEmpty() || !courseHandler.canBeBoosted())
+		if (!config.useSummerPies() || getSummerPies().isEmpty() || !courseHandler.canBeBoosted())
 		{
 			return false;
 		}
@@ -115,6 +134,12 @@ public class MicroAgilityPlugin extends Plugin
 	public boolean hasRealRequiredLevel(AgilityCourseHandler courseHandler)
 	{
 		return Rs2Player.getRealSkillLevel(Skill.AGILITY) >= courseHandler.getRequiredLevel();
+	}
+
+	public boolean canSummerPieMeetRequirement(AgilityCourseHandler courseHandler)
+	{
+		return courseHandler.canBeBoosted()
+			&& Rs2Player.getRealSkillLevel(Skill.AGILITY) + 5 >= courseHandler.getRequiredLevel();
 	}
 
 	private boolean isSummerPie(Rs2ItemModel item)

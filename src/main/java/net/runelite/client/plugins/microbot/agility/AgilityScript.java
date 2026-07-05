@@ -177,9 +177,13 @@ public class AgilityScript extends Script
 
 				if (!hasRequiredLevel)
 				{
+					if (supplyManager.shouldWalkToCourseStartForSummerPie(courseHandler, playerWorldLocation, currentObstacleIndex)
+						&& courseHandler.handleCourseActions(playerWorldLocation))
+					{
+						return;
+					}
 					Microbot.log("Early return: Required level not met");
-					Microbot.showMessage("You do not have the required level for this course.");
-					Rs2Player.logout();
+					plugin.notifyUser("Your Agility level is too low for " + config.agilityCourse().getTooltip() + ". Select another course, or enable summer pies if a +5 boost is enough.");
 					shutdown();
 					return;
 				}
