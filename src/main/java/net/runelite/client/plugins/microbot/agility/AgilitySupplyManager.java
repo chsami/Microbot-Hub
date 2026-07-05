@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
-public class AgilitySupplyManager
+class AgilitySupplyManager
 {
 	private static final long BANK_RETRY_COOLDOWN_MS = 30_000;
 	private static final long FOOD_BANK_UNAVAILABLE_RETRY_MS = 300_000;
@@ -63,7 +63,7 @@ public class AgilitySupplyManager
 	private boolean pendingSupplyLogout = false;
 	private String pendingSupplyStopMessage = null;
 
-	public AgilitySupplyManager(MicroAgilityPlugin plugin, MicroAgilityConfig config, BooleanSupplier shuttingDown, Runnable shutdown)
+	AgilitySupplyManager(MicroAgilityPlugin plugin, MicroAgilityConfig config, BooleanSupplier shuttingDown, Runnable shutdown)
 	{
 		this.plugin = plugin;
 		this.config = config;
@@ -71,7 +71,7 @@ public class AgilitySupplyManager
 		this.shutdown = shutdown;
 	}
 
-	public void reset()
+	void reset()
 	{
 		lastBankFailureAt = 0;
 		lastFoodBankUnavailableAt = 0;
@@ -79,12 +79,12 @@ public class AgilitySupplyManager
 		clearPendingSupplyStop();
 	}
 
-	public InventorySnapshot createInventorySnapshot()
+	InventorySnapshot createInventorySnapshot()
 	{
 		return new InventorySnapshot(plugin.getInventoryFood(), plugin.getSummerPies(), getConfiguredPotionCount());
 	}
 
-	public boolean handleSummerPies(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex, InventorySnapshot inventorySnapshot)
+	boolean handleSummerPies(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex, InventorySnapshot inventorySnapshot)
 	{
 		if (!shouldUseSummerPies(courseHandler))
 		{
@@ -115,7 +115,7 @@ public class AgilitySupplyManager
 		return true;
 	}
 
-	public boolean handlePreLevelCheck(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex,
+	boolean handlePreLevelCheck(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex,
 									   boolean hasRequiredLevel, InventorySnapshot inventorySnapshot)
 	{
 		boolean requiresBoost = !plugin.hasRealRequiredLevel(courseHandler);
@@ -173,12 +173,12 @@ public class AgilitySupplyManager
 		return true;
 	}
 
-	public boolean handleFoodOrHealthSafety(InventorySnapshot inventorySnapshot)
+	boolean handleFoodOrHealthSafety(InventorySnapshot inventorySnapshot)
 	{
 		return handleFood(inventorySnapshot) || handleHealthSafety(inventorySnapshot);
 	}
 
-	public boolean handleBeforeObstacle(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex,
+	boolean handleBeforeObstacle(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex,
 										InventorySnapshot inventorySnapshot)
 	{
 		if (wearConfiguredEquipmentFromInventory())
@@ -193,7 +193,7 @@ public class AgilitySupplyManager
 			|| handleHealthSafety(inventorySnapshot);
 	}
 
-	public boolean shouldWalkToCourseStartForSummerPie(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex)
+	boolean shouldWalkToCourseStartForSummerPie(AgilityCourseHandler courseHandler, WorldPoint playerWorldLocation, int currentObstacleIndex)
 	{
 		return shouldUseSummerPies(courseHandler)
 			&& !isOnCourse(currentObstacleIndex)
