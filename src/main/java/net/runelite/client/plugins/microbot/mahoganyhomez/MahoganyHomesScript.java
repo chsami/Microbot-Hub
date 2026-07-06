@@ -150,6 +150,11 @@ public class MahoganyHomesScript extends Script {
             return;
         }
 
+        if (Rs2Player.getWorldLocation().getPlane() != object.getWorldLocation().getPlane()) {
+            log("Object is on a different floor, trying to use ladder/stairs.");
+            tryToUseLadder();
+            return;
+        }
 
         // Find the closest walkable tile around the object
         Rs2WorldPoint objectLocation = Rs2Tile.getNearestWalkableTile(object);
