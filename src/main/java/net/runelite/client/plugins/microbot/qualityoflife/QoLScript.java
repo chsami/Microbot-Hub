@@ -77,6 +77,10 @@ public class QoLScript extends Script {
                     Rs2Dialogue.handleQuestOptionDialogueSelection();
                 }
 
+                if (config.autoPayTreeRemoval() && Rs2Dialogue.isInDialogue()) {
+                    handleTreeRemovalPayment();
+                }
+
 
             } catch (Exception ex) {
                 log.error("Error in QoLScript execution: {}", ex.getMessage(), ex);
@@ -153,6 +157,16 @@ public class QoLScript extends Script {
 
     private void handleAutoDrinkPrayPot(int points) {
         Rs2Player.drinkPrayerPotionAt(points);
+    }
+
+    // Auto-confirm the farming "Pay X Coins to have your tree chopped down?" prompt (tree removal
+    // after a check-health) so farm runs don't wait on a manual 'Yes.'. Matched on the question
+    // title so it never fires on unrelated Yes/No dialogues; amount-agnostic on purpose.
+    private void handleTreeRemovalPayment() {
+        if (Rs2Dialogue.hasQuestion("to have your tree chopped down")
+                && Rs2Dialogue.hasDialogueOption("Yes")) {
+            Rs2Dialogue.clickOption("Yes");
+        }
     }
 
     // handle dialogue continue
