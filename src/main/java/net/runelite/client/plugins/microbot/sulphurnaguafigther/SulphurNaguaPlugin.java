@@ -20,7 +20,7 @@ import java.time.Instant;
         tags = {"combat", "pvm", "nagua", "varlamore", "microbot"},
         authors = { "VIP" },
         version = SulphurNaguaPlugin.version,
-        minClientVersion = "1.9.8",
+        minClientVersion = "2.6.12",
         cardUrl = "https://chsami.github.io/Microbot-Hub/SulphurNaguaPlugin/assets/card.png",
         iconUrl = "https://chsami.github.io/Microbot-Hub/SulphurNaguaPlugin/assets/icon.png",
         isExternal = PluginConstants.IS_EXTERNAL,
@@ -29,7 +29,7 @@ import java.time.Instant;
 @Slf4j
 public class SulphurNaguaPlugin extends Plugin {
 
-    public static final String version = "2.0.1";
+    public static final String version = "2.0.2";
 
     @Inject
     SulphurNaguaScript sulphurNaguaScript;
