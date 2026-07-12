@@ -1580,7 +1580,7 @@
         "iconUrl": "",
         "cardUrl": "",
         "disable": false,
-        "sha256": "08e533c2d243cdf2b1aa8708ca730970cbb667cf0806e1fbf0070c847b93d323",
+        "sha256": "70c387b5018133cb41adb5e5eef0ec762136e35cc7da63537835da93375f2656",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.15.jar"
     },
     {
@@ -2497,7 +2497,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/card.png",
         "disable": false,
-        "sha256": "85884e4db895de3b66b1de9435f3d5b839b65c90ed646fc7008128453f57aa99",
+        "sha256": "5543dd25edbfe49f5babd83a759db4e7af4ab86956d32b80aea8d873e9c8cb81",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mahoganyhomesplugin-0.0.11.jar"
     },
     {
