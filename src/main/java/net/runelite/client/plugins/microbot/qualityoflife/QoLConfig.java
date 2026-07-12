@@ -285,6 +285,18 @@ public interface QoLConfig extends Config {
         return true;
     }
 
+    // boolean to auto-confirm the farming tree-removal payment dialogue
+    @ConfigItem(
+            keyName = "autoPayTreeRemoval",
+            name = "Auto Pay Tree Removal",
+            description = "Automatically selects 'Yes.' on the farming \"Pay X Coins to have your tree chopped down?\" prompt, speeding up farm runs",
+            position = 2,
+            section = dialogueSection
+    )
+    default boolean autoPayTreeRemoval() {
+        return true;
+    }
+
     // boolean to enable Potion Manager
     @ConfigItem(
             keyName = "enablePotionManager",
