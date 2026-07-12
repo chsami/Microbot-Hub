@@ -17,10 +17,14 @@ import java.awt.*;
         name = PluginDescriptor.GMason + "Jewelry Crafter",
         description = "All in one jewelry crafter",
         tags = {"crafting", "magic", "microbot", "skilling"},
+        version = JewelryPlugin.version,
         enabledByDefault = false
 )
 public class JewelryPlugin extends Plugin {
-    
+
+    static final String version = "1.0.1";
+
+
     @Inject
     private JewelryConfig config;
     @Inject
