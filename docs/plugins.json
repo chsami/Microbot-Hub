@@ -1365,7 +1365,7 @@
             "agility",
             "microbot"
         ],
-        "version": "1.3.0",
+        "version": "1.3.1",
         "minClientVersion": "2.1.0",
         "authors": [
             "Mocrosoft"
@@ -1373,8 +1373,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/card.png",
         "disable": false,
-        "sha256": "d99223d4d71e503b052e0965ac041cab691e2af6919aeb0dec99ee9bb8866441",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/microagilityplugin-1.3.0.jar"
+        "sha256": "e6e49d457d5f877bea57881fbb84114e8c8672e06a9f9451ab3e6f1f5056a672",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/microagilityplugin-1.3.1.jar"
     },
     {
         "internalName": "FarmTreeRunPlugin",
@@ -3171,16 +3171,16 @@
             "varlamore",
             "microbot"
         ],
-        "version": "2.0.1",
-        "minClientVersion": "1.9.8",
+        "version": "2.0.2",
+        "minClientVersion": "2.6.12",
         "authors": [
             "VIP"
         ],
         "iconUrl": "https://chsami.github.io/Microbot-Hub/SulphurNaguaPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/SulphurNaguaPlugin/assets/card.png",
         "disable": false,
-        "sha256": "8128f85b44622392c7c0be7ac87da307fc0096ec5af8e87958ecd8d6ff68793e",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sulphurnaguaplugin-2.0.1.jar"
+        "sha256": "9f0518cee0a407b59adb00cb89d9f06580dc4dd44537ab118b992c1dea01e025",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sulphurnaguaplugin-2.0.2.jar"
     },
     {
         "internalName": "HunterKebbitsPlugin",
