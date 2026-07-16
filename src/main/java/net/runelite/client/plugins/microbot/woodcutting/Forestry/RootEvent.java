@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.woodcutting.Forestry;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Actor;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
@@ -16,17 +15,19 @@ import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
+
 @Slf4j
 public class RootEvent implements BlockingEvent {
 
     private final AutoWoodcuttingPlugin plugin;
+
     public RootEvent(AutoWoodcuttingPlugin plugin) {
         this.plugin = plugin;
     }
 
     @Override
     public boolean validate() {
-        try{
+        try {
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;
             var root = plugin.rs2TileObjectCache.query().where(x -> x.getId() == ObjectID.GATHERING_EVENT_RISING_ROOTS).nearest();
@@ -45,7 +46,6 @@ public class RootEvent implements BlockingEvent {
             log.error("RootEvent: Exception in validate method", e);
             return false;
         }
-
     }
 
     @Override
@@ -65,35 +65,19 @@ public class RootEvent implements BlockingEvent {
 
             // If special root is present
             if (specialRoot != null) {
-
-                // Check if the player is already interacting with the special root
-                if (Rs2Player.isInteracting() && Rs2Player.getInteracting() != null) {
-                    Actor interactingNpc = Microbot.getClient().getLocalPlayer().getInteracting();
-                    if (interactingNpc.getWorldLocation().equals(specialRoot.getWorldLocation())) {
-                        continue;
-                    }
-                }
                 // Interact with the special root
                 Microbot.log("RootEvent: Interacting with special root at " + specialRoot.getWorldLocation());
                 specialRoot.click("Chop down");
                 Rs2Player.waitForAnimation(5000);
-                sleepUntil(() -> !Rs2Player.isInteracting(), 40000);
+                sleepUntil(() -> !Rs2Player.isAnimating() || !this.validate(), 40000);
             }
             // If regular root is present
             else if (root != null) {
-
-                // Check if the player is already interacting with the root
-                if (Rs2Player.isInteracting() && Rs2Player.getInteracting() != null) {
-                    Actor interactingNpc = Microbot.getClient().getLocalPlayer().getInteracting();
-                    if (interactingNpc.getWorldLocation().equals(root.getWorldLocation())) {
-                        continue;
-                    }
-                }
                 // Interact with the regular root
                 Microbot.log("RootEvent: Interacting with regular root at " + root.getWorldLocation());
                 root.click("Chop down");
                 Rs2Player.waitForAnimation(5000);
-                sleepUntil(() -> !Rs2Player.isInteracting(), 40000);
+                sleepUntil(() -> !Rs2Player.isAnimating() || !this.validate(), 40000);
             }
         }
         plugin.incrementForestryEventCompleted();
