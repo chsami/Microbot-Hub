@@ -144,11 +144,20 @@ public class StrugglingSaplingEvent implements BlockingEvent {
                     break;
                 }
 
-                Microbot.log("StrugglingSaplingEvent: No known correct ingredient, collecting a random one.");
-                var randomIngredient = availableIngredients.get((int) (Math.random() * availableIngredients.size()));
-                Microbot.log("StrugglingSaplingEvent: Collecting random ingredient: " + randomIngredient.getWorldLocation());
-                randomIngredient.click("Collect");
-                triedIngredients.add(randomIngredient.getId());
+                Microbot.log("StrugglingSaplingEvent: No known correct ingredient, collecting the closest untried one.");
+                var closestIngredient = availableIngredients.get(0);
+                int closestDist = closestIngredient.getWorldLocation().distanceTo(Rs2Player.getWorldLocation());
+                for (var ingredient : availableIngredients) {
+                    int dist = ingredient.getWorldLocation().distanceTo(Rs2Player.getWorldLocation());
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestIngredient = ingredient;
+                    }
+                }
+
+                Microbot.log("StrugglingSaplingEvent: Collecting ingredient: " + closestIngredient.getWorldLocation());
+                closestIngredient.click("Collect");
+                triedIngredients.add(closestIngredient.getId());
                 Rs2Player.waitForAnimation();
             }
 
