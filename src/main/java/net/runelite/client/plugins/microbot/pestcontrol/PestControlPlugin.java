@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
         tags = {"pest control", "minigames"},
         authors = { "Mocrosoft" },
         version = PestControlPlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.15",
 		iconUrl = "https://chsami.github.io/Microbot-Hub/PestControlPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/PestControlPlugin/assets/card.png",
 		enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class PestControlPlugin extends Plugin {
 
-	static final String version = "2.5.6";
+	static final String version = "2.5.7";
 
     @Inject
     PestControlScript pestControlScript;
