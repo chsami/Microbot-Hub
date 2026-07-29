@@ -8,16 +8,17 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.pestcontrol.Portal;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.Text;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static net.runelite.client.plugins.microbot.pestcontrol.PestControlScript.portals;
 
 @PluginDescriptor(
         name = PluginConstants.MOCROSOFT + "Pest Control",
@@ -34,10 +35,18 @@ import static net.runelite.client.plugins.microbot.pestcontrol.PestControlScript
 @Slf4j
 public class PestControlPlugin extends Plugin {
 
-	static final String version = "2.3.4";
+	static final String version = "2.5.6";
 
     @Inject
     PestControlScript pestControlScript;
+
+    String getRuntimeStatus() {
+        return pestControlScript.getRuntimeStatus();
+    }
+
+    PestControlScript.OverlaySnapshot getOverlaySnapshot() {
+        return pestControlScript.getOverlaySnapshot();
+    }
 
     @Inject
     private PestControlConfig config;
@@ -52,7 +61,16 @@ public class PestControlPlugin extends Plugin {
     @Inject
     private PestControlOverlay pestControlOverlay;
 
-    private final Pattern SHIELD_DROP = Pattern.compile("The ([a-z]+), [^ ]+ portal shield has dropped!", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SHIELD_DROP = Pattern.compile(
+            "The\\s+(purple|blue|yellow|red)\\s*,.*?portal shield has dropped!",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern POINTS_AWARDED = Pattern.compile(
+            "(?:awarded|received|gained)\\s+([\\d,]+)\\s+(?:Void Knight\\s+)?commendation points?",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern TOTAL_POINTS = Pattern.compile(
+            "(?:you (?:now )?have|commendation (?:point )?count is now)\\s+([\\d,]+)"
+                    + "\\s+(?:Void Knight\\s+)?commendation points?",
+            Pattern.CASE_INSENSITIVE);
 
 
     @Override
@@ -71,24 +89,41 @@ public class PestControlPlugin extends Plugin {
 
     @Subscribe
     public void onChatMessage(ChatMessage chatMessage) {
-        if (chatMessage.getType() == ChatMessageType.GAMEMESSAGE) {
-            Matcher matcher = SHIELD_DROP.matcher(chatMessage.getMessage());
-            if (matcher.lookingAt()) {
-                switch (matcher.group(1)) {
-                    case "purple":
-                        portals.stream().filter(x -> x == Portal.PURPLE).findFirst().get().setHasShield(false);
-                        break;
-                    case "blue":
-                        portals.stream().filter(x -> x == Portal.BLUE).findFirst().get().setHasShield(false);
-                        break;
-                    case "red":
-                        portals.stream().filter(x -> x == Portal.RED).findFirst().get().setHasShield(false);
-                        break;
-                    case "yellow":
-                        portals.stream().filter(x -> x == Portal.YELLOW).findFirst().get().setHasShield(false);
-                        break;
-                }
-            }
+        if (chatMessage.getType() != ChatMessageType.GAMEMESSAGE) {
+            return;
+        }
+
+        String message = Text.removeTags(chatMessage.getMessage());
+        Matcher matcher = SHIELD_DROP.matcher(message);
+        if (matcher.find()) {
+            Portal portal = Portal.valueOf(matcher.group(1).toUpperCase(Locale.ROOT));
+            pestControlScript.noteShieldDrop(portal);
+            Microbot.log("Pest Control shield dropped: " + portal + " portal");
+        }
+
+        String normalizedMessage = message.toLowerCase(Locale.ROOT);
+        if (normalizedMessage.contains("successfully defended the island")) {
+            pestControlScript.noteRoundOutcome(true);
+        } else if (normalizedMessage.contains("alas, the void knight has died")) {
+            pestControlScript.noteRoundOutcome(false);
+        }
+
+        Matcher awardedMatcher = POINTS_AWARDED.matcher(message);
+        if (awardedMatcher.find()) {
+            pestControlScript.recordAwardedPoints(parseCount(awardedMatcher.group(1)));
+        }
+
+        Matcher totalMatcher = TOTAL_POINTS.matcher(message);
+        if (totalMatcher.find()) {
+            pestControlScript.recordTotalPoints(parseCount(totalMatcher.group(1)));
+        }
+    }
+
+    private static int parseCount(String value) {
+        try {
+            return Integer.parseInt(value.replace(",", ""));
+        } catch (NumberFormatException ignored) {
+            return -1;
         }
     }
 }
