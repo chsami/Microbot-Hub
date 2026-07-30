@@ -100,12 +100,31 @@ Pick the space the plugin already uses elsewhere and make the comparison consist
 Entity-to-entity comparisons in `LocalPoint` space are always safe and are the simplest option when a
 plugin operates entirely inside one instance.
 
+## Related instance facts (same debugging session, distinct from the space split)
+
+Initially all three Tempoross symptoms were blamed on this split; live runs later showed only one was.
+Recording the real causes because they are easy to conflate with it:
+
+- **NPCs and objects have different visibility rules.** The tile-object cache scans the whole loaded
+  scene, so objects are findable from anywhere in the region. NPCs come from the client's
+  server-driven list and only exist within ~15 tiles of the player — an NPC 20 tiles away is simply
+  absent from the cache, which looks exactly like a lookup bug ("can't find ammo crate"). The fix is
+  to walk closer, not to change coordinate handling.
+- **Raw instance coordinates do not hold across games.** The template map is fixed (Tempoross's two
+  sides are exact mirrors), but the instance assembles its chunks with per-game rotation — measured:
+  the same "west"-labeled work area had its fishing area at exit −17y in one game and +16y in another.
+  Offset tables in raw space therefore break between games. Distance-based logic survives rotation;
+  fixed template coordinates (converted via `Rs2LocalPoint.fromWorldInstance`) are exact.
+- **`Rs2Walker.walkFastLocal` fires a `-1,-1` click when the tile has no canvas projection** (beyond
+  draw distance / off-screen): `localToCanvas` returns null and the method invokes the walk anyway, so
+  the character wanders. Clickable range scales with the user's renderer (GPU/117 HD extend it), which
+  makes the failure config-dependent. Keep local-click walk targets short or stage them.
+
 ## How this was found
 
-Debugging Tempoross (Microbot repo, 2026-07-30). Three separate symptoms — "can't find ammo crate",
-fish spots never matching, and the fire-cloud dodge never moving — all traced back to this one split.
-The cloud dodge was the clearest: it converted `Rs2Player.getWorldLocation()` to a `LocalPoint`, got
-`null` every time, and concluded it was not standing in a cloud.
+Debugging Tempoross (Microbot repo, 2026-07-30). The clearest case of the space split was the
+fire-cloud dodge: it converted `Rs2Player.getWorldLocation()` to a `LocalPoint`, got `null` every
+time, and concluded it was not standing in a cloud — a safety mechanic that silently never ran.
 
 Measured in-game: player `(3035, 2853)` (template, region 12076) vs NPCs `(10556, 5892)` (raw), same
 tick, same scene.
