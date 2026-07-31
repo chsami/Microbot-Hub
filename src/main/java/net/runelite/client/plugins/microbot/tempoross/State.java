@@ -6,16 +6,29 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import java.util.function.BooleanSupplier;
 
 public enum State {
-    ATTACK_TEMPOROSS(() -> TemporossScript.ENERGY >= 94, null),
+    // Objective is permits per game, i.e. points, not XP. Nothing else can be done for points while
+    // Tempoross is recharging, so hold the pool for the whole window (97-98%) rather than the old 94%.
+    ATTACK_TEMPOROSS(() -> TemporossScript.ENERGY >= TemporossScript.thresholdFullEnergy, null),
     SECOND_FILL(() -> getCookedFish() == 0, ATTACK_TEMPOROSS),
-    THIRD_COOK(() -> getCookedFish() == ((TemporossScript.temporossConfig.solo() && TemporossScript.ESSENCE > 20) ? 19 : getAllFish()) || TemporossScript.INTENSITY >= 92 || (TemporossScript.ENERGY < 50 && getAllFish() > 16 && !TemporossScript.temporossConfig.solo()), SECOND_FILL),
-    THIRD_CATCH(() -> getAllFish() >= ((TemporossScript.temporossConfig.solo() && TemporossScript.ESSENCE > 20) ? 19 : getTotalAvailableFishSlots()), THIRD_COOK),
+    // Cook the whole bag. The old "energy < 50 with 16+ fish" bail-out moved to THIRD_CATCH, where
+    // it belongs: at the cutoff we stop catching, but everything caught still gets cooked.
+    THIRD_COOK(() -> getCookedFish() == ((TemporossScript.temporossConfig.solo() && TemporossScript.ESSENCE > 20) ? 19 : getAllFish()) || TemporossScript.INTENSITY >= 92, SECOND_FILL),
+    // Stop catching at ~49% energy so there is time to cook and load before the last wave. Energy
+    // must be non-zero: 0 means either the pool phase or a widget that has not parsed yet. Requires a
+    // few fish to be worth it — with 1-2 in the bag this cutoff used to trigger a cook-and-load
+    // sprint for a single fish right as the pool phase arrived; better to keep catching and stage at
+    // the pool instead.
+    THIRD_CATCH(() -> getAllFish() >= ((TemporossScript.temporossConfig.solo() && TemporossScript.ESSENCE > 20) ? 19 : getTotalAvailableFishSlots())
+            || (!TemporossScript.temporossConfig.solo()
+                && TemporossScript.ENERGY > 0
+                && TemporossScript.ENERGY <= TemporossScript.thresholdLoadEnergy
+                && getAllFish() >= 4), THIRD_COOK),
     EMERGENCY_FILL(() -> getAllFish() == 0, THIRD_CATCH),
     INITIAL_FILL(() -> getCookedFish() == 0, THIRD_CATCH),
     SECOND_COOK(() -> getCookedFish() == (TemporossScript.temporossConfig.solo() ? 17 : getAllFish()), INITIAL_FILL),
     SECOND_CATCH(() -> getAllFish() >= (TemporossScript.temporossConfig.solo() ? 17 : getTotalAvailableFishSlots()), SECOND_COOK),
     INITIAL_COOK(() -> getRawFish() == 0, SECOND_CATCH),
-    INITIAL_CATCH(() -> getRawFish() >= 7 || getAllFish() >= 10, INITIAL_COOK);
+    INITIAL_CATCH(() -> getRawFish() >= TemporossScript.openingCatchTarget || getAllFish() >= 10, INITIAL_COOK);
 
     public final BooleanSupplier isComplete;
     public final State next;

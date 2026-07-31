@@ -89,6 +89,17 @@ public interface TemporossConfig extends Config {
         return false;
     }
 
+    @ConfigItem(
+        keyName = "world",
+        name = "World",
+        description = "Hop to this world when the script starts, if not already inside the minigame. 0 disables.",
+        position = 5,
+        section = generalSection
+    )
+    default int world() {
+        return 422;
+    }
+
 
 
     // Equipment settings

@@ -121,7 +121,7 @@ public class TemporossProgressionOverlay extends OverlayPanel {
 
         switch (state) {
             case ATTACK_TEMPOROSS:
-                return Math.min(TemporossScript.ENERGY / 94.0, 1.0);
+                return Math.min(TemporossScript.ENERGY / (double) TemporossScript.thresholdFullEnergy, 1.0);
             case SECOND_FILL:
                 return 1.0 - Math.min((double) cooked / (solo ? 19 : slots), 1.0);
             case INITIAL_FILL:
@@ -140,7 +140,7 @@ public class TemporossProgressionOverlay extends OverlayPanel {
                 return Math.min((double) cooked / Math.max(all, 1), 1.0);
             case INITIAL_CATCH:
                 return Math.max(
-                        Math.min((double) raw / 7.0, 1.0),
+                        Math.min((double) raw / TemporossScript.openingCatchTarget, 1.0),
                         Math.min((double) all / 10.0, 1.0));
             default:
                 return 0.0;
