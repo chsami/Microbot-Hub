@@ -34,11 +34,15 @@ public class TemporossWorkArea
      */
     private WorldPoint totemExitNpc;
 
-    public TemporossWorkArea(WorldPoint exitNpc, boolean isWest, WorldPoint totemExitNpc)
+    /** Which half we are on, and every per-side id. Never null once the work area exists. */
+    public final TemporossSide side;
+
+    public TemporossWorkArea(WorldPoint exitNpc, boolean isWest, WorldPoint totemExitNpc, TemporossSide side)
     {
         this.isWest = isWest;
         this.exitNpc = exitNpc;
         this.totemExitNpc = totemExitNpc;
+        this.side = side;
         this.safePoint = exitNpc.dx(1).dy(1);
 
         if (isWest)
@@ -93,11 +97,13 @@ public class TemporossWorkArea
     }
 
     public Rs2TileObjectModel getMast() {
-        return ourSide(Microbot.getRs2TileObjectCache().query().withIds(NullObjectID.NULL_41352, NullObjectID.NULL_41353).within(mastPoint, 10).toList());
+        // Our side's id only. Both masts exist in the scene (41352 west, 41353 east) and the wrong one
+        // was previously excluded by radius alone.
+        return ourSide(Microbot.getRs2TileObjectCache().query().withId(side.mastId).within(mastPoint, 10).toList());
     }
 
     public Rs2TileObjectModel getBrokenMast() {
-        return ourSide(Microbot.getRs2TileObjectCache().query().withIds(ObjectID.DAMAGED_MAST_40996, ObjectID.DAMAGED_MAST_40997).within(mastPoint, 10).toList());
+        return ourSide(Microbot.getRs2TileObjectCache().query().withId(side.brokenMastId).within(mastPoint, 10).toList());
     }
 
     /**
@@ -122,11 +128,13 @@ public class TemporossWorkArea
     }
 
     public Rs2TileObjectModel getTotem() {
-        return ourSide(Microbot.getRs2TileObjectCache().query().withIds(NullObjectID.NULL_41355, NullObjectID.NULL_41354).within(exitNpc, SIDE_ANCHOR_RADIUS).toList());
+        // Our side's totem id only. Previously both were queried and the other side's sat 19 tiles
+        // away — inside the 30 radius, rejected by a single tile of isOnOurSide margin.
+        return ourSide(Microbot.getRs2TileObjectCache().query().withId(side.totemId).within(exitNpc, SIDE_ANCHOR_RADIUS).toList());
     }
 
     public Rs2TileObjectModel getBrokenTotem() {
-        return ourSide(Microbot.getRs2TileObjectCache().query().withIds(ObjectID.DAMAGED_TOTEM_POLE, ObjectID.DAMAGED_TOTEM_POLE_41011).within(exitNpc, SIDE_ANCHOR_RADIUS).toList());
+        return ourSide(Microbot.getRs2TileObjectCache().query().withId(side.brokenTotemId).within(exitNpc, SIDE_ANCHOR_RADIUS).toList());
     }
 
     public Rs2TileObjectModel getRange()

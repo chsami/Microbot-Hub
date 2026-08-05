@@ -269,18 +269,26 @@ public class TemporossScript extends Script {
                 return;
             }
             boolean isWest = forfeitNpc.getWorldLocation().getX() < ammoCrate.getWorldLocation().getX();
-            // Each side has TWO exit NPCs: the ship one (nearest, beside the ammo crate) and one by
-            // the totem ~17 tiles away. The totem one is our second side-anchor — it sits right by
-            // the fishing area. Anything further than the gate belongs to the other side.
+            // The exit NPC's id alone identifies our side and every per-side id with it. Not distance:
+            // measured in-game the west ship host sat 17 tiles from its own totem host and 18 from the
+            // other side's, so any proximity pairing is a coin flip on a one-tile margin.
+            TemporossSide side = TemporossSide.fromHostId(forfeitNpc.getId());
+            if (side == null) {
+                log("Unrecognised exit NPC id " + forfeitNpc.getId() + " — cannot identify side, retrying");
+                return;
+            }
+            // Our side's other exit NPC, matched by id rather than distance.
             WorldPoint totemExit = forfeitNpcs.stream()
                     .filter(npc -> npc.getNpc() != null && npc.getIndex() != forfeitNpc.getIndex())
+                    .filter(npc -> npc.getId() == side.shipHostId || npc.getId() == side.totemHostId)
                     .map(Rs2NpcModel::getWorldLocation)
-                    .filter(p -> p.distanceTo(forfeitNpc.getWorldLocation()) <= TemporossWorkArea.TOTEM_EXIT_MAX_DISTANCE)
-                    .max(Comparator.comparingInt(p -> p.distanceTo(forfeitNpc.getWorldLocation())))
+                    .findFirst()
                     .orElse(null);
-            workArea = new TemporossWorkArea(forfeitNpc.getWorldLocation(), isWest, totemExit);
+            workArea = new TemporossWorkArea(forfeitNpc.getWorldLocation(), isWest, totemExit, side);
             previousWorkArea = null;
-            log("Totem-side exit NPC: " + (totemExit != null ? totemExit : "not rendered yet, will capture when seen"));
+            log("Side " + side + " (exit NPC " + forfeitNpc.getId() + ", spots " + side.fishingSpotId
+                    + ", mast " + side.mastId + ", totem " + side.totemId + ")");
+            log("Other exit NPC: " + (totemExit != null ? totemExit : "not rendered yet, will capture when seen"));
             // Once per game, here rather than in reset() — reset() runs every loop while outside the
             // minigame, which re-rolled and re-logged the thresholds several times a second.
             randomizeThresholds();
@@ -783,8 +791,8 @@ public class TemporossScript extends Script {
     public static void updateAmmoCrateData(){
         LocalPoint mastLocal = LocalPoint.fromWorld(Microbot.getClient(),workArea.mastPoint);
         List<Rs2NpcModel> ammoCrates = Microbot.getRs2NpcCache().query()
+                .withIds(workArea.side.ammoCrateIdA, workArea.side.ammoCrateIdB)
                 .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
-                        && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Fill")
                         && mastLocal != null && npc.getNpc().getLocalLocation() != null
                         && npc.getNpc().getLocalLocation().distanceTo(mastLocal) <= 4 * 128
                         && !inCloud(npc, 0))
@@ -815,14 +823,15 @@ public class TemporossScript extends Script {
     public static void updateFishSpotData(){
         LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
                 ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        // Single spots are keyed by side (10565 / 10568) so ours are selected by id, not geometry.
+        // The double (10569) is a single shared id that spawns on BOTH sides — measured 40 tiles
+        // apart in one game — so it is the one spot type that still needs a position check.
         List<Rs2NpcModel> allSpots = Microbot.getRs2NpcCache().query()
-                .withIds(NpcID.FISHING_SPOT_10569, NpcID.FISHING_SPOT_10568, NpcID.FISHING_SPOT_10565)
+                .withIds(workArea.side.fishingSpotId, NpcID.FISHING_SPOT_10569)
                 .toList();
-        // Anchored on the exit NPC, never on the range. Our spots sit 15-21 tiles from the exit NPC
-        // and the opposite side's are 40+, so this has a ~20 tile margin. Anchoring on the range gave
-        // a 4 tile margin and one wrong shrine lookup rejected every spot for the rest of the game.
         fishSpots = allSpots.stream()
-                .filter(npc -> workArea.isOnOurSide(npc.getWorldLocation()))
+                .filter(npc -> npc.getId() != NpcID.FISHING_SPOT_10569
+                        || workArea.isOnOurSide(npc.getWorldLocation()))
                 // Doubles first (worth crossing the boat for), then nearest. Distance must be
                 // compared in local/scene space: inside the instance, NPC world locations and
                 // Rs2Player.getWorldLocation() are in two different coordinate spaces.
@@ -1178,11 +1187,12 @@ public class TemporossScript extends Script {
             case SECOND_FILL:
             case INITIAL_FILL:
                 LocalPoint mastLocal = LocalPoint.fromWorld(Microbot.getClient(),workArea.mastPoint);
+                // Crates are keyed by side too (A: 10576/10577, B: 10578/10579), so the other ship's
+                // pair cannot be selected regardless of where we are standing.
                 List<Rs2NpcModel> cratesAtMast = Microbot.getRs2NpcCache().query()
-                        .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
-                                && npc.getNpc().getComposition().getActions() != null
-                                && Arrays.asList(npc.getNpc().getComposition().getActions()).contains("Fill")
-                                && mastLocal != null && npc.getNpc().getLocalLocation() != null
+                        .withIds(workArea.side.ammoCrateIdA, workArea.side.ammoCrateIdB)
+                        .where(npc -> npc.getNpc() != null && npc.getNpc().getLocalLocation() != null
+                                && mastLocal != null
                                 && npc.getNpc().getLocalLocation().distanceTo(mastLocal) <= 4 * 128)
                         .toList();
                 List<Rs2NpcModel> ammoCrates = cratesAtMast.stream()
