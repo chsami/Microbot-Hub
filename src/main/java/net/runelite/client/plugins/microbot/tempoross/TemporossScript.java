@@ -1808,10 +1808,14 @@ public class TemporossScript extends Script {
                 .orElse(null);
     }
 
+    // Dousing means walking to the fire — there is no ranged douse — so both budgets are deliberately
+    // small. Fires are a hazard to avoid, not a points source to chase: the permit route scores on
+    // fish, so anything we cannot douse in passing is walked around instead (detourAroundFires),
+    // which costs nothing. These were 4 and 10, which added up to a genuine trip.
     /** Extra travel we will accept in order to douse a fire on the way to somewhere else. */
-    private static final int MAX_FIRE_DETOUR = 4 * Perspective.LOCAL_TILE_SIZE;
+    private static final int MAX_FIRE_DETOUR = 2 * Perspective.LOCAL_TILE_SIZE;
     /** Hard cap on how far a fire can be and still count as "in path". */
-    private static final int MAX_FIRE_DISTANCE = 10 * Perspective.LOCAL_TILE_SIZE;
+    private static final int MAX_FIRE_DISTANCE = 5 * Perspective.LOCAL_TILE_SIZE;
 
     public boolean fightFiresInPath(WorldPoint location) {
         if (sortedFires.isEmpty() || isAttackingSpiritPool()) {
