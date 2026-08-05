@@ -763,7 +763,12 @@ public class TemporossScript extends Script {
         }
         // Big-search spends several permits per interaction rather than one at a time.
         if (pool.click("Big-search")) {
-            log("Big-search at the reward pool (" + permits + " permits, Fishing " + fishing + ")");
+            // Logs the resolved pool id next to the permit count. The pool presents one of ten ids
+            // (base 41356, or 41296-41304) and the id tracks stored permits, but the thresholds are
+            // unverified — 26 permits presenting as 41300 is the only pairing measured so far. Every
+            // collection prints another pairing, so the mapping falls out of normal use.
+            log("Big-search at the reward pool (id " + pool.getId() + ", " + permits
+                    + " permits, Fishing " + fishing + ")");
             sleepUntil(() -> rewardPermits() < permits || Rs2Inventory.emptySlotCount() < MIN_FREE_SLOTS, 10000);
         }
         return true;
