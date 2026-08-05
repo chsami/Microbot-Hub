@@ -83,6 +83,11 @@ public class TemporossScript extends Script {
     // Strategy opening: 7 fish below 85 Fishing, 9 at 85+ where the extra catches still fit inside
     // the same cook cycle, so the double spot arrives with nothing wasted. Resolved once per game.
     public static int openingCatchTarget = 7;
+    /**
+     * Third-phase batch size: catch this many, cook them, repeat — unless a double spot is up, in
+     * which case keep fishing and fill the bag instead.
+     */
+    public static final int thirdCatchBatch = 7;
     private static long lastFishSpotDiagnostic = 0;
     private int thresholdEmergencyEnergyLow = 30;
     private int thresholdEmergencyEnergyHigh = 50;
@@ -1020,7 +1025,7 @@ public class TemporossScript extends Script {
                 .toList().stream()
                 .min(Comparator.comparingInt(x -> workArea.spiritPoolPoint.distanceTo(x.getWorldLocation())))
                 .orElse(null);
-        boolean doubleFishingSpot = !fishSpots.isEmpty() && fishSpots.get(0).getId() == NpcID.FISHING_SPOT_10569;
+        boolean doubleFishingSpot = hasDoubleSpot();
 
         if (TemporossScript.state == State.INITIAL_COOK && doubleFishingSpot) {
             log("Double fishing spot detected, skipping initial cook");
@@ -1098,9 +1103,7 @@ public class TemporossScript extends Script {
                 //     which isAnimating() reports for a further 600ms.
                 if ((Rs2Player.isMoving() || Rs2Player.isAnimating()) && lastCatchSpotAlive()) {
                     boolean atDouble = lastCatchSpotId == NpcID.FISHING_SPOT_10569;
-                    boolean doubleAvailable = fishSpots.stream().anyMatch(
-                            npc -> npc.getId() == NpcID.FISHING_SPOT_10569 && !inCloud(npc, 1));
-                    if (atDouble || !doubleAvailable) {
+                    if (atDouble || !hasDoubleSpot()) {
                         return;
                     }
                 }
@@ -1656,6 +1659,16 @@ public class TemporossScript extends Script {
 
     private static boolean inCloud(Rs2NpcModel npc, int radius) {
         return npc != null && npc.getNpc() != null && inCloud(npc.getNpc().getLocalLocation(), radius);
+    }
+
+    /**
+     * Is a usable double spot up? Cloud-filtered, because one we cannot stand at is no reason to keep
+     * catching. Shared so the third-phase catch cutoff, the cook interrupt and the abandon-a-single
+     * rule all agree on what "a double is available" means.
+     */
+    public static boolean hasDoubleSpot() {
+        return fishSpots.stream()
+                .anyMatch(npc -> npc.getId() == NpcID.FISHING_SPOT_10569 && !inCloud(npc, 1));
     }
 
     /**
