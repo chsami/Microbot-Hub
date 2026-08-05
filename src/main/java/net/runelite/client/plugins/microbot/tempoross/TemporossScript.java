@@ -121,6 +121,8 @@ public class TemporossScript extends Script {
                 if (!isInMinigame()) {
                     if (handleStartupWorldHop())
                         return;
+                    if (handleAutoEquip())
+                        return;
                     if (handleRewardCollection())
                         return;
                     handleEnterMinigame();
@@ -853,6 +855,136 @@ public class TemporossScript extends Script {
             sleepUntil(Rs2Player::isAnimating, 5000);
         }
         return true;
+    }
+
+    private boolean autoEquipDone = false;
+
+    /**
+     * Equips the best Tempoross gear we own, once per script start, from the bank in the lobby.
+     *
+     * <p>Slots resolve independently: the wiki notes a Spirit Angler piece is interchangeable with an
+     * Angler one when you lack the full set, so there is no reason to hold out for a matching set.
+     * The harpoon is included because it drives points, but it defers to the configured type — the
+     * config is the user's stated intent, and the tier list is only a fallback for when they do not
+     * own it. A plain harpoon is left to the existing crate pickup, which already handles the case of
+     * owning nothing at all.
+     *
+     * @return true while still working, so the caller does not board mid-equip
+     */
+    private boolean handleAutoEquip() {
+        if (!temporossConfig.autoEquip() || autoEquipDone) {
+            return false;
+        }
+        List<int[]> wanted = new ArrayList<>();
+        for (TemporossGear gear : TemporossGear.values()) {
+            wanted.add(gear.getTiers());
+        }
+
+        boolean anythingToDo = false;
+        for (TemporossGear gear : TemporossGear.values()) {
+            if (bestOwnedButNotWorn(gear.getTiers()) != -1) {
+                anythingToDo = true;
+                break;
+            }
+        }
+        int harpoon = bestHarpoonToEquip();
+        if (harpoon != -1) {
+            anythingToDo = true;
+        }
+        if (!anythingToDo) {
+            autoEquipDone = true;
+            log("Gear already optimal");
+            Rs2Bank.closeBank();
+            return false;
+        }
+
+        if (!Rs2Bank.isOpen()) {
+            Rs2TileObjectModel chest = Microbot.getRs2TileObjectCache().query().withId(LOBBY_BANK_CHEST).nearest();
+            if (chest == null) {
+                log("Bank chest not in range — skipping auto-equip");
+                autoEquipDone = true;
+                return false;
+            }
+            if (Rs2Player.isMoving()) {
+                return true;
+            }
+            if (chest.click("Use")) {
+                sleepUntil(Rs2Bank::isOpen, 8000);
+            }
+            return true;
+        }
+
+        for (TemporossGear gear : TemporossGear.values()) {
+            int id = bestOwnedButNotWorn(gear.getTiers());
+            if (id != -1) {
+                log("Equipping best " + gear.getLabel() + " (item " + id + ")");
+                Rs2Bank.withdrawAndEquip(id);
+                sleepUntil(() -> Rs2Equipment.isWearing(id), 3000);
+                return true;
+            }
+        }
+        if (harpoon != -1) {
+            log("Equipping harpoon (item " + harpoon + ")");
+            Rs2Bank.withdrawAndEquip(harpoon);
+            sleepUntil(() -> Rs2Equipment.isWearing(harpoon), 3000);
+            return true;
+        }
+        return true;
+    }
+
+    /** Best tier we own and are not already wearing, or -1 when the slot is already optimal. */
+    private int bestOwnedButNotWorn(int[] tiers) {
+        for (int id : tiers) {
+            if (Rs2Equipment.isWearing(id)) {
+                return -1;      // already wearing this tier; nothing better is worth checking
+            }
+            if (Rs2Bank.isOpen() ? Rs2Bank.hasItem(id) : false) {
+                return id;
+            }
+            if (Rs2Inventory.contains(id)) {
+                return id;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * The configured harpoon if we own it, otherwise the best wieldable one we do own. Returns -1
+     * when we already have one equipped or own none — a plain harpoon comes from the crate in-game.
+     */
+    private int bestHarpoonToEquip() {
+        HarpoonType configured = temporossConfig.harpoonType();
+        if (configured == HarpoonType.BAREHAND) {
+            return -1;
+        }
+        for (int id : configured.getIds()) {
+            if (Rs2Equipment.isWearing(id) || Rs2Inventory.contains(id)) {
+                return -1;
+            }
+        }
+        for (int id : configured.getIds()) {
+            if (Rs2Bank.isOpen() && Rs2Bank.hasItem(id)) {
+                return id;
+            }
+        }
+        // Fall back down the wiki's tier list.
+        for (HarpoonType type : new HarpoonType[]{HarpoonType.INFERNAL_HARPOON, HarpoonType.CRYSTAL_HARPOON,
+                HarpoonType.DRAGON_HARPOON, HarpoonType.BARBTAIL_HARPOON}) {
+            for (int id : type.getIds()) {
+                if (Rs2Equipment.isWearing(id) || Rs2Inventory.contains(id)) {
+                    return -1;
+                }
+            }
+        }
+        for (HarpoonType type : new HarpoonType[]{HarpoonType.INFERNAL_HARPOON, HarpoonType.CRYSTAL_HARPOON,
+                HarpoonType.DRAGON_HARPOON, HarpoonType.BARBTAIL_HARPOON}) {
+            for (int id : type.getIds()) {
+                if (Rs2Bank.isOpen() && Rs2Bank.hasItem(id)) {
+                    return id;
+                }
+            }
+        }
+        return -1;
     }
 
     private boolean isOnStartingBoat() {

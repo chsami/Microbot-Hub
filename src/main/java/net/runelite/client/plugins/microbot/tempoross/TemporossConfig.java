@@ -101,6 +101,17 @@ public interface TemporossConfig extends Config {
     }
 
     @ConfigItem(
+        keyName = "autoEquip",
+        name = "Auto-equip best gear",
+        description = "Once per start, equip the best Tempoross gear you own from the bank: Spirit Angler or Angler pieces per slot, an Imcando hammer (off-hand), and your configured harpoon. Angler pieces raise points, and points are permits.",
+        position = 9,
+        section = equipmentSection
+    )
+    default boolean autoEquip() {
+        return true;
+    }
+
+    @ConfigItem(
         keyName = "collectRewards",
         name = "Collect rewards",
         description = "Spend reward permits at the reward pool between games, once the thresholds below are met.",
