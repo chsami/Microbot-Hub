@@ -684,8 +684,16 @@ public class TemporossScript extends Script {
     public static final int VARB_CURRENT_POINTS = 11897;
     private static final int SMALL_FISHING_NET = 303;
     private static final int SPIRIT_ANGLER_NPC = 10605;
-    /** The pool is a multiloc: the menu reports 41300, the object cache 41356. Match either. */
-    private static final int[] REWARD_POOL_IDS = {41300, 41356};
+    /**
+     * The reward pool: base id 41356 plus nine numbered variants 41296-41304
+     * (`tempoross_rewardpool_0` .. `_8`). Its appearance tracks how many permits are stored, and the
+     * two sources disagree on which id is current — with 26 permits the object cache returned the
+     * base 41356 while the in-game menu reported 41300 (`_4`). Matching all ten is correct whichever
+     * one a given permit count produces.
+     */
+    private static final int[] REWARD_POOL_IDS = {
+            41356, 41296, 41297, 41298, 41299, 41300, 41301, 41302, 41303, 41304
+    };
     /** Stop collecting with this much room left, so a full bag never strands the next game. */
     private static final int MIN_FREE_SLOTS = 3;
 
