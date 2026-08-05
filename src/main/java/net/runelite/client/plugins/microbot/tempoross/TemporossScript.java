@@ -546,7 +546,7 @@ public class TemporossScript extends Script {
         }
 
         // Check for hammer
-        return temporossConfig.hammer() && !Rs2Inventory.contains(ItemID.HAMMER);
+        return needsInventoryHammer() && !Rs2Inventory.contains(ItemID.HAMMER);
     }
 
     private void fetchMissingItems()
@@ -581,7 +581,7 @@ public class TemporossScript extends Script {
             needed.add(new int[]{3, lp != null ? playerLocal.distanceTo(lp) : Integer.MAX_VALUE});
         }
 
-        if (temporossConfig.hammer() && !Rs2Inventory.contains(ItemID.HAMMER)) {
+        if (needsInventoryHammer() && !Rs2Inventory.contains(ItemID.HAMMER)) {
             LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient(),workArea.hammerPoint);
             needed.add(new int[]{4, lp != null ? playerLocal.distanceTo(lp) : Integer.MAX_VALUE});
         }
@@ -738,7 +738,10 @@ public class TemporossScript extends Script {
         keep.add(ItemID.BUCKET);
         keep.add(ItemID.BUCKET_OF_WATER);
         keep.add(ItemID.ROPE);
-        keep.add(ItemID.HAMMER);
+        // Only worth carrying when nothing is worn for repairs — otherwise it is a wasted fish slot.
+        if (needsInventoryHammer()) {
+            keep.add(ItemID.HAMMER);
+        }
         // Kept only for the rest of this collection session, so mid-session banking does not force a
         // trip back to the Angler. It gets dropped once collecting finishes.
         keep.add(SMALL_FISHING_NET);
@@ -858,6 +861,25 @@ public class TemporossScript extends Script {
     }
 
     private boolean autoEquipDone = false;
+
+    /**
+     * An equipped Imcando hammer (off-hand) repairs from the equipment slot, so it makes the
+     * inventory hammer redundant — and that freed slot holds a fish, which is points, which is
+     * permits. It therefore overrides the hammer config rather than sitting alongside it.
+     */
+    private static boolean hasImcandoOffhand() {
+        return Rs2Equipment.isWearing(29775);
+    }
+
+    /** Can we repair at all, from either source? */
+    private static boolean canRepair() {
+        return hasImcandoOffhand() || Rs2Inventory.contains(ItemID.HAMMER);
+    }
+
+    /** Do we need to carry a hammer? Only when repairs are wanted and nothing is worn for it. */
+    private boolean needsInventoryHammer() {
+        return temporossConfig.hammer() && !hasImcandoOffhand();
+    }
 
     /**
      * Equips the best Tempoross gear we own, once per script start, from the bank in the lobby.
@@ -1136,7 +1158,7 @@ public class TemporossScript extends Script {
                     + " | fish=" + State.getAllFish() + " (" + State.getCookedFish() + " cooked)"
                     + " water=" + Rs2Inventory.count(ItemID.BUCKET_OF_WATER)
                     + " rope=" + (Rs2Inventory.contains(ItemID.ROPE) ? 1 : 0)
-                    + " hammer=" + (Rs2Inventory.contains(ItemID.HAMMER) ? 1 : 0));
+                    + " canRepair=" + canRepair());
         }
         TemporossOverlay.setCloudList(sortedClouds);
     }
@@ -1296,7 +1318,7 @@ public class TemporossScript extends Script {
     private static final int MAX_REPAIR_WALK = 10 * Perspective.LOCAL_TILE_SIZE;
 
     private boolean handleRepairs() {
-        if (isAttackingSpiritPool() || !temporossConfig.hammer() || !Rs2Inventory.contains(ItemID.HAMMER)) {
+        if (isAttackingSpiritPool() || !temporossConfig.hammer() || !canRepair()) {
             return false;
         }
         return handleDamaged(workArea::getBrokenMast, "mast")
