@@ -706,6 +706,8 @@ public class TemporossScript extends Script {
     public static int permitsAtGameStart = 0;
 
     private boolean loggedHoldingPermits = false;
+    /** True from the moment a collection run starts until the permits are gone. */
+    private boolean collectingRewards = false;
     /** Bank chest beside the reward pool. */
     private static final int LOBBY_BANK_CHEST = 41315;
 
@@ -778,21 +780,36 @@ public class TemporossScript extends Script {
             return false;
         }
         int permits = rewardPermits();
-        if (permits < temporossConfig.permitThreshold()) {
-            dropNetIfHeld();
-            return false;
-        }
         int fishing = Rs2Player.getRealSkillLevel(Skill.FISHING);
-        if (fishing < temporossConfig.minFishingLevel()) {
-            if (!loggedHoldingPermits) {
-                loggedHoldingPermits = true;
-                log("Holding " + permits + " permits until Fishing " + temporossConfig.minFishingLevel()
-                        + " (currently " + fishing + ") — rewards roll at collection time");
+
+        // The threshold gates STARTING, never continuing. Re-checking it every loop meant the first
+        // permit spent dropped us under it and we boarded the boat mid-search. Once started, drain
+        // to zero.
+        if (!collectingRewards) {
+            if (permits < temporossConfig.permitThreshold()) {
+                dropNetIfHeld();
+                return false;
             }
+            if (fishing < temporossConfig.minFishingLevel()) {
+                if (!loggedHoldingPermits) {
+                    loggedHoldingPermits = true;
+                    log("Holding " + permits + " permits until Fishing " + temporossConfig.minFishingLevel()
+                            + " (currently " + fishing + ") — rewards roll at collection time");
+                }
+                dropNetIfHeld();
+                return false;
+            }
+            loggedHoldingPermits = false;
+            collectingRewards = true;
+            log("Collecting " + permits + " permits at Fishing " + fishing);
+        }
+
+        if (permits <= 0) {
+            log("All permits spent");
+            collectingRewards = false;
             dropNetIfHeld();
             return false;
         }
-        loggedHoldingPermits = false;
 
         if (Rs2Inventory.emptySlotCount() < MIN_FREE_SLOTS && bankRewards()) {
             return true;
@@ -817,10 +834,12 @@ public class TemporossScript extends Script {
             log("Reward pool not in range");
             return false;
         }
+        // Big-search is ONE continuous animation that runs until the permits are gone or the bag
+        // fills — not a per-click action. While it is running, leave it completely alone: clicking
+        // again interrupts it and restarts the whole interaction.
         if (Rs2Player.isAnimating() || Rs2Player.isMoving()) {
             return true;
         }
-        // Big-search spends several permits per interaction rather than one at a time.
         if (pool.click("Big-search")) {
             // Logs the resolved pool id next to the permit count. The pool presents one of ten ids
             // (base 41356, or 41296-41304) and the id tracks stored permits, but the thresholds are
@@ -828,7 +847,10 @@ public class TemporossScript extends Script {
             // collection prints another pairing, so the mapping falls out of normal use.
             log("Big-search at the reward pool (id " + pool.getId() + ", " + permits
                     + " permits, Fishing " + fishing + ")");
-            sleepUntil(() -> rewardPermits() < permits || Rs2Inventory.emptySlotCount() < MIN_FREE_SLOTS, 10000);
+            // Only wait for the animation to START. The guard above then lets it run to completion
+            // on its own — waiting here for permits to tick down returned after the first one and
+            // put us straight back into a re-click.
+            sleepUntil(Rs2Player::isAnimating, 5000);
         }
         return true;
     }
