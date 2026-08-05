@@ -1458,7 +1458,49 @@ public class TemporossScript extends Script {
                 ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
         if (playerLocal != null && playerLocal.distanceTo(localPoint) < 3 * Perspective.LOCAL_TILE_SIZE)
             return;
-        Rs2Walker.walkFastLocal(localPoint);
+        walkLocalSafe(localPoint, label);
+    }
+
+    /**
+     * Walks to a scene tile, never handing {@link Rs2Walker#walkFastLocal} a tile it cannot click.
+     *
+     * <p>walkFastLocal builds its menu click from {@code Perspective.localToCanvas} and does not
+     * null-check the result: a tile with no canvas projection — beyond draw distance, or off-screen —
+     * is dispatched as {@code (-1, -1)}, which the client resolves to an arbitrary destination.
+     * Observed live: a walk to the spirit pool mark, issued from the range, produced a destination 44
+     * tiles off-side. (The fault is in the shared walker, which lives in the client jar and cannot be
+     * patched from the Hub, so it is avoided here instead.)
+     *
+     * <p>Camera first, then a partial step along the same line, so a far target still makes progress.
+     */
+    private void walkLocalSafe(LocalPoint target, String label) {
+        if (target == null) {
+            return;
+        }
+        if (!Rs2Camera.isTileOnScreen(target)) {
+            Rs2Camera.turnTo(target, 70);
+        }
+        if (Rs2Camera.isTileOnScreen(target)) {
+            Rs2Walker.walkFastLocal(target);
+            return;
+        }
+        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
+                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        if (playerLocal == null) {
+            return;
+        }
+        for (double fraction : new double[]{0.6, 0.4, 0.25}) {
+            LocalPoint step = new LocalPoint(
+                    playerLocal.getX() + (int) ((target.getX() - playerLocal.getX()) * fraction),
+                    playerLocal.getY() + (int) ((target.getY() - playerLocal.getY()) * fraction),
+                    playerLocal.getWorldView());
+            if (Rs2Camera.isTileOnScreen(step) && Rs2Tile.isWalkable(step)) {
+                log(label + " is off-screen — stepping partway instead of clicking a tile with no canvas point");
+                Rs2Walker.walkFastLocal(step);
+                return;
+            }
+        }
+        log(label + " has no on-screen approach this tick — not walking");
     }
 
     private void walkToSafePoint() {
