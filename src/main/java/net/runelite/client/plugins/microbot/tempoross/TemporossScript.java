@@ -770,21 +770,68 @@ public class TemporossScript extends Script {
         TemporossOverlay.setNpcList(sortedFires);
     }
 
+    /** Lightning shadow, the ground telegraph we have always dodged. */
+    private static final int CLOUD_SHADOW = NullObjectID.NULL_41006;
+    /**
+     * `lightning_shadow_short`. Never watched before. Suspected to be the imminent-strike marker —
+     * the dodge firing early is consistent with 41006 being the earlier warning — but unproven, so it
+     * is tracked and logged rather than trusted.
+     */
+    private static final int CLOUD_SHADOW_SHORT = NullObjectID.NULL_41007;
+
+    /** Only the 41007 shadows, when any exist. */
+    public static List<GameObject> imminentClouds = new ArrayList<>();
+    private static long lastCloudDiag = 0;
+
     public static void updateCloudData(){
         List<GameObject> allClouds = Rs2GameObject.getGameObjects().stream()
-                .filter(obj -> obj.getId() == NullObjectID.NULL_41006)
+                .filter(obj -> obj.getId() == CLOUD_SHADOW || obj.getId() == CLOUD_SHADOW_SHORT)
                 .collect(Collectors.toList());
         LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
                 ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
         if (playerLocal == null) {
             sortedClouds = Collections.emptyList();
+            imminentClouds = Collections.emptyList();
             return;
         }
         sortedClouds = allClouds.stream()
                 .filter(y -> y.getLocalLocation() != null && playerLocal.distanceTo(y.getLocalLocation()) < 30 * 128)
                 .sorted(Comparator.comparingInt(x -> playerLocal.distanceTo(x.getLocalLocation())))
                 .collect(Collectors.toList());
+        imminentClouds = sortedClouds.stream()
+                .filter(c -> c.getId() == CLOUD_SHADOW_SHORT)
+                .collect(Collectors.toList());
+
+        // Diagnostic for the open "dodges too early" question: does 41007 ever appear, and does it
+        // precede the strike? Throttled, and silent when there are no clouds at all.
+        if (!sortedClouds.isEmpty() && System.currentTimeMillis() - lastCloudDiag > 1500) {
+            lastCloudDiag = System.currentTimeMillis();
+            long shortCount = imminentClouds.size();
+            log("CLOUDS: " + (sortedClouds.size() - shortCount) + "x41006 " + shortCount + "x41007"
+                    + " | onTile=" + onCloudTile(playerLocal)
+                    + " adjacent=" + inCloud(playerLocal, 0)
+                    + " imminent=" + inImminentCloud(playerLocal)
+                    + " hp=" + Rs2Player.getBoostedSkillLevel(Skill.HITPOINTS));
+        }
         TemporossOverlay.setCloudList(sortedClouds);
+    }
+
+    /** Standing exactly on a shadow — the strike lands here. */
+    public static boolean onCloudTile(LocalPoint point) {
+        if (point == null) {
+            return false;
+        }
+        return sortedClouds.stream().anyMatch(c -> c.getLocalLocation() != null
+                && point.distanceTo(c.getLocalLocation()) < Perspective.LOCAL_TILE_SIZE);
+    }
+
+    /** On or beside a 41007 shadow, if that id turns out to be the imminent marker. */
+    public static boolean inImminentCloud(LocalPoint point) {
+        if (point == null || imminentClouds.isEmpty()) {
+            return false;
+        }
+        return imminentClouds.stream().anyMatch(c -> c.getLocalLocation() != null
+                && point.distanceTo(c.getLocalLocation()) <= Perspective.LOCAL_TILE_SIZE);
     }
 
     // update ammo crate data
@@ -1434,7 +1481,17 @@ public class TemporossScript extends Script {
         if (playerLocal == null) {
             return false;
         }
-        if (!inCloud(playerLocal, 0)) {
+        // Two tiers. IMMINENT = standing on the shadow, or on/beside a 41007: the strike lands here,
+        // so move regardless of what we are doing — nothing in the game is worth the hit. WARNING =
+        // merely adjacent to a 41006, which is what the old radius-0 check actually meant (it computes
+        // (radius+1) tiles) and why the dodge fired early. A warning is not worth abandoning a pool
+        // harpoon for; anything else, still step out.
+        boolean imminent = onCloudTile(playerLocal) || inImminentCloud(playerLocal);
+        boolean warning = inCloud(playerLocal, 0);
+        if (!imminent && !warning) {
+            return false;
+        }
+        if (!imminent && isAttackingSpiritPool()) {
             return false;
         }
         // Already dodging — wait for movement to clear the cloud
@@ -1450,7 +1507,7 @@ public class TemporossScript extends Script {
 
         LocalPoint escape = findEscapeTile(playerLocal, nearestCloud, candidate -> !inCloud(candidate, 0));
         if (escape != null) {
-            log("Standing in fire cloud — dodging to " + escape);
+            log((imminent ? "IMMINENT strike — dodging to " : "Cloud warning — stepping to ") + escape);
             Rs2Walker.walkFastLocal(escape);
             return true;
         }
