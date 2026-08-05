@@ -1209,7 +1209,8 @@ public class TemporossScript extends Script {
                     }
                     WorldPoint totemLocation = workArea.getTotemLocation();
                     log("Can't find the fish spot, walking to the totem pole at " + totemLocation);
-                    walkToWorkAreaPoint(totemLocation, "Totem pole");
+                    // No staging: the totem IS the staging anchor and must never recurse into itself.
+                    walkToWorkAreaPoint(totemLocation, "Totem pole", false);
                     return;
                 }
                 break;
@@ -1439,14 +1440,23 @@ public class TemporossScript extends Script {
      * on the way.
      */
     private void walkToWorkAreaPoint(WorldPoint target, String label) {
+        walkToWorkAreaPoint(target, label, true);
+    }
+
+    private void walkToWorkAreaPoint(WorldPoint target, String label, boolean allowStaging) {
         // Put out anything burning on the way rather than running through it.
         if (!fightFiresInPath(target)) {
             return;
         }
         LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient(), target);
         if (localPoint == null) {
-            log(label + " off-screen, using Rs2Walker");
-            Rs2Walker.walkTo(target);
+            // NOT Rs2Walker.walkTo: our points are raw instance coordinates and the global pathfinder
+            // reads them as real-world ones. That is what sent us running well past the range for ten
+            // seconds before the wrong-side watchdog caught the destination.
+            if (allowStaging && stageViaTotem(label)) {
+                return;
+            }
+            log(label + " is outside the loaded scene and the totem cannot stage it — not walking");
             return;
         }
         // Before the dedup: fires can spawn on a route we are already committed to.
@@ -1458,7 +1468,7 @@ public class TemporossScript extends Script {
                 ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
         if (playerLocal != null && playerLocal.distanceTo(localPoint) < 3 * Perspective.LOCAL_TILE_SIZE)
             return;
-        walkLocalSafe(localPoint, label);
+        walkLocalSafe(localPoint, label, allowStaging);
     }
 
     /**
@@ -1473,7 +1483,7 @@ public class TemporossScript extends Script {
      *
      * <p>Camera first, then a partial step along the same line, so a far target still makes progress.
      */
-    private void walkLocalSafe(LocalPoint target, String label) {
+    private void walkLocalSafe(LocalPoint target, String label, boolean allowStaging) {
         if (target == null) {
             return;
         }
@@ -1484,23 +1494,41 @@ public class TemporossScript extends Script {
             Rs2Walker.walkFastLocal(target);
             return;
         }
-        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
-                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
-        if (playerLocal == null) {
+        // Still not clickable. Stage via the totem rather than interpolating along the straight line —
+        // the direct line from the range to the dock can cross water, the totem never does.
+        if (allowStaging && stageViaTotem(label)) {
             return;
         }
-        for (double fraction : new double[]{0.6, 0.4, 0.25}) {
-            LocalPoint step = new LocalPoint(
-                    playerLocal.getX() + (int) ((target.getX() - playerLocal.getX()) * fraction),
-                    playerLocal.getY() + (int) ((target.getY() - playerLocal.getY()) * fraction),
-                    playerLocal.getWorldView());
-            if (Rs2Camera.isTileOnScreen(step) && Rs2Tile.isWalkable(step)) {
-                log(label + " is off-screen — stepping partway instead of clicking a tile with no canvas point");
-                Rs2Walker.walkFastLocal(step);
-                return;
-            }
-        }
         log(label + " has no on-screen approach this tick — not walking");
+    }
+
+    /**
+     * Walks to the totem, the mid-side anchor, as a staging point for anything we cannot reach or
+     * click directly. Everything on our side is reachable from there, and the target usually renders
+     * on the way, so the second leg is issued before we even arrive.
+     *
+     * @return true when a staging walk was issued
+     */
+    private boolean stageViaTotem(String label) {
+        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
+                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        LocalPoint totemLocal = LocalPoint.fromWorld(Microbot.getClient(), workArea.getTotemLocation());
+        if (playerLocal == null || totemLocal == null) {
+            return false;
+        }
+        // Already there — staging again would achieve nothing.
+        if (playerLocal.distanceTo(totemLocal) < 5 * Perspective.LOCAL_TILE_SIZE) {
+            return false;
+        }
+        if (!Rs2Camera.isTileOnScreen(totemLocal)) {
+            Rs2Camera.turnTo(totemLocal, 70);
+        }
+        if (!Rs2Camera.isTileOnScreen(totemLocal)) {
+            return false;
+        }
+        log(label + " out of reach — staging via the totem");
+        Rs2Walker.walkFastLocal(totemLocal);
+        return true;
     }
 
     private void walkToSafePoint() {
