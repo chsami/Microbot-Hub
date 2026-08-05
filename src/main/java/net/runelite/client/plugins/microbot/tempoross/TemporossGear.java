@@ -14,9 +14,12 @@ package net.runelite.client.plugins.microbot.tempoross;
  *       it is handled in the script rather than here. Note the wiki splits the top tier by goal:
  *       Crystal harpoon "if maximum fishing experience is desired", Infernal harpoon "if maximum
  *       reward permits are desired". For this plugin's objective, Infernal is the right one.</li>
- *   <li><b>Rings</b> (Lightbearer, Elven/Celestial signet) and Ghommal's lucky penny — all
- *       conditional on harpoon special-attack usage or on being under the catch-rate level, and
- *       worth little here. Left out rather than guessed at.</li>
+ *   <li><b>Rings</b> (Lightbearer 25975, Elven signet 23943, Celestial signet 25543) — conditional
+ *       on harpoon special-attack usage or on being under the catch-rate level, so the benefit here
+ *       is marginal and situational. Ids recorded above if that ever changes.</li>
+ *   <li><b>Ghommal's lucky penny</b> — no id available. Absent from RuneLite's ItemID and from the
+ *       OSRS objtypes dump (searched "lucky_penny" and "ghommal"; only the infernal defenders came
+ *       back), so it most likely postdates that data. Not hardcoded from a guessed number.</li>
  * </ul>
  */
 public enum TemporossGear
