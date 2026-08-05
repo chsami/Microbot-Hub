@@ -100,6 +100,39 @@ public interface TemporossConfig extends Config {
         return 422;
     }
 
+    @ConfigItem(
+        keyName = "collectRewards",
+        name = "Collect rewards",
+        description = "Spend reward permits at the reward pool between games, once the thresholds below are met.",
+        position = 6,
+        section = generalSection
+    )
+    default boolean collectRewards() {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "permitThreshold",
+        name = "Permits before collecting",
+        description = "Bank up this many reward permits before spending them. Up to 8000 rolls can be stored, so there is no rush.",
+        position = 7,
+        section = generalSection
+    )
+    default int permitThreshold() {
+        return 50;
+    }
+
+    @ConfigItem(
+        keyName = "minFishingLevel",
+        name = "Min Fishing level to collect",
+        description = "Hold permits until BASE Fishing reaches this. Rewards are rolled from your Fishing level at the moment of collection, not when the permits were earned, so saving them until a higher level is strictly better. Boosts do not count. Set 1 to collect regardless.",
+        position = 8,
+        section = generalSection
+    )
+    default int minFishingLevel() {
+        return 1;
+    }
+
 
 
     // Equipment settings

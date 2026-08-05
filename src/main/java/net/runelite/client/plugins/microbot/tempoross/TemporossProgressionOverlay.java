@@ -60,6 +60,13 @@ public class TemporossProgressionOverlay extends OverlayPanel {
                         .right(currentState.next != null && currentState == TemporossScript.state ? "No" : "Yes")
                         .build());
 
+                // Permits held, and what this game has earned so far
+                int permits = TemporossScript.rewardPermits();
+                panelComponent.getChildren().add(LineComponent.builder()
+                        .left("Permits:")
+                        .right(permits + " (+" + (permits - TemporossScript.permitsAtGameStart) + ")")
+                        .build());
+
                 // Add fish count
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Fish count:")

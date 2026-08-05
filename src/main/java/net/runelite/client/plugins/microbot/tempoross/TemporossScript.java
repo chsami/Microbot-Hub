@@ -120,6 +120,8 @@ public class TemporossScript extends Script {
                 if (!isInMinigame()) {
                     if (handleStartupWorldHop())
                         return;
+                    if (handleRewardCollection())
+                        return;
                     handleEnterMinigame();
                 }
                 if (isInMinigame()) {
@@ -288,8 +290,10 @@ public class TemporossScript extends Script {
                     .orElse(null);
             workArea = new TemporossWorkArea(forfeitNpc.getWorldLocation(), isWest, totemExit, side);
             previousWorkArea = null;
+            permitsAtGameStart = rewardPermits();
             log("Side " + side + " (exit NPC " + forfeitNpc.getId() + ", spots " + side.fishingSpotId
-                    + ", mast " + side.mastId + ", totem " + side.totemId + ")");
+                    + ", mast " + side.mastId + ", totem " + side.totemId + ") | permits="
+                    + permitsAtGameStart);
             log("Other exit NPC: " + (totemExit != null ? totemExit : "not rendered yet, will capture when seen"));
             // Once per game, here rather than in reset() — reset() runs every loop while outside the
             // minigame, which re-rolled and re-logged the thresholds several times a second.
@@ -339,6 +343,11 @@ public class TemporossScript extends Script {
                 // work area while still standing in the arena whenever boarding was delayed or failed,
                 // and the rebuild then stalled because the ammo crate is not rendered from the dock.
                 if (sleepUntil(() -> !isInMinigame(), 15000)) {
+                    // Permits land as the game resolves, so read a beat after leaving.
+                    sleep(1200);
+                    int gained = rewardPermits() - permitsAtGameStart;
+                    log("Game over: " + Microbot.getVarbitValue(VARB_CURRENT_POINTS) + " points, +"
+                            + gained + " permits (total " + rewardPermits() + ")");
                     reset();
                     BreakHandlerScript.setLockState(false);
                     Rs2Antiban.takeMicroBreakByChance();
@@ -665,6 +674,89 @@ public class TemporossScript extends Script {
             if (sleepUntil(() -> Microbot.isLoggedIn() && Microbot.getClient().getWorld() == target, 20000)) {
                 startupHopDone = true;
             }
+        }
+        return true;
+    }
+
+    /** Reward permits held. Verified live against the agent server. */
+    public static final int VARB_REWARD_PERMITS = 11936;
+    /** Points scored in the current game. */
+    public static final int VARB_CURRENT_POINTS = 11897;
+    private static final int SMALL_FISHING_NET = 303;
+    private static final int SPIRIT_ANGLER_NPC = 10605;
+    /** The pool is a multiloc: the menu reports 41300, the object cache 41356. Match either. */
+    private static final int[] REWARD_POOL_IDS = {41300, 41356};
+    /** Stop collecting with this much room left, so a full bag never strands the next game. */
+    private static final int MIN_FREE_SLOTS = 3;
+
+    public static int rewardPermits() {
+        return Microbot.getVarbitValue(VARB_REWARD_PERMITS);
+    }
+
+    /** Permits held when the current game started, so the per-game gain can be reported. */
+    public static int permitsAtGameStart = 0;
+
+    private boolean loggedHoldingPermits = false;
+
+    /**
+     * Spends permits at the reward pool between games.
+     *
+     * <p>Only reachable outside the minigame. The reward table is rolled from BASE Fishing level at
+     * the moment of collection — not when the permits were earned, and boosts do not count — so
+     * holding them until a higher level is strictly better, and up to 8000 rolls can be stored.
+     *
+     * @return true while collecting, so the caller does not board mid-collection
+     */
+    private boolean handleRewardCollection() {
+        if (!temporossConfig.collectRewards()) {
+            return false;
+        }
+        int permits = rewardPermits();
+        if (permits < temporossConfig.permitThreshold()) {
+            return false;
+        }
+        int fishing = Rs2Player.getRealSkillLevel(Skill.FISHING);
+        if (fishing < temporossConfig.minFishingLevel()) {
+            if (!loggedHoldingPermits) {
+                loggedHoldingPermits = true;
+                log("Holding " + permits + " permits until Fishing " + temporossConfig.minFishingLevel()
+                        + " (currently " + fishing + ") — rewards roll at collection time");
+            }
+            return false;
+        }
+        loggedHoldingPermits = false;
+
+        if (Rs2Inventory.emptySlotCount() < MIN_FREE_SLOTS) {
+            log("Inventory full with " + permits + " permits left — bank before collecting more");
+            return false;
+        }
+
+        // The pool needs a small net; the Spirit Angler hands them out.
+        if (!Rs2Inventory.contains(SMALL_FISHING_NET)) {
+            Rs2NpcModel angler = Microbot.getRs2NpcCache().query().withId(SPIRIT_ANGLER_NPC).nearest();
+            if (angler == null) {
+                log("Spirit Angler not in range — cannot take a net");
+                return false;
+            }
+            if (angler.click("Take-net")) {
+                log("Taking a small fishing net");
+                sleepUntil(() -> Rs2Inventory.contains(SMALL_FISHING_NET), 5000);
+            }
+            return true;
+        }
+
+        Rs2TileObjectModel pool = Microbot.getRs2TileObjectCache().query().withIds(REWARD_POOL_IDS).nearest();
+        if (pool == null) {
+            log("Reward pool not in range");
+            return false;
+        }
+        if (Rs2Player.isAnimating() || Rs2Player.isMoving()) {
+            return true;
+        }
+        // Big-search spends several permits per interaction rather than one at a time.
+        if (pool.click("Big-search")) {
+            log("Big-search at the reward pool (" + permits + " permits, Fishing " + fishing + ")");
+            sleepUntil(() -> rewardPermits() < permits || Rs2Inventory.emptySlotCount() < MIN_FREE_SLOTS, 10000);
         }
         return true;
     }
