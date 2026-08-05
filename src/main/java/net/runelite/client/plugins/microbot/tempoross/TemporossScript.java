@@ -12,6 +12,7 @@ import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
 import net.runelite.client.plugins.microbot.tempoross.enums.HarpoonType;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
@@ -705,6 +706,47 @@ public class TemporossScript extends Script {
     public static int permitsAtGameStart = 0;
 
     private boolean loggedHoldingPermits = false;
+    /** Bank chest beside the reward pool. */
+    private static final int LOBBY_BANK_CHEST = 41315;
+
+    /**
+     * Banks the collected rewards, keeping only what the next game needs: the configured harpoon,
+     * our buckets (both empty and full), a rope and a hammer. Everything else — the fish the pool
+     * just paid out — goes in.
+     *
+     * @return true while banking
+     */
+    private boolean bankRewards() {
+        List<Integer> keep = new ArrayList<>();
+        keep.add(ItemID.BUCKET);
+        keep.add(ItemID.BUCKET_OF_WATER);
+        keep.add(ItemID.ROPE);
+        keep.add(ItemID.HAMMER);
+        for (int id : (harpoonType != null ? harpoonType : temporossConfig.harpoonType()).getIds()) {
+            keep.add(id);
+        }
+
+        if (Rs2Bank.isOpen()) {
+            log("Banking rewards, keeping harpoon/buckets/rope/hammer");
+            Rs2Bank.depositAllExcept(keep.toArray(new Integer[0]));
+            sleepUntil(() -> Rs2Inventory.emptySlotCount() > MIN_FREE_SLOTS, 5000);
+            Rs2Bank.closeBank();
+            return true;
+        }
+
+        Rs2TileObjectModel chest = Microbot.getRs2TileObjectCache().query().withId(LOBBY_BANK_CHEST).nearest();
+        if (chest == null) {
+            log("Bank chest not in range — cannot bank rewards");
+            return false;
+        }
+        if (Rs2Player.isMoving()) {
+            return true;
+        }
+        if (chest.click("Use")) {
+            sleepUntil(Rs2Bank::isOpen, 8000);
+        }
+        return true;
+    }
 
     /**
      * Spends permits at the reward pool between games.
@@ -734,9 +776,8 @@ public class TemporossScript extends Script {
         }
         loggedHoldingPermits = false;
 
-        if (Rs2Inventory.emptySlotCount() < MIN_FREE_SLOTS) {
-            log("Inventory full with " + permits + " permits left — bank before collecting more");
-            return false;
+        if (Rs2Inventory.emptySlotCount() < MIN_FREE_SLOTS && bankRewards()) {
+            return true;
         }
 
         // The pool needs a small net; the Spirit Angler hands them out.
@@ -909,8 +950,10 @@ public class TemporossScript extends Script {
                 .filter(c -> c.getId() == CLOUD_SHADOW_SHORT)
                 .collect(Collectors.toList());
 
-        // Diagnostic for the open "dodges too early" question: does 41007 ever appear, and does it
-        // precede the strike? Throttled, and silent when there are no clouds at all.
+        // Diagnostic for the open "dodges too early" question: does 41007 ever appear, and which
+        // state actually costs us anything? Tracks INVENTORY, not HP — the strike deals no damage,
+        // it destroys fish and supplies, so hitpoints never move and were the wrong signal entirely.
+        // Losing cooked fish is losing points, which is losing permits, so this is the real cost.
         if (!sortedClouds.isEmpty() && System.currentTimeMillis() - lastCloudDiag > 1500) {
             lastCloudDiag = System.currentTimeMillis();
             long shortCount = imminentClouds.size();
@@ -918,7 +961,10 @@ public class TemporossScript extends Script {
                     + " | onTile=" + onCloudTile(playerLocal)
                     + " adjacent=" + inCloud(playerLocal, 0)
                     + " imminent=" + inImminentCloud(playerLocal)
-                    + " hp=" + Rs2Player.getBoostedSkillLevel(Skill.HITPOINTS));
+                    + " | fish=" + State.getAllFish() + " (" + State.getCookedFish() + " cooked)"
+                    + " water=" + Rs2Inventory.count(ItemID.BUCKET_OF_WATER)
+                    + " rope=" + (Rs2Inventory.contains(ItemID.ROPE) ? 1 : 0)
+                    + " hammer=" + (Rs2Inventory.contains(ItemID.HAMMER) ? 1 : 0));
         }
         TemporossOverlay.setCloudList(sortedClouds);
     }
