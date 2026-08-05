@@ -140,6 +140,8 @@ public class TemporossScript extends Script {
                             return;
                         if (handleStandingInFire())
                             return;
+                        if (handleNearbyFire())
+                            return;
                         // Only wait on missing items while handleMinigame() is still willing to fetch
                         // them, otherwise this returns forever without anything ever restocking.
                         if(shouldFetchSupplies() && areItemsMissing() && (state == State.INITIAL_CATCH || state == State.SECOND_CATCH || state == State.THIRD_CATCH))
@@ -1582,9 +1584,10 @@ public class TemporossScript extends Script {
         if (sortedFires.isEmpty() || target == null) {
             return false;
         }
-        if (Rs2Inventory.count(ItemID.BUCKET_OF_WATER) > 0) {
-            return false; // dousing handles the route
-        }
+        // Runs whether or not we have water. fightFiresInPath goes first and douses what it can, but
+        // it only clears as many fires as we have full buckets — with one bucket and three fires on
+        // the line it used to douse one and walk through the rest. Anything still burning on the
+        // route gets walked around instead.
         LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
                 ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
         if (playerLocal == null || playerLocal.distanceTo(target) < 3 * Perspective.LOCAL_TILE_SIZE) {
@@ -1637,6 +1640,47 @@ public class TemporossScript extends Script {
         return sortedFires.stream().anyMatch(fire -> fire.getNpc() != null
                 && fire.getNpc().getLocalLocation() != null
                 && point.distanceTo(fire.getNpc().getLocalLocation()) < Perspective.LOCAL_TILE_SIZE);
+    }
+
+    /** How close a fire has to be to be worth dousing on the spot rather than only when in the way. */
+    private static final int NEARBY_FIRE_RANGE = 3 * Perspective.LOCAL_TILE_SIZE;
+
+    /**
+     * Douses a fire that has just appeared next to us — typically the one a lightning strike leaves
+     * behind after we dodge it. In mass mode nothing else covers this: handleFires() is solo-only and
+     * fightFiresInPath only clears fires that lie on a route we happen to be taking, so a fresh fire
+     * beside us would burn untouched. Tightly bounded so it can never become a trip.
+     */
+    private boolean handleNearbyFire() {
+        if (isAttackingSpiritPool() || sortedFires.isEmpty()) {
+            return false;
+        }
+        if (Rs2Inventory.count(ItemID.BUCKET_OF_WATER) <= 0) {
+            return false;
+        }
+        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
+                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        if (playerLocal == null || Rs2Player.isMoving()) {
+            return false;
+        }
+        Rs2NpcModel fire = sortedFires.stream()
+                .filter(f -> f.getNpc() != null && f.getNpc().getLocalLocation() != null
+                        && playerLocal.distanceTo(f.getNpc().getLocalLocation()) <= NEARBY_FIRE_RANGE)
+                .findFirst()
+                .orElse(null);
+        if (fire == null) {
+            return false;
+        }
+        Actor current = Rs2Player.getInteracting();
+        if (current != null && current == fire.getNpc()) {
+            return true;   // already dousing this one
+        }
+        if (fire.click("Douse")) {
+            log("Fire beside us — dousing it");
+            sleepUntil(() -> !Rs2Player.isInteracting() || TemporossPlugin.incomingWave, 3000);
+            return true;
+        }
+        return false;
     }
 
     /**
