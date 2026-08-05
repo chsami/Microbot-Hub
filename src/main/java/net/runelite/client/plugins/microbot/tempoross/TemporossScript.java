@@ -710,6 +710,19 @@ public class TemporossScript extends Script {
     private static final int LOBBY_BANK_CHEST = 41315;
 
     /**
+     * Drops the net once collecting is done. Dropped rather than banked or carried: the Spirit Angler
+     * hands out a fresh one every time, so banking them just stockpiles hundreds, and carrying one
+     * into a game costs an inventory slot that should be holding fish.
+     */
+    private void dropNetIfHeld() {
+        if (Rs2Inventory.contains(SMALL_FISHING_NET)) {
+            log("Done collecting — dropping the small net");
+            Rs2Inventory.drop(SMALL_FISHING_NET);
+            sleepUntil(() -> !Rs2Inventory.contains(SMALL_FISHING_NET), 3000);
+        }
+    }
+
+    /**
      * Banks the collected rewards, keeping only what the next game needs: the configured harpoon,
      * our buckets (both empty and full), a rope and a hammer. Everything else — the fish the pool
      * just paid out — goes in.
@@ -722,6 +735,9 @@ public class TemporossScript extends Script {
         keep.add(ItemID.BUCKET_OF_WATER);
         keep.add(ItemID.ROPE);
         keep.add(ItemID.HAMMER);
+        // Kept only for the rest of this collection session, so mid-session banking does not force a
+        // trip back to the Angler. It gets dropped once collecting finishes.
+        keep.add(SMALL_FISHING_NET);
         for (int id : (harpoonType != null ? harpoonType : temporossConfig.harpoonType()).getIds()) {
             keep.add(id);
         }
@@ -763,6 +779,7 @@ public class TemporossScript extends Script {
         }
         int permits = rewardPermits();
         if (permits < temporossConfig.permitThreshold()) {
+            dropNetIfHeld();
             return false;
         }
         int fishing = Rs2Player.getRealSkillLevel(Skill.FISHING);
@@ -772,6 +789,7 @@ public class TemporossScript extends Script {
                 log("Holding " + permits + " permits until Fishing " + temporossConfig.minFishingLevel()
                         + " (currently " + fishing + ") — rewards roll at collection time");
             }
+            dropNetIfHeld();
             return false;
         }
         loggedHoldingPermits = false;
