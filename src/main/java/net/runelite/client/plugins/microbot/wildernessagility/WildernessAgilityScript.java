@@ -10,7 +10,6 @@ import javax.inject.Inject;
 
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.coords.WorldArea;
-import net.runelite.api.TileObject;
 import net.runelite.client.plugins.microbot.*;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
@@ -19,7 +18,7 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.globval.WidgetIndices;
@@ -80,7 +79,7 @@ public final class WildernessAgilityScript extends Script {
     private int dispenserLootAttempts = 0;
     private int dispenserTicketsBefore = 0;
     private int dispenserPreValue = 0;
-    private TileObject cachedDispenserObj = null;
+    private Rs2TileObjectModel cachedDispenserObj = null;
     private long lastObjectCheck = 0;
     
     // --- Rock Climbing Pose Detection ---
@@ -258,13 +257,13 @@ public final class WildernessAgilityScript extends Script {
                 waitingForRockClimbCompletion = false;
 
                 // Now interact with dispenser
-                TileObject dispenser = cachedDispenserObj;
+                Rs2TileObjectModel dispenser = cachedDispenserObj;
                 if (dispenser != null) {
                     dispenserTicketsBefore = Rs2Inventory.itemQuantity(TICKET_ITEM_ID);
                     dispenserPreValue = getInventoryValue();
                     dispenserLootAttempts = 1;
                     waitingForDispenserLoot = true;
-                    Rs2GameObject.interact(dispenser, "Search");
+                    dispenser.click("Search");
                 }
             }
         }
@@ -501,30 +500,29 @@ public final class WildernessAgilityScript extends Script {
         this.plugin = plugin;
     }
 
-    private TileObject getDispenserObj() {
-        return Rs2GameObject.getAll(o -> o.getId() == DISPENSER_ID, 104).stream().findFirst().orElse(null);
+    private Rs2TileObjectModel getDispenserObj() {
+        return Microbot.getRs2TileObjectCache().query().withId(DISPENSER_ID).nearest();
     }
-    private TileObject getObstacleObj(int index) {
-        return Rs2GameObject.getAll(o -> o.getId() == obstacles.get(index).getObjectId(), 104).stream().findFirst().orElse(null);
+    private Rs2TileObjectModel getObstacleObj(int index) {
+        return Microbot.getRs2TileObjectCache().query().withId(obstacles.get(index).getObjectId()).nearest();
     }
     private boolean isInUndergroundPit() {
-        // Check for the underground object that only exists in the pit
-        return Rs2GameObject.getAll(o -> o.getId() == UNDERGROUND_OBJECT_ID, 104).stream().findFirst().orElse(null) != null;
+        return Microbot.getRs2TileObjectCache().query().withId(UNDERGROUND_OBJECT_ID).nearest() != null;
     }
     private void recoverFromPit() {
         // First check if we're still in the pit using game object detection
         if (isInUndergroundPit()) {
             // Immediately refresh ladder object before attempting to interact
-            List<TileObject> ladders = Rs2GameObject.getAll(o -> o.getId() == 17385, 104);
-            TileObject ladderObj = ladders.isEmpty() ? null : ladders.get(0);
+            List<Rs2TileObjectModel> ladders = Microbot.getRs2TileObjectCache().query().withId(17385).toList();
+            Rs2TileObjectModel ladderObj = ladders.isEmpty() ? null : ladders.get(0);
             long now = System.currentTimeMillis();
             if (ladderObj != null && Rs2Player.getWorldLocation().distanceTo(ladderObj.getWorldLocation()) <= 50) {
                 // Only attempt to interact with the ladder every 2 seconds
                 if (now - lastLadderInteractTime > 2000) {
                     // Refresh ladder object again just before interaction
-                    List<TileObject> laddersNow = Rs2GameObject.getAll(o -> o.getId() == 17385, 104);
+                    List<Rs2TileObjectModel> laddersNow = Microbot.getRs2TileObjectCache().query().withId(17385).toList();
                     ladderObj = laddersNow.isEmpty() ? null : laddersNow.get(0);
-                    Rs2GameObject.interact(ladderObj, "Climb-up");
+                    ladderObj.click("Climb-up");
                     lastLadderInteractTime = now;
                 }
             }
@@ -548,11 +546,11 @@ public final class WildernessAgilityScript extends Script {
                     sleep(300, 600);
 
                     // Now interact with rope
-                    TileObject rope = getObstacleObj(1);
+                    Rs2TileObjectModel rope = getObstacleObj(1);
                     if (rope != null && !Rs2Player.isMoving()) {
                         isWaitingForRope = false;
                         ropeStartXp = Microbot.getClient().getSkillExperience(AGILITY);
-                        boolean interacted = Rs2GameObject.interact(rope);
+                        boolean interacted = rope.click();
                         if (interacted) {
                             isWaitingForRope = true;
                         }
@@ -561,11 +559,11 @@ public final class WildernessAgilityScript extends Script {
 
                 case LOG:
                     // Wide range detection for log, just like ladder detection
-                    List<TileObject> logs = Rs2GameObject.getAll(o -> o.getId() == obstacles.get(3).getObjectId(), 104);
-                    TileObject log = logs.isEmpty() ? null : logs.get(0);
+                    Rs2TileObjectModel log = Microbot.getRs2TileObjectCache().query()
+                            .withId(obstacles.get(3).getObjectId()).nearest();
                     if (log != null) {
                         isWaitingForLog = false;
-                        boolean interacted = Rs2GameObject.interact(log);
+                        boolean interacted = log.click();
                         if (interacted) {
                             isWaitingForLog = true;
                             sleep(300, 600);
@@ -620,13 +618,14 @@ public final class WildernessAgilityScript extends Script {
                 return;
             }
             // Find the pipe object at the exact tile (3004, 3938, 0)
-            TileObject pipe = Rs2GameObject.getAll(o -> o.getId() == obstacles.get(0).getObjectId() &&
-                                                    o.getWorldLocation().equals(pipeTile), 10)
-                                        .stream().findFirst().orElse(null);
+            Rs2TileObjectModel pipe = Microbot.getRs2TileObjectCache().query()
+                    .withId(obstacles.get(0).getObjectId())
+                    .where(o -> o.getWorldLocation().equals(pipeTile))
+                    .nearest();
             if (pipe == null) {
                 return;
             }
-            boolean interacted = Rs2GameObject.interact(pipe);
+            boolean interacted = pipe.click();
             if (interacted) {
                 isWaitingForPipe = true;
                 pipeJustCompleted = true; // Set immediately after interaction
@@ -661,9 +660,9 @@ public final class WildernessAgilityScript extends Script {
             }
         }
         if (!Rs2Player.isAnimating() && !Rs2Player.isMoving() && !isWaitingForRope) {
-            TileObject rope = getObstacleObj(1);
+            Rs2TileObjectModel rope = getObstacleObj(1);
             if (rope != null) {
-                boolean interacted = Rs2GameObject.interact(rope);
+                boolean interacted = rope.click();
                 if (interacted) {
                     isWaitingForRope = true;
                     ropeStartXp = Microbot.getClient().getSkillExperience(AGILITY);
@@ -715,9 +714,9 @@ public final class WildernessAgilityScript extends Script {
         // Only attempt interaction if not already waiting and not animating/moving
         if (!Rs2Player.isAnimating() && !Rs2Player.isMoving() && !isWaitingForStones) {
             WorldPoint loc = Rs2Player.getWorldLocation();
-            TileObject stones = getObstacleObj(2);
+            Rs2TileObjectModel stones = getObstacleObj(2);
             if (stones != null) {
-                boolean interacted = Rs2GameObject.interact(stones);
+                boolean interacted = stones.click();
                 if (interacted) {
                     isWaitingForStones = true;
                     stonesStartXp = Microbot.getClient().getSkillExperience(AGILITY);
@@ -756,13 +755,13 @@ public final class WildernessAgilityScript extends Script {
                 clearInventoryIfNeeded();
             }
             
-            TileObject log = getObstacleObj(3);
+            Rs2TileObjectModel log = getObstacleObj(3);
             if (log == null) {
-                List<TileObject> logs = Rs2GameObject.getAll(o -> o.getId() == obstacles.get(3).getObjectId(), 104);
-                log = logs.isEmpty() ? null : logs.get(0);
+                log = Microbot.getRs2TileObjectCache().query()
+                        .withId(obstacles.get(3).getObjectId()).nearest();
             }
             if (log != null) {
-                boolean interacted = Rs2GameObject.interact(log);
+                boolean interacted = log.click();
                 if (interacted) {
                     isWaitingForLog = true;
                     logStartXp = Microbot.getClient().getSkillExperience(AGILITY);
@@ -783,7 +782,7 @@ public final class WildernessAgilityScript extends Script {
         WorldPoint loc = Rs2Player.getWorldLocation();
         if (loc != null && loc.getY() <= 3933) {
             // Get fresh dispenser object for immediate use
-            TileObject freshDispenser = getDispenserObj();
+            Rs2TileObjectModel freshDispenser = getDispenserObj();
             cachedDispenserObj = freshDispenser;
             lastObjectCheck = System.currentTimeMillis();
 
@@ -795,7 +794,7 @@ public final class WildernessAgilityScript extends Script {
                 dispenserPreValue = getInventoryValue();
                 dispenserLootAttempts = 1;
                 waitingForDispenserLoot = true;
-                Rs2GameObject.interact(freshDispenser, "Search");
+                freshDispenser.click("Search");
             }
             return;
         }
@@ -807,7 +806,9 @@ public final class WildernessAgilityScript extends Script {
             
             WorldPoint targetRock = new Random().nextBoolean() ? rock1 : rock2;
             
-            if (Rs2GameObject.interact(targetRock, "Climb")) {
+            Rs2TileObjectModel targetRockObj = Microbot.getRs2TileObjectCache().query()
+                    .where(o -> o.getWorldLocation().equals(targetRock)).nearest();
+            if (targetRockObj != null && targetRockObj.click("Climb")) {
                 // Monitor Y coordinate in real-time for immediate transition
                 boolean transitioned = sleepUntil(() -> {
                     WorldPoint currentLoc = Rs2Player.getWorldLocation();
@@ -819,7 +820,7 @@ public final class WildernessAgilityScript extends Script {
                 
                 if (transitioned) {
                     // Immediate transition to dispenser
-                    TileObject freshDispenser = getDispenserObj();
+                    Rs2TileObjectModel freshDispenser = getDispenserObj();
                     cachedDispenserObj = freshDispenser;
                     lastObjectCheck = System.currentTimeMillis();
                     currentState = ObstacleState.DISPENSER;
@@ -839,7 +840,7 @@ public final class WildernessAgilityScript extends Script {
                     int startExp = Microbot.getClient().getSkillExperience(AGILITY);
                     if (waitForXpChange(startExp, 3000)) { // Shorter timeout for fallback
                         Microbot.log("[WildernessAgility] XP fallback successful, transitioning to dispenser");
-                        TileObject freshDispenser = getDispenserObj();
+                        Rs2TileObjectModel freshDispenser = getDispenserObj();
                         cachedDispenserObj = freshDispenser;
                         lastObjectCheck = System.currentTimeMillis();
                         currentState = ObstacleState.DISPENSER;
@@ -866,7 +867,7 @@ public final class WildernessAgilityScript extends Script {
         }
     }
     private void handleDispenser() {
-        TileObject dispenser = cachedDispenserObj;
+        Rs2TileObjectModel dispenser = cachedDispenserObj;
         WorldPoint playerLoc = Rs2Player.getWorldLocation();
         if (dispenser == null || playerLoc == null) return;
         if (playerLoc.distanceTo(dispenser.getWorldLocation()) > 20) return;
@@ -915,7 +916,7 @@ public final class WildernessAgilityScript extends Script {
         if (dispenserLootAttempts == 0) {
             dispenserPreValue = getInventoryValue();
             dispenserTicketsBefore = currentTickets;
-            Rs2GameObject.interact(dispenser, "Search");
+            dispenser.click("Search");
             waitingForDispenserLoot = true;
             dispenserLootAttempts = 1; // Only try once, now wait for loot
         } else if (dispenserLootAttempts == 1) {
@@ -924,13 +925,13 @@ public final class WildernessAgilityScript extends Script {
         }
     }
     private void handleConfigChecks() {
-        TileObject dispenser = cachedDispenserObj;
+        Rs2TileObjectModel dispenser = cachedDispenserObj;
         if (dispenser == null) return;
         int ticketCount = Rs2Inventory.itemQuantity(TICKET_ITEM_ID);
         if (ticketCount >= config.useTicketsWhen()) {
             boolean didInteract = Rs2Inventory.interact(TICKET_ITEM_ID, "Use");
             if (didInteract) {
-                didInteract = Rs2GameObject.interact(dispenser, "Use");
+                didInteract = dispenser != null && dispenser.click("Use");
                 if (didInteract) {
                     sleepUntil(() -> Rs2Inventory.itemQuantity(TICKET_ITEM_ID) < ticketCount, 2000);
                 }
@@ -1034,7 +1035,7 @@ public final class WildernessAgilityScript extends Script {
         // DISABLED: This corrupts inventory action data and causes Rs2Inventory.use() to crash
         // checkLootingBagOnStartup();
         
-        TileObject dispenserObj = getDispenserObj();
+        Rs2TileObjectModel dispenserObj = getDispenserObj();
         WorldPoint playerLoc = Rs2Player.getWorldLocation();
         boolean nearDispenser = dispenserObj != null && playerLoc != null && playerLoc.distanceTo(dispenserObj.getWorldLocation()) <= 4;
 
@@ -1075,7 +1076,7 @@ public final class WildernessAgilityScript extends Script {
                 Microbot.log("[WildernessAgility] Attempting to deposit " + coinCount + " coins into dispenser");
                 Rs2Inventory.use(COINS_ID);
                 sleep(400);
-                Rs2GameObject.interact(dispenserObj, "Use");
+                dispenserObj.click("Use");
                 sleep(getActionDelay());
                 sleepUntil(() -> Rs2Inventory.itemQuantity(COINS_ID) < coinCount, getXpTimeout());
             } else {
@@ -1482,7 +1483,7 @@ public final class WildernessAgilityScript extends Script {
             
             if (isInArea) {
                 Microbot.log("[WildernessAgility] Emergency Escape Step 2: Climbing rocks");
-                Rs2GameObject.interact(ROCKS_OBJECT_ID, "Climb"); // Climb rocks
+                Microbot.getRs2TileObjectCache().query().interact(ROCKS_OBJECT_ID, "Climb"); // Climb rocks
                 sleep(1200);
                 sleepUntil(() -> !Rs2Player.isMoving(), 5000);
                 hasClimbedRocks = true;
@@ -1506,8 +1507,8 @@ public final class WildernessAgilityScript extends Script {
         // Step 3: Open gate (Netoxic's approach) - only if not already opened
         if (!hasOpenedGate) {
             Microbot.log("[WildernessAgility] Emergency Escape Step 3: Opening gate");
-            sleepUntilOnClientThread(() -> Rs2GameObject.getGameObject(GATE_OBJECT_ID) != null); // Wait for Gate
-            Rs2GameObject.interact(GATE_OBJECT_ID, "Open");
+            sleepUntilOnClientThread(() -> Microbot.getRs2TileObjectCache().query().withId(GATE_OBJECT_ID).nearest() != null); // Wait for Gate
+            Microbot.getRs2TileObjectCache().query().interact(GATE_OBJECT_ID, "Open");
             hasOpenedGate = true;
             return; // Wait for next loop iteration
         }
@@ -1774,14 +1775,14 @@ public final class WildernessAgilityScript extends Script {
             sleepUntil(() -> isAt(START_POINT, 2), 20000);
             return;
         }
-        TileObject dispenserObj = getDispenserObj();
+        Rs2TileObjectModel dispenserObj = getDispenserObj();
         if (dispenserObj != null) {
             int coinCount = Rs2Inventory.itemQuantity(COINS_ID);
             if (coinCount >= 150000) {
                 Microbot.log("[WildernessAgility] [WALK_TO_COURSE] Attempting to deposit " + coinCount + " coins into dispenser");
                 Rs2Inventory.use(COINS_ID);
                 sleep(400);
-                Rs2GameObject.interact(dispenserObj, "Use");
+                dispenserObj.click("Use");
                 sleep(getActionDelay());
                 sleepUntil(() -> Rs2Inventory.itemQuantity(COINS_ID) < coinCount, getXpTimeout());
             } else {

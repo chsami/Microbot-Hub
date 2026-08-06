@@ -127,6 +127,8 @@ If a plugin needs additional libraries beyond the Microbot client:
 
 ## Testing and Debugging Plugins
 
+**Before chasing a "script does nothing" bug, read [`docs/PLUGIN_DEBUGGING_NOTES.md`](docs/PLUGIN_DEBUGGING_NOTES.md).** It documents the recurring failure modes in Hub plugins (instanced-region coordinate mismatches, the new Queryable API not auto-walking, null-guard predicates masking broken lookups, static field leakage across plugin restarts, etc.) and the agent-server `curl` workflow for inspecting live state instead of theorizing from code.
+
 ### Running Plugins in Debug Mode
 
 1. Edit `src/test/java/net/runelite/client/Microbot.java`
@@ -170,8 +172,9 @@ Based on recent commits:
 
 ## Important Implementation Details
 
+- **Local Microbot Client Source**: The latest Microbot client source lives in the sibling `Microbot` folder (`../Microbot/`) on the `development` branch. This is the authoritative, up-to-date client codebase. When you need to look up client APIs, utility classes (e.g., `Rs2Bank`, `Rs2Inventory`, `Rs2Walker`), or understand how the client works, reference that repository directly.
 - **Java Version**: JDK 11 (configured in `project-config.gradle` with `TARGET_JDK_VERSION = 11`, vendor `ADOPTIUM`)
-- **Microbot Client Dependency**: Defaults to the latest version resolved via `https://microbot.cloud/api/version/client`, falling back to `2.0.61` if lookup fails. Artifacts come from GitHub Releases (`https://github.com/chsami/Microbot/releases/download/<version>/microbot-<version>.jar`). Override with `-PmicrobotClientVersion=<version>` or `-PmicrobotClientVersion=latest`, or supply a local JAR for offline work via `-PmicrobotClientPath=/absolute/path/to/microbot-<version>.jar`
+- **Microbot Client Dependency**: Defaults to the latest version resolved via `https://microbot.cloud/api/version/client`, falling back to `2.6.9` if lookup fails. Artifacts come from GitHub Releases (`https://github.com/chsami/Microbot/releases/download/<version>/microbot-<version>.jar`). Override with `-PmicrobotClientVersion=<version>` or `-PmicrobotClientVersion=latest`, or supply a local JAR for offline work via `-PmicrobotClientPath=/absolute/path/to/microbot-<version>.jar`
 - **Plugin Release Tag**: `plugins.json` uses a stable release tag (`latest-release`) so download URLs stay constant: `https://github.com/chsami/Microbot-Hub/releases/download/latest-release/<plugin>-<version>.jar`. Override with `-PpluginsReleaseTag=<tag>` if needed.
 - **Shadow JAR Excludes**: Common exclusions defined in `plugin-utils.gradle` include `docs/**`, `dependencies.txt`, metadata files, and module-info
 - **Reproducible Builds**: JAR tasks disable file timestamps, use reproducible file order, and normalize file permissions to `0644`
@@ -191,6 +194,49 @@ When you run `./gradlew build`:
    - Creates shadow JAR task with plugin-specific dependencies
    - Parses `@PluginDescriptor` for metadata
    - Computes SHA256 hash of JAR for `plugins.json`
+
+## Microbot CLI & Agent Server
+
+The Microbot client embeds an HTTP server (Agent Server plugin, port 8081) that the Hub uses for automated testing. Reference docs are mirrored in this repo:
+
+- **CLI command reference**: `docs/MICROBOT_CLI.md` — login, script lifecycle, inventory, NPCs, walking, banking, etc.
+- **HTTP API summary**: `docs/AGENT_SERVER.md` — all endpoints, login error detection, script result submission.
+- **Script lifecycle API**: `docs/SCRIPT_LIFECYCLE_API.md` — start/stop/status/results endpoints and automated testing flow.
+- **Test example**: `src/test/java/net/runelite/client/ScriptLifecycleTest.java` — demonstrates the full login → start → poll → results → stop cycle.
+
+Key capabilities for Hub plugin testing:
+- **Login control**: `POST /login` blocks until login succeeds or fails, returning a definitive `success` boolean and `loginError` on failure (non-member on members world, bans, auth failures). Auto-dismisses error dialogs on retry — no manual intervention needed.
+- **Script lifecycle**: Start/stop plugins by class name via HTTP, poll runtime status, submit and retrieve structured test results.
+- **Java result API**: Hub scripts can call `ScriptResultStore.submit(className, data)` directly from within the JVM.
+
+## Dynamic Script Deployment (Hot-Reload)
+
+**Core Mechanism:** Compile Java source → load via custom URLClassLoader → inject into Guice → start as a RuneLite plugin. No client restart needed.
+
+**HTTP endpoints (127.0.0.1:8081):**
+- `POST /scripts/deploy` — compile & start
+- `POST /scripts/deploy/reload` — recompile in place
+- `POST /scripts/deploy/undeploy` — stop & unload
+- `GET /scripts/deploy` — list deployments
+
+**Core files:** `agentserver/scripting/DynamicScriptManager.java`, `DynamicScriptCompiler.java`, `handler/DynamicScriptDeployHandler.java`
+
+### Supporting Systems
+
+1. **microbot-cli** — bash wrapper for the agent server (`./microbot-cli scripts deploy|reload|undeploy|health|results`)
+2. **Agent Server API** — query state (NPCs, objects, inventory, widgets) and drive the client (walk, interact, dialogue). Full reference in `docs/AGENT_SERVER.md`.
+3. **Probe plugin pattern** — minimal `@PluginDescriptor` classes deployed to inspect engine state, iterate with hot-reload. Used by the `/debugger` skill.
+4. **StateMachineScript** — base class for multi-phase scripts; transitions observable via `GET /debug/snapshot?script=Name`.
+5. **ScriptResultStore** — scripts submit results in-process; retrieve via `/scripts/results` for test workflows.
+6. **`scripts/test_hot_reload.py`** — working end-to-end example of the deploy/reload/undeploy lifecycle.
+
+### Typical Loop
+
+```
+edit source → microbot-cli scripts reload → microbot-cli scripts health → observe logs → repeat
+```
+
+Everything binds to `127.0.0.1` only.
 
 ## Common Patterns
 
@@ -236,7 +282,7 @@ Scripts can subscribe to RuneLite events by injecting the EventBus:
 ```java
 @Slf4j
 public class MyScript {
-    private final EventBus eventBus;
+    private final EventBus[AutoRunScript.java](src/main/java/net/runelite/client/plugins/microbot/qualityoflife/scripts/AutoRunScript.java) eventBus;
 
     @Inject
     public MyScript(EventBus eventBus) {

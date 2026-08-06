@@ -1,12 +1,13 @@
 package net.runelite.client.plugins.microbot.thievingstalls.model;
 
-import net.runelite.api.GameObject;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Gembag;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -40,7 +41,7 @@ public class FortisGemStallThievingSpot implements IStallThievingSpot {
             return;
         }
 
-        final GameObject stall = Rs2GameObject.getGameObject(STALL_ID, SAFESPOT, 2);
+        final Rs2TileObjectModel stall = Microbot.getRs2TileObjectCache().query().withId(STALL_ID).within(SAFESPOT, 2).nearest();
         if (stall == null) {
             boolean started = Microbot.hopToWorld(Login.getRandomWorld(Rs2Player.isMember()));
             if (started) {
@@ -49,7 +50,7 @@ public class FortisGemStallThievingSpot implements IStallThievingSpot {
             return;
         }
 
-        if (!Rs2GameObject.hasAction(Rs2GameObject.convertToObjectComposition(stall), "Steal-from")) {
+        if (!Rs2GameObject.hasAction(stall.getObjectComposition(), "Steal-from")) {
             boolean started = Microbot.hopToWorld(Login.getRandomWorld(Rs2Player.isMember()));
             if (started) {
                 Global.sleepUntil(Microbot::isLoggedIn, 15000);
@@ -57,7 +58,7 @@ public class FortisGemStallThievingSpot implements IStallThievingSpot {
             return;
         }
 
-        Rs2GameObject.interact(stall, "Steal-from");
+        stall.click("Steal-from");
         Rs2Player.waitForXpDrop(Skill.THIEVING);
 
         if (Rs2Gembag.hasGemBag()) {

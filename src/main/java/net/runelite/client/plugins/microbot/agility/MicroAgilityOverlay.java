@@ -28,6 +28,11 @@ public class MicroAgilityOverlay extends OverlayPanel
 	@Override
 	public Dimension render(Graphics2D graphics)
 	{
+		if (plugin.getAgilityScript().isShuttingDown() || !plugin.getAgilityScript().isRunning())
+		{
+			return null;
+		}
+
 		try
 		{
 			panelComponent.setPreferredSize(new Dimension(200, 300));
@@ -45,7 +50,7 @@ public class MicroAgilityOverlay extends OverlayPanel
 
 			panelComponent.getChildren().add(LineComponent.builder()
 				.left("Current Obstacle")
-				.right(Integer.toString(config.agilityCourse().getHandler().getCurrentObstacleIndex()))
+				.right(Integer.toString(plugin.getAgilityScript().getCurrentObstacleIndex()))
 				.build());
 
 		}

@@ -6,6 +6,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterConfig;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
+import net.runelite.client.plugins.microbot.aiofighter.enums.State;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -25,6 +26,7 @@ public class SafetyScript extends Script {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 if (!config.useSafety()) return;
+                if (isBankingOrWalking()) return;
                 if (config.missingRunes() && config.useMagic() && !Rs2Magic.hasRequiredRunes(config.magicSpell())){
                     stopAndLog("Missing runes for spell: " + config.magicSpell());
                 }
@@ -58,11 +60,18 @@ public class SafetyScript extends Script {
 
     public void stopAndLog(String reason) {
         log(reason, Level.WARNING);
-        if(Rs2Bank.walkToBank()){
-            Rs2Player.logout();
-            Plugin PlayerAssistPlugin = Microbot.getPlugin(AIOFighterPlugin.class.getName());
-            Microbot.stopPlugin(PlayerAssistPlugin);
+        // Avoid competing with BankerScript's walker while it is already controlling movement.
+        if (!isBankingOrWalking() && !Rs2Player.isMoving()) {
+            Rs2Bank.walkToBank();
         }
+        Rs2Player.logout();
+        Plugin PlayerAssistPlugin = Microbot.getPlugin(AIOFighterPlugin.class.getName());
+        Microbot.stopPlugin(PlayerAssistPlugin);
+    }
+
+    private boolean isBankingOrWalking() {
+        State state = AIOFighterPlugin.getState();
+        return state == State.BANKING || state == State.WALKING;
     }
 
     @Override

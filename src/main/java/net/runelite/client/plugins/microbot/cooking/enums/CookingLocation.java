@@ -85,7 +85,6 @@ public enum CookingLocation
 
 	public boolean hasRequirements()
 	{
-		boolean hasLineOfSight = Microbot.getClient().getLocalPlayer().getWorldArea().hasLineOfSightTo(Microbot.getClient().getTopLevelWorldView(), this.cookingObjectWorldPoint);
 		switch (this)
 		{
 			case COOKS_GUILD:
@@ -104,11 +103,6 @@ public enum CookingLocation
 				return hasCookingLevel && hasCooksGuildEquipment;
 			case HOSIDIUS_CLAY_OVEN:
 				boolean hasKourendEasyDiary = Microbot.getVarbitValue(VarbitID.KOUREND_DIARY_EASY_COMPLETE) == 1;
-
-				if (hasLineOfSight && Rs2Player.isMember() && hasKourendEasyDiary)
-				{
-					return true;
-				}
 				return Rs2Player.isMember() && hasKourendEasyDiary;
 			default:
 				return true;

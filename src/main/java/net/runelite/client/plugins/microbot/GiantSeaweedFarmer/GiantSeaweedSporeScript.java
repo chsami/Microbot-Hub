@@ -3,7 +3,6 @@ package net.runelite.client.plugins.microbot.GiantSeaweedFarmer;
 import net.runelite.api.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
@@ -20,7 +19,7 @@ public class GiantSeaweedSporeScript extends Script {
                 if (!config.lootSeaweedSpores()) return;
 
                 // Check for seaweed spores - but respect critical farming operations
-                if (Rs2GroundItem.exists(ItemID.SEAWEED_SPORE, 15) &&
+                if (Microbot.getRs2TileItemCache().query().withId(ItemID.SEAWEED_SPORE).within(15).count() > 0 &&
                         !GiantSeaweedFarmerScript.inCriticalSection) {
                     // Pause all other scripts while we loot
                     Microbot.pauseAllScripts.set(true);
@@ -41,9 +40,9 @@ public class GiantSeaweedSporeScript extends Script {
     }
 
     private void lootAllSpores() {
-        while (Rs2GroundItem.exists(ItemID.SEAWEED_SPORE, 15) && this.isRunning()) {
+        while (Microbot.getRs2TileItemCache().query().withId(ItemID.SEAWEED_SPORE).within(15).count() > 0 && this.isRunning()) {
             Microbot.log("Seaweed spore detected - looting");
-            boolean looted = Rs2GroundItem.loot(ItemID.SEAWEED_SPORE, 15);
+            boolean looted = Microbot.getRs2TileItemCache().query().withId(ItemID.SEAWEED_SPORE).within(15).interact("Take");
             if (looted) {
                 // Wait for movement to start and complete
                 sleepUntil(Rs2Player::isMoving, 2000);

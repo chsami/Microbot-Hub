@@ -33,7 +33,7 @@ import java.awt.image.BufferedImage;
 )
 @Slf4j
 public class AutoBankStanderPlugin extends Plugin {
-    static final String version = "1.0.2";
+    static final String version = "1.0.3";
     
     @Inject
     private AutoBankStanderConfig config;

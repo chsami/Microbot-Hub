@@ -124,4 +124,15 @@ public interface DailyTasksConfig extends Config {
     default boolean handleMiscellania() {
         return true;
     }
+
+    @ConfigItem(
+            keyName = "rakeMiscellania",
+            name = "Rake Miscellania",
+            description = "Rake the Miscellania flax & herb patches until kingdom favor is maxed (members; needs Throne of Miscellania + a Dramen staff)",
+            position = 10,
+            section = tasksSection
+    )
+    default boolean rakeMiscellania() {
+        return false;
+    }
 }

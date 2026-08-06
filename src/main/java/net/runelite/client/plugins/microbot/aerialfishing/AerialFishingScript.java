@@ -14,10 +14,11 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static net.runelite.client.plugins.microbot.util.npc.Rs2Npc.validateInteractable;
@@ -62,10 +63,10 @@ public class AerialFishingScript extends Script {
             }
 
             if (!Rs2Camera.isTileOnScreen(fishingspot.getLocalLocation())) {
-                validateInteractable(fishingspot);
+                validateInteractable(fishingspot.getNpc());
             }
 
-            if (Rs2Npc.interact(fishingspot)) {
+            if (fishingspot.click()) {
                 if (sleepUntil(Rs2Player::isInteracting, 1200)) {
                     sleepUntil(() -> Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_BIRD), () -> {
                         if ((Rs2Inventory.emptySlotCount() <= 1 && Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_NO_BIRD)) || (Rs2Inventory.emptySlotCount() == 0 && Rs2Equipment.isWearing(ItemID.AERIAL_FISHING_GLOVES_BIRD))) {
@@ -74,9 +75,9 @@ public class AerialFishingScript extends Script {
                             Rs2Inventory.hover(knife);
 
                         } else {
-                            NPC preHoverSpot = findPreHoverSpot(fishingspot);
+                            Rs2NpcModel preHoverSpot = findPreHoverSpot(fishingspot);
                             if (preHoverSpot != null) {
-                                if (Rs2Npc.hoverOverActor(preHoverSpot)) {
+                                if (Rs2Npc.hoverOverActor(preHoverSpot.getNpc())) {
 
                                     if (Rs2Random.dicePercentage(20)) {
                                         Microbot.getMouse().click();
@@ -96,11 +97,12 @@ public class AerialFishingScript extends Script {
 
 
     private Rs2NpcModel findFishingSpot() {
-        return Rs2Npc.getNpc(NpcID.FISHING_SPOT_AERIAL);
+        return Microbot.getRs2NpcCache().query().withId(NpcID.FISHING_SPOT_AERIAL).nearest();
     }
 
-    private NPC findPreHoverSpot(NPC exludedSpot) {
-        return Rs2Npc.getNpcs(NpcID.FISHING_SPOT_AERIAL).filter(x -> x != exludedSpot).findFirst().orElse(null);
+    private Rs2NpcModel findPreHoverSpot(Rs2NpcModel excludedSpot) {
+        List<Rs2NpcModel> spots = Microbot.getRs2NpcCache().query().withId(NpcID.FISHING_SPOT_AERIAL).toList();
+        return spots.stream().filter(x -> x != excludedSpot).findFirst().orElse(null);
     }
 
     private void cutFish() {

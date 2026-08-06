@@ -16,10 +16,10 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -140,7 +140,7 @@ public class MKE_WintertodtScript extends Script {
     private boolean spamClickingActive = false;
     private long spamClickStartTime = 0;
     private long spamClickEndTime = 0;
-    private GameObject spamClickTarget = null;
+    private Rs2TileObjectModel spamClickTarget = null;
     private int spamClicksPerformed = 0;
     private long lastSpamClick = 0;
 
@@ -150,6 +150,11 @@ public class MKE_WintertodtScript extends Script {
 
     // Flag to prioritize brazier lighting at round start
     private static boolean shouldPriorizeBrazierAtStart = false;
+
+    // One-shot: walk to the snowfall-safe fletch tile only on a fresh entry to
+    // FLETCH_LOGS (i.e. coming from chopping). Resumed fletches after a brazier
+    // fix/light or an eat tick don't count — we fletch in place.
+    private static boolean needFletchTileWalk = false;
 
     // For overlay
     public static double historicalEstimateSecondsLeft = 0;
@@ -246,9 +251,9 @@ public class MKE_WintertodtScript extends Script {
         boolean wintertodtRespawning;
         boolean isWintertodtAlive;
         int playerWarmth;
-        GameObject brazier;
-        GameObject brokenBrazier;
-        GameObject burningBrazier;
+        Rs2TileObjectModel brazier;
+        Rs2TileObjectModel brokenBrazier;
+        Rs2TileObjectModel burningBrazier;
         boolean needBanking;
         boolean needPotions = false; // For rejuvenation potion logic
         int wintertodtHp = -1;
@@ -320,15 +325,13 @@ public class MKE_WintertodtScript extends Script {
 
     /* Returns the closest Bruma root that is on the same side as the
        selected brazier (<= 8 tiles from that brazier). */
-    private GameObject getOwnSideRoot()
+    private Rs2TileObjectModel getOwnSideRoot()
     {
         WorldPoint ref = config.brazierLocation().getBRAZIER_LOCATION();
-        return Rs2GameObject.getGameObjects(10).stream()
-                .filter(o -> o.getId() == ObjectID.BRUMA_ROOTS)
-                .filter(o -> o.getWorldLocation().distanceTo(ref) <= 10)
-                .min(java.util.Comparator.comparingInt(o -> o.getWorldLocation()
-                                                           .distanceTo(ref)))
-                .orElse(null);
+        return Microbot.getRs2TileObjectCache().query()
+                .withId(ObjectID.BRUMA_ROOTS)
+                .within(ref, 10)
+                .nearest();
     }
 
     // ---------------------------------------------------------------
@@ -908,6 +911,11 @@ public class MKE_WintertodtScript extends Script {
         if (state == State.FLETCH_LOGS) lastFletchingXpDropTime   = 0;
         if (state == State.BURN_LOGS)   lastFiremakingXpDropTime  = 0;
 
+        // Fresh entry to FLETCH_LOGS → arm the one-shot walk to the safe tile.
+        if (newState == State.FLETCH_LOGS) {
+            needFletchTileWalk = true;
+        }
+
         System.out.println(String.format("[%d] State transition: %s -> %s %s",
                 System.currentTimeMillis(), state, newState, lock ? "(LOCKED)" : ""));
 
@@ -1264,7 +1272,9 @@ public class MKE_WintertodtScript extends Script {
             Microbot.log("Activity: " + Rs2Antiban.getActivity().getMethod());
             Microbot.log("Play Style: " + Rs2Antiban.getPlayStyle().getName());
             Microbot.log("Micro Breaks: " + (Rs2AntibanSettings.takeMicroBreaks ? "Enabled" : "Disabled"));
-            Microbot.log("Action Cooldown: " + (Rs2AntibanSettings.usePlayStyle ? "Enabled" : "Disabled"));
+            Microbot.log("Action Cooldown: " + (Rs2AntibanSettings.usePlayStyle
+                    ? "Enabled (chance " + Rs2AntibanSettings.actionCooldownChance + ")"
+                    : "Disabled"));
             Microbot.log("Mouse Randomization: " + (Rs2AntibanSettings.moveMouseRandomly ? "Enabled" : "Disabled"));
             Microbot.log("============================");
             
@@ -1461,13 +1471,22 @@ public class MKE_WintertodtScript extends Script {
 
             gameState.playerWarmth      = getWarmthLevel();
 
-            // Object detection
-            gameState.brazier        = Rs2GameObject.findObject(BRAZIER_29312,
-                                          config.brazierLocation().getOBJECT_BRAZIER_LOCATION());
-            gameState.brokenBrazier  = Rs2GameObject.findObject(BRAZIER_29313,
-                                          config.brazierLocation().getOBJECT_BRAZIER_LOCATION());
-            gameState.burningBrazier = Rs2GameObject.findObject(BURNING_BRAZIER_29314,
-                                          config.brazierLocation().getOBJECT_BRAZIER_LOCATION());
+            // Object detection. The previous filter required the brazier object's
+            // worldLocation to *exactly equal* a hardcoded constant in the Brazier
+            // enum, but the actual SW-corner of the brazier object differs by a
+            // tile from that constant (verified live: SE brazier at (1638,3997)
+            // while OBJECT_BRAZIER_LOCATION is (1639,3998)). Result: every brazier
+            // slot was permanently null → no light, no relight, no fix, NPE on
+            // feed. Switch to a tolerant within-radius filter anchored on the
+            // player-stand tile (BRAZIER_LOCATION). The two sides are 17 tiles
+            // apart, so a radius of 3 unambiguously selects the chosen side.
+            WorldPoint brazierAnchor = config.brazierLocation().getBRAZIER_LOCATION();
+            gameState.brazier        = Microbot.getRs2TileObjectCache().query().withId(BRAZIER_29312)
+                                          .within(brazierAnchor, 3).nearest();
+            gameState.brokenBrazier  = Microbot.getRs2TileObjectCache().query().withId(BRAZIER_29313)
+                                          .within(brazierAnchor, 3).nearest();
+            gameState.burningBrazier = Microbot.getRs2TileObjectCache().query().withId(BURNING_BRAZIER_29314)
+                                          .within(brazierAnchor, 3).nearest();
 
             // Health and food management - determine healing strategy
             if (!autoAdjustedPotionUsage) {
@@ -1601,7 +1620,7 @@ public class MKE_WintertodtScript extends Script {
             if (random.nextInt(100) < 15) { // 15% chance
                 // Simulate checking other areas occasionally
                 if (currentBrazier != null && random.nextBoolean()) {
-                    Rs2GameObject.hoverOverObject(currentBrazier);
+                    if (currentBrazier != null) Rs2GameObject.hoverOverObject(currentBrazier);
                 }
                 lastMouseMovement = currentTime;
             }
@@ -1817,14 +1836,24 @@ public class MKE_WintertodtScript extends Script {
             return;
         }
 
+        // Brazier maintenance is THE priority. When snowfall breaks the
+        // brazier, the fix window closes fast (other players race to repair),
+        // and an unlit brazier means zero points until it's relit. Both of
+        // those beat eating — we'll eat next tick once the brazier is back.
+        if (handleBrazierMaintenance(gameState)) {
+            return;
+        }
+
         // Drop unnecessary items
         dropUnnecessaryItems();
 
-        // Dodge falling snow/damage
-        dodgeSnowfallDamage(gameState);
-
-        // Handle eating
+        // Eat — survival. Runs only after brazier is fixed/lit (handled above).
         handleEating(gameState);
+
+        // Dodge falling snow/damage (opt-in; most players just rely on food/potions)
+        if (config.dodgeSnowfall()) {
+            dodgeSnowfallDamage(gameState);
+        }
 
         // Periodic camera check (every 2 minutes during normal operation)
         if (System.currentTimeMillis() - lastCameraMovement > 120000) {
@@ -1998,10 +2027,12 @@ public class MKE_WintertodtScript extends Script {
             if (shouldLightBrazier(gameState)) {
                 Microbot.log("Prioritizing brazier lighting at round start (state: " + state + ")");
                 return; // Light the brazier first, then resume normal flow next tick
-            } else {
-                // Brazier is already lit or doesn't need lighting, reset the flag
+            } else if (gameState.burningBrazier != null) {
+                // Only consume the priority when a brazier is *definitively* burning
+                // (someone else lit it). If both burning- and unlit- slots are null,
+                // the cache may just be lagging — keep the flag and retry next tick.
                 shouldPriorizeBrazierAtStart = false;
-                Microbot.log("Brazier lighting priority completed or not needed (state: " + state + ")");
+                Microbot.log("Brazier lighting priority completed - already burning (state: " + state + ")");
             }
         }
 
@@ -2215,7 +2246,7 @@ public class MKE_WintertodtScript extends Script {
             }
 
             if (gameState.brazier != null) {
-                if (Rs2GameObject.interact(gameState.brazier, "light")) {
+                if (gameState.brazier.click("light")) {
                     Microbot.log("Lighting brazier");
                     
                     // Reset priority flag after successful lighting attempt
@@ -2289,8 +2320,8 @@ public class MKE_WintertodtScript extends Script {
 
             if (!Rs2Player.isAnimating())
             {
-                GameObject root = getOwnSideRoot();
-                if (root != null && Rs2GameObject.interact(root, "Chop"))
+                Rs2TileObjectModel root = getOwnSideRoot();
+                if (root != null && root.click("Chop"))
                 {
                     sleepUntilTrue(Rs2Player::isAnimating, 100, 3000);
                     maybeNudgeMouse();
@@ -2323,18 +2354,15 @@ public class MKE_WintertodtScript extends Script {
             
             /* ---------- PRIORITY BLOCK 1: FIX BROKEN BRAZIER FIRST ----------- */
             if (gameState.brokenBrazier != null && config.fixBrazier()) {
-
-                sleepGaussian(200, 150);
-
                 // Stop fletching temporarily to fix brazier
                 if (fletchingState.isActive()) {
                     fletchingState.stopFletching(FletchingInterruptType.BRAZIER_BROKEN);
                 }
-                
+
                 // Deselect any items before fixing
                 deselectSelectedItem();
-                
-                Rs2GameObject.interact(gameState.brokenBrazier, "fix");
+
+                gameState.brokenBrazier.click("fix");
                 Microbot.log("Fixing broken brazier (priority during fletching)");
                 resetActions = true;
                 actionsPerformed++;
@@ -2343,20 +2371,17 @@ public class MKE_WintertodtScript extends Script {
             /* ----------------------------------------------------------------- */
 
             /* ---------- PRIORITY BLOCK 2: RELIGHT BRAZIER SECOND ------------ */
-            if (gameState.burningBrazier == null && gameState.brazier != null && 
+            if (gameState.burningBrazier == null && gameState.brazier != null &&
                 config.relightBrazier() && gameState.isWintertodtAlive) {
-
-                sleepGaussian(200, 150);
-                
                 // Stop fletching temporarily to relight brazier
                 if (fletchingState.isActive()) {
                     fletchingState.stopFletching(FletchingInterruptType.BRAZIER_WENT_OUT);
                 }
-                
+
                 // Deselect any items before relighting
                 deselectSelectedItem();
-                
-                Rs2GameObject.interact(gameState.brazier, "light");
+
+                gameState.brazier.click("light");
                 Microbot.log("Relighting brazier (priority during fletching)");
                 resetActions = true;
                 actionsPerformed++;
@@ -2400,12 +2425,23 @@ public class MKE_WintertodtScript extends Script {
             }
 
             /* ---------- start / continue fletching ------------------- */
-            if (!isCurrentlyFletching() && gameState.burningBrazier != null) {
+            // Fletching only needs knife + roots; a burning brazier nearby isn't a
+            // precondition. Gating on burningBrazier caused silent idles when the
+            // brazier went out and the relight priority block didn't fire (e.g. the
+            // brazier object briefly fell out of the cache).
+            if (!isCurrentlyFletching()) {
                 sleepGaussian(250, 150);
                 if (random.nextInt(100) < 10) {
                     sleepGaussian(400, 600);
                 }
-                navigateToBrazier();
+                // Walk to the snowfall-safe fletch tile only on the first
+                // fletch of this state entry (i.e. fresh from chopping).
+                // Resumed fletches after a brazier fix/light/eat happen in
+                // place — no point trekking back for a partial pile.
+                if (needFletchTileWalk) {
+                    navigateToFletchSpot();
+                    needFletchTileWalk = false;
+                }
 
                 // Keep knife in slot-27 optimisation
                 Rs2ItemModel knife = Rs2Inventory.get(WintertodtInventoryManager.knifeToUse);
@@ -2454,7 +2490,7 @@ public class MKE_WintertodtScript extends Script {
             }
 
             /* Pre-select knife and hover when we have many roots */
-            if (rootCount > knifePreselectThreshold && !isKnifeSelected() && gameState.burningBrazier != null) {
+            if (rootCount > knifePreselectThreshold && !isKnifeSelected()) {
                 Rs2Inventory.interact(WintertodtInventoryManager.knifeToUse, "Use");
                 sleepGaussian(120, 40);
 
@@ -2494,8 +2530,8 @@ public class MKE_WintertodtScript extends Script {
                 if (feedingState.isActive()) {
                     feedingState.stopFeeding(FeedingInterruptType.BRAZIER_BROKEN);
                 }
-                
-                Rs2GameObject.interact(gameState.brokenBrazier, "fix");
+
+                gameState.brokenBrazier.click("fix");
                 Microbot.log("Fixing broken brazier");
                 resetActions = true;
                 actionsPerformed++;
@@ -2504,18 +2540,15 @@ public class MKE_WintertodtScript extends Script {
             /* ----------------------------------------------------------------- */
 
             /* ---------- PRIORITY BLOCK 2: RELIGHT BRAZIER SECOND ------------ */
-            TileObject burningBrazier = gameState.burningBrazier;  // side-specific
-            if (burningBrazier == null && gameState.brazier != null && 
+            Rs2TileObjectModel burningBrazier = gameState.burningBrazier;  // side-specific
+            if (burningBrazier == null && gameState.brazier != null &&
                 config.relightBrazier() && gameState.isWintertodtAlive) {
-
-                sleepGaussian(200, 150);
-                
                 // Stop feeding temporarily to relight brazier
                 if (feedingState.isActive()) {
                     feedingState.stopFeeding(FeedingInterruptType.BRAZIER_WENT_OUT);
                 }
-                
-                Rs2GameObject.interact(gameState.brazier, "light");
+
+                gameState.brazier.click("light");
                 Microbot.log("Relighting brazier");
                 resetActions = true;
                 actionsPerformed++;
@@ -2534,15 +2567,16 @@ public class MKE_WintertodtScript extends Script {
             }
 
             /* ---------- start / continue feeding ------------------- */
-            if (!isCurrentlyFeeding() && 
-                gameState.hasItemsToBurn) {
+            if (!isCurrentlyFeeding() &&
+                gameState.hasItemsToBurn &&
+                burningBrazier != null) {
 
                 sleepGaussian(200, 150);
                 if (random.nextInt(100) < 10) {
                     sleepGaussian(400, 600);
                 }
-                
-                if (Rs2GameObject.interact(burningBrazier, "feed")) {
+
+                if (burningBrazier.click("feed")) {
                     feedingState.startFeeding();
                     // Initialize animation tracking for new feeding session
                     lastFeedingAnimationTime = System.currentTimeMillis();
@@ -2550,6 +2584,10 @@ public class MKE_WintertodtScript extends Script {
                     actionsPerformed++;
                     Microbot.log("Started feeding brazier");
                     maybeNudgeMouse();
+
+                    if (Rs2AntibanSettings.usePlayStyle) {
+                        Rs2Antiban.actionCooldown();
+                    }
                 }
             }
 
@@ -2649,16 +2687,11 @@ public class MKE_WintertodtScript extends Script {
             }
 
             // Find and interact with crate
-            TileObject crate = Rs2GameObject.findObject(CRATE_OBJECT_ID, CRATE_LOCATION);
-            if (crate == null) {
-                crate = Rs2GameObject.getGameObjects(CRATE_OBJECT_ID).stream()
-                    .filter(c -> c.getWorldLocation().distanceTo(CRATE_LOCATION) <= 2)
-                    .findFirst()
-                    .orElse(null);
-            }
-            
+            Rs2TileObjectModel crate = Microbot.getRs2TileObjectCache().query().withId(CRATE_OBJECT_ID)
+                    .where(o -> o.getWorldLocation().distanceTo(CRATE_LOCATION) <= 2).nearest();
+
             if (crate != null) {
-                if (Rs2GameObject.interact(crate, "Take-concoction")) {
+                if (crate.click("Take-concoction")) {
                     // Wait for inventory change
                     int beforeCount = Rs2Inventory.count(ItemID.REJUVENATION_POTION_UNF);
                     sleepUntilTrue(() -> Rs2Inventory.count(ItemID.REJUVENATION_POTION_UNF) > beforeCount, 100, 3000);
@@ -2755,17 +2788,12 @@ public class MKE_WintertodtScript extends Script {
             }
 
             // Find sprouting roots and pick
-            TileObject roots = Rs2GameObject.findObject(SPROUTING_ROOTS_OBJECT_ID, SPROUTING_ROOTS);
-            if (roots == null) {
-                roots = Rs2GameObject.getGameObjects(SPROUTING_ROOTS_OBJECT_ID).stream()
-                    .filter(r -> r.getWorldLocation().distanceTo(SPROUTING_ROOTS) <= 2)
-                    .findFirst()
-                    .orElse(null);
-            }
-            
+            Rs2TileObjectModel roots = Microbot.getRs2TileObjectCache().query().withId(SPROUTING_ROOTS_OBJECT_ID)
+                    .where(r -> r.getWorldLocation().distanceTo(SPROUTING_ROOTS) <= 2).nearest();
+
             if (roots != null) {
                 Microbot.log("Picking herbs (need " + herbsNeeded + " more)");
-                if (Rs2GameObject.interact(roots, "Pick")) {
+                if (roots.click("Pick")) {
                     sleepUntilTrue(() -> Rs2Player.isAnimating(), 100, 2000);
                     actionsPerformed++;
                 } else {
@@ -2904,7 +2932,8 @@ public class MKE_WintertodtScript extends Script {
             }
 
             // Find Brew'ma NPC
-            Rs2NpcModel brewmaNpc = Rs2Npc.getNpcInLineOfSight("Brew'ma");
+            Rs2NpcModel brewmaNpc = Microbot.getRs2NpcCache().query().withName("Brew'ma")
+                    .where(n -> n.hasLineOfSight()).nearestOnClientThread();
             if (brewmaNpc == null) {
                 Microbot.log("Could not find Brew'ma NPC - walking closer");
                 Rs2Walker.walkFastCanvas(BREWMA_NPC_INTERACT_LOCATION);
@@ -2935,7 +2964,7 @@ public class MKE_WintertodtScript extends Script {
             Microbot.log("Selected herb from inventory");
             
             // Then click on the Brew'ma NPC while herb is selected
-            if (Rs2Npc.interact(brewmaNpc, "Use")) {
+            if (brewmaNpc.click("Use")) {
                 Microbot.log("Used herb on Brew'ma NPC - waiting for conversion");
                 
                 // Wait for the conversion to complete (should be instant according to user)
@@ -3103,6 +3132,59 @@ public class MKE_WintertodtScript extends Script {
      * @param gameState Current game state
      * @return true if food was consumed
      */
+    /**
+     * Top-of-loop brazier priority handler: fix a broken brazier, then relight
+     * an unlit one. Runs before {@link #handleEating} so a snowfall-induced
+     * break doesn't lose us the repair window to another player. Returns true
+     * if a click was issued (caller should skip the rest of the tick).
+     */
+    private boolean handleBrazierMaintenance(GameState gameState) {
+        // Without this guard the 60ms loop would re-issue the same click every
+        // tick while the repair/light animation runs (~30 clicks in 2s) — an
+        // obvious bot signature. resetActions is cleared once the next action
+        // begins, so a single repair click can trigger.
+        if (resetActions) return false;
+
+        // Skip while chopping — the roots are several tiles from the brazier,
+        // so by the time we abandon the chop and walk over, another player
+        // has already repaired/relit. The interruption costs us a chop cycle
+        // for nothing.
+        if (state == State.CHOP_ROOTS) return false;
+
+        if (gameState.brokenBrazier != null && config.fixBrazier()) {
+            if (fletchingState.isActive()) {
+                fletchingState.stopFletching(FletchingInterruptType.BRAZIER_BROKEN);
+            }
+            if (feedingState.isActive()) {
+                feedingState.stopFeeding(FeedingInterruptType.BRAZIER_BROKEN);
+            }
+            deselectSelectedItem();
+            gameState.brokenBrazier.click("fix");
+            Microbot.log("Fixing broken brazier (priority)");
+            resetActions = true;
+            actionsPerformed++;
+            return true;
+        }
+
+        if (gameState.burningBrazier == null && gameState.brazier != null
+                && config.relightBrazier() && gameState.isWintertodtAlive) {
+            if (fletchingState.isActive()) {
+                fletchingState.stopFletching(FletchingInterruptType.BRAZIER_WENT_OUT);
+            }
+            if (feedingState.isActive()) {
+                feedingState.stopFeeding(FeedingInterruptType.BRAZIER_WENT_OUT);
+            }
+            deselectSelectedItem();
+            gameState.brazier.click("light");
+            Microbot.log("Relighting brazier (priority)");
+            resetActions = true;
+            actionsPerformed++;
+            return true;
+        }
+
+        return false;
+    }
+
     private boolean handleEating(GameState gameState) {
         if (gameState.playerWarmth <= config.eatAtWarmthLevel()) {
             try {
@@ -3271,10 +3353,14 @@ public class MKE_WintertodtScript extends Script {
 
         if (gameState.brazier == null || gameState.burningBrazier != null) {
             setLockState(State.LIGHT_BRAZIER, false);
-            // Reset priority flag if brazier is already lit or doesn't exist
-            if (shouldPriorizeBrazierAtStart) {
+            // Only consume the round-start priority when a brazier is *definitively*
+            // burning. If both are null, the cache hasn't seen the brazier yet
+            // (common right after the round-start tick) — keep the flag so we'll
+            // retry once detection catches up, instead of giving up and chopping
+            // for the rest of the round with an unlit brazier.
+            if (shouldPriorizeBrazierAtStart && gameState.burningBrazier != null) {
                 shouldPriorizeBrazierAtStart = false;
-                Microbot.log("Brazier priority reset - brazier already lit or unavailable");
+                Microbot.log("Brazier priority reset - brazier already lit");
             }
             return false;
         }
@@ -3340,6 +3426,34 @@ public class MKE_WintertodtScript extends Script {
     }
 
     /**
+     * Navigates to the snowfall-safe fletch tile (one tile south of the
+     * brazier-stand tile). Used only while fletching so we don't tank
+     * snowfall AoE for the entire root pile.
+     */
+    private void navigateToFletchSpot() {
+        try {
+            WorldPoint fletchLocation = config.brazierLocation().getFLETCH_LOCATION();
+            double distance = Rs2Player.getWorldLocation().distanceTo(fletchLocation);
+
+            if (!BreakHandlerScript.isLockState()) {
+                BreakHandlerScript.setLockState(true);
+                Microbot.log("Locking break handler");
+            }
+
+            if (distance > 8) {
+                Rs2Walker.walkTo(fletchLocation, 1);
+                Rs2Player.waitForWalking();
+            } else if (distance >= 1) {
+                Rs2Walker.walkFastCanvas(fletchLocation);
+                sleepGaussian(400, 100);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error navigating to fletch spot: " + e.getMessage());
+        }
+    }
+
+    /**
      * Dodges snowfall damage by tracking specific projectiles.
      */
     private void dodgeSnowfallDamage(GameState gameState) {
@@ -3380,24 +3494,15 @@ public class MKE_WintertodtScript extends Script {
                                 Rs2Player.waitForWalking(1500);
                                 resetActions = true;
                                 Microbot.log("Dodged snowfall damage (80% chance triggered)");
-                                Microbot.log("Waiting for burning brazier to go out after snowfall damage...");
-                                Rs2GameObject.hoverOverObject(Rs2GameObject.findReachableObject("brazier", false, 4, Rs2Player.getWorldLocation()));
-
-                                boolean brazierWentOut = sleepUntilTrue(
-                                        () -> {
-                                            // Wait until burning brazier is gone OR we're no longer in burn state
-                                            GameObject burningBrazier = Rs2GameObject.getGameObject(BURNING_BRAZIER_29314,5);
-                                            return burningBrazier == null || (state != State.BURN_LOGS && state != State.FLETCH_LOGS);
-                                        },
-                                        100,  // Check every 100ms
-                                        5000 // Timeout after 5 seconds
-                                );
-
-                                if (brazierWentOut) {
-                                    Microbot.log("Brazier state changed, continuing...");
-                                } else {
-                                    Microbot.log("Timeout waiting for brazier change - continuing anyway");
-                                }
+                                // Don't block here. The previous implementation sleepUntilTrue'd
+                                // for the brazier to go out (timeout 5s, but in practice the
+                                // executor wedged for ~140s — see "avg loop time: 141100ms" in
+                                // the round logs), which starved handleEating and nearly killed
+                                // the player. The dodge already moved us out of the AoE; let
+                                // the next script tick re-analyze: the priority blocks in
+                                // handleFletchLogsState / handleBurnLogsState will detect a
+                                // broken brazier and click "fix" (auto-walks back), or relight
+                                // an unlit brazier — exactly what we want here.
                             } else {
                                 Microbot.log("Snowfall detected but purposely NOT dodging (20% chance - staying put for realism ;) )");
                             }
@@ -4169,7 +4274,7 @@ public class MKE_WintertodtScript extends Script {
      * @param gameState Current game state
      * @return GameObject to hover over, or null if none appropriate
      */
-    private GameObject getNextInteractiveObject(GameState gameState) {
+    private Rs2TileObjectModel getNextInteractiveObject(GameState gameState) {
         try {
             // Priority 1: Broken brazier (if we can fix it)
             if (gameState.brokenBrazier != null && config.fixBrazier()) {
@@ -4191,7 +4296,7 @@ public class MKE_WintertodtScript extends Script {
             
             // Priority 4: Bruma roots on our side (if we intend to chop)
             if (!gameState.inventoryFull && !gameState.hasItemsToBurn && !gameState.needBanking && !gameState.needPotions) {
-                GameObject root = getOwnSideRoot();
+                Rs2TileObjectModel root = getOwnSideRoot();
                 if (root != null) {
                     Microbot.log("DEBUG: Will hover over bruma roots for chopping");
                     return root;
@@ -4257,9 +4362,9 @@ public class MKE_WintertodtScript extends Script {
             
             // Start hovering when time remaining reaches our calculated hover time (only if not spam clicking)
             if (!hoveredForNextRound && !spamClickingActive && timeUntilStart > 0 && timeUntilStart <= hoverBeforeStartTime) {
-                GameObject nextObject = getNextInteractiveObject(gameState);
+                Rs2TileObjectModel nextObject = getNextInteractiveObject(gameState);
                 if (nextObject != null) {
-                    Rs2GameObject.hoverOverObject(nextObject);
+                    if (nextObject.getClickbox() != null) moveCursorHumanized(nextObject.getClickbox().getBounds());
                     hoveredForNextRound = true;
                     Microbot.log("Hovering over next interactive object: " + nextObject.getId() + 
                                " (" + (timeUntilStart / 1000.0) + "s before round start)");
@@ -4479,7 +4584,7 @@ public class MKE_WintertodtScript extends Script {
             dx = Math.max(-80, Math.min(80, dx));
             dy = Math.max(-80, Math.min(80, dy));
 
-            Microbot.getMouse().move(start.x + dx, start.y + dy);
+            moveCursorHumanized(start.x + dx, start.y + dy);
 
             /* 3. ~50 % chance of a quick follow-up wobble             */
             if (random.nextBoolean())
@@ -4491,11 +4596,36 @@ public class MKE_WintertodtScript extends Script {
                 dx2 = Math.max(-30, Math.min(30, dx2));
                 dy2 = Math.max(-30, Math.min(30, dy2));
 
-                Microbot.getMouse().move(start.x + dx + dx2,
-                                          start.y + dy + dy2);
+                moveCursorHumanized(start.x + dx + dx2,
+                                    start.y + dy + dy2);
             }
         }
         catch (Exception ignored) {}
+    }
+
+    /**
+     * Routes cursor movement through NaturalMouse when available. Direct
+     * Microbot.getMouse().move(x, y) dispatches a teleport MOUSE_MOVED event
+     * with no path — visually obvious and trivially bot-detectable. Whenever
+     * we want to *move* the cursor (hover, nudge, pre-position before a spam
+     * click), use this so the move follows a smooth Bezier-style curve.
+     */
+    private static void moveCursorHumanized(int x, int y)
+    {
+        if (x <= 1 || y <= 1) return;
+        if (Microbot.naturalMouse != null) {
+            Microbot.naturalMouse.moveTo(x, y);
+        } else {
+            Microbot.getMouse().move(x, y);
+        }
+    }
+
+    private static void moveCursorHumanized(java.awt.Rectangle rect)
+    {
+        if (rect == null) return;
+        int cx = (int) (rect.getX() + rect.getWidth() / 2.0);
+        int cy = (int) (rect.getY() + rect.getHeight() / 2.0);
+        moveCursorHumanized(cx, cy);
     }
 
     /* ------------ knife selection helpers ------------------------------ */
@@ -4760,7 +4890,7 @@ public class MKE_WintertodtScript extends Script {
     /**
      * Determines the best target for spam clicking (usually the brazier we'll interact with).
      */
-    private GameObject determineSpamClickTarget(GameState gameState) {
+    private Rs2TileObjectModel determineSpamClickTarget(GameState gameState) {
         // Priority 1: Unlit brazier (what we'll light when round starts)
         if (gameState.brazier != null && gameState.burningBrazier == null) {
             return gameState.brazier;
@@ -4789,7 +4919,7 @@ public class MKE_WintertodtScript extends Script {
             }
             
             // Just hover and click without actually interacting
-            Rs2GameObject.hoverOverObject(spamClickTarget);
+            if (spamClickTarget.getClickbox() != null) moveCursorHumanized(spamClickTarget.getClickbox().getBounds());
             
             // Small delay between hover and click for realism
             sleepGaussian(60, 40);
@@ -5211,7 +5341,8 @@ public class MKE_WintertodtScript extends Script {
         lastRewardCartInteraction = System.currentTimeMillis();
 
         // Try to interact with reward cart by searching for the "Reward" text on the object
-        if (Rs2GameObject.interact("Reward", "Big-search", false)) {
+        var rewardCart = Microbot.getRs2TileObjectCache().query().withName("Reward").nearestOnClientThread();
+        if (rewardCart != null && rewardCart.click("Big-search")) {
             Microbot.status = "Interacting with reward cart";
             return true;
         }

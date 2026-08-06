@@ -15,8 +15,8 @@ public enum GameObjectId {
     TOTEM_READY_FOR_DECORATION(57081, "totem", "Totem ready for decoration - Action: Decorate"),
     
     // Ent trails (optional for extra points)
-    ENT_TRAIL_1(57116, "ent", "Ent trail for bonus points"),
-    ENT_TRAIL_2(57115, "ent", "Ent trail for bonus points"),
+    ENT_TRAIL_1(57116, "ent trail", "Ent trail for bonus points"),
+    ENT_TRAIL_2(57115, "ent trail", "Ent trail for bonus points"),
     
     // Offerings (rewards) - different states based on reward count
     OFFERINGS_MANY(57098, "offering", "Offerings pile with many rewards - Action: Claim"),
@@ -65,9 +65,15 @@ public enum GameObjectId {
      * @return true if it's any type of offerings pile
      */
     public static boolean isOfferingsPile(int id) {
-        return id == OFFERINGS_MANY.getId() || 
-               id == OFFERINGS_SOME.getId() || 
+        return id == OFFERINGS_MANY.getId() ||
+               id == OFFERINGS_SOME.getId() ||
                id == OFFERINGS_EMPTY.getId();
+    }
+
+    public static boolean isTotemObject(int id) {
+        return id == TOTEM_SITE.getId() ||
+               id == EMPTY_TOTEM.getId() ||
+               id == TOTEM_READY_FOR_DECORATION.getId();
     }
 
     /**

@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.barbarianvillagefisher;
 
 import net.runelite.api.Skill;
-import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.game.FishingSpot;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -14,11 +13,10 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -130,10 +128,10 @@ public class BarbarianVillageFisherScript extends Script {
                 }
 
                 if (!Rs2Camera.isTileOnScreen(fishingSpot.getLocalLocation())) {
-                    validateInteractable(fishingSpot);
+                    validateInteractable(fishingSpot.getNpc());
                 }
     
-                if (Rs2Npc.interact(fishingSpot, fishingAction)) {
+                if (fishingSpot.click(fishingAction)) {
                     debug("Interacted with fishing spot");
                     Rs2Antiban.actionCooldown();
                     Rs2Antiban.takeMicroBreakByChance();
@@ -255,13 +253,9 @@ public class BarbarianVillageFisherScript extends Script {
 
     // Locate the fishing spot and return the NPC
     private Rs2NpcModel findFishingSpot() {
-        for (int fishingSpotId : FishingSpot.SALMON.getIds()) {
-            var fishingSpot = Rs2Npc.getNpc(fishingSpotId);
-            if (fishingSpot != null) {
-                return fishingSpot;
-            }
-        }
-        return null;
+        return Microbot.getRs2NpcCache().query()
+                .withIds(FishingSpot.SALMON.getIds())
+                .nearest();
     }
 
     // Process for walking to the bank
@@ -344,12 +338,11 @@ public class BarbarianVillageFisherScript extends Script {
     }
 
     private boolean isGameObjectOnTile(WorldPoint location, int id) {
-        // Return true if the specified tile contains the desired ID.
-        TileObject tile = Rs2GameObject.findGameObjectByLocation(location);
-        if (tile != null && id == tile.getId()) {
-            return true;
-        }
-        return false;
+        var result = Microbot.getRs2TileObjectCache().query()
+                .withId(id)
+                .within(location, 0)
+                .first();
+        return result != null;
     }
 
     @Override

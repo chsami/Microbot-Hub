@@ -5,15 +5,13 @@ import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
 
 import java.util.Comparator;
-import java.util.stream.Collectors;
 @Slf4j
 public class EntlingsEvent implements BlockingEvent {
 
@@ -27,8 +25,7 @@ public class EntlingsEvent implements BlockingEvent {
         try{
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;
-            var entlings = Rs2Npc.getNpcs(npc -> npc.getId() == NpcID.GATHERING_EVENT_ENTLINGS_NPC_01)
-            .collect(Collectors.toList());
+            var entlings = Microbot.getRs2NpcCache().query().where(npc -> npc.getId() == NpcID.GATHERING_EVENT_ENTLINGS_NPC_01).toList();
             return !entlings.isEmpty();
         } catch (Exception e) {
             log.error("EntlingsEvent: Exception in validate method", e);
@@ -49,10 +46,12 @@ public class EntlingsEvent implements BlockingEvent {
         }
         
         while (this.validate()) {
-            var entlings = Rs2Npc.getNpcs(npc -> npc.getId() == NpcID.GATHERING_EVENT_ENTLINGS_NPC_01)
-            .sorted(Comparator.comparingInt(e ->
+            var entlings = Microbot.getRs2NpcCache().query()
+                    .where(npc -> npc.getId() == NpcID.GATHERING_EVENT_ENTLINGS_NPC_01)
+                    .toList();
+            entlings.sort(Comparator.comparingInt(e ->
                     e.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())
-            )).collect(Collectors.toList());
+            ));
 
             for (Rs2NpcModel entling : entlings) {
                 String request = entling.getOverheadText();
@@ -75,7 +74,7 @@ public class EntlingsEvent implements BlockingEvent {
                 }
 
                 Microbot.log("EntlingsEvent: Interacting with entling: with action: " + action);
-                Rs2Npc.interact(entling, action);
+                entling.click(action);
                 Rs2Player.waitForAnimation(1000); // Wait for the pruning animation to finish
             }
         }

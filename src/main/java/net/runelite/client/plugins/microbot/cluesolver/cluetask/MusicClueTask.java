@@ -2,8 +2,6 @@ package net.runelite.client.plugins.microbot.cluesolver.cluetask;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
-import net.runelite.api.NPC;
-import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.eventbus.EventBus;
@@ -11,8 +9,8 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 import net.runelite.client.plugins.cluescrolls.clues.MusicClue;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -85,12 +83,13 @@ public class MusicClueTask extends ClueTask {
     }
 
     private void processGameTick(GameTick event) {
-        Player player = client.getLocalPlayer();
-        if (player == null) return;
+        // v1.0.5 fix: client-thread-safe location read.
+        net.runelite.api.coords.WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) return;
 
         switch (state) {
             case WALKING_TO_LOCATION:
-                if (isWithinRadius(location, player.getWorldLocation(), 5)) {
+                if (isWithinRadius(location, playerLocation, 5)) {
                     log.info("Arrived at music clue location.");
                     state = State.PLAYING_SONG;
                 }
@@ -143,13 +142,13 @@ public class MusicClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        Rs2NpcModel npc = Rs2Npc.getNpc(npcName);
+        Rs2NpcModel npc = Microbot.getRs2NpcCache().query().withName(npcName).nearestOnClientThread();
         if (npc == null) {
             log.warn("NPC {} not found near the clue location.", npcName);
             return false;
         }
 
-        if (Rs2Npc.interact(npc, "Talk-to")) {
+        if (npc.click("Talk-to")) {
             log.info("Interacted with NPC: {}", npcName);
             return true;
         } else {

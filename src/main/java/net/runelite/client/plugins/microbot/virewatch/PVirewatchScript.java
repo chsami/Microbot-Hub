@@ -1,21 +1,16 @@
 package net.runelite.client.plugins.microbot.virewatch;
 
-import net.runelite.api.Client;
 import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
-import javax.inject.Inject;
 import java.util.concurrent.TimeUnit;
 
 public class PVirewatchScript extends Script {
 
-    @Inject
-    Client client;
     public boolean run(PVirewatchKillerConfig config, PVirewatchKillerPlugin plugin) {
         Microbot.enableAutoRunOn = false;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -24,11 +19,11 @@ public class PVirewatchScript extends Script {
                 if (!super.run()) return;
                 Rs2Combat.enableAutoRetialiate();
 
-                if(plugin.fightArea.contains(client.getLocalPlayer().getWorldLocation())) {
+                if(plugin.fightArea.contains(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))) {
                     Microbot.status = "Figthing";
                 }
 
-                if(Microbot.getClient().getLocalPlayer().getWorldLocation() != plugin.startingLocation) {
+                if(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()) != plugin.startingLocation) {
                     if(plugin.ticksOutOfArea > config.tickToReturn() || plugin.countedTicks > config.tickToReturnCombat()) {
                         Rs2Walker.walkTo(plugin.startingLocation, 0);
                     }
@@ -38,13 +33,13 @@ public class PVirewatchScript extends Script {
 
                 if(Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER) <= config.prayAt()) {
                     plugin.rechargingPrayer = true;
-                    var statue = Rs2GameObject.getGameObject(39234);
+                    var statue = Microbot.getRs2TileObjectCache().query().withId(39234).nearest();
                     if(statue != null) {
                         Rs2Walker.walkTo(statue.getWorldLocation(), 1);
-                        sleepUntil(() -> Rs2GameObject.hasLineOfSight(statue));
-                        if(Rs2GameObject.hasLineOfSight(statue)) {
+                        sleepUntil(statue::isReachable);
+                        if(statue.isReachable()) {
                             Microbot.status = "RECHARGING PRAYER";
-                            Rs2GameObject.interact(39234);
+                            statue.click();
                             sleep(100);
                             plugin.rechargingPrayer = false;
                             if(Rs2Player.isInteracting()) {

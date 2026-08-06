@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.looter.scripts;
 
-import net.runelite.api.GameObject;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.looter.AutoLooterConfig;
@@ -8,13 +7,11 @@ import net.runelite.client.plugins.microbot.looter.enums.LooterState;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
-import java.util.Comparator;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class NatureRuneChestScript extends Script {
@@ -50,12 +47,9 @@ public class NatureRuneChestScript extends Script {
                             Rs2Player.logoutIfPlayerDetected(1, 10);
                             return;
                         }
-                        Optional<GameObject> natureRuneChest = Rs2GameObject.getGameObjects().stream()
-                                        .filter(obj -> obj.getId() == config.natureRuneChestLocation().getObjectID())
-                                        .sorted(Comparator.comparingInt(obj -> Rs2Player.getWorldLocation().distanceTo(obj.getWorldLocation())))
-                                        .findFirst();
-                        if (natureRuneChest.isPresent()) {
-                            if(Rs2GameObject.interact(natureRuneChest.get(), "Search for traps")){
+                        Rs2TileObjectModel natureRuneChest = Microbot.getRs2TileObjectCache().query().withId(config.natureRuneChestLocation().getObjectID()).nearest();
+                        if (natureRuneChest != null) {
+                            if(natureRuneChest.click("Search for traps")){
                                 Rs2Antiban.actionCooldown();
                                 sleepUntilTrue(() -> !Rs2Player.isInteracting(), 500, 8000);
                                 sleep(Rs2Random.between(18000, 20000));

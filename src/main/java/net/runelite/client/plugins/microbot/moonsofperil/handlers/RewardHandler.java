@@ -8,7 +8,6 @@ import net.runelite.client.plugins.microbot.moonsofperil.enums.Locations;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.Widgets;
 import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import javax.inject.Inject;
@@ -51,7 +50,7 @@ public class RewardHandler implements BaseHandler {
     public State execute() {
         BreakHandlerScript.setLockState(true);
         boss.walkToBoss(null, "Rewards Chest", rewardChestLocation);
-        if (Rs2GameObject.interact(lunarChestGameObjectID, "Claim")) {
+        if (Microbot.getRs2TileObjectCache().query().interact(lunarChestGameObjectID, "Claim")) {
             if (debugLogging) {Microbot.log("Successfully claimed rewards from Lunar Chest");}
             rewardChestCount.incrementAndGet();
             sleep(2_400);

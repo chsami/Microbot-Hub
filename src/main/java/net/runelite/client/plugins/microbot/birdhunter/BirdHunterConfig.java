@@ -18,16 +18,6 @@ public interface BirdHunterConfig extends Config {
     }
 
     @ConfigItem(
-            keyName = "keepItemNames",
-            name = "Keep Item Names",
-            description = "Comma-separated list of item names that should not be dropped",
-            position = 3
-    )
-    default String keepItemNames() {
-        return "Bird snare";
-    }
-
-    @ConfigItem(
             keyName = "huntingRadiusValue",
             name = "Hunting radius",
             description = "The radius in which the player will set traps and hunt birds. Indicated by yellow borders. " +

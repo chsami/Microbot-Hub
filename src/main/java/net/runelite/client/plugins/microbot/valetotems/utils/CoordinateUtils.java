@@ -18,7 +18,7 @@ public class CoordinateUtils {
      * @return player's current WorldPoint
      */
     public static WorldPoint getPlayerLocation() {
-        return Microbot.getClient().getLocalPlayer().getWorldLocation();
+        return Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
     }
 
     /**

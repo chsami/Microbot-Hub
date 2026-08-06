@@ -320,6 +320,17 @@ public interface AIOFighterConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "telegrabUnreachableLoot",
+            name = "Telegrab unreachable loot",
+            description = "Use Telekinetic Grab (needs 33 Magic + law & air runes) to pick up wanted loot you can't walk to, e.g. caged or fenced-off drops. If you can't cast (missing runes/level) that loot is skipped, not walked to. Off = walk to loot as normal.",
+            position = 60,
+            section = lootSection
+    )
+    default boolean toggleTelegrabUnreachableLoot() {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = "Bury Bones",
             name = "Bury Bones",
             description = "Picks up and Bury Bones. Casts Sinister Offering if possible.",
@@ -915,7 +926,7 @@ public interface AIOFighterConfig extends Config {
             hidden = true
     )
     default String blacklistedSlayerNpcs() {
-        return "null,";
+        return "";
     }
 
 
@@ -964,4 +975,3 @@ public interface AIOFighterConfig extends Config {
     }
 
 }
-

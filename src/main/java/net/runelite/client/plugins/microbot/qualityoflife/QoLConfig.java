@@ -285,6 +285,18 @@ public interface QoLConfig extends Config {
         return true;
     }
 
+    // boolean to auto-confirm the farming tree-removal payment dialogue
+    @ConfigItem(
+            keyName = "autoPayTreeRemoval",
+            name = "Auto Pay Tree Removal",
+            description = "Automatically selects 'Yes.' on the farming \"Pay X Coins to have your tree chopped down?\" prompt, speeding up farm runs",
+            position = 2,
+            section = dialogueSection
+    )
+    default boolean autoPayTreeRemoval() {
+        return true;
+    }
+
     // boolean to enable Potion Manager
     @ConfigItem(
             keyName = "enablePotionManager",
@@ -938,6 +950,59 @@ public interface QoLConfig extends Config {
         section = autoPrayerSection
     )
     default boolean aggressiveAntiPkMode() {
+        return false;
+    }
+
+    // LMS-specific animation-based anti-PK behavior
+    @ConfigItem(
+        keyName = "lms",
+        name = "LMS",
+        description = "Use LMS-style animation logic for staff users: treat LMS magic staves as magic by default, but swap to melee when a melee animation is detected until a magic cast is seen again.",
+        position = 3,
+        section = autoPrayerSection
+    )
+    default boolean lmsAnimationPraying() {
+        return true;
+    }
+
+    @Range(
+        min = 30,
+        max = 2000
+    )
+    @ConfigItem(
+        keyName = "lmsMaxReactionDelayMs",
+        name = "Max reaction delay (ms)",
+        description = "When LMS is enabled, randomly delay prayer switches between 30 ms and this value to simulate human reaction time.",
+        position = 4,
+        section = autoPrayerSection
+    )
+    default int lmsMaxReactionDelayMs() {
+        return 300;
+    }
+
+    @Range(
+        min = 0,
+        max = 100
+    )
+    @ConfigItem(
+        keyName = "lmsWrongPrayChance",
+        name = "Wrong pray chance (%)",
+        description = "When LMS is enabled, percent chance to briefly use an incorrect protection prayer before correcting it a moment later.",
+        position = 5,
+        section = autoPrayerSection
+    )
+    default int lmsWrongPrayChance() {
+        return 5;
+    }
+
+    @ConfigItem(
+        keyName = "offensivePrayers",
+        name = "Offensive prayers",
+        description = "Enable the best offensive prayer you can use for your currently equipped weapon (Piety/Rigour/Augury or lower tiers).",
+        position = 6,
+        section = autoPrayerSection
+    )
+    default boolean offensivePrayers() {
         return false;
     }
 

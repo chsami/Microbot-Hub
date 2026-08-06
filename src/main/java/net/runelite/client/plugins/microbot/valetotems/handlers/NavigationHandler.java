@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.valetotems.handlers;
 
 import net.runelite.api.GameObject;
+import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.api.Client;
@@ -225,11 +226,11 @@ public class NavigationHandler {
                             while (FletchingHandler.isFletchingWhileWalking() &&
                                    System.currentTimeMillis() - fletchStartTime < 20000) { // 20 sec timeout
                                 
-                                // Check for ent trails during fletching - they have absolute priority
-                                List<GameObject> nearbyEntTrails = GameObjectUtils.findGameObjectsByName(
-                                        GameObjectId.ENT_TRAIL_1.getSearchTerm(), 
-                                        CoordinateUtils.getPlayerLocation(), 
-                                        ENT_TRAIL_SEARCH_RADIUS);
+                                WorldPoint fletchCheckPos = CoordinateUtils.getPlayerLocation();
+                                List<GameObject> nearbyEntTrails = GameObjectUtils.findGameObjects(
+                                        GameObjectId.ENT_TRAIL_1.getId(), fletchCheckPos, ENT_TRAIL_SEARCH_RADIUS);
+                                nearbyEntTrails.addAll(GameObjectUtils.findGameObjects(
+                                        GameObjectId.ENT_TRAIL_2.getId(), fletchCheckPos, ENT_TRAIL_SEARCH_RADIUS));
                                 
                                 if (!hasWalkedOverEntTrailsThisNavigation && nearbyEntTrails.size() >= 2) {
                                     System.out.println("Ent trails detected during fletching - interrupting to prioritize trails");
@@ -257,7 +258,8 @@ public class NavigationHandler {
                 // Priority 4: Regular walking.
                 // Only perform actions if not on cooldown (timer-based, non-blocking)
                 if (!isWalkActionOnCooldown()) {
-                    LocalPoint localNextCheckpoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), nextCheckpoint);
+                    LocalPoint localNextCheckpoint = Microbot.getClientThread().invoke(() ->
+                            LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), nextCheckpoint));
                     if (localNextCheckpoint != null && Rs2Camera.isTileOnScreen(localNextCheckpoint)) {
                         // Camera turn with cooldown check
                         if (!isCameraTurnOnCooldown()) {
@@ -519,17 +521,17 @@ public class NavigationHandler {
     }
 
     private static List<GameObject> findAndFilterEntTrails(WorldPoint playerLocation, int searchRadius) {
-        // Search for ent trails nearby using string search
-        List<GameObject> entTrails = GameObjectUtils.findGameObjectsByName(
-            GameObjectId.ENT_TRAIL_1.getSearchTerm(), playerLocation, searchRadius);
-                
-        // Filter trails that are within the search radius of the player
-        entTrails = entTrails.stream()
-            .filter(trail -> trail.getWorldLocation().distanceTo(playerLocation) <= searchRadius)
-            .sorted((a, b) -> Integer.compare(
-                    a.getWorldLocation().distanceTo(playerLocation),
-                    b.getWorldLocation().distanceTo(playerLocation)))
-            .collect(java.util.stream.Collectors.toList());
+        List<GameObject> trail1 = GameObjectUtils.findGameObjects(
+            GameObjectId.ENT_TRAIL_1.getId(), playerLocation, searchRadius);
+        List<GameObject> trail2 = GameObjectUtils.findGameObjects(
+            GameObjectId.ENT_TRAIL_2.getId(), playerLocation, searchRadius);
+
+        List<GameObject> entTrails = new java.util.ArrayList<>(trail1);
+        entTrails.addAll(trail2);
+
+        entTrails.sort((a, b) -> Integer.compare(
+                a.getWorldLocation().distanceTo(playerLocation),
+                b.getWorldLocation().distanceTo(playerLocation)));
 
         return entTrails;
     }
@@ -688,21 +690,19 @@ public class NavigationHandler {
                 WorldPoint nextPoint = path.get(currentIndex + 1);
                 
                 // Simple door detection and handling
-                List<net.runelite.api.TileObject> doors = net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.getAll(
+                var doors = net.runelite.client.plugins.microbot.Microbot.getRs2TileObjectCache().query().where(
                     obj -> {
                         if (!obj.getWorldLocation().equals(nextPoint)) {
                             return false;
                         }
-                        // Convert TileObject to ObjectComposition to check actions
-                        net.runelite.api.ObjectComposition comp = net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.convertToObjectComposition(obj);
+                        net.runelite.api.ObjectComposition comp = obj.getObjectComposition();
                         return net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.hasAction(comp, "Open") ||
                                net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.hasAction(comp, "Close") ||
                                net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.hasAction(comp, "Pick-lock");
-                    }
-                );
-                
-                for (net.runelite.api.TileObject door : doors) {
-                    if (net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.interact(door)) {
+                    }).toList();
+
+                for (var door : doors) {
+                    if (door.click()) {
                         sleep(1000); // Wait for door interaction
                         return true;
                     }
@@ -756,12 +756,12 @@ public class NavigationHandler {
                                 }
  
                                 // Now find and interact with the agility shortcut
-                                net.runelite.api.TileObject agilityObj = net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.findObjectById(transport.getObjectId());
+                                var agilityObj = net.runelite.client.plugins.microbot.Microbot.getRs2TileObjectCache().query().withId(transport.getObjectId()).nearest();
                                 if (agilityObj != null &&
                                     agilityObj.getWorldLocation().distanceTo(transport.getOrigin()) <= 3) {
  
                                     System.out.println("Using agility shortcut: " + transport.getType());
-                                    if (net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.interact(agilityObj, transport.getAction())) {
+                                    if (agilityObj != null && agilityObj.click(transport.getAction())) {
                                         
                                         // Wait until the player has been idle (not walking or animating) for 1.5 seconds
                                         System.out.println("Waiting for agility shortcut to complete...");
@@ -775,7 +775,17 @@ public class NavigationHandler {
                                         sleep(1000);
 
                                         while (System.currentTimeMillis() - startTime < timeout) {
-                                            boolean isIdle = !Rs2Player.isMoving() && Microbot.getClient().getLocalPlayer().getAnimation() == -1;
+                                            boolean isIdle = false;
+                                            if (!Rs2Player.isMoving()) {
+                                                int animation = Microbot.getClientThread().invoke(() -> {
+                                                    Player player = Microbot.getClient().getLocalPlayer();
+                                                    if (player == null) {
+                                                        return Integer.MIN_VALUE;
+                                                    }
+                                                    return player.getAnimation();
+                                                });
+                                                isIdle = animation == -1;
+                                            }
 
                                             if (isIdle) {
                                                 if (idleTimeStart == -1) {

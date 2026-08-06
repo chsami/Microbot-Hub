@@ -3,8 +3,6 @@ package net.runelite.client.plugins.microbot.cluesolver.cluetask;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.ItemID;
-import net.runelite.api.NPC;
-import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.eventbus.EventBus;
@@ -14,8 +12,8 @@ import net.runelite.client.plugins.cluescrolls.clues.CoordinateClue;
 import net.runelite.client.plugins.cluescrolls.clues.Enemy;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.concurrent.ExecutorService;
@@ -95,12 +93,13 @@ public class CoordinateClueTask extends ClueTask {
     }
 
     private void processGameTick(GameTick event) {
-        Player player = client.getLocalPlayer();
-        if (player == null) return;
+        // v1.0.5 fix: client-thread-safe location read.
+        net.runelite.api.coords.WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) return;
 
         switch (state) {
             case WALKING_TO_LOCATION:
-                if (isWithinRadius(location, player.getWorldLocation(), 5)) {
+                if (isWithinRadius(location, playerLocation, 5)) {
                     log.info("Arrived at coordinate clue location.");
                     state = (enemy != null) ? State.FIGHTING_ENEMY : State.DIGGING;
                 }
@@ -134,13 +133,13 @@ public class CoordinateClueTask extends ClueTask {
     }
 
     private boolean engageEnemy() {
-        Rs2NpcModel targetNpc = Rs2Npc.getNpc(enemy.getText());
+        Rs2NpcModel targetNpc = Microbot.getRs2NpcCache().query().withName(enemy.getText()).nearestOnClientThread();
         if (targetNpc == null) {
             log.warn("Expected enemy not found.");
             completeTask(false);
             return false;
         }
-        if (Rs2Npc.interact(targetNpc, "Attack")) {
+        if (targetNpc.click("Attack")) {
             log.info("Engaging enemy: {}", enemy.getText());
             return waitForEnemyDefeat(targetNpc);
         }
@@ -148,13 +147,15 @@ public class CoordinateClueTask extends ClueTask {
         return false;
     }
 
-    private boolean waitForEnemyDefeat(NPC targetNpc) {
-        return targetNpc.isDead(); // This assumes an enemy tracking system
+    private boolean waitForEnemyDefeat(Rs2NpcModel targetNpc) {
+        return targetNpc.getNpc().isDead();
     }
 
     private boolean prepareToDig() {
-        Player player = client.getLocalPlayer();
-        if (!isWithinRadius(location, player.getWorldLocation(), 1)) {
+        // v1.0.5 fix: client-thread-safe location read. Called from processGameTick (background executor).
+        net.runelite.api.coords.WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) return false;
+        if (!isWithinRadius(location, playerLocation, 1)) {
             log.info("Adjusting position to exact location.");
             Rs2Walker.walkFastCanvas(location);
             return false;

@@ -8,7 +8,7 @@ import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 
@@ -133,12 +133,12 @@ public class WintertodtLocationManager {
         }
 
         /* Step 3: Click the door to trigger the dialog */
-        GameObject exitDoor = Rs2GameObject.getGameObject(ObjectID.DOORS_OF_DINH, 6);
+        Rs2TileObjectModel exitDoor = Microbot.getRs2TileObjectCache().query().withId(ObjectID.DOORS_OF_DINH).within(6).nearest();
         if (exitDoor != null) {
             Microbot.log("Clicking Wintertodt exit door...");
-            if (Rs2GameObject.interact(exitDoor, "Leave")
-                    || Rs2GameObject.interact(exitDoor, "Exit")
-                    || Rs2GameObject.interact(exitDoor, "Open")) {
+            if (exitDoor.click("Leave")
+                    || exitDoor.click("Exit")
+                    || exitDoor.click("Open")) {
                 sleepGaussian(800, 200); // Wait for dialog to appear
                 return false; // Continue next tick to handle dialog
             }

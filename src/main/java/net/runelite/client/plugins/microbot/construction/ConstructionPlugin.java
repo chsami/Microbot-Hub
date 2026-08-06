@@ -29,7 +29,7 @@ import java.awt.*;
 )
 @Slf4j
 public class ConstructionPlugin extends Plugin {
-    public static final String version = "1.3.1";
+    public static final String version = "1.3.2";
 
     @Inject
     private net.runelite.client.plugins.microbot.construction.ConstructionConfig config;

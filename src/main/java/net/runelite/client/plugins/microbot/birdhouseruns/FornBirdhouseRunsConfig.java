@@ -86,4 +86,45 @@ public interface FornBirdhouseRunsConfig extends Config {
         return false;
     }
 
+    @ConfigItem(
+            keyName = "startGiantSeaweedAfter",
+            name = "Start Giant Seaweed after run",
+            description = "When the birdhouse run finishes, start the TaF Giant Seaweed plugin (if installed)",
+            section = optionsSection,
+            position = 1
+    )
+    default boolean startGiantSeaweedAfter() {
+        return false;
+    }
+
+    @ConfigSection(
+            name = "Debug",
+            description = "Debug and testing options",
+            position = 3,
+            closedByDefault = true
+    )
+    String debugSection = "debug";
+
+    @ConfigItem(
+            keyName = "enableOverrideStartState",
+            name = "Enable Override Start State",
+            description = "When enabled, the plugin will skip to the selected state on startup",
+            section = debugSection,
+            position = 0
+    )
+    default boolean enableOverrideStartState() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "overrideStartState",
+            name = "Override Start State",
+            description = "Skip to a specific state instead of starting from the beginning",
+            section = debugSection,
+            position = 1
+    )
+    default FornBirdhouseRunsInfo.states overrideStartState() {
+        return FornBirdhouseRunsInfo.states.GEARING;
+    }
+
 }

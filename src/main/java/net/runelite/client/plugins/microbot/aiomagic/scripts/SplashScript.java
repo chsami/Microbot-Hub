@@ -1,14 +1,15 @@
 package net.runelite.client.plugins.microbot.aiomagic.scripts;
 
+import net.runelite.api.Actor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.aiomagic.AIOMagicPlugin;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import javax.inject.Inject;
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 public class SplashScript extends Script {
 
 	private final AIOMagicPlugin plugin;
+	private long lastAnimationTime = System.currentTimeMillis();
 	
 	@Inject
 	public SplashScript(AIOMagicPlugin plugin) {
@@ -34,6 +36,7 @@ public class SplashScript extends Script {
 		Rs2AntibanSettings.moveMouseOffScreen = true;
 		Rs2AntibanSettings.moveMouseOffScreenChance = 1.0;
 		Rs2Antiban.setActivity(Activity.SPLASHING);
+		lastAnimationTime = System.currentTimeMillis();
 		mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
 			try {
 				if (!Microbot.isLoggedIn()) return;
@@ -51,12 +54,41 @@ public class SplashScript extends Script {
 					return;
 				}
 
-				if (Rs2Player.isMoving() || Rs2Combat.inCombat()) return;
-				if (Rs2AntibanSettings.actionCooldownActive) return;
+					if (Rs2Player.isMoving()) return;
+					
+					if (Rs2Player.getAnimation() != -1) {
+						lastAnimationTime = System.currentTimeMillis();
+					}
 
-				if (Rs2Npc.attack(plugin.getNpcName())) {
-					Rs2Antiban.actionCooldown();
-				}
+					Actor interacting = Rs2Player.getInteracting();
+					if (interacting != null && interacting.getName() != null && interacting.getName().equalsIgnoreCase(plugin.getNpcName())) {
+						// If we are interacting but haven't animated in 10 seconds, we've likely timed out
+						if (System.currentTimeMillis() - lastAnimationTime < 10000) {
+							return;
+						}
+						Microbot.log("Splashing stalled or timed out. Re-engaging...");
+					}
+
+					if (Rs2AntibanSettings.actionCooldownActive) return;
+
+					String targetNpcName = plugin.getNpcName() == null ? "" : plugin.getNpcName().trim();
+					if (targetNpcName.isEmpty()) {
+						Microbot.showMessage("Set an NPC name in config");
+						shutdown();
+						return;
+					}
+
+					Rs2NpcModel targetNpc = Microbot.getRs2NpcCache().query()
+							.withName(targetNpcName)
+							.nearestOnClientThread();
+					if (targetNpc == null) {
+						Microbot.log("Unable to find NPC: " + targetNpcName);
+						return;
+					}
+
+					if (targetNpc.click("Attack")) {
+						Rs2Antiban.actionCooldown();
+					}
 
 				long endTime = System.currentTimeMillis();
 				long totalTime = endTime - startTime;

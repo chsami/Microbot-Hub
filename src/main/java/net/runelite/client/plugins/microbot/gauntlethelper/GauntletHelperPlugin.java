@@ -23,7 +23,6 @@ import net.runelite.client.plugins.microbot.gauntlethelper.GauntletHelperPlugin;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;

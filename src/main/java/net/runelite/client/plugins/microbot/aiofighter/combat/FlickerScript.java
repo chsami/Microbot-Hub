@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.aiofighter.combat;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Player;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -9,10 +10,9 @@ import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyle;
 import net.runelite.client.plugins.microbot.aiofighter.enums.AttackStyleMapper;
 import net.runelite.client.plugins.microbot.aiofighter.enums.PrayerStyle;
 import net.runelite.client.plugins.microbot.aiofighter.model.Monster;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcManager;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -69,8 +69,19 @@ public class FlickerScript extends Script {
                         break;
                 }
 
-                // Atomically update NPC snapshot
-                npcsRef.set(Rs2Npc.getNpcsForPlayer().collect(Collectors.toList()));
+                // Atomically update NPC snapshot — all NPCs currently interacting with the local player.
+                final Player localPlayer = Microbot.getClient().getLocalPlayer();
+                // Logout race: isLoggedIn() returned true above but the player ref can be null
+                // mid-tick. Legacy Rs2Npc.getNpcsForPlayer returns Stream.empty() in that case;
+                // mirror that with an empty snapshot so resetLastAttack does nothing useful instead
+                // of matching every "non-interacting" NPC.
+                if (localPlayer == null) {
+                    npcsRef.set(new ArrayList<>());
+                    return;
+                }
+                npcsRef.set(Microbot.getRs2NpcCache().query()
+                        .where(npc -> Objects.equals(npc.getInteracting(), localPlayer))
+                        .toList());
 
                 usePrayer = config.togglePrayer();
                 flickQuickPrayer = config.toggleQuickPray();

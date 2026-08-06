@@ -10,11 +10,10 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import  net.runelite.client.plugins.microbot.summergarden.ElementalCollisionDetector;
 import  net.runelite.client.plugins.microbot.summergarden.SummerGardenConfig;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
-import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -125,15 +124,16 @@ public class SummerGardenScript extends Script {
     }
 
     private boolean isInAlKharid() {
-        return Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID() == REGION_ALKHARID;
+        return Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID()) == REGION_ALKHARID;
     }
 
     private boolean isInGarden() {
-        return Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID() == REGION_GARDEN;
+        return Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID()) == REGION_GARDEN;
     }
 
     private boolean isInHouseArea() {
-        return Microbot.getClient().getLocalPlayer().getWorldLocation().isInArea(WORLD_AREA_HOUSE);
+        WorldPoint loc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return loc != null && loc.isInArea(WORLD_AREA_HOUSE);
     }
 
     private WallObject getHouseDoor() {
@@ -169,7 +169,7 @@ public class SummerGardenScript extends Script {
         if (!isInHouseArea()) {
             // The door is closed and the player is outside the house area. Open it and wait until it's open.
             if (getHouseDoor() != null) {
-                Rs2GameObject.interact(OBJECT_HOUSE_DOOR_CLOSED);
+                Microbot.getRs2TileObjectCache().query().interact(OBJECT_HOUSE_DOOR_CLOSED);
                 sleepUntil(() -> getHouseDoor() == null, 10000);
             }
 
@@ -187,13 +187,13 @@ public class SummerGardenScript extends Script {
 
     private void exitGarden() {
         // Can't find the fountain?
-        if (Rs2GameObject.findObjectById(12941) == null) {
+        if (Microbot.getRs2TileObjectCache().query().withId(12941).nearest() == null) {
             return;
         }
 
         // If the player is still in the garden then click the fountain to exit and wait until the player is teleported out.
         if (isInGarden()) {
-            Rs2GameObject.interact(12941);
+            Microbot.getRs2TileObjectCache().query().interact(12941);
             sleepUntil(() -> isInHouseArea(), 10000);
         }
 
@@ -225,9 +225,9 @@ public class SummerGardenScript extends Script {
         }
 
         // Click tree
-        if (Microbot.getClient().getLocalPlayer().getWorldLocation().equals(WORLD_POINT_MAZE_STARTING_LOCATION)) {
+        if (WORLD_POINT_MAZE_STARTING_LOCATION.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))) {
             if (config.waitForOneClick() || ElementalCollisionDetector.getTicksUntilStart() == 0) {
-                Rs2GameObject.interact(OBJECT_SUMMER_TREE);
+                Microbot.getRs2TileObjectCache().query().interact(OBJECT_SUMMER_TREE);
                 sleepUntil(() -> Rs2Player.isMoving());
                 sleepUntil(() -> !Rs2Player.isMoving(), 30000);
                 sleepUntilOnClientThread(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getY() < 5481);
@@ -237,14 +237,14 @@ public class SummerGardenScript extends Script {
         }
 
         // The player is inside the garden so the gate doesn't need to be clicked.
-        if (Microbot.getClient().getLocalPlayer().getWorldLocation().getY() >= 5481) {
+        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getY()) >= 5481) {
             return;
         }
 
         // Click Gate
-        TileObject gate = Rs2GameObject.findObjectById(ObjectID.GATE_11987);
+        Rs2TileObjectModel gate = Microbot.getRs2TileObjectCache().query().withId(ObjectID.GATE_11987).nearest();
         if (gate != null) {
-            Rs2GameObject.interact(gate);
+            gate.click();
             sleepUntil(Rs2Player::isMoving);
             sleepUntil(() -> !Rs2Player.isMoving());
             sleepUntilOnClientThread(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().equals(WORLD_POINT_MAZE_STARTING_LOCATION));
@@ -267,12 +267,12 @@ public class SummerGardenScript extends Script {
 
         // The door is closed and the player is inside the house area. Open it and wait until it's open.
         if (getHouseDoor() != null && isInHouseArea()) {
-            Rs2GameObject.interact(OBJECT_HOUSE_DOOR_CLOSED);
+            Microbot.getRs2TileObjectCache().query().interact(OBJECT_HOUSE_DOOR_CLOSED);
             sleepUntil(() -> getHouseDoor() == null, 10000);
         }
 
         // Check if the player has arrived at Osman's location, if not then walk there.
-        var npcOsman = Rs2Npc.getNpc(NPC_NAME_OSMAN);
+        var npcOsman = Microbot.getRs2NpcCache().query().withName(NPC_NAME_OSMAN).nearestOnClientThread();
         if (npcOsman == null) {
             var osmanLocalLocation = LocalPoint.fromWorld(Microbot.getClient(), osmanLocation);
             if (osmanLocalLocation != null) {
@@ -284,7 +284,7 @@ public class SummerGardenScript extends Script {
 
         // Interact with Osman.
         if (lastInteractedActor == null || !Objects.equals(lastInteractedActor.getName(), NPC_NAME_OSMAN)) {
-            Rs2Npc.interact(NPC_NAME_OSMAN, "Talk-to");
+            Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName(NPC_NAME_OSMAN).interact("Talk-to"));
             sleepUntil(() -> Rs2Player.getInteracting() != null, 2000);
             return;
         }
@@ -349,7 +349,7 @@ public class SummerGardenScript extends Script {
 
         // Interact with shelf to get beer glass.
         while (Rs2Inventory.count("Beer glass") < 25) {
-            Rs2GameObject.interact(OBJECT_BEER_GLASS_SHELF);
+            Microbot.getRs2TileObjectCache().query().interact(OBJECT_BEER_GLASS_SHELF);
             sleep(3000);
         }
 
@@ -362,14 +362,14 @@ public class SummerGardenScript extends Script {
         }
 
         // Check if the player has arrived at the Apprentice's location.
-        var npcApprentice = Rs2Npc.getNpc(NPC_NAME_APPRENTICE);
+        var npcApprentice = Microbot.getRs2NpcCache().query().withName(NPC_NAME_APPRENTICE).nearestOnClientThread();
         if (npcApprentice == null) {
             return;
         }
 
         // Interact with the apprentice.
         if (lastInteractedActor == null || !Objects.equals(lastInteractedActor.getName(), NPC_NAME_APPRENTICE)) {
-            Rs2Npc.interact(NPC_NAME_APPRENTICE, "Teleport");
+            Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName(NPC_NAME_APPRENTICE).interact("Teleport"));
             sleepUntil(() -> isInGarden(), 10000);
         }
 
@@ -397,7 +397,7 @@ public class SummerGardenScript extends Script {
 
         if (!Rs2Inventory.hasItemAmount("Beer glass", 1, false, true)) {
             if (Rs2Inventory.count("Beer glass") == 0) {
-                Rs2GameObject.interact(OBJECT_BEER_GLASS_SHELF);
+                Microbot.getRs2TileObjectCache().query().interact(OBJECT_BEER_GLASS_SHELF);
                 sleepUntil(() -> Rs2Inventory.hasItem("beer glass"), 5000);
                 sleep(3000);
             }
@@ -419,7 +419,7 @@ public class SummerGardenScript extends Script {
         }
 
         while (Rs2Inventory.count("Summer sq'irkjuice") != 26) {
-            Rs2GroundItem.pickup("Summer sq'irkjuice", 200);
+            Microbot.getRs2TileItemCache().query().withName("Summer sq'irkjuice").interact("Take");
             sleepUntil(() -> Rs2Inventory.hasItemAmount("Summer sq'irk", 26, false, true), 5000);
             sleep(3000);
         }

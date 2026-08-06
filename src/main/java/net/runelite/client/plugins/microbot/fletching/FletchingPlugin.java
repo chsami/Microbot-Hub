@@ -27,7 +27,7 @@ import java.awt.*;
 @Slf4j
 public class FletchingPlugin extends Plugin {
 
-    public static final String version = "1.6.3";
+    public static final String version = "1.7.0";
 
     @Inject
     private FletchingConfig config;

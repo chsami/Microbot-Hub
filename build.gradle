@@ -16,6 +16,19 @@ apply from: 'gradle/plugin-utils.gradle'
 def microbotClientVersion = project.ext.getMicrobotClientVersion()
 def microbotClientPath = project.findProperty("microbotClientPath")
 
+if (!microbotClientPath && project.hasProperty("microbotClientDir")) {
+    def clientDir = file(project.findProperty("microbotClientDir"))
+    if (clientDir.isDirectory()) {
+        def match = clientDir.listFiles()?.findAll { it.name ==~ /microbot-.*\.jar/ && !it.name.contains('sources') && !it.name.contains('shaded') }
+                ?.sort { -it.lastModified() }
+                ?.first()
+        if (match) {
+            microbotClientPath = match.absolutePath
+            logger.lifecycle("🤖 Resolved local microbot client JAR: ${microbotClientPath}")
+        }
+    }
+}
+
 // Java toolchain configuration
 java {
     toolchain {
@@ -112,6 +125,14 @@ dependencies {
 application {
     // Replace this with the actual main class inside your shaded jar
     mainClass = 'net.runelite.client.RuneLite'
+}
+
+tasks.register('runDebug', JavaExec) {
+    group = 'application'
+    description = 'Launch the Microbot client via the test entry point (Microbot.java) with pluginsToDebug populated.'
+    dependsOn 'testClasses'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.runelite.client.Microbot'
 }
 
 // Plugin Logic

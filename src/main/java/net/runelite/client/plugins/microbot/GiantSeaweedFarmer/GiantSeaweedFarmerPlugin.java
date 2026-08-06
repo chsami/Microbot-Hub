@@ -26,7 +26,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class GiantSeaweedFarmerPlugin extends Plugin {
-    public final static String version = "1.2.0";
+    public final static String version = "1.2.1";
     private Instant scriptStartTime;
     @Inject
     private GiantSeaweedFarmerConfig config;
@@ -46,7 +46,6 @@ public class GiantSeaweedFarmerPlugin extends Plugin {
     @Override
     protected void startUp() throws AWTException {
         scriptStartTime = Instant.now();
-        giantSeaweedFarmerScript.GSF_Running = true;
         if (overlayManager != null) {
             overlayManager.add(giantSeaweedFarmerOverlay);
         }

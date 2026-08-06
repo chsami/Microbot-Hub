@@ -29,7 +29,7 @@ import java.time.Instant;
 @Slf4j
 public class GemCrabKillerPlugin extends Plugin {
 
-    public final static String version = "1.0.1";
+    public final static String version = "1.0.2";
     @Inject
     GemCrabKillerScript gemCrabKillerScript;
     @Inject

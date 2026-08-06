@@ -231,4 +231,62 @@ public interface HerbrunConfig extends Config {
     )
     String locationSection = "Location";
 
+    @ConfigSection(
+            name = "Allotments",
+            description = "Allotment patch settings",
+            position = 4
+    )
+    String allotmentSection = "allotments";
+
+    @ConfigItem(
+            keyName = "enableAllotments",
+            name = "Enable Allotments",
+            description = "Plant and harvest allotment patches at each location",
+            section = allotmentSection,
+            position = 0
+    )
+    default boolean enableAllotments() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "allotmentSeedType",
+            name = "Allotment Seed Type",
+            description = "Choose which allotment seeds to plant (3 seeds per patch)",
+            section = allotmentSection,
+            position = 1
+    )
+    default AllotmentSeedType allotmentSeedType() {
+        return AllotmentSeedType.SWEETCORN;
+    }
+
+    @ConfigSection(
+            name = "Flowers",
+            description = "Flower patch settings",
+            position = 5
+    )
+    String flowerSection = "flowers";
+
+    @ConfigItem(
+            keyName = "enableFlowers",
+            name = "Enable Flowers",
+            description = "Plant and harvest flower patches at each location",
+            section = flowerSection,
+            position = 0
+    )
+    default boolean enableFlowers() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "flowerSeedType",
+            name = "Flower Seed Type",
+            description = "Choose which flower seeds to plant (White lily protects all allotments)",
+            section = flowerSection,
+            position = 1
+    )
+    default FlowerSeedType flowerSeedType() {
+        return FlowerSeedType.LIMPWURT;
+    }
+
 }

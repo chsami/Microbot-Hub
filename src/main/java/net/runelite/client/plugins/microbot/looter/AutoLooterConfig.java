@@ -84,6 +84,17 @@ public interface AutoLooterConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "priorityMode",
+            name = "Priority Mode",
+            description = "Pauses other plugins during loot pickup. Use when running alongside another plugin (e.g. alching).",
+            position = 4,
+            section = generalSection
+    )
+    default boolean priorityMode() {
+        return false;
+    }
+
+    @ConfigItem(
             name = "Loot Style",
             keyName = "lootStyle",
             position = 0,

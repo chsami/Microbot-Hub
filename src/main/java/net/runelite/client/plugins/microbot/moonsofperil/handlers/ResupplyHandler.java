@@ -7,7 +7,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.moonsofperil.enums.State;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -73,7 +72,7 @@ public class ResupplyHandler implements BaseHandler {
             /* Take herblore supplies */
             while (Rs2Inventory.count(ItemID.VIAL_WATER) < amountToCreate) {
                 if (debugLogging) {Microbot.log("Take herblore supplies from supply crate");}
-                if (Rs2GameObject.interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) {
                     Rs2Dialogue.sleepUntilHasDialogueOption("Take herblore supplies.");
                     Rs2Dialogue.clickOption("Take herblore supplies.");
                     Rs2Inventory.waitForInventoryChanges(1_500);
@@ -84,7 +83,7 @@ public class ResupplyHandler implements BaseHandler {
             while (Rs2Inventory.count(ItemID.MOONLIGHT_GRUB)
                     + Rs2Inventory.count(ItemID.MOONLIGHT_GRUB_PASTE) < amountToCreate) {
                 if (debugLogging) {Microbot.log("Collect Moonlight Grub");}
-                if (Rs2GameObject.interact(ObjectID.PMOON_GRUB_SAPLING, "Collect-from")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_GRUB_SAPLING, "Collect-from")) {
                     sleepUntil(() -> Rs2Inventory.count(ItemID.MOONLIGHT_GRUB)
                             + Rs2Inventory.count(ItemID.MOONLIGHT_GRUB_PASTE) >= amountToCreate, 8_000);
                 }
@@ -121,27 +120,78 @@ public class ResupplyHandler implements BaseHandler {
         fishBream();
         cookBream();
     }
-
-    private void fishBream() {
-        if (!Rs2Inventory.contains(ItemID.BIG_NET)) {
-            if (Rs2GameObject.interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) {
-                Rs2Dialogue.sleepUntilHasDialogueOption("Take fishing supplies.");
-                Rs2Dialogue.clickOption("Take fishing supplies.");
-                Rs2Inventory.waitForInventoryChanges(4_000);
-            }
-            Rs2Walker.walkFastCanvas(new WorldPoint(1520,9689,0));
-            while (!Rs2Inventory.isFull() && Rs2Inventory.contains(ItemID.BIG_NET)) {
-                if (!Rs2Player.isAnimating()) {
-                    Rs2GameObject.interact(51367, "Fish"); // restart if animation stopped
-                    sleep(3000, 4000);
-                }
-                sleep(300, 500);
-            }
-            if (debugLogging) {Microbot.log("Inventory should now be full of fish");}
-            sleep(600, 900);
-            Rs2Inventory.drop(ItemID.BIG_NET);
+    private boolean ensureBigNet() {
+        if (Rs2Inventory.contains(ItemID.BIG_NET)) {
+            return true;
         }
 
+        // Keep trying until we actually have it (or timeout)
+        long start = System.currentTimeMillis();
+        while (!Rs2Inventory.contains(ItemID.BIG_NET) && System.currentTimeMillis() - start < 15_000) {
+
+            if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) { // interact exists :contentReference[oaicite:1]{index=1}
+                Rs2Dialogue.sleepUntilHasDialogueOption("Take fishing supplies.");
+                Rs2Dialogue.clickOption("Take fishing supplies.");
+
+                // Wait specifically for BIG_NET, not just “any inventory change”
+                sleepUntil(() -> Rs2Inventory.contains(ItemID.BIG_NET), 3_000);
+            }
+
+            sleep(300, 600);
+        }
+
+        if (!Rs2Inventory.contains(ItemID.BIG_NET)) {
+            if (debugLogging) Microbot.log("Failed to obtain BIG_NET (timeout).");
+            return false;
+        }
+
+        return true;
+    }
+
+    public void eatToFull(String foodName) {
+        while (Rs2Player.getHealthPercentage() < 100) {
+
+            if (!Rs2Inventory.contains(foodName)) {
+                Microbot.log("Out of food!");
+                return;
+            }
+
+            Rs2Inventory.interact(foodName, "Eat");
+            Rs2Player.waitForAnimation(1200); // wait for eat animation
+        }
+    }
+
+    private void fishBream() {
+        if (Rs2Player.getHealthPercentage() < 100 && Rs2Inventory.contains("Cooked bream")) {
+            eatToFull("Cooked bream");
+        }
+
+        // HARD GATE: do not walk to fishing spot unless we truly have the net
+        if (!ensureBigNet()) {
+            return;
+        }
+
+        Rs2Walker.walkFastCanvas(new WorldPoint(1520, 9689, 0));
+
+        while (!Rs2Inventory.isFull()) {
+            // If for any reason we lost the net mid-loop, bail
+            if (!Rs2Inventory.contains(ItemID.BIG_NET)) {
+                if (debugLogging) Microbot.log("BIG_NET missing while fishing; returning to crate.");
+                return;
+            }
+
+            if (!Rs2Player.isAnimating()) {
+                Microbot.getRs2TileObjectCache().query().interact(51367, "Fish");
+                sleep(3000, 4000);
+            }
+            sleep(300, 500);
+        }
+
+        if (debugLogging) Microbot.log("Inventory should now be full of fish");
+        sleep(600, 900);
+
+        // Recommendation: DON'T drop it, unless you have a specific reason
+        // Rs2Inventory.drop(ItemID.BIG_NET);
     }
 
     private void cookBream() {
@@ -150,7 +200,7 @@ public class ResupplyHandler implements BaseHandler {
 
         while (Rs2Inventory.contains(ItemID.BREAM_FISH_RAW)) {
             if (!Rs2Player.isAnimating()) {
-                if (Rs2GameObject.interact(ObjectID.PMOON_RANGE, "Cook")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_RANGE, "Cook")) {
                     sleep(600, 900);
                 }
             }

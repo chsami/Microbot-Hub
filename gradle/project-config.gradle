@@ -26,7 +26,7 @@ project.ext.DEFAULT_SUPPORT_URL = 'https://github.com/chsami/microbot'
 
 // Maven publication
 project.ext.MAVEN_GROUP_ID = 'net.runelite.client.plugins.microbot'
-project.ext.MICROBOT_CLIENT_VERSION = '2.0.61'
+project.ext.MICROBOT_CLIENT_VERSION = '2.6.9'
 
 // Helper functions for accessing config
 project.ext.getPluginsSourcePath = { -> project.ext.PLUGINS_SOURCE_PATH }

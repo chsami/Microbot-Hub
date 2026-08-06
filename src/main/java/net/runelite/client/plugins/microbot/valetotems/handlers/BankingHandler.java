@@ -21,6 +21,7 @@ import java.util.List;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
 import static net.runelite.client.plugins.microbot.util.Global.sleepGaussian;
+import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 
 import java.util.Random;
 import net.runelite.client.plugins.microbot.valetotems.enums.TotemLocation;
@@ -57,26 +58,28 @@ public class BankingHandler {
      */
     public static boolean navigateToBank() {
         try {
-            // Check if already near bank
-            if (CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE)) {
-                // Move to optimal banking position if not there
+            boolean alreadyNear = CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE);
+            Microbot.log("[Banking] navigateToBank: alreadyNear=" + alreadyNear + " pos=" + CoordinateUtils.getPlayerLocation());
+
+            if (alreadyNear) {
                 if (!CoordinateUtils.isAtBankingPosition()) {
+                    Microbot.log("[Banking] Walking to optimal banking tile");
                     return Rs2Walker.walkTo(BankLocation.PLAYER_STANDING_TILE.getLocation());
                 }
                 return true;
             }
 
-            // Walk to bank area
+            Microbot.log("[Banking] Walking to bank booth at " + BankLocation.BANK_BOOTH.getLocation());
             boolean walked = Rs2Walker.walkTo(BankLocation.BANK_BOOTH.getLocation());
+            Microbot.log("[Banking] walkTo bank result=" + walked);
             if (walked) {
-                // Wait for arrival and position correctly
                 Rs2Player.waitForWalking();
                 return Rs2Walker.walkTo(BankLocation.PLAYER_STANDING_TILE.getLocation());
             }
 
             return false;
         } catch (Exception e) {
-            Microbot.log("Error navigating to bank: " + e.getMessage());
+            Microbot.log("[Banking] Error navigating to bank: " + e.getMessage());
             return false;
         }
     }
@@ -87,37 +90,39 @@ public class BankingHandler {
      */
     public static boolean openBank() {
         try {
-            // Check if bank is already open
             if (Rs2Bank.isOpen()) {
+                Microbot.log("[Banking] Bank already open");
                 return true;
             }
 
-            // Ensure we're close enough to the bank
             if (!CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE)) {
+                Microbot.log("[Banking] openBank: not near bank, navigating first");
                 if (!navigateToBank()) {
                     return false;
                 }
             }
 
-            // Interact with bank booth using string search
-            boolean interacted = GameObjectUtils.findAndInteractAtLocationByName(
-                    GameObjectId.BANK_BOOTH.getSearchTerm(),
+            Microbot.log("[Banking] Interacting with bank booth (id=" + GameObjectId.BANK_BOOTH.getId() + " at " + BankLocation.BANK_BOOTH.getLocation() + ")");
+            boolean interacted = GameObjectUtils.findAndInteractAtLocation(
+                    GameObjectId.BANK_BOOTH.getId(),
                     BankLocation.BANK_BOOTH.getLocation(),
                     "Bank"
             );
+            Microbot.log("[Banking] Bank booth interact result=" + interacted);
 
             if (interacted) {
-                // Wait for bank to open
                 long startTime = System.currentTimeMillis();
                 while (!Rs2Bank.isOpen() && System.currentTimeMillis() - startTime < BANK_TIMEOUT_MS) {
                     sleep(100);
                 }
-                return Rs2Bank.isOpen();
+                boolean opened = Rs2Bank.isOpen();
+                Microbot.log("[Banking] Bank opened=" + opened);
+                return opened;
             }
 
             return false;
         } catch (Exception e) {
-            Microbot.log("Error opening bank: " + e.getMessage());
+            Microbot.log("[Banking] Error opening bank: " + e.getMessage());
             return false;
         }
     }
@@ -172,26 +177,22 @@ public class BankingHandler {
             int logId = InventoryUtils.getLogId();
             String logTypeName = config != null ? config.logType().getDisplayName() : "Yew Logs";
 
-            // Withdraw logs (materials check already performed, so this should succeed)
+            // Rs2Bank.withdrawX only queues the menu click — it returns immediately and the item
+            // can lag several ticks behind. Generic waitForInventoryChanges + hasRequiredItems
+            // was racing and reporting shortages right after a successful withdraw.
             Microbot.log("Withdrawing " + logsToWithdraw + " " + logTypeName + " from bank");
-            boolean withdrew = Rs2Bank.withdrawX(logId, logsToWithdraw);
-            if (withdrew) {
-                Microbot.log("Successfully withdrew " + logsToWithdraw + " " + logTypeName);
-                Rs2Inventory.waitForInventoryChanges(3000);
-            } else {
-                Microbot.log("Failed to withdraw logs from bank");
+            int logsBefore = InventoryUtils.getLogCount();
+            int expectedLogs = logsBefore + logsToWithdraw;
+            if (!Rs2Bank.withdrawX(logId, logsToWithdraw)) {
+                Microbot.log("Failed to queue log withdrawal");
                 return false;
             }
-
-            // Final verification
-            boolean hasRequired = InventoryUtils.hasRequiredItems();
-            if (hasRequired) {
-                Microbot.log("Successfully completed item withdrawal - all required items now in inventory");
-            } else {
-                Microbot.log("Warning: Required items verification failed after withdrawal");
+            if (!sleepUntil(() -> InventoryUtils.getLogCount() >= expectedLogs, 3000)) {
+                Microbot.log("Log withdrawal timed out (have " + InventoryUtils.getLogCount() + "/" + expectedLogs + ")");
+                return false;
             }
-
-            return hasRequired;
+            Microbot.log("Successfully withdrew " + logsToWithdraw + " " + logTypeName);
+            return InventoryUtils.hasRequiredItems();
 
         } catch (Exception e) {
             Microbot.log("Error withdrawing required items: " + e.getMessage());
@@ -251,19 +252,26 @@ public class BankingHandler {
      */
     public static boolean performUnifiedBankingCycle(GameSession gameSession) {
         try {
-            // Navigate to bank if needed
-            if (!CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE)) {
-                if (!navigateToBank()) {
-                    Microbot.log("Failed to navigate to bank");
+            var playerPos = CoordinateUtils.getPlayerLocation();
+            int distToBank = CoordinateUtils.getDistanceToBank();
+            boolean nearBank = CoordinateUtils.isNearBank(BANK_INTERACTION_DISTANCE);
+            Microbot.log("[Banking] Start cycle. Player=" + playerPos + " distToBank=" + distToBank + " nearBank=" + nearBank);
+
+            if (!nearBank) {
+                Microbot.log("[Banking] Not near bank, navigating...");
+                boolean navResult = navigateToBank();
+                Microbot.log("[Banking] Navigate result=" + navResult + " newPos=" + CoordinateUtils.getPlayerLocation());
+                if (!navResult) {
                     return false;
                 }
             }
 
-            // Open bank first
+            Microbot.log("[Banking] Opening bank...");
             if (!openBank()) {
-                Microbot.log("Failed to open bank");
+                Microbot.log("[Banking] Failed to open bank");
                 return false;
             }
+            Microbot.log("[Banking] Bank opened successfully");
 
             // Now detect route type with bank open
             TotemLocation.RouteType detectedRouteType = detectRouteTypeWithBankOpen();
@@ -592,14 +600,11 @@ public class BankingHandler {
             // Check if log basket is in bank and withdraw it
             if (Rs2Bank.hasItem(InventoryUtils.LOG_BASKET_ID)) {
                 Microbot.log("Withdrawing log basket from bank for extended route");
-                boolean withdrew = Rs2Bank.withdrawOne(InventoryUtils.LOG_BASKET_ID);
-                if (withdrew) {
-                    Rs2Inventory.waitForInventoryChanges(3000);
-                    return InventoryUtils.hasLogBasket();
-                } else {
-                    Microbot.log("Failed to withdraw log basket from bank");
+                if (!Rs2Bank.withdrawOne(InventoryUtils.LOG_BASKET_ID)) {
+                    Microbot.log("Failed to queue log basket withdrawal");
                     return false;
                 }
+                return sleepUntil(InventoryUtils::hasLogBasket, 3000);
             }
 
             Microbot.log("No log basket found in bank");
@@ -656,32 +661,37 @@ public class BankingHandler {
                 return true;
             }
 
-            // Try to withdraw fletching knife first (prioritized)
+            // Try to withdraw fletching knife first (prioritized).
+            // Rs2Bank.withdrawOne returns true as soon as the click is queued; we must wait
+            // on the concrete predicate (hasKnife), not a generic inventory-change wait,
+            // or a slow server tick causes a stale "no knife" read right after we withdrew —
+            // the code then used to fall through and try the regular knife, which isn't in
+            // the bank either, and report a critical shortage on a knife that was in-flight.
             if (Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID)) {
                 Microbot.log("Withdrawing Fletching knife from bank (prioritized)");
                 if (Rs2Bank.withdrawOne(InventoryUtils.FLETCHING_KNIFE_ID)) {
-                    Rs2Inventory.waitForInventoryChanges(3000);
-                    if (InventoryUtils.hasKnife()) {
+                    if (sleepUntil(InventoryUtils::hasKnife, 3000)) {
                         Microbot.log("Successfully withdrew Fletching knife");
                         return true;
                     }
-                } else {
-                    Microbot.log("Failed to withdraw Fletching knife from bank");
+                    Microbot.log("Fletching knife withdrawal timed out");
+                    return false;
                 }
+                Microbot.log("Failed to queue Fletching knife withdrawal");
             }
 
             // Try to withdraw regular knife as fallback
             if (Rs2Bank.hasItem(InventoryUtils.KNIFE_ID)) {
                 Microbot.log("Withdrawing regular knife from bank");
                 if (Rs2Bank.withdrawOne(InventoryUtils.KNIFE_ID)) {
-                    Rs2Inventory.waitForInventoryChanges(3000);
-                    if (InventoryUtils.hasKnife()) {
+                    if (sleepUntil(InventoryUtils::hasKnife, 3000)) {
                         Microbot.log("Successfully withdrew regular knife");
                         return true;
                     }
-                } else {
-                    Microbot.log("Failed to withdraw regular knife from bank");
+                    Microbot.log("Regular knife withdrawal timed out");
+                    return false;
                 }
+                Microbot.log("Failed to queue regular knife withdrawal");
             }
 
             // No knife found anywhere - critical error
@@ -706,42 +716,49 @@ public class BankingHandler {
                 return false;
             }
 
-            // Ensure we have a knife (prioritizing fletching knife)
+            // Ensure we have a knife (prioritizing fletching knife). Wait on the concrete
+            // predicate so a slow inventory update doesn't get misread as "no knife in bank".
             if (!InventoryUtils.hasKnife()) {
                 if (Rs2Bank.hasItem(InventoryUtils.FLETCHING_KNIFE_ID)) {
                     Microbot.log("Withdrawing Fletching knife from bank (prioritized)");
                     if (!Rs2Bank.withdrawOne(InventoryUtils.FLETCHING_KNIFE_ID)) {
-                        Microbot.log("Failed to withdraw Fletching knife");
+                        Microbot.log("Failed to queue Fletching knife withdrawal");
                         return false;
                     }
                 } else if (Rs2Bank.hasItem(InventoryUtils.KNIFE_ID)) {
                     Microbot.log("Withdrawing regular knife from bank");
                     if (!Rs2Bank.withdrawOne(InventoryUtils.KNIFE_ID)) {
-                        Microbot.log("Failed to withdraw knife");
+                        Microbot.log("Failed to queue knife withdrawal");
                         return false;
                     }
                 } else {
                     handleCriticalMaterialShortage(gameSession, "No knife available (checked inventory and bank for both Fletching knife and regular knife)");
                     return false;
                 }
-                Rs2Inventory.waitForInventoryChanges(3000);
+                if (!sleepUntil(InventoryUtils::hasKnife, 3000)) {
+                    Microbot.log("Knife withdrawal timed out");
+                    return false;
+                }
             }
 
             // Ensure we have a log basket
             if (!InventoryUtils.hasLogBasket()) {
                 if (Rs2Bank.hasItem(InventoryUtils.LOG_BASKET_ID)) {
                     if (!Rs2Bank.withdrawOne(InventoryUtils.LOG_BASKET_ID)) {
-                        Microbot.log("Failed to withdraw log basket");
+                        Microbot.log("Failed to queue log basket withdrawal");
                         return false;
                     }
                 } else {
                     handleCriticalMaterialShortage(gameSession, "No log basket available (checked inventory and bank)");
                     return false;
                 }
-                Rs2Inventory.waitForInventoryChanges(3000);
+                if (!sleepUntil(InventoryUtils::hasLogBasket, 3000)) {
+                    Microbot.log("Log basket withdrawal timed out");
+                    return false;
+                }
             }
 
-            return InventoryUtils.hasKnife() && InventoryUtils.hasLogBasket();
+            return true;
 
         } catch (Exception e) {
             Microbot.log("Error ensuring knife and log basket in inventory: " + e.getMessage());
@@ -821,13 +838,18 @@ public class BankingHandler {
             // Step 1: Take inventory full of logs (leaving space for knife and basket)
             int logsToWithdraw = InventoryUtils.getOptimalLogBasketLogAmountForExtendedRoute(gameSession) - InventoryUtils.getLogCount();
             int logId = InventoryUtils.getLogId();
+            int logsBeforeFirst = InventoryUtils.getLogCount();
 
             if (!Rs2Bank.withdrawX(logId, logsToWithdraw)) {
-                Microbot.log("Failed to withdraw logs to fill inventory");
+                Microbot.log("Failed to queue log withdrawal for basket-fill step");
                 return false;
             }
 
-            Rs2Inventory.waitForInventoryChanges(3000);
+            int expectedAfterFirst = logsBeforeFirst + logsToWithdraw;
+            if (!sleepUntil(() -> InventoryUtils.getLogCount() >= expectedAfterFirst, 3000)) {
+                Microbot.log("Log withdrawal timed out in basket-fill step");
+                return false;
+            }
 
             // Step 2: Close bank
             Rs2Bank.closeBank();
@@ -850,11 +872,16 @@ public class BankingHandler {
             int logsStillNeeded = InventoryUtils.getOptimalLogAmountForExtendedRoute(gameSession);
             if (logsStillNeeded > 0) {
                 Microbot.log("Withdrawing additional " + logsStillNeeded + " logs for extended route");
+                int logsBeforeSecond = InventoryUtils.getLogCount();
                 if (!Rs2Bank.withdrawX(logId, logsStillNeeded)) {
-                    Microbot.log("Failed to withdraw additional logs");
+                    Microbot.log("Failed to queue additional log withdrawal");
                     return false;
                 }
-                Rs2Inventory.waitForInventoryChanges(3000);
+                int expectedAfterSecond = logsBeforeSecond + logsStillNeeded;
+                if (!sleepUntil(() -> InventoryUtils.getLogCount() >= expectedAfterSecond, 3000)) {
+                    Microbot.log("Additional log withdrawal timed out");
+                    return false;
+                }
             }
 
             Microbot.log("Log basket filling operation completed successfully");

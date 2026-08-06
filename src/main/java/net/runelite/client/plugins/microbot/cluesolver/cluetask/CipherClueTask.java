@@ -13,7 +13,7 @@ import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.concurrent.ExecutorService;
@@ -116,13 +116,13 @@ public class CipherClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        var npc = Rs2Npc.getNpc(clue.getNpc());
+        var npc = Microbot.getRs2NpcCache().query().withId(clue.getNpc()).nearest();
         if (npc == null) {
             log.warn("NPC with ID {} not found at the location.", clue.getNpc());
             return false;
         }
 
-        if (Rs2Npc.interact(npc, "Talk-to")) {
+        if (npc.click("Talk-to")) {
             log.info("Interacting with NPC for cipher clue.");
             Rs2Dialogue.sleepUntilInDialogue();
             return handleDialogue();

@@ -9,10 +9,9 @@ import net.runelite.client.plugins.microbot.aiofighter.AIOFighterConfig;
 import net.runelite.client.plugins.microbot.aiofighter.AIOFighterPlugin;
 import net.runelite.client.plugins.microbot.aiofighter.enums.State;
 import net.runelite.client.plugins.microbot.aiofighter.model.InventorySetupUtil;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.npc.MonsterLocation;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcManager;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.skills.slayer.Rs2Slayer;
 
 import java.util.Arrays;
@@ -24,6 +23,7 @@ public class SlayerScript extends Script {
     static WorldPoint cachedMonsterLocation = null;
     static String cachedMonsterLocationName = null;
     AIOFighterConfig config;
+
     @SneakyThrows
     public boolean run(AIOFighterConfig config) {
         this.config = config;
@@ -94,9 +94,17 @@ public class SlayerScript extends Script {
             reset();
             AIOFighterPlugin.setState(State.GETTING_TASK);
             if(Rs2Slayer.walkToSlayerMaster(config.slayerMaster())) {
-                Rs2NpcModel npc = Rs2Npc.getNpc(config.slayerMaster().getName());
+                // Preserve legacy partial-name match (Rs2Npc.getNpc uses contains, not equals).
+                // Single getName() fetch per NPC — each call is a client-thread invoke.
+                final String masterName = config.slayerMaster().getName().toLowerCase();
+                Rs2NpcModel npc = Microbot.getRs2NpcCache().query()
+                        .where(n -> {
+                            String name = n.getName();
+                            return name != null && name.toLowerCase().contains(masterName);
+                        })
+                        .nearest();
                 if(npc != null) {
-                    Rs2Npc.interact(npc, "Assignment");
+                    npc.click("Assignment");
                     sleepUntil(Rs2Slayer::hasSlayerTask, 5000);
                 }
             }

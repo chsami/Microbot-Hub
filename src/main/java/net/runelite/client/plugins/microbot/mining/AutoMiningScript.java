@@ -19,12 +19,14 @@ import net.runelite.client.plugins.microbot.util.depositbox.Rs2DepositBox;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.ArrayList;
+import java.awt.event.KeyEvent;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -54,9 +56,18 @@ public class AutoMiningScript extends Script {
             try {
                 if (!super.run()) return;
                 if (!Microbot.isLoggedIn()) return;
+                if (config.leagueMode() && Rs2Player.checkIdleLogout(Rs2Random.between(500, 1500))) {
+                    int[] arrowKeys = { KeyEvent.VK_LEFT, KeyEvent.VK_RIGHT, KeyEvent.VK_UP, KeyEvent.VK_DOWN };
+                    Rs2Keyboard.keyPress(arrowKeys[Rs2Random.between(0, arrowKeys.length - 1)]);
+                }
                 if (Rs2AntibanSettings.actionCooldownActive) return;
                 if (initialPlayerLocation == null) {
                     initialPlayerLocation = Rs2Player.getWorldLocation();
+                }
+
+                // Skip cycle if we don't have a valid location
+                if (initialPlayerLocation == null) {
+                    return;
                 }
 
                 updateActiveRock(config);
@@ -79,20 +90,21 @@ public class AutoMiningScript extends Script {
                 int maxPlayers = config.maxPlayersInArea();
                 if (maxPlayers > 0) {
                     WorldPoint localLocation = Rs2Player.getWorldLocation();
-
-                    long nearbyPlayers = Microbot.getClient().getTopLevelWorldView().players().stream()
-                            .filter(p -> p != null && p != Microbot.getClient().getLocalPlayer())
-                            .filter(p -> {
-                                if (config.distanceToStray() == 0) {
-                                    // Only count players standing on the same exact tile
-                                    return p.getWorldLocation().equals(localLocation);
-                                }
-                                // Count players within distanceToStray
-                                return p.getWorldLocation().distanceTo(localLocation) <= config.distanceToStray();
-                            })
-                            //filter if players are using mining animation
-                            .filter(p -> p.getAnimation() != -1)
-                            .count();
+                    long nearbyPlayers = Microbot.getClientThread().runOnClientThreadOptional(() ->
+                                    Microbot.getClient().getTopLevelWorldView().players().stream()
+                                            .filter(p -> p != null && p != Microbot.getClient().getLocalPlayer())
+                                            .filter(p -> {
+                                                if (config.distanceToStray() == 0) {
+                                                    // Only count players standing on the same exact tile
+                                                    return p.getWorldLocation().equals(localLocation);
+                                                }
+                                                // Count players within distanceToStray
+                                                return p.getWorldLocation().distanceTo(localLocation) <= config.distanceToStray();
+                                            })
+                                            // filter if players are using mining animation
+                                            .filter(p -> p.getAnimation() != -1)
+                                            .count())
+                            .orElse(0L);
 
                     if (nearbyPlayers >= maxPlayers) {
                         Microbot.status = "Too many players nearby. Hopping...";
@@ -119,6 +131,16 @@ public class AutoMiningScript extends Script {
                             return;
                         }
 
+                        // Check if we're too far from mining location - walk back first
+                        if (initialPlayerLocation != null) {
+                            int distanceFromStart = Rs2Player.getWorldLocation().distanceTo(initialPlayerLocation);
+                            if (distanceFromStart > config.distanceToStray()) {
+                                Microbot.status = "Walking back to mining location...";
+                                Rs2Walker.walkTo(initialPlayerLocation, config.distanceToStray());
+                                return;
+                            }
+                        }
+
                         GameObject rock = Rs2GameObject.findReachableObject(activeRock.getName(), true, config.distanceToStray(), initialPlayerLocation);
 
                         if (rock != null) {
@@ -130,7 +152,11 @@ public class AutoMiningScript extends Script {
                         }
                         break;
                     case RESETTING:
-                        List<String> itemNames = Arrays.stream(config.itemsToBank().split(",")).map(String::toLowerCase).collect(Collectors.toList());
+                        List<String> itemNames = Arrays.stream(config.itemsToBank().split(","))
+                                .map(String::trim)
+                                .map(String::toLowerCase)
+                                .filter(s -> !s.isEmpty())
+                                .collect(Collectors.toList());
 
                         if (config.useBank()) {
                             if (config.clayBracelet() && config.ORE() == Rocks.CLAY) {
@@ -164,8 +190,25 @@ public class AutoMiningScript extends Script {
                                     Rs2Walker.walkTo(2841, 10339, 0);
                                 }
                             } else {
-                                if (!Rs2Bank.bankItemsAndWalkBackToOriginalPosition(itemNames, initialPlayerLocation, 0, config.distanceToStray()))
+                                if (!Rs2Bank.isOpen()) {
+                                    if (!Rs2Bank.walkToBankAndUseBank()) {
+                                        return;
+                                    }
                                     return;
+                                }
+
+                                if (itemNames.isEmpty()) {
+                                    Rs2Bank.depositAll();
+                                } else {
+                                    Rs2Bank.depositAll(i ->
+                                            i.getName() != null &&
+                                                    itemNames.stream().anyMatch(item -> i.getName().toLowerCase().contains(item)));
+                                }
+
+                                if (!Rs2Bank.closeBank())
+                                    return;
+
+                                Rs2Walker.walkTo(initialPlayerLocation, config.distanceToStray());
                             }
 
                         } else {
@@ -230,7 +273,9 @@ public class AutoMiningScript extends Script {
 
         WorldPoint targetPoint = activeLocation.getWorldPoint();
 
-        if (initialPlayerLocation == null || !initialPlayerLocation.equals(targetPoint)) {
+        // Only update initialPlayerLocation if it's null
+        // Don't update just because player is far away (e.g., at bank) - that breaks return-to-location
+        if (initialPlayerLocation == null) {
             initialPlayerLocation = targetPoint;
         }
 

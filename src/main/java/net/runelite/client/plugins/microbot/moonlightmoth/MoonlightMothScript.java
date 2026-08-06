@@ -10,7 +10,6 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.shop.Rs2Shop;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -236,13 +235,13 @@ public class MoonlightMothScript extends Script {
 
         WorldArea excludedArea = new WorldArea(1550, 9426, 21, 8, 0);
 
-        Rs2Npc.getNpcs(NpcID.MOTH_MOONLIGHT).filter(moth -> {
+        Microbot.getRs2NpcCache().query().withId(NpcID.MOTH_MOONLIGHT).where(moth -> {
             WorldPoint location = moth.getWorldLocation();
             return location != null && !excludedArea.contains(location);
-        }).findFirst().ifPresent(moth -> {
+        }).toList().stream().findFirst().ifPresent(moth -> {
             if (!Rs2Player.isAnimating() && !Rs2Player.isInteracting()) {
                 var beforeCount = Rs2Inventory.count(ItemID.BUTTERFLY_JAR_MOONMOTH);
-                if (Rs2Npc.interact(moth, "Catch")) {
+                if (moth.click("Catch")) {
                     logOnceToChat("Attempting to catch Moonlight Moth at: " + moth.getWorldLocation(), true);
                     Rs2Player.waitForAnimation(2000);
                     var afterCount = Rs2Inventory.count(ItemID.BUTTERFLY_JAR_MOONMOTH);

@@ -87,6 +87,17 @@ public interface AutoMiningConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "leagueMode",
+            name = "League mode (anti-AFK)",
+            description = "Periodically presses a key to reset the idle timer so you never get logged out",
+            position = 4,
+            section = generalSection
+    )
+    default boolean leagueMode() {
+        return false;
+    }
+
+    @ConfigItem(
             keyName = "UseBank",
             name = "UseBank",
             description = "Use bank and walk back to original location",

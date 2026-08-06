@@ -2,13 +2,13 @@ package net.runelite.client.plugins.microbot.slayer.combat;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.events.NpcDespawned;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.slayer.PrayerFlickStyle;
 import net.runelite.client.plugins.microbot.slayer.SlayerConfig;
 import net.runelite.client.plugins.microbot.slayer.SlayerPrayer;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcManager;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -99,7 +99,9 @@ public class SlayerFlickerScript {
         }
 
         // Update NPC snapshot
-        npcsRef.set(Rs2Npc.getNpcsForPlayer().collect(Collectors.toList()));
+        npcsRef.set(Microbot.getRs2NpcCache().query()
+                .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
+                .toList());
 
         // Remove monsters that no longer exist
         currentMonstersAttackingUsRef.updateAndGet(monsters -> {

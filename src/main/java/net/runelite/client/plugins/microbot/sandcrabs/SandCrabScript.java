@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.sandcrabs;
 
 import net.runelite.api.GameState;
-import net.runelite.api.NPC;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -13,8 +12,7 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.util.security.Login;
@@ -103,19 +101,19 @@ public class SandCrabScript extends Script {
                     }
                 }
 
-                if (currentScanLocation != null && Microbot.getClient().getLocalPlayer().getWorldLocation().distanceTo(currentScanLocation.getWorldPoint()) > 10 && (state != State.RESET_AGGRO && state != State.WALK_BACK && state != State.BANK)) {
+                if (currentScanLocation != null && Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).distanceTo(currentScanLocation.getWorldPoint()) > 10 && (state != State.RESET_AGGRO && state != State.WALK_BACK && state != State.BANK)) {
                     state = State.WALK_BACK;
                     resetAggro(plugin);
                     resetAfkTimer();
                 }
                 currentScanLocation = sandCrabLocations.stream()
                         .filter(x -> !x.isScanned())
-                        .min(Comparator.comparingInt(x -> x.getWorldPoint().distanceTo(Microbot.getClient().getLocalPlayer().getWorldLocation())))
+                        .min(Comparator.comparingInt(x -> x.getWorldPoint().distanceTo(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))))
                         .orElse(null);
 
                 if (sandCrabLocations.stream()
                         .noneMatch(x -> x.getWorldPoint()
-                                .equals(Microbot.getClient().getLocalPlayer().getWorldLocation()))
+                                .equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())))
                         && currentScanLocation != null
                         && state != State.RESET_AGGRO
                         && state != State.WALK_BACK) {
@@ -206,19 +204,55 @@ public class SandCrabScript extends Script {
      *
      * @return true if npc is aggressive
      */
-    private boolean isNpcAggressive() {
-        List<Rs2NpcModel> npcs = Rs2Npc.getNpcs("Sandy rocks", true).collect(Collectors.toList());
-        if (npcs.isEmpty()) {
+    private boolean isNpcAggressive()
+    {
+        if (Microbot.getClient() == null || Microbot.getClientThread() == null)
+        {
             return false;
         }
-        for (NPC sandyRock : npcs) {
-            //ignore sandcrabs far away from the player
-            if (!sandyRock.getWorldArea().isInMeleeDistance(Microbot.getClient().getLocalPlayer().getWorldArea()))
+
+        java.util.concurrent.atomic.AtomicBoolean result = new java.util.concurrent.atomic.AtomicBoolean(false);
+        java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+
+        Microbot.getClientThread().invoke(() ->
+        {
+            try
+            {
+
+        List<Rs2NpcModel> npcs = Microbot.getRs2NpcCache().query().withName("Sandy rocks").toListOnClientThread();
+        if (npcs.isEmpty()) {
+            result.set(false); return;
+        }
+        for (Rs2NpcModel sandyRock : npcs) {
+            if (!sandyRock.getNpc().getWorldArea().isInMeleeDistance(Rs2Player.getWorldLocation()))
                 continue;
 
-            return false; //found a sandy rock crab near the player
+            result.set(false); return;
         }
-        return true; //did not find any sandy rocks near the player
+        result.set(true); return;
+    
+            }
+            catch (Exception ignored)
+            {
+                result.set(false);
+            }
+            finally
+            {
+                done.countDown();
+            }
+        });
+
+        try
+        {
+            done.await(750, java.util.concurrent.TimeUnit.MILLISECONDS);
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+
+        return result.get();
     }
 
     /**
@@ -258,7 +292,7 @@ public class SandCrabScript extends Script {
     }
 
     private boolean otherPlayerDetected() {
-        return otherPlayerDetected(Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return otherPlayerDetected(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
     }
 
     private boolean otherPlayerDetected(WorldPoint worldPoint) {
@@ -273,7 +307,7 @@ public class SandCrabScript extends Script {
     private void scanSandCrabLocations(SandCrabConfig config) {
         currentScanLocation = sandCrabLocations.stream()
                 .filter(x -> !x.isScanned())
-                .min(Comparator.comparingInt(x -> x.getWorldPoint().distanceTo(Microbot.getClient().getLocalPlayer().getWorldLocation())))
+                .min(Comparator.comparingInt(x -> x.getWorldPoint().distanceTo(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))))
                 .orElse(null);
 
         if (currentScanLocation == null) {
@@ -281,8 +315,7 @@ public class SandCrabScript extends Script {
             state = State.HOP_WORLD;
             return;
         }
-        //If the currentScan location is far away, we walk to it first
-        if (currentScanLocation.getWorldPoint().distanceTo(Microbot.getClient().getLocalPlayer().getWorldLocation()) > 10) {
+        if (currentScanLocation.getWorldPoint().distanceTo(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())) > 10) {
             boolean reachedLocation = Rs2Walker.walkTo(currentScanLocation.getWorldPoint());
             if (!reachedLocation) {
                 if (currentScanLocation.triedWalking > 20) { //something went wrong, just skip this location

@@ -18,8 +18,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -177,9 +176,8 @@ public class GauntletHelperScript extends Script {
 
     public void checkNPC() {
         TIME_NPC = now;
-        Tornado = Rs2Npc.getNpc(CG_TORNADO);
-        hunllef = Rs2Npc.getNpcs()
-                .filter(npc -> HUNLLEF_IDS.contains(npc.getId()))
+        Tornado = Microbot.getRs2NpcCache().query().withId(CG_TORNADO).nearest();
+        hunllef = Microbot.getRs2NpcCache().query().where(npc -> HUNLLEF_IDS.contains(npc.getId())).toList().stream()
                 .findFirst()
                 .orElse(null);
 
@@ -397,7 +395,7 @@ public class GauntletHelperScript extends Script {
         if (attackNeeded.compareAndSet(true, false)) {
             if (now - TIME_EAT_ATTEMPTED > (CD_EAT * 3)) {
                 logVerbose("Attempting attack");
-                Rs2Npc.interact(hunllef, "attack");
+                hunllef.click("attack");
                 TIME_ATTACK = now;
             }
         }

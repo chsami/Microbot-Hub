@@ -5,7 +5,6 @@ import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
@@ -25,8 +24,8 @@ public class FoxEvent implements BlockingEvent {
         try{
             if (plugin == null || !Microbot.isPluginEnabled(plugin)) return false;
             if (Microbot.getClient() == null || !Microbot.isLoggedIn()) return false;
-            var outDoorFox = Rs2Npc.getNpc(NpcID.GATHERING_EVENT_POACHERS_FOX_OUTDOORS);
-            var indoorFox = Rs2Npc.getNpc(NpcID.GATHERING_EVENT_POACHERS_FOX_INDOORS);
+            var outDoorFox = Microbot.getRs2NpcCache().query().withId(NpcID.GATHERING_EVENT_POACHERS_FOX_OUTDOORS).nearest();
+            var indoorFox = Microbot.getRs2NpcCache().query().withId(NpcID.GATHERING_EVENT_POACHERS_FOX_INDOORS).nearest();
             return outDoorFox != null || indoorFox != null;
         } catch (Exception e) {
             log.error("FoxEvent: Exception in validate method", e);
@@ -47,13 +46,13 @@ public class FoxEvent implements BlockingEvent {
         }
         
         while (this.validate()) {
-            var trap = Rs2Npc.getNpc(NpcID.GATHERING_EVENT_POACHERS_TRAP);
+            var trap = Microbot.getRs2NpcCache().query().withId(NpcID.GATHERING_EVENT_POACHERS_TRAP).nearest();
             if (trap == null) {
                 continue; // If the trap is not found, we cannot proceed with the event
             }
             Microbot.log("FoxEvent: Interacting with the trap to disarm it.", Level.INFO);
             // Interact with the trap if it exists
-            Rs2Npc.interact(trap, "Disarm");
+            trap.click("Disarm");
             Rs2Player.waitForAnimation(1000);
         }
         Microbot.log("FoxEvent: Finished executing the Fox event.", Level.INFO);

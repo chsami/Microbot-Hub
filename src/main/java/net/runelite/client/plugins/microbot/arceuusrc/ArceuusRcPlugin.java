@@ -24,7 +24,7 @@ import javax.inject.Inject;
 )
 public class ArceuusRcPlugin extends Plugin {
 
-    public static final String version = "1.0.2";
+    public static final String version = "1.0.3";
 
     @Getter
     @Inject

@@ -83,7 +83,7 @@ public class DailyTasksScript extends Script {
             }
 
             System.out.println("Current task: " + currentTask.getName());
-            if (Rs2Player.distanceTo(currentTask.getLocation()) > 5) {
+            if (!currentTask.handlesOwnTravel() && Rs2Player.distanceTo(currentTask.getLocation()) > 5) {
                 DailyTasksPlugin.currentState = "Walking to: " + currentTask.getName();
                 Rs2Walker.walkTo(currentTask.getLocation(), 5);
             }

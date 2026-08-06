@@ -14,8 +14,8 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
@@ -86,8 +86,7 @@ public class AutoGauntletPrayerPlugin extends Plugin {
             Rs2Prayer.toggle(nextPrayer, true);
         }
 
-        Rs2NpcModel hunllef = Rs2Npc.getNpcs()
-                .filter(npc -> HUNLLEF_IDS.contains(npc.getId()))
+        Rs2NpcModel hunllef = Microbot.getRs2NpcCache().query().where(npc -> HUNLLEF_IDS.contains(npc.getId())).toList().stream()
                 .findFirst()
                 .orElse(null);
 

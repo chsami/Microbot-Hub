@@ -13,7 +13,6 @@ import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -133,9 +132,9 @@ public class PlankRunnerScript extends Script {
                         }
 
                         Set<Integer> sawmillNpcs = Set.of(NpcID.POH_SAWMILL_OPP, NpcID.AUBURN_SAWMILL_OPERATOR);
-                        var sawmillOperator = Rs2Npc.getNpcs(n -> sawmillNpcs.contains(n.getId()))
-                                .findFirst()
-                                .orElse(null);
+                        var sawmillOperator = Microbot.getRs2NpcCache().query()
+                                .where(n -> sawmillNpcs.contains(n.getId()))
+                                .nearest();
 
                         if (sawmillOperator == null) {
                             Microbot.showMessage("Unable to find Sawmill Operator!");
@@ -143,7 +142,7 @@ public class PlankRunnerScript extends Script {
                             return;
                         }
 
-                        Rs2Npc.interact(sawmillOperator, "Buy-plank");
+                        sawmillOperator.click("Buy-plank");
                         Microbot.status = "Buying Planks";
                         Rs2Dialogue.sleepUntilHasCombinationDialogue();
                         Rs2Dialogue.clickCombinationOption(plugin.getPlank().getDialogueOption());

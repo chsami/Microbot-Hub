@@ -19,7 +19,8 @@ public interface FlipperConfig extends Config {
         "and make sure to make an account, log in, and resume suggestions from flipping copilot  \n" +
         "2.have gp in inventory or bank(1m+ starting is recommended)  \n" +
         "3.preferably start at the ge or have a tele close to the ge in your inventory  \n" +
-        "~made by chocken";
+        "~made by chocken   \n" +
+        "Extra tip: In game settings, disable grand exchange warnings for offers with the price too low/high, otherwise the script will get stuck.";
     }
     
 }

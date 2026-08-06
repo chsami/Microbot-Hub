@@ -2,12 +2,15 @@ package net.runelite.client.plugins.microbot.agility;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Skill;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.agility.courses.AgilityCourseHandler;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -34,7 +37,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MicroAgilityPlugin extends Plugin
 {
-	public static final String version = "1.2.4";
+	public static final String version = "1.3.1";
 	@Inject
 	private MicroAgilityConfig config;
 	@Inject
@@ -65,10 +68,14 @@ public class MicroAgilityPlugin extends Plugin
         agilityScript.run();
     }
 
+	@Override
 	protected void shutDown()
 	{
+		if (overlayManager != null)
+		{
+			overlayManager.remove(agilityOverlay);
+		}
 		agilityScript.shutdown();
-		overlayManager.remove(agilityOverlay);
 	}
 
 	public AgilityCourseHandler getCourseHandler()
@@ -76,24 +83,68 @@ public class MicroAgilityPlugin extends Plugin
 		return config.agilityCourse().getHandler();
 	}
 
+	public void notifyUser(String message)
+	{
+		try
+		{
+			if (Microbot.getClient() != null)
+			{
+				Microbot.getClientThread().invoke(() ->
+					Microbot.getClient().addChatMessage(ChatMessageType.ENGINE, "", message, "Micro Agility", false));
+			}
+		}
+		catch (Exception ex)
+		{
+			log.debug("Unable to add agility message to chat", ex);
+		}
+		Microbot.showMessage(message);
+	}
+
 	public List<Rs2ItemModel> getInventoryFood()
 	{
-		return Rs2Inventory.getInventoryFood().stream().filter(i -> !(i.getName().toLowerCase().contains("summer pie"))).collect(Collectors.toList());
+		return Rs2Inventory.getInventoryFood().stream().filter(i -> !isSummerPie(i)).collect(Collectors.toList());
 	}
 
 	public List<Rs2ItemModel> getSummerPies()
 	{
-		return Rs2Inventory.getInventoryFood().stream().filter(i -> i.getName().toLowerCase().contains("summer pie")).collect(Collectors.toList());
+		return Rs2Inventory.getInventoryFood().stream().filter(this::isSummerPie).collect(Collectors.toList());
 	}
 
 	public boolean hasRequiredLevel()
 	{
-		if (getSummerPies().isEmpty() || !getCourseHandler().canBeBoosted())
+		return hasRequiredLevel(getCourseHandler());
+	}
+
+	public boolean hasRequiredLevel(AgilityCourseHandler courseHandler)
+	{
+		int requiredLevel = courseHandler.getRequiredLevel();
+		if (Rs2Player.getRealSkillLevel(Skill.AGILITY) >= requiredLevel)
 		{
-			return Rs2Player.getRealSkillLevel(Skill.AGILITY) >= getCourseHandler().getRequiredLevel();
+			return true;
 		}
 
-		return Rs2Player.getBoostedSkillLevel(Skill.AGILITY) >= getCourseHandler().getRequiredLevel();
+		if (!config.useSummerPies() || getSummerPies().isEmpty() || !courseHandler.canBeBoosted())
+		{
+			return false;
+		}
+
+		return Rs2Player.getBoostedSkillLevel(Skill.AGILITY) >= requiredLevel;
+	}
+
+	public boolean hasRealRequiredLevel(AgilityCourseHandler courseHandler)
+	{
+		return Rs2Player.getRealSkillLevel(Skill.AGILITY) >= courseHandler.getRequiredLevel();
+	}
+
+	public boolean canSummerPieMeetRequirement(AgilityCourseHandler courseHandler)
+	{
+		return courseHandler.canBeBoosted()
+			&& Rs2Player.getRealSkillLevel(Skill.AGILITY) + 5 >= courseHandler.getRequiredLevel();
+	}
+
+	private boolean isSummerPie(Rs2ItemModel item)
+	{
+		return item != null && (item.getId() == ItemID.SUMMER_PIE || item.getId() == ItemID.HALF_SUMMER_PIE);
 	}
 
 	public AgilityScript getAgilityScript() {

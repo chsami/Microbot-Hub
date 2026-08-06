@@ -2,7 +2,6 @@ package net.runelite.client.plugins.microbot.barbarianfishing;
 
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.barbarianfishing.BarbarianFishingPlugin;
-import net.runelite.client.plugins.microbot.barbarianfishing.BarbarianFishingScript;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -52,7 +51,7 @@ public class BarbarianFishingOverlay extends OverlayPanel {
 
             panelComponent.getChildren().add(LineComponent.builder()
                     .left(Microbot.status)
-                    .right("Version:" + BarbarianFishingScript.version)
+                    .right("Version:" + BarbarianFishingPlugin.version)
                     .build());
 
 

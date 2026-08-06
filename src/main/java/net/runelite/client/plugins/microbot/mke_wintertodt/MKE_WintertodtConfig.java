@@ -103,7 +103,7 @@ public interface MKE_WintertodtConfig extends Config {
 
     @ConfigItem(
             keyName = "FletchRoots",
-            name = "🔪 Fletch Roots to Kindling",
+            name = "➳ Fletch Roots to Kindling",
             description = "Convert bruma roots to kindling for fletching XP and more points",
             position = 2,
             section = generalSection
@@ -114,13 +114,24 @@ public interface MKE_WintertodtConfig extends Config {
 
     @ConfigItem(
             keyName = "FixBrazier",
-            name = "🔧 Fix Broken Braziers",
+            name = "⚒️ Fix Broken Braziers",
             description = "Repair broken braziers with hammer",
             position = 3,
             section = generalSection
     )
     default boolean fixBrazier() {
         return true;
+    }
+
+    @ConfigItem(
+            keyName = "DodgeSnowfall",
+            name = "❄️ Dodge Snowfall",
+            description = "Step out of incoming snowfall AoE damage. Most players don't bother — eating food/potions is usually more efficient than interrupting your action to step.",
+            position = 4,
+            section = generalSection
+    )
+    default boolean dodgeSnowfall() {
+        return false;
     }
 
     // ==================== HEALING METHOD ====================

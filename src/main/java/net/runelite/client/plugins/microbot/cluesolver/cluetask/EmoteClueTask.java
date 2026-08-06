@@ -13,8 +13,8 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 import net.runelite.client.plugins.cluescrolls.clues.EmoteClue;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -131,7 +131,15 @@ public class EmoteClueTask extends ClueTask {
 
     private void handleWalkingToLocation() {
         WorldPoint location = clue.getLocation(clueScrollPlugin);
-        if (client.getLocalPlayer().getWorldLocation().equals(location)) {
+        // v1.0.3 fix: read player location via the client-thread-safe helper instead of
+        // calling client.getLocalPlayer().getWorldLocation() directly from the background
+        // executor (which throws IllegalStateException: must be called on client thread).
+        WorldPoint playerLocation = getPlayerLocationSafe();
+        if (playerLocation == null) {
+            log.debug("Player location unavailable; will retry next tick");
+            return;
+        }
+        if (playerLocation.equals(location)) {
             log.info("Arrived at Emote Clue location.");
             state = State.PERFORMING_EMOTES;
         } else {
@@ -177,7 +185,7 @@ public class EmoteClueTask extends ClueTask {
     }
 
     private void interactWithUri() {
-        Rs2Npc.interact("Uri", "Talk-to");
+        Microbot.getClientThread().invoke(() -> Microbot.getRs2NpcCache().query().withName("Uri").interact("Talk-to"));
         log.info("Interacted with Uri.");
     }
 
@@ -186,7 +194,7 @@ public class EmoteClueTask extends ClueTask {
         NPC npc = event.getNpc();
         if (npc.getName() != null) {
             if (state == State.WAITING_FOR_ENEMY_SPAWN && npc.getName().equalsIgnoreCase(DOUBLE_AGENT_NAME)) {
-                doubleAgent = Rs2Npc.getNpcByIndex(npc.getIndex());
+                doubleAgent = Microbot.getRs2NpcCache().query().where(n -> n.getIndex() == npc.getIndex()).nearest();
                 log.info("Double agent spawned.");
                 state = State.FIGHTING_ENEMY;
                 attackDoubleAgent();
@@ -196,7 +204,7 @@ public class EmoteClueTask extends ClueTask {
 
     private void attackDoubleAgent() {
         if (doubleAgent != null) {
-            Rs2Npc.interact(doubleAgent, "Attack");
+            doubleAgent.click("Attack");
             log.info("Attacking Double Agent.");
         } else {
             log.warn("Double Agent NPC is null or missing.");
@@ -208,7 +216,7 @@ public class EmoteClueTask extends ClueTask {
     public void onInteractingChanged(InteractingChanged event) {
         if (state == State.FIGHTING_ENEMY && event.getSource() == client.getLocalPlayer() &&
                 event.getTarget() == null) {
-            if (doubleAgent == null || Rs2Npc.getHealth(doubleAgent) <= 0) {
+            if (doubleAgent == null || doubleAgent.getNpc().getHealthRatio() <= 0) {
                 log.info("Double agent defeated.");
                 enemyDefeated = true;
             }

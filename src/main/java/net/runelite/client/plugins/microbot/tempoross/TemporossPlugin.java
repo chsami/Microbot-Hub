@@ -17,8 +17,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.tempoross.enums.HarpoonType;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import java.util.regex.Pattern;
@@ -36,7 +35,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "1.4.2";
+    public static final String version = "2.0.0";
     @Inject
     private TemporossConfig config;
 
@@ -93,22 +92,19 @@ public class TemporossPlugin extends Plugin {
 
     @Subscribe
     public void onNpcChanged(NpcChanged event) {
-
-        if (!TemporossScript.isInMinigame())
-            return;
-        if (TemporossScript.workArea == null)
-            return;
-        TemporossScript.handleWidgetInfo();
-        TemporossScript.updateFireData();
-        TemporossScript.updateFishSpotData();
-        TemporossScript.updateCloudData();
-        TemporossScript.updateAmmoCrateData();
     }
 
     @Subscribe
     public void onGameTick(GameTick e) {
-        if (!TemporossScript.isInMinigame())
+        TemporossScript.cachedInMinigame = TemporossScript.isInMinigame();
+        if (!TemporossScript.cachedInMinigame)
             return;
+        if (incomingWave)
+            return;
+        TemporossScript.cachedRawFish = State.getRawFish();
+        TemporossScript.cachedCookedFish = State.getCookedFish();
+        TemporossScript.cachedAllFish = State.getAllFish();
+        TemporossScript.cachedTotalSlots = State.getTotalAvailableFishSlots();
         if (TemporossScript.workArea == null)
             return;
         TemporossScript.handleWidgetInfo();
@@ -118,18 +114,23 @@ public class TemporossPlugin extends Plugin {
         TemporossScript.updateAmmoCrateData();
         TemporossScript.updateLastWalkPath();
 
-        Rs2NpcModel doubleFishingSpot = Rs2Npc.getNpc(NpcID.FISHING_SPOT_10569);
+        Rs2NpcModel doubleFishingSpot = Microbot.getRs2NpcCache().query().withId(NpcID.FISHING_SPOT_10569).nearest();
 
         if (TemporossScript.state == State.INITIAL_COOK && doubleFishingSpot != null) {
             TemporossScript.state = TemporossScript.state.next;
         }
 
-        if (TemporossScript.INTENSITY >= 94 && TemporossScript.state == State.THIRD_COOK) {
+        if (TemporossScript.INTENSITY >= TemporossScript.thresholdForfeitIntensity && TemporossScript.state == State.THIRD_COOK) {
             return;
         }
 
         if (TemporossScript.state == null) {
             TemporossScript.state = State.THIRD_CATCH;
+        }
+
+        if (TemporossScript.state != null && TemporossScript.state.isComplete()) {
+            TemporossScript.isFilling = false;
+            TemporossScript.state = TemporossScript.state.next == null ? State.THIRD_CATCH : TemporossScript.state.next;
         }
     }
 

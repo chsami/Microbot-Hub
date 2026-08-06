@@ -5,8 +5,7 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
-import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 
@@ -38,13 +37,13 @@ public class RoyalTitansLooterScript extends Script {
                 if (royalTitansScript.state.equals(RoyalTitansBotStatus.BANKING) || royalTitansScript.state.equals(RoyalTitansBotStatus.TRAVELLING) || royalTitansScript.state.equals(RoyalTitansBotStatus.WAITING))
                     return;
                 if (!isInBossRegion()) return;
-                var iceTitanDead = Rs2Npc.getNpcs(ICE_TITAN_DEAD_ID).findFirst().orElse(null);
-                var fireTitanDead = Rs2Npc.getNpcs(FIRE_TITAN_DEAD_ID).findFirst().orElse(null);
-                var iceTitan = Rs2Npc.getNpcs(ICE_TITAN_ID).findFirst().orElse(null);
-                var fireTitan = Rs2Npc.getNpcs(FIRE_TITAN_ID).findFirst().orElse(null);
+                var iceTitanDead = Microbot.getRs2NpcCache().query().withId(ICE_TITAN_DEAD_ID).nearest();
+                var fireTitanDead = Microbot.getRs2NpcCache().query().withId(FIRE_TITAN_DEAD_ID).nearest();
+                var iceTitan = Microbot.getRs2NpcCache().query().withId(ICE_TITAN_ID).nearest();
+                var fireTitan = Microbot.getRs2NpcCache().query().withId(FIRE_TITAN_ID).nearest();
                 boolean looted = false;
                 // Only loot when the giants are dead to not obstruct the fight
-                if (iceTitan != null && !iceTitan.isDead() || fireTitan != null && !fireTitan.isDead()) {
+                if (iceTitan != null && !iceTitan.getNpc().isDead() || fireTitan != null && !fireTitan.getNpc().isDead()) {
                     return;
                 }
                 // Both titans are dead, ensure prayer is off
@@ -117,10 +116,11 @@ public class RoyalTitansLooterScript extends Script {
         return true;
     }
 
-    private static boolean lootTitan(Rs2NpcModel iceTitanDead) {
-        Rs2Npc.interact(iceTitanDead, "Loot");
+    private static boolean lootTitan(Rs2NpcModel titanDead) {
+        if (titanDead == null) return false;
+        titanDead.click("Loot");
         sleepUntil(() -> !Rs2Player.isMoving(), 3200);
-        var looted = Rs2Npc.interact(iceTitanDead, "Loot");
+        var looted = titanDead.click("Loot");
         Rs2Player.waitForAnimation(1800);
         return looted;
     }

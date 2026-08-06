@@ -1,8 +1,6 @@
 package net.runelite.client.plugins.microbot.cooking.scripts;
 
 import net.runelite.api.AnimationID;
-import net.runelite.api.NPC;
-import net.runelite.api.TileObject;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.cooking.AutoCookingConfig;
@@ -18,10 +16,11 @@ import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 
 import java.awt.event.KeyEvent;
 import java.util.Objects;
@@ -95,7 +94,12 @@ public class AutoCookingScript extends Script {
                             return;
                         }
 
-                        TileObject cookingObject = Rs2GameObject.findObjectById(location.getCookingObjectID());
+                        Rs2TileObjectModel cookingObject = Microbot.getRs2TileObjectCache().query().withId(location.getCookingObjectID()).nearest();
+                        if (cookingObject == null) {
+                            cookingObject = Microbot.getRs2TileObjectCache().query()
+                                    .where(o -> o.getWorldLocation().equals(location.getCookingObjectWorldPoint()))
+                                    .nearest();
+                        }
 
                         if (cookingObject != null) {
                             if (!Rs2Camera.isTileOnScreen(cookingObject.getLocalLocation())) {
@@ -147,13 +151,17 @@ public class AutoCookingScript extends Script {
                         break;
                     case BANKING:
                         if (location == CookingLocation.ROUGES_DEN) {
-                            NPC npc = Rs2Npc.getBankerNPC();
+                            Rs2NpcModel npc = Microbot.getRs2NpcCache().query()
+                                    .where(n -> n.getName() != null && n.getNpc() != null && n.getNpc().getComposition() != null
+                                            && n.getNpc().getComposition().getActions() != null
+                                            && java.util.Arrays.asList(n.getNpc().getComposition().getActions()).contains("Bank"))
+                                    .nearest();
                             if (npc == null) return;
-                            boolean isNPCBankOpen = Rs2Bank.openBank(npc);
+                            boolean isNPCBankOpen = Rs2Bank.openBank(npc.getNpc());
                             if (!isNPCBankOpen) return;
                             sleepUntil(() -> !Rs2Player.isMoving());
                         } else {
-                            TileObject nearbyBankObject = Rs2GameObject.findBank(20);
+                            net.runelite.api.TileObject nearbyBankObject = Rs2GameObject.findBank(20);
                             if (nearbyBankObject != null) {
                                 int distanceToBank = Rs2Player.getWorldLocation().distanceTo(nearbyBankObject.getWorldLocation());
                                 boolean isBankOpen = Rs2Bank.openBank(nearbyBankObject);

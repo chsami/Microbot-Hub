@@ -8,7 +8,6 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -69,7 +68,7 @@ public class BlessedWineScript extends Script {
 
                 case BLESS_AT_ALTAR:
                     BlessedWinePlugin.status = "Blessing wine at altar...";
-                    Rs2GameObject.interact(52799, "Bless");
+                    Microbot.getRs2TileObjectCache().query().interact(52799, "Bless");
                     Rs2Inventory.waitForInventoryChanges(1200);
                     if (!Rs2Inventory.hasItem(BLESSED_WINE)) return;
                     state = BlessedWineState.WALK_TO_BOWL;
@@ -85,7 +84,7 @@ public class BlessedWineScript extends Script {
 
                 case USE_LIBATION_BOWL:
                     BlessedWinePlugin.status = "Using Libation Bowl...";
-                    Rs2GameObject.interact(53018, "Fill");
+                    Microbot.getRs2TileObjectCache().query().interact(53018, "Fill");
                     if (currentPrayerPoints > 2 && !Rs2Player.isAnimating()) return;
                     if (currentPrayerPoints < 2 && !Rs2Player.isAnimating()) {
                         state = BlessedWineState.WALK_TO_SHRINE;
@@ -105,7 +104,7 @@ public class BlessedWineScript extends Script {
 
                 case RESTORE_PRAYER:
                     BlessedWinePlugin.status = "Restoring prayer...";
-                    Rs2GameObject.interact(52405, "Bask");
+                    Microbot.getRs2TileObjectCache().query().interact(52405, "Bask");
                     Rs2Player.waitForAnimation(5000);
                     if (currentPrayerPoints != maxPrayerLevel) return;
                     if (!Rs2Inventory.hasItem(BLESSED_WINE)) {

@@ -25,7 +25,7 @@ import java.awt.*;
 @Slf4j
 public class ShadesKillerPlugin extends Plugin {
 
-    public final static String version = "1.0.1";
+    public final static String version = "1.0.2";
     @Inject
     private ShadesKillerConfig config;
     @Provides

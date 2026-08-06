@@ -10,11 +10,13 @@ import javax.inject.Inject;
 import java.awt.*;
 
 public class HouseThievingOverlay extends OverlayPanel {
+    private final HouseThievingPlugin plugin;
     private final HouseThievingConfig config;
 
     @Inject
     HouseThievingOverlay(HouseThievingPlugin plugin, HouseThievingConfig config) {
         super(plugin);
+        this.plugin = plugin;
         this.config = config;
         setPosition(OverlayPosition.TOP_LEFT);
         setNaughty();
@@ -36,7 +38,7 @@ public class HouseThievingOverlay extends OverlayPanel {
                     .build());
 
             panelComponent.getChildren().add(LineComponent.builder()
-                    .left("State: " + HouseThievingScript.state)
+                    .left("State: " + (plugin.houseThievingScript != null ? plugin.houseThievingScript.state : "N/A"))
                     .build());
 
         } catch (Exception ex) {

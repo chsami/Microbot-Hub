@@ -66,38 +66,34 @@ public class FletchingHandler {
      */
     private static int getWidgetHotkey(int childId) {
         try {
-            // Calculate the hotkey index based on child ID
             int hotkeyIndex = getHotkeyIndex(childId);
             if (hotkeyIndex == -1) {
-                return -1; // No hotkey mapping
+                return -1;
             }
 
-            // Check widget text at 270,13[hotkeyIndex]
-            Widget hotkeyWidget = Rs2Widget.getWidget(FLETCHING_INTERFACE_WIDGET_ID, HOTKEY_TEXT_WIDGET_ID);
-            if (hotkeyWidget != null && hotkeyWidget.getChildren() != null && 
-                hotkeyIndex < hotkeyWidget.getChildren().length) {
-                
-                Widget specificHotkeyWidget = hotkeyWidget.getChild(hotkeyIndex);
-                if (specificHotkeyWidget != null) {
-                    String hotkeyText = specificHotkeyWidget.getText();
-                    if (hotkeyText != null) {
-                        hotkeyText = hotkeyText.replaceAll("<[^>]*>", "").trim(); // Remove HTML tags
-                        
-                        // Check if it's "Space"
-                        if (hotkeyText.equalsIgnoreCase("Space")) {
-                            return KeyEvent.VK_SPACE;
-                        }
-                        
-                        // Check if it's a number
-                        if (hotkeyText.matches("\\d")) {
-                            int number = Integer.parseInt(hotkeyText);
-                            return number;
-                        }
+            final int idx = hotkeyIndex;
+            String hotkeyText = Microbot.getClientThread().invoke(() -> {
+                Widget hotkeyWidget = Rs2Widget.getWidget(FLETCHING_INTERFACE_WIDGET_ID, HOTKEY_TEXT_WIDGET_ID);
+                if (hotkeyWidget != null && hotkeyWidget.getChildren() != null &&
+                    idx < hotkeyWidget.getChildren().length) {
+                    Widget specificHotkeyWidget = hotkeyWidget.getChild(idx);
+                    if (specificHotkeyWidget != null) {
+                        return specificHotkeyWidget.getText();
                     }
+                }
+                return null;
+            });
+
+            if (hotkeyText != null) {
+                hotkeyText = hotkeyText.replaceAll("<[^>]*>", "").trim();
+                if (hotkeyText.equalsIgnoreCase("Space")) {
+                    return KeyEvent.VK_SPACE;
+                }
+                if (hotkeyText.matches("\\d")) {
+                    return Integer.parseInt(hotkeyText);
                 }
             }
 
-            // Fallback to default number key based on position
             return getDefaultNumberKey(hotkeyIndex);
 
         } catch (Exception e) {
@@ -255,19 +251,27 @@ public class FletchingHandler {
                 interactWithWidget(QUANTITY_ALL_CHILD_ID, "all bows");
                 Microbot.log("Selected all bows");
             } else {
-                // For custom quantities, check if the "Other" option is already set correctly
-                Widget otherQuantityWidget = Rs2Widget.getWidget(FLETCHING_INTERFACE_WIDGET_ID, QUANTITY_OTHER_CHILD_ID);
-                if (otherQuantityWidget != null) {
+                String[] widgetInfo = Microbot.getClientThread().invoke(() -> {
+                    Widget otherQuantityWidget = Rs2Widget.getWidget(FLETCHING_INTERFACE_WIDGET_ID, QUANTITY_OTHER_CHILD_ID);
+                    if (otherQuantityWidget == null) return null;
                     Widget textWidget = otherQuantityWidget.getChild(9);
-                    if (textWidget != null) {
-                        String currentQuantity = textWidget.getText().replaceAll("<[^>]*>", "");
-                        if (Integer.parseInt(currentQuantity) == quantity || otherQuantityWidget.getActions() != null) {
-                            if (otherQuantityWidget.getActions() != null) {
+                    String text = textWidget != null ? textWidget.getText() : null;
+                    boolean hasActions = otherQuantityWidget.getActions() != null;
+                    return new String[]{ text, String.valueOf(hasActions) };
+                });
+
+                if (widgetInfo != null) {
+                    String currentText = widgetInfo[0];
+                    boolean hasActions = Boolean.parseBoolean(widgetInfo[1]);
+
+                    if (currentText != null) {
+                        String currentQuantity = currentText.replaceAll("<[^>]*>", "");
+                        if (Integer.parseInt(currentQuantity) == quantity || hasActions) {
+                            if (hasActions) {
                                 interactWithWidget(QUANTITY_OTHER_CHILD_ID, "other quantity");
                             }
                             Microbot.log("Selected other quantity");
                         } else {
-                            // If the quantity is not what we want, click "X", type the new quantity, and press enter
                             interactWithWidget(QUANTITY_X_CHILD_ID, "X");
                             sleepUntil(() -> Rs2Widget.getChildWidgetText(162, 42).contains("Enter amount"), 2000);
                             sleepGaussian(200,100);
@@ -277,7 +281,6 @@ public class FletchingHandler {
                             Microbot.log("Selected other quantity1");
                         }
                     } else {
-                        // If the quantity is null, click "X", type the new quantity, and press enter
                         interactWithWidget(QUANTITY_X_CHILD_ID, "X");
                         sleepUntil(() -> Rs2Widget.getChildWidgetText(162, 42).contains("Enter amount"), 2000);
                         sleepGaussian(200,100);
@@ -292,19 +295,20 @@ public class FletchingHandler {
             }
 
             sleepGaussian(300,100);
-            
-            // Click the configured bow option using the mapper
-            if (config != null) {
-                int bowChildId = FletchingItemMapper.getFletchingInterfaceChildId(config.logType(), config.bowType());
-                String description = FletchingItemMapper.getFletchingDescriptionWithShortcut(config.logType(), config.bowType());
-                interactWithWidget(bowChildId, description);
-                Microbot.log("Selected " + FletchingItemMapper.getFletchingDescription(config.logType(), config.bowType()));
-            } else {
-                // Fallback to yew longbow
-                interactWithWidget(16, "Yew Longbow (u) (expected key: 3)");
-                Microbot.log("Selected Yew Longbow (u) - fallback");
+
+            // Select the configured bow option by name — resolves the correct hotkey dynamically
+            // against the actual fletching interface layout, instead of assuming fixed child IDs.
+            // The previous child-ID scheme mapped SHORTBOW → child 15 with hotkey-index 1, but the
+            // sparse dynamic-children layout of widget 270,13 in skillmulti could produce "3" at
+            // that slot for some log types, so shortbow-selected was pressing the longbow key.
+            String bowAction = (config != null && config.bowType() == ValeTotemConfig.BowType.SHORTBOW)
+                    ? "shortbow" : "longbow";
+            if (!Rs2Widget.handleProcessingInterface(bowAction)) {
+                Microbot.log("Failed to select " + bowAction + " from fletching interface");
+                return false;
             }
-            
+            Microbot.log("Selected " + bowAction);
+
             sleepGaussian(200,100);
 
             return true;

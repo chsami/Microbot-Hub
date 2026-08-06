@@ -27,7 +27,7 @@ import javax.inject.Inject;
 )
 @Slf4j
 public class ChaosAltarPlugin extends Plugin  {
-    final static String version = "1.1.0";
+    final static String version = "1.1.1";
     @Inject
     private ChaosAltarScript chaosAltarScript;
     @Inject

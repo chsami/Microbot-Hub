@@ -1,0 +1,478 @@
+package net.runelite.client.plugins.microbot.leftclickcast;
+
+import com.google.inject.Provides;
+import java.util.concurrent.CompletableFuture;
+import javax.inject.Inject;
+import net.runelite.api.Actor;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.Client;
+import net.runelite.api.EnumComposition;
+import net.runelite.api.EnumID;
+import net.runelite.api.MenuAction;
+import net.runelite.api.MenuEntry;
+import net.runelite.api.Menu;
+import net.runelite.api.NPC;
+import net.runelite.api.ParamID;
+import net.runelite.api.Player;
+import net.runelite.api.StructComposition;
+import net.runelite.api.events.PostMenuSort;
+import net.runelite.api.gameval.VarbitID;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.chat.QueuedMessage;
+import net.runelite.client.config.ConfigManager;
+import net.runelite.client.config.Keybind;
+import net.runelite.client.eventbus.EventBus;
+import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.ExternalPluginsChanged;
+import net.runelite.client.input.KeyManager;
+import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.api.widgets.Widget;
+import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
+import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
+import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
+import net.runelite.client.util.HotkeyListener;
+
+@PluginDescriptor(
+	name = PluginConstants.PERT + "Left-Click Cast",
+	description = "Replaces left-click Attack on NPCs with a preconfigured Cast Spell action.",
+	tags = {"magic", "combat", "spell", "left-click", "cast", "pvm", "pvp"},
+	authors = {"Pert"},
+	version = LeftClickCastPlugin.version,
+	minClientVersion = "2.0.13",
+	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+	isExternal = PluginConstants.IS_EXTERNAL
+)
+public class LeftClickCastPlugin extends Plugin
+{
+	static final String version = "1.3.2";
+
+	private static final int SLOT_COUNT = 5;
+
+	@Inject
+	private Client client;
+
+	@Inject
+	private LeftClickCastConfig config;
+
+	@Inject
+	private KeyManager keyManager;
+
+	@Inject
+	private ChatMessageManager chatMessageManager;
+
+	@Inject
+	private ConfigManager configManager;
+
+	@Inject
+	private EventBus eventBus;
+
+	private volatile int activeSlot = 0;
+
+	private final HotkeyListener[] hotkeyListeners = new HotkeyListener[SLOT_COUNT];
+
+	private HotkeyListener enabledToggleListener;
+
+	@Provides
+	LeftClickCastConfig provideConfig(ConfigManager configManager)
+	{
+		return configManager.getConfig(LeftClickCastConfig.class);
+	}
+
+	@Override
+	protected void startUp()
+	{
+		// MicrobotConfigPanel renders boolean checkboxes from raw stored values; missing keys read as false
+		// even when the @ConfigItem default is true. Materialize defaults so the UI and the proxy agree.
+		configManager.setDefaultConfiguration(config, false);
+		activeSlot = 0;
+		for (int i = 0; i < SLOT_COUNT; i++)
+		{
+			final int slotIndex = i;
+			HotkeyListener listener = new HotkeyListener(() -> slotHotkeyFor(slotIndex))
+			{
+				@Override
+				public void hotkeyPressed()
+				{
+					onSlotHotkey(slotIndex);
+				}
+			};
+			hotkeyListeners[i] = listener;
+			keyManager.registerKeyListener(listener);
+		}
+		enabledToggleListener = new HotkeyListener(() -> config.enabledToggleHotkey())
+		{
+			@Override
+			public void hotkeyPressed()
+			{
+				onEnabledToggleHotkey();
+			}
+		};
+		keyManager.registerKeyListener(enabledToggleListener);
+		migrateLegacySpellKey();
+		syncTopSpellToActiveSlot();
+	}
+
+	@Override
+	protected void shutDown()
+	{
+		for (int i = 0; i < hotkeyListeners.length; i++)
+		{
+			HotkeyListener listener = hotkeyListeners[i];
+			if (listener != null)
+			{
+				keyManager.unregisterKeyListener(listener);
+				hotkeyListeners[i] = null;
+			}
+		}
+		if (enabledToggleListener != null)
+		{
+			keyManager.unregisterKeyListener(enabledToggleListener);
+			enabledToggleListener = null;
+		}
+	}
+
+	@Subscribe
+	public void onPostMenuSort(PostMenuSort event)
+	{
+		// Don't mutate while the right-click menu is open — entries are frozen at open-time.
+		if (client.isMenuOpen())
+		{
+			return;
+		}
+		if (!config.enabled())
+		{
+			return;
+		}
+		PertTargetSpell spell = slotSpellFor(activeSlot);
+		if (spell == null)
+		{
+			return;
+		}
+		if (config.requireMagicWeapon() && !isMagicWeaponEquipped())
+		{
+			return;
+		}
+
+		Menu menu = client.getMenu();
+		MenuEntry[] entries = menu.getMenuEntries();
+
+		// Find the top-most NPC or Player Attack entry (the game's already-sorted left-click candidate).
+		int attackIdx = -1;
+		Actor targetActor = null;
+		for (int i = entries.length - 1; i >= 0; i--)
+		{
+			MenuEntry e = entries[i];
+			if (!"Attack".equals(e.getOption()))
+			{
+				continue;
+			}
+			if (e.getNpc() != null)
+			{
+				attackIdx = i;
+				targetActor = e.getNpc();
+				break;
+			}
+			if (e.getPlayer() != null)
+			{
+				attackIdx = i;
+				targetActor = e.getPlayer();
+				break;
+			}
+		}
+		if (attackIdx < 0)
+		{
+			return;
+		}
+
+		MenuEntry attack = entries[attackIdx];
+		final Actor dispatchTarget = targetActor;
+		final PertTargetSpell dispatchSpell = spell;
+
+		// Append a new RUNELITE-type "Cast X" entry at the tail. The tail is the left-click action in
+		// RuneLite's menu model, so Cast becomes left-click while the original Attack entry stays in the
+		// list — preserving right-click "Attack" access. Identifier/param0/param1/worldViewId are copied
+		// from the original so target highlighting behaves the same as a real Attack hover.
+		MenuEntry cast = menu.createMenuEntry(-1)
+			.setOption("Cast " + dispatchSpell.getDisplayName())
+			.setTarget(attack.getTarget())
+			.setType(MenuAction.RUNELITE)
+			.setIdentifier(attack.getIdentifier())
+			.setParam0(attack.getParam0())
+			.setParam1(attack.getParam1())
+			.onClick(e -> castOnTargetFast(dispatchSpell, dispatchTarget));
+		cast.setWorldViewId(attack.getWorldViewId());
+	}
+
+	private Keybind slotHotkeyFor(int index)
+	{
+		switch (index)
+		{
+			case 0:
+				return config.slot1Hotkey();
+			case 1:
+				return config.slot2Hotkey();
+			case 2:
+				return config.slot3Hotkey();
+			case 3:
+				return config.slot4Hotkey();
+			case 4:
+				return config.slot5Hotkey();
+			default:
+				return Keybind.NOT_SET;
+		}
+	}
+
+	private PertTargetSpell slotSpellFor(int index)
+	{
+		switch (index)
+		{
+			case 0:
+				return config.slot1Spell();
+			case 1:
+				return config.slot2Spell();
+			case 2:
+				return config.slot3Spell();
+			case 3:
+				return config.slot4Spell();
+			case 4:
+				return config.slot5Spell();
+			default:
+				return config.slot1Spell();
+		}
+	}
+
+	private static String slotSpellKeyFor(int index)
+	{
+		switch (index)
+		{
+			case 0:
+				return "slot1Spell";
+			case 1:
+				return "slot2Spell";
+			case 2:
+				return "slot3Spell";
+			case 3:
+				return "slot4Spell";
+			case 4:
+				return "slot5Spell";
+			default:
+				return "slot1Spell";
+		}
+	}
+
+	private static int slotIndexForKey(String key)
+	{
+		switch (key)
+		{
+			case "slot1Spell":
+				return 0;
+			case "slot2Spell":
+				return 1;
+			case "slot3Spell":
+				return 2;
+			case "slot4Spell":
+				return 3;
+			case "slot5Spell":
+				return 4;
+			default:
+				return -1;
+		}
+	}
+
+	private void onSlotHotkey(int index)
+	{
+		activeSlot = index;
+		PertTargetSpell spell = slotSpellFor(index);
+		if (spell != null && config.spell() != spell)
+		{
+			configManager.setConfiguration("leftclickcast", "spell", spell);
+			// MicrobotConfigPanel doesn't refresh individual widgets on ConfigChanged — force a rebuild
+			// so the top dropdown visibly matches the newly active slot.
+			eventBus.post(new ExternalPluginsChanged());
+		}
+		if (config.chatFeedback())
+		{
+			String display = spell != null ? spell.getDisplayName() : "(no spell)";
+			chatMessageManager.queue(QueuedMessage.builder()
+				.type(ChatMessageType.GAMEMESSAGE)
+				.value("Left-Click Cast: now casting " + display)
+				.build());
+		}
+	}
+
+	private void onEnabledToggleHotkey()
+	{
+		boolean newValue = !config.enabled();
+		configManager.setConfiguration("leftclickcast", "enabled", newValue);
+		// MicrobotConfigPanel doesn't subscribe to ConfigChanged for individual checkbox refresh, but it does
+		// rebuild on ExternalPluginsChanged. Posting that here makes the open config panel re-read this and
+		// every other config item, so the "Enabled" checkbox visually flips to match the keybind toggle.
+		eventBus.post(new ExternalPluginsChanged());
+		// Chat feedback is emitted by onConfigChanged so checkbox clicks and hotkey presses share one path.
+	}
+
+	@Subscribe
+	public void onConfigChanged(ConfigChanged event)
+	{
+		if (!"leftclickcast".equals(event.getGroup()))
+		{
+			return;
+		}
+		String key = event.getKey();
+		if ("enabled".equals(key))
+		{
+			if (!config.chatFeedback())
+			{
+				return;
+			}
+			boolean enabled = "true".equals(event.getNewValue());
+			chatMessageManager.queue(QueuedMessage.builder()
+				.type(ChatMessageType.GAMEMESSAGE)
+				.value("Left-Click Cast: " + (enabled ? "enabled" : "disabled"))
+				.build());
+			return;
+		}
+		if ("spell".equals(key))
+		{
+			// User edited the top dropdown — mirror the value into the currently active slot's config.
+			// The equality guard stops the ConfigChanged→write→ConfigChanged loop.
+			PertTargetSpell newSpell = config.spell();
+			PertTargetSpell activeSpell = slotSpellFor(activeSlot);
+			if (newSpell != null && newSpell != activeSpell)
+			{
+				configManager.setConfiguration("leftclickcast", slotSpellKeyFor(activeSlot), newSpell);
+				eventBus.post(new ExternalPluginsChanged());
+			}
+			return;
+		}
+		int slot = slotIndexForKey(key);
+		if (slot == activeSlot && slot >= 0)
+		{
+			// User edited the spell for the currently active slot — mirror into the top dropdown.
+			PertTargetSpell newSpell = slotSpellFor(slot);
+			if (newSpell != null && newSpell != config.spell())
+			{
+				configManager.setConfiguration("leftclickcast", "spell", newSpell);
+				eventBus.post(new ExternalPluginsChanged());
+			}
+		}
+	}
+
+	private void syncTopSpellToActiveSlot()
+	{
+		PertTargetSpell active = slotSpellFor(activeSlot);
+		if (active != null && config.spell() != active)
+		{
+			configManager.setConfiguration("leftclickcast", "spell", active);
+		}
+	}
+
+	// Fast-path cast: fire two synchronous client.menuAction packets back-to-back so the server processes
+	// the spell selection and the spell-on-target dispatch on the same game tick. Falls back to
+	// Rs2Magic.castOn (tab switch + sleeps + clicks) if the spellbook widget isn't loaded yet or the
+	// spell isn't on the current spellbook.
+	private void castOnTargetFast(PertTargetSpell spell, Actor target)
+	{
+		if (target == null)
+		{
+			return;
+		}
+		MagicAction magic = spell.getMagicAction();
+		Widget magicRoot = client.getWidget(218, 0);
+		boolean widgetReady = magicRoot != null && magicRoot.getStaticChildren() != null;
+		if (widgetReady)
+		{
+			try
+			{
+				int spellWidgetId = magic.getWidgetId();
+				// Packet 1: select the spell client-side (WIDGET_TARGET on the spell widget).
+				client.menuAction(-1, spellWidgetId, MenuAction.WIDGET_TARGET, 1, -1, "Cast", magic.getName());
+				// Packet 2: dispatch the selected spell on the target, same tick.
+				if (target instanceof NPC)
+				{
+					NPC npc = (NPC) target;
+					client.menuAction(0, 0, MenuAction.WIDGET_TARGET_ON_NPC, npc.getIndex(), -1, "Use", npc.getName());
+				}
+				else if (target instanceof Player)
+				{
+					Player p = (Player) target;
+					client.menuAction(0, 0, MenuAction.WIDGET_TARGET_ON_PLAYER, p.getId(), -1, "Use", p.getName());
+				}
+				return;
+			}
+			catch (Exception ignored)
+			{
+				// Spell not on the active spellbook (e.g., modern while on ancients) — fall through.
+			}
+		}
+		else
+		{
+			// Spellbook widget not yet loaded this session; nudge it open so the next click is fast.
+			Rs2Tab.switchTo(InterfaceTab.MAGIC);
+		}
+		// Slow fallback path. Rs2Magic.castOn uses sleepUntil which is a no-op on the client thread, so dispatch async.
+		final Actor dispatch = target instanceof NPC ? new Rs2NpcModel((NPC) target) : target;
+		CompletableFuture.runAsync(() -> Rs2Magic.castOn(magic, dispatch));
+	}
+
+	// Best-effort: if the user had previously set the legacy `spell` key to a non-default value and
+	// slot1Spell is still at its default, copy the legacy value into slot1Spell so existing configs keep working.
+	private void migrateLegacySpellKey()
+	{
+		try
+		{
+			PertTargetSpell legacy = configManager.getConfiguration(
+				"leftclickcast", "spell", PertTargetSpell.class);
+			if (legacy == null || legacy == PertTargetSpell.FIRE_STRIKE)
+			{
+				return;
+			}
+			if (config.slot1Spell() != PertTargetSpell.FIRE_STRIKE)
+			{
+				return;
+			}
+			configManager.setConfiguration("leftclickcast", "slot1Spell", legacy);
+		}
+		catch (Exception ignored)
+		{
+			// Migration is best-effort; ignore any deserialization or storage errors.
+		}
+	}
+
+	// A weapon counts as "magic" when its style struct exposes Casting or Defensive Casting.
+	// Mirrors the core AttackStylesPlugin logic (EnumID.WEAPON_STYLES + ParamID.ATTACK_STYLE_NAME).
+	private boolean isMagicWeaponEquipped()
+	{
+		int weaponType = client.getVarbitValue(VarbitID.COMBAT_WEAPON_CATEGORY);
+		EnumComposition weaponStyles = client.getEnum(EnumID.WEAPON_STYLES);
+		if (weaponStyles == null)
+		{
+			return false;
+		}
+		int styleEnumId = weaponStyles.getIntValue(weaponType);
+		if (styleEnumId == -1)
+		{
+			return false;
+		}
+		int[] styleStructs = client.getEnum(styleEnumId).getIntVals();
+		for (int structId : styleStructs)
+		{
+			StructComposition sc = client.getStructComposition(structId);
+			if (sc == null)
+			{
+				continue;
+			}
+			String name = sc.getStringValue(ParamID.ATTACK_STYLE_NAME);
+			if ("Casting".equalsIgnoreCase(name) || "Defensive Casting".equalsIgnoreCase(name))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+}

@@ -3,7 +3,6 @@ package net.runelite.client.plugins.microbot.astralrc;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
-import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -14,7 +13,6 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.*;
@@ -167,9 +165,9 @@ public class AstralRunesScript extends Script {
 
                             switchInventoryTabIfNeeded();
                             var bankTileLoc = !dreamMentorComplete ? SEAL_OF_PASSAGE_BANKER : DREAM_MENTOR_BANKER;
-                            TileObject bankTile = Rs2GameObject.getGameObject(bankTileLoc);
+                            var bankTileModel = Microbot.getRs2TileObjectCache().query().within(bankTileLoc, 0).nearest();
                             Rs2Walker.walkFastCanvas(LUNAR_ISLE_BANK_WORLD_POINT);
-                            if( bankTile != null && !Rs2Bank.isOpen() ) {
+                            if( bankTileModel != null && !Rs2Bank.isOpen() ) {
                                 Rs2Bank.openBank();
                                 updateRuneStates();
                                 if( Rs2Inventory.hasItem(runeItemId) ) {
@@ -177,7 +175,7 @@ public class AstralRunesScript extends Script {
                                 }
                             } else if( Rs2Player.distanceTo(bankTileLoc) > 2 ) {
                                 Rs2Walker.walkFastCanvas(bankTileLoc);
-                            } else if( bankTile == null ) {
+                            } else if( bankTileModel == null ) {
                                 Rs2Bank.openBank();
                             }
                             return;
@@ -378,9 +376,7 @@ public class AstralRunesScript extends Script {
     }
 
     private static boolean openLunarBank() {
-        var bankTileLoc = !(Rs2Player.getQuestState(Quest.DREAM_MENTOR) == QuestState.FINISHED) ? SEAL_OF_PASSAGE_BANKER : DREAM_MENTOR_BANKER;
-        TileObject bankTile = Rs2GameObject.getGameObject(bankTileLoc);
-        Rs2Bank.openBank(bankTile);
+        Rs2Bank.openBank();
         sleepUntil(Rs2Bank::isOpen);
         return Rs2Bank.isOpen();
     }
@@ -389,9 +385,9 @@ public class AstralRunesScript extends Script {
     private void setSpellbookLunarAltar() {
         if( isLunarIsleRegion() ) {
             Rs2Walker.walkTo(ASTRAL_ALTAR_WORLD_POINT);
-            var altarGameObject = Rs2GameObject.getGameObject(ASTRAL_ALTAR_ID);
-            if( altarGameObject != null ) {
-                Rs2GameObject.interact(altarGameObject, "Pray");
+            var altarModel = Microbot.getRs2TileObjectCache().query().withId(ASTRAL_ALTAR_ID).nearest();
+            if( altarModel != null ) {
+                altarModel.click("Pray");
                 sleepUntil(this::isLunar);
                 Rs2Random.wait(400, 800);
                 canCastMoonclanTeleport = Rs2Spells.MOONCLAN_TELEPORT.hasRequirements() && Rs2Magic.hasRequiredRunes(Rs2Spells.MOONCLAN_TELEPORT);
@@ -400,10 +396,10 @@ public class AstralRunesScript extends Script {
     }
 
     private static void doAltarCraft() {
-        TileObject altarTile = Rs2GameObject.getGameObject(ASTRAL_ALTAR_WORLD_POINT);
-        if( altarTile != null && Rs2Player.getWorldLocation().distanceTo(ASTRAL_ALTAR_WORLD_POINT) < 5) {
+        var altarModel = Microbot.getRs2TileObjectCache().query().within(ASTRAL_ALTAR_WORLD_POINT, 0).nearest();
+        if( altarModel != null && Rs2Player.getWorldLocation().distanceTo(ASTRAL_ALTAR_WORLD_POINT) < 5) {
             if( Rs2Inventory.hasItem(ItemID.BLANKRUNE_HIGH) ) {
-                Rs2GameObject.interact(altarTile);
+                altarModel.click();
                 Rs2Inventory.waitForInventoryChanges(800);
             }
             if( !Rs2Inventory.allPouchesEmpty() ) {
