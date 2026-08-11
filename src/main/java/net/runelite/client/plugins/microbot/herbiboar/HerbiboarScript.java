@@ -527,7 +527,7 @@ public class HerbiboarScript extends Script {
                             Microbot.status = "Disabling auto retaliate...";
                             Rs2Tab.switchTo(InterfaceTab.COMBAT);
                             sleepUntil(() -> Rs2Tab.getCurrentTab() == InterfaceTab.COMBAT, 2000);
-                            Rs2Widget.clickWidget(38862879);
+                            Rs2Widget.clickWidget(38862880);
                             sleepUntil(() -> Microbot.getVarbitPlayerValue(172) == 1, 3000);
                         }
                         setState(HerbiboarState.START);
