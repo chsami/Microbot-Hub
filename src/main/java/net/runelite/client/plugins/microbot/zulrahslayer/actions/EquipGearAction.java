@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.zulrah.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
@@ -44,11 +44,15 @@ public class EquipGearAction implements ZulrahAction {
         if (setup == null || setup.doesEquipmentMatch()) {
             return false;
         }
-        // Equip only on a tick where no walk/attack click is issued, so the two menu actions don't
-        // collide (which drops the walk). Attacks are now held until the gear is ready (see
-        // ZulrahHelpers.gearReady), so while a swap is in progress the ONLY competing click is the
-        // walk to the tile — and that fires only when we're off the tile and stopped. So it's free to
-        // equip whenever we're on the tile or already gliding toward it.
+        return canEquipWithoutClickCollision(ctx);
+    }
+
+    /**
+     * Only equip on a tick where the movement/combat action will NOT issue a click, so the two menu
+     * actions don't collide (which would drop the walk): while auto-running to the tile (already moving)
+     * or while parked on it.
+     */
+    private static boolean canEquipWithoutClickCollision(FightContext ctx) {
         return ZulrahHelpers.atTargetTile(ctx) || Rs2Player.isMoving();
     }
 

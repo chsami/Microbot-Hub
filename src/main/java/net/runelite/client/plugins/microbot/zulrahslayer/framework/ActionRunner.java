@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.framework;
 
 import lombok.extern.slf4j.Slf4j;
 

@@ -1,14 +1,15 @@
-package net.runelite.client.plugins.custom.zulrah.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.plugins.custom.zulrah.ZulrahConfig;
+import net.runelite.client.plugins.microbot.zulrahslayer.ZulrahConfig;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
+import net.runelite.client.plugins.microbot.zulrahslayer.ZulrahScript;
 
 import javax.inject.Inject;
 
 /**
  * After Zulrah dies, pick up the kill's drops. Only runs between fights (no active phase) while the
- * loot flag armed by {@link net.runelite.client.plugins.custom.zulrah.ZulrahScript#onZulrahDeath()}
+ * loot flag armed by {@link ZulrahScript#onZulrahDeath()}
  * is set. Loots one ground item per tick via {@link Rs2GroundItem#lootAllItemBasedOnValue}; a
  * deadline (extended on each pickup) covers the delay before the drop spawns and stops us shortly
  * after the last item, so we don't idle forever if nothing is there.
@@ -44,8 +45,7 @@ public class LootAction implements ZulrahAction {
     @Override
     public boolean needsExecution(ZulrahState state) {
         FightContext ctx = state.context();
-        // Only between fights: once the next Zulrah surfaces (phase set) combat takes over.
-        return ctx.isLootPending() && ctx.getPhase() == null;
+        return ctx.isLootPending() && betweenFights(ctx);
     }
 
     @Override
@@ -58,21 +58,31 @@ public class LootAction implements ZulrahAction {
             ctx.setLootDeadlineMs(now + LOOT_EXTEND_MS);
             return "looting";
         }
-        // Nothing to loot this tick: wait out the grace window (drop may not have spawned yet), then
-        // stop. A full inventory also lands here, so we don't spin once we can't pick anything up.
-        if (now >= ctx.getLootDeadlineMs()) {
+        if (lootWindowExpired(ctx, now)) {
             ctx.setLootPending(false);
-            // Read the toggle LIVE (not a start-up snapshot) so flipping it in the config panel takes
-            // effect without restarting, and so a stale/false snapshot can never silently swallow the
-            // hand-off. When enabled, arm the between-kills bank-and-travel routine (ReturnToZulrahAction).
             boolean restock = config.restockBetweenKills();
             log.info("Loot pickup complete. Restock between kills is {}.", restock ? "ON — arming resupply" : "OFF");
             if (restock) {
-                ctx.setPrepSkipBank(false); // between-kills restock is always the full bank + travel trip
-                ctx.setPrepPending(true);
+                armRestockTrip(ctx);
             }
             return "done";
         }
         return "waiting";
+    }
+
+    /** No phase active — once the next Zulrah surfaces (phase set) combat takes over. */
+    private static boolean betweenFights(FightContext ctx) {
+        return ctx.getPhase() == null;
+    }
+
+    /** The grace window has elapsed with nothing left to pick up (a full inventory also lands here). */
+    private static boolean lootWindowExpired(FightContext ctx, long now) {
+        return now >= ctx.getLootDeadlineMs();
+    }
+
+    /** Hand off to the full bank + travel restock routine (ReturnToZulrahAction). */
+    private static void armRestockTrip(FightContext ctx) {
+        ctx.setPrepSkipBank(false);
+        ctx.setPrepPending(true);
     }
 }

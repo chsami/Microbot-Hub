@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.zulrah.constants;
+package net.runelite.client.plugins.microbot.zulrahslayer.constants;
 
 /**
  * When (if ever) a phase spews venom cloud barrages, relative to its attacks. Drives the venom

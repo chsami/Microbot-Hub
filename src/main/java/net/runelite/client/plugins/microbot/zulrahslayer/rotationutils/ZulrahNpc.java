@@ -1,9 +1,9 @@
-package net.runelite.client.plugins.custom.zulrah.rotationutils;
+package net.runelite.client.plugins.microbot.zulrahslayer.rotationutils;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.runelite.api.NPC;
-import net.runelite.client.plugins.custom.zulrah.constants.ZulrahType;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.ZulrahType;
 
 import java.util.Objects;
 

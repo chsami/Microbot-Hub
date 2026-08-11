@@ -1,7 +1,7 @@
-package net.runelite.client.plugins.custom.zulrah.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.plugins.custom.zulrah.rotationutils.ZulrahPhase;
+import net.runelite.client.plugins.microbot.zulrahslayer.rotationutils.ZulrahPhase;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
@@ -32,28 +32,36 @@ public class EnforcePrayersAction implements ZulrahAction {
     public Object execute(ZulrahState state) {
         ZulrahPhase phase = state.context().getPhase();
 
-        // Offensive prayer: keep the correct one up (magic vs the range form).
+        enableOffensivePrayer(phase);
+
+        if (phase.getZulrahNpc().isJad()) {
+            return anchorJadOverhead(state, phase);
+        }
+        enforceOverhead(phase.getAttributes().getPrayer());
+        return "enforced";
+    }
+
+    private static void enableOffensivePrayer(ZulrahPhase phase) {
         Rs2PrayerEnum offensive = ZulrahHelpers.attackWithMagic(phase)
                 ? Rs2Prayer.getBestMagePrayer()
                 : Rs2Prayer.getBestRangePrayer();
         if (offensive != null && !Rs2Prayer.isPrayerActive(offensive)) {
             Rs2Prayer.toggle(offensive, true);
         }
+    }
 
-        // The jad phase flicks its own overhead per attack (handleZulrahAttack). But we must ANCHOR
-        // the correct starting overhead once on entry — otherwise it inherits the previous phase's
-        // prayer and the whole alternation is one step out of phase (every attack lands). After that
-        // one anchor, leave the overhead to the flick.
-        if (phase.getZulrahNpc().isJad()) {
-            log.info("[jad phase]");
-            if (!state.context().isJadStartPrayerSet()) {
-                enforceOverhead(phase.getAttributes().getPrayer());
-                state.context().setJadStartPrayerSet(true);
-            }
-            return "jad-anchored";
+    /**
+     * The jad phase flicks its own overhead per attack (handleZulrahAttack). We anchor the correct
+     * starting overhead once on entry — otherwise it inherits the previous phase's prayer and the whole
+     * alternation is one step out of phase (every attack lands). After that, leave it to the flick.
+     */
+    private Object anchorJadOverhead(ZulrahState state, ZulrahPhase phase) {
+        log.info("[jad phase]");
+        if (!state.context().isJadStartPrayerSet()) {
+            enforceOverhead(phase.getAttributes().getPrayer());
+            state.context().setJadStartPrayerSet(true);
         }
-        enforceOverhead(phase.getAttributes().getPrayer());
-        return "enforced";
+        return "jad-anchored";
     }
 
     private void enforceOverhead(Rs2PrayerEnum wanted) {
@@ -64,7 +72,11 @@ public class EnforcePrayersAction implements ZulrahAction {
             }
             return;
         }
-        // No overhead this phase (e.g. melee): turn off whichever protection prayer is active.
+        disableProtectionOverheads();
+    }
+
+    /** No overhead this phase (e.g. melee): turn off whichever protection prayer is active. */
+    private static void disableProtectionOverheads() {
         if (Rs2Prayer.isPrayerActive(Rs2PrayerEnum.PROTECT_MAGIC)) {
             Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, false);
         }

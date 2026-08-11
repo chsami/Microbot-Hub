@@ -1,7 +1,7 @@
-package net.runelite.client.plugins.custom.zulrah.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
-import net.runelite.client.plugins.custom.actions.ActionState;
-import net.runelite.client.plugins.custom.actions.ScriptState;
+import net.runelite.client.plugins.microbot.zulrahslayer.framework.ActionState;
+import net.runelite.client.plugins.microbot.zulrahslayer.framework.ScriptState;
 
 import java.util.ArrayList;
 import java.util.List;

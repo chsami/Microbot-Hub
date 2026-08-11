@@ -1,14 +1,10 @@
-package net.runelite.client.plugins.custom.zulrah.constants;
+package net.runelite.client.plugins.microbot.zulrahslayer.constants;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Skill;
-import net.runelite.client.plugins.custom.zulrah.ZulrahPlugin;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.awt.*;
-import java.awt.image.BufferedImage;
 
 @Slf4j
 @Getter

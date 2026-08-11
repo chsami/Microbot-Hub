@@ -1,9 +1,9 @@
-package net.runelite.client.plugins.custom.zulrah.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.plugins.custom.zulrah.constants.StandLocation;
-import net.runelite.client.plugins.custom.zulrah.constants.ZulrahType;
-import net.runelite.client.plugins.custom.zulrah.rotationutils.ZulrahPhase;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.StandLocation;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.ZulrahType;
+import net.runelite.client.plugins.microbot.zulrahslayer.rotationutils.ZulrahPhase;
 
 /**
  * Applies a pending phase change (set by the plugin's animation events): sets the stand tile, the
@@ -45,7 +45,6 @@ public class SyncPhaseAction implements ZulrahAction {
             ctx.setMeleeDodgeAtNorth(true);
         }
         ctx.setGearSwapAttempts(0);
-        // Re-anchor the jad starting overhead next time we hit a jad phase.
         ctx.setJadStartPrayerSet(false);
         return phase;
     }

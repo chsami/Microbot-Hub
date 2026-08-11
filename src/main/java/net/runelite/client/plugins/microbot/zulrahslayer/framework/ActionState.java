@@ -1,6 +1,5 @@
-package net.runelite.client.plugins.custom.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.framework;
 
-/** The outcome of one action on one tick: whether it ran and what it returned. */
 public class ActionState {
 
     private final String key;

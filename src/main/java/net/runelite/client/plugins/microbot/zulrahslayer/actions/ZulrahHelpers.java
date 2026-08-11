@@ -1,13 +1,13 @@
-package net.runelite.client.plugins.custom.zulrah.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
 import net.runelite.api.Actor;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.game.ItemStats;
-import net.runelite.client.plugins.custom.zulrah.constants.StandLocation;
-import net.runelite.client.plugins.custom.zulrah.constants.ZulrahType;
-import net.runelite.client.plugins.custom.zulrah.rotationutils.ZulrahPhase;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.StandLocation;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.ZulrahType;
+import net.runelite.client.plugins.microbot.zulrahslayer.rotationutils.ZulrahPhase;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
@@ -23,6 +23,7 @@ final class ZulrahHelpers {
 
     static final int VENOM_THRESHOLD = 1000000;
     static final int VENOM_MAXIMUM_DAMAGE = 20;
+    private static final int DEFAULT_ATTACK_REACH = 10;
 
     private ZulrahHelpers() {
     }
@@ -54,16 +55,18 @@ final class ZulrahHelpers {
             return false;
         }
         WorldPoint pos = Rs2Player.getWorldLocation();
-        // Exact tile, or stopped within one tile of it (can't stand exactly on it) — treat as arrived
-        // so gear swap / attacking trigger instead of looping forever trying to reach the exact tile.
-        return pos.equals(target) || (!Rs2Player.isMoving() && pos.distanceTo(target) <= 1);
+        return pos.equals(target) || stoppedWithinOneTileOf(pos, target);
+    }
+
+    private static boolean stoppedWithinOneTileOf(WorldPoint pos, WorldPoint target) {
+        return !Rs2Player.isMoving() && pos.distanceTo(target) <= 1;
     }
 
     private static Rs2NpcModel nearestZulrah() {
         return Microbot.getRs2NpcCache().query().withName("zulrah").nearestOnClientThread(20);
     }
 
-    static void clickNearestZulrah() {
+    static void attackZulrah() {
         Rs2NpcModel zulrah = nearestZulrah();
         if (zulrah != null) {
             zulrah.click("attack");
@@ -93,17 +96,16 @@ final class ZulrahHelpers {
     }
 
     static boolean zulrahInRange() {
-        // getAttackRange() reads the weapon definition (client thread) and can report a melee/unknown
-        // 1 for powered staves / some ranged weapons; fall back to a ranged/magic reach so the
-        // attack-while-moving still fires. Then reuse the NPC-cache distance query (same one
-        // clickNearestZulrah uses) so we don't rely on world-point coords lining up in the instance.
-        final Supplier<Integer> rangeSupplier = () -> {
-            int r = Rs2Combat.getAttackRange();
-            return r <= 1 ? 10 : r;
+        return Microbot.getRs2NpcCache().query().withName("zulrah").nearestOnClientThread(attackReach()) != null;
+    }
+
+    private static int attackReach() {
+        final Supplier<Integer> reach = () -> {
+            int weaponRange = Rs2Combat.getAttackRange();
+            return weaponRange <= 1 ? DEFAULT_ATTACK_REACH : weaponRange;
         };
-        Integer range = Microbot.getClientThread().invoke(rangeSupplier);
-        int r = range != null ? range : 10;
-        return Microbot.getRs2NpcCache().query().withName("zulrah").nearestOnClientThread(r) != null;
+        Integer range = Microbot.getClientThread().invoke(reach);
+        return range != null ? range : DEFAULT_ATTACK_REACH;
     }
 
     /** Equipped weapon's attack speed in ticks, cached in the context and refreshed on weapon change. */
@@ -112,20 +114,21 @@ final class ZulrahHelpers {
         int id = weapon != null ? weapon.getId() : -1;
         if (id != ctx.getCachedWeaponId()) {
             ctx.setCachedWeaponId(id);
-            ctx.setCachedAttackSpeedTicks(FightContext.DEFAULT_ATTACK_SPEED_TICKS);
-            if (id != -1) {
-                // getItemStats -> getItemComposition must run on the client thread.
-                final Supplier<Integer> lookup = () -> {
-                    ItemStats stats = ctx.getItemManager().getItemStats(id);
-                    return stats != null && stats.getEquipment() != null ? stats.getEquipment().getAspeed() : 0;
-                };
-                Integer aspeed = Microbot.getClientThread().invoke(lookup);
-                if (aspeed != null && aspeed > 0) {
-                    ctx.setCachedAttackSpeedTicks(aspeed);
-                }
-            }
+            ctx.setCachedAttackSpeedTicks(weaponAttackSpeedTicks(id, ctx));
         }
         return ctx.getCachedAttackSpeedTicks();
+    }
+
+    private static int weaponAttackSpeedTicks(int weaponId, FightContext ctx) {
+        if (weaponId == -1) {
+            return FightContext.DEFAULT_ATTACK_SPEED_TICKS;
+        }
+        final Supplier<Integer> lookup = () -> {
+            ItemStats stats = ctx.getItemManager().getItemStats(weaponId);
+            return stats != null && stats.getEquipment() != null ? stats.getEquipment().getAspeed() : 0;
+        };
+        Integer aspeed = Microbot.getClientThread().invoke(lookup);
+        return aspeed != null && aspeed > 0 ? aspeed : FightContext.DEFAULT_ATTACK_SPEED_TICKS;
     }
 
     static long attackCooldownMs(FightContext ctx) {

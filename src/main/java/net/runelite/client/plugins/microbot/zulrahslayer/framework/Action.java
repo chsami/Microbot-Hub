@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.framework;
 
 /**
  * A single unit of per-tick behaviour, generic over the {@link ScriptState} it operates on so the

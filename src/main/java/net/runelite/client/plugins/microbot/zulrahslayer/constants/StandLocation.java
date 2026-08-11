@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.zulrah.constants;
+package net.runelite.client.plugins.microbot.zulrahslayer.constants;
 
 import net.runelite.api.coords.WorldPoint;
 

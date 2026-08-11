@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.zulrah;
+package net.runelite.client.plugins.microbot.zulrahslayer;
 
 /**
  * Where the Zulrah cycle should begin the moment the plugin starts. Only affects the FIRST iteration;

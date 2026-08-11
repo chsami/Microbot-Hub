@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.framework;
 
 import java.util.List;
 
@@ -9,20 +9,16 @@ import java.util.List;
  */
 public interface ScriptState {
 
-    /** The mutable backing list of this tick's action results. */
     List<ActionState> actionStates();
 
-    /** Records an action's outcome. Called by the runner after each action, executed or not. */
     default void record(String key, boolean executed, Object result) {
         actionStates().add(new ActionState(key, executed, result));
     }
 
-    /** True if an earlier action this tick with the given key actually executed. */
     default boolean executed(String key) {
         return actionStates().stream().anyMatch(a -> a.getKey().equals(key) && a.isExecuted());
     }
 
-    /** The value an earlier action returned this tick, or null if it didn't run / returned null. */
     default Object result(String key) {
         return actionStates().stream()
                 .filter(a -> a.getKey().equals(key))

@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.zulrah.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.gameval.VarPlayerID;

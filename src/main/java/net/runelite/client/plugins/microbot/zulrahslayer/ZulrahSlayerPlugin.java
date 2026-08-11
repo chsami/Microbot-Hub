@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.zulrah;
+package net.runelite.client.plugins.microbot.zulrahslayer;
 
 import com.google.inject.Provides;
 import lombok.Getter;
@@ -17,8 +17,8 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.custom.zulrah.rotationutils.RotationType;
-import net.runelite.client.plugins.custom.zulrah.rotationutils.ZulrahPhase;
+import net.runelite.client.plugins.microbot.zulrahslayer.rotationutils.RotationType;
+import net.runelite.client.plugins.microbot.zulrahslayer.rotationutils.ZulrahPhase;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 
@@ -32,7 +32,7 @@ import java.util.List;
         description = "Helps with various aspects during a fight with Zulrah",
         tags = {"Zulrah", "Helper", "boss", "bossing", "snek", "snake", "tool"},
         authors = {"Donder"},
-        version = ZulrahPlugin.version,
+        version = ZulrahSlayerPlugin.version,
         minClientVersion = "2.0.1",
         iconUrl = "https://i.imgur.com/syri2MC.png",
         cardUrl = "https://i.imgur.com/syri2MC.png",
@@ -40,7 +40,7 @@ import java.util.List;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
-public class ZulrahPlugin extends Plugin {
+public class ZulrahSlayerPlugin extends Plugin {
     public static final String version = "1.0.2";
     public static final int GOING_UNDER_WATER = 5072;   // SNAKEBOSS_SINKFAST
     public static final int ATTACK_ANIMATION = 5069;    // SNAKEBOSS_ATTACK_ACIDX1 (ranged/magic)
@@ -80,8 +80,6 @@ public class ZulrahPlugin extends Plugin {
             Microbot.stopPlugin(this);
             return;
         }
-        // Drive the action pipeline off the game clock (onGameTick below) instead of the script's
-        // internal fixed-delay executor.
         zulrahScript.initialize();
     }
 
@@ -111,39 +109,40 @@ public class ZulrahPlugin extends Plugin {
             return currentRotation;
         }
 
-        // Narrow across the WHOLE observed sequence: a rotation stays a candidate only if it matched
-        // every stage so far. Intersecting the existing set (rather than re-scanning all rotations by
-        // the current stage alone) is what makes the set shrink monotonically and lock as soon as the
-        // observed forms are unique to one rotation — instead of flip-flopping between rotations that
-        // merely happen to share the current stage's form.
-        boolean fresh = stage == 0 || potentialRotations.isEmpty();
-        List<RotationType> base = fresh ? RotationType.allRotations() : potentialRotations;
-        List<RotationType> narrowed = RotationType.matching(base, npc, stage);
-
-        // If the observed form is inconsistent with every tracked candidate we mis-read an earlier
-        // phase; re-sync from all rotations at this stage rather than getting stuck with no phase.
-        if (narrowed.isEmpty() && !fresh) {
-            log.warn("Observed Zulrah inconsistent with tracked rotations at stage {}; re-syncing", stage);
-            narrowed = RotationType.matching(RotationType.allRotations(), npc, stage);
-        }
-        potentialRotations = narrowed;
-
-        if (narrowed.isEmpty()) {
+        potentialRotations = narrowCandidates(npc);
+        if (potentialRotations.isEmpty()) {
             log.warn("No potential rotations for stage {} / npc {}", stage, npc.getId());
             return null;
         }
 
-        RotationType first = narrowed.get(0);
-        if (narrowed.size() == 1) {
+        RotationType first = potentialRotations.get(0);
+        if (potentialRotations.size() == 1) {
             currentRotation = first;
             log.info("Locked rotation {} at stage {}", first.getRotationName(), stage);
         } else {
-            // Still ambiguous, but all remaining candidates share this stage's form (and, for the
-            // real rotations, its stand tile), so acting on the first candidate here is safe.
             log.info("Rotation ambiguous ({} candidates) at stage {}; provisionally using {}",
-                    narrowed.size(), stage, first.getRotationName());
+                    potentialRotations.size(), stage, first.getRotationName());
         }
         return first;
+    }
+
+    /**
+     * Narrows candidates across the WHOLE observed sequence: a rotation stays in only if it matched
+     * every stage so far. Intersecting the existing set (rather than re-scanning all rotations by the
+     * current stage alone) makes the set shrink monotonically and lock as soon as the observed forms are
+     * unique to one rotation, instead of flip-flopping between rotations that share this stage's form. If
+     * the form is inconsistent with every tracked candidate we mis-read an earlier phase, so re-sync from
+     * all rotations at this stage rather than getting stuck with no phase.
+     */
+    private List<RotationType> narrowCandidates(NPC npc) {
+        boolean fresh = stage == 0 || potentialRotations.isEmpty();
+        List<RotationType> base = fresh ? RotationType.allRotations() : potentialRotations;
+        List<RotationType> narrowed = RotationType.matching(base, npc, stage);
+        if (narrowed.isEmpty() && !fresh) {
+            log.warn("Observed Zulrah inconsistent with tracked rotations at stage {}; re-syncing", stage);
+            narrowed = RotationType.matching(RotationType.allRotations(), npc, stage);
+        }
+        return narrowed;
     }
 
     @Subscribe
@@ -175,7 +174,6 @@ public class ZulrahPlugin extends Plugin {
                 break;
             }
             case RESURFACE_ANIMATION: {
-                // Attackable again, and re-arm the one-shot venom pre-move for this fresh phase.
                 zulrahScript.onZulrahSurfaced();
                 if (currentRotation == null) {
                     ++stage;
@@ -186,7 +184,6 @@ public class ZulrahPlugin extends Plugin {
                 break;
             }
             case GOING_UNDER_WATER: {
-                // Submerged: hold fire (walk to the next tile) until it resurfaces.
                 zulrahScript.onZulrahSubmerged();
                 if (zulrahReset) {
                     zulrahReset = false;
@@ -282,12 +279,18 @@ public class ZulrahPlugin extends Plugin {
         return stage == type.getZulrahPhases().size() - 1;
     }
 
+    /** The locked rotation, or (while still ambiguous) the first remaining candidate we're acting on. */
+    @Nullable
+    private RotationType effectiveRotation() {
+        if (currentRotation != null) {
+            return currentRotation;
+        }
+        return potentialRotations.isEmpty() ? null : potentialRotations.get(0);
+    }
+
     /** Prints the detected rotation and the current phase so the fight can be followed live. */
     private void logZulrahState(String event) {
-        // While ambiguous we act on the first remaining candidate, so log that one's phase (not n/a).
-        RotationType effective = currentRotation != null
-                ? currentRotation
-                : (potentialRotations.isEmpty() ? null : potentialRotations.get(0));
+        RotationType effective = effectiveRotation();
         String rotation = currentRotation != null
                 ? currentRotation.getRotationName()
                 : "undetermined (" + potentialRotations.size() + " candidates)";

@@ -1,10 +1,10 @@
-package net.runelite.client.plugins.custom.zulrah.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
 import lombok.Getter;
 import lombok.Setter;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.game.ItemManager;
-import net.runelite.client.plugins.custom.zulrah.rotationutils.ZulrahPhase;
+import net.runelite.client.plugins.microbot.zulrahslayer.rotationutils.ZulrahPhase;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 
 /**
@@ -45,12 +45,12 @@ public class FightContext {
      *  to the first stand tile only once that attack has actually fired. Set when the fight starts,
      *  cleared the moment the opening hit lands. Every later phase ignores this and runs/attacks as
      *  normal. */
-    private volatile boolean openingHold;
+    private volatile boolean waitingForFirstAttackOnZulrah;
     /** First phase only, set the instant the opening hit fires: walk straight to the first stand tile
      *  WITHOUT attacking on the way. From the spawn spot in the centre Zulrah is in range, so the normal
      *  attack-while-repositioning would keep us pinned there instead of moving. Cleared once we reach the
      *  tile, after which normal safespot attacking resumes. */
-    private volatile boolean openingWalk;
+    private volatile boolean needsToGoToFirstLocation;
     /** Whether this is the NE melee-dodge phase. */
     private volatile boolean meleeDodgePhase;
     /** Set once the jad phase's starting overhead has been anchored; the flick alternates it after. */
@@ -102,8 +102,8 @@ public class FightContext {
         nextStandLocation = null;
         venomPreMoved = false;
         surfaced = false;
-        openingHold = false;
-        openingWalk = false;
+        waitingForFirstAttackOnZulrah = false;
+        needsToGoToFirstLocation = false;
         meleeDodgePhase = false;
         jadStartPrayerSet = false;
         meleeDodgeAtNorth = true;

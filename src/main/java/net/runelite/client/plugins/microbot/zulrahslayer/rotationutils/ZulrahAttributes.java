@@ -1,8 +1,8 @@
-package net.runelite.client.plugins.custom.zulrah.rotationutils;
+package net.runelite.client.plugins.microbot.zulrahslayer.rotationutils;
 
 import lombok.Getter;
-import net.runelite.client.plugins.custom.zulrah.constants.StandLocation;
-import net.runelite.client.plugins.custom.zulrah.constants.VenomTiming;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.StandLocation;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.VenomTiming;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
 import javax.annotation.Nonnull;

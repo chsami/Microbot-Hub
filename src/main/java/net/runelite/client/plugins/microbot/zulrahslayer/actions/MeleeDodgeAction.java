@@ -1,7 +1,7 @@
-package net.runelite.client.plugins.custom.zulrah.actions;
+package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.client.plugins.custom.zulrah.constants.StandLocation;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.StandLocation;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -34,11 +34,8 @@ public class MeleeDodgeAction implements ZulrahAction {
                 ? StandLocation.NORTHEAST_NORTH
                 : StandLocation.NORTHEAST_TOP).toWorldPoint();
         if (Rs2Player.getWorldLocation().equals(target)) {
-            // Only attack while Zulrah is surfaced and the gear is ready; when it dives, hold the tile
-            // without spamming clicks at a target we can't hit, and don't attack with the wrong style.
-            if (state.context().isSurfaced() && ZulrahHelpers.gearReady(state.context())
-                    && !ZulrahHelpers.isInteractingWithZulrah()) {
-                ZulrahHelpers.clickNearestZulrah();
+            if (canAttackFromTile(state.context())) {
+                ZulrahHelpers.attackZulrah();
             }
             return "attack";
         }
@@ -47,5 +44,11 @@ public class MeleeDodgeAction implements ZulrahAction {
             return "walk";
         }
         return "moving";
+    }
+
+    /** Attack only while surfaced with the gear ready and not already locked on, so we hold the tile
+     *  (rather than spam clicks at a submerged target or hit with the wrong style) while it dives. */
+    private static boolean canAttackFromTile(FightContext ctx) {
+        return ctx.isSurfaced() && ZulrahHelpers.gearReady(ctx) && !ZulrahHelpers.isInteractingWithZulrah();
     }
 }

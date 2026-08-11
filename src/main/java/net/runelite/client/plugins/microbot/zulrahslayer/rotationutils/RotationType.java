@@ -1,12 +1,12 @@
-package net.runelite.client.plugins.custom.zulrah.rotationutils;
+package net.runelite.client.plugins.microbot.zulrahslayer.rotationutils;
 
 import com.google.common.collect.ImmutableList;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.NPC;
-import net.runelite.client.plugins.custom.zulrah.constants.StandLocation;
-import net.runelite.client.plugins.custom.zulrah.constants.VenomTiming;
-import net.runelite.client.plugins.custom.zulrah.constants.ZulrahType;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.StandLocation;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.VenomTiming;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.ZulrahType;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
 import java.util.ArrayList;

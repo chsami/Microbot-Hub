@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.zulrah.rotationutils;
+package net.runelite.client.plugins.microbot.zulrahslayer.rotationutils;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

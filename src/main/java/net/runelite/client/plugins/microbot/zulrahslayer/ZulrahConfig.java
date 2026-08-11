@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.custom.zulrah;
+package net.runelite.client.plugins.microbot.zulrahslayer;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
