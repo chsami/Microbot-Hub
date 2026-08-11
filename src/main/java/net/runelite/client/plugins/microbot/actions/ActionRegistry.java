@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.zulrahslayer.framework;
+package net.runelite.client.plugins.microbot.actions;
 
 import com.google.common.reflect.ClassPath;
 import com.google.inject.Injector;

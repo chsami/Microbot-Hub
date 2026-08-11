@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.zulrahslayer.framework;
+package net.runelite.client.plugins.microbot.actions;
 
 import com.google.inject.Injector;
 import lombok.extern.slf4j.Slf4j;

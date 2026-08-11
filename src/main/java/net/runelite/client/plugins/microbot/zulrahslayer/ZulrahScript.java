@@ -2,8 +2,8 @@ package net.runelite.client.plugins.microbot.zulrahslayer;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.game.ItemManager;
-import net.runelite.client.plugins.microbot.zulrahslayer.framework.Action;
-import net.runelite.client.plugins.microbot.zulrahslayer.framework.ActionScript;
+import net.runelite.client.plugins.microbot.actions.Action;
+import net.runelite.client.plugins.microbot.actions.ActionScript;
 import net.runelite.client.plugins.microbot.zulrahslayer.actions.FightContext;
 import net.runelite.client.plugins.microbot.zulrahslayer.actions.LootAction;
 import net.runelite.client.plugins.microbot.zulrahslayer.actions.ZulrahAction;

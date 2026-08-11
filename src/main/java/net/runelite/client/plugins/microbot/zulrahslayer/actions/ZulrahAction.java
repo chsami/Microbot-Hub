@@ -1,6 +1,6 @@
 package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
-import net.runelite.client.plugins.microbot.zulrahslayer.framework.Action;
+import net.runelite.client.plugins.microbot.actions.Action;
 
 /**
  * An {@link Action} bound to {@link ZulrahState}, so Zulrah actions get typed access to the

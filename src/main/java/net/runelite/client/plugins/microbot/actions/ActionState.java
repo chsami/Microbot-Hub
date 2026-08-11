@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.zulrahslayer.framework;
+package net.runelite.client.plugins.microbot.actions;
 
 public class ActionState {
 

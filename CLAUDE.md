@@ -125,6 +125,32 @@ If a plugin needs additional libraries beyond the Microbot client:
    ```
 3. The build system automatically includes these in the plugin's shadow JAR
 
+## Sharing Source Across Plugins (`shared-sources.txt`)
+
+By default each plugin's build only compiles and packages its **own** directory
+(`microbot/<pluginname>/**`) plus the shared `PluginConstants`/`Rs2Leprechaun`. If a plugin depends on a
+shared source **package that lives outside its directory** (e.g. a reusable framework under
+`microbot/actions/`), that package won't be visible to the plugin's source set and — crucially — won't be
+in its JAR, so the plugin would `ClassNotFoundError` at runtime (the client does not provide it).
+
+To opt a plugin into extra shared source packages:
+
+1. Create `src/main/resources/net/runelite/client/plugins/microbot/<pluginname>/shared-sources.txt`
+2. List glob paths **relative to `src/main/java`**, one per line (`#` for comments):
+   ```
+   # framework shared by several plugins
+   net/runelite/client/plugins/microbot/actions/**
+   ```
+3. The build (`gradle/plugin-utils.gradle`, via `getPluginSharedSources`) then includes those globs in the
+   plugin's source set (so they **compile**) **and** in the shadow JAR (so they are **bundled** and present
+   at runtime). Only plugins that declare the file are affected — mirrors the `dependencies.txt` opt-in. The
+   marker file itself is excluded from the JAR.
+
+**Distribution note:** each opting plugin bundles its **own copy** of the shared classes. The Hub loads every
+plugin JAR in its own isolated classloader, so copies never collide across plugins, but a change to the
+shared package requires rebuilding/re-releasing **every** plugin that bundles it. Avoid claiming a package
+the Microbot client itself might use (client classes are loaded parent-first and would shadow a bundled copy).
+
 ## Testing and Debugging Plugins
 
 **Before chasing a "script does nothing" bug, read [`docs/PLUGIN_DEBUGGING_NOTES.md`](docs/PLUGIN_DEBUGGING_NOTES.md).** It documents the recurring failure modes in Hub plugins (instanced-region coordinate mismatches, the new Queryable API not auto-walking, null-guard predicates masking broken lookups, static field leakage across plugin restarts, etc.) and the agent-server `curl` workflow for inspecting live state instead of theorizing from code.
@@ -176,7 +202,7 @@ Based on recent commits:
 - **Java Version**: JDK 11 (configured in `project-config.gradle` with `TARGET_JDK_VERSION = 11`, vendor `ADOPTIUM`)
 - **Microbot Client Dependency**: Defaults to the latest version resolved via `https://microbot.cloud/api/version/client`, falling back to `2.6.9` if lookup fails. Artifacts come from GitHub Releases (`https://github.com/chsami/Microbot/releases/download/<version>/microbot-<version>.jar`). Override with `-PmicrobotClientVersion=<version>` or `-PmicrobotClientVersion=latest`, or supply a local JAR for offline work via `-PmicrobotClientPath=/absolute/path/to/microbot-<version>.jar`
 - **Plugin Release Tag**: `plugins.json` uses a stable release tag (`latest-release`) so download URLs stay constant: `https://github.com/chsami/Microbot-Hub/releases/download/latest-release/<plugin>-<version>.jar`. Override with `-PpluginsReleaseTag=<tag>` if needed.
-- **Shadow JAR Excludes**: Common exclusions defined in `plugin-utils.gradle` include `docs/**`, `dependencies.txt`, metadata files, and module-info
+- **Shadow JAR Excludes**: Common exclusions defined in `plugin-utils.gradle` include `docs/**`, `dependencies.txt`, `shared-sources.txt`, metadata files, and module-info
 - **Reproducible Builds**: JAR tasks disable file timestamps, use reproducible file order, and normalize file permissions to `0644`
 - **Descriptor Parsing**: Build system uses regex to extract plugin metadata from Java source files (see `getPluginDescriptorInfo` in `plugin-utils.gradle`)
 
