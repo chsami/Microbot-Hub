@@ -812,7 +812,7 @@
             "hunter",
             "herbiboar"
         ],
-        "version": "1.2.5",
+        "version": "1.2.6",
         "minClientVersion": "1.9.8",
         "authors": [
             "AI Agent"
@@ -820,8 +820,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/card.png",
         "disable": false,
-        "sha256": "9dadc467202169867e21862dfe198493c2e3b258e1b3f6ebfd9979fe80a024a4",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/herbiboarplugin-1.2.5.jar"
+        "sha256": "b8edfc2254f1027abb15e6ae4fc3952cb84fca95036e8fa52398e328e1ec540a",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/herbiboarplugin-1.2.6.jar"
     },
     {
         "internalName": "OrbChargerPlugin",
@@ -1481,7 +1481,7 @@
             "jad",
             "microbot"
         ],
-        "version": "1.0.9",
+        "version": "1.0.10",
         "minClientVersion": "1.9.8.8",
         "authors": [
             "Mocrosoft"
@@ -1489,8 +1489,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/JadPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/JadPlugin/assets/card.png",
         "disable": false,
-        "sha256": "4db45ed2762f20b70d88e3bb68e6f3f907f09290945bd8900d20a4c095dcb08e",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/jadplugin-1.0.9.jar"
+        "sha256": "4c708b433cec2f73a27251fe88b4a96ca5234e0da1924ff8c778730bb1902855",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/jadplugin-1.0.10.jar"
     },
     {
         "internalName": "MicrobotDashboardPlusPlugin",
@@ -2354,7 +2354,7 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/icon.png",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/card.png",
         "disable": false,
-        "sha256": "caeecd32b81a40861d54ad3d12bf64820a99b9cf65f930207d1c806dd3f50e91",
+        "sha256": "807aec698f1b498c1219ad69d2c019ebf4909fa894be06b7ac7315452766a99a",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/craftingplugin-1.0.1.jar"
     },
     {
@@ -3360,7 +3360,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.8.4",
+        "version": "1.8.5",
         "minClientVersion": "2.1.32",
         "authors": [
             "Mocrosoft"
@@ -3368,8 +3368,8 @@
         "iconUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
-        "sha256": "4e8037764aa3a6d6d83d2782c63788e10c032dc81e4fee1b0ac66388605c4ea1",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.4.jar"
+        "sha256": "a6069a5c0bc85a24c733370711640186d4d9b67ff9bb1f0d9bcc371dabfd92f9",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.5.jar"
     },
     {
         "internalName": "CalcifiedRockMinerPlugin",
