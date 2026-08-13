@@ -251,12 +251,16 @@ public class MixologyScript extends Script {
                         }
                         break;
                     case TAKE_FROM_MIXIN_VESSEL:
-                        Microbot.getRs2TileObjectCache().query().withId(MIXING_VESSEL.objectId()).interact();
-                        boolean result = Rs2Inventory.waitForInventoryChanges(5000);
-                        if (result) {
-                            mixologyState = MixologyState.MIX_POTION_STAGE_1;
-                        }
-                        break;
+
+    Microbot.getRs2TileObjectCache().query()
+        .withId(MIXING_VESSEL.objectId())
+        .interact();
+
+    Rs2Inventory.waitForInventoryChanges(2000);
+
+    mixologyState = MixologyState.MIX_POTION_STAGE_1;
+
+    break;
                     case MIX_POTION_STAGE_2:
 
                         // Sort using a custom comparator
