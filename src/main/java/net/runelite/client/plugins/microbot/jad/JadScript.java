@@ -23,7 +23,8 @@ public class JadScript extends Script {
     private static final int JAD_RANGE_ANIMATION_2 = 2652;
     private static final int MAGE_IMPACT_DELAY_TICKS = 4;
     private static final int RANGE_IMPACT_DELAY_TICKS = 3;
-    private static final int PRAYER_SWITCH_LEAD_TICKS = 1;
+    private static final int PRAYER_SWITCH_LEAD_TICKS = 4;
+    private static final int STALE_ATTACK_GRACE_TICKS = 1;
 
     public static final Map<Integer, Long> npcAttackCooldowns = new HashMap<>();
     private final Map<Integer, Integer> npcLastAttackAnimations = new HashMap<>();
@@ -51,28 +52,30 @@ public class JadScript extends Script {
                     int npcIndex = jadNpc.getIndex();
                     activeJadIndexes.add(npcIndex);
 
-                    if (npcAttackCooldowns.containsKey(npcIndex)) {
-                        if (currentTimeMillis - npcAttackCooldowns.get(npcIndex) < 4600) {
-                            continue;
-                        } else {
-                            npcAttackCooldowns.remove(npcIndex);
-                        }
-                    }
-
                     int npcAnimation = jadNpc.getNpc().getAnimation();
                     if (shouldHandleAttackAnimation(npcIndex, npcAnimation)) {
                         queueJadAttack(npcIndex, npcAnimation, currentTick);
                     }
-                    if (config.shouldAttackHealers()) {
-                        handleHealerInteraction();
-                        npcAttackCooldowns.put(npcIndex, currentTimeMillis);
+
+                    if (!config.shouldAttackHealers()) {
+                        continue;
                     }
+
+                    if (npcAttackCooldowns.containsKey(npcIndex)) {
+                        if (currentTimeMillis - npcAttackCooldowns.get(npcIndex) < 4600) {
+                            continue;
+                        }
+                        npcAttackCooldowns.remove(npcIndex);
+                    }
+
+                    handleHealerInteraction();
+                    npcAttackCooldowns.put(npcIndex, currentTimeMillis);
                 }
 
                 removeStaleNpcData(activeJadIndexes);
                 processAttackQueue(currentTick);
             } catch (Exception ex) {
-                System.out.println(ex.getMessage());
+                Microbot.logStackTrace(this.getClass().getSimpleName(), ex);
             }
         }, 0, 10, TimeUnit.MILLISECONDS);
         return true;
@@ -160,6 +163,12 @@ public class JadScript extends Script {
     private void processAttackQueue(int currentTick) {
         synchronized (this) {
             QueuedJadAttack nextAttack = attackQueue.peek();
+            while (nextAttack != null && currentTick > nextAttack.impactTick + STALE_ATTACK_GRACE_TICKS) {
+                attackQueue.poll();
+                queuedPrayerStyle = null;
+                nextAttack = attackQueue.peek();
+            }
+
             if (nextAttack == null) {
                 queuedPrayerStyle = null;
                 return;

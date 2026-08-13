@@ -311,10 +311,16 @@ public class JewelryScript extends Script {
                     case CRAFTING:
                         WorldPoint furnaceLocation = plugin.getCraftingLocation().getFurnaceLocation();
                         WorldPoint anchor = furnaceLocation != null ? furnaceLocation : Rs2Player.getWorldLocation();
+                        // Resolve the whole lookup in ONE client-thread invoke. withName()/where()
+                        // call getName()/getObjectComposition(), each of which round-trips through
+                        // ClientThread.invoke per object; over a full scene cache that serially stalls
+                        // this script thread for 2+ minutes. nearestOnClientThread() runs the entire
+                        // query on the client thread, so every getName() resolves in-place — one
+                        // round-trip total. (Same pattern AutoSmeltingScript uses for its furnace.)
                         Rs2TileObjectModel furnaceObject = Microbot.getRs2TileObjectCache().query()
                                 .withName("Furnace")
                                 .where(o -> Rs2GameObject.hasAction(o, "Smelt"))
-                                .nearest(anchor, 20);
+                                .nearestOnClientThread(anchor, 20);
 
                         if (furnaceObject == null) {
                             if (furnaceLocation != null) {
@@ -329,8 +335,26 @@ public class JewelryScript extends Script {
                         }
 
                         furnaceObject.click("smelt");
-                        sleepUntilTrue(() -> Rs2Widget.isGoldCraftingWidgetOpen() || Rs2Widget.isSilverCraftingWidgetOpen(), 500, 20000);
-                        Rs2Widget.clickWidget(plugin.getJewelry().getItemName());
+                        // Wait for the make interface to open, then click our item. Two fixes here:
+                        //  1) Include isProductionWidgetOpen() (SKILLMULTI, group 270). Tiaras — and
+                        //     many items — use that "make" interface, NOT the 446/6 jewellery selectors,
+                        //     so the old check never matched and burned the full 20s timeout every craft.
+                        //  2) Scope the click to the open interface's option container (270,13) so it
+                        //     targets the make button, not the same item sitting in the inventory. An
+                        //     unscoped name search matches the inventory item (visible, same name) and
+                        //     "clicks the tiara" without ever crafting.
+                        boolean craftingInterfaceOpen = sleepUntilTrue(() ->
+                                Rs2Widget.isProductionWidgetOpen()
+                                        || Rs2Widget.isGoldCraftingWidgetOpen()
+                                        || Rs2Widget.isSilverCraftingWidgetOpen(), 300, 20000);
+                        if (!craftingInterfaceOpen) {
+                            return; // still walking to the furnace / interface not up yet — retry next loop
+                        }
+                        if (Rs2Widget.isProductionWidgetOpen()) {
+                            Rs2Widget.clickWidget(plugin.getJewelry().getItemName(), Optional.of(270), 13, false);
+                        } else {
+                            Rs2Widget.clickWidget(plugin.getJewelry().getItemName());
+                        }
                         Rs2Antiban.actionCooldown();
                         Rs2Antiban.takeMicroBreakByChance();
                         break;
