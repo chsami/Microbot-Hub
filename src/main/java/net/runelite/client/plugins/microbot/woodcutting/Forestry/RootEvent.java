@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.woodcutting.Forestry;
 
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Actor;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
@@ -65,39 +64,27 @@ public class RootEvent implements BlockingEvent {
 
             // If special root is present
             if (specialRoot != null) {
-
-                // Check if the player is already interacting with the special root
-                if (Rs2Player.isInteracting() && Rs2Player.getInteracting() != null) {
-                    Actor interactingNpc = Microbot.getClient().getLocalPlayer().getInteracting();
-                    if (interactingNpc.getWorldLocation().equals(specialRoot.getWorldLocation())) {
-                        continue;
-                    }
-                }
                 // Interact with the special root
                 Microbot.log("RootEvent: Interacting with special root at " + specialRoot.getWorldLocation());
                 specialRoot.click("Chop down");
-                Rs2Player.waitForAnimation(5000);
-                sleepUntil(() -> !Rs2Player.isInteracting(), 40000);
+                waitForChoppingToFinish();
             }
             // If regular root is present
             else if (root != null) {
-
-                // Check if the player is already interacting with the root
-                if (Rs2Player.isInteracting() && Rs2Player.getInteracting() != null) {
-                    Actor interactingNpc = Microbot.getClient().getLocalPlayer().getInteracting();
-                    if (interactingNpc.getWorldLocation().equals(root.getWorldLocation())) {
-                        continue;
-                    }
-                }
                 // Interact with the regular root
                 Microbot.log("RootEvent: Interacting with regular root at " + root.getWorldLocation());
                 root.click("Chop down");
-                Rs2Player.waitForAnimation(5000);
-                sleepUntil(() -> !Rs2Player.isInteracting(), 40000);
+                waitForChoppingToFinish();
             }
         }
         plugin.incrementForestryEventCompleted();
         return true;
+    }
+
+    private void waitForChoppingToFinish() {
+        if (sleepUntil(Rs2Player::isAnimating, 5000)) {
+            sleepUntil(() -> !Rs2Player.isAnimating() || !this.validate(), 40000);
+        }
     }
 
     @Override
