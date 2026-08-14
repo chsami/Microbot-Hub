@@ -120,6 +120,19 @@ dependencies {
         microbotRuntime "com.microbot:microbot:${microbotClientVersion}@jar"
         testImplementation "com.microbot:microbot:${microbotClientVersion}@jar"
     }
+
+    // Test-only. JUnit 5 runs the `./gradlew test` suite; Mockito stubs the RuneLite NPC interface and
+    // the static client accessors (Microbot / Rs2Player) so the pure decision logic can be exercised
+    // without a live client. All `test` scope — never on a plugin's compile classpath or in a plugin JAR.
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
+}
+
+// The existing main()-driven harnesses (LoginTest, ScriptLifecycleTest, Microbot) have no @Test methods,
+// so enabling the JUnit Platform leaves them untouched; only real @Test classes are collected and run.
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
 }
 
 application {

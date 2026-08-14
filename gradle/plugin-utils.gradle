@@ -29,8 +29,25 @@ ext {
         return validPlugins
     }
 
+    // Optional per-plugin shared source globs (paths relative to src/main/java, one per line, '#' for
+    // comments) declared in the plugin's resources/<plugin>/shared-sources.txt. Lets a plugin pull in
+    // shared framework packages that live outside its own directory, for BOTH compilation and JAR
+    // bundling — mirroring the per-plugin dependencies.txt opt-in. Only plugins that declare it are
+    // affected, so nothing is added to other plugins' source sets or JARs.
+    getPluginSharedSources = { plugin ->
+        def sharedFile = new File(project.rootDir,
+            "${project.ext.getPluginsResourcePath()}/${plugin.dir.name}/shared-sources.txt")
+        if (!sharedFile.exists()) {
+            return []
+        }
+        return sharedFile.readLines()
+            .collect { it.trim() }
+            .findAll { it && !it.startsWith("#") }
+    }
+
     // Common source set configuration
     configurePluginSourceSet = { plugin ->
+        def sharedSources = project.ext.getPluginSharedSources(plugin)
         sourceSets {
             "${plugin.sourceSetName}" {
                 java {
@@ -38,6 +55,7 @@ ext {
                     include "${project.ext.getPluginsIncludePath()}/PluginConstants.java"
                     include "${project.ext.getPluginsIncludePath()}/Rs2Leprechaun.java"
                     include "${project.ext.getPluginsIncludePath()}/${plugin.dir.name}/**"
+                    sharedSources.each { glob -> include glob }
                 }
                 resources {
                     srcDirs = ["src/main/resources"]
@@ -103,6 +121,7 @@ ext {
                 '**/plugins.json',
                 '**/docs/**',
                 '**/dependencies.txt',
+                '**/shared-sources.txt',
         ]
     }
 
@@ -250,6 +269,13 @@ ext {
                     include "**/${pluginName}.class"
                     include "**/${pluginName}Plugin.class"
                     println "Using fallback include pattern for plugin: ${pluginName}"
+                }
+
+                // Bundle any opt-in shared source packages (shared-sources.txt) into the plugin JAR, so
+                // shared framework classes that live outside the plugin dir are present at runtime.
+                project.ext.getPluginSharedSources(plugin).each { glob ->
+                    include glob
+                    println "Bundling shared classes from: ${glob}"
                 }
             }
 

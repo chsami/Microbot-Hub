@@ -1,0 +1,4 @@
+# Shared source packages this plugin needs, in addition to its own directory.
+# Paths are relative to src/main/java; they are compiled into the plugin source set AND bundled into
+# the plugin JAR (so classes that live outside this plugin's directory are present at runtime).
+net/runelite/client/plugins/microbot/actions/**
