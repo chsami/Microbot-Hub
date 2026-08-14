@@ -1,6 +1,9 @@
 package net.runelite.client.plugins.microbot.bankseller;
 
 import net.runelite.api.ChatMessageType;
+import net.runelite.api.GrandExchangeOffer;
+import net.runelite.api.GrandExchangeOfferState;
+import net.runelite.api.MenuAction;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.widgets.ComponentID;
@@ -8,15 +11,21 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.grandexchange.GrandExchangeSlots;
 import net.runelite.client.plugins.microbot.util.grandexchange.Rs2GrandExchange;
+import net.runelite.client.plugins.microbot.util.grandexchange.models.GrandExchangeOfferDetails;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
+import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
+import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
+import java.awt.Rectangle;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,6 +44,10 @@ public class BankSellerScript extends Script {
     /** Coins (995) and platinum tokens (13204) are never sold. */
     private static final Set<Integer> IGNORED_ITEM_IDS = new HashSet<>(Arrays.asList(995, 13204));
 
+    /** GE overview slot widgets: interface 465, children 7-14 (mirrors GrandExchangeWidget.getSlot). */
+    private static final int GE_WIDGET_GROUP = 465;
+    private static final int GE_FIRST_SLOT_CHILD = 7;
+
     private static final int SETUP_WAIT_TIMEOUT_MS = 5_000;
     private static final int BANK_OPEN_TIMEOUT_MS = 10_000;
     private static final int BANK_LOAD_GRACE_MS = 3_000;
@@ -48,20 +61,63 @@ public class BankSellerScript extends Script {
     /** After the 1gp re-list the plugin stops anyway when nothing sold within this window. */
     private static final int LEFTOVER_GIVE_UP_MS = 60_000;
 
+    /** A liquidation pass that aborts nothing gets this many retries before giving up. */
+    private static final int MAX_LIQUIDATION_ATTEMPTS = 3;
+
+    /**
+     * An item whose offer flow keeps failing on transient UI errors (the setup
+     * never opens, a widget times out, ...) is retried this many times before
+     * it is parked for the rest of the session so the run can still finish.
+     */
+    private static final int MAX_TRANSIENT_FAILURES = 3;
+
+    /** How a single offer placement ended. */
+    private enum OfferResult {
+        /** Offer confirmed, the items left the inventory. */
+        PLACED,
+        /** The setup showed the red trade-restriction notice - a definitive refusal. */
+        RESTRICTED,
+        /** Transient UI failure (setup never opened, a timeout, an exception) - safe to retry. */
+        FAILED
+    }
+
     /**
      * Items the Grand Exchange refused to sell this session, e.g. items on the
      * F2P new-account trade restriction list. They are put back in the bank
-     * and are not withdrawn again.
+     * and are not withdrawn again. Only the explicit trade-restriction notice
+     * lands an item here - transient UI failures never do.
      */
     private final Set<Integer> unsellableItemIds = new HashSet<>();
 
+    /**
+     * Items whose offer flow failed on transient UI errors too many times in a
+     * row. Parked for the session (left in the bank) but NOT counted as
+     * GE refusals - unlike {@link #unsellableItemIds} they may sell fine on a
+     * later run.
+     */
+    private final Set<Integer> skippedItemIds = new HashSet<>();
+
+    /** Consecutive transient offer-flow failures per item, reset on any success. */
+    private final Map<Integer, Integer> transientFailureCounts = new HashMap<>();
+
+    /**
+     * Unnoted ids of every item this run successfully placed an offer for.
+     * Drives the endgame liquidation: only slots holding one of these items
+     * are aborted/collected/re-listed, so pre-existing offers (or offers from
+     * other plugins) are never touched.
+     */
+    private final Set<Integer> ownedOfferItemIds = new HashSet<>();
+
+    /**
+     * GE slots that were already occupied when the plugin started. Their
+     * offers are foreign to this run and are never aborted or collected, even
+     * when they happen to be for an item this run also listed.
+     */
+    private final Set<Integer> foreignSlotOrdinals = new HashSet<>();
+
     private BankSellerPlugin plugin;
 
-    /** Whether the GE offer setup opened for the current attempt (drives retry). */
-    private boolean offerSetupSeen;
-
     /** Set when the current item's setup shows the red trade-restriction notice. */
-    private boolean tradeRestrictionSeen;
     private String tradeRestrictionText;
 
     /**
@@ -74,11 +130,17 @@ public class BankSellerScript extends Script {
     /** When set (leftover-offer liquidation), every offer is placed at this price. */
     private Integer forcedSellPrice;
 
+    /** True while the liquidation pass re-lists items - restricts the sell pass to owned items. */
+    private boolean liquidatingOwned;
+
     /** Last time the drained watch saw an offer sell or finish. */
     private long lastOfferProgressAt;
 
     /** True once leftover offers have been aborted and re-listed at 1gp. */
     private boolean leftoverLiquidated;
+
+    /** Consecutive liquidation passes that aborted nothing. */
+    private int liquidationAttempts;
 
     /** Session tallies driving the final chatbox verdict when nothing is left to sell. */
     private int sessionOffersPlaced;
@@ -88,15 +150,20 @@ public class BankSellerScript extends Script {
         Microbot.enableAutoRunOn = false;
         this.plugin = plugin;
         unsellableItemIds.clear();
-        offerSetupSeen = false;
-        tradeRestrictionSeen = false;
+        skippedItemIds.clear();
+        transientFailureCounts.clear();
+        ownedOfferItemIds.clear();
+        foreignSlotOrdinals.clear();
         tradeRestrictionText = null;
         bankDrained = false;
         forcedSellPrice = null;
+        liquidatingOwned = false;
         lastOfferProgressAt = System.currentTimeMillis();
         leftoverLiquidated = false;
+        liquidationAttempts = 0;
         sessionOffersPlaced = 0;
         sessionStacksRefused = 0;
+        snapshotOccupiedSlots();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -120,13 +187,20 @@ public class BankSellerScript extends Script {
                     if (!leftoverLiquidated && watchIdleMs > LEFTOVER_OFFER_TIMEOUT_MS) {
                         // An offer that will not fill at the instant-sell price gets
                         // one final attempt at 1gp so the run can actually finish
-                        leftoverLiquidated = liquidateLeftoverOffers();
+                        boolean done = liquidateLeftoverOffers();
+                        liquidationAttempts = done ? 0 : liquidationAttempts + 1;
+                        leftoverLiquidated = done || liquidationAttempts >= MAX_LIQUIDATION_ATTEMPTS;
                         // On failure retry in ~15s instead of waiting the full timeout again
                         lastOfferProgressAt = System.currentTimeMillis()
                                 - (leftoverLiquidated ? 0 : LEFTOVER_OFFER_TIMEOUT_MS - 15_000);
                     } else if (leftoverLiquidated && watchIdleMs > LEFTOVER_GIVE_UP_MS) {
-                        announce("1gp leftover offer(s) are still open - stopping anyway; "
-                                + "collect them at the Grand Exchange later");
+                        if (findOwnedActiveSlots().isEmpty()) {
+                            // Only foreign offers are left open - they are not ours to collect
+                            announce("Only pre-existing Grand Exchange offers remain - leaving them untouched. Stopping");
+                        } else {
+                            announce("1gp leftover offer(s) are still open - stopping anyway; "
+                                    + "collect them at the Grand Exchange later");
+                        }
                         Microbot.stopPlugin(plugin);
                     }
                     return;
@@ -155,10 +229,42 @@ public class BankSellerScript extends Script {
         return true;
     }
 
+    /**
+     * Remembers which GE slots were already occupied when the run started.
+     * The offers in them belong to the user (or another plugin) and the
+     * endgame liquidation must never abort, collect or re-list them.
+     */
+    private void snapshotOccupiedSlots() {
+        clientValue(() -> {
+            GrandExchangeOffer[] offers = Microbot.getClient().getGrandExchangeOffers();
+            if (offers == null) {
+                return false;
+            }
+            for (int i = 0; i < offers.length; i++) {
+                GrandExchangeOffer offer = offers[i];
+                if (offer != null && offer.getItemId() > 0 && offer.getState() != GrandExchangeOfferState.EMPTY) {
+                    foreignSlotOrdinals.add(i);
+                }
+            }
+            return true;
+        }, false);
+    }
+
     private boolean isSellable(Rs2ItemModel item) {
         return item.isTradeable()
                 && !IGNORED_ITEM_IDS.contains(item.getUnNotedId())
-                && !unsellableItemIds.contains(item.getUnNotedId());
+                && !unsellableItemIds.contains(item.getUnNotedId())
+                && !skippedItemIds.contains(item.getUnNotedId());
+    }
+
+    /**
+     * During the endgame liquidation only items this run placed offers for may
+     * be re-listed - anything else in the inventory is left alone.
+     */
+    private boolean isLiquidationTarget(Rs2ItemModel item) {
+        return item.isTradeable()
+                && !IGNORED_ITEM_IDS.contains(item.getUnNotedId())
+                && ownedOfferItemIds.contains(item.getUnNotedId());
     }
 
     private boolean hasSellableInventoryItems() {
@@ -204,31 +310,156 @@ public class BankSellerScript extends Script {
     }
 
     /**
+     * Slots currently holding an offer this run placed. Both conditions are
+     * required, so foreign offers are never touched: the slot must not have
+     * been occupied at startup, and the offer's item must be one this run
+     * successfully listed.
+     */
+    private List<GrandExchangeSlots> findOwnedActiveSlots() {
+        List<GrandExchangeSlots> owned = new ArrayList<>();
+        for (GrandExchangeSlots slot : Rs2GrandExchange.getActiveOfferSlots()) {
+            GrandExchangeOfferDetails details = Rs2GrandExchange.getOfferDetails(slot);
+            if (details == null) {
+                continue;
+            }
+            if (foreignSlotOrdinals.contains(Rs2GrandExchange.getSlotIndex(slot))) {
+                continue;
+            }
+            if (!ownedOfferItemIds.contains(canonicalTradeItemId(details.getItemId()))) {
+                continue;
+            }
+            owned.add(slot);
+        }
+        return owned;
+    }
+
+    /**
+     * The current state of the offer in a slot, or null when the slot no
+     * longer holds the expected item (filled and collected meanwhile).
+     */
+    private GrandExchangeOfferState ownedSlotState(GrandExchangeSlots slot, int expectedItemId) {
+        GrandExchangeOfferDetails details = Rs2GrandExchange.getOfferDetails(slot);
+        if (details == null || details.getItemId() != expectedItemId) {
+            return null;
+        }
+        return details.getState();
+    }
+
+    /**
      * Endgame sweep for offers that never filled: aborts them, takes the items
      * back into the inventory and re-lists each stack at 1gp so the run finishes.
+     * Only offers this run placed are aborted and collected (slot by slot -
+     * a collect-all could drag unrelated finished offers into the inventory
+     * and re-list them at 1gp).
      *
-     * @return true when the leftovers were re-listed (or nothing came back)
+     * @return true when the leftovers were re-listed (or nothing was left to do)
      */
     private boolean liquidateLeftoverOffers() {
-        announce("Leftover offer(s) not selling - re-listing at 1gp");
         if (!Rs2GrandExchange.openExchange()
                 || !sleepUntil(Rs2GrandExchange::isOpen, EXCHANGE_OPEN_TIMEOUT_MS)) {
             return false;
         }
-        // abortAllOffers(false) aborts every open offer and collects to the inventory
-        Rs2GrandExchange.abortAllOffers(false);
-        sleepUntil(() -> !Rs2GrandExchange.hasOffer(), SETUP_WAIT_TIMEOUT_MS);
-        sleep(600, 1000);
-        if (!hasSellableInventoryItems()) {
+        List<GrandExchangeSlots> ownedSlots = findOwnedActiveSlots();
+        if (ownedSlots.isEmpty()) {
+            // Everything this run listed already filled (or nothing was listed)
             return true;
         }
-        forcedSellPrice = 1;
-        try {
-            sellInventory();
-        } finally {
-            forcedSellPrice = null;
+        announce("Leftover offer(s) not selling - re-listing at 1gp");
+
+        // Abort every owned offer that is still open
+        for (GrandExchangeSlots slot : ownedSlots) {
+            if (Thread.currentThread().isInterrupted()) {
+                break;
+            }
+            GrandExchangeOfferDetails details = Rs2GrandExchange.getOfferDetails(slot);
+            if (details == null || details.getState() != GrandExchangeOfferState.SELLING) {
+                continue;
+            }
+            int itemId = details.getItemId();
+            abortSlotOffer(slot);
+            // Wait for the abort to register before moving to the next slot
+            sleepUntil(() -> ownedSlotState(slot, itemId) != GrandExchangeOfferState.SELLING, SETUP_WAIT_TIMEOUT_MS);
+            sleep(400, 700);
+        }
+
+        // Collect each owned slot on its own (cancelled offers return the items,
+        // offers that filled meanwhile return coins)
+        for (GrandExchangeSlots slot : ownedSlots) {
+            if (Thread.currentThread().isInterrupted()) {
+                break;
+            }
+            GrandExchangeOfferDetails details = Rs2GrandExchange.getOfferDetails(slot);
+            if (details == null) {
+                continue;
+            }
+            GrandExchangeOfferState state = details.getState();
+            if (state != GrandExchangeOfferState.CANCELLED_SELL && state != GrandExchangeOfferState.SOLD) {
+                continue;
+            }
+            Rs2GrandExchange.collectOffer(slot, false);
+            sleep(300, 500);
+            Rs2GrandExchange.backToOverview();
+            sleep(300, 500);
+        }
+
+        boolean itemsBack = !Rs2Inventory.all(this::isLiquidationTarget).isEmpty();
+        if (itemsBack) {
+            forcedSellPrice = 1;
+            liquidatingOwned = true;
+            try {
+                sellInventory();
+            } finally {
+                liquidatingOwned = false;
+                forcedSellPrice = null;
+            }
+            return true;
+        }
+
+        // Nothing came back to the inventory: fine when every owned offer filled,
+        // but an offer still in SELLING state means its abort never registered -
+        // report failure so the watch retries instead of waiting 90s again
+        for (GrandExchangeSlots slot : ownedSlots) {
+            GrandExchangeOfferDetails details = Rs2GrandExchange.getOfferDetails(slot);
+            if (details != null && details.getState() == GrandExchangeOfferState.SELLING) {
+                return false;
+            }
         }
         return true;
+    }
+
+    /**
+     * Slot-targeted variant of Rs2GrandExchange.abortOffer: aborts exactly this
+     * slot and collects nothing. (abortOffer itself is name-based and ends in
+     * a collect-all, which would hit unrelated offers.)
+     */
+    private void abortSlotOffer(GrandExchangeSlots slot) {
+        int[] widgetId = new int[1];
+        Rectangle[] boundsHolder = new Rectangle[1];
+        boolean found = clientValue(() -> {
+            Widget widget = Microbot.getClient().getWidget(GE_WIDGET_GROUP, GE_FIRST_SLOT_CHILD + slot.ordinal());
+            if (!isVisible(widget)) {
+                return false;
+            }
+            widgetId[0] = widget.getId();
+            boundsHolder[0] = widget.getBounds();
+            return true;
+        }, false);
+        if (!found) {
+            return;
+        }
+        NewMenuEntry entry = new NewMenuEntry()
+                .option("Abort offer")
+                .target("")
+                .identifier(2)
+                .type(MenuAction.CC_OP)
+                .param0(2)
+                .param1(widgetId[0])
+                .itemId(-1)
+                .forceLeftClick(false);
+        Rectangle bounds = boundsHolder[0] != null && Rs2UiHelper.isRectangleWithinCanvas(boundsHolder[0])
+                ? boundsHolder[0]
+                : Rs2UiHelper.getDefaultRectangle();
+        Microbot.doInvoke(entry, bounds);
     }
 
     /**
@@ -287,8 +518,10 @@ public class BankSellerScript extends Script {
     }
 
     private void sellInventory() {
-        // Group by item so the whole stack of an item is sold in a single offer
-        Map<Integer, List<Rs2ItemModel>> itemsById = Rs2Inventory.all(this::isSellable).stream()
+        // Group by item so the whole stack of an item is sold in a single offer.
+        // The liquidation pass only re-lists items this run placed offers for.
+        Map<Integer, List<Rs2ItemModel>> itemsById = Rs2Inventory.all(
+                        liquidatingOwned ? this::isLiquidationTarget : this::isSellable).stream()
                 .collect(Collectors.groupingBy(Rs2ItemModel::getUnNotedId, LinkedHashMap::new, Collectors.toList()));
         if (itemsById.isEmpty()) {
             return;
@@ -331,16 +564,31 @@ public class BankSellerScript extends Script {
             // immediately (the endgame leftover sweep forces 1gp instead)
             int price = forcedSellPrice != null ? forcedSellPrice : Math.max(1, guidePrice / 2);
 
-            boolean offerPlaced = placeSellOffer(item, quantity, price);
+            OfferResult result = placeSellOffer(item, quantity, price);
             int remaining = inventoryTradeQuantity(item.getId());
 
-            if (!offerPlaced || remaining > 0) {
-                // The GE refused the item (e.g. F2P trade-restricted) - put it back in the bank
+            if (result == OfferResult.PLACED || remaining == 0) {
+                // Offer confirmed - the items are gone even if the UI flow hiccuped
+                sessionOffersPlaced++;
+                ownedOfferItemIds.add(item.getUnNotedId());
+                transientFailureCounts.remove(item.getUnNotedId());
+            } else if (result == OfferResult.RESTRICTED) {
+                // The GE explicitly refused the item (F2P trade restriction) - bank it for good
                 unsellableItemIds.add(item.getUnNotedId());
                 failedItems.addAll(entry.getValue());
                 sessionStacksRefused++;
+                transientFailureCounts.remove(item.getUnNotedId());
             } else {
-                sessionOffersPlaced++;
+                // Transient UI failure (the setup never opened, a widget timed
+                // out, ...) - the item stays sellable, is NOT flagged unsellable
+                // and is retried on a later pass. Only after repeated failures
+                // it is parked so the run can still finish.
+                int failures = transientFailureCounts.merge(item.getUnNotedId(), 1, Integer::sum);
+                if (failures >= MAX_TRANSIENT_FAILURES) {
+                    skippedItemIds.add(item.getUnNotedId());
+                    Microbot.log("Skipping " + item.getName() + " after " + failures
+                            + " failed offer attempts (Grand Exchange interface not responding)");
+                }
             }
         }
 
@@ -365,78 +613,80 @@ public class BankSellerScript extends Script {
      * enter the price through the chatbox input, set the quantity with the
      * "All" button and confirm.
      *
-     * @return true when the offer was confirmed and the items left the inventory
+     * <p>Only the explicit trade-restriction notice is a definitive refusal.
+     * A setup that never opens or a step that times out is treated as a
+     * transient UI failure and retried.</p>
+     *
+     * @return PLACED when the offer was confirmed and the items left the
+     *         inventory, RESTRICTED on the trade-restriction notice, FAILED
+     *         for transient UI failures
      */
-    private boolean placeSellOffer(Rs2ItemModel item, int quantity, int price) {
+    private OfferResult placeSellOffer(Rs2ItemModel item, int quantity, int price) {
         for (int attempt = 1; attempt <= MAX_OFFER_ATTEMPTS; attempt++) {
-            offerSetupSeen = false;
-            tradeRestrictionSeen = false;
             try {
-                boolean placed = doPlaceSellOffer(item, quantity, price);
-                // A setup that never opened, or a trade-restriction notice, is
-                // a genuine refusal - retrying would just waste another timeout
-                if (placed || tradeRestrictionSeen || !offerSetupSeen || attempt == MAX_OFFER_ATTEMPTS) {
-                    return placed;
+                OfferResult result = doPlaceSellOffer(item, quantity, price);
+                if (result != OfferResult.FAILED || attempt == MAX_OFFER_ATTEMPTS) {
+                    return result;
                 }
                 abortOfferSetup();
                 sleepUntil(() -> !isSetupVisible(), SETUP_WAIT_TIMEOUT_MS);
                 if (!Rs2GrandExchange.isOpen()) {
                     if (!Rs2GrandExchange.openExchange()
                             || !sleepUntil(Rs2GrandExchange::isOpen, EXCHANGE_OPEN_TIMEOUT_MS)) {
-                        return false;
+                        return OfferResult.FAILED;
                     }
                 }
             } catch (RuntimeException ex) {
                 // Transient UI errors (e.g. a widget without bounds on a slow client)
-                // must not kill the whole sell pass - treat this item as refused
+                // must not kill the whole sell pass or flag the item unsellable
                 Microbot.log("Sell offer failed for " + item.getName() + ": " + ex.getMessage());
                 abortOfferSetup();
-                return false;
+                return OfferResult.FAILED;
             }
         }
-        return false;
+        return OfferResult.FAILED;
     }
 
-    private boolean doPlaceSellOffer(Rs2ItemModel item, int quantity, int price) {
+    private OfferResult doPlaceSellOffer(Rs2ItemModel item, int quantity, int price) {
         // A setup left open by a trade-restricted item is reused instead of
         // backing out: clicking 'Offer' on the next item switches the setup
         // straight over to it, so refused items never close the GE flow
         if (!Rs2Inventory.interact(item.getId(), "Offer")) {
-            return false;
+            return OfferResult.FAILED;
         }
 
         // A reused setup stays visible the whole time - the wait must hold
-        // out until the setup actually shows THIS item, not the previous one
+        // out until the setup actually shows THIS item, not the previous one.
+        // A timeout here is transient (slow client/UI) and is retried by the
+        // caller - it never flags the item unsellable.
         if (!sleepUntil(() -> isSetupVisible() && sameTradeItem(resolveSetupItemId(item.getId()), item.getId()),
                 SETUP_WAIT_TIMEOUT_MS)) {
-            return false;
+            return OfferResult.FAILED;
         }
-        offerSetupSeen = true;
 
         // A red "restricted for trading" notice in the setup means Confirm is
-        // dead for this item - fail fast, no retry. The setup is LEFT OPEN so
-        // the next item's 'Offer' click switches straight over to it.
+        // dead for this item - the only genuine refusal. The setup is LEFT OPEN
+        // so the next item's 'Offer' click switches straight over to it.
         String restrictionNotice = findTradeRestrictionNotice();
         if (restrictionNotice != null) {
-            tradeRestrictionSeen = true;
             tradeRestrictionText = restrictionNotice;
-            return false;
+            return OfferResult.RESTRICTED;
         }
 
         if (!enterPrice(price)) {
             abortOfferSetup();
-            return false;
+            return OfferResult.FAILED;
         }
 
         if (!enterFullQuantity(quantity)) {
             abortOfferSetup();
-            return false;
+            return OfferResult.FAILED;
         }
 
         Widget confirmButton = findConfirmButton();
         if (!clickWidget(confirmButton)) {
             abortOfferSetup();
-            return false;
+            return OfferResult.FAILED;
         }
 
         // The GE warns when the price is far from the guide price (often, at
@@ -444,11 +694,11 @@ public class BankSellerScript extends Script {
         long confirmDeadline = System.currentTimeMillis() + CONFIRM_WAIT_TIMEOUT_MS;
         while (System.currentTimeMillis() < confirmDeadline) {
             if (Thread.currentThread().isInterrupted()) {
-                return false;
+                return OfferResult.FAILED;
             }
             boolean warningUp = isGePriceWarningVisible();
             if (!isSetupVisible() && !warningUp) {
-                return true;
+                return OfferResult.PLACED;
             }
             if (warningUp) {
                 acceptGePriceWarning();
@@ -457,7 +707,7 @@ public class BankSellerScript extends Script {
         }
 
         // The offer can go through despite a lingering setup - trust the inventory
-        return inventoryTradeQuantity(item.getId()) == 0;
+        return inventoryTradeQuantity(item.getId()) == 0 ? OfferResult.PLACED : OfferResult.FAILED;
     }
 
     /**
@@ -850,11 +1100,12 @@ public class BankSellerScript extends Script {
             return false;
         }
         String[] actions = widget.getActions();
-        if (actions != null) {
-            for (String action : actions) {
-                if (normalize(action).contains("confirm")) {
-                    return true;
-                }
+        if (actions == null) {
+            return false;
+        }
+        for (String action : actions) {
+            if (normalize(action).contains("confirm")) {
+                return true;
             }
         }
         return normalize(widget.getText()).contains("confirm") && hasAnyAction(widget);
@@ -938,6 +1189,10 @@ public class BankSellerScript extends Script {
                 message += " " + tradeRestrictionText;
             }
             return message;
+        }
+        if (sessionOffersPlaced == 0 && !skippedItemIds.isEmpty()) {
+            return "ERROR: the Grand Exchange interface did not respond - " + skippedItemIds.size()
+                    + " stack(s) could not be sold and were left in the bank. Stopping.";
         }
         if (sessionStacksRefused > 0) {
             return "Nothing left to sell - " + sessionStacksRefused
