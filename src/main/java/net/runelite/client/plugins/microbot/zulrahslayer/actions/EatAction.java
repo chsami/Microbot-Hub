@@ -25,7 +25,7 @@ public class EatAction implements ZulrahAction {
     public Object execute(ZulrahState state) {
         boolean ate = Rs2Player.eatAt(50, true);
         if (ate) {
-            log.info("Eating.");
+            log.debug("Eating.");
         }
         return ate;
     }

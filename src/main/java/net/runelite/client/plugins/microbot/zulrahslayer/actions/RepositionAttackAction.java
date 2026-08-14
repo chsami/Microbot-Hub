@@ -91,13 +91,13 @@ public class RepositionAttackAction implements ZulrahAction {
         }
 
         if (zulrahCanBeAttacked(surfaced, canAttackAgain, ctx)) {
-            log.info("[dps] attacking Zulrah mid-reposition to {} ({}ms since last attack)", target, timeSinceLastAttack);
+            log.debug("[dps] attacking Zulrah mid-reposition to {} ({}ms since last attack)", target, timeSinceLastAttack);
             ZulrahHelpers.attackZulrah();
             ctx.setLastAttackAtMs(now);
             return "attack-moving";
         }
         if (!Rs2Player.isMoving()) {
-            log.info("[dps] walking to {} | {}ms since last attack, {}ms until next attack",
+            log.debug("[dps] walking to {} | {}ms since last attack, {}ms until next attack",
                     target, timeSinceLastAttack, Math.max(0L, cooldownMs - timeSinceLastAttack));
             Rs2Walker.walkFastCanvas(target, true);
             return "walk";

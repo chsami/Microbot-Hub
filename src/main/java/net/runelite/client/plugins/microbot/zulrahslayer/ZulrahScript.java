@@ -46,11 +46,11 @@ public class ZulrahScript extends ActionScript<ZulrahState> {
 
     @Override
     protected void onInitialize() {
-        log.info("Initializing");
+        log.debug("Initializing");
         context = new FightContext(itemManager);
         String magicName = zulrahConfig.mageInventorySetup().getName();
         String rangeName = zulrahConfig.rangeInventorySetup().getName();
-        log.info("Using inventory setups — magic: '{}', range: '{}'", magicName, rangeName);
+        log.debug("Using inventory setups — magic: '{}', range: '{}'", magicName, rangeName);
         context.setMagicSetup(new Rs2InventorySetup(magicName, mainScheduledFuture));
         context.setRangeSetup(new Rs2InventorySetup(rangeName, mainScheduledFuture));
         context.reset();
@@ -59,7 +59,7 @@ public class ZulrahScript extends ActionScript<ZulrahState> {
 
     private void armStartPoint() {
         CycleStartPoint start = zulrahConfig.cycleStartPoint();
-        log.info("Start point: {}", start);
+        log.debug("Start point: {}", start);
         switch (start) {
             case BANKING:
                 context.setPrepSkipBank(false);
@@ -114,7 +114,7 @@ public class ZulrahScript extends ActionScript<ZulrahState> {
         if (playerIsAlreadyStandingInRightLocationForNextPhase(pos, next, current)) {
             return;
         }
-        log.info("[venom] cloud spawned while settled; pre-moving to next stand tile {}", next);
+        log.debug("[venom] cloud spawned while settled; pre-moving to next stand tile {}", next);
         context.setVenomPreMoved(true);
         context.setStandLocation(next);
     }
@@ -136,7 +136,7 @@ public class ZulrahScript extends ActionScript<ZulrahState> {
         if (context == null || context.getPhase() != null) {
             return;
         }
-        log.info("[timing] onFightStart: NPC spawned, opening hold until the first attack fires");
+        log.debug("[timing] onFightStart: NPC spawned, opening hold until the first attack fires");
         context.setSurfaced(false);
         context.setWaitingForFirstAttackOnZulrah(true);
         context.setStandLocation(StandLocation.NORTHEAST_NORTH.toWorldPoint());
@@ -144,7 +144,7 @@ public class ZulrahScript extends ActionScript<ZulrahState> {
 
     public void onZulrahSurfaced() {
         if (context != null) {
-            log.info("[timing] onZulrahSurfaced: attackable now (phase={})",
+            log.debug("[timing] onZulrahSurfaced: attackable now (phase={})",
                     context.getPhase() == null ? "none" : context.getPhase().getZulrahNpc().getType().getName());
             context.setSurfaced(true);
             context.setVenomPreMoved(false);
@@ -160,7 +160,7 @@ public class ZulrahScript extends ActionScript<ZulrahState> {
     }
 
     public void onZulrahDeath() {
-        log.info("Zulrah died. Disabling all prayers; loot will be picked up when the corpse despawns.");
+        log.debug("Zulrah died. Disabling all prayers; loot will be picked up when the corpse despawns.");
         Rs2Prayer.disableAllPrayers();
         if (context != null) {
             context.setDeathAwaitingDrop(true);
@@ -171,7 +171,7 @@ public class ZulrahScript extends ActionScript<ZulrahState> {
         if (context == null || !context.isDeathAwaitingDrop()) {
             return;
         }
-        log.info("Zulrah corpse despawned; drop should be down — looting the kill.");
+        log.debug("Zulrah corpse despawned; drop should be down — looting the kill.");
         context.setDeathAwaitingDrop(false);
         context.setLootPending(true);
         context.setLootDeadlineMs(System.currentTimeMillis() + LootAction.INITIAL_LOOT_WAIT_MS);
@@ -185,7 +185,7 @@ public class ZulrahScript extends ActionScript<ZulrahState> {
 
     public void handleZulrahAttack() {
         if (context == null) {
-            log.info("Context is null, returning");
+            log.debug("Context is null, returning");
             return;
         }
         ZulrahPhase phase = context.getPhase();

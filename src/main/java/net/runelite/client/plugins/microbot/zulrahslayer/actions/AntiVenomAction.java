@@ -26,7 +26,7 @@ public class AntiVenomAction implements ZulrahAction {
 
     @Override
     public Object execute(ZulrahState state) {
-        log.info("Drinking anti poison to reduce venom damage");
+        log.debug("Drinking anti poison to reduce venom damage");
         return Rs2Player.drinkAntiPoisonPotion();
     }
 }

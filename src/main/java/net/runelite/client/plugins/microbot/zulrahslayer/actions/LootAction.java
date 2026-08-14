@@ -61,7 +61,7 @@ public class LootAction implements ZulrahAction {
         if (lootWindowExpired(ctx, now)) {
             ctx.setLootPending(false);
             boolean restock = config.restockBetweenKills();
-            log.info("Loot pickup complete. Restock between kills is {}.", restock ? "ON — arming resupply" : "OFF");
+            log.debug("Loot pickup complete. Restock between kills is {}.", restock ? "ON — arming resupply" : "OFF");
             if (restock) {
                 armRestockTrip(ctx);
             }

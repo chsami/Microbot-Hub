@@ -83,7 +83,7 @@ public class ReturnToZulrahAction implements ZulrahAction {
         FightContext ctx = state.context();
         try {
             if (runPrep(ctx)) {
-                log.info("[prep] back at the shrine; handing off to the fight.");
+                log.debug("[prep] back at the shrine; handing off to the fight.");
                 return "prep-complete";
             }
             log.error("[prep] between-kills routine aborted; the bot is now idle. Check the step above.");
@@ -164,13 +164,13 @@ public class ReturnToZulrahAction implements ZulrahAction {
             String base = name.replaceAll("\\(\\d+\\)$", "").trim().toLowerCase();
 
             if (boosters.contains(base) && drunk.add(base)) {
-                log.info("[prep] pre-potting {}", name);
+                log.debug("[prep] pre-potting {}", name);
                 Rs2Inventory.interact(potion, "Drink");
                 sleep(600, 1000);
             }
         }
         if (drunk.isEmpty()) {
-            log.info("[prep] no stat-boosting potions in the inventory to pre-pot");
+            log.debug("[prep] no stat-boosting potions in the inventory to pre-pot");
         }
         return true;
     }
@@ -193,7 +193,7 @@ public class ReturnToZulrahAction implements ZulrahAction {
             return true;
         }
 
-        log.info("[prep] re-equipping the magic gear (from inventory) before boarding the boat");
+        log.debug("[prep] re-equipping the magic gear (from inventory) before boarding the boat");
         magic.wearEquipment();
         if (!sleepUntil(magic::doesEquipmentMatch, STEP_TIMEOUT_MS)) {
             log.warn("[prep] magic equipment not fully on before boarding the boat");
@@ -207,7 +207,7 @@ public class ReturnToZulrahAction implements ZulrahAction {
             return true;
         }
 
-        log.info("[prep] restoring prayer at the altar");
+        log.debug("[prep] restoring prayer at the altar");
         if (!interactObject(ALTAR_NAME, "Pray")) {
             return false;
         }
@@ -217,7 +217,7 @@ public class ReturnToZulrahAction implements ZulrahAction {
     }
 
     private boolean doBankStep(FightContext ctx) {
-        log.info("[prep] banking at the Grand Exchange");
+        log.debug("[prep] banking at the Grand Exchange");
         Rs2Bank.walkToBankAndUseBank(BankLocation.GRAND_EXCHANGE);
         if (!sleepUntil(Rs2Bank::isOpen, STEP_TIMEOUT_MS)) {
             log.warn("[prep] could not open the GE bank");
@@ -281,7 +281,7 @@ public class ReturnToZulrahAction implements ZulrahAction {
     }
 
     private static void eatLobsterToFullHp(Map<Integer, Integer> desired) {
-        log.info("[prep] HP below full — eating lobsters");
+        log.debug("[prep] HP below full — eating lobsters");
         Rs2Bank.withdrawX(LOBSTER_ID, Rs2Random.between(8, 12));
         sleepUntil(() -> Rs2Inventory.hasItem(LOBSTER_ID), 3_000);
         long deadline = System.currentTimeMillis() + STEP_TIMEOUT_MS;
@@ -320,7 +320,7 @@ public class ReturnToZulrahAction implements ZulrahAction {
     }
 
     private boolean fairyRingToZulAndra() {
-        log.info("[prep] equipping Dramen staff and taking the fairy ring to Zul-Andra");
+        log.debug("[prep] equipping Dramen staff and taking the fairy ring to Zul-Andra");
         if (Rs2Inventory.hasItem(DRAMEN_STAFF_ID)) {
             Rs2Inventory.wield(DRAMEN_STAFF_ID);
             sleep(300, 600);
@@ -341,13 +341,13 @@ public class ReturnToZulrahAction implements ZulrahAction {
     }
 
     private boolean walkToDock() {
-        log.info("[prep] walking to the dock");
+        log.debug("[prep] walking to the dock");
         Rs2Walker.walkTo(ZULANDRA_DOCK);
         return sleepUntil(() -> Rs2Player.getWorldLocation().distanceTo(ZULANDRA_DOCK) <= 4, STEP_TIMEOUT_MS);
     }
 
     private boolean boardBoat() {
-        log.info("[prep] boarding the boat to Zulrah's shrine");
+        log.debug("[prep] boarding the boat to Zulrah's shrine");
         if (!interactObject(BOAT_NAME, null)) {
             return false;
         }

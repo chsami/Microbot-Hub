@@ -56,7 +56,6 @@ public class EnforcePrayersAction implements ZulrahAction {
      * alternation is one step out of phase (every attack lands). After that, leave it to the flick.
      */
     private Object anchorJadOverhead(ZulrahState state, ZulrahPhase phase) {
-        log.info("[jad phase]");
         if (!state.context().isJadStartPrayerSet()) {
             enforceOverhead(phase.getAttributes().getPrayer());
             state.context().setJadStartPrayerSet(true);
@@ -67,7 +66,6 @@ public class EnforcePrayersAction implements ZulrahAction {
     private void enforceOverhead(Rs2PrayerEnum wanted) {
         if (wanted != null) {
             if (!Rs2Prayer.isPrayerActive(wanted)) {
-                log.info("[prayer] enabling {}", wanted);
                 Rs2Prayer.toggle(wanted, true);
             }
             return;

@@ -120,6 +120,17 @@ dependencies {
         microbotRuntime "com.microbot:microbot:${microbotClientVersion}@jar"
         testImplementation "com.microbot:microbot:${microbotClientVersion}@jar"
     }
+
+    // Test-only. JUnit 5 runs the `./gradlew test` suite. This is `test` scope, so it is never on any
+    // plugin's compile classpath and is never bundled into a plugin JAR — plugin packaging is unaffected.
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
+}
+
+// The existing main()-driven harnesses (LoginTest, ScriptLifecycleTest, Microbot) have no @Test methods,
+// so enabling the JUnit Platform leaves them untouched; only real @Test classes are collected and run.
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
 }
 
 application {

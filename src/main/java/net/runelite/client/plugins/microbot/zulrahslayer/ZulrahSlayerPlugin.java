@@ -34,8 +34,8 @@ import java.util.List;
         authors = {"Donder"},
         version = ZulrahSlayerPlugin.version,
         minClientVersion = "2.0.1",
-        iconUrl = "https://i.imgur.com/syri2MC.png",
-        cardUrl = "https://i.imgur.com/syri2MC.png",
+        iconUrl = "https://chsami.github.io/Microbot-Hub/ZulrahSlayerPlugin/assets/icon.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/ZulrahSlayerPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
@@ -100,7 +100,7 @@ public class ZulrahSlayerPlugin extends Plugin {
         potentialRotations.clear();
         zulrahReset = false;
         zulrahScript.reset();
-        log.info("Zulrah Reset!");
+        log.debug("Zulrah Reset!");
     }
 
     @Nullable
@@ -118,9 +118,9 @@ public class ZulrahSlayerPlugin extends Plugin {
         RotationType first = potentialRotations.get(0);
         if (potentialRotations.size() == 1) {
             currentRotation = first;
-            log.info("Locked rotation {} at stage {}", first.getRotationName(), stage);
+            log.debug("Locked rotation {} at stage {}", first.getRotationName(), stage);
         } else {
-            log.info("Rotation ambiguous ({} candidates) at stage {}; provisionally using {}",
+            log.debug("Rotation ambiguous ({} candidates) at stage {}; provisionally using {}",
                     potentialRotations.size(), stage, first.getRotationName());
         }
         return first;
@@ -216,7 +216,7 @@ public class ZulrahSlayerPlugin extends Plugin {
     private void onNpcSpawned(NpcSpawned event) {
         NPC npc = event.getNpc();
         if (npc.getName() != null && npc.getName().equalsIgnoreCase("zulrah")) {
-            log.info("Started Zulrah fight.");
+            log.debug("Started Zulrah fight.");
             zulrahScript.onFightStart();
         }
     }
@@ -301,6 +301,6 @@ public class ZulrahSlayerPlugin extends Plugin {
                   + (phase.getZulrahNpc().isJad() ? " [JAD]" : "")
                   + " pray=" + phase.getAttributes().getPrayer()
                 : "n/a";
-        log.info("[zulrah] {} | rotation={} stage={} phase={}", event, rotation, stage, phaseDesc);
+        log.debug("[zulrah] {} | rotation={} stage={} phase={}", event, rotation, stage, phaseDesc);
     }
 }

@@ -36,7 +36,7 @@ public class SyncPhaseAction implements ZulrahAction {
         if (phase == null) {
             return null;
         }
-        log.info("Changing zulrah phase. Next phase is {}", phase.getZulrahNpc().getType().getName());
+        log.debug("Changing zulrah phase. Next phase is {}", phase.getZulrahNpc().getType().getName());
         ctx.setStandLocation(phase.getAttributes().getStandLocation().toWorldPoint());
         boolean melee = phase.getZulrahNpc().getType() == ZulrahType.MELEE
                 && phase.getAttributes().getStandLocation() == StandLocation.NORTHEAST_NORTH;

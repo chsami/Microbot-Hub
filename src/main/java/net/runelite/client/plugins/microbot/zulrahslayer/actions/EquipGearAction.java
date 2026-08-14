@@ -61,7 +61,7 @@ public class EquipGearAction implements ZulrahAction {
         FightContext ctx = state.context();
         Rs2InventorySetup setup = ZulrahHelpers.desiredSetup(ctx, ctx.getPhase());
         if (ctx.getGearSwapAttempts() == 0) {
-            log.info("Changing to {} setup", setup == ctx.getMagicSetup() ? "magic" : "range");
+            log.debug("Changing to {} setup", setup == ctx.getMagicSetup() ? "magic" : "range");
         }
         ctx.setGearSwapAttempts(ctx.getGearSwapAttempts() + 1);
         setup.wearEquipment();

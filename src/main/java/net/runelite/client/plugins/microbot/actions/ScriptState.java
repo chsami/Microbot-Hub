@@ -22,8 +22,10 @@ public interface ScriptState {
     default Object result(String key) {
         return actionStates().stream()
                 .filter(a -> a.getKey().equals(key))
-                .map(ActionState::getResult)
                 .findFirst()
+                // Map AFTER findFirst: a recorded-but-null result (an action that returned null, or one
+                // whose execute threw) would make findFirst() throw on a null stream element otherwise.
+                .map(ActionState::getResult)
                 .orElse(null);
     }
 }
