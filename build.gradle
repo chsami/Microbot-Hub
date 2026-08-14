@@ -121,9 +121,11 @@ dependencies {
         testImplementation "com.microbot:microbot:${microbotClientVersion}@jar"
     }
 
-    // Test-only. JUnit 5 runs the `./gradlew test` suite. This is `test` scope, so it is never on any
-    // plugin's compile classpath and is never bundled into a plugin JAR — plugin packaging is unaffected.
+    // Test-only. JUnit 5 runs the `./gradlew test` suite; Mockito stubs the RuneLite NPC interface and
+    // the static client accessors (Microbot / Rs2Player) so the pure decision logic can be exercised
+    // without a live client. All `test` scope — never on a plugin's compile classpath or in a plugin JAR.
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation 'org.mockito:mockito-core:5.11.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
 }
 

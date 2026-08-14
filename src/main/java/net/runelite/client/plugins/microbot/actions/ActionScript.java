@@ -54,19 +54,24 @@ public abstract class ActionScript<S extends ScriptState> extends Script {
         if (!tickInProgress.compareAndSet(false, true)) {
             return;
         }
-        scheduledExecutorService.submit(() -> {
-            try {
-                if (!Microbot.isLoggedIn() || !super.run()) {
-                    return;
+        try {
+            scheduledExecutorService.submit(() -> {
+                try {
+                    if (!Microbot.isLoggedIn() || !super.run()) {
+                        return;
+                    }
+                    tick();
+                } catch (Exception ex) {
+                    onException(ex);
+                    log.error("Exception during tick.", ex);
+                } finally {
+                    tickInProgress.set(false);
                 }
-                tick();
-            } catch (Exception ex) {
-                onException(ex);
-                log.error("Exception during tick.", ex);
-            } finally {
-                tickInProgress.set(false);
-            }
-        });
+            });
+        } catch (RuntimeException submitFailed) {
+            tickInProgress.set(false);
+            throw submitFailed;
+        }
     }
 
     public void onException(Exception e) {

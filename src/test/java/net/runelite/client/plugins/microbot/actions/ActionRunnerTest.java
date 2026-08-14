@@ -5,11 +5,14 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -108,5 +111,56 @@ class ActionRunnerTest {
         assertEquals("normal", state.result("normal"));
         assertEquals(List.of("normal"), state.executionOrder(),
                 "only the non-throwing action produced a completed execution");
+    }
+
+    @Test
+    void laterActionsCanReadEarlierResultsFromTheSameState() {
+        FixtureState state = new FixtureState();
+        AtomicReference<Object> seenByLater = new AtomicReference<>("UNSET");
+
+        // The earlier action (order 10) records "producer" as its result; the later action (order 20)
+        // reads it back out of the shared state during its own execute.
+        Action<FixtureState> earlier = new FixtureAction(10, "producer", true, null, null);
+        Action<FixtureState> later = new FixtureAction(20, "consumer", true, null,
+                () -> seenByLater.set(state.result("producer")));
+
+        new ActionRunner<>(Arrays.asList(later, earlier)).run(state);
+
+        assertEquals("producer", seenByLater.get(),
+                "a later action must see the result an earlier action recorded this tick");
+    }
+
+    @Test
+    void needsExecutionFalseRecordsASkipWithoutCallingExecute() {
+        FixtureState state = new FixtureState();
+        AtomicBoolean executeCalled = new AtomicBoolean(false);
+
+        Action<FixtureState> skipped = new FixtureAction(10, "skipped", false, null,
+                () -> executeCalled.set(true));
+        Action<FixtureState> runs = new FixtureAction(20, "runs", true, null, null);
+
+        new ActionRunner<>(Arrays.asList(skipped, runs)).run(state);
+
+        assertFalse(executeCalled.get(), "execute must not run when needsExecution is false");
+        assertFalse(state.executed("skipped"), "a skipped action is recorded as not executed");
+        // It is still RECORDED (present in the tick's state), just with executed=false and no result.
+        assertTrue(state.actionStates().stream().anyMatch(a -> a.getKey().equals("skipped")),
+                "a skipped action must still be recorded for the tick");
+        assertNull(state.result("skipped"));
+        assertFalse(state.executionOrder().contains("skipped"));
+        assertTrue(state.executed("runs"), "a needed action still runs in the same tick");
+    }
+
+    @Test
+    void duplicateActionKeysAreRejectedDeterministically() {
+        List<Action<FixtureState>> withDuplicate = Arrays.asList(
+                new FixtureAction(10, "dup", true, null, null),
+                new FixtureAction(20, "unique", true, null, null),
+                new FixtureAction(30, "dup", true, null, null));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> new ActionRunner<>(withDuplicate),
+                "constructing a runner with duplicate action keys must fail fast");
+        assertTrue(ex.getMessage().contains("dup"), "the offending key should be named: " + ex.getMessage());
     }
 }

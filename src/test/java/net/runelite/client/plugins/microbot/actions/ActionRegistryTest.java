@@ -7,6 +7,7 @@ import net.runelite.client.plugins.microbot.actions.fixtures.ActionAlpha;
 import net.runelite.client.plugins.microbot.actions.fixtures.ActionBeta;
 import net.runelite.client.plugins.microbot.actions.fixtures.ActionGamma;
 import net.runelite.client.plugins.microbot.actions.fixtures.TestAction;
+import net.runelite.client.plugins.microbot.actions.fixtures.empty.EmptyScanTarget;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -61,5 +62,16 @@ class ActionRegistryTest {
         assertFalse(discovered.isEmpty(), "expected at least one discovered action");
         assertTrue(discovered.stream().allMatch(a -> a instanceof TestAction),
                 "every discovered instance should be a usable TestAction built by the injector");
+    }
+
+    @Test
+    void returnsEmptyListWhenThePackageHasNoImplementations() {
+        Injector injector = Guice.createInjector();
+
+        // The scanned package holds only the interface and an unrelated POJO — no concrete impls.
+        List<EmptyScanTarget> discovered = ActionRegistry.discover(EmptyScanTarget.class, injector);
+
+        assertTrue(discovered.isEmpty(),
+                "discovery over a package with no concrete implementations should return an empty list, not throw");
     }
 }
