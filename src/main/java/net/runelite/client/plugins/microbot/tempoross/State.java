@@ -31,17 +31,21 @@ public enum State {
         // sampled. Energy must be non-zero: 0 means the pool phase or an unparsed widget. Requires
         // a few fish — with 1-2 in the bag this used to sprint a cook-and-load for a single fish.
         if (TemporossScript.ENERGY > 0 && getAllFish() >= 4) {
+            // The ~49% line is a FLOOR, not a fallback: the projection can only cut EARLIER. In the
+            // first live game the EMA lagged the accelerating mass-world drain and the adaptive
+            // check fired at "pool in ~0 ticks" with 5 raw fish still uncooked.
+            if (TemporossScript.ENERGY <= TemporossScript.thresholdLoadEnergy) {
+                return true;
+            }
             int poolIn = TemporossScript.ticksUntilEnergy(5);
             if (poolIn != Integer.MAX_VALUE) {
-                // ~2 ticks to cook each raw fish, ~1 to load each, plus fixed walking overhead.
-                int needed = getRawFish() * 3 + 12;
+                // ~2 ticks to cook each raw fish, ~1 to load each, plus walking overhead.
+                int needed = getRawFish() * 3 + 16;
                 if (poolIn <= needed) {
                     Microbot.log("Adaptive cutoff: pool in ~" + poolIn + " ticks, need ~"
                             + needed + " for " + getRawFish() + " raw fish — cooking now");
                     return true;
                 }
-            } else if (TemporossScript.ENERGY <= TemporossScript.thresholdLoadEnergy) {
-                return true;
             }
         }
         // Otherwise work in batches: catch 7, cook them, repeat. A double spot overrides that — while

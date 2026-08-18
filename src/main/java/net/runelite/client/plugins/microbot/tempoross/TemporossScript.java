@@ -101,6 +101,7 @@ public class TemporossScript extends Script {
         INTENSITY = 0;
         ESSENCE = 0;
         energyDrainPerTick = 0;
+        lastDrainSample = 0;
         lastEnergySeen = -1;
         lastEnergyTick = -1;
         workArea = null;
@@ -395,6 +396,7 @@ public class TemporossScript extends Script {
         INTENSITY = 0;
         ESSENCE = 0;
         energyDrainPerTick = 0;
+        lastDrainSample = 0;
         lastEnergySeen = -1;
         lastEnergyTick = -1;
         workArea = null;
@@ -1345,6 +1347,9 @@ public class TemporossScript extends Script {
     public static double energyDrainPerTick = 0;
     private static int lastEnergySeen = -1;
     private static int lastEnergyTick = -1;
+    /** The newest raw drain sample, unsmoothed. On mass worlds the drain accelerates as the crates
+     * fill, and the EMA lags behind — projections use whichever of the two is worse. */
+    private static double lastDrainSample = 0;
 
     /**
      * Learns how fast THIS game drains the boss's energy, sampled from widget changes. Mass worlds
@@ -1363,8 +1368,10 @@ public class TemporossScript extends Script {
         }
         if (ENERGY > lastEnergySeen) {
             energyDrainPerTick = 0;
+            lastDrainSample = 0;
         } else {
             double sample = (double) (lastEnergySeen - ENERGY) / (tick - lastEnergyTick);
+            lastDrainSample = sample;
             energyDrainPerTick = energyDrainPerTick <= 0 ? sample
                     : 0.7 * energyDrainPerTick + 0.3 * sample;
         }
@@ -1377,10 +1384,11 @@ public class TemporossScript extends Script {
         if (ENERGY > 0 && ENERGY <= targetPercent) {
             return 0;
         }
-        if (energyDrainPerTick <= 0 || ENERGY <= 0) {
+        double rate = Math.max(energyDrainPerTick, lastDrainSample);
+        if (rate <= 0 || ENERGY <= 0) {
             return Integer.MAX_VALUE;
         }
-        return (int) ((ENERGY - targetPercent) / energyDrainPerTick);
+        return (int) ((ENERGY - targetPercent) / rate);
     }
 
     public static void updateFireData(){
@@ -1435,24 +1443,19 @@ public class TemporossScript extends Script {
     /** Dodge with this many ticks still on the clock — the escape takes 1-2, the rest is margin. */
     private static final int SHADOW_DODGE_MARGIN_TICKS = 4;
 
-    /** Ticks this shadow has been on the ground; MAX_VALUE when untracked (treat as about to pop). */
-    private static int shadowAgeTicks(GameObject cloud) {
-        int[] birth = cloudBirths.get(cloud.getWorldLocation());
-        return birth == null ? Integer.MAX_VALUE
-                : Microbot.getClient().getTickCount() - birth[1];
-    }
-
     /**
-     * Is this shadow about to strike? 41007 ("short") immediately — its telegraph is unmeasured and
-     * the cache name promises less warning. A 41006 only counts inside its final margin, so a fresh
-     * shadow costs nothing: the old flee-on-sight dodge threw away up to 9 seconds of fishing per
-     * cloud. A shadow first seen mid-life (wave gap, restart) counts as imminent.
+     * Is this shadow about to strike? 41007 ("short") immediately — measured at ~2 ticks of warning.
+     * For 41006 the clock is the BATCH deadline, not the shadow's own age: strikes land in
+     * synchronized batches, and shadows spawning late in the cycle still pop with the group
+     * (measured: 2- and 6-tick lifetimes despawning alongside a batch of 16s). So every shadow
+     * becomes imminent together, when the oldest one's 16 ticks are nearly up.
      */
     private static boolean strikeImminent(GameObject cloud) {
         if (cloud.getId() == CLOUD_SHADOW_SHORT) {
             return true;
         }
-        return shadowAgeTicks(cloud) >= SHADOW_LIFETIME_TICKS - SHADOW_DODGE_MARGIN_TICKS;
+        int soonest = soonestStrikeTicks();
+        return soonest >= 0 && soonest <= SHADOW_DODGE_MARGIN_TICKS;
     }
 
     /** Ticks until the soonest tracked shadow pops; -1 with none tracked. */
@@ -1855,6 +1858,18 @@ public class TemporossScript extends Script {
         if (state == null) {
             state = State.THIRD_CATCH;
         }
+        // The pool phase is over the moment energy is back near full. The latch used to be cleared
+        // only inside the pool-not-found branch, so cycle 2 entered ATTACK_TEMPOROSS with it still
+        // set from cycle 1 and camped the empty pool from 26% down to zero (observed live).
+        if (poolPhaseActive && ENERGY >= thresholdAttackEnergy) {
+            poolPhaseActive = false;
+        }
+        // A strike batch is landing this very tick: hold one pass so the fires exist before any
+        // click paths us anywhere — the rope burned walking into a fire that spawned mid-route,
+        // after the route's own fire checks had already passed.
+        if (!sortedClouds.isEmpty() && soonestStrikeTicks() <= 0) {
+            return;
+        }
         switch (state) {
             case INITIAL_CATCH:
             case SECOND_CATCH:
@@ -1915,7 +1930,12 @@ public class TemporossScript extends Script {
                     if (Rs2Player.isMoving()) {
                         return;
                     }
-                    WorldPoint totemLocation = workArea.getTotemLocation();
+                    // Snapshot: the game-end handler nulls workArea from another thread mid-pass.
+                    TemporossWorkArea area = workArea;
+                    if (area == null) {
+                        return;
+                    }
+                    WorldPoint totemLocation = area.getTotemLocation();
                     log("Can't find the fish spot, walking to the totem pole at " + totemLocation);
                     // No staging: the totem IS the staging anchor and must never recurse into itself.
                     walkToWorkAreaPoint(totemLocation, "Totem pole", false);
@@ -1936,8 +1956,12 @@ public class TemporossScript extends Script {
                     range.click("Cook-at");
                     log("Interacting with range");
                 } else if (range == null) {
+                    TemporossWorkArea cookArea = workArea;
+                    if (cookArea == null) {
+                        return;     // game ended mid-pass
+                    }
                     log("Can't find the range, walking to the range point");
-                    walkToWorkAreaPoint(workArea.getRangeLocation(), "Range");
+                    walkToWorkAreaPoint(cookArea.getRangeLocation(), "Range");
                 }
                 break;
 
