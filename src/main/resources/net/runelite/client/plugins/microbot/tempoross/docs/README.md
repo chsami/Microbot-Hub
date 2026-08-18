@@ -14,6 +14,9 @@ point range.
 - Stops catching at ~49% energy so the bag is cooked and loaded before the last wave
 - Stages at the spirit pool around 5% energy and harpoons it back to 97–98%
 - Optionally hops to a configured world on startup and uses the harpoon special attack
+- Auto-equips the best Tempoross gear from the bank (Spirit Angler > Angler per slot, best
+  wieldable harpoon, Imcando off-hand hammer), and re-checks after every reward collection so
+  fresh outfit drops go straight on. A worn full Spirit Angler set skips ropes automatically
 
 All decision thresholds are randomized slightly each game.
 
@@ -33,7 +36,6 @@ All decision thresholds are randomized slightly each game.
 | Rope | on | Needed to tether; auto-refetched if lost. Not needed with Spirit Angler's |
 | Solo | off | Solo instance; requires Infernal Harpoon and 19+ free slots |
 | World | 422 | Hops there on script start when outside the minigame. 0 disables |
-| Spirit Angler's | off | Enable when wearing the full outfit (no rope needed) |
 | Harpoon | Infernal | Dragon/Infernal/Crystal enable the special attack option |
 
 ## Known limitations

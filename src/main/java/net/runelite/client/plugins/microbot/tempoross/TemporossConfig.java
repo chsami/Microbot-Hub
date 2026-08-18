@@ -149,16 +149,6 @@ public interface TemporossConfig extends Config {
 
     // Equipment settings
     // boolean if we have Spirit Angler's outfit
-    @ConfigItem(
-        keyName = "spiritAnglers",
-        name = "Spirit Angler's",
-        description = "Enable if wearing the Spirit Angler's outfit. Grants automatic tethering during waves, so no rope is needed.",
-        position = 1,
-        section = equipmentSection
-    )
-    default boolean spiritAnglers() {
-        return false;
-    }
 
     // Harpoon settings
     // Harpoon type to use

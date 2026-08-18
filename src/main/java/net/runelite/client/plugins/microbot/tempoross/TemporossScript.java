@@ -573,7 +573,7 @@ public class TemporossScript extends Script {
         }
 
         // Check for rope
-        if (temporossConfig.rope() && !temporossConfig.spiritAnglers() && !Rs2Inventory.contains(ItemID.ROPE))
+        if (temporossConfig.rope() && !wearingFullSpiritAngler() && !Rs2Inventory.contains(ItemID.ROPE))
         {
             return true;
         }
@@ -609,7 +609,7 @@ public class TemporossScript extends Script {
             needed.add(new int[]{2, lp != null ? playerLocal.distanceTo(lp) : Integer.MAX_VALUE});
         }
 
-        if (temporossConfig.rope() && !temporossConfig.spiritAnglers() && !Rs2Inventory.contains(ItemID.ROPE)) {
+        if (temporossConfig.rope() && !wearingFullSpiritAngler() && !Rs2Inventory.contains(ItemID.ROPE)) {
             LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient(),workArea.ropePoint);
             needed.add(new int[]{3, lp != null ? playerLocal.distanceTo(lp) : Integer.MAX_VALUE});
         }
@@ -966,6 +966,11 @@ public class TemporossScript extends Script {
             log("All permits spent");
             collectingRewards = false;
             dropNetIfHeld();
+            // The pool can drop outfit pieces, and they were just banked with the rest of the
+            // loot — un-latch auto-equip so the next passes put any upgrade on before boarding.
+            autoEquipDone = false;
+            autoEquipStep = 0;
+            autoEquipTries = 0;
             return false;
         }
 
@@ -1115,14 +1120,19 @@ public class TemporossScript extends Script {
                 HarpoonType configured = temporossConfig.harpoonType();
                 int wield = -1;
                 int carry = -1;
-                if (isWieldable(configured)) {
+                if (canWield(configured)) {
                     wield = firstBanked(configured.getIds());
                 } else {
+                    // Unwieldable for us (plain harpoon, or stat-gated like a dragon harpoon under
+                    // 60 Attack) — it still fishes from the inventory, so carry it.
                     carry = firstBanked(configured.getIds());
                 }
                 if (wield == -1 && carry == -1) {
                     // Configured one not in the bank: best wiki tier we own, then a plain one.
                     for (HarpoonType type : HARPOON_TIERS) {
+                        if (!canWield(type)) {
+                            continue;   // stat-gated tier: rather wield a lower one than carry this
+                        }
                         wield = firstBanked(type.getIds());
                         if (wield != -1) {
                             break;
@@ -1182,11 +1192,10 @@ public class TemporossScript extends Script {
                 return true;
             }
 
-            case 5:     // rope — mirrors the in-game supply rule (wanted unless Spirit Angler mode)
-                if (wearingFullSpiritAngler() && !temporossConfig.spiritAnglers()) {
-                    log("Full Spirit Angler outfit is on — enable the Spirit Angler's option to skip ropes");
-                }
-                if (temporossConfig.rope() && !temporossConfig.spiritAnglers()
+            case 5:     // rope — wanted unless the worn Spirit Angler set makes tethering free.
+                // Detected live off the equipment (this step runs after the outfit ones, so a set
+                // completed seconds ago already counts). The old config toggle could lie both ways.
+                if (temporossConfig.rope() && !wearingFullSpiritAngler()
                         && !Rs2Inventory.contains(ItemID.ROPE) && Rs2Bank.hasItem(ItemID.ROPE)) {
                     log("Withdrawing a rope");
                     Rs2Bank.withdrawOne(ItemID.ROPE);
@@ -1235,6 +1244,28 @@ public class TemporossScript extends Script {
             }
         }
         return false;
+    }
+
+    /**
+     * Wieldable AND meets the wield requirements — checked up front (the Wintertodt gear manager's
+     * approach) rather than burning a failed equip attempt to find out. Dragon and infernal need
+     * 60 Attack, crystal 70; the barb-tail has none. The equip-failure blacklist stays as the net
+     * for anything this table does not know about.
+     */
+    private static boolean canWield(HarpoonType type) {
+        if (!isWieldable(type)) {
+            return false;
+        }
+        int attack = Rs2Player.getRealSkillLevel(Skill.ATTACK);
+        switch (type) {
+            case DRAGON_HARPOON:
+            case INFERNAL_HARPOON:
+                return attack >= 60;
+            case CRYSTAL_HARPOON:
+                return attack >= 70;
+            default:
+                return true;
+        }
     }
 
     /**
@@ -2583,7 +2614,7 @@ public class TemporossScript extends Script {
      * other supplies this is worth a trip from any state, not only while catching.
      */
     private boolean handleMissingRope() {
-        if (!temporossConfig.rope() || temporossConfig.spiritAnglers() || isAttackingSpiritPool()) {
+        if (!temporossConfig.rope() || wearingFullSpiritAngler() || isAttackingSpiritPool()) {
             return false;
         }
         if (Rs2Inventory.contains(ItemID.ROPE) || TemporossPlugin.incomingWave || !shouldFetchSupplies()) {
