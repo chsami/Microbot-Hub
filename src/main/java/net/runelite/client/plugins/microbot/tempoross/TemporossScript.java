@@ -100,6 +100,9 @@ public class TemporossScript extends Script {
         ENERGY = 0;
         INTENSITY = 0;
         ESSENCE = 0;
+        energyDrainPerTick = 0;
+        lastEnergySeen = -1;
+        lastEnergyTick = -1;
         workArea = null;
         TemporossPlugin.incomingWave = false;
         TemporossPlugin.isTethered = false;
@@ -141,10 +144,18 @@ public class TemporossScript extends Script {
                 if (isInMinigame()) {
                     if (workArea == null) {
                         rewardSessionDone = false;  // fresh game: next lobby visit may collect again
+                        cameraPrepped = false;
                         determineWorkArea();
                         sleep(300, 600);
                     } else {
-
+                        if (!cameraPrepped) {
+                            cameraPrepped = true;
+                            // Whole-side view, once per game: high pitch and a wide zoom keep every
+                            // target's tile on screen, so walks almost never need the arrow-key
+                            // camera turn (which runs at 3x speed and looks terrible).
+                            Rs2Camera.setPitch(383);
+                            Rs2Camera.setZoom(200);
+                        }
                         if (TemporossPlugin.incomingWave) {
                             handleTether();
                             return;
@@ -383,6 +394,9 @@ public class TemporossScript extends Script {
         ENERGY = 0;
         INTENSITY = 0;
         ESSENCE = 0;
+        energyDrainPerTick = 0;
+        lastEnergySeen = -1;
+        lastEnergyTick = -1;
         workArea = null;
         isFilling = false;
         isFightingFire = false;
@@ -658,6 +672,8 @@ public class TemporossScript extends Script {
      * recharging while we walk" (never bail — that was the 2.6.1 bug).
      */
     private boolean poolPhaseActive = false;
+    /** The once-per-game camera setup (pitch/zoom) has run. */
+    private boolean cameraPrepped = false;
 
     // Once per script start, not per game — leaving a round must not trigger a hop.
     private boolean startupHopDone = false;
@@ -1312,10 +1328,53 @@ public class TemporossScript extends Script {
             ENERGY = Integer.parseInt(energyMatcher.group(0));
             ESSENCE = Integer.parseInt(essenceMatcher.group(0));
             INTENSITY = Integer.parseInt(intensityMatcher.group(0));
+            trackEnergyDrain();
         } catch (NumberFormatException e) {
             if(Rs2AntibanSettings.devDebug)
                 log("Failed to parse energy, essence, or intensity");
         }
+    }
+
+    /** Exponential moving average of energy drain in %/tick; <= 0 when unknown. */
+    public static double energyDrainPerTick = 0;
+    private static int lastEnergySeen = -1;
+    private static int lastEnergyTick = -1;
+
+    /**
+     * Learns how fast THIS game drains the boss's energy, sampled from widget changes. Mass worlds
+     * vary wildly game to game, which is why the catch cutoff cannot stay a fixed percentage. A
+     * rise (pool refill, new game) resets the estimate — the old rate belongs to a dead phase.
+     */
+    private static void trackEnergyDrain() {
+        int tick = Microbot.getClient().getTickCount();
+        if (lastEnergySeen < 0 || tick <= lastEnergyTick) {
+            lastEnergySeen = ENERGY;
+            lastEnergyTick = tick;
+            return;
+        }
+        if (ENERGY == lastEnergySeen) {
+            return;     // sample only on change; the widget updates in steps
+        }
+        if (ENERGY > lastEnergySeen) {
+            energyDrainPerTick = 0;
+        } else {
+            double sample = (double) (lastEnergySeen - ENERGY) / (tick - lastEnergyTick);
+            energyDrainPerTick = energyDrainPerTick <= 0 ? sample
+                    : 0.7 * energyDrainPerTick + 0.3 * sample;
+        }
+        lastEnergySeen = ENERGY;
+        lastEnergyTick = tick;
+    }
+
+    /** Ticks until energy reaches the target at the current drain rate; MAX_VALUE when unknown. */
+    public static int ticksUntilEnergy(int targetPercent) {
+        if (ENERGY > 0 && ENERGY <= targetPercent) {
+            return 0;
+        }
+        if (energyDrainPerTick <= 0 || ENERGY <= 0) {
+            return Integer.MAX_VALUE;
+        }
+        return (int) ((ENERGY - targetPercent) / energyDrainPerTick);
     }
 
     public static void updateFireData(){
@@ -1364,6 +1423,44 @@ public class TemporossScript extends Script {
      * ticks are discarded as cross-game garbage (tick count is client-global and never resets).
      */
     private static final Map<WorldPoint, int[]> cloudBirths = new HashMap<>();
+
+    /** Measured live: a 41006 shadow lives 16 game ticks before its strike (5/5 samples). */
+    private static final int SHADOW_LIFETIME_TICKS = 16;
+    /** Dodge with this many ticks still on the clock — the escape takes 1-2, the rest is margin. */
+    private static final int SHADOW_DODGE_MARGIN_TICKS = 4;
+
+    /** Ticks this shadow has been on the ground; MAX_VALUE when untracked (treat as about to pop). */
+    private static int shadowAgeTicks(GameObject cloud) {
+        int[] birth = cloudBirths.get(cloud.getWorldLocation());
+        return birth == null ? Integer.MAX_VALUE
+                : Microbot.getClient().getTickCount() - birth[1];
+    }
+
+    /**
+     * Is this shadow about to strike? 41007 ("short") immediately — its telegraph is unmeasured and
+     * the cache name promises less warning. A 41006 only counts inside its final margin, so a fresh
+     * shadow costs nothing: the old flee-on-sight dodge threw away up to 9 seconds of fishing per
+     * cloud. A shadow first seen mid-life (wave gap, restart) counts as imminent.
+     */
+    private static boolean strikeImminent(GameObject cloud) {
+        if (cloud.getId() == CLOUD_SHADOW_SHORT) {
+            return true;
+        }
+        return shadowAgeTicks(cloud) >= SHADOW_LIFETIME_TICKS - SHADOW_DODGE_MARGIN_TICKS;
+    }
+
+    /** Ticks until the soonest tracked shadow pops; -1 with none tracked. */
+    private static int soonestStrikeTicks() {
+        int tick = Microbot.getClient().getTickCount();
+        int soonest = -1;
+        for (int[] birth : cloudBirths.values()) {
+            int left = SHADOW_LIFETIME_TICKS - (tick - birth[1]);
+            if (soonest == -1 || left < soonest) {
+                soonest = left;
+            }
+        }
+        return soonest;
+    }
 
     public static void updateCloudData(){
         List<GameObject> allClouds = Rs2GameObject.getGameObjects().stream()
@@ -1414,6 +1511,7 @@ public class TemporossScript extends Script {
                     + " | onTile=" + onCloudTile(playerLocal)
                     + " adjacent=" + inCloud(playerLocal, 0)
                     + " imminent=" + inImminentCloud(playerLocal)
+                    + " nextStrike=" + soonestStrikeTicks() + "t"
                     + " | fish=" + State.getAllFish() + " (" + State.getCookedFish() + " cooked)"
                     + " water=" + Rs2Inventory.count(ItemID.BUCKET_OF_WATER)
                     + " rope=" + (Rs2Inventory.contains(ItemID.ROPE) ? 1 : 0)
@@ -2094,6 +2192,16 @@ public class TemporossScript extends Script {
         if (!Rs2Camera.isTileOnScreen(target)) {
             Rs2Camera.turnTo(target, 70);
         }
+        if (!Rs2Camera.isTileOnScreen(target)) {
+            // Yaw was not the problem — the tile is outside the current view, so widen it: pitch
+            // up first, then zoom out a step per pass. Observed live: 22 seconds of "no on-screen
+            // approach" at game start because nothing ever changed the view.
+            if (Rs2Camera.getPitch() < 350) {
+                Rs2Camera.setPitch(383);
+            } else if (Rs2Camera.getZoom() > 140) {
+                Rs2Camera.setZoom(Math.max(140, Rs2Camera.getZoom() - 120));
+            }
+        }
         if (Rs2Camera.isTileOnScreen(target)) {
             Rs2Walker.walkFastLocal(target);
             return;
@@ -2157,33 +2265,42 @@ public class TemporossScript extends Script {
         if (playerLocal == null) {
             return false;
         }
-        // Two tiers. IMMINENT = standing on the shadow, or on/beside a 41007: the strike lands here,
-        // so move regardless of what we are doing — nothing in the game is worth the hit. WARNING =
-        // merely adjacent to a 41006, which is what the old radius-0 check actually meant (it computes
-        // (radius+1) tiles) and why the dodge fired early. A warning is not worth abandoning a pool
-        // harpoon for; anything else, still step out.
-        boolean imminent = onCloudTile(playerLocal) || inImminentCloud(playerLocal);
-        boolean warning = inCloud(playerLocal, 0);
-        if (!imminent && !warning) {
+        // Strikes never land on the pool point (observed live), so a pool harpoon — the densest
+        // points in the game — is never abandoned for a shadow.
+        if (isAttackingSpiritPool()) {
             return false;
         }
-        if (!imminent && isAttackingSpiritPool()) {
+        // Timed, not reflexive: only shadows inside their final margin (strikeImminent) matter.
+        // On the shadow's tile always dodges; one tile away still steps out, since the fire the
+        // strike leaves behind spreads from there.
+        GameObject threat = null;
+        boolean onTile = false;
+        for (GameObject c : sortedClouds) {
+            LocalPoint cl = c.getLocalLocation();
+            if (cl == null || !strikeImminent(c)) {
+                continue;
+            }
+            int d = playerLocal.distanceTo(cl);
+            if (d < Perspective.LOCAL_TILE_SIZE) {
+                threat = c;
+                onTile = true;
+                break;
+            }
+            if (d < 2 * Perspective.LOCAL_TILE_SIZE && threat == null) {
+                threat = c;
+            }
+        }
+        if (threat == null) {
             return false;
         }
         // Already dodging — wait for movement to clear the cloud
         if (Rs2Player.isMoving()) {
             return true;
         }
-
-        LocalPoint nearestCloud = sortedClouds.stream()
-                .map(GameObject::getLocalLocation)
-                .filter(Objects::nonNull)
-                .min(Comparator.comparingInt(playerLocal::distanceTo))
-                .orElse(null);
-
-        LocalPoint escape = findEscapeTile(playerLocal, nearestCloud, candidate -> !inCloud(candidate, 0));
+        LocalPoint escape = findEscapeTile(playerLocal, threat.getLocalLocation(), candidate -> !inCloud(candidate, 0));
         if (escape != null) {
-            log((imminent ? "IMMINENT strike — dodging to " : "Cloud warning — stepping to ") + escape);
+            log((onTile ? "Strike imminent on our tile — dodging to "
+                    : "Strike imminent beside us — stepping to ") + escape);
             Rs2Walker.walkFastLocal(escape);
             return true;
         }

@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.17.8";
+    public static final String version = "2.18.0";
     @Inject
     private TemporossConfig config;
 
@@ -102,6 +102,10 @@ public class TemporossPlugin extends Plugin {
         TemporossScript.cachedInMinigame = TemporossScript.isInMinigame();
         if (!TemporossScript.cachedInMinigame)
             return;
+        // Before the wave gate: shadow ages come from birth ticks stamped in updateCloudData, and
+        // pausing the tracker during waves made shadows look younger than they are — a late dodge.
+        if (TemporossScript.workArea != null)
+            TemporossScript.updateCloudData();
         if (incomingWave)
             return;
         TemporossScript.cachedRawFish = State.getRawFish();
@@ -114,7 +118,6 @@ public class TemporossPlugin extends Plugin {
         TemporossScript.updateTotemExitAnchor();
         TemporossScript.updateFireData();
         TemporossScript.updateFishSpotData();
-        TemporossScript.updateCloudData();
         TemporossScript.updateAmmoCrateData();
         TemporossScript.updateLastWalkPath();
 

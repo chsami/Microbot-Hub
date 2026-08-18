@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.tempoross;
 
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 
@@ -22,13 +23,26 @@ public enum State {
         if (TemporossScript.temporossConfig.solo()) {
             return false;
         }
-        // Stop catching at ~49% energy so there is time to cook and load before the last wave. Energy
-        // must be non-zero: 0 means either the pool phase or a widget that has not parsed yet.
-        // Requires a few fish to be worth it — with 1-2 in the bag this cutoff used to trigger a
-        // cook-and-load sprint for a single fish right as the pool phase arrived.
-        if (TemporossScript.ENERGY > 0 && TemporossScript.ENERGY <= TemporossScript.thresholdLoadEnergy
-                && getAllFish() >= 4) {
-            return true;
+        // Cutoff: stop catching just in time to cook and load the bag before the pool phase.
+        // Adaptive when this game's drain rate is known — a fixed percentage is wrong on both ends
+        // of the mass-world spread. Cooked fish deposit for 65 points against 20 raw, so arriving
+        // at the pool with an uncooked bag wastes most of it; equally, cutting at 49% in a slow
+        // game throws away catching time. Falls back to the old ~49% line until the rate has been
+        // sampled. Energy must be non-zero: 0 means the pool phase or an unparsed widget. Requires
+        // a few fish — with 1-2 in the bag this used to sprint a cook-and-load for a single fish.
+        if (TemporossScript.ENERGY > 0 && getAllFish() >= 4) {
+            int poolIn = TemporossScript.ticksUntilEnergy(5);
+            if (poolIn != Integer.MAX_VALUE) {
+                // ~2 ticks to cook each raw fish, ~1 to load each, plus fixed walking overhead.
+                int needed = getRawFish() * 3 + 12;
+                if (poolIn <= needed) {
+                    Microbot.log("Adaptive cutoff: pool in ~" + poolIn + " ticks, need ~"
+                            + needed + " for " + getRawFish() + " raw fish — cooking now");
+                    return true;
+                }
+            } else if (TemporossScript.ENERGY <= TemporossScript.thresholdLoadEnergy) {
+                return true;
+            }
         }
         // Otherwise work in batches: catch 7, cook them, repeat. A double spot overrides that — while
         // one is up it is worth staying out and filling the bag, and the cook interrupt in
