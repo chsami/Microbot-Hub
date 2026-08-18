@@ -108,6 +108,11 @@ public class TemporossScript extends Script {
         state = State.INITIAL_CATCH;
         startupHopDone = false;
         startupHopAttempts = 0;
+        // Restart must retry these: the script bean is a singleton, so instance flags survive a
+        // plugin stop/start and a stale 'done' skipped auto-equip silently on every restart.
+        autoEquipDone = false;
+        collectingRewards = false;
+        loggedHoldingPermits = false;
         Rs2Antiban.resetAntibanSettings();
         Rs2AntibanSettings.naturalMouse = true;
         Rs2AntibanSettings.simulateMistakes = false;
@@ -882,14 +887,16 @@ public class TemporossScript extends Script {
     }
 
     /**
-     * Equips the best Tempoross gear we own, once per script start, from the bank in the lobby.
+     * Equips the best Tempoross gear we own, once per script start.
+     *
+     * <p>Bank first, decisions second: ownership cannot be evaluated while the bank is closed, so any
+     * "is there anything to do" check made beforehand can only see worn and carried items. The first
+     * version did exactly that and concluded "already optimal" without ever opening the bank — the
+     * whole feature was a silent no-op unless the gear happened to be in the inventory.
      *
      * <p>Slots resolve independently: the wiki notes a Spirit Angler piece is interchangeable with an
-     * Angler one when you lack the full set, so there is no reason to hold out for a matching set.
-     * The harpoon is included because it drives points, but it defers to the configured type — the
-     * config is the user's stated intent, and the tier list is only a fallback for when they do not
-     * own it. A plain harpoon is left to the existing crate pickup, which already handles the case of
-     * owning nothing at all.
+     * Angler one when you lack the full set. The harpoon defers to the configured type, and gets
+     * wielded even when already carried — worn instead of carried is one more fish slot.
      *
      * @return true while still working, so the caller does not board mid-equip
      */
@@ -897,30 +904,17 @@ public class TemporossScript extends Script {
         if (!temporossConfig.autoEquip() || autoEquipDone) {
             return false;
         }
-        List<int[]> wanted = new ArrayList<>();
-        for (TemporossGear gear : TemporossGear.values()) {
-            wanted.add(gear.getTiers());
-        }
-
-        boolean anythingToDo = false;
-        for (TemporossGear gear : TemporossGear.values()) {
-            if (bestOwnedButNotWorn(gear.getTiers()) != -1) {
-                anythingToDo = true;
-                break;
-            }
-        }
-        int harpoon = bestHarpoonToEquip();
-        if (harpoon != -1) {
-            anythingToDo = true;
-        }
-        if (!anythingToDo) {
-            autoEquipDone = true;
-            log("Gear already optimal");
-            Rs2Bank.closeBank();
-            return false;
-        }
 
         if (!Rs2Bank.isOpen()) {
+            // Anything already carried is equipped before the bank opens — inventory menus are not
+            // reachable while the bank interface is up.
+            int carried = bestCarriedUpgrade();
+            if (carried != -1) {
+                log("Equipping carried item " + carried);
+                Rs2Inventory.equip(carried);
+                sleepUntil(() -> Rs2Equipment.isWearing(carried), 3000);
+                return true;
+            }
             Rs2TileObjectModel chest = Microbot.getRs2TileObjectCache().query().withId(LOBBY_BANK_CHEST).nearest();
             if (chest == null) {
                 log("Bank chest not in range — skipping auto-equip");
@@ -936,8 +930,9 @@ public class TemporossScript extends Script {
             return true;
         }
 
+        // Bank open: one upgrade per pass.
         for (TemporossGear gear : TemporossGear.values()) {
-            int id = bestOwnedButNotWorn(gear.getTiers());
+            int id = bestBankedUpgrade(gear.getTiers());
             if (id != -1) {
                 log("Equipping best " + gear.getLabel() + " (item " + id + ")");
                 Rs2Bank.withdrawAndEquip(id);
@@ -945,63 +940,113 @@ public class TemporossScript extends Script {
                 return true;
             }
         }
+        int harpoon = bestBankedHarpoon();
         if (harpoon != -1) {
             log("Equipping harpoon (item " + harpoon + ")");
             Rs2Bank.withdrawAndEquip(harpoon);
             sleepUntil(() -> Rs2Equipment.isWearing(harpoon), 3000);
             return true;
         }
-        return true;
+
+        // Done. Return displaced lower tiers to the bank so they do not ride into the game as dead
+        // slots. Harpoons only when one is worn — with none worn, a carried one is the fishing tool.
+        for (TemporossGear gear : TemporossGear.values()) {
+            for (int id : gear.getTiers()) {
+                if (!Rs2Equipment.isWearing(id) && Rs2Inventory.contains(id)) {
+                    Rs2Bank.depositAll(id);
+                }
+            }
+        }
+        if (wearingAnyHarpoon()) {
+            for (HarpoonType type : HARPOON_TIERS) {
+                for (int id : type.getIds()) {
+                    if (!Rs2Equipment.isWearing(id) && Rs2Inventory.contains(id)) {
+                        Rs2Bank.depositAll(id);
+                    }
+                }
+            }
+        }
+        autoEquipDone = true;
+        log("Auto-equip complete");
+        Rs2Bank.closeBank();
+        sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
+        return false;
     }
 
-    /** Best tier we own and are not already wearing, or -1 when the slot is already optimal. */
-    private int bestOwnedButNotWorn(int[] tiers) {
+    /** Wiki weapon tiers, best first, used when the configured harpoon is not owned. */
+    private static final HarpoonType[] HARPOON_TIERS = {HarpoonType.INFERNAL_HARPOON,
+            HarpoonType.CRYSTAL_HARPOON, HarpoonType.DRAGON_HARPOON, HarpoonType.BARBTAIL_HARPOON};
+
+    /** A gear tier or harpoon sitting in the inventory that beats what is worn, or -1. */
+    private int bestCarriedUpgrade() {
+        for (TemporossGear gear : TemporossGear.values()) {
+            for (int id : gear.getTiers()) {
+                if (Rs2Equipment.isWearing(id)) {
+                    break;      // slot already at this tier or better
+                }
+                if (Rs2Inventory.contains(id)) {
+                    return id;
+                }
+            }
+        }
+        HarpoonType configured = temporossConfig.harpoonType();
+        if (configured != HarpoonType.BAREHAND && !wearingAnyHarpoon()) {
+            for (int id : configured.getIds()) {
+                if (Rs2Inventory.contains(id)) {
+                    return id;  // wearing it instead of carrying it frees a fish slot
+                }
+            }
+        }
+        return -1;
+    }
+
+    /** The best tier for this slot that the bank holds and beats what is worn, or -1. */
+    private int bestBankedUpgrade(int[] tiers) {
         for (int id : tiers) {
             if (Rs2Equipment.isWearing(id)) {
-                return -1;      // already wearing this tier; nothing better is worth checking
+                return -1;
             }
-            if (Rs2Bank.isOpen() ? Rs2Bank.hasItem(id) : false) {
-                return id;
-            }
-            if (Rs2Inventory.contains(id)) {
+            if (Rs2Bank.hasItem(id)) {
                 return id;
             }
         }
         return -1;
     }
 
-    /**
-     * The configured harpoon if we own it, otherwise the best wieldable one we do own. Returns -1
-     * when we already have one equipped or own none — a plain harpoon comes from the crate in-game.
-     */
-    private int bestHarpoonToEquip() {
-        HarpoonType configured = temporossConfig.harpoonType();
-        if (configured == HarpoonType.BAREHAND) {
-            return -1;
-        }
-        for (int id : configured.getIds()) {
-            if (Rs2Equipment.isWearing(id) || Rs2Inventory.contains(id)) {
-                return -1;
-            }
-        }
-        for (int id : configured.getIds()) {
-            if (Rs2Bank.isOpen() && Rs2Bank.hasItem(id)) {
-                return id;
-            }
-        }
-        // Fall back down the wiki's tier list.
-        for (HarpoonType type : new HarpoonType[]{HarpoonType.INFERNAL_HARPOON, HarpoonType.CRYSTAL_HARPOON,
-                HarpoonType.DRAGON_HARPOON, HarpoonType.BARBTAIL_HARPOON}) {
+    private boolean wearingAnyHarpoon() {
+        for (HarpoonType type : HarpoonType.values()) {
             for (int id : type.getIds()) {
-                if (Rs2Equipment.isWearing(id) || Rs2Inventory.contains(id)) {
-                    return -1;
+                if (id > 0 && Rs2Equipment.isWearing(id)) {
+                    return true;
                 }
             }
         }
-        for (HarpoonType type : new HarpoonType[]{HarpoonType.INFERNAL_HARPOON, HarpoonType.CRYSTAL_HARPOON,
-                HarpoonType.DRAGON_HARPOON, HarpoonType.BARBTAIL_HARPOON}) {
+        return false;
+    }
+
+    /**
+     * The configured harpoon from the bank, else the best wiki tier the bank holds. -1 when one is
+     * already worn or carried, or the bank has none — a plain one comes from the crate in-game.
+     */
+    private int bestBankedHarpoon() {
+        HarpoonType configured = temporossConfig.harpoonType();
+        if (configured == HarpoonType.BAREHAND || wearingAnyHarpoon()) {
+            return -1;
+        }
+        for (int id : configured.getIds()) {
+            if (Rs2Inventory.contains(id)) {
+                return -1;
+            }
+            if (Rs2Bank.hasItem(id)) {
+                return id;
+            }
+        }
+        for (HarpoonType type : HARPOON_TIERS) {
             for (int id : type.getIds()) {
-                if (Rs2Bank.isOpen() && Rs2Bank.hasItem(id)) {
+                if (Rs2Inventory.contains(id)) {
+                    return -1;
+                }
+                if (Rs2Bank.hasItem(id)) {
                     return id;
                 }
             }
