@@ -1201,6 +1201,13 @@ public class TemporossScript extends Script {
     /** Only the 41007 shadows, when any exist. */
     public static List<GameObject> imminentClouds = new ArrayList<>();
     private static long lastCloudDiag = 0;
+    /**
+     * Telegraph measurement for the 41006 vs 41007 question: first-seen game tick per live shadow,
+     * keyed by scene position. Logged on despawn — the lifetime IS the warning time that shadow
+     * variant gives before the strike, which is the number the dodge policy needs. Lifetimes ≥100
+     * ticks are discarded as cross-game garbage (tick count is client-global and never resets).
+     */
+    private static final Map<WorldPoint, int[]> cloudBirths = new HashMap<>();
 
     public static void updateCloudData(){
         List<GameObject> allClouds = Rs2GameObject.getGameObjects().stream()
@@ -1220,6 +1227,25 @@ public class TemporossScript extends Script {
         imminentClouds = sortedClouds.stream()
                 .filter(c -> c.getId() == CLOUD_SHADOW_SHORT)
                 .collect(Collectors.toList());
+
+        // Track from the UNfiltered list: a shadow leaving the 30-tile radius is not a despawn.
+        int tick = Microbot.getClient().getTickCount();
+        Set<WorldPoint> alive = new HashSet<>();
+        for (GameObject c : allClouds) {
+            WorldPoint pos = c.getWorldLocation();
+            alive.add(pos);
+            cloudBirths.putIfAbsent(pos, new int[]{c.getId(), tick});
+        }
+        for (Iterator<Map.Entry<WorldPoint, int[]>> it = cloudBirths.entrySet().iterator(); it.hasNext(); ) {
+            Map.Entry<WorldPoint, int[]> e = it.next();
+            if (!alive.contains(e.getKey())) {
+                int lifetime = tick - e.getValue()[1];
+                if (lifetime > 0 && lifetime < 100) {
+                    log("CLOUD-TELEGRAPH: " + e.getValue()[0] + " lived " + lifetime + " ticks");
+                }
+                it.remove();
+            }
+        }
 
         // Diagnostic for the open "dodges too early" question: does 41007 ever appear, and which
         // state actually costs us anything? Tracks INVENTORY, not HP — the strike deals no damage,
