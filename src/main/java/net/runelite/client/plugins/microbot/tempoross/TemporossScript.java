@@ -13,6 +13,7 @@ import net.runelite.client.plugins.microbot.tempoross.enums.HarpoonType;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
@@ -856,6 +857,19 @@ public class TemporossScript extends Script {
     }
 
     /**
+     * Dismisses a blocking chat dialogue. NPC clicks are inert while one is up, and the click
+     * helper auto-walk then spams "walk rejected: null target" retrying — observed live, stuck in
+     * dialogue at the Spirit Angler while re-clicking Take-net every pass.
+     */
+    private boolean dismissDialogue() {
+        if (Rs2Dialogue.isInDialogue()) {
+            Rs2Dialogue.clickContinue();
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Spends permits at the reward pool between games.
      *
      * <p>Only reachable outside the minigame. The reward table is rolled from BASE Fishing level at
@@ -909,6 +923,11 @@ public class TemporossScript extends Script {
         // Never disturb a running big-search (one continuous animation that stops on its own when
         // the permits or the bag run out) or a walk already in progress.
         if (Rs2Player.isAnimating() || Rs2Player.isMoving()) {
+            return true;
+        }
+
+        // A chat dialogue freezes every click, including the Take-net retry loop — clear it first.
+        if (dismissDialogue()) {
             return true;
         }
 
@@ -1284,6 +1303,11 @@ public class TemporossScript extends Script {
         reset();
 
         if (Rs2Player.isMoving() || Rs2Player.isAnimating()) {
+            return;
+        }
+
+        // Same protection while boarding: a leftover dialogue makes the ladder click inert.
+        if (dismissDialogue()) {
             return;
         }
         Rs2TileObjectModel startingLadder = Microbot.getRs2TileObjectCache().query().withId(ObjectID.ROPE_LADDER_41305).nearest();
