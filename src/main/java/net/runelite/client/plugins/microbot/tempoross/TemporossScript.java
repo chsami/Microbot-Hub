@@ -114,6 +114,7 @@ public class TemporossScript extends Script {
         collectingRewards = false;
         loggedHoldingPermits = false;
         lobbyBankWalkFails = 0;
+        equipRejected.clear();
         Rs2Antiban.resetAntibanSettings();
         Rs2AntibanSettings.naturalMouse = true;
         Rs2AntibanSettings.simulateMistakes = false;
@@ -950,7 +951,10 @@ public class TemporossScript extends Script {
             if (carried != -1) {
                 log("Equipping carried item " + carried);
                 Rs2Inventory.equip(carried);
-                sleepUntil(() -> Rs2Equipment.isWearing(carried), 3000);
+                if (!sleepUntil(() -> Rs2Equipment.isWearing(carried), 3000)) {
+                    equipRejected.add(carried);
+                    log("Could not equip " + carried + " — skipping it");
+                }
                 return true;
             }
             if (!openLobbyBank()) {
@@ -968,7 +972,10 @@ public class TemporossScript extends Script {
             if (id != -1) {
                 log("Equipping best " + gear.getLabel() + " (item " + id + ")");
                 Rs2Bank.withdrawAndEquip(id);
-                sleepUntil(() -> Rs2Equipment.isWearing(id), 3000);
+                if (!sleepUntil(() -> Rs2Equipment.isWearing(id), 3000)) {
+                    equipRejected.add(id);
+                    log("Could not equip " + id + " — skipping it");
+                }
                 return true;
             }
         }
@@ -976,7 +983,10 @@ public class TemporossScript extends Script {
         if (harpoon != -1) {
             log("Equipping harpoon (item " + harpoon + ")");
             Rs2Bank.withdrawAndEquip(harpoon);
-            sleepUntil(() -> Rs2Equipment.isWearing(harpoon), 3000);
+            if (!sleepUntil(() -> Rs2Equipment.isWearing(harpoon), 3000)) {
+                equipRejected.add(harpoon);
+                log("Could not equip " + harpoon + " — skipping it");
+            }
             return true;
         }
 
@@ -1009,6 +1019,23 @@ public class TemporossScript extends Script {
     private static final HarpoonType[] HARPOON_TIERS = {HarpoonType.INFERNAL_HARPOON,
             HarpoonType.CRYSTAL_HARPOON, HarpoonType.DRAGON_HARPOON, HarpoonType.BARBTAIL_HARPOON};
 
+    /** Only these can go in the weapon slot — a plain harpoon and bare hands cannot be wielded. */
+    private static boolean isWieldable(HarpoonType type) {
+        for (HarpoonType tier : HARPOON_TIERS) {
+            if (tier == type) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Items whose equip attempt failed this session (unwieldable, or stat requirements we cannot
+     * read from ids — dragon/infernal harpoons need 60 Attack, crystal 70). Retrying them forever
+     * wedged the whole pre-game flow before the bank ever opened.
+     */
+    private final Set<Integer> equipRejected = new HashSet<>();
+
     /** A gear tier or harpoon sitting in the inventory that beats what is worn, or -1. */
     private int bestCarriedUpgrade() {
         for (TemporossGear gear : TemporossGear.values()) {
@@ -1016,15 +1043,15 @@ public class TemporossScript extends Script {
                 if (Rs2Equipment.isWearing(id)) {
                     break;      // slot already at this tier or better
                 }
-                if (Rs2Inventory.contains(id)) {
+                if (!equipRejected.contains(id) && Rs2Inventory.contains(id)) {
                     return id;
                 }
             }
         }
         HarpoonType configured = temporossConfig.harpoonType();
-        if (configured != HarpoonType.BAREHAND && !wearingAnyHarpoon()) {
+        if (isWieldable(configured) && !wearingAnyHarpoon()) {
             for (int id : configured.getIds()) {
-                if (Rs2Inventory.contains(id)) {
+                if (!equipRejected.contains(id) && Rs2Inventory.contains(id)) {
                     return id;  // wearing it instead of carrying it frees a fish slot
                 }
             }
@@ -1038,7 +1065,7 @@ public class TemporossScript extends Script {
             if (Rs2Equipment.isWearing(id)) {
                 return -1;
             }
-            if (Rs2Bank.hasItem(id)) {
+            if (!equipRejected.contains(id) && Rs2Bank.hasItem(id)) {
                 return id;
             }
         }
@@ -1062,14 +1089,16 @@ public class TemporossScript extends Script {
      */
     private int bestBankedHarpoon() {
         HarpoonType configured = temporossConfig.harpoonType();
-        if (configured == HarpoonType.BAREHAND || wearingAnyHarpoon()) {
+        // A plain harpoon or bare hands in the config is a deliberate choice — nothing to wield,
+        // the normal supply logic carries/fetches it. Only wieldable configs get the weapon slot.
+        if (!isWieldable(configured) || wearingAnyHarpoon()) {
             return -1;
         }
         for (int id : configured.getIds()) {
             if (Rs2Inventory.contains(id)) {
                 return -1;
             }
-            if (Rs2Bank.hasItem(id)) {
+            if (!equipRejected.contains(id) && Rs2Bank.hasItem(id)) {
                 return id;
             }
         }
@@ -1078,7 +1107,7 @@ public class TemporossScript extends Script {
                 if (Rs2Inventory.contains(id)) {
                     return -1;
                 }
-                if (Rs2Bank.hasItem(id)) {
+                if (!equipRejected.contains(id) && Rs2Bank.hasItem(id)) {
                     return id;
                 }
             }
