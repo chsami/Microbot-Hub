@@ -25,8 +25,8 @@ import java.util.regex.Pattern;
 @PluginDescriptor(
         name = PluginDescriptor.See1Duck + "Tempoross",
         description = "Tempoross Plugin",
-        tags = {"Tempoross", "minigame", "s1d", "see1duck", "microbot", "fishing", "skilling"},
-        authors = { "See1Duck" },
+        tags = {"Tempoross", "minigame", "s1d", "see1duck","infuse21", "microbot", "fishing", "skilling"},
+        authors = { "See1Duck", "infuse21" },
         version = TemporossPlugin.version,
         // Conservative: verified compiling against 2.6.16; the rework uses APIs (tile-object cache
         // queries, Rs2Tile.isWalkable(LocalPoint), hopToWorld) not present in older clients.
