@@ -16,13 +16,14 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.tempoross.enums.HarpoonType;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import java.util.regex.Pattern;
 
 @PluginDescriptor(
-        name = PluginConstants.INFUSE + "Tempoross",
+        name = PluginDescriptor.See1Duck + "Tempoross",
         description = "Tempoross Plugin",
         tags = {"Tempoross", "minigame", "s1d", "see1duck","infuse21", "microbot", "fishing", "skilling"},
         authors = { "See1Duck", "infuse" },
@@ -37,7 +38,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.20.1";
+    public static final String version = "2.19.0";
     @Inject
     private TemporossConfig config;
 
@@ -172,6 +173,11 @@ public class TemporossPlugin extends Plugin {
 
             }
         }
+    }
+
+    // Set harpoon type config
+    public static void setHarpoonType(HarpoonType harpoonType) {
+        Microbot.getConfigManager().setConfiguration("microbot-tempoross", "harpoonType", harpoonType);
     }
 
     // Set rope config
