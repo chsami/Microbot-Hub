@@ -2230,6 +2230,12 @@ public class TemporossScript extends Script {
                 Rs2Camera.setPitch(383);
             } else if (Rs2Camera.getZoom() > 140) {
                 Rs2Camera.setZoom(Math.max(140, Rs2Camera.getZoom() - 120));
+            } else {
+                // Pitch and zoom are at their stops, so yaw is what is left. The 70° tolerance
+                // above leaves a distant target near the screen edge off-viewport — observed as a
+                // 14-second "no on-screen approach" stall at the crate with the camera side-on.
+                // Centering to within 15° puts it in frame.
+                Rs2Camera.turnTo(target, 15);
             }
         }
         if (Rs2Camera.isTileOnScreen(target)) {
