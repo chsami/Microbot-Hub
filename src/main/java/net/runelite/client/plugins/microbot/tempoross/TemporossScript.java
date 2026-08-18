@@ -135,6 +135,10 @@ public class TemporossScript extends Script {
                 if (BreakHandlerScript.isBreakActive() || BreakHandlerScript.isMicroBreakActive()) return;
 
                 if (!isInMinigame()) {
+                    // Every completed run deposits us at the dock IN a dialogue (post-cutscene),
+                    // so clear it centrally before any handler tries to click anything.
+                    if (dismissDialogue())
+                        return;
                     if (handleStartupWorldHop())
                         return;
                     if (handleAutoEquip())
