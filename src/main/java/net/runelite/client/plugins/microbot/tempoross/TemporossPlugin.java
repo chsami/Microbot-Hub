@@ -23,10 +23,10 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import java.util.regex.Pattern;
 
 @PluginDescriptor(
-        name = PluginDescriptor.See1Duck + "Tempoross",
+        name = PluginConstants.INFUSE + "Tempoross",
         description = "Tempoross Plugin",
         tags = {"Tempoross", "minigame", "s1d", "see1duck","infuse21", "microbot", "fishing", "skilling"},
-        authors = { "See1Duck", "infuse21" },
+        authors = { "See1Duck", "infuse" },
         version = TemporossPlugin.version,
         // Conservative: verified compiling against 2.6.16; the rework uses APIs (tile-object cache
         // queries, Rs2Tile.isWalkable(LocalPoint), hopToWorld) not present in older clients.
@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.18.3";
+    public static final String version = "2.18.4";
     @Inject
     private TemporossConfig config;
 
