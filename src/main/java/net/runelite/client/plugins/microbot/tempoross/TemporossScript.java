@@ -113,6 +113,7 @@ public class TemporossScript extends Script {
         autoEquipDone = false;
         collectingRewards = false;
         loggedHoldingPermits = false;
+        lobbyBankWalkFails = 0;
         Rs2Antiban.resetAntibanSettings();
         Rs2AntibanSettings.naturalMouse = true;
         Rs2AntibanSettings.simulateMistakes = false;
@@ -738,6 +739,50 @@ public class TemporossScript extends Script {
      *
      * @return true while banking
      */
+    /**
+     * The tile directly in front of the lobby bank chest (real overworld coordinates — the Ruins of
+     * Unkah dock is NOT instanced, so the global pathfinder is safe here, unlike inside the game).
+     */
+    private static final WorldPoint LOBBY_BANK_TILE = new WorldPoint(3156, 2836, 0);
+    /** Consecutive failed pathing attempts toward the bank tile before giving up. */
+    private int lobbyBankWalkFails = 0;
+
+    /**
+     * Opens the lobby bank chest, walking to {@link #LOBBY_BANK_TILE} first when the chest is not in
+     * the scene or too far to click reliably. Lets the script start anywhere: it heads for the dock
+     * and interacts once in range.
+     *
+     * @return true while still working (walking, clicking, waiting for the interface); false when the
+     *         bank is open, or when pathing failed repeatedly and the caller should stop waiting
+     */
+    private boolean openLobbyBank() {
+        if (Rs2Bank.isOpen()) {
+            return false;
+        }
+        Rs2TileObjectModel chest = Microbot.getRs2TileObjectCache().query().withId(LOBBY_BANK_CHEST).nearest();
+        if (chest == null || Rs2Player.getWorldLocation().distanceTo(LOBBY_BANK_TILE) > 10) {
+            // Out of scene, or in scene but far enough that a canvas click on the chest is a gamble.
+            if (!Rs2Player.isMoving()) {
+                if (lobbyBankWalkFails >= 5) {
+                    return false;
+                }
+                log("Walking to the lobby bank");
+                if (!Rs2Walker.walkTo(LOBBY_BANK_TILE)) {
+                    lobbyBankWalkFails++;
+                }
+            }
+            return true;
+        }
+        lobbyBankWalkFails = 0;
+        if (Rs2Player.isMoving()) {
+            return true;
+        }
+        if (chest.click("Use")) {
+            sleepUntil(Rs2Bank::isOpen, 8000);
+        }
+        return true;
+    }
+
     private boolean bankRewards() {
         List<Integer> keep = new ArrayList<>();
         keep.add(ItemID.BUCKET);
@@ -762,16 +807,9 @@ public class TemporossScript extends Script {
             return true;
         }
 
-        Rs2TileObjectModel chest = Microbot.getRs2TileObjectCache().query().withId(LOBBY_BANK_CHEST).nearest();
-        if (chest == null) {
-            log("Bank chest not in range — cannot bank rewards");
+        if (!openLobbyBank()) {
+            log("Cannot reach the lobby bank — cannot bank rewards");
             return false;
-        }
-        if (Rs2Player.isMoving()) {
-            return true;
-        }
-        if (chest.click("Use")) {
-            sleepUntil(Rs2Bank::isOpen, 8000);
         }
         return true;
     }
@@ -915,17 +953,11 @@ public class TemporossScript extends Script {
                 sleepUntil(() -> Rs2Equipment.isWearing(carried), 3000);
                 return true;
             }
-            Rs2TileObjectModel chest = Microbot.getRs2TileObjectCache().query().withId(LOBBY_BANK_CHEST).nearest();
-            if (chest == null) {
-                log("Bank chest not in range — skipping auto-equip");
+            if (!openLobbyBank()) {
+                // Bank closed and unreachable (pathing kept failing) — do not block the game loop.
+                log("Cannot reach the lobby bank — skipping auto-equip");
                 autoEquipDone = true;
                 return false;
-            }
-            if (Rs2Player.isMoving()) {
-                return true;
-            }
-            if (chest.click("Use")) {
-                sleepUntil(Rs2Bank::isOpen, 8000);
             }
             return true;
         }
