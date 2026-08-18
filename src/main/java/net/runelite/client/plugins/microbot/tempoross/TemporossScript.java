@@ -693,6 +693,12 @@ public class TemporossScript extends Script {
             startupHopDone = true;
             return false;
         }
+        // Not fully in the world yet (welcome screen, loading): the world switcher cannot open, so
+        // an attempt now is a guaranteed failure — observed burning attempt 1 while the welcome
+        // screen was still initializing. Wait, without consuming an attempt.
+        if (Microbot.getClient().getLocalPlayer() == null) {
+            return true;
+        }
         if (startupHopAttempts >= 3) {
             log("World hop to " + target + " failed " + startupHopAttempts + " times, continuing on world "
                     + Microbot.getClient().getWorld());
