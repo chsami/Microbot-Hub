@@ -854,10 +854,10 @@ public class TemporossScript extends Script {
 
         // The threshold gates STARTING, never continuing. Re-checking it every loop meant the first
         // permit spent dropped us under it and we boarded the boat mid-search. Once started, drain
-        // to zero (or one bag, in one-load mode).
+        // to zero.
         if (!collectingRewards) {
             if (rewardSessionDone) {
-                return false;       // one-load mode: finished for this lobby visit
+                return false;       // dead-ended this visit (bank unreachable) — wait for a new game
             }
             if (permits < temporossConfig.permitThreshold()) {
                 dropNetIfHeld();
@@ -895,11 +895,8 @@ public class TemporossScript extends Script {
             preCollectionBanked = true;
         }
 
-        // A full bag always gets banked before anything else happens.
+        // A full bag always gets banked, then collection resumes until the permits hit zero.
         if (Rs2Inventory.emptySlotCount() < MIN_FREE_SLOTS) {
-            if (!temporossConfig.drainPermits()) {
-                rewardSessionDone = true;   // one-load mode: this visit ends once the loot is in
-            }
             if (bankRewards()) {
                 return true;
             }
@@ -910,13 +907,12 @@ public class TemporossScript extends Script {
             return false;
         }
 
-        // Done — drained, or one-load mode wrapped up. Bank the remainder, then hand the loop back.
-        if (permits <= 0 || rewardSessionDone) {
+        // Drained. Bank the remainder, then hand the loop back.
+        if (permits <= 0) {
             if (hasLootToBank() && bankRewards()) {
                 return true;
             }
-            log(permits <= 0 ? "All permits spent"
-                    : "One inventory collected — keeping " + permits + " permits for later");
+            log("All permits spent");
             collectingRewards = false;
             dropNetIfHeld();
             return false;
@@ -956,7 +952,7 @@ public class TemporossScript extends Script {
         return true;
     }
 
-    /** Set when a one-load collection session finishes; cleared when the next game starts. */
+    /** Latched when collection dead-ends (bank unreachable); cleared when the next game starts. */
     private boolean rewardSessionDone = false;
     /** The session-opening deposit has run (or the bank was unreachable and we gave up on it). */
     private boolean preCollectionBanked = false;
