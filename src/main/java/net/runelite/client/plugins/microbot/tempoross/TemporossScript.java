@@ -859,7 +859,11 @@ public class TemporossScript extends Script {
             if (rewardSessionDone) {
                 return false;       // dead-ended this visit (bank unreachable) — wait for a new game
             }
-            if (permits < temporossConfig.permitThreshold()) {
+            // permits > 0 is required regardless of the threshold: with the threshold at 0 the
+            // bare comparison started a zero-permit session every loop pass while in the lobby
+            // (Collecting 0 permits / All permits spent, forever). Threshold 0 now simply means
+            // "collect whenever there is anything to collect".
+            if (permits <= 0 || permits < temporossConfig.permitThreshold()) {
                 dropNetIfHeld();
                 return false;
             }
