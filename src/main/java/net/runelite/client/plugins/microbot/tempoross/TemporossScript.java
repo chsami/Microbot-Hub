@@ -117,6 +117,8 @@ public class TemporossScript extends Script {
         equipRejected.clear();
         autoEquipStep = 0;
         autoEquipTries = 0;
+        rewardSessionDone = false;
+        preCollectionBanked = false;
         Rs2Antiban.resetAntibanSettings();
         Rs2AntibanSettings.naturalMouse = true;
         Rs2AntibanSettings.simulateMistakes = false;
@@ -138,6 +140,7 @@ public class TemporossScript extends Script {
                 }
                 if (isInMinigame()) {
                     if (workArea == null) {
+                        rewardSessionDone = false;  // fresh game: next lobby visit may collect again
                         determineWorkArea();
                         sleep(300, 600);
                     } else {
@@ -786,7 +789,8 @@ public class TemporossScript extends Script {
         return true;
     }
 
-    private boolean bankRewards() {
+    /** Everything a collection session keeps out of the bank; all else is loot to deposit. */
+    private List<Integer> rewardKeepList() {
         List<Integer> keep = new ArrayList<>();
         keep.add(ItemID.BUCKET);
         keep.add(ItemID.BUCKET_OF_WATER);
@@ -801,15 +805,25 @@ public class TemporossScript extends Script {
         for (int id : (harpoonType != null ? harpoonType : temporossConfig.harpoonType()).getIds()) {
             keep.add(id);
         }
+        return keep;
+    }
 
+    /** Anything in the bag that is not part of the working loadout — i.e. rewards worth banking. */
+    private boolean hasLootToBank() {
+        List<Integer> keep = rewardKeepList();
+        return Rs2Inventory.all().stream()
+                .anyMatch(item -> item != null && !keep.contains(item.getId()));
+    }
+
+    private boolean bankRewards() {
         if (Rs2Bank.isOpen()) {
             log("Banking rewards, keeping harpoon/buckets/rope/hammer");
-            Rs2Bank.depositAllExcept(keep.toArray(new Integer[0]));
-            sleepUntil(() -> Rs2Inventory.emptySlotCount() > MIN_FREE_SLOTS, 5000);
+            Rs2Bank.depositAllExcept(rewardKeepList().toArray(new Integer[0]));
+            sleepUntil(() -> !hasLootToBank(), 5000);
             Rs2Bank.closeBank();
+            sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
             return true;
         }
-
         if (!openLobbyBank()) {
             log("Cannot reach the lobby bank — cannot bank rewards");
             return false;
@@ -824,6 +838,11 @@ public class TemporossScript extends Script {
      * the moment of collection — not when the permits were earned, and boosts do not count — so
      * holding them until a higher level is strictly better, and up to 8000 rolls can be stored.
      *
+     * <p>Session shape: deposit whatever we are holding so the whole bag is free, take a net,
+     * big-search; a full bag is banked and — in drain mode — collection resumes until the permits
+     * hit zero. EVERY exit path banks the loot first: the first version finished with "all permits
+     * spent" and boarded the next game with a full inventory of rewards.
+     *
      * @return true while collecting, so the caller does not board mid-collection
      */
     private boolean handleRewardCollection() {
@@ -835,8 +854,11 @@ public class TemporossScript extends Script {
 
         // The threshold gates STARTING, never continuing. Re-checking it every loop meant the first
         // permit spent dropped us under it and we boarded the boat mid-search. Once started, drain
-        // to zero.
+        // to zero (or one bag, in one-load mode).
         if (!collectingRewards) {
+            if (rewardSessionDone) {
+                return false;       // one-load mode: finished for this lobby visit
+            }
             if (permits < temporossConfig.permitThreshold()) {
                 dropNetIfHeld();
                 return false;
@@ -852,18 +874,52 @@ public class TemporossScript extends Script {
             }
             loggedHoldingPermits = false;
             collectingRewards = true;
+            preCollectionBanked = false;
             log("Collecting " + permits + " permits at Fishing " + fishing);
         }
 
-        if (permits <= 0) {
-            log("All permits spent");
+        // Never disturb a running big-search (one continuous animation that stops on its own when
+        // the permits or the bag run out) or a walk already in progress.
+        if (Rs2Player.isAnimating() || Rs2Player.isMoving()) {
+            return true;
+        }
+
+        // The session opens with a deposit so the whole bag is free for rewards.
+        if (!preCollectionBanked) {
+            if (hasLootToBank()) {
+                if (bankRewards()) {
+                    return true;
+                }
+                log("Bank unreachable — collecting with the space we have");
+            }
+            preCollectionBanked = true;
+        }
+
+        // A full bag always gets banked before anything else happens.
+        if (Rs2Inventory.emptySlotCount() < MIN_FREE_SLOTS) {
+            if (!temporossConfig.drainPermits()) {
+                rewardSessionDone = true;   // one-load mode: this visit ends once the loot is in
+            }
+            if (bankRewards()) {
+                return true;
+            }
+            log("Bank unreachable with a full inventory — stopping collection");
+            rewardSessionDone = true;       // do not restart straight into the same dead end
             collectingRewards = false;
             dropNetIfHeld();
             return false;
         }
 
-        if (Rs2Inventory.emptySlotCount() < MIN_FREE_SLOTS && bankRewards()) {
-            return true;
+        // Done — drained, or one-load mode wrapped up. Bank the remainder, then hand the loop back.
+        if (permits <= 0 || rewardSessionDone) {
+            if (hasLootToBank() && bankRewards()) {
+                return true;
+            }
+            log(permits <= 0 ? "All permits spent"
+                    : "One inventory collected — keeping " + permits + " permits for later");
+            collectingRewards = false;
+            dropNetIfHeld();
+            return false;
         }
 
         // The pool needs a small net; the Spirit Angler hands them out.
@@ -885,12 +941,6 @@ public class TemporossScript extends Script {
             log("Reward pool not in range");
             return false;
         }
-        // Big-search is ONE continuous animation that runs until the permits are gone or the bag
-        // fills — not a per-click action. While it is running, leave it completely alone: clicking
-        // again interrupts it and restarts the whole interaction.
-        if (Rs2Player.isAnimating() || Rs2Player.isMoving()) {
-            return true;
-        }
         if (pool.click("Big-search")) {
             // Logs the resolved pool id next to the permit count. The pool presents one of ten ids
             // (base 41356, or 41296-41304) and the id tracks stored permits, but the thresholds are
@@ -905,6 +955,11 @@ public class TemporossScript extends Script {
         }
         return true;
     }
+
+    /** Set when a one-load collection session finishes; cleared when the next game starts. */
+    private boolean rewardSessionDone = false;
+    /** The session-opening deposit has run (or the bank was unreachable and we gave up on it). */
+    private boolean preCollectionBanked = false;
 
     private boolean autoEquipDone = false;
 

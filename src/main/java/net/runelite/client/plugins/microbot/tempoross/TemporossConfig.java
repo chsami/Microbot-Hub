@@ -144,6 +144,17 @@ public interface TemporossConfig extends Config {
         return 1;
     }
 
+    @ConfigItem(
+        keyName = "drainPermits",
+        name = "Spend all permits",
+        description = "Keep collecting until no permits remain, banking each full inventory and going back for more. Off: collect one inventory per lobby visit, bank it, and return to the game.",
+        position = 9,
+        section = generalSection
+    )
+    default boolean drainPermits() {
+        return true;
+    }
+
 
 
     // Equipment settings
