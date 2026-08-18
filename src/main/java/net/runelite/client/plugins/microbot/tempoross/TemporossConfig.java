@@ -151,22 +151,21 @@ public interface TemporossConfig extends Config {
     // boolean if we have Spirit Angler's outfit
 
     // Harpoon settings
-    // Harpoon type to use
     @ConfigItem(
-        keyName = "harpoonType",
-        name = "Harpoon",
-        description = "Which harpoon to use for fishing. Dragon/Infernal/Crystal have special attacks. Infernal auto-cooks some fish. Barehand requires Barbarian Fishing training.",
+        keyName = "barehanded",
+        name = "Fish bare-handed",
+        description = "Catch harpoonfish with your hands (requires Barbarian Fishing training). When off, auto-equip supplies the best harpoon you own — infernal first for max permits.",
         position = 1,
         section = harpoonSection
     )
-    default HarpoonType harpoonType() {
-        return HarpoonType.INFERNAL_HARPOON;
+    default boolean barehanded() {
+        return false;
     }
 
     @ConfigItem(
             keyName = "enableHarpoonSpec",
             name = "Use Harpoon Special",
-            description = "Use the harpoon's special attack when harpooning the spirit pool. Boosts fishing speed temporarily. Only works with Dragon, Infernal, or Crystal harpoons.",
+            description = "Fire the harpoon special attack (+3 Fishing) while catching at the fish spots. Dragon, Infernal, or Crystal only, and only when the harpoon is wielded.",
             position = 2,
             section = harpoonSection
     )

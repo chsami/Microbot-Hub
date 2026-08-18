@@ -23,7 +23,7 @@ All decision thresholds are randomized slightly each game.
 ## Setup
 
 1. **Start the plugin outside the minigame area** (Ruins of Unkah dock).
-2. Bring the harpoon selected in the config (or none for bare-handed with the barbarian training).
+2. Keep your best harpoon in the bank (or anywhere) — auto-equip finds it. Infernal ranks first: at Tempoross it cooks harpoonfish in place without destroying them.
 3. Leave at least the configured number of inventory slots free — fish fill everything that
    buckets, rope and hammer do not use.
 
@@ -36,7 +36,7 @@ All decision thresholds are randomized slightly each game.
 | Rope | on | Needed to tether; auto-refetched if lost. Not needed with Spirit Angler's |
 | Solo | off | Solo instance; requires Infernal Harpoon and 19+ free slots |
 | World | 422 | Hops there on script start when outside the minigame. 0 disables |
-| Harpoon | Infernal | Dragon/Infernal/Crystal enable the special attack option |
+| Fish bare-handed | off | Needs Barbarian Fishing training. Otherwise the best owned harpoon is auto-supplied (infernal first for max permits) |
 
 ## Known limitations
 

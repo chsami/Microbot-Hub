@@ -525,6 +525,25 @@ public class TemporossScript extends Script {
         Rs2Camera.turnTo(actor, 70);
     }
 
+    /** Fires the harpoon special (+3 Fishing) when it is charged and the harpoon is worn. */
+    private void maybeUseHarpoonSpec() {
+        if (!temporossConfig.enableHarpoonSpec() || harpoonType == null) {
+            return;
+        }
+        if (harpoonType != HarpoonType.DRAGON_HARPOON && harpoonType != HarpoonType.INFERNAL_HARPOON
+                && harpoonType != HarpoonType.CRYSTAL_HARPOON) {
+            return;
+        }
+        if (!wearingType(harpoonType)) {
+            return;     // the spec needs the harpoon in the weapon slot, carrying is not enough
+        }
+        if (Rs2Combat.getSpecEnergy() / 10 >= 100) {
+            Rs2Combat.setSpecState(true, 100);
+            sleep(600);
+            log("Using harpoon special attack (+3 Fishing)");
+        }
+    }
+
     /** Walk-here on our own tile: stops both the current path and any interaction. */
     private void cancelCurrentAction() {
         LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
@@ -537,8 +556,10 @@ public class TemporossScript extends Script {
     private void handleMinigame()
     {
         // Resolve before the phase gate — hasHarpoon() dereferences this, and starting the plugin
-        // mid-game past phase 2 would otherwise leave it null.
-        harpoonType = harpoonFallback != null ? harpoonFallback : temporossConfig.harpoonType();
+        // mid-game past phase 2 would otherwise leave it null. Detected off what we actually hold,
+        // not configured: the harpoon dropdown is gone, auto-equip supplies the best owned.
+        harpoonType = temporossConfig.barehanded() ? HarpoonType.BAREHAND
+                : harpoonFallback != null ? harpoonFallback : detectOwnedHarpoon();
 
         if (!shouldFetchSupplies())
             return;
@@ -831,8 +852,13 @@ public class TemporossScript extends Script {
         // Kept only for the rest of this collection session, so mid-session banking does not force a
         // trip back to the Angler. It gets dropped once collecting finishes.
         keep.add(SMALL_FISHING_NET);
-        for (int id : (harpoonType != null ? harpoonType : temporossConfig.harpoonType()).getIds()) {
-            keep.add(id);
+        // Any harpoon tier stays aboard — the type is detected from possession, not configured.
+        for (HarpoonType type : HarpoonType.values()) {
+            for (int id : type.getIds()) {
+                if (id > 0) {
+                    keep.add(id);
+                }
+            }
         }
         return keep;
     }
@@ -1111,37 +1137,31 @@ public class TemporossScript extends Script {
                 advanceEquipStep();
                 return true;
 
-            case 3: {   // harpoon — wield a wieldable one, carry a plain one
-                if (wearingAnyHarpoon() || carriedAnyHarpoon()
-                        || temporossConfig.harpoonType() == HarpoonType.BAREHAND) {
+            case 3: {   // harpoon — the best owned tier, wielded when possible, carried otherwise
+                if (temporossConfig.barehanded() || wearingAnyHarpoon() || carriedAnyHarpoon()) {
                     advanceEquipStep();
                     return true;
                 }
-                HarpoonType configured = temporossConfig.harpoonType();
                 int wield = -1;
                 int carry = -1;
-                if (canWield(configured)) {
-                    wield = firstBanked(configured.getIds());
-                } else {
-                    // Unwieldable for us (plain harpoon, or stat-gated like a dragon harpoon under
-                    // 60 Attack) — it still fishes from the inventory, so carry it.
-                    carry = firstBanked(configured.getIds());
+                // The best owned tier wins outright: an infernal carried in the bag (cooks fish
+                // in-place, wiki rank 1 for max permits) beats a wielded barb-tail. Stat-gated
+                // tiers still fish from the inventory, so they are carried, not skipped.
+                for (HarpoonType type : HARPOON_TIERS) {
+                    int banked = firstBanked(type.getIds());
+                    if (banked == -1) {
+                        continue;
+                    }
+                    if (canWield(type)) {
+                        wield = banked;
+                    } else {
+                        carry = banked;
+                    }
+                    break;
                 }
-                if (wield == -1 && carry == -1) {
-                    // Configured one not in the bank: best wiki tier we own, then a plain one.
-                    for (HarpoonType type : HARPOON_TIERS) {
-                        if (!canWield(type)) {
-                            continue;   // stat-gated tier: rather wield a lower one than carry this
-                        }
-                        wield = firstBanked(type.getIds());
-                        if (wield != -1) {
-                            break;
-                        }
-                    }
-                    if (wield == -1 && !equipRejected.contains(ItemID.HARPOON)
-                            && Rs2Bank.hasItem(ItemID.HARPOON)) {
-                        carry = ItemID.HARPOON;
-                    }
+                if (wield == -1 && carry == -1 && !equipRejected.contains(ItemID.HARPOON)
+                        && Rs2Bank.hasItem(ItemID.HARPOON)) {
+                    carry = ItemID.HARPOON;
                 }
                 if (wield != -1) {
                     final int w = wield;
@@ -1232,7 +1252,14 @@ public class TemporossScript extends Script {
         autoEquipTries = 0;
     }
 
-    /** Wiki weapon tiers, best first, used when the configured harpoon is not owned. */
+    /**
+     * Harpoon tiers best-first FOR MAX PERMITS, per the wiki's recommended-equipment ranking on
+     * Tempoross/Strategies (Solo Cooking + Firefighting (Max Permits)): the infernal is rank 1 —
+     * inside Tempoross its passive cooks harpoonfish WITHOUT destroying them (saves ~3 ticks per
+     * fish and yields the 65-point ammo for free). Crystal is only +10% here (not its usual 35%),
+     * its crystallised fish grant bonus XP not points, and it burns shards even on pool harpooning.
+     * Dragon's boost is likewise reduced; barb-tail is a wieldable plain harpoon.
+     */
     private static final HarpoonType[] HARPOON_TIERS = {HarpoonType.INFERNAL_HARPOON,
             HarpoonType.CRYSTAL_HARPOON, HarpoonType.DRAGON_HARPOON, HarpoonType.BARBTAIL_HARPOON};
 
@@ -1266,6 +1293,28 @@ public class TemporossScript extends Script {
             default:
                 return true;
         }
+    }
+
+    /** The best harpoon actually in hand — worn or carried — by the same ranking; plain when none. */
+    private static HarpoonType detectOwnedHarpoon() {
+        for (HarpoonType type : HARPOON_TIERS) {
+            for (int id : type.getIds()) {
+                if (id > 0 && (Rs2Equipment.isWearing(id) || Rs2Inventory.contains(id))) {
+                    return type;
+                }
+            }
+        }
+        return HarpoonType.HARPOON;
+    }
+
+    /** Is this specific harpoon type in the weapon slot (any charge variant)? */
+    private static boolean wearingType(HarpoonType type) {
+        for (int id : type.getIds()) {
+            if (id > 0 && Rs2Equipment.isWearing(id)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1980,6 +2029,9 @@ public class TemporossScript extends Script {
                     }
                     if (detourAroundFires(fishSpot.getNpc().getLocalLocation(), "fish spot"))
                         return;
+                    // The spec's +3 Fishing speeds up catching here; it does nothing for pool
+                    // shield depletion, so it fires at the spots and never at the pool.
+                    maybeUseHarpoonSpec();
                     faceIfNeeded(fishSpot.getNpc());
                     fishSpot.click("Harpoon");
                     lastCatchSpotIndex = fishSpot.getIndex();
@@ -2143,17 +2195,6 @@ public class TemporossScript extends Script {
                         log("Breaking off current action to harpoon the pool");
                         cancelCurrentAction();
                         return;
-                    }
-                    if (temporossConfig.enableHarpoonSpec()
-                            && (harpoonType == HarpoonType.DRAGON_HARPOON
-                            || harpoonType == HarpoonType.INFERNAL_HARPOON
-                            || harpoonType == HarpoonType.CRYSTAL_HARPOON)) {
-                        int currentSpecEnergy = Rs2Combat.getSpecEnergy() / 10;
-                        if (currentSpecEnergy >= 100) {
-                            Rs2Combat.setSpecState(true, 100);
-                            sleep(600);
-                            log("Using harpoon special attack");
-                        }
                     }
                     // Last-line guard at the click itself: whatever the query said, never harpoon a
                     // pool that is not at OUR dock's mark. Exit distance cannot tell the pools apart
