@@ -1148,6 +1148,9 @@ public class TemporossScript extends Script {
                 // in-place, wiki rank 1 for max permits) beats a wielded barb-tail. Stat-gated
                 // tiers still fish from the inventory, so they are carried, not skipped.
                 for (HarpoonType type : HARPOON_TIERS) {
+                    if (!canUse(type)) {
+                        continue;   // a tool we lack the Fishing level for catches nothing
+                    }
                     int banked = firstBanked(type.getIds());
                     if (banked == -1) {
                         continue;
@@ -1280,7 +1283,7 @@ public class TemporossScript extends Script {
      * for anything this table does not know about.
      */
     private static boolean canWield(HarpoonType type) {
-        if (!isWieldable(type)) {
+        if (!isWieldable(type) || !canUse(type)) {
             return false;
         }
         int attack = Rs2Player.getRealSkillLevel(Skill.ATTACK);
@@ -1289,7 +1292,27 @@ public class TemporossScript extends Script {
             case INFERNAL_HARPOON:
                 return attack >= 60;
             case CRYSTAL_HARPOON:
-                return attack >= 70;
+                // Wiki: 71 Fishing, 70 Attack AND 50 Agility to wield.
+                return attack >= 70 && Rs2Player.getRealSkillLevel(Skill.AGILITY) >= 50;
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * Meets the FISHING requirement to fish with the tool at all — separate from the wield gates.
+     * Owning one without the level is rare but real: dragon harpoons are tradeable, and crystal
+     * singing can be bypassed with extra shards. Wiki: dragon 61 Fishing to use, crystal 71.
+     * The infernal cannot trip this (untradeable, 75 Fishing to craft), gated at 61 like its base.
+     */
+    private static boolean canUse(HarpoonType type) {
+        int fishing = Rs2Player.getRealSkillLevel(Skill.FISHING);
+        switch (type) {
+            case CRYSTAL_HARPOON:
+                return fishing >= 71;
+            case DRAGON_HARPOON:
+            case INFERNAL_HARPOON:
+                return fishing >= 61;
             default:
                 return true;
         }
@@ -1298,6 +1321,9 @@ public class TemporossScript extends Script {
     /** The best harpoon actually in hand — worn or carried — by the same ranking; plain when none. */
     private static HarpoonType detectOwnedHarpoon() {
         for (HarpoonType type : HARPOON_TIERS) {
+            if (!canUse(type)) {
+                continue;
+            }
             for (int id : type.getIds()) {
                 if (id > 0 && (Rs2Equipment.isWearing(id) || Rs2Inventory.contains(id))) {
                     return type;
