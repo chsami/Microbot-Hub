@@ -25,9 +25,12 @@ import java.util.regex.Pattern;
 @PluginDescriptor(
         name = PluginDescriptor.See1Duck + "Tempoross",
         description = "Tempoross Plugin",
-        tags = {"Tempoross", "minigame", "s1d", "see1duck", "microbot", "fishing", "skilling"},
+        tags = {"Tempoross", "minigame", "s1d", "see1duck","infuse21", "microbot", "fishing", "skilling"},
+        authors = { "See1Duck", "infuse" },
         version = TemporossPlugin.version,
-        minClientVersion = "2.0.13",
+        // Conservative: verified compiling against 2.6.16; the rework uses APIs (tile-object cache
+        // queries, Rs2Tile.isWalkable(LocalPoint), hopToWorld) not present in older clients.
+        minClientVersion = "2.6.16",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -35,7 +38,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.0.0";
+    public static final String version = "2.19.0";
     @Inject
     private TemporossConfig config;
 
@@ -99,6 +102,10 @@ public class TemporossPlugin extends Plugin {
         TemporossScript.cachedInMinigame = TemporossScript.isInMinigame();
         if (!TemporossScript.cachedInMinigame)
             return;
+        // Before the wave gate: shadow ages come from birth ticks stamped in updateCloudData, and
+        // pausing the tracker during waves made shadows look younger than they are — a late dodge.
+        if (TemporossScript.workArea != null)
+            TemporossScript.updateCloudData();
         if (incomingWave)
             return;
         TemporossScript.cachedRawFish = State.getRawFish();
@@ -108,9 +115,9 @@ public class TemporossPlugin extends Plugin {
         if (TemporossScript.workArea == null)
             return;
         TemporossScript.handleWidgetInfo();
+        TemporossScript.updateTotemExitAnchor();
         TemporossScript.updateFireData();
         TemporossScript.updateFishSpotData();
-        TemporossScript.updateCloudData();
         TemporossScript.updateAmmoCrateData();
         TemporossScript.updateLastWalkPath();
 

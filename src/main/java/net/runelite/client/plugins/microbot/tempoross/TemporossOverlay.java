@@ -109,7 +109,7 @@ public class TemporossOverlay extends Overlay {
             return;
         }
         //WorldPoint pl = WorldPoint.toLocalInstance(Microbot.getClient().getTopLevelWorldView(), point).stream().findFirst().orElse(null);
-        LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), point);
+        LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient(), point);
         if (localPoint == null) {
             return;
         }

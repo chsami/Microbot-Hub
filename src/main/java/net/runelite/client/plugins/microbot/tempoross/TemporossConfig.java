@@ -89,38 +89,83 @@ public interface TemporossConfig extends Config {
         return false;
     }
 
+    @ConfigItem(
+        keyName = "world",
+        name = "World",
+        description = "Hop to this world when the script starts, if not already inside the minigame. 0 disables.",
+        position = 5,
+        section = generalSection
+    )
+    default int world() {
+        return 422;
+    }
+
+    @ConfigItem(
+        keyName = "autoEquip",
+        name = "Auto-equip best gear",
+        description = "Once per start, equip the best Tempoross gear you own from the bank: Spirit Angler or Angler pieces per slot, an Imcando hammer (off-hand), and your configured harpoon. Angler pieces raise points, and points are permits.",
+        position = 9,
+        section = equipmentSection
+    )
+    default boolean autoEquip() {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "collectRewards",
+        name = "Collect rewards",
+        description = "Spend reward permits at the reward pool between games, once the thresholds below are met.",
+        position = 6,
+        section = generalSection
+    )
+    default boolean collectRewards() {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "permitThreshold",
+        name = "Permits before collecting",
+        description = "Bank up this many reward permits before spending them. Up to 8000 rolls can be stored, so there is no rush.",
+        position = 7,
+        section = generalSection
+    )
+    default int permitThreshold() {
+        return 50;
+    }
+
+    @ConfigItem(
+        keyName = "minFishingLevel",
+        name = "Min Fishing level to collect",
+        description = "Hold permits until BASE Fishing reaches this. Rewards are rolled from your Fishing level at the moment of collection, not when the permits were earned, so saving them until a higher level is strictly better. Boosts do not count. Set 1 to collect regardless.",
+        position = 8,
+        section = generalSection
+    )
+    default int minFishingLevel() {
+        return 1;
+    }
+
+
 
 
     // Equipment settings
     // boolean if we have Spirit Angler's outfit
-    @ConfigItem(
-        keyName = "spiritAnglers",
-        name = "Spirit Angler's",
-        description = "Enable if wearing the Spirit Angler's outfit. Grants automatic tethering during waves, so no rope is needed.",
-        position = 1,
-        section = equipmentSection
-    )
-    default boolean spiritAnglers() {
-        return false;
-    }
 
     // Harpoon settings
-    // Harpoon type to use
     @ConfigItem(
-        keyName = "harpoonType",
-        name = "Harpoon",
-        description = "Which harpoon to use for fishing. Dragon/Infernal/Crystal have special attacks. Infernal auto-cooks some fish. Barehand requires Barbarian Fishing training.",
+        keyName = "barehanded",
+        name = "Fish bare-handed",
+        description = "Catch harpoonfish with your hands (requires Barbarian Fishing training). When off, auto-equip supplies the best harpoon you own — infernal first for max permits.",
         position = 1,
         section = harpoonSection
     )
-    default HarpoonType harpoonType() {
-        return HarpoonType.INFERNAL_HARPOON;
+    default boolean barehanded() {
+        return false;
     }
 
     @ConfigItem(
             keyName = "enableHarpoonSpec",
             name = "Use Harpoon Special",
-            description = "Use the harpoon's special attack when harpooning the spirit pool. Boosts fishing speed temporarily. Only works with Dragon, Infernal, or Crystal harpoons.",
+            description = "Fire the harpoon special attack (+3 Fishing) while catching at the fish spots. Dragon, Infernal, or Crystal only, and only when the harpoon is wielded.",
             position = 2,
             section = harpoonSection
     )
