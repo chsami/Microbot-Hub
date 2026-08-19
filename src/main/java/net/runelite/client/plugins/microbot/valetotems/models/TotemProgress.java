@@ -88,6 +88,10 @@ public class TotemProgress {
         }
     }
 
+    public void clearCarvedAnimals() {
+        carvedAnimals.clear();
+    }
+
     public void setDecorated(boolean decorated) {
         this.decorated = decorated;
     }
