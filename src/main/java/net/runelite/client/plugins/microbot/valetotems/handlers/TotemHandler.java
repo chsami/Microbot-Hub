@@ -403,7 +403,7 @@ public class TotemHandler {
                 //Humanlike delay
                 sleepGaussian(300,200);
 
-                int xpBefore = Microbot.getClient().getSkillExperience(Skill.FLETCHING);
+                int xpBefore = getFletchingXp();
 
                 // Small 2% change to mouse click to avoid detection
                 boolean inputSent = false;
@@ -418,7 +418,7 @@ public class TotemHandler {
 
                 // A carve is a 2-tick action awarding Fletching xp; no xp means the
                 // input was swallowed or the game rejected the carve
-                if (sleepUntil(() -> Microbot.getClient().getSkillExperience(Skill.FLETCHING) > xpBefore, 3600)) {
+                if (sleepUntil(() -> getFletchingXp() > xpBefore, 3600)) {
                     return true;
                 }
 
@@ -440,6 +440,15 @@ public class TotemHandler {
             System.err.println("Error carving animal " + animal.getDescription() + ": " + e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Read current Fletching xp on the client thread
+     * @return the player's Fletching experience
+     */
+    private static int getFletchingXp() {
+        return Microbot.getClientThread().invoke(() ->
+                Microbot.getClient().getSkillExperience(Skill.FLETCHING));
     }
 
     /**
