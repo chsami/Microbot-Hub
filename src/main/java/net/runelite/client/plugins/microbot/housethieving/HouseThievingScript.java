@@ -204,7 +204,7 @@ public class HouseThievingScript extends Script {
                 Rs2Inventory.waitForInventoryChanges(600);
             }
             if (Rs2Player.isStunned())
-                sleepUntil(() -> !Rs2Player.isStunned(), 600);
+                return;
             pickpocketNpc.click("Pickpocket");
             Rs2Random.waitEx(600.0, 200.0);
             sleepUntil(() -> !Rs2Player.isAnimating(), 10000);
