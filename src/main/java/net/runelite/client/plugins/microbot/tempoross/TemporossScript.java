@@ -58,6 +58,8 @@ public class TemporossScript extends Script {
     public static volatile boolean cachedPlayerExists;
     public static volatile int cachedTick;
     public static volatile int cachedWorld;
+    /** NPC index the player is interacting with this tick, -1 when none. */
+    public static volatile int cachedInteractingIndex = -1;
     public static volatile int cachedFishingLevel = 1;
     public static volatile int cachedAttackLevel = 1;
     public static volatile int cachedAgilityLevel = 1;
@@ -71,6 +73,8 @@ public class TemporossScript extends Script {
         cachedDestination = Microbot.getClient().getLocalDestinationLocation();
         cachedTick = Microbot.getClient().getTickCount();
         cachedWorld = Microbot.getClient().getWorld();
+        Actor interacting = local != null ? local.getInteracting() : null;
+        cachedInteractingIndex = interacting instanceof NPC ? ((NPC) interacting).getIndex() : -1;
         cachedFishingLevel = Rs2Player.getRealSkillLevel(Skill.FISHING);
         cachedAttackLevel = Rs2Player.getRealSkillLevel(Skill.ATTACK);
         cachedAgilityLevel = Rs2Player.getRealSkillLevel(Skill.AGILITY);
@@ -2108,13 +2112,14 @@ public class TemporossScript extends Script {
             case THIRD_CATCH:
                 isFilling = false;
 
-                // "Busy" means committed to a live spot: walking to one we just clicked, or fishing it.
-                // Two things that are not busy, both of which used to be treated as such:
-                //   - moving with no target, i.e. walking to the totem because nothing was in range.
-                //     That made the bot ignore spots the instant they rendered and finish the walk.
-                //   - the harpoon animation, which keeps playing for a beat after a spot depletes and
-                //     which isAnimating() reports for a further 600ms.
-                if ((Rs2Player.isMoving() || Rs2Player.isAnimating()) && lastCatchSpotAlive()) {
+                // "Busy" means committed to a live spot: walking to one we just clicked, or
+                // actually ENGAGED with it (interaction). Not the harpoon animation: spots RELOCATE
+                // rather than despawn, so the alive-by-index check stayed true while the spot was
+                // already tiles away, and the sticky animation kept us waiting it out. The
+                // interaction drops the instant the spot leaves — move on right then.
+                boolean engagedWithSpot = cachedInteractingIndex >= 0
+                        && cachedInteractingIndex == lastCatchSpotIndex;
+                if ((Rs2Player.isMoving() || engagedWithSpot) && lastCatchSpotAlive()) {
                     boolean atDouble = lastCatchSpotId == NpcID.FISHING_SPOT_10569;
                     if (atDouble || !hasDoubleSpot()) {
                         return;
