@@ -188,6 +188,7 @@ public class TemporossScript extends Script {
         state = State.INITIAL_CATCH;
         startupHopDone = false;
         startupHopAttempts = 0;
+        hopEligibleTick = -1;
         // Restart must retry these: the script bean is a singleton, so instance flags survive a
         // plugin stop/start and a stale 'done' skipped auto-equip silently on every restart.
         autoEquipDone = false;
@@ -852,6 +853,8 @@ public class TemporossScript extends Script {
 
     // Once per script start, not per game — leaving a round must not trigger a hop.
     private boolean startupHopDone = false;
+    /** First tick a hop attempt is allowed; -1 until the player is first seen. */
+    private int hopEligibleTick = -1;
     private int startupHopAttempts = 0;
 
     /**
@@ -868,19 +871,28 @@ public class TemporossScript extends Script {
             startupHopDone = true;
             return false;
         }
-        // Not fully in the world yet (welcome screen, loading): the world switcher cannot open, so
-        // an attempt now is a guaranteed failure — observed burning attempt 1 while the welcome
-        // screen was still initializing. Wait, without consuming an attempt.
+        // Not fully in the world yet (loading): the world switcher cannot open, so an attempt now
+        // is a guaranteed failure. Wait, without consuming an attempt.
         if (!cachedPlayerExists) {
             return true;
         }
-        if (startupHopAttempts >= 3) {
+        // The player existing is NOT enough: the welcome banner keeps initialising for several
+        // seconds after login and the switcher cannot open through it — observed burning attempt 1
+        // twice. Settle ~5s after the player first appears, and cool down ~6s between attempts.
+        if (hopEligibleTick == -1) {
+            hopEligibleTick = cachedTick + 8;
+        }
+        if (cachedTick < hopEligibleTick) {
+            return true;
+        }
+        if (startupHopAttempts >= 4) {
             log("World hop to " + target + " failed " + startupHopAttempts + " times, continuing on world "
                     + cachedWorld);
             startupHopDone = true;
             return false;
         }
         startupHopAttempts++;
+        hopEligibleTick = cachedTick + 10;
         log("Hopping to world " + target + " (attempt " + startupHopAttempts + ")");
         if (Microbot.hopToWorld(target)) {
             if (sleepUntil(() -> Microbot.isLoggedIn() && cachedWorld == target, 20000)) {
