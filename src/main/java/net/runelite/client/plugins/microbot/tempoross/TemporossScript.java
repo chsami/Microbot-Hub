@@ -178,6 +178,8 @@ public class TemporossScript extends Script {
         lastDrainSample = 0;
         lastEnergySeen = -1;
         lastEnergyTick = -1;
+        poolPhasesSeen = 0;
+        energyRecoveryLatch = false;
         workArea = null;
         TemporossPlugin.incomingWave = false;
         TemporossPlugin.isTethered = false;
@@ -486,6 +488,8 @@ public class TemporossScript extends Script {
         lastDrainSample = 0;
         lastEnergySeen = -1;
         lastEnergyTick = -1;
+        poolPhasesSeen = 0;
+        energyRecoveryLatch = false;
         workArea = null;
         isFilling = false;
         isFightingFire = false;
@@ -1135,8 +1139,10 @@ public class TemporossScript extends Script {
             log("All permits spent");
             collectingRewards = false;
             dropNetIfHeld();
-            // The pool can drop outfit pieces, and they were just banked with the rest of the
-            // loot — un-latch auto-equip so the next passes put any upgrade on before boarding.
+            // The reward pool drops NO outfit pieces (verified against the wiki loot table — the
+            // Spirit Angler set on that page is just the navbox), but its uniques include a DRAGON
+            // HARPOON, and any drop was just banked with the loot — un-latch auto-equip so a
+            // weapon upgrade goes on before boarding.
             autoEquipDone = false;
             autoEquipStep = 0;
             autoEquipTries = 0;
@@ -1655,6 +1661,13 @@ public class TemporossScript extends Script {
     public static double energyDrainPerTick = 0;
     private static int lastEnergySeen = -1;
     private static int lastEnergyTick = -1;
+    /**
+     * Pool phases completed-or-underway this game. Energy only recharges during a pool phase, so a
+     * rise out of the low band IS one — counted from the widget, independent of our own staging
+     * flags. Drives the hold-through-pool-1 loading strategy.
+     */
+    public static volatile int poolPhasesSeen = 0;
+    private static boolean energyRecoveryLatch = false;
     /** The newest raw drain sample, unsmoothed. On mass worlds the drain accelerates as the crates
      * fill, and the EMA lags behind — projections use whichever of the two is worse. */
     private static double lastDrainSample = 0;
@@ -1677,7 +1690,13 @@ public class TemporossScript extends Script {
         if (ENERGY > lastEnergySeen) {
             energyDrainPerTick = 0;
             lastDrainSample = 0;
+            if (!energyRecoveryLatch && lastEnergySeen > 0 && lastEnergySeen <= 20) {
+                energyRecoveryLatch = true;
+                poolPhasesSeen++;
+                log("Pool phase " + poolPhasesSeen + " (energy recovering from " + lastEnergySeen + "%)");
+            }
         } else {
+            energyRecoveryLatch = false;
             double sample = (double) (lastEnergySeen - ENERGY) / (tick - lastEnergyTick);
             lastDrainSample = sample;
             energyDrainPerTick = energyDrainPerTick <= 0 ? sample
@@ -2175,6 +2194,9 @@ public class TemporossScript extends Script {
         if (((TemporossScript.ENERGY < thresholdEmergencyEnergyLow && cachedAllFish > thresholdEmergencyFishMin)
             || (TemporossScript.ENERGY < thresholdEmergencyEnergyHigh && cachedAllFish >= cachedTotalSlots))
             && !temporossConfig.solo()
+            // Never before pool 1: the round cannot end there (essence starts full), so held fish
+            // are safe, and loading them early defeats the hold-through-pool-1 strategy.
+            && poolPhasesSeen > 0
             && TemporossScript.state != State.ATTACK_TEMPOROSS
             && TemporossScript.state != State.EMERGENCY_FILL) {
             log("Low energy, going for emergency fill");
@@ -2207,6 +2229,12 @@ public class TemporossScript extends Script {
             case SECOND_CATCH:
             case THIRD_CATCH:
                 isFilling = false;
+
+                // Full bag: nothing to catch into. Reachable while holding through pool 1 with a
+                // full cooked inventory — stand by instead of clicking spots that cannot pay out.
+                if (cachedAllFish >= cachedTotalSlots) {
+                    return;
+                }
 
                 // "Busy" means committed to a live spot: walking to one we just clicked, or
                 // actually ENGAGED with it (interaction). Not the harpoon animation: spots RELOCATE
