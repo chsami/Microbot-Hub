@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.20.5";
+    public static final String version = "2.20.6";
     @Inject
     private TemporossConfig config;
 
@@ -105,8 +105,9 @@ public class TemporossPlugin extends Plugin {
             return;
         // Before the wave gate: shadow ages come from birth ticks stamped in updateCloudData, and
         // pausing the tracker during waves made shadows look younger than they are — a late dodge.
-        // Fires too: frozen fire data during a wave meant the first post-wave walk could be issued
-        // on a list up to a whole wave old, straight through a fire that spawned mid-wave.
+        // Fires too, for the opposite reason: the colossal wave EXTINGUISHES every active fire, so
+        // a list frozen during the wave was full of ghost fires afterwards — the bot detoured
+        // around and walked to douse fires the wave had already put out.
         if (TemporossScript.workArea != null) {
             TemporossScript.updateCloudData();
             TemporossScript.updateFireData();
