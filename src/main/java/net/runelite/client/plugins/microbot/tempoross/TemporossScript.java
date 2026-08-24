@@ -633,11 +633,15 @@ public class TemporossScript extends Script {
     }
 
     /**
-     * Essence at which the next pool phase realistically kills the boss on a mass world. Essence
-     * only falls during pool phases, so this is readable BEFORE the final pool — the window where
-     * held fish must go into the crate raw rather than through the shrine.
+     * Endgame gates, deliberately coarse and meant for tuning by trial and error. The boss does not
+     * normally survive two pool phases, so essence at or under half after pool 1 means the NEXT
+     * pool kills it; energy under ENERGY_ENDGAME means that pool is only a minute or two away. Both
+     * together: everything in the bag goes into the cannon now — by arrival energy is lower still,
+     * and fish not loaded when the boss dies score nothing. Essence only falls during pool phases,
+     * so the essence half is readable well before the final pool.
      */
-    private static final int ESSENCE_ENDGAME = 20;
+    private static final int ESSENCE_ENDGAME = 50;
+    private static final int ENERGY_ENDGAME = 30;
 
     /** One log line per game for the endgame dump, not one per loop pass. */
     private boolean loggedEndgameDump = false;
@@ -2135,13 +2139,13 @@ public class TemporossScript extends Script {
         // loads for 20 points against 65 cooked, but fish stranded in the bag at round end are
         // worth zero (observed: 13). Overrides catching, cooking, and the double-spot pull.
         if (!temporossConfig.solo() && ESSENCE > 0 && ESSENCE <= ESSENCE_ENDGAME
-                && ENERGY > 0 && ENERGY <= thresholdLoadEnergy
+                && ENERGY > 0 && ENERGY <= ENERGY_ENDGAME
                 && cachedAllFish > 0
                 && TemporossScript.state != State.EMERGENCY_FILL
                 && TemporossScript.state != State.ATTACK_TEMPOROSS) {
             if (!loggedEndgameDump) {
                 loggedEndgameDump = true;
-                log("Boss nearly dead (essence " + ESSENCE + "%) — dumping "
+                log("Endgame (essence " + ESSENCE + "%, energy " + ENERGY + "%) — dumping "
                         + cachedAllFish + " fish into the crate");
             }
             isFilling = false;
