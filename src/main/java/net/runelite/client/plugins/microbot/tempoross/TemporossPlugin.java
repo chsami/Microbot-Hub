@@ -16,7 +16,6 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
-import net.runelite.client.plugins.microbot.tempoross.enums.HarpoonType;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.ui.overlay.OverlayManager;
 
@@ -38,7 +37,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.19.0";
+    public static final String version = "2.20.2";
     @Inject
     private TemporossConfig config;
 
@@ -99,6 +98,8 @@ public class TemporossPlugin extends Plugin {
 
     @Subscribe
     public void onGameTick(GameTick e) {
+        // On the client thread here: capture everything the script executor needs this tick.
+        TemporossScript.refreshClientSnapshot();
         TemporossScript.cachedInMinigame = TemporossScript.isInMinigame();
         if (!TemporossScript.cachedInMinigame)
             return;
@@ -173,11 +174,6 @@ public class TemporossPlugin extends Plugin {
 
             }
         }
-    }
-
-    // Set harpoon type config
-    public static void setHarpoonType(HarpoonType harpoonType) {
-        Microbot.getConfigManager().setConfiguration("microbot-tempoross", "harpoonType", harpoonType);
     }
 
     // Set rope config

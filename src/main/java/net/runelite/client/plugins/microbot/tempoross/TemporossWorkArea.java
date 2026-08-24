@@ -177,8 +177,7 @@ public class TemporossWorkArea
             return mast;
         }
 
-        LocalPoint playerLocal = Microbot.getClient().getLocalPlayer() != null
-                ? Microbot.getClient().getLocalPlayer().getLocalLocation() : null;
+        LocalPoint playerLocal = TemporossScript.cachedPlayerLocal;
         if (playerLocal == null) {
             return mast;
         }
