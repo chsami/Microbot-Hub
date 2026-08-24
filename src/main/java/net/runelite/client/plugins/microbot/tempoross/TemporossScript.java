@@ -584,14 +584,16 @@ public class TemporossScript extends Script {
     }
 
     /**
-     * Wiki: when Tempoross is already nearly dead at pool time, the final pool is worth one or two
-     * drops at most — the mass world finishes it without us, and cooking/loading what we hold
-     * scores more. Only when there IS something to process: with an empty bag the pool still beats
-     * idling. Essence 0 means the widget has not parsed, not a dead boss.
+     * Points math (wiki table): a pool scatter is 55 points every ~3 ticks (~18/tick); loading is
+     * ~1 fish/tick once at the crate, but the crate detour from the pool costs ~6-7 forfeited
+     * scatters. Raw fish (20 each) can NEVER repay that — only a cooked stack (65 each) of about
+     * eight or more can. So the pool is only ever passed up for a meaningful cooked load; raw fish
+     * at pool time are written off in favour of scattering, like every human player does.
+     * Essence 0 means the widget has not parsed, not a dead boss.
      */
     private boolean skipFinalPool() {
         return ESSENCE > 0 && ESSENCE <= 10
-                && (cachedRawFish > 0 || cachedCookedFish > 0);
+                && cachedCookedFish >= 8;
     }
 
     /**
@@ -2389,8 +2391,8 @@ public class TemporossScript extends Script {
                     if (skipFinalPool()) {
                         if (!loggedFinalPoolSkip) {
                             loggedFinalPoolSkip = true;
-                            log("Boss nearly dead (essence " + ESSENCE + "%) — dumping the bag"
-                                    + " into the crate instead of the pool");
+                            log("Boss nearly dead (essence " + ESSENCE + "%) with " + cachedCookedFish
+                                    + " cooked fish — loading them before the pool");
                         }
                         state = State.EMERGENCY_FILL;
                         return;
