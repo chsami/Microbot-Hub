@@ -2519,20 +2519,16 @@ public class TemporossScript extends Script {
             Rs2Camera.turnTo(target, 70);
         }
         if (!Rs2Camera.isTileOnScreen(target)) {
-            // Yaw was not the problem — the tile is outside the current view, so widen it: pitch
-            // up first, then zoom out a step per pass. Observed live: 22 seconds of "no on-screen
-            // approach" at game start because nothing ever changed the view.
+            // ALL rungs each pass, not an else-if ladder: the ladder wedged whenever one rung
+            // silently did nothing (observed live: pitch smoothing no-op, the camera never turned,
+            // 12+ seconds of give-up logs). Redundant adjustments are cheap; stalls are not.
             if (Rs2Camera.getPitch() < 350) {
                 Rs2Camera.setPitch(383);
-            } else if (Rs2Camera.getZoom() > 140) {
-                Rs2Camera.setZoom(Math.max(140, Rs2Camera.getZoom() - 120));
-            } else {
-                // Pitch and zoom are at their stops, so yaw is what is left. The 70° tolerance
-                // above leaves a distant target near the screen edge off-viewport — observed as a
-                // 14-second "no on-screen approach" stall at the crate with the camera side-on.
-                // Centering to within 15° puts it in frame.
-                Rs2Camera.turnTo(target, 15);
             }
+            if (Rs2Camera.getZoom() > 140) {
+                Rs2Camera.setZoom(Math.max(140, Rs2Camera.getZoom() - 120));
+            }
+            Rs2Camera.turnTo(target, 15);
         }
         if (Rs2Camera.isTileOnScreen(target)) {
             Rs2Walker.walkFastLocal(target);
@@ -2542,6 +2538,29 @@ public class TemporossScript extends Script {
         // the direct line from the range to the dock can cross water, the totem never does.
         if (allowStaging && stageViaTotem(label)) {
             return;
+        }
+        // Last resort, camera-independent: a MINIMAP click needs no 3D projection. Step a bounded
+        // walkable leg along the line — shrinking the leg keeps it off water and fires — and repeat
+        // from closer next pass. This is what finally breaks the fire-stop-then-never-restart stall.
+        LocalPoint from = cachedPlayerLocal;
+        if (from != null) {
+            int dx = target.getX() - from.getX(), dy = target.getY() - from.getY();
+            double len = Math.hypot(dx, dy);
+            if (len > 0) {
+                for (int tiles : new int[]{11, 8, 5, 3}) {
+                    double scale = Math.min(1.0, tiles * Perspective.LOCAL_TILE_SIZE / len);
+                    LocalPoint leg = new LocalPoint(from.getX() + (int) (dx * scale),
+                            from.getY() + (int) (dy * scale), from.getWorldView());
+                    if (!Rs2Tile.isWalkable(leg) || onFireTile(leg)) {
+                        continue;
+                    }
+                    WorldPoint legWorld = WorldPoint.fromLocal(Microbot.getClient(), leg);
+                    if (Rs2Walker.walkMiniMap(legWorld)) {
+                        log(label + " off-screen — minimap step toward it");
+                        return;
+                    }
+                }
+            }
         }
         log(label + " has no on-screen approach this tick — not walking");
     }
