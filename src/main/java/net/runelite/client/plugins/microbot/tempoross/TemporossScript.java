@@ -64,6 +64,44 @@ public class TemporossScript extends Script {
     public static volatile int cachedAttackLevel = 1;
     public static volatile int cachedAgilityLevel = 1;
 
+    /** The tick an instant douse already went out, so a batch of spawn events sends one click. */
+    private static int lastInstantDouseTick = -1;
+
+    /**
+     * Sub-tick fire response, CLIENT THREAD (NpcSpawned event). A strike can drop a fire ON the
+     * player's tile with roughly one tick to douse before supplies burn, and the 300ms loop
+     * cadence could eat most of that. Running from the spawn event puts the Douse click out the
+     * same frame the fire comes into existence. Fires further than a tile away are left to the
+     * normal hazards-first loop — this path is strictly for the on-top-of-us case.
+     */
+    public static void onFireSpawned(NPC npc) {
+        if (!cachedInMinigame || workArea == null || npc == null) {
+            return;
+        }
+        NPCComposition comp = npc.getComposition();
+        if (comp == null || comp.getActions() == null
+                || !Arrays.asList(comp.getActions()).contains("Douse")) {
+            return;
+        }
+        Player local = Microbot.getClient().getLocalPlayer();
+        LocalPoint playerLocal = local != null ? local.getLocalLocation() : null;
+        LocalPoint fireLocal = npc.getLocalLocation();
+        if (playerLocal == null || fireLocal == null
+                || playerLocal.distanceTo(fireLocal) > 2 * Perspective.LOCAL_TILE_SIZE) {
+            return;
+        }
+        if (!Rs2Inventory.contains(ItemID.BUCKET_OF_WATER)) {
+            return;
+        }
+        int tick = Microbot.getClient().getTickCount();
+        if (tick == lastInstantDouseTick) {
+            return;
+        }
+        lastInstantDouseTick = tick;
+        log("Fire spawned on top of us — dousing instantly");
+        new Rs2NpcModel(npc).click("Douse");
+    }
+
     /** CLIENT THREAD ONLY — called first thing from the plugin's GameTick subscriber. */
     public static void refreshClientSnapshot() {
         Player local = Microbot.getClient().getLocalPlayer();

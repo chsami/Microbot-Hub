@@ -9,6 +9,7 @@ import net.runelite.api.NpcID;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.NpcChanged;
+import net.runelite.api.events.NpcSpawned;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -37,7 +38,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.21.5";
+    public static final String version = "2.21.6";
     @Inject
     private TemporossConfig config;
 
@@ -94,6 +95,13 @@ public class TemporossPlugin extends Plugin {
 
     @Subscribe
     public void onNpcChanged(NpcChanged event) {
+    }
+
+    @Subscribe
+    public void onNpcSpawned(NpcSpawned event) {
+        // Sub-tick fire response: a strike can land a fire on the player's tile with ~one tick to
+        // douse it. The script's loop cadence is too coarse for that; the spawn event is not.
+        TemporossScript.onFireSpawned(event.getNpc());
     }
 
     @Subscribe
