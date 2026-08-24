@@ -179,7 +179,6 @@ public class TemporossScript extends Script {
                 if (cachedInMinigame) {
                     if (workArea == null) {
                         rewardSessionDone = false;  // fresh game: next lobby visit may collect again
-                        loggedFinalPoolSkip = false;
                         loggedEndgameDump = false;
                         cameraPrepped = false;
                         determineWorkArea();
@@ -584,27 +583,13 @@ public class TemporossScript extends Script {
     }
 
     /**
-     * Points math (wiki table): a pool scatter is 55 points every ~3 ticks (~18/tick); loading is
-     * ~1 fish/tick once at the crate, but the crate detour from the pool costs ~6-7 forfeited
-     * scatters. Raw fish (20 each) can NEVER repay that — only a cooked stack (65 each) of about
-     * eight or more can. So the pool is only ever passed up for a meaningful cooked load; raw fish
-     * at pool time are written off in favour of scattering, like every human player does.
-     * Essence 0 means the widget has not parsed, not a dead boss.
-     */
-    private boolean skipFinalPool() {
-        return ESSENCE > 0 && ESSENCE <= 10
-                && cachedCookedFish >= 8;
-    }
-
-    /**
      * Essence at which the next pool phase realistically kills the boss on a mass world. Essence
      * only falls during pool phases, so this is readable BEFORE the final pool — the window where
      * held fish must go into the crate raw rather than through the shrine.
      */
     private static final int ESSENCE_ENDGAME = 20;
 
-    /** One log line per game for the skip/dump, not one per loop pass. */
-    private boolean loggedFinalPoolSkip = false;
+    /** One log line per game for the endgame dump, not one per loop pass. */
     private boolean loggedEndgameDump = false;
 
     /** Walk-here on our own tile: stops both the current path and any interaction. */
@@ -2074,22 +2059,13 @@ public class TemporossScript extends Script {
                 || fillWithScraps)
             && TemporossScript.ENERGY <= thresholdLowEnergy
             && !temporossConfig.solo()) {
-            if (skipFinalPool()) {
-                if (!loggedFinalPoolSkip) {
-                    loggedFinalPoolSkip = true;
-                    log("Boss nearly dead (essence " + ESSENCE + "%) — skipping the final pool,"
-                            + " cooking and loading instead");
-                }
-            } else {
-                log("Energy " + TemporossScript.ENERGY + "% — pool phase, heading for the spirit pool");
-                poolPhaseActive = true;
-                TemporossScript.state = State.ATTACK_TEMPOROSS;
-                return;
-            }
+            log("Energy " + TemporossScript.ENERGY + "% — pool phase, heading for the spirit pool");
+            poolPhaseActive = true;
+            TemporossScript.state = State.ATTACK_TEMPOROSS;
+            return;
         }
 
-        if (temporossPool != null && TemporossScript.state != State.SECOND_FILL && TemporossScript.state != State.ATTACK_TEMPOROSS && TemporossScript.ENERGY < thresholdAttackEnergy
-                && !skipFinalPool()) {
+        if (temporossPool != null && TemporossScript.state != State.SECOND_FILL && TemporossScript.state != State.ATTACK_TEMPOROSS && TemporossScript.ENERGY < thresholdAttackEnergy) {
             log("Tempoross pool detected, attacking Tempoross");
             poolPhaseActive = true;
             TemporossScript.state = State.ATTACK_TEMPOROSS;
@@ -2386,15 +2362,6 @@ public class TemporossScript extends Script {
                     if (!poolPhaseActive && ENERGY > thresholdLowEnergy) {
                         log("Pool not open yet at " + ENERGY + "%, fishing until ~" + thresholdLowEnergy + "%");
                         state = State.THIRD_CATCH;
-                        return;
-                    }
-                    if (skipFinalPool()) {
-                        if (!loggedFinalPoolSkip) {
-                            loggedFinalPoolSkip = true;
-                            log("Boss nearly dead (essence " + ESSENCE + "%) with " + cachedCookedFish
-                                    + " cooked fish — loading them before the pool");
-                        }
-                        state = State.EMERGENCY_FILL;
                         return;
                     }
                     poolPhaseActive = true;
