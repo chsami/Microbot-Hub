@@ -180,6 +180,7 @@ public class TemporossScript extends Script {
                     if (workArea == null) {
                         rewardSessionDone = false;  // fresh game: next lobby visit may collect again
                         loggedFinalPoolSkip = false;
+                        loggedEndgameDump = false;
                         cameraPrepped = false;
                         determineWorkArea();
                         sleep(300, 600);
@@ -593,8 +594,16 @@ public class TemporossScript extends Script {
                 && (cachedRawFish > 0 || cachedCookedFish > 0);
     }
 
-    /** One log line per game for the skip, not one per loop pass. */
+    /**
+     * Essence at which the next pool phase realistically kills the boss on a mass world. Essence
+     * only falls during pool phases, so this is readable BEFORE the final pool — the window where
+     * held fish must go into the crate raw rather than through the shrine.
+     */
+    private static final int ESSENCE_ENDGAME = 20;
+
+    /** One log line per game for the skip/dump, not one per loop pass. */
     private boolean loggedFinalPoolSkip = false;
+    private boolean loggedEndgameDump = false;
 
     /** Walk-here on our own tile: stops both the current path and any interaction. */
     private void cancelCurrentAction() {
@@ -2038,6 +2047,24 @@ public class TemporossScript extends Script {
         // SECOND_FILL joins the pool trigger only when the remaining load is scraps — a real bag
         // still finishes loading first (the strategy's final-load rule), but a couple of leftover
         // fish are not worth a cannon trip while the pool opens.
+        // Endgame dump: the next pool kills the boss (essence low) and the load window is already
+        // here (energy past the cutoff) — anything not in the crate when it dies is wasted. Raw
+        // loads for 20 points against 65 cooked, but fish stranded in the bag at round end are
+        // worth zero (observed: 13). Overrides catching, cooking, and the double-spot pull.
+        if (!temporossConfig.solo() && ESSENCE > 0 && ESSENCE <= ESSENCE_ENDGAME
+                && ENERGY > 0 && ENERGY <= thresholdLoadEnergy
+                && cachedAllFish > 0
+                && TemporossScript.state != State.EMERGENCY_FILL
+                && TemporossScript.state != State.ATTACK_TEMPOROSS) {
+            if (!loggedEndgameDump) {
+                loggedEndgameDump = true;
+                log("Boss nearly dead (essence " + ESSENCE + "%) — dumping "
+                        + cachedAllFish + " fish into the crate");
+            }
+            isFilling = false;
+            TemporossScript.state = State.EMERGENCY_FILL;
+        }
+
         boolean fillWithScraps = TemporossScript.state == State.SECOND_FILL && cachedAllFish <= 3;
         if ((TemporossScript.state == State.THIRD_CATCH || TemporossScript.state == State.EMERGENCY_FILL
                 || TemporossScript.state == State.INITIAL_FILL || TemporossScript.state == State.THIRD_COOK
@@ -2362,10 +2389,10 @@ public class TemporossScript extends Script {
                     if (skipFinalPool()) {
                         if (!loggedFinalPoolSkip) {
                             loggedFinalPoolSkip = true;
-                            log("Boss nearly dead (essence " + ESSENCE + "%) — cooking and loading"
-                                    + " instead of the pool");
+                            log("Boss nearly dead (essence " + ESSENCE + "%) — dumping the bag"
+                                    + " into the crate instead of the pool");
                         }
-                        state = State.THIRD_COOK;
+                        state = State.EMERGENCY_FILL;
                         return;
                     }
                     poolPhaseActive = true;
