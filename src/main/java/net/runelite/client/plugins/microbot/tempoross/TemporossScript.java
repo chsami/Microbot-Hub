@@ -202,14 +202,18 @@ public class TemporossScript extends Script {
                         }
                         if (handleWrongSideClick())
                             return;
-                        handleMinigame();
-                        handleStateLoop();
+                        // Hazards BEFORE actions: a fire must be doused the same tick it appears.
+                        // With the state loop first, the pass where a fire spawned issued its click
+                        // (walking straight into it) before the douse was ever considered —
+                        // observed: struck while running to the cannons, doused too late.
                         if (handleCloudDodge())
                             return;
                         if (handleStandingInFire())
                             return;
                         if (handleNearbyFire())
                             return;
+                        handleMinigame();
+                        handleStateLoop();
                         // Only wait on missing items while handleMinigame() is still willing to fetch
                         // them, otherwise this returns forever without anything ever restocking.
                         if(shouldFetchSupplies() && areItemsMissing() && (state == State.INITIAL_CATCH || state == State.SECOND_CATCH || state == State.THIRD_CATCH))
@@ -2100,7 +2104,7 @@ public class TemporossScript extends Script {
         if (poolPhaseActive && ENERGY >= thresholdAttackEnergy) {
             poolPhaseActive = false;
         }
-        // A strike batch is landing this very tick: hold one pass so the fires exist before any
+        // A strike batch landing this very tick: hold one pass so the fires exist before any
         // click paths us anywhere — the rope burned walking into a fire that spawned mid-route,
         // after the route's own fire checks had already passed.
         if (!sortedClouds.isEmpty() && soonestStrikeTicks() <= 0) {
