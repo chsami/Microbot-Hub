@@ -123,28 +123,30 @@ public class TemporossScript extends Script {
     public static int ESSENCE;
 
     public static TemporossConfig temporossConfig;
-    public static State state = State.INITIAL_CATCH;
-    public static TemporossWorkArea workArea = null;
-    public static boolean isFilling = false;
+    public static volatile State state = State.INITIAL_CATCH;
+    public static volatile TemporossWorkArea workArea = null;
+    public static volatile boolean isFilling = false;
     public static boolean isFightingFire = false;
     public static HarpoonType harpoonType;
     // Set only when the configured harpoon genuinely can't be found, and cleared by reset() so the
     // next game retries the user's own harpoon instead of permanently rewriting their config.
     private static HarpoonType harpoonFallback = null;
     public static Rs2NpcModel temporossPool;
-    public static List<Rs2NpcModel> sortedFires = new ArrayList<>();
-    public static List<GameObject> sortedClouds = new ArrayList<>();
-    public static List<Rs2NpcModel> fishSpots = new ArrayList<>();
+    public static volatile List<Rs2NpcModel> sortedFires = new ArrayList<>();
+    public static volatile List<GameObject> sortedClouds = new ArrayList<>();
+    public static volatile List<Rs2NpcModel> fishSpots = new ArrayList<>();
     // Identified by index + id rather than a cached NPC ref, which the client recycles.
     private static int lastCatchSpotIndex = -1;
     private static int lastCatchSpotId = -1;
     public static List<WorldPoint> walkPath = new ArrayList<>();
     public static long startTime;
-    public static int cachedRawFish;
-    public static int cachedCookedFish;
-    public static int cachedAllFish;
-    public static int cachedTotalSlots;
-    public static boolean cachedInMinigame;
+    // Written on the client thread (GameTick), read on the script executor - volatile like the
+    // snapshot fields below, and the lists above are REPLACED whole, never mutated in place.
+    public static volatile int cachedRawFish;
+    public static volatile int cachedCookedFish;
+    public static volatile int cachedAllFish;
+    public static volatile int cachedTotalSlots;
+    public static volatile boolean cachedInMinigame;
 
     // Per-game randomized thresholds (regenerated each game for humanization)
     public static int thresholdForfeitIntensity = 94;
