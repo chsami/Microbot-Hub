@@ -1715,7 +1715,7 @@ public class TemporossScript extends Script {
                 .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
                         && mastLocal != null && npc.getNpc().getLocalLocation() != null
                         && npc.getNpc().getLocalLocation().distanceTo(mastLocal) <= 4 * 128
-                        && !inCloud(npc, 0))
+                        && !inImminentCloudArea(npc, 0))
                 .toList();
         TemporossOverlay.setAmmoList(ammoCrates);
     }
@@ -1968,6 +1968,14 @@ public class TemporossScript extends Script {
             TemporossScript.state = State.THIRD_CATCH;
         }
 
+        // Same rule for the mid-game cook: a double is never ignored while the bag has room.
+        if (TemporossScript.state == State.SECOND_COOK && doubleFishingSpot
+                && cachedAllFish < cachedTotalSlots
+                && TemporossScript.ENERGY > thresholdLoadEnergy) {
+            log("Double fishing spot up, interrupting cook to fish it");
+            TemporossScript.state = State.SECOND_CATCH;
+        }
+
         // Pool-phase detection is energy-based, NOT pool-based: the pool is an NPC ~12 tiles from the
         // ship exit, so from the shoreline it is outside NPC render distance and temporossPool reads
         // null exactly when the pool opens. Energy at or near zero IS the pool phase — head for the
@@ -2046,11 +2054,11 @@ public class TemporossScript extends Script {
                     }
                 }
 
-                long inCloudCount = fishSpots.stream().filter(npc -> inCloud(npc, 1)).count();
+                long inCloudCount = fishSpots.stream().filter(npc -> inImminentCloudArea(npc, 1)).count();
                 long fireCount = fishSpots.stream().filter(npc -> hasAdjacentFire(npc.getWorldLocation())).count();
                 int emptySlots = cachedTotalSlots - cachedAllFish;
                 var fishSpot = fishSpots.stream()
-                        .filter(npc -> !inCloud(npc, 1))
+                        .filter(npc -> !inImminentCloudArea(npc, 1))
                         .filter(npc -> {
                             boolean fireAdjacent = hasAdjacentFire(npc.getWorldLocation());
                             return !fireAdjacent || Rs2Inventory.contains(ItemID.BUCKET_OF_WATER);
@@ -2138,7 +2146,7 @@ public class TemporossScript extends Script {
                                 && npc.getNpc().getLocalLocation().distanceTo(mastLocal) <= 4 * 128)
                         .toList();
                 List<Rs2NpcModel> ammoCrates = cratesAtMast.stream()
-                        .filter(npc -> !inCloud(npc, 0))
+                        .filter(npc -> !inImminentCloudArea(npc, 0))
                         .collect(Collectors.toList());
 
                 LocalPoint fillPlayerLocal = cachedPlayerLocal;
@@ -2176,7 +2184,7 @@ public class TemporossScript extends Script {
                     return;
                 }
 
-                if (cachedPlayerLocal != null && inCloud(cachedPlayerLocal, 0)) {
+                if (cachedPlayerLocal != null && inImminentCloudArea(cachedPlayerLocal, 0)) {
                     log("In cloud, switching ammo crate");
                     Rs2NpcModel ammoCrate = ammoCrates.stream()
                             .max(Comparator.comparingInt(value -> fillPlayerLocal != null && value.getNpc().getLocalLocation() != null
@@ -2742,13 +2750,40 @@ public class TemporossScript extends Script {
     }
 
     /**
-     * Is a usable double spot up? Cloud-filtered, because one we cannot stand at is no reason to keep
+     * Like {@link #inCloud(LocalPoint, int)} but only counts shadows inside their strike margin.
+     * ELIGIBILITY checks use this: a spot or crate under a fresh shadow is workable for another
+     * ~12 ticks, and treating shadows as poison from birth walked the bot off a 5-fish batch to
+     * cook 9 seconds before anything erupted. Dodge/escape paths keep the unconditional test —
+     * never move INTO a footprint, however young.
+     */
+    public static boolean inImminentCloudArea(LocalPoint point, int radius) {
+        if (sortedClouds.isEmpty() || point == null) {
+            return false;
+        }
+        int threshold = (radius + 1) * Perspective.LOCAL_TILE_SIZE;
+        return sortedClouds.stream().anyMatch(cloud -> {
+            if (!strikeImminent(cloud)) {
+                return false;
+            }
+            LocalPoint cloudLocal = cloud.getLocalLocation();
+            return cloudLocal != null && point.distanceTo(cloudLocal) <= threshold;
+        });
+    }
+
+    private static boolean inImminentCloudArea(Rs2NpcModel npc, int radius) {
+        return npc != null && npc.getNpc() != null
+                && inImminentCloudArea(npc.getNpc().getLocalLocation(), radius);
+    }
+
+    /**
+     * Is a usable double spot up? Filtered on IMMINENT shadows only — one under a fresh shadow is
+     * still worth fishing for the next ~12 ticks, and only one we cannot stand at is a reason to keep
      * catching. Shared so the third-phase catch cutoff, the cook interrupt and the abandon-a-single
      * rule all agree on what "a double is available" means.
      */
     public static boolean hasDoubleSpot() {
         return fishSpots.stream()
-                .anyMatch(npc -> npc.getId() == NpcID.FISHING_SPOT_10569 && !inCloud(npc, 1));
+                .anyMatch(npc -> npc.getId() == NpcID.FISHING_SPOT_10569 && !inImminentCloudArea(npc, 1));
     }
 
     /**

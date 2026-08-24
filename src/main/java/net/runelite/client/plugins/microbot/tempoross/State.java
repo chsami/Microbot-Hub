@@ -58,7 +58,11 @@ public enum State {
     SECOND_COOK(() -> getCookedFish() == (TemporossScript.temporossConfig.solo() ? 17 : getAllFish()), INITIAL_FILL),
     SECOND_CATCH(() -> getAllFish() >= (TemporossScript.temporossConfig.solo() ? 17 : getTotalAvailableFishSlots()), SECOND_COOK),
     INITIAL_COOK(() -> getRawFish() == 0, SECOND_CATCH),
-    INITIAL_CATCH(() -> getRawFish() >= TemporossScript.openingCatchTarget || getAllFish() >= 10, INITIAL_COOK);
+    // A live double spot overrides the opening target — stay on it until it dies or the bag is
+    // full: double fish are pure surplus, and the skip-initial-cook path absorbs any batch size.
+    INITIAL_CATCH(() -> ((getRawFish() >= TemporossScript.openingCatchTarget || getAllFish() >= 10)
+            && !TemporossScript.hasDoubleSpot())
+            || getAllFish() >= getTotalAvailableFishSlots(), INITIAL_COOK);
 
     public final BooleanSupplier isComplete;
     public final State next;

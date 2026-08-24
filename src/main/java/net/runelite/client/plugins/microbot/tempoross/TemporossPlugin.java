@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.20.2";
+    public static final String version = "2.20.3";
     @Inject
     private TemporossConfig config;
 
