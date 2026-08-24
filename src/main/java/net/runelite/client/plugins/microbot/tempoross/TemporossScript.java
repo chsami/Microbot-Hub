@@ -794,6 +794,8 @@ public class TemporossScript extends Script {
      * recharging while we walk" (never bail — that was the 2.6.1 bug).
      */
     private boolean poolPhaseActive = false;
+    /** Consecutive ATTACK passes with no pool in sight while energy is past the approach window. */
+    private int poolGonePasses = 0;
     /** The once-per-game camera setup (pitch/zoom) has run. */
     private boolean cameraPrepped = false;
 
@@ -2048,6 +2050,9 @@ public class TemporossScript extends Script {
                 .toList().stream()
                 .min(Comparator.comparingInt(x -> workArea.spiritPoolPoint.distanceTo(x.getWorldLocation())))
                 .orElse(null);
+        if (temporossPool != null) {
+            poolGonePasses = 0;
+        }
         boolean doubleFishingSpot = hasDoubleSpot();
 
         if (TemporossScript.state == State.INITIAL_COOK && doubleFishingSpot) {
@@ -2163,7 +2168,12 @@ public class TemporossScript extends Script {
                 // interaction drops the instant the spot leaves — move on right then.
                 boolean engagedWithSpot = cachedInteractingIndex >= 0
                         && cachedInteractingIndex == lastCatchSpotIndex;
-                if ((Rs2Player.isMoving() || engagedWithSpot) && lastCatchSpotAlive()) {
+                // Engagement alone is not progress: a clicked spot with no walkable path leaves the
+                // red interaction mark set while the player stands still forever (observed on a
+                // fresh double). Busy needs movement, or engagement WITH the fishing animation —
+                // a stuck stand falls through to the fire/detour logic and a fresh approach.
+                if ((Rs2Player.isMoving() || (engagedWithSpot && Rs2Player.isAnimating()))
+                        && lastCatchSpotAlive()) {
                     boolean atDouble = lastCatchSpotId == NpcID.FISHING_SPOT_10569;
                     if (atDouble || !hasDoubleSpot()) {
                         return;
@@ -2414,6 +2424,21 @@ public class TemporossScript extends Script {
                         return;
                     }
                     poolPhaseActive = true;
+                    // The phase can end below the ATTACK completion threshold (the recharge tops out
+                    // around 97 against a sampled 98), leaving the latch set and the bot parked at an
+                    // empty mark while energy climbed from 30% (observed). A pool that stays gone for
+                    // ~2s with energy well past the approach window means the phase is simply over.
+                    if (ENERGY > 10) {
+                        if (++poolGonePasses >= 6) {
+                            log("Pool gone at " + ENERGY + "% — phase over, back to fishing");
+                            poolGonePasses = 0;
+                            poolPhaseActive = false;
+                            state = null;
+                            return;
+                        }
+                    } else {
+                        poolGonePasses = 0;
+                    }
                     // Pool not rendered yet. Energy recharges the whole time the pool is open, so
                     // bailing at "energy above the low threshold" cancelled the dock walk within a
                     // second of it starting. Only give up once Tempoross has essentially recharged.
