@@ -903,12 +903,11 @@ public class TemporossScript extends Script {
         // Kept only for the rest of this collection session, so mid-session banking does not force a
         // trip back to the Angler. It gets dropped once collecting finishes.
         keep.add(SMALL_FISHING_NET);
-        // Any harpoon tier stays aboard — the type is detected from possession, not configured.
-        for (HarpoonType type : HarpoonType.values()) {
-            for (int id : type.getIds()) {
-                if (id > 0) {
-                    keep.add(id);
-                }
+        // Only the harpoon actually in use stays aboard — spare and downgraded ones are loot to
+        // deposit, which is what lets the auto-equip sweep and reward banking clear them out.
+        if (!temporossConfig.barehanded()) {
+            for (int id : detectOwnedHarpoon().getIds()) {
+                keep.add(id);
             }
         }
         return keep;
@@ -1144,36 +1143,32 @@ public class TemporossScript extends Script {
         }
 
         switch (autoEquipStep) {
-            case 0:     // strip — deposit worn items
-                Rs2Bank.depositEquipment();
-                sleep(600, 900);
-                advanceEquipStep();
-                return true;
-
-            case 1:     // deposit the whole inventory
-                if (!Rs2Inventory.isEmpty()) {
-                    Rs2Bank.depositAll();
-                    sleepUntil(Rs2Inventory::isEmpty, 3000);
+            case 0:     // deposit only what the loadout does not keep — no stripping, no churn.
+                // Wintertodt-manager style: worn gear is never blanket-deposited (gear already at
+                // its best tier stays exactly where it is), and supplies already in the bag skip
+                // the old deposit-then-rewithdraw round trip.
+                if (hasLootToBank()) {
+                    Rs2Bank.depositAllExcept(rewardKeepList().toArray(new Integer[0]));
+                    sleepUntil(() -> !hasLootToBank(), 3000);
                 }
-                if (Rs2Inventory.isEmpty()) {
+                if (!hasLootToBank()) {
                     advanceEquipStep();
                 }
                 return true;
 
-            case 2:     // best outfit piece per slot, one equip per pass
+            case 1:     // best outfit piece per slot, one equip per pass
                 for (TemporossGear gear : TemporossGear.values()) {
-                    boolean slotDone = false;
                     for (int id : gear.getTiers()) {
+                        // Interleaved best-to-worst walk. Wearing THIS tier means the slot is at
+                        // this tier or better — stop. A banked copy seen first is an upgrade over
+                        // whatever sits below it (checking worn tiers up front instead used to
+                        // block a Spirit piece while an Angler one was worn).
                         if (Rs2Equipment.isWearing(id)) {
-                            slotDone = true;
                             break;
                         }
-                    }
-                    if (slotDone) {
-                        continue;
-                    }
-                    final int id = firstBanked(gear.getTiers());
-                    if (id != -1) {
+                        if (equipRejected.contains(id) || !Rs2Bank.hasItem(id)) {
+                            continue;
+                        }
                         log("Equipping best " + gear.getLabel() + " (item " + id + ")");
                         Rs2Bank.withdrawAndEquip(id);
                         if (sleepUntil(() -> Rs2Equipment.isWearing(id), 3000)) {
@@ -1188,19 +1183,25 @@ public class TemporossScript extends Script {
                 advanceEquipStep();
                 return true;
 
-            case 3: {   // harpoon — the best owned tier, wielded when possible, carried otherwise
-                if (temporossConfig.barehanded() || wearingAnyHarpoon() || carriedAnyHarpoon()) {
+            case 2: {   // harpoon — hold the best owned tier: wielded when possible, else carried
+                if (temporossConfig.barehanded()) {
                     advanceEquipStep();
                     return true;
                 }
                 int wield = -1;
                 int carry = -1;
-                // The best owned tier wins outright: an infernal carried in the bag (cooks fish
-                // in-place, wiki rank 1 for max permits) beats a wielded barb-tail. Stat-gated
+                boolean settled = false;
+                // Same interleaved walk as the gear slots, over held AND banked: holding a tier
+                // settles the step, a banked better tier is an upgrade even over a harpoon already
+                // in hand (a carried plain one used to block a banked infernal forever). Stat-gated
                 // tiers still fish from the inventory, so they are carried, not skipped.
                 for (HarpoonType type : HARPOON_TIERS) {
                     if (!canUse(type)) {
                         continue;   // a tool we lack the Fishing level for catches nothing
+                    }
+                    if (wearingType(type) || carriedType(type)) {
+                        settled = true;
+                        break;
                     }
                     int banked = firstBanked(type.getIds());
                     if (banked == -1) {
@@ -1213,9 +1214,19 @@ public class TemporossScript extends Script {
                     }
                     break;
                 }
-                if (wield == -1 && carry == -1 && !equipRejected.contains(ItemID.HARPOON)
-                        && Rs2Bank.hasItem(ItemID.HARPOON)) {
-                    carry = ItemID.HARPOON;
+                if (settled) {
+                    advanceEquipStep();
+                    return true;
+                }
+                if (wield == -1 && carry == -1) {
+                    // Nothing better banked. A plain one only when nothing at all is in hand.
+                    if (!wearingAnyHarpoon() && !carriedAnyHarpoon()
+                            && !equipRejected.contains(ItemID.HARPOON) && Rs2Bank.hasItem(ItemID.HARPOON)) {
+                        carry = ItemID.HARPOON;
+                    } else {
+                        advanceEquipStep();
+                        return true;
+                    }
                 }
                 if (wield != -1) {
                     final int w = wield;
@@ -1241,7 +1252,7 @@ public class TemporossScript extends Script {
                 return true;
             }
 
-            case 4: {   // buckets — pre-filled water first, empty ones for the remainder
+            case 3: {   // buckets — pre-filled water first, empty ones for the remainder
                 int want = temporossConfig.buckets();
                 if (Rs2Inventory.count(ItemID.BUCKET_OF_WATER) + Rs2Inventory.count(ItemID.BUCKET) >= want) {
                     advanceEquipStep();
@@ -1266,7 +1277,7 @@ public class TemporossScript extends Script {
                 return true;
             }
 
-            case 5:     // rope — wanted unless the worn Spirit Angler set makes tethering free.
+            case 4:     // rope — wanted unless the worn Spirit Angler set makes tethering free.
                 // Detected live off the equipment (this step runs after the outfit ones, so a set
                 // completed seconds ago already counts). The old config toggle could lie both ways.
                 if (temporossConfig.rope() && !wearingFullSpiritAngler()
@@ -1278,12 +1289,22 @@ public class TemporossScript extends Script {
                 advanceEquipStep();
                 return true;
 
-            case 6:     // hammer — pointless with the Imcando off-hand equipped
+            case 5:     // hammer — pointless with the Imcando off-hand equipped
                 if (temporossConfig.hammer() && !hasImcandoOffhand()
                         && !Rs2Inventory.contains(ItemID.HAMMER) && Rs2Bank.hasItem(ItemID.HAMMER)) {
                     log("Withdrawing a hammer");
                     Rs2Bank.withdrawOne(ItemID.HAMMER);
                     sleepUntil(() -> Rs2Inventory.contains(ItemID.HAMMER), 3000);
+                }
+                advanceEquipStep();
+                return true;
+
+            case 6:     // sweep — displaced gear, spare harpoons, and a hammer made redundant by
+                // the Imcando all go back. The keep-list is recomputed HERE, post-equip, so it
+                // reflects what the loadout actually needs now.
+                if (hasLootToBank()) {
+                    Rs2Bank.depositAllExcept(rewardKeepList().toArray(new Integer[0]));
+                    sleepUntil(() -> !hasLootToBank(), 3000);
                 }
                 advanceEquipStep();
                 return true;
@@ -1388,6 +1409,16 @@ public class TemporossScript extends Script {
     private static boolean wearingType(HarpoonType type) {
         for (int id : type.getIds()) {
             if (id > 0 && Rs2Equipment.isWearing(id)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Is this specific harpoon type in the inventory (any charge variant)? */
+    private static boolean carriedType(HarpoonType type) {
+        for (int id : type.getIds()) {
+            if (id > 0 && Rs2Inventory.contains(id)) {
                 return true;
             }
         }
