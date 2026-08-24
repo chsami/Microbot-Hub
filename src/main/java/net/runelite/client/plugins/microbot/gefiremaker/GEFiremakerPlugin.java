@@ -21,7 +21,7 @@ import java.awt.*;
     iconUrl = "https://chsami.github.io/Microbot-Hub/GEFiremakerPlugin/assets/firemaking.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL,
-	minClientVersion = "1.9.6"
+	minClientVersion = "2.6.19"
 )
 
 @Slf4j
