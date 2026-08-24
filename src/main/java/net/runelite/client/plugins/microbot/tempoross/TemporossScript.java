@@ -179,6 +179,7 @@ public class TemporossScript extends Script {
                 if (cachedInMinigame) {
                     if (workArea == null) {
                         rewardSessionDone = false;  // fresh game: next lobby visit may collect again
+                        loggedFinalPoolSkip = false;
                         cameraPrepped = false;
                         determineWorkArea();
                         sleep(300, 600);
@@ -457,7 +458,8 @@ public class TemporossScript extends Script {
         // late (still finishing a catch or a one-fish load when the pool spawned). Then harpoon it
         // back up to 97-98%, and stop catching at 49% so there is time to cook and load before the
         // last wave.
-        thresholdLowEnergy = Rs2Random.fancyNormalSample(4, 6);
+        // Wiki runs at 1-2%; 2-3 keeps a walking margin. The old 4-6 donated catching time.
+        thresholdLowEnergy = Rs2Random.fancyNormalSample(2, 3);
         thresholdAttackEnergy = Rs2Random.fancyNormalSample(90, 96);
         thresholdFullEnergy = Math.max(thresholdAttackEnergy + 1, Rs2Random.fancyNormalSample(97, 98));
         thresholdLoadEnergy = Rs2Random.fancyNormalSample(47, 50);
@@ -567,12 +569,32 @@ public class TemporossScript extends Script {
         if (!wearingType(harpoonType)) {
             return;     // the spec needs the harpoon in the weapon slot, carrying is not enough
         }
+        // Wiki: the boost has no effect once the catch rate caps — 87+ Fishing for dragon and
+        // infernal, 74+ for crystal — so firing it there is a wasted click.
+        int specCapLevel = harpoonType == HarpoonType.CRYSTAL_HARPOON ? 74 : 87;
+        if (cachedFishingLevel >= specCapLevel) {
+            return;
+        }
         if (Rs2Combat.getSpecEnergy() / 10 >= 100) {
             Rs2Combat.setSpecState(true, 100);
             sleep(600);
             log("Using harpoon special attack (+3 Fishing)");
         }
     }
+
+    /**
+     * Wiki: when Tempoross is already nearly dead at pool time, the final pool is worth one or two
+     * drops at most — the mass world finishes it without us, and cooking/loading what we hold
+     * scores more. Only when there IS something to process: with an empty bag the pool still beats
+     * idling. Essence 0 means the widget has not parsed, not a dead boss.
+     */
+    private boolean skipFinalPool() {
+        return ESSENCE > 0 && ESSENCE <= 10
+                && (cachedRawFish > 0 || cachedCookedFish > 0);
+    }
+
+    /** One log line per game for the skip, not one per loop pass. */
+    private boolean loggedFinalPoolSkip = false;
 
     /** Walk-here on our own tile: stops both the current path and any interaction. */
     private void cancelCurrentAction() {
@@ -1414,8 +1436,8 @@ public class TemporossScript extends Script {
     /** All four outfit slots in the Spirit Angler tier (the off-hand hammer is not part of the set). */
     private boolean wearingFullSpiritAngler() {
         for (TemporossGear gear : TemporossGear.values()) {
-            if (gear == TemporossGear.OFFHAND) {
-                continue;
+            if (gear == TemporossGear.OFFHAND || gear == TemporossGear.RING) {
+                continue;   // only the four outfit slots make the set
             }
             if (!Rs2Equipment.isWearing(gear.getTiers()[0])) {
                 return false;
@@ -1992,13 +2014,22 @@ public class TemporossScript extends Script {
                 || fillWithScraps)
             && TemporossScript.ENERGY <= thresholdLowEnergy
             && !temporossConfig.solo()) {
-            log("Energy " + TemporossScript.ENERGY + "% — pool phase, heading for the spirit pool");
-            poolPhaseActive = true;
-            TemporossScript.state = State.ATTACK_TEMPOROSS;
-            return;
+            if (skipFinalPool()) {
+                if (!loggedFinalPoolSkip) {
+                    loggedFinalPoolSkip = true;
+                    log("Boss nearly dead (essence " + ESSENCE + "%) — skipping the final pool,"
+                            + " cooking and loading instead");
+                }
+            } else {
+                log("Energy " + TemporossScript.ENERGY + "% — pool phase, heading for the spirit pool");
+                poolPhaseActive = true;
+                TemporossScript.state = State.ATTACK_TEMPOROSS;
+                return;
+            }
         }
 
-        if (temporossPool != null && TemporossScript.state != State.SECOND_FILL && TemporossScript.state != State.ATTACK_TEMPOROSS && TemporossScript.ENERGY < thresholdAttackEnergy) {
+        if (temporossPool != null && TemporossScript.state != State.SECOND_FILL && TemporossScript.state != State.ATTACK_TEMPOROSS && TemporossScript.ENERGY < thresholdAttackEnergy
+                && !skipFinalPool()) {
             log("Tempoross pool detected, attacking Tempoross");
             poolPhaseActive = true;
             TemporossScript.state = State.ATTACK_TEMPOROSS;
@@ -2295,6 +2326,15 @@ public class TemporossScript extends Script {
                     if (!poolPhaseActive && ENERGY > thresholdLowEnergy) {
                         log("Pool not open yet at " + ENERGY + "%, fishing until ~" + thresholdLowEnergy + "%");
                         state = State.THIRD_CATCH;
+                        return;
+                    }
+                    if (skipFinalPool()) {
+                        if (!loggedFinalPoolSkip) {
+                            loggedFinalPoolSkip = true;
+                            log("Boss nearly dead (essence " + ESSENCE + "%) — cooking and loading"
+                                    + " instead of the pool");
+                        }
+                        state = State.THIRD_COOK;
                         return;
                     }
                     poolPhaseActive = true;

@@ -14,9 +14,9 @@ package net.runelite.client.plugins.microbot.tempoross;
  *       it is handled in the script rather than here. Note the wiki splits the top tier by goal:
  *       Crystal harpoon "if maximum fishing experience is desired", Infernal harpoon "if maximum
  *       reward permits are desired". For this plugin's objective, Infernal is the right one.</li>
- *   <li><b>Rings</b> (Lightbearer 25975, Elven signet 23943, Celestial signet 25543) — conditional
- *       on harpoon special-attack usage or on being under the catch-rate level, so the benefit here
- *       is marginal and situational. Ids recorded above if that ever changes.</li>
+ *   <li><b>Signet rings</b> (Elven 23943, Celestial 25543) — crystal-charge saving, out of scope
+ *       for a permit-max loadout. The Lightbearer IS covered below since spec regen feeds the
+ *       harpoon special.</li>
  *   <li><b>Ghommal's lucky penny</b> — no id available. Absent from RuneLite's ItemID and from the
  *       OSRS objtypes dump (searched "lucky_penny" and "ghommal"; only the infernal defenders came
  *       back), so it most likely postdates that data. Not hardcoded from a guessed number.</li>
@@ -32,7 +32,9 @@ public enum TemporossGear
      * Imcando hammer (off-hand). Worth equipping for a second reason beyond the wiki's: it repairs
      * without occupying an inventory slot, freeing that slot for fish.
      */
-    OFFHAND("off-hand", 29775);
+    OFFHAND("off-hand", 29775),
+    /** Lightbearer — doubles special attack regen for the harpoon specials. No requirements. */
+    RING("ring", 25975);
 
     private final String label;
     /** Item ids, most effective first. */
