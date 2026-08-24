@@ -215,11 +215,15 @@ public class TemporossScript extends Script {
                     // so clear it centrally before any handler tries to click anything.
                     if (dismissDialogue())
                         return;
-                    if (handleStartupWorldHop())
-                        return;
                     if (handleAutoEquip())
                         return;
                     if (handleRewardCollection())
+                        return;
+                    // Hop LAST, right before boarding: banking and reward collection are
+                    // world-agnostic, and by the time they finish the client is long past the
+                    // welcome-banner window that made login-time hops fail. The settle/cooldown
+                    // guards stay for the nothing-to-bank case.
+                    if (handleStartupWorldHop())
                         return;
                     handleEnterMinigame();
                 }
