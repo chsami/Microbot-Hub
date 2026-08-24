@@ -252,6 +252,8 @@ public class TemporossScript extends Script {
                             return;
                         if (handleNearbyFire())
                             return;
+                        if (handleFireOnPath())
+                            return;
                         handleMinigame();
                         handleStateLoop();
                         // Only wait on missing items while handleMinigame() is still willing to fetch
@@ -639,6 +641,47 @@ public class TemporossScript extends Script {
 
     /** One log line per game for the endgame dump, not one per loop pass. */
     private boolean loggedEndgameDump = false;
+
+    /**
+     * Mid-walk fire guard. The per-handler fire checks run at CLICK time, and most handlers return
+     * early while already moving — so a fire spawning on a committed path was simply run through
+     * (observed: dodged a cloud, then ran back through the fresh fires twice). While moving, a live
+     * fire near the remaining path is doused as soon as it is within reach; with no water, the walk
+     * is broken off so the detour logic can route around it.
+     */
+    private boolean handleFireOnPath() {
+        if (!Rs2Player.isMoving() || sortedFires.isEmpty()) {
+            return false;
+        }
+        LocalPoint from = cachedPlayerLocal;
+        LocalPoint dest = cachedDestination;
+        if (from == null || dest == null) {
+            return false;
+        }
+        List<LocalPoint> blocking = firesNearLine(from, dest);
+        if (blocking.isEmpty()) {
+            return false;
+        }
+        LocalPoint fire = blocking.stream()
+                .min(Comparator.comparingInt(from::distanceTo))
+                .orElse(null);
+        if (fire == null || from.distanceTo(fire) > 6 * Perspective.LOCAL_TILE_SIZE) {
+            return false;   // far ahead — re-evaluated every pass as we close in
+        }
+        if (Rs2Inventory.count(ItemID.BUCKET_OF_WATER) > 0) {
+            Rs2NpcModel fireNpc = sortedFires.stream()
+                    .filter(f -> f.getNpc() != null && fire.equals(f.getNpc().getLocalLocation()))
+                    .findFirst()
+                    .orElse(null);
+            if (fireNpc != null && fireNpc.click("Douse")) {
+                log("Fire on our path — dousing it mid-walk");
+                return true;
+            }
+        }
+        log("Fire on our path and no water — stopping short");
+        cancelCurrentAction();
+        return true;
+    }
 
     /** Walk-here on our own tile: stops both the current path and any interaction. */
     private void cancelCurrentAction() {
@@ -2646,7 +2689,8 @@ public class TemporossScript extends Script {
         if (Rs2Player.isMoving()) {
             return true;
         }
-        LocalPoint escape = findEscapeTile(playerLocal, threat.getLocalLocation(), candidate -> !inCloud(candidate, 0));
+        LocalPoint escape = findEscapeTile(playerLocal, threat.getLocalLocation(),
+                candidate -> !inCloud(candidate, 0) && !onFireTile(candidate));
         if (escape != null) {
             log((onTile ? "Strike imminent on our tile — dodging to "
                     : "Strike imminent beside us — stepping to ") + escape);
