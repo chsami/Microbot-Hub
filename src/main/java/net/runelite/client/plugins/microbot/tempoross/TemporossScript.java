@@ -60,6 +60,9 @@ public class TemporossScript extends Script {
     public static volatile int cachedWorld;
     /** NPC index the player is interacting with this tick, -1 when none. */
     public static volatile int cachedInteractingIndex = -1;
+    /** NPC id and raw scene location of the interacting NPC — plain data, never the live object. */
+    public static volatile int cachedInteractingId = -1;
+    public static volatile WorldPoint cachedInteractingWorld;
     public static volatile int cachedFishingLevel = 1;
     public static volatile int cachedAttackLevel = 1;
     public static volatile int cachedAgilityLevel = 1;
@@ -102,6 +105,31 @@ public class TemporossScript extends Script {
         new Rs2NpcModel(npc).click("Douse");
     }
 
+    // ---- Client-thread marshalled conversions -------------------------------------------------
+    // Scene<->world conversions consult the client's world view and plane, so each runs as one
+    // complete operation on the client thread (invoke executes inline when already there); the
+    // executor only ever receives the finished plain coordinate.
+    private static LocalPoint localFromWorld(WorldPoint point) {
+        if (point == null) {
+            return null;
+        }
+        return Microbot.getClientThread().invoke(() -> LocalPoint.fromWorld(Microbot.getClient(), point));
+    }
+
+    private static WorldPoint worldFromLocal(LocalPoint point) {
+        if (point == null) {
+            return null;
+        }
+        return Microbot.getClientThread().invoke(() -> WorldPoint.fromLocal(Microbot.getClient(), point));
+    }
+
+    private static WorldPoint templateFromLocal(LocalPoint point) {
+        if (point == null) {
+            return null;
+        }
+        return Microbot.getClientThread().invoke(() -> WorldPoint.fromLocalInstance(Microbot.getClient(), point));
+    }
+
     /** CLIENT THREAD ONLY — called first thing from the plugin's GameTick subscriber. */
     public static void refreshClientSnapshot() {
         Player local = Microbot.getClient().getLocalPlayer();
@@ -112,7 +140,16 @@ public class TemporossScript extends Script {
         cachedTick = Microbot.getClient().getTickCount();
         cachedWorld = Microbot.getClient().getWorld();
         Actor interacting = local != null ? local.getInteracting() : null;
-        cachedInteractingIndex = interacting instanceof NPC ? ((NPC) interacting).getIndex() : -1;
+        if (interacting instanceof NPC) {
+            NPC interactingNpc = (NPC) interacting;
+            cachedInteractingIndex = interactingNpc.getIndex();
+            cachedInteractingId = interactingNpc.getId();
+            cachedInteractingWorld = interactingNpc.getWorldLocation();
+        } else {
+            cachedInteractingIndex = -1;
+            cachedInteractingId = -1;
+            cachedInteractingWorld = null;
+        }
         cachedFishingLevel = Rs2Player.getRealSkillLevel(Skill.FISHING);
         cachedAttackLevel = Rs2Player.getRealSkillLevel(Skill.ATTACK);
         cachedAgilityLevel = Rs2Player.getRealSkillLevel(Skill.AGILITY);
@@ -574,18 +611,15 @@ public class TemporossScript extends Script {
         if (workArea == null) {
             return false;
         }
-        Actor interacting = Rs2Player.getInteracting();
-        if (interacting instanceof NPC) {
-            WorldPoint targetLoc = ((NPC) interacting).getWorldLocation();
-            if (!workArea.isOnOurSide(targetLoc)) {
-                log("Interacting with something on the other side at " + targetLoc + " — cancelling");
-                cancelCurrentAction();
-                return true;
-            }
+        WorldPoint targetLoc = cachedInteractingWorld;
+        if (targetLoc != null && !workArea.isOnOurSide(targetLoc)) {
+            log("Interacting with something on the other side at " + targetLoc + " — cancelling");
+            cancelCurrentAction();
+            return true;
         }
         LocalPoint dest = cachedDestination;
-        if (dest != null) {
-            WorldPoint destWorld = WorldPoint.fromLocal(Microbot.getClient(), dest);
+        WorldPoint destWorld = dest != null ? worldFromLocal(dest) : null;
+        if (destWorld != null) {
             // Looser than isOnOurSide on purpose: short hops (cloud and fire dodges) may legally step
             // a few tiles past the anchor radius. 25+ tiles from BOTH anchors is nowhere on our side.
             boolean nearShip = destWorld.distanceTo(workArea.exitNpc) <= 25;
@@ -763,7 +797,7 @@ public class TemporossScript extends Script {
         List<int[]> needed = new ArrayList<>();
 
         if (!hasHarpoon() && harpoonType != HarpoonType.BAREHAND) {
-            LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient(),workArea.harpoonPoint);
+            LocalPoint lp = localFromWorld(workArea.harpoonPoint);
             needed.add(new int[]{0, lp != null ? playerLocal.distanceTo(lp) : Integer.MAX_VALUE});
         }
 
@@ -771,23 +805,23 @@ public class TemporossScript extends Script {
                 item.getId() == ItemID.BUCKET || item.getId() == ItemID.BUCKET_OF_WATER);
         boolean needBuckets = (bucketCount < temporossConfig.buckets() && state == State.INITIAL_CATCH) || bucketCount == 0;
         if (needBuckets) {
-            LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient(),workArea.bucketPoint);
+            LocalPoint lp = localFromWorld(workArea.bucketPoint);
             needed.add(new int[]{1, lp != null ? playerLocal.distanceTo(lp) : Integer.MAX_VALUE});
         }
 
         int fullBucketCount = Rs2Inventory.count(ItemID.BUCKET_OF_WATER);
         if (!needBuckets && fullBucketCount <= 0) {
-            LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient(),workArea.pumpPoint);
+            LocalPoint lp = localFromWorld(workArea.pumpPoint);
             needed.add(new int[]{2, lp != null ? playerLocal.distanceTo(lp) : Integer.MAX_VALUE});
         }
 
         if (temporossConfig.rope() && !wearingFullSpiritAngler() && !Rs2Inventory.contains(ItemID.ROPE)) {
-            LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient(),workArea.ropePoint);
+            LocalPoint lp = localFromWorld(workArea.ropePoint);
             needed.add(new int[]{3, lp != null ? playerLocal.distanceTo(lp) : Integer.MAX_VALUE});
         }
 
         if (needsInventoryHammer() && !Rs2Inventory.contains(ItemID.HAMMER)) {
-            LocalPoint lp = LocalPoint.fromWorld(Microbot.getClient(),workArea.hammerPoint);
+            LocalPoint lp = localFromWorld(workArea.hammerPoint);
             needed.add(new int[]{4, lp != null ? playerLocal.distanceTo(lp) : Integer.MAX_VALUE});
         }
 
@@ -1906,7 +1940,7 @@ public class TemporossScript extends Script {
 
     // update ammo crate data
     public static void updateAmmoCrateData(){
-        LocalPoint mastLocal = LocalPoint.fromWorld(Microbot.getClient(),workArea.mastPoint);
+        LocalPoint mastLocal = localFromWorld(workArea.mastPoint);
         List<Rs2NpcModel> ammoCrates = Microbot.getRs2NpcCache().query()
                 .withIds(workArea.side.ammoCrateIdA, workArea.side.ammoCrateIdB)
                 .where(npc -> npc.getNpc() != null && npc.getNpc().getComposition() != null
@@ -2008,10 +2042,9 @@ public class TemporossScript extends Script {
                 Microbot.log("Filling, skipping fire");
                 return;
             }
-            // Skip only if already dousing THIS specific fire. Target-identity
-            // check is reliable; the outer isInteracting() gate is not.
-            Actor current = Rs2Player.getInteracting();
-            if (current != null && current == fire.getNpc()) {
+            // Skip only if already dousing THIS specific fire — matched by the snapshot's
+            // interacting index, never by holding the live actor on the executor.
+            if (cachedInteractingIndex != -1 && cachedInteractingIndex == fire.getIndex()) {
                 return;
             }
             if (fire.click("Douse")) {
@@ -2377,7 +2410,7 @@ public class TemporossScript extends Script {
             case EMERGENCY_FILL:
             case SECOND_FILL:
             case INITIAL_FILL:
-                LocalPoint mastLocal = LocalPoint.fromWorld(Microbot.getClient(),workArea.mastPoint);
+                LocalPoint mastLocal = localFromWorld(workArea.mastPoint);
                 // Crates are keyed by side too (A: 10576/10577, B: 10578/10579), so the other ship's
                 // pair cannot be selected regardless of where we are standing.
                 List<Rs2NpcModel> cratesAtMast = Microbot.getRs2NpcCache().query()
@@ -2413,7 +2446,7 @@ public class TemporossScript extends Script {
                         // wave; in practice the crates render on the way and get clicked before we
                         // ever arrive.
                         WorldPoint approach = workArea.getTotemLocation();
-                        LocalPoint approachLocal = LocalPoint.fromWorld(Microbot.getClient(), approach);
+                        LocalPoint approachLocal = localFromWorld(approach);
                         if (approachLocal != null && fillPlayerLocal != null
                                 && fillPlayerLocal.distanceTo(approachLocal) < 5 * Perspective.LOCAL_TILE_SIZE) {
                             approach = workArea.mastPoint;
@@ -2472,11 +2505,10 @@ public class TemporossScript extends Script {
                     // re-queried model ping-ponged cancel/re-click when the query flip-flopped between
                     // the two side's pools, which tie on exit distance). Fishing a spot also reads as
                     // animating, so busyness must stay target-aware either way.
-                    Actor current = Rs2Player.getInteracting();
-                    boolean busyWithPool = current instanceof NPC && ((NPC) current).getId() == NpcID.SPIRIT_POOL
-                            && ((NPC) current).getWorldLocation() != null
-                            && ((NPC) current).getWorldLocation().distanceTo(workArea.spiritPoolPoint) <= 6;
-                    boolean busyElsewhere = current != null && !busyWithPool;
+                    boolean busyWithPool = cachedInteractingId == NpcID.SPIRIT_POOL
+                            && cachedInteractingWorld != null
+                            && cachedInteractingWorld.distanceTo(workArea.spiritPoolPoint) <= 6;
+                    boolean busyElsewhere = cachedInteractingIndex != -1 && !busyWithPool;
                     if ((Rs2Player.isAnimating() || Rs2Player.isMoving()) && !busyElsewhere) {
                         if (ENERGY >= thresholdFullEnergy) {
                             log("Energy is full, stopping attack");
@@ -2573,9 +2605,9 @@ public class TemporossScript extends Script {
     }
 
     private static WorldPoint getTrueWorldPoint(WorldPoint point) {
-        LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient(),point);
+        LocalPoint localPoint = localFromWorld(point);
         assert localPoint != null;
-        return WorldPoint.fromLocalInstance(Microbot.getClient(), localPoint);
+        return templateFromLocal(localPoint);
     }
 
     /**
@@ -2592,7 +2624,7 @@ public class TemporossScript extends Script {
         if (!fightFiresInPath(target)) {
             return;
         }
-        LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient(), target);
+        LocalPoint localPoint = localFromWorld(target);
         if (localPoint == null) {
             // NOT Rs2Walker.walkTo: our points are raw instance coordinates and the global pathfinder
             // reads them as real-world ones. That is what sent us running well past the range for ten
@@ -2669,7 +2701,7 @@ public class TemporossScript extends Script {
                     if (!Rs2Tile.isWalkable(leg) || onFireTile(leg)) {
                         continue;
                     }
-                    WorldPoint legWorld = WorldPoint.fromLocal(Microbot.getClient(), leg);
+                    WorldPoint legWorld = worldFromLocal(leg);
                     if (Rs2Walker.walkMiniMap(legWorld)) {
                         log(label + " off-screen — minimap step toward it");
                         return;
@@ -2689,7 +2721,7 @@ public class TemporossScript extends Script {
      */
     private boolean stageViaTotem(String label) {
         LocalPoint playerLocal = cachedPlayerLocal;
-        LocalPoint totemLocal = LocalPoint.fromWorld(Microbot.getClient(), workArea.getTotemLocation());
+        LocalPoint totemLocal = localFromWorld(workArea.getTotemLocation());
         if (playerLocal == null || totemLocal == null) {
             return false;
         }
@@ -2925,8 +2957,7 @@ public class TemporossScript extends Script {
         if (fire == null) {
             return false;
         }
-        Actor current = Rs2Player.getInteracting();
-        if (current != null && current == fire.getNpc()) {
+        if (cachedInteractingIndex != -1 && cachedInteractingIndex == fire.getIndex()) {
             return true;   // already dousing this one
         }
         if (fire.click("Douse")) {
@@ -3018,7 +3049,7 @@ public class TemporossScript extends Script {
      * entity's own local location where one is available.
      */
     public static boolean inCloud(WorldPoint point, int radius) {
-        return inCloud(LocalPoint.fromWorld(Microbot.getClient(), point), radius);
+        return inCloud(localFromWorld(point), radius);
     }
 
     private static boolean inCloud(Rs2NpcModel npc, int radius) {
@@ -3103,7 +3134,7 @@ public class TemporossScript extends Script {
         }
 
         LocalPoint playerLocal = cachedPlayerLocal;
-        LocalPoint destLocal = LocalPoint.fromWorld(Microbot.getClient(),location);
+        LocalPoint destLocal = localFromWorld(location);
         if (playerLocal == null || destLocal == null) {
             return true;
         }
