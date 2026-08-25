@@ -2260,16 +2260,17 @@ public class TemporossScript extends Script {
             return;
         }
 
-        if (((TemporossScript.ENERGY < thresholdEmergencyEnergyLow && cachedAllFish > thresholdEmergencyFishMin)
-            // A full, fully-cooked bag has nothing left to do at ANY energy — standing at 50%
-            // waiting for the threshold was pure idle (observed on a slow round). Full with raw
-            // still cooks first, then lands here.
+        // The low-energy arms never fire before pool 1 (the round cannot end there — essence
+        // starts full — so held fish are safe, and early loading defeats the hold). A full,
+        // FULLY-COOKED bag is the exception in every cycle: it has nothing left to do at any
+        // energy, and loading it then refilling beats standing idle (observed: full after the
+        // third batch pre-pool, a minute from the pool, waiting). Full with raw cooks first.
+        if (((TemporossScript.ENERGY < thresholdEmergencyEnergyLow && cachedAllFish > thresholdEmergencyFishMin
+                && poolPhasesSeen > 0)
             || (cachedAllFish >= cachedTotalSlots && cachedRawFish == 0)
-            || (TemporossScript.ENERGY < thresholdEmergencyEnergyHigh && cachedAllFish >= cachedTotalSlots))
+            || (TemporossScript.ENERGY < thresholdEmergencyEnergyHigh && cachedAllFish >= cachedTotalSlots
+                && poolPhasesSeen > 0))
             && !temporossConfig.solo()
-            // Never before pool 1: the round cannot end there (essence starts full), so held fish
-            // are safe, and loading them early defeats the hold-through-pool-1 strategy.
-            && poolPhasesSeen > 0
             && TemporossScript.state != State.ATTACK_TEMPOROSS
             && TemporossScript.state != State.EMERGENCY_FILL) {
             log("Low energy, going for emergency fill");
