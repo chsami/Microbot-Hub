@@ -2228,6 +2228,10 @@ public class TemporossScript extends Script {
         }
 
         if (((TemporossScript.ENERGY < thresholdEmergencyEnergyLow && cachedAllFish > thresholdEmergencyFishMin)
+            // A full, fully-cooked bag has nothing left to do at ANY energy — standing at 50%
+            // waiting for the threshold was pure idle (observed on a slow round). Full with raw
+            // still cooks first, then lands here.
+            || (cachedAllFish >= cachedTotalSlots && cachedRawFish == 0)
             || (TemporossScript.ENERGY < thresholdEmergencyEnergyHigh && cachedAllFish >= cachedTotalSlots))
             && !temporossConfig.solo()
             // Never before pool 1: the round cannot end there (essence starts full), so held fish
