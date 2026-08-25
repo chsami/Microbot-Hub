@@ -38,13 +38,14 @@ public class HSBlackJackScript extends Script {
     private static final int HISTORY_SIZE = 8;
     private static final int PICKPOCKET_BURST_ATTEMPTS = 2;
     private static final int LURE_MAX_ATTEMPTS = 5;
-    private static final int EAT_AT_HP_PERCENT = 30;
+    private static final int EAT_AT_HP_PERCENT = 35;
     private static final String FOOD_NAME = "Jug of wine";
     private static final String EMPTY_JUG_NAME = "Jug";
     private static final String BAR_NPC_NAME = "Faisal the Barman";
     private static final String TARGET_NPC_NAME = "Menaphite thug";
-    private static final int MIN_WINE_STOCK_REQUIRED = 11;
+    private static final int MIN_WINE_STOCK_REQUIRED = 13;
     private static final int WINE_TO_BUY = 13; // his max stock
+    private static final int MAX_RESTOCK_ROUNDS = 2; // 2x Faisal's max stock (13) = 26 wine per trip
     private static final int ROOM_CHECK_DISTANCE = 5;
     private static final String COIN_POUCH_NAME = "Coin pouch";
     private static final int COIN_POUCH_OPEN_THRESHOLD = 27;
@@ -73,6 +74,15 @@ public class HSBlackJackScript extends Script {
     private static final int TENT_MIN_Y = 2953;
     private static final int TENT_MAX_Y = 2956;
     private static final int TENT_PLANE = 0;
+
+    // Excluded search zones - NPCs found here are skipped as lure targets,
+// since they consistently cause follow issues (getting stuck at walls/
+// corners) when led toward the tent. Format: {minX, maxX, minY, maxY}.
+    private static final int[][] EXCLUDED_SEARCH_ZONES = {
+            {3339, 3345, 2960, 2966}, // zone 1
+            {3345, 3347, 2944, 2954}, // zone 2
+            {3338, 3344, 2943, 2952}  // zone 3
+    };
 
     // Animation IDs confirmed via manual session logging:
     // 838 = NPC's "knocked unconscious" animation (knock-out succeeded)
@@ -120,6 +130,7 @@ public class HSBlackJackScript extends Script {
     private int pickpocketAttempts;
     private Instant startTime;
     private int startXp;
+    private int restockRoundsCompleted = 0;
 
     private long roomBlockedSince = -1;
     private long restockCurtainStuckSince = -1;
@@ -255,6 +266,7 @@ public class HSBlackJackScript extends Script {
         combatBlockedMessageTime = -1;
         roomBlockedSince = -1;
         restockCurtainStuckSince = -1;
+        restockRoundsCompleted = 0;
         npcEnterTentWaitSince = -1;
         travelToStartStuckSince = -1;
         travelToStartBestDistance = Integer.MAX_VALUE;
@@ -324,7 +336,7 @@ public class HSBlackJackScript extends Script {
                         || phase == Phase.RESTOCK_WALK_TO_BAR
                         || phase == Phase.RESTOCK_BUY;
 
-                if (!inRestockFlow && phase != Phase.TRAVEL_TO_START && Rs2Inventory.itemQuantity(FOOD_NAME) <= 1) {
+                if (!inRestockFlow && phase != Phase.TRAVEL_TO_START && Rs2Inventory.itemQuantity(FOOD_NAME) <= 0) {
                     setState("Low on " + FOOD_NAME + " - starting restock trip");
                     phase = Phase.RESTOCK_OPEN_CURTAIN;
                     inRestockFlow = true;
@@ -350,46 +362,66 @@ public class HSBlackJackScript extends Script {
                     }
                 }
 
-                switch (phase) {
-                    case TRAVEL_TO_START:
-                        handleTravelToStart();
-                        break;
-                    case CHECK_TENT_OCCUPANCY:
-                        handleCheckTentOccupancy();
-                        break;
-                    case FIND_TARGET:
-                        handleFindTarget();
-                        break;
-                    case RUN_TO_TARGET:
-                        handleRunToTarget();
-                        break;
-                    case LURING:
-                        handleLuring();
-                        break;
-                    case WALK_TO_CURTAIN:
-                        handleWalkToCurtain();
-                        break;
-                    case OPEN_CURTAIN:
-                        handleOpenCurtain();
-                        break;
-                    case WALK_DEEPER:
-                        handleWalkDeeper();
-                        break;
-                    case WALK_TO_CLOSE_POSITION:
-                        handleWalkToClosePosition();
-                        break;
-                    case CLOSE_CURTAIN:
-                        handleCloseCurtain();
-                        break;
-                    case KNOCK_OUT:
-                        handleKnockOut();
-                        break;
-                    case PICKPOCKET:
-                        handlePickpocketBurst();
-                        break;
-                    default:
-                        break;
-                }
+                // Chain phase transitions within the same tick whenever a
+                // handler moves us to a new phase without ever needing to
+                // wait for real game-time to pass (e.g. "arrived at curtain"
+                // -> "open it", or "pickpocket burst done" -> "knock out
+                // again"). Every handler that DOES need real time to pass
+                // already calls sleep()/sleepTicks() internally, so this
+                // never skips necessary waiting - it only removes the extra,
+                // artificial ~600ms gap that would otherwise be added on top
+                // of that for pure bookkeeping transitions. A phase that
+                // stays the same (e.g. still walking, still waiting on a
+                // condition) naturally stops the loop, so this can't turn
+                // into a busy-loop. chainGuard is just a hard safety cap.
+                int chainGuard = 0;
+                Phase phaseBeforeHandler;
+                do {
+                    phaseBeforeHandler = phase;
+
+                    switch (phase) {
+                        case TRAVEL_TO_START:
+                            handleTravelToStart();
+                            break;
+                        case CHECK_TENT_OCCUPANCY:
+                            handleCheckTentOccupancy();
+                            break;
+                        case FIND_TARGET:
+                            handleFindTarget();
+                            break;
+                        case RUN_TO_TARGET:
+                            handleRunToTarget();
+                            break;
+                        case LURING:
+                            handleLuring();
+                            break;
+                        case WALK_TO_CURTAIN:
+                            handleWalkToCurtain();
+                            break;
+                        case OPEN_CURTAIN:
+                            handleOpenCurtain();
+                            break;
+                        case WALK_DEEPER:
+                            handleWalkDeeper();
+                            break;
+                        case WALK_TO_CLOSE_POSITION:
+                            handleWalkToClosePosition();
+                            break;
+                        case CLOSE_CURTAIN:
+                            handleCloseCurtain();
+                            break;
+                        case KNOCK_OUT:
+                            handleKnockOut();
+                            break;
+                        case PICKPOCKET:
+                            handlePickpocketBurst();
+                            break;
+                        default:
+                            break;
+                    }
+
+                    chainGuard++;
+                } while (phase != phaseBeforeHandler && chainGuard < 15);
 
             } catch (Throwable ex) {
                 setState("ERROR: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
@@ -415,6 +447,23 @@ public class HSBlackJackScript extends Script {
         return point.getPlane() == TENT_PLANE
                 && point.getX() >= TENT_MIN_X && point.getX() <= TENT_MAX_X
                 && point.getY() >= TENT_MIN_Y && point.getY() <= TENT_MAX_Y;
+    }
+
+    /**
+     * Checks whether a point falls within one of the manually confirmed
+     * "problem zones" - areas where a lured NPC's follow-AI reliably gets
+     * stuck (e.g. behind a wall corner), so we simply don't pick NPCs from
+     * there as lure targets in the first place.
+     */
+    private boolean isInExcludedSearchZone(WorldPoint point) {
+        if (point == null || point.getPlane() != TENT_PLANE) return false;
+        for (int[] zone : EXCLUDED_SEARCH_ZONES) {
+            if (point.getX() >= zone[0] && point.getX() <= zone[1]
+                    && point.getY() >= zone[2] && point.getY() <= zone[3]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isLuredNpcInsideTent() {
@@ -596,6 +645,7 @@ public class HSBlackJackScript extends Script {
         return Microbot.getRs2NpcCache().query()
                 .withName(targetName)
                 .toList().stream()
+                .filter(npc -> !isInExcludedSearchZone(npc.getWorldLocation()))
                 .filter(npc -> {
                     WorldPoint npcLoc = npc.getWorldLocation();
                     if (npcLoc == null) return false;
@@ -1200,13 +1250,25 @@ public class HSBlackJackScript extends Script {
                 Rs2Shop.buyItemOptimally(FOOD_NAME, WINE_TO_BUY);
                 sleepTicks(1);
                 Rs2Shop.closeShop();
-                setState("Restock complete - returning to start");
+                restockRoundsCompleted++;
+
+                // Faisal only ever has WINE_TO_BUY in stock at once - if we still have
+                // inventory room and haven't hit our round cap, hop to a fresh world
+                // (instant full restock) and buy another round instead of heading back
+                // with a half-empty trip. This roughly doubles how long we can go
+                // between restock trips.
+                if (restockRoundsCompleted < MAX_RESTOCK_ROUNDS && Rs2Inventory.getEmptySlots() >= WINE_TO_BUY) {
+                    setState("Restock: round " + restockRoundsCompleted + "/" + MAX_RESTOCK_ROUNDS
+                            + " done, hopping for another full stock");
+                    hopWorld();
+                    return; // re-enters RESTOCK_BUY on the new world next tick
+                }
+
+                setState("Restock complete (" + restockRoundsCompleted + " round(s)) - returning to start");
+                restockRoundsCompleted = 0;
                 luredNpc = null;
                 needsLureInsideTent = false;
                 phase = Phase.TRAVEL_TO_START;
-                break;
-
-            default:
                 break;
         }
     }
