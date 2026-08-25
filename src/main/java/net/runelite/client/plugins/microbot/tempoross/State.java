@@ -23,33 +23,16 @@ public enum State {
         if (TemporossScript.temporossConfig.solo()) {
             return false;
         }
-        // Cutoff: stop catching just in time to cook and load the bag before the pool phase.
-        // Adaptive when this game's drain rate is known — a fixed percentage is wrong on both ends
-        // of the mass-world spread. Cooked fish deposit for 65 points against 20 raw, so arriving
-        // at the pool with an uncooked bag wastes most of it; equally, cutting at 49% in a slow
-        // game throws away catching time. Falls back to the old ~49% line until the rate has been
-        // sampled. Energy must be non-zero: 0 means the pool phase or an unparsed widget. Requires
-        // a few fish — with 1-2 in the bag this used to sprint a cook-and-load for a single fish.
-        // A live double spot suspends the cutoff entirely — fish gained at double rate beat the
-        // cook/load schedule, the spot dies within ~23s (measured) re-arming the cutoff, and the
-        // endgame dump sweeps anything the schedule cannot absorb afterwards.
-        if (TemporossScript.ENERGY > 0 && getAllFish() >= 4 && !TemporossScript.hasDoubleSpot()) {
-            // The ~49% line is a FLOOR, not a fallback: the projection can only cut EARLIER. In the
-            // first live game the EMA lagged the accelerating mass-world drain and the adaptive
-            // check fired at "pool in ~0 ticks" with 5 raw fish still uncooked.
-            if (TemporossScript.ENERGY <= TemporossScript.thresholdLoadEnergy) {
-                return true;
-            }
-            int poolIn = TemporossScript.ticksUntilEnergy(5);
-            if (poolIn != Integer.MAX_VALUE) {
-                // ~2 ticks to cook each raw fish, ~1 to load each, plus walking overhead.
-                int needed = getRawFish() * 3 + 16;
-                if (poolIn <= needed) {
-                    Microbot.log("Adaptive cutoff: pool in ~" + poolIn + " ticks, need ~"
-                            + needed + " for " + getRawFish() + " raw fish — cooking now");
-                    return true;
-                }
-            }
+        // No load cutoff anymore: the cycle is catch-and-cook batches all the way down, and the
+        // ONLY cannon trips are the opening load and the emergency fill / endgame dump sweeps.
+        // A live double spot suspends batching entirely (bag-full above is the only exit there);
+        // below the old ~49% line the batch shrinks so the backlog stays cooked for the sweep —
+        // cooked deposits 65 against 20 raw, so the dump should find as little raw as possible.
+        if (TemporossScript.hasDoubleSpot()) {
+            return false;
+        }
+        if (TemporossScript.ENERGY > 0 && TemporossScript.ENERGY <= TemporossScript.thresholdLoadEnergy) {
+            return getRawFish() >= 4;
         }
         // Otherwise work in batches: catch 7, cook them, repeat. A double spot overrides that — while
         // one is up it is worth staying out and filling the bag, and the cook interrupt in

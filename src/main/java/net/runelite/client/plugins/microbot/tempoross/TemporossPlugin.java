@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.23.3";
+    public static final String version = "2.24.0";
     @Inject
     private TemporossConfig config;
 
@@ -153,11 +153,11 @@ public class TemporossPlugin extends Plugin {
             TemporossScript.state = TemporossScript.state.next == null ? State.THIRD_CATCH : TemporossScript.state.next;
         }
 
-        // Hold-through-pool-1: fish caught and cooked before the first pool stay in the bag and
-        // the cannon trip waits until the phase is over — every early catch is one fewer to catch
-        // in the short post-pool window, and it saves a crate trip. Wiki-endorsed pattern; pool 1
-        // cannot end the round (essence starts full), so nothing held is ever at risk.
-        if (TemporossScript.state == State.SECOND_FILL && TemporossScript.poolPhasesSeen == 0) {
+        // The scheduled SECOND_FILL never runs — in EVERY cycle. Pre-pool-1 that is the
+        // hold-through-pool-1 strategy (pool 1 cannot end the round, essence starts full); after
+        // it, the cycle is catch-and-cook batches with the emergency fill / endgame dump as the
+        // single cannon trip. Loading happens via the opening INITIAL_FILL and EMERGENCY_FILL only.
+        if (TemporossScript.state == State.SECOND_FILL) {
             TemporossScript.state = State.THIRD_CATCH;
         }
     }
