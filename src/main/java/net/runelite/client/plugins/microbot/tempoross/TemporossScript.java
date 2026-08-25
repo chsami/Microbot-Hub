@@ -2147,7 +2147,9 @@ public class TemporossScript extends Script {
         // energy has dropped past the load cutoff — from there the bag has to be cooked and loaded.
         if (TemporossScript.state == State.THIRD_COOK && doubleFishingSpot
                 && cachedAllFish < cachedTotalSlots
-                && TemporossScript.ENERGY > thresholdLoadEnergy) {
+                // down to the dump gate, not the load cutoff: below ENERGY_ENDGAME the dump owns
+                // the bag anyway, so every tick above it with a double up belongs to the double.
+                && TemporossScript.ENERGY > ENERGY_ENDGAME) {
             log("Double fishing spot up, interrupting cook to fish it");
             TemporossScript.state = State.THIRD_CATCH;
         }
@@ -2155,7 +2157,9 @@ public class TemporossScript extends Script {
         // Same rule for the mid-game cook: a double is never ignored while the bag has room.
         if (TemporossScript.state == State.SECOND_COOK && doubleFishingSpot
                 && cachedAllFish < cachedTotalSlots
-                && TemporossScript.ENERGY > thresholdLoadEnergy) {
+                // down to the dump gate, not the load cutoff: below ENERGY_ENDGAME the dump owns
+                // the bag anyway, so every tick above it with a double up belongs to the double.
+                && TemporossScript.ENERGY > ENERGY_ENDGAME) {
             log("Double fishing spot up, interrupting cook to fish it");
             TemporossScript.state = State.SECOND_CATCH;
         }

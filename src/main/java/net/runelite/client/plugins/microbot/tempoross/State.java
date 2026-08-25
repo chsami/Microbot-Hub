@@ -30,7 +30,10 @@ public enum State {
         // game throws away catching time. Falls back to the old ~49% line until the rate has been
         // sampled. Energy must be non-zero: 0 means the pool phase or an unparsed widget. Requires
         // a few fish — with 1-2 in the bag this used to sprint a cook-and-load for a single fish.
-        if (TemporossScript.ENERGY > 0 && getAllFish() >= 4) {
+        // A live double spot suspends the cutoff entirely — fish gained at double rate beat the
+        // cook/load schedule, the spot dies within ~23s (measured) re-arming the cutoff, and the
+        // endgame dump sweeps anything the schedule cannot absorb afterwards.
+        if (TemporossScript.ENERGY > 0 && getAllFish() >= 4 && !TemporossScript.hasDoubleSpot()) {
             // The ~49% line is a FLOOR, not a fallback: the projection can only cut EARLIER. In the
             // first live game the EMA lagged the accelerating mass-world drain and the adaptive
             // check fired at "pool in ~0 ticks" with 5 raw fish still uncooked.
