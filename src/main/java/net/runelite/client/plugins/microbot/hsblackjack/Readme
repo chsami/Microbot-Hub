@@ -1,0 +1,21 @@
+# HSBlackJack
+
+Automates blackjacking Menaphite Thugs in Pollnivneach: finds and lures a thug into a private tent,
+manages the curtain, knocks them out, and pickpockets twice before repeating.
+
+## Features
+
+- Full lure → tent → knock-out → pickpocket cycle, using the NPC's own animation IDs to confirm a
+  successful knock-out as fast as possible instead of guessing timing.
+- Detects a rejected lure ("Go away! I'm busy") over several ticks rather than a single flag check,
+  to avoid false positives.
+- Automatically hops worlds if the tent is already occupied by another NPC (or player), or if a lured
+  NPC never makes it inside in time.
+- Recovers from real combat (the "You can't do this during combat." block) by unequipping the
+  blackjack, breaking the NPC out of combat, then re-equipping and resuming.
+- Automatic food (Jug of wine) restocking from Faisal the Barman, including a minimum-stock check that
+  hops worlds if the shop itself is low on stock.
+- Opens coin pouches automatically once you're carrying 27+.
+- Smart, transport-aware travel to the starting position from anywhere in Gielinor (fairy rings,
+  Shantay Pass, etc.) at plugin start.
+- Overlay panel with live status, a short action history, knock-out/pickpocket counts, and XP/hr.
