@@ -27,7 +27,7 @@ import java.awt.*;
 @Slf4j
 public class HSBlackJackPlugin extends Plugin {
 
-    static final String version = "1.0;
+    static final String version = "1.0.0";
 
     @Inject
     private HSBlackJackConfig config;
