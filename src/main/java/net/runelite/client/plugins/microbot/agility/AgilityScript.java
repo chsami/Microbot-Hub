@@ -39,6 +39,11 @@ import java.util.stream.Collectors;
 
 public class AgilityScript extends Script
 {
+	enum MarkPickupPhase
+	{
+		DETECTED,
+		INTERACTION_PENDING
+	}
 
 	final MicroAgilityPlugin plugin;
 	final MicroAgilityConfig config;
@@ -435,7 +440,8 @@ public class AgilityScript extends Script
 			{
 				clearPendingMarkOfGrace();
 			}
-			else if (Rs2Player.isMoving() || Rs2Player.isAnimating())
+			else if (shouldWaitForMarkPickup(MarkPickupPhase.INTERACTION_PENDING,
+				Rs2Player.isMoving(), Rs2Player.isAnimating()))
 			{
 				return true;
 			}
@@ -480,7 +486,8 @@ public class AgilityScript extends Script
 			return false;
 		}
 
-		if (Rs2Player.isMoving() || Rs2Player.isAnimating())
+		if (shouldWaitForMarkPickup(MarkPickupPhase.DETECTED,
+			Rs2Player.isMoving(), Rs2Player.isAnimating()))
 		{
 			return true;
 		}
@@ -514,6 +521,11 @@ public class AgilityScript extends Script
 			clearPendingMarkOfGrace();
 		}
 		return true;
+	}
+
+	static boolean shouldWaitForMarkPickup(MarkPickupPhase phase, boolean playerMoving, boolean playerAnimating)
+	{
+		return phase == MarkPickupPhase.INTERACTION_PENDING && (playerMoving || playerAnimating);
 	}
 
 	private boolean markPickupResolved()

@@ -120,6 +120,12 @@ dependencies {
         microbotRuntime "com.microbot:microbot:${microbotClientVersion}@jar"
         testImplementation "com.microbot:microbot:${microbotClientVersion}@jar"
     }
+
+    testImplementation "org.junit.jupiter:junit-jupiter:5.10.3"
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
 }
 
 application {
