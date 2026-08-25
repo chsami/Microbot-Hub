@@ -189,6 +189,7 @@ public class TemporossScript extends Script {
         startupHopDone = false;
         startupHopAttempts = 0;
         hopEligibleTick = -1;
+        worldHopperPrimed = false;
         // Restart must retry these: the script bean is a singleton, so instance flags survive a
         // plugin stop/start and a stale 'done' skipped auto-equip silently on every restart.
         autoEquipDone = false;
@@ -859,6 +860,8 @@ public class TemporossScript extends Script {
     private boolean startupHopDone = false;
     /** First tick a hop attempt is allowed; -1 until the player is first seen. */
     private int hopEligibleTick = -1;
+    /** The world switcher panel has been opened ahead of the first attempt. */
+    private boolean worldHopperPrimed = false;
     private int startupHopAttempts = 0;
 
     /**
@@ -889,6 +892,16 @@ public class TemporossScript extends Script {
         if (cachedTick < hopEligibleTick) {
             return true;
         }
+        // Microbot.hopToWorld opens the world switcher and requests the hop in ONE client-thread
+        // pass — the panel opens asynchronously, so the request is dropped before the switcher
+        // exists and attempt 1 failed every single time (attempt 2 worked because attempt 1 left
+        // the panel open). Prime the switcher a couple of ticks ahead instead.
+        if (!worldHopperPrimed) {
+            worldHopperPrimed = true;
+            Microbot.getClientThread().invoke(() -> Microbot.getClient().openWorldHopper());
+            hopEligibleTick = cachedTick + 3;
+            return true;
+        }
         if (startupHopAttempts >= 4) {
             log("World hop to " + target + " failed " + startupHopAttempts + " times, continuing on world "
                     + cachedWorld);
@@ -896,9 +909,12 @@ public class TemporossScript extends Script {
             return false;
         }
         startupHopAttempts++;
-        hopEligibleTick = cachedTick + 10;
         log("Hopping to world " + target + " (attempt " + startupHopAttempts + ")");
-        if (Microbot.hopToWorld(target)) {
+        boolean hopIssued = Microbot.hopToWorld(target);
+        // Cooldown counts from the attempt's END — armed before it, the ~6s the call itself takes
+        // had already burned the window and retries fired back to back.
+        hopEligibleTick = cachedTick + 10;
+        if (hopIssued) {
             if (sleepUntil(() -> Microbot.isLoggedIn() && cachedWorld == target, 20000)) {
                 startupHopDone = true;
             }
