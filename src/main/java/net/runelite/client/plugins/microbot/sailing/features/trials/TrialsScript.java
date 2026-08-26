@@ -38,6 +38,7 @@ public class TrialsScript {
     private final Set<Integer> DECORATION_ANIMS = Set.of(1071, 13537, 13538, 13539);
 
     private static final int VISIT_TOLERANCE = 15;
+    private static final int WAYPOINT_VISIT_TOLERANCE = 5;
 
     private static final int WIND_MOTE_INACTIVE_SPRITE_ID = 7076;
     private static final int WIND_MOTE_ACTIVE_SPRITE_ID = 7075;
@@ -135,11 +136,6 @@ public class TrialsScript {
                 return;
             }
 
-            if (!route.equals(activeRoute)) {
-                activeRoute = route;
-                currentWaypointIndex = 0;
-            }
-
             List<WorldPoint> routePoints = route.getInterpolatedPoints();
             if (routePoints == null || routePoints.isEmpty()) {
                 return;
@@ -154,14 +150,13 @@ public class TrialsScript {
                 return;
             }
 
-            WorldPoint target = routePoints.get(currentWaypointIndex);
-            int distance = boatPos.distanceTo(target);
-
-            if (distance <= 5) {
-                lastVisitedIndex = currentWaypointIndex;
-                currentWaypointIndex = (currentWaypointIndex + 1) % routePoints.size();
-                target = routePoints.get(currentWaypointIndex);
+            if (!route.equals(activeRoute)) {
+                activeRoute = route;
+                currentWaypointIndex = 0;
             }
+
+            currentWaypointIndex = getNextWaypointIndex(routePoints, currentWaypointIndex, boatPos);
+            WorldPoint target = routePoints.get(currentWaypointIndex);
 
             final WorldPoint hintTarget = target;
             Microbot.getClientThread().invoke(() -> client.setHintArrow(hintTarget));
@@ -182,6 +177,28 @@ public class TrialsScript {
             }
         }
         return null;
+    }
+
+    static int getNextWaypointIndex(List<WorldPoint> routePoints, int currentWaypointIndex, WorldPoint boatPosition) {
+        int currentDistance = boatPosition.distanceTo(routePoints.get(currentWaypointIndex));
+        if (currentDistance <= WAYPOINT_VISIT_TOLERANCE) {
+            return (currentWaypointIndex + 1) % routePoints.size();
+        }
+
+        int lastWaypointIndex = routePoints.size() - 1;
+        while (currentWaypointIndex < lastWaypointIndex
+                && hasPassedWaypoint(routePoints.get(currentWaypointIndex), routePoints.get(currentWaypointIndex + 1), boatPosition)) {
+            currentWaypointIndex++;
+        }
+        return currentWaypointIndex;
+    }
+
+    private static boolean hasPassedWaypoint(WorldPoint waypoint, WorldPoint nextWaypoint, WorldPoint boatPosition) {
+        long segmentX = nextWaypoint.getX() - waypoint.getX();
+        long segmentY = nextWaypoint.getY() - waypoint.getY();
+        long boatX = boatPosition.getX() - waypoint.getX();
+        long boatY = boatPosition.getY() - waypoint.getY();
+        return boatX * segmentX + boatY * segmentY > 0;
     }
 
     private WorldPoint getBoatPosition() {
