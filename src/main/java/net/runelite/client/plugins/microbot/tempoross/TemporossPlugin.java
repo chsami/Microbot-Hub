@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.24.4";
+    public static final String version = "2.24.5";
     @Inject
     private TemporossConfig config;
 
@@ -61,10 +61,10 @@ public class TemporossPlugin extends Plugin {
     private Client client;
 
 
-    public static int waves = 0;
-    public static int fireClouds = 0;
-    public static boolean incomingWave = false;
-    public static boolean isTethered = false;
+    public static volatile int waves = 0;
+    public static volatile int fireClouds = 0;
+    public static volatile boolean incomingWave = false;
+    public static volatile boolean isTethered = false;
 
     private static final int VARB_IS_TETHERED = 11895;
 

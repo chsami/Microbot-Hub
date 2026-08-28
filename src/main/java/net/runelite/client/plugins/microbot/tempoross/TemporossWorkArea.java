@@ -6,10 +6,10 @@ import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
-import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Supplier;
 
 
 public class TemporossWorkArea
@@ -32,7 +32,7 @@ public class TemporossWorkArea
      * Together they span our side — the totem one sits right by the fishing area. Nullable because it
      * may be outside NPC render distance at setup; captured later by the tick loop when seen.
      */
-    private WorldPoint totemExitNpc;
+    private volatile WorldPoint totemExitNpc;
 
     /** Which half we are on, and every per-side id. Never null once the work area exists. */
     public final TemporossSide side;
@@ -71,39 +71,49 @@ public class TemporossWorkArea
         }
     }
 
-    public Rs2TileObjectModel getBucketCrate()
+    private TemporossObjectSnapshot snapshot(Supplier<Rs2TileObjectModel> lookup)
     {
-        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.BUCKETS).within(bucketPoint, 2).nearest();
+        Supplier<TemporossObjectSnapshot> operation = () -> {
+            Rs2TileObjectModel object = lookup.get();
+            return object == null ? null : new TemporossObjectSnapshot(
+                    object.getId(), object.getLocalLocation(), object.getWorldLocation());
+        };
+        return Microbot.getClientThread().invoke(operation);
     }
 
-    public Rs2TileObjectModel getPump()
+    public TemporossObjectSnapshot getBucketCrate()
     {
-        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.WATER_PUMP_41000).within(pumpPoint, 2).nearest();
+        return snapshot(() -> Microbot.getRs2TileObjectCache().query().withId(ObjectID.BUCKETS).within(bucketPoint, 2).nearest());
     }
 
-    public Rs2TileObjectModel getRopeCrate()
+    public TemporossObjectSnapshot getPump()
     {
-        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.ROPES).within(ropePoint, 2).nearest();
+        return snapshot(() -> Microbot.getRs2TileObjectCache().query().withId(ObjectID.WATER_PUMP_41000).within(pumpPoint, 2).nearest());
     }
 
-    public Rs2TileObjectModel getHammerCrate()
+    public TemporossObjectSnapshot getRopeCrate()
     {
-        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.HAMMERS_40964).within(hammerPoint, 2).nearest();
+        return snapshot(() -> Microbot.getRs2TileObjectCache().query().withId(ObjectID.ROPES).within(ropePoint, 2).nearest());
     }
 
-    public Rs2TileObjectModel getHarpoonCrate()
+    public TemporossObjectSnapshot getHammerCrate()
     {
-        return Microbot.getRs2TileObjectCache().query().withId(ObjectID.HARPOONS).within(harpoonPoint, 2).nearest();
+        return snapshot(() -> Microbot.getRs2TileObjectCache().query().withId(ObjectID.HAMMERS_40964).within(hammerPoint, 2).nearest());
     }
 
-    public Rs2TileObjectModel getMast() {
+    public TemporossObjectSnapshot getHarpoonCrate()
+    {
+        return snapshot(() -> Microbot.getRs2TileObjectCache().query().withId(ObjectID.HARPOONS).within(harpoonPoint, 2).nearest());
+    }
+
+    public TemporossObjectSnapshot getMast() {
         // Our side's id only. Both masts exist in the scene (41352 west, 41353 east) and the wrong one
         // was previously excluded by radius alone.
-        return ourSide(Microbot.getRs2TileObjectCache().query().withId(side.mastId).within(mastPoint, 10).toList());
+        return snapshot(() -> ourSide(Microbot.getRs2TileObjectCache().query().withId(side.mastId).within(mastPoint, 10).toList()));
     }
 
-    public Rs2TileObjectModel getBrokenMast() {
-        return ourSide(Microbot.getRs2TileObjectCache().query().withId(side.brokenMastId).within(mastPoint, 10).toList());
+    public TemporossObjectSnapshot getBrokenMast() {
+        return snapshot(() -> ourSide(Microbot.getRs2TileObjectCache().query().withId(side.brokenMastId).within(mastPoint, 10).toList()));
     }
 
     /**
@@ -127,19 +137,19 @@ public class TemporossWorkArea
                 .orElse(null);
     }
 
-    public Rs2TileObjectModel getTotem() {
+    public TemporossObjectSnapshot getTotem() {
         // Our side's totem id only. Previously both were queried and the other side's sat 19 tiles
         // away — inside the 30 radius, rejected by a single tile of isOnOurSide margin.
-        return ourSide(Microbot.getRs2TileObjectCache().query().withId(side.totemId).within(exitNpc, SIDE_ANCHOR_RADIUS).toList());
+        return snapshot(() -> ourSide(Microbot.getRs2TileObjectCache().query().withId(side.totemId).within(exitNpc, SIDE_ANCHOR_RADIUS).toList()));
     }
 
-    public Rs2TileObjectModel getBrokenTotem() {
-        return ourSide(Microbot.getRs2TileObjectCache().query().withId(side.brokenTotemId).within(exitNpc, SIDE_ANCHOR_RADIUS).toList());
+    public TemporossObjectSnapshot getBrokenTotem() {
+        return snapshot(() -> ourSide(Microbot.getRs2TileObjectCache().query().withId(side.brokenTotemId).within(exitNpc, SIDE_ANCHOR_RADIUS).toList()));
     }
 
-    public Rs2TileObjectModel getRange()
+    public TemporossObjectSnapshot getRange()
     {
-        return ourSide(Microbot.getRs2TileObjectCache().query().withId(ObjectID.SHRINE_41236).within(exitNpc, SIDE_ANCHOR_RADIUS).toList());
+        return snapshot(() -> ourSide(Microbot.getRs2TileObjectCache().query().withId(ObjectID.SHRINE_41236).within(exitNpc, SIDE_ANCHOR_RADIUS).toList()));
     }
 
     /**
@@ -148,8 +158,8 @@ public class TemporossWorkArea
      */
     public WorldPoint getRangeLocation()
     {
-        Rs2TileObjectModel range = getRange();
-        return range != null ? range.getWorldLocation() : rangePoint;
+        TemporossObjectSnapshot range = getRange();
+        return range != null ? range.worldLocation : rangePoint;
     }
 
     /**
@@ -157,17 +167,17 @@ public class TemporossWorkArea
      */
     public WorldPoint getTotemLocation()
     {
-        Rs2TileObjectModel totem = getTotem();
+        TemporossObjectSnapshot totem = getTotem();
         if (totem == null)
         {
             totem = getBrokenTotem();
         }
-        return totem != null ? totem.getWorldLocation() : totemPoint;
+        return totem != null ? totem.worldLocation : totemPoint;
     }
 
-    public Rs2TileObjectModel getClosestTether() {
-        Rs2TileObjectModel mast = getMast();
-        Rs2TileObjectModel totem = getTotem();
+    public TemporossObjectSnapshot getClosestTether() {
+        TemporossObjectSnapshot mast = getMast();
+        TemporossObjectSnapshot totem = getTotem();
 
         if (mast == null) {
             return totem;
@@ -182,8 +192,8 @@ public class TemporossWorkArea
             return mast;
         }
 
-        int mastDist = playerLocal.distanceTo(mast.getLocalLocation());
-        int totemDist = playerLocal.distanceTo(totem.getLocalLocation());
+        int mastDist = playerLocal.distanceTo(mast.localLocation);
+        int totemDist = playerLocal.distanceTo(totem.localLocation);
         return mastDist <= totemDist ? mast : totem;
     }
 
