@@ -169,7 +169,8 @@ public class TrialsScript {
             final WorldPoint hintTarget = target;
             Microbot.getClientThread().invoke(() -> client.setHintArrow(hintTarget));
 
-            if (config.autoNavigate() && client.getTickCount() != rumInteractionTick) {
+            int currentTick = Microbot.getClientThread().invoke(client::getTickCount);
+            if (config.autoNavigate() && currentTick != rumInteractionTick) {
                 navigateToWaypoint(target);
             }
 
