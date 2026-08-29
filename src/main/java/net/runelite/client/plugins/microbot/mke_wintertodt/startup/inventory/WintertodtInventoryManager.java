@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.mke_wintertodt.startup.inventory;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.questhelper.collections.ItemCollections;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -44,6 +45,9 @@ public class WintertodtInventoryManager {
     private static final int HAMMER_SLOT = 26;     // Next to knife
     private static final int TINDERBOX_SLOT = 25;  // Above hammer
     private static final int AXE_SLOT = 24;        // Above tinderbox
+    private static final int[] HAMMER_IDS = ItemCollections.HAMMER.getItems().stream()
+            .mapToInt(Integer::intValue)
+            .toArray();
     
     // Axe priority list (best to worst)
     private static final List<Integer> AXE_PRIORITY = Arrays.asList(
@@ -207,7 +211,7 @@ public class WintertodtInventoryManager {
             }
             
         // Handle hammer if fixing enabled
-            if (config.fixBrazier() && !Rs2Inventory.hasItem(ItemID.HAMMER)) {
+            if (config.fixBrazier() && !hasHammer()) {
             if (!Rs2Bank.withdrawX(ItemID.HAMMER, 1)) {
                 inventorySetupLog.add("Failed to get hammer for fixing");
                 return false;
@@ -306,8 +310,9 @@ public class WintertodtInventoryManager {
             }
             
         // Move hammer next to knife if available
-            if (Rs2Inventory.hasItem(ItemID.HAMMER)) {
-                moveItemToSlot(ItemID.HAMMER, HAMMER_SLOT, "hammer next to knife");
+            Rs2ItemModel hammer = Rs2Inventory.get(HAMMER_IDS);
+            if (hammer != null) {
+                moveItemToSlot(hammer.getId(), HAMMER_SLOT, "hammer next to knife");
             }
             
         // Handle axe placement if in inventory
@@ -372,7 +377,7 @@ public class WintertodtInventoryManager {
         }
         
         // Check hammer in slot 26
-        Rs2ItemModel hammerItem = Rs2Inventory.get(ItemID.HAMMER);
+        Rs2ItemModel hammerItem = Rs2Inventory.get(HAMMER_IDS);
         if (hammerItem != null && hammerItem.getSlot() == HAMMER_SLOT) {
             Microbot.log("  Slot 26: Hammer ✓");
         }
@@ -404,6 +409,14 @@ public class WintertodtInventoryManager {
         // Clear any cached state
         Microbot.log("Inventory manager state reset - ready for fresh setup");
     }
+
+    public static boolean isHammer(int itemId) {
+        return ItemCollections.HAMMER.getItems().contains(itemId);
+    }
+
+    public static boolean hasHammer() {
+        return Rs2Inventory.hasItem(HAMMER_IDS) || Rs2Equipment.isWearing(HAMMER_IDS);
+    }
     
     /**
      * Gets the inventory setup log for display.
@@ -428,4 +441,4 @@ public class WintertodtInventoryManager {
             default: return "Unknown axe";
         }
     }
-} 
+}

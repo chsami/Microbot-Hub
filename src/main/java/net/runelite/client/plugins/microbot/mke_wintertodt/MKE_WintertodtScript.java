@@ -1423,7 +1423,7 @@ public class MKE_WintertodtScript extends Script {
             Microbot.log("Fletching enabled but no knife in inventory - this is okay, will get one from bank");
         }
 
-        if (config.fixBrazier() && !Rs2Inventory.hasItem(ItemID.HAMMER)) {
+        if (config.fixBrazier() && !WintertodtInventoryManager.hasHammer()) {
             Microbot.log("Brazier fixing enabled but no hammer in inventory - this is okay, will get one from bank");
         }
 
