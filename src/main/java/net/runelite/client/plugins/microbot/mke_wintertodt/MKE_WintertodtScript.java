@@ -5340,8 +5340,7 @@ public class MKE_WintertodtScript extends Script {
 
         lastRewardCartInteraction = System.currentTimeMillis();
 
-        // Try to interact with reward cart by searching for the "Reward" text on the object
-        var rewardCart = Microbot.getRs2TileObjectCache().query().withName("Reward").nearestOnClientThread();
+        var rewardCart = Microbot.getRs2TileObjectCache().query().withName("Reward Cart").nearestOnClientThread();
         if (rewardCart != null && rewardCart.click("Big-search")) {
             Microbot.status = "Interacting with reward cart";
             return true;
