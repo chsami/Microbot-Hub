@@ -21,6 +21,7 @@ import net.runelite.client.plugins.timetracking.farming.PatchImplementation;
 import net.runelite.client.plugins.timetracking.farming.Produce;
 
 import javax.inject.Inject;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -147,12 +148,36 @@ public class FarmingContractScript extends Script {
     }
 
     private Produce findProduceByContractName(String name) {
+        String normalizedName = normalizeContractCropName(name);
         for (Produce p : Produce.values()) {
-            if (p.getContractName() != null && p.getContractName().equalsIgnoreCase(name)) {
+            if (normalizeContractCropName(p.getName()).equals(normalizedName)) {
                 return p;
             }
         }
         return null;
+    }
+
+    static String normalizeContractCropName(String name) {
+        String normalized = name.trim().toLowerCase(Locale.ENGLISH);
+        if (normalized.equals("poison ivy berries")) {
+            return "poisonivy";
+        }
+
+        normalized = normalized.replaceFirst("\\s+(?:tree|plant|roots?)$", "");
+        if (normalized.endsWith("cacti")) {
+            normalized = normalized.substring(0, normalized.length() - 5) + "cactus";
+        } else if (normalized.endsWith("lillies")) {
+            normalized = normalized.substring(0, normalized.length() - 7) + "lily";
+        } else if (normalized.endsWith("lilies")) {
+            normalized = normalized.substring(0, normalized.length() - 6) + "lily";
+        } else if (normalized.endsWith("ies")) {
+            normalized = normalized.substring(0, normalized.length() - 3) + "y";
+        } else if (normalized.endsWith("oes")) {
+            normalized = normalized.substring(0, normalized.length() - 2);
+        } else if (normalized.endsWith("s") && !normalized.endsWith("cactus")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized.replace(" ", "");
     }
 
 
