@@ -1,0 +1,300 @@
+2026-08-28 13:27:28 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:27:29 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=portal:1739:59760
+2026-08-28 13:27:34 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: PREPOSITION_PORTAL - YELLOW surviving shield staging
+2026-08-28 13:27:45 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - RED portal
+2026-08-28 13:27:47 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:27:48 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=portal:1742:59763
+2026-08-28 13:27:59 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - RED portal
+2026-08-28 13:28:00 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: PREPOSITION_PORTAL - YELLOW sole shield pending
+2026-08-28 13:28:12 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: WAITING_FOR_PORTAL - staged for YELLOW shield drop
+2026-08-28 13:28:12 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - YELLOW portal
+2026-08-28 13:28:14 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=portal:1741:59762
+2026-08-28 13:28:22 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: WAITING_FOR_PORTAL - no surviving shielded portal
+2026-08-28 13:28:23 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control activity recovery started at 7%
+2026-08-28 13:28:23 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:28:23 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round ended; destroyed 4/4, activity 7%; reboarding immediately
+2026-08-28 13:28:23 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - boarding now
+2026-08-28 13:28:24 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - waiting for boat entry
+2026-08-28 13:28:25 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round accounted: WON (team UNKNOWN, source POINT_DELTA, points +4, destroyed 4/4, activity 7%)
+2026-08-28 13:28:25 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control session: 2 played, 1 won, 1 lost, 4 points gained
+2026-08-28 13:28:25 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: BOAT - waiting for launch
+2026-08-28 13:28:38 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - approaching west lane gate for PURPLE
+2026-08-28 13:28:45 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - opening west lane gate for PURPLE
+2026-08-28 13:28:45 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control opened west lane gate at WorldPoint(x=2643, y=2592, plane=0) for PURPLE portal
+2026-08-28 13:28:45 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for gate to open
+2026-08-28 13:28:46 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - crossing opened gate
+2026-08-28 13:28:48 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPENING_SIDE - PURPLE portal
+2026-08-28 13:28:51 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:28:51 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=npc:1728:63343
+2026-08-28 13:28:52 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - holding opening-side combat
+2026-08-28 13:28:54 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - YELLOW portal via outer perimeter
+2026-08-28 13:28:58 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - YELLOW portal
+2026-08-28 13:29:02 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control activity recovery started at 39%
+2026-08-28 13:29:02 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:29:03 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=npc:1712:63534
+2026-08-28 13:29:13 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 18 duplicate attack clicks; latest=npc:1712:63534
+2026-08-28 13:29:17 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control activity recovered to 70%
+2026-08-28 13:29:17 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - YELLOW portal
+2026-08-28 13:29:23 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - YELLOW portal
+2026-08-28 13:29:24 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 7 duplicate attack clicks; latest=npc:1710:64286
+2026-08-28 13:29:27 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - RED portal
+2026-08-28 13:29:28 AEST [PestControlScript-3] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:29:56 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal via outer perimeter
+2026-08-28 13:30:01 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:30:01 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - PURPLE portal
+2026-08-28 13:30:02 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 3 duplicate attack clicks; latest=npc:1712:64595
+2026-08-28 13:30:15 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:30:16 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1739:63057
+2026-08-28 13:30:23 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - PURPLE portal
+2026-08-28 13:30:24 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - BLUE portal via outer perimeter
+2026-08-28 13:30:39 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - BLUE portal
+2026-08-28 13:30:40 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: AVOID_BRAWLER - flanking BLUE portal
+2026-08-28 13:30:41 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - BLUE portal
+2026-08-28 13:30:41 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=portal:1740:63058
+2026-08-28 13:31:01 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: INITIALISING - restoring Style 1 loadout
+2026-08-28 13:31:02 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round ended; destroyed 4/4, activity 93%; reboarding immediately
+2026-08-28 13:31:02 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - boarding now
+2026-08-28 13:31:02 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - waiting for boat entry
+2026-08-28 13:31:03 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round accounted: WON (team UNKNOWN, source POINT_DELTA, points +4, destroyed 4/4, activity 93%)
+2026-08-28 13:31:03 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control session: 3 played, 2 won, 1 lost, 8 points gained
+2026-08-28 13:31:03 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: BOAT - waiting for launch
+2026-08-28 13:31:23 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - approaching east lane gate for BLUE
+2026-08-28 13:31:29 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - opening east lane gate for BLUE
+2026-08-28 13:31:30 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control opened east lane gate at WorldPoint(x=2670, y=2592, plane=0) for BLUE portal
+2026-08-28 13:31:30 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for gate to open
+2026-08-28 13:31:31 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for open gate confirmation
+2026-08-28 13:31:31 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - crossing opened gate
+2026-08-28 13:31:33 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPENING_SIDE - BLUE portal
+2026-08-28 13:31:33 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:31:34 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=npc:1727:35179
+2026-08-28 13:31:34 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - holding opening-side combat
+2026-08-28 13:31:38 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:31:39 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - holding opening-side combat
+2026-08-28 13:31:43 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - BLUE portal
+2026-08-28 13:31:45 AEST [PestControlScript-5] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=portal:1740:34913
+2026-08-28 13:32:03 AEST [PestControlScript-6] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: PREPOSITION_PORTAL - YELLOW surviving shield staging
+2026-08-28 13:32:10 AEST [PestControlScript-6] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal via outer perimeter
+2026-08-28 13:32:24 AEST [PestControlScript-6] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:32:24 AEST [PestControlScript-6] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=portal:1739:34912
+2026-08-28 13:32:30 AEST [PestControlScript-6] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: PREPOSITION_PORTAL - YELLOW surviving shield staging
+2026-08-28 13:32:41 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - RED portal
+2026-08-28 13:32:45 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: AVOID_BRAWLER - flanking RED portal
+2026-08-28 13:32:47 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:32:47 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - RED portal
+2026-08-28 13:32:48 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=npc:1711:37092
+2026-08-28 13:32:51 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:33:02 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: PREPOSITION_PORTAL - YELLOW sole shield pending
+2026-08-28 13:33:06 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: INITIALISING - preparing YELLOW staging loadout
+2026-08-28 13:33:07 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round ended; destroyed 3/4, activity 91%; reboarding immediately
+2026-08-28 13:33:07 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - boarding now
+2026-08-28 13:33:07 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - waiting for boat entry
+2026-08-28 13:33:08 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: BOAT - waiting for launch
+2026-08-28 13:33:19 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round accounted: LOST (team UNKNOWN, source NO_POINT_DELTA, points +0, destroyed 3/4, activity 91%)
+2026-08-28 13:33:19 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control session: 4 played, 2 won, 2 lost, 8 points gained
+2026-08-28 13:34:03 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - approaching east lane gate for YELLOW
+2026-08-28 13:34:10 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - opening east lane gate for YELLOW
+2026-08-28 13:34:10 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control opened east lane gate at WorldPoint(x=2670, y=2592, plane=0) for YELLOW portal
+2026-08-28 13:34:10 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for gate to open
+2026-08-28 13:34:11 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - crossing opened gate
+2026-08-28 13:34:13 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPENING_SIDE - YELLOW portal
+2026-08-28 13:34:19 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal via outer perimeter
+2026-08-28 13:34:26 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control activity recovery started at 39%
+2026-08-28 13:34:26 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:34:26 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=npc:1711:39328
+2026-08-28 13:34:37 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 18 duplicate attack clicks; latest=npc:1717:39432
+2026-08-28 13:34:39 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal via outer perimeter
+2026-08-28 13:34:44 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:34:47 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 7 duplicate attack clicks; latest=npc:1718:39972
+2026-08-28 13:34:56 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control activity recovered to 77%
+2026-08-28 13:34:56 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal via outer perimeter
+2026-08-28 13:34:59 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:34:59 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 16 duplicate attack clicks; latest=portal:1739:38945
+2026-08-28 13:35:14 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - BLUE portal via outer perimeter
+2026-08-28 13:35:26 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - BLUE portal
+2026-08-28 13:35:27 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - BLUE portal
+2026-08-28 13:35:27 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=npc:1710:40594
+2026-08-28 13:35:41 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - BLUE portal
+2026-08-28 13:35:41 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 3 duplicate attack clicks; latest=portal:1740:38946
+2026-08-28 13:35:48 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: AVOID_BRAWLER - flanking BLUE portal
+2026-08-28 13:35:50 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: AVOID_BRAWLER - clearing Brawler at BLUE portal
+2026-08-28 13:35:50 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - BLUE portal
+2026-08-28 13:35:52 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 3 duplicate attack clicks; latest=portal:1740:38946
+2026-08-28 13:36:03 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - RED portal
+2026-08-28 13:36:10 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:36:10 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1742:38948
+2026-08-28 13:36:11 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: AVOID_BRAWLER - flanking RED portal
+2026-08-28 13:36:12 AEST [PestControlScript-2] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:36:41 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: INITIALISING - restoring Style 1 loadout
+2026-08-28 13:36:41 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round ended; destroyed 4/4, activity 74%; reboarding immediately
+2026-08-28 13:36:41 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - boarding now
+2026-08-28 13:36:42 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - waiting for boat entry
+2026-08-28 13:36:44 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round accounted: WON (team UNKNOWN, source POINT_DELTA, points +4, destroyed 4/4, activity 74%)
+2026-08-28 13:36:44 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control session: 5 played, 3 won, 2 lost, 12 points gained
+2026-08-28 13:36:44 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: BOAT - waiting for launch
+2026-08-28 13:36:48 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - approaching east lane gate for YELLOW
+2026-08-28 13:36:54 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - opening east lane gate for YELLOW
+2026-08-28 13:36:54 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control opened east lane gate at WorldPoint(x=2670, y=2592, plane=0) for YELLOW portal
+2026-08-28 13:36:54 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for gate to open
+2026-08-28 13:36:55 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for open gate confirmation
+2026-08-28 13:36:56 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - crossing opened gate
+2026-08-28 13:36:57 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPENING_SIDE - YELLOW portal
+2026-08-28 13:37:01 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - opening gate at WorldPoint(x=2657, y=2592, plane=0)
+2026-08-28 13:37:01 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPENING_SIDE - YELLOW portal
+2026-08-28 13:37:08 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - BLUE portal
+2026-08-28 13:37:10 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - BLUE portal
+2026-08-28 13:37:10 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1740:42920
+2026-08-28 13:37:43 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal via outer perimeter
+2026-08-28 13:37:49 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control watchdog recovery: state=CHASE_PORTAL detail=PURPLE portal via outer perimeter idleMs=6201 stateMs=6221
+2026-08-28 13:37:55 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control watchdog recovery: state=CHASE_PORTAL detail=PURPLE portal via outer perimeter idleMs=6159 stateMs=12380
+2026-08-28 13:38:09 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:38:09 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1739:42919
+2026-08-28 13:38:44 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round ended; destroyed 1/4, activity 97%; reboarding immediately
+2026-08-28 13:38:44 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - boarding now
+2026-08-28 13:38:45 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - waiting for boat entry
+2026-08-28 13:38:46 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: BOAT - waiting for launch
+2026-08-28 13:38:50 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round accounted: LOST (team UNKNOWN, source NO_POINT_DELTA, points +0, destroyed 1/4, activity 97%)
+2026-08-28 13:38:50 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control session: 6 played, 3 won, 3 lost, 12 points gained
+2026-08-28 13:38:51 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - approaching east lane gate for YELLOW
+2026-08-28 13:38:57 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - opening east lane gate for YELLOW
+2026-08-28 13:38:58 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control opened east lane gate at WorldPoint(x=2670, y=2592, plane=0) for YELLOW portal
+2026-08-28 13:38:58 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for gate to open
+2026-08-28 13:38:58 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for open gate confirmation
+2026-08-28 13:39:00 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - crossing opened gate
+2026-08-28 13:39:01 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPENING_SIDE - YELLOW portal
+2026-08-28 13:39:07 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal via outer perimeter
+2026-08-28 13:39:14 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control activity recovery started at 39%
+2026-08-28 13:39:14 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:39:14 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=npc:1712:46387
+2026-08-28 13:39:21 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control activity recovered to 74%
+2026-08-28 13:39:21 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal via outer perimeter
+2026-08-28 13:39:29 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:39:30 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 13 duplicate attack clicks; latest=portal:1739:45799
+2026-08-28 13:39:31 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - PURPLE portal
+2026-08-28 13:39:41 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:39:42 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 4 duplicate attack clicks; latest=portal:1739:45799
+2026-08-28 13:39:44 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - PURPLE portal
+2026-08-28 13:39:50 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:40:11 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - BLUE portal via outer perimeter
+2026-08-28 13:40:27 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - BLUE portal
+2026-08-28 13:40:28 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 3 duplicate attack clicks; latest=portal:1740:45800
+2026-08-28 13:40:29 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: PREPOSITION_PORTAL - RED sole shield pending
+2026-08-28 13:40:36 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - RED portal
+2026-08-28 13:40:38 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:40:38 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=portal:1742:45802
+2026-08-28 13:40:47 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: AVOID_BRAWLER - clearing Brawler at RED portal
+2026-08-28 13:40:48 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:40:48 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=portal:1742:45802
+2026-08-28 13:40:55 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: INITIALISING - restoring Style 1 loadout
+2026-08-28 13:40:55 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round ended; destroyed 4/4, activity 70%; reboarding immediately
+2026-08-28 13:40:55 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - boarding now
+2026-08-28 13:40:56 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - waiting for boat entry
+2026-08-28 13:40:57 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round accounted: WON (team UNKNOWN, source POINT_DELTA, points +4, destroyed 4/4, activity 70%)
+2026-08-28 13:40:57 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control session: 7 played, 4 won, 3 lost, 16 points gained
+2026-08-28 13:40:57 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: BOAT - waiting for launch
+2026-08-28 13:41:02 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - approaching west lane gate for PURPLE
+2026-08-28 13:41:09 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - opening west lane gate for PURPLE
+2026-08-28 13:41:10 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control opened west lane gate at WorldPoint(x=2643, y=2592, plane=0) for PURPLE portal
+2026-08-28 13:41:10 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for gate to open
+2026-08-28 13:41:10 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - crossing opened gate
+2026-08-28 13:41:12 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - approaching west lane gate for PURPLE
+2026-08-28 13:41:15 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - opening west lane gate for PURPLE
+2026-08-28 13:41:15 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control opened west lane gate at WorldPoint(x=2643, y=2592, plane=0) for PURPLE portal
+2026-08-28 13:41:16 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for gate to open
+2026-08-28 13:41:16 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for open gate confirmation
+2026-08-28 13:41:17 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - crossing opened gate
+2026-08-28 13:41:22 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal
+2026-08-28 13:41:23 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:41:23 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1739:48926
+2026-08-28 13:41:38 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: PREPOSITION_PORTAL - RED surviving shield staging
+2026-08-28 13:41:45 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: WAITING_FOR_PORTAL - staged for RED shield drop
+2026-08-28 13:41:49 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - BLUE portal via outer perimeter
+2026-08-28 13:41:58 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: AVOID_BRAWLER - flanking BLUE portal
+2026-08-28 13:41:59 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - BLUE portal
+2026-08-28 13:42:00 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=npc:1712:50413
+2026-08-28 13:42:23 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - YELLOW portal
+2026-08-28 13:42:25 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: AVOID_BRAWLER - flanking YELLOW portal
+2026-08-28 13:42:26 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - YELLOW portal
+2026-08-28 13:42:27 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=portal:1741:48928
+2026-08-28 13:42:32 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: PREPOSITION_PORTAL - RED sole shield pending
+2026-08-28 13:42:44 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control watchdog recovery: state=PREPOSITION_PORTAL detail=RED sole shield pending idleMs=6220 stateMs=11779
+2026-08-28 13:42:48 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - RED portal
+2026-08-28 13:42:50 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:42:50 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1742:48929
+2026-08-28 13:43:04 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: INITIALISING - restoring Style 1 loadout
+2026-08-28 13:43:05 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round ended; destroyed 4/4, activity 89%; reboarding immediately
+2026-08-28 13:43:05 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - boarding now
+2026-08-28 13:43:06 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - waiting for boat entry
+2026-08-28 13:43:07 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round accounted: WON (team UNKNOWN, source POINT_DELTA, points +4, destroyed 4/4, activity 89%)
+2026-08-28 13:43:07 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control session: 8 played, 5 won, 3 lost, 20 points gained
+2026-08-28 13:43:07 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: BOAT - waiting for launch
+2026-08-28 13:43:11 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - boarding now
+2026-08-28 13:43:12 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - approaching west lane gate for PURPLE
+2026-08-28 13:43:18 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - opening west lane gate for PURPLE
+2026-08-28 13:43:18 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control opened west lane gate at WorldPoint(x=2643, y=2592, plane=0) for PURPLE portal
+2026-08-28 13:43:19 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for gate to open
+2026-08-28 13:43:19 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - crossing opened gate
+2026-08-28 13:43:21 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPENING_SIDE - PURPLE portal
+2026-08-28 13:43:23 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:43:24 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=npc:1697:52653
+2026-08-28 13:43:24 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - holding opening-side combat
+2026-08-28 13:43:26 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:43:27 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - holding opening-side combat
+2026-08-28 13:43:27 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - BLUE portal via outer perimeter
+2026-08-28 13:43:43 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - BLUE portal
+2026-08-28 13:43:43 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 3 duplicate attack clicks; latest=portal:1740:52421
+2026-08-28 13:43:54 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: PREPOSITION_PORTAL - PURPLE surviving shield staging
+2026-08-28 13:43:58 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal via outer perimeter
+2026-08-28 13:44:06 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:44:07 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1739:52420
+2026-08-28 13:44:36 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - RED portal
+2026-08-28 13:44:39 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:44:40 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1742:52423
+2026-08-28 13:45:14 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - YELLOW portal
+2026-08-28 13:45:20 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - YELLOW portal
+2026-08-28 13:45:20 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 2 duplicate attack clicks; latest=portal:1741:52422
+2026-08-28 13:45:23 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: WAITING_FOR_PORTAL - no surviving shielded portal
+2026-08-28 13:45:25 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round ended; destroyed 4/4, activity 93%; reboarding immediately
+2026-08-28 13:45:25 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - boarding now
+2026-08-28 13:45:26 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - waiting for boat entry
+2026-08-28 13:45:30 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round accounted: WON (team UNKNOWN, source POINT_DELTA, points +4, destroyed 4/4, activity 93%)
+2026-08-28 13:45:30 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control session: 9 played, 6 won, 3 lost, 24 points gained
+2026-08-28 13:45:30 AEST [PestControlScript-10] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: BOAT - waiting for launch
+2026-08-28 13:48:12 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - approaching east lane gate for YELLOW
+2026-08-28 13:48:18 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - opening east lane gate for YELLOW
+2026-08-28 13:48:19 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control opened east lane gate at WorldPoint(x=2670, y=2592, plane=0) for YELLOW portal
+2026-08-28 13:48:19 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - waiting for gate to open
+2026-08-28 13:48:20 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPEN_GATE - crossing opened gate
+2026-08-28 13:48:22 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: OPENING_SIDE - YELLOW portal
+2026-08-28 13:48:31 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - BLUE portal
+2026-08-28 13:48:35 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control activity recovery started at 39%
+2026-08-28 13:48:35 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:48:35 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=npc:1712:60225
+2026-08-28 13:48:44 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control activity recovered to 83%
+2026-08-28 13:48:44 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - BLUE portal
+2026-08-28 13:48:46 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: PREPOSITION_PORTAL - YELLOW surviving shield staging
+2026-08-28 13:48:51 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: WAITING_FOR_PORTAL - staged for YELLOW shield drop
+2026-08-28 13:48:57 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - PURPLE portal via outer perimeter
+2026-08-28 13:49:08 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:49:08 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 15 duplicate attack clicks; latest=portal:1739:59926
+2026-08-28 13:49:09 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - PURPLE portal
+2026-08-28 13:49:16 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:49:23 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: KILL_SPINNER - PURPLE portal
+2026-08-28 13:49:23 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 3 duplicate attack clicks; latest=npc:1710:61521
+2026-08-28 13:49:35 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - PURPLE portal
+2026-08-28 13:49:35 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1739:59926
+2026-08-28 13:49:45 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - RED portal
+2026-08-28 13:49:48 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - RED portal
+2026-08-28 13:49:48 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1742:59929
+2026-08-28 13:50:00 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - YELLOW portal
+2026-08-28 13:50:05 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ATTACK_PORTAL - YELLOW portal
+2026-08-28 13:50:05 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control command guard: suppressed 1 duplicate attack clicks; latest=portal:1741:59928
+2026-08-28 13:50:12 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: CHASE_PORTAL - YELLOW portal
+2026-08-28 13:50:14 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: WAITING_FOR_PORTAL - no surviving shielded portal
+2026-08-28 13:50:15 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control activity recovery started at 7%
+2026-08-28 13:50:16 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: ACTIVITY_FALLBACK - attacking visible activity target
+2026-08-28 13:50:16 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round ended; destroyed 4/4, activity 7%; reboarding immediately
+2026-08-28 13:50:16 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - boarding now
+2026-08-28 13:50:17 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: REQUEUE - waiting for boat entry
+2026-08-28 13:50:18 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control round accounted: WON (team UNKNOWN, source POINT_DELTA, points +4, destroyed 4/4, activity 7%)
+2026-08-28 13:50:18 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control session: 10 played, 7 won, 3 lost, 28 points gained
+2026-08-28 13:50:18 AEST [PestControlScript-1] INFO  n.r.client.plugins.microbot.Microbot - Pest Control state: BOAT - waiting for launch
