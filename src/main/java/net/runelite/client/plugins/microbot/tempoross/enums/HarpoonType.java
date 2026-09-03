@@ -32,6 +32,24 @@ public enum HarpoonType
         return id;
     }
 
+    /**
+     * Every item id that still counts as owning this harpoon. An infernal harpoon that has run out
+     * of charges, or an inactive crystal harpoon, changes item id but is still the user's harpoon —
+     * matching only {@link #getId()} makes the bot think it is missing and take a crate one instead.
+     */
+    public int[] getIds()
+    {
+        switch (this)
+        {
+            case INFERNAL_HARPOON:
+                return new int[]{ItemID.INFERNAL_HARPOON, ItemID.INFERNAL_HARPOON_EMPTY};
+            case CRYSTAL_HARPOON:
+                return new int[]{ItemID.CRYSTAL_HARPOON, ItemID.CRYSTAL_HARPOON_INACTIVE};
+            default:
+                return new int[]{id};
+        }
+    }
+
     public int getAnimationId()
     {
         return animationId;
