@@ -42,7 +42,7 @@ import java.util.Deque;
 )
 
 public class HerbiboarPlugin extends Plugin {
-    static final String version = "1.2.5";
+    static final String version = "1.2.6";
 
     @Getter
     @Setter

@@ -1,10 +1,9 @@
 package net.runelite.client.plugins.microbot.gefiremaker;
 
 import net.runelite.api.Skill;
-import net.runelite.api.TileObject;
-import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.gefiremaker.enums.GEWorkLocation;
 import net.runelite.client.plugins.microbot.gefiremaker.enums.LogType;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
@@ -19,8 +18,6 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.event.KeyEvent;
-import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 enum State {
@@ -33,15 +30,24 @@ enum State {
 public class GEFiremakerScript extends Script {
     public State state = State.BANKING;
     public String debug = "";
-    private boolean expectingXPDrop = false;
 
-    private static List<WorldPoint> FireSpots = Arrays.asList(
-            GEWorkLocation.NORTH_EAST.getWorldPoint(),
-            GEWorkLocation.SOUTH_EAST.getWorldPoint(),
-            GEWorkLocation.NORTH_WEST.getWorldPoint(),
-            GEWorkLocation.SOUTH_WEST.getWorldPoint()
-    );
-    private static List<Integer> FireIDs = Arrays.asList(26185, 49927);
+    // After using logs on the fire, the player burns the whole inventory on the
+    // campfire automatically (no quantity dialog since the game update). While
+    // burning is true we only wait; we must NOT re-click the fire.
+    private boolean burning = false;
+    private int lastLogCount = 0;
+    private long lastBurnProgressAt = 0L;
+
+    // Burning a log on a forester's campfire takes ~9 ticks (~5.4s). If no log has
+    // been consumed for this long, the fire likely went out and we should re-engage.
+    private static final long BURN_STALL_TIMEOUT_MS = 20_000;
+
+    // Fire object IDs (plain fire and forester's campfire)
+    private static final int FIRE_ID = 26185;
+    private static final int FIRE_ID_ALT = 49927;
+
+    // The "How many would you like to burn?" make-X dialog, if the game shows it
+    private static final int BURN_DIALOG_WIDGET = 17694735;
 
     public boolean run(GEFiremakerConfig config) {
         LogType logType = config.sLogType();
@@ -72,61 +78,90 @@ public class GEFiremakerScript extends Script {
 
             determineState(logType);
 
-            // If the state is not firemaking, then let's reset the variable as we are not expecting an XP drop
-            if (state != State.FIREMAKING) {
-                expectingXPDrop = false;
-            }
-
             if (Rs2Dialogue.hasContinue()) {
                 debug("Click to continue");
                 Rs2Dialogue.clickContinue();
                 return;
             }
 
+            // While a burn-all is in progress, ignore transient state flips
+            // (e.g. the fire lookup briefly missing the fire) and keep waiting.
+            if (burning && state != State.FIREMAKING) {
+                debug("Still burning, waiting for logs to run out");
+                return;
+            }
+
            switch (state) {
             case FIREMAKING:
-                if (Rs2Inventory.count(logType.getLogID()) == 0) {
+                int logCount = Rs2Inventory.count(logType.getLogID());
+                if (logCount == 0) {
+                    burning = false;
                     debug("Out of logs in inventory");
                     return;
                 }
 
-                if (expectingXPDrop && Rs2Player.waitForXpDrop(Skill.FIREMAKING, 4500)) {
-                    debug("Firemaking in progress");
-                    Rs2Antiban.actionCooldown();
-                    Rs2Antiban.takeMicroBreakByChance();
-                    sleep(256, 789);
-                    return;
-                }
+                if (burning) {
+                    // The player burns the whole inventory on the campfire automatically
+                    // (~9 ticks per log), so block here until the logs run out or the
+                    // burn visibly stalls.
+                    debug("Burning logs on campfire (" + logCount + " left)");
+                    while (Rs2Inventory.count(logType.getLogID()) > 0) {
+                        if (!super.run() || !Microbot.isLoggedIn()) {
+                            return;
+                        }
 
-                WorldPoint activeFireLocation = isGameObjectOnTile(FireSpots, FireIDs);
+                        if (Rs2Dialogue.hasContinue()) {
+                            Rs2Dialogue.clickContinue();
+                            continue;
+                        }
 
-                if (activeFireLocation != null && Rs2Player.distanceTo(activeFireLocation) > 3) {
-                    debug("Walking to existing fire");
-                    Rs2Walker.walkTo(activeFireLocation);
-                    sleep(180, 540);
-                    return;
-                }
-
-                debug("Looking for fires to use");
-                
-                boolean interacted = false;
-                for (WorldPoint FireSpot : FireSpots) {
-                    TileObject fireTile = Rs2GameObject.findGameObjectByLocation(FireSpot);
-                    if (fireTile != null && FireIDs.contains(fireTile.getId())) {
-                        debug("Using object on fire");
-                        Rs2Inventory.useItemOnObject(logType.getLogID(), fireTile.getId());
-                        interacted = true;
-                        break;
+                        int currentCount = Rs2Inventory.count(logType.getLogID());
+                        if (currentCount < lastLogCount) {
+                            lastLogCount = currentCount;
+                            lastBurnProgressAt = System.currentTimeMillis();
+                        } else if (System.currentTimeMillis() - lastBurnProgressAt > BURN_STALL_TIMEOUT_MS) {
+                            // No log burned for a while: the fire likely went out (or the
+                            // use-on-fire click missed). Re-engage below.
+                            debug("Burn stalled, re-engaging fire");
+                            break;
+                        }
+                        sleep(500);
                     }
+                    burning = false;
+                    return;
                 }
 
-                if (interacted) {
-                    sleepUntil(() -> (!Rs2Player.isMoving() && Rs2Widget.findWidget("How many would you like to burn?", null, false) != null), 5000);
-                    sleep(180, 540);
-                    Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                    expectingXPDrop = true;
-                    sleep(2220, 5511);
+                Rs2TileObjectModel fire = findActiveFire();
+
+                if (fire == null) {
+                    debug("No fire found");
+                    break;
                 }
+
+                if (Rs2Player.distanceTo(fire.getWorldLocation()) > 3) {
+                    debug("Walking to existing fire");
+                    Rs2Walker.walkTo(fire.getWorldLocation());
+                    sleep(180, 540);
+                    return;
+                }
+
+                debug("Using logs on fire");
+                Rs2Inventory.use(logType.getLogID());
+                if (!sleepUntil(Rs2Inventory::isItemSelected, 2000)) {
+                    debug("Log did not select; retrying next tick");
+                    break;
+                }
+                Rs2GameObject.interact(fire);
+
+                // Newer game versions start burning immediately; older ones show the
+                // burn make-X dialog, which we confirm with space.
+                if (sleepUntil(() -> Rs2Widget.getWidget(BURN_DIALOG_WIDGET) != null, 5000)) {
+                    Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+                }
+
+                burning = true;
+                lastLogCount = Rs2Inventory.count(logType.getLogID());
+                lastBurnProgressAt = System.currentTimeMillis();
                 break;
             
             case BANKING:
@@ -174,26 +209,17 @@ public class GEFiremakerScript extends Script {
     private void determineState(LogType logType) {
         debug("Determine state");
 
-        // Check each fire spot to see if any of them have a fire ID on them
-        for (WorldPoint fireSpot : FireSpots) {
-            TileObject fireTile = Rs2GameObject.findGameObjectByLocation(fireSpot);
-            
-            // If the fire tile has no game object, we can skip this iteration
-            if (fireTile == null) {
-                continue;
+        // If any fire spot has an active fire, use it (or bank if out of logs)
+        if (findActiveFire() != null) {
+            debug("Fire found");
+            if (Rs2Inventory.hasItem(logType.getLogID())) {
+                debug("Adding logs to fire");
+                state = State.FIREMAKING;
+            } else {
+                debug("Out of logs");
+                state = State.BANKING;
             }
-
-            if (FireIDs.contains(fireTile.getId())) {
-                debug("Fire found");
-                if (Rs2Inventory.hasItem(logType.getLogID())) {
-                    debug("Adding logs to fire");
-                    state = State.FIREMAKING;
-                } else {
-                    debug("Out of logs");
-                    state = State.BANKING;
-                }
-                return;
-            }
+            return;
         }
 
         if (Rs2Inventory.hasItem("Tinderbox") && Rs2Inventory.hasItem(logType.getLogID())) {
@@ -265,15 +291,22 @@ public class GEFiremakerScript extends Script {
         }
     }
 
-    private WorldPoint isGameObjectOnTile(List<WorldPoint> locations, List<Integer> ids) {
-        // Iterate through the different locations and return the first one that has the desired object ID on it
-        for (WorldPoint loc : locations) {
-            TileObject tile = Rs2GameObject.findGameObjectByLocation(loc);
-            if (tile != null && ids.contains(tile.getId())) {
-                return loc;
+    // Finds the active fire / forester's campfire near the player. Mirrors the
+    // proven pattern from the firemakingplus plugin: query on the client thread
+    // (off-thread reads of the tile-object cache can be stale) and search by
+    // name around the player, falling back to known fire object IDs.
+    private Rs2TileObjectModel findActiveFire() {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Rs2TileObjectModel fire = Microbot.getRs2TileObjectCache().query()
+                    .withNameContains("ampfire")
+                    .nearest(Rs2Player.getWorldLocation(), 12);
+            if (fire == null) {
+                fire = Microbot.getRs2TileObjectCache().query()
+                        .where(o -> o.getId() == FIRE_ID || o.getId() == FIRE_ID_ALT)
+                        .nearest(Rs2Player.getWorldLocation(), 12);
             }
-        }
-        return null;
+            return fire;
+        }).orElse(null);
     }
 
     private void debug(String msg) {

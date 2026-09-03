@@ -30,10 +30,10 @@ import java.awt.*;
 
 @PluginDescriptor(
         name = PluginDescriptor.Mocrosoft + "Summers Garden",
-        description = " Microbot Summers Garden (V2.1)",
+        description = " Microbot Summers Garden",
         tags = {"Summers Garden", "minigame", "thieving", "microbot", "skilling", "summer", "summers", "garden", "sq'irk", "juice"},
         version = SummerGardenPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.19",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -42,7 +42,7 @@ import java.awt.*;
 @Slf4j
 public class SummerGardenPlugin extends Plugin
 {
-    public final static String version = "1.0.3";
+    public final static String version = "1.0.4";
     @Inject
     private Client client;
 

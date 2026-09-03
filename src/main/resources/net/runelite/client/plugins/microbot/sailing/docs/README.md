@@ -1,8 +1,12 @@
 # Sailing Plugin
 
-An automated sailing plugin that supports salvaging shipwrecks while sailing.
+An automated sailing plugin that supports salvaging shipwrecks and Barracuda Trials.
 
 ## Features
+
+### Barracuda Trials
+- **Automatic Navigation**: Follows the selected trial route when Auto Navigate is enabled
+- **Tempor Tantrum Rum**: Collects and delivers rum while the boat passes each Barracuda boat
 
 ### Salvaging
 - **Automatic Shipwreck Detection**: Finds and salvages nearby shipwrecks within a 15-tile radius
@@ -26,6 +30,16 @@ An automated sailing plugin that supports salvaging shipwrecks while sailing.
 - Wreck data for the overlay is updated on each game tick on the client thread so highlights stay in sync with the scene
 
 ## Configuration
+
+### Barracuda Trials
+
+**Enable Trials** (default: disabled)
+- Enable Barracuda Trials route support
+
+**Auto Navigate** (default: disabled)
+- Follow the selected trial route automatically
+- Rejoin the route ahead after the boat passes a waypoint
+- Collect and deliver Tempor Tantrum rum while the boat remains on its route
 
 ### General Settings
 

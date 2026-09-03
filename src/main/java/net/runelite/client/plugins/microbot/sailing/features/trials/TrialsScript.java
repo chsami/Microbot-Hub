@@ -14,6 +14,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.boat.Rs2BoatCache;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.sailing.SailingConfig;
 import net.runelite.client.plugins.microbot.sailing.features.trials.data.*;
 import net.runelite.client.plugins.microbot.sailing.features.trials.debug.BoatPathHelper;
@@ -29,15 +30,22 @@ public class TrialsScript {
     private final Client client;
     private final Rs2BoatCache boatCache;
     private final EventBus eventBus;
+    private final SailingConfig config;
 
     private int currentWaypointIndex = 0;
     private TrialRoute activeRoute = null;
+    private boolean rumActionPending;
+    private boolean expectedRumState;
+    private volatile int rumInteractionTick = -1;
 
     private final Set<Integer> TRIAL_CRATE_ANIMS = Set.of(8867);
     private final Set<Integer> SPEED_BOOST_ANIMS = Set.of(13159, 13160, 13163);
     private final Set<Integer> DECORATION_ANIMS = Set.of(1071, 13537, 13538, 13539);
 
     private static final int VISIT_TOLERANCE = 15;
+    private static final int WAYPOINT_VISIT_TOLERANCE = 5;
+    private static final int RUM_INTERACTION_DISTANCE = 15;
+    private static final int RUM_RETRY_TICKS = 2;
 
     private static final int WIND_MOTE_INACTIVE_SPRITE_ID = 7076;
     private static final int WIND_MOTE_ACTIVE_SPRITE_ID = 7075;
@@ -106,10 +114,11 @@ public class TrialsScript {
     private int boatAcceleration;
 
     @Inject
-    public TrialsScript(Client client, Rs2BoatCache boatCache, EventBus eventBus) {
+    public TrialsScript(Client client, Rs2BoatCache boatCache, EventBus eventBus, SailingConfig config) {
         this.client = client;
         this.boatCache = boatCache;
         this.eventBus = eventBus;
+        this.config = config;
     }
 
     public void register() {
@@ -135,11 +144,6 @@ public class TrialsScript {
                 return;
             }
 
-            if (!route.equals(activeRoute)) {
-                activeRoute = route;
-                currentWaypointIndex = 0;
-            }
-
             List<WorldPoint> routePoints = route.getInterpolatedPoints();
             if (routePoints == null || routePoints.isEmpty()) {
                 return;
@@ -154,19 +158,19 @@ public class TrialsScript {
                 return;
             }
 
-            WorldPoint target = routePoints.get(currentWaypointIndex);
-            int distance = boatPos.distanceTo(target);
-
-            if (distance <= 5) {
-                lastVisitedIndex = currentWaypointIndex;
-                currentWaypointIndex = (currentWaypointIndex + 1) % routePoints.size();
-                target = routePoints.get(currentWaypointIndex);
+            if (!route.equals(activeRoute)) {
+                activeRoute = route;
+                currentWaypointIndex = 0;
             }
+
+            currentWaypointIndex = getNextWaypointIndex(routePoints, currentWaypointIndex, boatPos);
+            WorldPoint target = routePoints.get(currentWaypointIndex);
 
             final WorldPoint hintTarget = target;
             Microbot.getClientThread().invoke(() -> client.setHintArrow(hintTarget));
 
-            if (config.autoNavigate()) {
+            int currentTick = Microbot.getClientThread().invoke(client::getTickCount);
+            if (config.autoNavigate() && currentTick != rumInteractionTick) {
                 navigateToWaypoint(target);
             }
 
@@ -182,6 +186,28 @@ public class TrialsScript {
             }
         }
         return null;
+    }
+
+    static int getNextWaypointIndex(List<WorldPoint> routePoints, int currentWaypointIndex, WorldPoint boatPosition) {
+        int currentDistance = boatPosition.distanceTo(routePoints.get(currentWaypointIndex));
+        if (currentDistance <= WAYPOINT_VISIT_TOLERANCE) {
+            return (currentWaypointIndex + 1) % routePoints.size();
+        }
+
+        int lastWaypointIndex = routePoints.size() - 1;
+        while (currentWaypointIndex < lastWaypointIndex
+                && hasPassedWaypoint(routePoints.get(currentWaypointIndex), routePoints.get(currentWaypointIndex + 1), boatPosition)) {
+            currentWaypointIndex++;
+        }
+        return currentWaypointIndex;
+    }
+
+    private static boolean hasPassedWaypoint(WorldPoint waypoint, WorldPoint nextWaypoint, WorldPoint boatPosition) {
+        long segmentX = nextWaypoint.getX() - waypoint.getX();
+        long segmentY = nextWaypoint.getY() - waypoint.getY();
+        long boatX = boatPosition.getX() - waypoint.getX();
+        long boatY = boatPosition.getY() - waypoint.getY();
+        return boatX * segmentX + boatY * segmentY > 0;
     }
 
     private WorldPoint getBoatPosition() {
@@ -211,6 +237,8 @@ public class TrialsScript {
     private void resetState() {
         currentWaypointIndex = 0;
         activeRoute = null;
+        rumActionPending = false;
+        rumInteractionTick = -1;
         lastVisitedIndex = -1;
         Microbot.getClientThread().invoke(() -> client.clearHintArrow());
     }
@@ -254,10 +282,67 @@ public class TrialsScript {
         if (boatLocation == null)
             return;
 
+        interactWithRumBoat(boatLocation);
+
         var active = getActiveTrialRoute();
         if (active != null) {
             markNextWaypointVisited(boatLocation, active, VISIT_TOLERANCE);
         }
+    }
+
+    private void interactWithRumBoat(WorldPoint boatLocation) {
+        if (!config.trials() || !config.autoNavigate() || isInTrial == 0 || currentTrial == null) {
+            return;
+        }
+
+        int currentTick = client.getTickCount();
+        if (rumActionPending) {
+            if (currentTrial.HasRum == expectedRumState) {
+                rumActionPending = false;
+                return;
+            }
+            if (currentTick - rumInteractionTick < RUM_RETRY_TICKS) {
+                return;
+            }
+        }
+
+        var rumBoat = trialBoatsById.get(currentTrial.HasRum
+                ? ObjectID.SAILING_BT_TEMPOR_TANTRUM_NORTH_LOC_PARENT
+                : ObjectID.SAILING_BT_TEMPOR_TANTRUM_SOUTH_LOC_PARENT);
+        var rumBoatLocation = getWorldEntityLocation(rumBoat);
+        if (rumBoatLocation == null) {
+            return;
+        }
+
+        var action = getRumAction(currentTrial, boatLocation.distanceTo(rumBoatLocation));
+        if (action != null) {
+            new Rs2TileObjectModel(rumBoat).click(action);
+            rumActionPending = true;
+            expectedRumState = !currentTrial.HasRum;
+            rumInteractionTick = currentTick;
+        }
+    }
+
+    private WorldPoint getWorldEntityLocation(GameObject object) {
+        if (object == null || object.getWorldView() == null || client.getTopLevelWorldView() == null) {
+            return null;
+        }
+
+        var worldEntity = client.getTopLevelWorldView().worldEntities().byIndex(object.getWorldView().getId());
+        return worldEntity == null || worldEntity.getLocalLocation() == null
+                ? null
+                : WorldPoint.fromLocalInstance(client, worldEntity.getLocalLocation());
+    }
+
+    static String getRumAction(TrialInfo trial, int distance) {
+        if (trial == null
+                || trial.Location != TrialLocations.TemporTantrum
+                || trial.TotalPrimaryObjectivesNeeded <= 0
+                || trial.CollectedPrimaryObjectives >= trial.TotalPrimaryObjectivesNeeded
+                || distance > RUM_INTERACTION_DISTANCE) {
+            return null;
+        }
+        return trial.HasRum ? "Deliver-rum" : "Collect-rum";
     }
 
     @Subscribe
@@ -499,6 +584,8 @@ public class TrialsScript {
     private void resetRouteData() {
         lastVisitedIndex = -1;
         toadsThrown = 0;
+        rumActionPending = false;
+        rumInteractionTick = -1;
     }
 
     private void reset() {

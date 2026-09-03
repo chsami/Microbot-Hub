@@ -2,14 +2,16 @@ package net.runelite.client.plugins.microbot.valetotems.enums;
 
 /**
  * Enum representing the spirit animals that can be carved into totems
- * Each animal has an associated NPC ID and keyboard key for carving
+ * Each animal has an associated NPC ID and keyboard key for carving.
+ * Declaration order matters: ordinal + 1 is the game's animal id, used by the
+ * carve dialog keys (1-5) and the per-site animal/segment varbits.
  */
 public enum SpiritAnimal {
-    BUFFALO(14, '1', 14589, "Buffalo spirit"),
-    JAGUAR(15, '2', 14590, "Jaguar spirit"),
-    EAGLE(16, '3', 14591, "Eagle/Griffin spirit"),
-    SNAKE(17, '4', 14592, "Snake spirit"),
-    SCORPION(18, '5', 14593, "Scorpion spirit");
+    BUFFALO(15, '1', 14589, "Buffalo spirit"),
+    JAGUAR(16, '2', 14590, "Jaguar spirit"),
+    EAGLE(17, '3', 14591, "Eagle/Griffin spirit"),
+    SNAKE(18, '4', 14592, "Snake spirit"),
+    SCORPION(19, '5', 14593, "Scorpion spirit");
 
     private final int widgetChildId;
     private final char keyNumber;
@@ -74,5 +76,18 @@ public enum SpiritAnimal {
      */
     public static boolean isSpiritAnimal(int npcId) {
         return getByNpcId(npcId) != null;
+    }
+
+    /**
+     * Get spirit animal by the game's animal id (1-5), as used by the per-site
+     * ent_totems varbits (animal_1..3 and the low/mid/top carved segments)
+     * @param value the varbit animal value
+     * @return corresponding SpiritAnimal enum, or null if out of range
+     */
+    public static SpiritAnimal getByVarbitValue(int value) {
+        if (value < 1 || value > values().length) {
+            return null;
+        }
+        return values()[value - 1];
     }
 } 
