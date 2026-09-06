@@ -20,7 +20,6 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.grandexchange.Rs2GrandExchange;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
@@ -191,8 +190,12 @@ public class FlipperScript extends Script {
 							offerScreenActionCount = 0;
 						}
 
-                        // 1. If bank is open, handle bank withdrawals
-                        if (handleBankIfNeeded()) return;
+                        // 1. If bank is open, close it (only coins are handled from bank at startup)
+                        if (Rs2Bank.isOpen()) {
+                            Rs2Bank.closeBank();
+                            sleepUntil(() -> !Rs2Bank.isOpen(), 2500);
+                            return;
+                        }
 
 						// 2. Check for Copilot price/quantity messages in chat
 						if (checkAndPressCopilotKeybind()) return;
@@ -903,16 +906,11 @@ public class FlipperScript extends Script {
 					Field npcField = overlay.getClass().getDeclaredField("npc");
 					npcField.setAccessible(true);
 					NPC npc = (NPC) npcField.get(overlay);
-					if (npc != null) {
+					if (npc != null && Rs2Npc.hasAction(npc.getId(), "Exchange")) {
 						String name = new Rs2NpcModel(npc).getName();
-						log.info("Found highlighted NPC: {}", name);
-						if (Rs2Npc.hasAction(npc.getId(), "Bank") || (name != null && name.toLowerCase().contains("bank"))) {
-							Rs2Npc.interact(npc, "Bank");
-							sleepUntil(Rs2Bank::isOpen, 3000);
-						} else {
-							Rs2Npc.interact(npc, "Exchange");
-							sleepUntil(Rs2GrandExchange::isOpen, 3000);
-						}
+						log.info("Found highlighted GE NPC: {}", name);
+						Rs2Npc.interact(npc, "Exchange");
+						sleepUntil(Rs2GrandExchange::isOpen, 3000);
 						lastActionTime = currentTime;
 						actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 						return true;
@@ -921,42 +919,6 @@ public class FlipperScript extends Script {
 			}
 		} catch (Exception e) {
 			log.error("Could not interact with highlighted NPC: {}", e.getMessage());
-		}
-		return false;
-	}
-
-	private boolean handleBankIfNeeded()
-	{
-		if (!Rs2Bank.isOpen()) return false;
-
-		Object currentSuggestion = getSuggestion(suggestionManager);
-		if (currentSuggestion != null) {
-			try {
-				Method isSellMethod = currentSuggestion.getClass().getMethod("isSellSuggestion");
-				boolean isSell = (Boolean) isSellMethod.invoke(currentSuggestion);
-				if (isSell) {
-					Method getItemIdMethod = currentSuggestion.getClass().getMethod("getItemId");
-					int itemId = (Integer) getItemIdMethod.invoke(currentSuggestion);
-					Method getQuantityMethod = currentSuggestion.getClass().getMethod("getQuantity");
-					int qty = (Integer) getQuantityMethod.invoke(currentSuggestion);
-
-					int notedId = Rs2ItemModel.getNotedId(itemId);
-					if (Rs2Inventory.hasItem(itemId) && !Rs2Inventory.hasItem(notedId) && qty > 27) {
-						Rs2Bank.depositAll(itemId);
-						sleepUntil(() -> !Rs2Inventory.hasItem(itemId), 2000);
-					}
-					if (Rs2Bank.hasItem(itemId)) {
-						log.info("Withdrawing suggested item from bank: {} qty {}", itemId, qty);
-						Rs2Bank.withdrawX(true, itemId, qty);
-						sleepUntil(() -> Rs2Inventory.hasItem(itemId) || Rs2Inventory.hasItem(notedId), 2500);
-						Rs2Bank.closeBank();
-						sleepUntil(() -> !Rs2Bank.isOpen(), 2500);
-						return true;
-					}
-				}
-			} catch (Exception e) {
-				log.error("Could not handle bank suggestion: {}", e.getMessage());
-			}
 		}
 		return false;
 	}
