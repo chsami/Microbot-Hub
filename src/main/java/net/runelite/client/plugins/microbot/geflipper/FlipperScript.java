@@ -1,11 +1,16 @@
 package net.runelite.client.plugins.microbot.geflipper;
 
+import com.google.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.MenuAction;
+import net.runelite.api.NPC;
 import net.runelite.api.coords.WorldArea;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.widgets.Widget;
+import net.runelite.client.input.KeyManager;
+import net.runelite.client.input.KeyListener;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -15,10 +20,14 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.grandexchange.Rs2GrandExchange;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
+import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.*;
@@ -45,6 +54,8 @@ public class FlipperScript extends Script {
 	private static final int INTERACTION_TIMEOUT_VARIANCE = 11000;
 	private static final int INVENTORY_WAIT_TIMEOUT = 5000;
 	private static final int SCHEDULE_INTERVAL_MS = 600;
+	private static final int KEY_PRESS_DELAY_MIN = 250;
+	private static final int KEY_PRESS_DELAY_MAX = 400;
 
 	private final WorldArea grandExchangeArea = new WorldArea(3136, 3465, 61, 54, 0);
     State state = State.GOING_TO_GE;
@@ -55,6 +66,8 @@ public class FlipperScript extends Script {
     private long lastActionTime = 0;
     private long actionCooldown = DEFAULT_ACTION_COOLDOWN;
 	private long interactionTimeout = DEFAULT_INTERACTION_TIMEOUT;
+	private long offerScreenOpenTime = 0;
+	private int offerScreenActionCount = 0;
 
 	private int[] grandExchangeSlotIds = new int[] {
 		InterfaceID.GeOffers.INDEX_0,
@@ -66,6 +79,21 @@ public class FlipperScript extends Script {
 		InterfaceID.GeOffers.INDEX_6,
 		InterfaceID.GeOffers.INDEX_7
 	};
+
+	@Inject
+	private FlipperConfig config;
+
+	@Inject
+	private KeyManager keyManager;
+
+	public boolean run(FlipperConfig config) {
+		this.config = config;
+		return run();
+	}
+
+	private boolean isMouseMode() {
+		return config != null && config.selectionMethod() == FlipperConfig.SelectionMethod.MOUSE;
+	}
 
     public boolean run() {
         Rs2AntibanSettings.naturalMouse = true;
@@ -86,7 +114,9 @@ public class FlipperScript extends Script {
                              state = State.MONITORING_COPILOT;
                              return;
                         }
-                        if (!grandExchangeArea.contains(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))) {
+						WorldPoint playerLocation = Rs2Player.getWorldLocation();
+						if (playerLocation == null) return;
+                        if (!grandExchangeArea.contains(playerLocation)) {
                             Rs2GrandExchange.walkToGrandExchange();
                         }
                         state = State.GETTING_COINS;
@@ -108,32 +138,79 @@ public class FlipperScript extends Script {
                         break;
 
                     case MONITORING_COPILOT:
-                        if (!Rs2GrandExchange.isOpen()) {
+						long currentTime = System.currentTimeMillis();
+
+						// 0. Offer screen watchdog & loop detection
+						if (isOfferScreenOpen()) {
+							if (offerScreenOpenTime == 0) {
+								offerScreenOpenTime = currentTime;
+								offerScreenActionCount = 0;
+							}
+
+							// Check if "Too much money!" warning is shown on offer screen
+							if (Rs2Widget.hasWidget("Too much money")) {
+								log.warn("Offer has 'Too much money!' error. Backing out to GE overview.");
+								backToOverview();
+								return;
+							}
+
+							// If on offer screen and Copilot suggests ABORT, abort or back out immediately
+							if (suggestionManager != null) {
+								try {
+									Object currentSuggestion = getSuggestion(suggestionManager);
+									if (currentSuggestion != null) {
+										Method isAbortMethod = currentSuggestion.getClass().getMethod("isAbortSuggestion");
+										if ((Boolean) isAbortMethod.invoke(currentSuggestion)) {
+											Widget abortBtn = Rs2Widget.findWidget("Abort offer");
+											if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
+												log.info("Aborting offer via offer screen button '{}'", abortBtn.getId());
+												Rs2Widget.clickWidget(abortBtn);
+												sleep(200, 400);
+												backToOverview();
+											} else {
+												log.info("Abort suggested while on offer screen - backing out to overview.");
+												backToOverview();
+											}
+											lastActionTime = currentTime;
+											actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+											return;
+										}
+									}
+								} catch (Exception ignored) {}
+							}
+
+							// If stuck on offer screen for > 30 seconds or after 10 repeated actions without closing
+							if (currentTime - offerScreenOpenTime > 30000 || offerScreenActionCount >= 10) {
+								log.warn("Offer screen stuck (openTime={}ms, actions={}). Backing out to GE overview.",
+									currentTime - offerScreenOpenTime, offerScreenActionCount);
+								backToOverview();
+								return;
+							}
+						} else {
+							offerScreenOpenTime = 0;
+							offerScreenActionCount = 0;
+						}
+
+                        // 1. If bank is open, handle bank withdrawals
+                        if (handleBankIfNeeded()) return;
+
+						// 2. Check for Copilot price/quantity messages in chat
+						if (checkAndPressCopilotKeybind()) return;
+
+                        // 3. Check if we need to abort any offers
+                        if (checkAndAbortOrModifyIfNeeded()) return;
+
+                        // 4. Check for highlighted widgets
+                        if (checkAndClickHighlightedWidgets()) return;
+
+                        // 5. Check for highlighted NPCs
+                        if (checkAndInteractHighlightedNpc()) return;
+
+                        // 6. If neither GE nor Bank is open, open GE
+                        if (!Rs2GrandExchange.isOpen() && !Rs2Bank.isOpen()) {
                             Rs2GrandExchange.openExchange();
                             return;
                         }
-
-                        // Check interaction timeout first - reset ge window state if stuck
-                        long currentTime = System.currentTimeMillis();
-                        if (Rs2GrandExchange.isOfferScreenOpen() && (currentTime - lastActionTime > interactionTimeout)) {
-                            Rs2GrandExchange.backToOverview();
-
-                            lastActionTime = System.currentTimeMillis();
-                            actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
-                            interactionTimeout = Rs2Random.randomGaussian(DEFAULT_INTERACTION_TIMEOUT, INTERACTION_TIMEOUT_VARIANCE);
-
-                            log.info("interactionTimeout reached, returning to GE overview.");
-                            return;
-                        }
-
-						// Check for Copilot price/quantity messages in chat
-						if (checkAndPressCopilotKeybind()) return;
-
-                        // Check if we need to abort any offers
-                        if (checkAndAbortOrModifyIfNeeded()) return;
-
-                        // Check for highlighted widgets
-                        if (checkAndClickHighlightedWidgets()) return;
 
                         break;
                 }
@@ -219,6 +296,191 @@ public class FlipperScript extends Script {
 		return suggestionManager;
 	}
 
+	private boolean isOfferScreenOpen() {
+		return Rs2GrandExchange.isOfferScreenOpen() 
+			|| Rs2Widget.isWidgetVisible(30474266) 
+			|| Rs2Widget.isWidgetVisible(30474267);
+	}
+
+	private void backToOverview() {
+		log.info("Returning to GE overview.");
+		Rs2GrandExchange.backToOverview();
+		if (isOfferScreenOpen()) {
+			Rs2Widget.clickWidget(30474244);
+		}
+		sleepUntil(() -> !isOfferScreenOpen(), 2500);
+		offerScreenOpenTime = 0;
+		offerScreenActionCount = 0;
+		lastActionTime = System.currentTimeMillis();
+		actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+	}
+
+	private boolean hasChatboxInput() {
+		Widget inputWidget = Rs2Widget.getWidget(10616876);
+		if (inputWidget == null) inputWidget = Rs2Widget.getWidget(162, 44);
+		if (inputWidget != null) {
+			String text = inputWidget.getText();
+			if (text != null && !text.trim().isEmpty() && !text.trim().equals("*")) {
+				return true;
+			}
+		}
+		try {
+			String varcStr = Microbot.getClient().getVarcStrValue(359);
+			if (varcStr != null && !varcStr.trim().isEmpty() && !varcStr.trim().equals("*")) {
+				return true;
+			}
+		} catch (Exception ignored) {}
+		return false;
+	}
+
+	private KeyManager getKeyManager() {
+		if (keyManager != null) return keyManager;
+		try {
+			if (Microbot.getInjector() != null) {
+				keyManager = Microbot.getInjector().getInstance(KeyManager.class);
+			}
+		} catch (Exception e) {
+			log.warn("Could not get KeyManager: {}", e.getMessage());
+		}
+		return keyManager;
+	}
+
+	private static class ExtendedKeyEvent extends KeyEvent {
+		private final int extCode;
+
+		public ExtendedKeyEvent(Component source, int id, long when, int modifiers, int keyCode, char keyChar) {
+			super(source, id, when, modifiers, keyCode, keyChar);
+			this.extCode = keyCode;
+		}
+
+		@Override
+		public int getExtendedKeyCode() {
+			return extCode;
+		}
+	}
+
+	private void triggerCopilotQuickSet() {
+		int keyCode = KeyEvent.VK_E;
+		int modifiers = 0;
+		char keyChar = 'e';
+
+		// Retrieve configured hotkey from Flipping Copilot if available
+		if (flippingCopilot != null) {
+			try {
+				Field cfgField = flippingCopilot.getClass().getDeclaredField("config");
+				cfgField.setAccessible(true);
+				Object copilotConfig = cfgField.get(flippingCopilot);
+				if (copilotConfig != null) {
+					Method qkMethod = copilotConfig.getClass().getMethod("quickSetKeybind");
+					Object keybindObj = qkMethod.invoke(copilotConfig);
+					if (keybindObj instanceof net.runelite.client.config.Keybind) {
+						net.runelite.client.config.Keybind kb = (net.runelite.client.config.Keybind) keybindObj;
+						if (kb.getKeyCode() != KeyEvent.VK_UNDEFINED) {
+							keyCode = kb.getKeyCode();
+							modifiers = kb.getModifiers();
+							keyChar = Character.toLowerCase((char) keyCode);
+						}
+					}
+				}
+			} catch (Exception ignored) {}
+		}
+
+		Canvas canvas = Microbot.getClient().getCanvas();
+
+		// Dispatch ExtendedKeyEvent (with overridden getExtendedKeyCode) to KeyManager and Canvas
+		Component source = canvas != null ? canvas : new Canvas();
+		long now = System.currentTimeMillis();
+		ExtendedKeyEvent pressEvent = new ExtendedKeyEvent(source, KeyEvent.KEY_PRESSED, now, modifiers, keyCode, keyChar);
+		ExtendedKeyEvent releaseEvent = new ExtendedKeyEvent(source, KeyEvent.KEY_RELEASED, now + 30, modifiers, keyCode, keyChar);
+
+		KeyManager km = getKeyManager();
+		if (km != null) {
+			km.processKeyPressed(pressEvent);
+			km.processKeyReleased(releaseEvent);
+		}
+		if (canvas != null) {
+			canvas.dispatchEvent(pressEvent);
+			canvas.dispatchEvent(releaseEvent);
+		}
+
+		// 3. Trigger Copilot's handleKeybind on keyListener via ClientThread
+		if (flippingCopilot != null) {
+			try {
+				Field khField = flippingCopilot.getClass().getDeclaredField("keybindHandler");
+				khField.setAccessible(true);
+				Object keybindHandler = khField.get(flippingCopilot);
+				if (keybindHandler != null) {
+					Field klField = keybindHandler.getClass().getDeclaredField("keyListener");
+					klField.setAccessible(true);
+					Object keyListener = klField.get(keybindHandler);
+					if (keyListener != null) {
+						for (Method m : keyListener.getClass().getDeclaredMethods()) {
+							if (m.getName().equals("handleKeybind")) {
+								m.setAccessible(true);
+								Microbot.getClientThread().invokeLater(() -> {
+									try {
+										m.invoke(keyListener, true, false, false);
+									} catch (Exception ex) {
+										log.debug("handleKeybind invoke failed: {}", ex.getMessage());
+									}
+								});
+								break;
+							}
+						}
+					}
+				}
+			} catch (Exception e) {
+				log.debug("Could not trigger handleKeybind via reflection: {}", e.getMessage());
+			}
+		}
+	}
+
+	private void setCopilotChatboxValueDirectly(long val) {
+		if (val <= 0) return;
+
+		// 1. OfferHandler in keybindHandler
+		if (flippingCopilot != null) {
+			try {
+				Field khField = flippingCopilot.getClass().getDeclaredField("keybindHandler");
+				khField.setAccessible(true);
+				Object keybindHandler = khField.get(flippingCopilot);
+				if (keybindHandler != null) {
+					Field ohField = keybindHandler.getClass().getDeclaredField("offerHandler");
+					ohField.setAccessible(true);
+					Object offerHandler = ohField.get(keybindHandler);
+					if (offerHandler != null) {
+						for (Method m : offerHandler.getClass().getMethods()) {
+							if (m.getName().equals("setChatboxValue") && m.getParameterCount() == 1) {
+								final long v = val;
+								Microbot.getClientThread().invokeLater(() -> {
+									try {
+										m.invoke(offerHandler, v);
+									} catch (Exception ignored) {}
+								});
+								break;
+							}
+						}
+					}
+				}
+			} catch (Exception e) {
+				log.debug("Could not set chatbox value via offerHandler: {}", e.getMessage());
+			}
+		}
+
+		// 2. Direct client-thread update (identical to Copilot's OfferHandler.setChatboxValue)
+		final long finalVal = val;
+		Microbot.getClientThread().invokeLater(() -> {
+			try {
+				Widget widget = Microbot.getClient().getWidget(10616876);
+				if (widget == null) widget = Microbot.getClient().getWidget(162, 44);
+				if (widget != null) {
+					widget.setText(finalVal + "*");
+				}
+				Microbot.getClient().setVarcStrValue(359, String.valueOf(finalVal));
+			} catch (Exception ignored) {}
+		});
+	}
+
 	private Object getSuggestion(Object suggestionManager)
 	{
 		if (suggestionManager == null) return null;
@@ -290,7 +552,7 @@ public class FlipperScript extends Script {
 			}
 			catch (NoSuchFieldException e)
 			{
-				log.warn("Overlay {} does not have a widget field, skipping.", highlightOverlay.getClass().getSimpleName());
+				// Non-widget overlays like NpcHighlightOverlay are handled separately
 			}
 			catch (Exception e)
 			{
@@ -330,6 +592,7 @@ public class FlipperScript extends Script {
 
 	private boolean checkAndAbortOrModifyIfNeeded()
 	{
+		if (!Rs2GrandExchange.isOpen() || isOfferScreenOpen()) return false;
 		if (System.currentTimeMillis() - lastActionTime < actionCooldown) return false;
 
 		if (flippingCopilot == null || highlightController == null || suggestionManager == null) return false;
@@ -346,24 +609,62 @@ public class FlipperScript extends Script {
 
 			if (!isAbort && !isModify) return false;
 
-			log.info("Found suggestion type: {}.", isAbort ? "ABORT" : "MODIFY");
-
 			Widget abortWidget = getWidgetFromOverlay(highlightController, isAbort ? "abort" : "modify");
-			if (abortWidget != null)
+			if (abortWidget == null)
+			{
+				try {
+					Method getBoxIdMethod = currentSuggestion.getClass().getMethod("getBoxId");
+					int boxId = (Integer) getBoxIdMethod.invoke(currentSuggestion);
+					if (boxId >= 0 && boxId < grandExchangeSlotIds.length) {
+						abortWidget = Rs2Widget.getWidget(grandExchangeSlotIds[boxId]);
+					}
+				} catch (Exception ignored) {}
+			}
+			if (abortWidget != null && Rs2Widget.isWidgetVisible(abortWidget.getId()))
 			{	
-				NewMenuEntry menuEntry;
-				if (isModify)
-					menuEntry = new NewMenuEntry("Modify offer", "", 3, MenuAction.CC_OP, 2, abortWidget.getId(), false);
-				else
-					menuEntry = new NewMenuEntry("Abort offer", "", 2, MenuAction.CC_OP, 2, abortWidget.getId(), false);
-
-				Rectangle bounds = abortWidget.getBounds() != null && Rs2UiHelper.isRectangleWithinCanvas(abortWidget.getBounds())
-					? abortWidget.getBounds()
-					: Rs2UiHelper.getDefaultRectangle();
-				Microbot.doInvoke(menuEntry, bounds);
-				lastActionTime = System.currentTimeMillis();
-				actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
-				return true;
+				if (isAbort)
+				{
+					log.info("Executing suggestion ABORT: sending Abort offer on slot widget {}", abortWidget.getId());
+					NewMenuEntry abortEntry = new NewMenuEntry()
+						.option("Abort offer")
+						.target("")
+						.identifier(2)
+						.type(MenuAction.CC_OP)
+						.param0(2)
+						.param1(abortWidget.getId())
+						.itemId(-1)
+						.forceLeftClick(false);
+					Rectangle bounds = abortWidget.getBounds() != null && Rs2UiHelper.isRectangleWithinCanvas(abortWidget.getBounds())
+						? abortWidget.getBounds()
+						: Rs2UiHelper.getDefaultRectangle();
+					Microbot.doInvoke(abortEntry, bounds);
+					lastActionTime = System.currentTimeMillis();
+					actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+					return true;
+				}
+				else // isModify
+				{
+					log.info("Executing suggestion MODIFY: opening slot widget {}", abortWidget.getId());
+					Rs2Widget.clickWidget(abortWidget);
+					lastActionTime = System.currentTimeMillis();
+					actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+					return true;
+				}
+			}
+			else if (isAbort)
+			{
+				try {
+					Method getNameMethod = currentSuggestion.getClass().getMethod("getName");
+					String itemName = (String) getNameMethod.invoke(currentSuggestion);
+					if (itemName != null && !itemName.isEmpty()) {
+						log.info("Executing suggestion ABORT via Rs2GrandExchange.abortOffer for item '{}'", itemName);
+						if (Rs2GrandExchange.abortOffer(itemName, false)) {
+							lastActionTime = System.currentTimeMillis();
+							actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+							return true;
+						}
+					}
+				} catch (Exception ignored) {}
 			}
 		}
 		catch (Exception e)
@@ -378,11 +679,26 @@ public class FlipperScript extends Script {
         Widget copilotWidget = Rs2Widget.findWidget("Copilot item:", null, false);
         if (copilotWidget != null && Rs2Widget.isWidgetVisible(copilotWidget.getId())) {
 			log.info("Found chat widget Copilot item '{}'.", copilotWidget.getId());
-			/// 2. Press only Enter if found in scroll contents (selecting item)
-			Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
+			if (isMouseMode()) {
+				log.info("Selecting Copilot item via mouse click.");
+				Rs2Widget.clickWidget(copilotWidget);
+			} else {
+				log.info("Selecting Copilot item via hotkey (ENTER).");
+				Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
+			}
 			
-			/// As these widgets tend to disappear quickly sometimes, we sleep after we interact with it to select the suggested item
-			sleepUntil(() -> System.currentTimeMillis() - lastActionTime < actionCooldown);
+			// Wait for item selection widget to disappear (fallback to enter if still visible after mouse click)
+			if (!sleepUntil(() -> !Rs2Widget.isWidgetVisible(copilotWidget.getId()), 2000)) {
+				Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
+				if (!sleepUntil(() -> !Rs2Widget.isWidgetVisible(copilotWidget.getId()), 1500)) {
+					// Fallback to mouse click if ENTER failed
+					if (Rs2Widget.isWidgetVisible(copilotWidget.getId())) {
+						Rs2Widget.clickWidget(copilotWidget);
+						sleepUntil(() -> !Rs2Widget.isWidgetVisible(copilotWidget.getId()), 1500);
+					}
+				}
+			}
+			offerScreenActionCount++;
 			lastActionTime = System.currentTimeMillis();
 			actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 			return true;
@@ -392,25 +708,113 @@ public class FlipperScript extends Script {
 
 		// If it's time to set price/quantity
 
-		Widget chatbox = Rs2Widget.getWidget(InterfaceID.Chatbox.MES_LAYER);
-		if (chatbox == null) return false;
-		Widget copilotAction = Rs2Widget.findWidget("Set price", List.of(chatbox), true);
-		if (copilotAction == null) copilotAction = Rs2Widget.findWidget("Set quantity", List.of(chatbox), true);
-		if (copilotAction == null) return false;
+		Widget setPriceWidget = Rs2Widget.findWidget("Set a price for each item:", null, false);
+		Widget setQuantityWidget = Rs2Widget.findWidget("How many do you wish to ", null, false);
 
-		log.info("Using Copilot action widget '{}'.", copilotAction.getId());
-		Rs2Widget.clickWidget(copilotAction);
-		if (!sleepUntil(() -> {
-			Widget input = Rs2Widget.getWidget(InterfaceID.Chatbox.MES_TEXT2);
-			return input != null && input.getText() != null && input.getText().endsWith("*");
-		})) {
-			log.warn("Copilot did not populate the price/quantity input.");
+		boolean isPricePrompt = setPriceWidget != null && Rs2Widget.isWidgetVisible(setPriceWidget.getId());
+		boolean isQuantityPrompt = setQuantityWidget != null && Rs2Widget.isWidgetVisible(setQuantityWidget.getId());
+
+        if (isPricePrompt || isQuantityPrompt) {
+			Widget promptWidget = isPricePrompt ? setPriceWidget : setQuantityWidget;
+			log.info("Found chat widget ({}) '{}'.", isPricePrompt ? "price" : "quantity", promptWidget.getId());
+
+			// 1. First attempt: Click Copilot's prompt button if visible, or press hotkey
+			Widget copilotButton = Rs2Widget.findWidget("to set to Copilot", null, false);
+			boolean copilotButtonVisible = copilotButton != null && Rs2Widget.isWidgetVisible(copilotButton.getId());
+
+			// Parse the suggested value from button text if available (e.g. "Press [E] to set to Copilot price: 979 gp")
+			long valFromButton = -1;
+			if (copilotButton != null && copilotButton.getText() != null) {
+				String btnText = copilotButton.getText().replaceAll("[^0-9]", "");
+				if (!btnText.isEmpty()) {
+					try {
+						valFromButton = Long.parseLong(btnText);
+					} catch (Exception ignored) {}
+				}
+			}
+
+			if (isMouseMode()) {
+				if (copilotButtonVisible) {
+					log.info("Clicking Copilot prompt button '{}' via mouse.", copilotButton.getId());
+					Rs2Widget.clickWidget(copilotButton);
+				} else {
+					log.info("Copilot prompt button not visible, falling back to hotkey [E].");
+					triggerCopilotQuickSet();
+				}
+				sleepUntil(this::hasChatboxInput, 1500);
+			} else {
+				// Hotkey mode: Strictly use hotkey [E] without mouse clicks
+				log.info("Selecting Copilot suggestion via hotkey [E].");
+				triggerCopilotQuickSet();
+
+				// If hotkey didn't populate within 600ms, set directly via Copilot offerHandler without mouse
+				if (!sleepUntil(this::hasChatboxInput, 600)) {
+					if (valFromButton > 0) {
+						log.info("Setting chatbox value ({}) directly from Copilot suggestion without mouse.", valFromButton);
+						setCopilotChatboxValueDirectly(valFromButton);
+						sleepUntil(this::hasChatboxInput, 600);
+					}
+				}
+			}
+
+			// Fallback: If input is still not populated, extract suggestion value and set directly without typing
+			if (!hasChatboxInput()) {
+				long val = valFromButton;
+
+				// If not found from button text, check currentSuggestion (ensuring it matches the offer screen item)
+				if (val <= 0) {
+					Object currentSuggestion = getSuggestion(suggestionManager);
+					if (currentSuggestion != null) {
+						try {
+							int currentOfferItemId = Microbot.getClient().getVarpValue(1151);
+							Method getItemIdMethod = currentSuggestion.getClass().getMethod("getItemId");
+							int suggestionItemId = (Integer) getItemIdMethod.invoke(currentSuggestion);
+							if (currentOfferItemId <= 0 || currentOfferItemId == suggestionItemId) {
+								if (isPricePrompt) {
+									Method getPriceMethod = currentSuggestion.getClass().getMethod("getPrice");
+									val = (Long) getPriceMethod.invoke(currentSuggestion);
+								} else if (isQuantityPrompt) {
+									Method getQuantityMethod = currentSuggestion.getClass().getMethod("getQuantity");
+									val = (Integer) getQuantityMethod.invoke(currentSuggestion);
+								}
+							} else {
+								log.warn("Suggestion itemId ({}) does not match offer screen itemId ({})! Skipping suggestion value.",
+									suggestionItemId, currentOfferItemId);
+							}
+						} catch (Exception e) {
+							log.error("Failed to read suggestion value: {}", e.getMessage());
+						}
+					}
+				}
+
+				if (val > 0) {
+					log.info("Setting {} value directly on client thread: {}", isPricePrompt ? "price" : "quantity", val);
+					setCopilotChatboxValueDirectly(val);
+					sleepUntil(this::hasChatboxInput, 800);
+				}
+			}
+
+			// Check if chatbox input was successfully populated
+			if (!hasChatboxInput()) {
+				log.warn("Failed to populate {} input! Cancelling prompt and backing out to GE overview.",
+					isPricePrompt ? "price" : "quantity");
+				Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
+				sleep(200, 400);
+				backToOverview();
+				return true;
+			}
+
+			// Submit the value
+			sleep(KEY_PRESS_DELAY_MIN, KEY_PRESS_DELAY_MAX);
+			Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
+			sleepUntil(() -> !Rs2Widget.isWidgetVisible(promptWidget.getId()), 2500);
+			offerScreenActionCount++;
+			lastActionTime = System.currentTimeMillis();
+			actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 			return true;
-		}
-		Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
-		lastActionTime = System.currentTimeMillis();
-		actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
-		return true;
+        }
+
+		return false;
     }
 
     private boolean checkAndClickHighlightedWidgets()
@@ -426,16 +830,48 @@ public class FlipperScript extends Script {
 
 			if (isHighlightedVisible) {
 				log.info("Clicking highlighted widget: {}", highlightedWidget.getId());
+				// If GE close button is highlighted (container 30474242 or close button dynamic child)
+				if (highlightedWidget.getId() == 30474242 && Rs2GrandExchange.isOpen()) {
+					Rs2GrandExchange.closeExchange();
+					sleepUntil(() -> !Rs2GrandExchange.isOpen(), 2500);
+					lastActionTime = currentTime;
+					actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+					return true;
+				}
+				// If Bank close button is highlighted (container 786434 or close button dynamic child)
+				if (highlightedWidget.getId() == 786434 && Rs2Bank.isOpen()) {
+					Rs2Bank.closeBank();
+					sleepUntil(() -> !Rs2Bank.isOpen(), 2500);
+					lastActionTime = currentTime;
+					actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+					return true;
+				}
+				// If GE is on offer screen and has "Too much money!" warning, back out immediately
+				if (isOfferScreenOpen() && Rs2Widget.hasWidget("Too much money")) {
+					log.warn("Offer has 'Too much money!' error. Backing out to GE overview.");
+					backToOverview();
+					return true;
+				}
+
 				Rs2Widget.clickWidget(highlightedWidget);
 				Rs2Random.wait(100, 200);
 				lastActionTime = currentTime;
                 actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 
-				// Sometimes, flipping copilot suggestions cost more than what's available in inventory, we should detect and avoid that
+				if (isOfferScreenOpen()) {
+					offerScreenActionCount++;
+				}
+
+				// If confirming an offer, dismiss any price warning dialog and wait for offer screen to close
 				String[] actions = highlightedWidget.getActions();
-				if (highlightedWidget.getText() != null && highlightedWidget.getText().contains("Confirm") || (actions != null && actions.length > 0 && actions[0].contains("Confirm"))) {
-					if (!sleepUntil(() -> !Rs2GrandExchange.isOfferScreenOpen())) {
-						Rs2GrandExchange.backToOverview();
+				boolean isConfirm = (highlightedWidget.getText() != null && highlightedWidget.getText().contains("Confirm"))
+					|| (actions != null && Arrays.stream(actions).filter(Objects::nonNull).anyMatch(a -> a.contains("Confirm")));
+				if (isConfirm) {
+					if (sleepUntil(() -> Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure"), 1000)) {
+						Rs2Widget.clickWidget("Yes");
+					}
+					if (!sleepUntil(() -> !isOfferScreenOpen(), 4000)) {
+						backToOverview();
 						return false;
 					}
 				}
@@ -448,6 +884,80 @@ public class FlipperScript extends Script {
 			log.error("Could not process highlight widgets: {} - ", e.getMessage(), e);
 		}
 
+		return false;
+	}
+
+	private boolean checkAndInteractHighlightedNpc()
+	{
+		if (Rs2GrandExchange.isOpen() || Rs2Bank.isOpen()) return false;
+		long currentTime = System.currentTimeMillis();
+		if (currentTime - lastActionTime < actionCooldown) return false;
+		if (flippingCopilot == null || highlightController == null) return false;
+
+		try {
+			List<Object> highlightOverlays = getHighlightOverlays(highlightController);
+			if (highlightOverlays == null) return false;
+
+			for (Object overlay : highlightOverlays) {
+				if (overlay != null && overlay.getClass().getSimpleName().contains("NpcHighlightOverlay")) {
+					Field npcField = overlay.getClass().getDeclaredField("npc");
+					npcField.setAccessible(true);
+					NPC npc = (NPC) npcField.get(overlay);
+					if (npc != null) {
+						String name = new Rs2NpcModel(npc).getName();
+						log.info("Found highlighted NPC: {}", name);
+						if (Rs2Npc.hasAction(npc.getId(), "Bank") || (name != null && name.toLowerCase().contains("bank"))) {
+							Rs2Npc.interact(npc, "Bank");
+							sleepUntil(Rs2Bank::isOpen, 3000);
+						} else {
+							Rs2Npc.interact(npc, "Exchange");
+							sleepUntil(Rs2GrandExchange::isOpen, 3000);
+						}
+						lastActionTime = currentTime;
+						actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+						return true;
+					}
+				}
+			}
+		} catch (Exception e) {
+			log.error("Could not interact with highlighted NPC: {}", e.getMessage());
+		}
+		return false;
+	}
+
+	private boolean handleBankIfNeeded()
+	{
+		if (!Rs2Bank.isOpen()) return false;
+
+		Object currentSuggestion = getSuggestion(suggestionManager);
+		if (currentSuggestion != null) {
+			try {
+				Method isSellMethod = currentSuggestion.getClass().getMethod("isSellSuggestion");
+				boolean isSell = (Boolean) isSellMethod.invoke(currentSuggestion);
+				if (isSell) {
+					Method getItemIdMethod = currentSuggestion.getClass().getMethod("getItemId");
+					int itemId = (Integer) getItemIdMethod.invoke(currentSuggestion);
+					Method getQuantityMethod = currentSuggestion.getClass().getMethod("getQuantity");
+					int qty = (Integer) getQuantityMethod.invoke(currentSuggestion);
+
+					int notedId = Rs2ItemModel.getNotedId(itemId);
+					if (Rs2Inventory.hasItem(itemId) && !Rs2Inventory.hasItem(notedId) && qty > 27) {
+						Rs2Bank.depositAll(itemId);
+						sleepUntil(() -> !Rs2Inventory.hasItem(itemId), 2000);
+					}
+					if (Rs2Bank.hasItem(itemId)) {
+						log.info("Withdrawing suggested item from bank: {} qty {}", itemId, qty);
+						Rs2Bank.withdrawX(true, itemId, qty);
+						sleepUntil(() -> Rs2Inventory.hasItem(itemId) || Rs2Inventory.hasItem(notedId), 2500);
+						Rs2Bank.closeBank();
+						sleepUntil(() -> !Rs2Bank.isOpen(), 2500);
+						return true;
+					}
+				}
+			} catch (Exception e) {
+				log.error("Could not handle bank suggestion: {}", e.getMessage());
+			}
+		}
 		return false;
 	}
 }

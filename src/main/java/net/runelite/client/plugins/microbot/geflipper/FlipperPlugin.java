@@ -8,6 +8,8 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
 
+import net.runelite.client.ui.overlay.OverlayManager;
+
 import java.awt.*;
 
 @PluginDescriptor(
@@ -30,19 +32,49 @@ public class FlipperPlugin extends Plugin {
     private FlipperScript flipperScript;
     @Inject
     private net.runelite.client.plugins.microbot.geflipper.FlipperConfig config;
+    @Inject
+    private OverlayManager overlayManager;
+    @Inject
+    private FlipperOverlay overlay;
 
     @Provides
     net.runelite.client.plugins.microbot.geflipper.FlipperConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(FlipperConfig.class);
     }
 
+    private void disableGameChatAppender() {
+        try {
+            org.slf4j.Logger slf4jLogger = org.slf4j.LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+            if (slf4jLogger instanceof ch.qos.logback.classic.Logger) {
+                ch.qos.logback.classic.Logger rootLogger = (ch.qos.logback.classic.Logger) slf4jLogger;
+                java.util.Iterator<ch.qos.logback.core.Appender<ch.qos.logback.classic.spi.ILoggingEvent>> it = rootLogger.iteratorForAppenders();
+                while (it.hasNext()) {
+                    ch.qos.logback.core.Appender<ch.qos.logback.classic.spi.ILoggingEvent> appender = it.next();
+                    if (appender.getClass().getName().contains("GameChatAppender")) {
+                        rootLogger.detachAppender(appender);
+                        appender.stop();
+                    }
+                }
+            }
+            net.runelite.client.plugins.microbot.GameChatAppender.updateConfiguration(false, ch.qos.logback.classic.Level.OFF, false);
+        } catch (Throwable ignored) {
+        }
+    }
+
     @Override
     protected void startUp() throws AWTException{
-        flipperScript.run();
+        disableGameChatAppender();
+        if (overlayManager != null && overlay != null) {
+            overlayManager.add(overlay);
+        }
+        flipperScript.run(config);
     }
 
     @Override
     protected void shutDown() {
+        if (overlayManager != null && overlay != null) {
+            overlayManager.remove(overlay);
+        }
         flipperScript.state = State.GOING_TO_GE;
         flipperScript.shutdown();
     }
