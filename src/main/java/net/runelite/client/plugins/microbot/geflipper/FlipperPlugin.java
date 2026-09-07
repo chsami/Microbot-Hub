@@ -25,7 +25,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.7";
+    public static final String version = "1.2.8";
     @Inject
     private Client client;
     @Inject
@@ -40,10 +40,24 @@ public class FlipperPlugin extends Plugin {
     private OverlayManager overlayManager;
     @Inject
     private FlipperOverlay overlay;
+    @Inject
+    private ConfigManager configManager;
 
     @Provides
     net.runelite.client.plugins.microbot.geflipper.FlipperConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(FlipperConfig.class);
+    }
+
+    private void ensureCopilotSlotActionSwap() {
+        try {
+            if (configManager != null) {
+                String current = configManager.getConfiguration("flippingcopilot", "slotActionSwap");
+                if (!"true".equalsIgnoreCase(current)) {
+                    configManager.setConfiguration("flippingcopilot", "slotActionSwap", true);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     private void disableGameChatAppender() {
@@ -67,6 +81,7 @@ public class FlipperPlugin extends Plugin {
 
     @Override
     protected void startUp() throws AWTException{
+        ensureCopilotSlotActionSwap();
         disableGameChatAppender();
         if (overlayManager != null && overlay != null) {
             overlayManager.add(overlay);

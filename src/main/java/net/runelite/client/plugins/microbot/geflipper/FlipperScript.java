@@ -254,13 +254,20 @@ public class FlipperScript extends Script {
 
 	private boolean initialize()
 	{
-		if (flippingCopilot != null && suggestionManager != null && highlightController != null) return true;
+		if (flippingCopilot != null && suggestionManager != null && highlightController != null) {
+			ensureSlotActionSwapEnabled();
+			return true;
+		}
 
 		Plugin _flippingCopilot = getFlippingCopilot();
 		Object _suggestionManager = getSuggestionManager(_flippingCopilot);
 		Object _highlightController = getHighlightController(_flippingCopilot);
 
-		return _flippingCopilot != null && _suggestionManager != null && _highlightController != null;
+		if (_flippingCopilot != null && _suggestionManager != null && _highlightController != null) {
+			ensureSlotActionSwapEnabled();
+			return true;
+		}
+		return false;
 	}
 
 	private Plugin getFlippingCopilot()
@@ -358,6 +365,20 @@ public class FlipperScript extends Script {
 			}
 		} catch (Exception ignored) {}
 		return true;
+	}
+
+	public void ensureSlotActionSwapEnabled() {
+		try {
+			if (Microbot.getConfigManager() != null) {
+				String val = Microbot.getConfigManager().getConfiguration("flippingcopilot", "slotActionSwap");
+				if (!"true".equalsIgnoreCase(val)) {
+					log.info("Flipping Copilot 'slotActionSwap' is disabled; automatically enabling it in ConfigManager.");
+					Microbot.getConfigManager().setConfiguration("flippingcopilot", "slotActionSwap", true);
+				}
+			}
+		} catch (Exception e) {
+			log.warn("Failed to set flippingcopilot slotActionSwap setting: {}", e.getMessage());
+		}
 	}
 
 	private Widget getOfferScreenAbortButton() {
@@ -769,6 +790,7 @@ public class FlipperScript extends Script {
 			{	
 				if (isAbort)
 				{
+					ensureSlotActionSwapEnabled();
 					boolean slotActionSwap = isSlotActionSwapEnabled();
 					log.info("Executing suggestion ABORT on slot widget {} (slotActionSwap={})", abortWidget.getId(), slotActionSwap);
 					if (slotActionSwap)
@@ -1040,9 +1062,12 @@ public class FlipperScript extends Script {
 						}
 					} catch (Exception ignored) {}
 				}
-				if (isAbortOnSlot && !isSlotActionSwapEnabled()) {
-					log.info("Highlighted GE slot {} for abort with slotActionSwap=false; clicking slot to open offer screen.",
-						highlightedWidget.getId());
+				if (isAbortOnSlot) {
+					ensureSlotActionSwapEnabled();
+					if (!isSlotActionSwapEnabled()) {
+						log.info("Highlighted GE slot {} for abort with slotActionSwap=false; clicking slot to open offer screen.",
+							highlightedWidget.getId());
+					}
 				}
 
 				if (clickBounds != null && Rs2UiHelper.isRectangleWithinCanvas(clickBounds)) {
