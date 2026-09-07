@@ -460,7 +460,7 @@ public class FlipperScript extends Script {
 										m.invoke(offerHandler, v);
 									} catch (Exception ignored) {}
 								});
-								break;
+								return;
 							}
 						}
 					}
@@ -469,19 +469,6 @@ public class FlipperScript extends Script {
 				log.debug("Could not set chatbox value via offerHandler: {}", e.getMessage());
 			}
 		}
-
-		// 2. Direct client-thread update (identical to Copilot's OfferHandler.setChatboxValue)
-		final long finalVal = val;
-		Microbot.getClientThread().invokeLater(() -> {
-			try {
-				Widget widget = Microbot.getClient().getWidget(10616876);
-				if (widget == null) widget = Microbot.getClient().getWidget(162, 44);
-				if (widget != null) {
-					widget.setText(finalVal + "*");
-				}
-				Microbot.getClient().setVarcStrValue(359, String.valueOf(finalVal));
-			} catch (Exception ignored) {}
-		});
 	}
 
 	private Object getSuggestion(Object suggestionManager)
@@ -534,63 +521,109 @@ public class FlipperScript extends Script {
 		}
 	}
 
-	private List<Widget> getHighlightWidgets(Object highlightController)
-	{
-		final List<Widget> highlightWidgets = new ArrayList<>();
-		if (highlightController == null)
-		{
-			return highlightWidgets;
+	public static class HighlightTarget {
+		private final Widget widget;
+		private final Rectangle relativeBounds;
+
+		public HighlightTarget(Widget widget, Rectangle relativeBounds) {
+			this.widget = widget;
+			this.relativeBounds = relativeBounds;
 		}
 
-		List<Object> highlightOverlays = getHighlightOverlays(highlightController);
-		if (highlightOverlays == null) return highlightWidgets;
+		public Widget getWidget() {
+			return widget;
+		}
 
-		for (Object highlightOverlay : highlightOverlays)
-		{
-			try
-			{
+		public Rectangle getRelativeBounds() {
+			return relativeBounds;
+		}
+
+		public Rectangle getClickBounds() {
+			if (widget == null) return null;
+			Rectangle b = widget.getBounds();
+			if (b == null) return null;
+			if (relativeBounds == null) return b;
+			return new Rectangle(b.x + relativeBounds.x, b.y + relativeBounds.y, relativeBounds.width, relativeBounds.height);
+		}
+
+		public boolean isConfirmTarget() {
+			if (widget != null) {
+				String text = widget.getText();
+				if (text != null && text.contains("Confirm")) return true;
+				String[] actions = widget.getActions();
+				if (actions != null && Arrays.stream(actions).filter(Objects::nonNull).anyMatch(a -> a.contains("Confirm"))) {
+					return true;
+				}
+			}
+			if (relativeBounds != null && relativeBounds.width >= 120 && relativeBounds.height >= 30) {
+				return true;
+			}
+			return false;
+		}
+	}
+
+	private List<HighlightTarget> getHighlightTargets(Object highlightController) {
+		List<HighlightTarget> targets = new ArrayList<>();
+		if (highlightController == null) return targets;
+		List<Object> highlightOverlays = getHighlightOverlays(highlightController);
+		if (highlightOverlays == null) return targets;
+
+		for (Object highlightOverlay : highlightOverlays) {
+			if (highlightOverlay == null) continue;
+			try {
 				Field widgetField = highlightOverlay.getClass().getDeclaredField("widget");
 				widgetField.setAccessible(true);
-				highlightWidgets.add((Widget) widgetField.get(highlightOverlay));
-			}
-			catch (NoSuchFieldException e)
-			{
-				// Non-widget overlays like NpcHighlightOverlay are handled separately
-			}
-			catch (Exception e)
-			{
-				log.error("Could not get widget from overlay: {} - ", e.getMessage(), e);
+				Widget widget = (Widget) widgetField.get(highlightOverlay);
+				if (widget == null) continue;
+
+				Rectangle relativeBounds = null;
+				try {
+					Field relBoundsField = highlightOverlay.getClass().getDeclaredField("relativeBounds");
+					relBoundsField.setAccessible(true);
+					relativeBounds = (Rectangle) relBoundsField.get(highlightOverlay);
+				} catch (NoSuchFieldException ignored) {}
+
+				targets.add(new HighlightTarget(widget, relativeBounds));
+			} catch (NoSuchFieldException ignored) {
+			} catch (Exception e) {
+				log.error("Could not get target from overlay: {} - ", e.getMessage(), e);
 			}
 		}
+		return targets;
+	}
 
+	private HighlightTarget getTargetFromOverlay(Object highlightController, String suggestionType) {
+		List<HighlightTarget> targets = getHighlightTargets(highlightController);
+		if (targets.isEmpty()) return null;
+
+		if (Objects.equals(suggestionType, "abort") || Objects.equals(suggestionType, "modify")) {
+			return targets.stream()
+				.filter(t -> t.getWidget() != null)
+				.filter(t -> Arrays.stream(grandExchangeSlotIds).anyMatch(id -> id == t.getWidget().getId()))
+				.findFirst()
+				.orElse(null);
+		} else {
+			return targets.stream()
+				.filter(t -> t.getWidget() != null && Rs2Widget.isWidgetVisible(t.getWidget().getId()))
+				.findFirst()
+				.orElse(null);
+		}
+	}
+
+	private List<Widget> getHighlightWidgets(Object highlightController) {
+		List<HighlightTarget> targets = getHighlightTargets(highlightController);
+		List<Widget> highlightWidgets = new ArrayList<>();
+		for (HighlightTarget target : targets) {
+			if (target.getWidget() != null) {
+				highlightWidgets.add(target.getWidget());
+			}
+		}
 		return highlightWidgets;
 	}
 
-	private Widget getWidgetFromOverlay(Object highlightController, String suggestionType)
-	{
-		List<Object> highlightOverlays = getHighlightOverlays(highlightController);
-		if (highlightOverlays == null || highlightOverlays.isEmpty())
-		{
-			return null;
-		}
-
-		if (Objects.equals(suggestionType, "abort") || Objects.equals(suggestionType, "modify"))
-		{
-			return getHighlightWidgets(highlightController).stream()
-				.filter(Objects::nonNull)
-				// Filter to "home" grand exchange slot widgets
-				.filter(widget -> Arrays.stream(grandExchangeSlotIds).anyMatch(id -> id == widget.getId()))
-				.findFirst()
-				.orElse(null);
-		}
-		else
-		{
-			// For other suggestion types, we can return the first highlighted widget
-			return getHighlightWidgets(highlightController).stream()
-				.filter(Objects::nonNull)
-				.findFirst()
-				.orElse(null);
-		}
+	private Widget getWidgetFromOverlay(Object highlightController, String suggestionType) {
+		HighlightTarget target = getTargetFromOverlay(highlightController, suggestionType);
+		return target != null ? target.getWidget() : null;
 	}
 
 	private boolean checkAndAbortOrModifyIfNeeded()
@@ -795,11 +828,18 @@ public class FlipperScript extends Script {
 					setCopilotChatboxValueDirectly(val);
 					sleepUntil(this::hasChatboxInput, 800);
 				}
+
+				// Fallback: If still not populated, type the value into chatbox
+				if (!hasChatboxInput() && val > 0) {
+					log.info("Typing {} value into chatbox: {}", isPricePrompt ? "price" : "quantity", val);
+					Rs2Keyboard.typeString(String.valueOf(val));
+					sleepUntil(this::hasChatboxInput, 1000);
+				}
 			}
 
 			// Check if chatbox input was successfully populated
 			if (!hasChatboxInput()) {
-				log.warn("Failed to populate {} input! Cancelling prompt and backing out to GE overview.",
+				log.warn("Failed to populate {} input! Cancelling prompt with ESC to prevent chat spam and backing out to GE overview.",
 					isPricePrompt ? "price" : "quantity");
 				Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
 				sleep(200, 400);
@@ -828,11 +868,21 @@ public class FlipperScript extends Script {
 		if (flippingCopilot == null || highlightController == null) return false;
 
 		try {
-			Widget highlightedWidget = getWidgetFromOverlay(highlightController, "");
-			boolean isHighlightedVisible = highlightedWidget != null && Rs2Widget.isWidgetVisible(highlightedWidget.getId());
+			if (Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure")) {
+				log.info("Price warning dialog detected ('Your offer is much' / 'Are you sure'). Clicking 'Yes' to confirm...");
+				Rs2Widget.clickWidget("Yes");
+				lastActionTime = currentTime;
+				actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+				return true;
+			}
 
-			if (isHighlightedVisible) {
-				log.info("Clicking highlighted widget: {}", highlightedWidget.getId());
+			HighlightTarget target = getTargetFromOverlay(highlightController, "");
+			if (target != null && target.getWidget() != null && Rs2Widget.isWidgetVisible(target.getWidget().getId())) {
+				Widget highlightedWidget = target.getWidget();
+				Rectangle clickBounds = target.getClickBounds();
+				log.info("Processing highlighted target: widgetId={}, clickBounds={}, relativeBounds={}",
+					highlightedWidget.getId(), clickBounds, target.getRelativeBounds());
+
 				// If GE close button is highlighted (container 30474242 or close button dynamic child)
 				if (highlightedWidget.getId() == 30474242 && Rs2GrandExchange.isOpen()) {
 					Rs2GrandExchange.closeExchange();
@@ -856,27 +906,34 @@ public class FlipperScript extends Script {
 					return true;
 				}
 
-				Rs2Widget.clickWidget(highlightedWidget);
+				boolean isConfirm = target.isConfirmTarget();
+
+				if (clickBounds != null && Rs2UiHelper.isRectangleWithinCanvas(clickBounds)) {
+					Microbot.getMouse().click(clickBounds);
+				} else {
+					Rs2Widget.clickWidget(highlightedWidget);
+				}
 				Rs2Random.wait(100, 200);
 				lastActionTime = currentTime;
-                actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+				actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 
 				if (isOfferScreenOpen()) {
 					offerScreenActionCount++;
 				}
 
 				// If confirming an offer, dismiss any price warning dialog and wait for offer screen to close
-				String[] actions = highlightedWidget.getActions();
-				boolean isConfirm = (highlightedWidget.getText() != null && highlightedWidget.getText().contains("Confirm"))
-					|| (actions != null && Arrays.stream(actions).filter(Objects::nonNull).anyMatch(a -> a.contains("Confirm")));
 				if (isConfirm) {
-					if (sleepUntil(() -> Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure"), 1000)) {
+					log.info("Clicked Confirm button. Checking for warning dialog or waiting for offer screen to close...");
+					if (sleepUntil(() -> Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure"), 1200)) {
+						log.info("Warning dialog appeared ('Your offer is much' / 'Are you sure'). Confirming 'Yes'...");
 						Rs2Widget.clickWidget("Yes");
 					}
 					if (!sleepUntil(() -> !isOfferScreenOpen(), 4000)) {
+						log.warn("Offer screen did not close after confirm. Backing out to overview.");
 						backToOverview();
 						return false;
 					}
+					log.info("Offer placed successfully; offer screen closed.");
 				}
 
 				return true;
