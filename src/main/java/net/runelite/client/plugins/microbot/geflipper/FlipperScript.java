@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.geflipper;
 
 import com.google.inject.Inject;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.MenuAction;
 import net.runelite.api.NPC;
 import net.runelite.api.coords.WorldArea;
@@ -45,8 +44,8 @@ enum State {
     MONITORING_COPILOT
 }
 
-@Slf4j
 public class FlipperScript extends Script {
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FlipperScript.class);
 	private static final int DEFAULT_ACTION_COOLDOWN = 1200;
 	private static final int ACTION_COOLDOWN_VARIANCE = 600;
 	private static final int DEFAULT_INTERACTION_TIMEOUT = 33000;
@@ -153,21 +152,38 @@ public class FlipperScript extends Script {
 								return;
 							}
 
-							// If on offer screen and Copilot suggests ABORT, abort or back out immediately
+							// If on offer screen and Copilot suggests ABORT, abort via offer screen button
 							if (suggestionManager != null) {
 								try {
 									Object currentSuggestion = getSuggestion(suggestionManager);
 									if (currentSuggestion != null) {
 										Method isAbortMethod = currentSuggestion.getClass().getMethod("isAbortSuggestion");
 										if ((Boolean) isAbortMethod.invoke(currentSuggestion)) {
-											Widget abortBtn = Rs2Widget.findWidget("Abort offer");
+											Widget abortBtn = getOfferScreenAbortButton();
 											if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
 												log.info("Aborting offer via offer screen button '{}'", abortBtn.getId());
 												Rs2Widget.clickWidget(abortBtn);
-												sleep(200, 400);
+												sleep(300, 500);
+
+												// Check for confirmation dialog ('Are you sure...')
+												if (sleepUntil(() -> Rs2Widget.hasWidget("Are you sure") || Rs2Widget.hasWidget("Your offer is much"), 1200)) {
+													log.info("Abort confirmation dialog detected. Confirming 'Yes'...");
+													Rs2Widget.clickWidget("Yes");
+													sleep(200, 400);
+												}
+
+												// Wait for abort to register, then back to overview
+												sleepUntil(() -> !isOfferScreenOpen() || getOfferScreenAbortButton() == null, 2500);
 												backToOverview();
 											} else {
-												log.info("Abort suggested while on offer screen - backing out to overview.");
+												// Check if already aborted / cancelled on offer screen
+												Widget statusWidget = Rs2Widget.getWidget(InterfaceID.GeOffers.DETAILS_STATUS);
+												String statusText = statusWidget != null ? statusWidget.getText() : "";
+												if (statusText != null && (statusText.toLowerCase().contains("cancelled") || statusText.toLowerCase().contains("aborted"))) {
+													log.info("Offer already cancelled on offer screen. Returning to overview.");
+												} else {
+													log.warn("Abort button not found on offer screen. Returning to overview.");
+												}
 												backToOverview();
 											}
 											lastActionTime = currentTime;
@@ -316,6 +332,99 @@ public class FlipperScript extends Script {
 		offerScreenActionCount = 0;
 		lastActionTime = System.currentTimeMillis();
 		actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+	}
+
+	public boolean isSlotActionSwapEnabled() {
+		if (flippingCopilot != null) {
+			try {
+				Field cfgField = flippingCopilot.getClass().getDeclaredField("config");
+				cfgField.setAccessible(true);
+				Object copilotConfig = cfgField.get(flippingCopilot);
+				if (copilotConfig != null) {
+					Method m = copilotConfig.getClass().getMethod("slotActionSwap");
+					Object val = m.invoke(copilotConfig);
+					if (val instanceof Boolean) {
+						return (Boolean) val;
+					}
+				}
+			} catch (Exception ignored) {}
+		}
+		try {
+			if (Microbot.getConfigManager() != null) {
+				String val = Microbot.getConfigManager().getConfiguration("flippingcopilot", "slotActionSwap");
+				if (val != null) {
+					return Boolean.parseBoolean(val);
+				}
+			}
+		} catch (Exception ignored) {}
+		return true;
+	}
+
+	private Widget getOfferScreenAbortButton() {
+		// 1. Direct widget ID for abort button on GE offer details screen (Interface 465, child 22 / DETAILS_GRAPHIC6)
+		Widget abortBtn = Rs2Widget.getWidget(InterfaceID.GeOffers.DETAILS_GRAPHIC6);
+		if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
+			return abortBtn;
+		}
+		abortBtn = Rs2Widget.getWidget(InterfaceID.GE_OFFERS, 22);
+		if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
+			return abortBtn;
+		}
+
+		// 2. Search for any widget within GE_OFFERS with an "Abort" action
+		try {
+			java.util.Map<Widget, String> actionWidgets = Rs2Widget.findWidgetsWithAction("Abort", InterfaceID.GE_OFFERS, false);
+			if (actionWidgets != null && !actionWidgets.isEmpty()) {
+				for (Widget w : actionWidgets.keySet()) {
+					if (w != null && Rs2Widget.isWidgetVisible(w.getId())) {
+						return w;
+					}
+				}
+			}
+		} catch (Exception ignored) {}
+
+		// 3. Search children of DETAILS container (InterfaceID.GeOffers.DETAILS)
+		try {
+			Widget detailsContainer = Rs2Widget.getWidget(InterfaceID.GeOffers.DETAILS);
+			if (detailsContainer != null) {
+				Widget[] children = detailsContainer.getChildren();
+				if (children != null) {
+					for (Widget child : children) {
+						if (child != null && Rs2Widget.isWidgetVisible(child.getId()) && child.getActions() != null) {
+							for (String action : child.getActions()) {
+								if (action != null && action.toLowerCase().contains("abort")) {
+									return child;
+								}
+							}
+						}
+					}
+				}
+				Widget[] dynamicChildren = detailsContainer.getDynamicChildren();
+				if (dynamicChildren != null) {
+					for (Widget child : dynamicChildren) {
+						if (child != null && Rs2Widget.isWidgetVisible(child.getId()) && child.getActions() != null) {
+							for (String action : child.getActions()) {
+								if (action != null && action.toLowerCase().contains("abort")) {
+									return child;
+								}
+							}
+						}
+					}
+				}
+			}
+		} catch (Exception ignored) {}
+
+		// 4. Search by widget text as final fallback
+		abortBtn = Rs2Widget.findWidget("Abort offer");
+		if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
+			return abortBtn;
+		}
+		abortBtn = Rs2Widget.findWidget("Abort");
+		if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
+			return abortBtn;
+		}
+
+		return null;
 	}
 
 	private boolean hasChatboxInput() {
@@ -660,20 +769,32 @@ public class FlipperScript extends Script {
 			{	
 				if (isAbort)
 				{
-					log.info("Executing suggestion ABORT: sending Abort offer on slot widget {}", abortWidget.getId());
-					NewMenuEntry abortEntry = new NewMenuEntry()
-						.option("Abort offer")
-						.target("")
-						.identifier(2)
-						.type(MenuAction.CC_OP)
-						.param0(2)
-						.param1(abortWidget.getId())
-						.itemId(-1)
-						.forceLeftClick(false);
-					Rectangle bounds = abortWidget.getBounds() != null && Rs2UiHelper.isRectangleWithinCanvas(abortWidget.getBounds())
-						? abortWidget.getBounds()
-						: Rs2UiHelper.getDefaultRectangle();
-					Microbot.doInvoke(abortEntry, bounds);
+					boolean slotActionSwap = isSlotActionSwapEnabled();
+					log.info("Executing suggestion ABORT on slot widget {} (slotActionSwap={})", abortWidget.getId(), slotActionSwap);
+					if (slotActionSwap)
+					{
+						NewMenuEntry abortEntry = new NewMenuEntry()
+							.option("Abort offer")
+							.target("")
+							.identifier(2)
+							.type(MenuAction.CC_OP)
+							.param0(2)
+							.param1(abortWidget.getId())
+							.itemId(-1)
+							.forceLeftClick(false);
+						Rectangle bounds = abortWidget.getBounds() != null && Rs2UiHelper.isRectangleWithinCanvas(abortWidget.getBounds())
+							? abortWidget.getBounds()
+							: Rs2UiHelper.getDefaultRectangle();
+						Microbot.doInvoke(abortEntry, bounds);
+					}
+					else
+					{
+						// When slotActionSwap is OFF, left-clicking the slot widget in OSRS opens "View offer".
+						// We open the offer screen and let getOfferScreenAbortButton perform the abort reliably.
+						log.info("slotActionSwap is disabled: opening slot widget {} to abort from offer screen.", abortWidget.getId());
+						Rs2Widget.clickWidget(abortWidget);
+						sleepUntil(this::isOfferScreenOpen, 2500);
+					}
 					lastActionTime = System.currentTimeMillis();
 					actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 					return true;
@@ -908,6 +1029,22 @@ public class FlipperScript extends Script {
 
 				boolean isConfirm = target.isConfirmTarget();
 
+				boolean isSlotWidget = Arrays.stream(grandExchangeSlotIds).anyMatch(id -> id == highlightedWidget.getId());
+				boolean isAbortOnSlot = false;
+				if (isSlotWidget && suggestionManager != null) {
+					try {
+						Object currentSuggestion = getSuggestion(suggestionManager);
+						if (currentSuggestion != null) {
+							Method isAbortMethod = currentSuggestion.getClass().getMethod("isAbortSuggestion");
+							isAbortOnSlot = (Boolean) isAbortMethod.invoke(currentSuggestion);
+						}
+					} catch (Exception ignored) {}
+				}
+				if (isAbortOnSlot && !isSlotActionSwapEnabled()) {
+					log.info("Highlighted GE slot {} for abort with slotActionSwap=false; clicking slot to open offer screen.",
+						highlightedWidget.getId());
+				}
+
 				if (clickBounds != null && Rs2UiHelper.isRectangleWithinCanvas(clickBounds)) {
 					Microbot.getMouse().click(clickBounds);
 				} else {
@@ -916,6 +1053,10 @@ public class FlipperScript extends Script {
 				Rs2Random.wait(100, 200);
 				lastActionTime = currentTime;
 				actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+
+				if (isAbortOnSlot && !isSlotActionSwapEnabled()) {
+					sleepUntil(this::isOfferScreenOpen, 2500);
+				}
 
 				if (isOfferScreenOpen()) {
 					offerScreenActionCount++;

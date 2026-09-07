@@ -25,11 +25,15 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.6";
+    public static final String version = "1.2.7";
     @Inject
     private Client client;
     @Inject
     private FlipperScript flipperScript;
+
+    public FlipperScript getFlipperScript() {
+        return flipperScript;
+    }
     @Inject
     private net.runelite.client.plugins.microbot.geflipper.FlipperConfig config;
     @Inject
