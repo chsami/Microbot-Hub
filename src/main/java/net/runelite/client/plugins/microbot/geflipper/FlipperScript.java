@@ -369,6 +369,9 @@ public class FlipperScript extends Script {
 
 	public void ensureSlotActionSwapEnabled() {
 		try {
+			if (config != null && !config.autoEnableSlotSwap()) {
+				return;
+			}
 			if (Microbot.getConfigManager() != null) {
 				String val = Microbot.getConfigManager().getConfiguration("flippingcopilot", "slotActionSwap");
 				if (!"true".equalsIgnoreCase(val)) {

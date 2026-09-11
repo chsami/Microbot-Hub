@@ -58,4 +58,17 @@ public interface FlipperConfig extends Config {
     default boolean showOverlay() {
         return true;
     }
+
+    @ConfigItem(
+        keyName = "autoEnableSlotSwap",
+        name = "Auto-Enable Copilot Slot Swap",
+        description = "Automatically turn on Flipping Copilot's 'Swap slot left-click action' setting, " +
+            "so offers can be aborted straight from the Grand Exchange overview. " +
+            "<br>Turn this OFF if you also hand-flip and want left-clicking a GE slot to open the offer screen. " +
+            "<br>When off, the plugin respects your Copilot setting and falls back to aborting from the offer details screen.",
+        position = 3
+    )
+    default boolean autoEnableSlotSwap() {
+        return true;
+    }
 }
