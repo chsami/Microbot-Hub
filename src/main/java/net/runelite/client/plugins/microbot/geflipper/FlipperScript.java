@@ -211,8 +211,14 @@ public class FlipperScript extends Script {
 								} catch (Exception ignored) {}
 							}
 
-							// If stuck on offer screen for > 30 seconds or after 10 repeated actions without closing
-							if (currentTime - offerScreenOpenTime > 30000 || offerScreenActionCount >= 10) {
+							// If nothing at all has been actioned on the open offer screen, the
+							// script is waiting on Copilot rather than making progress. Seen when
+							// Copilot flips its suggestion to COLLECT while the offer screen is
+							// open: Collect is a GE-overview action, so no highlight on the offer
+							// screen can ever match it. Recover in 10s instead of holding the
+							// screen (and the offer slot) for the full 30s.
+							long stuckLimitMs = offerScreenActionCount == 0 ? 10000 : 30000;
+							if (currentTime - offerScreenOpenTime > stuckLimitMs || offerScreenActionCount >= 10) {
 								log.warn("Offer screen stuck (openTime={}ms, actions={}). Backing out to GE overview.",
 									currentTime - offerScreenOpenTime, offerScreenActionCount);
 								backToOverview();
