@@ -159,7 +159,7 @@ public class FlipperScript extends Script {
 									if (currentSuggestion != null) {
 										Method isAbortMethod = currentSuggestion.getClass().getMethod("isAbortSuggestion");
 										if ((Boolean) isAbortMethod.invoke(currentSuggestion)) {
-											Widget abortBtn = getOfferScreenAbortButton();
+											Widget abortBtn = waitForOfferScreenAbortButton(2000);
 											if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
 												log.info("Aborting offer via offer screen button '{}'", abortBtn.getId());
 												Rs2Widget.clickWidget(abortBtn);
@@ -181,6 +181,10 @@ public class FlipperScript extends Script {
 												String statusText = statusWidget != null ? statusWidget.getText() : "";
 												if (statusText != null && (statusText.toLowerCase().contains("cancelled") || statusText.toLowerCase().contains("aborted"))) {
 													log.info("Offer already cancelled on offer screen. Returning to overview.");
+												} else if (isAbortSuggestionSettled(currentSuggestion)) {
+													// Copilot drops the abort suggestion as soon as the abort
+													// registers, so a changed suggestion means the work is done.
+													log.info("Abort suggestion already satisfied; no abort button needed. Returning to overview.");
 												} else {
 													log.warn("Abort button not found on offer screen. Returning to overview.");
 												}
@@ -449,6 +453,39 @@ public class FlipperScript extends Script {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Poll for the abort button instead of checking once. The GE details screen renders a
+	 * tick or two after the slot click, so a single instant lookup reports a false
+	 * "button not found" and the script backs out of a screen it could have used.
+	 */
+	private Widget waitForOfferScreenAbortButton(long timeoutMs) {
+		long deadline = System.currentTimeMillis() + timeoutMs;
+		Widget btn = getOfferScreenAbortButton();
+		while (btn == null && System.currentTimeMillis() < deadline) {
+			sleep(100, 200);
+			btn = getOfferScreenAbortButton();
+		}
+		return btn;
+	}
+
+	/**
+	 * True when Copilot has already moved past the abort we were asked to perform.
+	 * Copilot drops the abort suggestion as soon as the abort registers, so if the
+	 * current suggestion is no longer an abort there is nothing left to click and the
+	 * missing button is expected - not a fault worth warning about.
+	 */
+	private boolean isAbortSuggestionSettled(Object previousSuggestion) {
+		if (suggestionManager == null) return false;
+		try {
+			Object current = getSuggestion(suggestionManager);
+			if (current == null) return true;
+			Method isAbortMethod = current.getClass().getMethod("isAbortSuggestion");
+			return !((Boolean) isAbortMethod.invoke(current));
+		} catch (Exception e) {
+			return false;
+		}
 	}
 
 	private boolean hasChatboxInput() {
@@ -1093,11 +1130,30 @@ public class FlipperScript extends Script {
 				// If confirming an offer, dismiss any price warning dialog and wait for offer screen to close
 				if (isConfirm) {
 					log.info("Clicked Confirm button. Checking for warning dialog or waiting for offer screen to close...");
-					if (sleepUntil(() -> Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure"), 1200)) {
-						log.info("Warning dialog appeared ('Your offer is much' / 'Are you sure'). Confirming 'Yes'...");
-						Rs2Widget.clickWidget("Yes");
+					// The price warning dialog can appear later than the first check. Keep
+					// looking for it for the whole wait: if it is left on screen the offer
+					// screen never closes and the offer is abandoned.
+					long confirmDeadline = System.currentTimeMillis() + 6000;
+					boolean offerScreenClosed = false;
+					while (System.currentTimeMillis() < confirmDeadline) {
+						if (Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure")) {
+							log.info("Warning dialog appeared ('Your offer is much' / 'Are you sure'). Confirming 'Yes'...");
+							Rs2Widget.clickWidget("Yes");
+							sleep(300, 500);
+							continue;
+						}
+						if (!isOfferScreenOpen()) {
+							offerScreenClosed = true;
+							break;
+						}
+						sleep(100, 200);
 					}
-					if (!sleepUntil(() -> !isOfferScreenOpen(), 4000)) {
+					if (!offerScreenClosed && (Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure"))) {
+						log.info("Warning dialog still open at timeout; confirming 'Yes' and rechecking.");
+						Rs2Widget.clickWidget("Yes");
+						offerScreenClosed = sleepUntil(() -> !isOfferScreenOpen(), 2000);
+					}
+					if (!offerScreenClosed) {
 						log.warn("Offer screen did not close after confirm. Backing out to overview.");
 						backToOverview();
 						return false;
