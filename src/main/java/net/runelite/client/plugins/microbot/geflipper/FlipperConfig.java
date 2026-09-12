@@ -7,11 +7,27 @@ import net.runelite.client.config.ConfigItem;
 @ConfigGroup("Flipper Config")
 public interface FlipperConfig extends Config {
 
-        @ConfigItem(
-            keyName = "guide",
-            name = "How to use",
-            description = "How to use this plugin",
-            position = 0
+    enum SelectionMethod {
+        HOTKEY("Hotkey (E)"),
+        MOUSE("Mouse");
+
+        private final String name;
+
+        SelectionMethod(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
+    @ConfigItem(
+        keyName = "guide",
+        name = "How to use",
+        description = "How to use this plugin",
+        position = 0
     )
     default String GUIDE() {
         return "Automates the Flipping copilot plugin from the plugin hub,  \n" +
@@ -22,5 +38,37 @@ public interface FlipperConfig extends Config {
         "~made by chocken   \n" +
         "Extra tip: In game settings, disable grand exchange warnings for offers with the price too low/high, otherwise the script will get stuck.";
     }
-    
+
+    @ConfigItem(
+        keyName = "selectionMethod",
+        name = "Suggestion Selection",
+        description = "Choose whether to use the hotkey (E) or mouse clicks to select what Copilot suggests",
+        position = 1
+    )
+    default SelectionMethod selectionMethod() {
+        return SelectionMethod.HOTKEY;
+    }
+
+    @ConfigItem(
+        keyName = "showOverlay",
+        name = "Show Overlay",
+        description = "Display profit and GP/hr overlay on the top-left of the screen",
+        position = 2
+    )
+    default boolean showOverlay() {
+        return true;
+    }
+
+    @ConfigItem(
+        keyName = "autoEnableSlotSwap",
+        name = "Auto-Enable Copilot Slot Swap",
+        description = "Automatically turn on Flipping Copilot's 'Swap slot left-click action' setting, " +
+            "so offers can be aborted straight from the Grand Exchange overview. " +
+            "<br>Turn this OFF if you also hand-flip and want left-clicking a GE slot to open the offer screen. " +
+            "<br>When off, the plugin respects your Copilot setting and falls back to aborting from the offer details screen.",
+        position = 3
+    )
+    default boolean autoEnableSlotSwap() {
+        return true;
+    }
 }
