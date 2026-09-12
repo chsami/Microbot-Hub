@@ -16,6 +16,7 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
+import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.InteractOrder;
@@ -150,9 +151,16 @@ public class AutoWoodcuttingScript extends Script {
         WoodcuttingTree treeType = getActiveTree();
         Rs2TileObjectModel tree = null;
         if (config.HardwoodTreePatch()) {
+            // Fossil Island hardwood patches keep the same base object IDs across states
+            // (grown / stump / empty). Only interact when "Chop down" is actually available.
             var patchIds = List.of(30480, 30481, 30482);
+            String chopAction = treeType.getAction();
             tree = rs2TileObjectCache.query()
                     .where(x -> patchIds.contains(x.getId()))
+                    .where(x -> {
+                        var composition = x.getObjectComposition();
+                        return composition != null && Rs2GameObject.hasAction(composition, chopAction);
+                    })
                     .nearest();
         } else {
             tree = rs2TileObjectCache.query().within(getInitialPlayerLocation(), config.distanceToStray()).withName(treeType.getName()).nearestOnClientThread();
