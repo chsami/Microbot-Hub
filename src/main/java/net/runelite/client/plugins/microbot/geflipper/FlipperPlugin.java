@@ -25,7 +25,8 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.54";
+    public static final String version = "1.2.55";
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FlipperPlugin.class);
     @Inject
     private Client client;
     @Inject
@@ -59,17 +60,25 @@ public class FlipperPlugin extends Plugin {
             if (cfg == null) {
                 try {
                     cfg = configManager.getConfig(FlipperConfig.class);
-                } catch (Throwable ignored) {
+                } catch (Throwable e) {
+                    log.info("slotActionSwap auto-enable: could not read the flipper config: {}", e.toString());
                 }
             }
+            String current = configManager.getConfiguration("flippingcopilot", "slotActionSwap");
+            // Logged on every start: this check used to fail silently, so a toggle that
+            // did not take effect left no evidence of why.
+            log.info("slotActionSwap auto-enable check: toggle={}, current={}",
+                cfg == null ? "unreadable" : String.valueOf(cfg.autoEnableSlotSwap()), current);
             if (cfg != null && !cfg.autoEnableSlotSwap()) {
+                log.info("slotActionSwap auto-enable is disabled by configuration; leaving it as '{}'.", current);
                 return;
             }
-            String current = configManager.getConfiguration("flippingcopilot", "slotActionSwap");
             if (!"true".equalsIgnoreCase(current)) {
+                log.info("Enabling Flipping Copilot 'slotActionSwap' (was '{}').", current);
                 configManager.setConfiguration("flippingcopilot", "slotActionSwap", true);
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable e) {
+            log.info("slotActionSwap auto-enable failed: {}", e.toString());
         }
     }
 

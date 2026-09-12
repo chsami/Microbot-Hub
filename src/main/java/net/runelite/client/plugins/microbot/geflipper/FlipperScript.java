@@ -52,6 +52,9 @@ public class FlipperScript extends Script {
 	private static final int INTERACTION_TIMEOUT_VARIANCE = 11000;
 	private static final int INVENTORY_WAIT_TIMEOUT = 5000;
 	private static final int SCHEDULE_INTERVAL_MS = 600;
+	// A closed exchange or a stray GE page used to stall this state machine silently.
+	private static final int GE_CLOSED_RECOVER_MS = 4000;
+	private static final int STRAY_PAGE_RECOVER_MS = 8000;
 	private static final int KEY_PRESS_DELAY_MIN = 250;
 	private static final int KEY_PRESS_DELAY_MAX = 400;
 
@@ -66,6 +69,8 @@ public class FlipperScript extends Script {
 	private long interactionTimeout = DEFAULT_INTERACTION_TIMEOUT;
 	private long offerScreenOpenTime = 0;
 	private int offerScreenActionCount = 0;
+	private long geClosedSince = 0;
+	private long strayPageSince = 0;
 
 	private int[] grandExchangeSlotIds = new int[] {
 		InterfaceID.GeOffers.INDEX_0,
@@ -151,7 +156,53 @@ public class FlipperScript extends Script {
                     case MONITORING_COPILOT:
 						long currentTime = System.currentTimeMillis();
 
-						// 0. Offer screen watchdog & loop detection
+						// 0a. Grand Exchange watchdog: this state had no way back from a closed
+						// exchange - GOING_TO_GE was only set on shutdown/startup - so a closed or
+						// hidden GE stalled the bot indefinitely and silently. Reopen it directly.
+						if (!Rs2GrandExchange.isOpen() && !Rs2Bank.isOpen()) {
+							if (geClosedSince == 0) {
+								geClosedSince = currentTime;
+							} else if (currentTime - geClosedSince > GE_CLOSED_RECOVER_MS) {
+								long closedFor = currentTime - geClosedSince;
+								geClosedSince = 0;
+								log.info("Grand Exchange closed for {}ms while running; reopening it.", closedFor);
+								if (!Rs2GrandExchange.openExchange()) {
+									log.info("Exchange could not be opened from here; walking to the Grand Exchange.");
+									state = State.GOING_TO_GE;
+								} else {
+									sleepUntil(Rs2GrandExchange::isOpen, 3000);
+								}
+								lastActionTime = System.currentTimeMillis();
+								actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+								return;
+							}
+						} else {
+							geClosedSince = 0;
+						}
+
+						// 0b. Stray GE page watchdog: a mistimed click can open a GE info page
+						// (for example the Convenience Fees text) which hides the offer list.
+						// Nothing on that page is actionable, Copilot highlights nothing, and the
+						// script would otherwise idle silently forever. Escape back to the list.
+						if (Rs2GrandExchange.isOpen() && !isOfferScreenOpen()
+							&& !Rs2Widget.hasWidget("Select an offer slot")) {
+							if (strayPageSince == 0) {
+								strayPageSince = currentTime;
+							} else if (currentTime - strayPageSince > STRAY_PAGE_RECOVER_MS) {
+								long strayFor = currentTime - strayPageSince;
+								strayPageSince = 0;
+								log.info("GE is showing a non-offer page for {}ms; escaping back to the offer list.", strayFor);
+								Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
+								sleep(300, 600);
+								lastActionTime = System.currentTimeMillis();
+								actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+								return;
+							}
+						} else {
+							strayPageSince = 0;
+						}
+
+							// 0. Offer screen watchdog & loop detection
 						if (isOfferScreenOpen()) {
 							if (offerScreenOpenTime == 0) {
 								offerScreenOpenTime = currentTime;
