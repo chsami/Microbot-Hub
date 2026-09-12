@@ -112,7 +112,14 @@ public class FlipperScript extends Script {
                              state = State.MONITORING_COPILOT;
                              return;
                         }
-						WorldPoint playerLocation = Rs2Player.getWorldLocation();
+						WorldPoint playerLocation;
+						try {
+							playerLocation = Rs2Player.getWorldLocation();
+						} catch (Exception e) {
+							// localPlayer is not populated yet on the first ticks after login,
+							// so the call throws inside Rs2Player. Retry next tick.
+							return;
+						}
 						if (playerLocation == null) return;
                         if (!grandExchangeArea.contains(playerLocation)) {
                             Rs2GrandExchange.walkToGrandExchange();
@@ -1115,6 +1122,24 @@ public class FlipperScript extends Script {
 					if (!isSlotActionSwapEnabled()) {
 						log.info("Highlighted GE slot {} for abort with slotActionSwap=false; clicking slot to open offer screen.",
 							highlightedWidget.getId());
+					}
+				}
+
+				if (isConfirm) {
+					// Copilot rebuilds its highlight list every tick, so a target captured
+					// mid-tick can carry bounds that are stale by the time we act. Let the
+					// offer screen settle, re-verify the widget is still there, and re-read
+					// the click area so the click cannot land where the button used to be.
+					// This costs ~300ms per offer and only on the Confirm step.
+					sleep(250, 400);
+					if (!Rs2Widget.isWidgetVisible(highlightedWidget.getId())) {
+						log.info("Confirm target {} no longer visible; skipping stale highlight.",
+							highlightedWidget.getId());
+						return false;
+					}
+					Rectangle refreshedBounds = target.getClickBounds();
+					if (refreshedBounds != null) {
+						clickBounds = refreshedBounds;
 					}
 				}
 
