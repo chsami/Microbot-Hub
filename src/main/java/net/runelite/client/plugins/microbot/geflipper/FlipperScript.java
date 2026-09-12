@@ -112,12 +112,18 @@ public class FlipperScript extends Script {
                              state = State.MONITORING_COPILOT;
                              return;
                         }
+						// The script can tick before the player object exists (the first
+						// moments after login). Calling into Rs2Player then throws inside
+						// ClientThread, which logs an ERROR even when the caller catches it,
+						// so wait for the player to exist before asking for its location.
+						if (Microbot.getClient() == null || Microbot.getClient().getLocalPlayer() == null) {
+							return;
+						}
 						WorldPoint playerLocation;
 						try {
 							playerLocation = Rs2Player.getWorldLocation();
 						} catch (Exception e) {
-							// localPlayer is not populated yet on the first ticks after login,
-							// so the call throws inside Rs2Player. Retry next tick.
+							// Backstop for other transient player states; retry next tick.
 							return;
 						}
 						if (playerLocation == null) return;
