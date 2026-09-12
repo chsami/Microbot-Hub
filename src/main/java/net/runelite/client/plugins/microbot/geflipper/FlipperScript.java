@@ -726,6 +726,14 @@ public class FlipperScript extends Script {
 				}
 			}
 			if (relativeBounds != null && relativeBounds.width >= 120 && relativeBounds.height >= 30) {
+				// Size alone does not identify the Confirm button: Copilot also highlights
+				// wide chatbox widgets, and clicking one of those instead of Confirm leaves
+				// the offer screen open until it times out ("offer screen did not close
+				// after confirm"). The GE Confirm button lives on the offer screen
+				// interface, so require that before trusting the size heuristic.
+				if (widget == null || (widget.getId() >> 16) != InterfaceID.GE_OFFERS) {
+					return false;
+				}
 				return true;
 			}
 			return false;
