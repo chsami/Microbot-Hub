@@ -25,7 +25,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.53";
+    public static final String version = "1.2.54";
     @Inject
     private Client client;
     @Inject
@@ -50,11 +50,24 @@ public class FlipperPlugin extends Plugin {
 
     private void ensureCopilotSlotActionSwap() {
         try {
-            if (configManager != null) {
-                String current = configManager.getConfiguration("flippingcopilot", "slotActionSwap");
-                if (!"true".equalsIgnoreCase(current)) {
-                    configManager.setConfiguration("flippingcopilot", "slotActionSwap", true);
+            if (configManager == null) return;
+            // This setting has TWO writers: this startup hook and
+            // FlipperScript.ensureSlotActionSwapEnabled(). Both must honour the
+            // user's toggle, or turning it off has no effect - the startup hook
+            // ran first and silently re-enabled the setting.
+            FlipperConfig cfg = config;
+            if (cfg == null) {
+                try {
+                    cfg = configManager.getConfig(FlipperConfig.class);
+                } catch (Throwable ignored) {
                 }
+            }
+            if (cfg != null && !cfg.autoEnableSlotSwap()) {
+                return;
+            }
+            String current = configManager.getConfiguration("flippingcopilot", "slotActionSwap");
+            if (!"true".equalsIgnoreCase(current)) {
+                configManager.setConfiguration("flippingcopilot", "slotActionSwap", true);
             }
         } catch (Throwable ignored) {
         }
