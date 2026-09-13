@@ -176,7 +176,8 @@ public class TrialsScript {
             if (info.Location == TrialLocations.TemporTantrum && info.Rank == TrialRanks.Marlin
                     && (target.equals(new WorldPoint(3002, 2788, 0))
                         || target.equals(new WorldPoint(3096, 2775, 0))
-                        || target.equals(new WorldPoint(3028, 2815, 0)))) arrivalRadius = 1;
+                        || target.equals(new WorldPoint(3028, 2815, 0))
+                        || target.equals(new WorldPoint(3037, 2761, 0)))) arrivalRadius = 1;
             if (rapidTarget != null) arrivalRadius = 1;
             if (distance <= arrivalRadius) {
                 lastVisitedIndex = currentWaypointIndex;
@@ -200,7 +201,8 @@ public class TrialsScript {
     private WorldPoint preferredRapid(WorldPoint target, WorldPoint boatPos, TrialInfo info, TrialRoute route) {
         if (info.Rank == TrialRanks.Marlin && (target.equals(new WorldPoint(3002, 2788, 0))
                 || target.equals(new WorldPoint(3096, 2775, 0))
-                || target.equals(new WorldPoint(3028, 2815, 0)))) return null;
+                || target.equals(new WorldPoint(3028, 2815, 0))
+                || target.equals(new WorldPoint(3037, 2761, 0)))) return null;
         if (info.Location != TrialLocations.TemporTantrum) return null;
         boolean finalMarlinLap = info.Rank == TrialRanks.Marlin
                 && currentWaypointIndex >= route.getInterpolatedIndex(45);

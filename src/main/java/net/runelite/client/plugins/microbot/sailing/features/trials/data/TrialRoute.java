@@ -264,7 +264,7 @@ public class TrialRoute {
                                         /*54*/new WorldPoint(2983, 2787, 0),
                                         /*55*/new WorldPoint(2987, 2777, 0),
                                         /*56*/new WorldPoint(3004, 2768, 0),
-                                        /*57*/new WorldPoint(3039, 2758, 0),
+                                        /*57*/new WorldPoint(3037, 2761, 0), // final lap supplies
                                         /*58*/new WorldPoint(3056, 2761, 0),
                                         /*59*/new WorldPoint(3068, 2766, 0),
                                         /*60*/new WorldPoint(3090, 2764, 0),
