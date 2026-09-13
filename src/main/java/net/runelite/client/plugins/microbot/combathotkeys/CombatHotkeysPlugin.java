@@ -97,6 +97,8 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
     // silently drops our call.  A plugin-owned executor has no such contention.
     // -------------------------------------------------------------------------
     private ExecutorService hotkeyExecutor;
+    private int heldThrallKey = -1;
+    private final java.util.concurrent.atomic.AtomicBoolean thrallPending = new java.util.concurrent.atomic.AtomicBoolean();
 
     @Inject
     private CombatHotkeysConfig config;
@@ -142,6 +144,7 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
 
     @Override
     protected void shutDown() {
+        heldThrallKey = -1;
         script.shutdown();
         keyManager.unregisterKeyListener(this);
         overlayManager.remove(overlay);
@@ -340,6 +343,32 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
         // ------------------------------------------------------------------
         // ALCHEMY
         // ------------------------------------------------------------------
+        if (config.summonThrallKey().matches(e)) {
+            e.consume();
+            if (heldThrallKey != e.getKeyCode()) {
+                heldThrallKey = e.getKeyCode();
+                if (thrallPending.compareAndSet(false, true)) {
+                    recordKeyHit("summonThrall");
+                    final var thrall = config.selectedThrall();
+                    if (hotkeyExecutor == null || hotkeyExecutor.isShutdown()) {
+                        thrallPending.set(false);
+                    } else {
+                        dispatch("summon " + thrall, () -> {
+                            try {
+                                if (!Microbot.isLoggedIn() || Thread.currentThread().isInterrupted()) return;
+                                if (!net.runelite.client.plugins.microbot.util.magic.thralls.Rs2Thrall.cast(thrall)) {
+                                    lastError.set("Thrall not cast: check spellbook, level, book, runes, prayer and cooldown.");
+                                    log.info("[CombatHotkeys] {} not cast: requirements or cooldown", thrall);
+                                }
+                            } finally {
+                                thrallPending.set(false);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
         if (config.highAlchemyKey().matches(e)) {
             recordKeyHit("highAlchemy");
             e.consume();
@@ -371,7 +400,9 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
     }
 
     @Override
-    public void keyReleased(KeyEvent e) {}
+    public void keyReleased(KeyEvent e) {
+        if (e.getKeyCode() == heldThrallKey) heldThrallKey = -1;
+    }
 
     // -------------------------------------------------------------------------
     // MENU ENTRY EVENTS (dance tile marking)
