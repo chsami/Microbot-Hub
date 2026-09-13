@@ -42,6 +42,22 @@ import net.runelite.client.plugins.microbot.farmtreerun.enums.TreeEnums;
         "<br><br> The tree order is as follows: GS Fruit → GS Tree → TGV Fruit → Farming Guild Tree → Farming Guild Fruit → Taverley → Falador → Lumbridge → Varrock → Brimhaven Fruit → Catherby Fruit → Fossil A/B/C → Lletya Fruit → Auburnvale Tree → Kastori Fruit → Avium Savannah Hardwood. <br><br>Patches are listed in the order they will be attended filtered by type\n"
 )
 public interface FarmTreeRunConfig extends Config {
+    @ConfigSection(name = "Travel supplies", description = "Prepare transport items; routes follow WebWalker settings", position = 12)
+    String travelSection = "travelSupplies";
+    @ConfigItem(keyName = "preferHouseTravel", name = "Prefer Nexus / house fairy ring", description = "Bring 10 house tablets. Prefer a saved Nexus exit within 120 tiles of the patch, then a house fairy ring exit. Requires PoH Web Config detection.", position = 4, section = travelSection)
+    default boolean preferHouseTravel() { return false; }
+
+    @ConfigItem(keyName = "travelTablets", name = "Tablets instead of runes", description = "Bank teleport tablets instead of the five rune stacks. Enable item teleports in WebWalker.", position = 0, section = travelSection)
+    default boolean travelTablets() { return false; }
+
+    @ConfigItem(keyName = "travelKourendBook", name = "Book of the Dead / memoirs", description = "Bring Book of the Dead, or Kharedst's memoirs when the book is unavailable. Requires charges and unlocked destinations.", position = 1, section = travelSection)
+    default boolean travelKourendBook() { return false; }
+
+    @ConfigItem(keyName = "travelQuetzal", name = "Quetzal whistle", description = "Bring the best available whistle. WebWalker chooses unlocked routes according to its Quetzal settings.", position = 2, section = travelSection)
+    default boolean travelQuetzal() { return false; }
+
+    @ConfigItem(keyName = "travelFairyStaff", name = "Fairy ring staff", description = "Bring a dramen or lunar staff if available. Enable fairy rings in WebWalker; quest requirements still apply.", position = 3, section = travelSection)
+    default boolean travelFairyStaff() { return false; }
     public static final boolean DEBUG_MODE = System.getProperty("java.vm.info", "").contains("sharing");
 
     /* =========================
@@ -381,10 +397,19 @@ public interface FarmTreeRunConfig extends Config {
 
     @ConfigItem(
             keyName = "aviumSavannahHardwood",
-            name = "Avium Savannah",
-            description = "Enable this hardwood tree patch",
+            name = "Locus Oasis (Avium Savannah)",
+            description = "Requires The Ribbiting Tale of a Lily Pad Labour Dispute",
             position = 1,
             section = hardTreePatchesSection
     )
     default boolean aviumSavannahHardwoodPatch() { return false; }
+
+    @ConfigItem(
+            keyName = "anglersRetreatHardwood",
+            name = "Anglers' Retreat",
+            description = "Enable this hardwood patch. Requires 51 Sailing and an available route to the island.",
+            position = 2,
+            section = hardTreePatchesSection
+    )
+    default boolean anglersRetreatHardwoodPatch() { return false; }
 }

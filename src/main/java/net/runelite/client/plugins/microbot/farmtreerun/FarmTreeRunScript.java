@@ -85,7 +85,8 @@ public class FarmTreeRunScript extends Script {
         AUBURNVALE_TREE_PATCH(56953, new WorldPoint(1365, 3320, 0), TreeKind.TREE, 1, 0),
         KASTORI_FRUIT_TREE_PATCH(56955, new WorldPoint(1349, 3058, 0), TreeKind.FRUIT_TREE, 1, 12765),
         PRIFFDDINAS_CRYSTAL_TREE_PATCH(34906, new WorldPoint(3291, 6117, 0), TreeKind.TREE, 74, 0),
-        AVIUM_SAVANNAH_HARDWOOD_PATCH(50692, new WorldPoint(1684, 2974, 0), TreeKind.HARD_TREE,1,0);
+        AVIUM_SAVANNAH_HARDWOOD_PATCH(50692, new WorldPoint(1684, 2974, 0), TreeKind.HARD_TREE,1,0),
+        ANGLERS_RETREAT_HARDWOOD_PATCH(58834, new WorldPoint(2472, 2705, 0), TreeKind.HARD_TREE,1,0);
 
         private final int id;
         private final WorldPoint location;
@@ -102,6 +103,9 @@ public class FarmTreeRunScript extends Script {
     }
 
     public boolean run(FarmTreeRunConfig config) {
+        preferHouseTravel = config.preferHouseTravel();
+        houseAttemptTarget = null;
+        Microbot.log("[FarmTreeRun] Starting diagnostic build; banking=" + config.banking());
         Microbot.enableAutoRunOn = false;
         Rs2Antiban.resetAntibanSettings();
         Rs2AntibanSettings.naturalMouse = true;
@@ -111,14 +115,26 @@ public class FarmTreeRunScript extends Script {
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
-                if (!Microbot.isLoggedIn()) return;
-                if (!super.run()) return;
+                if (!Microbot.isLoggedIn()) {
+                    reportLoopStatus("Waiting for login");
+                    return;
+                }
+                if (!super.run()) {
+                    reportLoopStatus("Blocked by client guard; paused=" + Microbot.pauseAllScripts.get()
+                            + " interrupted=" + Thread.currentThread().isInterrupted());
+                    return;
+                }
 
                 long startTime = System.currentTimeMillis();
-                if (Rs2AntibanSettings.actionCooldownActive) return;
-                if(!Rs2Magic.isSpellbook(Rs2Spellbook.MODERN)){
+                if (Rs2AntibanSettings.actionCooldownActive) {
+                    reportLoopStatus("Waiting for action cooldown");
+                    return;
+                }
+                reportLoopStatus("Running state=" + botStatus);
+                if(!config.travelTablets() && !config.preferHouseTravel() && !Rs2Magic.isSpellbook(Rs2Spellbook.MODERN)){
                     Microbot.log("Not on modern spell book");
                     shutdown();
+                    return;
                 }
                 calculatePatches(config);
                 checkSaplingLevelRequirement(config);
@@ -350,6 +366,15 @@ public class FarmTreeRunScript extends Script {
                     }
 
 
+                    case HANDLE_ANGLERS_RETREAT_HARDWOOD_PATCH:
+                        patch = Patch.ANGLERS_RETREAT_HARDWOOD_PATCH;
+                        if (config.enableHardTrees() && config.anglersRetreatHardwoodPatch()) {
+                            if (!walkToLocation(patch.getLocation())) return;
+                            if (!handlePatch(config, patch)) return;
+                        }
+                        botStatus = net.runelite.client.plugins.microbot.farmtreerun.enums.FarmTreeRunState.HANDLE_ANGLERS_RETREAT_HARDWOOD_PATCH;
+                        break;
+
                     case FINISHED:
 						if (!Rs2Bank.isOpen()) {
 							if (!Rs2Bank.walkToBank()) return;
@@ -373,6 +398,10 @@ public class FarmTreeRunScript extends Script {
                 System.out.println("Total time for loop " + totalTime);
 
             } catch (Exception ex) {
+                if (isInterruption(ex)) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
                 Microbot.logStackTrace(this.getClass().getSimpleName(), ex);
             }
         }, 0, 600, TimeUnit.MILLISECONDS);
@@ -388,6 +417,23 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean validateSpecialPatches(FarmTreeRunConfig config) {
+        if (!getSelectedHardTreePatches(config).isEmpty()) {
+            String missing = null;
+            if (Rs2Player.getRealSkillLevel(Skill.FARMING) < config.selectedHardTree().getFarmingLevel()) {
+                missing = config.selectedHardTree().getFarmingLevel() + " Farming for " + config.selectedHardTree();
+            } else if (config.fossilTreePatch() && Rs2Player.getQuestState(Quest.BONE_VOYAGE) != QuestState.FINISHED) {
+                missing = "Bone Voyage for Fossil Island";
+            } else if (config.aviumSavannahHardwoodPatch() && Rs2Player.getQuestState(Quest.THE_RIBBITING_TALE_OF_A_LILY_PAD_LABOUR_DISPUTE) != QuestState.FINISHED) {
+                missing = "The Ribbiting Tale of a Lily Pad Labour Dispute for Locus Oasis";
+            } else if (config.anglersRetreatHardwoodPatch() && Rs2Player.getRealSkillLevel(Skill.SAILING) < 51) {
+                missing = "51 Sailing for Anglers' Retreat";
+            }
+            if (missing != null) {
+                Microbot.showMessage("Requires " + missing + ". Change the hardwood selection or disable the patch before starting.");
+                shutdown();
+                return false;
+            }
+        }
         if (config.enableTrees() && config.priffddinasCrystalTreePatch()) {
             int farmingLevel = Rs2Player.getRealSkillLevel(Skill.FARMING);
             if (farmingLevel < 74) {
@@ -423,11 +469,92 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean walkToLocation(WorldPoint location) {
-        if (Rs2Player.distanceTo(location) >= 16) {
-            Rs2Walker.walkTo(location);
-            sleepUntil(() -> Rs2Player.distanceTo(location) < 16);
+        if (!canContinueInteraction()) return false;
+        if (!isNearPatch(Rs2Player.getWorldLocation(), location)) {
+            tryPreferredHouseTravel(location);
+            if (!canContinueInteraction()) return false;
+            reportLoopStatus("Walking to patch=" + location);
+            if (!Rs2Walker.walkTo(location, 3)) return false;
         }
-        return Rs2Player.distanceTo(location) < 16;
+        return canContinueInteraction() && isNearPatch(Rs2Player.getWorldLocation(), location);
+    }
+
+    private static boolean isNearPatch(WorldPoint player, WorldPoint patch) {
+        // Route length can be zero for a missing route or short for a teleport.
+        // Neither means the player is physically close enough to interact.
+        return player != null && patch != null && player.getPlane() == patch.getPlane()
+                && player.distanceTo(patch) < 16;
+    }
+
+    private boolean preferHouseTravel;
+    private WorldPoint houseAttemptTarget;
+
+    private void tryPreferredHouseTravel(WorldPoint target) {
+        if (!preferHouseTravel || target.equals(houseAttemptTarget)) return;
+        houseAttemptTarget = target;
+        if (!Rs2Inventory.hasItem(net.runelite.api.ItemID.TELEPORT_TO_HOUSE)) return;
+        var pathConfig = net.runelite.client.plugins.microbot.util.walker.Rs2PathApi.getPathfinderConfig();
+        if (pathConfig == null) return;
+        var saved = net.runelite.client.plugins.microbot.shortestpath.PohPanel.getAvailableTransports(pathConfig.getAllTransports());
+        if (saved == pathConfig.getAllTransports()) return;
+        Set<WorldPoint> houseOrigins = new HashSet<>();
+        for (var transports : saved.values()) for (var transport : transports) {
+            if (transport instanceof net.runelite.client.plugins.microbot.util.poh.PohTransport)
+                houseOrigins.add(transport.getOrigin());
+        }
+        net.runelite.client.plugins.microbot.shortestpath.Transport best = null;
+        int bestScore = Integer.MAX_VALUE;
+        for (var transports : saved.values()) for (var transport : transports) {
+            boolean nexus = transport instanceof net.runelite.client.plugins.microbot.util.poh.PohTransport
+                    && ((net.runelite.client.plugins.microbot.util.poh.PohTransport) transport).getTeleport()
+                    instanceof net.runelite.client.plugins.microbot.util.poh.data.NexusPortal;
+            boolean ring = transport.getType() == net.runelite.client.plugins.microbot.shortestpath.TransportType.FAIRY_RING
+                    && houseOrigins.contains(transport.getOrigin());
+            if (!nexus && !ring) continue;
+            int distance = transport.getDestination().distanceTo(target);
+            if (distance > 120) continue;
+            int score = distance + (nexus ? 0 : 1000);
+            if (score < bestScore) { best = transport; bestScore = score; }
+        }
+        if (best == null) return;
+        Microbot.log("[FarmTreeRun] Preferred house exit=" + best.getDestination());
+        if (!net.runelite.client.plugins.microbot.util.poh.PohTeleports.isInHouse()) {
+            if (!Rs2Inventory.interact(net.runelite.api.ItemID.TELEPORT_TO_HOUSE, "Break")) return;
+            sleepUntil(net.runelite.client.plugins.microbot.util.poh.PohTeleports::isInHouse, 8000);
+        }
+        if (!canContinueInteraction() || !net.runelite.client.plugins.microbot.util.poh.PohTeleports.isInHouse()) return;
+        if (best instanceof net.runelite.client.plugins.microbot.util.poh.PohTransport) {
+            ((net.runelite.client.plugins.microbot.util.poh.PohTransport) best).execute();
+        } else {
+            Rs2Walker.walkTo(best.getDestination(), 3);
+        }
+    }
+
+    private boolean canContinueInteraction() {
+        boolean ready = !Thread.currentThread().isInterrupted() && isRunning() && Microbot.isLoggedIn();
+        if (!ready) reportLoopStatus("Interaction blocked; running=" + isRunning()
+                + " interrupted=" + Thread.currentThread().isInterrupted());
+        return ready;
+    }
+
+    private String lastLoopStatus;
+    private long lastLoopStatusTime;
+
+    private void reportLoopStatus(String status) {
+        long now = System.currentTimeMillis();
+        if (!status.equals(lastLoopStatus) || now - lastLoopStatusTime >= 15000) {
+            Microbot.log("[FarmTreeRun] " + status);
+            lastLoopStatus = status;
+            lastLoopStatusTime = now;
+        }
+    }
+
+    private static boolean isInterruption(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof InterruptedException) return true;
+            if (cause == cause.getCause()) break;
+        }
+        return false;
     }
 
     private void bank(FarmTreeRunConfig config) {
@@ -576,11 +703,34 @@ public class FarmTreeRunScript extends Script {
                 }
             }
 
+            if (config.travelTablets()) {
+                addAvailableTravelItem(net.runelite.api.ItemID.VARROCK_TELEPORT, 2);
+                addAvailableTravelItem(net.runelite.api.ItemID.LUMBRIDGE_TELEPORT, 1);
+                addAvailableTravelItem(net.runelite.api.ItemID.FALADOR_TELEPORT, 2);
+                addAvailableTravelItem(net.runelite.api.ItemID.CAMELOT_TELEPORT, 1);
+                if (!config.preferHouseTravel()) addAvailableTravelItem(net.runelite.api.ItemID.TELEPORT_TO_HOUSE, 3);
+            } else {
             items.add(new FarmingItem(ItemID.LAW_RUNE, 10));
             items.add(new FarmingItem(ItemID.FIRE_RUNE, 30));
             items.add(new FarmingItem(ItemID.AIR_RUNE, 30));
             items.add(new FarmingItem(ItemID.EARTH_RUNE, 30));
             items.add(new FarmingItem(ItemID.WATER_RUNE, 30));
+            }
+            if (config.travelKourendBook()) {
+                addFirstTravelItem(net.runelite.api.ItemID.BOOK_OF_THE_DEAD, net.runelite.api.ItemID.KHAREDSTS_MEMOIRS);
+            }
+            if (config.preferHouseTravel()) {
+                items.add(new FarmingItem(net.runelite.api.ItemID.TELEPORT_TO_HOUSE, 10));
+            }
+            if (config.travelQuetzal()) {
+                addFirstTravelItem(net.runelite.api.ItemID.PERFECTED_QUETZAL_WHISTLEI,
+                        net.runelite.api.ItemID.PERFECTED_QUETZAL_WHISTLE,
+                        net.runelite.api.ItemID.ENHANCED_QUETZAL_WHISTLE,
+                        net.runelite.api.ItemID.BASIC_QUETZAL_WHISTLE);
+            }
+            if (config.travelFairyStaff()) {
+                addFirstTravelItem(net.runelite.api.ItemID.DRAMEN_STAFF, net.runelite.api.ItemID.LUNAR_STAFF);
+            }
 
 //              TODO: Need to handle what happens if a required item does not exist
 
@@ -674,7 +824,24 @@ public class FarmTreeRunScript extends Script {
         }
     }
 
+    private void addAvailableTravelItem(int id, int quantity) {
+        int available = Rs2Inventory.itemQuantity(id) + Rs2Bank.count(id);
+        if (available > 0) items.add(new FarmingItem(id, Math.min(quantity, available), false, true));
+    }
+
+    private void addFirstTravelItem(int... ids) {
+        for (int id : ids) {
+            if (Rs2Equipment.isWearing(id)) return;
+            if (Rs2Inventory.hasItem(id) || Rs2Bank.hasItem(id)) {
+                addAvailableTravelItem(id, 1);
+                return;
+            }
+        }
+        Microbot.log("[FarmTreeRun] Optional travel item unavailable; leaving route selection to WebWalker.");
+    }
+
     private boolean handlePatch(FarmTreeRunConfig config, Patch patch) {
+        if (!canContinueInteraction()) return false;
         String[] possibleActions = {"Check", "Chop", "Pick", "Rake", "Clear", "Inspect"};
         GameObject treePatch = null;
         String foundAction = null;
@@ -682,6 +849,7 @@ public class FarmTreeRunScript extends Script {
 
         // Loop through the possible actions and try to find the tree patch with any valid action
         for (String action : possibleActions) {
+            if (!canContinueInteraction()) return false;
             treePatch = Rs2GameObject.findObjectByImposter(patch.getId(), action, false);  // Find object by patchId and action
             if (treePatch != null) {
                 foundAction = action;
@@ -689,6 +857,10 @@ public class FarmTreeRunScript extends Script {
                     break;
                 }
             }
+        }
+
+        if (treePatch == null) {
+            return false;
         }
 
         // Gagex named actions differently, sometimes it's Pick-fruit and sometimes Pick-banana.
@@ -713,6 +885,7 @@ public class FarmTreeRunScript extends Script {
         boolean treePlanted = false;
         boolean protectionHandled = false;
 
+        Microbot.log("[FarmTreeRun] patch=" + patch + " action=" + exactAction);
         // Handle the patch based on the action found
         switch (foundAction) {
             case "Check":
@@ -765,7 +938,7 @@ public class FarmTreeRunScript extends Script {
             if (Rs2Inventory.hasItem(fruitId)) {
                 // Interact with the specific fruit found
                 Rs2Inventory.useItemOnNpc(fruitId, patch.getLeprechaunId());
-                sleepUntil(() -> Rs2Inventory.waitForInventoryChanges(5000));
+                Rs2Inventory.waitForInventoryChanges(3000);
                 return; // Return false if any fruit is found and interacted with
             }
         }
@@ -787,42 +960,39 @@ public class FarmTreeRunScript extends Script {
         if (isHardTreePatch(patch) && !isPatchEmpty(patch) && !shouldProtectHardTree(config) && action != PaymentKind.CLEAR)
             return true;
 
+        int paymentId = isHardTreePatch(patch) ? config.selectedHardTree().getPaymentId()
+                : isFruitTreePatch(patch) ? config.selectedFruitTree().getPaymentId()
+                : config.selectedTree().getPaymentId();
+        int before = getInventoryQuantityIncludingLinked(paymentId);
         Rs2NpcModel treeGardener = Rs2Npc.getNearestNpcWithAction("Pay");
-        if (treeGardener != null) Rs2Npc.interact(treeGardener, "Pay");
+        if (treeGardener != null && !Rs2Npc.interact(treeGardener, "Pay")) return false;
 
         if (treeGardener == null) {
             handleExoticGardeners();
         }
 
-        sleepUntil(Rs2Dialogue::isInDialogue, 5000);
-        sleep(500, 1500);
-        if (!Rs2Dialogue.hasSelectAnOption()) {
-            return Rs2Dialogue.hasDialogueText("Leave it with me") || Rs2Dialogue.hasDialogueText("already looking after that patch");
-        }
-        Rs2Dialogue.clickContinue();
-        sleep(500, 850);
-
-        if (Rs2Dialogue.hasSelectAnOption()) {
-            if (action == PaymentKind.PROTECT) {
-                if (!Rs2Dialogue.clickOption("don't ask")) {
-                    Rs2Dialogue.clickOption("Yes");
-                }
-                sleep(500, 1500);
+        long deadline = System.currentTimeMillis() + 8000;
+        boolean selected = false;
+        while (isRunning() && Microbot.isLoggedIn() && System.currentTimeMillis() < deadline) {
+            if (action == PaymentKind.CLEAR && isPatchEmpty(patch)) return true;
+            if (action == PaymentKind.PROTECT && (getInventoryQuantityIncludingLinked(paymentId) < before
+                    || Rs2Dialogue.hasDialogueText("Leave it with me")
+                    || Rs2Dialogue.hasDialogueText("already looking after that patch"))) {
                 Rs2Dialogue.clickContinue();
-                sleepUntil(() -> !Rs2Dialogue.isInDialogue(), 6000);
                 return true;
             }
-            Rs2Dialogue.clickOption("Yes");
-            sleepUntil(() -> isPatchEmpty(patch), 6000);
-            if (isPatchEmpty(patch)) {
-                return true;
+            if (Rs2Dialogue.hasSelectAnOption()) {
+                if (!selected) {
+                    selected = action == PaymentKind.PROTECT && Rs2Dialogue.clickOption("don't ask");
+                    if (!selected) selected = Rs2Dialogue.clickOption("Yes");
+                    if (!selected) break;
+                }
+            } else if (Rs2Dialogue.isInDialogue()) {
+                Rs2Dialogue.clickContinue();
             }
-            System.out.println("Failed gardener clear payment.");
-            return false;
-        } else {
-            System.out.println("Failed gardener payment.");
+            sleep(200);
         }
-
+        Microbot.log("[FarmTreeRun] Payment not confirmed: patch=" + patch + " type=" + action);
         return false;
     }
 
@@ -846,15 +1016,12 @@ public class FarmTreeRunScript extends Script {
             if (hasCompost) {
                 Rs2Inventory.useItemOnObject(compostItemId, treePatch.getId());
                 Rs2Player.waitForXpDrop(Skill.FARMING, 2000);
-                sleep(550, 2200);
             }
         }
 
-        sleep(250, 1000);
         if (!Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(patch.id), "Rake")) {
             Rs2Inventory.useItemOnObject(saplingToUse, treePatch.getId());
-            Rs2Inventory.waitForInventoryChanges(3000);
-            sleep(750, 2400);
+            sleepUntil(() -> !isPatchEmpty(patch), 5000);
             return !isPatchEmpty(patch);
         }
         Rs2Inventory.deselect();
@@ -863,10 +1030,9 @@ public class FarmTreeRunScript extends Script {
 
     private void handlePickingFruit(GameObject fruitTreePatch, Patch patch, String exactAction) {
         System.out.println("Picking fruit...");
-        Rs2GameObject.interact(fruitTreePatch, exactAction);
+        if (!Rs2GameObject.interact(fruitTreePatch, exactAction)) return;
         // Wait for the picking to complete (player stops animating and patch no longer has the "Pick" action)
         sleepUntil(() -> !Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(fruitTreePatch.getId()), exactAction), 12000);
-        sleep(400, 1500);
         handleNotingFruit(patch);
     }
 
@@ -874,15 +1040,14 @@ public class FarmTreeRunScript extends Script {
         System.out.println("Checking health...");
 
         // Rake the patch
-        Rs2GameObject.interact(treePatch, "Check-health");
-        Rs2Player.waitForXpDrop(Skill.FARMING);
-        sleep(250, 2500);
+        if (!Rs2GameObject.interact(treePatch, "Check-health")) return;
+        sleepUntil(() -> !Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(treePatch.getId()), "Check-health"), 5000);
     }
 
     private void handleRakeAction(GameObject treePatch) {
         System.out.println("Raking the patch...");
 
-        Rs2GameObject.interact(treePatch, "rake");
+        if (!Rs2GameObject.interact(treePatch, "Rake")) return;
         sleepUntil(() -> !Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(treePatch.getId()), "Rake"), 30000);
         sleep(400, 1200);
         if (Rs2Inventory.hasItem(ItemID.WEEDS)) {
@@ -899,7 +1064,7 @@ public class FarmTreeRunScript extends Script {
             System.out.println("Failed to interact with the tree patch to clear it.");
             return;
         }
-        Rs2Player.waitForXpDrop(Skill.FARMING, 10000);
+        sleepUntil(() -> !Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(treePatch.getId()), "Clear"), 6000);
     }
 
     private void equipGraceful() {
@@ -991,7 +1156,8 @@ public class FarmTreeRunScript extends Script {
                 config::fossilTreePatch,
                 config::fossilTreePatch,
                 config::fossilTreePatch,
-                config::aviumSavannahHardwoodPatch
+                config::aviumSavannahHardwoodPatch,
+                config::anglersRetreatHardwoodPatch
         );
 
         // Filter the patches to include only those that return true
@@ -1060,7 +1226,7 @@ public class FarmTreeRunScript extends Script {
     
 
     private static int getSaplingToUse(Patch patch, FarmTreeRunConfig config) {
-        if (patch == Patch.FOSSIL_TREE_PATCH_A || patch == Patch.FOSSIL_TREE_PATCH_B || patch == Patch.FOSSIL_TREE_PATCH_C ) {
+        if (patch.getKind() == TreeKind.HARD_TREE) {
             return config.selectedHardTree().getSaplingId();
 
         } else if (patch == Patch.PRIFFDDINAS_CRYSTAL_TREE_PATCH) {
