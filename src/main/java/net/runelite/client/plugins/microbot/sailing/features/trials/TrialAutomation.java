@@ -35,6 +35,8 @@ final class TrialAutomation {
     private int yawKey;
     private int pitchKey;
     private long nextTrim;
+    private String proximityTarget;
+    private int proximityTick = -1;
 
     static int nearestIndex(List<WorldPoint> points, WorldPoint position) {
         if (position == null || points == null || points.isEmpty()) return 0;
@@ -58,6 +60,7 @@ final class TrialAutomation {
                         info.HasRum, info.CollectedPrimaryObjectives);
                 pendingRum = null;
                 attempts = 0;
+                proximityTarget = null;
                 return false;
             }
             if (now < nextInteraction) return true;
@@ -75,9 +78,13 @@ final class TrialAutomation {
                 Microbot.getRs2TileObjectCache().query()
                         .where(o -> hasObjectAction(o.getId(), action))
                         .where(o -> seaLocation(o.getWorldView(), o.getWorldLocation()) != null
-                                && position.distanceTo(seaLocation(o.getWorldView(), o.getWorldLocation())) <= 18)
+                                && position.distanceTo(seaLocation(o.getWorldView(), o.getWorldLocation()))
+                                    <= 12)
                         .first());
-        if (boat == null) return pendingRum != null;
+        if (boat == null) {
+            proximityTarget = null;
+            return pendingRum != null;
+        }
         if (now < nextInteraction) return true;
         stopCamera();
         nextInteraction = now + 2400;
@@ -214,15 +221,15 @@ final class TrialAutomation {
     void followCamera(WorldPoint position, WorldPoint target) {
         long now = System.currentTimeMillis();
         if (now < nextCamera || position.distanceTo(target) < 4) return;
-        nextCamera = now + 1500;
+        nextCamera = now + 4000;
         Microbot.getClientThread().invokeLater(() -> {
             stopCameraOnClientThread();
             if (!Microbot.isLoggedIn()) return;
             if (now >= nextPitch) {
                 int oldPitch = Rs2Camera.getPitch();
-                do { pitch = ThreadLocalRandom.current().nextInt(220, 311); }
-                while (Math.abs(pitch - oldPitch) < 20);
-                nextPitch = now + ThreadLocalRandom.current().nextLong(5000, 9001);
+                do { pitch = ThreadLocalRandom.current().nextInt(253, 283); }
+                while (Math.abs(pitch - oldPitch) < 10);
+                nextPitch = now + ThreadLocalRandom.current().nextLong(16000, 23001);
             }
             int angle = Math.floorMod((int) Math.round(Math.toDegrees(Math.atan2(
                     target.getY() - position.getY(), target.getX() - position.getX()))) - 90, 360);
@@ -230,7 +237,7 @@ final class TrialAutomation {
             int pitchDirection = Integer.signum(pitch - Rs2Camera.getPitch());
             int targetPitch = pitch;
             long generation = cameraGeneration;
-            if (Math.abs(Rs2Camera.getAngleTo(angle)) > 15) {
+            if (Math.abs(Rs2Camera.getAngleTo(angle)) > 48) {
                 yawKey = yawDirection > 0 ? KeyEvent.VK_LEFT : KeyEvent.VK_RIGHT;
                 Rs2Keyboard.keyHold(yawKey);
             }
@@ -240,7 +247,7 @@ final class TrialAutomation {
             }
             Microbot.getClientThread().invokeLater(() -> {
                 if (generation != cameraGeneration) return true;
-                if (!Microbot.isLoggedIn() || System.currentTimeMillis() - now > 1400) {
+                if (!Microbot.isLoggedIn() || System.currentTimeMillis() - now > 400) {
                     stopCameraOnClientThread();
                     return true;
                 }
@@ -271,6 +278,8 @@ final class TrialAutomation {
     }
 
     void stop() {
+        proximityTarget = null;
+        proximityTick = -1;
         stopCamera();
         pendingRum = null;
         attempts = 0;

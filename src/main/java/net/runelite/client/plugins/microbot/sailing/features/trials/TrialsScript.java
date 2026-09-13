@@ -33,9 +33,6 @@ public class TrialsScript {
     private int currentWaypointIndex = 0;
     private TrialRoute activeRoute = null;
     private final TrialAutomation automation = new TrialAutomation();
-    private boolean firstLapTrimPauseUsed;
-    private long trimPausedUntil;
-    private int previousTrialSeconds = -1;
 
     private final Set<Integer> TRIAL_CRATE_ANIMS = Set.of(8867);
     private final Set<Integer> SPEED_BOOST_ANIMS = Set.of(13159, 13160, 13163);
@@ -139,11 +136,6 @@ public class TrialsScript {
             if (!config.autoNavigate()) {
                 automation.stop();
             }
-            if (info.CurrentTimeSeconds < previousTrialSeconds) {
-                firstLapTrimPauseUsed = false;
-                trimPausedUntil = 0;
-            }
-            previousTrialSeconds = info.CurrentTimeSeconds;
 
             TrialRoute route = findRoute(info.Location, info.Rank);
             if (route == null) {
@@ -172,30 +164,20 @@ public class TrialsScript {
             }
 
             if (config.autoNavigate()) {
-                if (!firstLapTrimPauseUsed && info.Location == TrialLocations.TemporTantrum
-                        && info.Rank == TrialRanks.Marlin
-                        && currentWaypointIndex <= route.getInterpolatedIndex(8)
-                        && boatPos.distanceTo(new WorldPoint(3018, 2814, 0)) <= 12) {
-                    firstLapTrimPauseUsed = true;
-                    trimPausedUntil = System.nanoTime() + 20_000_000_000L;
-                    log.info("Marlin first lap: pausing trim for 20 seconds near 3018,2814");
-                }
                 if (automation.handleRum(info, boatPos)) return;
-                if ((trimPausedUntil == 0 || System.nanoTime() >= trimPausedUntil)
-                        && automation.trim(needsTrim)) return;
             }
 
             WorldPoint target = routePoints.get(currentWaypointIndex);
+            WorldPoint rapidTarget = preferredRapid(target, boatPos, info, route);
+            if (rapidTarget != null) target = rapidTarget;
             int distance = boatPos.distanceTo(target);
 
-            // This supply is missed when the normal five-tile arrival radius cuts the corner.
-            int arrivalRadius = info.Location == TrialLocations.TemporTantrum
-                    && ((info.Rank == TrialRanks.Shark
-                        && (target.equals(new WorldPoint(3080, 2864, 0))
-                            || target.equals(new WorldPoint(3039, 2773, 0))))
-                        || (info.Rank == TrialRanks.Marlin
-                            && (target.equals(new WorldPoint(3036, 2761, 0))
-                                || target.equals(new WorldPoint(3046, 2773, 0))))) ? 1 : 5;
+            int arrivalRadius = 5;
+            if (info.Location == TrialLocations.TemporTantrum && info.Rank == TrialRanks.Marlin
+                    && (target.equals(new WorldPoint(3002, 2788, 0))
+                        || target.equals(new WorldPoint(3096, 2775, 0))
+                        || target.equals(new WorldPoint(3028, 2815, 0)))) arrivalRadius = 1;
+            if (rapidTarget != null) arrivalRadius = 1;
             if (distance <= arrivalRadius) {
                 lastVisitedIndex = currentWaypointIndex;
                 currentWaypointIndex = (currentWaypointIndex + 1) % routePoints.size();
@@ -213,6 +195,32 @@ public class TrialsScript {
         } catch (Exception ex) {
             log.error("Error in trials script", ex);
         }
+    }
+
+    private WorldPoint preferredRapid(WorldPoint target, WorldPoint boatPos, TrialInfo info, TrialRoute route) {
+        if (info.Rank == TrialRanks.Marlin && (target.equals(new WorldPoint(3002, 2788, 0))
+                || target.equals(new WorldPoint(3096, 2775, 0))
+                || target.equals(new WorldPoint(3028, 2815, 0)))) return null;
+        if (info.Location != TrialLocations.TemporTantrum) return null;
+        boolean finalMarlinLap = info.Rank == TrialRanks.Marlin
+                && currentWaypointIndex >= route.getInterpolatedIndex(45);
+        return Microbot.getClientThread().invoke(() -> {
+            WorldPoint best = null;
+            for (var objects : trialBoostsById.values()) {
+                for (GameObject object : objects) {
+                    if (object == null || object.getWorldView() == null
+                            || object.getWorldView().getId() != -1) continue;
+                    ObjectComposition definition = client.getObjectDefinition(object.getId());
+                    if (definition != null && definition.getImpostorIds() != null) definition = definition.getImpostor();
+                    if (definition == null || !"Gentle rapids".equalsIgnoreCase(definition.getName())) continue;
+                    WorldPoint center = object.getWorldLocation();
+                    if (center == null || center.distanceTo(target) > 3 || center.distanceTo(boatPos) > 18) continue;
+                    if (finalMarlinLap && center.distanceTo(new WorldPoint(3045, 2774, 0)) <= 10) continue;
+                    if (best == null || center.distanceTo(target) < best.distanceTo(target)) best = center;
+                }
+            }
+            return best;
+        });
     }
 
     private TrialRoute findRoute(TrialLocations location, TrialRanks rank) {
@@ -251,9 +259,6 @@ public class TrialsScript {
 
     private void resetState() {
         automation.stopCamera();
-        firstLapTrimPauseUsed = false;
-        trimPausedUntil = 0;
-        previousTrialSeconds = -1;
         currentWaypointIndex = 0;
         activeRoute = null;
         lastVisitedIndex = -1;
