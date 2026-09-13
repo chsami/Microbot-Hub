@@ -169,10 +169,12 @@ public class TrialRoute {
                                         new WorldPoint(3019, 2814, 0),
                                         new WorldPoint(3027, 2798, 0),
                                         new WorldPoint(3039, 2778, 0),
+                                        new WorldPoint(3039, 2773, 0), // approach the rum boat
                                         new WorldPoint(3045, 2777, 0),
                                         new WorldPoint(3057, 2792, 0),
                                         new WorldPoint(3069, 2814, 0),
                                         new WorldPoint(3076, 2825, 0),
+                                        new WorldPoint(3080, 2864, 0), // pass through the lost supplies
                                         new WorldPoint(3082, 2873, 0),
                                         new WorldPoint(3076, 2883, 0),
                                         new WorldPoint(3077, 2896, 0),
@@ -263,7 +265,8 @@ public class TrialRoute {
                                         /*54*/new WorldPoint(2983, 2787, 0),
                                         /*55*/new WorldPoint(2987, 2777, 0),
                                         /*56*/new WorldPoint(3004, 2768, 0),
-                                        /*57*/new WorldPoint(3039, 2758, 0),
+                                        /*57*/new WorldPoint(3036, 2761, 0), // final lap supplies
+                                        new WorldPoint(3046, 2773, 0), // final lap approach
                                         /*58*/new WorldPoint(3056, 2761, 0),
                                         /*59*/new WorldPoint(3068, 2766, 0),
                                         /*60*/new WorldPoint(3090, 2764, 0),
