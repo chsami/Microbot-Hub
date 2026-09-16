@@ -204,7 +204,7 @@ public class HouseThievingScript extends Script {
                 Rs2Inventory.waitForInventoryChanges(600);
             }
             if (Rs2Player.isStunned())
-                sleepUntil(() -> !Rs2Player.isStunned(), 600);
+                return;
             pickpocketNpc.click("Pickpocket");
             Rs2Random.waitEx(600.0, 200.0);
             sleepUntil(() -> !Rs2Player.isAnimating(), 10000);
@@ -441,18 +441,19 @@ public class HouseThievingScript extends Script {
         }
 
         if (!Rs2Bank.isOpen() && Rs2Player.distanceTo(BANKING_LOCATION) <= 3) {
-            // Resolve the actual bank object near the counter. The previous unfiltered nearest() grabbed whatever
-            // tile object was closest - often a floor/decoration with no "Bank" option - so click() fell back to
-            // that object's first menu entry ("Walk here") and the bank never opened. Filter to an object that
-            // actually has a "Bank" action (this counter's id isn't in Rs2Bank's known-bank set, so the no-arg
-            // openBank() can't find it either). openBank(object) waits internally for the bank to open.
+            // The cache returns an Rs2TileObjectModel wrapper. Passing that wrapper to the legacy
+            // Rs2Bank.openBank(TileObject) path loses its underlying GameObject type, which produces incorrect
+            // scene parameters for this multi-tile table. Invoke through the model so it uses the wrapped
+            // GameObject's size and location, then retain openBank() as a fallback when the cache has no match.
             var bankObject = Microbot.getRs2TileObjectCache().query()
                     .where(HouseThievingScript::hasBankAction)
                     .nearestOnClientThread(BANKING_TILE_LOCATION, 5);
-            if (bankObject != null)
-                Rs2Bank.openBank(bankObject);
-            else
+            if (bankObject != null) {
+                bankObject.click("Bank");
+                sleepUntil(Rs2Bank::isOpen, 5000);
+            } else {
                 Rs2Bank.openBank();
+            }
         }
 
         if (Rs2Bank.isOpen()) {

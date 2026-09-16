@@ -407,11 +407,6 @@ public class JewelryScript extends Script {
             Rs2Camera.setPitch(383);
             changed = true;
         }
-        int yaw = Rs2Camera.getYaw();
-        if (yaw > 16 && yaw < 2032) {
-            Rs2Camera.setYaw(0);
-            changed = true;
-        }
         return changed;
     }
 

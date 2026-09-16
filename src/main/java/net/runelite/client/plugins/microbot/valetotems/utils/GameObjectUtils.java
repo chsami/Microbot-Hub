@@ -324,11 +324,11 @@ public class GameObjectUtils {
     }
 
     /**
-     * Check what type of totem site/state exists at a location using string search
+     * Find the totem tile object at a location (fast ID path with name-based discovery fallback)
      * @param location the world point to check
-     * @return the GameObjectId enum for the totem state, or null if no totem found
+     * @return the totem object model, or null if no totem found
      */
-    public static GameObjectId getTotemStateAtLocation(WorldPoint location) {
+    private static Rs2TileObjectModel findTotemModelAtLocation(WorldPoint location) {
         var totemModel = Microbot.getRs2TileObjectCache().query()
                 .where(obj -> GameObjectId.isTotemObject(obj.getId()) || discoveredTotemIds.contains(obj.getId()))
                 .nearest(location, 10);
@@ -344,6 +344,28 @@ public class GameObjectUtils {
                         + " name='" + totemModel.getName() + "' — future lookups will use fast ID path");
             }
         }
+
+        return totemModel;
+    }
+
+    /**
+     * Get the loc id of the totem object at a location. The id encodes the game's
+     * site number (ent_totems_site_N_base), which drives the per-site varbits.
+     * @param location the world point to check
+     * @return the totem loc id, or -1 if no totem found
+     */
+    public static int getTotemObjectId(WorldPoint location) {
+        var totemModel = findTotemModelAtLocation(location);
+        return totemModel != null ? totemModel.getId() : -1;
+    }
+
+    /**
+     * Check what type of totem site/state exists at a location using string search
+     * @param location the world point to check
+     * @return the GameObjectId enum for the totem state, or null if no totem found
+     */
+    public static GameObjectId getTotemStateAtLocation(WorldPoint location) {
+        var totemModel = findTotemModelAtLocation(location);
 
         if (totemModel == null) {
             return null;

@@ -1,15 +1,18 @@
 package net.runelite.client.plugins.microbot.mke_wintertodt.startup.gear;
 
+import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.ItemID;
 import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleepGaussian;
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntilTrue;
@@ -23,6 +26,8 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntilTrue;
  * @version 2.0.0
  */
 public class WintertodtAxeManager {
+
+    private static final WintertodtGearDatabase GEAR_DATABASE = new WintertodtGearDatabase();
     
     // Axe priority list (best to worst) - updated with correct requirements
     private static final List<AxeInfo> AXE_PRIORITY = Arrays.asList(
@@ -149,6 +154,11 @@ public class WintertodtAxeManager {
             Microbot.log("Cannot wield " + bestAxe.name + " (need " + bestAxe.attackLevel + " Attack, have " + attackLevel + ")");
             return false;
         }
+
+        if (!preservesRequiredWarmth(bestAxe.itemId)) {
+            Microbot.log("Keeping axe in inventory to preserve four warm items");
+            return false;
+        }
         
         // Special case: Bronze axe has no attack requirement, always equip if possible
         if (bestAxe.itemId == ItemID.BRONZE_AXE) {
@@ -171,6 +181,18 @@ public class WintertodtAxeManager {
         // Both scenarios use same total slots, but equipped axe allows for more flexible inventory management
         Microbot.log("No bruma torch available - equipping " + bestAxe.name + " for better inventory efficiency");
         return true;
+    }
+
+    private static boolean preservesRequiredWarmth(int axeId) {
+        Rs2ItemModel weapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+        if (weapon == null) {
+            return true;
+        }
+
+        return GEAR_DATABASE.preservesRequiredWarmthAfterReplacing(
+                Rs2Equipment.all().map(Rs2ItemModel::getId).collect(Collectors.toList()),
+                weapon.getId(),
+                axeId);
     }
     
     /**
@@ -443,4 +465,4 @@ public class WintertodtAxeManager {
                                axeName, shouldEquip, canWield, needsTorchConversion);
         }
     }
-} 
+}
