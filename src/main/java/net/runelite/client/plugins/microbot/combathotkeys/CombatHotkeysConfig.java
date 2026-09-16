@@ -11,6 +11,16 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
 @ConfigGroup("combathotkeys")
 public interface CombatHotkeysConfig extends Config {
+    @ConfigSection(name = "Arceuus - Thralls", description = "Summon a thrall with a hotkey", position = 9)
+    String arceuusSection = "arceuusSection";
+
+    @ConfigItem(keyName = "summonThrallKey", name = "Summon thrall hotkey", description = "Summon the selected thrall once per key press", position = 0, section = arceuusSection)
+    default Keybind summonThrallKey() { return Keybind.NOT_SET; }
+
+    @ConfigItem(keyName = "selectedThrall", name = "Thrall", description = "Choose Ghost (magic), Skeleton (ranged), or Zombie (melee) and its tier. Requires Arceuus, Book of the Dead and spell supplies.", position = 1, section = arceuusSection)
+    default net.runelite.client.plugins.microbot.util.magic.thralls.Rs2Thrall selectedThrall() {
+        return net.runelite.client.plugins.microbot.util.magic.thralls.Rs2Thrall.GREATER_GHOST;
+    }
 
     // =========================================================================
     // DEBUG SECTION — appears at the top (position 0) so it's always visible
