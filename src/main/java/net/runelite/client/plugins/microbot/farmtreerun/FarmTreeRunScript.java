@@ -361,7 +361,7 @@ public class FarmTreeRunScript extends Script {
                             }
                             if (!handledPatch) return;
                         }
-                        botStatus = net.runelite.client.plugins.microbot.farmtreerun.enums.FarmTreeRunState.FINISHED;
+                        botStatus = net.runelite.client.plugins.microbot.farmtreerun.enums.FarmTreeRunState.HANDLE_ANGLERS_RETREAT_HARDWOOD_PATCH;
                         break;
                     }
 
@@ -372,7 +372,7 @@ public class FarmTreeRunScript extends Script {
                             if (!walkToLocation(patch.getLocation())) return;
                             if (!handlePatch(config, patch)) return;
                         }
-                        botStatus = net.runelite.client.plugins.microbot.farmtreerun.enums.FarmTreeRunState.HANDLE_ANGLERS_RETREAT_HARDWOOD_PATCH;
+                        botStatus = net.runelite.client.plugins.microbot.farmtreerun.enums.FarmTreeRunState.FINISHED;
                         break;
 
                     case FINISHED:
