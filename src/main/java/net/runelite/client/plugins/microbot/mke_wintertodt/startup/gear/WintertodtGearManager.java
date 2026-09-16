@@ -13,9 +13,11 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.mke_wintertodt.MKE_WintertodtConfig;
 import net.runelite.client.plugins.microbot.mke_wintertodt.startup.inventory.WintertodtInventoryManager;
+import net.runelite.client.game.ItemStats;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntilTrue;
@@ -52,7 +54,7 @@ public class WintertodtGearManager {
     public boolean setupOptimalGear() {
         try {
             Microbot.log("Setting up optimal Wintertodt gear using database analysis...");
-            
+
             // Ensure bank access
             if (!ensureBankAccess()) {
                 return false;
@@ -97,9 +99,11 @@ public class WintertodtGearManager {
             // Cache player data once for entire analysis
             cachePlayerData();
             
+            List<WintertodtGearItem> accessibleWarmGear = findAccessibleWarmGear();
+
             // Analyze each equipment slot using database
             for (EquipmentInventorySlot slot : EquipmentInventorySlot.values()) {
-                analyzeSlotFromDatabase(slot);
+                analyzeSlotFromDatabase(slot, accessibleWarmGear);
             }
             
             // Log comprehensive analysis
@@ -116,12 +120,15 @@ public class WintertodtGearManager {
     /**
      * Analyzes a specific equipment slot using the database.
      */
-    private void analyzeSlotFromDatabase(EquipmentInventorySlot slot) {
+    private void analyzeSlotFromDatabase(EquipmentInventorySlot slot,
+                                         List<WintertodtGearItem> accessibleWarmGear) {
         gearAnalysisLog.add("=== " + slot.name() + " SLOT ANALYSIS ===");
         
         // Get all gear items for this slot from database
-        List<WintertodtGearItem> availableGear = gearDatabase.getGearForSlot(slot)
-            .stream()
+        List<WintertodtGearItem> availableGear = Stream.concat(
+                gearDatabase.getGearForSlot(slot).stream(),
+                accessibleWarmGear.stream().filter(item -> item.getSlot() == slot))
+            .filter(item -> gearDatabase.isAllowedGear(slot, item.getItemId()))
             .filter(this::canPlayerUseItem)
             .filter(this::hasAccessToItem)
             .sorted((a, b) -> Integer.compare(b.getEffectivePriority(), a.getEffectivePriority()))
@@ -164,6 +171,42 @@ public class WintertodtGearManager {
                 gearAnalysisLog.add("  - " + alt.getItemName() + " (Priority: " + alt.getEffectivePriority() + ")");
             }
         }
+    }
+
+    private List<WintertodtGearItem> findAccessibleWarmGear() {
+        List<Rs2ItemModel> accessible = new ArrayList<>();
+        accessible.addAll(Rs2Inventory.all());
+        accessible.addAll(Rs2Equipment.all().collect(Collectors.toList()));
+        if (Rs2Bank.bankItems() != null) {
+            accessible.addAll(Rs2Bank.bankItems());
+        }
+
+        return accessible.stream()
+                .filter(item -> gearDatabase.isWarmItem(item.getId()))
+                .filter(item -> gearDatabase.findGearItemById(item.getId()) == null)
+                .collect(Collectors.toMap(Rs2ItemModel::getId, item -> item, (first, ignored) -> first))
+                .values().stream()
+                .map(item -> createWarmGearItem(item.getId(), item.getName()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    private WintertodtGearItem createWarmGearItem(int itemId, String itemName) {
+        ItemStats stats = Microbot.getClientThread().runOnClientThreadOptional(
+                () -> Microbot.getItemManager().getItemStats(itemId)).orElse(null);
+        if (stats == null || stats.getEquipment() == null) {
+            return null;
+        }
+        EquipmentInventorySlot slot = Arrays.stream(EquipmentInventorySlot.values())
+                .filter(candidate -> candidate.getSlotIdx() == stats.getEquipment().getSlot())
+                .findFirst()
+                .orElse(null);
+        return slot == null ? null : new WintertodtGearItem.Builder(itemId, itemName, slot)
+                .priority(600)
+                .category(WintertodtGearItem.GearCategory.WARM_GEAR)
+                .providesWarmth()
+                .description(itemName + " - provides warmth")
+                .build();
     }
     
     /**
@@ -320,7 +363,9 @@ public class WintertodtGearManager {
             
             // Equip each optimal gear piece
             for (Map.Entry<EquipmentInventorySlot, WintertodtGearItem> entry : optimalGear.entrySet()) {
-                equipGearItem(entry.getValue());
+                if (!equipGearItem(entry.getValue())) {
+                    return false;
+                }
             }
             
             Microbot.log("Optimal gear equipped successfully!");
@@ -335,30 +380,33 @@ public class WintertodtGearManager {
     /**
      * Equips a specific gear item.
      */
-    private void equipGearItem(WintertodtGearItem gearItem) {
+    private boolean equipGearItem(WintertodtGearItem gearItem) {
         int itemId = gearItem.getItemId();
         
         // Skip if already equipped
         if (Rs2Equipment.isWearing(itemId)) {
             Microbot.log("Already wearing: " + gearItem.getItemName());
-            return;
+            return true;
         }
         
         // Withdraw if needed
         if (!Rs2Inventory.hasItem(itemId)) {
             if (Rs2Bank.hasItem(itemId)) {
-                Rs2Bank.withdrawOne(itemId);
-                sleepUntil(() -> Rs2Inventory.hasItem(itemId), 3000);
+                if (!Rs2Bank.withdrawOne(itemId) ||
+                        !sleepUntil(() -> Rs2Inventory.hasItem(itemId), 3000)) {
+                    Microbot.log("Failed to withdraw: " + gearItem.getItemName());
+                    return false;
+                }
             } else {
                 Microbot.log("Warning: Cannot find " + gearItem.getItemName() + " in bank");
-                return;
+                return false;
             }
         }
         
         // Equip the item
         Microbot.log("Equipping: " + gearItem.getItemName());
-        Rs2Inventory.wield(itemId);
-        sleepUntil(() -> Rs2Equipment.isWearing(itemId), 3000);
+        return Rs2Inventory.wield(itemId) &&
+                sleepUntil(() -> Rs2Equipment.isWearing(itemId), 3000);
     }
     
     /**
@@ -396,7 +444,7 @@ public class WintertodtGearManager {
         }
         
         // Preserve hammer in slot 26 (brazier repair)
-        if (itemId == ItemID.HAMMER && slot == 26 && config.fixBrazier()) {
+        if (WintertodtInventoryManager.isHammer(itemId) && slot == 26 && config.fixBrazier()) {
             return true;
         }
         
@@ -511,4 +559,5 @@ public class WintertodtGearManager {
     public Map<EquipmentInventorySlot, WintertodtGearItem> getOptimalGear() {
         return new HashMap<>(optimalGear);
     }
-} 
+
+}
