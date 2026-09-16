@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.57]
+
+### Added
+- **Tempor Tantrum rum automation**: Auto Navigate now collects and delivers rum as the boat passes each Barracuda boat.
+
+### Fixed
+- **Tempor Tantrum course recovery**: Auto Navigate limits rum retries until the HUD state changes and follows the remaining forward route after a rum action changes the boat heading.
+
+---
+
 ## [2.2.34]
 
 ### Fixed
