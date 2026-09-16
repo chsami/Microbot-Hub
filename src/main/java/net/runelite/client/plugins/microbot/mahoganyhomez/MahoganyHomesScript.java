@@ -438,39 +438,50 @@ public class MahoganyHomesScript extends Script {
     }
 
     private boolean selectContactTarget(String npcName) {
-        final Widget chooseCharacterWidget = Rs2Widget.getWidget(CHOOSE_CHARACTER_WIDGET_ID);
-        if (chooseCharacterWidget == null) {
+        Rectangle[] bounds = contactTargetBounds(npcName);
+        if (bounds == null) {
             return false;
         }
-
-        Widget npcWidget = Rs2Widget.findWidget(npcName);
-        if (npcWidget == null) {
-            return false;
-        }
-
-        Rectangle chooseCharacterBounds = chooseCharacterWidget.getBounds();
-        if (!Rs2UiHelper.isRectangleWithinRectangle(chooseCharacterBounds, npcWidget.getBounds())) {
+        if (!Rs2UiHelper.isRectangleWithinRectangle(bounds[0], bounds[1])) {
             Global.sleepUntil(() -> {
-                Widget visibleNpcWidget = Rs2Widget.findWidget(npcName);
-                return visibleNpcWidget != null
-                        && Rs2UiHelper.isRectangleWithinRectangle(chooseCharacterBounds, visibleNpcWidget.getBounds());
+                Rectangle[] current = contactTargetBounds(npcName);
+                return current == null || Rs2UiHelper.isRectangleWithinRectangle(current[0], current[1]);
             }, () -> {
-                Widget currentNpcWidget = Rs2Widget.findWidget(npcName);
-                if (currentNpcWidget == null) {
+                Rectangle[] current = contactTargetBounds(npcName);
+                if (current == null) {
                     return;
                 }
-
-                boolean isBelow = currentNpcWidget.getBounds().y > chooseCharacterBounds.y;
-                if (isBelow) {
-                    Microbot.getMouse().scrollDown(Rs2UiHelper.getClickingPoint(chooseCharacterBounds, true));
+                if (current[1].y > current[0].y) {
+                    Microbot.getMouse().scrollDown(Rs2UiHelper.getClickingPoint(current[0], true));
                 } else {
-                    Microbot.getMouse().scrollUp(Rs2UiHelper.getClickingPoint(chooseCharacterBounds, true));
+                    Microbot.getMouse().scrollUp(Rs2UiHelper.getClickingPoint(current[0], true));
                 }
             }, 5000, 300);
         }
 
+        bounds = contactTargetBounds(npcName);
+        if (Thread.currentThread().isInterrupted() || bounds == null
+                || !Rs2UiHelper.isRectangleWithinRectangle(bounds[0], bounds[1])) {
+            return false;
+        }
         return Rs2Widget.clickWidget(npcName, Optional.of(75), 0, false)
                 || Rs2Widget.clickWidget(npcName, false);
+    }
+
+    private Rectangle[] contactTargetBounds(String npcName) {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Widget chooser = Rs2Widget.getWidget(CHOOSE_CHARACTER_WIDGET_ID);
+            Widget npc = Rs2Widget.findWidget(npcName);
+            if (chooser == null || npc == null || chooser.isHidden()) {
+                return null;
+            }
+            Rectangle chooserBounds = chooser.getBounds();
+            Rectangle npcBounds = npc.getBounds();
+            if (chooserBounds == null || npcBounds == null) {
+                return null;
+            }
+            return new Rectangle[] {new Rectangle(chooserBounds), new Rectangle(npcBounds)};
+        }).orElse(null);
     }
 
     public void handleContractDialogue() {
