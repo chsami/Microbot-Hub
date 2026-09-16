@@ -1423,7 +1423,7 @@ public class MKE_WintertodtScript extends Script {
             Microbot.log("Fletching enabled but no knife in inventory - this is okay, will get one from bank");
         }
 
-        if (config.fixBrazier() && !Rs2Inventory.hasItem(ItemID.HAMMER)) {
+        if (config.fixBrazier() && !WintertodtInventoryManager.hasHammer()) {
             Microbot.log("Brazier fixing enabled but no hammer in inventory - this is okay, will get one from bank");
         }
 
@@ -5340,8 +5340,7 @@ public class MKE_WintertodtScript extends Script {
 
         lastRewardCartInteraction = System.currentTimeMillis();
 
-        // Try to interact with reward cart by searching for the "Reward" text on the object
-        var rewardCart = Microbot.getRs2TileObjectCache().query().withName("Reward").nearestOnClientThread();
+        var rewardCart = Microbot.getRs2TileObjectCache().query().withName("Reward Cart").nearestOnClientThread();
         if (rewardCart != null && rewardCart.click("Big-search")) {
             Microbot.status = "Interacting with reward cart";
             return true;

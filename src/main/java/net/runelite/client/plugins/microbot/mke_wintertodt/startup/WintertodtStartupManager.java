@@ -392,7 +392,7 @@ public class WintertodtStartupManager {
         inventoryManager.determineKnifeToUse();
                              
         boolean hasKnife = !config.fletchRoots() || Rs2Inventory.hasItem(WintertodtInventoryManager.knifeToUse);
-        boolean hasHammer = !config.fixBrazier() || Rs2Inventory.hasItem(ItemID.HAMMER);
+        boolean hasHammer = !config.fixBrazier() || WintertodtInventoryManager.hasHammer();
         
         Microbot.log("Tools check - Axe (" + axeDecision.getAxeName() + "): " + hasAxe + 
                     ", Fire tool: " + hasFireTool + ", Knife: " + hasKnife + ", Hammer: " + hasHammer);
@@ -432,12 +432,12 @@ public class WintertodtStartupManager {
                     int itemId = equipped.getId();
                     
                     // Look up the gear item in our comprehensive database
-                    net.runelite.client.plugins.microbot.mke_wintertodt.startup.gear.WintertodtGearItem gearItem = 
+                    net.runelite.client.plugins.microbot.mke_wintertodt.startup.gear.WintertodtGearItem gearItem =
                         gearDatabase.findGearItemById(itemId);
-                    
-                    if (gearItem != null && gearItem.providesWarmth()) {
+
+                    if (gearDatabase.isWarmItem(itemId)) {
                         warmCount++;
-                        Microbot.log("Warm gear: " + gearItem.getItemName() + " (provides warmth)");
+                        Microbot.log("Warm gear: " + equipped.getName() + " (provides warmth)");
                     } else if (gearItem != null) {
                         Microbot.log("Cold gear: " + gearItem.getItemName() + " (no warmth)");
                     } else {
@@ -464,4 +464,4 @@ public class WintertodtStartupManager {
         WorldPoint playerLocation = Rs2Player.getWorldLocation();
         return playerLocation.distanceTo(WINTERTODT_BANK) <= WINTERTODT_AREA_RADIUS;
     }
-} 
+}

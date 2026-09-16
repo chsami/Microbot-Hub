@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.valetotems.handlers;
 import net.runelite.api.Actor;
 import net.runelite.api.GameObject;
 import net.runelite.api.NPC;
+import net.runelite.api.Skill;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -38,6 +39,39 @@ public class TotemHandler {
     private static final int ANIMAL_SEARCH_RADIUS = 17;
     private static final long INTERACTION_TIMEOUT_MS = 5000; // 5 seconds
     private static final long CARVING_DELAY_MS = 1500; // Delay between key presses for carving
+
+    // Vale Totems per-site game data. Each of the 8 sites has a block of locs
+    // (ent_totems_site_N_base/low/mid/top/offerings/decoration) and a block of
+    // varbits (ent_totems_site_N_base ... all_multianimals). The totem loc id
+    // found in the scene identifies the site, which gives the varbit block.
+    private static final int SITE_1_TOTEM_LOC_ID = 57016; // ent_totems_site_1_base
+    private static final int LOCS_PER_SITE = 6;
+    private static final int TOTAL_SITES = 8;
+    private static final int SITE_1_VARBIT_BASE = 17611;  // ent_totems_site_1_base
+    private static final int VARBITS_PER_SITE = 18;
+    // Varbit offsets within a site's block:
+    // +0 base (wood type), +1 base_carved (1 = ready for decoration),
+    // +3/+4/+5 low/mid/top segments (wood value = uncarved, 9 + animal id = carved),
+    // +6 decorations, +7/+8/+9 the site's three required animals (1-5)
+    private static final int VB_OFFSET_BASE_CARVED = 1;
+    private static final int VB_OFFSET_SEGMENT_LOW = 3;
+    private static final int VB_OFFSET_ANIMAL_1 = 7;
+    private static final int CARVED_SEGMENT_ANIMAL_OFFSET = 9;
+
+    /**
+     * Resolve the base varbit id of the site's varbit block from the totem loc
+     * id present in the scene.
+     * @param totemLocation the totem location
+     * @return the site's base varbit id, or -1 if the totem loc id is unknown
+     */
+    private static int getSiteVarbitBase(TotemLocation totemLocation) {
+        int locId = GameObjectUtils.getTotemObjectId(totemLocation.getLocation());
+        int siteOffset = locId - SITE_1_TOTEM_LOC_ID;
+        if (siteOffset < 0 || siteOffset >= TOTAL_SITES * LOCS_PER_SITE || siteOffset % LOCS_PER_SITE != 0) {
+            return -1;
+        }
+        return SITE_1_VARBIT_BASE + (siteOffset / LOCS_PER_SITE) * VARBITS_PER_SITE;
+    }
 
     /**
      * Waits until the current totem is ready for new construction.
@@ -163,9 +197,31 @@ public class TotemHandler {
     public static boolean identifySpiritAnimals(TotemLocation totemLocation, TotemProgress progress) {
         try {
             WorldPoint location = totemLocation.getLocation();
-            
+
             System.out.println("Identifying spirit animals around " + totemLocation.getDescription());
-            
+
+            // The site's required animals are tracked in varbits - exact and
+            // immune to spirits wandering out of range or being reshuffled
+            int varbitBase = getSiteVarbitBase(totemLocation);
+            if (varbitBase > 0) {
+                progress.clearIdentifiedAnimals();
+                for (int i = 0; i < 3; i++) {
+                    SpiritAnimal animal = SpiritAnimal.getByVarbitValue(
+                            Microbot.getVarbitValue(varbitBase + VB_OFFSET_ANIMAL_1 + i));
+                    if (animal != null) {
+                        progress.addIdentifiedAnimal(animal);
+                        System.out.println("Identified: " + animal.getDescription());
+                    }
+                }
+                if (progress.areAllAnimalsIdentified()) {
+                    Microbot.log("Identified all 3 spirit animals from totem varbits");
+                    printIdentifiedAnimals(progress);
+                    return true;
+                }
+                progress.clearIdentifiedAnimals();
+                Microbot.log("Totem animal varbits not populated - falling back to NPC scan");
+            }
+
             // Retry loop for identifying spirit animals
             boolean allIdentified = false;
             int maxAttempts = 5;
@@ -246,41 +302,83 @@ public class TotemHandler {
 
             Microbot.log("Carving animals into totem");
 
+            // A leftover totem from a previous attempt may already hold carves;
+            // the segment varbits say exactly which, so they are never re-attempted
+            // (the game rejects duplicates: "You may only select animals you have
+            // not already carved.")
+            int varbitBase = getSiteVarbitBase(totemLocation);
+            if (varbitBase > 0) {
+                if (Microbot.getVarbitValue(varbitBase + VB_OFFSET_BASE_CARVED) == 1) {
+                    System.out.println("Totem is already fully carved");
+                    return true;
+                }
+                for (int i = 0; i < 3; i++) {
+                    int segmentValue = Microbot.getVarbitValue(varbitBase + VB_OFFSET_SEGMENT_LOW + i);
+                    SpiritAnimal carved = SpiritAnimal.getByVarbitValue(segmentValue - CARVED_SEGMENT_ANIMAL_OFFSET);
+                    if (carved != null && !progress.getCarvedAnimals().contains(carved)) {
+                        progress.addCarvedAnimal(carved);
+                        System.out.println("Totem already has " + carved.getDescription()
+                                + " carved (leftover from a previous attempt)");
+                    }
+                }
+            }
+
             sleepGaussian(400,300);
 
-            // Carve each identified animal
-            for (SpiritAnimal animal : progress.getIdentifiedAnimals()) {
-                if (!progress.getCarvedAnimals().contains(animal)) {
+            int maxCarveRounds = 2;
+            for (int round = 1; round <= maxCarveRounds; round++) {
+                // Carve each identified animal
+                for (SpiritAnimal animal : progress.getIdentifiedAnimals()) {
+                    if (progress.getCarvedAnimals().contains(animal)) {
+                        continue;
+                    }
+
+                    // A leftover carve from a previous attempt may fill the totem
+                    // before finishing the list
+                    if (checkTotemState(totemLocation) == GameObjectId.TOTEM_READY_FOR_DECORATION) {
+                        System.out.println("Successfully carved all animals");
+                        return true;
+                    }
+
                     // Add humanlike random hover over on spirit animal
                     hoverOverSpiritAnimal(animal);
                     if (carveAnimalIntoTotem(animal)) {
                         progress.addCarvedAnimal(animal);
-                        System.out.println("Carved: " + animal.getDescription() + " (Key " + animal.getWidgetChildId() + ")");
-                        
+                        System.out.println("Carved: " + animal.getDescription() + " (Key " + animal.getKeyNumber() + ")");
+
                         // Delay between carvings
                         sleep((int)CARVING_DELAY_MS);
                     } else {
-                        System.err.println("Failed to carve: " + animal.getDescription());
+                        // The game rejects carving an animal that is already on the
+                        // totem (e.g. left over from a previous attempt at this site),
+                        // which looks identical to a swallowed input: no xp. Skip it
+                        // and let the remaining animals fill the open slots - the
+                        // totem state below is the real completion check.
+                        System.err.println("Carve not accepted for " + animal.getDescription()
+                                + " - skipping (may already be on the totem)");
+                    }
+                }
+
+                // Wait for totem to become ready for decoration
+                if (GameObjectUtils.waitForTotemStateAtLocation(
+                        GameObjectId.TOTEM_READY_FOR_DECORATION, location, INTERACTION_TIMEOUT_MS)) {
+                    System.out.println("Successfully carved all animals");
+                    return true;
+                }
+
+                if (round < maxCarveRounds) {
+                    // An ent may have reshuffled the spirits mid-carve; re-scan and
+                    // fill the remaining slots instead of hard-failing into recovery.
+                    // Keep carved marks - those are xp-verified on the totem.
+                    System.err.println("Totem not ready after carving - re-scanning spirit animals and retrying");
+                    if (!identifySpiritAnimals(totemLocation, progress)) {
                         return false;
                     }
                 }
             }
 
-            boolean allCarved = progress.areAllAnimalsCarved();
-            if (allCarved) {
-                System.out.println("Successfully carved all animals");
-                
-                // Wait for totem to become ready for decoration
-                boolean readyForDecoration = GameObjectUtils.waitForTotemStateAtLocation(
-                        GameObjectId.TOTEM_READY_FOR_DECORATION, location, INTERACTION_TIMEOUT_MS);
-
-                if (!readyForDecoration) {
-                    System.err.println("Totem did not become ready for decoration");
-                    return false;
-                }
-            }
-
-            return allCarved;
+            System.err.println("Totem did not become ready for decoration");
+            return false;
 
         } catch (Exception e) {
             System.err.println("Error carving animals: " + e.getMessage());
@@ -295,34 +393,75 @@ public class TotemHandler {
      */
     private static boolean carveAnimalIntoTotem(SpiritAnimal animal) {
         try {
-            if (!sleepUntil(() -> Rs2Widget.hasWidgetText("What animal would you like to carve?",270,5, false), 5000)) {
-                Microbot.getClientThread().invoke(() ->
-                        Microbot.getRs2TileObjectCache().query().withNameContains(GameObjectId.EMPTY_TOTEM.getSearchTerm()).interact("Carve"));
-                if (!sleepUntil(() -> Rs2Widget.hasWidgetText("What animal would you like to carve?",270,5, false), 5000)) {
-                    System.err.println("Failed to carve animal");
+            int maxAttempts = 2;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                if (!ensureCarveDialogOpen()) {
+                    System.err.println("Failed to open carve dialog");
                     return false;
                 }
+
+                //Humanlike delay
+                sleepGaussian(300,200);
+
+                int xpBefore = getFletchingXp();
+
+                // Small 2% change to mouse click to avoid detection
+                boolean inputSent = false;
+                int mouseClickChange = RandomUtils.nextInt(1,100);
+                if (mouseClickChange <= 2) {
+                    inputSent = Rs2Widget.clickWidget(270,animal.getWidgetChildId());
+                }
+                if (!inputSent) {
+                    // Press the corresponding number key
+                    Rs2Keyboard.keyPress(animal.getKeyNumber());
+                }
+
+                // A carve is a 2-tick action awarding Fletching xp; no xp means the
+                // input was swallowed or the game rejected the carve
+                if (sleepUntil(() -> getFletchingXp() > xpBefore, 3600)) {
+                    return true;
+                }
+
+                // A rejected carve (e.g. animal already on the totem) responds with a
+                // dialogue instead of xp - capture and dismiss it
+                if (Rs2Dialogue.isInDialogue()) {
+                    System.err.println("Carve rejected for " + animal.getDescription()
+                            + " - game response: " + Rs2Dialogue.getDialogueText());
+                    Rs2Dialogue.clickContinue();
+                    return false;
+                }
+
+                System.err.println("Carve input did not register for " + animal.getDescription()
+                        + " (attempt " + attempt + "/" + maxAttempts + ")");
             }
 
-            //Humanlike delay
-            sleepGaussian(300,200);
-
-            // Small 2% change to mouse click to avoid detection
-            int mouseClickChange = RandomUtils.nextInt(1,100);
-            if (mouseClickChange <= 2) {
-                // Press the corresponding number key
-                Rs2Widget.clickWidget(270,animal.getWidgetChildId());
-                return true;
-            }
-
-            // Press the corresponding number key
-            Rs2Keyboard.keyPress(animal.getKeyNumber());
-
-            return true;
+            return false;
         } catch (Exception e) {
             System.err.println("Error carving animal " + animal.getDescription() + ": " + e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Read current Fletching xp on the client thread
+     * @return the player's Fletching experience
+     */
+    private static int getFletchingXp() {
+        return Microbot.getClientThread().invoke(() ->
+                Microbot.getClient().getSkillExperience(Skill.FLETCHING));
+    }
+
+    /**
+     * Ensure the carve selection dialog is open, re-interacting with the totem if needed
+     * @return true if the dialog is open
+     */
+    private static boolean ensureCarveDialogOpen() {
+        if (sleepUntil(() -> Rs2Widget.hasWidgetText("What animal would you like to carve?",270,5, false), 5000)) {
+            return true;
+        }
+        Microbot.getClientThread().invoke(() ->
+                Microbot.getRs2TileObjectCache().query().withNameContains(GameObjectId.EMPTY_TOTEM.getSearchTerm()).interact("Carve"));
+        return sleepUntil(() -> Rs2Widget.hasWidgetText("What animal would you like to carve?",270,5, false), 5000);
     }
 
     /**
@@ -418,7 +557,7 @@ public class TotemHandler {
     private static void printIdentifiedAnimals(TotemProgress progress) {
         System.out.println("Identified animals:");
         for (SpiritAnimal animal : progress.getIdentifiedAnimals()) {
-            System.out.println("  - " + animal.getDescription() + " (Key " + animal.getWidgetChildId() + ")");
+            System.out.println("  - " + animal.getDescription() + " (Key " + animal.getKeyNumber() + ")");
         }
     }
 
@@ -445,6 +584,7 @@ public class TotemHandler {
     public static void resetTotemConstruction(TotemProgress progress) {
         progress.setBaseBuilt(false);
         progress.clearIdentifiedAnimals();
+        progress.clearCarvedAnimals();
         progress.setDecorated(false);
         System.out.println("Totem construction state reset");
     }

@@ -8,8 +8,8 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import  net.runelite.client.plugins.microbot.summergarden.ElementalCollisionDetector;
-import  net.runelite.client.plugins.microbot.summergarden.SummerGardenConfig;
+import net.runelite.client.plugins.microbot.summergarden.ElementalCollisionDetector;
+import net.runelite.client.plugins.microbot.summergarden.SummerGardenConfig;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -124,15 +124,30 @@ public class SummerGardenScript extends Script {
     }
 
     private boolean isInAlKharid() {
-        return Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID()) == REGION_ALKHARID;
+        return Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> {
+                    Player local = Microbot.getClient().getLocalPlayer();
+                    return local != null && local.getWorldLocation().getRegionID() == REGION_ALKHARID;
+                })
+                .orElse(false);
     }
 
     private boolean isInGarden() {
-        return Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getRegionID()) == REGION_GARDEN;
+        return Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> {
+                    Player local = Microbot.getClient().getLocalPlayer();
+                    return local != null && local.getWorldLocation().getRegionID() == REGION_GARDEN;
+                })
+                .orElse(false);
     }
 
     private boolean isInHouseArea() {
-        WorldPoint loc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        WorldPoint loc = Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> {
+                    Player local = Microbot.getClient().getLocalPlayer();
+                    return local != null ? local.getWorldLocation() : null;
+                })
+                .orElse(null);
         return loc != null && loc.isInArea(WORLD_AREA_HOUSE);
     }
 
@@ -225,19 +240,36 @@ public class SummerGardenScript extends Script {
         }
 
         // Click tree
-        if (WORLD_POINT_MAZE_STARTING_LOCATION.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))) {
+        WorldPoint currentLoc = Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> {
+                    Player local = Microbot.getClient().getLocalPlayer();
+                    return local != null ? local.getWorldLocation() : null;
+                })
+                .orElse(null);
+
+        if (WORLD_POINT_MAZE_STARTING_LOCATION.equals(currentLoc)) {
             if (config.waitForOneClick() || ElementalCollisionDetector.getTicksUntilStart() == 0) {
                 Microbot.getRs2TileObjectCache().query().interact(OBJECT_SUMMER_TREE);
                 sleepUntil(() -> Rs2Player.isMoving());
                 sleepUntil(() -> !Rs2Player.isMoving(), 30000);
-                sleepUntilOnClientThread(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getY() < 5481);
+                sleepUntilOnClientThread(() -> {
+                    Player local = Microbot.getClient().getLocalPlayer();
+                    return local != null && local.getWorldLocation().getY() < 5481;
+                });
                 sleep(1500);//caught or success timeout
             }
             return;
         }
 
         // The player is inside the garden so the gate doesn't need to be clicked.
-        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getY()) >= 5481) {
+        Integer playerY = Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> {
+                    Player local = Microbot.getClient().getLocalPlayer();
+                    return local != null ? local.getWorldLocation().getY() : null;
+                })
+                .orElse(null);
+
+        if (playerY != null && playerY >= 5481) {
             return;
         }
 
@@ -247,7 +279,10 @@ public class SummerGardenScript extends Script {
             gate.click();
             sleepUntil(Rs2Player::isMoving);
             sleepUntil(() -> !Rs2Player.isMoving());
-            sleepUntilOnClientThread(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().equals(WORLD_POINT_MAZE_STARTING_LOCATION));
+            sleepUntilOnClientThread(() -> {
+                Player local = Microbot.getClient().getLocalPlayer();
+                return local != null && local.getWorldLocation().equals(WORLD_POINT_MAZE_STARTING_LOCATION);
+            });
         }
     }
 
