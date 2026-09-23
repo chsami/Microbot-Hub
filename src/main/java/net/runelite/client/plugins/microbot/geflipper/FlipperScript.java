@@ -88,6 +88,11 @@ public class FlipperScript extends Script {
 
 	@Inject
 	private KeyManager keyManager;
+    /** Only one FlipperScript may ever run at a time: Microbot starts the script on every enable and
+     * local reload and the old instances were never stopped, which left several bots trading. */
+    private static final java.util.Set<java.util.concurrent.ScheduledFuture<?>> LIVE_FUTURES =
+        java.util.concurrent.ConcurrentHashMap.newKeySet();
+
 
 	public boolean run(FlipperConfig config) {
 		this.config = config;
@@ -99,6 +104,19 @@ public class FlipperScript extends Script {
 	}
 
     public boolean run() {
+        if (!LIVE_FUTURES.isEmpty()) {
+            // Only one instance may ever run. Microbot restarts this script on break cycles and
+            // local reloads; tracking only the newest future left the older ones running, which
+            // accumulated to several bots trading at once. Cancel every one still registered.
+            log.warn("Cancelling {} earlier FlipperScript instance(s) so only one runs.", LIVE_FUTURES.size());
+            for (java.util.concurrent.ScheduledFuture<?> f : LIVE_FUTURES) {
+                try {
+                    f.cancel(true);
+                } catch (Exception ignored) {
+                }
+            }
+            LIVE_FUTURES.clear();
+        }
         Rs2AntibanSettings.naturalMouse = true;
         Rs2Antiban.setActivityIntensity(ActivityIntensity.LOW);
             mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -155,6 +173,7 @@ public class FlipperScript extends Script {
 
                     case MONITORING_COPILOT:
 						long currentTime = System.currentTimeMillis();
+                        if (isSlotActionBlocked()) return;
 
 						// 0a. Grand Exchange watchdog: this state had no way back from a closed
 						// exchange - GOING_TO_GE was only set on shutdown/startup - so a closed or
@@ -287,11 +306,9 @@ public class FlipperScript extends Script {
                             return;
                         }
 
-						// 2. Check for Copilot price/quantity messages in chat
-						if (checkAndPressCopilotKeybind()) return;
-
-                        // 3. Check if we need to abort any offers
+                        // Handle slot suggestions before chat/highlight fallbacks.
                         if (checkAndAbortOrModifyIfNeeded()) return;
+						if (checkAndPressCopilotKeybind()) return;
 
                         // 4. Check for highlighted widgets
                         if (checkAndClickHighlightedWidgets()) return;
@@ -311,13 +328,33 @@ public class FlipperScript extends Script {
                 log.error("Error in FlipperScript: {} - ", ex.getMessage(), ex);
             }
         }, 0, SCHEDULE_INTERVAL_MS, TimeUnit.MILLISECONDS);
-
+        LIVE_FUTURES.add(mainScheduledFuture);
         return true;
     }
 
 	@Override
 	public void shutdown()
 	{
+        // Cancel before clearing. Clearing alone dropped the reference and left the old
+        // schedule running, so every break-restart added another live instance.
+        for (java.util.concurrent.ScheduledFuture<?> f : LIVE_FUTURES) {
+            try {
+                f.cancel(true);
+            } catch (Exception ignored) {
+            }
+        }
+        if (mainScheduledFuture != null) {
+            try {
+                mainScheduledFuture.cancel(true);
+            } catch (Exception ignored) {
+            }
+        }
+
+        LIVE_FUTURES.clear();
+        blockedSlotActionKey = null;
+        slotActionStatus = "";
+        geClosedSince = strayPageSince = offerScreenOpenTime = 0;
+        offerScreenActionCount = 0;
 		flippingCopilot = null;
 		suggestionManager = null;
 		highlightController = null;
@@ -329,7 +366,6 @@ public class FlipperScript extends Script {
 	private boolean initialize()
 	{
 		if (flippingCopilot != null && suggestionManager != null && highlightController != null) {
-			ensureSlotActionSwapEnabled();
 			return true;
 		}
 
@@ -338,7 +374,6 @@ public class FlipperScript extends Script {
 		Object _highlightController = getHighlightController(_flippingCopilot);
 
 		if (_flippingCopilot != null && _suggestionManager != null && _highlightController != null) {
-			ensureSlotActionSwapEnabled();
 			return true;
 		}
 		return false;
@@ -351,7 +386,12 @@ public class FlipperScript extends Script {
 			flippingCopilot = Microbot.getPluginManager()
 				.getPlugins()
 				.stream()
-				.filter(plugin -> plugin.getClass().getSimpleName().equalsIgnoreCase("FlippingCopilotPlugin"))
+				.filter(plugin -> {
+					// Flip Assist and Flipping Copilot expose the same surface; drive whichever one is loaded.
+					String simpleName = plugin.getClass().getSimpleName();
+					return simpleName.equalsIgnoreCase("FlippingCopilotPlugin")
+						|| simpleName.equalsIgnoreCase("FlipAssistPlugin");
+				})
 				.findFirst()
 				.orElse(null);
 		}
@@ -438,24 +478,7 @@ public class FlipperScript extends Script {
 				}
 			}
 		} catch (Exception ignored) {}
-		return true;
-	}
-
-	public void ensureSlotActionSwapEnabled() {
-		try {
-			if (config != null && !config.autoEnableSlotSwap()) {
-				return;
-			}
-			if (Microbot.getConfigManager() != null) {
-				String val = Microbot.getConfigManager().getConfiguration("flippingcopilot", "slotActionSwap");
-				if (!"true".equalsIgnoreCase(val)) {
-					log.info("Flipping Copilot 'slotActionSwap' is disabled; automatically enabling it in ConfigManager.");
-					Microbot.getConfigManager().setConfiguration("flippingcopilot", "slotActionSwap", true);
-				}
-			}
-		} catch (Exception e) {
-			log.warn("Failed to set flippingcopilot slotActionSwap setting: {}", e.getMessage());
-		}
+		return false;
 	}
 
 	private Widget getOfferScreenAbortButton() {
@@ -874,106 +897,211 @@ public class FlipperScript extends Script {
 		return target != null ? target.getWidget() : null;
 	}
 
-	private boolean checkAndAbortOrModifyIfNeeded()
-	{
-		if (!Rs2GrandExchange.isOpen() || isOfferScreenOpen()) return false;
-		if (System.currentTimeMillis() - lastActionTime < actionCooldown) return false;
+    private String blockedSlotActionKey;
+    /** The chat label Flip Assist uses for its suggested item in the GE search. */
+    private static final String FlipAssistItemLabel = "Flip Assist item: ";
 
-		if (flippingCopilot == null || highlightController == null || suggestionManager == null) return false;
-		try
-		{
-			Object currentSuggestion = getSuggestion(suggestionManager);
-			if (currentSuggestion == null) return false;
+    /**
+     * The line that selects the suggested item in the exchange search box. Copilot puts one there;
+     * Flip Assist puts one there under its own label, so both are tried. The result is returned
+     * rather than assigned to a shared local, because the callers capture that local in a lambda.
+     */
+    private Widget findSuggestedItemWidget() {
+        Widget widget = Rs2Widget.findWidget("Copilot item:", null, false);
+        if (widget == null) {
+            widget = Rs2Widget.findWidget(FlipAssistItemLabel, null, false);
+        }
+        return widget;
+    }
 
-			// Use Suggestion helper methods (type is now SuggestionType enum, not String)
-			Method isAbortMethod = currentSuggestion.getClass().getMethod("isAbortSuggestion");
-			Method isModifyMethod = currentSuggestion.getClass().getMethod("isModifySuggestion");
-			boolean isAbort = (Boolean) isAbortMethod.invoke(currentSuggestion);
-			boolean isModify = (Boolean) isModifyMethod.invoke(currentSuggestion);
+    private volatile String slotActionStatus = "";
+    private static final int SLOT_ACTION_SETTLE_MS = 3500;
 
-			if (!isAbort && !isModify) return false;
+    public enum SuggestedAction { NONE, ABORT, MODIFY }
 
-			Widget abortWidget = getWidgetFromOverlay(highlightController, isAbort ? "abort" : "modify");
-			if (abortWidget == null)
-			{
-				try {
-					Method getBoxIdMethod = currentSuggestion.getClass().getMethod("getBoxId");
-					int boxId = (Integer) getBoxIdMethod.invoke(currentSuggestion);
-					if (boxId >= 0 && boxId < grandExchangeSlotIds.length) {
-						abortWidget = Rs2Widget.getWidget(grandExchangeSlotIds[boxId]);
-					}
-				} catch (Exception ignored) {}
-			}
-			if (abortWidget != null && Rs2Widget.isWidgetVisible(abortWidget.getId()))
-			{	
-				if (isAbort)
-				{
-					ensureSlotActionSwapEnabled();
-					boolean slotActionSwap = isSlotActionSwapEnabled();
-					log.info("Executing suggestion ABORT on slot widget {} (slotActionSwap={})", abortWidget.getId(), slotActionSwap);
-					if (slotActionSwap)
-					{
-						NewMenuEntry abortEntry = new NewMenuEntry()
-							.option("Abort offer")
-							.target("")
-							.identifier(2)
-							.type(MenuAction.CC_OP)
-							.param0(2)
-							.param1(abortWidget.getId())
-							.itemId(-1)
-							.forceLeftClick(false);
-						Rectangle bounds = abortWidget.getBounds() != null && Rs2UiHelper.isRectangleWithinCanvas(abortWidget.getBounds())
-							? abortWidget.getBounds()
-							: Rs2UiHelper.getDefaultRectangle();
-						Microbot.doInvoke(abortEntry, bounds);
-					}
-					else
-					{
-						// When slotActionSwap is OFF, left-clicking the slot widget in OSRS opens "View offer".
-						// We open the offer screen and let getOfferScreenAbortButton perform the abort reliably.
-						log.info("slotActionSwap is disabled: opening slot widget {} to abort from offer screen.", abortWidget.getId());
-						Rs2Widget.clickWidget(abortWidget);
-						sleepUntil(this::isOfferScreenOpen, 2500);
-					}
-					lastActionTime = System.currentTimeMillis();
-					actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
-					return true;
-				}
-				else // isModify
-				{
-					log.info("Executing suggestion MODIFY: opening slot widget {}", abortWidget.getId());
-					Rs2Widget.clickWidget(abortWidget);
-					lastActionTime = System.currentTimeMillis();
-					actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
-					return true;
-				}
-			}
-			else if (isAbort)
-			{
-				try {
-					Method getNameMethod = currentSuggestion.getClass().getMethod("getName");
-					String itemName = (String) getNameMethod.invoke(currentSuggestion);
-					if (itemName != null && !itemName.isEmpty()) {
-						log.info("Executing suggestion ABORT via Rs2GrandExchange.abortOffer for item '{}'", itemName);
-						if (Rs2GrandExchange.abortOffer(itemName, false)) {
-							lastActionTime = System.currentTimeMillis();
-							actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
-							return true;
-						}
-					}
-				} catch (Exception ignored) {}
-			}
-		}
-		catch (Exception e)
-		{
-			log.error("Could not process suggestion: {} - ", e.getMessage(), e);
-		}
-		return false;
-	}
+    public static SuggestedAction classifySuggestion(boolean isAbort, boolean isModify, boolean slotActionSwap) {
+        if (isAbort) return SuggestedAction.ABORT;
+        if (isModify) return SuggestedAction.MODIFY;
+        return SuggestedAction.NONE;
+    }
+
+    public String getSlotActionStatus() {
+        return slotActionStatus;
+    }
+
+    private void slotActionStatus(String message) {
+        if (!message.equals(slotActionStatus) && !message.isEmpty()) log.warn(message);
+        slotActionStatus = message;
+    }
+
+    private String slotActionKey(Object suggestion) throws ReflectiveOperationException {
+        StringBuilder key = new StringBuilder(config.slotAction().name())
+            .append(':').append(isSlotActionSwapEnabled());
+        for (String getter : new String[]{"getType", "getBoxId", "getName", "getPrice", "getQuantity"}) {
+            key.append(':').append(suggestion.getClass().getMethod(getter).invoke(suggestion));
+        }
+        return key.toString();
+    }
+
+    // This guard runs before watchdogs, hotkeys and generic highlight clicks. A failed slot
+    // action must not fall through to a second click via another path on the following tick.
+    private boolean isSlotActionBlocked() {
+        if (blockedSlotActionKey == null) return false;
+        try {
+            Object suggestion = getSuggestion(suggestionManager);
+            if (suggestion == null || blockedSlotActionKey.equals(slotActionKey(suggestion))) return true;
+            blockedSlotActionKey = null;
+            slotActionStatus = "";
+            geClosedSince = strayPageSince = offerScreenOpenTime = 0;
+            offerScreenActionCount = 0;
+            return false;
+        } catch (ReflectiveOperationException e) {
+            return true;
+        }
+    }
+
+    private boolean sameSlotSuggestion(String key) {
+        try {
+            Object suggestion = getSuggestion(suggestionManager);
+            return suggestion != null && key.equals(slotActionKey(suggestion));
+        } catch (ReflectiveOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean isModifySetupOpen() {
+        return Rs2Widget.isWidgetVisible(InterfaceID.GeOffers.SETUP);
+    }
+
+    private net.runelite.api.Point slotActionPoint(int slotId, SlotActionExecutor.Action action) {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Widget slot = Microbot.getClient().getWidget(slotId);
+            Widget button = slot == null ? null : slot.getChild(2);
+            if (button == null || button.isHidden()) return null;
+            if (!SlotActionExecutor.supportsAction(button.getActions(), action)) return null;
+            Rectangle bounds = button.getBounds();
+            if (bounds == null || bounds.width < 2 || bounds.height < 2
+                || !Rs2UiHelper.isRectangleWithinCanvas(bounds)) return null;
+            return new net.runelite.api.Point((int) bounds.getCenterX(), (int) bounds.getCenterY());
+        }).orElse(null);
+    }
+
+    private boolean isSlotDefaultAction(int slotId, SlotActionExecutor.Action action,
+                                       net.runelite.api.Point point, String key) {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            if (Microbot.naturalMouse == null || Microbot.targetMenu != null || Microbot.getClient().isMenuOpen()
+                || !isSlotActionSwapEnabled() || !sameSlotSuggestion(key) || isOfferScreenOpen()) return false;
+            net.runelite.api.Point mouse = Microbot.getClient().getMouseCanvasPosition();
+            Widget slot = Microbot.getClient().getWidget(slotId);
+            Widget button = slot == null ? null : slot.getChild(2);
+            if (button == null || button.isHidden() || mouse == null
+                || mouse.getX() != point.getX() || mouse.getY() != point.getY()
+                || !button.getBounds().contains(point.getX(), point.getY())) return false;
+            return SlotActionExecutor.matchesDefaultAction(
+                Microbot.getClient().getMenu().getMenuEntries(), slotId, action);
+        }).orElse(false);
+    }
+
+    private boolean checkAndAbortOrModifyIfNeeded() {
+        if (!Rs2GrandExchange.isOpen() || isOfferScreenOpen()) return false;
+        if (flippingCopilot == null || highlightController == null || suggestionManager == null) return false;
+        try {
+            Object suggestion = getSuggestion(suggestionManager);
+            if (suggestion == null) {
+                slotActionStatus = "";
+                return false;
+            }
+            boolean abort = (Boolean) suggestion.getClass().getMethod("isAbortSuggestion").invoke(suggestion);
+            boolean modify = (Boolean) suggestion.getClass().getMethod("isModifySuggestion").invoke(suggestion);
+            if (!abort && !modify) {
+                slotActionStatus = "";
+                return false;
+            }
+            // Consume the tick even during cooldown: generic slot highlights must not bypass this handler.
+            if (System.currentTimeMillis() - lastActionTime < actionCooldown) return true;
+            final String key = slotActionKey(suggestion);
+            int boxId = (Integer) suggestion.getClass().getMethod("getBoxId").invoke(suggestion);
+            if (boxId < 0 || boxId >= grandExchangeSlotIds.length) {
+                blockedSlotActionKey = key;
+                slotActionStatus("Invalid Copilot slot. Refresh suggestions or restart GE Flipper.");
+                return true;
+            }
+            final int slotId = grandExchangeSlotIds[boxId];
+            final SlotActionExecutor.Action action = abort
+                ? SlotActionExecutor.Action.ABORT : SlotActionExecutor.Action.MODIFY;
+            SlotActionExecutor.Result result = SlotActionExecutor.execute(config.slotAction(), action, slotId,
+                new SlotActionExecutor.Ui() {
+                    public boolean slotSwapEnabled() { return isSlotActionSwapEnabled(); }
+                    public net.runelite.api.Point actionPoint(int id, SlotActionExecutor.Action a) {
+                        return slotActionPoint(id, a);
+                    }
+                    public void hover(net.runelite.api.Point point) {
+                        // Mouse.move dispatches a single jump. Follow a smooth path on this
+                        // script thread; never block the client thread for mouse movement.
+                        if (Microbot.naturalMouse != null && !Thread.currentThread().isInterrupted()) {
+                            Microbot.naturalMouse.moveTo(point.getX(), point.getY());
+                        }
+                    }
+                    public boolean awaitDefaultAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
+                        return sleepUntil(() -> isSlotDefaultAction(id, a, point, key), 1800);
+                    }
+                    public boolean clickDefaultAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
+                        if (!FlipperScript.this.isRunning() || Thread.currentThread().isInterrupted()
+                            || !isSlotDefaultAction(id, a, point, key)) return false;
+                        // Reuse the verified point; a rectangle would choose a different point.
+                        Microbot.getMouse().click(point);
+                        return true;
+                    }
+                    public boolean invokeAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
+                        if (Thread.currentThread().isInterrupted() || !sameSlotSuggestion(key)
+                            || isOfferScreenOpen() || slotActionPoint(id, a) == null) return false;
+                        Microbot.doInvoke(new NewMenuEntry().option(a.option).target("")
+                            .identifier(a.identifier).type(MenuAction.CC_OP).param0(2).param1(id)
+                            .itemId(-1).forceLeftClick(false),
+                            new Rectangle(point.getX() - 1, point.getY() - 1, 2, 2));
+                        return true;
+                    }
+                });
+            lastActionTime = System.currentTimeMillis();
+            actionCooldown = DEFAULT_ACTION_COOLDOWN;
+            if (handleSlotActionFailure(result, action, key)) return true;
+            slotActionStatus = "";
+            log.info("Executed {} on slot {} using {}.", action.option, boxId + 1, config.slotAction().actionDescription);
+            if (modify && !sleepUntil(this::isModifySetupOpen, SLOT_ACTION_SETTLE_MS)
+                && sameSlotSuggestion(key)) {
+                // An invoke/left click is not proof that setup opened. Back out once, then
+                // hold this suggestion until it changes, the mode changes, or the plugin restarts.
+                if (isOfferScreenOpen()) backToOverview();
+                blockedSlotActionKey = key;
+                slotActionStatus("Modify setup did not open. Check Copilot left-click swap or restart GE Flipper.");
+            }
+            lastActionTime = System.currentTimeMillis();
+            actionCooldown = DEFAULT_ACTION_COOLDOWN;
+            return true;
+        } catch (ReflectiveOperationException e) {
+            slotActionStatus("Copilot suggestion unavailable. Refresh suggestions or restart GE Flipper.");
+            log.debug("Could not read Copilot slot suggestion", e);
+            return true;
+        }
+    }
+    /** Transient failures consume this tick without permanently blocking the suggestion. */
+    boolean handleSlotActionFailure(SlotActionExecutor.Result result, SlotActionExecutor.Action action, String key) {
+        if (result == SlotActionExecutor.Result.ACTED) return false;
+        if (result == SlotActionExecutor.Result.SWAP_DISABLED) {
+            blockedSlotActionKey = key;
+            slotActionStatus("Enable Copilot slot swap, or set Copilot left-click swap to Off in GE Flipper to use Slot menu action.");
+        } else if (result == SlotActionExecutor.Result.SLOT_UNAVAILABLE) {
+            slotActionStatus("No supported " + action.option + " action is available. Waiting; if this persists, "
+                + "refresh Copilot suggestions or handle the offer manually.");
+        } else {
+            slotActionStatus("Waiting for Copilot's " + action.option + " left-click action. Will retry.");
+        }
+        return true;
+    }
 
     private boolean checkAndPressCopilotKeybind() {
 		// 1. Search for a widget with text "Copilot item" (if it's time to select the item suggestion in the buy item window)
-        Widget copilotWidget = Rs2Widget.findWidget("Copilot item:", null, false);
+        Widget copilotWidget = findSuggestedItemWidget();
         if (copilotWidget != null && Rs2Widget.isWidgetVisible(copilotWidget.getId())) {
 			log.info("Found chat widget Copilot item '{}'.", copilotWidget.getId());
 			if (isMouseMode()) {
@@ -1144,6 +1272,21 @@ public class FlipperScript extends Script {
 				log.info("Processing highlighted target: widgetId={}, clickBounds={}, relativeBounds={}",
 					highlightedWidget.getId(), clickBounds, target.getRelativeBounds());
 
+				// Suggestions can change after the main handler checked them. Route slot
+				// MODIFY/ABORT highlights through the same verified action path in either mode.
+				boolean isSlotWidget = Arrays.stream(grandExchangeSlotIds).anyMatch(id -> id == highlightedWidget.getId());
+				if (isSlotWidget && suggestionManager != null) {
+					Object currentSuggestion = getSuggestion(suggestionManager);
+					if (currentSuggestion != null) {
+						boolean abort = (Boolean) currentSuggestion.getClass().getMethod("isAbortSuggestion").invoke(currentSuggestion);
+						boolean modify = (Boolean) currentSuggestion.getClass().getMethod("isModifySuggestion").invoke(currentSuggestion);
+						if (abort || modify) {
+							checkAndAbortOrModifyIfNeeded();
+							return true;
+						}
+					}
+				}
+
 				// If GE close button is highlighted (container 30474242 or close button dynamic child)
 				if (highlightedWidget.getId() == 30474242 && Rs2GrandExchange.isOpen()) {
 					Rs2GrandExchange.closeExchange();
@@ -1169,43 +1312,6 @@ public class FlipperScript extends Script {
 
 				boolean isConfirm = target.isConfirmTarget();
 
-				boolean isSlotWidget = Arrays.stream(grandExchangeSlotIds).anyMatch(id -> id == highlightedWidget.getId());
-				boolean isAbortOnSlot = false;
-				if (isSlotWidget && suggestionManager != null) {
-					try {
-						Object currentSuggestion = getSuggestion(suggestionManager);
-						if (currentSuggestion != null) {
-							Method isAbortMethod = currentSuggestion.getClass().getMethod("isAbortSuggestion");
-							isAbortOnSlot = (Boolean) isAbortMethod.invoke(currentSuggestion);
-						}
-					} catch (Exception ignored) {}
-				}
-				if (isAbortOnSlot) {
-					ensureSlotActionSwapEnabled();
-					if (!isSlotActionSwapEnabled()) {
-						log.info("Highlighted GE slot {} for abort with slotActionSwap=false; clicking slot to open offer screen.",
-							highlightedWidget.getId());
-					}
-				}
-
-				if (isConfirm) {
-					// Copilot rebuilds its highlight list every tick, so a target captured
-					// mid-tick can carry bounds that are stale by the time we act. Let the
-					// offer screen settle, re-verify the widget is still there, and re-read
-					// the click area so the click cannot land where the button used to be.
-					// This costs ~300ms per offer and only on the Confirm step.
-					sleep(250, 400);
-					if (!Rs2Widget.isWidgetVisible(highlightedWidget.getId())) {
-						log.info("Confirm target {} no longer visible; skipping stale highlight.",
-							highlightedWidget.getId());
-						return false;
-					}
-					Rectangle refreshedBounds = target.getClickBounds();
-					if (refreshedBounds != null) {
-						clickBounds = refreshedBounds;
-					}
-				}
-
 				if (clickBounds != null && Rs2UiHelper.isRectangleWithinCanvas(clickBounds)) {
 					Microbot.getMouse().click(clickBounds);
 				} else {
@@ -1215,10 +1321,6 @@ public class FlipperScript extends Script {
 				lastActionTime = currentTime;
 				actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 
-				if (isAbortOnSlot && !isSlotActionSwapEnabled()) {
-					sleepUntil(this::isOfferScreenOpen, 2500);
-				}
-
 				if (isOfferScreenOpen()) {
 					offerScreenActionCount++;
 				}
@@ -1226,30 +1328,11 @@ public class FlipperScript extends Script {
 				// If confirming an offer, dismiss any price warning dialog and wait for offer screen to close
 				if (isConfirm) {
 					log.info("Clicked Confirm button. Checking for warning dialog or waiting for offer screen to close...");
-					// The price warning dialog can appear later than the first check. Keep
-					// looking for it for the whole wait: if it is left on screen the offer
-					// screen never closes and the offer is abandoned.
-					long confirmDeadline = System.currentTimeMillis() + 6000;
-					boolean offerScreenClosed = false;
-					while (System.currentTimeMillis() < confirmDeadline) {
-						if (Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure")) {
-							log.info("Warning dialog appeared ('Your offer is much' / 'Are you sure'). Confirming 'Yes'...");
-							Rs2Widget.clickWidget("Yes");
-							sleep(300, 500);
-							continue;
-						}
-						if (!isOfferScreenOpen()) {
-							offerScreenClosed = true;
-							break;
-						}
-						sleep(100, 200);
-					}
-					if (!offerScreenClosed && (Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure"))) {
-						log.info("Warning dialog still open at timeout; confirming 'Yes' and rechecking.");
+					if (sleepUntil(() -> Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure"), 1200)) {
+						log.info("Warning dialog appeared ('Your offer is much' / 'Are you sure'). Confirming 'Yes'...");
 						Rs2Widget.clickWidget("Yes");
-						offerScreenClosed = sleepUntil(() -> !isOfferScreenOpen(), 2000);
 					}
-					if (!offerScreenClosed) {
+					if (!sleepUntil(() -> !isOfferScreenOpen(), 4000)) {
 						log.warn("Offer screen did not close after confirm. Backing out to overview.");
 						backToOverview();
 						return false;

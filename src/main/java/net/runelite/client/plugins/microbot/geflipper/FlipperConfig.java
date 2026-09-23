@@ -23,6 +23,51 @@ public interface FlipperConfig extends Config {
         }
     }
 
+    /** How a slot is worked when Copilot asks for a modify or an abort. */
+    enum SlotAction {
+        COPILOT_LEFT_CLICK("On", "Copilot left-click swap"),
+        MENU_OPTION("Off", "Slot menu action");
+
+        private final String label;
+        final String actionDescription;
+
+        SlotAction(String label, String actionDescription) {
+            this.label = label;
+            this.actionDescription = actionDescription;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
+
+    @ConfigItem(
+        keyName = "slotActionMode",
+        name = "Copilot left-click swap",
+        description = "On: use Copilot's swapped left-click for Modify/Abort (enable slot swap in Copilot too). "
+            + "Off: select the supported Modify/Abort slot action directly. "
+            + "This setting controls GE Flipper and does not change Copilot's own setting. "
+            + "Hotkey/Mouse above controls price and quantity input.",
+        position = 2
+    )
+    default SlotAction slotAction() {
+        return SlotAction.COPILOT_LEFT_CLICK;
+    }
+
+
+    @ConfigItem(
+        keyName = "verboseLogging",
+        name = "Verbose Logging",
+        description = "Log this plugin's own activity at INFO instead of WARN. Leave it off to keep "
+            + "the in-game chat quiet; turn it on when you need a full trace of what the plugin did. "
+            + "This affects only this plugin's own logger - no other script's logging is touched.",
+        position = 90
+    )
+    default boolean verboseLogging() {
+        return false;
+    }
+
     @ConfigItem(
         keyName = "guide",
         name = "How to use",
@@ -53,22 +98,10 @@ public interface FlipperConfig extends Config {
         keyName = "showOverlay",
         name = "Show Overlay",
         description = "Display profit and GP/hr overlay on the top-left of the screen",
-        position = 2
+        position = 3
     )
     default boolean showOverlay() {
         return true;
     }
 
-    @ConfigItem(
-        keyName = "autoEnableSlotSwap",
-        name = "Auto-Enable Copilot Slot Swap",
-        description = "Automatically turn on Flipping Copilot's 'Swap slot left-click action' setting, " +
-            "so offers can be aborted straight from the Grand Exchange overview. " +
-            "<br>Turn this OFF if you also hand-flip and want left-clicking a GE slot to open the offer screen. " +
-            "<br>When off, the plugin respects your Copilot setting and falls back to aborting from the offer details screen.",
-        position = 3
-    )
-    default boolean autoEnableSlotSwap() {
-        return true;
-    }
 }

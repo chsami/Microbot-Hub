@@ -274,12 +274,11 @@ public class FlipperOverlay extends OverlayPanel {
                     .build());
         }
 
-        boolean slotSwap = plugin.getFlipperScript() != null && plugin.getFlipperScript().isSlotActionSwapEnabled();
-        panelComponent.getChildren().add(LineComponent.builder()
-                .left("Slot Swap:")
-                .right(slotSwap ? "ON" : "OFF (Screen Abort)")
-                .rightColor(slotSwap ? POSITIVE_COLOR : Color.ORANGE)
-                .build());
+        String slotStatus = plugin.getFlipperScript() == null ? "" : plugin.getFlipperScript().getSlotActionStatus();
+        if (!slotStatus.isEmpty()) {
+            panelComponent.getChildren().add(LineComponent.builder()
+                .left(slotStatus).leftColor(Color.ORANGE).build());
+        }
 
         return super.render(graphics);
     }
