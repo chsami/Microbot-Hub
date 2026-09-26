@@ -11,7 +11,14 @@ A simple, fast way to log in to your legacy accounts. Information is stored loca
 - Safety limits: after a click it makes at most **3** attempts (configurable) at least 15 seconds apart, then stops so a wrong password cannot lock the account. It also stops if the login screen reports the account as banned or locked. Clicking the account again starts a fresh set of attempts.
 - Settings: **Open account manager** (reopens the window), **World** (0 keeps the world already selected), **Log back in after disconnect** (off by default; only re-logs an account you clicked and that had already logged in), **Max failed attempts**.
 
+## Jagex accounts
+
+Jagex accounts sign in through the Jagex Launcher and website (CAPTCHA/2FA included), not the client's own login screen, so this plugin cannot log one in itself. Instead, a **Jagex accounts** section lists the display names the Microbot Launcher has already signed in (read from its own `accounts.json`; never a password, token or session id), with:
+
+- **Open Launcher** - starts the real Microbot Launcher so you can sign in a new Jagex account or manage existing ones yourself, in the launcher's own window. Nothing here touches your credentials.
+- Clicking a listed account asks for confirmation, then **closes this Microbot client completely** (this window, the game, and any running scripts/plugins) and opens the launcher so you can pick that account there to finish switching. This plugin cannot pick it for you - the launcher has no way to be told which account to jump to.
+
 ## Limitations
 
-- Works with accounts that sign in with a username/email and password on the client's own login screen. **Jagex accounts** sign in through the Jagex Launcher and website (which includes CAPTCHA/2FA checks), so this plugin cannot log them in.
-- If a character is already logged in, log out first, then click the account.
+- Legacy login works with accounts that sign in with a username/email and password on the client's own login screen.
+- If a character is already logged in, log out first, then click a legacy account.

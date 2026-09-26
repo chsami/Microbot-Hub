@@ -15,6 +15,7 @@ import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.swing.Box;
@@ -41,6 +42,9 @@ final class AccountManagerWindow extends JFrame
     private final LoginStore store;
     private final Consumer<LoginStore.Account> onLogin;
     private final Supplier<String> statusSource;
+    private final Supplier<List<String>> jagexAccountsSource;
+    private final BooleanSupplier openLauncherAction;
+    private final BooleanSupplier switchViaLauncherAction;
     private final JPanel rows = new JPanel();
     private final JLabel count = label("", 10, Color.WHITE, true);
     private final PLButton toggleForm = new PLButton("+ Add account", true);
@@ -52,12 +56,24 @@ final class AccountManagerWindow extends JFrame
     private final Timer refresh;
     private String lastUsed = "";
 
-    AccountManagerWindow(LoginStore store, Consumer<LoginStore.Account> onLogin, Supplier<String> statusSource)
+    /**
+     * @param jagexAccountsSource   display names already signed in to the Microbot Launcher (read-only; never a
+     *                              credential or token)
+     * @param openLauncherAction    starts the real Microbot Launcher so the user can add/sign in a Jagex account
+     *                              themselves; returns false if it could not be found or started
+     * @param switchViaLauncherAction same as above, but also closes this client afterwards; the caller (this window)
+     *                              confirms with the user before calling it, every time
+     */
+    AccountManagerWindow(LoginStore store, Consumer<LoginStore.Account> onLogin, Supplier<String> statusSource,
+        Supplier<List<String>> jagexAccountsSource, BooleanSupplier openLauncherAction, BooleanSupplier switchViaLauncherAction)
     {
         super(TITLE);
         this.store = store;
         this.onLogin = onLogin;
         this.statusSource = statusSource;
+        this.jagexAccountsSource = jagexAccountsSource;
+        this.openLauncherAction = openLauncherAction;
+        this.switchViaLauncherAction = switchViaLauncherAction;
         LoginStore.Account last = store.last();
         if (last != null) lastUsed = last.username;
         if (Logo.icon() != null) setIconImage(Logo.icon());
@@ -291,8 +307,101 @@ final class AccountManagerWindow extends JFrame
             rows.add(new AccountCard(a));
             rows.add(Box.createVerticalStrut(9));
         }
+        rows.add(Box.createVerticalStrut(22));
+        rows.add(jagexSection());
         rows.revalidate();
         rows.repaint();
+    }
+
+    /** The read-only "JAGEX ACCOUNTS" section: names already signed in to the Microbot Launcher, an Open Launcher
+     *  button to add more, and a note explaining that this plugin cannot sign one in itself. */
+    private JComponent jagexSection()
+    {
+        JPanel section = new JPanel();
+        section.setOpaque(false);
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+        section.setAlignmentX(LEFT_ALIGNMENT);
+
+        JPanel head = new JPanel(new BorderLayout());
+        head.setOpaque(false);
+        head.setAlignmentX(LEFT_ALIGNMENT);
+        head.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+        JLabel title = label("JAGEX ACCOUNTS", 11, Theme.CYAN, true);
+        title.setFont(Theme.tracked(java.awt.Font.BOLD, 11f, 0.16f));
+        head.add(title, BorderLayout.WEST);
+        PLButton openLauncher = new PLButton("Open Launcher", false);
+        openLauncher.addActionListener(e -> {
+            boolean ok = openLauncherAction.getAsBoolean();
+            statusBar.set(ok ? "Opened the Microbot Launcher. Sign in there to add or switch accounts."
+                : "Could not find the Microbot Launcher on this PC.");
+        });
+        head.add(openLauncher, BorderLayout.EAST);
+        section.add(head);
+
+        JLabel note = label("<html><body style='width:330px'>Read-only, from the Launcher. Clicking one closes Microbot to switch - see the warning first.</body></html>", 11, Theme.MUTED, false);
+        note.setBorder(BorderFactory.createEmptyBorder(6, 0, 10, 0));
+        note.setAlignmentX(LEFT_ALIGNMENT);
+        section.add(note);
+
+        List<String> names = jagexAccountsSource.get();
+        if (names.isEmpty())
+        {
+            JLabel empty = label("None signed in yet.", 12, Theme.MUTED, false);
+            empty.setAlignmentX(LEFT_ALIGNMENT);
+            section.add(empty);
+        }
+        else
+        {
+            for (String name : names)
+            {
+                section.add(new JagexAccountCard(name));
+                section.add(Box.createVerticalStrut(9));
+            }
+        }
+        return section;
+    }
+
+    /** A saved Jagex account name from the Launcher. Clicking it asks for confirmation, then closes this client and
+     *  opens the Launcher so the user can finish the switch there themselves - it never logs anything in by itself. */
+    private final class JagexAccountCard extends JPanel
+    {
+        private boolean hover;
+
+        JagexAccountCard(String name)
+        {
+            super(new BorderLayout(13, 0));
+            setOpaque(false);
+            setBorder(BorderFactory.createEmptyBorder(11, 13, 11, 13));
+            setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
+            setPreferredSize(new Dimension(300, 60));
+            setAlignmentX(LEFT_ALIGNMENT);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setToolTipText("Close Microbot and open the Launcher to switch to " + name);
+
+            add(new Avatar(name, name), BorderLayout.WEST);
+            add(label(name, 14, Theme.TEXT, true), BorderLayout.CENTER);
+            JLabel hint = label("Switch →", 11.5f, Theme.CYAN, false);
+            add(hint, BorderLayout.EAST);
+
+            addMouseListener(new MouseAdapter()
+            {
+                @Override public void mouseEntered(MouseEvent e) { hover = true; repaint(); }
+                @Override public void mouseExited(MouseEvent e) { hover = getMousePosition(true) != null; repaint(); }
+                @Override public void mouseClicked(MouseEvent e) { confirmSwitch(name); }
+            });
+        }
+
+        @Override protected void paintComponent(Graphics raw)
+        {
+            Graphics2D g = (Graphics2D) raw.create();
+            Theme.quality(g);
+            int w = getWidth() - 1, h = getHeight() - 1;
+            g.setPaint(new GradientPaint(0, 0, hover ? Theme.CARD_HOVER : Theme.CARD, w, h, Theme.CARD_DEEP));
+            g.fillRoundRect(0, 0, w, h, 14, 14);
+            g.setColor(hover ? Theme.CYAN : Theme.LINE);
+            g.drawRoundRect(0, 0, w, h, 14, 14);
+            g.dispose();
+        }
     }
 
     private final class AccountCard extends JPanel
@@ -314,7 +423,7 @@ final class AccountManagerWindow extends JFrame
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             setToolTipText("Log in as " + a.label);
 
-            add(new Avatar(a), BorderLayout.WEST);
+            add(new Avatar(a.username, a.label), BorderLayout.WEST);
 
             JPanel text = new JPanel();
             text.setOpaque(false);
@@ -378,19 +487,19 @@ final class AccountManagerWindow extends JFrame
         }
     }
 
-    /** Round badge with the account's initial, in a purple-to-blue shade derived from the username. */
+    /** Round badge with an initial, in a purple-to-blue shade derived from a seed string (a username or display name). */
     private static final class Avatar extends JComponent
     {
         private final Color from;
         private final Color to;
         private final String initial;
 
-        Avatar(LoginStore.Account a)
+        Avatar(String colorSeed, String label)
         {
-            float hue = .60f + (Math.abs(a.username.toLowerCase().hashCode()) % 200) / 1000f; // blue .60 -> violet .80
+            float hue = .60f + (Math.abs(colorSeed.toLowerCase().hashCode()) % 200) / 1000f; // blue .60 -> violet .80
             from = Color.getHSBColor(hue, .42f, 1f);
             to = Color.getHSBColor(hue - .08f, .70f, .78f);
-            initial = a.label.isEmpty() ? "?" : a.label.substring(0, 1).toUpperCase();
+            initial = label.isEmpty() ? "?" : label.substring(0, 1).toUpperCase();
             setPreferredSize(new Dimension(40, 40));
         }
 
@@ -526,6 +635,29 @@ final class AccountManagerWindow extends JFrame
         clearForm();
         showForm(false);
         rebuild();
+    }
+
+    /** Always confirms before doing anything, and is explicit that this closes the whole client, not just this window. */
+    private void confirmSwitch(String name)
+    {
+        StringBuilder msg = new StringBuilder("Switch to \"").append(name).append("\"?\n\n")
+            .append("This closes Microbot completely - this window, the game client, and any scripts or other plugins running in it.\n");
+        if (Microbot.isLoggedIn()) msg.append("You are currently logged in; that session will end.\n");
+        msg.append("\nThe Microbot Launcher will then open. Pick \"").append(name).append("\" there to finish switching - ")
+            .append("this plugin cannot sign it in for you.\n\nClose Microbot and open the Launcher now?");
+
+        int result = JOptionPane.showConfirmDialog(this, msg.toString(), "Switch account - closes Microbot",
+            JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (result != JOptionPane.YES_OPTION) return;
+
+        statusBar.set("Opening the Microbot Launcher to switch to " + name + "…");
+        if (!switchViaLauncherAction.getAsBoolean())
+        {
+            statusBar.set("Could not find the Microbot Launcher on this PC. Microbot was not closed.");
+            JOptionPane.showMessageDialog(this, "Could not find or start the Microbot Launcher, so Microbot was left running.\n"
+                + "Open it yourself (Start Menu → Microbot Launcher) to switch accounts.", TITLE, JOptionPane.WARNING_MESSAGE);
+        }
+        // On success the client is about to close on its own; nothing else to do here.
     }
 
     private void removeAccount(LoginStore.Account a)
