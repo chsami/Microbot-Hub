@@ -1,7 +1,6 @@
 package net.runelite.client.plugins.microbot.drozulrah;
 
 import net.runelite.api.coords.LocalPoint;
-import java.util.*;
 
 /** Rotation data distilled from the supplied Zulrah helper and recorder sessions. */
 public enum ZulrahRotation {

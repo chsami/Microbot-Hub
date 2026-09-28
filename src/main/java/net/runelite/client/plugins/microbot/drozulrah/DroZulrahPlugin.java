@@ -1,21 +1,17 @@
 package net.runelite.client.plugins.microbot.drozulrah;
 
 import com.google.inject.Provides;
-import javax.inject.Inject;
 import net.runelite.api.Actor;
 import net.runelite.api.GameObject;
 import net.runelite.api.NPC;
-import net.runelite.api.events.ActorDeath;
-import net.runelite.api.events.AnimationChanged;
-import net.runelite.api.events.GameObjectDespawned;
-import net.runelite.api.events.GameObjectSpawned;
-import net.runelite.api.events.NpcDespawned;
-import net.runelite.api.events.ProjectileMoved;
+import net.runelite.api.events.*;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
+
+import javax.inject.Inject;
 
 @PluginDescriptor(
         name="[Dro] Zulrah",

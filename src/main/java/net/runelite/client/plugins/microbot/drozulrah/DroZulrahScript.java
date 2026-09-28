@@ -1,38 +1,15 @@
 package net.runelite.client.plugins.microbot.drozulrah;
 
 import com.google.inject.Inject;
-import java.awt.Rectangle;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import javax.inject.Singleton;
-import net.runelite.api.Actor;
-import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.GameState;
-import net.runelite.api.VarPlayer;
-import net.runelite.api.widgets.ComponentID;
-import net.runelite.api.widgets.Widget;
-import net.runelite.api.NPC;
-import net.runelite.api.NPCComposition;
-import net.runelite.api.MenuAction;
-import net.runelite.api.Perspective;
+import net.runelite.api.*;
 import net.runelite.api.Point;
-import net.runelite.api.Projectile;
-import net.runelite.api.Skill;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ProjectileMoved;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.api.widgets.ComponentID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.game.ItemEquipmentStats;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStats;
@@ -54,7 +31,6 @@ import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.thralls.Rs2Thrall;
-import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
@@ -62,9 +38,16 @@ import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
+import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2MiniMap;
-import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+
+import javax.inject.Singleton;
+import java.awt.*;
+import java.util.*;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Singleton
 public class DroZulrahScript extends Script
@@ -169,7 +152,7 @@ public class DroZulrahScript extends Script
     private long lastSwitchMs;
     private CombatStyle lastSwitchStyle;
     private long lastSpecialMs;
-    private final java.util.Map<Integer, ZulrahSpecGate> specGates = new java.util.HashMap<>();
+    private final Map<Integer, ZulrahSpecGate> specGates = new HashMap<>();
     private long lastBankCloseMs;
     private long lastEatMs;
     private long lastPotionMs;
@@ -794,7 +777,7 @@ public class DroZulrahScript extends Script
 
         operation = "teleport arrival / price";
         trips++;
-        travelCost += clientRead(() -> Math.max(0L, (long) itemManager.getItemPrice(ZUL_ANDRA_TELEPORT)), 0L);
+        travelCost += clientRead(() -> Math.max(0, itemManager.getItemPrice(ZUL_ANDRA_TELEPORT)), 0L);
         teleportClickIssuedAt = 0L;
         nextTeleportRetryAt = 0L;
         teleportAttempts = 0;

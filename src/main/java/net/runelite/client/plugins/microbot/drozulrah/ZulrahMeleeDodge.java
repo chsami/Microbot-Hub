@@ -1,9 +1,10 @@
 package net.runelite.client.plugins.microbot.drozulrah;
 
+import net.runelite.api.coords.LocalPoint;
+
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.function.Predicate;
-import net.runelite.api.coords.LocalPoint;
 
 /** Select an existing stand from observed position, rather than a stale alternating flag. */
 final class ZulrahMeleeDodge
