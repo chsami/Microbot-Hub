@@ -40,7 +40,7 @@ public class PrayerMarkerOverlay extends Overlay
 		{
 			plugin.getZulrahData().forEach((data) -> {
 				data.getCurrentPhasePrayer().ifPresent((prayer) -> {
-					if (client.getVar(VarClientInt.INVENTORY_TAB) == 5)
+					if (client.getVarcIntValue(VarClientInt.INVENTORY_TAB) == 5)
 					{
 						Widget widget = client.getWidget(541, prayerToChildId(prayer));
 						Color color = !client.isPrayerActive(prayer) ? Color.RED : Color.GREEN;

@@ -19,7 +19,7 @@ public class HumidifierScript extends Script {
     public static String itemsProcessedMessage = "";
     public static String profitMessage = "Calculating...";
     private static long itemsProcessed = 0;
-    private int profit = 0;
+    private long profit = 0;
 
     private long timeBegan;
 
@@ -28,8 +28,8 @@ public class HumidifierScript extends Script {
         Rs2Antiban.setActivity(Activity.HUMIDIFYING_CLAY);
 
         timeBegan = System.currentTimeMillis();
-        int unprocessedItemPrice = Microbot.getItemManager().search(config.ITEM().getName()).get(0).getPrice();
-        int processedItemPrice = Microbot.getItemManager().search(config.ITEM().getFinished()).get(0).getPrice();
+        long unprocessedItemPrice = Microbot.getItemManager().search(config.ITEM().getName()).get(0).getPrice();
+        long processedItemPrice = Microbot.getItemManager().search(config.ITEM().getFinished()).get(0).getPrice();
         profit = processedItemPrice - unprocessedItemPrice;
         itemsProcessedMessage = config.ITEM().getFinished() + " processed: " + itemsProcessed;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -58,8 +58,8 @@ public class HumidifierScript extends Script {
 
     private void calculateItemsProcessedPerHour(HumidifierConfig config) {
         int itemsProcessedPerHour = (int)( itemsProcessed / ((System.currentTimeMillis() - timeBegan) / 3600000.0D));
-        itemsProcessedMessage = config.ITEM().getFinished() + " processed (hr): " + QuantityFormatter.quantityToRSDecimalStack((int) itemsProcessed) + " (" + QuantityFormatter.quantityToRSDecimalStack(itemsProcessedPerHour) + ")";
-        profitMessage = "profit (hr): " + QuantityFormatter.quantityToRSDecimalStack((int) (profit * itemsProcessed)) + " (" + QuantityFormatter.quantityToRSDecimalStack(profit * itemsProcessedPerHour) + ")";
+        itemsProcessedMessage = config.ITEM().getFinished() + " processed (hr): " + QuantityFormatter.quantityToStackSize((int) itemsProcessed) + " (" + QuantityFormatter.quantityToStackSize(itemsProcessedPerHour) + ")";
+        profitMessage = "profit (hr): " + QuantityFormatter.quantityToStackSize(profit * itemsProcessed) + " (" + QuantityFormatter.quantityToStackSize(profit * itemsProcessedPerHour) + ")";
     }
 
     private void bank(HumidifierConfig config, boolean hasAstralRunes){

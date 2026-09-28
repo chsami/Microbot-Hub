@@ -73,8 +73,8 @@ public class MoonlightMothOverlay extends OverlayPanel {
             // Avoid division by zero
             int caughtPerHour = hoursElapsed > 0 ?
                     (int) (plugin.script.totalCaught / hoursElapsed) : 0;
-            int profitPerHour = hoursElapsed > 0 ?
-                    (int) ((plugin.script.totalCaught * plugin.script.pricePerMoth) / hoursElapsed) : 0;
+            long profitPerHour = hoursElapsed > 0 ?
+                    (long) ((plugin.script.totalCaught * plugin.script.pricePerMoth) / hoursElapsed) : 0;
 
             // Total caught moths
             panelComponent.getChildren().add(LineComponent.builder()

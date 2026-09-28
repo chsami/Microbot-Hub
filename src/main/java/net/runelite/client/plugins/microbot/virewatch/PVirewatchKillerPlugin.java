@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
         tags = {"pumster", "microbot", "Vyrewatch"},
         authors = {"Pumsters"},
         version = PVirewatchKillerPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.6.25",
         iconUrl = "https://chsami.github.io/Microbot-Hub/PVirewatchKillerPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/PVirewatchKillerPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 )
 public class PVirewatchKillerPlugin extends Plugin {
 
-    public final static String version = "1.0.3";
+    public final static String version = "1.0.4";
 
     private PLooter looterScript = new PLooter();
     private PAlcher alchScript = new PAlcher();
@@ -93,7 +93,7 @@ public class PVirewatchKillerPlugin extends Plugin {
     private ItemManager itemManager;
 
     // Total value of picked up items
-    private int totalItemValue = 0;
+    private long totalItemValue = 0;
 
     // Previous inventory state
     private Map<Integer, Integer> previousInventory = new HashMap<>();
@@ -187,7 +187,7 @@ public class PVirewatchKillerPlugin extends Plugin {
                 if (currentQuantity > previousQuantity)
                 {
                     int newQuantity = currentQuantity - previousQuantity;
-                    int itemValue = itemManager.getItemPrice(itemId);
+                    long itemValue = itemManager.getItemPrice(itemId);
                     totalItemValue += itemValue * newQuantity;
                 }
             }
@@ -212,7 +212,7 @@ public class PVirewatchKillerPlugin extends Plugin {
         return formatNumber(totalItemValue);
     }
 
-    public static String formatNumber(int value)
+    public static String formatNumber(long value)
     {
         if (value >= 1_000_000)
         {

@@ -14,7 +14,7 @@ public class TanLeatherScript extends Script {
 
     public static String combinedMessage = "";
     public static long hidesTanned = 0;
-    private int profitPerHide = 0;
+    private long profitPerHide = 0;
     private long startTime;
 
     // State management
@@ -27,8 +27,8 @@ public class TanLeatherScript extends Script {
 
     public boolean run(TanLeatherConfig config) {
         startTime = System.currentTimeMillis();
-        int unprocessedItemPrice = Microbot.getItemManager().search(config.ITEM().getName()).get(0).getPrice();
-        int processedItemPrice = Microbot.getItemManager().search(config.ITEM().getFinished()).get(0).getPrice();
+        long unprocessedItemPrice = Microbot.getItemManager().search(config.ITEM().getName()).get(0).getPrice();
+        long processedItemPrice = Microbot.getItemManager().search(config.ITEM().getFinished()).get(0).getPrice();
         profitPerHide = processedItemPrice - unprocessedItemPrice;
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -61,15 +61,15 @@ public class TanLeatherScript extends Script {
     private void calculateProfitAndDisplay(TanLeatherConfig config) {
         double elapsedHours = (System.currentTimeMillis() - startTime) / 3600000.0;
         int hidesPerHour = (int) (hidesTanned / elapsedHours);
-        int totalProfit = profitPerHide * (int)hidesTanned;
-        int profitPerHour = profitPerHide * hidesPerHour;
+        long totalProfit = profitPerHide * hidesTanned;
+        long profitPerHour = profitPerHide * hidesPerHour;
 
         // Format the message
         combinedMessage = config.ITEM().getFinished() + ": " +
                 QuantityFormatter.quantityToRSDecimalStack((int) hidesTanned) + " (" +
                 QuantityFormatter.quantityToRSDecimalStack(hidesPerHour) + "/hr) | " +
-                "Profit: " + QuantityFormatter.quantityToRSDecimalStack(totalProfit) + " (" +
-                QuantityFormatter.quantityToRSDecimalStack(profitPerHour) + "/hr)";
+                "Profit: " + QuantityFormatter.quantityToStackSize(totalProfit) + " (" +
+                QuantityFormatter.quantityToStackSize(profitPerHour) + "/hr)";
     }
 
     // Bank the finished hide
