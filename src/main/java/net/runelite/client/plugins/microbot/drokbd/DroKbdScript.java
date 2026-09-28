@@ -18,7 +18,6 @@ import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
-import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
@@ -314,7 +313,7 @@ public class DroKbdScript extends Script
         int startupPitch = Rs2Random.between(2800, 3064);
         Microbot.getClientThread().invoke(() ->
                 Microbot.getClient().setCameraPitchTarget(startupPitch));
-        ShortestPathPlugin.exit();
+        net.runelite.client.plugins.microbot.util.walker.Rs2PathApi.exit();
 
         scheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this::watchWilderness, 0, 100, TimeUnit.MILLISECONDS);
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -1711,7 +1710,7 @@ public class DroKbdScript extends Script
                         || item.getTotalValue() >= minimumLootValue)
                 .toList()
                 .stream()
-                .max(Comparator.comparingInt(Rs2TileItemModel::getTotalValue))
+                .max(Comparator.comparingLong(Rs2TileItemModel::getTotalValue))
                 .orElse(null);
         if (loot != null)
         {
