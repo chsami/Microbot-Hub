@@ -1354,7 +1354,7 @@ public class revKillerScript extends Script {
         return false;
     }
     public boolean isItTimeToGo(){
-        int value = 0; //set to 0 so list doesn't compound with each run
+        long value = 0;
         List<Rs2ItemModel> ItemsInInventory = Rs2Inventory.items().collect(Collectors.toList());
         int io = 0;
 

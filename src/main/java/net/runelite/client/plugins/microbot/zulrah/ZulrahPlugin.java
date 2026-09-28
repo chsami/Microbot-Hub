@@ -67,7 +67,7 @@ Refractored from OpenOSRS credit goes to Owain van Brakel for originally creatin
         tags = {"Zulrah", "Helper", "boss", "bossing", "snek", "snake", "tool"},
         authors = { "Syntax" },
         version = ZulrahPlugin.version,
-        minClientVersion = "2.0.1",
+        minClientVersion = "2.6.25",
         iconUrl = "https://i.imgur.com/syri2MC.png",
         cardUrl = "https://i.imgur.com/syri2MC.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -77,7 +77,7 @@ Refractored from OpenOSRS credit goes to Owain van Brakel for originally creatin
 public class ZulrahPlugin extends Plugin implements KeyListener
 {
 	private static final Logger log = LoggerFactory.getLogger(ZulrahPlugin.class);
-    public static final String version = "1.0.1";
+    public static final String version = "1.0.2";
 	@Inject
 	private Client client;
 	@Inject
