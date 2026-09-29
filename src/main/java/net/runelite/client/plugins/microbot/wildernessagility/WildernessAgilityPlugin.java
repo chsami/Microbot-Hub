@@ -19,14 +19,14 @@ import net.runelite.client.eventbus.Subscribe;
     description = "Automated wilderness agility training with banking and ticket collection",
     version = WildernessAgilityPlugin.version,
     authors = { "Cranny" },
-    minClientVersion = "2.0.21",
+    minClientVersion = "2.6.25",
     tags = {"agility", "skilling", "solo", "mass", "MoneyMaking"},
     iconUrl = "https://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/icon.png",
     cardUrl = "httpa://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/card.png"
 )
 public class WildernessAgilityPlugin extends Plugin {
 
-    static final String version = "1.6.0";
+    static final String version = "1.6.1";
     @Inject
     private OverlayManager overlayManager;
     @Inject
@@ -92,4 +92,4 @@ public class WildernessAgilityPlugin extends Plugin {
         // Forward looting bag container changes to script for value tracking
         script.handleItemContainerChanged(event);
     }
-} 
+}

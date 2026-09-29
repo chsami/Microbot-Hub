@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit;
 public class MoonlightMothScript extends Script {
 
     public int totalCaught = 0;
-    public int pricePerMoth = 0;
+    public long pricePerMoth = 0;
     private String lastChatMessage = "";
     private State currentState = State.CHECK_STATE;
 

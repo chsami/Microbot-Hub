@@ -25,7 +25,7 @@ import java.time.Duration;
         description = "Microbot thieving plugin",
         authors = { "Mocrosoft", "Kryox", "Jesusfh" },
         version = ThievingPlugin.version,
-        minClientVersion = "1.9.8.2",
+        minClientVersion = "2.6.25",
         tags = {"thieving", "skilling"},
 		iconUrl = "https://chsami.github.io/Microbot-Hub/ThievingPlugin/assets/icon.png",
 		cardUrl = "https://chsami.github.io/Microbot-Hub/ThievingPlugin/assets/card.png",
@@ -34,7 +34,7 @@ import java.time.Duration;
 )
 @Slf4j
 public class ThievingPlugin extends Plugin {
-	public static final String version = "2.1.0";
+	public static final String version = "2.1.1";
 
     @Inject
     @Getter

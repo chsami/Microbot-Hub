@@ -16,7 +16,7 @@ public class LunarPlankMakeScript extends Script {
 
     public static String combinedMessage = "";
     public static long plankMade = 0;
-    private int profitPerPlank = 0;
+    private long profitPerPlank = 0;
     private long startTime;
     private boolean useSetDelay;
     private int setDelay;
@@ -192,28 +192,28 @@ public class LunarPlankMakeScript extends Script {
 
     private void refreshProfitPerPlank(LunarPlankMakeConfig config) {
         Logs item = config.ITEM();
-        int plankPrice = gePrice(item.getFinished());
-        int logPrice = gePrice(item.getName());
-        int astral = gePrice("Astral rune");
-        int nature = gePrice("Nature rune");
-        int runeGp = 2 * astral + nature;
+        long plankPrice = gePrice(item.getFinished());
+        long logPrice = gePrice(item.getName());
+        long astral = gePrice("Astral rune");
+        long nature = gePrice("Nature rune");
+        long runeGp = 2 * astral + nature;
         if (config.includeEarthRuneCost()) {
-            int earth = gePrice("Earth rune");
+            long earth = gePrice("Earth rune");
             runeGp += 15 * earth;
         }
-        int voucherPerPlank = 0;
+        long voucherPerPlank = 0;
         if (config.useSawmillVouchers()) {
-            int voucherPrice = gePrice("Sawmill voucher");
+            long voucherPrice = gePrice("Sawmill voucher");
             voucherPerPlank = voucherPrice / 24;
         }
         int planksPerLog = config.useSawmillVouchers() ? 2 : 1;
-        int logCostPerPlank = logPrice / planksPerLog;
+        long logCostPerPlank = logPrice / planksPerLog;
         int coinFeePerPlank = item.getPlankMakeCoinFee() / planksPerLog;
-        int runeCostPerPlank = runeGp / planksPerLog;
+        long runeCostPerPlank = runeGp / planksPerLog;
         profitPerPlank = plankPrice - logCostPerPlank - coinFeePerPlank - runeCostPerPlank - voucherPerPlank;
     }
 
-    private static int gePrice(String itemName) {
+    private static long gePrice(String itemName) {
         try {
             return Microbot.getItemManager().search(itemName).get(0).getPrice();
         } catch (Exception e) {
@@ -225,14 +225,14 @@ public class LunarPlankMakeScript extends Script {
         refreshProfitPerPlank(config);
         double elapsedHours = (System.currentTimeMillis() - startTime) / 3600000.0;
         int plankPerHour = (int) (plankMade / elapsedHours);
-        int totalProfit = profitPerPlank * (int) plankMade;
-        int profitPerHour = profitPerPlank * plankPerHour;
+        long totalProfit = profitPerPlank * plankMade;
+        long profitPerHour = profitPerPlank * plankPerHour;
 
         combinedMessage = config.ITEM().getFinished() + ": " +
                 QuantityFormatter.quantityToRSDecimalStack((int) plankMade) + " (" +
                 QuantityFormatter.quantityToRSDecimalStack(plankPerHour) + "/hr) | " +
-                "Profit: " + QuantityFormatter.quantityToRSDecimalStack(totalProfit) + " (" +
-                QuantityFormatter.quantityToRSDecimalStack(profitPerHour) + "/hr)";
+                "Profit: " + QuantityFormatter.quantityToStackSize(totalProfit) + " (" +
+                QuantityFormatter.quantityToStackSize(profitPerHour) + "/hr)";
     }
 
     private void addDelay() {

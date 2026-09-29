@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
@@ -16,14 +17,19 @@ import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
+import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
+import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
+import java.awt.Rectangle;
 import java.util.*;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +40,11 @@ public class MahoganyHomesScript extends Script {
 
     @Inject
     MahoganyHomesPlugin plugin;
+
+    private static final int CHOOSE_CHARACTER_WIDGET_ID = 4915200;
+    private static final long NPC_CONTACT_RETRY_MS = 5000;
+    private static final String[] CONTACT_SPELL_NAMES = {"Astral Contact", "NPC Contact", "Npc Contact"};
+    private long lastNpcContactAttempt;
 
     public boolean run(MahoganyHomesConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -49,7 +60,7 @@ public class MahoganyHomesScript extends Script {
 
 
             } catch (Exception ex) {
-                System.out.println(ex.getMessage());
+                log.error("Mahogany Homes script loop failed", ex);
             }
         }, 0, 600, TimeUnit.MILLISECONDS);
         return true;
@@ -341,7 +352,7 @@ public class MahoganyHomesScript extends Script {
     private void getNewContract() {
         if (plugin.getCurrentHome() == null) {
             if(plugin.getConfig().useNpcContact()){
-                if (Rs2Magic.npcContact("amy")) {
+                if (contactAmy()) {
                     handleContractDialogue();
                 }
                 return;
@@ -372,6 +383,105 @@ public class MahoganyHomesScript extends Script {
 
         }
 
+    }
+
+    private boolean contactAmy() {
+        long now = System.currentTimeMillis();
+        if (now - lastNpcContactAttempt < NPC_CONTACT_RETRY_MS) {
+            return false;
+        }
+        lastNpcContactAttempt = now;
+
+        if (!Rs2Magic.isSpellbook(Rs2Spellbook.LUNAR)) {
+            log("Unable to use Astral Contact; Lunar spellbook is not active.");
+            return false;
+        }
+
+        if (!castContactSpell()) {
+            log("Unable to cast Astral Contact / NPC Contact.");
+            return false;
+        }
+
+        if (!sleepUntil(() -> !Rs2Widget.isHidden(CHOOSE_CHARACTER_WIDGET_ID), 7000)) {
+            log("Astral Contact cast, but contact selection did not open.");
+            return false;
+        }
+
+        if (!selectContactTarget("amy")) {
+            log("Astral Contact opened, but Amy could not be selected.");
+            return false;
+        }
+
+        Rs2Player.waitForAnimation();
+        return true;
+    }
+
+    private boolean castContactSpell() {
+        Rs2Tab.switchToMagicTab();
+        sleep(150, 300);
+        Rs2Magic.canCast(MagicAction.NPC_CONTACT);
+
+        for (String spellName : CONTACT_SPELL_NAMES) {
+            if (clickSpellbookWidget(spellName)) {
+                log("Casting %s.", spellName);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean clickSpellbookWidget(String spellName) {
+        return Rs2Widget.clickWidget(spellName, Optional.of(218), 3, true)
+                || Rs2Widget.clickWidget(spellName, Optional.of(218), 0, true)
+                || Rs2Widget.clickWidget(spellName, true);
+    }
+
+    private boolean selectContactTarget(String npcName) {
+        Rectangle[] bounds = contactTargetBounds(npcName);
+        if (bounds == null) {
+            return false;
+        }
+        if (!Rs2UiHelper.isRectangleWithinRectangle(bounds[0], bounds[1])) {
+            Global.sleepUntil(() -> {
+                Rectangle[] current = contactTargetBounds(npcName);
+                return current == null || Rs2UiHelper.isRectangleWithinRectangle(current[0], current[1]);
+            }, () -> {
+                Rectangle[] current = contactTargetBounds(npcName);
+                if (current == null) {
+                    return;
+                }
+                if (current[1].y > current[0].y) {
+                    Microbot.getMouse().scrollDown(Rs2UiHelper.getClickingPoint(current[0], true));
+                } else {
+                    Microbot.getMouse().scrollUp(Rs2UiHelper.getClickingPoint(current[0], true));
+                }
+            }, 5000, 300);
+        }
+
+        bounds = contactTargetBounds(npcName);
+        if (Thread.currentThread().isInterrupted() || bounds == null
+                || !Rs2UiHelper.isRectangleWithinRectangle(bounds[0], bounds[1])) {
+            return false;
+        }
+        return Rs2Widget.clickWidget(npcName, Optional.of(75), 0, false)
+                || Rs2Widget.clickWidget(npcName, false);
+    }
+
+    private Rectangle[] contactTargetBounds(String npcName) {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Widget chooser = Rs2Widget.getWidget(CHOOSE_CHARACTER_WIDGET_ID);
+            Widget npc = Rs2Widget.findWidget(npcName);
+            if (chooser == null || npc == null || chooser.isHidden()) {
+                return null;
+            }
+            Rectangle chooserBounds = chooser.getBounds();
+            Rectangle npcBounds = npc.getBounds();
+            if (chooserBounds == null || npcBounds == null) {
+                return null;
+            }
+            return new Rectangle[] {new Rectangle(chooserBounds), new Rectangle(npcBounds)};
+        }).orElse(null);
     }
 
     public void handleContractDialogue() {
