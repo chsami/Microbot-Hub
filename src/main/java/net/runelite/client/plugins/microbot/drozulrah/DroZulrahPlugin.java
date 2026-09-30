@@ -15,7 +15,7 @@ import javax.inject.Inject;
 
 @PluginDescriptor(
         name="[Dro] Zulrah",
-        version="1.10.3",
+        version="1.10.4",
         minClientVersion = "2.1.32",
         description="Inventory-setup driven Zulrah trips, rotations, prayer, switches, thralls and regear",
         tags={"microbot","zulrah","dro"}
