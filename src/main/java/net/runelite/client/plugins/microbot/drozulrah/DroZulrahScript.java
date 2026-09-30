@@ -52,7 +52,7 @@ import java.util.concurrent.TimeUnit;
 @Singleton
 public class DroZulrahScript extends Script
 {
-    public static final String BUILD = "2.10.2-weapon-specials";
+    public static final String BUILD = "2.10.4-active-mouse";
     private long lootClearSince;
     private long lootStartedAt;
     private boolean startupBankTrip;
@@ -296,6 +296,12 @@ public class DroZulrahScript extends Script
 
     private void loop()
     {
+        // Keep the cursor available for combat and travel, even after native profile updates.
+        net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban.setActivityIntensity(ActivityIntensity.HIGH);
+        net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings.moveMouseOffScreen = false;
+        net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings.moveMouseOffScreenChance = 0.0;
+        net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings.moveMouseRandomly = false;
+        net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings.moveMouseRandomlyChance = 0.0;
         operation = "initialization";
         if (!runtimeInitialized)
         {
@@ -777,7 +783,7 @@ public class DroZulrahScript extends Script
 
         operation = "teleport arrival / price";
         trips++;
-        travelCost += clientRead(() -> Math.max(0, itemManager.getItemPrice(ZUL_ANDRA_TELEPORT)), 0L);
+        travelCost += clientRead(() -> Math.max(0L, (long) itemManager.getItemPrice(ZUL_ANDRA_TELEPORT)), 0L);
         teleportClickIssuedAt = 0L;
         nextTeleportRetryAt = 0L;
         teleportAttempts = 0;
