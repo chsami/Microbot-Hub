@@ -1,8 +1,6 @@
 package net.runelite.client.plugins.microbot.drozulrah;
 
 import net.runelite.api.GameState;
-import net.runelite.api.gameval.InterfaceID;
-import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
@@ -81,7 +79,7 @@ public final class BaseProfileDro {
     public BaseProfileDro(Settings settings) {
         this.settings = settings == null ? new Settings() : settings;
         this.breakManager = new SmartBreakManager(this.settings);
-        this.attentionAction = this::glanceAtInventory;
+        this.attentionAction = null;
         this.nextAttentionAfterParks = randomBetween(DEFAULT_ATTENTION_PARK_MIN, DEFAULT_ATTENTION_PARK_MAX);
     }
 
@@ -98,11 +96,10 @@ public final class BaseProfileDro {
     }
 
     /**
-     * Optional safe on-screen attention action. By default the profile only glances at a random
-     * point inside the inventory widget. A host may replace this with a known-safe hover/click.
+     * Optional explicit on-screen attention action. No inventory glance is supplied by default.
      */
     public BaseProfileDro setAttentionAction(BooleanSupplier attentionAction) {
-        this.attentionAction = attentionAction == null ? this::glanceAtInventory : attentionAction;
+        this.attentionAction = attentionAction;
         return this;
     }
 
@@ -342,6 +339,7 @@ public final class BaseProfileDro {
 
     /** Force an immediate park using the selected fixed edge. */
     public boolean forceParkCompletelyOffScreen() {
+        if (settings.parkSide == AfkParkSide.NONE) return false;
         if (!Microbot.isLoggedIn() || Microbot.getClient() == null) return false;
         AfkParkSide side = resolvedParkSide;
         if (side == null || !side.parksOffScreen()) return false;
@@ -482,20 +480,6 @@ public final class BaseProfileDro {
         }
     }
 
-    private boolean glanceAtInventory() {
-        if (!Microbot.isLoggedIn() || Microbot.getClient() == null) return false;
-        net.runelite.api.Point point = Microbot.getClientThread().runOnClientThreadOptional(() -> {
-            Widget inventory = Microbot.getClient().getWidget(InterfaceID.Inventory.ITEMS);
-            if (inventory == null || inventory.isHidden()) return null;
-            Rectangle bounds = inventory.getBounds();
-            if (bounds == null || bounds.width <= 0 || bounds.height <= 0) return null;
-            return randomPoint(bounds, 4);
-        }).orElse(null);
-        if (point == null) return false;
-        moveCursorHumanized(point.getX(), point.getY());
-        return true;
-    }
-
     private void configureNativeAntiban() {
         if (!settings.nativeAntibanEnabled) return;
         try {
@@ -516,19 +500,18 @@ public final class BaseProfileDro {
             Rs2AntibanSettings.simulateAttentionSpan = true;
             Rs2AntibanSettings.behavioralVariability = true;
             Rs2AntibanSettings.nonLinearIntervals = true;
-            Rs2AntibanSettings.profileSwitching = true;
+            Rs2AntibanSettings.profileSwitching = false;
             Rs2AntibanSettings.contextualVariability = true;
             Rs2AntibanSettings.timeOfDayAdjust = true;
-            Rs2AntibanSettings.dynamicIntensity = true;
-            Rs2AntibanSettings.dynamicActivity = true;
+            Rs2AntibanSettings.dynamicIntensity = false;
+            Rs2AntibanSettings.dynamicActivity = false;
             Rs2AntibanSettings.universalAntiban = false;
             Rs2AntibanSettings.simulateMistakes = true;
             Rs2AntibanSettings.naturalMouse = true;
 
-            // Keep native mouse variation, but BaseProfileDro owns the actual off-screen exit so the
-            // edge cannot randomly change behind AfkParkSide.
-            Rs2AntibanSettings.moveMouseRandomly = true;
-            Rs2AntibanSettings.moveMouseRandomlyChance = settings.nativeRandomMouseChance;
+            // Zulrah owns the cursor: no idle movement or off-screen exits.
+            Rs2AntibanSettings.moveMouseRandomly = false;
+            Rs2AntibanSettings.moveMouseRandomlyChance = 0.0;
             Rs2AntibanSettings.moveMouseOffScreen = false;
             Rs2AntibanSettings.moveMouseOffScreenChance = 0.0;
 
