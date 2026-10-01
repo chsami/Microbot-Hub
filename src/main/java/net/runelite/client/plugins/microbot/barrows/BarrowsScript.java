@@ -12,6 +12,9 @@ import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
+import net.runelite.client.plugins.microbot.inventorysetups.MInventorySetupsPlugin;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
@@ -26,6 +29,7 @@ import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
+import net.runelite.client.plugins.microbot.util.magic.Rs2Spells;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
@@ -34,9 +38,11 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
+import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
@@ -44,12 +50,20 @@ import java.util.concurrent.TimeUnit;
 
 
 public class BarrowsScript extends Script {
-    
+
+    /** Highest → lowest catalytic rune tiers for wind spells (Surge / Wave / Blast). */
+    private static final List<String> RUNE_TIERS = Arrays.asList(
+            "Wrath rune",
+            "Blood rune",
+            "Death rune"
+    );
+
     public static boolean inTunnels = false;
     public static boolean outOfPoweredStaffCharges = false;
     public static boolean usingPoweredStaffs = false;
     public static boolean firstRun = false;
 
+    private boolean loggedCachedInventorySetupWarning = false;
     private boolean shouldBank = false;
     private boolean shouldAttackSkeleton = false;
     private boolean varbitCheckEnabled = true;
@@ -82,24 +96,44 @@ public class BarrowsScript extends Script {
 
     public boolean run(BarrowsConfig config, BarrowsPlugin plugin) {
         Microbot.enableAutoRunOn = false;
+        // Cancel a leftover loop from a previous start so we don't spawn BarrowsScript-N duplicates.
+        if (mainScheduledFuture != null && !mainScheduledFuture.isDone()) {
+            mainScheduledFuture.cancel(true);
+        }
+        stopFutureWalker();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 long startTime = System.currentTimeMillis();
 
-                var inventorySetup = new Rs2InventorySetup(config.inventorySetup().getName(), mainScheduledFuture);
+                var inventorySetup = resolveInventorySetup(config);
 
                 if(firstRun) {
                     if (!inventorySetup.doesEquipmentMatch()) {
-                        while(!inventorySetup.doesEquipmentMatch()) {
+                        int equipmentLoadAttempts = 0;
+                        final int maxEquipmentLoadAttempts = 5;
+                        while(!inventorySetup.doesEquipmentMatch() && equipmentLoadAttempts < maxEquipmentLoadAttempts) {
                             if(!super.isRunning()){ break; }
                             if (Rs2Bank.getNearestBank().getWorldPoint().distanceTo(Rs2Player.getWorldLocation()) > 6) {
                                 Rs2Bank.walkToBank();
                             }
                             if (Rs2Bank.getNearestBank().getWorldPoint().distanceTo(Rs2Player.getWorldLocation()) <= 6) {
-                                inventorySetup.loadEquipment();
+                                boolean loaded = inventorySetup.loadEquipment();
+                                // Client loadEquipment can abort on depositAllExcept false-negative
+                                // before withdraw, even when bank already has the gear (bank=N).
+                                if (!loaded && !inventorySetup.doesEquipmentMatch()) {
+                                    tryDirectEquipMissingGear(inventorySetup);
+                                }
+                                equipmentLoadAttempts++;
+                                if (Rs2Bank.isOpen() && !inventorySetup.doesEquipmentMatch()) {
+                                    sleep(Rs2Random.between(400, 800));
+                                }
                             }
+                        }
+                        if (!inventorySetup.doesEquipmentMatch()) {
+                            Microbot.log("Inventory setup equipment load failed after " + maxEquipmentLoadAttempts
+                                    + " attempts (e.g. missing staff); continuing without blocking.");
                         }
                     }
                     firstRun = false;
@@ -128,8 +162,8 @@ public class BarrowsScript extends Script {
                     usingPoweredStaffs = true;
                 } else {
                     usingPoweredStaffs = false;
-                    gettheRune();
                     minRuneAmt = config.minRuneAmount();
+                    gettheRune();
                     if(!Rs2Magic.getSpellbook().equals(Rs2Spellbook.MODERN)){
                         swapTheSpellbook();
                         return;
@@ -148,7 +182,7 @@ public class BarrowsScript extends Script {
 
                 outOfSupplies(config);
 
-                if(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID() == ItemID.TELEPORT_TO_HOUSE) {
+                if(isPohTravelMode(config)) {
                     if (!inTunnels && !shouldBank && Rs2Player.getWorldLocation().distanceTo(new WorldPoint(3573, 3296, 0)) > 60) {
                         if(Rs2Bank.isOpen()){
                             closeBank();
@@ -156,8 +190,11 @@ public class BarrowsScript extends Script {
                         }
                         //needed to intercept the walker
                         if(rs2TileObjectCache.query().withId(4525).nearest() == null){
-                            Rs2Inventory.interact("Teleport to house", "Inside");
-                            sleepUntil(() -> Rs2Player.getAnimation() == 4069, Rs2Random.between(2000, 4000));
+                            if(!teleToPoh()){
+                                shouldBank = true;
+                                return;
+                            }
+                            sleepUntil(() -> Rs2Player.getAnimation() == 4069 || Rs2Player.isAnimating(), Rs2Random.between(2000, 4000));
                             sleepUntil(() -> !Rs2Player.isAnimating(), Rs2Random.between(6000, 10000));
                             sleepUntil(() -> rs2TileObjectCache.query().withId(4525).nearest() != null, Rs2Random.between(6000, 10000));
                         }
@@ -395,7 +432,10 @@ public class BarrowsScript extends Script {
                     gainRP(config);
                     lootChampionScroll();
 
-                    if(!Rs2Player.isMoving()) startWalkingToTheChest();
+                    // Wait for door/transport clicks to settle before (re)starting chest walk.
+                    if (!Rs2Player.isMoving() && !Rs2Player.isAnimating() && !Rs2Player.isInteracting()) {
+                        startWalkingToTheChest();
+                    }
 
                     solvePuzzle();
                     checkForAndFightBrother(config);
@@ -445,7 +485,7 @@ public class BarrowsScript extends Script {
                                 WhoisTun = "Unknown";
                                 inTunnels = false;
                             } else {
-                                if(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID() == ItemID.BARROWS_TELEPORT){
+                                if(!isPohTravelMode(config)){
                                     Rs2Inventory.interact("Barrows teleport", "Break");
                                     sleepUntil(() -> Rs2Player.getWorldLocation().getY() < 9600 || Rs2Player.getWorldLocation().getY() > 9730, Rs2Random.between(6000, 10000));
                                     ChestsOpened++;
@@ -456,7 +496,10 @@ public class BarrowsScript extends Script {
                                         closeBank();
                                         return;
                                     }
-                                    Rs2Inventory.interact("Teleport to house", "Inside");
+                                    if(!teleToPoh()){
+                                        shouldBank = true;
+                                        return;
+                                    }
                                     sleepUntil(() -> Rs2Player.getWorldLocation().getY() < 9600 || Rs2Player.getWorldLocation().getY() > 9730, Rs2Random.between(6000, 10000));
                                     ChestsOpened++;
                                     WhoisTun = "Unknown";
@@ -495,7 +538,7 @@ public class BarrowsScript extends Script {
                                 }
 
                             }
-                            Rs2Bank.depositAllExcept(neededRune, "Moonlight moth", "Moonlight moth mix (2)", "Teleport to house", "Spade", "Prayer potion(4)", "Prayer potion(3)", "Forgotten brew(4)", "Forgotten brew(3)", "Barrows teleport",
+                            Rs2Bank.depositAllExcept(neededRune, "Wrath rune", "Blood rune", "Death rune", "Moonlight moth", "Moonlight moth mix (2)", "Teleport to house", "Spade", "Prayer potion(4)", "Prayer potion(3)", "Forgotten brew(4)", "Forgotten brew(3)", "Barrows teleport",
                                     ourfoodsname);
                         }
 
@@ -503,21 +546,16 @@ public class BarrowsScript extends Script {
                         if(!usingPoweredStaffs) {
                             if (howtoBank <= 40) {
                                 if (Rs2Inventory.get(neededRune) == null || Rs2Inventory.get(neededRune).getQuantity() <= config.minRuneAmount()) {
-                                    if (Rs2Bank.getBankItem(neededRune) != null) {
-                                        if (Rs2Bank.getBankItem(neededRune).getQuantity() > config.minRuneAmount()) {
-                                            if (Rs2Bank.withdrawX(neededRune, Rs2Random.between(config.minRuneAmount(), Rs2Bank.getBankItem(neededRune).getQuantity()))) {
-                                                String therune = neededRune;
-                                                sleepUntil(() -> Rs2Inventory.get(therune).getQuantity() > config.minRuneAmount(), Rs2Random.between(2000, 4000));
-                                            }
+                                    if (bankHasEnoughRunes(neededRune, config.minRuneAmount())) {
+                                        int bankQty = Rs2Bank.getBankItem(neededRune).getQuantity();
+                                        if (Rs2Bank.withdrawX(neededRune, Rs2Random.between(config.minRuneAmount(), bankQty))) {
+                                            String therune = neededRune;
+                                            sleepUntil(() -> Rs2Inventory.get(therune) != null && Rs2Inventory.get(therune).getQuantity() > config.minRuneAmount(), Rs2Random.between(2000, 4000));
                                         }
+                                    } else if (downgradeRuneTier(config)) {
+                                        return;
                                     } else {
-                                        if(neededRune.equals("Wrath rune")){
-                                            if(Rs2Bank.hasItem("Blood rune") && Rs2Bank.count("Blood rune") > config.minRuneAmount()){
-                                                neededRune = "Blood rune";
-                                                return;
-                                            }
-                                        }
-                                        Microbot.log("We're out of " + neededRune + "s. stopping...");
+                                        Microbot.log("We're out of " + neededRune + "s and no lower-tier runes available. stopping...");
                                         super.shutdown();
                                     }
                                 }
@@ -574,18 +612,34 @@ public class BarrowsScript extends Script {
                         }
                         howtoBank = Rs2Random.between(0,100);
                         if(howtoBank<= 40){
-                            if(Rs2Inventory.get(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID())==null || Rs2Inventory.get(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID()).getQuantity() < Rs2Random.between(config.minBarrowsTeleports(),config.targetBarrowsTeleports())){
+                            if(isPohTravelMode(config)){
+                                // Prefer casting house tele; tabs are backup only.
+                                if(!canCastHouseTeleport()){
+                                    int houseTabId = config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID();
+                                    if(Rs2Inventory.get(houseTabId) == null || Rs2Inventory.get(houseTabId).getQuantity() < config.minBarrowsTeleports()){
+                                        if(Rs2Bank.getBankItem(houseTabId) != null
+                                                && Rs2Bank.getBankItem(houseTabId).getQuantity() >= config.targetBarrowsTeleports()){
+                                            if(Rs2Bank.withdrawX(houseTabId, Rs2Random.between(config.minBarrowsTeleports(), config.targetBarrowsTeleports()))){
+                                                sleep(Rs2Random.between(300,750));
+                                            }
+                                        } else {
+                                            Microbot.log("Can't cast Teleport to House and no house tabs available. stopping...");
+                                            super.shutdown();
+                                        }
+                                    }
+                                }
+                            } else if(Rs2Inventory.get(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID())==null || Rs2Inventory.get(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID()).getQuantity() < Rs2Random.between(config.minBarrowsTeleports(),config.targetBarrowsTeleports())){
                                 if(Rs2Bank.getBankItem(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID())!=null){
                                     if(Rs2Bank.getBankItem(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID()).getQuantity()>=config.targetBarrowsTeleports()){
                                         if(Rs2Bank.withdrawX(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID(), Rs2Random.between(config.minBarrowsTeleports(),config.targetBarrowsTeleports()))){
                                             sleep(Rs2Random.between(300,750));
                                         }
                                     } else {
-                                        Microbot.log("We're out of "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID()+" need at least "+config.targetBarrowsTeleports()+" stopping...");
+                                        Microbot.log("We're out of "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName()+" need at least "+config.targetBarrowsTeleports()+" stopping...");
                                         super.shutdown();
                                     }
                                 } else {
-                                    Microbot.log("We're out of "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID()+" need at least "+config.targetBarrowsTeleports()+" stopping...");
+                                    Microbot.log("We're out of "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName()+" need at least "+config.targetBarrowsTeleports()+" stopping...");
                                     super.shutdown();
                                 }
                             }
@@ -700,8 +754,32 @@ public class BarrowsScript extends Script {
         }
     }
 
+    private boolean isPohTravelMode(BarrowsConfig config){
+        return config.selectedToBarrowsTPMethod() == BarrowsConfig.selectedToBarrowsTPMethod.POH;
+    }
+
+    private boolean canCastHouseTeleport(){
+        return Rs2Magic.canCast(MagicAction.TELEPORT_TO_HOUSE)
+                || Rs2Magic.hasRequiredRunes(Rs2Spells.TELEPORT_TO_HOUSE);
+    }
+
+    /** Prefer casting Teleport to House; fall back to a house tablet. */
+    private boolean teleToPoh(){
+        if(Rs2Magic.canCast(MagicAction.TELEPORT_TO_HOUSE)){
+            Rs2Magic.cast(MagicAction.TELEPORT_TO_HOUSE);
+            return true;
+        }
+        if(Rs2Inventory.hasItem("Teleport to house")){
+            if(Rs2Inventory.interact("Teleport to house", "Inside")){
+                return true;
+            }
+            return Rs2Inventory.interact("Teleport to house", "Break");
+        }
+        return false;
+    }
+
     public void handlePOH(BarrowsConfig config){
-        if(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID() != ItemID.TELEPORT_TO_HOUSE){
+        if(!isPohTravelMode(config)){
             return;
         }
         Client client = Microbot.getClient();
@@ -915,57 +993,65 @@ public class BarrowsScript extends Script {
 
             if(skele == null || skele.isDead()) return;
 
-            if(skele.hasLineOfSight()){
-                stopFutureWalker();
+            if(!skele.hasLineOfSight()) return;
 
-                if(!Rs2Player.isInCombat()){
-                    if(skele.click("Attack")){
-                        sleepUntil(()-> Rs2Player.isInCombat()&&!Rs2Player.isMoving(), Rs2Random.between(4000,8000));
-                    }
+            // Don't cancel chest walking for a skeleton behind a closed door / unreachable tile.
+            // LOS alone is not enough — that was stalling mid-door and spinning forever.
+            boolean alreadyFightingSkeleton = Rs2Player.isInCombat()
+                    && Rs2Player.getInteracting() != null
+                    && "Skeleton".equals(Rs2Player.getInteracting().getName());
+            if (!alreadyFightingSkeleton && !Rs2Walker.canReach(skele.getWorldLocation())) {
+                return;
+            }
+
+            // Stop chest walker once when committing to the fight — never every combat tick.
+            stopFutureWalker();
+
+            if(!Rs2Player.isInCombat()){
+                if(skele.click("Attack")){
+                    sleepUntil(()-> Rs2Player.isInCombat()&&!Rs2Player.isMoving(), Rs2Random.between(4000,8000));
                 }
+            }
 
-                if(Rs2Player.isInCombat()){
-                    while(Rs2Player.isInCombat()){
-                        Microbot.log("Fighting the Skeleton.");
-                        if (!super.isRunning()) break;
+            if(Rs2Player.isInCombat()){
+                while(Rs2Player.isInCombat()){
+                    Microbot.log("Fighting the Skeleton.");
+                    if (!super.isRunning()) break;
 
+                    sleep(750,1500);
+                    eatFood();
+                    outOfSupplies(config);
+                    antiPatternDropVials();
 
-                        stopFutureWalker();
-                        sleep(750,1500);
-                        eatFood();
-                        outOfSupplies(config);
-                        antiPatternDropVials();
-
-                        if(shouldBank){
-                            Microbot.log("Breaking out we're out of supplies.");
-                            break;
-                        }
-
-                        if(!Rs2Player.isInCombat()){
-                            Microbot.log("Breaking out we're no longer in combat.");
-                            break;
-                        }
-
-                        if (skele != null && skele.isDead()) {
-                            Microbot.log("Breaking out the skeleton is dead.");
-                            break;
-                        }
-
-                        if(Microbot.getVarbitValue(Varbits.BARROWS_REWARD_POTENTIAL)>870){
-                            Microbot.log("Breaking out we have enough RP.");
-                            break;
-                        }
-
-                        if(hintNpcModel()!=null) {
-                            Rs2NpcModel barrowsbrotherHint = hintNpcModel();
-                            Rs2NpcModel brother = rs2NpcCache.query().withName(barrowsbrotherHint.getName()).nearest();
-                            if(brother !=null && brother.hasLineOfSight()) {
-                                Microbot.log("The brother is here.");
-                                break;
-                            }
-                        }
-
+                    if(shouldBank){
+                        Microbot.log("Breaking out we're out of supplies.");
+                        break;
                     }
+
+                    if(!Rs2Player.isInCombat()){
+                        Microbot.log("Breaking out we're no longer in combat.");
+                        break;
+                    }
+
+                    if (skele != null && skele.isDead()) {
+                        Microbot.log("Breaking out the skeleton is dead.");
+                        break;
+                    }
+
+                    if(Microbot.getVarbitValue(Varbits.BARROWS_REWARD_POTENTIAL)>870){
+                        Microbot.log("Breaking out we have enough RP.");
+                        break;
+                    }
+
+                    if(hintNpcModel()!=null) {
+                        Rs2NpcModel barrowsbrotherHint = hintNpcModel();
+                        Rs2NpcModel brother = rs2NpcCache.query().withName(barrowsbrotherHint.getName()).nearest();
+                        if(brother !=null && brother.hasLineOfSight()) {
+                            Microbot.log("The brother is here.");
+                            break;
+                        }
+                    }
+
                 }
             }
         }
@@ -973,8 +1059,11 @@ public class BarrowsScript extends Script {
 
     public void suppliesCheck(BarrowsConfig config){
         if(!usingPoweredStaffs) {
-            if (Rs2Inventory.get(neededRune) == null || Rs2Inventory.get(neededRune).getQuantity() <= minRuneAmt) {
-                Microbot.log("We have less than 180 " + neededRune);
+            // Prefer highest castable tier already stocked above min (Wrath→Blood→Death).
+            if (switchToInventoryRuneTier(minRuneAmt)) {
+                // neededRune updated from inventory stock
+            } else if (!inventoryHasEnoughRunes(neededRune, minRuneAmt)) {
+                Microbot.log("We have less than " + minRuneAmt + " " + neededRune);
                 shouldBank = true;
                 return;
             }
@@ -1003,7 +1092,13 @@ public class BarrowsScript extends Script {
             shouldBank = true;
             return;
         }
-        if ((Rs2Inventory.get(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID()) == null)) {
+        if(isPohTravelMode(config)){
+            if(!canCastHouseTeleport() && Rs2Inventory.get("Teleport to house") == null){
+                Microbot.log("Can't cast Teleport to House and no house tablet.");
+                shouldBank = true;
+                return;
+            }
+        } else if (Rs2Inventory.get(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID()) == null) {
             Microbot.log("We don't have a "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName());
             shouldBank = true;
             return;
@@ -1061,32 +1156,91 @@ public class BarrowsScript extends Script {
     }
 
     public void gettheRune(){
-        if(!neededRune.equals("unknown")) return;
+        int min = Math.max(minRuneAmt, 1);
+        // Prefer highest castable tier already in inventory above min (never lock Death over Blood).
+        if (switchToInventoryRuneTier(min)) {
+            return;
+        }
+        neededRune = getHighestCastableRune();
+    }
 
-        neededRune = "unknown";
-        int magicLvl = Rs2Player.getRealSkillLevel(Skill.MAGIC);
+    private String getHighestCastableRune() {
+        // Spell requirements use current (boosted) Magic — Forgotten brew can unlock Wind Wave.
+        int magicLvl = Rs2Player.getBoostedSkillLevel(Skill.MAGIC);
+        if (magicLvl >= 81) return "Wrath rune";
+        if (magicLvl >= 62) return "Blood rune";
+        if (magicLvl >= 41) return "Death rune";
+        return "Death rune";
+    }
 
-        if(magicLvl >= 41 && magicLvl < 62) neededRune = "Death rune";
+    private List<String> getCastableRuneTiers() {
+        String highest = getHighestCastableRune();
+        List<String> castable = new ArrayList<>();
+        boolean reached = false;
+        for (String tier : RUNE_TIERS) {
+            if (tier.equals(highest)) {
+                reached = true;
+            }
+            if (reached) {
+                castable.add(tier);
+            }
+        }
+        return castable;
+    }
 
-        if(magicLvl >= 62 && magicLvl < 81) neededRune = "Blood rune";
+    private boolean bankHasEnoughRunes(String rune, int minAmount) {
+        if (rune == null || "unknown".equals(rune)) return false;
+        if (Rs2Bank.getBankItem(rune) == null) return false;
+        return Rs2Bank.getBankItem(rune).getQuantity() > minAmount;
+    }
 
-        if(magicLvl >= 81) neededRune = "Wrath rune";
+    private boolean inventoryHasEnoughRunes(String rune, int minAmount) {
+        if (rune == null || "unknown".equals(rune)) return false;
+        Rs2ItemModel item = Rs2Inventory.get(rune);
+        return item != null && item.getQuantity() > minAmount;
+    }
+
+    private boolean switchToInventoryRuneTier(int minAmount) {
+        for (String tier : getCastableRuneTiers()) {
+            if (inventoryHasEnoughRunes(tier, minAmount)) {
+                neededRune = tier;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean downgradeRuneTier(BarrowsConfig config) {
+        List<String> castable = getCastableRuneTiers();
+        int currentIndex = castable.indexOf(neededRune);
+        if (currentIndex < 0) {
+            currentIndex = -1;
+        }
+        for (int i = currentIndex + 1; i < castable.size(); i++) {
+            String tier = castable.get(i);
+            if (bankHasEnoughRunes(tier, config.minRuneAmount()) || inventoryHasEnoughRunes(tier, config.minRuneAmount())) {
+                Microbot.log("Out of " + neededRune + " — falling back to " + tier);
+                neededRune = tier;
+                return true;
+            }
+        }
+        return false;
     }
 
     public void setAutoCast(){
-        if(neededRune == "Wrath rune"){
+        if("Wrath rune".equals(neededRune)){
             if (Rs2Magic.getCurrentAutoCastSpell() != Rs2CombatSpells.WIND_SURGE) {
                 Rs2Combat.setAutoCastSpell(Rs2CombatSpells.WIND_SURGE, false);
             }
         }
 
-        if(neededRune == "Blood rune"){
+        if("Blood rune".equals(neededRune)){
             if (Rs2Magic.getCurrentAutoCastSpell() != Rs2CombatSpells.WIND_WAVE) {
                 Rs2Combat.setAutoCastSpell(Rs2CombatSpells.WIND_WAVE, false);
             }
         }
 
-        if(neededRune == "Death rune"){
+        if("Death rune".equals(neededRune)){
             if (Rs2Magic.getCurrentAutoCastSpell() != Rs2CombatSpells.WIND_BLAST) {
                 Rs2Combat.setAutoCastSpell(Rs2CombatSpells.WIND_BLAST, false);
             }
@@ -1360,17 +1514,34 @@ public class BarrowsScript extends Script {
     }
 
     public void stopFutureWalker(){
-        if(WalkToTheChestFuture!=null) {
-            Rs2Walker.setTarget(null);
+        boolean futureActive = WalkToTheChestFuture != null
+                && !WalkToTheChestFuture.isCancelled()
+                && !WalkToTheChestFuture.isDone();
+        if (futureActive) {
             WalkToTheChestFuture.cancel(true);
-            //stop the walker and future
+        }
+        WalkToTheChestFuture = null;
+
+        // Only clear an active route — avoid spam-clearing every combat tick with reason=<missing>.
+        if (Rs2Walker.getCurrentTarget() != null) {
+            Rs2Walker.clearWalkingRoute("barrows:stop-chest-walker");
         }
     }
 
     private void walkToChest(){
         try {
             if (!inTunnels) {
-                WalkToTheChestFuture.cancel(true);
+                stopFutureWalker();
+                return;
+            }
+
+            // Let door opens / transport clicks finish before re-issuing walkTo.
+            if (Rs2Player.isMoving() || Rs2Player.isAnimating() || Rs2Player.isInteracting()) {
+                return;
+            }
+
+            WorldPoint currentTarget = Rs2Walker.getCurrentTarget();
+            if (currentTarget != null && currentTarget.distanceTo(Chest) <= 2) {
                 return;
             }
 
@@ -1489,8 +1660,76 @@ public class BarrowsScript extends Script {
 
     }
 
+    /**
+     * Prefer the live Inventory Setups entry by name so edits in Inventory Setups
+     * are picked up. Config stores a serialized snapshot that does not auto-refresh.
+     * When the live list is unavailable (Hub RuneLiteDebug client bug), fall back to
+     * the cached config object and log once.
+     */
+    private Rs2InventorySetup resolveInventorySetup(BarrowsConfig config) {
+        InventorySetup configured = config.inventorySetup();
+        if (configured == null) {
+            return new Rs2InventorySetup((InventorySetup) null, mainScheduledFuture);
+        }
+
+        String name = configured.getName();
+        List<InventorySetup> liveSetups = MInventorySetupsPlugin.getInventorySetups();
+        if (liveSetups != null
+                && name != null
+                && !name.isEmpty()
+                && Rs2InventorySetup.isInventorySetup(name)) {
+            loggedCachedInventorySetupWarning = false;
+            return new Rs2InventorySetup(name, mainScheduledFuture);
+        }
+
+        if (!loggedCachedInventorySetupWarning) {
+            Microbot.log("Using cached InventorySetup from Barrows config (live Inventory Setups unavailable — re-select setup in Barrows settings after editing).");
+            loggedCachedInventorySetupWarning = true;
+        }
+        return new Rs2InventorySetup(configured, mainScheduledFuture);
+    }
+
+    /**
+     * Hub workaround for client Rs2InventorySetup.loadEquipment aborting when
+     * depositAllExcept returns false (nothing deposited) even though bank has the
+     * missing gear. Withdraw/equip missing slots directly by name.
+     */
+    private void tryDirectEquipMissingGear(Rs2InventorySetup inventorySetup) {
+        if (!Rs2Bank.isOpen() && !Rs2Bank.openBank()) {
+            return;
+        }
+        List<InventorySetupsItem> equipment = inventorySetup.getEquipmentItems();
+        if (equipment == null || equipment.isEmpty()) {
+            return;
+        }
+        Microbot.log("loadEquipment aborted before withdraw; trying direct withdrawAndEquip for missing gear...");
+        for (InventorySetupsItem item : equipment) {
+            if (!super.isRunning()) {
+                return;
+            }
+            if (item == null || InventorySetupsItem.itemIsDummy(item)) {
+                continue;
+            }
+            String name = item.getName();
+            if (name == null || name.isEmpty()) {
+                continue;
+            }
+            if (Rs2Equipment.isWearing(name)) {
+                continue;
+            }
+            if (Rs2Inventory.hasItem(name)) {
+                Rs2Bank.wearItem(name);
+            } else if (Rs2Bank.hasBankItem(name)) {
+                Rs2Bank.withdrawAndEquip(name);
+            }
+            sleep(Rs2Random.between(300, 600));
+        }
+    }
+
     @Override
     public void shutdown() {
+        loggedCachedInventorySetupWarning = false;
+        stopFutureWalker();
         super.shutdown();
     }
 }
