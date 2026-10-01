@@ -38,6 +38,8 @@ import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
+import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2MiniMap;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -105,6 +107,7 @@ public class DroZulrahScript extends Script
     private volatile int currentNpcId = -1;
     private volatile int phaseIndex = -1;
     private volatile int phaseStartTick = -1;
+    private volatile ZulrahPhaseSnapshot helperSnapshot = ZulrahPhaseSnapshot.EMPTY;
     private volatile LocalPoint currentNpcLocal;
     private volatile ZulrahRotation rotation;
     private final List<Integer> seenTypes = Collections.synchronizedList(new ArrayList<>());
@@ -227,17 +230,7 @@ public class DroZulrahScript extends Script
         this.state = DroZulrahState.IDLE;
         this.status = "Waiting for login";
 
-        BaseProfileDro.Settings settings = new BaseProfileDro.Settings()
-                .activity(Activity.GENERAL_COMBAT)
-                .activityIntensity(ActivityIntensity.HIGH)
-                .mouseActivity(BaseProfileDro.MouseActivity.ACTIVE)
-                .startupCamera(100, 2500, 3064)
-                .customBreaksEnabled(config.smartBreaks())
-                .overlayEnabled(false)
-                .writeBreakStatusToMicrobot(false)
-                .cameraNudgesEnabled(false)
-                .parkSide(BaseProfileDro.AfkParkSide.NONE);
-        profile = new BaseProfileDro(settings);
+        profile = new BaseProfileDro(profileSettings(config));
 
         Microbot.log("[Dro] Zulrah " + BUILD + ": scheduler started; waiting for a logged-in player");
         if (watchdog != null) watchdog.shutdownNow();
@@ -292,6 +285,25 @@ public class DroZulrahScript extends Script
             finally { loopEnteredAt = 0L; }
         }, 0, 100, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    static BaseProfileDro.Settings profileSettings(DroZulrahConfig config)
+    {
+        return new BaseProfileDro.Settings()
+                .activity(Activity.GENERAL_COMBAT)
+                .activityIntensity(ActivityIntensity.HIGH)
+                .mouseActivity(BaseProfileDro.MouseActivity.ACTIVE)
+                .startupCamera(100, 2500, 3064)
+                .customBreaksEnabled(config.smartBreaks())
+                .breakIntervals(config.minBreakIntervalMinutes(), config.maxBreakIntervalMinutes())
+                .logoutBreakChance(config.logoutBreakChance())
+                .afkBreakDuration(config.afkBreakMinMinutes(), config.afkBreakMaxMinutes())
+                .logoutBreakDuration(config.logoutBreakMinMinutes(), config.logoutBreakMaxMinutes())
+                .postLoginSettleSeconds(config.postLoginSettleSeconds())
+                .overlayEnabled(false)
+                .writeBreakStatusToMicrobot(false)
+                .cameraNudgesEnabled(false)
+                .parkSide(BaseProfileDro.AfkParkSide.NONE);
     }
 
     private void loop()
@@ -966,6 +978,10 @@ public class DroZulrahScript extends Script
                 ? (id == ZULRAH_MAGIC ? Rs2PrayerEnum.PROTECT_MAGIC : Rs2PrayerEnum.PROTECT_RANGE)
                 : null;
         forceReengage = true;
+        // Publish display data only. The helper never selects combat tiles or advances phases.
+        ZulrahRotation[] options = candidates.toArray(new ZulrahRotation[0]);
+        helperSnapshot = new ZulrahPhaseSnapshot(phaseIndex, phaseStartTick,
+                options.length == 0 ? 24 : options[0].ticks(phaseIndex), rotation, options);
     }
 
     private boolean handlePosition()
@@ -1221,13 +1237,42 @@ public class DroZulrahScript extends Script
 
     private boolean dispatchPrayer(Rs2PrayerEnum prayer, boolean enabled)
     {
-        if (Rs2Prayer.isPrayerActive(prayer) == enabled || Rs2Prayer.getPrayerPoints() <= 0) return false;
+        if (clientRead(() -> Rs2Prayer.isPrayerActive(prayer) == enabled || Rs2Prayer.getPrayerPoints() <= 0, true)) return false;
         long now = System.currentTimeMillis();
         if (now - prayerDispatchTimes.getOrDefault(prayer, 0L) < 900L) return false;
-        prayerDispatchTimes.put(prayer, now);
-        // One-argument toggle dispatches only. The boolean overload waits up to ten seconds.
-        Rs2Prayer.toggle(prayer);
-        return true;
+        if (Microbot.getClient().isClientThread()) return false;
+        InterfaceTab previous = Rs2Tab.getCurrentTab();
+        try
+        {
+            if (!openPrayerTab(InterfaceTab.PRAYER)) return false;
+            Rectangle bounds = clientRead(() -> {
+                Widget button = Microbot.getClient().getWidget(prayer.getIndex());
+                if (button == null || button.isHidden() || Rs2Tab.getCurrentTab() != InterfaceTab.PRAYER
+                        || Rs2Prayer.isPrayerActive(prayer) == enabled) return null;
+                return ZulrahClickBounds.visible(button.getBounds(), Microbot.getClient().getCanvasWidth(),
+                        Microbot.getClient().getCanvasHeight());
+            }, null);
+            if (bounds == null) return false;
+            if (profile == null || !profile.clickHumanized(bounds)) return false;
+            prayerDispatchTimes.put(prayer, now);
+            return true;
+        }
+        finally
+        {
+            // Preserve the caller's tab so existing inventory/gear/food actions stay unchanged.
+            if (previous != InterfaceTab.PRAYER && previous != InterfaceTab.NOTHING_SELECTED)
+                openPrayerTab(previous);
+        }
+    }
+
+    /** Called on the worker; use configured F-keys and wait only for the tab to be visible. */
+    private boolean openPrayerTab(InterfaceTab tab)
+    {
+        if (Rs2Tab.getCurrentTab() == tab) return true;
+        int key = clientRead(tab::getHotkey, -1);
+        if (key >= 0) Rs2Keyboard.keyPress(key);
+        else clientRead(() -> { Microbot.getClient().runScript(915, tab.getVarcIntIndex()); return true; }, false);
+        return sleepUntil(() -> Rs2Tab.getCurrentTab() == tab, 180);
     }
 
     private boolean handleThrall(Rs2NpcModel zulrah)
@@ -1804,7 +1849,27 @@ public class DroZulrahScript extends Script
 
     private void disableCombatPrayers()
     {
-        Rs2Prayer.disableAllPrayers();
+        if (Microbot.getClient() == null) return;
+        if (!clientRead(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN, false)) return;
+        if (Microbot.getClient().isClientThread())
+        {
+            // Shutdown cannot run mouse gestures or tab waits on the client thread.
+            InterfaceTab previous = Rs2Tab.getCurrentTab();
+            Microbot.getClient().runScript(915, InterfaceTab.PRAYER.getVarcIntIndex());
+            for (Rs2PrayerEnum prayer : Rs2PrayerEnum.values())
+            {
+                Widget button = Microbot.getClient().getWidget(prayer.getIndex());
+                if (Rs2Prayer.isPrayerActive(prayer) && button != null && !button.isHidden()
+                        && ZulrahClickBounds.visible(button.getBounds(), Microbot.getClient().getCanvasWidth(),
+                        Microbot.getClient().getCanvasHeight()) != null)
+                    Microbot.getClient().menuAction(-1, prayer.getIndex(), MenuAction.CC_OP, 1, -1, "Deactivate", prayer.getName());
+            }
+            if (previous != InterfaceTab.PRAYER && previous != InterfaceTab.NOTHING_SELECTED)
+                Microbot.getClient().runScript(915, previous.getVarcIntIndex());
+            return;
+        }
+        for (Rs2PrayerEnum prayer : Rs2PrayerEnum.values())
+            if (clientRead(() -> Rs2Prayer.isPrayerActive(prayer), false)) dispatchPrayer(prayer, false);
     }
 
     private boolean action(BaseProfileDro.ActionPhase phase, boolean urgent,
@@ -2053,6 +2118,7 @@ public class DroZulrahScript extends Script
 
     private void resetFightTracking()
     {
+        helperSnapshot = ZulrahPhaseSnapshot.EMPTY;
         emergencyActive = false;
         emergencyBrews = 0;
         emergencyBrewBefore = -1;
@@ -2121,6 +2187,17 @@ public class DroZulrahScript extends Script
     }
 
     public DroZulrahState getState(){ return state; }
+    public ZulrahPhaseSnapshot getHelperSnapshot(){ return helperSnapshot; }
+    public Prayer getHelperPrayer(){
+        ZulrahPhaseSnapshot snapshot = helperSnapshot;
+        if (snapshot.index < 0) return null;
+        if (snapshot.rotation != null && snapshot.rotation.isJad(snapshot.index) && jadNextPrayer != null)
+            return jadNextPrayer == Rs2PrayerEnum.PROTECT_MAGIC ? Prayer.PROTECT_FROM_MAGIC : Prayer.PROTECT_FROM_MISSILES;
+        ZulrahRotation[] options = snapshot.candidates();
+        if (options.length == 0 || snapshot.index >= options[0].size()) return null;
+        int type = options[0].types[snapshot.index];
+        return type == ZULRAH_MAGIC ? Prayer.PROTECT_FROM_MAGIC : type == ZULRAH_RANGE ? Prayer.PROTECT_FROM_MISSILES : null;
+    }
     public String getStatus(){ return status; }
     public ZulrahRotation getRotation(){ return rotation; }
     public int getPhaseIndex(){ return phaseIndex; }

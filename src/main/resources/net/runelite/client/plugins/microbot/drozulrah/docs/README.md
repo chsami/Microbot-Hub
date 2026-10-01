@@ -100,3 +100,27 @@ When enabled, the compact overlay shows session runtime, next-break countdown or
 ### Integration boundary
 
 The host owns the scheduler and calls the profile's tick with two signals: whether the current moment is safe to begin a longer break and whether the task has a safe idle opportunity. The profile indicates when normal task work should pause for breaks or logout handling. Task-specific combat, pathing, target selection, banking, and safety policy remain in the plugin.
+
+
+## Rotation overlay, prayer clicks and breaks (1.10.7)
+
+Enable **Show Zulrah rotation helper** to display current/next phases, recommended stand tiles, prayer indicators, the phase countdown, instance timer and observed clouds. This checkbox is off by default. Overlay tiles are recommendations only; the existing combat movement logic remains unchanged. Helper graphics/models are adapted from Microbot-Hub Zulrah (Syntax; originally Owain van Brakel).
+
+Prayer changes open the prayer book using the configured hotkey, falling back to a tab switch when no hotkey is bound. The script clicks the visible prayer button through BaseProfileDro and restores the previous tab. A missing, hidden or offscreen prayer button is retried without a generic screen-sized click fallback.
+
+The complete BaseProfileDro remains in use. Mouse activity is ACTIVE and mouse speed is High. Parking and native offscreen/random movement are disabled; inventory glances are not added. Its own smart-break manager handles AFK and logout breaks, automatic login and post-login settling. Breaks begin only at Ferox between trips, never during a fight.
+
+Expand **Smart breaks** in the DroZulrah config for these options:
+
+| Option | Default |
+| --- | --- |
+| Enable smart breaks | On |
+| Minimum/maximum interval (minutes) | 20 / 140 |
+| Logout break chance (%) | 100 |
+| Minimum/maximum AFK duration (minutes) | 2 / 6 |
+| Minimum/maximum logout duration (minutes) | 5 / 40 |
+| Post-login settle (seconds) | 20 |
+
+A logout chance of 0 selects AFK breaks only; 100 selects logout breaks only; intermediate values mix both. Maximum intervals/durations are clamped to at least their respective minimum. Restart the plugin after changing break settings to apply them to BaseProfileDro. These defaults match the previous BaseProfileDro policy.
+
+The overlay, visible prayer clicks and new break controls have compile/focused-test validation. They have not yet been confirmed in a live fight; earlier gameplay results apply to the working baseline.

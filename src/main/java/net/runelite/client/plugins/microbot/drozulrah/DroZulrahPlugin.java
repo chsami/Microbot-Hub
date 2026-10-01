@@ -7,6 +7,9 @@ import net.runelite.api.NPC;
 import net.runelite.api.events.*;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.eventbus.EventBus;
+import net.runelite.client.plugins.microbot.drozulrah.helper.ZulrahRotationHelper;
+import net.runelite.client.plugins.microbot.drozulrah.helper.overlays.*;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -15,7 +18,7 @@ import javax.inject.Inject;
 
 @PluginDescriptor(
         name="[Dro] Zulrah",
-        version="1.10.4",
+        version="1.10.7",
         minClientVersion = "2.1.32",
         description="Inventory-setup driven Zulrah trips, rotations, prayer, switches, thralls and regear",
         tags={"microbot","zulrah","dro"}
@@ -26,6 +29,13 @@ public class DroZulrahPlugin extends Plugin
     @Inject private DroZulrahConfig config;
     @Inject private DroZulrahOverlay overlay;
     @Inject private OverlayManager overlayManager;
+    @Inject private EventBus eventBus;
+    @Inject private ZulrahRotationHelper rotationHelper;
+    @Inject private SceneOverlay sceneOverlay;
+    @Inject private PhaseOverlay phaseOverlay;
+    @Inject private PrayerHelperOverlay prayerOverlay;
+    @Inject private PrayerMarkerOverlay prayerMarkerOverlay;
+    @Inject private InstanceTimerOverlay instanceTimerOverlay;
 
     @Provides
     DroZulrahConfig provideConfig(ConfigManager cm)
@@ -37,6 +47,13 @@ public class DroZulrahPlugin extends Plugin
     protected void startUp()
     {
         overlayManager.add(overlay);
+        // Own the overlays here to avoid a dependency cycle with their phase-data helper.
+        overlayManager.add(sceneOverlay);
+        overlayManager.add(phaseOverlay);
+        overlayManager.add(prayerOverlay);
+        overlayManager.add(prayerMarkerOverlay);
+        overlayManager.add(instanceTimerOverlay);
+        rotationHelper.start(eventBus, instanceTimerOverlay);
         script.run(config);
     }
 
@@ -45,6 +62,12 @@ public class DroZulrahPlugin extends Plugin
     {
         script.shutdown();
         overlayManager.remove(overlay);
+        rotationHelper.stop(eventBus);
+        overlayManager.remove(sceneOverlay);
+        overlayManager.remove(phaseOverlay);
+        overlayManager.remove(prayerOverlay);
+        overlayManager.remove(prayerMarkerOverlay);
+        overlayManager.remove(instanceTimerOverlay);
     }
 
     @Subscribe

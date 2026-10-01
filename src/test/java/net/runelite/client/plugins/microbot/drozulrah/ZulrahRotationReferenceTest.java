@@ -12,8 +12,8 @@ private void check(ZulrahRotation rotation, int[][] phases) {
  assertEquals(phases.length, rotation.size());
  for(int i=0;i<phases.length;i++) {
   int[] p=phases[i];
-  assertTrue("spawn at phase " + i, rotation.matches(i,p[0],new LocalPoint(p[1],p[2])));
-  assertEquals("Jad at phase " + i,p[3]==1,rotation.isJad(i));
+  assertTrue(rotation.matches(i,p[0],new LocalPoint(p[1],p[2])), "spawn at phase " + i);
+  assertEquals(p[3]==1,rotation.isJad(i),"Jad at phase " + i);
   assertEquals(p[4],rotation.stand(i).local().getX());
   assertEquals(p[5],rotation.stand(i).local().getY());
   assertEquals(p[6],rotation.ticks(i));

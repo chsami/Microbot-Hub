@@ -20,6 +20,10 @@ public interface DroZulrahConfig extends Config
 {
     String GROUP = "DroZulrah";
 
+    @ConfigSection(name="Smart breaks", description="BaseProfileDro AFK/logout breaks, started only at Ferox between trips.",
+            position=9, closedByDefault=true)
+    String breakSection = "smartBreakSettings";
+
     @ConfigItem(
             keyName = "selectedInventorySetup",
             name = "Inventory Setup",
@@ -53,9 +57,53 @@ public interface DroZulrahConfig extends Config
     @ConfigItem(keyName="prepositionTicks", name="Pre-position lead (ticks)", description="Move toward the next known stand before the current phase ends.", position=5)
     default int prepositionTicks(){ return 3; }
 
-    @ConfigItem(keyName="smartBreaks", name="Smart breaks", description="Enable BaseProfileDro smart breaks. Breaks only begin at Ferox between trips.", position=6)
+    @ConfigItem(keyName="smartBreaks", name="Enable smart breaks", description="Enable BaseProfileDro smart breaks. Breaks only begin at Ferox between trips.", position=0, section=breakSection)
     default boolean smartBreaks(){ return true; }
 
     @ConfigItem(keyName="useBlowpipeSpecial", name="Use special attacks", description="Use supported equipped ranged and magic weapon specials at their required energy. Does not switch weapons just to spec.", position=7)
     default boolean useSpecialAttacks(){ return true; }
+
+    @ConfigItem(keyName="showRotationHelperOverlay", name="Show Zulrah rotation helper",
+            description="Show current/next phases, recommended tiles, prayers, countdown and clouds. Display only; does not change combat movement.", position=8)
+    default boolean showRotationHelperOverlay(){ return false; }
+
+    @Range(min=1, max=1440)
+    @ConfigItem(keyName="minBreakIntervalMinutes", name="Minimum interval (minutes)",
+            description="Minimum time between smart breaks. A due break waits for Ferox.", position=1, section=breakSection)
+    default int minBreakIntervalMinutes(){ return 20; }
+
+    @Range(min=1, max=1440)
+    @ConfigItem(keyName="maxBreakIntervalMinutes", name="Maximum interval (minutes)",
+            description="Maximum time between smart breaks; clamped to at least the minimum.", position=2, section=breakSection)
+    default int maxBreakIntervalMinutes(){ return 140; }
+
+    @Range(min=0, max=100)
+    @ConfigItem(keyName="logoutBreakChance", name="Logout break chance (%)",
+            description="Percent of breaks that log out. 0 means all AFK, 100 means all logout; the rest stay logged in.", position=3, section=breakSection)
+    default int logoutBreakChance(){ return 100; }
+
+    @Range(min=1, max=1440)
+    @ConfigItem(keyName="afkBreakMinMinutes", name="Minimum AFK (minutes)",
+            description="Minimum duration of a break that stays logged in.", position=4, section=breakSection)
+    default int afkBreakMinMinutes(){ return 2; }
+
+    @Range(min=1, max=1440)
+    @ConfigItem(keyName="afkBreakMaxMinutes", name="Maximum AFK (minutes)",
+            description="Maximum duration of a break that stays logged in; clamped to at least the minimum.", position=5, section=breakSection)
+    default int afkBreakMaxMinutes(){ return 6; }
+
+    @Range(min=1, max=1440)
+    @ConfigItem(keyName="logoutBreakMinMinutes", name="Minimum logout (minutes)",
+            description="Minimum duration of a logout break.", position=6, section=breakSection)
+    default int logoutBreakMinMinutes(){ return 5; }
+
+    @Range(min=1, max=1440)
+    @ConfigItem(keyName="logoutBreakMaxMinutes", name="Maximum logout (minutes)",
+            description="Maximum duration of a logout break; clamped to at least the minimum.", position=7, section=breakSection)
+    default int logoutBreakMaxMinutes(){ return 40; }
+
+    @Range(min=0, max=180)
+    @ConfigItem(keyName="postLoginSettleSeconds", name="Post-login settle (seconds)",
+            description="Seconds to settle after BaseProfileDro logs back in before resuming the trip.", position=8, section=breakSection)
+    default int postLoginSettleSeconds(){ return 20; }
 }
