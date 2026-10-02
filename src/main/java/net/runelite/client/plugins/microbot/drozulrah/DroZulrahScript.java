@@ -13,6 +13,7 @@ import net.runelite.api.widgets.Widget;
 import net.runelite.client.game.ItemEquipmentStats;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStats;
+import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel;
@@ -54,7 +55,7 @@ import java.util.concurrent.TimeUnit;
 @Singleton
 public class DroZulrahScript extends Script
 {
-    public static final String BUILD = "2.10.4-active-mouse";
+    public static final String BUILD = DroZulrahPlugin.class.getAnnotation(PluginDescriptor.class).version();
     private long lootClearSince;
     private long lootStartedAt;
     private boolean startupBankTrip;

@@ -12,16 +12,22 @@ import net.runelite.client.plugins.microbot.drozulrah.helper.ZulrahRotationHelpe
 import net.runelite.client.plugins.microbot.drozulrah.helper.overlays.*;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 
 @PluginDescriptor(
-        name="[Dro] Zulrah",
-        version="1.10.7",
-        minClientVersion = "2.1.32",
+        name=PluginConstants.DRO + "Zulrah",
+        version="1.10.8",
+        minClientVersion = "2.6.26",
         description="Inventory-setup driven Zulrah trips, rotations, prayer, switches, thralls and regear",
-        tags={"microbot","zulrah","dro"}
+        tags={"microbot","zulrah","dro"},
+        authors={"droplugins"},
+        iconUrl="https://chsami.github.io/Microbot-Hub/DroZulrahPlugin/assets/icon.png",
+        cardUrl="https://chsami.github.io/Microbot-Hub/DroZulrahPlugin/assets/card.png",
+        enabledByDefault=PluginConstants.DEFAULT_ENABLED,
+        isExternal=PluginConstants.IS_EXTERNAL
 )
 public class DroZulrahPlugin extends Plugin
 {
