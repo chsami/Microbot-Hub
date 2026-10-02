@@ -547,13 +547,13 @@ public class BarrowsScript extends Script {
                             if (howtoBank <= 40) {
                                 if (Rs2Inventory.get(neededRune) == null || Rs2Inventory.get(neededRune).getQuantity() <= config.minRuneAmount()) {
                                     if (bankHasEnoughRunes(neededRune, config.minRuneAmount())) {
-                                        int bankQty = Rs2Bank.getBankItem(neededRune).getQuantity();
-                                        if (Rs2Bank.withdrawX(neededRune, Rs2Random.between(config.minRuneAmount(), bankQty))) {
-                                            String therune = neededRune;
-                                            sleepUntil(() -> Rs2Inventory.get(therune) != null && Rs2Inventory.get(therune).getQuantity() > config.minRuneAmount(), Rs2Random.between(2000, 4000));
-                                        }
+                                        withdrawNeededRunes(config);
                                     } else if (downgradeRuneTier(config)) {
-                                        return;
+                                        // Withdraw the downgraded tier in this same pass so gettheRune()
+                                        // does not reset neededRune back to the highest castable tier.
+                                        if (bankHasEnoughRunes(neededRune, config.minRuneAmount())) {
+                                            withdrawNeededRunes(config);
+                                        }
                                     } else {
                                         Microbot.log("We're out of " + neededRune + "s and no lower-tier runes available. stopping...");
                                         super.shutdown();
@@ -613,16 +613,19 @@ public class BarrowsScript extends Script {
                         howtoBank = Rs2Random.between(0,100);
                         if(howtoBank<= 40){
                             if(isPohTravelMode(config)){
-                                // Prefer casting house tele; tabs are backup only.
-                                if(!canCastHouseTeleport()){
-                                    int houseTabId = config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID();
-                                    if(Rs2Inventory.get(houseTabId) == null || Rs2Inventory.get(houseTabId).getQuantity() < config.minBarrowsTeleports()){
+                                // Prefer casting; keep tabs whenever cast supplies are missing or inventory has none
+                                // (tabs are the fallback when canCast fails despite having runes).
+                                int houseTabId = config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID();
+                                boolean hasTabs = Rs2Inventory.get(houseTabId) != null
+                                        && Rs2Inventory.get(houseTabId).getQuantity() >= config.minBarrowsTeleports();
+                                if(!canCastHouseTeleport() || !hasTabs){
+                                    if(!hasTabs){
                                         if(Rs2Bank.getBankItem(houseTabId) != null
                                                 && Rs2Bank.getBankItem(houseTabId).getQuantity() >= config.targetBarrowsTeleports()){
                                             if(Rs2Bank.withdrawX(houseTabId, Rs2Random.between(config.minBarrowsTeleports(), config.targetBarrowsTeleports()))){
                                                 sleep(Rs2Random.between(300,750));
                                             }
-                                        } else {
+                                        } else if(!canCastHouseTeleport()){
                                             Microbot.log("Can't cast Teleport to House and no house tabs available. stopping...");
                                             super.shutdown();
                                         }
@@ -758,17 +761,22 @@ public class BarrowsScript extends Script {
         return config.selectedToBarrowsTPMethod() == BarrowsConfig.selectedToBarrowsTPMethod.POH;
     }
 
+    /**
+     * Non-UI house-teleport readiness check (no Magic-tab switch / sleep).
+     * Used by supply checks and banking; teleToPoh() is the only place that calls canCast/cast.
+     */
     private boolean canCastHouseTeleport(){
-        return Rs2Magic.canCast(MagicAction.TELEPORT_TO_HOUSE)
-                || Rs2Magic.hasRequiredRunes(Rs2Spells.TELEPORT_TO_HOUSE);
+        return Rs2Magic.getSpellbook().equals(Rs2Spellbook.MODERN)
+                && Rs2Magic.hasRequiredRunes(Rs2Spells.TELEPORT_TO_HOUSE);
     }
 
-    /** Prefer casting Teleport to House; fall back to a house tablet. */
+    /** Prefer casting Teleport to House; fall back to a house tablet whenever cast cannot happen. */
     private boolean teleToPoh(){
-        if(Rs2Magic.canCast(MagicAction.TELEPORT_TO_HOUSE)){
+        if(canCastHouseTeleport() && Rs2Magic.canCast(MagicAction.TELEPORT_TO_HOUSE)){
             Rs2Magic.cast(MagicAction.TELEPORT_TO_HOUSE);
             return true;
         }
+        // Fall back to tabs whenever the cast cannot happen.
         if(Rs2Inventory.hasItem("Teleport to house")){
             if(Rs2Inventory.interact("Teleport to house", "Inside")){
                 return true;
@@ -1225,6 +1233,14 @@ public class BarrowsScript extends Script {
             }
         }
         return false;
+    }
+
+    private void withdrawNeededRunes(BarrowsConfig config) {
+        int bankQty = Rs2Bank.getBankItem(neededRune).getQuantity();
+        if (Rs2Bank.withdrawX(neededRune, Rs2Random.between(config.minRuneAmount(), bankQty))) {
+            String therune = neededRune;
+            sleepUntil(() -> Rs2Inventory.get(therune) != null && Rs2Inventory.get(therune).getQuantity() > config.minRuneAmount(), Rs2Random.between(2000, 4000));
+        }
     }
 
     public void setAutoCast(){

@@ -32,7 +32,7 @@ import java.awt.*;
 )
 @Slf4j
 public class BarrowsPlugin extends Plugin  {
-    public static final String version = "2.1.3";
+    public static final String version = "2.1.4";
 
     @Inject
     private BarrowsConfig config;
