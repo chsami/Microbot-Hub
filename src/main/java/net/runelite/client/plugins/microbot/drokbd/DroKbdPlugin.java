@@ -13,17 +13,20 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import javax.inject.Inject;
 
 @PluginDescriptor(
-        name = "[Dro] KBD",
+        name = PluginConstants.DRO + "KBD",
         description = "King Black Dragon trips with Lava Maze travel, Wilderness safety, and death recovery.",
         tags = {"kbd", "king black dragon", "boss", "wilderness"},
-        version = DroKbdPlugin.VERSION,
-        minClientVersion = "2.1.0",
+        version = "1.1.5",
+        authors = {"droplugins"},
+        iconUrl = "https://chsami.github.io/Microbot-Hub/DroKbdPlugin/assets/icon.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/DroKbdPlugin/assets/card.png",
+        minClientVersion = "2.6.25",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class DroKbdPlugin extends Plugin
 {
-    static final String VERSION = "1.1.3";
+    static final String VERSION = "1.1.5";
 
     @Inject private DroKbdConfig config;
     @Inject private DroKbdScript script;

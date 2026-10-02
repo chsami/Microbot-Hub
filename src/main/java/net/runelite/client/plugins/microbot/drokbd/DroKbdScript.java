@@ -179,7 +179,9 @@ public class DroKbdScript extends Script
     private final AtomicBoolean threatLogoutActive = new AtomicBoolean(false);
     private boolean bankCleared;
     private boolean combatMouseHandled;
-    private boolean surrendering;
+    private final DroKbdPvpSurrender pvpSurrender = new DroKbdPvpSurrender();
+    private DroKbdAntibanSnapshot antibanSnapshot;
+    private volatile boolean stopping = true;
     private boolean wasInWilderness;
     private boolean wasAlive;
     private boolean feroxRestored;
@@ -258,7 +260,8 @@ public class DroKbdScript extends Script
         inventorySetup = null;
         combatMouseHandled = false;
         configureAdaptiveProfile();
-        surrendering = false;
+        stopping = false;
+        pvpSurrender.reset();
         wasInWilderness = false;
         wasAlive = true;
 
@@ -319,7 +322,7 @@ public class DroKbdScript extends Script
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try
             {
-                if (!Microbot.isLoggedIn() || !super.run() || threatLogoutActive.get()) return;
+                if (stopping || !Microbot.isLoggedIn() || !super.run() || threatLogoutActive.get()) return;
                 tick();
             }
             catch (Exception e)
@@ -365,7 +368,7 @@ public class DroKbdScript extends Script
         }
         wasInWilderness = inWild;
 
-        if (surrendering && inWild)
+        if (updatePvpSurrender(inWild))
         {
             state = DroKbdState.SURRENDERING;
             status = "PvP combat - accepting death";
@@ -599,12 +602,6 @@ public class DroKbdScript extends Script
     {
         state = DroKbdState.CROSSING_WILDERNESS;
         status = "Crossing to KBD ladder";
-
-        if (hasPvpAttacker())
-        {
-            surrendering = true;
-            return;
-        }
 
         if (!ready()) return;
 
@@ -1085,7 +1082,7 @@ public class DroKbdScript extends Script
 
     private void fightKbd()
     {
-        surrendering = false;
+        pvpSurrender.reset();
 
         // Check occupancy before movement or new attacks.
         // If KBD has already engaged us, finish that fight rather than trying
@@ -2022,17 +2019,15 @@ public class DroKbdScript extends Script
     {
         try
         {
+            if (stopping) return;
             if (!Microbot.isLoggedIn())
             {
                 threatLogoutActive.set(false);
+                pvpSurrender.reset();
                 return;
             }
-            if (!wilderness(location())) return;
-            if (hasPvpAttacker())
-            {
-                surrendering = true;
-                return;
-            }
+            boolean inWild = wilderness(location());
+            if (updatePvpSurrender(inWild) || !inWild) return;
             if (hasNearbyThreat()) requestThreatLogout();
         }
         catch (Exception ignored)
@@ -2055,18 +2050,26 @@ public class DroKbdScript extends Script
         }
     }
 
-    private boolean hasPvpAttacker()
+    private boolean updatePvpSurrender(boolean inWild)
     {
+        if (stopping) return false;
+        if (!inWild)
+        {
+            pvpSurrender.reset();
+            return false;
+        }
         return Microbot.getClientThread().runOnClientThreadOptional(() -> {
             Client client = Microbot.getClient();
             Player local = client == null ? null : client.getLocalPlayer();
             if (local == null) return false;
-            for (Player player : client.getPlayers())
-            {
-                if (player != null && player != local && player.getInteracting() == local) return true;
-            }
-            return local.getInteracting() instanceof Player;
-        }).orElse(false);
+            // Interaction alone includes following and trading. Require an animation
+            // as well; each fresh combat action renews the bounded surrender window.
+            boolean attacker = Microbot.getRs2PlayerCache().getStream()
+                    .map(model -> model.getPlayer())
+                    .anyMatch(player -> player != null && player != local
+                            && DroKbdPvpSurrender.isAttackAction(player.getInteracting() == local, player.getAnimation()));
+            return pvpSurrender.observe(true, attacker, client.getTickCount());
+        }).orElse(pvpSurrender.isActive());
     }
 
     private boolean hasNearbyThreat()
@@ -2115,8 +2118,10 @@ public class DroKbdScript extends Script
 
     private void configureAdaptiveProfile()
     {
+        if (antibanSnapshot != null || Rs2AntibanSettings.overwriteScriptSettings) return;
+        antibanSnapshot = DroKbdAntibanSnapshot.capture();
         Rs2Antiban.resetAntibanSettings();
-        Rs2Antiban.antibanSetupTemplates.applyRunecraftingSetup();
+        Rs2Antiban.antibanSetupTemplates.applyCombatSetup();
         Rs2Antiban.setActivity(Activity.GENERAL_COMBAT);
         Rs2AntibanSettings.takeMicroBreaks = false;
         Rs2AntibanSettings.microBreakChance = 0.0;
@@ -2345,7 +2350,7 @@ public class DroKbdScript extends Script
     private void resetTripAfterDeath()
     {
         deathRecoveryPending = false;
-        surrendering = false;
+        pvpSurrender.reset();
         bankCleared = false;
         inventorySetup = null;
         inventorySetupReadyForDeparture = false;
@@ -2452,7 +2457,7 @@ public class DroKbdScript extends Script
     {
         String lower = message == null ? "" : message.toLowerCase();
         if (lower.contains("your king black dragon kill count is") || lower.contains("you have defeated the king black dragon")) kills++;
-        if (lower.contains("oh dear, you are dead")) surrendering = false;
+        if (lower.contains("oh dear, you are dead")) pvpSurrender.reset();
     }
 
     public long getSessionElapsedMs()
@@ -2482,10 +2487,24 @@ public class DroKbdScript extends Script
     @Override
     public void shutdown()
     {
-        threatLogoutActive.set(false);
-        surrendering = false;
-        Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, false);
-        toggleBestOffensivePrayer(false);
+        stopping = true;
+        // Cancel both loops before prayer helpers, which may wait for game state.
+        if (scheduledFuture != null) scheduledFuture.cancel(true);
         super.shutdown();
+        threatLogoutActive.set(false);
+        pvpSurrender.reset();
+        try
+        {
+            Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MAGIC, false);
+            toggleBestOffensivePrayer(false);
+        }
+        finally
+        {
+            if (antibanSnapshot != null)
+            {
+                antibanSnapshot.restore();
+                antibanSnapshot = null;
+            }
+        }
     }
 }

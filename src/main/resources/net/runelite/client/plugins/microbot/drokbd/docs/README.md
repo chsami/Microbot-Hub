@@ -4,7 +4,7 @@ Dro KBD automates King Black Dragon trips, including travel through the Lava Maz
 
 ## Requirements
 
-- Microbot client version 2.1.0 or later.
+- Microbot client version 2.6.25 or later. Older clients, including 2.2.24, are not supported by the current path and cache APIs.
 - A saved Microbot Inventory Setup selected in the plugin configuration. The script uses that setup for each trip.
 - Burning amulets for travel to the Lava Maze and a ring of dueling for the return to Ferox Enclave. Other travel methods are not supported.
 - For crossbow modes, save the desired bolts in the setup's equipped ammunition slot. Ruby bolt modes use 35 bolts per trip. Toxic blowpipe mode requires extended super antifire.
@@ -17,3 +17,9 @@ Dro KBD automates King Black Dragon trips, including travel through the Lava Maz
 4. Keep in mind that the route passes through the Wilderness. Configure a loadout you are willing to risk and stop the script when you want to end the trip.
 
 Melee mode does not use ammunition handling or the ranged five-tile spacing rule. The plugin is marked beta and is limited to Inventory Setup driven loadouts.
+
+## Wilderness safety
+
+Nearby attackable players trigger a logout attempt before combat. Once another player is targeting you and animating, the script intentionally accepts death: it disables auto-retaliate and pauses eating, movement, and escape attempts. Following or trading alone does not trigger surrender. If no further attacker animation is observed for 10 game ticks (about 6 seconds), normal threat checks and travel resume. Leaving the Wilderness, logging out, dying, or stopping also clears surrender. This does not guarantee survival; death recovery prepares another trip.
+
+The plugin uses the combat antiban template while running and restores the previous global antiban settings and activity on stop. If global settings are configured to override script settings, the plugin respects that choice.
