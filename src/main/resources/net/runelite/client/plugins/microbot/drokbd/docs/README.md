@@ -2,9 +2,9 @@
 
 Dro KBD automates King Black Dragon trips, including travel through the Lava Maze, combat, loot collection, wilderness safety checks, and returning to Ferox Enclave to restore and bank.
 
-## Copying the plugin to another client
+## Installing from the Hub
 
-Copy the complete `src/main/java/net/runelite/client/plugins/microbot/drokbd` folder into the matching source location in a compatible Microbot client. Descriptor constants, documentation and catalog artwork are included in that folder. KBD does not load local runtime images, so no separate resources folder or shared `PluginConstants` changes are required to run it. The destination still needs compatible Microbot and Inventory Setups APIs. Hub resources retain the documentation and artwork for publishing.
+Install Dro KBD through the Microbot Hub; the Hub handles its plugin JAR and catalog assets. For manual source imports into a compatible client, the `drokbd` Java folder includes its descriptor constants and needs no separate runtime resources. The destination still requires compatible Microbot and Inventory Setups APIs. Documentation and catalog artwork remain in Hub resources for publishing.
 
 ## Requirements
 
@@ -27,3 +27,5 @@ Melee mode does not use ammunition handling or the ranged five-tile spacing rule
 Nearby attackable players trigger a logout attempt before combat. Once another player is targeting you and animating, the script intentionally accepts death: it disables auto-retaliate and pauses eating, movement, and escape attempts. Following or trading alone does not trigger surrender. If no further attacker animation is observed for 10 game ticks (about 6 seconds), normal threat checks and travel resume. Leaving the Wilderness, logging out, dying, or stopping also clears surrender. This does not guarantee survival; death recovery prepares another trip.
 
 The plugin uses the combat antiban template while running and restores the previous global antiban settings and activity on stop. If global settings are configured to override script settings, the plugin respects that choice.
+
+If a future client changes the fields needed to capture the global antiban profile, KBD keeps that profile unchanged and skips its combat-template override rather than failing startup.

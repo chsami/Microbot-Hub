@@ -2120,6 +2120,11 @@ public class DroKbdScript extends Script
     {
         if (antibanSnapshot != null || Rs2AntibanSettings.overwriteScriptSettings) return;
         antibanSnapshot = DroKbdAntibanSnapshot.capture();
+        if (antibanSnapshot == null)
+        {
+            Microbot.log("[Dro] KBD: Antiban snapshot unavailable; keeping the existing global profile.");
+            return;
+        }
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyCombatSetup();
         Rs2Antiban.setActivity(Activity.GENERAL_COMBAT);

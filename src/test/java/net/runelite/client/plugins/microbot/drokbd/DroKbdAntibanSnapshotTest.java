@@ -14,6 +14,19 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DroKbdAntibanSnapshotTest
 {
+    @Test void renamedClientFieldsReturnNoSnapshotWithoutChangingSettings()
+    {
+        boolean override = Rs2AntibanSettings.overwriteScriptSettings;
+        Activity activity = Rs2Antiban.getActivity();
+        PlayStyle style = Rs2Antiban.getPlayStyle();
+        assertNull(DroKbdAntibanSnapshot.capture(ClientWithRenamedFields.class));
+        assertEquals(override, Rs2AntibanSettings.overwriteScriptSettings);
+        assertSame(activity, Rs2Antiban.getActivity());
+        assertSame(style, Rs2Antiban.getPlayStyle());
+    }
+
+    private static final class ClientWithRenamedFields {}
+
     @Test void restoresEveryGlobalSettingAndPreviousActivity() throws Exception
     {
         DroKbdAntibanSnapshot original = DroKbdAntibanSnapshot.capture();

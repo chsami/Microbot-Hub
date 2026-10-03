@@ -16,6 +16,12 @@ final class DroKbdAntibanSnapshot
 
     static DroKbdAntibanSnapshot capture()
     {
+        return capture(Rs2Antiban.class);
+    }
+
+    /** A missing or inaccessible client field must not prevent plugin startup. */
+    static DroKbdAntibanSnapshot capture(Class<?> antibanClass)
+    {
         DroKbdAntibanSnapshot snapshot = new DroKbdAntibanSnapshot();
         try
         {
@@ -27,7 +33,7 @@ final class DroKbdAntibanSnapshot
             // Client 2.6.25 has no public snapshot API. Direct field restoration also
             // preserves a null activity and avoids setActivity's play-style side effects.
             for (String name : new String[]{"activity", "activityIntensity", "category", "playStyle"})
-                snapshot.save(Rs2Antiban.class.getDeclaredField(name), null);
+                snapshot.save(antibanClass.getDeclaredField(name), null);
             // Activity selection mutates these enum instances, not just the style reference.
             for (PlayStyle style : PlayStyle.values())
             {
@@ -39,9 +45,9 @@ final class DroKbdAntibanSnapshot
             }
             return snapshot;
         }
-        catch (ReflectiveOperationException e)
+        catch (ReflectiveOperationException | RuntimeException e)
         {
-            throw new IllegalStateException("Cannot save the global antiban profile", e);
+            return null;
         }
     }
 
