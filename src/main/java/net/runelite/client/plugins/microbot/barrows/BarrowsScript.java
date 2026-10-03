@@ -80,6 +80,11 @@ public class BarrowsScript extends Script {
     private boolean shouldBank = false;
     private boolean shouldAttackSkeleton = false;
     private boolean varbitCheckEnabled = true;
+    /**
+     * Sticky POH travel gate: set when teleToPoh fails despite runes (canCast false / no tabs).
+     * Cleared only when a house tablet is in inventory so suppliesCheck cannot flap shouldBank.
+     */
+    private boolean requireHouseTabsToTravel = false;
     /** Sticky: once the puzzle interface is seen, freeze pathing until it closes. */
     private boolean waitingOnPuzzle = false;
     /** Monsters killed since the last puzzle door (max 2 on the way to chest). */
@@ -1062,6 +1067,29 @@ public class BarrowsScript extends Script {
         return config.selectedToBarrowsTPMethod() == BarrowsConfig.selectedToBarrowsTPMethod.POH;
     }
 
+    private boolean hasHouseTeleportTablet(){
+        if(Rs2Inventory.hasItem("Teleport to house")){
+            return true;
+        }
+        return Rs2Inventory.get(net.runelite.api.gameval.ItemID.POH_TABLET_TELEPORTTOHOUSE) != null;
+    }
+
+    /**
+     * Single "can leave for POH" predicate used by suppliesCheck and teleToPoh callers.
+     * Does not call {@link Rs2Magic#canCast} (Magic-tab switch). After a failed cast attempt,
+     * {@link #requireHouseTabsToTravel} forces banking until a house tablet is present.
+     */
+    private boolean canTravelToPoh(){
+        if(hasHouseTeleportTablet()){
+            requireHouseTabsToTravel = false;
+            return true;
+        }
+        if(requireHouseTabsToTravel){
+            return false;
+        }
+        return canCastHouseTeleport();
+    }
+
     /**
      * Non-UI house-teleport readiness check (no Magic-tab switch / sleep).
      * Counts inventory + rune pouch, including Dust as Air+Earth.
@@ -1182,16 +1210,21 @@ public class BarrowsScript extends Script {
     /** Prefer casting Teleport to House; fall back to a house tablet whenever cast cannot happen. */
     private boolean teleToPoh(){
         if(canCastHouseTeleport() && Rs2Magic.canCast(MagicAction.TELEPORT_TO_HOUSE)){
+            requireHouseTabsToTravel = false;
             Rs2Magic.cast(MagicAction.TELEPORT_TO_HOUSE);
             return true;
         }
         // Fall back to tabs whenever the cast cannot happen.
-        if(Rs2Inventory.hasItem("Teleport to house")){
+        if(hasHouseTeleportTablet()){
+            requireHouseTabsToTravel = false;
             if(Rs2Inventory.interact("Teleport to house", "Inside")){
                 return true;
             }
             return Rs2Inventory.interact("Teleport to house", "Break");
         }
+        // Runes present but canCast false (or cast skipped) and no tabs — stick bank request
+        // so the next suppliesCheck cannot clear shouldBank and loop on the Magic tab.
+        requireHouseTabsToTravel = true;
         return false;
     }
 
@@ -1730,6 +1763,9 @@ public class BarrowsScript extends Script {
      * Nearest RP monster that lies on the way to the chest (no path detour), or already
      * fighting us. Side rooms that sit next to long outer hallways are rejected because
      * player→npc→chest is longer than player→chest.
+     * <p>
+     * Path math ({@link Rs2Walker#getTotalTiles}) must stay on the script thread — never
+     * inside a {@code .where(...)} consumed by {@code nearestOnClientThread()}.
      */
     private Rs2NpcModel findTunnelMonster(){
         Thread.interrupted();
@@ -1737,19 +1773,37 @@ public class BarrowsScript extends Script {
         if(here == null){
             return null;
         }
-        final int directToChest = safeTotalTiles(here, Chest);
-        if(directToChest == Integer.MAX_VALUE){
-            // No route yet — only take something already on us.
-            return rs2NpcCache.query()
-                    .where(npc -> npc != null && !npc.isDead() && isTunnelRpMonsterName(npc.getName()))
-                    .where(this::isNpcEngagedWithUs)
-                    .nearestOnClientThread();
-        }
-        return rs2NpcCache.query()
+        // Cache query only (cheap filters). Path planning runs below on this thread.
+        List<Rs2NpcModel> candidates = rs2NpcCache.query()
                 .where(npc -> npc != null && !npc.isDead() && isTunnelRpMonsterName(npc.getName()))
-                .where(npc -> isNpcEngagedWithUs(npc)
-                        || isNpcOnWayToChest(npc, here, directToChest))
-                .nearestOnClientThread();
+                .toListOnClientThread();
+        if(candidates == null || candidates.isEmpty()){
+            return null;
+        }
+
+        final int directToChest = safeTotalTiles(here, Chest);
+        Rs2NpcModel best = null;
+        int bestChebyshev = Integer.MAX_VALUE;
+        for(Rs2NpcModel npc : candidates){
+            boolean accept = isNpcEngagedWithUs(npc);
+            if(!accept){
+                // No chest route yet — only take something already on us.
+                if(directToChest == Integer.MAX_VALUE){
+                    continue;
+                }
+                accept = isNpcOnWayToChest(npc, here, directToChest);
+            }
+            if(!accept){
+                continue;
+            }
+            WorldPoint npcWp = npcWorldPointForPathCompare(npc);
+            int dist = (npcWp != null && here != null) ? here.distanceTo(npcWp) : Integer.MAX_VALUE;
+            if(dist < bestChebyshev){
+                bestChebyshev = dist;
+                best = npc;
+            }
+        }
+        return best;
     }
 
     private boolean isNpcEngagedWithUs(Rs2NpcModel npc){
@@ -2301,8 +2355,10 @@ public class BarrowsScript extends Script {
         }
 
         if(isPohTravelMode(config)){
-            if(!canCastHouseTeleport() && Rs2Inventory.get("Teleport to house") == null){
-                Microbot.log("Can't cast Teleport to House and no house tablet.");
+            if(!canTravelToPoh()){
+                Microbot.log(requireHouseTabsToTravel
+                        ? "Need a house tablet to travel to POH (cast unavailable)."
+                        : "Can't cast Teleport to House and no house tablet.");
                 shouldBank = true;
                 return;
             }
@@ -2673,7 +2729,8 @@ public class BarrowsScript extends Script {
     }
 
     private boolean tryFeroxTeleportViaRingOfDueling(){
-        // Prefer inventory rub/tele — never require (or equip) an equipped ring.
+        // Prefer inventory rub/tele; fall back to an already-equipped ring so upgrades from
+        // older versions (ring worn, none in inv) can still leave Barrows/tunnels.
         for(int idx = DUELING_RING_IDS.length - 1; idx >= 0; idx--){
             int ringId = DUELING_RING_IDS[idx];
             if(!Rs2Inventory.hasItem(ringId)){
@@ -2687,7 +2744,7 @@ public class BarrowsScript extends Script {
         if(invRing != null && tryRubInventoryRingToFerox(invRing.getId())){
             return true;
         }
-        return false;
+        return tryEquippedRingToFerox();
     }
 
     private boolean tryRubInventoryRingToFerox(int ringId){
@@ -2696,6 +2753,24 @@ public class BarrowsScript extends Script {
             return true;
         }
         if(Rs2Inventory.interact(ringId, "Rub")){
+            sleepUntil(() -> Rs2Dialogue.hasDialogueOption(feroxLabel), Rs2Random.between(1500, 3500));
+            if(Rs2Dialogue.clickOption(feroxLabel)){
+                return true;
+            }
+            return Rs2Dialogue.clickOption(feroxLabel, false);
+        }
+        return false;
+    }
+
+    private boolean tryEquippedRingToFerox(){
+        if(!hasDuelingRingEquipped()){
+            return false;
+        }
+        String feroxLabel = JewelleryLocationEnum.FEROX_ENCLAVE.getDestination();
+        if(Rs2Equipment.interact(EquipmentInventorySlot.RING, feroxLabel)){
+            return true;
+        }
+        if(Rs2Equipment.interact(EquipmentInventorySlot.RING, "Rub")){
             sleepUntil(() -> Rs2Dialogue.hasDialogueOption(feroxLabel), Rs2Random.between(1500, 3500));
             if(Rs2Dialogue.clickOption(feroxLabel)){
                 return true;
@@ -3117,8 +3192,23 @@ public class BarrowsScript extends Script {
         startingEquipmentReady = false;
         firstRun = true;
         waitingOnPuzzle = false;
+        requireHouseTabsToTravel = false;
         resetTunnelRoomKills();
-        stopAllScriptTasks();
+        // Cancel walkers / stale loops, but leave mainScheduledFuture for Script.shutdown()
+        // so base cleanup (ShortestPathPlugin.exit, pause/spec reset) still runs.
+        RUN_GENERATION.incrementAndGet();
+        stopFutureWalker();
+        ScheduledFuture<?> active = activeMainFuture;
+        if (active != null) {
+            active.cancel(false);
+            activeMainFuture = null;
+        }
+        Thread.interrupted();
+        try {
+            Rs2Combat.setAutoRetaliate(true);
+        } catch (Exception ignored) {
+            // best-effort restore
+        }
         super.shutdown();
     }
 
