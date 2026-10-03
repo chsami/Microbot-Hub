@@ -38,6 +38,8 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2RunePouch;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
+import net.runelite.client.plugins.microbot.util.walker.Rs2PathApi;
+import net.runelite.client.plugins.microbot.util.walker.Rs2RouteResult;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
@@ -45,6 +47,7 @@ import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,8 +96,14 @@ public class BarrowsScript extends Script {
     /**
      * Pathfinder slack for "on the way": via(player→npc→chest) may be this many tiles
      * longer than direct(player→chest) and still count. Not a room-size constant.
+     * Used as fallback when no chest polyline is available (brother targeting).
      */
     private static final int EN_ROUTE_PATH_SLACK_TILES = 2;
+    /**
+     * Max Chebyshev distance from the player→chest polyline to count as "in the hallway".
+     * Side rooms sit farther off that line than this.
+     */
+    private static final int EN_ROUTE_PATH_PROXIMITY_TILES = 2;
 
     public static String WhoisTun = "Unknown";
     public String neededRune = "unknown";
@@ -1760,12 +1769,11 @@ public class BarrowsScript extends Script {
     }
 
     /**
-     * Nearest RP monster that lies on the way to the chest (no path detour), or already
-     * fighting us. Side rooms that sit next to long outer hallways are rejected because
-     * player→npc→chest is longer than player→chest.
+     * Nearest RP monster on the player→chest hallway (or already fighting us).
+     * Side rooms are rejected by polyline proximity — not by npc→chest path plans
+     * (those undercount collision off the client thread and look "on route").
      * <p>
-     * Path math ({@link Rs2Walker#getTotalTiles}) must stay on the script thread — never
-     * inside a {@code .where(...)} consumed by {@code nearestOnClientThread()}.
+     * Cache query stays on the client thread; route math stays on the script thread.
      */
     private Rs2NpcModel findTunnelMonster(){
         Thread.interrupted();
@@ -1773,7 +1781,6 @@ public class BarrowsScript extends Script {
         if(here == null){
             return null;
         }
-        // Cache query only (cheap filters). Path planning runs below on this thread.
         List<Rs2NpcModel> candidates = rs2NpcCache.query()
                 .where(npc -> npc != null && !npc.isDead() && isTunnelRpMonsterName(npc.getName()))
                 .toListOnClientThread();
@@ -1781,25 +1788,21 @@ public class BarrowsScript extends Script {
             return null;
         }
 
-        final int directToChest = safeTotalTiles(here, Chest);
+        List<WorldPoint> chestPath = resolveChestRoutePath(here);
         Rs2NpcModel best = null;
-        int bestChebyshev = Integer.MAX_VALUE;
+        int bestDist = Integer.MAX_VALUE;
         for(Rs2NpcModel npc : candidates){
             boolean accept = isNpcEngagedWithUs(npc);
             if(!accept){
-                // No chest route yet — only take something already on us.
-                if(directToChest == Integer.MAX_VALUE){
-                    continue;
-                }
-                accept = isNpcOnWayToChest(npc, here, directToChest);
+                accept = isNpcOnChestHallway(npc, here, chestPath);
             }
             if(!accept){
                 continue;
             }
-            WorldPoint npcWp = npcWorldPointForPathCompare(npc);
-            int dist = (npcWp != null && here != null) ? here.distanceTo(npcWp) : Integer.MAX_VALUE;
-            if(dist < bestChebyshev){
-                bestChebyshev = dist;
+            // Scene-space distance so instance coords rank correctly.
+            int dist = distancePlayerToNpc(npc);
+            if(dist < bestDist){
+                bestDist = dist;
                 best = npc;
             }
         }
@@ -1815,6 +1818,96 @@ public class BarrowsScript extends Script {
         }
         Player local = getLocalPlayerSafe();
         return local != null && Objects.equals(npc.getInteracting(), local);
+    }
+
+    /**
+     * Prefer the active chest walker's path; otherwise plan player→chest once.
+     * Never plan npc→chest here (collision from arbitrary starts is unreliable off-thread).
+     */
+    private List<WorldPoint> resolveChestRoutePath(WorldPoint here){
+        if(here == null){
+            return Collections.emptyList();
+        }
+        try {
+            Optional<Rs2RouteResult> active = Rs2PathApi.getActiveRoute();
+            if(active.isPresent()){
+                Rs2RouteResult route = active.get();
+                List<WorldPoint> path = route.getPath();
+                if(path != null && path.size() >= 2){
+                    WorldPoint end = path.get(path.size() - 1);
+                    boolean towardChest = (end != null && end.distanceTo(Chest) <= 8)
+                            || (route.getTargets() != null && route.getTargets().stream()
+                            .anyMatch(t -> t != null && t.distanceTo(Chest) <= 8));
+                    if(towardChest){
+                        return path;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // fall through to plan
+        }
+        try {
+            List<WorldPoint> planned = Rs2Walker.getWalkPath(here, Chest);
+            if(planned != null && planned.size() >= 2){
+                return planned;
+            }
+        } catch (Exception ignored) {
+            // empty
+        }
+        return Collections.emptyList();
+    }
+
+    /**
+     * True when the NPC sits on/near the chest hallway ahead of us.
+     * Falls back to triangle-inequality only when no polyline is available.
+     */
+    private boolean isNpcOnChestHallway(Rs2NpcModel npc, WorldPoint here, List<WorldPoint> chestPath){
+        WorldPoint npcWp = npcWorldPointForPathCompare(npc);
+        if(npcWp == null || here == null){
+            return false;
+        }
+        if(chestPath != null && chestPath.size() >= 2){
+            int npcIdx = nearestPathIndex(chestPath, npcWp);
+            if(npcIdx < 0){
+                return false;
+            }
+            int npcOffPath = npcWp.distanceTo(chestPath.get(npcIdx));
+            if(npcOffPath > EN_ROUTE_PATH_PROXIMITY_TILES){
+                return false;
+            }
+            int playerIdx = nearestPathIndex(chestPath, here);
+            if(playerIdx < 0){
+                return false;
+            }
+            // Ahead on the route (small lookback so we still catch something we're walking past).
+            return npcIdx >= playerIdx - 1;
+        }
+        // No polyline yet — last resort (may undercount side-room detours).
+        int directToChest = safeTotalTiles(here, Chest);
+        if(directToChest == Integer.MAX_VALUE){
+            return false;
+        }
+        return isNpcOnWayToChest(npc, here, directToChest);
+    }
+
+    private int nearestPathIndex(List<WorldPoint> path, WorldPoint point){
+        if(path == null || point == null){
+            return -1;
+        }
+        int bestIdx = -1;
+        int bestDist = Integer.MAX_VALUE;
+        for(int i = 0; i < path.size(); i++){
+            WorldPoint step = path.get(i);
+            if(step == null){
+                continue;
+            }
+            int d = point.distanceTo(step);
+            if(d < bestDist){
+                bestDist = d;
+                bestIdx = i;
+            }
+        }
+        return bestIdx;
     }
 
     /**
@@ -2174,9 +2267,8 @@ public class BarrowsScript extends Script {
 
     /**
      * Our living tunnel/crypt brother.
-     * Prefer hint-arrow NPC; fall back to WhoisTun brother attacking us or nearby in tunnels.
-     * In tunnels, unreachable brothers (walked past into another room) are ignored so we
-     * continue to the chest instead of spam-pathing back.
+     * Ownership is the yellow hint arrow — other players' brothers spawn in the same
+     * tunnels without an arrow and must never be chased.
      */
     private Rs2NpcModel findTunnelBrother(){
         Rs2NpcModel candidate = findTunnelBrotherCandidate();
@@ -2207,79 +2299,47 @@ public class BarrowsScript extends Script {
             }
         }
 
-        if(inTunnels){
-            final Player local = Microbot.getClientThread().runOnClientThreadOptional(
-                    () -> Microbot.getClient().getLocalPlayer()
-            ).orElse(null);
-
-            // Prefer WhoisTun when known.
-            if(WhoisTun != null && !WhoisTun.equals("Unknown")){
-                Rs2NpcModel attackingUs = rs2NpcCache.query()
-                        .where(npc -> npc != null
-                                && !npc.isDead()
-                                && matchesWhoisTun(npc.getName())
-                                && local != null
-                                && Objects.equals(npc.getInteracting(), local))
-                        .nearestOnClientThread();
-                if(attackingUs != null){
-                    return attackingUs;
-                }
-
-                Rs2NpcModel nearby = rs2NpcCache.query()
-                        .where(npc -> npc != null
-                                && !npc.isDead()
-                                && matchesWhoisTun(npc.getName()))
-                        .nearestOnClientThread();
-                if(nearby != null && distancePlayerToNpc(nearby) <= 15){
-                    return nearby;
-                }
-            }
-
-            // WhoisTun unknown / hint lag — fight a brother already on us or on the chest route.
-            Rs2NpcModel anyBrother = rs2NpcCache.query()
-                    .where(npc -> npc != null && !npc.isDead() && isBarrowsBrotherName(npc.getName()))
-                    .nearestOnClientThread();
-            if(anyBrother != null && isNpcEngagedWithUs(anyBrother)){
-                return anyBrother;
-            }
-            if(anyBrother != null){
-                int direct = safeTotalTiles(Rs2Player.getWorldLocation(), Chest);
-                if(direct != Integer.MAX_VALUE
-                        && isNpcOnWayToChest(anyBrother, Rs2Player.getWorldLocation(), direct)){
-                    return anyBrother;
-                }
-            }
+        // Defend only — never path to a brother that is not arrowed / not fighting us.
+        // Nearby name matches and "on chest route" picks are other players' brothers.
+        final Player local = getLocalPlayerSafe();
+        if(local == null){
+            return null;
         }
-
-        return null;
+        Rs2NpcModel attackingUs = rs2NpcCache.query()
+                .where(npc -> npc != null
+                        && !npc.isDead()
+                        && isBarrowsBrotherName(npc.getName())
+                        && Objects.equals(npc.getInteracting(), local))
+                .nearestOnClientThread();
+        if(attackingUs == null){
+            return null;
+        }
+        // In tunnels, if we already know which tomb was empty, ignore other names that
+        // happen to be hitting us (multi-combat / wrong target).
+        if(inTunnels && WhoisTun != null && !WhoisTun.equals("Unknown")
+                && !matchesWhoisTun(attackingUs.getName())){
+            return null;
+        }
+        return attackingUs;
     }
 
     /**
-     * Fight tunnel brothers in our room. Only ignore ones clearly left behind
-     * (far + no interaction) so we don't path-spam back after walking past.
+     * Hint-arrow brother is always ours. Otherwise only continue a fight already linked
+     * to us — never chase a visible/LOS brother without an arrow.
      */
     private boolean isTunnelBrotherEngageable(Rs2NpcModel brother){
         if(brother == null || brother.isDead()){
             return false;
         }
+        Rs2NpcModel hinted = hintNpcModel();
+        if(hinted != null && hinted.getIndex() == brother.getIndex()){
+            return true;
+        }
         if(isInteractingWith(brother)){
             return true;
         }
-        final Player local = Microbot.getClientThread().runOnClientThreadOptional(
-                () -> Microbot.getClient().getLocalPlayer()
-        ).orElse(null);
-        if(local != null && Objects.equals(brother.getInteracting(), local)){
-            return true;
-        }
-
-        // Just spawned / visible — engage. Do not use a static "room size" distance;
-        // outer hallways sit next to unrelated chambers.
-        if(brother.hasLineOfSight()){
-            return true;
-        }
-        WorldPoint here = Rs2Player.getWorldLocation();
-        int direct = safeTotalTiles(here, Chest);
-        return direct != Integer.MAX_VALUE && isNpcOnWayToChest(brother, here, direct);
+        Player local = getLocalPlayerSafe();
+        return local != null && Objects.equals(brother.getInteracting(), local);
     }
 
     private boolean matchesWhoisTun(String npcName){
