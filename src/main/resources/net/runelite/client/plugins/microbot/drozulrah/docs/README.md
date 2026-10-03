@@ -132,6 +132,6 @@ The overlay, visible prayer clicks and new break controls have compile/focused-t
 
 ## Hub lifecycle metadata (1.10.8)
 
-DroZulrah is explicitly marked as an external Hub plugin and disabled by default, allowing installed-plugin refresh, update and uninstall to recognize the loaded instance. The displayed name remains **[Dro] Zulrah**, with its prefix defined in the shared PluginConstants. Author and catalog-image metadata are included, with icon/card assets in this documentation directory. The startup build label comes from the descriptor version.
+DroZulrah is explicitly marked as an external Hub plugin and disabled by default, allowing installed-plugin refresh, update and uninstall to recognize the loaded instance. The displayed name remains **[Dro] Zulrah**, with its prefix defined in the plugin-local PluginConstants. Author and catalog-image metadata are included, with icon/card assets in this documentation directory. The startup build label comes from the descriptor version.
 
-The minimum client version is **2.6.26**, matching the current verified client. Compilation, JAR packaging and all 40 focused DroZulrah tests passed in Microbot-Hub. This metadata update does not change combat, travel, mouse or break behavior. The known full-Hub CI issue in unrelated plugins is unchanged.
+The minimum client version is **2.6.26**, matching the current verified client. Compilation, JAR packaging and all 41 focused DroZulrah tests passed in Microbot-Hub. This metadata update does not change combat, travel, mouse or break behavior. The known full-Hub CI issue in unrelated plugins is unchanged.
