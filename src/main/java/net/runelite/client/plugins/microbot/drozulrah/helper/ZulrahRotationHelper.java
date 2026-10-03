@@ -14,7 +14,6 @@ import net.runelite.client.plugins.microbot.drozulrah.*;
 import net.runelite.client.plugins.microbot.drozulrah.helper.constants.StandLocation;
 import net.runelite.client.plugins.microbot.drozulrah.helper.overlays.*;
 import net.runelite.client.plugins.microbot.drozulrah.helper.rotationutils.*;
-import net.runelite.client.util.ImageUtil;
 
 /** Adapter for Microbot-Hub's Zulrah overlays (originally Owain van Brakel / Syntax).
  * Uses the combat worker's immutable phase snapshot; performs no combat inputs. */
@@ -22,9 +21,9 @@ import net.runelite.client.util.ImageUtil;
 public final class ZulrahRotationHelper
 {
     public static final BufferedImage[] ZULRAH_IMAGES = {
-        ImageUtil.getResourceStreamFromClass(ZulrahRotationHelper.class, "zulrah_range.png"),
-        ImageUtil.getResourceStreamFromClass(ZulrahRotationHelper.class, "zulrah_melee.png"),
-        ImageUtil.getResourceStreamFromClass(ZulrahRotationHelper.class, "zulrah_magic.png")
+        ZulrahImages.load("zulrah_range.png"),
+        ZulrahImages.load("zulrah_melee.png"),
+        ZulrahImages.load("zulrah_magic.png")
     };
     public static final ZulrahConfig DEFAULTS = new ZulrahConfig() {
         @Override public boolean phaseRotationName() { return true; }

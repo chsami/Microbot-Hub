@@ -12,7 +12,6 @@ import net.runelite.client.plugins.microbot.drozulrah.helper.ZulrahRotationHelpe
 import net.runelite.client.plugins.microbot.drozulrah.helper.overlays.*;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
