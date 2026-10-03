@@ -104,6 +104,13 @@ public class BarrowsScript extends Script {
      * Side rooms sit farther off that line than this.
      */
     private static final int EN_ROUTE_PATH_PROXIMITY_TILES = 2;
+    /**
+     * Do not path across chambers for RP fodder — only fight what we are walking past.
+     * Scene tiles (instance-correct via {@link #distancePlayerToNpc}).
+     */
+    private static final int EN_ROUTE_MAX_SCENE_DISTANCE = 8;
+    /** Max polyline steps ahead of the player to consider an en-route fight. */
+    private static final int EN_ROUTE_MAX_PATH_STEPS_AHEAD = 10;
 
     public static String WhoisTun = "Unknown";
     public String neededRune = "unknown";
@@ -1769,9 +1776,8 @@ public class BarrowsScript extends Script {
     }
 
     /**
-     * Nearest RP monster on the player→chest hallway (or already fighting us).
-     * Side rooms are rejected by polyline proximity — not by npc→chest path plans
-     * (those undercount collision off the client thread and look "on route").
+     * Nearest RP monster we are walking past on the chest hallway (or already fighting nearby).
+     * Never chase fodder two rooms away — hallway polyline + short look-ahead + scene range.
      * <p>
      * Cache query stays on the client thread; route math stays on the script thread.
      */
@@ -1792,17 +1798,17 @@ public class BarrowsScript extends Script {
         Rs2NpcModel best = null;
         int bestDist = Integer.MAX_VALUE;
         for(Rs2NpcModel npc : candidates){
-            boolean accept = isNpcEngagedWithUs(npc);
-            if(!accept){
-                accept = isNpcOnChestHallway(npc, here, chestPath);
+            int sceneDist = distancePlayerToNpc(npc);
+            if(sceneDist > EN_ROUTE_MAX_SCENE_DISTANCE){
+                continue;
             }
+            boolean accept = isNpcEngagedWithUs(npc)
+                    || isNpcOnChestHallway(npc, here, chestPath);
             if(!accept){
                 continue;
             }
-            // Scene-space distance so instance coords rank correctly.
-            int dist = distancePlayerToNpc(npc);
-            if(dist < bestDist){
-                bestDist = dist;
+            if(sceneDist < bestDist){
+                bestDist = sceneDist;
                 best = npc;
             }
         }
@@ -1858,36 +1864,29 @@ public class BarrowsScript extends Script {
     }
 
     /**
-     * True when the NPC sits on/near the chest hallway ahead of us.
-     * Falls back to triangle-inequality only when no polyline is available.
+     * True when the NPC sits on/near the chest hallway just ahead of us.
+     * No polyline → do not guess (triangle fallback chased distant/side-room rats).
      */
     private boolean isNpcOnChestHallway(Rs2NpcModel npc, WorldPoint here, List<WorldPoint> chestPath){
         WorldPoint npcWp = npcWorldPointForPathCompare(npc);
-        if(npcWp == null || here == null){
+        if(npcWp == null || here == null || chestPath == null || chestPath.size() < 2){
             return false;
         }
-        if(chestPath != null && chestPath.size() >= 2){
-            int npcIdx = nearestPathIndex(chestPath, npcWp);
-            if(npcIdx < 0){
-                return false;
-            }
-            int npcOffPath = npcWp.distanceTo(chestPath.get(npcIdx));
-            if(npcOffPath > EN_ROUTE_PATH_PROXIMITY_TILES){
-                return false;
-            }
-            int playerIdx = nearestPathIndex(chestPath, here);
-            if(playerIdx < 0){
-                return false;
-            }
-            // Ahead on the route (small lookback so we still catch something we're walking past).
-            return npcIdx >= playerIdx - 1;
-        }
-        // No polyline yet — last resort (may undercount side-room detours).
-        int directToChest = safeTotalTiles(here, Chest);
-        if(directToChest == Integer.MAX_VALUE){
+        int npcIdx = nearestPathIndex(chestPath, npcWp);
+        if(npcIdx < 0){
             return false;
         }
-        return isNpcOnWayToChest(npc, here, directToChest);
+        int npcOffPath = npcWp.distanceTo(chestPath.get(npcIdx));
+        if(npcOffPath > EN_ROUTE_PATH_PROXIMITY_TILES){
+            return false;
+        }
+        int playerIdx = nearestPathIndex(chestPath, here);
+        if(playerIdx < 0){
+            return false;
+        }
+        // Just ahead (or one step behind while we walk past) — not two chambers down the path.
+        return npcIdx >= playerIdx - 1
+                && npcIdx <= playerIdx + EN_ROUTE_MAX_PATH_STEPS_AHEAD;
     }
 
     private int nearestPathIndex(List<WorldPoint> path, WorldPoint point){
@@ -2059,7 +2058,7 @@ public class BarrowsScript extends Script {
             return null;
         }
         final Player local = localPlayer;
-        return rs2NpcCache.query()
+        Rs2NpcModel trash = rs2NpcCache.query()
                 .where(npc -> npc != null && !npc.isDead() && npc.getCombatLevel() > 0)
                 .where(npc -> {
                     String name = npc.getName();
@@ -2069,6 +2068,11 @@ public class BarrowsScript extends Script {
                     return Objects.equals(npc.getInteracting(), local);
                 })
                 .nearestOnClientThread();
+        // Ignore "attacking us" from another chamber — do not path across rooms for trash.
+        if(trash != null && distancePlayerToNpc(trash) > EN_ROUTE_MAX_SCENE_DISTANCE){
+            return null;
+        }
+        return trash;
     }
 
     private boolean isBarrowsBrotherName(String name){
