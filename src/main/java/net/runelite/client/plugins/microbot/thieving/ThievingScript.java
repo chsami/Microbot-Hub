@@ -266,7 +266,7 @@ ThievingNpcStrategy getActiveStrategy() {
                 .map(Rs2TileItemModel::getId)
                 .distinct()
                 .map(id -> {
-                    final int price = Microbot.getItemManager().getItemPrice(id);
+                    final int price = (int) Microbot.getItemManager().getItemPrice(id);
                     return Map.entry(id, price);
                 }).filter(entry -> entry.getValue() >= minPrice)
                 .max(Comparator.comparingInt(Map.Entry::getValue))

@@ -112,7 +112,7 @@ public class AutoFiremakingPlusOverlay extends OverlayPanel {
                 // configured log's GE price (approximate under Progressive, which varies the log).
                 long logCostPerHour = 0;
                 if (config.logType() != null && runtimeMillis > 1000) {
-                    int logPrice = Microbot.getItemManager().getItemPrice(config.logType().getItemId());
+                    long logPrice = Microbot.getItemManager().getItemPrice(config.logType().getItemId());
                     if (logPrice > 0) {
                         logCostPerHour = (long) script.getActionsCompleted() * logPrice * 3600000L / runtimeMillis;
                     }

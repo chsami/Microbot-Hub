@@ -16,14 +16,14 @@ import java.time.Instant;
         description = "Moonlight moth catcher",
         tags = {"moonlight", "moth", "catcher", "microbot", "prayer"},
         version = MoonlightMothPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.25",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class MoonlightMothPlugin extends Plugin {
-    public static final String version = "1.0.0";
+    public static final String version = "1.0.1";
     static final String CONFIG = "moonlightmoth";
     public Instant scriptStartTime;
     @Inject

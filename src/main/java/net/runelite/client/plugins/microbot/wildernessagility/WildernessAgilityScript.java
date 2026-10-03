@@ -465,7 +465,7 @@ public final class WildernessAgilityScript extends Script {
     }
 
     public int getInventoryValue() {
-        int mainInventoryValue = Rs2Inventory.items().filter(Objects::nonNull).mapToInt(Rs2ItemModel::getPrice).sum();
+        int mainInventoryValue = (int) Rs2Inventory.items().filter(Objects::nonNull).mapToLong(Rs2ItemModel::getPrice).sum();
         
         // Now we track looting bag value via chat messages - much more accurate!
         return mainInventoryValue + lootingBagValue;
@@ -2062,8 +2062,8 @@ public final class WildernessAgilityScript extends Script {
         int itemId1 = wildyItems.nameToItemId(item1);
         int itemId2 = wildyItems.nameToItemId(item2);
         
-        int value1 = Microbot.getItemManager().getItemPrice(itemId1) * qty1;
-        int value2 = Microbot.getItemManager().getItemPrice(itemId2) * qty2;
+        int value1 = (int) (Microbot.getItemManager().getItemPrice(itemId1) * qty1);
+        int value2 = (int) (Microbot.getItemManager().getItemPrice(itemId2) * qty2);
         
         lootingBagValue += value1 + value2;
     }
@@ -2076,9 +2076,9 @@ public final class WildernessAgilityScript extends Script {
         int itemId2 = wildyItems.nameToItemId(item2);
         int itemId3 = wildyItems.nameToItemId(item3);
         
-        int value1 = Microbot.getItemManager().getItemPrice(itemId1) * qty1;
-        int value2 = Microbot.getItemManager().getItemPrice(itemId2) * qty2;
-        int value3 = Microbot.getItemManager().getItemPrice(itemId3) * qty3;
+        int value1 = (int) (Microbot.getItemManager().getItemPrice(itemId1) * qty1);
+        int value2 = (int) (Microbot.getItemManager().getItemPrice(itemId2) * qty2);
+        int value3 = (int) (Microbot.getItemManager().getItemPrice(itemId3) * qty3);
         
         lootingBagValue += value1 + value2 + value3;
     }
@@ -2133,7 +2133,7 @@ public final class WildernessAgilityScript extends Script {
         int totalValue = 0;
         for (net.runelite.api.Item item : container.getItems()) {
             if (item.getId() > 0) { // Valid item
-                int itemValue = Microbot.getItemManager().getItemPrice(item.getId()) * item.getQuantity();
+                int itemValue = (int) (Microbot.getItemManager().getItemPrice(item.getId()) * item.getQuantity());
                 totalValue += itemValue;
             }
         }

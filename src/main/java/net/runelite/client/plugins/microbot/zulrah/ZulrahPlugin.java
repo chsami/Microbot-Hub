@@ -77,7 +77,7 @@ Refractored from OpenOSRS credit goes to Owain van Brakel for originally creatin
 public class ZulrahPlugin extends Plugin implements KeyListener
 {
 	private static final Logger log = LoggerFactory.getLogger(ZulrahPlugin.class);
-    public static final String version = "1.0.1";
+    public static final String version = "1.0.2";
 	@Inject
 	private Client client;
 	@Inject

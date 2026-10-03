@@ -32,7 +32,7 @@ import java.awt.event.MouseEvent;
 )
 @Slf4j
 public class BankTabSorterPlugin extends Plugin {
-    final static String version = "1.0.0";
+    final static String version = "1.0.1";
 
     @Inject
     private Client client;
