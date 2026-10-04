@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -75,6 +76,7 @@ public class MotherloadMineScript extends Script
 		new WorldPoint(3751, 5662, 0),
 	};
 
+    private static final int[][] VEIN_ACCESS_OFFSETS = {{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     private static final int UPPER_FLOOR_HEIGHT = -490;
     private static final int SACK_LARGE_SIZE = 189;
     private static final int SACK_SIZE = 108;
@@ -664,7 +666,31 @@ public class MotherloadMineScript extends Script
 
     private Rs2TileObjectModel findClosestVein()
     {
-        return rs2TileObjectCache.query().where(this::isValidVein).nearest();
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return null;
+
+        Map<WorldPoint, Integer> reachableTiles = Rs2Tile.getReachableTilesFromTile(playerLocation);
+        return rs2TileObjectCache.query().where(this::isValidVein).toList().stream()
+                .filter(vein -> pathDistanceTo(vein, reachableTiles) != Integer.MAX_VALUE)
+                .min(Comparator.comparingInt(vein -> pathDistanceTo(vein, reachableTiles)))
+                .orElse(null);
+    }
+
+    private int pathDistanceTo(Rs2TileObjectModel vein, Map<WorldPoint, Integer> reachableTiles)
+    {
+        WorldPoint location = vein.getWorldLocation();
+        if (location == null) return Integer.MAX_VALUE;
+
+        int best = Integer.MAX_VALUE;
+        for (int[] offset : VEIN_ACCESS_OFFSETS)
+        {
+            Integer distance = reachableTiles.get(location.dx(offset[0]).dy(offset[1]));
+            if (distance != null && distance < best)
+            {
+                best = distance;
+            }
+        }
+        return best;
     }
 
     private boolean isValidVein(Rs2TileObjectModel wallObject)
@@ -686,7 +712,7 @@ public class MotherloadMineScript extends Script
 		{
         boolean inUpperArea = (miningSpot == MLMMiningSpot.WEST_UPPER && WEST_UPPER_AREA.contains(location))
                 || (miningSpot == MLMMiningSpot.EAST_UPPER && EAST_UPPER_AREA.contains(location));
-            return inUpperArea && hasWalkableTilesAround(wallObject);
+            return inUpperArea;
         }
         else
         {
@@ -694,13 +720,8 @@ public class MotherloadMineScript extends Script
                 || (miningSpot == MLMMiningSpot.WEST_MID && WEST_LOWER_AREA.contains(location))
                 || (miningSpot == MLMMiningSpot.SOUTH_WEST && SOUTH_LOWER_AREA.contains(location))
                 || (miningSpot == MLMMiningSpot.SOUTH_EAST && SOUTH_LOWER_AREA.contains(location));
-        return inLowerArea && hasWalkableTilesAround(wallObject);
+        return inLowerArea;
         }
-    }
-
-    private boolean hasWalkableTilesAround(Rs2TileObjectModel wallObject)
-    {
-        return Rs2Tile.areSurroundingTilesWalkable(wallObject.getWorldLocation(), 1, 1);
     }
 
     private void repositionCameraAndMove()
@@ -721,7 +742,7 @@ public class MotherloadMineScript extends Script
         if (isUpperFloor()) return;
         log.debug("Transitioning to upper floor");
 
-		Rs2TileObjectModel ladder = rs2TileObjectCache.query().withId(ObjectID.MOTHERLODE_LADDER_BOTTOM).nearestReachable();
+		Rs2TileObjectModel ladder = rs2TileObjectCache.query().withId(ObjectID.MOTHERLODE_LADDER_BOTTOM).nearest();
 		if (ladder == null) {
 			Rs2Walker.walkTo(miningSpot.getWorldPoint().get(0), 6);
 			return;
@@ -738,7 +759,7 @@ public class MotherloadMineScript extends Script
         if (!isUpperFloor()) return;
         log.debug("Transitioning to lower floor");
 
-		Rs2TileObjectModel ladder = rs2TileObjectCache.query().withId(ObjectID.MOTHERLODE_LADDER_TOP).nearestReachable();
+		Rs2TileObjectModel ladder = rs2TileObjectCache.query().withId(ObjectID.MOTHERLODE_LADDER_TOP).nearest();
 		if (ladder == null) {
 			Rs2Walker.walkTo(HOPPER_DEPOSIT_DOWN, 6);
 			return;
