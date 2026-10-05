@@ -5,10 +5,20 @@ import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.Range;
 import net.runelite.client.plugins.microbot.mmcaves.enums.CombatStyle;
+import net.runelite.client.plugins.microbot.mmcaves.enums.DungeonRoute;
 import net.runelite.client.plugins.microbot.mmcaves.enums.MagicSpell;
 
 @ConfigGroup("mmcaves")
 public interface MmCavesConfig extends Config {
+
+    @ConfigItem(
+            keyName = "dungeonRoute",
+            name = "Dungeon route",
+            description = "Choose the numbered hole. Only Hole 2 has a recorded path so far."
+    )
+    default DungeonRoute dungeonRoute() {
+        return DungeonRoute.HOLE_2;
+    }
 
 
     @ConfigItem(
@@ -58,5 +68,34 @@ public interface MmCavesConfig extends Config {
     )
     default int customAttackDelay() {
         return 1800;
+    }
+
+    @ConfigItem(
+            keyName = "clickRangedAttackTargets",
+            name = "Click ranged attack targets",
+            description = "Click monkeys to attack while ranging. Leave off when using auto-retaliate."
+    )
+    default boolean clickRangedAttackTargets() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "minimumStackSize",
+            name = "Minimum monkey stack",
+            description = "Pause stacking clicks when at least this many monkeys fit in the 3x3 chinchompa area."
+    )
+    @Range(min = 1, max = 20)
+    default int minimumStackSize() {
+        return 8;
+    }
+
+    @ConfigItem(
+            keyName = "maximumOutsideStack",
+            name = "Maximum outside stack",
+            description = "How many nearby monkeys may remain outside the 3x3 area before gathering resumes."
+    )
+    @Range(min = 0, max = 10)
+    default int maximumOutsideStack() {
+        return 2;
     }
 }
