@@ -3,6 +3,9 @@ package net.runelite.client.plugins.microbot.mining;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.GameObject;
 import net.runelite.api.Skill;
+import net.runelite.api.Tile;
+import net.runelite.api.WorldView;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.NpcID;
@@ -33,6 +36,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 enum State {
@@ -241,9 +245,9 @@ public class AutoMiningScript extends Script {
         if (playerLocation == null || anchor == null || activeRock == null) {
             return null;
         }
-        String rockName = activeRock.getName();
+        Predicate<GameObject> rockName = Rs2GameObject.nameMatches(activeRock.getName(), true);
         List<GameObject> rocks = Microbot.getClientThread().runOnClientThreadOptional(() ->
-                        Rs2GameObject.getGameObjects(Rs2GameObject.<GameObject>nameMatches(rockName, true), anchor, distance))
+                        Rs2GameObject.getGameObjects(rockName, anchor, distance))
                 .orElse(Collections.emptyList());
         return RockSelector.nearestReachable(rocks,
                 rock -> Rs2WorldPoint.quickDistance(playerLocation, rock.getWorldLocation()),
@@ -260,7 +264,23 @@ public class AutoMiningScript extends Script {
     }
 
     private static boolean isRockPresent(int rockId, WorldPoint rockLocation) {
-        return Rs2GameObject.getGameObject(o -> o.getId() == rockId && rockLocation.equals(o.getWorldLocation()), rockLocation, 1) != null;
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            WorldView worldView = Microbot.getClient().getTopLevelWorldView();
+            LocalPoint localPoint = worldView == null ? null : LocalPoint.fromWorld(worldView, rockLocation);
+            if (localPoint == null) {
+                return false;
+            }
+            Tile tile = worldView.getScene().getTiles()[rockLocation.getPlane()][localPoint.getSceneX()][localPoint.getSceneY()];
+            if (tile == null || tile.getGameObjects() == null) {
+                return false;
+            }
+            for (GameObject gameObject : tile.getGameObjects()) {
+                if (gameObject != null && gameObject.getId() == rockId) {
+                    return true;
+                }
+            }
+            return false;
+        }).orElse(false);
     }
 
     private static List<Rocks> buildProgressiveRocks() {
