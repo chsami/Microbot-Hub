@@ -110,12 +110,12 @@ public class YourPlugin extends Plugin {
 |-------|-------------|
 | `status` | `ok` (verified working), `broken` (confirmed by a maintainer) or `unverified` (reported, not yet confirmed) |
 | `reason` | Short user-facing explanation; required for `broken` |
-| `affectedVersions` | Plugin versions confirmed broken, or `["*"]` for every version; required for `broken` |
+| `affectedVersions` | Exact plugin version strings confirmed broken (no ranges or wildcards such as `1.2.x`), or `["*"]` for every version; required for `broken` |
 | `trackingUrl` | Optional https link to the issue or PR |
 | `lastVerifiedVersion` / `lastVerifiedClientVersion` | Optional plugin and client versions last confirmed working |
 | `updatedAt` | Optional date of the last review |
 
-Clients refuse to install or load only the listed `affectedVersions` of a `broken` plugin; other versions stay installable. `unverified` reports are shown as warnings and never block. Mark a plugin `broken` only after reproducing the failure, never because it has not been updated recently. When a fix ships, publish a new version (not listed in `affectedVersions`) or change the status to `ok`. The `disable` descriptor flag still removes a plugin from the Hub for everyone who has not installed it.
+Clients refuse to install or load only the listed `affectedVersions` of a `broken` plugin; other versions stay installable. `unverified` reports are shown as warnings and never block. Mark a plugin `broken` only after reproducing the failure, never because it has not been updated recently. When a fix ships, publish a new version (not listed in `affectedVersions`) or change the status to `ok`. The `disable` descriptor flag hides a plugin from the Hub for everyone who has not installed it, and clients stop loading installed copies so users can remove them.
 
 ### Best Practices
 
