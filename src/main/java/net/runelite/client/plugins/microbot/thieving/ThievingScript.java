@@ -489,12 +489,12 @@ ThievingNpcStrategy getActiveStrategy() {
             case EAT:
                 if (config.food() == ThievingFood.ANCIENT_BREW) {
                     drinkAncientBrew();
-                    Rs2Inventory.dropAll(true, "vial");
+                    Rs2Inventory.dropAll(invItem -> SELF_DROPPED_ITEM_IDS.contains(invItem.getId()));
                     sleepUntil(() -> Rs2Player.hasPrayerPoints(), 800);
                 } else {
                     final double hp = Rs2Player.getHealthPercentage();
                     Rs2Player.useFood();
-                    Rs2Inventory.dropAll(true, "jug");
+                    Rs2Inventory.dropAll(invItem -> SELF_DROPPED_ITEM_IDS.contains(invItem.getId()));
                     sleepUntil(() -> Rs2Player.getHealthPercentage() > hp, 800);
                 }
                 return;
