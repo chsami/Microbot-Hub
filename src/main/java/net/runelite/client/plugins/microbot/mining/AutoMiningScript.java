@@ -15,6 +15,7 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
 import net.runelite.client.plugins.microbot.util.depositbox.Rs2DepositBox;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
@@ -28,6 +29,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import java.util.ArrayList;
 import java.awt.event.KeyEvent;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -49,6 +51,8 @@ public class AutoMiningScript extends Script {
 
     public boolean run(AutoMiningConfig config) {
         initialPlayerLocation = null;
+        activeRock = null;
+        activeLocation = null;
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyMiningSetup();
         Rs2AntibanSettings.actionCooldownChance = 0.1;
@@ -141,11 +145,11 @@ public class AutoMiningScript extends Script {
                             }
                         }
 
-                        GameObject rock = Rs2GameObject.findReachableObject(activeRock.getName(), true, config.distanceToStray(), initialPlayerLocation);
+                        GameObject rock = findRock(config.distanceToStray());
 
                         if (rock != null) {
                             if (Rs2GameObject.interact(rock)) {
-                                Rs2Player.waitForXpDrop(Skill.MINING, true);
+                                waitForOreOrDepletion(rock);
                                 Rs2Antiban.actionCooldown();
                                 Rs2Antiban.takeMicroBreakByChance();
                             }
@@ -231,6 +235,34 @@ public class AutoMiningScript extends Script {
         Rs2Antiban.resetAntibanSettings();
     }
 
+    private GameObject findRock(int distance) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        WorldPoint anchor = initialPlayerLocation;
+        if (playerLocation == null || anchor == null || activeRock == null) {
+            return null;
+        }
+        String rockName = activeRock.getName();
+        List<GameObject> rocks = Microbot.getClientThread().runOnClientThreadOptional(() ->
+                        Rs2GameObject.getGameObjects(Rs2GameObject.<GameObject>nameMatches(rockName, true), anchor, distance))
+                .orElse(Collections.emptyList());
+        return RockSelector.nearestReachable(rocks,
+                rock -> Rs2WorldPoint.quickDistance(playerLocation, rock.getWorldLocation()),
+                rock -> Microbot.getClientThread().runOnClientThreadOptional(() -> Rs2GameObject.isReachable(rock)).orElse(false));
+    }
+
+    private void waitForOreOrDepletion(GameObject rock) {
+        int startXp = Microbot.getClient().getSkillExperience(Skill.MINING);
+        int rockId = rock.getId();
+        WorldPoint rockLocation = rock.getWorldLocation();
+        sleepUntil(() -> Microbot.getClient().getSkillExperience(Skill.MINING) != startXp
+                || Rs2Inventory.isFull()
+                || !isRockPresent(rockId, rockLocation), 5000);
+    }
+
+    private static boolean isRockPresent(int rockId, WorldPoint rockLocation) {
+        return Rs2GameObject.getGameObject(o -> o.getId() == rockId && rockLocation.equals(o.getWorldLocation()), rockLocation, 1) != null;
+    }
+
     private static List<Rocks> buildProgressiveRocks() {
         List<Rocks> rocks = new ArrayList<>(Arrays.asList(
                 Rocks.TIN,
@@ -245,23 +277,17 @@ public class AutoMiningScript extends Script {
     }
 
     private void updateActiveRock(AutoMiningConfig config) {
-        Rocks previousRock = activeRock;
-        LocationOption previousLocation = activeLocation;
+        Rocks rock = config.progressiveMode()
+                ? PROGRESSIVE_ROCKS.stream()
+                        .filter(Rocks::hasRequiredLevel)
+                        .max(Comparator.comparingInt(Rocks::getMiningLevel))
+                        .orElse(PROGRESSIVE_ROCKS.get(0))
+                : config.ORE();
 
-        if (!config.progressiveMode()) {
-            activeRock = config.ORE();
-            activeLocation = MiningRockLocations.getBestAccessibleLocation(activeRock);
-            updateStatus();
-            return;
+        if (rock != activeRock || activeLocation == null) {
+            activeRock = rock;
+            activeLocation = MiningRockLocations.getBestAccessibleLocation(rock);
         }
-
-        Rocks unlockedRock = PROGRESSIVE_ROCKS.stream()
-                .filter(Rocks::hasRequiredLevel)
-                .max(Comparator.comparingInt(Rocks::getMiningLevel))
-                .orElse(PROGRESSIVE_ROCKS.get(0));
-
-        activeRock = unlockedRock;
-        activeLocation = MiningRockLocations.getBestAccessibleLocation(activeRock);
 
         updateStatus();
     }
