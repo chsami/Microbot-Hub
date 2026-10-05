@@ -264,6 +264,22 @@ tasks.register("copyPluginDocs") {
     }
 }
 
+tasks.register('validatePluginHealth') {
+    group = 'verification'
+    description = 'Validates plugin-health.json against discovered plugins'
+    inputs.file('plugin-health.json').optional()
+
+    doLast {
+        def allPlugins = project.ext.discoverPlugins(file(project.ext.getPluginsSourcePath()))
+        def health = project.ext.readPluginHealth(file('plugin-health.json'), allPlugins.collect { it.name })
+        logger.lifecycle("plugin-health.json: ${health.size()} entr${health.size() == 1 ? 'y' : 'ies'} valid")
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'validatePluginHealth'
+}
+
 // Validating JDK version when generating plugins.json is important to ensure consistent hashing :(
 tasks.register("generatePluginsJson") {
     group = "build"
@@ -276,7 +292,7 @@ tasks.register("generatePluginsJson") {
         def jarOutputDir = file("$buildDir/libs")
 
         def allPlugins = project.ext.discoverPlugins(pluginRoot)
-        def plugins = project.ext.generatePluginsJsonData(allPlugins, jarOutputDir)
+        def plugins = project.ext.applyPluginHealth(project.ext.generatePluginsJsonData(allPlugins, jarOutputDir), file('plugin-health.json'), allPlugins.collect { it.name })
 
         outputJson.parentFile.mkdirs()
         outputJson.text = JsonOutput.prettyPrint(JsonOutput.toJson(plugins))

@@ -280,6 +280,60 @@ ext {
         return plugins
     }
 
+    readPluginHealth = { File healthFile, Collection<String> knownPlugins ->
+        if (!healthFile.exists()) {
+            return [:]
+        }
+        def parsed = new groovy.json.JsonSlurper().parse(healthFile)
+        if (!(parsed instanceof Map)) {
+            throw new GradleException("${healthFile.name} must be a JSON object keyed by plugin internal name")
+        }
+        def allowedKeys = ['status', 'reason', 'affectedVersions', 'trackingUrl', 'lastVerifiedVersion', 'lastVerifiedClientVersion', 'updatedAt'] as Set
+        def statuses = ['ok', 'broken', 'unverified'] as Set
+        parsed.each { name, entry ->
+            def where = "${healthFile.name} entry '${name}'"
+            if (!knownPlugins.contains(name)) {
+                throw new GradleException("${where}: unknown plugin internal name")
+            }
+            if (!(entry instanceof Map)) {
+                throw new GradleException("${where}: must be a JSON object")
+            }
+            def unknownKeys = entry.keySet() - allowedKeys
+            if (!unknownKeys.isEmpty()) {
+                throw new GradleException("${where}: unknown field(s) ${unknownKeys}")
+            }
+            if (!statuses.contains(entry.status)) {
+                throw new GradleException("${where}: status must be one of ${statuses}")
+            }
+            entry.findAll { key, value -> key != 'affectedVersions' }.each { key, value ->
+                if (!(value instanceof String) || value.trim().isEmpty()) {
+                    throw new GradleException("${where}: ${key} must be a non-empty string")
+                }
+            }
+            if (entry.containsKey('affectedVersions')
+                    && (!(entry.affectedVersions instanceof List) || entry.affectedVersions.any { !(it instanceof String) || it.trim().isEmpty() })) {
+                throw new GradleException("${where}: affectedVersions must be a list of plugin versions or [\"*\"]")
+            }
+            if (entry.status == 'broken' && (!entry.reason || !entry.affectedVersions)) {
+                throw new GradleException("${where}: broken requires reason and affectedVersions")
+            }
+            if (entry.trackingUrl && !entry.trackingUrl.startsWith('https://')) {
+                throw new GradleException("${where}: trackingUrl must be an https URL")
+            }
+        }
+        parsed
+    }
+
+    applyPluginHealth = { plugins, File healthFile, Collection<String> knownPlugins ->
+        def health = readPluginHealth(healthFile, knownPlugins)
+        plugins.each { plugin ->
+            if (health[plugin.internalName]) {
+                plugin.health = health[plugin.internalName]
+            }
+        }
+        plugins
+    }
+
     // Create shadow JAR task for plugin - returns task configuration closure
     getPluginJarTaskConfig = { plugin, pluginConfigName ->
         return {
