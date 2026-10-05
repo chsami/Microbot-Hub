@@ -13,9 +13,9 @@ import net.runelite.client.input.KeyListener;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
-import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
-import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
+import net.runelite.client.plugins.microbot.agentserver.handler.ScriptHeartbeatRegistry;
+import net.runelite.client.plugins.microbot.util.antiban.SessionFatigue;
+import net.runelite.client.plugins.microbot.util.input.InputArbiter;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.grandexchange.Rs2GrandExchange;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -36,7 +36,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 enum State {
     GOING_TO_GE,
@@ -61,9 +64,10 @@ public class FlipperScript extends Script {
 	private final WorldArea grandExchangeArea = new WorldArea(3136, 3465, 61, 54, 0);
     State state = State.GOING_TO_GE;
 
-    private Plugin flippingCopilot;
-	private Object suggestionManager;
-    private Object highlightController;
+    private volatile Plugin flippingCopilot;
+	private volatile Object suggestionManager;
+    private volatile Object highlightController;
+    private volatile long tradingGeneration;
     private long lastActionTime = 0;
     private long actionCooldown = DEFAULT_ACTION_COOLDOWN;
 	private long interactionTimeout = DEFAULT_INTERACTION_TIMEOUT;
@@ -117,11 +121,12 @@ public class FlipperScript extends Script {
             }
             LIVE_FUTURES.clear();
         }
-        Rs2AntibanSettings.naturalMouse = true;
-        Rs2Antiban.setActivityIntensity(ActivityIntensity.LOW);
             mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
-				if (!super.run()) return;
+				if (!canRunWithoutChangingSettings()) {
+                    suspendForUnavailableUi();
+                    return;
+                }
                 if (!Microbot.isLoggedIn()) return;
 
                 if (!initialize()) {
@@ -129,9 +134,10 @@ public class FlipperScript extends Script {
 					return;
 				}
 
+                GeUiState ui = readGeUi();
                 switch (state) {
                     case GOING_TO_GE:
-                        if (Rs2GrandExchange.isOpen() && Rs2Inventory.onlyContains(ItemID.COINS)) {
+                        if (ui.exchangeOpen && Rs2Inventory.onlyContains(ItemID.COINS)) {
                              state = State.MONITORING_COPILOT;
                              return;
                         }
@@ -162,11 +168,11 @@ public class FlipperScript extends Script {
                         }
                         if (Rs2Bank.openBank()) {
                             Rs2Bank.depositAll();
-                            sleepUntil(Rs2Inventory::isEmpty);
+                            waitForUi(Rs2Inventory::isEmpty);
                             Rs2Bank.withdrawAll(ItemID.COINS);
                             Rs2Inventory.waitForInventoryChanges(INVENTORY_WAIT_TIMEOUT);
                             Rs2Bank.closeBank();
-                            sleepUntil(() -> !Rs2Bank.isOpen());
+                            waitForUi(() -> !isBankOpen());
                             state = State.MONITORING_COPILOT;
                         }
                         break;
@@ -178,7 +184,7 @@ public class FlipperScript extends Script {
 						// 0a. Grand Exchange watchdog: this state had no way back from a closed
 						// exchange - GOING_TO_GE was only set on shutdown/startup - so a closed or
 						// hidden GE stalled the bot indefinitely and silently. Reopen it directly.
-						if (!Rs2GrandExchange.isOpen() && !Rs2Bank.isOpen()) {
+						if (!ui.exchangeOpen && !ui.bankOpen) {
 							if (geClosedSince == 0) {
 								geClosedSince = currentTime;
 							} else if (currentTime - geClosedSince > GE_CLOSED_RECOVER_MS) {
@@ -189,7 +195,7 @@ public class FlipperScript extends Script {
 									log.info("Exchange could not be opened from here; walking to the Grand Exchange.");
 									state = State.GOING_TO_GE;
 								} else {
-									sleepUntil(Rs2GrandExchange::isOpen, 3000);
+									waitForUi(this::isExchangeOpen, 3000);
 								}
 								lastActionTime = System.currentTimeMillis();
 								actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
@@ -203,8 +209,7 @@ public class FlipperScript extends Script {
 						// (for example the Convenience Fees text) which hides the offer list.
 						// Nothing on that page is actionable, Copilot highlights nothing, and the
 						// script would otherwise idle silently forever. Escape back to the list.
-						if (Rs2GrandExchange.isOpen() && !isOfferScreenOpen()
-							&& !Rs2Widget.hasWidget("Select an offer slot")) {
+						if (ui.exchangeOpen && !ui.offerOpen && !ui.overviewOpen) {
 							if (strayPageSince == 0) {
 								strayPageSince = currentTime;
 							} else if (currentTime - strayPageSince > STRAY_PAGE_RECOVER_MS) {
@@ -222,14 +227,14 @@ public class FlipperScript extends Script {
 						}
 
 							// 0. Offer screen watchdog & loop detection
-						if (isOfferScreenOpen()) {
+						if (ui.offerOpen) {
 							if (offerScreenOpenTime == 0) {
 								offerScreenOpenTime = currentTime;
 								offerScreenActionCount = 0;
 							}
 
 							// Check if "Too much money!" warning is shown on offer screen
-							if (Rs2Widget.hasWidget("Too much money")) {
+							if (ui.tooMuchMoney) {
 								log.warn("Offer has 'Too much money!' error. Backing out to GE overview.");
 								backToOverview();
 								return;
@@ -243,24 +248,25 @@ public class FlipperScript extends Script {
 										Method isAbortMethod = currentSuggestion.getClass().getMethod("isAbortSuggestion");
 										if ((Boolean) isAbortMethod.invoke(currentSuggestion)) {
 											Widget abortBtn = waitForOfferScreenAbortButton(2000);
-											if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
+											if (abortBtn != null && isUiWidgetVisible(abortBtn.getId())) {
 												log.info("Aborting offer via offer screen button '{}'", abortBtn.getId());
 												Rs2Widget.clickWidget(abortBtn);
 												sleep(300, 500);
 
 												// Check for confirmation dialog ('Are you sure...')
-												if (sleepUntil(() -> Rs2Widget.hasWidget("Are you sure") || Rs2Widget.hasWidget("Your offer is much"), 1200)) {
-													log.info("Abort confirmation dialog detected. Confirming 'Yes'...");
-													Rs2Widget.clickWidget("Yes");
-													sleep(200, 400);
+												if (waitForUi(this::isGeWarningOpen, 1200)) {
+													GeWarningDialog.Result warning = confirmGeWarning();
+													if (warning != GeWarningDialog.Result.CONFIRMED
+														&& warning != GeWarningDialog.Result.NO_DIALOG) return;
 												}
 
 												// Wait for abort to register, then back to overview
-												sleepUntil(() -> !isOfferScreenOpen() || getOfferScreenAbortButton() == null, 2500);
+												waitForUi(() -> !isOfferScreenOpen() || getOfferScreenAbortButton() == null, 2500);
 												backToOverview();
 											} else {
 												// Check if already aborted / cancelled on offer screen
-												Widget statusWidget = Rs2Widget.getWidget(InterfaceID.GeOffers.DETAILS_STATUS);
+												Widget statusWidget = readUi(() ->
+                                                    Microbot.getClient().getWidget(InterfaceID.GeOffers.DETAILS_STATUS));
 												String statusText = statusWidget != null ? statusWidget.getText() : "";
 												if (statusText != null && (statusText.toLowerCase().contains("cancelled") || statusText.toLowerCase().contains("aborted"))) {
 													log.info("Offer already cancelled on offer screen. Returning to overview.");
@@ -278,7 +284,9 @@ public class FlipperScript extends Script {
 											return;
 										}
 									}
-								} catch (Exception ignored) {}
+								} catch (GeUiState.UiUnavailable unavailable) {
+                                    throw unavailable;
+                                } catch (Exception ignored) {}
 							}
 
 							// If nothing at all has been actioned on the open offer screen, the
@@ -300,9 +308,9 @@ public class FlipperScript extends Script {
 						}
 
                         // 1. If bank is open, close it (only coins are handled from bank at startup)
-                        if (Rs2Bank.isOpen()) {
+                        if (ui.bankOpen) {
                             Rs2Bank.closeBank();
-                            sleepUntil(() -> !Rs2Bank.isOpen(), 2500);
+                            waitForUi(() -> !isBankOpen(), 2500);
                             return;
                         }
 
@@ -317,15 +325,17 @@ public class FlipperScript extends Script {
                         if (checkAndInteractHighlightedNpc()) return;
 
                         // 6. If neither GE nor Bank is open, open GE
-                        if (!Rs2GrandExchange.isOpen() && !Rs2Bank.isOpen()) {
+                        if (!isExchangeOpen() && !isBankOpen()) {
                             Rs2GrandExchange.openExchange();
                             return;
                         }
 
                         break;
                 }
+            } catch (GeUiState.UiUnavailable unavailable) {
+                suspendForUnavailableUi();
             } catch (Exception ex) {
-                log.error("Error in FlipperScript: {} - ", ex.getMessage(), ex);
+                log.error("Error in FlipperScript: {} - ", ex.getClass().getSimpleName());
             }
         }, 0, SCHEDULE_INTERVAL_MS, TimeUnit.MILLISECONDS);
         LIVE_FUTURES.add(mainScheduledFuture);
@@ -351,16 +361,12 @@ public class FlipperScript extends Script {
         }
 
         LIVE_FUTURES.clear();
-        blockedSlotActionKey = null;
-        slotActionStatus = "";
-        geClosedSince = strayPageSince = offerScreenOpenTime = 0;
-        offerScreenActionCount = 0;
-		flippingCopilot = null;
-		suggestionManager = null;
-		highlightController = null;
+        clearCachedTradingState();
 		lastActionTime = 0;
 		actionCooldown = DEFAULT_ACTION_COOLDOWN;
-		super.shutdown();
+        if (scheduledFuture != null) scheduledFuture.cancel(true);
+        // The base shutdown also resets client-wide pause/path/combat state. Only remove our heartbeat.
+        ScriptHeartbeatRegistry.remove(getClass().getName());
 	}
 
 	private boolean initialize()
@@ -372,6 +378,11 @@ public class FlipperScript extends Script {
 		Plugin _flippingCopilot = getFlippingCopilot();
 		Object _suggestionManager = getSuggestionManager(_flippingCopilot);
 		Object _highlightController = getHighlightController(_flippingCopilot);
+
+        if (!Microbot.isLoggedIn()) {
+            clearCachedTradingState();
+            return false;
+        }
 
 		if (_flippingCopilot != null && _suggestionManager != null && _highlightController != null) {
 			return true;
@@ -411,7 +422,7 @@ public class FlipperScript extends Script {
 			}
 			catch (Exception e)
 			{
-				log.error("Could not access HighlightController: {} - ", e.getMessage(), e);
+				log.error("Could not access HighlightController: {} - ", e.getClass().getSimpleName());
 			}
 		}
 		return highlightController;
@@ -430,17 +441,82 @@ public class FlipperScript extends Script {
 			}
 			catch (Exception e)
 			{
-				log.error("Could not access SuggestionManager: {} - ", e.getMessage(), e);
+				log.error("Could not access SuggestionManager: {} - ", e.getClass().getSimpleName());
 			}
 		}
 		return suggestionManager;
 	}
 
-	private boolean isOfferScreenOpen() {
-		return Rs2GrandExchange.isOfferScreenOpen() 
-			|| Rs2Widget.isWidgetVisible(30474266) 
-			|| Rs2Widget.isWidgetVisible(30474267);
-	}
+    private <T> T readUi(Callable<T> read) {
+        return GeUiState.requireRead(Microbot.getClientThread().runOnClientThreadOptional(
+            () -> Optional.ofNullable(read.call())));
+    }
+
+    private boolean canRunWithoutChangingSettings() {
+        return FlipperRunGuard.canRun(new FlipperRunGuard.Context() {
+            public void heartbeat() { ScriptHeartbeatRegistry.recordHeartbeat(FlipperScript.this.getClass().getName()); }
+            public boolean loggedIn() {
+                boolean loggedIn = Microbot.isLoggedIn();
+                if (!loggedIn) clearCachedTradingState();
+                return loggedIn;
+            }
+            public boolean fatigueActive() { return SessionFatigue.isActive(); }
+            public void startFatigueSession() { SessionFatigue.startSession(); }
+            public boolean tutorialComplete() { return readUi(Rs2Player::hasCompletedTutorialIsland); }
+            public boolean blockingEvent() { return Microbot.getBlockingEventManager().shouldBlockAndProcess(); }
+            public boolean humanInput() { return InputArbiter.isHuman(); }
+            public void releaseHeldKeys() { Rs2Keyboard.releaseHeldKeys(); }
+            public boolean paused() { return Microbot.pauseAllScripts.get(); }
+            public boolean interrupted() { return Thread.currentThread().isInterrupted(); }
+        });
+    }
+
+    private GeUiState readGeUi() {
+        return readUi(() -> GeUiState.capture(
+            Microbot.getClient().getWidget(InterfaceID.GeOffers.CONTENTS),
+            Microbot.getClient().getWidget(InterfaceID.GeOffers.INDEX),
+            Microbot.getClient().getWidget(InterfaceID.GeOffers.SETUP),
+            Microbot.getClient().getWidget(InterfaceID.GeOffers.DETAILS),
+            Microbot.getClient().getWidget(12, 1)));
+    }
+
+    private boolean isExchangeOpen() { return readGeUi().exchangeOpen; }
+    private boolean isBankOpen() { return readGeUi().bankOpen; }
+    private boolean isOfferScreenOpen() { return readGeUi().offerOpen; }
+
+    private boolean isUiWidgetVisible(int id) {
+        return readUi(() -> {
+            Widget widget = Microbot.getClient().getWidget(id);
+            return widget != null && !widget.isHidden();
+        });
+    }
+
+    private Widget findUiWidget(String text) { return findUiWidget(text, null, false); }
+
+    private Widget findUiWidget(String text, List<Widget> children, boolean exact) {
+        return readUi(() -> Rs2Widget.findWidget(text, children, exact));
+    }
+
+    boolean waitForUi(BooleanSupplier condition) { return waitForUi(condition, 5000); }
+
+    boolean waitForUi(BooleanSupplier condition, int timeoutMs) {
+        return GeUiState.waitForUi(condition, timeoutMs, (poll, timeout) -> sleepUntil(poll, timeout));
+    }
+
+    void suspendForUnavailableUi() {
+        geClosedSince = strayPageSince = offerScreenOpenTime = 0;
+        offerScreenActionCount = 0;
+    }
+
+    void clearCachedTradingState() {
+        tradingGeneration++;
+        flippingCopilot = null;
+        suggestionManager = null;
+        highlightController = null;
+        blockedSlotActionKey = null;
+        slotActionStatus = "";
+        suspendForUnavailableUi();
+    }
 
 	private void backToOverview() {
 		log.info("Returning to GE overview.");
@@ -448,7 +524,7 @@ public class FlipperScript extends Script {
 		if (isOfferScreenOpen()) {
 			Rs2Widget.clickWidget(30474244);
 		}
-		sleepUntil(() -> !isOfferScreenOpen(), 2500);
+		waitForUi(() -> !isOfferScreenOpen(), 2500);
 		offerScreenOpenTime = 0;
 		offerScreenActionCount = 0;
 		lastActionTime = System.currentTimeMillis();
@@ -482,13 +558,17 @@ public class FlipperScript extends Script {
 	}
 
 	private Widget getOfferScreenAbortButton() {
+        return readUi(this::findOfferScreenAbortButton);
+    }
+
+    private Widget findOfferScreenAbortButton() {
 		// 1. Direct widget ID for abort button on GE offer details screen (Interface 465, child 22 / DETAILS_GRAPHIC6)
 		Widget abortBtn = Rs2Widget.getWidget(InterfaceID.GeOffers.DETAILS_GRAPHIC6);
-		if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
+		if (abortBtn != null && isUiWidgetVisible(abortBtn.getId())) {
 			return abortBtn;
 		}
 		abortBtn = Rs2Widget.getWidget(InterfaceID.GE_OFFERS, 22);
-		if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
+		if (abortBtn != null && isUiWidgetVisible(abortBtn.getId())) {
 			return abortBtn;
 		}
 
@@ -497,12 +577,14 @@ public class FlipperScript extends Script {
 			java.util.Map<Widget, String> actionWidgets = Rs2Widget.findWidgetsWithAction("Abort", InterfaceID.GE_OFFERS, false);
 			if (actionWidgets != null && !actionWidgets.isEmpty()) {
 				for (Widget w : actionWidgets.keySet()) {
-					if (w != null && Rs2Widget.isWidgetVisible(w.getId())) {
+					if (w != null && isUiWidgetVisible(w.getId())) {
 						return w;
 					}
 				}
 			}
-		} catch (Exception ignored) {}
+		} catch (GeUiState.UiUnavailable unavailable) {
+            throw unavailable;
+        } catch (Exception ignored) {}
 
 		// 3. Search children of DETAILS container (InterfaceID.GeOffers.DETAILS)
 		try {
@@ -511,7 +593,7 @@ public class FlipperScript extends Script {
 				Widget[] children = detailsContainer.getChildren();
 				if (children != null) {
 					for (Widget child : children) {
-						if (child != null && Rs2Widget.isWidgetVisible(child.getId()) && child.getActions() != null) {
+						if (child != null && isUiWidgetVisible(child.getId()) && child.getActions() != null) {
 							for (String action : child.getActions()) {
 								if (action != null && action.toLowerCase().contains("abort")) {
 									return child;
@@ -523,7 +605,7 @@ public class FlipperScript extends Script {
 				Widget[] dynamicChildren = detailsContainer.getDynamicChildren();
 				if (dynamicChildren != null) {
 					for (Widget child : dynamicChildren) {
-						if (child != null && Rs2Widget.isWidgetVisible(child.getId()) && child.getActions() != null) {
+						if (child != null && isUiWidgetVisible(child.getId()) && child.getActions() != null) {
 							for (String action : child.getActions()) {
 								if (action != null && action.toLowerCase().contains("abort")) {
 									return child;
@@ -533,15 +615,17 @@ public class FlipperScript extends Script {
 					}
 				}
 			}
-		} catch (Exception ignored) {}
+		} catch (GeUiState.UiUnavailable unavailable) {
+            throw unavailable;
+        } catch (Exception ignored) {}
 
 		// 4. Search by widget text as final fallback
-		abortBtn = Rs2Widget.findWidget("Abort offer");
-		if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
+		abortBtn = findUiWidget("Abort offer");
+		if (abortBtn != null && isUiWidgetVisible(abortBtn.getId())) {
 			return abortBtn;
 		}
-		abortBtn = Rs2Widget.findWidget("Abort");
-		if (abortBtn != null && Rs2Widget.isWidgetVisible(abortBtn.getId())) {
+		abortBtn = findUiWidget("Abort");
+		if (abortBtn != null && isUiWidgetVisible(abortBtn.getId())) {
 			return abortBtn;
 		}
 
@@ -582,21 +666,13 @@ public class FlipperScript extends Script {
 	}
 
 	private boolean hasChatboxInput() {
-		Widget inputWidget = Rs2Widget.getWidget(10616876);
-		if (inputWidget == null) inputWidget = Rs2Widget.getWidget(162, 44);
-		if (inputWidget != null) {
-			String text = inputWidget.getText();
-			if (text != null && !text.trim().isEmpty() && !text.trim().equals("*")) {
-				return true;
-			}
-		}
-		try {
-			String varcStr = Microbot.getClient().getVarcStrValue(359);
-			if (varcStr != null && !varcStr.trim().isEmpty() && !varcStr.trim().equals("*")) {
-				return true;
-			}
-		} catch (Exception ignored) {}
-		return false;
+        return readUi(() -> {
+            Widget inputWidget = Microbot.getClient().getWidget(162, 44);
+            String text = inputWidget == null ? null : inputWidget.getText();
+            if (text != null && !text.trim().isEmpty() && !text.trim().equals("*")) return true;
+            String varcStr = Microbot.getClient().getVarcStrValue(359);
+            return varcStr != null && !varcStr.trim().isEmpty() && !varcStr.trim().equals("*");
+        });
 	}
 
 	private KeyManager getKeyManager() {
@@ -606,7 +682,7 @@ public class FlipperScript extends Script {
 				keyManager = Microbot.getInjector().getInstance(KeyManager.class);
 			}
 		} catch (Exception e) {
-			log.warn("Could not get KeyManager: {}", e.getMessage());
+			log.warn("Could not get KeyManager: {}", e.getClass().getSimpleName());
 		}
 		return keyManager;
 	}
@@ -683,11 +759,13 @@ public class FlipperScript extends Script {
 						for (Method m : keyListener.getClass().getDeclaredMethods()) {
 							if (m.getName().equals("handleKeybind")) {
 								m.setAccessible(true);
+								long generation = tradingGeneration;
 								Microbot.getClientThread().invokeLater(() -> {
+									if (generation != tradingGeneration || !isRunning() || !Microbot.isLoggedIn()) return;
 									try {
 										m.invoke(keyListener, true, false, false);
 									} catch (Exception ex) {
-										log.debug("handleKeybind invoke failed: {}", ex.getMessage());
+										log.debug("handleKeybind invoke failed: {}", ex.getClass().getSimpleName());
 									}
 								});
 								break;
@@ -696,7 +774,7 @@ public class FlipperScript extends Script {
 					}
 				}
 			} catch (Exception e) {
-				log.debug("Could not trigger handleKeybind via reflection: {}", e.getMessage());
+				log.debug("Could not trigger handleKeybind via reflection: {}", e.getClass().getSimpleName());
 			}
 		}
 	}
@@ -718,7 +796,9 @@ public class FlipperScript extends Script {
 						for (Method m : offerHandler.getClass().getMethods()) {
 							if (m.getName().equals("setChatboxValue") && m.getParameterCount() == 1) {
 								final long v = val;
+								long generation = tradingGeneration;
 								Microbot.getClientThread().invokeLater(() -> {
+									if (generation != tradingGeneration || !isRunning() || !Microbot.isLoggedIn()) return;
 									try {
 										m.invoke(offerHandler, v);
 									} catch (Exception ignored) {}
@@ -729,7 +809,7 @@ public class FlipperScript extends Script {
 					}
 				}
 			} catch (Exception e) {
-				log.debug("Could not set chatbox value via offerHandler: {}", e.getMessage());
+				log.debug("Could not set chatbox value via offerHandler: {}", e.getClass().getSimpleName());
 			}
 		}
 	}
@@ -745,7 +825,7 @@ public class FlipperScript extends Script {
 		}
 		catch (Exception e)
 		{
-			log.error("Could not access Suggestion: {} ", e.getMessage(), e);
+			log.error("Could not access Suggestion: {} ", e.getClass().getSimpleName());
 			return null;
 		}
 	}
@@ -761,7 +841,7 @@ public class FlipperScript extends Script {
 		}
 		catch (Exception e)
 		{
-			log.error("Could not access suggestion type: {} - ", e.getMessage(), e);
+			log.error("Could not access suggestion type: {} - ", e.getClass().getSimpleName());
 			return null;
 		}
 	}
@@ -779,7 +859,7 @@ public class FlipperScript extends Script {
 		}
 		catch (Exception e)
 		{
-			log.error("Could not access highlight overlays: {} - ", e.getMessage(), e);
+			log.error("Could not access highlight overlays: {} - ", e.getClass().getSimpleName());
 			return null;
 		}
 	}
@@ -857,7 +937,7 @@ public class FlipperScript extends Script {
 				targets.add(new HighlightTarget(widget, relativeBounds));
 			} catch (NoSuchFieldException ignored) {
 			} catch (Exception e) {
-				log.error("Could not get target from overlay: {} - ", e.getMessage(), e);
+				log.error("Could not get target from overlay: {} - ", e.getClass().getSimpleName());
 			}
 		}
 		return targets;
@@ -875,7 +955,7 @@ public class FlipperScript extends Script {
 				.orElse(null);
 		} else {
 			return targets.stream()
-				.filter(t -> t.getWidget() != null && Rs2Widget.isWidgetVisible(t.getWidget().getId()))
+				.filter(t -> t.getWidget() != null && isUiWidgetVisible(t.getWidget().getId()))
 				.findFirst()
 				.orElse(null);
 		}
@@ -897,7 +977,7 @@ public class FlipperScript extends Script {
 		return target != null ? target.getWidget() : null;
 	}
 
-    private String blockedSlotActionKey;
+    private volatile String blockedSlotActionKey;
     /** The chat label Flip Assist uses for its suggested item in the GE search. */
     private static final String FlipAssistItemLabel = "Flip Assist item: ";
 
@@ -907,9 +987,9 @@ public class FlipperScript extends Script {
      * rather than assigned to a shared local, because the callers capture that local in a lambda.
      */
     private Widget findSuggestedItemWidget() {
-        Widget widget = Rs2Widget.findWidget("Copilot item:", null, false);
+        Widget widget = findUiWidget("Copilot item:", null, false);
         if (widget == null) {
-            widget = Rs2Widget.findWidget(FlipAssistItemLabel, null, false);
+            widget = findUiWidget(FlipAssistItemLabel, null, false);
         }
         return widget;
     }
@@ -970,11 +1050,11 @@ public class FlipperScript extends Script {
     }
 
     private boolean isModifySetupOpen() {
-        return Rs2Widget.isWidgetVisible(InterfaceID.GeOffers.SETUP);
+        return readGeUi().setupOpen;
     }
 
     private net.runelite.api.Point slotActionPoint(int slotId, SlotActionExecutor.Action action) {
-        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+        return readUi(() -> {
             Widget slot = Microbot.getClient().getWidget(slotId);
             Widget button = slot == null ? null : slot.getChild(2);
             if (button == null || button.isHidden()) return null;
@@ -983,12 +1063,12 @@ public class FlipperScript extends Script {
             if (bounds == null || bounds.width < 2 || bounds.height < 2
                 || !Rs2UiHelper.isRectangleWithinCanvas(bounds)) return null;
             return new net.runelite.api.Point((int) bounds.getCenterX(), (int) bounds.getCenterY());
-        }).orElse(null);
+        });
     }
 
     private boolean isSlotDefaultAction(int slotId, SlotActionExecutor.Action action,
                                        net.runelite.api.Point point, String key) {
-        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+        return readUi(() -> {
             if (Microbot.naturalMouse == null || Microbot.targetMenu != null || Microbot.getClient().isMenuOpen()
                 || !isSlotActionSwapEnabled() || !sameSlotSuggestion(key) || isOfferScreenOpen()) return false;
             net.runelite.api.Point mouse = Microbot.getClient().getMouseCanvasPosition();
@@ -999,11 +1079,11 @@ public class FlipperScript extends Script {
                 || !button.getBounds().contains(point.getX(), point.getY())) return false;
             return SlotActionExecutor.matchesDefaultAction(
                 Microbot.getClient().getMenu().getMenuEntries(), slotId, action);
-        }).orElse(false);
+        });
     }
 
     private boolean checkAndAbortOrModifyIfNeeded() {
-        if (!Rs2GrandExchange.isOpen() || isOfferScreenOpen()) return false;
+        if (!isExchangeOpen() || isOfferScreenOpen()) return false;
         if (flippingCopilot == null || highlightController == null || suggestionManager == null) return false;
         try {
             Object suggestion = getSuggestion(suggestionManager);
@@ -1043,7 +1123,7 @@ public class FlipperScript extends Script {
                         }
                     }
                     public boolean awaitDefaultAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
-                        return sleepUntil(() -> isSlotDefaultAction(id, a, point, key), 1800);
+                        return waitForUi(() -> isSlotDefaultAction(id, a, point, key), 1800);
                     }
                     public boolean clickDefaultAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
                         if (!FlipperScript.this.isRunning() || Thread.currentThread().isInterrupted()
@@ -1067,7 +1147,7 @@ public class FlipperScript extends Script {
             if (handleSlotActionFailure(result, action, key)) return true;
             slotActionStatus = "";
             log.info("Executed {} on slot {} using {}.", action.option, boxId + 1, config.slotAction().actionDescription);
-            if (modify && !sleepUntil(this::isModifySetupOpen, SLOT_ACTION_SETTLE_MS)
+            if (modify && !waitForUi(this::isModifySetupOpen, SLOT_ACTION_SETTLE_MS)
                 && sameSlotSuggestion(key)) {
                 // An invoke/left click is not proof that setup opened. Back out once, then
                 // hold this suggestion until it changes, the mode changes, or the plugin restarts.
@@ -1080,7 +1160,7 @@ public class FlipperScript extends Script {
             return true;
         } catch (ReflectiveOperationException e) {
             slotActionStatus("Copilot suggestion unavailable. Refresh suggestions or restart GE Flipper.");
-            log.debug("Could not read Copilot slot suggestion", e);
+            log.debug("Could not read Copilot slot suggestion: {}", e.getClass().getSimpleName());
             return true;
         }
     }
@@ -1102,7 +1182,7 @@ public class FlipperScript extends Script {
     private boolean checkAndPressCopilotKeybind() {
 		// 1. Search for a widget with text "Copilot item" (if it's time to select the item suggestion in the buy item window)
         Widget copilotWidget = findSuggestedItemWidget();
-        if (copilotWidget != null && Rs2Widget.isWidgetVisible(copilotWidget.getId())) {
+        if (copilotWidget != null && isUiWidgetVisible(copilotWidget.getId())) {
 			log.info("Found chat widget Copilot item '{}'.", copilotWidget.getId());
 			if (isMouseMode()) {
 				log.info("Selecting Copilot item via mouse click.");
@@ -1113,13 +1193,13 @@ public class FlipperScript extends Script {
 			}
 			
 			// Wait for item selection widget to disappear (fallback to enter if still visible after mouse click)
-			if (!sleepUntil(() -> !Rs2Widget.isWidgetVisible(copilotWidget.getId()), 2000)) {
+			if (!waitForUi(() -> !isUiWidgetVisible(copilotWidget.getId()), 2000)) {
 				Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
-				if (!sleepUntil(() -> !Rs2Widget.isWidgetVisible(copilotWidget.getId()), 1500)) {
+				if (!waitForUi(() -> !isUiWidgetVisible(copilotWidget.getId()), 1500)) {
 					// Fallback to mouse click if ENTER failed
-					if (Rs2Widget.isWidgetVisible(copilotWidget.getId())) {
+					if (isUiWidgetVisible(copilotWidget.getId())) {
 						Rs2Widget.clickWidget(copilotWidget);
-						sleepUntil(() -> !Rs2Widget.isWidgetVisible(copilotWidget.getId()), 1500);
+						waitForUi(() -> !isUiWidgetVisible(copilotWidget.getId()), 1500);
 					}
 				}
 			}
@@ -1133,19 +1213,19 @@ public class FlipperScript extends Script {
 
 		// If it's time to set price/quantity
 
-		Widget setPriceWidget = Rs2Widget.findWidget("Set a price for each item:", null, false);
-		Widget setQuantityWidget = Rs2Widget.findWidget("How many do you wish to ", null, false);
+		Widget setPriceWidget = findUiWidget("Set a price for each item:", null, false);
+		Widget setQuantityWidget = findUiWidget("How many do you wish to ", null, false);
 
-		boolean isPricePrompt = setPriceWidget != null && Rs2Widget.isWidgetVisible(setPriceWidget.getId());
-		boolean isQuantityPrompt = setQuantityWidget != null && Rs2Widget.isWidgetVisible(setQuantityWidget.getId());
+		boolean isPricePrompt = setPriceWidget != null && isUiWidgetVisible(setPriceWidget.getId());
+		boolean isQuantityPrompt = setQuantityWidget != null && isUiWidgetVisible(setQuantityWidget.getId());
 
         if (isPricePrompt || isQuantityPrompt) {
 			Widget promptWidget = isPricePrompt ? setPriceWidget : setQuantityWidget;
 			log.info("Found chat widget ({}) '{}'.", isPricePrompt ? "price" : "quantity", promptWidget.getId());
 
 			// 1. First attempt: Click Copilot's prompt button if visible, or press hotkey
-			Widget copilotButton = Rs2Widget.findWidget("to set to Copilot", null, false);
-			boolean copilotButtonVisible = copilotButton != null && Rs2Widget.isWidgetVisible(copilotButton.getId());
+			Widget copilotButton = findUiWidget("to set to Copilot", null, false);
+			boolean copilotButtonVisible = copilotButton != null && isUiWidgetVisible(copilotButton.getId());
 
 			// Parse the suggested value from button text if available (e.g. "Press [E] to set to Copilot price: 979 gp")
 			long valFromButton = -1;
@@ -1166,18 +1246,18 @@ public class FlipperScript extends Script {
 					log.info("Copilot prompt button not visible, falling back to hotkey [E].");
 					triggerCopilotQuickSet();
 				}
-				sleepUntil(this::hasChatboxInput, 1500);
+				waitForUi(this::hasChatboxInput, 1500);
 			} else {
 				// Hotkey mode: Strictly use hotkey [E] without mouse clicks
 				log.info("Selecting Copilot suggestion via hotkey [E].");
 				triggerCopilotQuickSet();
 
 				// If hotkey didn't populate within 600ms, set directly via Copilot offerHandler without mouse
-				if (!sleepUntil(this::hasChatboxInput, 600)) {
+				if (!waitForUi(this::hasChatboxInput, 600)) {
 					if (valFromButton > 0) {
-						log.info("Setting chatbox value ({}) directly from Copilot suggestion without mouse.", valFromButton);
+						log.info("Setting chatbox value directly from Copilot suggestion without mouse.");
 						setCopilotChatboxValueDirectly(valFromButton);
-						sleepUntil(this::hasChatboxInput, 600);
+						waitForUi(this::hasChatboxInput, 600);
 					}
 				}
 			}
@@ -1191,7 +1271,7 @@ public class FlipperScript extends Script {
 					Object currentSuggestion = getSuggestion(suggestionManager);
 					if (currentSuggestion != null) {
 						try {
-							int currentOfferItemId = Microbot.getClient().getVarpValue(1151);
+								int currentOfferItemId = readUi(() -> Microbot.getClient().getVarpValue(1151));
 							Method getItemIdMethod = currentSuggestion.getClass().getMethod("getItemId");
 							int suggestionItemId = (Integer) getItemIdMethod.invoke(currentSuggestion);
 							if (currentOfferItemId <= 0 || currentOfferItemId == suggestionItemId) {
@@ -1203,26 +1283,27 @@ public class FlipperScript extends Script {
 									val = (Integer) getQuantityMethod.invoke(currentSuggestion);
 								}
 							} else {
-								log.warn("Suggestion itemId ({}) does not match offer screen itemId ({})! Skipping suggestion value.",
-									suggestionItemId, currentOfferItemId);
+								log.warn("Suggestion item does not match the offer screen. Skipping suggestion value.");
 							}
-						} catch (Exception e) {
-							log.error("Failed to read suggestion value: {}", e.getMessage());
+							} catch (GeUiState.UiUnavailable unavailable) {
+                                throw unavailable;
+                            } catch (Exception e) {
+							log.error("Failed to read suggestion value: {}", e.getClass().getSimpleName());
 						}
 					}
 				}
 
 				if (val > 0) {
-					log.info("Setting {} value directly on client thread: {}", isPricePrompt ? "price" : "quantity", val);
+					log.info("Setting the suggested {} directly on client thread.", isPricePrompt ? "price" : "quantity");
 					setCopilotChatboxValueDirectly(val);
-					sleepUntil(this::hasChatboxInput, 800);
+					waitForUi(this::hasChatboxInput, 800);
 				}
 
 				// Fallback: If still not populated, type the value into chatbox
 				if (!hasChatboxInput() && val > 0) {
-					log.info("Typing {} value into chatbox: {}", isPricePrompt ? "price" : "quantity", val);
+					log.info("Entering the suggested {} into the active prompt.", isPricePrompt ? "price" : "quantity");
 					Rs2Keyboard.typeString(String.valueOf(val));
-					sleepUntil(this::hasChatboxInput, 1000);
+					waitForUi(this::hasChatboxInput, 1000);
 				}
 			}
 
@@ -1239,7 +1320,7 @@ public class FlipperScript extends Script {
 			// Submit the value
 			sleep(KEY_PRESS_DELAY_MIN, KEY_PRESS_DELAY_MAX);
 			Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
-			sleepUntil(() -> !Rs2Widget.isWidgetVisible(promptWidget.getId()), 2500);
+			waitForUi(() -> !isUiWidgetVisible(promptWidget.getId()), 2500);
 			offerScreenActionCount++;
 			lastActionTime = System.currentTimeMillis();
 			actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
@@ -1247,6 +1328,50 @@ public class FlipperScript extends Script {
         }
 
 		return false;
+    }
+
+    private boolean isGeWarningOpen() {
+        return readUi(() -> GeWarningDialog.isWarningVisible(
+            Microbot.getClient().getWidget(InterfaceID.GeOffers.POPUP)));
+    }
+
+    private Rectangle geWarningYesBounds() {
+        return readUi(() -> {
+            Widget button = GeWarningDialog.findYesButton(
+                Microbot.getClient().getWidget(InterfaceID.GeOffers.POPUP));
+            if (button == null) return null;
+            Rectangle bounds = button.getBounds();
+            return Rs2UiHelper.isRectangleWithinCanvas(bounds) ? new Rectangle(bounds) : null;
+        });
+    }
+
+    private GeWarningDialog.Result confirmGeWarning() {
+        GeWarningDialog.Result result = GeWarningDialog.confirm(new GeWarningDialog.Ui() {
+            public boolean warningVisible() { return isGeWarningOpen(); }
+            public Rectangle yesButtonBounds() { return geWarningYesBounds(); }
+            public boolean click(Rectangle bounds) {
+                if (Thread.currentThread().isInterrupted() || !FlipperScript.this.isRunning()
+                    || !bounds.equals(geWarningYesBounds())) return false;
+                // Inspect on ClientThread, but move/click and wait on the script worker.
+                Microbot.getMouse().click(bounds);
+                return true;
+            }
+            public boolean awaitDismissal() {
+                return waitForUi(() -> !isGeWarningOpen(), 1500);
+            }
+        });
+        if (result != GeWarningDialog.Result.NO_DIALOG) {
+            lastActionTime = System.currentTimeMillis();
+            actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
+            if (result == GeWarningDialog.Result.CONFIRMED) {
+                offerScreenActionCount++;
+                log.info("Grand Exchange warning confirmed; popup closed.");
+            } else if (result == GeWarningDialog.Result.CLICK_FAILED
+                || result == GeWarningDialog.Result.NOT_DISMISSED) {
+                log.warn("Grand Exchange warning confirmation did not complete. Will retry the popup.");
+            }
+        }
+        return result;
     }
 
     private boolean checkAndClickHighlightedWidgets()
@@ -1257,16 +1382,10 @@ public class FlipperScript extends Script {
 		if (flippingCopilot == null || highlightController == null) return false;
 
 		try {
-			if (Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure")) {
-				log.info("Price warning dialog detected ('Your offer is much' / 'Are you sure'). Clicking 'Yes' to confirm...");
-				Rs2Widget.clickWidget("Yes");
-				lastActionTime = currentTime;
-				actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
-				return true;
-			}
+			if (confirmGeWarning() != GeWarningDialog.Result.NO_DIALOG) return true;
 
 			HighlightTarget target = getTargetFromOverlay(highlightController, "");
-			if (target != null && target.getWidget() != null && Rs2Widget.isWidgetVisible(target.getWidget().getId())) {
+			if (target != null && target.getWidget() != null && isUiWidgetVisible(target.getWidget().getId())) {
 				Widget highlightedWidget = target.getWidget();
 				Rectangle clickBounds = target.getClickBounds();
 				log.info("Processing highlighted target: widgetId={}, clickBounds={}, relativeBounds={}",
@@ -1288,23 +1407,23 @@ public class FlipperScript extends Script {
 				}
 
 				// If GE close button is highlighted (container 30474242 or close button dynamic child)
-				if (highlightedWidget.getId() == 30474242 && Rs2GrandExchange.isOpen()) {
+				if (highlightedWidget.getId() == 30474242 && isExchangeOpen()) {
 					Rs2GrandExchange.closeExchange();
-					sleepUntil(() -> !Rs2GrandExchange.isOpen(), 2500);
+					waitForUi(() -> !isExchangeOpen(), 2500);
 					lastActionTime = currentTime;
 					actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 					return true;
 				}
 				// If Bank close button is highlighted (container 786434 or close button dynamic child)
-				if (highlightedWidget.getId() == 786434 && Rs2Bank.isOpen()) {
+				if (highlightedWidget.getId() == 786434 && isBankOpen()) {
 					Rs2Bank.closeBank();
-					sleepUntil(() -> !Rs2Bank.isOpen(), 2500);
+					waitForUi(() -> !isBankOpen(), 2500);
 					lastActionTime = currentTime;
 					actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 					return true;
 				}
 				// If GE is on offer screen and has "Too much money!" warning, back out immediately
-				if (isOfferScreenOpen() && Rs2Widget.hasWidget("Too much money")) {
+				if (readGeUi().tooMuchMoney) {
 					log.warn("Offer has 'Too much money!' error. Backing out to GE overview.");
 					backToOverview();
 					return true;
@@ -1328,11 +1447,12 @@ public class FlipperScript extends Script {
 				// If confirming an offer, dismiss any price warning dialog and wait for offer screen to close
 				if (isConfirm) {
 					log.info("Clicked Confirm button. Checking for warning dialog or waiting for offer screen to close...");
-					if (sleepUntil(() -> Rs2Widget.hasWidget("Your offer is much") || Rs2Widget.hasWidget("Are you sure"), 1200)) {
-						log.info("Warning dialog appeared ('Your offer is much' / 'Are you sure'). Confirming 'Yes'...");
-						Rs2Widget.clickWidget("Yes");
+					if (waitForUi(this::isGeWarningOpen, 1200)) {
+						GeWarningDialog.Result warning = confirmGeWarning();
+						if (warning != GeWarningDialog.Result.CONFIRMED
+							&& warning != GeWarningDialog.Result.NO_DIALOG) return true;
 					}
-					if (!sleepUntil(() -> !isOfferScreenOpen(), 4000)) {
+					if (!waitForUi(() -> !isOfferScreenOpen(), 4000)) {
 						log.warn("Offer screen did not close after confirm. Backing out to overview.");
 						backToOverview();
 						return false;
@@ -1343,9 +1463,12 @@ public class FlipperScript extends Script {
 				return true;
 			}
 		}
+		catch (GeUiState.UiUnavailable unavailable) {
+            throw unavailable;
+        }
 		catch (Exception e)
 		{
-			log.error("Could not process highlight widgets: {} - ", e.getMessage(), e);
+			log.error("Could not process highlight widgets: {} - ", e.getClass().getSimpleName());
 		}
 
 		return false;
@@ -1353,7 +1476,7 @@ public class FlipperScript extends Script {
 
 	private boolean checkAndInteractHighlightedNpc()
 	{
-		if (Rs2GrandExchange.isOpen() || Rs2Bank.isOpen()) return false;
+		if (isExchangeOpen() || isBankOpen()) return false;
 		long currentTime = System.currentTimeMillis();
 		if (currentTime - lastActionTime < actionCooldown) return false;
 		if (flippingCopilot == null || highlightController == null) return false;
@@ -1371,15 +1494,17 @@ public class FlipperScript extends Script {
 						String name = new Rs2NpcModel(npc).getName();
 						log.info("Found highlighted GE NPC: {}", name);
 						Rs2Npc.interact(npc, "Exchange");
-						sleepUntil(Rs2GrandExchange::isOpen, 3000);
+						waitForUi(this::isExchangeOpen, 3000);
 						lastActionTime = currentTime;
 						actionCooldown = Rs2Random.randomGaussian(DEFAULT_ACTION_COOLDOWN, ACTION_COOLDOWN_VARIANCE);
 						return true;
 					}
 				}
 			}
-		} catch (Exception e) {
-			log.error("Could not interact with highlighted NPC: {}", e.getMessage());
+		} catch (GeUiState.UiUnavailable unavailable) {
+            throw unavailable;
+        } catch (Exception e) {
+			log.error("Could not interact with highlighted NPC: {}", e.getClass().getSimpleName());
 		}
 		return false;
 	}

@@ -81,7 +81,7 @@ public interface FlipperConfig extends Config {
         "2.have gp in inventory or bank(1m+ starting is recommended)  \n" +
         "3.preferably start at the ge or have a tele close to the ge in your inventory  \n" +
         "~made by chocken   \n" +
-        "Extra tip: In game settings, disable grand exchange warnings for offers with the price too low/high, otherwise the script will get stuck.";
+        "GE Flipper confirms Grand Exchange price warning popups. Your Copilot, game, and Microbot settings stay under your control.";
     }
 
     @ConfigItem(

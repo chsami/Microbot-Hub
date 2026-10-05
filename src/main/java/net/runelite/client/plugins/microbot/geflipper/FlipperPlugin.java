@@ -3,6 +3,8 @@ package net.runelite.client.plugins.microbot.geflipper;
 import com.google.inject.Inject;
 import com.google.inject.Provides;
 import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -20,14 +22,14 @@ import java.awt.*;
         tags = {"flip", "ge", "grand", "exchange", "automation"},
         authors = {"Choken", "afss0"},
         version = FlipperPlugin.version,
-        minClientVersion = "2.1.32",
+        minClientVersion = "2.6.26",
         cardUrl = "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.6";
+    public static final String version = "1.2.63";
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FlipperPlugin.class);
     @Inject
     private Client client;
@@ -83,26 +85,13 @@ public class FlipperPlugin extends Plugin {
 
     @Override
     protected void startUp() throws AWTException{
-        migrateSlotActions();
         warnIfSlotSwapOff();
         applyOwnLogLevel();
-        if (overlayManager != null && overlay != null) {
-            overlayManager.add(overlay);
+        if (overlay != null) {
+            overlay.clearStats();
+            if (overlayManager != null) overlayManager.add(overlay);
         }
         flipperScript.run(config);
-    }
-
-    private void migrateSlotActions() {
-        // ConfigManager persists new defaults before startup, so testing the new key for null
-        // cannot distinguish an upgrade from an explicit choice. Migrate old choices once.
-        if (configManager == null || "true".equals(configManager.getConfiguration("Flipper Config", "slotActionMigrated"))) return;
-        String oldStyle = configManager.getConfiguration("Flipper Config", "slotActionStyle");
-        if (oldStyle != null) {
-            configManager.setConfiguration("Flipper Config", "slotActionMode",
-                "MENU_OPTION".equals(oldStyle) ? FlipperConfig.SlotAction.MENU_OPTION
-                    : FlipperConfig.SlotAction.COPILOT_LEFT_CLICK);
-        }
-        configManager.setConfiguration("Flipper Config", "slotActionMigrated", true);
     }
 
     /**
@@ -123,16 +112,25 @@ public class FlipperPlugin extends Plugin {
     public void onConfigChanged(ConfigChanged event) {
         if (!"Flipper Config".equals(event.getGroup())) return;
         if ("slotActionMode".equals(event.getKey())) {
-            configManager.setConfiguration("Flipper Config", "slotActionMigrated", true);
             warnIfSlotSwapOff();
         }
         if ("verboseLogging".equals(event.getKey())) applyOwnLogLevel();
+        if ("showOverlay".equals(event.getKey()) && overlay != null && !config.showOverlay()) overlay.clearStats();
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event) {
+        if (event.getGameState() != GameState.LOGGED_IN) {
+            if (overlay != null) overlay.clearStats();
+            if (flipperScript != null) flipperScript.clearCachedTradingState();
+        }
     }
 
     @Override
     protected void shutDown() {
-        if (overlayManager != null && overlay != null) {
-            overlayManager.remove(overlay);
+        if (overlay != null) {
+            overlay.clearStats();
+            if (overlayManager != null) overlayManager.remove(overlay);
         }
         flipperScript.state = State.GOING_TO_GE;
         flipperScript.shutdown();

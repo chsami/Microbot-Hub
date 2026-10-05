@@ -9,9 +9,9 @@ import net.runelite.client.ui.overlay.components.TitleComponent;
 
 import javax.inject.Inject;
 import javax.swing.JLabel;
+import javax.swing.SwingUtilities;
 import java.awt.*;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.Locale;
 
 public class FlipperOverlay extends OverlayPanel {
@@ -21,21 +21,9 @@ public class FlipperOverlay extends OverlayPanel {
 
     private final FlipperPlugin plugin;
     private final FlipperConfig config;
-
-    private Plugin flippingCopilot;
-    private Object flipManager;
-    private Object sessionManager;
-    private Object statsPanel;
-
-    private String overallProfitStr = "0 gp";
-    private Color overallProfitColor = Color.WHITE;
-    private String gpHrStr = "0 gp/hr";
-    private Color gpHrColor = Color.WHITE;
-    private String sessionProfitStr = "0 gp";
-    private Color sessionProfitColor = Color.WHITE;
-    private String sessionTimeStr = null;
-
-    private long lastFetchTime = 0;
+    private volatile DisplayStats displayStats = DisplayStats.empty();
+    private volatile long statsGeneration;
+    private volatile long lastFetchTime;
 
     @Inject
     public FlipperOverlay(FlipperPlugin plugin, FlipperConfig config) {
@@ -46,153 +34,78 @@ public class FlipperOverlay extends OverlayPanel {
         setNaughty();
     }
 
+    /** Forget financial display data and invalidate any queued Swing read. */
+    synchronized void clearStats() {
+        statsGeneration++;
+        displayStats = DisplayStats.empty();
+        lastFetchTime = 0;
+        panelComponent.getChildren().clear();
+    }
+
+    synchronized boolean publishStats(long generation, DisplayStats stats) {
+        if (generation != statsGeneration) return false;
+        displayStats = stats;
+        return true;
+    }
+
     private void updateCopilotStats() {
         long now = System.currentTimeMillis();
         if (now - lastFetchTime < 1000) return;
         lastFetchTime = now;
-
-        if (flippingCopilot == null) {
-            flippingCopilot = Microbot.getPluginManager()
-                .getPlugins()
-                .stream()
-                .filter(p -> p.getClass().getSimpleName().equalsIgnoreCase("FlippingCopilotPlugin"))
-                .findFirst()
-                .orElse(null);
-        }
-        if (flippingCopilot == null) {
-            overallProfitStr = "Copilot not found";
-            overallProfitColor = Color.GRAY;
-            gpHrStr = "-";
-            gpHrColor = Color.GRAY;
+        // Borrow the existing panel for one read; never retain Copilot's account/trade models.
+        Plugin copilot = Microbot.getPluginManager().getPlugins().stream()
+            .filter(p -> p.getClass().getSimpleName().equalsIgnoreCase("FlippingCopilotPlugin")
+                || p.getClass().getSimpleName().equalsIgnoreCase("FlipAssistPlugin"))
+            .findFirst().orElse(null);
+        if (copilot == null) {
+            displayStats = DisplayStats.empty();
             return;
         }
-
         try {
-            if (flipManager == null) {
-                Field fmField = flippingCopilot.getClass().getDeclaredField("flipManager");
-                fmField.setAccessible(true);
-                flipManager = fmField.get(flippingCopilot);
-            }
-            if (sessionManager == null) {
-                Field smField = flippingCopilot.getClass().getDeclaredField("sessionManager");
-                smField.setAccessible(true);
-                sessionManager = smField.get(flippingCopilot);
-            }
-            if (statsPanel == null) {
-                try {
-                    Field spField = flippingCopilot.getClass().getDeclaredField("statsPanel");
-                    spField.setAccessible(true);
-                    statsPanel = spField.get(flippingCopilot);
-                } catch (Exception ignored) {}
-            }
-        } catch (Exception ignored) {}
+            Field panelField = copilot.getClass().getDeclaredField("statsPanel");
+            panelField.setAccessible(true);
+            Object panel = panelField.get(copilot);
+            long generation = statsGeneration;
+            SwingUtilities.invokeLater(() -> {
+                if (generation != statsGeneration || !config.showOverlay() || !Microbot.isLoggedIn()) return;
+                publishStats(generation, DisplayStats.read(panel));
+            });
+        } catch (ReflectiveOperationException unavailable) {
+            displayStats = DisplayStats.empty();
+        }
+    }
 
-        long overallProfit = 0;
-        long sessionProfit = 0;
-        long gpHr = 0;
-        boolean gotOverall = false;
-        boolean gotSession = false;
+    static final class DisplayStats {
+        final String overall;
+        final String hourly;
+        final String time;
 
-        // 1. Query flipManager for exact overall & session profits
-        if (flipManager != null) {
+        DisplayStats(String overall, String hourly, String time) {
+            this.overall = overall;
+            this.hourly = hourly;
+            this.time = time;
+        }
+
+        static DisplayStats empty() { return new DisplayStats("-", "-", null); }
+
+        /** Read only the existing panel's formatted labels and selected scope, on EDT. */
+        static DisplayStats read(Object panel) {
+            if (panel == null) return empty();
+            return new DisplayStats(label(panel, "totalProfitVal"),
+                label(panel, "hourlyProfitVal"), label(panel, "sessionTimeVal"));
+        }
+
+        private static String label(Object panel, String name) {
             try {
-                // calculateStats(0, null) calculates all-time stats across all accounts
-                Method calculateStats = flipManager.getClass().getMethod("calculateStats", int.class, Integer.class);
-                Object overallStats = calculateStats.invoke(flipManager, 0, null);
-                if (overallStats != null) {
-                    Field profitField = overallStats.getClass().getField("profit");
-                    overallProfit = profitField.getLong(overallStats);
-                    gotOverall = true;
-                }
-
-                // getIntervalStats() gets current interval / session stats
-                Method getIntervalStats = flipManager.getClass().getMethod("getIntervalStats");
-                Object intervalStats = getIntervalStats.invoke(flipManager);
-                if (intervalStats != null) {
-                    Field profitField = intervalStats.getClass().getField("profit");
-                    sessionProfit = profitField.getLong(intervalStats);
-                    gotSession = true;
-                }
-            } catch (Exception ignored) {}
-        }
-
-        // 2. Query sessionManager for runtime & compute gp/hr
-        if (sessionManager != null) {
-            try {
-                Method getCachedSessionData = sessionManager.getClass().getMethod("getCachedSessionData");
-                Object sessionData = getCachedSessionData.invoke(sessionManager);
-                if (sessionData != null) {
-                    Field durationField = sessionData.getClass().getField("durationMillis");
-                    long durationMillis = durationField.getLong(sessionData);
-                    if (durationMillis > 0) {
-                        double hours = durationMillis / 3600000.0;
-                        if (hours > 0) {
-                            gpHr = (long) (sessionProfit / hours);
-                        }
-                        long totalSeconds = durationMillis / 1000;
-                        long h = totalSeconds / 3600;
-                        long m = (totalSeconds % 3600) / 60;
-                        long s = totalSeconds % 60;
-                        sessionTimeStr = String.format("%02d:%02d:%02d", h, m, s);
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
-
-        // 3. Check statsPanel UI labels if available to supplement
-        if (statsPanel != null) {
-            try {
-                // If hourlyProfitVal label has Copilot's formatted text
-                Field hourlyField = statsPanel.getClass().getDeclaredField("hourlyProfitVal");
-                hourlyField.setAccessible(true);
-                Object hourlyObj = hourlyField.get(statsPanel);
-                if (hourlyObj instanceof JLabel) {
-                    String text = ((JLabel) hourlyObj).getText();
-                    if (text != null && !text.trim().isEmpty() && !text.equals("0 gp/hr") && gpHr == 0) {
-                        gpHrStr = text;
-                        gpHrColor = getColorForText(text);
-                    }
-                }
-
-                // If overall wasn't found from flipManager, read totalProfitVal
-                if (!gotOverall) {
-                    Field totalField = statsPanel.getClass().getDeclaredField("totalProfitVal");
-                    totalField.setAccessible(true);
-                    Object totalObj = totalField.get(statsPanel);
-                    if (totalObj instanceof JLabel) {
-                        String text = ((JLabel) totalObj).getText();
-                        if (text != null && !text.trim().isEmpty()) {
-                            overallProfitStr = text;
-                            overallProfitColor = getColorForText(text);
-                            gotOverall = true;
-                        }
-                    }
-                }
-
-                // Session time label
-                Field timeField = statsPanel.getClass().getDeclaredField("sessionTimeVal");
-                timeField.setAccessible(true);
-                Object timeObj = timeField.get(statsPanel);
-                if (timeObj instanceof JLabel) {
-                    String text = ((JLabel) timeObj).getText();
-                    if (text != null && !text.trim().isEmpty() && !text.equals("00:00:00")) {
-                        sessionTimeStr = text;
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
-
-        if (gotOverall) {
-            overallProfitStr = formatProfit(overallProfit);
-            overallProfitColor = overallProfit > 0 ? POSITIVE_COLOR : (overallProfit < 0 ? NEGATIVE_COLOR : Color.WHITE);
-        }
-        if (gotSession) {
-            sessionProfitStr = formatProfit(sessionProfit);
-            sessionProfitColor = sessionProfit > 0 ? POSITIVE_COLOR : (sessionProfit < 0 ? NEGATIVE_COLOR : Color.WHITE);
-        }
-        if (gpHr != 0 || !gpHrStr.contains("gp/hr")) {
-            gpHrStr = formatGpHr(gpHr);
-            gpHrColor = gpHr > 0 ? POSITIVE_COLOR : (gpHr < 0 ? NEGATIVE_COLOR : Color.WHITE);
+                Field field = panel.getClass().getDeclaredField(name);
+                field.setAccessible(true);
+                Object value = field.get(panel);
+                if (!(value instanceof JLabel)) return "-";
+                String text = ((JLabel) value).getText();
+                return text == null || text.trim().isEmpty() ? "-" : text;
+            } catch (ReflectiveOperationException unavailable) {
+                return "-";
+            }
         }
     }
 
@@ -225,6 +138,7 @@ public class FlipperOverlay extends OverlayPanel {
     }
 
     private static Color getColorForText(String text) {
+        if ("-".equals(text)) return Color.LIGHT_GRAY;
         if (text.startsWith("+") || (!text.startsWith("-") && !text.startsWith("0"))) {
             return POSITIVE_COLOR;
         } else if (text.startsWith("-")) {
@@ -235,51 +149,29 @@ public class FlipperOverlay extends OverlayPanel {
 
     @Override
     public Dimension render(Graphics2D graphics) {
-        if (config != null && !config.showOverlay()) return null;
-        if (!Microbot.isLoggedIn()) return null;
-
+        if (config != null && !config.showOverlay() || !Microbot.isLoggedIn()) {
+            clearStats();
+            return null;
+        }
         updateCopilotStats();
-
+        DisplayStats stats = displayStats;
         panelComponent.getChildren().clear();
         panelComponent.setPreferredSize(new Dimension(200, 0));
-
         panelComponent.getChildren().add(TitleComponent.builder()
-                .text("Microbot Flipper v" + FlipperPlugin.version)
-                .color(TITLE_COLOR)
-                .build());
-
-        panelComponent.getChildren().add(LineComponent.builder()
-                .left("GP/hr:")
-                .right(gpHrStr)
-                .rightColor(gpHrColor)
-                .build());
-
-        panelComponent.getChildren().add(LineComponent.builder()
-                .left("Overall Profit:")
-                .right(overallProfitStr)
-                .rightColor(overallProfitColor)
-                .build());
-
-        panelComponent.getChildren().add(LineComponent.builder()
-                .left("Session Profit:")
-                .right(sessionProfitStr)
-                .rightColor(sessionProfitColor)
-                .build());
-
-        if (sessionTimeStr != null && !sessionTimeStr.isEmpty()) {
-            panelComponent.getChildren().add(LineComponent.builder()
-                    .left("Session Time:")
-                    .right(sessionTimeStr)
-                    .rightColor(Color.LIGHT_GRAY)
-                    .build());
+            .text("Microbot Flipper v" + FlipperPlugin.version).color(TITLE_COLOR).build());
+        panelComponent.getChildren().add(LineComponent.builder().left("GP/hr:")
+            .right(stats.hourly).rightColor(getColorForText(stats.hourly)).build());
+        panelComponent.getChildren().add(LineComponent.builder().left("Copilot Profit:")
+            .right(stats.overall).rightColor(getColorForText(stats.overall)).build());
+        if (stats.time != null && !"-".equals(stats.time)) {
+            panelComponent.getChildren().add(LineComponent.builder().left("Session Time:")
+                .right(stats.time).rightColor(Color.LIGHT_GRAY).build());
         }
-
         String slotStatus = plugin.getFlipperScript() == null ? "" : plugin.getFlipperScript().getSlotActionStatus();
         if (!slotStatus.isEmpty()) {
             panelComponent.getChildren().add(LineComponent.builder()
                 .left(slotStatus).leftColor(Color.ORANGE).build());
         }
-
         return super.render(graphics);
     }
 }
