@@ -195,8 +195,8 @@ public class AutoMiningScript extends Script {
                                 if (itemNames.isEmpty()) {
                                     Rs2Bank.depositAll();
                                 } else {
-                                    Rocks bankRock = activeRock;
-                                    Rs2Bank.depositAll(i -> MiningBankRule.shouldBank(i.getName(), bankRock, itemNames));
+                                    List<Rocks> bankRocks = config.progressiveMode() ? PROGRESSIVE_ROCKS : Arrays.asList(activeRock);
+                                    Rs2Bank.depositAll(i -> MiningBankRule.shouldBank(i.getName(), bankRocks, itemNames));
                                 }
 
                                 if (!Rs2Bank.closeBank())

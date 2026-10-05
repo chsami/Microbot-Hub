@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.mining;
 import net.runelite.client.plugins.microbot.mining.data.Rocks;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
@@ -21,7 +22,7 @@ final class MiningBankRule {
                 .collect(Collectors.toList());
     }
 
-    static boolean shouldBank(String itemName, Rocks rock, List<String> itemNames) {
+    static boolean shouldBank(String itemName, Collection<Rocks> rocks, List<String> itemNames) {
         if (itemName == null) {
             return false;
         }
@@ -29,7 +30,9 @@ final class MiningBankRule {
         if (itemNames.stream().anyMatch(name::contains)) {
             return true;
         }
-        if (rock != null && rock.getOreName() != null && name.equals(rock.getOreName().toLowerCase(Locale.ROOT))) {
+        boolean minedResource = rocks.stream()
+                .anyMatch(rock -> rock != null && rock.getOreName() != null && name.equals(rock.getOreName().toLowerCase(Locale.ROOT)));
+        if (minedResource) {
             return true;
         }
         return name.startsWith(UNCUT_GEM_PREFIX);
