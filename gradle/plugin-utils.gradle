@@ -182,9 +182,55 @@ ext {
         descriptor
     }
 
+    computePluginAddedDates = { File pluginsDir ->
+        def addedDates = [:]
+        try {
+            def shallow = ['git', 'rev-parse', '--is-shallow-repository'].execute(null, project.rootDir)
+            def shallowOut = new StringBuilder()
+            shallow.waitForProcessOutput(shallowOut, new StringBuilder())
+            if (shallow.exitValue() != 0 || shallowOut.toString().trim() == 'true') {
+                logger.warn("⚠️ Shallow or missing git history; omitting addedAt")
+                return addedDates
+            }
+
+            def relativeRoot = project.rootDir.toPath().relativize(pluginsDir.toPath()).toString().replace('\\', '/') + '/'
+            def log = ['git', 'log', '--first-parent', '--diff-merges=first-parent', '--format=@%ct', '--name-only', '--', relativeRoot]
+                    .execute(null, project.rootDir)
+            def output = new StringBuilder()
+            log.waitForProcessOutput(output, new StringBuilder())
+            if (log.exitValue() != 0) {
+                logger.warn("⚠️ git log failed; omitting addedAt")
+                return [:]
+            }
+
+            Long timestamp = null
+            output.toString().eachLine { line ->
+                if (line.startsWith('@')) {
+                    timestamp = line.substring(1) as Long
+                } else if (timestamp != null && line.startsWith(relativeRoot)) {
+                    def rest = line.substring(relativeRoot.length())
+                    def slash = rest.indexOf('/')
+                    if (slash > 0) {
+                        def dirName = rest.substring(0, slash)
+                        def existing = addedDates[dirName]
+                        if (existing == null || timestamp < existing) {
+                            addedDates[dirName] = timestamp
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("⚠️ Could not read git history for addedAt: ${e.message}")
+            return [:]
+        }
+
+        addedDates.collectEntries { name, seconds -> [(name): java.time.Instant.ofEpochSecond(seconds).toString()] }
+    }
+
     // Generate plugins JSON data
     generatePluginsJsonData = { allPlugins, jarOutputDir ->
         def plugins = []
+        def addedDates = project.ext.computePluginAddedDates(file(project.ext.getPluginsSourcePath()))
 
         allPlugins.each { plugin ->
             try {
@@ -203,6 +249,9 @@ ext {
                 parsed.iconUrl = descriptorInfo.iconUrl
                 parsed.cardUrl = descriptorInfo.cardUrl
                 parsed.disable = descriptorInfo.disable
+                if (addedDates[plugin.dir.name]) {
+                    parsed.addedAt = addedDates[plugin.dir.name]
+                }
 
                 // Add SHA256
                 def jarFile = new File(jarOutputDir, "${plugin.name}-${descriptorInfo.version}.jar")
