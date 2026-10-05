@@ -20,6 +20,7 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 
+import javax.swing.SwingUtilities;
 import java.awt.event.KeyEvent;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -41,7 +42,7 @@ public class ConstructionScript extends Script {
     private final ServantRestock restock = new ServantRestock();
     private int missingHotspotTicks = 0;
     private int houseReturnAttempts = 0;
-    private String statusMessage = "";
+    private volatile String statusMessage = "";
 
     // NOTE: For the arrays below, the first ID is the BUILD OBJECT ID, the second is the EMPTY OBJECT ID
     private static final List<Integer> OAK_DUNGEON_DOOR = List.of(13344, 15328);
@@ -158,9 +159,10 @@ public class ConstructionScript extends Script {
         int notedPlanks = Rs2Inventory.itemQuantity(plankId + 1);
         boolean needsPlanks = state == ConstructionState.Butler;
         Rs2NpcModel butler = getButler();
-        restock.observe(planks, butler != null, System.currentTimeMillis());
+        restock.observe(planks, butler != null, System.currentTimeMillis(), needsPlanks);
 
-        ServantRestock.Problem problem = restock.problem(servantKind(butler), notedPlanks, false, 0, needsPlanks);
+        ServantRestock.Servant servant = servantKind(butler);
+        ServantRestock.Problem problem = restock.problem(servant, notedPlanks, false, 0, needsPlanks);
         if (problem != ServantRestock.Problem.NONE) {
             stop(problem.getMessage());
             return;
@@ -176,7 +178,7 @@ public class ConstructionScript extends Script {
         }
 
         boolean butlerTalking = Rs2Dialogue.isInDialogue() || (butler != null && butler.isInteractingWithPlayer());
-        boolean wantsMore = notedPlanks > 0 && restock.canAttempt() && planks <= Rs2Random.between(0, 18);
+        boolean wantsMore = servant != ServantRestock.Servant.OTHER && notedPlanks > 0 && restock.canAttempt() && planks <= Rs2Random.between(0, 18);
         if (butlerTalking || needsPlanks || wantsMore) {
             statusMessage = "Restocking planks";
             butler(config, butler);
@@ -192,10 +194,10 @@ public class ConstructionScript extends Script {
     private void stop(String message) {
         state = ConstructionState.Stopped;
         statusMessage = message;
+        super.shutdown();
         Microbot.log(message);
         Microbot.getNotifier().notify(message);
-        Microbot.showMessage(message);
-        super.shutdown();
+        SwingUtilities.invokeLater(() -> Microbot.showMessage(message));
     }
 
     private void calculateState(net.runelite.client.plugins.microbot.construction.ConstructionConfig config) {

@@ -36,8 +36,13 @@ public class ServantRestock {
     private long sentAt;
     private int failedAttempts;
     private int lastPlankCount = -1;
+    private boolean needingPlanks;
 
-    public void observe(int plankCount, boolean servantVisible, long now) {
+    public void observe(int plankCount, boolean servantVisible, long now, boolean needsPlanks) {
+        if (needsPlanks && !needingPlanks) {
+            failedAttempts = 0;
+        }
+        needingPlanks = needsPlanks;
         if (lastPlankCount >= 0 && plankCount > lastPlankCount) {
             failedAttempts = 0;
             away = false;
@@ -91,6 +96,7 @@ public class ServantRestock {
         sentAt = 0;
         failedAttempts = 0;
         lastPlankCount = -1;
+        needingPlanks = false;
     }
 
     public boolean canAttempt() {
@@ -98,7 +104,7 @@ public class ServantRestock {
     }
 
     public Problem problem(Servant servant, int notedPlanks, boolean wageDue, int coins, boolean needsPlanks) {
-        if (servant == Servant.OTHER) {
+        if (servant == Servant.OTHER && needsPlanks) {
             return Problem.UNSUPPORTED_SERVANT;
         }
         if (wageDue && coins < SERVANT_WAGE) {

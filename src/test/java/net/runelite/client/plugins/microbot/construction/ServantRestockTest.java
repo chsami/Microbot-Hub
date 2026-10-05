@@ -26,17 +26,17 @@ class ServantRestockTest {
         long now = 0;
         int planks = 0;
         for (int cycle = 0; cycle < 10; cycle++) {
-            restock.observe(planks, true, now);
+            restock.observe(planks, true, now, true);
             restock.onSent(now);
             now += 600;
-            restock.observe(planks, false, now);
+            restock.observe(planks, false, now, true);
             assertTrue(restock.isAway());
             now += 600;
-            restock.observe(planks, true, now);
+            restock.observe(planks, true, now, true);
             assertTrue(restock.hasReturned(true, false));
             restock.onReturned();
             planks = 24;
-            restock.observe(planks, true, now);
+            restock.observe(planks, true, now, true);
             planks = 0;
             assertEquals(Problem.NONE, restock.problem(Servant.DEMON_BUTLER, 100, false, 50_000, true));
         }
@@ -47,19 +47,19 @@ class ServantRestockTest {
     void servantStillVisibleRightAfterSendingIsNotAReturn() {
         ServantRestock restock = new ServantRestock();
         restock.onSent(0);
-        restock.observe(0, true, 600);
+        restock.observe(0, true, 600, true);
         assertFalse(restock.hasReturned(true, true));
-        restock.observe(0, false, 1200);
+        restock.observe(0, false, 1200, true);
         assertTrue(restock.hasReturned(false, true));
     }
 
     @Test
     void planksDeliveredWithoutReturnDialogueEndWaiting() {
         ServantRestock restock = new ServantRestock();
-        restock.observe(2, true, 0);
+        restock.observe(2, true, 0, true);
         restock.onSent(0);
         restock.onFailedAttempt();
-        restock.observe(26, true, 3000);
+        restock.observe(26, true, 3000, true);
         assertFalse(restock.isAway());
         assertEquals(0, restock.getFailedAttempts());
     }
@@ -72,7 +72,7 @@ class ServantRestockTest {
             assertEquals(Problem.NONE, restock.problem(Servant.DEMON_BUTLER, 100, false, 50_000, true));
             restock.onSent(now);
             now += ServantRestock.RETURN_TIMEOUT_MS;
-            restock.observe(0, false, now);
+            restock.observe(0, false, now, true);
             assertFalse(restock.isAway());
         }
         assertEquals(Problem.SERVANT_UNRESPONSIVE, restock.problem(Servant.DEMON_BUTLER, 100, false, 50_000, true));
@@ -108,9 +108,33 @@ class ServantRestockTest {
     }
 
     @Test
-    void unsupportedServantStopsImmediately() {
+    void buildStateFailuresDoNotStopButlerStateBeforeItTries() {
         ServantRestock restock = new ServantRestock();
-        assertEquals(Problem.UNSUPPORTED_SERVANT, restock.problem(Servant.OTHER, 100, false, 50_000, false));
+        long now = 0;
+        restock.observe(20, true, now, false);
+        restock.onFailedAttempt();
+        restock.onSent(now);
+        now += ServantRestock.RETURN_TIMEOUT_MS;
+        restock.observe(10, false, now, false);
+        restock.onFailedAttempt();
+        assertFalse(restock.canAttempt());
+
+        restock.observe(4, true, now + 600, true);
+        assertTrue(restock.canAttempt());
+        assertEquals(Problem.NONE, restock.problem(Servant.DEMON_BUTLER, 100, false, 50_000, true));
+
+        for (int attempt = 0; attempt < ServantRestock.MAX_FAILED_ATTEMPTS; attempt++) {
+            restock.onFailedAttempt();
+            restock.observe(4, true, now + 1200 + attempt * 600L, true);
+        }
+        assertEquals(Problem.SERVANT_UNRESPONSIVE, restock.problem(Servant.DEMON_BUTLER, 100, false, 50_000, true));
+    }
+
+    @Test
+    void unsupportedServantStopsOnlyOncePlanksAreNeeded() {
+        ServantRestock restock = new ServantRestock();
+        assertEquals(Problem.NONE, restock.problem(Servant.OTHER, 100, false, 50_000, false));
+        assertEquals(Problem.UNSUPPORTED_SERVANT, restock.problem(Servant.OTHER, 100, false, 50_000, true));
     }
 
     @Test
