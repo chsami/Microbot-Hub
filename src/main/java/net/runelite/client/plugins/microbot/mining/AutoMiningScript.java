@@ -31,7 +31,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 enum State {
     MINING,
@@ -152,11 +151,7 @@ public class AutoMiningScript extends Script {
                         }
                         break;
                     case RESETTING:
-                        List<String> itemNames = Arrays.stream(config.itemsToBank().split(","))
-                                .map(String::trim)
-                                .map(String::toLowerCase)
-                                .filter(s -> !s.isEmpty())
-                                .collect(Collectors.toList());
+                        List<String> itemNames = MiningBankRule.parseItemNames(config.itemsToBank());
 
                         if (config.useBank()) {
                             if (config.clayBracelet() && config.ORE() == Rocks.CLAY) {
@@ -200,9 +195,8 @@ public class AutoMiningScript extends Script {
                                 if (itemNames.isEmpty()) {
                                     Rs2Bank.depositAll();
                                 } else {
-                                    Rs2Bank.depositAll(i ->
-                                            i.getName() != null &&
-                                                    itemNames.stream().anyMatch(item -> i.getName().toLowerCase().contains(item)));
+                                    Rocks bankRock = activeRock;
+                                    Rs2Bank.depositAll(i -> MiningBankRule.shouldBank(i.getName(), bankRock, itemNames));
                                 }
 
                                 if (!Rs2Bank.closeBank())
