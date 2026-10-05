@@ -2,6 +2,8 @@ package net.runelite.client.plugins.microbot.cooking.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import net.runelite.api.Quest;
+import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ObjectID;
@@ -104,6 +106,8 @@ public enum CookingLocation
 			case HOSIDIUS_CLAY_OVEN:
 				boolean hasKourendEasyDiary = Microbot.getVarbitValue(VarbitID.KOUREND_DIARY_EASY_COMPLETE) == 1;
 				return Rs2Player.isMember() && hasKourendEasyDiary;
+			case MYTHS_GUILD:
+				return Rs2Player.getQuestState(Quest.DRAGON_SLAYER_II) == QuestState.FINISHED;
 			default:
 				return true;
 		}
