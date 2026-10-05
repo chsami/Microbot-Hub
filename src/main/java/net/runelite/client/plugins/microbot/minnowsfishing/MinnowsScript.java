@@ -3,7 +3,6 @@ package net.runelite.client.plugins.microbot.minnowsfishing;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
 import net.runelite.api.GraphicID;
-import net.runelite.api.NPC;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
@@ -54,7 +53,7 @@ public class MinnowsScript extends Script {
                     Actor interacting = Rs2Player.getInteracting();
                     if (interacting != null && interacting.hasSpotAnim(FLYING_FISH_GRAPHIC_ID)) {
                         Microbot.status = "DODGING FLYING FISH";
-                        fishingspot = findFishingSpot(interacting instanceof NPC ? ((NPC) interacting).getIndex() : -1);
+                        fishingspot = findFishingSpot();
                         if (fishingspot != null) fishingspot.click("Small Net");
                         Rs2Antiban.actionCooldown();
                         return;
@@ -64,7 +63,7 @@ public class MinnowsScript extends Script {
                 }
 
                 Microbot.status = "INTERACTING";
-                fishingspot = findFishingSpot(-1);
+                fishingspot = findFishingSpot();
                 if (fishingspot != null) fishingspot.click("Small Net");
                 Rs2Antiban.actionCooldown();
                 Rs2Antiban.takeMicroBreakByChance();
@@ -77,10 +76,10 @@ public class MinnowsScript extends Script {
         return true;
     }
 
-    private Rs2NpcModel findFishingSpot(int excludedIndex) {
+    private Rs2NpcModel findFishingSpot() {
         return Microbot.getRs2NpcCache().query()
                 .withIds(MINNOW_SPOT_IDS)
-                .where(spot -> spot.getIndex() != excludedIndex && !spot.hasSpotAnim(FLYING_FISH_GRAPHIC_ID))
+                .where(spot -> !spot.hasSpotAnim(FLYING_FISH_GRAPHIC_ID))
                 .nearest();
     }
 
