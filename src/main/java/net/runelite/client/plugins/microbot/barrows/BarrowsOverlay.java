@@ -42,7 +42,7 @@ public class BarrowsOverlay extends OverlayPanel {
 
             panelComponent.getChildren().add(LineComponent.builder()
                     .left("Tunnel:")
-                    .right(BarrowsScript.WhoisTun.split(" ")[0])
+                    .right(BarrowsScript.WhoisTun != null ? BarrowsScript.WhoisTun.split(" ")[0] : "?")
                     .build());
 
             panelComponent.getChildren().add(LineComponent.builder()
@@ -50,13 +50,14 @@ public class BarrowsOverlay extends OverlayPanel {
                     .build());
 
             panelComponent.getChildren().add(LineComponent.builder()
-                    .left(BarrowsScript.barrowsPieces.toString())
+                    .left(BarrowsScript.barrowsPieces != null ? BarrowsScript.barrowsPieces.toString() : "[]")
                     .build());
 
 
 
         } catch(Exception ex) {
-            System.out.println(ex.getMessage());
+            System.out.println("BarrowsOverlay: " + ex.getClass().getSimpleName()
+                    + (ex.getMessage() != null ? ": " + ex.getMessage() : ""));
         }
         return super.render(graphics);
     }
