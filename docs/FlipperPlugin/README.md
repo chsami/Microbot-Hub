@@ -45,11 +45,16 @@ The **GE Flipper Plugin** is an automation tool for Old School RuneScape, design
 
 ## Configuration
 
-The plugin provides a configuration panel (`FlipperConfig`) where you can:
+Set item preferences and flipping strategies in Flipping Copilot. In GE Flipper:
 
-- Select items to flip
-- Set margin thresholds and flipping strategies
-- Adjust advanced options (delays, anti-patterns, etc.)
+- **Suggestion Selection:** use Hotkey (E) or Mouse to accept Copilot's price and quantity prompts.
+- **Copilot left-click swap:** directly below Suggestion Selection, choose **On** or **Off**. On uses Copilot's swapped left-click: enable slot swap in Copilot too. The mouse moves smoothly to the slot and waits for the suggested Modify/Abort action before clicking. Off selects the supported slot action directly. This controls GE Flipper without changing Copilot's own setting. Existing selections are preserved. If an action is unavailable, GE Flipper reports it instead of clicking View offer.
+- **Show Overlay:** display profit, runtime and actionable errors. The permanent Slot Swap row is not shown.
+- **Verbose Logging:** enable detailed GE Flipper logs without changing other plugins' logging.
+
+A successful Modify action opens the GE's modify setup, where GE Flipper accepts the suggested price and confirms it. It should not open View offer and repeatedly back out. If the required left-click action is unavailable, GE Flipper waits and shows the reason in its overlay.
+
+See [review validation](REVIEW_VALIDATION.md) for logging lifecycle and slot-action test coverage.
 
 ---
 
