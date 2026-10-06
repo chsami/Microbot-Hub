@@ -1,0 +1,34 @@
+// Bank Seller's main-based policy runners must execute during normal check/build.
+def bankSellerRunners = [
+        Batch: 'BankSellerBatchPolicyTest',
+        Item: 'BankSellerItemPolicyTest',
+        LoginReadiness: 'BankSellerLoginReadinessTest',
+        OfferSetup: 'BankSellerOfferSetupPolicyTest',
+        OriginalOffers: 'BankSellerOriginalOffersJournalTest',
+        Overlay: 'BankSellerOverlayTest',
+        Protection: 'BankSellerProtectionPolicyTest',
+        Recovery: 'BankSellerRecoveryPolicyTest',
+        Reprice: 'BankSellerRepricePolicyTest',
+        StartingUi: 'BankSellerStartingUiPolicyTest',
+        StartingWidgets: 'BankSellerStartingWidgetsTest'
+]
+
+def bankSellerRegressionTasks = bankSellerRunners.collect { label, runner ->
+    tasks.register("bankSeller${label}Regression", JavaExec) {
+        group = 'verification'
+        description = "Runs the Bank Seller ${label} regression checks"
+        dependsOn tasks.named('testClasses')
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = "net.runelite.client.plugins.microbot.bankseller.${runner}"
+        javaLauncher = javaToolchains.launcherFor(java.toolchain)
+        if (label == 'Overlay') {
+            systemProperty 'java.awt.headless', 'true'
+            systemProperty 'logback.configurationFile',
+                    'net/runelite/client/plugins/microbot/bankseller/logback-overlay-test.xml'
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn bankSellerRegressionTasks
+}

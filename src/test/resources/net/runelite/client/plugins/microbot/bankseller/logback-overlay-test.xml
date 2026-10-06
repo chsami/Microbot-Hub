@@ -1,0 +1,4 @@
+<configuration>
+    <!-- Headless tests must not initialize the live client's file logger. -->
+    <root level="OFF" />
+</configuration>

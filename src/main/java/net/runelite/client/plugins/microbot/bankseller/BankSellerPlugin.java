@@ -2,10 +2,14 @@ package net.runelite.client.plugins.microbot.bankseller;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.GameState;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 import java.awt.AWTException;
@@ -17,7 +21,7 @@ import net.runelite.client.plugins.microbot.PluginConstants;
         tags = {"bank", "ge", "seller"},
 		authors = {"KSP"},
 		version = BankSellerPlugin.version,
-		minClientVersion = "1.9.8",
+		minClientVersion = "2.6.25",
 		iconUrl = "https://chsami.github.io/Microbot-Hub/BankSellerPlugin/assets/bank.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/BankSellerPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -26,9 +30,7 @@ import net.runelite.client.plugins.microbot.PluginConstants;
 @Slf4j
 public class BankSellerPlugin extends Plugin {
 
-	static final String version = "1.0.5";
-    @Inject
-    private BankSellerConfig config;
+	static final String version = "1.0.6";
 
     @Provides
     BankSellerConfig provideConfig(ConfigManager configManager) {
@@ -38,14 +40,32 @@ public class BankSellerPlugin extends Plugin {
     @Inject
     private BankSellerScript bankSellerScript;
 
+    @Inject
+    private OverlayManager overlayManager;
+
+    @Inject
+    private BankSellerOverlay overlay;
+
     @Override
     protected void startUp() throws AWTException {
         Microbot.pauseAllScripts.compareAndSet(true, false);
+        overlayManager.add(overlay);
         bankSellerScript.run(this);
     }
 
     @Override
     protected void shutDown() {
-        bankSellerScript.shutdown();
+        try {
+            bankSellerScript.shutdown();
+        } finally {
+            overlayManager.remove(overlay);
+        }
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event) {
+        if (event.getGameState() != GameState.LOGGED_IN) {
+            bankSellerScript.resetStartingReadiness();
+        }
     }
 }
