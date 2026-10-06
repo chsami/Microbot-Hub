@@ -41,7 +41,7 @@ import java.util.regex.Matcher;
 )
 @Slf4j
 public class GotrPlugin extends Plugin {
-    public static final String version = "1.5.8";
+    public static final String version = "1.5.9";
 
     @Inject
     private GotrConfig config;
@@ -97,6 +97,15 @@ public class GotrPlugin extends Plugin {
         overlayManager.remove(pouchOverlay);
     }
 
+    static boolean endsSession(GameState gameState) {
+        return gameState == GameState.LOGIN_SCREEN || gameState == GameState.HOPPING;
+    }
+
+    static boolean isRoundEndMessage(String msg) {
+        String lower = msg.toLowerCase();
+        return lower.contains("closed the rift!") || lower.contains("the great guardian was defeated!");
+    }
+
     @Subscribe
     public void onGameStateChanged(GameStateChanged event) {
         if (event.getGameState() == GameState.LOADING) {
@@ -104,11 +113,12 @@ public class GotrPlugin extends Plugin {
         } else if (event.getGameState() == GameState.LOGGED_IN) {
             log.info("GameState changed to LOGGED_IN - initializing GOTR tasks");
             // Initialize Pre/Post Schedule Requirements and Tasks when game information is available
-        } else if (event.getGameState() == GameState.LOGIN_SCREEN) {
+        } else if (endsSession(event.getGameState())) {
             GotrScript.isInMiniGame = false;
+            GotrScript.portalClock.reset();
 
             // Reset pre/post schedule tasks on logout for fresh initialization
-            log.info("GameState changed to LOGIN_SCREEN - resetting GOTR tasks");
+            log.info("GameState changed to {} (LOGIN_SCREEN/HOPPING) - resetting GOTR tasks", event.getGameState());
 
         }
     }
@@ -147,8 +157,7 @@ public class GotrPlugin extends Plugin {
                 BreakHandlerScript.setLockState(true);
             }
             GotrScript.nextGameStart = Optional.empty();
-            GotrScript.timeSincePortal = Optional.of(Instant.now());
-            GotrScript.isFirstPortal = true;
+            GotrScript.portalClock.roundStarted(Instant.now());
             GotrScript.state = GotrState.ENTER_GAME;
         } else if (msg.contains("The rift will become active in 30 seconds.")) {
             if (Microbot.isPluginEnabled(BreakHandlerPlugin.class)) {
@@ -165,7 +174,8 @@ public class GotrPlugin extends Plugin {
         } else if (msg.contains("The Portal Guardians will keep their rifts open for another 30 seconds.")) {
             GotrScript.shouldMineGuardianRemains = true;
             GotrScript.nextGameStart = Optional.of(Instant.now().plusSeconds(60));
-        } else if (msg.toLowerCase().contains("closed the rift!") || msg.toLowerCase().contains("The great guardian was defeated!")) {
+        } else if (isRoundEndMessage(msg)) {
+            GotrScript.portalClock.reset();
             if (Microbot.isPluginEnabled(BreakHandlerPlugin.class)) {
                 Global.sleep(Rs2Random.randomGaussian(2000, 300));
                 BreakHandlerScript.setLockState(false);
@@ -190,10 +200,7 @@ public class GotrPlugin extends Plugin {
 
         if (gameObject.getId() == GotrScript.portalId) {
             Microbot.getClient().setHintArrow(gameObject.getWorldLocation());
-            if (GotrScript.isFirstPortal) {
-                GotrScript.isFirstPortal = false;
-            }
-            GotrScript.timeSincePortal = Optional.of(Instant.now());
+            GotrScript.portalClock.portalSpawned(Instant.now());
         }
     }
 
@@ -206,7 +213,7 @@ public class GotrPlugin extends Plugin {
 
         if (gameObject.getId() == GotrScript.portalId) {
             Microbot.getClient().clearHintArrow();
-            GotrScript.timeSincePortal = Optional.of(Instant.now());
+            GotrScript.portalClock.portalDespawned(Instant.now());
         }
     }
 }

@@ -10,6 +10,7 @@ import net.runelite.api.Tile;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.GameState;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.api.Skill;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -83,6 +84,7 @@ public class ThievingScript extends Script {
 
     private static final int DOOR_CHECK_RADIUS = 10;
     private static final ActionTimer DOOR_TIMER = new ActionTimer();
+    static final Set<Integer> SELF_DROPPED_ITEM_IDS = Set.of(ItemID.JUG_EMPTY, ItemID.VIAL_EMPTY);
     private final long[] doorCloseTime = new long[3];
     private int doorCloseIndex = 0;
     private long lastAction = Long.MAX_VALUE;
@@ -264,6 +266,7 @@ ThievingNpcStrategy getActiveStrategy() {
                 .stream()
                 .filter(Rs2TileItemModel::isOwned)
                 .map(Rs2TileItemModel::getId)
+                .filter(id -> !SELF_DROPPED_ITEM_IDS.contains(id))
                 .distinct()
                 .map(id -> {
                     final long price = Microbot.getItemManager().getItemPrice(id);
@@ -486,12 +489,12 @@ ThievingNpcStrategy getActiveStrategy() {
             case EAT:
                 if (config.food() == ThievingFood.ANCIENT_BREW) {
                     drinkAncientBrew();
-                    Rs2Inventory.dropAll(true, "vial");
+                    Rs2Inventory.dropAll(invItem -> SELF_DROPPED_ITEM_IDS.contains(invItem.getId()));
                     sleepUntil(() -> Rs2Player.hasPrayerPoints(), 800);
                 } else {
                     final double hp = Rs2Player.getHealthPercentage();
                     Rs2Player.useFood();
-                    Rs2Inventory.dropAll(true, "jug");
+                    Rs2Inventory.dropAll(invItem -> SELF_DROPPED_ITEM_IDS.contains(invItem.getId()));
                     sleepUntil(() -> Rs2Player.getHealthPercentage() > hp, 800);
                 }
                 return;

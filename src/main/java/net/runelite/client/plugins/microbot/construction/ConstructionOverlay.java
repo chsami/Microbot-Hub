@@ -33,6 +33,13 @@ public class ConstructionOverlay extends OverlayPanel {
                 .right(plugin.getState().toString())
                 .build());
 
+        String status = plugin.getStatusMessage();
+        if (status != null && !status.isEmpty()) {
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left(status)
+                    .build());
+        }
+
         return super.render(graphics);
     }
 }
