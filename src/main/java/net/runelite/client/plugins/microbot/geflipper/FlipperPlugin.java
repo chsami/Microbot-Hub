@@ -8,11 +8,17 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.PluginManager;
+import net.runelite.client.plugins.PluginInstantiationException;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.ui.MicrobotTopLevelConfigPanel;
 
 import net.runelite.client.ui.overlay.OverlayManager;
+import javax.inject.Provider;
+import javax.swing.SwingUtilities;
 
 import java.awt.*;
 
@@ -29,7 +35,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.63";
+    public static final String version = "1.2.70";
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FlipperPlugin.class);
     @Inject
     private Client client;
@@ -47,6 +53,12 @@ public class FlipperPlugin extends Plugin {
     private FlipperOverlay overlay;
     @Inject
     private ConfigManager configManager;
+    @Inject
+    private PluginManager pluginManager;
+    private long lifecycleGeneration;
+    @Inject
+    private Provider<MicrobotTopLevelConfigPanel> settingsPanelProvider;
+    private WaitingMouseSettings waitingMouseSettings;
 
     @Provides
     net.runelite.client.plugins.microbot.geflipper.FlipperConfig provideConfig(ConfigManager configManager) {
@@ -85,13 +97,44 @@ public class FlipperPlugin extends Plugin {
 
     @Override
     protected void startUp() throws AWTException{
+        lifecycleGeneration++;
         warnIfSlotSwapOff();
         applyOwnLogLevel();
+        if (settingsPanelProvider != null && configManager != null) {
+            waitingMouseSettings = new WaitingMouseSettings(this, config,
+                settingsPanelProvider.get().getWrappedPanel(),
+                value -> configManager.setConfiguration("Flipper Config", "waitingMouseChance", value),
+                this::requestFinish, () -> flipperScript != null && flipperScript.isRunning()
+                    && !flipperScript.isFinishing());
+            waitingMouseSettings.start();
+        }
         if (overlay != null) {
             overlay.clearStats();
             if (overlayManager != null) overlayManager.add(overlay);
         }
         flipperScript.run(config);
+        refreshWaitingMouseSettings();
+    }
+
+    private void requestFinish() {
+        if (flipperScript == null || !flipperScript.isRunning()) return;
+        long generation = lifecycleGeneration;
+        flipperScript.requestFinish(() -> stopAfterFinish(generation));
+    }
+
+    void stopAfterFinish(long generation) {
+        SwingUtilities.invokeLater(() -> {
+            if (generation != lifecycleGeneration || flipperScript == null
+                || !flipperScript.isFinishComplete() || !flipperScript.isRunning()
+                || pluginManager == null || !pluginManager.isPluginActive(this)) return;
+            try {
+                // This explicit Finish request disables only this plugin.
+                pluginManager.setPluginEnabled(this, false);
+                pluginManager.stopPlugin(this);
+            } catch (PluginInstantiationException failure) {
+                log.error("Finish completed, but GE Flipper could not be disabled. Turn it off manually.");
+            }
+        });
     }
 
     /**
@@ -115,7 +158,27 @@ public class FlipperPlugin extends Plugin {
             warnIfSlotSwapOff();
         }
         if ("verboseLogging".equals(event.getKey())) applyOwnLogLevel();
+        if (event.getKey().startsWith("waitingMouse")) {
+            if (flipperScript != null) flipperScript.resetWaitingMouse();
+            refreshWaitingMouseSettings();
+        }
         if ("showOverlay".equals(event.getKey()) && overlay != null && !config.showOverlay()) overlay.clearStats();
+    }
+
+    @Subscribe
+    public void onProfileChanged(ProfileChanged event) {
+        if (flipperScript != null) {
+            flipperScript.resetWaitingMouse();
+            flipperScript.pauseFinishForProfileChange();
+        }
+        refreshWaitingMouseSettings();
+    }
+
+    private void refreshWaitingMouseSettings() {
+        WaitingMouseSettings panel = waitingMouseSettings;
+        if (panel != null) SwingUtilities.invokeLater(() -> {
+            if (waitingMouseSettings == panel) panel.refresh();
+        });
     }
 
     @Subscribe
@@ -128,11 +191,14 @@ public class FlipperPlugin extends Plugin {
 
     @Override
     protected void shutDown() {
+        lifecycleGeneration++;
+        flipperScript.shutdown();
+        flipperScript.state = State.GOING_TO_GE;
+        if (waitingMouseSettings != null) waitingMouseSettings.close();
+        waitingMouseSettings = null;
         if (overlay != null) {
             overlay.clearStats();
             if (overlayManager != null) overlayManager.remove(overlay);
         }
-        flipperScript.state = State.GOING_TO_GE;
-        flipperScript.shutdown();
     }
 }

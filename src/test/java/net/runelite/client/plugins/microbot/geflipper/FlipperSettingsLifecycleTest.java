@@ -63,8 +63,12 @@ public class FlipperSettingsLifecycleTest {
             preferences.put("flippingcopilot.slotActionSwap", "false");
             preferences.put("microbot.enableAutoRunOn", "false");
             preferences.put("microbot.useStaminaPotsIfNeeded", "false");
+            preferences.put("Flipper Config.waitingMouseOffScreen", "true");
+            preferences.put("Flipper Config.waitingMouseChance", "77");
             Map<String, String> expected = new HashMap<>(preferences);
-            FlipperConfig config = new FlipperConfig() {};
+            FlipperConfig config = new FlipperConfig() {
+                @Override public boolean waitingMouseOffScreen() { return true; }
+            };
             FlipperOverlay overlay = new FlipperOverlay(plugin, config);
             field(FlipperPlugin.class, "config").set(plugin, config);
             field(FlipperPlugin.class, "configManager").set(plugin, manager);
@@ -83,7 +87,7 @@ public class FlipperSettingsLifecycleTest {
             assertEmpty(overlay);
             ScheduledFuture<?> main = (ScheduledFuture<?>) field(Script.class, "mainScheduledFuture").get(script);
             assertFalse(main.isCancelled());
-            for (String key : new String[]{"slotActionMode", "verboseLogging"}) {
+            for (String key : new String[]{"slotActionMode", "verboseLogging", "waitingMouseOffScreen", "waitingMouseChance"}) {
                 ConfigChanged changed = new ConfigChanged();
                 changed.setGroup("Flipper Config");
                 changed.setKey(key);

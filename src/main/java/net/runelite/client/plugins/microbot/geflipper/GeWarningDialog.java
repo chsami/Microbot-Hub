@@ -34,6 +34,18 @@ final class GeWarningDialog {
         return visiblePopupWidgets(popup).stream().anyMatch(GeWarningDialog::isWarningText);
     }
 
+    /** GE keeps an empty visible popup scaffold even when no dialog is open. */
+    static boolean hasVisibleContent(Widget popup) {
+        for (Widget widget : visiblePopupWidgets(popup)) {
+            if (!clean(widget.getText()).isEmpty()) return true;
+            String[] actions = widget.getActions();
+            if (actions != null) {
+                for (String action : actions) if (!clean(action).isEmpty()) return true;
+            }
+        }
+        return false;
+    }
+
     /** Resolves the live control without depending on the popup's dynamic child indices. */
     static Widget findYesButton(Widget popup) {
         List<Widget> widgets = visiblePopupWidgets(popup);

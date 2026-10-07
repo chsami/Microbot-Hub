@@ -12,6 +12,30 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Regression coverage for chat text stealing the normal Copilot highlight path. */
 public class GeWarningDialogTest {
     @Test
+    public void visibleEmptyPopupScaffoldDoesNotBlockIdleMovement() {
+        Node scaffold = new Node(InterfaceID.GeOffers.POPUP, "");
+        assertFalse(GeWarningDialog.hasVisibleContent(scaffold.widget));
+        scaffold.actions = new String[]{null, " ", "<br>"};
+        assertFalse(GeWarningDialog.hasVisibleContent(scaffold.widget));
+    }
+
+    @Test
+    public void realPopupTextBlocksMovementBeforeAButtonIsReady() {
+        assertTrue(GeWarningDialog.hasVisibleContent(popup("Your offer is much too high").widget));
+        assertTrue(GeWarningDialog.hasVisibleContent(popup("A different GE message").widget));
+    }
+
+    @Test
+    public void interactivePopupContentBlocksMovementEvenWithoutText() {
+        Node button = new Node(InterfaceID.GeOffers.POPUP, "");
+        button.actions = new String[]{"Continue"};
+        Node scaffold = popup("", button);
+        assertTrue(GeWarningDialog.hasVisibleContent(scaffold.widget));
+        button.hidden = true;
+        assertFalse(GeWarningDialog.hasVisibleContent(scaffold.widget));
+    }
+
+    @Test
     public void publicChatAndTheOldDiagnosticCannotBecomeAGeWarning() {
         for (String text : new String[]{"Are you sure", "Your offer is much too low",
             "Price warning dialog detected ('Your offer is much' / 'Are you sure'). Clicking 'Yes' to confirm..."}) {

@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.geflipper;
 
 import com.google.inject.Inject;
 import net.runelite.api.MenuAction;
+import net.runelite.api.InventoryID;
 import net.runelite.api.NPC;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
@@ -14,8 +15,10 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.agentserver.handler.ScriptHeartbeatRegistry;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.SessionFatigue;
 import net.runelite.client.plugins.microbot.util.input.InputArbiter;
+import net.runelite.client.plugins.microbot.util.input.PointerState;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.grandexchange.Rs2GrandExchange;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -75,6 +78,11 @@ public class FlipperScript extends Script {
 	private int offerScreenActionCount = 0;
 	private long geClosedSince = 0;
 	private long strayPageSince = 0;
+    private final WaitingMouse waitingMouse = new WaitingMouse();
+    private final FinishSession finishSession = new FinishSession();
+    private volatile Runnable finishCallback;
+    private volatile boolean finishComplete;
+    private volatile long completedFinishGeneration;
 
 	private int[] grandExchangeSlotIds = new int[] {
 		InterfaceID.GeOffers.INDEX_0,
@@ -108,6 +116,7 @@ public class FlipperScript extends Script {
 	}
 
     public boolean run() {
+        resetWaitingMouse();
         if (!LIVE_FUTURES.isEmpty()) {
             // Only one instance may ever run. Microbot restarts this script on break cycles and
             // local reloads; tracking only the newest future left the older ones running, which
@@ -121,7 +130,11 @@ public class FlipperScript extends Script {
             }
             LIVE_FUTURES.clear();
         }
+        finishSession.close();
+        finishCallback = null;
+        finishComplete = false;
             mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
+            boolean waitingTick = false;
             try {
 				if (!canRunWithoutChangingSettings()) {
                     suspendForUnavailableUi();
@@ -135,6 +148,21 @@ public class FlipperScript extends Script {
 				}
 
                 GeUiState ui = readGeUi();
+                if (finishSession.isRequested()) {
+                    if (!finishSession.begin(flippingCopilot, copilotController(), suggestionManager)
+                        || !finishSession.readyForCancellation()) return;
+                    if (state == State.GOING_TO_GE && !ui.exchangeOpen && !ui.bankOpen) {
+                        WorldPoint location = readUi(() -> Microbot.getClient().getLocalPlayer() == null
+                            ? null : Rs2Player.getWorldLocation());
+                        if (location == null) return;
+                        if (!grandExchangeArea.contains(location)) {
+                            Rs2GrandExchange.walkToGrandExchange();
+                            return;
+                        }
+                    }
+                    state = State.MONITORING_COPILOT;
+                    if (processFinish(ui)) return;
+                }
                 switch (state) {
                     case GOING_TO_GE:
                         if (ui.exchangeOpen && Rs2Inventory.onlyContains(ItemID.COINS)) {
@@ -330,16 +358,194 @@ public class FlipperScript extends Script {
                             return;
                         }
 
+                        // Optional movement comes last, after every trading/recovery action.
+                        waitingTick = moveMouseWhileWaiting();
                         break;
                 }
             } catch (GeUiState.UiUnavailable unavailable) {
                 suspendForUnavailableUi();
             } catch (Exception ex) {
                 log.error("Error in FlipperScript: {} - ", ex.getClass().getSimpleName());
+            } finally {
+                if (!waitingTick) resetWaitingMouse();
             }
         }, 0, SCHEDULE_INTERVAL_MS, TimeUnit.MILLISECONDS);
         LIVE_FUTURES.add(mainScheduledFuture);
         return true;
+    }
+
+
+    /** Only the settings button requests this transient session; configuration events do not. */
+    boolean requestFinish(Runnable completed) {
+        if (!isRunning() || completed == null || !finishSession.request(false)) return false;
+        finishCallback = completed;
+        finishComplete = false;
+        blockedSlotActionKey = null;
+        slotActionStatus = "";
+        resetWaitingMouse();
+        return true;
+    }
+
+    boolean isFinishing() { return finishSession.isRequested(); }
+    boolean isFinishComplete() {
+        if (!finishComplete) return false;
+        if (completedFinishGeneration != finishSession.generation()
+            || !finishSession.healthyFreshWait(getSuggestion(suggestionManager))) {
+            // A declined EDT stop must let the worker verify readiness and queue another stop.
+            finishComplete = false;
+            return false;
+        }
+        return true;
+    }
+
+    void pauseFinishForProfileChange() {
+        if (!finishSession.isRequested()) return;
+        finishSession.pauseForProfileChange();
+        finishComplete = false;
+        clearCachedTradingState();
+    }
+
+    private Object copilotController() {
+        try {
+            Field field = flippingCopilot.getClass().getDeclaredField("suggestionController");
+            field.setAccessible(true);
+            return field.get(flippingCopilot);
+        } catch (ReflectiveOperationException | NullPointerException unavailable) {
+            return null;
+        }
+    }
+
+    private boolean finishPermitsTrade() {
+        return !finishSession.isRequested() || finishSession.canTrade(getSuggestion(suggestionManager));
+    }
+
+    private FinishOffers readFinishOffers() {
+        return readUi(() -> FinishOffers.capture(Microbot.getClient().getGrandExchangeOffers(),
+            Microbot.getClient().getItemContainer(InventoryID.INVENTORY)));
+    }
+
+    private boolean finishBuyStillActive(int slot) {
+        return readUi(() -> finishSession.isActive() && isRunning()
+            && finishSession.readyForCancellation()
+            && !Microbot.pauseAllScripts.get() && !InputArbiter.isHuman()
+            && Microbot.isLoggedIn() && readGeUi().overviewOpen
+            && FinishOffers.isActiveBuy(Microbot.getClient().getGrandExchangeOffers(), slot));
+    }
+
+    private void cancelFinishBuy(int slot) {
+        int id = grandExchangeSlotIds[slot];
+        // Finish cancels every buy. The verified explicit operation does not depend on Copilot's swap.
+        SlotActionExecutor.Result result = SlotActionExecutor.execute(FlipperConfig.SlotAction.MENU_OPTION,
+            SlotActionExecutor.Action.ABORT, id, new SlotActionExecutor.Ui() {
+                public boolean slotSwapEnabled() { return false; }
+                public net.runelite.api.Point actionPoint(int widgetId, SlotActionExecutor.Action action) {
+                    return finishBuyStillActive(slot) ? slotActionPoint(widgetId, action) : null;
+                }
+                public void hover(net.runelite.api.Point point) { }
+                public boolean awaitDefaultAction(int widgetId, SlotActionExecutor.Action action,
+                                                  net.runelite.api.Point point) { return false; }
+                public boolean clickDefaultAction(int widgetId, SlotActionExecutor.Action action,
+                                                  net.runelite.api.Point point) { return false; }
+                public boolean invokeAction(int widgetId, SlotActionExecutor.Action action,
+                                            net.runelite.api.Point point) {
+                    if (Thread.currentThread().isInterrupted() || !finishBuyStillActive(slot)
+                        || slotActionPoint(widgetId, action) == null) return false;
+                    Microbot.doInvoke(new NewMenuEntry().option(action.option).target("")
+                        .identifier(action.identifier).type(MenuAction.CC_OP).param0(2).param1(widgetId)
+                        .itemId(-1).forceLeftClick(false),
+                        new Rectangle(point.getX() - 1, point.getY() - 1, 2, 2));
+                    return true;
+                }
+            });
+        lastActionTime = System.currentTimeMillis();
+        actionCooldown = DEFAULT_ACTION_COOLDOWN;
+        if (result == SlotActionExecutor.Result.ACTED) {
+            slotActionStatus = "";
+            log.info("Finish: buy cancellation requested; waiting for the offer state to update.");
+        } else {
+            slotActionStatus("Finish: buy cancellation is unavailable. Check the GE overview or handle it manually.");
+        }
+    }
+
+    private Rectangle finishCollectBounds() {
+        return readUi(() -> {
+            if (!readGeUi().overviewOpen) return null;
+            return FinishCollect.bounds(Microbot.getClient().getWidget(InterfaceID.GeOffers.COLLECTALL),
+                Microbot.getClient().getCanvasWidth(), Microbot.getClient().getCanvasHeight());
+        });
+    }
+
+    private void collectFinishOffers() {
+        Rectangle bounds = finishCollectBounds();
+        FinishOffers offers = readFinishOffers();
+        if (bounds == null || offers == null || offers.emptyInventorySlots == 0) {
+            slotActionStatus("Finish: cannot collect into inventory. Make space or collect manually, then resume.");
+            return;
+        }
+        if (Thread.currentThread().isInterrupted() || !isRunning() || !finishSession.isActive()
+            || !finishSession.readyForCancellation()
+            || Microbot.pauseAllScripts.get() || InputArbiter.isHuman()
+            || !bounds.equals(finishCollectBounds())) return;
+        Microbot.doInvoke(new NewMenuEntry().option("Collect to inventory").target("")
+            .identifier(1).type(MenuAction.CC_OP).param0(0).param1((465 << 16) | 6)
+            .itemId(-1).forceLeftClick(false), bounds);
+        slotActionStatus = "";
+        lastActionTime = System.currentTimeMillis();
+        actionCooldown = DEFAULT_ACTION_COOLDOWN;
+    }
+
+    /** Returns true when Finish owns this tick; normal sell suggestions may otherwise proceed. */
+    private boolean processFinish(GeUiState ui) {
+        if (isFinishComplete()) return true;
+        finishComplete = false;
+        if (!finishSession.isActive()
+            && !finishSession.begin(flippingCopilot, copilotController(), suggestionManager)) return true;
+        FinishOffers offers = readFinishOffers();
+        Object suggestion = getSuggestion(suggestionManager);
+        boolean allowed = finishPermitsTrade();
+        boolean safeOverview = ui.overviewOpen && !ui.offerOpen && !ui.bankOpen
+            && readUi(() -> !Microbot.getClient().isMenuOpen() && Microbot.targetMenu == null
+                && Microbot.getClient().getVarcIntValue(5) == 0
+                && !GeWarningDialog.hasVisibleContent(Microbot.getClient().getWidget(InterfaceID.GeOffers.POPUP)));
+        FinishSession.CompletionSnapshot ready = new FinishSession.CompletionSnapshot(safeOverview,
+            offers != null && offers.buySlot < 0, offers != null && offers.noCollectables,
+            offers != null && offers.noUnlistedItems, offers != null && offers.noActiveSells,
+            finishSession.healthyFreshWait(suggestion));
+        if (finishSession.completionReady(ready, TimeUnit.NANOSECONDS.toMillis(System.nanoTime()))
+            && finishSession.healthyFreshWait(getSuggestion(suggestionManager))) {
+            completedFinishGeneration = finishSession.generation();
+            finishComplete = true;
+            log.info("Finish: items are listed and current sell suggestions are complete. Stopping GE Flipper.");
+            Runnable callback = finishCallback;
+            if (callback != null) callback.run();
+            return true;
+        }
+        if (offers == null) {
+            slotActionStatus("Finish: offer or inventory data is unavailable. Waiting for a verified state.");
+            return true;
+        }
+        if (!finishSession.readyForCancellation()) return true;
+        if (ui.offerOpen && (offers.buySlot >= 0 || !allowed)) {
+            Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
+            backToOverview();
+            return true;
+        }
+        if (safeOverview && offers.buySlot >= 0) {
+            if (System.currentTimeMillis() - lastActionTime >= actionCooldown) cancelFinishBuy(offers.buySlot);
+            return true;
+        }
+        if (safeOverview && !offers.noCollectables) {
+            if (System.currentTimeMillis() - lastActionTime >= actionCooldown) collectFinishOffers();
+            return true;
+        }
+        if (safeOverview && !offers.noUnlistedItems && finishSession.healthyFreshWait(suggestion)) {
+            slotActionStatus("Finish: Copilot is waiting while items remain. Check its item strategy or sell them manually.");
+            return true;
+        }
+        // Allow exchange/bank recovery, but never act on a stale BUY or MODIFY_BUY.
+        if ((safeOverview || ui.offerOpen) && !allowed) return true;
+        if (allowed) slotActionStatus = "";
+        return false;
     }
 
 	@Override
@@ -361,6 +567,12 @@ public class FlipperScript extends Script {
         }
 
         LIVE_FUTURES.clear();
+        finishSession.close();
+        if (!finishSession.status().isEmpty()) {
+            log.warn("Finish stopped: Copilot's temporary sell-only mode could not be restored. Check Copilot manually.");
+        }
+        finishCallback = null;
+        finishComplete = false;
         clearCachedTradingState();
 		lastActionTime = 0;
 		actionCooldown = DEFAULT_ACTION_COOLDOWN;
@@ -504,11 +716,13 @@ public class FlipperScript extends Script {
     }
 
     void suspendForUnavailableUi() {
+        resetWaitingMouse();
         geClosedSince = strayPageSince = offerScreenOpenTime = 0;
         offerScreenActionCount = 0;
     }
 
     void clearCachedTradingState() {
+        if (finishSession.isRequested()) finishSession.suspend();
         tradingGeneration++;
         flippingCopilot = null;
         suggestionManager = null;
@@ -516,6 +730,58 @@ public class FlipperScript extends Script {
         blockedSlotActionKey = null;
         slotActionStatus = "";
         suspendForUnavailableUi();
+    }
+
+    void resetWaitingMouse() {
+        waitingMouse.reset();
+    }
+
+    private boolean moveMouseWhileWaiting() {
+        return waitingMouse.tick(config != null && config.waitingMouseOffScreen(),
+            config == null ? 0 : config.waitingMouseChance(),
+            TimeUnit.NANOSECONDS.toMillis(System.nanoTime()), new WaitingMouse.Context() {
+                public boolean waiting() { return isSafeMouseWait(); }
+                public boolean insideCanvas() {
+                    return readUi(() -> WaitingMouse.insideCanvas(Microbot.getMouse().getMousePosition(),
+                        PointerState.isOutside(), Microbot.getClient().getCanvasWidth(),
+                        Microbot.getClient().getCanvasHeight()));
+                }
+                public void moveOffScreen() {
+                    // Use the shared primitive on this worker without changing global antiban state.
+                    Rs2Antiban.moveMouseOffScreen();
+                    if (!insideCanvas()) log.info("Waiting mouse: cursor is outside the game canvas.");
+                    else log.debug("Waiting mouse: off-screen movement requested; exit not yet observed.");
+                }
+            });
+    }
+
+    private boolean isSafeMouseWait() {
+        if (config == null || !config.waitingMouseOffScreen() || config.waitingMouseChance() <= 0
+            || state != State.MONITORING_COPILOT
+            || Thread.currentThread().isInterrupted() || Microbot.pauseAllScripts.get()
+            || InputArbiter.isHuman() || !Microbot.isLoggedIn() || Microbot.naturalMouse == null
+            || flippingCopilot == null || Microbot.getPluginManager() == null
+            || !Microbot.getPluginManager().isPluginActive(flippingCopilot)
+            || !Microbot.getPluginManager().isPluginEnabled(flippingCopilot)) return false;
+        return readUi(() -> {
+            if (!Microbot.isLoggedIn() || Microbot.pauseAllScripts.get() || InputArbiter.isHuman()
+                || !config.waitingMouseOffScreen() || config.waitingMouseChance() <= 0) return false;
+            GeUiState ui = readGeUi();
+            if (!ui.exchangeOpen || !ui.overviewOpen || ui.offerOpen || ui.bankOpen
+                || Microbot.getClient().isMenuOpen() || Microbot.targetMenu != null
+                || Microbot.getClient().getVarcIntValue(5) != 0
+                || GeWarningDialog.hasVisibleContent(Microbot.getClient().getWidget(InterfaceID.GeOffers.POPUP))
+                || blockedSlotActionKey != null || !slotActionStatus.isEmpty()) return false;
+            List<Object> highlights = getHighlightOverlays(highlightController);
+            if (highlights == null || !highlights.isEmpty()) return false;
+            try {
+                Field controller = flippingCopilot.getClass().getDeclaredField("suggestionController");
+                controller.setAccessible(true);
+                return WaitingMouse.copilotWaiting(suggestionManager, controller.get(flippingCopilot));
+            } catch (ReflectiveOperationException unavailable) {
+                return false;
+            }
+        });
     }
 
 	private void backToOverview() {
@@ -1006,7 +1272,8 @@ public class FlipperScript extends Script {
     }
 
     public String getSlotActionStatus() {
-        return slotActionStatus;
+        return !slotActionStatus.isEmpty() ? slotActionStatus
+            : finishSession.isRequested() ? finishSession.status() : "";
     }
 
     private void slotActionStatus(String message) {
@@ -1041,6 +1308,7 @@ public class FlipperScript extends Script {
     }
 
     private boolean sameSlotSuggestion(String key) {
+        if (!finishPermitsTrade()) return false;
         try {
             Object suggestion = getSuggestion(suggestionManager);
             return suggestion != null && key.equals(slotActionKey(suggestion));
@@ -1180,6 +1448,7 @@ public class FlipperScript extends Script {
     }
 
     private boolean checkAndPressCopilotKeybind() {
+        if (!finishPermitsTrade()) return false;
 		// 1. Search for a widget with text "Copilot item" (if it's time to select the item suggestion in the buy item window)
         Widget copilotWidget = findSuggestedItemWidget();
         if (copilotWidget != null && isUiWidgetVisible(copilotWidget.getId())) {
@@ -1318,6 +1587,7 @@ public class FlipperScript extends Script {
 			}
 
 			// Submit the value
+			if (!finishPermitsTrade()) return true;
 			sleep(KEY_PRESS_DELAY_MIN, KEY_PRESS_DELAY_MAX);
 			Rs2Keyboard.keyPress(KeyEvent.VK_ENTER);
 			waitForUi(() -> !isUiWidgetVisible(promptWidget.getId()), 2500);
@@ -1351,6 +1621,7 @@ public class FlipperScript extends Script {
             public Rectangle yesButtonBounds() { return geWarningYesBounds(); }
             public boolean click(Rectangle bounds) {
                 if (Thread.currentThread().isInterrupted() || !FlipperScript.this.isRunning()
+                    || !finishPermitsTrade()
                     || !bounds.equals(geWarningYesBounds())) return false;
                 // Inspect on ClientThread, but move/click and wait on the script worker.
                 Microbot.getMouse().click(bounds);
@@ -1376,6 +1647,7 @@ public class FlipperScript extends Script {
 
     private boolean checkAndClickHighlightedWidgets()
 	{
+		if (!finishPermitsTrade()) return false;
 		long currentTime = System.currentTimeMillis();
 		if (currentTime - lastActionTime < actionCooldown) return false;
 
@@ -1430,6 +1702,7 @@ public class FlipperScript extends Script {
 				}
 
 				boolean isConfirm = target.isConfirmTarget();
+				if (!finishPermitsTrade()) return true;
 
 				if (clickBounds != null && Rs2UiHelper.isRectangleWithinCanvas(clickBounds)) {
 					Microbot.getMouse().click(clickBounds);
