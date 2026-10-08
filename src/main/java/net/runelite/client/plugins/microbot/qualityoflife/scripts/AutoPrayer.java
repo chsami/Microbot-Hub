@@ -366,6 +366,9 @@ public class AutoPrayer extends Script {
 
     private void handleAntiPkPrayers(QoLConfig config) {
         Player local = Microbot.getClient().getLocalPlayer();
+        if (local == null) {
+            return;
+        }
         if (!(local.getInteracting() instanceof Player)) {
             // If we haven't been attacked for 10s, turn off prayers and stop following
             if (lastPrayedStyle != null && System.currentTimeMillis() - lastPkAttackTime > PRAYER_DISABLE_DELAY_MS) {
