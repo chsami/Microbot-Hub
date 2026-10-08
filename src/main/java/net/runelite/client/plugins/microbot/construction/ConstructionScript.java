@@ -1,6 +1,9 @@
 package net.runelite.client.plugins.microbot.construction;
 
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.NpcID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.construction.ConstructionConfig;
 import net.runelite.client.plugins.microbot.construction.enums.ConstructionState;
@@ -13,11 +16,11 @@ import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
-import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 
+import javax.swing.SwingUtilities;
 import java.awt.event.KeyEvent;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -25,8 +28,21 @@ import java.util.concurrent.TimeUnit;
 public class ConstructionScript extends Script {
 
     private static final int DEFAULT_DELAY = 600;
+    private static final int MISSING_HOTSPOT_TICKS = 3;
+    private static final int MAX_HOUSE_RETURN_ATTEMPTS = 2;
+    private static final String NO_HOTSPOT_MESSAGE = "Cannot find the build hotspot or the house portal. Start inside your house in build mode next to the hotspot.";
+    private static final int[] OTHER_SERVANT_IDS = {
+            NpcID.POH_SERVANT_DOGSBODY, NpcID.POH_SERVANT_MULTI_DOGSBODY,
+            NpcID.POH_SERVANT_WAITER_WOMAN, NpcID.POH_SERVANT_MULTI_WAITER_WOMAN,
+            NpcID.POH_SERVANT_COOK_WOMAN, NpcID.POH_SERVANT_MULTI_COOK_WOMAN,
+            NpcID.POH_SERVANT_MAITRE_D_MAN, NpcID.POH_SERVANT_MULTI_MAITRE_D_MAN
+    };
     private ConstructionState state = ConstructionState.Idle;
     private WorldPoint workingTile = null;
+    private final ServantRestock restock = new ServantRestock();
+    private int missingHotspotTicks = 0;
+    private int houseReturnAttempts = 0;
+    private volatile String statusMessage = "";
 
     // NOTE: For the arrays below, the first ID is the BUILD OBJECT ID, the second is the EMPTY OBJECT ID
     private static final List<Integer> OAK_DUNGEON_DOOR = List.of(13344, 15328);
@@ -41,6 +57,10 @@ public class ConstructionScript extends Script {
 
     public Rs2NpcModel getButler() {
         return Microbot.getRs2NpcCache().query().withName("Demon butler").nearestOnClientThread();
+    }
+
+    public Rs2NpcModel getOtherServant() {
+        return Microbot.getRs2NpcCache().query().withIds(OTHER_SERVANT_IDS).nearestOnClientThread();
     }
 
     public boolean hasDialogueOptionToUnnote() {
@@ -85,6 +105,7 @@ public class ConstructionScript extends Script {
 
     public boolean run(net.runelite.client.plugins.microbot.construction.ConstructionConfig config) {
         int actionDelay = config.useCustomDelay() ? config.actionDelay() : DEFAULT_DELAY;
+        resetRestock();
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -95,6 +116,7 @@ public class ConstructionScript extends Script {
                 switch (state) {
                     case Build:
                         grabPlanksWhileWeBuild(config, actionDelay);
+                        if (state == ConstructionState.Stopped) break;
                         buildSpace(config, actionDelay);
                         break;
                     case Remove:
@@ -103,11 +125,14 @@ public class ConstructionScript extends Script {
                     case Butler:
                         grabPlanksWhileWeBuild(config, actionDelay);
                         break;
+                    case ReturnToHouse:
+                        returnToTheHouse();
+                        break;
                     default:
                         break;
                 }
             } catch (Exception ex) {
-                System.out.println("Error in scheduled task: " + ex.getMessage());
+                Microbot.logStackTrace(this.getClass().getSimpleName(), ex);
             }
         }, 0, actionDelay, TimeUnit.MILLISECONDS);
         return true;
@@ -115,81 +140,129 @@ public class ConstructionScript extends Script {
 
     @Override
     public void shutdown() {
+        resetRestock();
+        state = ConstructionState.Idle;
         super.shutdown();
     }
 
+    private void resetRestock() {
+        restock.reset();
+        workingTile = null;
+        missingHotspotTicks = 0;
+        houseReturnAttempts = 0;
+        statusMessage = "";
+    }
+
     public void grabPlanksWhileWeBuild(net.runelite.client.plugins.microbot.construction.ConstructionConfig config, int actionDelay){
-        if(getButler() != null) {
-            sleepUntil(()-> getButler() != null && getButler().isInteractingWithPlayer(), Rs2Random.between(750,1500));
-            if(!getButler().isInteractingWithPlayer()){
-                if (Rs2Inventory.count(config.selectedMode().getPlankItemId()) <= Rs2Random.between(0, 18)) butler(config, actionDelay);
-            } else {
-                butler(config, actionDelay);
+        int plankId = config.selectedMode().getPlankItemId();
+        int planks = Rs2Inventory.count(plankId);
+        int notedPlanks = Rs2Inventory.itemQuantity(plankId + 1);
+        boolean needsPlanks = state == ConstructionState.Butler;
+        Rs2NpcModel butler = getButler();
+        restock.observe(planks, butler != null, System.currentTimeMillis(), needsPlanks);
+
+        ServantRestock.Servant servant = servantKind(butler);
+        ServantRestock.Problem problem = restock.problem(servant, notedPlanks, false, 0, needsPlanks);
+        if (problem != ServantRestock.Problem.NONE) {
+            stop(problem.getMessage());
+            return;
+        }
+
+        if (restock.isAway()) {
+            statusMessage = "Waiting for the demon butler";
+            if (restock.hasReturned(butler != null, Rs2Dialogue.isInDialogue())) {
+                restock.onReturned();
+                butler(config, butler);
             }
+            return;
+        }
+
+        boolean butlerTalking = Rs2Dialogue.isInDialogue() || (butler != null && butler.isInteractingWithPlayer());
+        boolean wantsMore = servant != ServantRestock.Servant.OTHER && notedPlanks > 0 && restock.canAttempt() && planks <= Rs2Random.between(0, 18);
+        if (butlerTalking || needsPlanks || wantsMore) {
+            statusMessage = "Restocking planks";
+            butler(config, butler);
         }
     }
 
+    private ServantRestock.Servant servantKind(Rs2NpcModel butler) {
+        if (butler != null) return ServantRestock.Servant.DEMON_BUTLER;
+        if (getOtherServant() != null) return ServantRestock.Servant.OTHER;
+        return ServantRestock.Servant.NONE;
+    }
+
+    private void stop(String message) {
+        state = ConstructionState.Stopped;
+        statusMessage = message;
+        super.shutdown();
+        Microbot.log(message);
+        Microbot.getNotifier().notify(message);
+        SwingUtilities.invokeLater(() -> Microbot.showMessage(message));
+    }
+
     private void calculateState(net.runelite.client.plugins.microbot.construction.ConstructionConfig config) {
-        boolean hasRequiredPlanks;
-        Rs2NpcModel butler = getButler();
-        List<Integer> objectIDs = List.of(0);
+        List<Integer> objectIDs;
+        int requiredPlanks;
         switch (config.selectedMode()) {
             case OAK_DUNGEON_DOOR:
                 objectIDs = OAK_DUNGEON_DOOR;
-                hasRequiredPlanks =  Rs2Inventory.hasItemAmount(config.selectedMode().getPlankItemId(), 10);
+                requiredPlanks = 10;
                 break;
             case OAK_LARDER:
                 objectIDs = OAK_LARDER;
-                hasRequiredPlanks =  Rs2Inventory.hasItemAmount(config.selectedMode().getPlankItemId(), 8);
+                requiredPlanks = 8;
                 break;
             case MAHOGANY_TABLE:
                 objectIDs = MAHOGANY_TABLE;
-                hasRequiredPlanks =  Rs2Inventory.hasItemAmount(config.selectedMode().getPlankItemId(), 6);
+                requiredPlanks = 6;
                 break;
             default:
                 return;
         }
+        boolean hasRequiredPlanks = Rs2Inventory.hasItemAmount(config.selectedMode().getPlankItemId(), requiredPlanks);
 
-        if (workingTile == null) {
-            workingTile = getClosestTile(objectIDs).getWorldLocation();
-        }
-
-        Rs2TileObjectModel objOnWorkingTile = Microbot.getRs2TileObjectCache().query()
-                .where(o -> o.getWorldLocation().equals(workingTile))
-                .nearest();
+        Rs2TileObjectModel objOnWorkingTile = getObjectOnWorkingTile();
         if (objOnWorkingTile == null || !objectIDs.contains(objOnWorkingTile.getId())) {
-            workingTile = getClosestTile(objectIDs).getWorldLocation();
-            objOnWorkingTile = Microbot.getRs2TileObjectCache().query()
-                    .where(o -> o.getWorldLocation().equals(workingTile))
-                    .nearest();
+            Rs2TileObjectModel closest = getClosestTile(objectIDs);
+            workingTile = closest != null ? closest.getWorldLocation() : null;
+            objOnWorkingTile = closest;
         }
 
-        if (objOnWorkingTile.getId() == objectIDs.get(0)) {
-            state = ConstructionState.Remove;
-        } else if (objOnWorkingTile.getId() == objectIDs.get(1) && hasRequiredPlanks) {
-            state = ConstructionState.Build;
-        } else if (objOnWorkingTile.getId() == objectIDs.get(1) && butler != null) {
-            state = ConstructionState.Butler;
-        } else if (!objectIDs.contains(objOnWorkingTile.getId())) {
-            state = ConstructionState.Idle;
-            Microbot.getNotifier().notify("Looks like we are no longer in our house.");
-            returnToTheHouse();
+        boolean hotspotFound = objOnWorkingTile != null;
+        if (hotspotFound) {
+            missingHotspotTicks = 0;
+            houseReturnAttempts = 0;
+        } else {
+            missingHotspotTicks++;
         }
+        state = ConstructionState.next(hotspotFound, hotspotFound && objOnWorkingTile.getId() == objectIDs.get(0), hasRequiredPlanks);
+    }
+
+    private Rs2TileObjectModel getObjectOnWorkingTile() {
+        if (workingTile == null) return null;
+        return Microbot.getRs2TileObjectCache().query()
+                .where(o -> workingTile.equals(o.getWorldLocation()))
+                .nearest();
     }
 
     private void returnToTheHouse(){
-        Rs2TileObjectModel housePortal = Microbot.getRs2TileObjectCache().query().withName("Portal").nearestOnClientThread();
-        if(housePortal != null){
-            if(housePortal.click("Build mode")){
-                sleepUntil(()-> Rs2Player.getWorldLocation() != null
-                        && Rs2Player.getWorldLocation().getRegionX() == 29
-                            && Rs2Player.getWorldLocation().getRegionY() == 89, Rs2Random.between(10000,20000));
-                sleep(2000,5000);
-            }
-        } else {
-            Microbot.getNotifier().notify("Can't find the house portal!");
-            shutdown();
+        if (missingHotspotTicks < MISSING_HOTSPOT_TICKS) return;
+        if (houseReturnAttempts >= MAX_HOUSE_RETURN_ATTEMPTS) {
+            stop(NO_HOTSPOT_MESSAGE);
+            return;
         }
+        Microbot.getNotifier().notify("Looks like we are no longer in our house.");
+        Rs2TileObjectModel housePortal = Microbot.getRs2TileObjectCache().query().withName("Portal").nearestOnClientThread();
+        if (housePortal == null || !housePortal.click("Build mode")) {
+            stop(NO_HOTSPOT_MESSAGE);
+            return;
+        }
+        houseReturnAttempts++;
+        missingHotspotTicks = 0;
+        sleepUntil(()-> Rs2Player.getWorldLocation() != null
+                && Rs2Player.getWorldLocation().getRegionX() == 29
+                    && Rs2Player.getWorldLocation().getRegionY() == 89, Rs2Random.between(10000,20000));
+        sleep(2000,5000);
     }
 
     private void buildSpace(net.runelite.client.plugins.microbot.construction.ConstructionConfig config, int actionDelay) {
@@ -246,51 +319,96 @@ public class ConstructionScript extends Script {
         }
     }
 
-    private void butler(net.runelite.client.plugins.microbot.construction.ConstructionConfig config, int actionDelay) {
-        var butler = getButler();
-        if (butler == null) return;
-        boolean butlerIsInteracting = butler.isInteractingWithPlayer();
-
-        if (!butlerIsInteracting) {
-            Rs2Tab.switchTo(InterfaceTab.SETTINGS);
-
-            Widget houseOptionWidget = Rs2Widget.getWidget(7602207);
-            sleepUntil(()-> houseOptionWidget != null, Rs2Random.between(2000,5000));
-            if (houseOptionWidget != null) Rs2Widget.clickWidget(houseOptionWidget);
-
-            Widget callServantWidget = Rs2Widget.getWidget(24248342);
-            sleepUntil(()-> callServantWidget != null, Rs2Random.between(2000,5000));
-            if (callServantWidget != null) Rs2Widget.clickWidget(callServantWidget);
-
-            sleepUntil(()-> Rs2Dialogue.isInDialogue(), Rs2Random.between(2000,5000));
+    private void butler(net.runelite.client.plugins.microbot.construction.ConstructionConfig config, Rs2NpcModel butler) {
+        if (!Rs2Dialogue.isInDialogue()) {
+            if (shouldCallServant(butler)) {
+                if (!callServant()) {
+                    restock.onFailedAttempt();
+                    return;
+                }
+            } else if (!butler.click("Talk-to") || !sleepUntil(Rs2Dialogue::isInDialogue, Rs2Random.between(2000, 5000))) {
+                restock.onFailedAttempt();
+                return;
+            }
+            butler = getButler();
         }
 
-        if (Rs2Dialogue.isInDialogue() || butler.click("Talk-to")) {
-            sleep(500);
+        int notedPlankId = config.selectedMode().getPlankItemId() + 1;
+        sleep(500);
+        Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+        sleep(400, 1000);
+        if (Rs2Widget.findWidget("Go to the bank", null) != null) {
+            if (butler == null || Rs2Inventory.itemQuantity(notedPlankId) <= 0) {
+                restock.onFailedAttempt();
+                return;
+            }
+            if (!Rs2Inventory.useItemOnNpc(notedPlankId, butler.getId())
+                    || !sleepUntil(() -> Rs2Widget.hasWidget("Dost thou wish me to exchange that certificate"))) {
+                restock.onFailedAttempt();
+                return;
+            }
+            Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+            if (!sleepUntil(() -> Rs2Widget.hasWidget("Select an option"))) {
+                restock.onFailedAttempt();
+                return;
+            }
+            Rs2Keyboard.typeString("1");
+            if (!sleepUntil(() -> Rs2Widget.hasWidget("Enter amount:"))) {
+                restock.onFailedAttempt();
+                return;
+            }
+            Rs2Keyboard.typeString("28");
+            Rs2Keyboard.enter();
+            restock.onSent(System.currentTimeMillis());
+        } else if (hasDialogueOptionToUnnote()) {
+            Rs2Keyboard.keyPress('1');
+            sleepUntilOnClientThread(() -> !hasDialogueOptionToUnnote());
+        } else if (hasPayButlerDialogue() || hasDialogueOptionToPay()) {
+            int coins = Rs2Inventory.itemQuantity(ItemID.COINS);
+            ServantRestock.Problem problem = restock.problem(ServantRestock.Servant.DEMON_BUTLER, Rs2Inventory.itemQuantity(notedPlankId), true, coins, false);
+            if (problem != ServantRestock.Problem.NONE) {
+                stop(problem.getMessage());
+                return;
+            }
             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
             sleep(400, 1000);
-            if (Rs2Widget.findWidget("Go to the bank...", null) != null) {
-                Rs2Inventory.useItemOnNpc(config.selectedMode().getPlankItemId() + 1, butler.getId());
-                sleepUntilOnClientThread(() -> Rs2Widget.hasWidget("Dost thou wish me to exchange that certificate"));
-                Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                sleepUntilOnClientThread(() -> Rs2Widget.hasWidget("Select an option"));
-                Rs2Keyboard.typeString("1");
-                sleepUntilOnClientThread(() -> Rs2Widget.hasWidget("Enter amount:"));
-                Rs2Keyboard.typeString("28");
-                Rs2Keyboard.enter();
-            } else if (hasDialogueOptionToUnnote()) {
-                Rs2Keyboard.keyPress('1');
-                sleepUntilOnClientThread(() -> !hasDialogueOptionToUnnote());
-            } else if (hasPayButlerDialogue() || hasDialogueOptionToPay()) {
-                Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                sleep(400, 1000);
-                if (hasDialogueOptionToPay()) {
-                    Rs2Keyboard.keyPress('1');
-                }
-            } else if(hasDialogueRepeatLastTask()){
+            if (hasDialogueOptionToPay()) {
                 Rs2Keyboard.keyPress('1');
             }
+        } else if(hasDialogueRepeatLastTask()){
+            if (Rs2Inventory.itemQuantity(notedPlankId) <= 0) {
+                restock.onFailedAttempt();
+                return;
+            }
+            Rs2Keyboard.keyPress('1');
+            restock.onSent(System.currentTimeMillis());
         }
+    }
+
+    private boolean shouldCallServant(Rs2NpcModel butler) {
+        if (butler == null) return true;
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        WorldPoint butlerLocation = butler.getWorldLocation();
+        return playerLocation == null || butlerLocation == null || butlerLocation.distanceTo(playerLocation) > 3;
+    }
+
+    private boolean callServant() {
+        Rs2Tab.switchTo(InterfaceTab.SETTINGS);
+        if (!sleepUntil(() -> Rs2Widget.isWidgetVisible(InterfaceID.SettingsSide.HOUSEOPTIONS), Rs2Random.between(2000, 5000))) {
+            return false;
+        }
+        Widget houseOptions = Rs2Widget.getWidget(InterfaceID.SettingsSide.HOUSEOPTIONS);
+        if (houseOptions == null || !Rs2Widget.clickWidget(houseOptions)) {
+            return false;
+        }
+        if (!sleepUntil(() -> Rs2Widget.isWidgetVisible(InterfaceID.PohOptions.CALL_SERVANT), Rs2Random.between(2000, 5000))) {
+            return false;
+        }
+        Widget callServant = Rs2Widget.getWidget(InterfaceID.PohOptions.CALL_SERVANT);
+        if (callServant == null || !Rs2Widget.clickWidget(callServant)) {
+            return false;
+        }
+        return sleepUntil(Rs2Dialogue::isInDialogue, Rs2Random.between(2000, 5000));
     }
 
     private boolean hasRemoveInterfaceOpen(ConstructionConfig config) {
@@ -310,5 +428,9 @@ public class ConstructionScript extends Script {
 
     public ConstructionState getState() {
         return state;
+    }
+
+    public String getStatusMessage() {
+        return statusMessage;
     }
 }

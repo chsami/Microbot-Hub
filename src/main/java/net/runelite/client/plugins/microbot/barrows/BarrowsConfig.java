@@ -6,15 +6,17 @@ import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 
 @ConfigGroup("barrows")
-@ConfigInformation("1. Have an inventory setup named Barrows <br><br> 2. Required items: prayer potions or moonlight moth mixes(2), barrows teleports tablets, or teleport to house tablets, food, Catalyic runes (if using wind spells), and a spade.<br /><br /> 3. Spells: Wind: Blast, Wave, and Surge. Or Powered staffs: supports any trident, any sceptre, any crystal staff, Tumeken's, and Sanguinesti. <br /><br /> Special thanks to george for adding the barrows dungeon to the walker; and Crannyy for script testing!<br /><br /> Config by Crannyy")
+@ConfigInformation("1. Optional: select an Inventory Setup below to load gear on start (leave empty to use current gear).<br><br>2. Required items: prayer potions or moonlight moth mixes(2), barrows teleport tablets OR (POH mode) house tele runes/combo runes/pouch with house tabs as backup, food, Catalytic runes (if using wind spells), and a spade.<br /><br />3. Spells: Wind: Blast, Wave, and Surge. Or Powered staffs: supports any trident, any sceptre, any crystal staff, Tumeken's, and Sanguinesti.<br /><br />Special thanks to george for adding the barrows dungeon to the walker; and Crannyy for script testing!<br /><br />Config by Crannyy")
 public interface BarrowsConfig extends Config {
     @ConfigItem(
             keyName = "inventorySetup",
             name = "Inventory Setup",
-            description = "Inventory Setup to use for Barrows",
+            description = "Inventory setup to wear/load before starting Barrows. Leave empty to keep current gear.",
             position = 0
     )
-    default InventorySetup inventorySetup() { return null; }
+    default InventorySetup inventorySetup() {
+        return null;
+    }
     @ConfigItem(
             keyName = "Food",
             name = "Food",
@@ -128,7 +130,7 @@ public interface BarrowsConfig extends Config {
     @ConfigItem(
             keyName = "selectedToBarrowsTPMethod",
             name = "Barrows TP Method",
-            description = "Between using a barrows teleport tablet, or your POH portal.",
+            description = "Barrows tablet, or POH (casts Teleport to House with runes/combo runes first; house tabs as backup).",
             position = 9
     )
     default selectedToBarrowsTPMethod selectedToBarrowsTPMethod() {
