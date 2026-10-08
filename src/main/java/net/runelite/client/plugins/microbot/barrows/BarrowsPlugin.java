@@ -32,7 +32,7 @@ import java.awt.*;
 )
 @Slf4j
 public class BarrowsPlugin extends Plugin  {
-    public static final String version = "2.5.22";
+    public static final String version = "2.5.23";
 
     private static final String SHORTEST_PATH_GROUP = "shortestpath";
     private static final String BANK_TRIP_WHEN_CACHE_UNAVAILABLE = "bankTripWhenCacheUnavailable";
