@@ -20,6 +20,9 @@ public interface DroZulrahConfig extends Config
 {
     String GROUP = "DroZulrah";
 
+    @ConfigItem(keyName="hideOverlay",name="Hide overlay",description="Hide the compact session card while the script continues running.",position=11)
+    default boolean hideOverlay(){return false;}
+
     @ConfigSection(name="Smart breaks", description="BaseProfileDro AFK/logout breaks, started only at Ferox between trips.",
             position=9, closedByDefault=true)
     String breakSection = "smartBreakSettings";
@@ -64,7 +67,7 @@ public interface DroZulrahConfig extends Config
     default boolean useSpecialAttacks(){ return true; }
 
     @ConfigItem(keyName="showRotationHelperOverlay", name="Show Zulrah rotation helper",
-            description="Show current/next phases, recommended tiles, prayers, countdown and clouds. Display only; does not change combat movement.", position=8)
+            description="Show current/next phases, recommended tiles, prayers, countdown and clouds. Display only; does not change combat movement.", position=10)
     default boolean showRotationHelperOverlay(){ return false; }
 
     @Range(min=1, max=1440)
