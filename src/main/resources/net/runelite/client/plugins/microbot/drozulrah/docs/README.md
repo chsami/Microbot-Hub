@@ -73,9 +73,9 @@ At Zul-andra, a visible sacrificial boat is Quick-boarded from the teleport spot
 Otherwise the script attempts a bounded, slightly variable camera turn and retains
 the existing boat approach fallback. The ordinary one-click boarding latch stays
 in place. Travel and recovery inputs use BaseProfileDro; loading and breaks pause
-the route deadlines. On clients providing the optional Dro Inventory Setups mouse
-scope, setup inputs borrow the running profile too; other clients use their native
-Inventory Setups implementation.
+the route deadlines. Inventory setup loading uses the public client's standard
+`Rs2InventorySetup` implementation directly. The Hub plugin does not depend on
+private client mouse extensions.
 
 ## Configuration
 

@@ -128,11 +128,6 @@ public final class BaseProfileDro {
      * the single owner of its loop and simply calls {@link #tick(boolean, boolean)}.
      */
     public void start() {
-        ZulrahSetupMouseBinding.register(this,
-                () -> beforeAction(ActionPhase.SETUP, false),
-                () -> afterAction(ActionPhase.SETUP), this::randomPoint,
-                () -> handleIdleMouse(true, settings.mouseActivity), () -> started && !isBreakActive());
-
         if (started) return;
         started = true;
         sessionStartedAt = System.currentTimeMillis();
@@ -203,7 +198,6 @@ public final class BaseProfileDro {
     }
 
     public void shutdown() {
-        ZulrahSetupMouseBinding.unregister(this);
         detachOverlay();
         breakManager.shutdown();
         started = false;

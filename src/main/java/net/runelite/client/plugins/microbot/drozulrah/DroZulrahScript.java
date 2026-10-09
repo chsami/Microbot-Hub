@@ -23,7 +23,7 @@ import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
-import net.runelite.client.plugins.microbot.drozulrah.DroInventorySetup;
+import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
@@ -102,7 +102,7 @@ public class DroZulrahScript extends Script
     @Inject private ItemManager itemManager;
 
     private DroZulrahConfig config;
-    private DroInventorySetup inventorySetup;
+    private Rs2InventorySetup inventorySetup;
     private InventorySetup selectedSetup;
     private BaseProfileDro profile;
 
@@ -345,7 +345,7 @@ public class DroZulrahScript extends Script
         if (!Microbot.isLoggedIn())
         {
             if (feroxReturn != null) feroxReturn.pause(System.currentTimeMillis());
-                    if (deathRecovery != null) deathRecovery.pause(System.currentTimeMillis());
+            if (deathRecovery != null) deathRecovery.pause(System.currentTimeMillis());
             if (System.currentTimeMillis() < sceneTransitionGraceUntil)
             {
                 state = DroZulrahState.TRAVELLING;
@@ -398,7 +398,7 @@ public class DroZulrahScript extends Script
             if (profile != null && profile.tick(true, false, BaseProfileDro.MouseActivity.ACTIVE))
             {
                 if (feroxReturn != null) feroxReturn.pause(System.currentTimeMillis());
-                    if (deathRecovery != null) deathRecovery.pause(System.currentTimeMillis());
+                if (deathRecovery != null) deathRecovery.pause(System.currentTimeMillis());
                 state = DroZulrahState.BREAK;
                 status = profile.getProfileStatus();
                 return;
@@ -833,7 +833,7 @@ public class DroZulrahScript extends Script
 
             if (inventorySetup == null)
             {
-                inventorySetup = new DroInventorySetup(selectedSetup, mainScheduledFuture);
+                inventorySetup = new Rs2InventorySetup(selectedSetup, mainScheduledFuture);
             }
 
             // Identical completion contract to DroKBD. loadEquipment already equips items;
