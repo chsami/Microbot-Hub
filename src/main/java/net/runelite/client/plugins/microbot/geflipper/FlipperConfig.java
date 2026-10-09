@@ -1,8 +1,10 @@
 package net.runelite.client.plugins.microbot.geflipper;
 
 import net.runelite.client.config.Config;
+import net.runelite.client.config.ConfigButton;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
+import net.runelite.client.config.Range;
 
 @ConfigGroup("Flipper Config")
 public interface FlipperConfig extends Config {
@@ -81,7 +83,7 @@ public interface FlipperConfig extends Config {
         "2.have gp in inventory or bank(1m+ starting is recommended)  \n" +
         "3.preferably start at the ge or have a tele close to the ge in your inventory  \n" +
         "~made by chocken   \n" +
-        "Extra tip: In game settings, disable grand exchange warnings for offers with the price too low/high, otherwise the script will get stuck.";
+        "GE Flipper confirms Grand Exchange price warning popups. Your Copilot, game, and Microbot settings stay under your control.";
     }
 
     @ConfigItem(
@@ -102,6 +104,42 @@ public interface FlipperConfig extends Config {
     )
     default boolean showOverlay() {
         return true;
+    }
+
+    @ConfigItem(
+        keyName = "waitingMouseOffScreen",
+        name = "Move mouse off screen while waiting",
+        description = "Randomly move the game cursor outside the canvas while Copilot says Wait. "
+            + "Adjust the Randomization slider below. "
+            + "Uses Microbot's mouse movement without changing its shared antiban settings.",
+        position = 4
+    )
+    default boolean waitingMouseOffScreen() {
+        return false;
+    }
+
+    @Range(min = 0, max = 100)
+    @ConfigItem(
+        keyName = "waitingMouseChance",
+        name = "Randomization",
+        description = "Randomizes waiting mouse movement using one slider for chance and both automatic delay limits. "
+            + "Move right for sooner, more frequent randomized movement; the far-left position disables movement.",
+        position = 5
+    )
+    default int waitingMouseChance() {
+        return 30;
+    }
+
+    @ConfigItem(
+        keyName = "finish",
+        name = "End / Finish",
+        description = "Cancel buy offers, collect purchased items, and follow Copilot's sell/Modify suggestions. "
+            + "Stop GE Flipper once all items are listed; existing sell offers remain on the exchange. "
+            + "Uses Copilot's sell and modify suggestions. Available while GE Flipper is running.",
+        position = 6
+    )
+    default ConfigButton finish() {
+        return null;
     }
 
 }
