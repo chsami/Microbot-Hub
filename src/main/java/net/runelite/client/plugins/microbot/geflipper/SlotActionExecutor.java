@@ -33,7 +33,7 @@ final class SlotActionExecutor {
         boolean slotSwapEnabled();
         /** Returns null unless the visible slot exposes this exact widget operation. */
         Point actionPoint(int slotId, Action action);
-        void hover(Point point);
+        boolean hover(Point point);
         boolean awaitDefaultAction(int slotId, Action action, Point point);
         /** Revalidates the suggestion and default action immediately before the click. */
         boolean clickDefaultAction(int slotId, Action action, Point point);
@@ -49,7 +49,7 @@ final class SlotActionExecutor {
         if (mode == FlipperConfig.SlotAction.MENU_OPTION) {
             return ui.invokeAction(slotId, action, point) ? Result.ACTED : Result.MENU_NOT_READY;
         }
-        ui.hover(point);
+        if (!ui.hover(point)) return Result.MENU_NOT_READY;
         if (!ui.awaitDefaultAction(slotId, action, point)) return Result.MENU_NOT_READY;
         return ui.clickDefaultAction(slotId, action, point) ? Result.ACTED : Result.MENU_NOT_READY;
     }

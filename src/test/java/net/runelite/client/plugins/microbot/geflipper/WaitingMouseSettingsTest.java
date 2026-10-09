@@ -4,7 +4,9 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Color;
+import java.awt.event.ActionEvent;
 import java.awt.event.HierarchyEvent;
+import java.awt.event.KeyEvent;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -13,13 +15,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
+import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 import javax.swing.JButton;
+import javax.swing.Action;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JSlider;
 import javax.swing.JSpinner;
+import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import net.runelite.client.config.ConfigDescriptor;
@@ -53,7 +61,7 @@ class WaitingMouseSettingsTest {
             assertFalse(slider.getPaintTicks());
             assertNull(slider.getLabelTable());
             assertFalse(fixture.row.label.getText().contains("%"));
-            assertFalse(slider.getToolTipText().contains("%"));
+            assertTrue(slider.getToolTipText().startsWith("Randomization: 30%."));
             assertNull(((BorderLayout) fixture.row.panel.getLayout()).getLayoutComponent(BorderLayout.EAST));
             assertFalse(slider.isEnabled());
             assertEquals(ColorScheme.MEDIUM_GRAY_COLOR, slider.getForeground());
@@ -82,6 +90,7 @@ class WaitingMouseSettingsTest {
             slider.setValueIsAdjusting(true);
             slider.setValue(45);
             slider.setValue(100);
+            assertTrue(slider.getToolTipText().startsWith("Randomization: 100%."));
             assertTrue(fixture.saved.isEmpty());
             slider.setValueIsAdjusting(false);
             assertEquals(Collections.singletonList(100), fixture.saved);
@@ -95,6 +104,212 @@ class WaitingMouseSettingsTest {
             assertEquals(0, fixture.row.spinner.getValue());
             assertEquals(0, ((JSpinner.DefaultEditor) fixture.row.spinner.getEditor()).getTextField().getValue());
             assertEquals(0, fixture.row.nativeChanges.get(), "Restoration must not trigger native preference saves");
+        });
+    }
+
+    @Test
+    void arrowAndPageKeysUseOnePercentAndDraggingKeepsEveryInteger() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            fixture.config.enabled = true;
+            try (WaitingMouseSettings settings = fixture.settings()) {
+                settings.start();
+                JSlider slider = slider(fixture.root);
+                for (int key : new int[]{KeyEvent.VK_RIGHT, KeyEvent.VK_UP, KeyEvent.VK_PAGE_UP}) {
+                    int before = slider.getValue();
+                    pressKey(slider, key);
+                    assertEquals(before + 1, slider.getValue(), "Arrow/page increments must be exactly 1%");
+                    assertEquals(slider.getValue(), fixture.config.frequency);
+                }
+                for (int key : new int[]{KeyEvent.VK_LEFT, KeyEvent.VK_DOWN, KeyEvent.VK_PAGE_DOWN}) {
+                    int before = slider.getValue();
+                    pressKey(slider, key);
+                    assertEquals(before - 1, slider.getValue(), "Arrow/page decrements must be exactly 1%");
+                    assertEquals(slider.getValue(), fixture.config.frequency);
+                }
+                for (int value = 0; value <= 100; value++) {
+                    int saves = fixture.saved.size();
+                    slider.setValueIsAdjusting(true);
+                    slider.setValue(value);
+                    assertEquals(value, slider.getValue(), "Every integer must remain selectable during a drag");
+                    assertEquals(saves, fixture.saved.size(), "A drag must wait for release before saving");
+                    slider.setValueIsAdjusting(false);
+                    assertEquals(value, fixture.config.frequency);
+                    assertTrue(slider.getToolTipText().startsWith("Randomization: " + value + "%."));
+                }
+                pressKey(slider, KeyEvent.VK_RIGHT);
+                pressKey(slider, KeyEvent.VK_PAGE_UP);
+                assertEquals(100, slider.getValue());
+                slider.setValue(0);
+                pressKey(slider, KeyEvent.VK_LEFT);
+                pressKey(slider, KeyEvent.VK_PAGE_DOWN);
+                assertEquals(0, slider.getValue());
+            }
+        });
+    }
+
+    @Test
+    void restartingTheAdapterRetainsTheSavedIntegerWithoutWritingOnAttachment() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            fixture.config.enabled = true;
+            JSlider previous;
+            try (WaitingMouseSettings settings = fixture.settings()) {
+                settings.start();
+                previous = slider(fixture.root);
+                previous.setValue(43);
+                assertEquals(Collections.singletonList(43), fixture.saved);
+            }
+            try (WaitingMouseSettings settings = fixture.settings()) {
+                settings.start();
+                JSlider replacement = slider(fixture.root);
+                assertNotSame(previous, replacement);
+                assertEquals(43, replacement.getValue());
+                settings.refresh();
+                assertEquals(Collections.singletonList(43), fixture.saved, "Attachment/refresh must not reset or save config");
+                previous.setValue(0);
+                assertEquals(43, fixture.config.frequency, "The stopped adapter cannot overwrite persisted config");
+                pressKey(replacement, KeyEvent.VK_RIGHT);
+                assertEquals(44, fixture.config.frequency);
+                assertEquals(Arrays.asList(43, 44), fixture.saved);
+            }
+            assertEquals(0, fixture.row.nativeChanges.get());
+        });
+    }
+
+    @Test
+    void suppliedAuthorityDrivesPresetAndFatigueValuesWithoutSavingOrUsingTheRawPreference() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            fixture.config.enabled = true;
+            int[] effective = {25};
+            boolean[] editable = {true};
+            String[] description = {"AFK preset."};
+            try (WaitingMouseSettings settings = fixture.effectiveSettings(
+                () -> effective[0], () -> editable[0], () -> description[0], fixture.saved::add)) {
+                settings.start();
+                JSlider slider = slider(fixture.root);
+                assertEquals(25, slider.getValue());
+                assertTrue(slider.getToolTipText().contains("AFK preset."));
+                effective[0] = 75;
+                description[0] = "Attentive Human preset.";
+                settings.refreshValue();
+                assertEquals(75, slider.getValue());
+                effective[0] = 42;
+                editable[0] = false;
+                description[0] = "Day fatigue at 09:00. Read-only while the automatic preset is selected.";
+                settings.refresh();
+                assertEquals(42, slider.getValue());
+                assertFalse(slider.isEnabled());
+                assertFalse(fixture.row.label.isEnabled());
+                assertEquals(ColorScheme.MEDIUM_GRAY_COLOR, slider.getForeground());
+                assertEquals(ColorScheme.MEDIUM_GRAY_COLOR, fixture.row.label.getForeground());
+                assertTrue(slider.getToolTipText().contains("Read-only"));
+                assertEquals(slider.getToolTipText(), slider.getAccessibleContext().getAccessibleDescription());
+                slider.setValue(90);
+                assertEquals(42, slider.getValue());
+                fixture.config.enabled = false;
+                editable[0] = true;
+                settings.refreshValue();
+                assertFalse(slider.isEnabled(), "The master setting takes precedence over editability");
+                assertTrue(fixture.saved.isEmpty());
+                assertEquals(30, fixture.config.frequency);
+            }
+            assertEquals(30, fixture.row.spinner.getValue(), "The restored native control represents its stored manual preference");
+            assertEquals(0, fixture.row.nativeChanges.get());
+        });
+    }
+
+    @Test
+    void passiveRefreshDefersDuringDraggingButChangedAuthorityRejectsAStaleRelease() throws Exception {
+        Fixture[] fixture = new Fixture[1];
+        WaitingMouseSettings[] settings = new WaitingMouseSettings[1];
+        int[] effective = {30};
+        onEdt(() -> {
+            fixture[0] = new Fixture();
+            fixture[0].config.enabled = true;
+            settings[0] = fixture[0].effectiveSettings(() -> effective[0], () -> true,
+                () -> "Custom randomization.", value -> {
+                    fixture[0].saved.add(value);
+                    effective[0] = value;
+                });
+            settings[0].start();
+        });
+        try {
+            onEdt(() -> {
+                JSlider slider = slider(fixture[0].root);
+                slider.setValueIsAdjusting(true);
+                slider.setValue(61);
+                effective[0] = 70;
+                settings[0].refreshValue();
+                assertTrue(slider.getValueIsAdjusting());
+                assertEquals(61, slider.getValue());
+                assertTrue(fixture[0].saved.isEmpty());
+                slider.setValueIsAdjusting(false);
+                assertTrue(fixture[0].saved.isEmpty());
+                assertEquals(70, effective[0]);
+                assertEquals(70, slider.getValue());
+                slider.setValueIsAdjusting(true);
+                slider.setValue(73);
+                SwingUtilities.invokeLater(settings[0]::refreshValue);
+                slider.setValueIsAdjusting(false);
+                assertEquals(Collections.singletonList(73), fixture[0].saved);
+            });
+            flushEvents();
+            onEdt(() -> {
+                assertEquals(73, slider(fixture[0].root).getValue(), "The queued refresh reads the latest authority after release");
+                assertEquals(Collections.singletonList(73), fixture[0].saved);
+                assertEquals(0, fixture[0].row.nativeChanges.get());
+            });
+        } finally {
+            onEdt(settings[0]::close);
+        }
+    }
+
+    @Test
+    void explicitRefreshCancelsPresetDragsAndNonDragChangesRejectAStaleAuthority() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            fixture.config.enabled = true;
+            int[] effective = {25};
+            try (WaitingMouseSettings settings = fixture.effectiveSettings(
+                () -> effective[0], () -> true, () -> "AFK preset.", fixture.saved::add)) {
+                settings.start();
+                JSlider slider = slider(fixture.root);
+                slider.setValueIsAdjusting(true);
+                slider.setValue(90);
+                settings.refresh();
+                assertFalse(slider.getValueIsAdjusting());
+                assertEquals(25, slider.getValue());
+                assertTrue(fixture.saved.isEmpty());
+                effective[0] = 50;
+                pressKey(slider, KeyEvent.VK_RIGHT);
+                assertEquals(50, slider.getValue(), "A stale keyboard/model event cannot overwrite newer authority");
+                assertTrue(fixture.saved.isEmpty());
+            }
+        });
+    }
+
+    @Test
+    void fixedPresetRejectsPreEventProfileChangesEvenWhenEffectiveFrequencyStaysTheSame() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            fixture.config.enabled = true;
+            fixture.config.frequency = 77;
+            try (WaitingMouseSettings settings = fixture.effectiveSettings(
+                () -> 25, () -> true, () -> "AFK preset.", fixture.saved::add)) {
+                settings.start();
+                JSlider slider = slider(fixture.root);
+                slider.setValueIsAdjusting(true);
+                slider.setValue(90);
+                fixture.config.frequency = 63;
+                // ProfileChanged has not reached the adapter yet; the raw preference already differs.
+                slider.setValueIsAdjusting(false);
+                assertEquals(25, slider.getValue());
+                assertTrue(fixture.saved.isEmpty());
+            }
+            assertEquals(63, fixture.row.spinner.getValue());
+            assertEquals(0, fixture.row.nativeChanges.get());
         });
     }
 
@@ -295,6 +510,9 @@ class WaitingMouseSettingsTest {
             assertNull(field(WaitingMouseSettings.class, "owner").get(settings));
             assertNull(field(WaitingMouseSettings.class, "config").get(settings));
             assertNull(field(WaitingMouseSettings.class, "frequencyChanged").get(settings));
+            assertNull(field(WaitingMouseSettings.class, "frequencyValue").get(settings));
+            assertNull(field(WaitingMouseSettings.class, "sliderEditable").get(settings));
+            assertNull(field(WaitingMouseSettings.class, "frequencyDescription").get(settings));
             assertEquals(55, fixture.row.spinner.getValue());
             assertEquals(55, ((JSpinner.DefaultEditor) fixture.row.spinner.getEditor()).getTextField().getValue());
             assertEquals(0, fixture.row.nativeChanges.get());
@@ -473,6 +691,7 @@ class WaitingMouseSettingsTest {
         onEdt(() -> settings[0] = new Fixture().settings());
         assertThrows(IllegalStateException.class, settings[0]::start);
         assertThrows(IllegalStateException.class, settings[0]::refresh);
+        assertThrows(IllegalStateException.class, settings[0]::refreshValue);
         assertThrows(IllegalStateException.class, settings[0]::close);
         onEdt(settings[0]::close);
     }
@@ -580,6 +799,14 @@ class WaitingMouseSettingsTest {
 
     private interface CheckedRunnable { void run() throws Exception; }
 
+    private static void pressKey(JSlider slider, int key) {
+        Object binding = slider.getInputMap().get(KeyStroke.getKeyStroke(key, 0));
+        assertNotNull(binding, "Use the slider's real keyboard binding");
+        Action action = slider.getActionMap().get(binding);
+        assertNotNull(action);
+        action.actionPerformed(new ActionEvent(slider, ActionEvent.ACTION_PERFORMED, binding.toString()));
+    }
+
     private static Field field(Class<?> type, String name) throws Exception {
         Field field = type.getDeclaredField(name);
         field.setAccessible(true);
@@ -640,6 +867,12 @@ class WaitingMouseSettingsTest {
             }, action, () -> finishAvailable);
         }
 
+        private WaitingMouseSettings effectiveSettings(IntSupplier frequency, BooleanSupplier editable,
+                                                        Supplier<String> description, IntConsumer changed) {
+            return new WaitingMouseSettings(owner, config, root, changed, null, null,
+                frequency, editable, description);
+        }
+
         private void setDescriptor(FlipperPlugin plugin, ConfigGroup group) throws Exception {
             ConfigItem item = FlipperConfig.class.getMethod("waitingMouseChance").getAnnotation(ConfigItem.class);
             Range range = FlipperConfig.class.getMethod("waitingMouseChance").getAnnotation(Range.class);
@@ -693,10 +926,13 @@ class WaitingMouseSettingsTest {
 
     private static final class FinishRow {
         private final JPanel panel = new JPanel(new BorderLayout());
-        private final JButton button = new JButton("End / Finish");
+        private final JButton button;
         private final AtomicInteger nativeChanges = new AtomicInteger();
 
-        private FinishRow() {
+        private FinishRow() { this("End / Finish"); }
+
+        private FinishRow(String name) {
+            button = new JButton(name);
             button.addActionListener(event -> nativeChanges.incrementAndGet());
             panel.add(button, BorderLayout.CENTER);
         }

@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.geflipper;
 
+import com.formdev.flatlaf.ui.FlatSliderUI;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -9,23 +10,35 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ContainerAdapter;
 import java.awt.event.ContainerEvent;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.awt.event.HierarchyEvent;
 import java.awt.event.HierarchyListener;
+import java.awt.event.ItemListener;
 import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Objects;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntConsumer;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
+import javax.swing.JTextArea;
 import javax.swing.event.ChangeListener;
+import javax.swing.text.JTextComponent;
 import net.runelite.client.config.ConfigDescriptor;
 import net.runelite.client.config.ConfigButton;
 import net.runelite.client.config.ConfigItemDescriptor;
@@ -44,6 +57,9 @@ final class WaitingMouseSettings implements AutoCloseable {
     private IntConsumer frequencyChanged;
     private Runnable finishAction;
     private BooleanSupplier finishAvailable;
+    private IntSupplier frequencyValue;
+    private BooleanSupplier sliderEditable;
+    private Supplier<String> frequencyDescription;
     private final Set<Container> observed = Collections.newSetFromMap(new IdentityHashMap<>());
     private final ContainerAdapter treeChanges = new ContainerAdapter() {
         @Override public void componentAdded(ContainerEvent event) {
@@ -66,6 +82,9 @@ final class WaitingMouseSettings implements AutoCloseable {
     };
     private Binding binding;
     private FinishBinding finishBinding;
+    private TimeBinding timeSourceBinding;
+    private TimeBinding customTimeBinding;
+    private MouseSpeedBinding mouseSpeedBinding;
     private boolean finishRequested;
     private boolean started;
     private boolean closed;
@@ -78,6 +97,16 @@ final class WaitingMouseSettings implements AutoCloseable {
 
     WaitingMouseSettings(FlipperPlugin owner, FlipperConfig config, JPanel settingsRoot,
                          IntConsumer frequencyChanged, Runnable finishAction, BooleanSupplier finishAvailable) {
+        this(owner, config, settingsRoot, frequencyChanged, finishAction, finishAvailable,
+            config::waitingMouseChance, () -> true,
+            () -> "Randomizes chance and waiting delays together. "
+                + "Move right for sooner, more frequent movement; fully left disables it.");
+    }
+
+    WaitingMouseSettings(FlipperPlugin owner, FlipperConfig config, JPanel settingsRoot,
+                         IntConsumer frequencyChanged, Runnable finishAction, BooleanSupplier finishAvailable,
+                         IntSupplier frequencyValue, BooleanSupplier sliderEditable,
+                         Supplier<String> frequencyDescription) {
         requireEdt();
         this.owner = Objects.requireNonNull(owner);
         this.config = Objects.requireNonNull(config);
@@ -88,6 +117,9 @@ final class WaitingMouseSettings implements AutoCloseable {
         }
         this.finishAction = finishAction;
         this.finishAvailable = finishAvailable;
+        this.frequencyValue = Objects.requireNonNull(frequencyValue);
+        this.sliderEditable = Objects.requireNonNull(sliderEditable);
+        this.frequencyDescription = Objects.requireNonNull(frequencyDescription);
     }
 
     void start() {
@@ -105,6 +137,12 @@ final class WaitingMouseSettings implements AutoCloseable {
         if (!closed && started) scan(true);
     }
 
+    /** Runtime display updates wait for the current drag and never persist configuration. */
+    void refreshValue() {
+        requireEdt();
+        if (!closed && started) scan(false);
+    }
+
     @Override public void close() {
         requireEdt();
         if (closed) return;
@@ -114,12 +152,17 @@ final class WaitingMouseSettings implements AutoCloseable {
         unobserve(settingsRoot);
         detach();
         detachFinish();
+        detachTimes();
+        detachMouseSpeed();
         settingsRoot = null;
         owner = null;
         config = null;
         frequencyChanged = null;
         finishAction = null;
         finishAvailable = null;
+        frequencyValue = null;
+        sliderEditable = null;
+        frequencyDescription = null;
     }
 
     private void observe(Component component) {
@@ -156,6 +199,8 @@ final class WaitingMouseSettings implements AutoCloseable {
         if (!settingsRoot.isShowing()) {
             detach();
             detachFinish();
+            detachTimes();
+            detachMouseSpeed();
             return;
         }
         JPanel panel = findOwnedPanel(settingsRoot);
@@ -176,13 +221,157 @@ final class WaitingMouseSettings implements AutoCloseable {
             }
         }
         if (binding != null) {
-            int frequency = clamp(config.waitingMouseChance());
-            boolean enabled = config.waitingMouseOffScreen();
-            if (forceRefresh || frequency != binding.savedFrequency || enabled != binding.enabled) {
+            int frequency = clamp(frequencyValue.getAsInt());
+            boolean enabled = sliderEnabled();
+            if ((!binding.slider.getValueIsAdjusting() || forceRefresh || !enabled)
+                && (forceRefresh || frequency != binding.savedFrequency || enabled != binding.enabled)) {
                 binding.refresh(frequency, enabled);
+            } else if (!binding.slider.getValueIsAdjusting()) {
+                binding.describeValue();
             }
         }
         if (finishAction != null) bindFinish(panel);
+        bindTimes(panel);
+        bindMouseSpeed(panel);
+    }
+
+    private boolean sliderEnabled() {
+        return config.waitingMouseOffScreen() && sliderEditable.getAsBoolean();
+    }
+
+    private boolean fatigueEnabled() {
+        return config.waitingMouseOffScreen() && config.randomizeMouseSpeed()
+            && config.waitingMousePreset() == FlipperConfig.RandomizationPreset.DAY_FATIGUE;
+    }
+
+    private void bindTimes(JPanel panel) {
+        timeSourceBinding = bindTime(panel, timeSourceBinding, false);
+        customTimeBinding = bindTime(panel, customTimeBinding, true);
+    }
+
+    private TimeBinding bindTime(JPanel panel, TimeBinding current, boolean custom) {
+        String key = custom ? "waitingMouseTime" : "waitingMouseTimeSource";
+        Class<?> type = custom ? String.class : FlipperConfig.TimeOfDaySource.class;
+        String name = itemName(descriptor(panel), type, key);
+        JPanel row = custom && current != null && current.panel == panel && current.attached()
+            ? current.row : panel == null || name == null ? null : findRow(panel, name);
+        if (current != null && (current.panel != panel || current.row != row || !current.attached())) {
+            current.detach();
+            current = null;
+        }
+        if (current == null && row != null) {
+            BorderLayout layout = (BorderLayout) row.getLayout();
+            Component label = layout.getLayoutComponent(BorderLayout.CENTER);
+            Component value = layout.getLayoutComponent(custom ? BorderLayout.SOUTH : BorderLayout.EAST);
+            if (label instanceof JLabel && (custom ? value instanceof JTextComponent : value instanceof JComboBox)
+                && java.util.Arrays.stream(custom ? value.getFocusListeners() : ((JComboBox<?>) value).getItemListeners())
+                    .anyMatch(WaitingMouseSettings::nativePersistenceListener)) {
+                current = new TimeBinding(panel, row, (JLabel) label, value, custom);
+                current.attach();
+            }
+        }
+        if (current != null) current.refresh();
+        return current;
+    }
+
+    private static boolean nativePersistenceListener(Object listener) {
+        return listener.getClass().getName().startsWith(PANEL_CLASS + "$");
+    }
+
+    private void detachTimes() {
+        if (timeSourceBinding != null) timeSourceBinding.detach();
+        if (customTimeBinding != null) customTimeBinding.detach();
+        timeSourceBinding = customTimeBinding = null;
+    }
+
+    private void bindMouseSpeed(JPanel panel) {
+        String name = itemName(descriptor(panel), boolean.class, "randomizeMouseSpeed");
+        JPanel row = panel == null || name == null ? null : findRow(panel, name);
+        if (mouseSpeedBinding != null && (mouseSpeedBinding.panel != panel
+            || mouseSpeedBinding.row != row || !mouseSpeedBinding.attached())) detachMouseSpeed();
+        if (mouseSpeedBinding == null && row != null) {
+            Component value = ((BorderLayout) row.getLayout()).getLayoutComponent(BorderLayout.EAST);
+            if (value instanceof JCheckBox) {
+                mouseSpeedBinding = new MouseSpeedBinding(panel, row, (JCheckBox) value);
+                mouseSpeedBinding.attach();
+            }
+        }
+    }
+
+    private void detachMouseSpeed() {
+        if (mouseSpeedBinding == null) return;
+        MouseSpeedBinding previous = mouseSpeedBinding;
+        mouseSpeedBinding = null;
+        previous.detach();
+    }
+
+    /** Read only this owned native panel's filter; never alter its row index or search text. */
+    private boolean nativeRowVisible(JPanel panel, JPanel row, boolean fallback) {
+        if (!owned(descriptor(panel))) return fallback;
+        try {
+            Field search = panel.getClass().getDeclaredField("searchField");
+            Field index = panel.getClass().getDeclaredField("itemIndex");
+            search.setAccessible(true);
+            index.setAccessible(true);
+            Object searchValue = search.get(panel), indexValue = index.get(panel);
+            if (!(searchValue instanceof JTextComponent) || !(indexValue instanceof Map)) return fallback;
+            Object label = ((Map<?, ?>) indexValue).get(row);
+            if (!(label instanceof String)) return fallback;
+            String query = ((JTextComponent) searchValue).getText();
+            return query == null || ((String) label).contains(query.trim().toLowerCase(Locale.ROOT));
+        } catch (ReflectiveOperationException | RuntimeException unavailable) {
+            return fallback;
+        }
+    }
+
+    private final class MouseSpeedBinding {
+        private final JPanel panel, row;
+        private final JCheckBox checkbox;
+        private final ActionListener listener;
+        private final ItemListener selectionObserver;
+        private boolean active = true;
+        private boolean previousSelected;
+        private boolean enablingActionPending;
+
+        private MouseSpeedBinding(JPanel panel, JPanel row, JCheckBox checkbox) {
+            this.panel = panel;
+            this.row = row;
+            this.checkbox = checkbox;
+            previousSelected = checkbox.isSelected();
+            selectionObserver = event -> {
+                boolean selected = checkbox.isSelected();
+                // Native mouse/keyboard activation arms the model before toggling it.
+                // Programmatic selection/profile replay never authorizes the preset write.
+                enablingActionPending = !previousSelected && selected && checkbox.getModel().isArmed();
+                previousSelected = selected;
+            };
+            listener = event -> {
+                boolean enabling = enablingActionPending;
+                enablingActionPending = false;
+                if (enabling && !closed && active && mouseSpeedBinding == this && event.getSource() == checkbox
+                    && attached() && checkbox.isEnabled() && checkbox.isSelected()) {
+                    owner.selectFatigueFromMouseSpeedClick();
+                }
+            };
+        }
+
+        private boolean attached() {
+            return active && checkbox.getParent() == row && row.getLayout() instanceof BorderLayout
+                && ((BorderLayout) row.getLayout()).getLayoutComponent(BorderLayout.EAST) == checkbox
+                && SwingUtilities.isDescendingFrom(row, panel) && settingsRoot.isShowing()
+                && visibleWithinRoot(row) && owned(descriptor(panel));
+        }
+
+        private void attach() {
+            checkbox.addItemListener(selectionObserver);
+            checkbox.addActionListener(listener);
+        }
+        private void detach() {
+            active = false;
+            enablingActionPending = false;
+            checkbox.removeActionListener(listener);
+            checkbox.removeItemListener(selectionObserver);
+        }
     }
 
     private void bindFinish(JPanel panel) {
@@ -304,6 +493,167 @@ final class WaitingMouseSettings implements AutoCloseable {
         return false;
     }
 
+    /** Blank presentation controls never replace stored configuration values. */
+    private final class TimeBinding {
+        private final JPanel panel;
+        private final JPanel row;
+        private final JLabel label;
+        private final Component original;
+        private final Component blank;
+        private final boolean custom;
+        private final String location;
+        private final Color originalLabelColor;
+        private final boolean originalLabelEnabled;
+        private final boolean originalEnabled;
+        private final boolean originalRowVisible;
+        private final FocusListener[] focusListeners;
+        private final ItemListener[] itemListeners;
+        private final FocusListener focusGuard;
+        private final ItemListener itemGuard;
+        private boolean active = true;
+        private boolean enabled;
+        private boolean displayed;
+        private boolean restoring;
+        private Object savedValue;
+
+        private TimeBinding(JPanel panel, JPanel row, JLabel label, Component original, boolean custom) {
+            this.panel = panel;
+            this.row = row;
+            this.label = label;
+            this.original = original;
+            this.custom = custom;
+            location = custom ? BorderLayout.SOUTH : BorderLayout.EAST;
+            originalLabelColor = label.getForeground();
+            originalLabelEnabled = label.isEnabled();
+            originalEnabled = original.isEnabled();
+            originalRowVisible = row.isVisible();
+            if (custom) {
+                JTextArea empty = new JTextArea();
+                empty.setEditable(false);
+                empty.setBorder(((JTextComponent) original).getBorder());
+                empty.setBackground(original.getBackground());
+                empty.setFont(original.getFont());
+                blank = empty;
+                focusListeners = java.util.Arrays.stream(original.getFocusListeners())
+                    .filter(WaitingMouseSettings::nativePersistenceListener).toArray(FocusListener[]::new);
+                itemListeners = new ItemListener[0];
+            } else {
+                blank = new JComboBox<>();
+                focusListeners = new FocusListener[0];
+                itemListeners = java.util.Arrays.stream(((JComboBox<?>) original).getItemListeners())
+                    .filter(WaitingMouseSettings::nativePersistenceListener).toArray(ItemListener[]::new);
+            }
+            blank.setPreferredSize(original.getPreferredSize());
+            blank.setEnabled(false);
+            blank.setForeground(ColorScheme.MEDIUM_GRAY_COLOR);
+            focusGuard = new FocusAdapter() {
+                @Override public void focusGained(FocusEvent event) {
+                    if (editable()) for (FocusListener listener : focusListeners) listener.focusGained(event);
+                }
+                @Override public void focusLost(FocusEvent event) {
+                    // A focus-loss event may arrive after a toggle displaced the native input.
+                    if (editable()) for (FocusListener listener : focusListeners) listener.focusLost(event);
+                }
+            };
+            itemGuard = event -> {
+                if (!restoring && editable()) {
+                    for (ItemListener listener : itemListeners) listener.itemStateChanged(event);
+                }
+            };
+        }
+
+        private void attach() {
+            if (custom) {
+                for (FocusListener listener : focusListeners) original.removeFocusListener(listener);
+                original.addFocusListener(focusGuard);
+            } else {
+                JComboBox<?> box = (JComboBox<?>) original;
+                for (ItemListener listener : itemListeners) box.removeItemListener(listener);
+                box.addItemListener(itemGuard);
+            }
+        }
+
+        private boolean eligible() {
+            return fatigueEnabled() && (!custom
+                || config.waitingMouseTimeSource() == FlipperConfig.TimeOfDaySource.CUSTOM_TIME);
+        }
+
+        private boolean attached() {
+            if (!(row.getLayout() instanceof BorderLayout)) return false;
+            Component shown = ((BorderLayout) row.getLayout()).getLayoutComponent(location);
+            return active && label.getParent() == row && (shown == original || shown == blank)
+                && SwingUtilities.isDescendingFrom(row, panel) && settingsRoot.isShowing()
+                && visibleWithinRoot(custom ? row.getParent() : row) && owned(descriptor(panel));
+        }
+
+        private boolean editable() {
+            return !closed && active && !restoring && attached() && eligible()
+                && (!custom || displayed) && visibleWithinRoot(row)
+                && original.isEnabled() && original.getParent() == row;
+        }
+
+        private Object configuredValue() {
+            return custom ? config.waitingMouseTime() : config.waitingMouseTimeSource();
+        }
+
+        private void restoreValue(Object value) {
+            restoring = true;
+            try {
+                if (custom) ((JTextComponent) original).setText(value == null ? "" : value.toString());
+                else ((JComboBox<?>) original).setSelectedItem(value);
+            } finally {
+                restoring = false;
+            }
+        }
+
+        private void refresh() {
+            boolean nextEnabled = eligible();
+            boolean nextDisplayed = !custom || nextEnabled && nativeRowVisible(panel, row, originalRowVisible);
+            Object value = configuredValue();
+            if (nextEnabled && (!enabled || !Objects.equals(value, savedValue)
+                || (custom && nextDisplayed && !displayed))) restoreValue(value);
+            enabled = nextEnabled;
+            displayed = nextDisplayed;
+            savedValue = value;
+            Component desired = nextEnabled ? original : blank;
+            Component shown = ((BorderLayout) row.getLayout()).getLayoutComponent(location);
+            if (shown != desired) {
+                if (shown != null) row.remove(shown);
+                row.add(desired, location);
+                row.revalidate();
+            }
+            original.setEnabled(nextEnabled && originalEnabled);
+            label.setEnabled(nextEnabled && originalLabelEnabled);
+            label.setForeground(nextEnabled ? originalLabelColor : ColorScheme.MEDIUM_GRAY_COLOR);
+            if (custom) row.setVisible(nextDisplayed);
+            row.repaint();
+        }
+
+        private void detach() {
+            active = false;
+            restoreValue(configuredValue());
+            if (blank.getParent() == row) {
+                row.remove(blank);
+                if (original.getParent() == null && label.getParent() == row
+                    && row.getLayout() instanceof BorderLayout) row.add(original, location);
+            }
+            original.setEnabled(originalEnabled);
+            label.setEnabled(originalLabelEnabled);
+            label.setForeground(originalLabelColor);
+            if (custom) row.setVisible(nativeRowVisible(panel, row, originalRowVisible));
+            if (custom) {
+                original.removeFocusListener(focusGuard);
+                for (int i = focusListeners.length - 1; i >= 0; i--) original.addFocusListener(focusListeners[i]);
+            } else {
+                JComboBox<?> box = (JComboBox<?>) original;
+                box.removeItemListener(itemGuard);
+                for (int i = itemListeners.length - 1; i >= 0; i--) box.addItemListener(itemListeners[i]);
+            }
+            row.revalidate();
+            row.repaint();
+        }
+    }
+
     private final class FinishBinding {
         private final JPanel panel;
         private final JPanel row;
@@ -328,7 +678,7 @@ final class WaitingMouseSettings implements AutoCloseable {
 
         private void attach() {
             // Native buttons store a command UUID as a preference. Direct clicks need no stored command,
-            // and profile/default ConfigChanged events must never start finishing trades.
+            // and profile/default ConfigChanged events must never invoke explicit actions.
             for (ActionListener action : originalListeners) button.removeActionListener(action);
             button.addActionListener(listener);
             refresh();
@@ -364,9 +714,10 @@ final class WaitingMouseSettings implements AutoCloseable {
             refresh();
             try {
                 finishAction.run();
+                if (!closed && active) refresh();
             } catch (RuntimeException failure) {
                 finishRequested = false;
-                refresh();
+                if (!closed && active) refresh();
                 throw failure;
             }
         }
@@ -387,11 +738,12 @@ final class WaitingMouseSettings implements AutoCloseable {
         private final JSpinner originalSpinner;
         private final Color originalLabelColor;
         private final boolean originalLabelEnabled;
-        private final JSlider slider = new JSlider(0, 100);
+        private final JSlider slider = new PercentageSlider();
         private final ChangeListener listener;
         private boolean refreshing;
         private boolean active = true;
         private int savedFrequency;
+        private int savedManualFrequency;
         private boolean enabled;
 
         private Binding(JPanel panel, JPanel row, JLabel label, JSpinner spinner) {
@@ -404,8 +756,11 @@ final class WaitingMouseSettings implements AutoCloseable {
             slider.setOpaque(false);
             slider.setPaintTicks(false);
             slider.setPaintLabels(false);
+            // With snapping disabled, Swing uses this spacing for page/track steps as well as
+            // its normal one-unit arrow steps. Dragging still accepts every integer percentage.
+            slider.setMinorTickSpacing(1);
+            slider.setSnapToTicks(false);
             slider.getAccessibleContext().setAccessibleName(label.getText());
-            slider.setToolTipText("Randomizes chance and waiting delays together. Move right for sooner, more frequent movement; fully left disables it.");
             listener = event -> changed();
             slider.addChangeListener(listener);
         }
@@ -413,7 +768,7 @@ final class WaitingMouseSettings implements AutoCloseable {
         private void attach() {
             row.remove(originalSpinner);
             row.add(slider, BorderLayout.SOUTH);
-            refresh(clamp(config.waitingMouseChance()), config.waitingMouseOffScreen());
+            refresh(clamp(frequencyValue.getAsInt()), sliderEnabled());
             row.revalidate();
             row.repaint();
         }
@@ -429,7 +784,9 @@ final class WaitingMouseSettings implements AutoCloseable {
             try {
                 slider.setValueIsAdjusting(false);
                 slider.setValue(frequency);
+                describeValue();
                 savedFrequency = frequency;
+                savedManualFrequency = clamp(config.waitingMouseChance());
                 enabled = isEnabled;
                 slider.setEnabled(isEnabled);
                 slider.setForeground(isEnabled ? ColorScheme.BRAND_ORANGE : ColorScheme.MEDIUM_GRAY_COLOR);
@@ -446,16 +803,28 @@ final class WaitingMouseSettings implements AutoCloseable {
                 WaitingMouseSettings.this.detach();
                 return;
             }
-            int current = clamp(config.waitingMouseChance());
-            boolean isEnabled = config.waitingMouseOffScreen();
-            if (!isEnabled || !slider.isEnabled() || current != savedFrequency) {
+            int current = clamp(frequencyValue.getAsInt());
+            int manual = clamp(config.waitingMouseChance());
+            boolean isEnabled = sliderEnabled();
+            if (!isEnabled || !slider.isEnabled() || current != savedFrequency || manual != savedManualFrequency) {
                 refresh(current, isEnabled);
                 return;
             }
-            if (!slider.getValueIsAdjusting() && slider.getValue() != savedFrequency) {
+            boolean adjusting = slider.getValueIsAdjusting();
+            describeValue();
+            if (!adjusting && slider.getValue() != savedFrequency) {
                 savedFrequency = slider.getValue();
                 frequencyChanged.accept(savedFrequency);
+                if (!closed && active) savedManualFrequency = clamp(config.waitingMouseChance());
             }
+        }
+
+        private void describeValue() {
+            String details = frequencyDescription.get();
+            String description = "Randomization: " + slider.getValue() + "%."
+                + (details == null || details.isEmpty() ? "" : " " + details);
+            slider.setToolTipText(description);
+            slider.getAccessibleContext().setAccessibleDescription(description);
         }
 
         private void detach() {
@@ -487,6 +856,23 @@ final class WaitingMouseSettings implements AutoCloseable {
             }
             row.revalidate();
             row.repaint();
+        }
+    }
+
+    private static final class PercentageSlider extends JSlider {
+        private PercentageSlider() { super(0, 100); }
+
+        @Override public void updateUI() {
+            super.updateUI();
+            if (getUI() instanceof FlatSliderUI) {
+                // FlatLaf normally jumps to a clicked track position. Use Swing's track stepping
+                // only on this slider, retaining native FlatLaf painting and global UI defaults.
+                setUI(new FlatSliderUI() {
+                    @Override protected TrackListener createTrackListener(JSlider slider) {
+                        return new TrackListener();
+                    }
+                });
+            }
         }
     }
 
