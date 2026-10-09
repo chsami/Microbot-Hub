@@ -128,6 +128,11 @@ public final class BaseProfileDro {
      * the single owner of its loop and simply calls {@link #tick(boolean, boolean)}.
      */
     public void start() {
+        ZulrahSetupMouseBinding.register(this,
+                () -> beforeAction(ActionPhase.SETUP, false),
+                () -> afterAction(ActionPhase.SETUP), this::randomPoint,
+                () -> handleIdleMouse(true, settings.mouseActivity), () -> started && !isBreakActive());
+
         if (started) return;
         started = true;
         sessionStartedAt = System.currentTimeMillis();
@@ -198,6 +203,7 @@ public final class BaseProfileDro {
     }
 
     public void shutdown() {
+        ZulrahSetupMouseBinding.unregister(this);
         detachOverlay();
         breakManager.shutdown();
         started = false;
@@ -349,12 +355,22 @@ public final class BaseProfileDro {
     /** Force an immediate park using the selected fixed edge. */
     public boolean forceParkCompletelyOffScreen() {
         if (settings.parkSide == AfkParkSide.NONE) return false;
-        if (!Microbot.isLoggedIn() || Microbot.getClient() == null) return false;
-        AfkParkSide side = resolvedParkSide;
-        if (side == null || !side.parksOffScreen()) return false;
+        return parkCompletelyOffScreen(resolvedParkSide);
+    }
 
-        int width = Math.max(1, Microbot.getClient().getCanvasWidth());
-        int height = Math.max(1, Microbot.getClient().getCanvasHeight());
+    /** Explicit trip AFK only; does not enable automatic parking or alter the configured edge. */
+    public boolean parkOffScreenForTrip() {
+        return parkCompletelyOffScreen(randomBetween(0, 1) == 0 ? AfkParkSide.LEFT : AfkParkSide.RIGHT);
+    }
+
+    private boolean parkCompletelyOffScreen(AfkParkSide side) {
+        if (!Microbot.isLoggedIn() || Microbot.getClient() == null) return false;
+        if (side == null || !side.parksOffScreen()) return false;
+        int[] canvas = Microbot.getClientThread().runOnClientThreadOptional(() -> new int[] {
+                Math.max(1, Microbot.getClient().getCanvasWidth()),
+                Math.max(1, Microbot.getClient().getCanvasHeight())}).orElse(null);
+        if (canvas == null) return false;
+        int width = canvas[0], height = canvas[1];
 
         // Deliberately overshoot the client by a meaningful distance. This does not merely touch
         // the edge: the final cursor coordinate is fully outside the RuneLite canvas.
@@ -399,6 +415,8 @@ public final class BaseProfileDro {
                 else y = side.dy < 0 ? -deeper : height + deeper;
                 Microbot.getMouse().move(x, y);
             }
+            Point finalPosition = Microbot.getMouse().getMousePosition();
+            if (finalPosition == null || isInsideCanvas(finalPosition, width, height)) return false;
 
             mouseParked = true;
             offScreenParksSinceAttention++;
