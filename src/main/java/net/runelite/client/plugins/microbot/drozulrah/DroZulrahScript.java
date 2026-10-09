@@ -231,7 +231,14 @@ public class DroZulrahScript extends Script
         this.state = DroZulrahState.IDLE;
         this.status = "Waiting for login";
 
-        profile = new BaseProfileDro(profileSettings(config));
+        profile = new BaseProfileDro(profileSettings(config))
+                .setBreakSettingsUpdater(liveBreakSettings -> liveBreakSettings
+                        .customBreaksEnabled(config.smartBreaks())
+                        .breakIntervals(config.minBreakIntervalMinutes(), config.maxBreakIntervalMinutes())
+                        .logoutBreakChance(config.logoutBreakChance())
+                        .afkBreakDuration(config.afkBreakMinMinutes(), config.afkBreakMaxMinutes())
+                        .logoutBreakDuration(config.logoutBreakMinMinutes(), config.logoutBreakMaxMinutes())
+                        .postLoginSettleSeconds(config.postLoginSettleSeconds()));
 
         Microbot.log("[Dro] Zulrah " + BUILD + ": scheduler started; waiting for a logged-in player");
         if (watchdog != null) watchdog.shutdownNow();
