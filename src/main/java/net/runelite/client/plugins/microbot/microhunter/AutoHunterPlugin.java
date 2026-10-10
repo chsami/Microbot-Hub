@@ -2,9 +2,14 @@ package net.runelite.client.plugins.microbot.microhunter;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.events.NpcSpawned;
+import net.runelite.api.events.ClientTick;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.hunter.HunterPlugin;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.microhunter.scripts.AutoChinScript;
 import net.runelite.client.ui.overlay.OverlayManager;
@@ -17,15 +22,16 @@ import java.awt.*;
         description = "Microbot AutoHunter plugin",
         tags = {"hunter", "microbot"},
         version = AutoHunterPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.30",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
+@PluginDependency(HunterPlugin.class)
 public class AutoHunterPlugin extends Plugin {
-    public static final String version = "1.1.1";
+    public static final String version = "1.5.0";
     @Inject
     private AutoHunterConfig config;
 
@@ -42,6 +48,9 @@ public class AutoHunterPlugin extends Plugin {
     @Inject
     AutoChinScript autoChinScript;
 
+    AutoChinScript getAutoChinScript() {
+        return autoChinScript;
+    }
 
     @Override
     protected void startUp() throws AWTException {
@@ -52,8 +61,24 @@ public class AutoHunterPlugin extends Plugin {
     }
 
     protected void shutDown() {
-        autoChinScript.shutdown();
-        overlayManager.remove(autoHunterOverlay);
+        if (autoChinScript != null) {
+            autoChinScript.shutdown();
+        }
+        if (overlayManager != null && autoHunterOverlay != null) {
+            overlayManager.remove(autoHunterOverlay);
+        }
+    }
+
+    @Subscribe
+    public void onClientTick(ClientTick event) {
+        if (autoChinScript != null) autoChinScript.onClientTick();
+    }
+
+    @Subscribe
+    public void onNpcSpawned(NpcSpawned event) {
+        if (autoChinScript != null) {
+            autoChinScript.onNpcSpawned(event.getNpc());
+        }
     }
 
 }
