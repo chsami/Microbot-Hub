@@ -6,7 +6,8 @@ public enum GEWorkLocation {
     NORTH_EAST("North East", new WorldPoint(3168, 3490, 0)),
     SOUTH_EAST("South East", new WorldPoint(3168, 3489, 0)),
     NORTH_WEST("North West", new WorldPoint(3161, 3490, 0)),
-    SOUTH_WEST("South West", new WorldPoint(3161, 3489, 0));
+    SOUTH_WEST("South West", new WorldPoint(3161, 3489, 0)),
+    CASTLE_WARS("Castle Wars", new WorldPoint(2442, 3083, 0));
 
     private final String locationName;
     private final WorldPoint worldPoint;

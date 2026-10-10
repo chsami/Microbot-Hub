@@ -27,8 +27,8 @@ public class TanLeatherScript extends Script {
 
     public boolean run(TanLeatherConfig config) {
         startTime = System.currentTimeMillis();
-        int unprocessedItemPrice = Microbot.getItemManager().search(config.ITEM().getName()).get(0).getPrice();
-        int processedItemPrice = Microbot.getItemManager().search(config.ITEM().getFinished()).get(0).getPrice();
+        int unprocessedItemPrice = (int) Microbot.getItemManager().search(config.ITEM().getName()).get(0).getPrice();
+        int processedItemPrice = (int) Microbot.getItemManager().search(config.ITEM().getFinished()).get(0).getPrice();
         profitPerHide = processedItemPrice - unprocessedItemPrice;
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
