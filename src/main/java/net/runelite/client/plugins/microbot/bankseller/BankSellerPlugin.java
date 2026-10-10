@@ -2,7 +2,10 @@ package net.runelite.client.plugins.microbot.bankseller;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.GameState;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -17,7 +20,7 @@ import net.runelite.client.plugins.microbot.PluginConstants;
         tags = {"bank", "ge", "seller"},
 		authors = {"KSP"},
 		version = BankSellerPlugin.version,
-		minClientVersion = "1.9.8",
+		minClientVersion = "2.6.25",
 		iconUrl = "https://chsami.github.io/Microbot-Hub/BankSellerPlugin/assets/bank.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/BankSellerPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -26,7 +29,7 @@ import net.runelite.client.plugins.microbot.PluginConstants;
 @Slf4j
 public class BankSellerPlugin extends Plugin {
 
-	static final String version = "1.0.5";
+	static final String version = "1.0.6";
     @Inject
     private BankSellerConfig config;
 
@@ -47,5 +50,12 @@ public class BankSellerPlugin extends Plugin {
     @Override
     protected void shutDown() {
         bankSellerScript.shutdown();
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event) {
+        if (event.getGameState() != GameState.LOGGED_IN) {
+            bankSellerScript.resetStartingReadiness();
+        }
     }
 }
