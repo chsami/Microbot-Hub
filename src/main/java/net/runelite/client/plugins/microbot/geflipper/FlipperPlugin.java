@@ -3,14 +3,22 @@ package net.runelite.client.plugins.microbot.geflipper;
 import com.google.inject.Inject;
 import com.google.inject.Provides;
 import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.PluginManager;
+import net.runelite.client.plugins.PluginInstantiationException;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.ui.MicrobotTopLevelConfigPanel;
 
 import net.runelite.client.ui.overlay.OverlayManager;
+import javax.inject.Provider;
+import javax.swing.SwingUtilities;
 
 import java.awt.*;
 
@@ -20,14 +28,14 @@ import java.awt.*;
         tags = {"flip", "ge", "grand", "exchange", "automation"},
         authors = {"Choken", "afss0"},
         version = FlipperPlugin.version,
-        minClientVersion = "2.1.32",
+        minClientVersion = "2.6.26",
         cardUrl = "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.6";
+    public static final String version = "1.2.80";
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FlipperPlugin.class);
     @Inject
     private Client client;
@@ -45,6 +53,12 @@ public class FlipperPlugin extends Plugin {
     private FlipperOverlay overlay;
     @Inject
     private ConfigManager configManager;
+    @Inject
+    private PluginManager pluginManager;
+    private long lifecycleGeneration;
+    @Inject
+    private Provider<MicrobotTopLevelConfigPanel> settingsPanelProvider;
+    private WaitingMouseSettings waitingMouseSettings;
 
     @Provides
     net.runelite.client.plugins.microbot.geflipper.FlipperConfig provideConfig(ConfigManager configManager) {
@@ -83,26 +97,67 @@ public class FlipperPlugin extends Plugin {
 
     @Override
     protected void startUp() throws AWTException{
-        migrateSlotActions();
+        lifecycleGeneration++;
         warnIfSlotSwapOff();
         applyOwnLogLevel();
-        if (overlayManager != null && overlay != null) {
-            overlayManager.add(overlay);
+        if (settingsPanelProvider != null && configManager != null) {
+            waitingMouseSettings = new WaitingMouseSettings(this, config,
+                settingsPanelProvider.get().getWrappedPanel(),
+                this::saveWaitingMouseChance,
+                this::requestFinish, () -> flipperScript != null && flipperScript.isRunning()
+                    && !flipperScript.isFinishing(),
+                () -> flipperScript.waitingMouseFrequency(config),
+                () -> config.waitingMousePreset() != FlipperConfig.RandomizationPreset.DAY_FATIGUE
+                    || !config.randomizeMouseSpeed(),
+                () -> flipperScript.waitingMouseDescription(config));
+            waitingMouseSettings.start();
         }
+        if (overlay != null) {
+            overlay.clearStats();
+            if (overlayManager != null) overlayManager.add(overlay);
+        }
+        flipperScript.setSettingsAvailabilityChanged(this::refreshWaitingMouseSettings);
+        flipperScript.setWaitingMouseFrequencyChanged(this::refreshWaitingMouseValue);
         flipperScript.run(config);
+        refreshWaitingMouseSettings();
     }
 
-    private void migrateSlotActions() {
-        // ConfigManager persists new defaults before startup, so testing the new key for null
-        // cannot distinguish an upgrade from an explicit choice. Migrate old choices once.
-        if (configManager == null || "true".equals(configManager.getConfiguration("Flipper Config", "slotActionMigrated"))) return;
-        String oldStyle = configManager.getConfiguration("Flipper Config", "slotActionStyle");
-        if (oldStyle != null) {
-            configManager.setConfiguration("Flipper Config", "slotActionMode",
-                "MENU_OPTION".equals(oldStyle) ? FlipperConfig.SlotAction.MENU_OPTION
-                    : FlipperConfig.SlotAction.COPILOT_LEFT_CLICK);
+    /** Only an explicit slider edit saves the manual value; config replay never writes settings. */
+    void saveWaitingMouseChance(int value) {
+        if (configManager == null) return;
+        synchronized (configManager) {
+            configManager.setConfiguration("Flipper Config", "waitingMousePreset",
+                FlipperConfig.RandomizationPreset.CUSTOM);
+            configManager.setConfiguration("Flipper Config", "waitingMouseChance",
+                Math.max(0, Math.min(100, value)));
         }
-        configManager.setConfiguration("Flipper Config", "slotActionMigrated", true);
+    }
+
+    /** Called only by the owned native speed checkbox's explicit enable action. */
+    void selectFatigueFromMouseSpeedClick() {
+        if (configManager != null) configManager.setConfiguration("Flipper Config", "waitingMousePreset",
+            FlipperConfig.RandomizationPreset.DAY_FATIGUE);
+    }
+
+    private void requestFinish() {
+        if (flipperScript == null || !flipperScript.isRunning()) return;
+        long generation = lifecycleGeneration;
+        flipperScript.requestFinish(() -> stopAfterFinish(generation));
+    }
+
+    void stopAfterFinish(long generation) {
+        SwingUtilities.invokeLater(() -> {
+            if (generation != lifecycleGeneration || flipperScript == null
+                || !flipperScript.isFinishComplete() || !flipperScript.isRunning()
+                || pluginManager == null || !pluginManager.isPluginActive(this)) return;
+            try {
+                // This explicit Finish request disables only this plugin.
+                pluginManager.setPluginEnabled(this, false);
+                pluginManager.stopPlugin(this);
+            } catch (PluginInstantiationException failure) {
+                log.error("Finish completed, but GE Flipper could not be disabled. Turn it off manually.");
+            }
+        });
     }
 
     /**
@@ -123,18 +178,75 @@ public class FlipperPlugin extends Plugin {
     public void onConfigChanged(ConfigChanged event) {
         if (!"Flipper Config".equals(event.getGroup())) return;
         if ("slotActionMode".equals(event.getKey())) {
-            configManager.setConfiguration("Flipper Config", "slotActionMigrated", true);
             warnIfSlotSwapOff();
         }
         if ("verboseLogging".equals(event.getKey())) applyOwnLogLevel();
+        if ("randomizeMouseSpeed".equals(event.getKey())) {
+            if (flipperScript != null) {
+                flipperScript.invalidateMouseMovement();
+                flipperScript.resetWaitingMouse();
+                flipperScript.waitingMouseFrequency(config);
+            }
+            refreshWaitingMouseSettings();
+        }
+        if (event.getKey().startsWith("waitingMouse")) {
+            if (flipperScript != null) {
+                flipperScript.resetWaitingMouse();
+                // Observe preset transitions even when its settings panel is hidden.
+                flipperScript.waitingMouseFrequency(config);
+            }
+            refreshWaitingMouseSettings();
+        }
+        if ("showOverlay".equals(event.getKey()) && overlay != null && !config.showOverlay()) overlay.clearStats();
+    }
+
+    @Subscribe
+    public void onProfileChanged(ProfileChanged event) {
+        if (flipperScript != null) {
+            flipperScript.invalidateMouseMovement();
+            flipperScript.resetWaitingMousePresets();
+            flipperScript.pauseFinishForProfileChange();
+        }
+        refreshWaitingMouseSettings();
+    }
+
+    private void refreshWaitingMouseSettings() {
+        WaitingMouseSettings panel = waitingMouseSettings;
+        if (panel == null) return;
+        Runnable refresh = () -> {
+            if (waitingMouseSettings == panel) panel.refresh();
+        };
+        if (SwingUtilities.isEventDispatchThread()) refresh.run();
+        else SwingUtilities.invokeLater(refresh);
+    }
+
+    private void refreshWaitingMouseValue() {
+        WaitingMouseSettings panel = waitingMouseSettings;
+        if (panel != null) SwingUtilities.invokeLater(() -> {
+            if (waitingMouseSettings == panel) panel.refreshValue();
+        });
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event) {
+        if (event.getGameState() != GameState.LOGGED_IN) {
+            if (overlay != null) overlay.clearStats();
+            if (flipperScript != null) flipperScript.clearCachedTradingState();
+        }
     }
 
     @Override
     protected void shutDown() {
-        if (overlayManager != null && overlay != null) {
-            overlayManager.remove(overlay);
-        }
-        flipperScript.state = State.GOING_TO_GE;
+        lifecycleGeneration++;
+        flipperScript.setSettingsAvailabilityChanged(null);
+        flipperScript.setWaitingMouseFrequencyChanged(null);
         flipperScript.shutdown();
+        flipperScript.state = State.GOING_TO_GE;
+        if (waitingMouseSettings != null) waitingMouseSettings.close();
+        waitingMouseSettings = null;
+        if (overlay != null) {
+            overlay.clearStats();
+            if (overlayManager != null) overlayManager.remove(overlay);
+        }
     }
 }

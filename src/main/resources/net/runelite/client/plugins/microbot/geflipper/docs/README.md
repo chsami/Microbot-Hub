@@ -1,104 +1,54 @@
-﻿# GE Flipper Plugin
+# GE Flipper
 
-The **GE Flipper Plugin** is an automation tool for Old School RuneScape, designed to help players efficiently flip items for profit at the Grand Exchange. Built for the Microbot RuneLite client, this plugin streamlines the process of buying and selling items, tracking margins, and managing offers, allowing for hands-free and optimized merchanting.
+GE Flipper automates the Grand Exchange actions suggested by Flipping Copilot. Configure the items and trading strategy in Copilot; GE Flipper handles its highlighted controls, price and quantity prompts, and supported Modify/Abort actions.
 
----
+## Requirements and setup
 
-## Features
+- Microbot 2.6.26 or later.
+- Flipping Copilot installed, enabled, signed in, and providing suggestions.
+- Access to the Grand Exchange and sufficient coins in the inventory or bank.
 
-- **Automated Flipping:**  
-  Automatically places buy and sell offers at the Grand Exchange based on user-defined or detected margins, maximizing profit potential.
+Enable GE Flipper after configuring Copilot. Startup may bank inventory items and withdraw coins before opening the exchange. Stop GE Flipper before trading manually. Human input and the client's global pause suspend the script.
 
-- **Margin Checking:**  
-  Checks item margins to determine the most profitable buy and sell prices.
+## Settings
 
-- **Offer Management:**  
-  Monitors active offers, collects completed trades, and re-lists items as needed for continuous flipping.
+- **Suggestion Selection:** Hotkey (E) or Mouse for Copilot's price and quantity prompts.
+- **Copilot left-click swap:** On uses Copilot's supported swapped left-click action. Enable slot swap yourself in Copilot's settings. Off selects the supported Modify/Abort slot operation directly. GE Flipper never changes Copilot's setting.
+- **Show Overlay:** display Copilot's existing profit and runtime labels, plus actionable errors. Cached labels are cleared when the overlay is hidden, the plugin stops, or the account logs out.
+- **Move mouse off screen while waiting:** optional and off by default. Enable it in GE Flipper's settings.
+- **Randomization preset:** choose **AFK**, **Semi-AFK**, **Attentive Human**, or **Time of day / Fatigue**. The first three start near 25, 50 and 75, with a small session variation. While mouse speed is enabled, they also vary slowly and gradually become less active with session fatigue. These affect only waiting mouse randomization. **Custom** uses your exact saved manual slider value. Dragging the slider selects Custom; choosing a preset never enables movement or changes trading or shared antiban settings.
+- **Randomization:** one plain slider controls the random movement chance and both automatic delay limits together. It adjusts in 1% steps from 0 to 100 and remembers your manual selection. Hover for the exact value; there is no separate percentage readout or numbered scale. Unchecking **Move mouse off screen while waiting** dims and disables the slider. Move right for sooner, more frequent randomized movement; move fully left to disable movement. The far-right position attempts movement after a random 2–5 seconds of eligible waiting. There are no manual minimum/maximum delay controls. Time of day / Fatigue displays its effective value and controls the slider while Randomize mouse speed is on. Turning speed off uses your saved manual value and makes the slider editable again.
+- **Fatigue clock:** enabled only with Time of day / Fatigue, Move mouse off screen while waiting, and Randomize mouse speed. Choose **Use computer's local time** to follow the current clock and local timezone of the computer running Microbot. It works locally without internet or location lookups. If Microbot runs on a VPS, it follows that machine's clock. The custom-time row stays hidden in this mode, and previously saved manual input is retained. Alternatively choose **Morning** (09:00), **Mid-day** (13:00), **Night** (21:00), or **Type a time**, then enter a 24-hour `HH:mm` value in **Custom start time (HH:mm)**. These choices start an advancing virtual clock and wrap midnight. The clock-source control dims and shows a blank value while disabled. The custom-time row appears only when Type a time is enabled. Turning mouse speed off stops fatigue; re-enabling it follows the current computer time or restarts the selected virtual starting time. Clock and timing state exist only in memory. Invalid custom input pauses waiting movement only when Type a time is selected. Existing saved choices and the Morning default remain unchanged; select computer time yourself to use the new option.
+- **Randomize mouse speed:** a switch, off by default, for waiting movements and directly controlled GE trading clicks, including Finish controls. Explicitly clicking it on selects Time of day / Fatigue; you can then choose another preset. Loading saved settings does not change the selected preset. It samples 80–120 percent of the current natural movement speed once per movement and holds that factor for the entire path. The waiting presets do not enable this switch. Turning it off stops all preset fatigue. The time-of-day preset then uses the saved manual waiting randomization; AFK, Semi-AFK and Attentive Human retain their session variation without advancing fatigue. SDK-managed walking, banking, NPC interactions, inventory actions, and logout keep their usual Microbot movement. Shared mouse factories, intensity, speed settings and antiban preferences are preserved.
+- **End / Finish:** while GE Flipper is running, click once to stop buying, cancel active buy offers, and collect purchased items into inventory. It uses Copilot's temporary sell-only mode to list those items and carry out its current sell/Modify suggestions, then disables GE Flipper once a fresh Wait suggestion and verified inventory/offer state agree. Existing sell offers remain listed; it does not wait for them all to sell. The button dims while finishing. Ordinary plugin disable still stops immediately.
+- **Verbose Logging:** detailed control-flow diagnostics for GE Flipper only. Suggested prices, quantities, and item identifiers are omitted.
 
-- **Configurable Options:**  
-  Users can select which items to flip, set margin thresholds, and adjust advanced behaviors in the configuration panel.
+While active Copilot explicitly says Wait on the GE overview, complete at most one off-screen movement per continuous wait and skip a cursor already outside. A refused or cancelled attempt receives a fresh randomized delay before retrying. Trading actions take priority; pauses, real input, prompts, errors, and unavailable UI cancel the timer. Empty GE popup scaffolding is allowed; actual visible dialog content blocks movement. With random speed disabled, this uses Microbot's shared natural mouse primitive for the virtual game cursor. With random speed enabled, a private per-movement copy applies the speed variation through the client's virtual input loop, cancelling on real input, global pause, interruption, settings changes or lifecycle invalidation. The desktop pointer and shared antiban preferences are preserved.
 
-- **Failsafes and Error Handling:**  
-  Handles running out of coins, full inventory, or unexpected in-game events.
+If a Modify/Abort action is unavailable or the required swap setting is off, GE Flipper pauses that action with instructions. It does not repeatedly open View offer. Price warnings are handled within the GE popup, so disabling in-game price warnings is unnecessary.
 
----
+## Preset and clock behavior
 
-## How It Works
+AFK, Semi-AFK and Attentive Human stay within distinct ranges of 15–35, 40–60 and 65–85. A session offset of up to three points is retained across these presets. With randomized mouse speed on, drift of up to two points changes every two to five minutes, and fatigue reduces the target by one point every 15–30 minutes, up to six points. Ordinary updates move by at most one point every thirty seconds; selecting a preset or restarting its clock applies the new starting value. Turning randomized speed off clears the fatigue clock, so time spent off does not count when enabled again. Computed values never overwrite the saved manual slider.
 
-1. **Configuration:**  
-   Select the items you want to flip and set your margin preferences in the plugin panel.
+Time of day / Fatigue uses a smooth daily curve, highest around 10:00 and lowest around 22:00, with a small random offset held for two to five minutes. Its effective value stays between 20 and 80 and changes by at most one point every thirty seconds after initialization. The computer-time option follows that computer's current local clock and timezone. Monotonic elapsed time gates its drift and slider updates, so wall-clock or timezone corrections cannot accelerate or freeze those update intervals. The other time sources start an advancing virtual clock. Microbot's shared session fatigue and natural movement remain under its own control.
 
-2. **Startup:**  
-   The plugin checks your inventory and coin pouch, preparing to place offers at the Grand Exchange.
+## Updates and privacy
 
-3. **Automation Loop:**  
-   The script performs the following:
-    - Checks item margins (if enabled)
-    - Places buy offers at the lower margin
-    - Collects purchased items and places sell offers at the higher margin
-    - Monitors and manages offers for continuous flipping
+Version 1.2.80 combines the public updates since 1.2.70: confirmed waiting-movement retries, one-point manual slider edits, optional plugin-owned mouse-speed variation, and mouse-only presets with fatigue and local-clock support. This update stores no whole-plugin profiles. The default remains Custom; clock-source defaults and existing saved choices are preserved.
 
-4. **Failsafes:**  
-   Pauses or stops if requirements are not met, or if unexpected events occur.
+Settings bindings use panel events without periodic UI scans. Startup, profile replay, opening settings, refresh and cleanup do not write preferences or enable other plugins. Explicit slider edits save only GE Flipper's manual value and Custom selection. An explicit click enabling Randomize mouse speed selects Time of day / Fatigue; loading a saved enabled value does not select a preset. All changes remain within GE Flipper's settings. Shared mouse, antiban and Copilot preferences remain under the user's control. Logging configuration is scoped to GE Flipper's own package.
 
----
+Finish is an explicit, temporary session action. It changes no Copilot saved preferences, pause state or item strategy. It restores the previous in-memory sell-only mode when finishing ends or GE Flipper stops, while respecting a user who turns that mode off. Replayed settings, Reset and profile changes cannot start finishing. A profile change pauses an active Finish request until the plugin is restarted. Only GE Flipper is disabled on completion. After restarting the plugin, press Finish again if needed.
 
-## Configuration
+GE Flipper has no account or credential store, trade export, telemetry endpoint or automatic updater. It reads Copilot's active suggestions and display labels in memory and clears cached references on shutdown. Diagnostics use the client's existing logging facility; GE Flipper's own messages omit suggested prices, quantities and item identifiers. Copilot provides its own account, network and storage functionality.
 
-Set item preferences and flipping strategies in Flipping Copilot. In GE Flipper:
+Warning detection is limited to the GE popup, money errors to visible GE setup controls, and unavailable client-thread reads suspend the iteration rather than establish a closed window or successful confirmation.
 
-- **Suggestion Selection:** use Hotkey (E) or Mouse to accept Copilot's price and quantity prompts.
-- **Copilot left-click swap:** directly below Suggestion Selection, choose **On** or **Off**. On uses Copilot's swapped left-click: enable slot swap in Copilot too. The mouse moves smoothly to the slot and waits for the suggested Modify/Abort action before clicking. Off selects the supported slot action directly. This controls GE Flipper without changing Copilot's own setting. Existing selections are preserved. If an action is unavailable, GE Flipper reports it instead of clicking View offer.
-- **Show Overlay:** display profit, runtime and actionable errors. The permanent Slot Swap row is not shown.
-- **Verbose Logging:** enable detailed GE Flipper logs without changing other plugins' logging.
+## Limitations and testing
 
-A successful Modify action opens the GE's modify setup, where GE Flipper accepts the suggested price and confirms it. It should not open View offer and repeatedly back out. If the required left-click action is unavailable, GE Flipper waits and shows the reason in its overlay.
+GE Flipper follows Copilot's suggestions and does not choose its own trading strategy. Shared client-thread stalls can interrupt trading. After installing, test price and quantity entry, confirmation, and Modify/Abort with the selected settings. Verify waiting exits and resumed trading, then test the optional speed switch and preset controls. These controls make no claim of preventing account detection.
 
-See [review validation](REVIEW_VALIDATION.md) for logging lifecycle and slot-action test coverage.
+Finish requires a supported, active Copilot session. Missing offer/inventory data, unavailable actions, paused suggestions, errors or inventory items Copilot cannot sell leave it waiting with an overlay message. Make inventory space manually if collection is blocked; Finish does not bank unrelated items or choose its own sale price. It handles offers and current inventory, not unrelated bank stock. Existing sell offers remain listed. Test before relying on unattended shutdown.
 
----
-
-## Requirements
-
-- Microbot RuneLite client
-- Sufficient coins for flipping
-- Access to the Grand Exchange
-
----
-
-## Usage
-
-1. **Enable the Plugin:**  
-   Open the Microbot sidebar, find the GE Flipper Plugin, and enable it.
-
-2. **Configure Settings:**  
-   Select your desired items and margin preferences.
-
-3. **Start the Plugin:**  
-   Click "Start" to begin automated flipping.
-
-4. **Monitor Progress:**  
-   The plugin will handle offers and profits automatically.
-
-5. **Stop at Any Time:**  
-   Click "Stop" to halt the automation.
-
----
-
-## Limitations
-
-- Only supports flipping items and strategies defined in the script logic.
-- Requires the player to have sufficient coins and access to the Grand Exchange.
-- May not handle all random events or interruptions (e.g., player death, disconnections).
-
----
-
-## Source Files
-
-- `FlipperPlugin.java` – Main plugin class, manages lifecycle and integration.
-- `FlipperScript.java` – Core automation logic for flipping.
-- `FlipperConfig.java` – User configuration options.
-
----
-
-**Automate your merchanting and maximize your profits with the GE Flipper Plugin!**
+On supported Microbot settings layouts, GE Flipper replaces only its own numeric Randomization row with a slider while enabled. Disabling the whole plugin restores the native field and its stored manual value. Unsupported future layouts retain the native bounded field. No client classes or other plugin settings are modified.

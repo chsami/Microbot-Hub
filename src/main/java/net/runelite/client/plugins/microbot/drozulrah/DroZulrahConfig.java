@@ -20,8 +20,11 @@ public interface DroZulrahConfig extends Config
 {
     String GROUP = "DroZulrah";
 
+    @ConfigItem(keyName="hideOverlay",name="Hide overlay",description="Hide the compact session card while the script continues running.",position=11)
+    default boolean hideOverlay(){return false;}
+
     @ConfigSection(name="Smart breaks", description="BaseProfileDro AFK/logout breaks, started only at Ferox between trips.",
-            position=9, closedByDefault=true)
+            position=9, closedByDefault=false)
     String breakSection = "smartBreakSettings";
 
     @ConfigItem(
@@ -57,14 +60,14 @@ public interface DroZulrahConfig extends Config
     @ConfigItem(keyName="prepositionTicks", name="Pre-position lead (ticks)", description="Move toward the next known stand before the current phase ends.", position=5)
     default int prepositionTicks(){ return 3; }
 
-    @ConfigItem(keyName="smartBreaks", name="Enable smart breaks", description="Enable BaseProfileDro smart breaks. Breaks only begin at Ferox between trips.", position=0, section=breakSection)
+    @ConfigItem(keyName="smartBreaks", name="Enable smart breaks", description="Enable BaseProfileDro smart breaks. Applies while running. Breaks only begin at Ferox between trips; active breaks finish their return cycle.", position=0, section=breakSection)
     default boolean smartBreaks(){ return true; }
 
     @ConfigItem(keyName="useBlowpipeSpecial", name="Use special attacks", description="Use supported equipped ranged and magic weapon specials at their required energy. Does not switch weapons just to spec.", position=7)
     default boolean useSpecialAttacks(){ return true; }
 
     @ConfigItem(keyName="showRotationHelperOverlay", name="Show Zulrah rotation helper",
-            description="Show current/next phases, recommended tiles, prayers, countdown and clouds. Display only; does not change combat movement.", position=8)
+            description="Show current/next phases, recommended tiles, prayers, countdown and clouds. Display only; does not change combat movement.", position=10)
     default boolean showRotationHelperOverlay(){ return false; }
 
     @Range(min=1, max=1440)

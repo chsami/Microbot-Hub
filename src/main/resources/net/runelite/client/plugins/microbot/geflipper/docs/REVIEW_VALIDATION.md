@@ -1,38 +1,41 @@
-# GE Flipper 1.2.6 review validation
+# GE Flipper 1.2.80 review validation
 
-This records the checks for the [requested changes on PR #550](https://github.com/chsami/Microbot-Hub/pull/550#pullrequestreview-5219550419).
+This combined update includes the public changes since 1.2.70: waiting reliability, one-point slider controls, optional mouse-speed variation, mouse-only presets and fatigue clocks. It retains the existing Copilot trading and End / Finish behavior. Only GE Flipper sources, ordinary JUnit tests and its documentation belong in the change.
 
-## Shared logging
+## Review requirements and boundaries
 
-GE Flipper no longer detaches or stops ROOT appenders, changes ROOT's level, or changes shared GameChatAppender configuration. Verbose Logging changes only the GE Flipper package logger and takes effect immediately.
+[Chsami's #550 review](https://github.com/chsami/Microbot-Hub/pull/550#pullrequestreview-5219550419) requires shared logging to remain intact and supported Modify behavior to work. GE Flipper therefore configures only its own package logger, preserves shared chat appenders and preferences, and keeps both documented Modify/Abort routes.
 
-`FlipperPluginLoggingTest` exercises actual plugin startup/shutdown with trading stubbed. It checks another script namespace's INFO/WARN messages before, during and after the lifecycle through the real GameChatAppender filters, plus verbosity changes through EventBus. ROOT appender identities, started states, ROOT level and shared chat settings must remain unchanged. Tests restore their logging state afterward.
+Minimum supported client version is 2.6.26 and builds target Java 11. Shared mouse factories, speed managers, antiban preferences, client classes and other plugins are outside the change. SDK-managed movement keeps its normal behavior. Startup, profile replay and passive UI refresh save no preferences. Only explicit GE Flipper control actions save their documented owned settings.
 
-On 23 September 2026, a live client check also found the other script's verification messages in the game chat buffer before startup, while running, after shutdown and after restart. ROOT appenders and shared settings remained unchanged. This was observed on development build 1.2.85, whose logging implementation is retained in 1.2.6.
+## Automated coverage
 
-## MODIFY with slot swap on and off
+- Logging, Modify/Abort, GE warning bounds, unavailable UI reads and privacy lifecycle retain their existing regression coverage.
+- Waiting movement confirms an actual cursor exit before parking, retries a refused movement after a fresh randomized delay, limits successful exits to one per continuous wait, and rejects stale completion after reset.
+- The native slider uses one-unit track, page and keyboard steps without changing global UI defaults. Exact plugin/group/key ownership prevents another panel from being patched. Closing or rebuilding rows removes listeners and rejects stale edits.
+- Optional mouse speed samples one bounded factor per movement through a private policy copy. Pause, real input, stop, configuration changes and Finish invalidate pending gestures without changing the shared speed manager.
+- Preset tests cover distinct bounded ranges, retained session offsets, slow drift, gradual fatigue, Custom precision, and no persistence of computed values.
+- Daily clock tests cover Morning, Mid-day, Night, typed HH:mm and computer-local time; midnight, invalid custom input, elapsed-time updates, wall-clock and timezone changes, and speed-off fallback without reading the inactive clock.
+- Real SDK settings fixtures cover disabled/blank clock controls, hidden inactive custom-time input, saved-value restoration, explicit speed-enable selection of fatigue, profile/Reset rebuilding, passive replay and native Swing listeners.
+- Finish coverage retains explicit transient requests, buy-side cancellation, collection validation, temporary sell-only mode restoration, fresh completion evidence and protection from stale queued shutdown callbacks.
 
-The handler verifies that the slot exposes the exact supported Modify offer operation. With GE Flipper's Copilot left-click swap On, it moves smoothly to the target and checks the final default menu entry before clicking that same point. With Off, it invokes the validated slot operation directly, independently of Copilot's swap setting.
+## Reproduction and candidate evidence
 
-If Copilot swap is disabled while GE Flipper is configured to use it, the suggestion pauses with setting instructions. Missing or unready actions do not fall back to View offer. A dispatched MODIFY that fails to open setup pauses the same suggestion before watchdog/highlight fallback paths can loop.
-
-`SlotActionExecutorTest` covers both swap states, the explicit operation path, missing actions, incorrect default action/slot/child/identifier, and changed final validation. `FlipperScriptModifyTest` covers actionable pauses, transient retries and supported widget operations.
-
-Live development-build checks on 23 September observed:
-
-- Swap on: actual Modify offer menu operations followed by E price input and successful confirmation. Two recorded mouse approaches contained 56 and 32 intermediate move events.
-- Explicit slot action with swap off: Modify at 15:52:55 AEST followed by E price input and successful confirmation at 15:53:04.
-- A reviewed run from 10:43–15:57 had no GE Flipper errors, 136 Modify actions, 40 Abort actions and 286 successful confirmations. Two temporary Modify waits recovered; two warnings occurred during mismatched setting changes.
-
-These observations verify the action routes and Hotkey selection. They do not claim a completed live Mouse-selection test on the final release label.
-
-## Reproduction
-
-The tests use JUnit 5, matching the repository's Gradle test runner. From a clean checkout with JDK 11 and Microbot 2.6.22:
+Use a clean checkout and JDK 11:
 
 ```sh
-./gradlew FlipperPluginJar -PpluginList=FlipperPlugin -PmicrobotClientVersion=2.6.22
-./gradlew test --tests 'net.runelite.client.plugins.microbot.geflipper.*' -PpluginList=FlipperPlugin -PmicrobotClientVersion=2.6.22
+./gradlew clean build
+./gradlew test --tests 'net.runelite.client.plugins.microbot.geflipper.*' -PpluginList=FlipperPlugin -PmicrobotClientVersion=2.6.26
 ```
 
-No live client is required by the automated tests. They include 25 cases across the three GE Flipper test classes. The plugin build and JUnit 5 suite were checked in a checkout containing only the proposed GE Flipper changes, excluding unrelated local edits.
+With JDK 11, the final combined 1.2.80 candidate passed all 238 GE Flipper tests across 21 suites against minimum SDK 2.6.26. Its JAR declares version 1.2.80 and minimum client 2.6.26, contains 63 packaged class files with Java 11 bytecode, and passed packaging/privacy inspection and static linkage against SDKs 2.6.26 and 2.6.30. Production and test Java sources retain the independently reviewed public behavior; only the submission version changed from its preparation label. The required GitHub CI normal full Hub clean build must pass on this combined PR head before merge. Historical results for other versions do not validate this candidate.
+
+Inspect the resulting JAR for declared version 1.2.80, minimum client 2.6.26, Java 11 bytecode, and GE Flipper classes/resources only. Check linkage against the minimum and current SDKs. Exclude logs, account/trade exports, screenshots of private sessions, backups, credentials, personal paths and local diagnostics from source, documentation and artifacts.
+
+## Supervised live checks
+
+Enable waiting movement manually and observe a cursor exit during a healthy Copilot WAIT, then resumed trading. Check the plain slider in one-unit steps, saved Custom values and disabled styling. With speed initially off, enable it explicitly and verify Time of day / Fatigue is selected only by that click. Loading saved settings must leave the chosen preset unchanged.
+
+Exercise each preset, the computer-local clock and a typed virtual start. Confirm the displayed effective value updates without overwriting the manual value. Inactive clock controls must be blank/disabled and custom input hidden when unused; returning to the relevant option restores the saved input. Turning speed off stops fatigue and restores the documented waiting behavior. Verify pause, human input, plugin restart and profile changes.
+
+Test supported Hotkey/Mouse price input, confirmation and Modify/Abort. Test End / Finish separately with supervised offers and inventory; existing sells remain listed, temporary mode restores, and only GE Flipper stops. Automated fixtures do not establish every live server, reflection, timing or mouse condition. No live actions are authorized by this document.
