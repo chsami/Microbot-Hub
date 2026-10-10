@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2026, DRO (droplugins).
+ * SPDX-License-Identifier: BSD-2-Clause
+ * Free and open source. Retain this notice and the LICENSE.txt terms.
+ * Developed with OpenAI Codex; see CREDITS.txt. Third-party notices follow.
+ */
+/*
  * Spawn generation and mapping adapted from damencs/spawn-predictor.
  * Copyright (c) 2022, Damen <gh: damencs>. All rights reserved.
  * Redistribution and use in source and binary forms, with or without

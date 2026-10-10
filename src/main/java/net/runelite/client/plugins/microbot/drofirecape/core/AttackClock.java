@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026, DRO (droplugins).
+ * SPDX-License-Identifier: BSD-2-Clause
+ * Free and open source. Retain this notice and the LICENSE.txt terms.
+ * Developed with OpenAI Codex; see CREDITS.txt. Third-party notices follow.
+ */
 /* Attack catalogue reference: OreoCupcakes/kotori-plugins @ 8904ec22adef20cdf198fe583387e3cd4428dca2.
  * Copyright (c) 2018 Jordan Atwood; (c) 2019 Ganom and Lucas.
  * BSD-2-Clause terms and disclaimer are retained in THIRD-PARTY-NOTICES.txt, section 4.

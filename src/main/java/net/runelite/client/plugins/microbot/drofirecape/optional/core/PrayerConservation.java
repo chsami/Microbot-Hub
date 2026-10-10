@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026, DRO (droplugins).
+ * SPDX-License-Identifier: BSD-2-Clause
+ * Free and open source. Retain this notice and the LICENSE.txt terms.
+ * Developed with OpenAI Codex; see CREDITS.txt. Third-party notices follow.
+ */
 package net.runelite.client.plugins.microbot.drofirecape.optional.core;
 import net.runelite.client.plugins.microbot.drofirecape.optional.core.FcModel.*;
 /** Optional demand policy only. The prayer clocks and atomic reset transport are unchanged. */

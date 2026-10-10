@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2026, DRO (droplugins).
+ * SPDX-License-Identifier: BSD-2-Clause
+ * Free and open source. Retain this notice and the LICENSE.txt terms.
+ * Developed with OpenAI Codex; see CREDITS.txt. Third-party notices follow.
+ */
+/*
  * NPC travelling-pattern adaptation:
  * Copyright (c) 2018, Woox <https://github.com/wooxsolo>
  * All rights reserved.

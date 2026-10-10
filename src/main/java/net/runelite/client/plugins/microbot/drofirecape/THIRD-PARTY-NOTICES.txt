@@ -9,8 +9,9 @@ project is represented as endorsing this plugin or validating this release.
 2. Collision/line-of-sight traversal: RuneLite WorldArea, copyright (c) 2018 Woox.
    The complete terms remain at the top of both CollisionGrid.java copies.
 
-3. The user's existing profile, recording and plugin code remain in their
-   existing packages. This notice does not relicense the user's original work.
+3. Original DRO contributions are distributed under BSD-2-Clause; see
+   LICENSE.txt. Inherited code retains its existing copyright notices and
+   license terms. Contributor acknowledgements are in CREDITS.txt.
 
 4. Attack animation catalogue reference (inherited attribution):
    OreoCupcakes/kotori-plugins, Fight Caves helper port.

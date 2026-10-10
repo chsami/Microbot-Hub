@@ -1,5 +1,8 @@
 # [Dro] Firecape
 
+**Free and open source.** DRO provides this plugin without a purchase, subscription or paid license key. Original DRO contributions use the [BSD 2-Clause license](https://opensource.org/license/bsd-2-clause). Redistributed source and binaries must retain the DRO copyright, license conditions and disclaimer; existing third-party notices also remain applicable.
+
+
 ![Dro Firecape](assets/card.png)
 
 Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.66**, requiring **Microbot 2.6.30**.
@@ -90,7 +93,7 @@ The retained evidence includes **29 main-mode combat segments across 17 versions
 | .21 / .22 | Main runs reached waves 55 / 58 during early combat refinement. |
 | .27 | First main cape, October 3; manual approach to Jad was needed before the script finished. |
 | .29 | Second main cape, October 5; smoother reported startup and completion. |
-| .31 | Archived normal-mode baseline before Pure development; current normal script matches byte for byte. |
+| .31 | Archived normal-mode baseline before Pure development; current normal script body matches byte for byte, apart from the added copyright header. |
 | .57 | Pure reached wave 56 on an 80 Ranged, 75 HP, 1 Defence account; wave-22 ranger stall needed a manual attack and supplies ran out. |
 | .59 / .60 | One tester-reported build-swap attempt; retained frames reach 53 with the .59 label. |
 | .61 / .62 | Retained frames reach 40 / 53; movement exposure, supply use and recovery stalls informed repairs. |
@@ -109,3 +112,13 @@ Focused verification passed **37 groups / 5,274 core assertions**, plus **34 ada
 The distributed JAR contains runtime classes and required notices. Tests, screenshots, the catalog card, raw recordings and backups are not bundled into it. The new Pure healer sequence uses synthetic formations on a recorded collision map because older live traces lack complete healer positions.
 
 Retain `THIRD-PARTY-NOTICES.txt` and `FC-SPAWN-PREDICTOR-LICENSE.txt`. Attribution covers Damen's predictor, RuneLite/Woox collision and line-of-sight work, and inherited Fight Caves animation references; it does not imply endorsement.
+
+## Copyright and credits
+
+Copyright (c) 2026, **DRO (droplugins)**. See LICENSE.txt for the full BSD-2-Clause terms and CREDITS.txt for acknowledgements.
+
+- **DRO:** creator, project direction, gameplay strategy, testing and release decisions.
+- **OpenAI Codex:** wrote most of the original code under DRO's direction and assisted with debugging and verification.
+- **Rick:** thank you for extensive Pure-mode testing and practical feedback.
+
+Third-party attribution and license notices are retained. Redistribution should credit DRO by retaining its copyright and license notices; the Codex and Rick acknowledgements are included in CREDITS.txt.
