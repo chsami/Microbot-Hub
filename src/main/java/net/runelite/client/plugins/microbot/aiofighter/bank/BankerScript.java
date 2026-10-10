@@ -43,6 +43,7 @@ public class BankerScript extends Script {
     boolean initialized = false;
     public static boolean inventorySetupChanged = false;
     private static boolean bankingTriggered = false;
+    private static String missingSetupWarned = null;
     @Inject
     private MInventorySetupsPlugin inventorySetupsPlugin;
 
@@ -161,6 +162,10 @@ public class BankerScript extends Script {
             return false;
         }
         
+        if (!isSetupAvailable(setupName)) {
+            return false;
+        }
+
         Rs2InventorySetup inventorySetup = new Rs2InventorySetup(setupName, mainScheduledFuture);
 
         // (3) If food is required but not available
@@ -206,6 +211,36 @@ public class BankerScript extends Script {
         return false;
     }
 
+
+    private boolean isSetupAvailable(String setupName) {
+        List<InventorySetup> setups = MInventorySetupsPlugin.getInventorySetups();
+        List<String> names = new ArrayList<>();
+        if (setups != null) {
+            for (InventorySetup setup : setups) {
+                if (setup != null) {
+                    names.add(setup.getName());
+                }
+            }
+        }
+        if (isSetupResolvable(names, setupName)) {
+            missingSetupWarned = null;
+            return true;
+        }
+        if (!setupName.equals(missingSetupWarned)) {
+            missingSetupWarned = setupName;
+            Microbot.log("Inventory setup " + setupName + " not found; reselect it in AIO Fighter config");
+        }
+        return false;
+    }
+
+    static boolean isSetupResolvable(Collection<String> setupNames, String setupName) {
+        if (setupNames == null || setupName == null) {
+            return false;
+        }
+        return setupNames.stream()
+                .filter(Objects::nonNull)
+                .anyMatch(name -> name.equalsIgnoreCase(setupName) || name.equals("default"));
+    }
 
     /**
      * Checks if the given setup requires any variant of a specific potion but the player does not have it.
@@ -377,11 +412,18 @@ public class BankerScript extends Script {
                 return;
             }
             
-            Rs2InventorySetup inventorySetup = new Rs2InventorySetup(setupName, mainScheduledFuture);
             if (!Rs2Bank.isOpen()) {
                 Microbot.log("Bank didn't open, returning.");
                 return;
             }
+            if (!isSetupAvailable(setupName)) {
+                Rs2Bank.depositAll();
+                Rs2Inventory.waitForInventoryChanges(2000);
+                bankingTriggered = false;
+                inventorySetupChanged = false;
+                return;
+            }
+            Rs2InventorySetup inventorySetup = new Rs2InventorySetup(setupName, mainScheduledFuture);
             if (config.currentInventorySetup() != null) {
                 Microbot.log("Loading equipment for: " + config.currentInventorySetup().getName());
             } else {
