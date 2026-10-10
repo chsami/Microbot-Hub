@@ -45,6 +45,12 @@ public class TrialsScript {
 
     private static final int VISIT_TOLERANCE = 15;
     private static final int WAYPOINT_VISIT_TOLERANCE = 5;
+    private static final int SUPPLY_WAYPOINT_VISIT_TOLERANCE = 1;
+    static final Set<WorldPoint> TEMPOR_MARLIN_SUPPLY_WAYPOINTS = Set.of(
+            new WorldPoint(3028, 2815, 0),
+            new WorldPoint(3002, 2788, 0),
+            new WorldPoint(3037, 2761, 0),
+            new WorldPoint(3096, 2775, 0));
     private static final int RUM_INTERACTION_DISTANCE = 15;
     private static final int RUM_RETRY_TICKS = 2;
 
@@ -171,7 +177,9 @@ public class TrialsScript {
                 currentWaypointIndex = 0;
             }
 
-            currentWaypointIndex = getNextWaypointIndex(routePoints, currentWaypointIndex, boatPos);
+            Set<WorldPoint> supplyWaypoints = info.Location == TrialLocations.TemporTantrum && info.Rank == TrialRanks.Marlin
+                    ? TEMPOR_MARLIN_SUPPLY_WAYPOINTS : Set.of();
+            currentWaypointIndex = getNextWaypointIndex(routePoints, currentWaypointIndex, boatPos, supplyWaypoints);
             WorldPoint target = routePoints.get(currentWaypointIndex);
 
             final WorldPoint hintTarget = target;
@@ -198,13 +206,21 @@ public class TrialsScript {
     }
 
     static int getNextWaypointIndex(List<WorldPoint> routePoints, int currentWaypointIndex, WorldPoint boatPosition) {
-        int currentDistance = boatPosition.distanceTo(routePoints.get(currentWaypointIndex));
-        if (currentDistance <= WAYPOINT_VISIT_TOLERANCE) {
+        return getNextWaypointIndex(routePoints, currentWaypointIndex, boatPosition, Set.of());
+    }
+
+    static int getNextWaypointIndex(List<WorldPoint> routePoints, int currentWaypointIndex, WorldPoint boatPosition,
+                                    Set<WorldPoint> supplyWaypoints) {
+        WorldPoint current = routePoints.get(currentWaypointIndex);
+        boolean supplyWaypoint = supplyWaypoints.contains(current);
+        int currentDistance = boatPosition.distanceTo(current);
+        if (currentDistance <= (supplyWaypoint ? SUPPLY_WAYPOINT_VISIT_TOLERANCE : WAYPOINT_VISIT_TOLERANCE)) {
             return (currentWaypointIndex + 1) % routePoints.size();
         }
 
         int lastWaypointIndex = routePoints.size() - 1;
         while (currentWaypointIndex < lastWaypointIndex
+                && !supplyWaypoints.contains(routePoints.get(currentWaypointIndex))
                 && hasPassedWaypoint(routePoints.get(currentWaypointIndex), routePoints.get(currentWaypointIndex + 1), boatPosition)) {
             currentWaypointIndex++;
         }

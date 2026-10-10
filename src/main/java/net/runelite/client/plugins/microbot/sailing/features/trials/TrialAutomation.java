@@ -1,140 +1,32 @@
 package net.runelite.client.plugins.microbot.sailing.features.trials;
 
 import java.awt.event.KeyEvent;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.InterfaceID;
-import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.plugins.microbot.sailing.features.trials.data.*;
+import net.runelite.client.plugins.microbot.sailing.features.trials.data.TrialRanks;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
-import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
-import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 
-/** Trial interactions take precedence over navigation until the HUD acknowledges them. */
 @Slf4j
 final class TrialAutomation {
     private long nextInteraction;
     private long nextDiagnostic;
-    private Boolean pendingRum;
-    private int pendingDeliveries;
-    private int attempts;
     private long nextCamera;
     private long nextPitch;
     private long cameraGeneration;
     private int pitch = 270;
     private int yawKey;
     private int pitchKey;
-    private long nextTrim;
-    private String proximityTarget;
-    private int proximityTick = -1;
-
-    static int nearestIndex(List<WorldPoint> points, WorldPoint position) {
-        if (position == null || points == null || points.isEmpty()) return 0;
-        int best = 0;
-        for (int i = 1; i < points.size(); i++) {
-            if (position.distanceTo(points.get(i)) < position.distanceTo(points.get(best))) best = i;
-        }
-        return best;
-    }
-
-    static boolean rumAcknowledged(boolean before, int deliveries, TrialInfo info) {
-        return before != info.HasRum || info.CollectedPrimaryObjectives > deliveries;
-    }
-
-    boolean handleRum(TrialInfo info, WorldPoint position) {
-        if (info.Location != TrialLocations.TemporTantrum) return false;
-        long now = System.currentTimeMillis();
-        if (pendingRum != null) {
-            if (rumAcknowledged(pendingRum, pendingDeliveries, info)) {
-                log.info("Trial rum interaction confirmed: carrying={}, delivered={}",
-                        info.HasRum, info.CollectedPrimaryObjectives);
-                pendingRum = null;
-                attempts = 0;
-                proximityTarget = null;
-                return false;
-            }
-            if (now < nextInteraction) return true;
-            if (attempts >= 4) {
-                diagnostic("Rum interaction not confirmed; reposition the boat or restart Trials.");
-                return true;
-            }
-        }
-        if (!info.HasRum && info.TotalPrimaryObjectivesNeeded > 0
-                && info.CollectedPrimaryObjectives >= info.TotalPrimaryObjectivesNeeded) return false;
-        int id = info.HasRum ? ObjectID.SAILING_BT_TEMPOR_TANTRUM_NORTH_LOC_PARENT
-                : ObjectID.SAILING_BT_TEMPOR_TANTRUM_SOUTH_LOC_PARENT;
-        String action = info.HasRum ? "Deliver-rum" : "Collect-rum";
-        Rs2TileObjectModel boat = Microbot.getClientThread().invoke(() ->
-                Microbot.getRs2TileObjectCache().query()
-                        .where(o -> hasObjectAction(o.getId(), action))
-                        .where(o -> seaLocation(o.getWorldView(), o.getWorldLocation()) != null
-                                && position.distanceTo(seaLocation(o.getWorldView(), o.getWorldLocation()))
-                                    <= 12)
-                        .first());
-        if (boat == null) {
-            proximityTarget = null;
-            return pendingRum != null;
-        }
-        if (now < nextInteraction) return true;
-        stopCamera();
-        nextInteraction = now + 2400;
-        pendingRum = info.HasRum;
-        pendingDeliveries = info.CollectedPrimaryObjectives;
-        attempts++;
-        log.info("Trial rum: action={}, object={}, worldView={}, attempt={}",
-                action, boat.getId(), boat.getWorldView().getId(), attempts);
-        boat.click(action);
-        return true;
-    }
-
-    private static boolean hasObjectAction(int id, String action) {
-        ObjectComposition definition = Microbot.getClient().getObjectDefinition(id);
-        if (definition != null && definition.getImpostorIds() != null) definition = definition.getImpostor();
-        return definition != null && definition.getActions() != null
-                && Arrays.stream(definition.getActions()).anyMatch(action::equalsIgnoreCase);
-    }
-
-    private static WorldPoint seaLocation(WorldView view, WorldPoint fallback) {
-        if (view == null) return null;
-        if (view.getId() == -1) return fallback;
-        WorldView top = Microbot.getClient().getTopLevelWorldView();
-        if (top == null) return null;
-        WorldEntity entity = top.worldEntities().byIndex(view.getId());
-        if (entity == null || entity.getLocalLocation() == null) return null;
-        return WorldPoint.fromLocalInstance(Microbot.getClient(), entity.getLocalLocation());
-    }
-
-    boolean trim(boolean needed) {
-        if (!needed || System.currentTimeMillis() < nextTrim) return false;
-        Rs2TileObjectModel sails = Microbot.getClientThread().invoke(() ->
-                Microbot.getRs2TileObjectCache().query().fromWorldView()
-                        .where(o -> hasObjectAction(o.getId(), "Trim")).first());
-        if (sails == null) return false;
-        nextTrim = System.currentTimeMillis() + 1800;
-        log.info("Trial trim: object={}, worldView={}", sails.getId(), sails.getWorldView().getId());
-        return sails.click("Trim");
-    }
-
-    static String rumAction(String[] actions, boolean carrying) {
-        if (actions == null) return null;
-        for (String action : actions) {
-            if (action == null) continue;
-            String text = action.toLowerCase(Locale.ROOT);
-            if (carrying ? text.startsWith("deliver") || text.startsWith("hand-in")
-                    : text.startsWith("collect") || text.startsWith("take-rum")) return action;
-        }
-        return null;
-    }
 
     void startSelected(TrialRanks rank) {
         if (rank == null || "Unknown".equalsIgnoreCase(rank.name())) {
@@ -143,15 +35,12 @@ final class TrialAutomation {
         }
         long now = System.currentTimeMillis();
         if (now < nextInteraction || !Microbot.isLoggedIn()) return;
-        // Search only the trial selection interface, never unrelated dialogue/widgets.
         Widget choice = Microbot.getClientThread().invoke(() -> findRank(
                 Microbot.getClient().getWidget(InterfaceID.SailingBtSelection.UNIVERSE), rank.name()));
         if (choice != null) {
             nextInteraction = now + 3000;
             log.info("Starting selected trial rank: {}", rank);
             Rs2Widget.clickWidget(choice);
-            pendingRum = null;
-            attempts = 0;
             return;
         }
         boolean selectionOpen = Microbot.getClientThread().invoke((java.util.function.Supplier<Boolean>) () -> {
@@ -278,11 +167,7 @@ final class TrialAutomation {
     }
 
     void stop() {
-        proximityTarget = null;
-        proximityTick = -1;
         stopCamera();
-        pendingRum = null;
-        attempts = 0;
         nextInteraction = 0;
     }
 
