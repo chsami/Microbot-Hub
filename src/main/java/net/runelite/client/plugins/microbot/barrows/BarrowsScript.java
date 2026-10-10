@@ -1648,7 +1648,7 @@ public class BarrowsScript extends Script {
         if(!clearTunnelTrashAggressor(config)){
             return;
         }
-        if(findTunnelBrother() != null){
+        if(findTunnelBrother() != null || !shouldFightMonsterOnWayToChest()){
             return;
         }
 
@@ -1663,14 +1663,37 @@ public class BarrowsScript extends Script {
         boolean killed = false;
 
         if(!isInteractingWith(monster)){
+            // Single-way combat: a door-spawn aggressor blocks Attack on hallway targets.
+            if(findTunnelTrashAggressor() != null){
+                if(!clearTunnelTrashAggressor(config) || !shouldFightMonsterOnWayToChest()){
+                    return;
+                }
+                monster = findTunnelMonster();
+                if(monster == null){
+                    return;
+                }
+                label = monster.getName() != null ? monster.getName() : "monster";
+            }
             if(!tryAttackNpc(monster)){
                 Microbot.log(label + " gone or Attack unavailable — continuing.");
                 return;
             }
-            sleepUntil(() -> isInteractingWith(monster) && !Rs2Player.isMoving()
-                            || monster.isDead()
-                            || !npcHasAttackOption(monster),
+            final Rs2NpcModel attackTarget = monster;
+            sleepUntil(() -> isInteractingWith(attackTarget) && !Rs2Player.isMoving()
+                            || attackTarget.isDead()
+                            || !npcHasAttackOption(attackTarget)
+                            || findTunnelTrashAggressor() != null,
                     Rs2Random.between(4000,8000));
+            if(findTunnelTrashAggressor() != null){
+                if(!clearTunnelTrashAggressor(config) || !shouldFightMonsterOnWayToChest()){
+                    return;
+                }
+                monster = findTunnelMonster();
+                if(monster == null){
+                    return;
+                }
+                label = monster.getName() != null ? monster.getName() : "monster";
+            }
             if(monster.isDead() || !npcHasAttackOption(monster)){
                 if(monster.isDead()){
                     monstersKilledThisRoom++;
@@ -1680,8 +1703,8 @@ public class BarrowsScript extends Script {
             }
         }
 
-        if(Rs2Player.isInCombat() || isInteractingWith(monster)){
-            while(Rs2Player.isInCombat() || isInteractingWith(monster)){
+        if(Rs2Player.isInCombat() || isInteractingWith(monster) || findTunnelTrashAggressor() != null){
+            while(Rs2Player.isInCombat() || isInteractingWith(monster) || findTunnelTrashAggressor() != null){
                 Microbot.log("Fighting " + label + ".");
                 if (!super.isRunning()) break;
 
@@ -1693,10 +1716,18 @@ public class BarrowsScript extends Script {
                     break;
                 }
 
-                if(findTunnelTrashAggressor() != null){
-                    if(!clearTunnelTrashAggressor(config)){
+                Rs2NpcModel aggressor = findTunnelTrashAggressor();
+                if(aggressor != null && BarrowsTunnelRules.shouldRetargetToCombatLock(
+                        isInteractingWith(monster), true)){
+                    if(!clearTunnelTrashAggressor(config) || !shouldFightMonsterOnWayToChest()){
                         break;
                     }
+                    // Aggressor may have been our intended RP kill — refresh target.
+                    monster = findTunnelMonster();
+                    if(monster == null){
+                        break;
+                    }
+                    label = monster.getName() != null ? monster.getName() : "monster";
                     continue;
                 }
 
@@ -1716,7 +1747,7 @@ public class BarrowsScript extends Script {
                     break;
                 }
 
-                if(!Rs2Player.isInCombat() && !isInteractingWith(monster)){
+                if(!Rs2Player.isInCombat() && !isInteractingWith(monster) && findTunnelTrashAggressor() == null){
                     break;
                 }
 
@@ -1981,17 +2012,7 @@ public class BarrowsScript extends Script {
     }
 
     private boolean isTunnelRpMonsterName(String name){
-        if(name == null){
-            return false;
-        }
-        if(isBarrowsBrotherName(name)){
-            return false;
-        }
-        return name.equals("Skeleton")
-                || name.contains("Bloodworm")
-                || name.contains("Crypt rat")
-                || name.contains("Crypt spider")
-                || name.contains("Giant crypt");
+        return BarrowsTunnelRules.isTunnelRpMonsterName(name);
     }
 
     /** @deprecated use {@link #findTunnelMonster()} */
@@ -2031,15 +2052,11 @@ public class BarrowsScript extends Script {
     }
 
     /**
-     * Door-spawned crypt trash targeting the player. Holds attack priority until dead.
-     * Once RP is at the 86% target, ignore RP fodder so we do not keep farming past it.
+     * Door-spawned crypt trash targeting the player (incl. Skeleton).
+     * In single-way tunnels this NPC holds combat priority until dead — hallway
+     * targets cannot be attacked until it is cleared.
      */
     private Rs2NpcModel findTunnelTrashAggressor(){
-        // Past RP target: never pick fights with crypt fodder (even if they attack us).
-        if(isAtOrAboveRpTarget()){
-            shouldAttackSkeleton = false;
-            return null;
-        }
         Player localPlayer = null;
         try {
             if(Microbot.getClientThread().isClientThread()){
@@ -2062,9 +2079,9 @@ public class BarrowsScript extends Script {
                 .where(npc -> npc != null && !npc.isDead() && npc.getCombatLevel() > 0)
                 .where(npc -> {
                     String name = npc.getName();
-                    if(name == null) return false;
-                    if("Skeleton".equals(name)) return false;
-                    if(isBarrowsBrotherName(name)) return false;
+                    if(!BarrowsTunnelRules.isCombatLockAggressorName(name)){
+                        return false;
+                    }
                     return Objects.equals(npc.getInteracting(), local);
                 })
                 .nearestOnClientThread();
@@ -2076,11 +2093,7 @@ public class BarrowsScript extends Script {
     }
 
     private boolean isBarrowsBrotherName(String name){
-        if(name == null){
-            return false;
-        }
-        return name.contains("Dharok") || name.contains("Guthan") || name.contains("Karil")
-                || name.contains("Torag") || name.contains("Verac") || name.contains("Ahrim");
+        return BarrowsTunnelRules.isBarrowsBrotherName(name);
     }
 
     /**
@@ -2097,6 +2110,7 @@ public class BarrowsScript extends Script {
         stopFutureWalker();
 
         long deadline = System.currentTimeMillis() + Rs2Random.between(45000, 75000);
+        boolean killedRpTrash = false;
         while(trash != null && !trash.isDead() && System.currentTimeMillis() < deadline){
             if(!super.isRunning()){
                 return false;
@@ -2112,6 +2126,8 @@ public class BarrowsScript extends Script {
                         Rs2Random.between(2000, 4000));
             }
             if(target.isDead() || !npcHasAttackOption(target)){
+                killedRpTrash = target.isDead()
+                        && BarrowsTunnelRules.isTunnelRpMonsterName(target.getName());
                 break;
             }
             sleep(500, 1000);
@@ -2121,6 +2137,11 @@ public class BarrowsScript extends Script {
                 return false;
             }
             trash = findTunnelTrashAggressor();
+        }
+        if(killedRpTrash && monstersKilledThisRoom < MAX_MONSTERS_PER_ROOM){
+            monstersKilledThisRoom++;
+            Microbot.log("Room kills: " + monstersKilledThisRoom + "/" + MAX_MONSTERS_PER_ROOM
+                    + " (combat-lock aggressor).");
         }
         return findTunnelTrashAggressor() == null;
     }
@@ -2654,11 +2675,19 @@ public class BarrowsScript extends Script {
     }
 
     /**
-     * Restock at the geographically nearest bank — never hardcode Ferox
+     * Restock at the geographically nearest bank — never hardcode Ferox from Barrows
      * (Barrows→Ferox on foot routes through the wilderness / GE transports).
+     * When already at Ferox, always use the Ferox bank chest — nearest-bank /
+     * transport pathing can route into the Castle Wars portal beside the RoD landing.
      */
     private void goToNearestBankForRestock(){
         if(Rs2Bank.isOpen()){
+            return;
+        }
+        WorldPoint here = Rs2Player.getWorldLocation();
+        if(BarrowsTunnelRules.shouldForceFeroxBank(here)){
+            Microbot.log("At Ferox — walking to Ferox bank chest (not Castle Wars portal).");
+            Rs2Bank.walkToBankAndUseBank(BankLocation.FEROX_ENCLAVE);
             return;
         }
         BankLocation nearest = Rs2Bank.getNearestBank();
@@ -2747,12 +2776,7 @@ public class BarrowsScript extends Script {
     }
 
     private boolean isAtFeroxEnclave(){
-        WorldPoint loc = Rs2Player.getWorldLocation();
-        if(loc == null){
-            return false;
-        }
-        // Ferox enclave / pool area
-        return loc.distanceTo(new WorldPoint(3130, 3631, 0)) < 40;
+        return BarrowsTunnelRules.isAtFeroxEnclave(Rs2Player.getWorldLocation());
     }
 
     /** After nearest-bank restock: RoD to Ferox and drink from the restoration pool. */
@@ -2872,7 +2896,21 @@ public class BarrowsScript extends Script {
                 if(Rs2Bank.closeBank()) sleepUntil(()-> !Rs2Bank.isOpen(), Rs2Random.between(2000,4000));
 
             } else {
-                Rs2TileObjectModel rej = rs2TileObjectCache.query().withId(39651).nearest();
+                // Walk to the pool tile first — from the RoD landing, blind object clicks
+                // can path along the Castle Wars portal.
+                WorldPoint here = Rs2Player.getWorldLocation();
+                if(here != null && here.distanceTo(BarrowsTunnelRules.FEROX_POOL_POINT) > 5){
+                    Microbot.log("Walking to Ferox refreshment pool.");
+                    Rs2Walker.walkTo(BarrowsTunnelRules.FEROX_POOL_POINT, 2);
+                    sleepUntil(() -> Rs2Player.isMoving(), Rs2Random.between(1000, 3000));
+                    sleepUntil(() -> !Rs2Player.isMoving(), Rs2Random.between(5000, 10000));
+                }
+                Rs2TileObjectModel rej = rs2TileObjectCache.query()
+                        .withId(BarrowsTunnelRules.FEROX_REFRESHMENT_POOL_ID)
+                        .nearest();
+                if(rej == null){
+                    rej = rs2TileObjectCache.query().withName("Pool of Refreshment").nearest();
+                }
                 if(rej == null) break;
                 Microbot.log("Drinking");
                 if(rej.click("Drink")){
