@@ -47,12 +47,11 @@ public class GotrScript extends Script {
     public static final Pattern rewardPointPattern = Pattern.compile(rewardPointRegex);
 
     public static boolean isInMiniGame = false;
-    public static boolean isFirstPortal = true;
     public static final int portalId = ObjectID.PORTAL_43729;
     public static final int greatGuardianId = 11403;
     public static final Map<Integer, GuardianPortalInfo> guardianPortalInfo = new HashMap<>();
     public static Optional<Instant> nextGameStart = Optional.empty();
-    public static Optional<Instant> timeSincePortal = Optional.empty();
+    public static final GotrPortalClock portalClock = new GotrPortalClock();
     public static final Set<GameObject> guardians = new HashSet<>();
     public static final List<GameObject> activeGuardianPortals = new ArrayList<>();
     public static NPC greatGuardian;
@@ -112,10 +111,9 @@ public class GotrScript extends Script {
         // so a restart behaves like a first start instead of inheriting a stale state machine.
         shouldMineGuardianRemains = true;
         isInMiniGame = false;
-        isFirstPortal = true;
         state = null;
         nextGameStart = Optional.empty();
-        timeSincePortal = Optional.empty();
+        portalClock.reset();
         elementalRewardPoints = 0;
         catalyticRewardPoints = 0;
         useNpcContact = true;
@@ -511,6 +509,7 @@ public class GotrScript extends Script {
             Rs2Player.waitForWalking();
             state = GotrState.ENTER_GAME;
             GotrScript.shouldMineGuardianRemains = true;
+            portalClock.reset();
             log("Entering game...");
             return true;
         }
@@ -722,8 +721,7 @@ public class GotrScript extends Script {
         if(getStartTimer() == -1) {
             return -1;
         }
-        int firstPortalTimeAdjustment = isFirstPortal ? 40 : 0;
-        return timeSincePortal.map(instant -> (int) ChronoUnit.SECONDS.between(instant, Instant.now())-firstPortalTimeAdjustment).orElse(-1);
+        return portalClock.secondsSincePortal(Instant.now());
 
     }
 

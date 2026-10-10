@@ -18,7 +18,7 @@ import java.awt.*;
         tags = {"firemaking", "campfire", "skilling", "microbot", "plus"},
         authors = {"pjmarz"},
         version = AutoFiremakingPlusPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.25",
         cardUrl = "https://chsami.github.io/Microbot-Hub/AutoFiremakingPlusPlugin/assets/card.png",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoFiremakingPlusPlugin/assets/icon.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -26,7 +26,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoFiremakingPlusPlugin extends Plugin {
-    public static final String version = "0.2.2";
+    public static final String version = "0.2.3";
 
     @Inject
     private AutoFiremakingPlusConfig config;

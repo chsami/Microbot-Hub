@@ -26,7 +26,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class MinnowsPlugin extends Plugin {
-    public static final String version = "1.0.4";
+    public static final String version = "1.0.5";
     @Inject
     MinnowsScript minnowsScript;
     @Inject

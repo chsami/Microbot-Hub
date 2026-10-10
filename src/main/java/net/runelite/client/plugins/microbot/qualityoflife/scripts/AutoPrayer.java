@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.qualityoflife.scripts;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Player;
+import net.runelite.api.PlayerComposition;
 import net.runelite.api.Skill;
 import net.runelite.api.WorldType;
 import net.runelite.api.kit.KitType;
@@ -366,6 +367,9 @@ public class AutoPrayer extends Script {
 
     private void handleAntiPkPrayers(QoLConfig config) {
         Player local = Microbot.getClient().getLocalPlayer();
+        if (local == null) {
+            return;
+        }
         if (!(local.getInteracting() instanceof Player)) {
             // If we haven't been attacked for 10s, turn off prayers and stop following
             if (lastPrayedStyle != null && System.currentTimeMillis() - lastPkAttackTime > PRAYER_DISABLE_DELAY_MS) {
@@ -381,7 +385,8 @@ public class AutoPrayer extends Script {
         }
         Player attacker = (Player) local.getInteracting();
         int animationId = attacker.getAnimation();
-        int weaponId = attacker.getPlayerComposition().getEquipmentId(KitType.WEAPON);
+        PlayerComposition attackerComposition = attacker.getPlayerComposition();
+        int weaponId = attackerComposition != null ? attackerComposition.getEquipmentId(KitType.WEAPON) : -1;
         String detectedStyle = null;
 
         boolean lmsMode = config.lmsAnimationPraying();
@@ -401,7 +406,8 @@ public class AutoPrayer extends Script {
 
         // If following a player (aggressive or LMS) and timer is active
         if ((aggressiveMode || lmsMode) && followedPlayer != null && System.currentTimeMillis() < followEndTime) {
-            int followedWeaponId = followedPlayer.getPlayerComposition().getEquipmentId(KitType.WEAPON);
+            PlayerComposition followedComposition = followedPlayer.getPlayerComposition();
+            int followedWeaponId = followedComposition != null ? followedComposition.getEquipmentId(KitType.WEAPON) : -1;
             WeaponID followedWeapon = WeaponID.getByObjectId(followedWeaponId);
             WeaponAnimation followedAnim = WeaponAnimation.getByAnimationId(animationId);
 
@@ -572,7 +578,11 @@ public class AutoPrayer extends Script {
     }
 
     public void handleAggressivePrayerOnGearChange(Player player, QoLConfig config) {
-        int weaponId = player.getPlayerComposition().getEquipmentId(KitType.WEAPON);
+        PlayerComposition composition = player.getPlayerComposition();
+        if (composition == null) {
+            return;
+        }
+        int weaponId = composition.getEquipmentId(KitType.WEAPON);
         WeaponID weapon = WeaponID.getByObjectId(weaponId);
         if (weapon != null) {
             String detectedStyle = weapon.getAttackType().toLowerCase();

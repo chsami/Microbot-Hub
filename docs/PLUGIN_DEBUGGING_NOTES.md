@@ -41,20 +41,32 @@ Several minigames and quest areas (tithe farm, raids, gauntlet, soul wars, fight
 ### The two `getWorldLocation()` calls behave differently
 
 ```java
-// Returns the OVERWORLD coord (the "logical" position, mirrored from the instance).
+// Returns the INSTANCE coord (where the tiles actually live in the loaded scene).
 client.getLocalPlayer().getWorldLocation()
 
-// Returns the INSTANCE coord (where the tiles actually live in the loaded scene).
+// Returns the OVERWORLD coord (the "logical" position the instance was copied FROM).
 Rs2Player.getWorldLocation()
 ```
 
-The Microbot wrapper checks `getTopLevelWorldView().getScene().isInstance()` and translates via `WorldPoint.fromLocalInstance(...)`. The raw client call doesn't.
+> **Corrected 2026-07-30 — these two were documented the other way round.** The Microbot wrapper checks
+> `getTopLevelWorldView().getScene().isInstance()` and translates via `WorldPoint.fromLocalInstance(...)`,
+> which maps a scene tile back to the **template** region it was copied from, i.e. the overworld
+> coordinate. The raw client call doesn't translate, so it stays on the instance side.
+>
+> Measured in Tempoross: `Rs2Player.getWorldLocation()` returned `(3035, 2853)` — region 12076, the real
+> Tempoross area — while NPCs in the same tick reported `(10556, 5892)`.
 
-**TileObject coordinates always match the instance side**, because that's where the tile actually exists in the scene. So if you compute a target world point using `client.getLocalPlayer()...getRegionID()` (overworld region) and then try to match it against a tile object's `getWorldLocation()` (instance region), the lookup silently returns null. Forever.
+**TileObject and NPC coordinates always match the instance side**, because that's where the entity actually exists in the scene. So comparing any entity's `getWorldLocation()` against `Rs2Player.getWorldLocation()` compares two different coordinate spaces: `equals` is never true, `distanceTo` returns a large constant, and the lookup silently returns null. Forever.
+
+That mistake is currently live in several Hub plugins — see
+[INSTANCE_COORDINATE_SPACES.md](INSTANCE_COORDINATE_SPACES.md) for the rule, the list, and how to verify
+before changing anything.
 
 ### Three things that work in instanced regions
 
-1. **`Rs2Player.getWorldLocation()`** — already handles the mirror.
+1. **Pick one space and stay in it.** `Rs2Player.getWorldLocation()` against hardcoded overworld
+   coordinates is consistent; `client.getLocalPlayer().getWorldLocation()` against entity locations is
+   consistent. Mixing the two is the bug.
 2. **Local-region coordinates (`wp.getRegionX()` / `wp.getRegionY()`)** — these are `x & 63` / `y & 63`, intrinsic to the tile, *the same* for the template region and the instance because they're modulo-64 within a region. Match by these instead of by full world point if you need lookups that work across both contexts.
 3. **The cache itself.** Query the cache by ID, name, or distance — don't reconstruct world points from scratch.
 
@@ -64,7 +76,9 @@ The Microbot wrapper checks `getTopLevelWorldView().getScene().isInstance()` and
 boolean instanced = Microbot.getClient().getTopLevelWorldView().getScene().isInstance();
 ```
 
-Or just observe: if `Rs2Player.getWorldLocation()` is in the high-coord corner of the map (X > 6000 or so), you're in an instance.
+Or just observe: if `client.getLocalPlayer().getWorldLocation()` is in the high-coord corner of the map
+(X > 6000 or so) while `Rs2Player.getWorldLocation()` reads as a normal overworld coordinate, you're in
+an instance. Either one alone tells you less than the pair does.
 
 ## 3. The new Queryable API does NOT auto-walk
 
