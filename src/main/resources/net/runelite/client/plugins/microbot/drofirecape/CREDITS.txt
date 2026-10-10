@@ -1,0 +1,16 @@
+DRO FIRECAPE — CREDITS
+
+DRO (droplugins): project creator and maintainer; direction, gameplay strategy,
+testing, review and release decisions.
+
+OpenAI Codex: wrote most of the plugin's original code under DRO's direction,
+and assisted with implementation, debugging and verification.
+
+Rick: thank you for extensive Pure-mode testing and practical feedback.
+
+Third-party code retains its original authors and license terms. See
+THIRD-PARTY-NOTICES.txt and FC-SPAWN-PREDICTOR-LICENSE.txt.
+
+DRO distributes this project free of charge and as open source. The standard
+BSD-2-Clause terms in LICENSE.txt permit use, modification and redistribution
+while requiring retention of the copyright, license and disclaimer notices.
