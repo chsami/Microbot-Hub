@@ -94,5 +94,21 @@
       }
     ],
     "sourceRecording": "latest-0.3.66/events.jsonl"
+  },
+  {
+    "run": "pure-069-spacing",
+    "eventsSha256": "a181982775c7bc0c0872528d5e2fad1914438ada960602159439dae79a3effc5",
+    "frames": 1,
+    "ticks": [
+      6339
+    ],
+    "maps": [
+      {
+        "source": "collision-362-10304-2376-0.csv",
+        "sha256": "7939cbaa78cdd75a167bfa5afaf1de969023a118153e0d8e992af3a7ca82c806",
+        "fixture": "pure-057-0.geometry.json"
+      }
+    ],
+    "sourceRecording": "local-captures/20261010-125013-607"
   }
 ]

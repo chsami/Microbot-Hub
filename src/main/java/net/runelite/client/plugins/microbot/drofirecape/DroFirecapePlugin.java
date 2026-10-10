@@ -23,7 +23,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
     isExternal=PluginConstants.IS_EXTERNAL,
     tags={"microbot","dro","firecape","fight caves","jad","boss"})
 public final class DroFirecapePlugin extends Plugin {
-    public static final String version="0.3.70";
+    public static final String version="0.3.71";
     @Inject private FcControllers script;
     @Inject private DroFirecapeConfig config;
     @Inject private DroFirecapeOverlay overlay;

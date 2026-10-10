@@ -1,0 +1,85 @@
+[
+  {
+    "tick": 6339,
+    "wave": 51,
+    "player": [
+      49,
+      39
+    ],
+    "running": true,
+    "range": 5,
+    "mobs": [
+      {
+        "index": 65367,
+        "kind": "MAGER",
+        "tile": [
+          35,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 6339,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 65368,
+        "kind": "MELEER",
+        "tile": [
+          49,
+          40
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 6339,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 65369,
+        "kind": "BLOB",
+        "tile": [
+          50,
+          24
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 65370,
+        "kind": "BAT",
+        "tile": [
+          49,
+          25
+        ],
+        "size": 1,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 65371,
+        "kind": "BAT",
+        "tile": [
+          48,
+          39
+        ],
+        "size": 1,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 6339,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "geometry": "pure-057-0.geometry.json"
+  }
+]

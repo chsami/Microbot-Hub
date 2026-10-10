@@ -473,7 +473,10 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
             pureLures.rangerSpacingAccepted();pureResetAfterReturn=false;
             plan=separation;prayerPlanTick=f.tick;status=separation.reason();combatPhase="Pure / separate contact";
             if(f.tick!=pureTraceTick){trace.decision(f,waves.wave(),plan);pureTraceTick=f.tick;}
-            if(protectInCave(desiredCaveProtection(separation.protection())))movePlan(f,separation);
+            // movePlan owns route validation, prayer pre-arm and readiness. An
+            // outer readiness gate can prevent pre-arm itself, losing the escape
+            // while a prayer switch is unsettled. It still gates the actual click.
+            movePlan(f,separation);
             return true;
         }
         if(pureCombatRecovery.active()) {
