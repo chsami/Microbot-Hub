@@ -27,7 +27,7 @@ import javax.inject.Inject;
 )
 @Slf4j
 public class FarmingContractPlugin extends Plugin {
-    static final String VERSION = "0.2.2";
+    static final String VERSION = "0.2.3";
 
     @Getter
     @Setter

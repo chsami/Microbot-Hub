@@ -28,7 +28,7 @@ public class MoonlightMothScript extends Script {
         currentState = State.CHECK_STATE;
         Microbot.getClientThread().runOnClientThreadOptional(() -> {
             var itemManager = Microbot.getItemManager();
-            pricePerMoth = itemManager.getItemPrice(ItemID.BUTTERFLY_JAR_MOONMOTH);
+            pricePerMoth = (int) itemManager.getItemPrice(ItemID.BUTTERFLY_JAR_MOONMOTH);
             return true;
         });
 

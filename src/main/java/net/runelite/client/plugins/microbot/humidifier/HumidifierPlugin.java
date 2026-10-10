@@ -18,7 +18,7 @@ import java.awt.*;
         description = "Nate's Humidifier",
         authors = { "Nate" },
         version = HumidifierPlugin.version,
-        minClientVersion = "2.0.1",
+        minClientVersion = "2.6.25",
         tags = {"magic", "nate", "humidifier","moneymaking"},
         iconUrl = "https://chsami.github.io/Microbot-Hub/HumidifierPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/HumidifierPlugin/assets/card.png",
@@ -27,7 +27,7 @@ import java.awt.*;
 )
 @Slf4j
 public class HumidifierPlugin extends Plugin {
-    public static final String version = "1.6.2";
+    public static final String version = "1.6.3";
 
     @Inject
     private HumidifierConfig config;

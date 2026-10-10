@@ -215,7 +215,7 @@ public class LunarPlankMakeScript extends Script {
 
     private static int gePrice(String itemName) {
         try {
-            return Microbot.getItemManager().search(itemName).get(0).getPrice();
+            return (int) Microbot.getItemManager().search(itemName).get(0).getPrice();
         } catch (Exception e) {
             return 0;
         }

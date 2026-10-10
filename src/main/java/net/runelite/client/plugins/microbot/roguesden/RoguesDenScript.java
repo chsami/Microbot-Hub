@@ -14,12 +14,16 @@ import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
+import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -27,6 +31,14 @@ import java.util.stream.IntStream;
 import static net.runelite.client.plugins.microbot.roguesden.Obstacles.OBSTACLES;
 
 public class RoguesDenScript extends Script {
+
+    /** Start topping up run energy below this... */
+    private static final int RUN_ENERGY_THRESHOLD = 70;
+    /** ...and once at the bank, keep drinking until completely full. Kept separate from the
+     *  trigger so the few percent spent walking to the maze entrance can never send us back. */
+    private static final int RUN_ENERGY_TARGET = 100;
+    private static final List<String> STAMINA_DOSES = dosesLowestFirst(Collections.singletonList(Rs2Potion.getStaminaPotion()));
+    private static final List<String> ENERGY_DOSES = dosesLowestFirst(Rs2Potion.getRestoreEnergyPotionsVariants());
 
     @Getter
     public static int mazeRunsCompleted = 0;
@@ -90,6 +102,7 @@ public class RoguesDenScript extends Script {
                 new Obstacles.Obstacle(3039, 5070, "Open", 7255, 0),
                 new Obstacles.Obstacle(3038, 5069, "Stand"),
                 new Obstacles.Obstacle(3038, 5068, "Open", 7255, 0),
+                new Obstacles.Obstacle(3037, 5052, "Run"), // waypoint so the leg after the door maze stays within canvas-click range
                 new Obstacles.Obstacle(3034, 5033, "Stand"),
                 new Obstacles.Obstacle(3028, 5034, "Stand"),
                 new Obstacles.Obstacle(3024, 5034, "Run"),
@@ -231,7 +244,22 @@ public class RoguesDenScript extends Script {
     private boolean useFlashPowder() {
         if (Rs2Inventory.hasItem(ItemID.ROGUESDEN_FLASH_POWDER) && Rs2Player.getWorldLocation().getX() < 3026) {
             Microbot.log("Stunning guard");
-            if (Rs2Inventory.useItemOnNpc(ItemID.ROGUESDEN_FLASH_POWDER, NpcID.ROGUESDEN_GUARD2)) {
+            Rs2NpcModel guard = Rs2Npc.getNpc(NpcID.ROGUESDEN_GUARD2);
+            if (guard == null) return false;
+
+            // A prior stun click that got "I can't reach that!" leaves cantReachTarget set, and
+            // interact() then walks to the guard first - a click that drops the item selection.
+            // The follow-up click on the guard fires with nothing selected, and since the guard
+            // has no left-click actions it dies with "Action not found. Actions=[]". Clearing the
+            // flag keeps the select-then-click sequence atomic: the game itself runs us to the
+            // guard and applies the powder on arrival.
+            Microbot.cantReachTarget = false;
+            Microbot.cantReachTargetRetries = 0;
+
+            if (!Rs2Inventory.use(ItemID.ROGUESDEN_FLASH_POWDER)) return false;
+            if (!sleepUntil(Rs2Inventory::isItemSelected, 600)) return false;
+
+            if (Rs2Npc.interact(guard, "")) {
                 if (Rs2Inventory.waitForInventoryChanges(5000)) {
                     handleObstacle(OBSTACLES[OBSTACLES.length - 3]);
                 }
@@ -275,50 +303,103 @@ public class RoguesDenScript extends Script {
         return false;
     }
 
+    /**
+     * Builds the exact potion names we are willing to drink, lowest dose first.
+     *
+     * <p>Rs2Bank resolves a partial name like "stamina potion" by picking the shortest matching
+     * item name, and every dose of a potion has the same name length, so the tie is broken by
+     * bank slot - which is always the untouched (4), because the partials we deposit afterwards
+     * land in later slots. Each maze run therefore drank a single dose off a fresh (4) and
+     * banked the rest, leaving the (3)/(2)/(1) potions to pile up unused. Asking for the exact
+     * dose names in order makes us finish those partials first.</p>
+     */
+    private static List<String> dosesLowestFirst(List<String> potionNames) {
+        List<String> doses = new ArrayList<>();
+        for (int dose = 1; dose <= 4; dose++) {
+            for (String potionName : potionNames) {
+                doses.add(potionName + "(" + dose + ")");
+            }
+        }
+        return doses;
+    }
+
+    private static boolean hasPotion(List<String> doses) {
+        return doses.stream().anyMatch(name -> Rs2Inventory.hasItem(name, true) || Rs2Bank.hasItem(name, true));
+    }
+
+    /**
+     * Drinks a single dose, using the potion already in the inventory before withdrawing a new one.
+     *
+     * @return true if a dose was drunk
+     */
+    private static boolean drinkPotion(List<String> doses) {
+        String potion = doses.stream()
+                .filter(name -> Rs2Inventory.hasItem(name, true))
+                .findFirst()
+                .orElse(null);
+
+        if (potion == null) {
+            potion = doses.stream()
+                    .filter(name -> Rs2Bank.hasItem(name, true))
+                    .findFirst()
+                    .orElse(null);
+
+            if (potion == null) return false;
+
+            final String toWithdraw = potion;
+            Rs2Bank.withdrawOne(toWithdraw, true);
+            if (!sleepUntil(() -> Rs2Inventory.hasItem(toWithdraw, true), 3000)) return false;
+        }
+
+        if (!Rs2Inventory.interact(potion, "Drink", true)) return false;
+        return Rs2Inventory.waitForInventoryChanges(3000);
+    }
+
     private boolean useStaminaPotion() {
-        if (!Rs2Player.hasStaminaActive() && hasStaminaPotionInBank) {
+        if (Rs2Player.hasStaminaActive() || !hasStaminaPotionInBank) return false;
+
+        // walks to the bank first when we are not standing at one - after a maze run the
+        // inventory is often already empty, so nothing else gets us there
+        if (Rs2Bank.walkToBankAndUseBank()) {
+            if (!Rs2Bank.isOpen()) return true;
             Microbot.log("Looking to withdraw stamina potion...");
-            if (Rs2Bank.openBank()) {
-                if (!Rs2Bank.isOpen()) return true;
-                if (Rs2Bank.hasItem("stamina potion")) {
-                    Rs2Bank.withdrawOne("stamina potion");
-                    sleepUntil(() -> Rs2Inventory.hasItem("stamina potion"));
-                    Rs2Inventory.interact("stamina potion", "drink");
-                    sleepGaussian(600, 150);
-                    return true;
-                } else {
-                    hasStaminaPotionInBank = false;
-                    Microbot.log("No stamina potion found in the bank. Continue without it...");
-                }
+            if (!hasPotion(STAMINA_DOSES)) {
+                hasStaminaPotionInBank = false;
+                Microbot.log("No stamina potion found in the bank. Continue without it...");
                 Rs2Bank.depositAll();
                 sleepGaussian(600, 150);
+                return false;
             }
+            drinkPotion(STAMINA_DOSES);
+            sleepGaussian(600, 150);
+            return true;
         }
         return false;
     }
 
     private boolean useEnergyPotions() {
-        while (Rs2Player.getRunEnergy() < 70 && hasEnergyPotionInBank) {
-            Microbot.log("Looking to withdraw energy potion...");
-            if (Rs2Bank.openBank()) {
-                if (!Rs2Bank.isOpen()) return true;
-                if (Rs2Bank.hasItem("energy potion")) {
-                    Rs2Bank.withdrawOne("energy potion");
-                    sleepUntil(() -> Rs2Inventory.hasItem("energy potion"));
-                    Rs2Inventory.interact("energy potion", "drink");
-                    sleepGaussian(600, 150);
-                    if (Rs2Player.getRunEnergy() > 70) {
-                        return true;
-                    }
-                } else {
-                    hasEnergyPotionInBank = false;
-                    Microbot.log("No energy potion potion found in the bank. Continue without it...");
-                }
-                Rs2Bank.depositAll();
-                sleepGaussian(600, 150);
+        if (Rs2Player.getRunEnergy() >= RUN_ENERGY_THRESHOLD || !hasEnergyPotionInBank) return false;
+
+        if (!Rs2Bank.walkToBankAndUseBank()) return true;
+        if (!Rs2Bank.isOpen()) return true;
+        Microbot.log("Looking to withdraw energy potion...");
+
+        // Keep drinking from the potion we are holding instead of withdrawing a fresh one per dose:
+        // a dose only restores 10% run energy (20% for super energy), so topping up takes several.
+        // Withdraws the next potion automatically whenever the held one runs out.
+        while (Rs2Player.getRunEnergy() < RUN_ENERGY_TARGET) {
+            if (!hasPotion(ENERGY_DOSES)) {
+                hasEnergyPotionInBank = false;
+                Microbot.log("No energy potion found in the bank. Continue without it...");
+                break;
             }
+            if (!drinkPotion(ENERGY_DOSES)) break;
+            sleepGaussian(600, 150);
         }
-        return false;
+
+        Rs2Bank.depositAll();
+        sleepGaussian(600, 150);
+        return true;
     }
 
     private void enterMinigame() {
@@ -409,6 +490,7 @@ public class RoguesDenScript extends Script {
                 (obstacle.tile.getX() == 3039 && obstacle.tile.getY() == 5070) ||
                 (obstacle.tile.getX() == 3038 && obstacle.tile.getY() == 5069) ||
                 (obstacle.tile.getX() == 3038 && obstacle.tile.getY() == 5068) ||
+                (obstacle.tile.getX() == 3037 && obstacle.tile.getY() == 5052) ||
                 (obstacle.tile.getX() == 3034 && obstacle.tile.getY() == 5033) ||
                 (obstacle.tile.getX() == 3028 && obstacle.tile.getY() == 5034) ||
                 (obstacle.tile.getX() == 3024 && obstacle.tile.getY() == 5034) ||
