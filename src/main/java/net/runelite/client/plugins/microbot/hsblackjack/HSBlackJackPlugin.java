@@ -18,7 +18,7 @@ import java.awt.*;
         name = PluginConstants.DEFAULT_PREFIX + "HSBlackJack",
         description = "Automates blackjacking Menaphite Thugs in Pollnivneach",
         tags = {"thieving", "blackjack", "pollnivneach"},
-        authors = { "JouwNaam" },
+        authors = { "HalalSkiller" },
         version = HSBlackJackPlugin.version,
         minClientVersion = "1.9.8",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -27,7 +27,7 @@ import java.awt.*;
 @Slf4j
 public class HSBlackJackPlugin extends Plugin {
 
-    static final String version = "1.0.0";
+    static final String version = "1.0.1";
 
     @Inject
     private HSBlackJackConfig config;

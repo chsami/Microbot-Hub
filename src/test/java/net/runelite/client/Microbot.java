@@ -22,19 +22,25 @@ import net.runelite.client.plugins.microbot.thieving.ThievingPlugin;
 import net.runelite.client.plugins.microbot.motherloadmine.MotherloadMinePlugin;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.woodcutting.WoodcuttingPlugin;
-import net.runelite.client.plugins.microbot.hsblackjack.HSBlackJackPlugin;
 
 public class Microbot
 {
 
 	private static final Class<?>[] debugPlugins = {
-			HSBlackJackPlugin.class
+		AgentServerPlugin.class,
+		FornBirdhouseRunsPlugin.class,
+		GiantSeaweedFarmerPlugin.class,
+		PitfallHunterPlugin.class,
+		GabulhasKarambwansPlugin.class,
+		MotherloadMinePlugin.class,
+		KourendLibraryPlugin.class,
+		ArceuusLibraryPlugin.class
 	};
 
-	public static void main(String[] args) throws Exception
-	{
+    public static void main(String[] args) throws Exception
+    {
 		List<Class<?>> _debugPlugins = Arrays.stream(debugPlugins).collect(Collectors.toList());
-		RuneLiteDebug.pluginsToDebug.addAll(_debugPlugins);
-		RuneLiteDebug.main(args);
-	}
+        RuneLiteDebug.pluginsToDebug.addAll(_debugPlugins);
+        RuneLiteDebug.main(args);
+    }
 }

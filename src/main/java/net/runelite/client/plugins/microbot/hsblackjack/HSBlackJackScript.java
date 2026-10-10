@@ -6,9 +6,10 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
-import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -188,7 +189,12 @@ public class HSBlackJackScript extends Script {
     }
 
     public long getXpGained() {
-        return Microbot.getClient().getSkillExperience(Skill.THIEVING) - startXp;
+        return readThievingXp().map(xp -> xp - startXp).orElse(0);
+    }
+
+    private Optional<Integer> readThievingXp() {
+        return Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> Microbot.getClient().getSkillExperience(Skill.THIEVING));
     }
 
     public double getXpPerHour() {
@@ -258,7 +264,7 @@ public class HSBlackJackScript extends Script {
         knockoutAttempts = 0;
         pickpocketAttempts = 0;
         startTime = Instant.now();
-        startXp = Microbot.getClient().getSkillExperience(Skill.THIEVING);
+        startXp = readThievingXp().orElse(0);
         phase = Phase.TRAVEL_TO_START;
         luredNpc = null;
         needsLureInsideTent = false;
@@ -613,23 +619,23 @@ public class HSBlackJackScript extends Script {
         if (!isLuredNpcValid()) return false;
 
         WorldPoint myLocation = luredNpc.getWorldLocation();
-        WorldView worldView = Microbot.getClient().getTopLevelWorldView();
+        if (myLocation == null) return false;
 
-        if (myLocation == null || worldView == null) return false;
-
-        long visibleOthers = Microbot.getRs2NpcCache().query()
+        int luredIndex = luredNpc.getIndex();
+        List<WorldPoint> otherLocations = Microbot.getRs2NpcCache().query()
                 .within(myLocation, ROOM_CHECK_DISTANCE)
                 .toList().stream()
-                .filter(npc -> npc.getIndex() != luredNpc.getIndex())
-                .filter(npc -> {
-                    WorldPoint otherLoc = npc.getWorldLocation();
-                    if (otherLoc == null) return false;
-                    if (otherLoc.equals(myLocation)) return true;
-                    return otherLoc.toWorldArea().hasLineOfSightTo(worldView, myLocation);
-                })
-                .count();
+                .filter(npc -> npc.getIndex() != luredIndex)
+                .map(Rs2NpcModel::getWorldLocation)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
-        return visibleOthers == 0;
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            WorldView worldView = Microbot.getClient().getTopLevelWorldView();
+            if (worldView == null) return false;
+            return otherLocations.stream().noneMatch(otherLoc ->
+                    otherLoc.equals(myLocation) || otherLoc.toWorldArea().hasLineOfSightTo(worldView, myLocation));
+        }).orElse(false);
     }
 
     /**
@@ -639,21 +645,40 @@ public class HSBlackJackScript extends Script {
      */
     private Rs2NpcModel findReachableTarget(String targetName) {
         WorldPoint myLocation = Rs2Player.getWorldLocation();
-        WorldView worldView = Microbot.getClient().getTopLevelWorldView();
-        if (myLocation == null || worldView == null) return null;
+        if (myLocation == null) return null;
 
-        return Microbot.getRs2NpcCache().query()
+        List<Rs2NpcModel> candidates = Microbot.getRs2NpcCache().query()
                 .withName(targetName)
                 .toList().stream()
+                .filter(npc -> npc.getWorldLocation() != null)
                 .filter(npc -> !isInExcludedSearchZone(npc.getWorldLocation()))
-                .filter(npc -> {
-                    WorldPoint npcLoc = npc.getWorldLocation();
-                    if (npcLoc == null) return false;
-                    if (npcLoc.equals(myLocation)) return true;
-                    return npcLoc.toWorldArea().hasLineOfSightTo(worldView, myLocation);
-                })
-                .min(Comparator.comparingInt(npc -> npc.getWorldLocation().distanceTo(myLocation)))
-                .orElse(null);
+                .collect(Collectors.toList());
+        if (candidates.isEmpty()) return null;
+
+        List<WorldPoint> candidateLocations = candidates.stream()
+                .map(Rs2NpcModel::getWorldLocation)
+                .collect(Collectors.toList());
+
+        List<Boolean> visible = Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            WorldView worldView = Microbot.getClient().getTopLevelWorldView();
+            if (worldView == null) return null;
+            return candidateLocations.stream()
+                    .map(npcLoc -> npcLoc.equals(myLocation) || npcLoc.toWorldArea().hasLineOfSightTo(worldView, myLocation))
+                    .collect(Collectors.toList());
+        }).orElse(null);
+        if (visible == null) return null;
+
+        Rs2NpcModel best = null;
+        int bestDistance = Integer.MAX_VALUE;
+        for (int i = 0; i < candidates.size(); i++) {
+            if (!visible.get(i)) continue;
+            int distance = candidateLocations.get(i).distanceTo(myLocation);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = candidates.get(i);
+            }
+        }
+        return best;
     }
 
     /**
