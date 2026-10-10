@@ -172,7 +172,7 @@ public class SupplyPolicyTest {
             verify(actions).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
         }
     }
-    @Test public void healingDoesNotWaitForOptionalWindowOrPrayerAcknowledgement()throws Exception {
+    @Test public void thresholdHealingWaitsForProtectionButDoesNotRequireAnOptionalInputWindow()throws Exception {
         DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
         DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
         when(config.eatPercent()).thenReturn(60);when(owner.ownsInput()).thenReturn(true);
@@ -180,20 +180,39 @@ public class SupplyPolicyTest {
         when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.PREPARING,FcActions.ItemResult.SENT);
         set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
         FcFrame f=supplyFrame(55);set(f,"cave",true);set(script,"frame",f);assertTrue(invoke(script,"supplies",f));
+        verify(actions,never()).itemStep(any(),anyString());
+        when(owner.protectionReady()).thenReturn(true);
+        assertTrue(invoke(script,"supplies",f));
         assertTrue(invoke(script,"supplies",f));verify(actions,times(2)).itemStep(any(),eq("Drink"));
         verify(owner,never()).optionalInputWindow(anyInt(),anyLong());
         set(script,"lastSupplyAt",0L);assertTrue(invoke(script,"supplies",f));
         verify(actions,times(2)).itemStep(any(),anyString()); // A sent dose still waits for observed consumption.
     }
-    @Test public void depletedPrayerRestoreDoesNotWaitForTheMissingOverheadItMustEnable()throws Exception {
+    @Test public void lowPositivePrayerRestoreWaitsForProtectionButNotAnOptionalInputWindow()throws Exception {
         DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
         DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
         when(config.restorePrayer()).thenReturn(25);when(owner.ownsInput()).thenReturn(true);
         when(owner.protectionReady()).thenReturn(false);when(owner.optionalInputWindow(anyInt(),anyLong())).thenReturn(false);
         when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
         set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
-        FcFrame f=supplyFrame(99);set(f,"prayer",5);set(f,"inventory",List.of(item(3024,"Super restore(4)")));
+        FcFrame f=supplyFrame(99);set(f,"cave",true);set(f,"prayer",5);set(f,"inventory",List.of(item(3024,"Super restore(4)")));
         set(script,"frame",f);assertTrue(invoke(script,"supplies",f));
+        verify(actions,never()).itemStep(any(),anyString());
+        when(owner.protectionReady()).thenReturn(true);
+        assertTrue(invoke(script,"supplies",f));
+        verify(actions).itemStep(argThat(i->i.name().startsWith("Super restore(")),eq("Drink"));
+        verify(owner,never()).optionalInputWindow(anyInt(),anyLong());
+    }
+    @Test public void zeroPrayerRestoreProceedsWithoutWaitingForUnavailableProtection()throws Exception {
+        DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
+        DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
+        when(config.restorePrayer()).thenReturn(25);when(owner.ownsInput()).thenReturn(true);
+        when(owner.protectionReady()).thenReturn(false);when(owner.optionalInputWindow(anyInt(),anyLong())).thenReturn(false);
+        when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
+        set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
+        FcFrame f=supplyFrame(99);set(f,"cave",true);set(f,"prayer",0);
+        set(f,"inventory",List.of(item(3024,"Super restore(4)")));set(script,"frame",f);
+        assertTrue(invoke(script,"supplies",f));
         verify(actions).itemStep(argThat(i->i.name().startsWith("Super restore(")),eq("Drink"));
         verify(owner,never()).optionalInputWindow(anyInt(),anyLong());
     }
@@ -203,19 +222,23 @@ public class SupplyPolicyTest {
             DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
             when(config.eatPercent()).thenReturn(60);when(config.recoveryOverbrew()).thenReturn(overbrew);
             when(owner.ownsInput()).thenReturn(true);when(owner.protectionReady()).thenReturn(false);
-            when(owner.optionalInputWindow(anyInt(),anyLong())).thenReturn(true);
+            when(owner.optionalInputWindow(anyInt(),anyLong())).thenReturn(false);
             when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
             set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
             FcFrame f=supplyFrame(overbrew?85:99);set(f,"cave",true);
             String name=overbrew?"Saradomin brew(4)":"Ranging potion(4)";
             set(f,"inventory",List.of(item(overbrew?6687:2444,name)));set(script,"frame",f);
             ((WaveTracker)get(script,"waves")).restore(53);
+            assertEquals(overbrew,invoke(script,"supplies",f));verify(actions,never()).itemStep(any(),anyString());
+            // Isolate the second gate: admission to an input window must not
+            // permit the item click if protection is no longer ready.
+            when(owner.optionalInputWindow(anyInt(),anyLong())).thenReturn(true);
             assertTrue(invoke(script,"supplies",f));verify(actions,never()).itemStep(any(),anyString());
             when(owner.protectionReady()).thenReturn(true);
             assertTrue(invoke(script,"supplies",f));verify(actions).itemStep(argThat(i->i.name().equals(name)),eq("Drink"));
         }
     }
-    @Test public void activeHealingAboveThresholdBypassesAcknowledgementOnlyAtCriticalHealth()throws Exception {
+    @Test public void activeHealingWaitsForProtectionEvenWhenHealthIsCritical()throws Exception {
         for(boolean exposed:List.of(false,true)) {
             DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
             DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
@@ -223,24 +246,33 @@ public class SupplyPolicyTest {
             when(owner.protectionReady()).thenReturn(false);
             when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
             set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
-            FcFrame f=supplyFrame(62);set(f,"maxHp",100);set(script,"frame",f);
+            FcFrame f=supplyFrame(62);set(f,"cave",true);set(f,"maxHp",100);set(script,"frame",f);
             if(exposed)set(f,"model",scene(new Mob(1,Kind.MAGER,new Tile(21,30),5,10,10,98,Protection.MAGIC,true)));
             assertTrue(((BrewHealing)get(script,"brewHealing")).needed(55,100,60,false,true));
             assertTrue(invoke(script,"supplies",f));
-            if(exposed)verify(actions).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
-            else verify(actions,never()).itemStep(any(),anyString());
+            verify(actions,never()).itemStep(any(),anyString());
+            when(owner.protectionReady()).thenReturn(true);
+            assertTrue(invoke(script,"supplies",f));
+            verify(actions).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
+            verify(owner,never()).optionalInputWindow(anyInt(),anyLong());
         }
     }
-    @Test public void urgentHealingStillRequiresTheObservedJadOverhead()throws Exception {
-        DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
+    @Test public void urgentJadHealingUsesTheSameProtectionReadinessAsTheRealActionDriver()throws Exception {
+        DroFirecapeScript script=new DroFirecapeScript();FcActions actions=spy(new FcActions());
         DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
         when(config.eatPercent()).thenReturn(60);when(owner.ownsInput()).thenReturn(true);
-        when(owner.protectionReady()).thenReturn(false);when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
+        when(owner.protectionReady()).thenReturn(false);
+        actions.tickPrayerDriver(owner);
+        // Exercise the real overheadActive -> combatProtect -> driver link;
+        // only the physical inventory click is replaced by a test response.
+        doReturn(FcActions.ItemResult.SENT).when(actions).itemStep(any(),anyString());
         set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
         FcFrame f=supplyFrame(20);set(f,"cave",true);set(script,"frame",f);
         set(f,"model",scene(new Mob(1,Kind.JAD,new Tile(35,30),5,10,10,98,Protection.MAGIC,true)));
-        assertFalse(invoke(script,"supplies",f));verify(actions,never()).itemStep(any(),anyString());
-        when(actions.overheadActive(Protection.MAGIC)).thenReturn(true);
+        assertFalse(actions.overheadActive(Protection.MAGIC));
+        assertTrue(invoke(script,"supplies",f));verify(actions,never()).itemStep(any(),anyString());
+        when(owner.protectionReady()).thenReturn(true);
+        assertTrue(actions.overheadActive(Protection.MAGIC));
         assertTrue(invoke(script,"supplies",f));verify(actions).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
     }
     @Test public void lowPrayerAt85HpRestoresWithoutWastingABrewUnlessLateOverbrewIsEnabled()throws Exception {

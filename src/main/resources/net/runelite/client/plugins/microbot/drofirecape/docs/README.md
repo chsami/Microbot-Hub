@@ -5,7 +5,7 @@
 
 ![Dro Firecape](assets/card.png)
 
-Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.67**, requiring **Microbot 2.6.30**.
+Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.68**, requiring **Microbot 2.6.30**.
 
 **There is no guarantee of a Fire cape. Better gear and adequate supplies improve the chances. Test under supervision.** Normal ranged mode has completed capes; Pure has substantial live testing but no confirmed completed cape in the retained evidence. Melee remains untested.
 
@@ -109,7 +109,7 @@ The tester considers .65 close to completion with another brew and successful he
 
 The actual local client compile and public Hub build against the official Microbot 2.6.30 client passed. Hub packaging and documentation generation passed. All **248 packaged classes** loaded against the public client; runtime classes are confined to `drofirecape` and use public `Rs2InventorySetup`. Private Inventory Setup hooks are excluded only from the Hub copy.
 
-Historical focused verification passed **37 groups / 5,274 core assertions**, plus **34 adapter assertions**. The **6,817-frame** ordinary-movement comparison matches the .65 reference. The initial .66 inherited suite had 24 failures; .67 repairs stale test fixtures and declares portable JUnit/Mockito dependencies. The standard Java 11 Hub build now passes **797 tests, with zero failures and zero skipped tests**. The optional controller also permits urgent healing and depleted-prayer restores without waiting indefinitely for ordinary protection acknowledgement; Jad retains its explicit protection gate. The normal controller and native prayer engine remain unchanged. These checks do not establish a new live cape on .67.
+Historical focused verification passed **37 groups / 5,274 core assertions**, plus **34 adapter assertions**. The **6,817-frame** ordinary-movement comparison matches the .65 reference. The initial .66 inherited suite had 24 failures; portable JUnit/Mockito dependencies and baseline test fixtures were corrected for the Hub build. A cross-check of .67 found that its urgent-supply bypass was not established as a live defect: protection readiness covers pending switches, stale timing and missing widgets, and one Jad mock used an impossible readiness combination. Version .68 restores the .66 supply gate and verifies that urgent supplies wait for protection readiness, then proceed without the nonurgent input-window requirement. Test expectations for existing policies document current behavior; they do not prove every gameplay policy is optimal. The normal controller and native prayer engine remain unchanged. Current standard-build results are recorded in the PR; a live cape on this revision remains pending.
 
 The distributed JAR contains runtime classes and required notices. Tests, screenshots, the catalog card, raw recordings and backups are not bundled into it. The new Pure healer sequence uses synthetic formations on a recorded collision map because older live traces lack complete healer positions.
 
