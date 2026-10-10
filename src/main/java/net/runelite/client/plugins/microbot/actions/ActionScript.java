@@ -6,7 +6,10 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 
 import javax.inject.Inject;
+import java.util.List;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Base for scripts driven by an {@link Action} pipeline. Handles the generic wiring: auto-discovers
@@ -27,6 +30,10 @@ public abstract class ActionScript<S extends ScriptState> extends Script {
     // Guards {@link #gameTick()} so an externally-driven tick never stacks on the previous one.
     private final AtomicBoolean tickInProgress = new AtomicBoolean(false);
 
+    private final AtomicLong generation = new AtomicLong();
+
+    private volatile Future<?> activeTick;
+
     /** The action interface to scan for; its package is scanned for concrete implementations. */
     protected abstract Class<? extends Action<S>> actionType();
 
@@ -39,7 +46,11 @@ public abstract class ActionScript<S extends ScriptState> extends Script {
 
     public void initialize() {
         onInitialize();
-        runner = new ActionRunner<>(ActionRegistry.discover(actionType(), injector));
+        runner = new ActionRunner<>(discoverActions());
+    }
+
+    protected List<? extends Action<S>> discoverActions() {
+        return ActionRegistry.discover(actionType(), injector);
     }
 
     /**
@@ -54,37 +65,58 @@ public abstract class ActionScript<S extends ScriptState> extends Script {
         if (!tickInProgress.compareAndSet(false, true)) {
             return;
         }
+        long tickGeneration = generation.get();
         try {
-            scheduledExecutorService.submit(() -> {
-                try {
-                    if (!Microbot.isLoggedIn() || !super.run()) {
-                        return;
-                    }
-                    tick();
-                } catch (Exception ex) {
-                    onException(ex);
-                    log.error("Exception during tick.", ex);
-                } finally {
-                    tickInProgress.set(false);
-                }
-            });
+            activeTick = scheduledExecutorService.submit(() -> runTick(tickGeneration));
         } catch (RuntimeException submitFailed) {
             tickInProgress.set(false);
             throw submitFailed;
         }
     }
 
+    private void runTick(long tickGeneration) {
+        try {
+            if (!isCurrent(tickGeneration) || !Microbot.isLoggedIn() || !super.run()) {
+                return;
+            }
+            tick(tickGeneration);
+        } catch (Exception ex) {
+            onException(ex);
+            log.error("Exception during tick.", ex);
+        } finally {
+            if (generation.get() == tickGeneration) {
+                tickInProgress.set(false);
+            }
+        }
+    }
+
+    private boolean isCurrent(long tickGeneration) {
+        return generation.get() == tickGeneration && !Thread.currentThread().isInterrupted();
+    }
+
+    @Override
+    public void shutdown() {
+        generation.incrementAndGet();
+        Future<?> tick = activeTick;
+        activeTick = null;
+        if (tick != null) {
+            tick.cancel(true);
+        }
+        tickInProgress.set(false);
+        super.shutdown();
+    }
+
     public void onException(Exception e) {
 
     }
 
-    private void tick() {
+    private void tick(long tickGeneration) {
         if (runner == null) {
             return;
         }
         S state = createState();
         if (state != null) {
-            runner.run(state);
+            runner.run(state, () -> isCurrent(tickGeneration));
         }
     }
 }

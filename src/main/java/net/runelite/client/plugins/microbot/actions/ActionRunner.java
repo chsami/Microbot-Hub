@@ -7,6 +7,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
 /**
@@ -51,7 +52,14 @@ public class ActionRunner<S extends ScriptState> {
     }
 
     public void run(S state) {
+        run(state, () -> true);
+    }
+
+    public void run(S state, BooleanSupplier shouldContinue) {
         for (Action<S> action : actions) {
+            if (!shouldContinue.getAsBoolean()) {
+                return;
+            }
             boolean needs;
             try {
                 needs = action.needsExecution(state);
