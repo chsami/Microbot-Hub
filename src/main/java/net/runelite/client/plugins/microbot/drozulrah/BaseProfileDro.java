@@ -156,7 +156,16 @@ public final class BaseProfileDro {
         return tick(safeToStartBreak, idleOpportunity, settings.mouseActivity);
     }
 
+    private java.util.function.Consumer<Settings> breakSettingsUpdater;
+
+    /** Refresh break controls on the script worker; keep humanization and active deadlines intact. */
+    public BaseProfileDro setBreakSettingsUpdater(java.util.function.Consumer<Settings> updater) {
+        this.breakSettingsUpdater = updater;
+        return this;
+    }
+
     public boolean tick(boolean safeToStartBreak, boolean idleOpportunity, MouseActivity activity) {
+        if (breakSettingsUpdater != null) breakSettingsUpdater.accept(settings);
         if (!started) start();
 
         final boolean loggedIn = Microbot.isLoggedIn();
@@ -340,12 +349,22 @@ public final class BaseProfileDro {
     /** Force an immediate park using the selected fixed edge. */
     public boolean forceParkCompletelyOffScreen() {
         if (settings.parkSide == AfkParkSide.NONE) return false;
-        if (!Microbot.isLoggedIn() || Microbot.getClient() == null) return false;
-        AfkParkSide side = resolvedParkSide;
-        if (side == null || !side.parksOffScreen()) return false;
+        return parkCompletelyOffScreen(resolvedParkSide);
+    }
 
-        int width = Math.max(1, Microbot.getClient().getCanvasWidth());
-        int height = Math.max(1, Microbot.getClient().getCanvasHeight());
+    /** Explicit trip AFK only; does not enable automatic parking or alter the configured edge. */
+    public boolean parkOffScreenForTrip() {
+        return parkCompletelyOffScreen(randomBetween(0, 1) == 0 ? AfkParkSide.LEFT : AfkParkSide.RIGHT);
+    }
+
+    private boolean parkCompletelyOffScreen(AfkParkSide side) {
+        if (!Microbot.isLoggedIn() || Microbot.getClient() == null) return false;
+        if (side == null || !side.parksOffScreen()) return false;
+        int[] canvas = Microbot.getClientThread().runOnClientThreadOptional(() -> new int[] {
+                Math.max(1, Microbot.getClient().getCanvasWidth()),
+                Math.max(1, Microbot.getClient().getCanvasHeight())}).orElse(null);
+        if (canvas == null) return false;
+        int width = canvas[0], height = canvas[1];
 
         // Deliberately overshoot the client by a meaningful distance. This does not merely touch
         // the edge: the final cursor coordinate is fully outside the RuneLite canvas.
@@ -390,6 +409,8 @@ public final class BaseProfileDro {
                 else y = side.dy < 0 ? -deeper : height + deeper;
                 Microbot.getMouse().move(x, y);
             }
+            Point finalPosition = Microbot.getMouse().getMousePosition();
+            if (finalPosition == null || isInsideCanvas(finalPosition, width, height)) return false;
 
             mouseParked = true;
             offScreenParksSinceAttention++;
@@ -1169,6 +1190,8 @@ public final class BaseProfileDro {
     private static final class SmartBreakManager {
         private final Settings settings;
 
+        private boolean previouslyEnabled;
+        private int activePostLoginSettleSeconds;
         private boolean breakActive;
         private boolean afkBreakActive;
         private boolean logoutBreakActive;
@@ -1203,18 +1226,13 @@ public final class BaseProfileDro {
 
         private boolean update(boolean safeToStartBreak, Runnable parkMouse) {
             long now = System.currentTimeMillis();
+            if (settings.customBreaksEnabled && !previouslyEnabled && !breakActive) initializeBreakTimer();
+            previouslyEnabled = settings.customBreaksEnabled;
 
-            if (!settings.customBreaksEnabled) {
-                if (breakActive && logoutBreakActive && !Microbot.isLoggedIn()) {
-                    breakTimeRemaining = 0;
-                    loginPending = true;
-                    nextLoginAttemptAt = now;
-                    return updateLogoutReturn(now);
-                }
-                breakActive = false;
-                afkBreakActive = false;
-                logoutBreakActive = false;
-                loginPending = false;
+            // Turning off cancels queued breaks. An active break finishes its original
+            // AFK/logout and return cycle, so disabling never grants an early login.
+            if (!settings.customBreaksEnabled && !breakActive) {
+                nextBreakIn = 0;
                 status = "Breaks off";
                 return false;
             }
@@ -1224,7 +1242,7 @@ public final class BaseProfileDro {
             }
 
             if (now < nextBreakCheck) {
-                return breakActive || (nextBreakIn <= 0 && !safeToStartBreak);
+                return breakActive;
             }
             nextBreakCheck = now + 1_000L;
 
@@ -1271,8 +1289,8 @@ public final class BaseProfileDro {
         }
 
         private String getTimeUntilNextBreak() {
-            if (!settings.customBreaksEnabled) return "Off";
             if (breakActive) return getStatus();
+            if (!settings.customBreaksEnabled) return "Off";
             if (nextBreakIn <= 0) return "Queued";
             return formatSeconds(nextBreakIn);
         }
@@ -1288,6 +1306,7 @@ public final class BaseProfileDro {
         }
 
         private void initializeBreakTimer() {
+            previouslyEnabled = settings.customBreaksEnabled;
             if (!settings.customBreaksEnabled) {
                 nextBreakIn = 0;
                 return;
@@ -1315,6 +1334,7 @@ public final class BaseProfileDro {
         }
 
         private void startRandomBreak(Runnable parkMouse) {
+            activePostLoginSettleSeconds = settings.postLoginSettleSeconds;
             int chance = clamp(settings.logoutBreakChance, 0, 100);
             if (randomBetween(0, 99) < chance) startLogoutBreak();
             else startAfkBreak(parkMouse);
@@ -1388,7 +1408,7 @@ public final class BaseProfileDro {
         private boolean updateLogoutReturn(long now) {
             if (Microbot.isLoggedIn()) {
                 if (settleAfterLoginUntil == 0L) {
-                    settleAfterLoginUntil = now + settings.postLoginSettleSeconds * 1_000L;
+                    settleAfterLoginUntil = now + activePostLoginSettleSeconds * 1_000L;
                     status = "Logged in - settling";
                     return true;
                 }
