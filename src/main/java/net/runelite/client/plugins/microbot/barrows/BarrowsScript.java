@@ -1648,7 +1648,7 @@ public class BarrowsScript extends Script {
         if(!clearTunnelTrashAggressor(config)){
             return;
         }
-        if(findTunnelBrother() != null){
+        if(findTunnelBrother() != null || !shouldFightMonsterOnWayToChest()){
             return;
         }
 
@@ -1665,7 +1665,7 @@ public class BarrowsScript extends Script {
         if(!isInteractingWith(monster)){
             // Single-way combat: a door-spawn aggressor blocks Attack on hallway targets.
             if(findTunnelTrashAggressor() != null){
-                if(!clearTunnelTrashAggressor(config)){
+                if(!clearTunnelTrashAggressor(config) || !shouldFightMonsterOnWayToChest()){
                     return;
                 }
                 monster = findTunnelMonster();
@@ -1685,7 +1685,7 @@ public class BarrowsScript extends Script {
                             || findTunnelTrashAggressor() != null,
                     Rs2Random.between(4000,8000));
             if(findTunnelTrashAggressor() != null){
-                if(!clearTunnelTrashAggressor(config)){
+                if(!clearTunnelTrashAggressor(config) || !shouldFightMonsterOnWayToChest()){
                     return;
                 }
                 monster = findTunnelMonster();
@@ -1719,7 +1719,7 @@ public class BarrowsScript extends Script {
                 Rs2NpcModel aggressor = findTunnelTrashAggressor();
                 if(aggressor != null && BarrowsTunnelRules.shouldRetargetToCombatLock(
                         isInteractingWith(monster), true)){
-                    if(!clearTunnelTrashAggressor(config)){
+                    if(!clearTunnelTrashAggressor(config) || !shouldFightMonsterOnWayToChest()){
                         break;
                     }
                     // Aggressor may have been our intended RP kill — refresh target.
