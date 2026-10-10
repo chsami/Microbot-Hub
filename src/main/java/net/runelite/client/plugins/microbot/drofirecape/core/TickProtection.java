@@ -17,6 +17,9 @@ import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
  * period through a line-of-sight break.
  */
 public final class TickProtection {
+    private final boolean continuousCadence;
+    public TickProtection(){this(false);}
+    public TickProtection(boolean continuousCadence){this.continuousCadence=continuousCadence;}
     public static final class Decision {
         public final int tick, dueMask, uncertainMask;
         public final Protection protection;
@@ -37,7 +40,7 @@ public final class TickProtection {
         public boolean conflict(){return Integer.bitCount(dueMask)>1;}
     }
     private static final class Sample {
-        Kind kind;Protection style;int last=-1,matches;
+        Kind kind;Protection style;int last=-1,matches;boolean continuous;
     }
     private static final class Seen {
         final Kind kind;final Protection style;
@@ -49,7 +52,7 @@ public final class TickProtection {
     private int lastFrameTick=-1;
     public void reset(){samples.clear();pending.clear();lastFrameTick=-1;}
     public void removed(int index){samples.remove(index);pending.remove(index);}
-    public void invalidateCadence(){for(Sample s:samples.values())s.matches=0;}
+    public void invalidateCadence(){for(Sample s:samples.values()){s.matches=0;s.continuous=false;}}
 
     /** Events are labelled when the following GameTick is captured, not by a
      * getTickCount() value read later during a 20ms client tick. */
@@ -65,9 +68,9 @@ public final class TickProtection {
         for(Map.Entry<Integer,Seen> e:pending.entrySet())if(present.contains(e.getKey())) {
             Seen seen=e.getValue();Sample s=samples.computeIfAbsent(e.getKey(),k->new Sample());
             if(s.last!=tick) {
-                s.matches=s.kind==seen.kind&&(s.style==seen.style||seen.kind==Kind.JAD)&&s.last>=0
+                s.matches=(!continuousCadence||s.continuous)&&s.kind==seen.kind&&(s.style==seen.style||seen.kind==Kind.JAD)&&s.last>=0
                     &&tick-s.last==seen.kind.speed?s.matches+1:0;
-                s.kind=seen.kind;s.style=seen.style;s.last=tick;
+                s.kind=seen.kind;s.style=seen.style;s.last=tick;s.continuous=true;
             }
         }
         pending.clear();lastFrameTick=tick;
@@ -78,12 +81,37 @@ public final class TickProtection {
      * Unverified healer animations intentionally use conservative contact protection.
      */
     public static Protection attackStyle(Kind kind,int animation) {
-        if(kind==Kind.BAT)return animation==2621?Protection.MELEE:null;
-        if(kind==Kind.BLOB||kind==Kind.BABY)return animation==2625?Protection.MELEE:null;
-        return AttackClock.animation(kind,animation);
+        return AttackClock.animationWithTiny(kind,animation);
+    }
+
+    /** Called once for the real captured scene, never for a look-ahead snapshot.
+     * A forecast must not invalidate the clock it is consulting. Reacquiring LOS
+     * requires fresh attack evidence, not a modulo-four guess across the gap. */
+    public void spatialEvidence(Snapshot scene) {
+        for(Mob mob:scene.mobs()) {
+            Sample clock=samples.get(mob.index());
+            if(clock!=null&&CombatPlanner.threats(scene.grid(),mob,scene.player(),scene.jadStyle())==0) {
+                clock.matches=0;clock.continuous=false;
+            }
+        }
     }
 
     public Decision choose(Snapshot s,boolean moving,Protection held,Protection spawnGuard) {
+        return choose(s,moving,held,spawnGuard,2);
+    }
+    /** Direct widget input needs no cursor-return tick. Forecast the next launch, never its projectile impact. */
+    public Decision chooseNative(Snapshot s,boolean moving,Protection held,Protection spawnGuard) {
+        return choose(s,moving,held,spawnGuard,1);
+    }
+    /** Pure transport uses the same two-interval evidence rule for every NPC.
+     * A baby spawning or swinging once is not a calibrated attack cycle. */
+    public Decision chooseNativePure(Snapshot s,boolean moving,Protection held,Protection spawnGuard) {
+        return choose(s,moving,held,spawnGuard,1,true);
+    }
+    private Decision choose(Snapshot s,boolean moving,Protection held,Protection spawnGuard,int magicLead) {
+        return choose(s,moving,held,spawnGuard,magicLead,false);
+    }
+    private Decision choose(Snapshot s,boolean moving,Protection held,Protection spawnGuard,int magicLead,boolean earlyTiny) {
         if(s.mobs().isEmpty())return new Decision(s.tick(),spawnGuard,
             CombatPlanner.bit(spawnGuard),0,spawnGuard==Protection.NONE?"No incoming attack":"Pre-arm next wave");
         List<Tile> positions=positions(s,moving);
@@ -116,7 +144,7 @@ public final class TickProtection {
                 // Retain an observed Jad wind-up even after moving out of LOS.
                 // There is no attempt to predict his next random attack style.
                 int age=clock==null?-1:s.tick()-clock.last;
-                if(clock!=null&&mask==0)clock.matches=0;
+                if(!continuousCadence&&clock!=null&&mask==0)clock.matches=0;
                 boolean contact=(mask&CombatPlanner.bit(Protection.MELEE))!=0;
                 boolean healerGap=clock!=null&&clock.kind==Kind.JAD&&age==6&&clock.matches>=2&&m.attackingPlayer()&&!moving&&!contact
                     &&mask!=0&&healerContact&&(clock.style==Protection.MAGIC||clock.style==Protection.RANGE);
@@ -136,10 +164,9 @@ public final class TickProtection {
                 if(mask!=0){due|=mask;add(weights,mask,10000);}
                 continue;
             }
-            if(mask==0) {
-                if(clock!=null)clock.matches=0; // do not carry a precise phase through a trap/LOS break
-                continue;
-            }
+            // Include a legal next-step attack lane. Current LOS alone cannot
+            // prove safety when either the player or an attacker is approaching.
+            if(mask==0){if(!continuousCadence&&clock!=null)clock.matches=0;continue;}
             boolean mageMelee=!moving&&CaveSafety.observedMageMelee(s,m);
             if(mageMelee)mask=CombatPlanner.bit(Protection.MELEE);
             add(exposedWeights,mask,m.kind().maxHit);
@@ -147,7 +174,9 @@ public final class TickProtection {
             // An unknown small blob must not guess away active magic protection.
             if(m.kind()==Kind.MAGER&&(mask&CombatPlanner.bit(Protection.MAGIC))!=0)exposedMage=true;
             if(m.kind()==Kind.RANGER&&(mask&CombatPlanner.bit(Protection.RANGE))!=0)exposedRanger=true;
-            boolean known=clock!=null&&clock.kind==m.kind()&&clock.matches>=2&&m.attackingPlayer()
+            boolean known=clock!=null&&clock.kind==m.kind()
+                &&clock.matches>=2&&(!continuousCadence||clock.continuous)
+                &&m.attackingPlayer()
                 &&clock.last>=0&&clock.last<=s.tick()&&s.tick()<clock.last+m.kind().speed;
             // Walking alone does not change a continuous four-tick attack phase.
             // A possible contact-style change or an LOS break does invalidate it.
@@ -159,7 +188,7 @@ public final class TickProtection {
             // The 0.3.22 recording returned to Magic 461–521 ms into the last
             // input tick and still lost protection at the launch. Reserve an
             // extra tick for that return; verified earlier gaps still flick.
-            int lead=m.kind()==Kind.MAGER&&clock!=null&&clock.style==Protection.MAGIC?2:1;
+            int lead=m.kind()==Kind.MAGER&&clock!=null&&clock.style==Protection.MAGIC?magicLead:1;
             if(known&&s.tick()+lead<clock.last+m.kind().speed)continue;
             if(!known)unknown|=mask;
             due|=mask;add(weights,mask,m.kind().maxHit);

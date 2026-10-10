@@ -11,6 +11,9 @@ import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.Tile;
 
 /** Bounded request/acknowledgement state for a single minimap destination (including multi-tile paths). */
 public final class MovementAck {
+    private final boolean expireUndispatchedRetry;
+    public MovementAck(){this(false);}
+    public MovementAck(boolean expireUndispatchedRetry){this.expireUndispatchedRetry=expireUndispatchedRetry;}
     public enum Result { NONE, WAITING, ARRIVED, PROGRESSED, RETRY_MINIMAP, FAILED, DEVIATED }
     private Tile from,to,last;
     private List<Tile> route=List.of();
@@ -62,7 +65,12 @@ public final class MovementAck {
             reset();return Result.DEVIATED;
         }
         if(tick-progressTick<TIMEOUT_TICKS)return Result.WAITING;
-        if(attempts>=MAX_ATTEMPTS){failedFrom=player;failedTo=to;failedTick=tick;clearPending();return Result.FAILED;}
+        // A retry may never be dispatched: a stationary combat plan or prayer
+        // handoff can supersede it. Pending movement must still expire, otherwise
+        // it blocks both attacks and the stationary-combat watchdog forever.
+        if(attempts>=MAX_ATTEMPTS||expireUndispatchedRetry&&tick-progressTick>=TIMEOUT_TICKS*MAX_ATTEMPTS){
+            failedFrom=player;failedTo=to;failedTick=tick;clearPending();return Result.FAILED;
+        }
         return Result.RETRY_MINIMAP;
     }
     public synchronized boolean waitingFor(Tile destination){return destination!=null&&destination.equals(to);}

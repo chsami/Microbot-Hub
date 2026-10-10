@@ -15,8 +15,8 @@ import net.runelite.api.Point;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class VisiblePrayerUiTest {
     private static final Rs2PrayerEnum PRAYER=Rs2PrayerEnum.PROTECT_MAGIC;

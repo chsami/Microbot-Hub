@@ -5,7 +5,7 @@
 
 ![Dro Firecape](assets/card.png)
 
-Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.68**, requiring **Microbot 2.6.30**.
+Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.69**, requiring **Microbot 2.6.30**.
 
 **There is no guarantee of a Fire cape. Better gear and adequate supplies improve the chances. Test under supervision.** Normal ranged mode has completed capes; Pure has substantial live testing but no confirmed completed cape in the retained evidence. Melee remains untested.
 
@@ -95,21 +95,25 @@ The retained evidence includes **29 main-mode combat segments across 17 versions
 | .21 / .22 | Main runs reached waves 55 / 58 during early combat refinement. |
 | .27 | First main cape, October 3; manual approach to Jad was needed before the script finished. |
 | .29 | Second main cape, October 5; smoother reported startup and completion. |
-| .31 | Archived normal-mode baseline before Pure development; current normal script body matches byte for byte, apart from the added copyright header. |
+| .31 | Archived normal-mode baseline before Pure development. The public Hub now shares common runtime classes; original normal-controller method bodies were compared during extraction. |
 | .57 | Pure reached wave 56 on an 80 Ranged, 75 HP, 1 Defence account; wave-22 ranger stall needed a manual attack and supplies ran out. |
 | .59 / .60 | One tester-reported build-swap attempt; retained frames reach 53 with the .59 label. |
 | .61 / .62 | Retained frames reach 40 / 53; movement exposure, supply use and recovery stalls informed repairs. |
 | .63 | Two clips cover waves 21–55 of one attempt. |
 | .65 | Pure reached Jad after clearing 1–62; healer handling and remaining supplies prevented a confirmed Pure cape. |
-| .66 | Targeted healer, conservation and recovery changes; exact-version live completion pending. |
+| .66 | Pure completed wave 59 and continued into partial wave 60. The wave-22 ranger freeze required manual rescue; the last restore was consumed on wave 58. No completed Pure cape. |
 
 The tester considers .65 close to completion with another brew and successful healer trapping. That is an assessment, not a recorded Pure cape. The later six attempts have eight event files: one .59 file overlaps another, and .63 has two parts. No separate complete .58 or .64 attempt is attested. Full recordings, conversation archives and detailed analysis stay in the owner's separate backups.
 
 ## Build and verification
 
-The actual local client compile and public Hub build against the official Microbot 2.6.30 client passed. Hub packaging and documentation generation passed. All **248 packaged classes** loaded against the public client; runtime classes are confined to `drofirecape` and use public `Rs2InventorySetup`. Private Inventory Setup hooks are excluded only from the Hub copy.
+Version .69 adds bounded rejection memory and pursuit-aware firing approaches for blocked Pure shooters, confirms supplies from dispatch time with ordered late dose accounting, and admits conservation offence only for a threatening ranger, big melee or Jad target. Existing trap/contact guards remain active. Conservation off retains the ordinary offence policy; the withdrawn .67 readiness bypass remains absent.
 
-Historical focused verification passed **37 groups / 5,274 core assertions**, plus **34 adapter assertions**. The **6,817-frame** ordinary-movement comparison matches the .65 reference. The initial .66 inherited suite had 24 failures; portable JUnit/Mockito dependencies and baseline test fixtures were corrected for the Hub build. A cross-check of .67 found that its urgent-supply bypass was not established as a live defect: protection readiness covers pending switches, stale timing and missing widgets, and one Jad mock used an impossible readiness combination. Version .68 restores the .66 supply gate and verifies that urgent supplies wait for protection readiness, then proceed without the nonurgent input-window requirement. Test expectations for existing policies document current behavior; they do not prove every gameplay policy is optimal. The normal controller and native prayer engine remain unchanged. Current standard-build results are recorded in the PR; a live cape on this revision remains pending.
+The shared `build.gradle` matches upstream. Firecape uses the existing JUnit 5 runner without Mockito, static mocks, a Vintage engine or a Java agent. Explicit JDK proxies and fake transports exercise prayer ownership, visible acknowledgement, native dispatch, startup supply/rotation gating and controller isolation. The full standard Hub build against official Microbot 2.6.30 passed **548 tests**, including **230 Firecape tests**, with zero failures or skips. The offline local client compile passed. The local Firecape suite runs 511 tests with 25 historical failures reproduced against the exact pre-fix .66 classes. Nine new repair checks and four startup checks pass. Three startup fixtures were faithfully updated for equipment readiness and the dose-family/dispatch-time contract; all existing assertions remain. Historical fixture debt is reported separately.
+
+Public fixtures retain **26 compact frames from only .27, .29, .57 and .66**, with exact relevant collision geometry and source SHA256 provenance. They decreased from **36 files / 161,860 lines / 4,617,203 bytes** to **11 files / 8,051 lines / 159,586 bytes** (95.0% fewer lines; 96.5% fewer bytes). Full recordings remain in private backups. Historical replay/adapter archives remain private rather than being compressed into the public suite.
+
+The .66 wave-22 regression checks the complete endpoint through existing route validation and projected shooter pursuit, then verifies a noncontact firing opportunity. This is model/replay validation. Version .69 has no live cape or supervised acceptance result yet; Pure, recovery and healer behavior still require live testing.
 
 The distributed JAR contains runtime classes and required notices. Tests, screenshots, the catalog card, raw recordings and backups are not bundled into it. The new Pure healer sequence uses synthetic formations on a recorded collision map because older live traces lack complete healer positions.
 

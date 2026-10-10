@@ -29,111 +29,119 @@ import net.runelite.client.plugins.microbot.drofirecape.core.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
 
 @Singleton
-public final class DroFirecapeScript extends Script {
+public class DroFirecapeScript extends Script {
+    public DroFirecapeScript(){this(false);}
+    protected DroFirecapeScript(boolean optionalController) {
+        actions=optionalController?new OptionalActions():new FcActions();
+        trace=optionalController?new OptionalTelemetry():new FcTelemetry();
+        movement=new MovementAck(optionalController);
+        keybindings=new FcKeybindings(()->enabled&&config!=null&&(optionalController||!config.observeOnly())
+            &&!Microbot.pauseAllScripts.get()&&!InputArbiter.isHuman()&&!Thread.currentThread().isInterrupted());
+    }
+
     enum State { START,TELEPORT,WALK_BANK,BANK_EQUIPMENT,BANK_INVENTORY,BANK_VERIFY,PREPOT,CAMERA,
         WALK_ENTRANCE,ROTATION_WAIT,ENTERING,FIGHTING,ENERGY_REST,RESUMING,RETREAT,COMPLETE,STOPPED }
     static final WorldPoint BANK=new WorldPoint(2445,5178,0),ENTRANCE=new WorldPoint(2438,5168,0);
     // One native NPC click fits inside a single verified prayer interval. Supplies
     // retain their longer budgets; the prayer driver's 100 ms guard is unchanged.
     static final long ATTACK_INPUT_BUDGET_MS=250;
-    @Inject private Client client;
-    @Inject private ConfigManager configManager;
-    private final FcActions actions=new FcActions();
-    private volatile FcTickPrayers tickPrayers;
-    private volatile Future<?> cameraTurn;
-    private final java.util.concurrent.atomic.AtomicBoolean cameraTurning=new java.util.concurrent.atomic.AtomicBoolean();
-    private final java.util.concurrent.atomic.AtomicLong cameraGeneration=new java.util.concurrent.atomic.AtomicLong();
-    private long lastMonsterCameraTurnAt;
-    private int lastCameraPivotMonster=-1;
-    private final FcPredictorGate entryGate=new FcPredictorGate();
-    private volatile FcPredictorGate.Sample entryPrediction;
-    private volatile String entryGateStatus="Waiting for built-in spawn predictor";
-    private long lastPredictorLogAt,lastExitDiagnosticAt,lastExitClickAt,lastDispatchDiagnosticAt;
-    private String lastPredictorLog="";
-    private int plannedRotation=-1;
-    private long lastWaveDiagnosticAt,lastAttackDiagnosticAt,lastAttackRequestAt;
-    private volatile long lastAttackProgressAt;
-    private volatile int pendingAttackIndex=-1;
-    private int attackAttempts;
-    private boolean pendingAttackAcknowledged;
-    private volatile int predictorWave=-1;
-    private long lastInstancePredictorAt;
-    private FcCanvasGuard pointerLease;
-    private final FcTelemetry trace=new FcTelemetry();
-    private final CombatPlanner planner=new CombatPlanner();
-    private final LureController lures=new LureController();
-    private final CombatProgress combatProgress=new CombatProgress();
-    private final MovementAck movement=new MovementAck();
-    private final SupplyAck supplyAck=new SupplyAck();
-    private final FcRangePrepot rangePrepot=new FcRangePrepot();
-    private int sweetCancelTick=-1,sweetProgressTick=-1,sweetHp,sweetCount,sweetRetryTick=-1;
-    private final JadActionWindow jadActions=new JadActionWindow();
-    private int lastFailedMoveTick=-1;
-    private final BowPrayerClock bowPrayer=new BowPrayerClock();
-    private final HealerGroup healers=new HealerGroup();
-    private int healerCancelTick=-1,healerCancelIndex=-1;
-    private volatile Protection requestedCaveProtection=Protection.NONE;
-    private int caveBaseX=Integer.MIN_VALUE,caveBaseY=Integer.MIN_VALUE,cavePlane=-1;
-    private boolean meleeMode;
-    private final WaveTracker waves=new WaveTracker();
-    private final EnergyPause energyPause=new EnergyPause();
-    private final Map<Integer,Integer> attackTicks=new ConcurrentHashMap<>();
-    private final Map<Integer,Protection> attackStyles=new ConcurrentHashMap<>();
-    private volatile int prayerPlanTick=-1, transitionGuardUntil=-1;
-    private int prepositionStarted=-1, cancelAttackTick=-1;
-    private int brewDebt, lastBrewTick=-1000, lastObservedWave=-1, controllerErrors;
-    private long lastHealthFingerprint=Long.MIN_VALUE,lastRecoveryAt;
-    private long lastMotionFingerprint=Long.MIN_VALUE;
-    private volatile long lastRecoveryMotionAt;
-    private volatile String combatPhase="Preparation";
-    private final Set<Integer> dead=ConcurrentHashMap.newKeySet();
-    private final Map<Integer,FcModel.Tile> camps=new HashMap<>();
-    private final Queue<String> events=new ConcurrentLinkedQueue<>();
-    private final AtomicInteger damage=new AtomicInteger();
-    private volatile FcFrame frame;
-    private volatile Plan plan;
-    private volatile State state=State.STOPPED;
-    private volatile String status="Stopped",warning="Experimental — in-game validation required";
-    private volatile Protection jadStyle=Protection.MAGIC;
-    private volatile int jadAttackTick=-1000;
-    private volatile boolean pauseConfirmed,jadDeath,rewardConfirmed,playerDeath,enabled;
-    private DroFirecapeConfig config;
-    private final FcKeybindings keybindings=new FcKeybindings(()->enabled&&config!=null&&!config.observeOnly()
-        &&!Microbot.pauseAllScripts.get()&&!InputArbiter.isHuman()&&!Thread.currentThread().isInterrupted());
-    private Rs2InventorySetup setup;
-    private long stateAt,startedAt,lastActionAt,teleportAt,enteredAt,emptyAt,lastSupplyAt,lastSpecAt,lastPlanAt;
-    private volatile long lastProgressAt;
-    private int resumeWave=-1,recoverySupplyMisses;
-    private volatile int lastDangerTick=-1000;
-    private volatile boolean recoverySpawnObserved;
-    private long recoveryRetryAt;
-    private String lastSavedPause="";
-    private int initialCapeCount,expectedHop=-1,lastMoveTick=-1,lastPlanTick=-1,preparedWave=-1,lastSavedWave=-1;
-    private boolean hadCave,initialized,cameraSet,forceReengage,prepositioned,lureResetAfterReturn;
-    private volatile boolean failed,exitRequested;
-    private FcModel.Tile exitTile,healerRetreat;
-    private String failureReason="";
+    @Inject protected Client client;
+    @Inject protected ConfigManager configManager;
+    protected final FcActions actions;
+    protected volatile FcTickPrayers tickPrayers;
+    protected volatile Future<?> cameraTurn;
+    protected final java.util.concurrent.atomic.AtomicBoolean cameraTurning=new java.util.concurrent.atomic.AtomicBoolean();
+    protected final java.util.concurrent.atomic.AtomicLong cameraGeneration=new java.util.concurrent.atomic.AtomicLong();
+    protected long lastMonsterCameraTurnAt;
+    protected int lastCameraPivotMonster=-1;
+    protected final FcPredictorGate entryGate=new FcPredictorGate();
+    protected volatile FcPredictorGate.Sample entryPrediction;
+    protected volatile String entryGateStatus="Waiting for built-in spawn predictor";
+    protected long lastPredictorLogAt,lastExitDiagnosticAt,lastExitClickAt,lastDispatchDiagnosticAt;
+    protected String lastPredictorLog="";
+    protected int plannedRotation=-1;
+    protected long lastWaveDiagnosticAt,lastAttackDiagnosticAt,lastAttackRequestAt;
+    protected volatile long lastAttackProgressAt;
+    protected volatile int pendingAttackIndex=-1;
+    protected int attackAttempts;
+    protected boolean pendingAttackAcknowledged;
+    protected volatile int predictorWave=-1;
+    protected long lastInstancePredictorAt;
+    protected FcCanvasGuard pointerLease;
+    protected final FcTelemetry trace;
+    protected final CombatPlanner planner=new CombatPlanner();
+    protected final LureController lures=new LureController();
+    protected final CombatProgress combatProgress=new CombatProgress();
+    protected final MovementAck movement;
+    protected final SupplyAck supplyAck=new SupplyAck();
+    protected final FcRangePrepot rangePrepot=new FcRangePrepot();
+    protected int sweetCancelTick=-1,sweetProgressTick=-1,sweetHp,sweetCount,sweetRetryTick=-1;
+    protected final JadActionWindow jadActions=new JadActionWindow();
+    protected int lastFailedMoveTick=-1;
+    protected final BowPrayerClock bowPrayer=new BowPrayerClock();
+    protected final HealerGroup healers=new HealerGroup();
+    protected int healerCancelTick=-1,healerCancelIndex=-1;
+    protected volatile Protection requestedCaveProtection=Protection.NONE;
+    protected int caveBaseX=Integer.MIN_VALUE,caveBaseY=Integer.MIN_VALUE,cavePlane=-1;
+    protected boolean meleeMode;
+    protected final WaveTracker waves=new WaveTracker();
+    protected final EnergyPause energyPause=new EnergyPause();
+    protected final Map<Integer,Integer> attackTicks=new ConcurrentHashMap<>();
+    protected final Map<Integer,Protection> attackStyles=new ConcurrentHashMap<>();
+    protected volatile int prayerPlanTick=-1, transitionGuardUntil=-1;
+    protected int prepositionStarted=-1, cancelAttackTick=-1;
+    protected int brewDebt, lastBrewTick=-1000, lastObservedWave=-1, controllerErrors;
+    protected long lastHealthFingerprint=Long.MIN_VALUE,lastRecoveryAt;
+    protected long lastMotionFingerprint=Long.MIN_VALUE;
+    protected volatile long lastRecoveryMotionAt;
+    protected volatile String combatPhase="Preparation";
+    protected final Set<Integer> dead=ConcurrentHashMap.newKeySet();
+    protected final Map<Integer,FcModel.Tile> camps=new HashMap<>();
+    protected final Queue<String> events=new ConcurrentLinkedQueue<>();
+    protected final AtomicInteger damage=new AtomicInteger();
+    protected volatile FcFrame frame;
+    protected volatile Plan plan;
+    protected volatile State state=State.STOPPED;
+    protected volatile String status="Stopped",warning="Experimental — in-game validation required";
+    protected volatile Protection jadStyle=Protection.MAGIC;
+    protected volatile int jadAttackTick=-1000;
+    protected volatile boolean pauseConfirmed,jadDeath,rewardConfirmed,playerDeath,enabled;
+    protected DroFirecapeConfig config;
+    protected final FcKeybindings keybindings;
+    protected Rs2InventorySetup setup;
+    protected long stateAt,startedAt,lastActionAt,teleportAt,enteredAt,emptyAt,lastSupplyAt,lastSpecAt,lastPlanAt;
+    protected volatile long lastProgressAt;
+    protected int resumeWave=-1,recoverySupplyMisses;
+    protected volatile int lastDangerTick=-1000;
+    protected volatile boolean recoverySpawnObserved;
+    protected long recoveryRetryAt;
+    protected String lastSavedPause="";
+    protected int initialCapeCount,expectedHop=-1,lastMoveTick=-1,lastPlanTick=-1,preparedWave=-1,lastSavedWave=-1;
+    protected boolean hadCave,initialized,cameraSet,forceReengage,prepositioned,lureResetAfterReturn;
+    protected volatile boolean failed,exitRequested;
+    protected FcModel.Tile exitTile,healerRetreat;
+    protected String failureReason="";
 
     // Prayer regeneration: the live buff timer is authoritative. The eight-minute
     // fallback starts only after an observed dose decrease on servers without it.
-    private static final long PRAYER_REGEN_DURATION_MS=8L*60_000L;
-    private static final long OPTIONAL_RETRY_MS=5_000L;
-    private long lastPrayerRegenAttemptAt,prayerRegenFallbackUntil,nextThrallAttemptAt,nextThrallUiAt;
-    private int pendingPrayerRegenDoses=-1,thrallUiMisses;
-    private boolean sawPrayerRegenTimer;
+    protected static final long PRAYER_REGEN_DURATION_MS=8L*60_000L;
+    protected static final long OPTIONAL_RETRY_MS=5_000L;
+    protected long lastPrayerRegenAttemptAt,prayerRegenFallbackUntil,nextThrallAttemptAt,nextThrallUiAt;
+    protected int pendingPrayerRegenDoses=-1,thrallUiMisses;
+    protected boolean sawPrayerRegenTimer;
     // Serializes the additional spell/tab click with the existing prayer worker.
     // No sleep or wait-for-cast is performed while this lock is held.
-    private final Object optionalInputLock=new Object();
-    private final SupplyPreparation supplyPreparation=new SupplyPreparation();
+    protected final Object optionalInputLock=new Object();
+    protected final SupplyPreparation supplyPreparation=new SupplyPreparation();
 
-    private final net.runelite.client.plugins.microbot.drofirecape.profile.BaseProfileDro baseProfile =
+    protected final net.runelite.client.plugins.microbot.drofirecape.profile.BaseProfileDro baseProfile =
         new net.runelite.client.plugins.microbot.drofirecape.profile.BaseProfileDro(
             new net.runelite.client.plugins.microbot.drofirecape.profile.BaseProfileDro.Settings()
                 .parkSide(net.runelite.client.plugins.microbot.drofirecape.profile.BaseProfileDro.AfkParkSide.NONE)
                 .customBreaksEnabled(false).overlayEnabled(false).startupCamera(150,275,356));
-    private volatile int magicThreatUntil=-1;
-    private long lastStatusLogAt;
-    private String lastLoggedStatus="";
+    protected volatile int magicThreatUntil=-1;
+    protected long lastStatusLogAt;
+    protected String lastLoggedStatus="";
 
     // This controller already checks the logged-in player, world and collision map.
     // An empty pre-bank inventory/equipment container must not suppress its loops.
@@ -196,8 +204,8 @@ public final class DroFirecapeScript extends Script {
         Microbot.log("[Dro Firecape] Full-run controller "+DroFirecapePlugin.version+" (recorded rock lures / visible protection switches / tick prayers / retained startup, supplies and thralls) started. Trace: "+trace.location());
         return true;
     }
-    private void setState(State next,String text){if(state!=next){state=next;stateAt=System.currentTimeMillis();trace.event("state",next+": "+text);}status=text;}
-    private void logStatus() {
+    protected void setState(State next,String text){if(state!=next){state=next;stateAt=System.currentTimeMillis();trace.event("state",next+": "+text);}status=text;}
+    protected void logStatus() {
         long now=System.currentTimeMillis();
         String current=state+": "+status;
         if(now-lastStatusLogAt<10_000&&(current.equals(lastLoggedStatus)||now-lastStatusLogAt<2_000))return;
@@ -206,16 +214,16 @@ public final class DroFirecapeScript extends Script {
         Microbot.log("[Dro Firecape] "+detail);
         trace.event("status",detail);
     }
-    private boolean elapsed(long ms){return System.currentTimeMillis()-stateAt>=ms;}
-    private boolean actionGap(long ms){return System.currentTimeMillis()-lastActionAt>=ms;}
-    private void didAction(){lastActionAt=System.currentTimeMillis();}
-    private void fail(String reason) {
+    protected boolean elapsed(long ms){return System.currentTimeMillis()-stateAt>=ms;}
+    protected boolean actionGap(long ms){return System.currentTimeMillis()-lastActionAt>=ms;}
+    protected void didAction(){lastActionAt=System.currentTimeMillis();}
+    protected void fail(String reason) {
         if(!failed){failed=true;failureReason=reason;trace.event("attempt-failed",reason);Microbot.log("[Dro Firecape] "+reason);}
         warning=reason;exitRequested=true;
         if(frame!=null&&frame.cave){clearSaved();setState(State.RETREAT,"Seeking a protected exit: "+reason);}
         else setState(State.STOPPED,reason);
     }
-    private void loop() {
+    protected void loop() {
         if(!enabled||Thread.currentThread().isInterrupted())return;
         for(String e;(e=events.poll())!=null;)trace.event("game",e);
         if(state==State.STOPPED||state==State.COMPLETE)return;
@@ -263,7 +271,7 @@ public final class DroFirecapeScript extends Script {
         outside(f);
     }
     /** Client-thread explanation of a missing immutable frame, including valid empty loadouts. */
-    private String sceneWaitReason() {
+    protected String sceneWaitReason() {
         if(client==null)return "Waiting for game client";
         if(client.getGameState()!=GameState.LOGGED_IN)return "Waiting for game state: "+client.getGameState();
         Player player=client.getLocalPlayer();
@@ -274,21 +282,21 @@ public final class DroFirecapeScript extends Script {
         if(maps==null||plane<0||plane>=maps.length||maps[plane]==null)return "Waiting for collision map";
         return "Waiting for scene snapshot; see client-thread errors in log";
     }
-    private boolean cameraAllowed() {
+    protected boolean cameraAllowed() {
         FcFrame current=frame;
         return enabled&&config!=null&&!config.observeOnly()&&current!=null&&current.cave
             &&!current.stale()&&!Microbot.pauseAllScripts.get()&&!InputArbiter.isHuman()
             &&state!=State.STOPPED&&state!=State.COMPLETE&&state!=State.ENERGY_REST
             &&!movement.pending()&&!supplyPreparation.pending()&&!energyPause.recovering()&&current.model.mobs().stream().noneMatch(m->m.kind()==Kind.JAD);
     }
-    private synchronized void stopCamera() {
+    protected synchronized void stopCamera() {
         cameraGeneration.incrementAndGet();
         Future<?> turn=cameraTurn;
         if(turn!=null&&!turn.isDone())turn.cancel(true);
         cameraTurn=null;
     }
     /** Only recover a completely off-screen attack target; never pivot on target change alone. */
-    private synchronized void maybeTurnCameraTowardMonster(FcFrame f) {
+    protected synchronized void maybeTurnCameraTowardMonster(FcFrame f) {
         if(!cameraAllowed()||f.moving||cameraTurning.get()||cameraTurn!=null&&!cameraTurn.isDone())return;
         Mob target=null;Plan decision=plan;
         if(decision!=null&&decision.targetIndex()>=0)
@@ -321,7 +329,7 @@ public final class DroFirecapeScript extends Script {
         });
     }
 
-    private void initialize(FcFrame f) {
+    protected void initialize(FcFrame f) {
         if(config.inventorySetup()==null&&!f.cave){setState(State.STOPPED,"Select a Microbot Inventory Setup first");return;}
         if(f.maxPrayer<43){setState(State.STOPPED,"Requires level 43 Prayer for all three protections");return;}
         initialCapeCount=f.count(6570);initialized=true;
@@ -348,7 +356,7 @@ public final class DroFirecapeScript extends Script {
         } else {configManager.unsetRSProfileConfiguration(DroFirecapeConfig.GROUP,"recoveryPause");
             setState(State.TELEPORT,"Preparing TzHaar Fight Pit minigame teleport");}
     }
-    private int parseSavedWave(String saved) {
+    protected int parseSavedWave(String saved) {
         try {
             if(saved==null)return -1;String[] p=saved.split(":");
             if(p.length<3||!WaveBook.validRotation(Integer.parseInt(p[0])))return -1;
@@ -357,30 +365,30 @@ public final class DroFirecapeScript extends Script {
             return w>=1&&w<=63?w:-1;
         }catch(NumberFormatException e){return -1;}
     }
-    private int parseSavedRotation(String saved) {
+    protected int parseSavedRotation(String saved) {
         try{int r=Integer.parseInt(saved.split(":")[0]);return WaveBook.validRotation(r)?r:0;}
         catch(RuntimeException e){return 0;}
     }
-    private int savedDamage(String saved) {
+    protected int savedDamage(String saved) {
         try {String[] parts=saved.split(":");return parts.length>=4?Math.max(0,Integer.parseInt(parts[3])):0;}
         catch(RuntimeException e){return 0;}
     }
-    private void save(boolean cleared) {
+    protected void save(boolean cleared) {
         if(waves.wave()<1||failed||exitRequested||!waves.predictionReady())return;
         configManager.setRSProfileConfiguration(DroFirecapeConfig.GROUP,"activeRun",waves.rotation()+":"+waves.wave()+":"+cleared+":"+damage.get());
         lastSavedWave=waves.wave();
     }
-    private void savePause() {
+    protected void savePause() {
         String saved=energyPause.saved();if(saved.equals(lastSavedPause))return;
         if(saved.isEmpty())configManager.unsetRSProfileConfiguration(DroFirecapeConfig.GROUP,"recoveryPause");
         else configManager.setRSProfileConfiguration(DroFirecapeConfig.GROUP,"recoveryPause",saved);
         lastSavedPause=saved;
     }
-    private void clearSaved(){configManager.unsetRSProfileConfiguration(DroFirecapeConfig.GROUP,"activeRun");
+    protected void clearSaved(){configManager.unsetRSProfileConfiguration(DroFirecapeConfig.GROUP,"activeRun");
         configManager.unsetRSProfileConfiguration(DroFirecapeConfig.GROUP,"recoveryPause");lastSavedPause="";}
-    private void complete(){setState(State.COMPLETE,"Fire cape reward confirmed");clearSaved();actions.prayersOff();combatPhase="Cape confirmed";trace.event("complete","damage="+damage.get());}
+    protected void complete(){setState(State.COMPLETE,"Fire cape reward confirmed");clearSaved();actions.prayersOff();combatPhase="Cape confirmed";trace.event("complete","damage="+damage.get());}
 
-    private void outside(FcFrame f) {
+    protected void outside(FcFrame f) {
         long now=System.currentTimeMillis();
         if(config.observeOnly()){status="Observe only: outside-cave preparation would run here";return;}
         switch(state) {
@@ -448,7 +456,7 @@ public final class DroFirecapeScript extends Script {
             default: { break; }
         }
     }
-    private boolean validateEquipment(FcFrame f) {
+    protected boolean validateEquipment(FcFrame f) {
         if(meleeMode) {
             String weapon=f.weapon.toLowerCase(Locale.ROOT);
             if(FcFrame.inferRange(f.weapon)>0||weapon.contains("trident")||weapon.contains("sanguinesti")||weapon.contains("tumeken")) {
@@ -467,15 +475,15 @@ public final class DroFirecapeScript extends Script {
         if(f.inventory.stream().noneMatch(i->isPrayerPotion(i.name()))){fail("Inventory Setup has no prayer potion or super restore doses");return false;}
         return true;
     }
-    private void travel(FcFrame f,WorldPoint target) {
+    protected void travel(FcFrame f,WorldPoint target) {
         FcModel.Tile dest=new FcModel.Tile(target.getX()-f.baseX,target.getY()-f.baseY);
         List<FcModel.Tile> path=f.model.grid().path(f.model.player(),dest,List.of());
         if(path.size()>1&&f.tick!=lastMoveTick) {
             int stride=Math.min(6,path.size()-1);actions.move(f,path.get(stride));lastMoveTick=f.tick;
         }
     }
-    private void resetClock(){entryGate.reset();entryPrediction=null;entryGateStatus="Acquiring built-in spawn predictor";}
-    private void rotationWait(FcFrame f) {
+    protected void resetClock(){entryGate.reset();entryPrediction=null;entryGateStatus="Acquiring built-in spawn predictor";}
+    protected void rotationWait(FcFrame f) {
         long now=System.currentTimeMillis();
         // A restore/boost can be sent before entry. Acknowledgement must happen
         // here too; waiting until cave() otherwise blocks entry on its own dose.
@@ -514,7 +522,7 @@ public final class DroFirecapeScript extends Script {
     }
 
     /** Refresh optional instance hints; never use the OUTSIDE clock to change an active run. */
-    private void synchronizeWave(FcFrame f) {
+    protected void synchronizeWave(FcFrame f) {
         long now=System.currentTimeMillis();
         if(now-lastInstancePredictorAt>=1000) {
             lastInstancePredictorAt=now;
@@ -535,13 +543,13 @@ public final class DroFirecapeScript extends Script {
             trace.event("wave-sync",detail);Microbot.log("[Dro Firecape] "+detail);
         }
     }
-    private Snapshot predictedWave(FcFrame f,int wave) {
+    protected Snapshot predictedWave(FcFrame f,int wave) {
         return waves.predictionReady()?f.predictedWave(waves.rotation(),wave):null;
     }
-    private String rotationLabel(){return waves.rotation()>0?String.valueOf(waves.rotation()):"resolving";}
+    protected String rotationLabel(){return waves.rotation()>0?String.valueOf(waves.rotation()):"resolving";}
 
 
-    private Protection desiredCaveProtection(Protection protection) {
+    protected Protection desiredCaveProtection(Protection protection) {
         FcFrame current=frame;
         if(current!=null&&current.cave&&!current.stale()) {
             if(meleeMode) {
@@ -560,13 +568,13 @@ public final class DroFirecapeScript extends Script {
         requestedCaveProtection=protection;
         return protection;
     }
-    private boolean protectInCave(Protection protection) {
+    protected boolean protectInCave(Protection protection) {
         return actions.combatProtect(desiredCaveProtection(protection));
     }
-    private Protection jadProtection(FcFrame f) {
+    protected Protection jadProtection(FcFrame f) {
         return meleeMode&&f!=null?MeleeProtection.choose(f.model,f.model.player(),requestedCaveProtection):jadStyle;
     }
-    private void cave(FcFrame f) {
+    protected void cave(FcFrame f) {
         long now=System.currentTimeMillis();
         if(caveBaseX!=f.baseX||caveBaseY!=f.baseY||cavePlane!=f.plane) {
             if(caveBaseX!=Integer.MIN_VALUE&&cavePlane==f.plane) {
@@ -793,7 +801,7 @@ public final class DroFirecapeScript extends Script {
             &&handleThrall(f,target,p,protection,urgent)){bowPrayer.interrupt();return;}
 
     }
-    private void observeHealers(FcFrame f) {
+    protected void observeHealers(FcFrame f) {
         for(int index:f.healersTargetingJad)if(healers.confirmed(index))
             events.add("Healer "+index+" returned to Jad; group re-tag required");
         int pending=healers.pending();HealerGroup.Phase previous=healers.phase();
@@ -808,7 +816,7 @@ public final class DroFirecapeScript extends Script {
         }
     }
     /** A returning/new healer invalidates an already-issued group pull too. */
-    private boolean cancelHealerRetreat(FcFrame f) {
+    protected boolean cancelHealerRetreat(FcFrame f) {
         if(healers.phase()==HealerGroup.Phase.LURING||healerRetreat==null)return false;
         if(!movement.pending()&&!f.moving){healerRetreat=null;lastPlanTick=-1;return false;}
         status="Stopping obsolete healer pull; rechecking the live group";
@@ -824,7 +832,7 @@ public final class DroFirecapeScript extends Script {
         return true;
     }
     /** Stop subsequent shots after the tag lands while another healer still heals Jad. */
-    private boolean cancelTaggedHealerAttack(FcFrame f) {
+    protected boolean cancelTaggedHealerAttack(FcFrame f) {
         if(healers.phase()!=HealerGroup.Phase.TAGGING||healers.remaining()==0
             ||!healers.confirmed(f.interactingIndex))return false;
         if(healerCancelIndex==f.interactingIndex&&f.tick-healerCancelTick<3)return false;
@@ -842,7 +850,7 @@ public final class DroFirecapeScript extends Script {
         return true;
     }
     /** Group collection always runs before the ordinary target/kill planner. */
-    private boolean handleHealers(FcFrame f,Protection urgent) {
+    protected boolean handleHealers(FcFrame f,Protection urgent) {
         HealerGroup.Phase phase=healers.phase();
         if(phase==HealerGroup.Phase.IDLE){healerRetreat=null;return false;}
         if(phase==HealerGroup.Phase.FIGHTING)return false;
@@ -891,7 +899,7 @@ public final class DroFirecapeScript extends Script {
             &&protectInCave(urgent!=Protection.NONE?urgent:retreat.protection()))movePlan(f,retreat);
         status="All healers tagged; pulling the group behind cover";return true;
     }
-    private void acknowledgeAttack(FcFrame f) {
+    protected void acknowledgeAttack(FcFrame f) {
         if(pendingAttackIndex<0)return;
         long now=System.currentTimeMillis();
         if(!f.presentNpcIndices.contains(pendingAttackIndex)){pendingAttackIndex=-1;attackAttempts=0;pendingAttackAcknowledged=false;return;}
@@ -901,7 +909,7 @@ public final class DroFirecapeScript extends Script {
             if(now-lastAttackProgressAt>5000&&now-lastAttackRequestAt>1800)forceReengage=true;
         } else if(now-lastAttackRequestAt>=1200)forceReengage=true;
     }
-    private boolean dispatchAttack(FcFrame f,Mob target,boolean force,String context) {
+    protected boolean dispatchAttack(FcFrame f,Mob target,boolean force,String context) {
         long now=System.currentTimeMillis();
         FcFrame current=dispatchFrame(f);
         if(current==null){dispatchDeferred(f,"Attack: scene, player or frame age changed");return false;}
@@ -970,7 +978,7 @@ public final class DroFirecapeScript extends Script {
         return sent;
     }
     /** Contact safety precedes stationary attacks and optional supply work. */
-    private boolean tryMageEscape(FcFrame f) {
+    protected boolean tryMageEscape(FcFrame f) {
         Plan escape=CaveSafety.escapeMage(f.model);
         if(escape==null)return false;
         if(movement.pending()) {
@@ -982,7 +990,7 @@ public final class DroFirecapeScript extends Script {
         status=escape.reason();return true;
     }
     /** Kill an accessible prayer-draining bat before optional UI work or lures. */
-    private boolean tryBatAttack(FcFrame f) {
+    protected boolean tryBatAttack(FcFrame f) {
         if(config.observeOnly()||f.prayer<=0||movement.pending()||lures.hasPendingReturn()||hasJad(f))return false;
         Snapshot priorities=f.model.atWave(waves.wave());
         if(priorities.mobs().stream().anyMatch(m->CaveSafety.lateAttackingRanger(priorities,m)))return false;
@@ -999,7 +1007,7 @@ public final class DroFirecapeScript extends Script {
         return true;
     }
     /** Fast path for a reachable shot under the selected protection and exposure policy. */
-    private boolean tryImmediateAttack(FcFrame f,Snapshot model,Protection urgent) {
+    protected boolean tryImmediateAttack(FcFrame f,Snapshot model,Protection urgent) {
         if(f.moving||movement.pending()||lures.hasPendingReturn()||model.mobs().isEmpty()||model.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER))return false;
         Mob target=null;int best=Integer.MIN_VALUE;
         Protection protect=actions.attackProtection(desiredCaveProtection(urgent!=Protection.NONE?urgent:CombatPlanner.protectionForNextTick(model,model.player())));
@@ -1039,22 +1047,22 @@ public final class DroFirecapeScript extends Script {
         combatPhase="Protected attack";
         return true;
     }
-    private Mob aggro(Mob m){return new Mob(m.index(),m.kind(),m.tile(),m.size(),m.healthRatio(),m.healthScale(),m.lastAttackTick(),m.lastStyle(),true);}
-    private Snapshot withTaggedHealer(Snapshot s) {
+    protected Mob aggro(Mob m){return new Mob(m.index(),m.kind(),m.tile(),m.size(),m.healthRatio(),m.healthScale(),m.lastAttackTick(),m.lastStyle(),true);}
+    protected Snapshot withTaggedHealer(Snapshot s) {
         ArrayList<Mob> mobs=new ArrayList<>();for(Mob m:s.mobs())mobs.add(m.kind()==Kind.HEALER&&healers.confirmed(m.index())?aggro(m):m);
         return new Snapshot(s.tick(),s.player(),s.grid(),mobs,s.runEnergy(),s.running(),s.weaponRange(),jadStyle,s.meleeMode()).atWave(waves.wave());
     }
-    private boolean usesRecordedWave(int rotation,int wave) {
+    protected boolean usesRecordedWave(int rotation,int wave) {
         return !meleeMode&&config.demonstrationLures()&&wave>=0&&wave<63;
     }
-    private List<FcModel.Tile> italyCandidates(FcFrame f,int wave) {
+    protected List<FcModel.Tile> italyCandidates(FcFrame f,int wave) {
         FcModel.Tile italy=f.recordedAnchor(RecordedLureBook.ITALY);
         if(italy==null)return List.of();
         // Use the demonstrated maneuver, not an unconditional replay of every
         // stopping tile in a wave. Live trap evidence chooses the temporary peek.
         return List.of(italy);
     }
-    private FcModel.Tile campFor(FcFrame f,int wave) {
+    protected FcModel.Tile campFor(FcFrame f,int wave) {
         // Canonical template-relative positions from the existing recordings, mapped
         // through WorldPoint.toLocalInstance by FcFrame after every scene rebase.
         for(FcModel.Tile template:List.of(RecordedLureBook.ITALY,RecordedLureBook.SOUTH_FACE,
@@ -1068,7 +1076,7 @@ public final class DroFirecapeScript extends Script {
         return f.model.player();
     }
     /** A tick boundary is normal. Revalidate on the newest frame in the same scene. */
-    private FcFrame dispatchFrame(FcFrame original) {
+    protected FcFrame dispatchFrame(FcFrame original) {
         FcFrame current=frame;
         if(original==null||current==null||current.stale()
             ||!original.sameScene(current)||current.tick<original.tick||current.tick-original.tick>2
@@ -1076,7 +1084,7 @@ public final class DroFirecapeScript extends Script {
         return current;
     }
     /** General no-progress recovery, including plans which cannot find a legal action. */
-    private boolean recoverStalledCombat(FcFrame f,long now) {
+    protected boolean recoverStalledCombat(FcFrame f,long now) {
         boolean roomStalled=combatProgress.due(f.model);
         if((!roomStalled&&now-Math.max(lastProgressAt,lastRecoveryMotionAt)<=6000)||now-lastRecoveryAt<=6000||hasJad(f))return false;
         combatProgress.recovering(f.tick);
@@ -1116,12 +1124,12 @@ public final class DroFirecapeScript extends Script {
         return true;
     }
     /** Approaching monsters and a manual unblocking step are real progress too. */
-    private void observeRecoveryMotion(FcFrame f) {
+    protected void observeRecoveryMotion(FcFrame f) {
         long fingerprint=f.model.player().x()*104L+f.model.player().y();
         for(Mob m:f.model.mobs())fingerprint=fingerprint*31+m.index()*10816L+m.tile().x()*104L+m.tile().y();
         if(fingerprint!=lastMotionFingerprint){lastMotionFingerprint=fingerprint;lastRecoveryMotionAt=System.currentTimeMillis();}
     }
-    private void dispatchDeferred(FcFrame planned,String reason) {
+    protected void dispatchDeferred(FcFrame planned,String reason) {
         status=reason;long now=System.currentTimeMillis();
         if(now-lastDispatchDiagnosticAt<2000)return;
         lastDispatchDiagnosticAt=now;FcFrame current=frame;
@@ -1129,7 +1137,7 @@ public final class DroFirecapeScript extends Script {
             +" currentTick="+(current==null?-1:current.tick)
             +" planAgeMs="+(planned==null?-1:now-planned.capturedAt));
     }
-    private void movePlan(FcFrame f,Plan p) {
+    protected void movePlan(FcFrame f,Plan p) {
         if(!CombatPlanner.actionable(p,exitRequested?false:config.strictZeroExposure())||p.nextStep()==null
             ||p.nextStep().equals(f.model.player()))return;
         FcFrame current=dispatchFrame(f);
@@ -1218,7 +1226,7 @@ public final class DroFirecapeScript extends Script {
             trace.event("move-dispatch-failed","tick="+current.tick+" destination="+destination+" retry="+retry);
         }
     }
-    private void retreat(FcFrame f,Protection urgent) {
+    protected void retreat(FcFrame f,Protection urgent) {
         long now=System.currentTimeMillis();combatPhase="Protected exit / live-threat recovery";
         FcModel.Tile observedExit=actions.exitTile(f);if(observedExit!=null)exitTile=observedExit;
         if(lastExitClickAt>0&&now-lastExitClickAt<15_000&&actions.confirmCaveExit()) {
@@ -1252,7 +1260,7 @@ public final class DroFirecapeScript extends Script {
         // This uses ONLY current NPCs: no Rotation-5 camp or next-wave assumption.
         recoveryCombat(f,urgent,exitTile==null?"Reacquiring cave exit":"Clearing live obstruction to exit");
     }
-    private void recoveryCombat(FcFrame f,Protection urgent,String reason) {
+    protected void recoveryCombat(FcFrame f,Protection urgent,String reason) {
         if(f.model.mobs().isEmpty()) {
             plan=null;prayerPlanTick=-1;supplies(f,urgent);status=reason+"; rescanning loaded scene";return;
         }
@@ -1275,7 +1283,7 @@ public final class DroFirecapeScript extends Script {
             status=reason+"; defending against "+target.kind().name;
         } else {status=reason+"; checking current target/range";planner.widenSearch();}
     }
-    private FcModel.Tile nearestOpen(FcFrame f,FcModel.Tile object) {
+    protected FcModel.Tile nearestOpen(FcFrame f,FcModel.Tile object) {
         FcModel.Tile best=null;int length=Integer.MAX_VALUE;
         for(int x=-2;x<=2;x++)for(int y=-2;y<=2;y++) {
             FcModel.Tile candidate=object.add(x,y);if(!f.model.grid().open(candidate))continue;
@@ -1284,11 +1292,11 @@ public final class DroFirecapeScript extends Script {
         }
         return best;
     }
-    private static boolean isPrayerPotion(String n){String s=n.toLowerCase(Locale.ROOT);return s.startsWith("prayer potion(")||s.startsWith("super restore(");}
-    private static boolean hasJad(FcFrame f) {
+    protected static boolean isPrayerPotion(String n){String s=n.toLowerCase(Locale.ROOT);return s.startsWith("prayer potion(")||s.startsWith("super restore(");}
+    protected static boolean hasJad(FcFrame f) {
         return f!=null&&f.model.mobs().stream().anyMatch(m->m.kind()==Kind.JAD);
     }
-    private void observeSupply(FcFrame f) {
+    protected void observeSupply(FcFrame f) {
         if(!supplyAck.pending())return;
         SupplyAck.Result result=supplyAck.observe(f.count(supplyAck.itemId()),f.tick);
         if(result==SupplyAck.Result.CONSUMED) {
@@ -1303,14 +1311,14 @@ public final class DroFirecapeScript extends Script {
             supplyAck.reset();
         }
     }
-    private void supplyRequested(FcFrame f,FcFrame.ItemSlot item) {
+    protected void supplyRequested(FcFrame f,FcFrame.ItemSlot item) {
         String name=item.name().toLowerCase(Locale.ROOT);
         SupplyAck.Kind kind=name.startsWith("saradomin brew(")?SupplyAck.Kind.BREW:
             name.startsWith("super restore(")?SupplyAck.Kind.RESTORE:SupplyAck.Kind.OTHER;
         supplyAck.sent(item.id(),f.count(item.id()),f.tick,kind);
     }
     /** Zero prayer must not deadlock while waiting for an overhead that cannot activate. */
-    private boolean emergencyPrayer(FcFrame f) {
+    protected boolean emergencyPrayer(FcFrame f) {
         if(config.observeOnly()||supplyAck.pending()||System.currentTimeMillis()-lastSupplyAt<1400)return false;
         FcFrame.ItemSlot dose=f.inventory.stream().filter(i->isPrayerPotion(i.name())).findFirst().orElse(null);
         if(dose==null){fail("Prayer exhausted: no restore dose remains");return false;}
@@ -1325,7 +1333,7 @@ public final class DroFirecapeScript extends Script {
             status="Emergency prayer restore before overhead acknowledgement";trace.event("supply",dose.name());return true;}
         return preparingSupply(dose,"Drink",result,now);
     }
-    private boolean preparingSupply(FcFrame.ItemSlot item,String action,FcActions.ItemResult result,long now) {
+    protected boolean preparingSupply(FcFrame.ItemSlot item,String action,FcActions.ItemResult result,long now) {
         if(result==FcActions.ItemResult.PREPARING&&supplyPreparation.waiting(now)) {
             status="Preparing "+action+" "+item.name()+": "+actions.prayerUiStatus();return true;
         }
@@ -1336,10 +1344,10 @@ public final class DroFirecapeScript extends Script {
         return false; // No dose was sent: entry/attacks must not be permanently held.
     }
 
-    private boolean combatStatsDrained(FcFrame f) {
+    protected boolean combatStatsDrained(FcFrame f) {
         return meleeMode?f.attack<f.baseAttack||f.strength<f.baseStrength:f.ranged<f.baseRanged;
     }
-    private boolean combatBoostNeeded(FcFrame f,String name) {
+    protected boolean combatBoostNeeded(FcFrame f,String name) {
         String n=name.toLowerCase(Locale.ROOT);
         if(!meleeMode)return FcSupplyPolicy.rangedPotion(n)&&!combatStatsDrained(f)
             &&FcSupplyPolicy.rangedRecoveryReady(f.tick,lastBrewTick,
@@ -1351,7 +1359,7 @@ public final class DroFirecapeScript extends Script {
         if(n.startsWith("super strength(")||n.startsWith("strength potion("))return f.strength<=f.baseStrength;
         return false;
     }
-    private boolean supplies(FcFrame f,Protection urgent) {
+    protected boolean supplies(FcFrame f,Protection urgent) {
         long now=System.currentTimeMillis();if(now-lastSupplyAt<1400||config.observeOnly())return false;
         if(supplyAck.pending()){status="Confirming consumed supply";return true;}
         boolean sweets=config.usePurpleSweets()&&f.inventory.stream().anyMatch(i->FcSupplyPolicy.sweet(i.name()));
@@ -1419,7 +1427,7 @@ public final class DroFirecapeScript extends Script {
         supplyPreparation.reset();
         return false;
     }
-    private boolean healWithSweets(FcFrame f,Protection urgent) {
+    protected boolean healWithSweets(FcFrame f,Protection urgent) {
         FcFrame.ItemSlot sweet=f.inventory.stream().filter(i->FcSupplyPolicy.sweet(i.name())&&i.hasAction("Eat")).findFirst().orElse(null);
         if(!config.usePurpleSweets()||config.observeOnly()||sweet==null||f.hp>=f.maxHp||f.moving
             ||movement.pending()||lures.hasPendingReturn()||hasJad(f)||!FcSupplyPolicy.sweetPauseSafe(f.model)) {
@@ -1458,10 +1466,10 @@ public final class DroFirecapeScript extends Script {
         }
         return true;
     }
-    private static boolean isPrayerRegenPotion(String name) {
+    protected static boolean isPrayerRegenPotion(String name) {
         return name!=null&&name.toLowerCase(Locale.ROOT).matches("prayer regeneration potion\\s*\\([1-4]\\)");
     }
-    private static int prayerRegenerationDoses(FcFrame f) {
+    protected static int prayerRegenerationDoses(FcFrame f) {
         int total=0;
         for(FcFrame.ItemSlot item:f.inventory)if(isPrayerRegenPotion(item.name())) {
             int digit=item.name().charAt(item.name().lastIndexOf('(')+1)-'0';
@@ -1469,7 +1477,7 @@ public final class DroFirecapeScript extends Script {
         }
         return total;
     }
-    private boolean prayerRegenerationDue(FcFrame f,long now) {
+    protected boolean prayerRegenerationDue(FcFrame f,long now) {
         int timer=FcActions.read(()->client.getVarbitValue(VarbitID.PRAYER_REGENERATION_POTION_TIMER),-1);
         if(timer>0) {
             sawPrayerRegenTimer=true;pendingPrayerRegenDoses=-1;prayerRegenFallbackUntil=0;
@@ -1490,15 +1498,15 @@ public final class DroFirecapeScript extends Script {
     }
 
     /** Optional mage thralls, following DroZulrah's snapshot-then-dispatch casting. */
-    private boolean attackInputWindow(FcFrame f) {
+    protected boolean attackInputWindow(FcFrame f) {
         FcTickPrayers driver=tickPrayers;
         return driver!=null&&driver.ownsInput()&&driver.attackInputWindow(f.tick,ATTACK_INPUT_BUDGET_MS);
     }
-    private boolean optionalInputWindow(FcFrame f,long budgetMillis) {
+    protected boolean optionalInputWindow(FcFrame f,long budgetMillis) {
         FcTickPrayers driver=tickPrayers;
         return driver!=null&&driver.ownsInput()&&driver.optionalInputWindow(f.tick,budgetMillis);
     }
-    private boolean handleThrall(FcFrame f,Mob target,Plan p,Protection protection,Protection urgent) {
+    protected boolean handleThrall(FcFrame f,Mob target,Plan p,Protection protection,Protection urgent) {
         long now=System.currentTimeMillis();
         if(!config.useThralls()||config.observeOnly()||exitRequested||state!=State.FIGHTING
             ||hasJad(f)||urgent!=Protection.NONE||f.tick-jadAttackTick<=4||f.moving||f.stale()
@@ -1576,7 +1584,7 @@ public final class DroFirecapeScript extends Script {
         }
     }
 
-    private void requestRecoveryPause(FcFrame f,Protection urgent) {
+    protected void requestRecoveryPause(FcFrame f,Protection urgent) {
         int wave=waves.wave();
         if(config.observeOnly()||urgent!=Protection.NONE||hasJad(f)||supplyAck.pending()||supplyPreparation.pending()
             ||f.moving||movement.pending()||f.hp*100<=f.maxHp*config.eatPercent()
@@ -1593,13 +1601,13 @@ public final class DroFirecapeScript extends Script {
             }
         }
     }
-    private Protection recoveryGuard(FcFrame f) {
+    protected Protection recoveryGuard(FcFrame f) {
         if(!energyPause.recovering()||energyPause.state()==EnergyPause.State.RESTING&&!recoverySpawnObserved)return Protection.NONE;
         int next=energyPause.nextWave();Snapshot prediction=predictedWave(f,next);
         return prediction!=null?HeldProtection.choose(prediction,Protection.NONE,Protection.NONE):
             next>=31?Protection.MAGIC:next>=7?Protection.RANGE:Protection.MELEE;
     }
-    private void rest(FcFrame f) {
+    protected void rest(FcFrame f) {
         long now=System.currentTimeMillis();stopCamera();plan=null;prayerPlanTick=-1;
         Protection guard=recoveryGuard(f);
         if(tickPrayers!=null)tickPrayers.recoveryPause(true,guard);
@@ -1679,15 +1687,15 @@ public final class DroFirecapeScript extends Script {
             energyPause.hopFailed(System.currentTimeMillis());savePause();warning="Resume hop rejected; bounded retry queued";
         }
     }
-    private void finishResume(){
+    protected void finishResume(){
         energyPause.resumed();savePause();resetPlanning();
         if(tickPrayers!=null)tickPrayers.recoveryPause(false,Protection.NONE);
         if(waves.wave()<resumeWave)waves.restore(resumeWave);
         recoverySpawnObserved=false;recoverySupplyMisses=0;recoveryRetryAt=0;
         save(false);setState(State.FIGHTING,"Fresh cave and next-wave guard observed; continuing rotation "+rotationLabel());
     }
-    private void resetPlanning(){resetPlanning(true);}
-    private void resetPlanning(boolean resetLure){combatProgress.reset();movement.reset();if(resetLure){lures.reset();lureResetAfterReturn=false;}bowPrayer.interrupt();planner.reset();camps.clear();plan=null;lastPlanTick=-1;lastMoveTick=-1;prepositioned=false;healerRetreat=null;}
+    protected void resetPlanning(){resetPlanning(true);}
+    protected void resetPlanning(boolean resetLure){combatProgress.reset();movement.reset();if(resetLure){lures.reset();lureResetAfterReturn=false;}bowPrayer.interrupt();planner.reset();camps.clear();plan=null;lastPlanTick=-1;lastMoveTick=-1;prepositioned=false;healerRetreat=null;}
 
     // GameTick captures server evidence. The separate ClientTick prayer path
     // uses short widget operations only; neither event handler ever sleeps.
@@ -1713,7 +1721,7 @@ public final class DroFirecapeScript extends Script {
             }
         }
     }
-    private Protection tickSpawnGuard(FcFrame f) {
+    protected Protection tickSpawnGuard(FcFrame f) {
         if(f==null||!f.cave||!f.model.mobs().isEmpty()||jadDeath)return Protection.NONE;
         if(energyPause.recovering())return recoveryGuard(f);
         if(waves.predictionReady()&&waves.wave()>0&&waves.wave()<63) {
@@ -1847,5 +1855,4 @@ public final class DroFirecapeScript extends Script {
     String combatModeName(){return meleeMode?"Melee":"Ranged";}
     String bowCadence(){return bowPrayer.learned()?bowPrayer.period()+" ticks (observed)":"Observing shots";}
     String plannerMode(){return config!=null&&config.strictZeroExposure()?"Strict zero-exposure":"Full 63-wave / minimize exposure";}
-    String pauseStatus(){return config==null||!config.energyPause()?"OFF":energyPause.state().toString();}
-}
+    String pauseStatus(){return config==null||!config.energyPause()?"OFF":energyPause.state().toString();}}

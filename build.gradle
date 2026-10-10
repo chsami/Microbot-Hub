@@ -66,12 +66,6 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 configurations {
-    mockitoAgent {
-        canBeConsumed = false
-        canBeResolved = true
-        transitive = false
-    }
-
     microbotRuntime {
         canBeConsumed = false
         canBeResolved = true
@@ -115,11 +109,6 @@ repositories {
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
-    // Keep the existing JUnit 4 plugin tests on the shared JUnit Platform runner.
-    testImplementation 'junit:junit:4.13.2'
-    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.10.2'
-    testImplementation 'org.mockito:mockito-core:5.23.0'
-    mockitoAgent 'org.mockito:mockito-core:5.23.0'
     if (microbotClientPath) {
         def clientFile = file(microbotClientPath)
         if (!clientFile.exists()) {
@@ -137,8 +126,6 @@ dependencies {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
-    // Static mocks need instrumentation; resolve the agent from Maven on every host.
-    jvmArgs "-javaagent:${configurations.mockitoAgent.asPath}"
 }
 
 application {

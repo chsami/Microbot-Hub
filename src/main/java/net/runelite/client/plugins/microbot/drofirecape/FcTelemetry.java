@@ -15,9 +15,9 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
 
 /** Human-readable events plus machine-replayable scene-relative decision frames. */
-final class FcTelemetry implements AutoCloseable {
-    private BufferedWriter writer;private Path directory;
-    private final Set<String> maps=new HashSet<>();
+class FcTelemetry implements AutoCloseable {
+    protected BufferedWriter writer;protected Path directory;
+    protected final Set<String> maps=new HashSet<>();
     void open(boolean enabled) {
         close();maps.clear();directory=null;
         if(!enabled)return;
@@ -31,7 +31,7 @@ final class FcTelemetry implements AutoCloseable {
     synchronized void event(String type,String detail) {
         write("{\"time\":\""+Instant.now()+"\",\"type\":\""+escape(type)+"\",\"detail\":\""+escape(detail)+"\"}");
     }
-    private void write(String line) {
+    protected void write(String line) {
         if(writer==null)return;
         try{writer.write(line);writer.newLine();writer.flush();}
         catch(IOException e){Microbot.log("[Dro Firecape] Trace write failed: "+e);close();}
@@ -75,8 +75,8 @@ final class FcTelemetry implements AutoCloseable {
             .append(",\"reason\":\"").append(escape(plan.reason())).append("\"}");
         write(b.append('}').toString());
     }
-    private static String tile(Tile tile){return tile==null?"null":"["+tile.x()+","+tile.y()+"]";}
+    protected static String tile(Tile tile){return tile==null?"null":"["+tile.x()+","+tile.y()+"]";}
     String location(){return directory==null?"disabled":directory.toString();}
-    private static String escape(String s){return s==null?"":s.replace("\\","\\\\").replace("\"","\\\"").replace("\n","\\n").replace("\r","\\r").replace("\t","\\t");}
-    @Override public synchronized void close(){if(writer!=null){try{writer.close();}catch(IOException ignored){}writer=null;}}
+    protected static String escape(String s){return s==null?"":s.replace("\\","\\\\").replace("\"","\\\"").replace("\n","\\n").replace("\r","\\r").replace("\t","\\t");}
+    @Override public synchronized void close(){if(writer!=null){try{writer.close();}catch(IOException ignored){}writer=null;}}    void observation(FcFrame f,int wave,Plan plan,String owner,String combat,String group,String lure,Protection requested) { }
 }

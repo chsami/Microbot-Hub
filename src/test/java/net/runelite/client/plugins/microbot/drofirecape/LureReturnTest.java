@@ -11,8 +11,8 @@ import net.runelite.client.plugins.microbot.drofirecape.core.CollisionGrid;
 import net.runelite.client.plugins.microbot.drofirecape.core.CombatPlanner;
 import net.runelite.client.plugins.microbot.drofirecape.core.LureController;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 /** The live failure was a delayed outward click after EW had reported failure. */
 public class LureReturnTest {

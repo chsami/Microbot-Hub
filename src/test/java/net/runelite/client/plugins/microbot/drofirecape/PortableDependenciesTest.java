@@ -9,8 +9,8 @@ package net.runelite.client.plugins.microbot.drofirecape;
 import java.lang.reflect.Field;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.drofirecape.profile.BaseProfileDro;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class PortableDependenciesTest {
     @Test public void releasedClientWithoutLocalGuardStillStartsAndClosesTheGuard() {

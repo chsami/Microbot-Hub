@@ -15,7 +15,8 @@ import net.runelite.client.plugins.microbot.drofirecape.core.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
 
 /** Built on the client thread. No NPC, Widget or live collision array leaves capture(). */
-final class FcFrame {
+public final class FcFrame {
+    public int monsterCount(){return cave?model.mobs().size():0;}
     /** Java 11 value type; preserves the former record API and value semantics. */
     static final class ItemSlot {
         private final int slot;
@@ -132,6 +133,12 @@ final class FcFrame {
                 Math.max(0,(rawEnergy+99)/100),running,weaponRange,jad,meleeMode);
     }
     static FcFrame capture(Client c,int overrideRange,boolean meleeMode,Protection jad,Map<Integer,Integer> attackTicks,Map<Integer,Protection> attackStyles,Set<Integer> dead) {
+        return capture(c,overrideRange,meleeMode,jad,attackTicks,attackStyles,dead,false);
+    }
+    static FcFrame captureOptional(Client c,int overrideRange,boolean meleeMode,Protection jad,Map<Integer,Integer> attackTicks,Map<Integer,Protection> attackStyles,Set<Integer> dead) {
+        return capture(c,overrideRange,meleeMode,jad,attackTicks,attackStyles,dead,true);
+    }
+    private static FcFrame capture(Client c,int overrideRange,boolean meleeMode,Protection jad,Map<Integer,Integer> attackTicks,Map<Integer,Protection> attackStyles,Set<Integer> dead,boolean optionalAnchors) {
         if(c==null||c.getGameState()!=GameState.LOGGED_IN||c.getLocalPlayer()==null)return null;
         WorldView v=c.getTopLevelWorldView();if(v==null||v.getCollisionMaps()==null)return null;
         int plane=v.getPlane();if(plane<0||plane>=v.getCollisionMaps().length||v.getCollisionMaps()[plane]==null)return null;
@@ -164,7 +171,7 @@ final class FcFrame {
             }
         }
         if(v.isInstance()&&template!=null&&template.getRegionID()==WaveBook.REGION) {
-            Set<FcModel.Tile> points=new HashSet<>(RecordedLureBook.anchors());
+            Set<FcModel.Tile> points=new HashSet<>(optionalAnchors?RecordedLureBook.anchorsWithPockets():RecordedLureBook.anchors());
             for(int wave=1;wave<=25;wave++) {
                 points.addAll(RecordedLureBook.candidates(5,wave));
                 FcModel.Tile opening=RecordedLureBook.opening(5,wave);if(opening!=null)points.add(opening);
@@ -193,6 +200,15 @@ final class FcFrame {
         return size>=1&&size<=8?size:0;
     }
     FcModel.Tile recordedAnchor(FcModel.Tile template){return recordedTiles.get(template);}
+    /** Instance mapping can be incomplete while the scene loads; omit unavailable positions. */
+    List<FcModel.Tile> recordedAnchors(FcModel.Tile... templates){
+        List<FcModel.Tile> result=new ArrayList<>();
+        for(FcModel.Tile template:templates){
+            FcModel.Tile tile=recordedAnchor(template);
+            if(tile!=null)result.add(tile);
+        }
+        return List.copyOf(result);
+    }
     List<FcModel.Tile> demonstratedPositions(int rotation,int wave) {
         ArrayList<FcModel.Tile> points=new ArrayList<>();
         for(FcModel.Tile template:RecordedLureBook.candidates(rotation,wave)) {

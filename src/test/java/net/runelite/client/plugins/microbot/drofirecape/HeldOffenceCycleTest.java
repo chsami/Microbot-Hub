@@ -8,8 +8,8 @@ package net.runelite.client.plugins.microbot.drofirecape;
 
 import java.util.List;
 import net.runelite.client.plugins.microbot.drofirecape.core.OneTickPrayerCycle;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class HeldOffenceCycleTest {
     @Test public void overheadResetsWhileOffenceStaysOnUntilCombatEnds() {

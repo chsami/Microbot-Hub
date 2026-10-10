@@ -39,4 +39,9 @@ public final class AttackClock {
     public static Mob launched(Mob mob, int tick, Protection style) {
         return new Mob(mob.index(),mob.kind(),mob.tile(),mob.size(),mob.healthRatio(),mob.healthScale(),tick,style,mob.attackingPlayer());
     }
+    public static Protection animationWithTiny(Kind kind,int animation) {
+        if(kind==Kind.BAT)return animation==2621?Protection.MELEE:null;
+        if(kind==Kind.BLOB||kind==Kind.BABY)return animation==2625?Protection.MELEE:null;
+        return animation(kind,animation);
+    }
 }

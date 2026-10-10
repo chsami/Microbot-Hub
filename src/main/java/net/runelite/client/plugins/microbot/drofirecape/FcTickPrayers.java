@@ -23,54 +23,54 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
  * button. Only a changed protection/offence state requests a click; an already
  * active overhead is not reset every tick while another style is approaching.
  */
-final class FcTickPrayers {
-    private static final Rs2PrayerEnum[] PRAYERS={
+class FcTickPrayers {
+    protected static final Rs2PrayerEnum[] PRAYERS={
         Rs2PrayerEnum.PROTECT_MELEE,Rs2PrayerEnum.PROTECT_RANGE,Rs2PrayerEnum.PROTECT_MAGIC,
         Rs2PrayerEnum.SHARP_EYE,Rs2PrayerEnum.HAWK_EYE,Rs2PrayerEnum.EAGLE_EYE,
         Rs2PrayerEnum.DEAD_EYE,Rs2PrayerEnum.RIGOUR,Rs2PrayerEnum.BURST_STRENGTH,
         Rs2PrayerEnum.SUPERHUMAN_STRENGTH,Rs2PrayerEnum.ULTIMATE_STRENGTH,
         Rs2PrayerEnum.CLARITY_THOUGHT,Rs2PrayerEnum.IMPROVED_REFLEXES,
         Rs2PrayerEnum.INCREDIBLE_REFLEXES,Rs2PrayerEnum.CHIVALRY,Rs2PrayerEnum.PIETY};
-    private static final int OVERHEADS=7;
-    private static final long MAGIC_RELEASE_DEADLINE_NS=180_000_000L;
-    private final Client client;
-    private final Consumer<String> log;
-    private final LongSupplier nanos;
-    private final boolean melee;
-    private final ArrayList<Rs2PrayerEnum> slots=new ArrayList<>();
-    private final Map<Rs2PrayerEnum,Integer> channel=new EnumMap<>(Rs2PrayerEnum.class);
-    private final TickProtection protection=new TickProtection();
-    private final OneTickPrayerCycle cycle;
-    private volatile FcFrame current;
-    private Snapshot currentModel;
-    private Protection spawnGuard=Protection.NONE;
-    private volatile TickProtection.Decision decision;
-    private volatile boolean owned,ready,offenceReady,forecastMoving,detached;
-    private volatile Protection movementGuard=Protection.NONE,prepareTarget=Protection.NONE;
-    private Protection forecastGuard=Protection.NONE;
-    private volatile boolean movementPrearm;
-    private volatile boolean recoveryControl;
-    private volatile Protection recoveryGuard=Protection.NONE;
-    private boolean forecastPrearm;
-    private volatile int confirmedOverhead;
-    private volatile FcFrame preparedFrame;
-    private volatile Protection preparedTarget=Protection.NONE;
-    private volatile String label="Detecting",status="Awaiting game ticks";
-    private volatile int primeAttackUntil=-1,primeTarget=-1,motionUntil=-1;
-    private int selectedMask;
-    private int lastOffenceUseTick=-1000;
-    private volatile int observedMask;
-    private volatile int desiredMask;
-    private volatile boolean pendingJad;
-    private boolean wasAllowed;
-    private long resets,operations;
-    private String lastProblem="";
-    private volatile boolean inputAllowed;
-    private long tickReceivedAt;
-    private volatile long optionalDeadline;
-    private int skippedMask;
-    private final AtomicReference<Dispatch> queued=new AtomicReference<>();
-    private static final class Dispatch {
+    protected static final int OVERHEADS=7;
+    protected static final long MAGIC_RELEASE_DEADLINE_NS=180_000_000L;
+    protected final Client client;
+    protected final Consumer<String> log;
+    protected final LongSupplier nanos;
+    protected final boolean melee;
+    protected final ArrayList<Rs2PrayerEnum> slots=new ArrayList<>();
+    protected final Map<Rs2PrayerEnum,Integer> channel=new EnumMap<>(Rs2PrayerEnum.class);
+    protected final TickProtection protection;
+    protected final OneTickPrayerCycle cycle;
+    protected volatile FcFrame current;
+    protected Snapshot currentModel;
+    protected Protection spawnGuard=Protection.NONE;
+    protected volatile TickProtection.Decision decision;
+    protected volatile boolean owned,ready,offenceReady,forecastMoving,detached;
+    protected volatile Protection movementGuard=Protection.NONE,prepareTarget=Protection.NONE;
+    protected Protection forecastGuard=Protection.NONE;
+    protected volatile boolean movementPrearm;
+    protected volatile boolean recoveryControl;
+    protected volatile Protection recoveryGuard=Protection.NONE;
+    protected boolean forecastPrearm;
+    protected volatile int confirmedOverhead;
+    protected volatile FcFrame preparedFrame;
+    protected volatile Protection preparedTarget=Protection.NONE;
+    protected volatile String label="Detecting",status="Awaiting game ticks";
+    protected volatile int primeAttackUntil=-1,primeTarget=-1,motionUntil=-1;
+    protected int selectedMask;
+    protected int lastOffenceUseTick=-1000;
+    protected volatile int observedMask;
+    protected volatile int desiredMask;
+    protected volatile boolean pendingJad;
+    protected boolean wasAllowed;
+    protected long resets,operations;
+    protected String lastProblem="";
+    protected volatile boolean inputAllowed;
+    protected long tickReceivedAt;
+    protected volatile long optionalDeadline;
+    protected int skippedMask;
+    protected final AtomicReference<Dispatch> queued=new AtomicReference<>();
+    protected static final class Dispatch {
         final FcFrame frame;
         final TickProtection.Decision decision;
         final OneTickPrayerCycle.Command command;
@@ -85,6 +85,10 @@ final class FcTickPrayers {
     }
     /** Clock injection is only for reproducible offline adapter tests. */
     FcTickPrayers(Client client,boolean melee,Consumer<String> log,LongSupplier nanos) {
+        this(client,melee,log,nanos,false);
+    }
+    protected FcTickPrayers(Client client,boolean melee,Consumer<String> log,LongSupplier nanos,boolean optionalCadence) {
+        protection=new TickProtection(optionalCadence);
         this.client=client;this.melee=melee;this.log=log;this.nanos=nanos;
         Map<Integer,Integer> byWidget=new LinkedHashMap<>();
         for(Rs2PrayerEnum p:PRAYERS) {
@@ -289,7 +293,7 @@ final class FcTickPrayers {
             problem(e.getClass().getSimpleName()+": "+e.getMessage());
         }
     }
-    private boolean offenceNeeded(FcFrame f,boolean enabled,boolean motion) {
+    protected boolean offenceNeeded(FcFrame f,boolean enabled,boolean motion) {
         if(!enabled||selectedMask==0||f.model.mobs().isEmpty())return false;
         if(motion)return false;
         if(primeAttackUntil>=f.tick) {
@@ -306,8 +310,8 @@ final class FcTickPrayers {
         // No attack-gap toggles or OFF/ON pairs compete with overhead deadlines.
         lastOffenceUseTick=f.tick;return true;
     }
-    private static Mob find(FcFrame f,int index){for(Mob m:f.model.mobs())if(m.index()==index)return m;return null;}
-    private static Snapshot prayerModel(Snapshot scene,Set<Integer> taggedHealers) {
+    protected static Mob find(FcFrame f,int index){for(Mob m:f.model.mobs())if(m.index()==index)return m;return null;}
+    protected static Snapshot prayerModel(Snapshot scene,Set<Integer> taggedHealers) {
         if(taggedHealers.isEmpty())return scene;
         List<Mob> mobs=new ArrayList<>();
         for(Mob mob:scene.mobs())mobs.add(mob.kind()==Kind.HEALER&&taggedHealers.contains(mob.index())
@@ -316,7 +320,7 @@ final class FcTickPrayers {
         return new Snapshot(scene.tick(),scene.player(),scene.grid(),mobs,scene.runEnergy(),scene.running(),
             scene.weaponRange(),scene.jadStyle(),scene.meleeMode());
     }
-    private void readState() {
+    protected void readState() {
         observedMask=selectedMask=0;
         List<String> best=OffensivePrayers.select(melee,client.getRealSkillLevel(Skill.PRAYER),
             client.getRealSkillLevel(Skill.DEFENCE),client.getVarbitValue(VarbitID.KR_KNIGHTWAVES_STATE)==8,
@@ -356,7 +360,7 @@ final class FcTickPrayers {
         final long completedAt=nanos.getAsLong();
         // Acknowledge on the same thread which owns the tick-cycle state. Queueing
         // a request does not count as a sent prayer or make protection ready.
-        FcActions.read(()->{
+        onClientThread(()->{
             if(completed==FcPrayerUi.Result.SENT) {
                 operations+=dispatch.command.type==OneTickPrayerCycle.Type.RESET?2:1;
                 if(dispatch.command.type==OneTickPrayerCycle.Type.RESET)resets++;
@@ -377,7 +381,7 @@ final class FcTickPrayers {
             queued.compareAndSet(dispatch,null);return true;
         },false);
     }
-    private boolean valid(Dispatch dispatch) {
+    protected boolean valid(Dispatch dispatch) {
         long age=nanos.getAsLong()-dispatch.tickAt;
         boolean wanted=(desiredMask&(1<<dispatch.command.channel))!=0;
         boolean matches=dispatch.command.type==OneTickPrayerCycle.Type.OFF?!wanted:wanted;
@@ -390,9 +394,16 @@ final class FcTickPrayers {
             &&queued.get()==dispatch&&age>=0&&age<1_200_000_000L
             &&(!(releaseMagic||healerGap)||age<=MAGIC_RELEASE_DEADLINE_NS);
     }
-    private boolean early(Dispatch dispatch) {
+    protected boolean early(Dispatch dispatch) {
         long age=nanos.getAsLong()-dispatch.tickAt;
         return age>=OneTickPrayerCycle.EARLY_START_NS&&age<=OneTickPrayerCycle.EARLY_END_NS;
     }
-    private void problem(String text) {if(!text.equals(lastProblem)){lastProblem=text;log.accept("tick-prayer-warning "+text);}}
+    protected void problem(String text) {if(!text.equals(lastProblem)){lastProblem=text;log.accept("tick-prayer-warning "+text);}}    void conservation(boolean enabled) { }
+    void pureWave(int wave) { }
+    void pureTinyPrayers(boolean enabled) { }
+    void nativeWidgets(boolean enabled) { }
+    boolean exhaustedCombatReady(){return false;}
+    protected <T>T onClientThread(java.util.concurrent.Callable<T> action,T fallback) {
+        return FcActions.read(action,fallback);
+    }
 }

@@ -8,8 +8,8 @@ package net.runelite.client.plugins.microbot.drofirecape;
 import java.util.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 public class RecordedPolicyTest {
     private final Tile main=RecordedLureBook.ITALY,pull=RecordedLureBook.PULL,nw=RecordedLureBook.NORTHWEST;
     private Snapshot state(int tick,Tile player,Mob... mobs){return new Snapshot(tick,player,new CollisionGrid(new int[104][104]),List.of(mobs),100,true,7,Protection.NONE);}

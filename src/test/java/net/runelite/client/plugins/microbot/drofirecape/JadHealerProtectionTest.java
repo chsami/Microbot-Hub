@@ -9,8 +9,8 @@ package net.runelite.client.plugins.microbot.drofirecape;
 import java.util.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class JadHealerProtectionTest {
     private static Snapshot scene(int tick,boolean tagged,boolean contact) {
@@ -83,8 +83,7 @@ public class JadHealerProtectionTest {
                 if(tick==delayed)clock.animation(1,Kind.JAD,2656);
                 clock.beginTick(tick,scene(tick,true,true).mobs());
             }
-            assertEquals("Delayed interval "+interval,Protection.MAGIC,
-                clock.choose(scene(delayed+6,true,true),false,Protection.MAGIC,Protection.NONE).protection);
+            assertEquals(Protection.MAGIC,clock.choose(scene(delayed+6,true,true),false,Protection.MAGIC,Protection.NONE).protection,"Delayed interval "+interval);
         }
     }
     @Test public void jadMeleeContactCannotOpenTheHealerGap() {

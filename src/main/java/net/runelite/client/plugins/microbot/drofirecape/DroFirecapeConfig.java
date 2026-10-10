@@ -17,7 +17,7 @@ public interface DroFirecapeConfig extends Config {
     default boolean pureMode(){return false;}
     @ConfigItem(keyName="nativeTickPrayers",name="1-tick prayers",description="Direct protection switches before predicted launches, with same-tick OFF/ON pairs when synchronized. No resets during movement, Jad or conflicting styles. Uncertain timing holds protection. Independent of Pure mode. Restart after enabling this option from regular mode. OFF retains the established visible prayer-button system.",position=5)
     default boolean nativeTickPrayers(){return false;}
-    @ConfigItem(keyName="prayerConservation",name="Prayer conservation",description="Optional controller only (Pure or 1-tick prayers). Enter with prayers off; skip early empty-wave overheads and offensive prayers on waves 1-30. Live threats, split babies and wave-31 mage pre-arm remain protected. Does not change flick timing. OFF preserves the established demand policy.",position=7)
+    @ConfigItem(keyName="prayerConservation",name="Prayer conservation",description="Optional controller only (Pure or 1-tick prayers). Enter with prayers off and skip early empty-wave overheads. Use offensive prayers only against threatening or untrapped rangers and big melees, then Jad. Protection against incoming attacks stays enabled. OFF preserves the established demand policy.",position=7)
     default boolean prayerConservation(){return false;}
     default boolean demonstrationLures(){return true;}
     default boolean useThralls(){return true;}

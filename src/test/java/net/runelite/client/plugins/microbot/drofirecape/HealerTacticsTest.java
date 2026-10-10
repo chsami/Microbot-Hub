@@ -9,8 +9,8 @@ package net.runelite.client.plugins.microbot.drofirecape;
 import java.util.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class HealerTacticsTest {
     private static Mob healer(int index,int x,int y,boolean tagged) {

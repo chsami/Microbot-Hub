@@ -9,8 +9,8 @@ package net.runelite.client.plugins.microbot.drofirecape;
 import java.util.List;
 import net.runelite.client.plugins.microbot.drofirecape.core.MovementAck;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.Tile;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class MovementStallTest {
     private final Tile cover=new Tile(54,36),west=new Tile(53,36);

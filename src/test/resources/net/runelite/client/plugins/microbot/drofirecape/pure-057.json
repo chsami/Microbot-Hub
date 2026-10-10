@@ -1,0 +1,266 @@
+[
+  {
+    "tick": 1824,
+    "wave": 22,
+    "player": [
+      34,
+      26
+    ],
+    "mobs": [
+      {
+        "index": 45053,
+        "kind": "MELEER",
+        "tile": [
+          35,
+          28
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 1818,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 45054,
+        "kind": "RANGER",
+        "tile": [
+          32,
+          29
+        ],
+        "size": 3,
+        "healthRatio": 9,
+        "healthScale": 30,
+        "attackTick": 1821,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-057-0.geometry.json",
+    "interaction": -1,
+    "hp": 63,
+    "prayer": 37
+  },
+  {
+    "tick": 1770,
+    "wave": 22,
+    "player": [
+      46,
+      36
+    ],
+    "mobs": [
+      {
+        "index": 45053,
+        "kind": "MELEER",
+        "tile": [
+          10,
+          42
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": false
+      },
+      {
+        "index": 45054,
+        "kind": "RANGER",
+        "tile": [
+          10,
+          7
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "RANGE",
+        "attackingPlayer": false
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-057-0.geometry.json",
+    "interaction": -1,
+    "hp": 74,
+    "prayer": 42
+  },
+  {
+    "tick": 1829,
+    "wave": 22,
+    "player": [
+      34,
+      26
+    ],
+    "mobs": [
+      {
+        "index": 45053,
+        "kind": "MELEER",
+        "tile": [
+          35,
+          27
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 1818,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 45054,
+        "kind": "RANGER",
+        "tile": [
+          32,
+          29
+        ],
+        "size": 3,
+        "healthRatio": 9,
+        "healthScale": 30,
+        "attackTick": 1829,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-057-0.geometry.json",
+    "interaction": -1,
+    "hp": 63,
+    "prayer": 37
+  },
+  {
+    "tick": 1838,
+    "wave": 22,
+    "player": [
+      34,
+      26
+    ],
+    "mobs": [
+      {
+        "index": 45053,
+        "kind": "MELEER",
+        "tile": [
+          35,
+          27
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 1818,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 45054,
+        "kind": "RANGER",
+        "tile": [
+          32,
+          29
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 1837,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-057-0.geometry.json",
+    "interaction": -1,
+    "hp": 63,
+    "prayer": 38
+  },
+  {
+    "tick": 1846,
+    "wave": 22,
+    "player": [
+      34,
+      26
+    ],
+    "mobs": [
+      {
+        "index": 45053,
+        "kind": "MELEER",
+        "tile": [
+          35,
+          27
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 1818,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 45054,
+        "kind": "RANGER",
+        "tile": [
+          32,
+          29
+        ],
+        "size": 3,
+        "healthRatio": 5,
+        "healthScale": 30,
+        "attackTick": 1845,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-057-0.geometry.json",
+    "interaction": -1,
+    "hp": 63,
+    "prayer": 38
+  },
+  {
+    "tick": 1855,
+    "wave": 22,
+    "player": [
+      34,
+      26
+    ],
+    "mobs": [
+      {
+        "index": 45053,
+        "kind": "MELEER",
+        "tile": [
+          35,
+          27
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 1818,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 45054,
+        "kind": "RANGER",
+        "tile": [
+          32,
+          29
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 1853,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-057-0.geometry.json",
+    "interaction": -1,
+    "hp": 64,
+    "prayer": 39
+  }
+]

@@ -7,8 +7,8 @@
 package net.runelite.client.plugins.microbot.drofirecape;
 
 import net.runelite.client.plugins.microbot.drofirecape.core.SupplyPreparation;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class SupplyPreparationTest {
     @Test public void unacknowledgedTabCannotOwnCombatForever() {

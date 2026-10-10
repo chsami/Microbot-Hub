@@ -1,0 +1,98 @@
+[
+  {
+    "run": "main-027",
+    "eventsSha256": "b042fb9ba5eff4a86092e3412f8b18b493f33a6bf5b61006414cf53148585f49",
+    "frames": 5,
+    "ticks": [
+      8284,
+      8285,
+      8286,
+      9232,
+      9233
+    ],
+    "maps": [
+      {
+        "source": "collision-307-10872-11976-0.csv",
+        "sha256": "341c60821a62866e4450d1788bfca50908d2410a8a2895478085e9257e2fee38",
+        "fixture": "main-027-0.geometry.json"
+      }
+    ],
+    "sourceRecording": "local-captures/20261003-212837-598"
+  },
+  {
+    "run": "main-029",
+    "eventsSha256": "8d8fb83ab359a8726905293208ba28570a1ca6cb297e633ba20f3c364290cf6c",
+    "frames": 6,
+    "ticks": [
+      7021,
+      7453,
+      7555,
+      7867,
+      8627,
+      8629
+    ],
+    "maps": [
+      {
+        "source": "collision-492-11832-15240-0.csv",
+        "sha256": "341c60821a62866e4450d1788bfca50908d2410a8a2895478085e9257e2fee38",
+        "fixture": "main-029-0.geometry.json"
+      },
+      {
+        "source": "collision-492-11816-15200-0.csv",
+        "sha256": "549ae16599b4c55259b70bb4d9c52a1d4c2f6de34e05700c062b9cdd226b7941",
+        "fixture": "main-029-1.geometry.json"
+      }
+    ],
+    "sourceRecording": "local-captures/20261005-104856-250"
+  },
+  {
+    "run": "pure-057",
+    "eventsSha256": "e2d26e330d9ed717ecd38751b762715a1f67656b63ddad6f6a2ef463e13bd41c",
+    "frames": 6,
+    "ticks": [
+      1824,
+      1770,
+      1829,
+      1838,
+      1846,
+      1855
+    ],
+    "maps": [
+      {
+        "source": "collision-368-10496-13320-0.csv",
+        "sha256": "7939cbaa78cdd75a167bfa5afaf1de969023a118153e0d8e992af3a7ca82c806",
+        "fixture": "pure-057-0.geometry.json"
+      }
+    ],
+    "sourceRecording": "supplied-0.3.57-to-0.3.63/firecape-0357-run"
+  },
+  {
+    "run": "pure-066",
+    "eventsSha256": "bf5fc2402b05772e68c24dbfa6b1c81b2929acde7ca8bb01359b2288167cad9d",
+    "frames": 9,
+    "ticks": [
+      5362,
+      5361,
+      11444,
+      11564,
+      11579,
+      11879,
+      11926,
+      11985,
+      12108
+    ],
+    "maps": [
+      {
+        "source": "collision-362-10680-456-0.csv",
+        "sha256": "341c60821a62866e4450d1788bfca50908d2410a8a2895478085e9257e2fee38",
+        "fixture": "pure-066-0.geometry.json"
+      },
+      {
+        "source": "collision-360-10864-7920-0.csv",
+        "sha256": "5d581a02c40165ad8376a2ef9f6409683d023cb9f026affbe71811aee516ce32",
+        "fixture": "pure-066-1.geometry.json"
+      }
+    ],
+    "sourceRecording": "latest-0.3.66/events.jsonl"
+  }
+]

@@ -28,6 +28,7 @@ public final class RecordedLureBook {
     private static final Tile EAST = ITALY;
     public static final Tile SOUTH_FACE = new Tile(45,38);
     public static List<Tile> anchors(){return List.of(ITALY,SOUTH_FACE,WEST_PEEK,PULL,NORTHWEST,MELEE_WALL);}
+    public static List<Tile> anchorsWithPockets(){return List.of(ITALY,SOUTH_FACE,WEST_PEEK,PULL,NORTHWEST,MELEE_WALL,POCKET_EAST,POCKET_WEST);}
     private static List<Tile> points(int... xy) {
         ArrayList<Tile> result=new ArrayList<>();
         for(int i=0;i<xy.length;i+=2)result.add(new Tile(xy[i],xy[i+1]));

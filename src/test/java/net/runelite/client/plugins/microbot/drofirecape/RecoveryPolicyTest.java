@@ -10,14 +10,14 @@ import java.lang.reflect.*;
 import java.util.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class RecoveryPolicyTest {
     static void set(Object o,String name,Object value)throws Exception {Field f=o.getClass().getDeclaredField(name);f.setAccessible(true);f.set(o,value);}
     static FcFrame.ItemSlot item(int id,String name){return new FcFrame.ItemSlot(0,id,1,name,List.of(name.equals("Purple sweets")?"Eat":"Drink"));}
     static FcFrame frame(int tick,int hp,int energy,FcFrame.ItemSlot...items)throws Exception {
-        Method factory=EntryStartupTest.class.getDeclaredMethod("frame",int.class,int.class);factory.setAccessible(true);
+        Method factory=FirecapeTestClient.class.getDeclaredMethod("frame",int.class,int.class);factory.setAccessible(true);
         FcFrame f=(FcFrame)factory.invoke(null,tick,3024);set(f,"cave",true);set(f,"containersReady",true);
         set(f,"hp",hp);set(f,"rawEnergy",energy*100);set(f,"inventory",List.of(items));
         set(f,"model",new Snapshot(tick,new Tile(30,30),new CollisionGrid(new int[104][104]),List.of(),energy,false,5,Protection.MAGIC));

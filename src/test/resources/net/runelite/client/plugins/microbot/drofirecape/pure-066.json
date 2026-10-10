@@ -1,0 +1,477 @@
+[
+  {
+    "tick": 5362,
+    "wave": 22,
+    "player": [
+      60,
+      37
+    ],
+    "mobs": [
+      {
+        "index": 60875,
+        "kind": "RANGER",
+        "tile": [
+          60,
+          23
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-066-0.geometry.json",
+    "interaction": -1,
+    "hp": 77,
+    "prayer": 45,
+    "capturedAtMs": 1791607339376
+  },
+  {
+    "tick": 5361,
+    "wave": 22,
+    "player": [
+      60,
+      37
+    ],
+    "mobs": [
+      {
+        "index": 60875,
+        "kind": "RANGER",
+        "tile": [
+          60,
+          23
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-066-0.geometry.json",
+    "interaction": 60874,
+    "hp": 77,
+    "prayer": 45,
+    "capturedAtMs": 1791607338774
+  },
+  {
+    "tick": 11444,
+    "wave": 58,
+    "player": [
+      60,
+      55
+    ],
+    "mobs": [
+      {
+        "index": 34973,
+        "kind": "MAGER",
+        "tile": [
+          26,
+          31
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": false
+      },
+      {
+        "index": 34974,
+        "kind": "MELEER",
+        "tile": [
+          66,
+          41
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": false
+      },
+      {
+        "index": 34975,
+        "kind": "RANGER",
+        "tile": [
+          51,
+          31
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "RANGE",
+        "attackingPlayer": false
+      },
+      {
+        "index": 34976,
+        "kind": "BLOB",
+        "tile": [
+          26,
+          66
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": false
+      },
+      {
+        "index": 34977,
+        "kind": "BAT",
+        "tile": [
+          46,
+          46
+        ],
+        "size": 1,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": false
+      },
+      {
+        "index": 34978,
+        "kind": "BAT",
+        "tile": [
+          66,
+          41
+        ],
+        "size": 1,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": false
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-066-1.geometry.json",
+    "interaction": -1,
+    "hp": 74,
+    "prayer": 36,
+    "capturedAtMs": 1791611004309
+  },
+  {
+    "tick": 11564,
+    "wave": 58,
+    "player": [
+      66,
+      49
+    ],
+    "mobs": [
+      {
+        "index": 34973,
+        "kind": "MAGER",
+        "tile": [
+          57,
+          51
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 11498,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 34976,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-066-1.geometry.json",
+    "interaction": -1,
+    "hp": 77,
+    "prayer": 40,
+    "capturedAtMs": 1791611076309
+  },
+  {
+    "tick": 11579,
+    "wave": 58,
+    "player": [
+      66,
+      49
+    ],
+    "mobs": [
+      {
+        "index": 34973,
+        "kind": "MAGER",
+        "tile": [
+          57,
+          51
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 11498,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 34976,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-066-1.geometry.json",
+    "interaction": -1,
+    "hp": 77,
+    "prayer": 40,
+    "capturedAtMs": 1791611085308
+  },
+  {
+    "tick": 11879,
+    "wave": 60,
+    "player": [
+      67,
+      74
+    ],
+    "mobs": [
+      {
+        "index": 39611,
+        "kind": "MAGER",
+        "tile": [
+          63,
+          42
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 39612,
+        "kind": "MELEER",
+        "tile": [
+          36,
+          70
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 39613,
+        "kind": "RANGER",
+        "tile": [
+          54,
+          54
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 11872,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 39614,
+        "kind": "RANGER",
+        "tile": [
+          67,
+          47
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-066-1.geometry.json",
+    "interaction": -1,
+    "hp": 77,
+    "prayer": 25,
+    "capturedAtMs": 1791611265329
+  },
+  {
+    "tick": 11926,
+    "wave": 60,
+    "player": [
+      60,
+      67
+    ],
+    "mobs": [
+      {
+        "index": 39611,
+        "kind": "MAGER",
+        "tile": [
+          60,
+          42
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 39612,
+        "kind": "MELEER",
+        "tile": [
+          36,
+          67
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 39614,
+        "kind": "RANGER",
+        "tile": [
+          60,
+          47
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-066-1.geometry.json",
+    "interaction": -1,
+    "hp": 77,
+    "prayer": 23,
+    "capturedAtMs": 1791611293538
+  },
+  {
+    "tick": 11985,
+    "wave": 60,
+    "player": [
+      44,
+      62
+    ],
+    "mobs": [
+      {
+        "index": 39611,
+        "kind": "MAGER",
+        "tile": [
+          53,
+          45
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 11983,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 39612,
+        "kind": "MELEER",
+        "tile": [
+          36,
+          62
+        ],
+        "size": 4,
+        "healthRatio": 9,
+        "healthScale": 30,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 39614,
+        "kind": "RANGER",
+        "tile": [
+          58,
+          49
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 11983,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-066-1.geometry.json",
+    "interaction": 39612,
+    "hp": 60,
+    "prayer": 19,
+    "capturedAtMs": 1791611328928
+  },
+  {
+    "tick": 12108,
+    "wave": 60,
+    "player": [
+      53,
+      53
+    ],
+    "mobs": [
+      {
+        "index": 39611,
+        "kind": "MAGER",
+        "tile": [
+          53,
+          45
+        ],
+        "size": 5,
+        "healthRatio": 28,
+        "healthScale": 30,
+        "attackTick": 12107,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "pure-066-1.geometry.json",
+    "interaction": 39611,
+    "hp": 57,
+    "prayer": 15,
+    "capturedAtMs": 1791611402708
+  }
+]

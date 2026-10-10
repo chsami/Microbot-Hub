@@ -14,7 +14,7 @@ import net.runelite.api.events.*;
 @Singleton
 final class FcControllers {
     @Inject private DroFirecapeScript regular;
-    @Inject private net.runelite.client.plugins.microbot.drofirecape.optional.DroFirecapeScript optional;
+    @Inject private OptionalFirecapeScript optional;
     private boolean optionalSelected;
     static boolean selectsOptional(DroFirecapeConfig config) {
         return config.pureMode() || config.nativeTickPrayers();

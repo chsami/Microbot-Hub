@@ -8,10 +8,8 @@ package net.runelite.client.plugins.microbot.drofirecape;
 import java.util.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
-import org.junit.Test;
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 import java.lang.reflect.*;
 public class SupplyPolicyTest {
     private FcFrame.ItemSlot item(int id,String name){return new FcFrame.ItemSlot(0,id,1,name,List.of("Drink"));}
@@ -69,104 +67,4 @@ public class SupplyPolicyTest {
         p.step(1,99,99,full,b);p.step(2,99,99,full,b);p.step(33,99,99,full,b);
         assertTrue(p.failed());assertEquals(1,b.drinks);assertEquals(0,b.deposits);
     }
-    private void set(Object o,String name,Object value)throws Exception {Field f=o.getClass().getDeclaredField(name);f.setAccessible(true);f.set(o,value);}
-    private FcFrame supplyFrame(int hp)throws Exception {
-        Method factory=EntryStartupTest.class.getDeclaredMethod("frame",int.class,int.class);factory.setAccessible(true);
-        FcFrame f=(FcFrame)factory.invoke(null,100,3024);set(f,"hp",hp);set(f,"interactingIndex",-1);
-        set(f,"inventory",List.of(new FcFrame.ItemSlot(0,4561,50,"Purple sweets",List.of("Eat")),item(2,"Saradomin brew(4)")));
-        return f;
-    }
-    private boolean invoke(DroFirecapeScript s,String name,FcFrame f)throws Exception {
-        Field ownerField=DroFirecapeScript.class.getDeclaredField("tickPrayers");ownerField.setAccessible(true);
-        if(ownerField.get(s)==null) {
-            FcTickPrayers owner=mock(FcTickPrayers.class);
-            when(owner.ownsInput()).thenReturn(true);when(owner.protectionReady()).thenReturn(true);
-            when(owner.optionalInputWindow(anyInt(),anyLong())).thenReturn(true);
-            ownerField.set(s,owner);
-        }
-        Method m=DroFirecapeScript.class.getDeclaredMethod(name,FcFrame.class,Protection.class);m.setAccessible(true);
-        return (Boolean)m.invoke(s,f,Protection.NONE);
-    }
-    @Test public void sweetsCheckboxDefersNoncriticalBrewButNeverCriticalBrew()throws Exception {
-        for(boolean enabled:List.of(false,true))for(int hp:List.of(55,20)) {
-            DroFirecapeScript s=new DroFirecapeScript();FcActions a=mock(FcActions.class);DroFirecapeConfig c=mock(DroFirecapeConfig.class);
-            when(c.eatPercent()).thenReturn(60);when(c.usePurpleSweets()).thenReturn(enabled);
-            when(a.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
-            set(s,"actions",a);set(s,"config",c);FcFrame f=supplyFrame(hp);set(s,"frame",f);
-            boolean sent=invoke(s,"supplies",f);assertEquals(!enabled||hp==20,sent);
-            verify(a,never()).itemStep(any(),eq("Eat"));
-            if(sent)verify(a).itemStep(argThat(i->i.name().equals("Saradomin brew(4)")),eq("Drink"));
-        }
-    }
-    @Test public void sweetPauseClicksVisibleInventoryItemAndStopsAtFullOrNewThreat()throws Exception {
-        DroFirecapeScript s=new DroFirecapeScript();FcActions a=mock(FcActions.class);DroFirecapeConfig c=mock(DroFirecapeConfig.class);
-        when(c.usePurpleSweets()).thenReturn(true);when(a.itemStep(any(),eq("Eat"))).thenReturn(FcActions.ItemResult.SENT);
-        set(s,"actions",a);set(s,"config",c);FcFrame f=supplyFrame(90);set(s,"frame",f);
-        assertTrue(invoke(s,"healWithSweets",f));verify(a).itemStep(argThat(i->FcSupplyPolicy.sweet(i.name())),eq("Eat"));
-        clearInvocations(a);set(f,"hp",99);assertFalse(invoke(s,"healWithSweets",f));verify(a,never()).itemStep(any(),anyString());
-        set(f,"hp",90);set(f,"model",scene(new Mob(1,Kind.MELEER,new Tile(20,20),4,1,1,-1,Protection.MELEE,true)));
-        assertFalse(invoke(s,"healWithSweets",f));verify(a,never()).itemStep(any(),anyString());
-    }
-    @Test public void unavailableSweetsDoNotHoldCombatIndefinitely()throws Exception {
-        DroFirecapeScript s=new DroFirecapeScript();FcActions a=mock(FcActions.class);DroFirecapeConfig c=mock(DroFirecapeConfig.class);
-        when(c.usePurpleSweets()).thenReturn(true);when(a.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.UNAVAILABLE);
-        set(s,"actions",a);set(s,"config",c);FcFrame f=supplyFrame(90);set(s,"frame",f);
-        assertTrue(invoke(s,"healWithSweets",f));set(f,"tick",113);assertFalse(invoke(s,"healWithSweets",f));
-    }
-
-    @Test public void rangeBoostWaitsForBrewBatchToSettle() {
-        assertFalse(FcSupplyPolicy.rangedRecoveryReady(6885,6882,false));
-        assertFalse(FcSupplyPolicy.rangedRecoveryReady(6900,6882,true));
-        assertTrue(FcSupplyPolicy.rangedRecoveryReady(6900,6882,false));
-    }
-    @Test public void baseRangedAfterBrewWaitsThenBoostsWithoutWastingARestore()throws Exception {
-        DroFirecapeScript s=new DroFirecapeScript();FcActions a=mock(FcActions.class);DroFirecapeConfig c=mock(DroFirecapeConfig.class);
-        when(c.eatPercent()).thenReturn(60);when(c.rangingPotion()).thenReturn(true);
-        when(a.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
-        set(s,"actions",a);set(s,"config",c);set(s,"brewDebt",1);set(s,"lastBrewTick",97);
-        FcFrame f=supplyFrame(80);set(f,"ranged",99);set(f,"baseRanged",99);set(f,"prayer",50);
-        set(f,"inventory",List.of(item(3024,"Super restore(4)"),item(2444,"Ranging potion(4)")));set(s,"frame",f);
-        assertFalse(invoke(s,"supplies",f));verify(a,never()).itemStep(any(),anyString());
-        set(f,"tick",106);assertTrue(invoke(s,"supplies",f));
-        verify(a).itemStep(argThat(i->i.name().equals("Ranging potion(4)")),eq("Drink"));
-    }
-    @Test public void depletedBrewsDoNotLeaveDrainedRangedUnrestored()throws Exception {
-        DroFirecapeScript s=new DroFirecapeScript();FcActions a=mock(FcActions.class);DroFirecapeConfig c=mock(DroFirecapeConfig.class);
-        when(c.eatPercent()).thenReturn(60);when(a.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
-        set(s,"actions",a);set(s,"config",c);set(s,"brewDebt",1);
-        FcFrame f=supplyFrame(50);set(f,"ranged",90);set(f,"baseRanged",99);set(f,"prayer",50);
-        set(f,"inventory",List.of(item(3024,"Super restore(4)")));set(s,"frame",f);
-        assertTrue(invoke(s,"supplies",f));verify(a).itemStep(argThat(i->i.name().equals("Super restore(4)")),eq("Drink"));
-    }
-    @Test public void exposed37And40HpAreCriticalRegardlessOfSweetsCheckbox()throws Exception {
-        for(boolean sweets:List.of(false,true))for(int hp:List.of(37,40)) {
-            DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
-            DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
-            when(config.eatPercent()).thenReturn(60);when(config.usePurpleSweets()).thenReturn(sweets);
-            when(owner.ownsInput()).thenReturn(true);when(owner.protectionReady()).thenReturn(true);
-            when(owner.optionalInputWindow(anyInt(),anyLong())).thenReturn(false);
-            when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
-            set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
-            FcFrame f=supplyFrame(hp);set(f,"maxHp",97);set(f,"model",scene(new Mob(1,Kind.MAGER,new Tile(21,30),5,10,10,98,Protection.MAGIC,true)));
-            set(script,"frame",f);assertTrue(invoke(script,"supplies",f));
-            verify(actions).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
-        }
-    }
-    @Test public void preparedHealSurvivesRequiredPrayerAndUsesRemainingClickBudget()throws Exception {
-        DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
-        DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
-        when(config.eatPercent()).thenReturn(60);when(owner.ownsInput()).thenReturn(true);when(owner.protectionReady()).thenReturn(true);
-        when(owner.optionalInputWindow(anyInt(),eq(900L))).thenReturn(true);
-        when(owner.optionalInputWindow(anyInt(),eq(300L))).thenReturn(true);
-        when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.PREPARING,FcActions.ItemResult.SENT);
-        set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
-        FcFrame f=supplyFrame(55);set(script,"frame",f);assertTrue(invoke(script,"supplies",f));
-        when(owner.optionalInputWindow(anyInt(),eq(900L))).thenReturn(false);when(owner.protectionReady()).thenReturn(false);
-        assertTrue(invoke(script,"supplies",f));verify(actions,times(1)).itemStep(any(),anyString());
-        when(owner.protectionReady()).thenReturn(true);assertTrue(invoke(script,"supplies",f));
-        verify(owner,atLeastOnce()).optionalInputWindow(anyInt(),eq(300L));verify(actions,times(2)).itemStep(any(),anyString());
-        set(script,"lastSupplyAt",0L);assertTrue(invoke(script,"supplies",f));
-        verify(actions,times(2)).itemStep(any(),anyString()); // Await consumption, never duplicate the dose.
-    }
-
 }

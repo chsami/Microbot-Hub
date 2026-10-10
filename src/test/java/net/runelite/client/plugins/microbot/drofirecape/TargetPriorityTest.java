@@ -9,8 +9,8 @@ package net.runelite.client.plugins.microbot.drofirecape;
 import java.util.List;
 import net.runelite.client.plugins.microbot.drofirecape.core.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
-import org.junit.Test;
-import static org.junit.Assert.*;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 /** Prayer phase must not make a nearly dead/sticky baby outrank an accessible ranger. */
 public class TargetPriorityTest {
