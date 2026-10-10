@@ -43,7 +43,7 @@ import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
  * The live layer still checks scene freshness, overhead acknowledgement, and range.
  * The model is intentionally independent of RuneLite for reproducible replay tests.
  */
-public final class CombatPlanner {
+public class CombatPlanner {
     private static final int HORIZON=48, MAX_CORNERS=64;
     private Tile retainedDestination,recoveryTile;
     private int recoveryUntil=-1;
@@ -187,6 +187,7 @@ public final class CombatPlanner {
         if(!playerCanAttack(s,s.player(),target))return false;
         if(!s.meleeMode()&&target.kind()==Kind.HEALER&&!target.attackingPlayer()&&target.distance(s.player())<3)return false;
         if(!s.meleeMode())for(Mob m:s.mobs())if(m.kind()==Kind.JAD&&s.grid().melee(m,s.player()))return false;
+        if(!releaseAllowed(s,target,prayer))return false;
         if(!strict)return true;
         KillWindow release=killWindow(s,s.player(),s.mobs(),target,s.tick()+1);
         return immediateExposure(s,s.player(),prayer)==0&&release.risk()==0
@@ -210,8 +211,7 @@ public final class CombatPlanner {
         Plan overlap=s.mobs().stream().anyMatch(m->!CaveSafety.meleeFollower(m)&&m.occupies(s.player()))?
             TacticalMovement.escapeOverlap(s):null;
         if(overlap!=null&&actionable(overlap,false))return overlap;
-        if(!s.meleeMode()&&s.mobs().stream().anyMatch(m->CaveSafety.meleeFollower(m)&&s.grid().melee(m,s.player()))
-            &&s.mobs().stream().noneMatch(m->m.kind()==Kind.JAD)) {
+        if(avoidsMeleeKiting(s)&&s.mobs().stream().anyMatch(m->CaveSafety.meleeFollower(m)&&s.grid().melee(m,s.player()))) {
             Protection prayer=protectionForNextTick(s,s.player());Mob shot=CaveSafety.preferredShot(s,prayer);
             if(shot!=null) {
                 int risk=immediateExposure(s,s.player(),prayer);
@@ -252,9 +252,7 @@ public final class CombatPlanner {
             ArrayList<Tile> firing=new ArrayList<>();
             for(int x=1;x<s.grid().width-1;x++)for(int y=1;y<s.grid().height-1;y++) {
                 Tile t=new Tile(x,y);if(!s.grid().open(t)||t.distance(s.player())>48)continue;
-                if(!s.meleeMode()&&t.distance(s.player())>0&&t.distance(s.player())<4
-                    &&s.mobs().stream().anyMatch(CaveSafety::meleeFollower)
-                    &&s.mobs().stream().noneMatch(m->m.kind()==Kind.JAD))continue;
+                if(avoidsMeleeKiting(s)&&t.distance(s.player())>0&&t.distance(s.player())<4)continue;
                 for(Mob m:s.mobs())if(playerCanAttack(s,t,m)){firing.add(t);break;}
             }
             firing.sort(Comparator.comparingInt(t->t.distance(s.player())));
@@ -381,8 +379,7 @@ public final class CombatPlanner {
             }
         }
         result.removeIf(t->!s.grid().open(t)||s.mobs().stream().anyMatch(m->m.occupies(t)));
-        if(!s.meleeMode()&&s.mobs().stream().anyMatch(CaveSafety::meleeFollower)
-            &&s.mobs().stream().noneMatch(m->m.kind()==Kind.JAD))
+        if(avoidsMeleeKiting(s))
             result.removeIf(t->!t.equals(s.player())&&t.distance(s.player())<4);
         return new ArrayList<>(result);
     }
@@ -454,7 +451,8 @@ public final class CombatPlanner {
     private Evaluation evaluate(Snapshot s,List<Tile> path,Tile preferred) {
         List<Mob> mobs=s.mobs();Tile p=s.player();int pi=0,total=0,peak=0,blocked=0;
         Tile immediate=path.get(Math.min(commandStride(s,path),path.size()-1));
-        if(!immediate.equals(s.player())&&!actionable(TacticalMovement.checked(s,path.get(path.size()-1),immediate,"Planner step validation"),false))return null;
+        if(!immediate.equals(s.player())&&(!routeAllowed(s,immediate)
+            ||!actionable(TacticalMovement.checked(s,path.get(path.size()-1),immediate,"Planner step validation"),false)))return null;
         Protection first=protectionForNextTick(s,immediate);
         int terminal=-1, simulatedTicks=0;
         for(int t=1;t<=HORIZON;t++) {
@@ -505,7 +503,8 @@ public final class CombatPlanner {
         }
         // Model damage dominates speed, but permanently non-actionable holds are excluded by plan().
         long score=peak*1_000_000L+total*10_000L+path.size()*35L-blocked*90L;
-        if(terminal>=0)for(Mob m:mobs)if(m.index()==terminal)score-=(priority(m,endPrayer)+(CaveSafety.lateAttackingRanger(s,m)?100:0))*8L;
+        score+=arrivalPenalty(s,p,mobs);
+        if(terminal>=0)for(Mob m:mobs)if(m.index()==terminal)score-=(priority(m,endPrayer)+(rangerFirst(s,m)?100:0))*8L;
         if(preferred!=null)score+=p.distance(preferred)*45L;
         if(p.equals(retainedDestination))score-=100;
         if(target>=0)score-=500;
@@ -538,13 +537,27 @@ public final class CombatPlanner {
         if(m.healthRatio()>0&&m.healthScale()>0)value+=(m.healthScale()-m.healthRatio())*25/m.healthScale();
         return value;
     }
-    private static int pickTarget(Snapshot s,Tile p,List<Mob> mobs,Protection prayer) {
+    protected static final int SKIP_TARGET=Integer.MIN_VALUE;
+    protected boolean releaseAllowed(Snapshot s,Mob target,Protection prayer){return true;}
+    protected boolean avoidsMeleeKiting(Snapshot s) {
+        return !s.meleeMode()&&s.mobs().stream().anyMatch(CaveSafety::meleeFollower)
+            &&s.mobs().stream().noneMatch(m->m.kind()==Kind.JAD);
+    }
+    protected boolean routeAllowed(Snapshot s,Tile immediate){return true;}
+    protected long arrivalPenalty(Snapshot s,Tile p,List<Mob> arrivals){return 0;}
+    protected boolean rangerFirst(Snapshot s,Mob m){return CaveSafety.lateAttackingRanger(s,m);}
+    protected int targetScore(Snapshot s,Tile p,List<Mob> mobs,Mob m,Protection prayer) {
+        return priority(m,prayer)+(rangerFirst(s,m)?100:0);
+    }
+    private int pickTarget(Snapshot s,Tile p,List<Mob> mobs,Protection prayer) {
         boolean healers=mobs.stream().anyMatch(m->m.kind()==Kind.HEALER);int best=-1,max=Integer.MIN_VALUE;
         for(Mob m:mobs) {
             if(m.kind()==Kind.JAD&&healers)continue;
             if(!playerCanAttack(s,p,m))continue;
             if(!s.meleeMode()&&m.kind()==Kind.HEALER&&!m.attackingPlayer()&&m.distance(p)<3)continue;
-            int score=priority(m,prayer)+(CaveSafety.lateAttackingRanger(s,m)?100:0)-m.distance(p);
+            int priority=targetScore(s,p,mobs,m,prayer);
+            if(priority==SKIP_TARGET)continue;
+            int score=priority-m.distance(p);
             if(score>max){max=score;best=m.index();}
         }
         return best;

@@ -10,12 +10,12 @@ import java.util.*;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
 
 /** Recorded intentions with live local route checks and finite fallback to the combat planner. */
-public final class LureController {
-    private enum Phase { MAIN, PULL, RETURN, NORTHWEST, PEEK, PEEK_RETURN, NW_EDGE, FIGHT }
-    private Phase phase=Phase.MAIN;
-    private Tile goal,returnTile,home,wall,north;
+public class LureController {
+    enum Phase { MAIN, PULL, RETURN, NORTHWEST, PEEK, PEEK_RETURN, NW_EDGE, FIGHT }
+    Phase phase=Phase.MAIN;
+    Tile goal,returnTile,home,wall,north;
     private final LureProgress routeProgress=new LureProgress();
-    private final RecordedMeleeTrap meleeTrap=new RecordedMeleeTrap();
+    final RecordedMeleeTrap meleeTrap=new RecordedMeleeTrap();
     private boolean northernRecoveryUsed;
     private int recoveryAttempts,rushTarget=-1,nwTarget=-1;
     private final Set<Integer> peekMelee=new HashSet<>();
@@ -24,15 +24,15 @@ public final class LureController {
     private final Set<Integer> previousBlobs=new HashSet<>(),wallAdjustments=new HashSet<>();
     private int splitSettleUntil=-1;
     private int phaseAt=-1,arrivedAt=-1;
-    private boolean attempted,dynamicOnly;
+    boolean attempted,dynamicOnly;
     private int recordedIndex,failedMoves;
     private final Map<Integer,Tile> lureStarts=new HashMap<>();
     private final Map<Integer,Tile> peekAtArrival=new HashMap<>();
     private final Set<Integer> blockedAtStart=new HashSet<>();
-    public void reset(){previousBlobs.clear();wallAdjustments.clear();splitSettleUntil=-1;meleeTrap.reset();phase=Phase.MAIN;goal=returnTile=home=wall=north=null;routeProgress.reset();northernRecoveryUsed=false;recoveryAttempts=0;rushTarget=nwTarget=-1;peekMelee.clear();southMages.clear();peekAtArrival.clear();rangerEngaged=centreReturnUsed=false;phaseAt=arrivedAt=-1;attempted=false;dynamicOnly=false;recordedIndex=0;failedMoves=0;lureStarts.clear();blockedAtStart.clear();}
+    public void reset(){resetVariant();previousBlobs.clear();wallAdjustments.clear();splitSettleUntil=-1;meleeTrap.reset();phase=Phase.MAIN;goal=returnTile=home=wall=north=null;routeProgress.reset();northernRecoveryUsed=false;recoveryAttempts=0;rushTarget=nwTarget=-1;peekMelee.clear();southMages.clear();peekAtArrival.clear();rangerEngaged=centreReturnUsed=false;phaseAt=arrivedAt=-1;attempted=false;dynamicOnly=false;recordedIndex=0;failedMoves=0;lureStarts.clear();blockedAtStart.clear();}
     /** Observe before the fast attack path so ranger death cannot become a melee shot in the centre. */
     public void observeFight(Snapshot s,Tile main,int currentTarget) {
-        if(s.meleeMode()||main==null||meleeTrap.active())return;
+        if(s.meleeMode()||main==null||meleeTrap.active()||excursionActive())return;
         home=main;
         if(wall==null)wall=main.add(-1,-5);
         if(previousBlobs.stream().anyMatch(id->find(s,id)==null))splitSettleUntil=s.tick()+4;
@@ -57,9 +57,10 @@ public final class LureController {
         returnTile=goal=main;phase=Phase.RETURN;phaseAt=s.tick();arrivedAt=-1;
     }
     /** Includes the settling interval needed to catch an already queued outward click. */
-    public boolean hasPendingReturn(){return returnTile!=null||meleeTrap.active();}
+    public boolean hasPendingReturn(){return returnTile!=null||meleeTrap.active()||excursionActive();}
     /** A temporary empty scene must not replace an unfinished lure with next-wave positioning. */
     public Plan finishReturn(Snapshot s) {
+        if(excursionActive())return excursionPlan(s);
         if(meleeTrap.active())return recordedMelee(s);
         if(!hasPendingReturn())return null;
         if(phase!=Phase.PEEK_RETURN&&phase!=Phase.RETURN) {
@@ -85,12 +86,17 @@ public final class LureController {
         home=main;
         wall=recordedWall;
         north=pull;
+        if(excursionActive()) {
+            Plan side=excursionPlan(s);if(side!=null)return side;
+        }
         observeFight(s,main,currentTarget);
         Plan escape=CaveSafety.escapeMage(s);
         if(escape!=null)return escape;
+        Plan established=retainEstablishedTrap(s,main);
+        if(established!=null)return established;
         if(goal!=null&&routeProgress.stalled(s,goal))return recoverRoute(s);
         if(main!=null&&!s.mobs().isEmpty()&&s.mobs().stream().allMatch(m->m.kind()==Kind.MAGER)) {
-            Mob mage=CaveSafety.rangedTarget(s);
+            Mob mage=rangedTarget(s);
             if(canShoot(s,mage)){finishMeleeTrap();return attack(s,mage,"Range remaining mage from current firing tile");}
             if(mage.tile().y()<main.y()&&(CaveSafety.active(s,mage)||trapped(s,mage))) {
                 finishMeleeTrap();return trappedMageCleanup(s,mage);
@@ -99,21 +105,25 @@ public final class LureController {
         if(dynamicOnly)return null;
         if(s.mobs().isEmpty())return finishReturn(s);
         if(s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER))return null;
+        Plan tiny=contactShot(s);
+        if(tiny!=null)return tiny;
         // Prayer does not stop Tz-Kih prayer drain, even when the damage roll is zero.
         // Acquire every legal bat shot before considering any positioning action.
         Mob bat=s.mobs().stream().filter(m->m.kind()==Kind.BAT&&canShoot(s,m))
             .min(Comparator.comparingInt(m->m.distance(s.player()))).orElse(null);
-        if(bat!=null&&s.mobs().stream().noneMatch(m->CaveSafety.lateAttackingRanger(s,m))
+        if(bat!=null&&s.mobs().stream().noneMatch(m->rangerBeforeBat(s,m))
             &&(returnTile==null||s.player().equals(returnTile)||s.grid().melee(bat,s.player())))
             return attack(s,bat,"Kill bat immediately; never lure or kite it");
         if(!hasPendingReturn()&&!meleeTrap.active()) {
             Mob retained=CaveSafety.retainedSafeShot(s,currentTarget);
             if(retained!=null)return attack(s,retained,"Keep productive trapped shot from current wall");
         }
+        Plan cover=beforeRangerFirst(s,main,pull);
+        if(cover!=null)return cover;
         if(!hasPendingReturn()) {
             Plan ranger=rangerFirst(s);if(ranger!=null)return ranger;
             if(s.tick()<=splitSettleUntil) {
-                Mob shot=CaveSafety.preferredShot(s,protection(s,s.player()));
+                Mob shot=preferredShot(s,protection(s,s.player()));
                 return shot==null?hold(s,"Hold wall while blob splits and stack settles"):attack(s,shot,"Keep wall shot while blob splits");
             }
         }
@@ -142,12 +152,12 @@ public final class LureController {
             phase=Phase.PEEK_RETURN;return begin(s,returnTile,"Return to cover immediately; lure reached player");
         }
         if(returnTile==null&&goal==null) {
-            Mob ranged=CaveSafety.rangedTarget(s);
+            Mob ranged=rangedTarget(s);
             if(ranged!=null&&heldSouthMage(s,ranged))ranged=null;
             if(ranged!=null) {
-                Mob exposed=CaveSafety.preferredShot(s,protection(s,s.player()));
-                if(exposed!=null&&CaveSafety.targetPriority(s,exposed,protection(s,s.player()))
-                    >CaveSafety.targetPriority(s,ranged,protection(s,s.player())))
+                Mob exposed=preferredShot(s,protection(s,s.player()));
+                if(exposed!=null&&targetPriority(s,exposed,protection(s,s.player()))
+                    >targetPriority(s,ranged,protection(s,s.player())))
                     return attack(s,exposed,"Dispatch exposed attacker before mage / trapped melee");
                 if(canShoot(s,ranged))return attack(s,ranged,"Dispatch ranged threat before trapped melee");
                 // A ranger does not follow a one/two-tile melee peek. Rush to firing range.
@@ -227,8 +237,8 @@ public final class LureController {
         Plan hold=planner.hold(s);
         if(hold!=null&&hold.targetIndex()>=0) {
             Mob target=find(s,currentTarget);
-            Mob selected=CaveSafety.preferredShot(s,hold.protection());
-            if(target==null||!canShoot(s,target)||selected!=null&&CaveSafety.targetPriority(s,selected,hold.protection())>CaveSafety.targetPriority(s,target,hold.protection())+15)target=selected;
+            Mob selected=preferredShot(s,hold.protection());
+            if(target==null||!canShoot(s,target)||selected!=null&&targetPriority(s,selected,hold.protection())>targetPriority(s,target,hold.protection())+15)target=selected;
             if(target!=null)return attack(s,target,"Hold recorded firing tile; attack trapped monster");
         }
         if(opening!=null&&!s.player().equals(opening)&&phaseAt<0) {
@@ -284,13 +294,17 @@ public final class LureController {
     }
     /** A stalled lure yields to live planning after any owed return is completed. */
     public void recover(){
+        excursionFinish();
         attempted=true;
         if(returnTile!=null){goal=returnTile;phase=Phase.PEEK_RETURN;arrivedAt=-1;phaseAt=-1;dynamicOnly=false;}
         else {goal=null;phase=Phase.FIGHT;dynamicOnly=true;}
     }
     /** Retry the recorded peek after a stall, without erasing a return already owed. */
     public Plan recoverRecorded(Snapshot s,Tile main,Tile peek) {
+        if(excursionActive())return excursionPlan(s);
         home=main;
+        Plan established=retainedPosition(s);
+        if(established!=null)return established;
         if(meleeTrap.active())return recordedMelee(s);
         rememberSouthMages(s);
         if(wall==null&&main!=null)wall=main.add(-1,-5);
@@ -329,7 +343,7 @@ public final class LureController {
         if(main!=null&&++recoveryAttempts>2) {
             boolean other=s.mobs().stream().anyMatch(m->!heldSouthMage(s,m));
             Mob target=s.mobs().stream().filter(m->!other||!heldSouthMage(s,m))
-                .max(Comparator.comparingInt(m->CaveSafety.targetPriority(s,m,Protection.MAGIC))).orElse(null);
+                .max(Comparator.comparingInt(m->targetPriority(s,m,Protection.MAGIC))).orElse(null);
             if(heldSouthMage(s,target))return trappedMageCleanup(s,target);
             rushTarget=target.index();dynamicOnly=false;goal=null;phase=Phase.FIGHT;
             return finishRush(s,target,main);
@@ -372,13 +386,14 @@ public final class LureController {
     private void rememberPeekArrival(Snapshot s) {
         for(Mob m:s.mobs())if(peekMelee.contains(m.index()))peekAtArrival.put(m.index(),m.tile());
     }
-    private static Plan finishRush(Snapshot s,Mob target,Tile main) {
+    private Plan finishRush(Snapshot s,Mob target,Tile main) {
         // Once a shot is available, protect and shoot. Searching for another
         // non-contact tile on every tick walks across the entire cave as it follows.
         return canShoot(s,target)?attack(s,target,"Protected fallback attack; hold firing tile"):
             CaveSafety.approach(s,target,main,"Stuck monster: approach a checked firing tile");
     }
     public void movementFailed(){
+        if(excursionActive()){excursionFinish();finishMeleeTrap();return;}
         if(meleeTrap.active()){meleeTrap.failed();if(!meleeTrap.active())finishMeleeTrap();return;}
         // A blocked return is an intent, not permission to repeat an impossible click forever.
         // Recheck a failed route while retaining any owed return to cover.
@@ -389,7 +404,7 @@ public final class LureController {
         attempted=true;
     }
     public void rebase(int dx,int dy) {
-        meleeTrap.rebase(dx,dy);
+        meleeTrap.rebase(dx,dy);rebaseVariant(dx,dy);
         if(home!=null)home=home.add(dx,dy);
         if(wall!=null)wall=wall.add(dx,dy);
         if(goal!=null)goal=goal.add(dx,dy);
@@ -399,11 +414,11 @@ public final class LureController {
         lureStarts.replaceAll((index,tile)->tile.add(dx,dy));
         peekAtArrival.replaceAll((index,tile)->tile.add(dx,dy));
     }
-    private Plan begin(Snapshot s,Tile tile,String reason) {
+    Plan begin(Snapshot s,Tile tile,String reason) {
         if(tile==null){phase=Phase.FIGHT;return fallback(s);}
         if(!CaveSafety.pocketAllowed(s,home,tile)||!CaveSafety.preservesMageCover(s,tile)) {
             finishMeleeTrap();
-            Mob shot=CaveSafety.preferredShot(s,protection(s,s.player()));
+            Mob shot=preferredShot(s,protection(s,s.player()));
             return shot==null?hold(s,"Preserve trapped mage; wait for remaining melee at this rock"):
                 attack(s,shot,"Preserve trapped mage; dispatch reachable attacker");
         }
@@ -448,7 +463,7 @@ public final class LureController {
         peekMelee.clear();peekAtArrival.clear();lureStarts.clear();blockedAtStart.clear();
         Plan ranger=rangerFirst(s);
         if(ranger!=null&&CombatPlanner.actionable(ranger,false))return ranger;
-        Mob target=CaveSafety.preferredShot(s,protection(s,s.player()));
+        Mob target=preferredShot(s,protection(s,s.player()));
         if(target!=null){rushTarget=target.index();return attack(s,target,"Movement loop ended: attack reachable threat under protection");}
         rushTarget=-1;
         return fallback(s);
@@ -476,7 +491,7 @@ public final class LureController {
         // treating that first cover snapshot as acknowledgement of a return.
         if(arrivedAt<0)arrivedAt=s.tick();
         if(s.tick()-arrivedAt<3) {
-            Mob visible=CaveSafety.preferredShot(s,protection(s,s.player()));
+            Mob visible=preferredShot(s,protection(s,s.player()));
             return visible==null?hold(s,"Hold safe tile; confirm committed return"):
                 attack(s,visible,"Attack from safe tile while confirming return");
         }
@@ -513,9 +528,23 @@ public final class LureController {
         return false;
     }
     private static Mob find(Snapshot s,int id){return s.mobs().stream().filter(m->m.index()==id).findFirst().orElse(null);}
-    private static boolean canShoot(Snapshot s,Mob m){return CombatPlanner.playerCanAttack(s,s.player(),m);}
+    boolean canShoot(Snapshot s,Mob m){return CombatPlanner.playerCanAttack(s,s.player(),m);}
+    void resetVariant(){}
+    boolean excursionActive(){return false;}
+    Plan excursionPlan(Snapshot s){return null;}
+    void excursionFinish(){}
+    void rebaseVariant(int dx,int dy){}
+    Plan retainEstablishedTrap(Snapshot s,Tile main){return null;}
+    Plan retainedPosition(Snapshot s){return null;}
+    Plan contactShot(Snapshot s){return null;}
+    Plan beforeRangerFirst(Snapshot s,Tile main,Tile pull){return null;}
+    Mob rangedTarget(Snapshot s){return CaveSafety.rangedTarget(s);}
+    Mob preferredShot(Snapshot s,Protection prayer){return CaveSafety.preferredShot(s,prayer);}
+    int targetPriority(Snapshot s,Mob m,Protection prayer){return CaveSafety.targetPriority(s,m,prayer);}
+    boolean rangerBeforeBat(Snapshot s,Mob m){return CaveSafety.lateAttackingRanger(s,m);}
+    Plan approach(Snapshot s,Mob target,Tile anchor,String reason){return CaveSafety.approach(s,target,anchor,reason);}
     private static boolean canShootFrom(Snapshot s,Tile player,Mob mob){return player!=null&&!mob.occupies(player)&&mob.distance(player)<=s.weaponRange()&&s.grid().playerSight(player,mob);}
-    private static Protection protection(Snapshot s,Tile destination) {
+    static Protection protection(Snapshot s,Tile destination) {
         Protection p=CombatPlanner.bestProtection(s.grid(),s.mobs(),s.player(),s.jadStyle());
         if(p==Protection.NONE)p=CombatPlanner.protectionForNextTick(s,destination);
         Protection next=CombatPlanner.bestProtection(s.grid(),s.mobs(),destination,s.jadStyle());
@@ -531,9 +560,9 @@ public final class LureController {
             p==Protection.RANGE||next==Protection.RANGE?Protection.RANGE:p!=Protection.NONE?p:next;
         return destination.equals(s.player())?CaveSafety.contactProtection(s,selected):selected;
     }
-    private static Plan attack(Snapshot s,Mob target,String reason){Protection p=protection(s,s.player());int risk=CombatPlanner.immediateExposure(s,s.player(),p);return new Plan(s.player(),s.player(),p,target.index(),risk==0,0,0,risk,reason);}
-    private static Plan hold(Snapshot s,String reason){Protection p=protection(s,s.player());int risk=CombatPlanner.immediateExposure(s,s.player(),p);return new Plan(s.player(),s.player(),p,-1,risk==0,0,0,risk,reason);}
-    private static Plan move(Snapshot s,Tile goal,String reason){return MinimapMovement.route(s,goal,null,protection(s,goal),false,reason);}
+    static Plan attack(Snapshot s,Mob target,String reason){Protection p=protection(s,s.player());int risk=CombatPlanner.immediateExposure(s,s.player(),p);return new Plan(s.player(),s.player(),p,target.index(),risk==0,0,0,risk,reason);}
+    static Plan hold(Snapshot s,String reason){Protection p=protection(s,s.player());int risk=CombatPlanner.immediateExposure(s,s.player(),p);return new Plan(s.player(),s.player(),p,-1,risk==0,0,0,risk,reason);}
+    static Plan move(Snapshot s,Tile goal,String reason){return MinimapMovement.route(s,goal,null,protection(s,goal),false,reason);}
     private Plan recordedMelee(Snapshot s) {
         Plan result=meleeTrap.plan(s);
         if(!meleeTrap.active())finishMeleeTrap();
@@ -545,7 +574,7 @@ public final class LureController {
     private Plan fallback(Snapshot s) {
         Plan ranger=rangerFirst(s);if(ranger!=null)return ranger;
         Mob target=s.mobs().stream().filter(m->canShoot(s,m)).min(Comparator
-            .comparingInt((Mob m)->-CaveSafety.targetPriority(s,m,protection(s,s.player())))
+            .comparingInt((Mob m)->-targetPriority(s,m,protection(s,s.player())))
             .thenComparingInt(m->m.distance(s.player()))).orElse(null);
         if(target!=null)return attack(s,target,"Failed lure: kill immediately with protection");
         Mob blockedMage=s.mobs().stream().filter(m->heldSouthMage(s,m)).findFirst().orElse(null);
@@ -553,29 +582,29 @@ public final class LureController {
             return trappedMageCleanup(s,blockedMage);
         }
         Mob remaining=s.mobs().stream().filter(m->m.kind()!=Kind.MAGER)
-            .max(Comparator.comparingInt(m->CaveSafety.targetPriority(s,m,protection(s,s.player())))).orElse(null);
+            .max(Comparator.comparingInt(m->targetPriority(s,m,protection(s,s.player())))).orElse(null);
         return remaining==null?null:firingApproach(s,remaining,home,"Approach remaining monster without restarting old lure");
     }
     private Plan rangerFirst(Snapshot s) {
-        Mob ranger=CaveSafety.rangedTarget(s);
+        Mob ranger=rangedTarget(s);
         if(ranger==null||ranger.kind()!=Kind.RANGER)return null;
         Mob bat=s.mobs().stream().filter(m->m.kind()==Kind.BAT&&canShoot(s,m)).findFirst().orElse(null);
-        if(bat!=null&&!CaveSafety.lateAttackingRanger(s,ranger))return attack(s,bat,"Bat before ranger");
+        if(bat!=null&&!rangerBeforeBat(s,ranger))return attack(s,bat,"Bat before ranger");
         return canShoot(s,ranger)?attack(s,ranger,"Dispatch ranger before melee"):
             firingApproach(s,ranger,home,"Approach blocked ranged attacker before melee cleanup");
     }
-    private Plan firingApproach(Snapshot s,Mob target,Tile anchor,String reason) {
-        Plan p=CaveSafety.approach(s,target,anchor,reason);
+    Plan firingApproach(Snapshot s,Mob target,Tile anchor,String reason) {
+        Plan p=approach(s,target,anchor,reason);
         // A deliberate mage firing approach is already a cleanup decision.
         // Do not interpret arrival there as an accidental escape from camp.
         if(p!=null&&target.kind()==Kind.MAGER&&CombatPlanner.actionable(p,false))centreReturnUsed=true;
         return p;
     }
     private Plan trappedMageCleanup(Snapshot s,Mob mage) {
-        Mob shot=CaveSafety.preferredShot(s,protection(s,s.player()));
+        Mob shot=preferredShot(s,protection(s,s.player()));
         if(shot!=null)return attack(s,shot,"Use reachable shot before changing the trapped stack");
         Mob melee=s.mobs().stream().filter(m->m.kind()!=Kind.MAGER)
-            .max(Comparator.comparingInt(m->CaveSafety.targetPriority(s,m,Protection.MAGIC))).orElse(null);
+            .max(Comparator.comparingInt(m->targetPriority(s,m,Protection.MAGIC))).orElse(null);
         // A marker that cannot shoot is not a safe camp. Clear the trapped melee,
         // then approach the remaining mage with actual weapon range and LOS.
         if(melee!=null) {

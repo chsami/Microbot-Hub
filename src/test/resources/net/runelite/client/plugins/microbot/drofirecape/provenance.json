@@ -35,7 +35,7 @@
       {
         "source": "collision-492-11832-15240-0.csv",
         "sha256": "341c60821a62866e4450d1788bfca50908d2410a8a2895478085e9257e2fee38",
-        "fixture": "main-029-0.geometry.json"
+        "fixture": "main-027-0.geometry.json"
       },
       {
         "source": "collision-492-11816-15200-0.csv",
@@ -85,7 +85,7 @@
       {
         "source": "collision-362-10680-456-0.csv",
         "sha256": "341c60821a62866e4450d1788bfca50908d2410a8a2895478085e9257e2fee38",
-        "fixture": "pure-066-0.geometry.json"
+        "fixture": "main-027-0.geometry.json"
       },
       {
         "source": "collision-360-10864-7920-0.csv",

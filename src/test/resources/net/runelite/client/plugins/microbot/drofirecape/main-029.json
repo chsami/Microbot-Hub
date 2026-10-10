@@ -66,7 +66,7 @@
     ],
     "range": 5,
     "running": true,
-    "geometry": "main-029-0.geometry.json",
+    "geometry": "main-027-0.geometry.json",
     "interaction": 42447,
     "hp": 63,
     "prayer": 64
@@ -166,7 +166,7 @@
     ],
     "range": 5,
     "running": true,
-    "geometry": "main-029-0.geometry.json",
+    "geometry": "main-027-0.geometry.json",
     "interaction": 48593,
     "hp": 59,
     "prayer": 51
@@ -196,7 +196,7 @@
     ],
     "range": 5,
     "running": true,
-    "geometry": "main-029-0.geometry.json",
+    "geometry": "main-027-0.geometry.json",
     "interaction": 48591,
     "hp": 63,
     "prayer": 64
