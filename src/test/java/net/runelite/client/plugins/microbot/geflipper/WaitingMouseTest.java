@@ -51,6 +51,42 @@ public class WaitingMouseTest {
     }
 
     @Test
+    void failedMovementRetriesAfterAFreshDelayAndSuccessfulParkingDoesNotRepeat() {
+        WaitingMouse timer = new WaitingMouse((low, high) -> low);
+        Context context = new Context();
+        context.movementSucceeded = false;
+        timer.tick(true, 100, 0, context);
+        timer.tick(true, 100, 2000, context);
+        assertEquals(1, context.moves);
+
+        // A late next observation must start a new delay, not reuse the failed gesture's deadline.
+        timer.tick(true, 100, 100000, context);
+        timer.tick(true, 100, 101999, context);
+        assertEquals(1, context.moves, "A refused movement cannot retry on every tick");
+        context.movementSucceeded = true;
+        timer.tick(true, 100, 102000, context);
+        assertEquals(2, context.moves, "A failed movement must not permanently latch parking");
+        timer.tick(true, 100, 300000, context);
+        assertEquals(2, context.moves, "Confirmed parking still happens only once per waiting episode");
+    }
+
+    @Test
+    void resetDuringMovementCannotParkTheNextWaitingEpisode() {
+        WaitingMouse timer = new WaitingMouse((low, high) -> low);
+        Context context = new Context();
+        context.onMove = timer::reset;
+        timer.tick(true, 100, 0, context);
+        timer.tick(true, 100, 2000, context);
+        assertEquals(1, context.moves);
+        context.onMove = () -> {};
+        timer.tick(true, 100, 2001, context);
+        timer.tick(true, 100, 4000, context);
+        assertEquals(1, context.moves);
+        timer.tick(true, 100, 4001, context);
+        assertEquals(2, context.moves, "An obsolete gesture cannot mark a fresh generation as parked");
+    }
+
+    @Test
     void actionPauseOrUnavailableUiCancelsTheOldDeadline() {
         WaitingMouse timer = new WaitingMouse((low, high) -> low);
         Context context = new Context();
@@ -139,16 +175,22 @@ public class WaitingMouseTest {
     private static class Context implements WaitingMouse.Context {
         boolean waiting = true;
         boolean inside = true;
+        boolean movementSucceeded = true;
         int reads;
         int falseAtRead = -1;
         int moves;
         Runnable onRead = () -> {};
+        Runnable onMove = () -> {};
         public boolean waiting() {
             reads++;
             onRead.run();
             return waiting && reads != falseAtRead;
         }
         public boolean insideCanvas() { return inside; }
-        public void moveOffScreen() { moves++; }
+        public boolean moveOffScreen() {
+            moves++;
+            onMove.run();
+            return movementSucceeded;
+        }
     }
 }
