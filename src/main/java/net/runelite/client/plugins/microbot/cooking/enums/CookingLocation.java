@@ -2,6 +2,8 @@ package net.runelite.client.plugins.microbot.cooking.enums;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import net.runelite.api.Quest;
+import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ObjectID;
@@ -30,7 +32,7 @@ public enum CookingLocation
 	RIMMINGTON(new WorldPoint(2969, 3210, 0), CookingAreaType.RANGE, ObjectID.RIMMINGTON_POOR_RANGE),
 	LUMBRIDGE_TUTOR(new WorldPoint(3231, 3196, 0), CookingAreaType.RANGE, ObjectID.RANGE),
 	// Pay-to-play
-	MYTHS_GUILD(new WorldPoint(2465, 2848, 0), CookingAreaType.RANGE, ObjectID.DS2_GUILD_COOKING_RANGE),
+	MYTHS_GUILD(new WorldPoint(2466, 2848, 1), CookingAreaType.RANGE, ObjectID.DS2_GUILD_COOKING_RANGE),
 	ROUGES_DEN(new WorldPoint(3043, 4972, 1), CookingAreaType.FIRE, ObjectID.FIRE_COOK),
 	COOKS_GUILD(new WorldPoint(3146, 3452, 0), CookingAreaType.RANGE, ObjectID.FAI_VARROCK_RANGE),
 	HOSIDIUS_CLAY_OVEN(new WorldPoint(1677, 3621, 0), CookingAreaType.RANGE, ObjectID.IZNOT_CLAY_RANGE),
@@ -104,6 +106,8 @@ public enum CookingLocation
 			case HOSIDIUS_CLAY_OVEN:
 				boolean hasKourendEasyDiary = Microbot.getVarbitValue(VarbitID.KOUREND_DIARY_EASY_COMPLETE) == 1;
 				return Rs2Player.isMember() && hasKourendEasyDiary;
+			case MYTHS_GUILD:
+				return Rs2Player.getQuestState(Quest.DRAGON_SLAYER_II) == QuestState.FINISHED;
 			default:
 				return true;
 		}

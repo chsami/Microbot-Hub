@@ -8,7 +8,7 @@ import net.runelite.api.coords.WorldPoint;
 @RequiredArgsConstructor
 public enum SlayerMaster {
     TURAEL("Turael", new WorldPoint(2931, 3536, 0), 1),
-    SPRIA("Spria", new WorldPoint(2907, 3324, 0), 1),
+    SPRIA("Spria", new WorldPoint(3092, 3267, 0), 1),
     MAZCHNA("Mazchna", new WorldPoint(3510, 3507, 0), 20),
     VANNAKA("Vannaka", new WorldPoint(3145, 9914, 0), 40),
     CHAELDAR("Chaeldar", new WorldPoint(2445, 4431, 0), 70),

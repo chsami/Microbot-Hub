@@ -32,10 +32,16 @@ import java.awt.*;
 )
 @Slf4j
 public class BarrowsPlugin extends Plugin  {
-    public static final String version = "2.0.9";
+    public static final String version = "2.5.23";
+
+    private static final String SHORTEST_PATH_GROUP = "shortestpath";
+    private static final String BANK_TRIP_WHEN_CACHE_UNAVAILABLE = "bankTripWhenCacheUnavailable";
+    private static final String WALK_WITH_BANKED_TRANSPORTS = "walkWithBankedTransports";
 
     @Inject
     private BarrowsConfig config;
+    @Inject
+    private ConfigManager configManager;
     @Provides
     BarrowsConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(BarrowsConfig.class);
@@ -49,22 +55,44 @@ public class BarrowsPlugin extends Plugin  {
     @Inject
     BarrowsScript barrowsScript;
 
+    private Boolean previousBankTripWhenCacheUnavailable;
+    private Boolean previousWalkWithBankedTransports;
+
 
     @Override
     protected void startUp() throws AWTException {
         if (overlayManager != null) {
             overlayManager.add(barrowsOverlay);
         }
+        // Tunnel chest walks must not run bank_vs_direct / bank-cache bootstrap
+        // (logs: "running bank compare" → GRAND_EXCHANGE while inside barrows).
+        previousBankTripWhenCacheUnavailable = configManager.getConfiguration(
+                SHORTEST_PATH_GROUP, BANK_TRIP_WHEN_CACHE_UNAVAILABLE, Boolean.class);
+        previousWalkWithBankedTransports = configManager.getConfiguration(
+                SHORTEST_PATH_GROUP, WALK_WITH_BANKED_TRANSPORTS, Boolean.class);
+        configManager.setConfiguration(SHORTEST_PATH_GROUP, BANK_TRIP_WHEN_CACHE_UNAVAILABLE, false);
+        configManager.setConfiguration(SHORTEST_PATH_GROUP, WALK_WITH_BANKED_TRANSPORTS, false);
+
         Rs2Antiban.activateAntiban();
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyCombatSetup();
         Rs2Antiban.setActivity(Activity.BARROWS);
-        barrowsScript.run(config, this);
         barrowsScript.outOfPoweredStaffCharges = false;
         barrowsScript.firstRun = true;
+        barrowsScript.run(config, this);
     }
 
     protected void shutDown() {
+        boolean restoreBankTrip = previousBankTripWhenCacheUnavailable != null
+                ? previousBankTripWhenCacheUnavailable
+                : true;
+        boolean restoreBankedWalks = previousWalkWithBankedTransports != null
+                ? previousWalkWithBankedTransports
+                : false;
+        configManager.setConfiguration(SHORTEST_PATH_GROUP, BANK_TRIP_WHEN_CACHE_UNAVAILABLE, restoreBankTrip);
+        configManager.setConfiguration(SHORTEST_PATH_GROUP, WALK_WITH_BANKED_TRANSPORTS, restoreBankedWalks);
+        previousBankTripWhenCacheUnavailable = null;
+        previousWalkWithBankedTransports = null;
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.deactivateAntiban();
         barrowsScript.neededRune = "unknown";

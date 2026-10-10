@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.mke_wintertodt.startup.gear;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.ItemID;
 import net.runelite.api.Skill;
+import net.runelite.client.plugins.microbot.questhelper.collections.ItemCollections;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -1489,6 +1490,25 @@ public class WintertodtGearDatabase {
                 .findFirst()
                 .orElse(null);
     }
+
+    public boolean isWarmItem(int itemId) {
+        WintertodtGearItem item = findGearItemById(itemId);
+        return (item != null && item.providesWarmth()) ||
+                ItemCollections.WARM_CLOTHING.getItems().contains(itemId);
+    }
+
+    boolean isAllowedGear(EquipmentInventorySlot slot, int itemId) {
+        return slot == WEAPON || isWarmItem(itemId);
+    }
+
+    boolean preservesRequiredWarmthAfterReplacing(Collection<Integer> equippedItemIds,
+                                                   int replacedItemId,
+                                                   int replacementItemId) {
+        if (!isWarmItem(replacedItemId) || isWarmItem(replacementItemId)) {
+            return true;
+        }
+        return equippedItemIds.stream().filter(this::isWarmItem).count() > 4;
+    }
     
     /**
      * Gets gear items filtered by category.
@@ -1505,4 +1525,4 @@ public class WintertodtGearDatabase {
     public int getTotalGearCount() {
         return allGearItems.size();
     }
-} 
+}

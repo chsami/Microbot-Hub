@@ -107,6 +107,8 @@ repositories {
 }
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.2'
     if (microbotClientPath) {
         def clientFile = file(microbotClientPath)
         if (!clientFile.exists()) {
@@ -121,16 +123,9 @@ dependencies {
         testImplementation "com.microbot:microbot:${microbotClientVersion}@jar"
     }
 
-    // Test-only. JUnit 5 runs the `./gradlew test` suite; Mockito stubs the RuneLite NPC interface and
-    // the static client accessors (Microbot / Rs2Player) so the pure decision logic can be exercised
-    // without a live client. All `test` scope — never on a plugin's compile classpath or in a plugin JAR.
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testImplementation 'org.mockito:mockito-core:5.11.0'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.2'
 }
 
-// The existing main()-driven harnesses (LoginTest, ScriptLifecycleTest, Microbot) have no @Test methods,
-// so enabling the JUnit Platform leaves them untouched; only real @Test classes are collected and run.
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
 }
@@ -271,6 +266,22 @@ tasks.register("copyPluginDocs") {
     }
 }
 
+tasks.register('validatePluginHealth') {
+    group = 'verification'
+    description = 'Validates plugin-health.json against discovered plugins'
+    inputs.file('plugin-health.json').optional()
+
+    doLast {
+        def allPlugins = project.ext.discoverPlugins(file(project.ext.getPluginsSourcePath()))
+        def health = project.ext.readPluginHealth(file('plugin-health.json'), allPlugins.collect { it.name })
+        logger.lifecycle("plugin-health.json: ${health.size()} entr${health.size() == 1 ? 'y' : 'ies'} valid")
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'validatePluginHealth'
+}
+
 // Validating JDK version when generating plugins.json is important to ensure consistent hashing :(
 tasks.register("generatePluginsJson") {
     group = "build"
@@ -283,7 +294,7 @@ tasks.register("generatePluginsJson") {
         def jarOutputDir = file("$buildDir/libs")
 
         def allPlugins = project.ext.discoverPlugins(pluginRoot)
-        def plugins = project.ext.generatePluginsJsonData(allPlugins, jarOutputDir)
+        def plugins = project.ext.applyPluginHealth(project.ext.generatePluginsJsonData(allPlugins, jarOutputDir), file('plugin-health.json'), allPlugins.collect { it.name })
 
         outputJson.parentFile.mkdirs()
         outputJson.text = JsonOutput.prettyPrint(JsonOutput.toJson(plugins))

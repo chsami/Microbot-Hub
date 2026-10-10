@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.banksorter;
 
 import net.runelite.api.Client;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
@@ -55,7 +56,7 @@ public class BankTabSorterOverlay extends Overlay {
         }
 
         // Get the tutorial button (positioned to the right in the bank interface)
-        Widget tutorialButton = client.getWidget(ComponentID.BANK_TUTORIAL_BUTTON);
+        Widget tutorialButton = client.getWidget(InterfaceID.Bankmain.BANK_TUT);
         if (tutorialButton == null) {
             // If tutorial button not found, use a fallback position
             int buttonWidth = 70;

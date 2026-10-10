@@ -51,7 +51,7 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
     //          task is still running on the shared ClientThread executor) with a
     //          dedicated single-thread ExecutorService owned by this plugin.
     //          Added debug logging + on-screen overlay panel to trace hotkey dispatch.
-    public static final String version = "1.1.2";
+    public static final String version = "1.1.3";
 
     // -------------------------------------------------------------------------
     // DEBUG STATE — read by CombatHotkeysOverlay to render the debug panel
@@ -96,7 +96,9 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
     // that hasn't finished yet the gate `if (!scheduledFuture.isDone()) return`
     // silently drops our call.  A plugin-owned executor has no such contention.
     // -------------------------------------------------------------------------
-    private ExecutorService hotkeyExecutor;
+    private volatile ExecutorService hotkeyExecutor;
+    private int heldThrallKey = -1;
+    private final PendingHotkeyAction thrallPending = new PendingHotkeyAction();
 
     @Inject
     private CombatHotkeysConfig config;
@@ -124,6 +126,8 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
 
     @Override
     protected void startUp() throws AWTException {
+        thrallPending.cancel();
+        heldThrallKey = -1;
         hotkeyExecutor = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "CombatHotkeys-executor");
             t.setDaemon(true);
@@ -142,6 +146,8 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
 
     @Override
     protected void shutDown() {
+        thrallPending.cancel();
+        heldThrallKey = -1;
         script.shutdown();
         keyManager.unregisterKeyListener(this);
         overlayManager.remove(overlay);
@@ -164,18 +170,19 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
      * the RuneLite log) whether the keypress is reaching the dispatcher at all,
      * whether the executor accepted it, and whether it threw.
      */
-    private void dispatch(String actionName, Runnable action) {
-        if (hotkeyExecutor == null || hotkeyExecutor.isShutdown()) {
+    private boolean dispatch(String actionName, Runnable action) {
+        ExecutorService executor = hotkeyExecutor;
+        if (executor == null || executor.isShutdown()) {
             log.warn("[CombatHotkeys] dispatch('{}') — executor is null/shutdown, ignoring", actionName);
             lastError.set("executor null/shutdown for: " + actionName);
-            return;
+            return false;
         }
 
         lastActionDispatched.set(actionName);
         totalActionsSubmitted.incrementAndGet();
         log.debug("[CombatHotkeys] Submitting '{}' to executor", actionName);
 
-        hotkeyExecutor.submit(() -> {
+        executor.submit(() -> {
             try {
                 log.debug("[CombatHotkeys] Executing '{}'", actionName);
                 action.run();
@@ -187,6 +194,7 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
                 log.error("[CombatHotkeys] '{}' threw an exception: {}", actionName, ex.getMessage(), ex);
             }
         });
+        return true;
     }
 
     /** Record which key was just pressed and log it. */
@@ -340,6 +348,22 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
         // ------------------------------------------------------------------
         // ALCHEMY
         // ------------------------------------------------------------------
+        if (config.summonThrallKey().matches(e)) {
+            e.consume();
+            if (heldThrallKey != e.getKeyCode()) {
+                heldThrallKey = e.getKeyCode();
+                recordKeyHit("summonThrall");
+                final var thrall = config.selectedThrall();
+                thrallPending.submit(action -> dispatch("summon " + thrall, action), () -> {
+                    if (!Microbot.isLoggedIn() || Thread.currentThread().isInterrupted()) return;
+                    if (!net.runelite.client.plugins.microbot.util.magic.thralls.Rs2Thrall.cast(thrall)) {
+                        lastError.set("Thrall not cast: check spellbook, level, book, runes, prayer and cooldown.");
+                        log.info("[CombatHotkeys] {} not cast: requirements or cooldown", thrall);
+                    }
+                });
+            }
+        }
+
         if (config.highAlchemyKey().matches(e)) {
             recordKeyHit("highAlchemy");
             e.consume();
@@ -371,7 +395,9 @@ public class CombatHotkeysPlugin extends Plugin implements KeyListener {
     }
 
     @Override
-    public void keyReleased(KeyEvent e) {}
+    public void keyReleased(KeyEvent e) {
+        if (e.getKeyCode() == heldThrallKey) heldThrallKey = -1;
+    }
 
     // -------------------------------------------------------------------------
     // MENU ENTRY EVENTS (dance tile marking)

@@ -28,8 +28,8 @@ public class HumidifierScript extends Script {
         Rs2Antiban.setActivity(Activity.HUMIDIFYING_CLAY);
 
         timeBegan = System.currentTimeMillis();
-        int unprocessedItemPrice = Microbot.getItemManager().search(config.ITEM().getName()).get(0).getPrice();
-        int processedItemPrice = Microbot.getItemManager().search(config.ITEM().getFinished()).get(0).getPrice();
+        int unprocessedItemPrice = (int) Microbot.getItemManager().search(config.ITEM().getName()).get(0).getPrice();
+        int processedItemPrice = (int) Microbot.getItemManager().search(config.ITEM().getFinished()).get(0).getPrice();
         profit = processedItemPrice - unprocessedItemPrice;
         itemsProcessedMessage = config.ITEM().getFinished() + " processed: " + itemsProcessed;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {

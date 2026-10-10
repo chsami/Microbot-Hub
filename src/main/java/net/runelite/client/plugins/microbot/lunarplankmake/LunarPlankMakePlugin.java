@@ -16,7 +16,7 @@ import java.awt.*;
         description = "Geoff's lunar plank maker",
         tags = {"magic", "moneymaking"},
         version = LunarPlankMakePlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.25",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -24,7 +24,7 @@ import java.awt.*;
 )
 @Slf4j
 public class LunarPlankMakePlugin extends Plugin {
-    public static final String version = "1.0.4";
+    public static final String version = "1.0.5";
     @Inject
     private LunarPlankMakeConfig config;
 

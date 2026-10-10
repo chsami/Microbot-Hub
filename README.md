@@ -88,6 +88,35 @@ public class YourPlugin extends Plugin {
 | `enabledByDefault` | boolean | No | Whether plugin is enabled by default on first install (use `PluginConstants.DEFAULT_ENABLED`)|
 | `isExternal` | boolean | No | Marks plugin as external (use `PluginConstants.IS_EXTERNAL`) |
 
+### Plugin Health
+
+`plugin-health.json` in the repository root records maintainer-confirmed plugin health. `generatePluginsJson` copies each entry into that plugin's `health` field in `plugins.json`, and `./gradlew check` validates the file. The client shows the status, reason, affected versions, tracking link and last verified build in the Plugin Hub.
+
+```json
+{
+  "AutoMiningPlugin": {
+    "status": "broken",
+    "reason": "Stops after banking since the September game update",
+    "affectedVersions": ["1.0.11", "1.0.12"],
+    "trackingUrl": "https://github.com/chsami/Microbot-Hub/issues/123",
+    "lastVerifiedVersion": "1.0.10",
+    "lastVerifiedClientVersion": "2.6.27",
+    "updatedAt": "2026-10-05"
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `status` | `ok` (verified working), `broken` (confirmed by a maintainer) or `unverified` (reported, not yet confirmed) |
+| `reason` | Short user-facing explanation; required for `broken` |
+| `affectedVersions` | Exact plugin version strings confirmed broken (no ranges or wildcards such as `1.2.x`), or `["*"]` for every version; required for `broken` |
+| `trackingUrl` | Optional https link to the issue or PR |
+| `lastVerifiedVersion` / `lastVerifiedClientVersion` | Optional plugin and client versions last confirmed working |
+| `updatedAt` | Optional date of the last review |
+
+Clients refuse to install or load only the listed `affectedVersions` of a `broken` plugin; other versions stay installable. `unverified` reports are shown as warnings and never block. Mark a plugin `broken` only after reproducing the failure, never because it has not been updated recently. When a fix ships, publish a new version (not listed in `affectedVersions`) or change the status to `ok`. The `disable` descriptor flag hides a plugin from the Hub for everyone who has not installed it, and clients stop loading installed copies so users can remove them.
+
 ### Best Practices
 
 - **Naming**: Use or create tags inside of the `PluginConstants` to keep tags consistent across plugins
