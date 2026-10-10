@@ -82,6 +82,8 @@ This conditional sequence is for exposed, untrapped Jad. An already terrain-trap
 
 **Record run** defaults on and saves `events.jsonl` plus matching `collision-*.csv` under `~/.runelite/dro-firecape/YYYYMMDD-HHMMSS-SSS/`. These are telemetry and collision maps, not video. Retain the whole folder when reporting an issue, along with version, settings, loadout, wave and any manual intervention.
 
+Users are highly encouraged to share complete Fight Caves recordings with **DRO** to help improve the plugin.
+
 Hide overlay affects visibility only. Taking manual control or pausing can suspend automatic prayer input; maintain protection yourself while doing so. Restart the plugin when changing controller selection.
 
 ## Live test history
@@ -105,7 +107,7 @@ The tester considers .65 close to completion with another brew and successful he
 
 ## Build and verification
 
-The actual local client compile and public Hub build against the official Microbot 2.6.30 client passed. Hub packaging, plugin-health validation and documentation generation passed. All **248 packaged classes** loaded against the public client; runtime classes are confined to `drofirecape` and use public `Rs2InventorySetup`. Private Inventory Setup hooks are excluded only from the Hub copy.
+The actual local client compile and public Hub build against the official Microbot 2.6.30 client passed. Hub packaging and documentation generation passed. All **248 packaged classes** loaded against the public client; runtime classes are confined to `drofirecape` and use public `Rs2InventorySetup`. Private Inventory Setup hooks are excluded only from the Hub copy.
 
 Focused verification passed **37 groups / 5,274 core assertions**, plus **34 adapter assertions**. The **6,817-frame** ordinary-movement comparison matches the .65 reference. The current inherited suite ran **502 tests: 478 passed, 24 failed**. Its unresolved policy/timing expectations remain test debt; build and focused passes do not make the full suite green or establish a new live cape.
 

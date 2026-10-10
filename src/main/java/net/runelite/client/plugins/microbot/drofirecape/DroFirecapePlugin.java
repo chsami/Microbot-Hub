@@ -21,7 +21,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
     iconUrl="https://chsami.github.io/Microbot-Hub/DroFirecapePlugin/assets/icon.png",
     cardUrl="https://chsami.github.io/Microbot-Hub/DroFirecapePlugin/assets/card.png",
     isExternal=PluginConstants.IS_EXTERNAL,
-    tags={"microbot","dro","firecape","fight caves","jad"})
+    tags={"microbot","dro","firecape","fight caves","jad","boss"})
 public final class DroFirecapePlugin extends Plugin {
     public static final String version="0.3.66";
     @Inject private FcControllers script;
