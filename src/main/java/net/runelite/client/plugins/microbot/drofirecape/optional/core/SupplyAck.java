@@ -1,0 +1,25 @@
+package net.runelite.client.plugins.microbot.drofirecape.optional.core;
+
+/** A successful UI call is not a consumed dose. Totals cover duplicate item slots. */
+public final class SupplyAck {
+    public enum Kind { OTHER, BREW, RESTORE }
+    public enum Result { NONE, WAITING, CONSUMED, TIMED_OUT }
+    private int itemId=-1,amount,tick;
+    private Kind kind=Kind.OTHER;
+    public boolean pending(){return itemId>=0;}
+    public int itemId(){return itemId;}
+    public Kind kind(){return kind;}
+    public void reset(){itemId=-1;amount=0;tick=-1;kind=Kind.OTHER;}
+    public void sent(int id,int count,int now,Kind type) {
+        itemId=id;amount=count;tick=now;kind=type;
+    }
+    public Result observe(int liveCount,int now) {
+        return observe(liveCount,now,5);
+    }
+    /** A caller may use a shorter acknowledgement deadline for urgent healing. */
+    public Result observe(int liveCount,int now,int timeoutTicks) {
+        if(!pending())return Result.NONE;
+        if(now>tick&&liveCount<amount)return Result.CONSUMED;
+        return now<tick||now-tick>=timeoutTicks?Result.TIMED_OUT:Result.WAITING;
+    }
+}

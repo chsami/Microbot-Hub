@@ -1,0 +1,3025 @@
+[
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 222,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      67,
+      46
+    ],
+    "hp": 88,
+    "prayer": 44,
+    "energyRaw": 9607,
+    "running": true,
+    "range": 7,
+    "interaction": 43211,
+    "capturedAgeMs": 219,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 219,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43211,
+        "kind": "RANGER",
+        "tile": [
+          61,
+          46
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 219,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          42,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        67,
+        46
+      ],
+      "step": [
+        67,
+        46
+      ],
+      "prayer": "MAGIC",
+      "target": 43211,
+      "safe": false,
+      "risk": 13,
+      "reason": "Dispatch ranged threat before trapped melee"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 223,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      67,
+      46
+    ],
+    "hp": 88,
+    "prayer": 43,
+    "energyRaw": 9630,
+    "running": true,
+    "range": 7,
+    "interaction": 43211,
+    "capturedAgeMs": 519,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 223,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43211,
+        "kind": "RANGER",
+        "tile": [
+          61,
+          46
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 223,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          43,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        67,
+        46
+      ],
+      "step": [
+        67,
+        46
+      ],
+      "prayer": "MAGIC",
+      "target": 43211,
+      "safe": true,
+      "risk": 0,
+      "reason": "Dispatch ranged threat before trapped melee"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 224,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      67,
+      46
+    ],
+    "hp": 88,
+    "prayer": 43,
+    "energyRaw": 9653,
+    "running": true,
+    "range": 7,
+    "interaction": 43211,
+    "capturedAgeMs": 443,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 223,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43211,
+        "kind": "RANGER",
+        "tile": [
+          61,
+          46
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 223,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          44,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        67,
+        46
+      ],
+      "step": [
+        67,
+        46
+      ],
+      "prayer": "MAGIC",
+      "target": 43211,
+      "safe": true,
+      "risk": 0,
+      "reason": "Dispatch ranged threat before trapped melee"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 225,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      67,
+      46
+    ],
+    "hp": 87,
+    "prayer": 43,
+    "energyRaw": 9676,
+    "running": true,
+    "range": 7,
+    "interaction": 43211,
+    "capturedAgeMs": 505,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 223,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43211,
+        "kind": "RANGER",
+        "tile": [
+          61,
+          46
+        ],
+        "size": 3,
+        "healthRatio": 14,
+        "healthScale": 30,
+        "attackTick": 223,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          45,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        67,
+        46
+      ],
+      "step": [
+        67,
+        46
+      ],
+      "prayer": "MAGIC",
+      "target": 43211,
+      "safe": true,
+      "risk": 0,
+      "reason": "Dispatch ranged threat before trapped melee"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 226,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      67,
+      46
+    ],
+    "hp": 87,
+    "prayer": 43,
+    "energyRaw": 9699,
+    "running": true,
+    "range": 7,
+    "interaction": 43211,
+    "capturedAgeMs": 468,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 223,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43211,
+        "kind": "RANGER",
+        "tile": [
+          61,
+          46
+        ],
+        "size": 3,
+        "healthRatio": 14,
+        "healthScale": 30,
+        "attackTick": 223,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          46,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        67,
+        46
+      ],
+      "step": [
+        67,
+        46
+      ],
+      "prayer": "MAGIC",
+      "target": 43211,
+      "safe": false,
+      "risk": 13,
+      "reason": "Dispatch ranged threat before trapped melee"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 227,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      67,
+      46
+    ],
+    "hp": 87,
+    "prayer": 42,
+    "energyRaw": 9722,
+    "running": true,
+    "range": 7,
+    "interaction": 43211,
+    "capturedAgeMs": 485,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 227,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43211,
+        "kind": "RANGER",
+        "tile": [
+          61,
+          46
+        ],
+        "size": 3,
+        "healthRatio": 14,
+        "healthScale": 30,
+        "attackTick": 227,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          47,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        67,
+        46
+      ],
+      "step": [
+        67,
+        46
+      ],
+      "prayer": "MAGIC",
+      "target": 43211,
+      "safe": true,
+      "risk": 0,
+      "reason": "Dispatch ranged threat before trapped melee"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 228,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      67,
+      46
+    ],
+    "hp": 87,
+    "prayer": 42,
+    "energyRaw": 9745,
+    "running": true,
+    "range": 7,
+    "interaction": 43211,
+    "capturedAgeMs": 467,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 227,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43211,
+        "kind": "RANGER",
+        "tile": [
+          61,
+          46
+        ],
+        "size": 3,
+        "healthRatio": 9,
+        "healthScale": 30,
+        "attackTick": 227,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          48,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        67,
+        46
+      ],
+      "step": [
+        67,
+        46
+      ],
+      "prayer": "MAGIC",
+      "target": 43211,
+      "safe": true,
+      "risk": 0,
+      "reason": "Dispatch ranged threat before trapped melee"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 229,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      67,
+      46
+    ],
+    "hp": 87,
+    "prayer": 42,
+    "energyRaw": 9768,
+    "running": true,
+    "range": 7,
+    "interaction": 43211,
+    "capturedAgeMs": 408,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 227,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43211,
+        "kind": "RANGER",
+        "tile": [
+          61,
+          46
+        ],
+        "size": 3,
+        "healthRatio": 9,
+        "healthScale": 30,
+        "attackTick": 227,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          49,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        67,
+        46
+      ],
+      "step": [
+        67,
+        46
+      ],
+      "prayer": "MAGIC",
+      "target": 43211,
+      "safe": true,
+      "risk": 0,
+      "reason": "Dispatch ranged threat before trapped melee"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 230,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      67,
+      46
+    ],
+    "hp": 87,
+    "prayer": 42,
+    "energyRaw": 9791,
+    "running": true,
+    "range": 7,
+    "interaction": 43211,
+    "capturedAgeMs": 385,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 227,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43211,
+        "kind": "RANGER",
+        "tile": [
+          61,
+          46
+        ],
+        "size": 3,
+        "healthRatio": 9,
+        "healthScale": 30,
+        "attackTick": 227,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          50,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        67,
+        46
+      ],
+      "step": [
+        67,
+        46
+      ],
+      "prayer": "MAGIC",
+      "target": 43211,
+      "safe": false,
+      "risk": 13,
+      "reason": "Dispatch ranged threat before trapped melee"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 231,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      67,
+      46
+    ],
+    "hp": 87,
+    "prayer": 41,
+    "energyRaw": 9814,
+    "running": true,
+    "range": 7,
+    "interaction": 43211,
+    "capturedAgeMs": 486,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 231,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          51,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          46
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        65,
+        46
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 236,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      63,
+      47
+    ],
+    "hp": 87,
+    "prayer": 41,
+    "energyRaw": 9765,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 374,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 235,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          56,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          61,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 239,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      63,
+      49
+    ],
+    "hp": 87,
+    "prayer": 40,
+    "energyRaw": 9752,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 431,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 239,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          59,
+          48
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        61,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 14,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 242,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      64,
+      49
+    ],
+    "hp": 87,
+    "prayer": 40,
+    "energyRaw": 9821,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 513,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 239,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          63,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 243,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      64,
+      49
+    ],
+    "hp": 87,
+    "prayer": 40,
+    "energyRaw": 9844,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 232,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 243,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          63,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 246,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      62,
+      49
+    ],
+    "hp": 87,
+    "prayer": 39,
+    "energyRaw": 9831,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 327,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 243,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        64,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 14,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 250,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      64,
+      49
+    ],
+    "hp": 87,
+    "prayer": 39,
+    "energyRaw": 9841,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 363,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 247,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          63,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 255,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      62,
+      49
+    ],
+    "hp": 87,
+    "prayer": 38,
+    "energyRaw": 9874,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 343,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 255,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        64,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 14,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 259,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      64,
+      49
+    ],
+    "hp": 87,
+    "prayer": 38,
+    "energyRaw": 9884,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 369,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 259,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          63,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 264,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      62,
+      49
+    ],
+    "hp": 87,
+    "prayer": 37,
+    "energyRaw": 9917,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 431,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 263,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        64,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 14,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 265,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      62,
+      49
+    ],
+    "hp": 87,
+    "prayer": 37,
+    "energyRaw": 9940,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 445,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 263,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        64,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 14,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 269,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      64,
+      49
+    ],
+    "hp": 87,
+    "prayer": 36,
+    "energyRaw": 9950,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 391,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 267,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          63,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 273,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      62,
+      49
+    ],
+    "hp": 87,
+    "prayer": 36,
+    "energyRaw": 9960,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 404,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 271,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        64,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 14,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 277,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      64,
+      49
+    ],
+    "hp": 87,
+    "prayer": 35,
+    "energyRaw": 9970,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 328,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 275,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          63,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 278,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      64,
+      49
+    ],
+    "hp": 87,
+    "prayer": 35,
+    "energyRaw": 9993,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 303,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 275,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          63,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 282,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      62,
+      49
+    ],
+    "hp": 87,
+    "prayer": 35,
+    "energyRaw": 9987,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 426,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 279,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        64,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 14,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 287,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      64,
+      49
+    ],
+    "hp": 87,
+    "prayer": 34,
+    "energyRaw": 9987,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 245,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 287,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          63,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 291,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      62,
+      49
+    ],
+    "hp": 87,
+    "prayer": 33,
+    "energyRaw": 9987,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 346,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 291,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        64,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 14,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 295,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      64,
+      49
+    ],
+    "hp": 87,
+    "prayer": 33,
+    "energyRaw": 9987,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 223,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 295,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          63,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 299,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      62,
+      49
+    ],
+    "hp": 88,
+    "prayer": 32,
+    "energyRaw": 9987,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 239,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 299,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        64,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 14,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 303,
+    "wave": 44,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      64,
+      49
+    ],
+    "hp": 88,
+    "prayer": 32,
+    "energyRaw": 9987,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 368,
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          56,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 303,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43212,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          63,
+          47
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        62,
+        60
+      ],
+      "step": [
+        63,
+        49
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 7,
+      "reason": "Return to the same safe tile before attacking"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 711,
+    "wave": 45,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      50,
+      54
+    ],
+    "hp": 82,
+    "prayer": 35,
+    "energyRaw": 9814,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 385,
+    "mobs": [
+      {
+        "index": 50812,
+        "kind": "MAGER",
+        "tile": [
+          61,
+          45
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 710,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 50813,
+        "kind": "RANGER",
+        "tile": [
+          39,
+          44
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 708,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 50814,
+        "kind": "RANGER",
+        "tile": [
+          46,
+          46
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 708,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        45,
+        49
+      ],
+      "step": [
+        49,
+        53
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 26,
+      "reason": "Approach blocked ranged attacker under protection"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 744,
+    "wave": 45,
+    "base": [
+      11056,
+      11760,
+      0
+    ],
+    "map": "collision-604-11056-11760-0.csv",
+    "player": [
+      50,
+      54
+    ],
+    "hp": 62,
+    "prayer": 30,
+    "energyRaw": 10000,
+    "running": true,
+    "range": 7,
+    "interaction": 50814,
+    "capturedAgeMs": 268,
+    "mobs": [
+      {
+        "index": 50812,
+        "kind": "MAGER",
+        "tile": [
+          61,
+          45
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 742,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 50813,
+        "kind": "RANGER",
+        "tile": [
+          39,
+          44
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 744,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 50814,
+        "kind": "RANGER",
+        "tile": [
+          46,
+          46
+        ],
+        "size": 3,
+        "healthRatio": 14,
+        "healthScale": 30,
+        "attackTick": 744,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        48,
+        52
+      ],
+      "step": [
+        49,
+        53
+      ],
+      "prayer": "MAGIC",
+      "target": -1,
+      "safe": false,
+      "risk": 26,
+      "reason": "Approach blocked ranged attacker under protection"
+    }
+  },
+  {
+    "tick": 527,
+    "player": [
+      62,
+      60
+    ],
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          62,
+          43
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          48
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 7,
+    "running": true
+  },
+  {
+    "tick": 539,
+    "player": [
+      60,
+      53
+    ],
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          61,
+          43
+        ],
+        "size": 5,
+        "healthRatio": 28,
+        "healthScale": 30,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          49
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 7,
+    "running": true
+  },
+  {
+    "tick": 549,
+    "player": [
+      65,
+      67
+    ],
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          65,
+          45
+        ],
+        "size": 5,
+        "healthRatio": 26,
+        "healthScale": 30,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          60,
+          59
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 7,
+    "running": true
+  },
+  {
+    "tick": 551,
+    "player": [
+      69,
+      68
+    ],
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          66,
+          45
+        ],
+        "size": 5,
+        "healthRatio": 26,
+        "healthScale": 30,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          62,
+          61
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 7,
+    "running": true
+  },
+  {
+    "tick": 557,
+    "player": [
+      69,
+      62
+    ],
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          68,
+          45
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 43213,
+        "kind": "BLOB",
+        "tile": [
+          67,
+          62
+        ],
+        "size": 2,
+        "healthRatio": 16,
+        "healthScale": 30,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 7,
+    "running": true
+  },
+  {
+    "tick": 563,
+    "player": [
+      69,
+      62
+    ],
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          68,
+          45
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 48598,
+        "kind": "BABY",
+        "tile": [
+          68,
+          62
+        ],
+        "size": 1,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 48599,
+        "kind": "BABY",
+        "tile": [
+          69,
+          63
+        ],
+        "size": 1,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 7,
+    "running": true
+  },
+  {
+    "tick": 578,
+    "player": [
+      61,
+      56
+    ],
+    "mobs": [
+      {
+        "index": 43210,
+        "kind": "MAGER",
+        "tile": [
+          63,
+          45
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 7,
+    "running": true
+  }
+]

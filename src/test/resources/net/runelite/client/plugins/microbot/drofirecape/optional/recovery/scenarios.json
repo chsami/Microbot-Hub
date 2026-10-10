@@ -1,0 +1,497 @@
+[
+  {
+    "tick": 1825,
+    "wave": 22,
+    "player": [
+      34,
+      26
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 45053,
+        "kind": "MELEER",
+        "tile": [
+          35,
+          27
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 1818,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 45054,
+        "kind": "RANGER",
+        "tile": [
+          32,
+          29
+        ],
+        "size": 3,
+        "healthRatio": 9,
+        "healthScale": 30,
+        "attackTick": 1825,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "geometry": "geometry-0.csv.gz",
+    "case": "v57-wave22-tick1825"
+  },
+  {
+    "tick": 4304,
+    "wave": 41,
+    "player": [
+      45,
+      34
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 57059,
+        "kind": "MAGER",
+        "tile": [
+          35,
+          36
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 4303,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 57061,
+        "kind": "BLOB",
+        "tile": [
+          45,
+          36
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 4294,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "geometry": "geometry-0.csv.gz",
+    "case": "v57-wave41-tick4304"
+  },
+  {
+    "tick": 747,
+    "wave": 11,
+    "player": [
+      52,
+      49
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 55427,
+        "kind": "BLOB",
+        "tile": [
+          52,
+          51
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 704,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "geometry": "geometry-1.csv.gz",
+    "case": "v59-wave11-tick747"
+  },
+  {
+    "tick": 4787,
+    "wave": 41,
+    "player": [
+      52,
+      73
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 48626,
+        "kind": "MAGER",
+        "tile": [
+          52,
+          54
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 4786,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 48627,
+        "kind": "RANGER",
+        "tile": [
+          52,
+          59
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 4785,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 48628,
+        "kind": "BLOB",
+        "tile": [
+          52,
+          69
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "geometry": "geometry-2.csv.gz",
+    "case": "v59-wave41-tick4787"
+  },
+  {
+    "tick": 7360,
+    "wave": 53,
+    "player": [
+      68,
+      75
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 48245,
+        "kind": "MAGER",
+        "tile": [
+          68,
+          45
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 48246,
+        "kind": "MELEER",
+        "tile": [
+          57,
+          67
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 48247,
+        "kind": "RANGER",
+        "tile": [
+          60,
+          60
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 7358,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "geometry": "geometry-2.csv.gz",
+    "case": "v59-wave53-tick7360"
+  },
+  {
+    "tick": 4449,
+    "wave": 39,
+    "player": [
+      46,
+      36
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 59499,
+        "kind": "MAGER",
+        "tile": [
+          46,
+          21
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 4386,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 59500,
+        "kind": "RANGER",
+        "tile": [
+          46,
+          18
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 4376,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "geometry": "geometry-0.csv.gz",
+    "case": "v61-wave39-tick4449"
+  },
+  {
+    "tick": 4993,
+    "wave": 39,
+    "player": [
+      47,
+      36
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 59499,
+        "kind": "MAGER",
+        "tile": [
+          47,
+          21
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 4988,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 59500,
+        "kind": "RANGER",
+        "tile": [
+          47,
+          18
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 4988,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ],
+    "geometry": "geometry-0.csv.gz",
+    "case": "v61-wave39-tick4993"
+  },
+  {
+    "tick": 5266,
+    "wave": 40,
+    "player": [
+      46,
+      36
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 48675,
+        "kind": "MAGER",
+        "tile": [
+          46,
+          20
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 48676,
+        "kind": "RANGER",
+        "tile": [
+          29,
+          36
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 5266,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 48678,
+        "kind": "BAT",
+        "tile": [
+          46,
+          25
+        ],
+        "size": 1,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "geometry": "geometry-0.csv.gz",
+    "case": "v61-wave40-tick5266"
+  },
+  {
+    "tick": 5277,
+    "wave": 40,
+    "player": [
+      46,
+      36
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 48675,
+        "kind": "MAGER",
+        "tile": [
+          46,
+          20
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 48676,
+        "kind": "RANGER",
+        "tile": [
+          29,
+          36
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 5274,
+        "style": "RANGE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 48678,
+        "kind": "BAT",
+        "tile": [
+          46,
+          25
+        ],
+        "size": 1,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "geometry": "geometry-0.csv.gz",
+    "case": "v61-wave40-tick5277"
+  },
+  {
+    "case": "0.3.57-wave22-distant-shooter",
+    "version": "0.3.57",
+    "geometry": "geometry-0.csv.gz",
+    "wave": 22,
+    "tick": 1794,
+    "player": [
+      42,
+      46
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 45053,
+        "kind": "MELEER",
+        "tile": [
+          20,
+          46
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 45054,
+        "kind": "RANGER",
+        "tile": [
+          32,
+          29
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 1793,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ]
+  },
+  {
+    "case": "0.3.61-wave22-distant-shooter",
+    "version": "0.3.61",
+    "geometry": "geometry-0.csv.gz",
+    "wave": 22,
+    "tick": 2286,
+    "player": [
+      42,
+      46
+    ],
+    "range": 5,
+    "mobs": [
+      {
+        "index": 45671,
+        "kind": "MELEER",
+        "tile": [
+          20,
+          46
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 45672,
+        "kind": "RANGER",
+        "tile": [
+          32,
+          29
+        ],
+        "size": 3,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 2285,
+        "style": "RANGE",
+        "attackingPlayer": true
+      }
+    ]
+  }
+]

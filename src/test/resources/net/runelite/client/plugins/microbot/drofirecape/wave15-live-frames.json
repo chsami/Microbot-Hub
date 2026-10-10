@@ -1,0 +1,650 @@
+[
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 844,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      54,
+      36
+    ],
+    "hp": 89,
+    "prayer": 52,
+    "energyRaw": 9692,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 371,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          54,
+          22
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        54,
+        36
+      ],
+      "step": [
+        54,
+        36
+      ],
+      "prayer": "NONE",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Hold recorded corner; observe approach"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 847,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      54,
+      36
+    ],
+    "hp": 89,
+    "prayer": 52,
+    "energyRaw": 9761,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 206,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          54,
+          22
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        52,
+        36
+      ],
+      "step": [
+        52,
+        36
+      ],
+      "prayer": "NONE",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Recorded two-step peek after monster reaches Italy rock"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 851,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      52,
+      36
+    ],
+    "hp": 89,
+    "prayer": 52,
+    "energyRaw": 9771,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 370,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          52,
+          22
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        52,
+        36
+      ],
+      "step": [
+        52,
+        36
+      ],
+      "prayer": "NONE",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Hold recorded peek briefly while the blocked face clears"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 853,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      52,
+      36
+    ],
+    "hp": 89,
+    "prayer": 52,
+    "energyRaw": 9817,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 395,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          52,
+          22
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        54,
+        36
+      ],
+      "step": [
+        54,
+        36
+      ],
+      "prayer": "NONE",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Return promptly from recorded peek"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 940,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      54,
+      36
+    ],
+    "hp": 90,
+    "prayer": 52,
+    "energyRaw": 10000,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 207,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          54,
+          22
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        49,
+        32
+      ],
+      "step": [
+        53,
+        36
+      ],
+      "prayer": "NONE",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Stuck monster: approach a checked firing tile"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 945,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      49,
+      32
+    ],
+    "hp": 90,
+    "prayer": 52,
+    "energyRaw": 9928,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 287,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          51,
+          22
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        49,
+        32
+      ],
+      "step": [
+        49,
+        32
+      ],
+      "prayer": "NONE",
+      "target": 49615,
+      "safe": true,
+      "risk": 0,
+      "reason": "Stuck monster: approach a checked firing tile"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 951,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      49,
+      32
+    ],
+    "hp": 90,
+    "prayer": 51,
+    "energyRaw": 10000,
+    "running": true,
+    "range": 7,
+    "interaction": 49615,
+    "capturedAgeMs": 614,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          49,
+          28
+        ],
+        "size": 4,
+        "healthRatio": 24,
+        "healthScale": 30,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        48,
+        32
+      ],
+      "step": [
+        48,
+        32
+      ],
+      "prayer": "MELEE",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Stuck monster: approach a checked firing tile"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 955,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      48,
+      32
+    ],
+    "hp": 90,
+    "prayer": 50,
+    "energyRaw": 10000,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 433,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          48,
+          28
+        ],
+        "size": 4,
+        "healthRatio": 22,
+        "healthScale": 30,
+        "attackTick": 953,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        47,
+        32
+      ],
+      "step": [
+        47,
+        32
+      ],
+      "prayer": "MELEE",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Stuck monster: approach a checked firing tile"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 958,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      47,
+      32
+    ],
+    "hp": 90,
+    "prayer": 50,
+    "energyRaw": 10000,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 245,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          47,
+          28
+        ],
+        "size": 4,
+        "healthRatio": 22,
+        "healthScale": 30,
+        "attackTick": 957,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        46,
+        32
+      ],
+      "step": [
+        46,
+        32
+      ],
+      "prayer": "MELEE",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Stuck monster: approach a checked firing tile"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 970,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      44,
+      32
+    ],
+    "hp": 90,
+    "prayer": 49,
+    "energyRaw": 10000,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 425,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          44,
+          28
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 969,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        43,
+        32
+      ],
+      "step": [
+        43,
+        32
+      ],
+      "prayer": "MELEE",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Stuck monster: approach a checked firing tile"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 995,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      37,
+      32
+    ],
+    "hp": 90,
+    "prayer": 47,
+    "energyRaw": 10000,
+    "running": true,
+    "range": 7,
+    "interaction": 49615,
+    "capturedAgeMs": 280,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          37,
+          28
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 993,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        36,
+        32
+      ],
+      "step": [
+        36,
+        32
+      ],
+      "prayer": "MELEE",
+      "target": -1,
+      "safe": true,
+      "risk": 0,
+      "reason": "Stuck monster: approach a checked firing tile"
+    }
+  },
+  {
+    "type": "frame",
+    "schema": 2,
+    "tick": 1040,
+    "wave": 15,
+    "base": [
+      10488,
+      9096,
+      0
+    ],
+    "map": "collision-538-10488-9096-0.csv",
+    "player": [
+      24,
+      32
+    ],
+    "hp": 91,
+    "prayer": 43,
+    "energyRaw": 10000,
+    "running": true,
+    "range": 7,
+    "interaction": -1,
+    "capturedAgeMs": 323,
+    "mobs": [
+      {
+        "index": 49615,
+        "kind": "MELEER",
+        "tile": [
+          25,
+          28
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 1037,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "plan": {
+      "destination": [
+        24,
+        32
+      ],
+      "step": [
+        24,
+        32
+      ],
+      "prayer": "NONE",
+      "target": 49615,
+      "safe": true,
+      "risk": 0,
+      "reason": "Stuck monster: approach a checked firing tile"
+    }
+  }
+]
