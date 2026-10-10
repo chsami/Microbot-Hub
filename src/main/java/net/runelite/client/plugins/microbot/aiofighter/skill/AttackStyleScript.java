@@ -123,6 +123,9 @@ public class AttackStyleScript extends Script {
 
             // Get the component to display
             WidgetInfo componentToDisplay = getComponentToDisplay(config);
+            if (componentToDisplay == null || attackStyleToTrain == null || attackStyle == null) {
+                return;
+            }
 
             Microbot.log("Current Attack Style: " + attackStyle.getName());
             Microbot.log("Attack Style to Train: " + attackStyleToTrain.getName());
@@ -355,10 +358,19 @@ public class AttackStyleScript extends Script {
                 }
             }
         }
-        WidgetInfo componentToDisplay = componentsToDisplay.get(random.nextInt(componentsToDisplay.size()));
+        WidgetInfo componentToDisplay = pickComponent(componentsToDisplay, random);
+        if (componentToDisplay == null) {
+            return null;
+        }
         attackStyleToTrain = attackStyles[componentToDisplay.ordinal() - 233];
-        // Return a random component if the list is not empty, otherwise return null
         return componentToDisplay;
+    }
+
+    static WidgetInfo pickComponent(List<WidgetInfo> components, Random random) {
+        if (components == null || components.isEmpty()) {
+            return null;
+        }
+        return components.get(random.nextInt(components.size()));
     }
 
     private boolean isMaxed() {
