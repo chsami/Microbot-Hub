@@ -214,7 +214,7 @@ public class TrialRoute {
                                         /*5*/new WorldPoint(3004, 2827, 0),
                                         /*6*/new WorldPoint(3009, 2816, 0),
                                         /*7*/new WorldPoint(3019, 2814, 0),
-                                        /*8*/new WorldPoint(3030, 2815, 0),
+                                        /*8*/new WorldPoint(3028, 2815, 0), // first lap approach
                                         /*9*/new WorldPoint(3027, 2798, 0),
                                         /*10*/new WorldPoint(3039, 2778, 0),
                                         /*11*/new WorldPoint(3045, 2777, 0),
@@ -235,6 +235,7 @@ public class TrialRoute {
                                         /*26*/new WorldPoint(2982, 2847, 0),
                                         /*27*/new WorldPoint(2979, 2830, 0),
                                         /*28*/new WorldPoint(2991, 2806, 0),
+                                        new WorldPoint(3002, 2788, 0), // second lap supplies
                                         /*29*/new WorldPoint(3016, 2776, 0),
                                         /*30*/new WorldPoint(3038, 2771, 0),
                                         /*31*/new WorldPoint(3045, 2776, 0),
@@ -263,11 +264,11 @@ public class TrialRoute {
                                         /*54*/new WorldPoint(2983, 2787, 0),
                                         /*55*/new WorldPoint(2987, 2777, 0),
                                         /*56*/new WorldPoint(3004, 2768, 0),
-                                        /*57*/new WorldPoint(3039, 2758, 0),
+                                        /*57*/new WorldPoint(3037, 2761, 0), // final lap supplies
                                         /*58*/new WorldPoint(3056, 2761, 0),
                                         /*59*/new WorldPoint(3068, 2766, 0),
                                         /*60*/new WorldPoint(3090, 2764, 0),
-                                        /*61*/new WorldPoint(3098, 2774, 0),
+                                        /*61*/new WorldPoint(3096, 2775, 0), // final lap supplies
                                         /*62*/new WorldPoint(3103, 2797, 0),
                                         /*63*/new WorldPoint(3110, 2825, 0),
                                         /*64*/new WorldPoint(3118, 2836, 0),
