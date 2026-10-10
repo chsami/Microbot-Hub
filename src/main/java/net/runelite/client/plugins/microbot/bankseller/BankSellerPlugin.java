@@ -4,12 +4,11 @@ import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.GameState;
 import net.runelite.api.events.GameStateChanged;
-import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
-import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 import java.awt.AWTException;
@@ -31,6 +30,8 @@ import net.runelite.client.plugins.microbot.PluginConstants;
 public class BankSellerPlugin extends Plugin {
 
 	static final String version = "1.0.6";
+    @Inject
+    private BankSellerConfig config;
 
     @Provides
     BankSellerConfig provideConfig(ConfigManager configManager) {
@@ -40,26 +41,15 @@ public class BankSellerPlugin extends Plugin {
     @Inject
     private BankSellerScript bankSellerScript;
 
-    @Inject
-    private OverlayManager overlayManager;
-
-    @Inject
-    private BankSellerOverlay overlay;
-
     @Override
     protected void startUp() throws AWTException {
         Microbot.pauseAllScripts.compareAndSet(true, false);
-        overlayManager.add(overlay);
         bankSellerScript.run(this);
     }
 
     @Override
     protected void shutDown() {
-        try {
-            bankSellerScript.shutdown();
-        } finally {
-            overlayManager.remove(overlay);
-        }
+        bankSellerScript.shutdown();
     }
 
     @Subscribe

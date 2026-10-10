@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.bankseller;
 
+import org.junit.jupiter.api.Test;
 import net.runelite.api.Client;
 import net.runelite.api.Item;
 import net.runelite.api.ItemContainer;
@@ -19,22 +20,9 @@ public final class BankSellerStartingWidgetsTest {
     // Independent values recorded in the live 2.6.26 probe, in 387:15..25 order.
     private static final int[] EMPTY_SPRITES = {156, 157, 158, 159, 161, 162, 163, 164, 165, 160, 166};
     private static final int TILE_SPRITE = 170;
-    private static int assertions;
 
-    private BankSellerStartingWidgetsTest() {
-    }
-
-    public static void main(String[] args) {
-        realContainerReadbackPreservesKnownAndUnknownData();
-        inventorySlotsRecognizeOnlyVerifiedEmptyGraphics();
-        fullInventoryRequiresEverySlotAndVisibleRoot();
-        equipmentSlotsRequireTheirCompleteVerifiedLayout();
-        equipmentItemsCannotConflictWithPlaceholders();
-        fullEquipmentIncludesRingAndAmmoAndRequiresEverySlot();
-        System.out.println("BankSellerStartingWidgetsTest passed (" + assertions + " assertions)");
-    }
-
-    private static void realContainerReadbackPreservesKnownAndUnknownData() {
+    @Test
+    void realContainerReadbackPreservesKnownAndUnknownData() {
         check(BankSellerStartingWidgets.containerIds(null) == null, "Absent container remains unknown");
         check(BankSellerStartingWidgets.containerIds(container(null)) == null, "Malformed item array remains unknown");
         List<Integer> empty = BankSellerStartingWidgets.containerIds(container(new Item[0]));
@@ -50,7 +38,8 @@ public final class BankSellerStartingWidgetsTest {
                 "Unknown container entries are not silently converted to empty slots");
     }
 
-    private static void inventorySlotsRecognizeOnlyVerifiedEmptyGraphics() {
+    @Test
+    void inventorySlotsRecognizeOnlyVerifiedEmptyGraphics() {
         check(BankSellerStartingWidgets.inventorySlotItemId(null) == null, "Missing inventory slot is unknown");
         MutableWidget wrongType = emptyInventorySlot();
         wrongType.type = WidgetType.LAYER;
@@ -105,7 +94,8 @@ public final class BankSellerStartingWidgetsTest {
                 "Zero inventory item ID cannot prove a loaded slot");
     }
 
-    private static void fullInventoryRequiresEverySlotAndVisibleRoot() {
+    @Test
+    void fullInventoryRequiresEverySlotAndVisibleRoot() {
         MutableWidget inventory = emptyInventory();
         Map<Integer, Widget> widgets = new HashMap<>();
         widgets.put(InterfaceID.Inventory.ITEMS, inventory.widget);
@@ -141,7 +131,8 @@ public final class BankSellerStartingWidgetsTest {
         check(BankSellerStartingWidgets.inventoryIds(client) == null, "Missing inventory root remains unknown");
     }
 
-    private static void equipmentSlotsRequireTheirCompleteVerifiedLayout() {
+    @Test
+    void equipmentSlotsRequireTheirCompleteVerifiedLayout() {
         int emptySprite = EMPTY_SPRITES[0];
         check(BankSellerStartingWidgets.equipmentSlotItemId(null, emptySprite) == null,
                 "Missing equipment tile is unknown");
@@ -216,7 +207,8 @@ public final class BankSellerStartingWidgetsTest {
                 "A bare decorative tile never proves equipment empty");
     }
 
-    private static void equipmentItemsCannotConflictWithPlaceholders() {
+    @Test
+    void equipmentItemsCannotConflictWithPlaceholders() {
         int emptySprite = EMPTY_SPRITES[9];
         MutableWidget slot = emptyEquipmentSlot(emptySprite);
         MutableWidget item = slot.children[1];
@@ -247,7 +239,8 @@ public final class BankSellerStartingWidgetsTest {
                 "Even occupied equipment needs the expected hidden placeholder layout");
     }
 
-    private static void fullEquipmentIncludesRingAndAmmoAndRequiresEverySlot() {
+    @Test
+    void fullEquipmentIncludesRingAndAmmoAndRequiresEverySlot() {
         Map<Integer, Widget> widgets = new HashMap<>();
         MutableWidget[] slots = new MutableWidget[11];
         for (int index = 0; index < slots.length; index++) {
@@ -380,6 +373,5 @@ public final class BankSellerStartingWidgetsTest {
         if (!condition) {
             throw new AssertionError(message);
         }
-        assertions++;
     }
 }

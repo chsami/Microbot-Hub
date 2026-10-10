@@ -1,25 +1,10 @@
 package net.runelite.client.plugins.microbot.bankseller;
 
+import org.junit.jupiter.api.Test;
 /** Pure login readiness regressions; never starts or controls a game client. */
 public final class BankSellerLoginReadinessTest {
-    private static int assertions;
-
-    private BankSellerLoginReadinessTest() {
-    }
-
-    public static void main(String[] args) {
-        waitsForTwoRealGameTicks();
-        invalidObservationsNeverBindOrBecomeReady();
-        logoutAndLoadingResetReadinessButKeepBinding();
-        changedAccountLatchesEvenWhenSwitchingBack();
-        backwardsTickRequiresFreshReadiness();
-        timingResetDoesNotReleaseTheAccount();
-        newRunHasAnIndependentBinding();
-        largeTickValuesDoNotOverflow();
-        System.out.println("BankSellerLoginReadinessTest passed (" + assertions + " assertions)");
-    }
-
-    private static void waitsForTwoRealGameTicks() {
+    @Test
+    void waitsForTwoRealGameTicks() {
         BankSellerLoginReadiness guard = new BankSellerLoginReadiness();
         check(!guard.matchesProfile("account-a"), "Unobserved accounts must not match");
         check(!guard.observe(true, true, "account-a", 100), "First valid observation binds but is not ready");
@@ -34,7 +19,8 @@ public final class BankSellerLoginReadinessTest {
         check(!guard.accountChanged(), "Normal observations never claim an account switch");
     }
 
-    private static void invalidObservationsNeverBindOrBecomeReady() {
+    @Test
+    void invalidObservationsNeverBindOrBecomeReady() {
         BankSellerLoginReadiness guard = new BankSellerLoginReadiness();
         check(!guard.observe(false, true, "account-a", 100), "Logged-out observations are not ready");
         check(!guard.matchesProfile("account-a"), "Logged-out data cannot bind an account");
@@ -53,7 +39,8 @@ public final class BankSellerLoginReadinessTest {
         check(!guard.matchesProfile(""), "Empty never matches an established account");
     }
 
-    private static void logoutAndLoadingResetReadinessButKeepBinding() {
+    @Test
+    void logoutAndLoadingResetReadinessButKeepBinding() {
         BankSellerLoginReadiness guard = readyGuard();
         check(!guard.observe(false, false, "account-b", 500), "Logout invalidates readiness");
         check(!guard.accountChanged(), "An invalid logged-out profile is not a valid account switch");
@@ -71,7 +58,8 @@ public final class BankSellerLoginReadinessTest {
         check(guard.observe(true, true, "account-a", 608), "Readiness recovers only after fresh valid ticks");
     }
 
-    private static void changedAccountLatchesEvenWhenSwitchingBack() {
+    @Test
+    void changedAccountLatchesEvenWhenSwitchingBack() {
         BankSellerLoginReadiness guard = readyGuard();
         check(!guard.observe(true, true, "account-b", 102), "A valid different account is never ready");
         check(guard.accountChanged(), "Account switch is permanently latched");
@@ -86,7 +74,8 @@ public final class BankSellerLoginReadinessTest {
         check(guard.accountChanged(), "Invalid observations cannot clear a prior account switch");
     }
 
-    private static void backwardsTickRequiresFreshReadiness() {
+    @Test
+    void backwardsTickRequiresFreshReadiness() {
         BankSellerLoginReadiness guard = readyGuard();
         check(!guard.observe(true, true, "account-a", 50), "A backwards tick invalidates old readiness");
         check(guard.matchesProfile("account-a"), "Clock reset keeps the original account binding");
@@ -98,7 +87,8 @@ public final class BankSellerLoginReadinessTest {
         check(guard.observe(true, true, "account-a", 102), "Fresh valid clock can recover readiness");
     }
 
-    private static void timingResetDoesNotReleaseTheAccount() {
+    @Test
+    void timingResetDoesNotReleaseTheAccount() {
         BankSellerLoginReadiness guard = readyGuard();
         guard.resetTiming();
         check(guard.matchesProfile("account-a"), "Explicit reset preserves the bound account");
@@ -109,7 +99,8 @@ public final class BankSellerLoginReadinessTest {
         check(guard.accountChanged(), "A different account after reset still invalidates the run");
     }
 
-    private static void newRunHasAnIndependentBinding() {
+    @Test
+    void newRunHasAnIndependentBinding() {
         BankSellerLoginReadiness oldRun = readyGuard();
         oldRun.observe(true, true, "account-b", 104);
         BankSellerLoginReadiness newRun = new BankSellerLoginReadiness();
@@ -121,7 +112,8 @@ public final class BankSellerLoginReadinessTest {
         check(oldRun.accountChanged(), "A new instance does not alter the previous run");
     }
 
-    private static void largeTickValuesDoNotOverflow() {
+    @Test
+    void largeTickValuesDoNotOverflow() {
         BankSellerLoginReadiness guard = new BankSellerLoginReadiness();
         check(!guard.observe(true, true, "account-a", 0), "Large-clock test begins unready");
         check(guard.observe(true, true, "account-a", Integer.MAX_VALUE), "Elapsed tick calculation cannot overflow");
@@ -143,6 +135,5 @@ public final class BankSellerLoginReadinessTest {
         if (!condition) {
             throw new AssertionError(message);
         }
-        assertions++;
     }
 }

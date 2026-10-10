@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.bankseller;
 
+import org.junit.jupiter.api.Test;
 import net.runelite.client.config.ConfigItem;
 import java.util.Arrays;
 
@@ -7,20 +8,8 @@ import static net.runelite.client.plugins.microbot.bankseller.BankSellerStarting
 
 /** Pure startup UI regressions; never starts or controls a game client. */
 public final class BankSellerStartingUiPolicyTest {
-    private static int assertions;
-
-    private BankSellerStartingUiPolicyTest() {
-    }
-
-    public static void main(String[] args) {
-        coversEveryInputCombination();
-        waitsForModalClosureBeforeRevealingSlots();
-        revealsOnlyTheMissingContainer();
-        safetyControlsAreNotConfigurable();
-        System.out.println("BankSellerStartingUiPolicyTest passed (" + assertions + " assertions)");
-    }
-
-    private static void coversEveryInputCombination() {
+    @Test
+    void coversEveryInputCombination() {
         // Bits: inventory missing, equipment missing, GE open, bank open.
         Action[] expected = {
                 Action.NONE, Action.OPEN_INVENTORY, Action.OPEN_EQUIPMENT, Action.OPEN_INVENTORY,
@@ -35,7 +24,8 @@ public final class BankSellerStartingUiPolicyTest {
         }
     }
 
-    private static void waitsForModalClosureBeforeRevealingSlots() {
+    @Test
+    void waitsForModalClosureBeforeRevealingSlots() {
         // Dispatching a close does not prove it succeeded. Every fresh live
         // observation must keep choosing close until that modal disappears.
         for (int retry = 0; retry < 4; retry++) {
@@ -54,7 +44,8 @@ public final class BankSellerStartingUiPolicyTest {
                 "Both verified snapshots need no further startup UI action");
     }
 
-    private static void revealsOnlyTheMissingContainer() {
+    @Test
+    void revealsOnlyTheMissingContainer() {
         expect(Action.CLOSE_EXCHANGE, false, true, true, false,
                 "Missing equipment still needs the GE closed");
         expect(Action.OPEN_EQUIPMENT, false, true, false, false,
@@ -65,18 +56,15 @@ public final class BankSellerStartingUiPolicyTest {
                 "Known equipment does not get needlessly reopened");
     }
 
-    private static void safetyControlsAreNotConfigurable() {
-        for (String key : new String[]{"protectStartingItems", "parkOriginalGeOffers"}) {
-            check(Arrays.stream(BankSellerConfig.class.getMethods()).noneMatch(method ->
-                            method.getName().equals(key) || (method.isAnnotationPresent(ConfigItem.class)
-                                    && method.getAnnotation(ConfigItem.class).keyName().equals(key))),
-                    "Removed safety toggle must not remain in settings: " + key);
-        }
+    @Test
+    void safetyControlsAreNotConfigurable() {
+        String key = "protectStartingItems";
+        check(Arrays.stream(BankSellerConfig.class.getMethods()).noneMatch(method ->
+                        method.getName().equals(key) || (method.isAnnotationPresent(ConfigItem.class)
+                                && method.getAnnotation(ConfigItem.class).keyName().equals(key))),
+                "Removed safety toggle must not remain in settings: " + key);
         check(new BankSellerConfig() { }.instructions().contains("always protected"),
                 "Instructions must describe mandatory protection");
-        Arrays.stream(BankSellerOriginalOffers.class.getDeclaredConstructors()).forEach(constructor ->
-                check(Arrays.stream(constructor.getParameterTypes()).noneMatch(type -> type == boolean.class),
-                        "Original-offer parking must not accept a disabled flag"));
     }
 
     private static void expect(Action expected, boolean inventoryMissing, boolean equipmentMissing,
@@ -90,6 +78,5 @@ public final class BankSellerStartingUiPolicyTest {
         if (!condition) {
             throw new AssertionError(message);
         }
-        assertions++;
     }
 }

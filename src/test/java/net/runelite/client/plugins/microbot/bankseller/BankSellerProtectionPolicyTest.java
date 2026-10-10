@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.bankseller;
 
+import org.junit.jupiter.api.Test;
 import net.runelite.api.ItemComposition;
 
 import java.lang.reflect.Proxy;
@@ -13,32 +14,8 @@ import java.util.Set;
 
 /** Pure starting-item protection checks; never starts or controls a client. */
 public final class BankSellerProtectionPolicyTest {
-    private static int assertions;
-
-    private BankSellerProtectionPolicyTest() {
-    }
-
-    public static void main(String[] args) {
-        protectsInventoryAndEquipmentTogether();
-        notesAndUnnotedBankDuplicatesUseOneIdentity();
-        chargedVariantsRemainDistinct();
-        stackableItemsKeepTheirOwnIdentity();
-        unknownInputsFailClosed();
-        unknownDefinitionsFailClosed();
-        ignoresEmptySlotsButNotUnknownEntries();
-        completeEmptySnapshotsAreValid();
-        snapshotIsImmutableAndIndependentOfLaterChanges();
-        currenciesRemainProtectedWithoutInventingOtherIds();
-        fullyEmptySlotSnapshotsAllowAbsentContainers();
-        explicitRingAndAmmoRemainProtected();
-        incompleteSlotSnapshotsFailClosed();
-        invalidSlotValuesFailClosed();
-        realContainerTakesPriorityWithoutInventingEmptySlots();
-        resolvedSnapshotsAreCopiedAndImmutable();
-        System.out.println("BankSellerProtectionPolicyTest passed (" + assertions + " assertions)");
-    }
-
-    private static void protectsInventoryAndEquipmentTogether() {
+    @Test
+    void protectsInventoryAndEquipmentTogether() {
         Map<Integer, ItemComposition> definitions = definitions(4151, 11840, 565);
         Set<Integer> protectedIds = BankSellerProtectionPolicy.snapshotProtectedIds(
                 Arrays.asList(565, 4151), Arrays.asList(11840, 4151), definitions::get);
@@ -50,7 +27,8 @@ public final class BankSellerProtectionPolicyTest {
         check(!protectedIds.contains(5318), "Unrelated bank items must remain available to sell");
     }
 
-    private static void notesAndUnnotedBankDuplicatesUseOneIdentity() {
+    @Test
+    void notesAndUnnotedBankDuplicatesUseOneIdentity() {
         Map<Integer, ItemComposition> definitions = definitions(5318);
         definitions.put(5319, definition(5319, 799, 5318));
         Set<Integer> fromNote = BankSellerProtectionPolicy.snapshotProtectedIds(
@@ -66,7 +44,8 @@ public final class BankSellerProtectionPolicyTest {
         check(!fromBoth.contains(5319), "Raw note IDs must not enter the protected set");
     }
 
-    private static void chargedVariantsRemainDistinct() {
+    @Test
+    void chargedVariantsRemainDistinct() {
         Map<Integer, ItemComposition> definitions = definitions(11111, 11105, 2552, 2566);
         Set<Integer> protectedIds = BankSellerProtectionPolicy.snapshotProtectedIds(
                 Collections.singletonList(11111), Collections.singletonList(2566), definitions::get);
@@ -76,7 +55,8 @@ public final class BankSellerProtectionPolicyTest {
         check(!protectedIds.contains(2552), "A different ring charge variant must remain independent");
     }
 
-    private static void stackableItemsKeepTheirOwnIdentity() {
+    @Test
+    void stackableItemsKeepTheirOwnIdentity() {
         Map<Integer, ItemComposition> definitions = definitions(565, 566);
         definitions.put(565, definition(565, -1, 566));
         Set<Integer> protectedIds = BankSellerProtectionPolicy.snapshotProtectedIds(
@@ -85,7 +65,8 @@ public final class BankSellerProtectionPolicyTest {
                 "A real stackable item must not be protected under its linked note ID");
     }
 
-    private static void unknownInputsFailClosed() {
+    @Test
+    void unknownInputsFailClosed() {
         Map<Integer, ItemComposition> definitions = definitions(4151);
         check(BankSellerProtectionPolicy.snapshotProtectedIds(null, Collections.emptyList(), definitions::get) == null,
                 "An unavailable inventory must not be treated as empty");
@@ -97,7 +78,8 @@ public final class BankSellerProtectionPolicyTest {
                 "A completely unknown starting snapshot must fail closed");
     }
 
-    private static void unknownDefinitionsFailClosed() {
+    @Test
+    void unknownDefinitionsFailClosed() {
         Map<Integer, ItemComposition> definitions = definitions(4151);
         check(BankSellerProtectionPolicy.snapshotProtectedIds(
                 Arrays.asList(4151, 11840), Collections.emptyList(), definitions::get) == null,
@@ -120,7 +102,8 @@ public final class BankSellerProtectionPolicyTest {
                 "A malformed note identity must reject the snapshot");
     }
 
-    private static void ignoresEmptySlotsButNotUnknownEntries() {
+    @Test
+    void ignoresEmptySlotsButNotUnknownEntries() {
         Map<Integer, ItemComposition> definitions = definitions(4151);
         Set<Integer> protectedIds = BankSellerProtectionPolicy.snapshotProtectedIds(
                 Arrays.asList(-1, 0, 4151), Arrays.asList(-1, Integer.MIN_VALUE), definitions::get);
@@ -134,7 +117,8 @@ public final class BankSellerProtectionPolicyTest {
                 "An unknown equipment entry must reject a partially known snapshot");
     }
 
-    private static void completeEmptySnapshotsAreValid() {
+    @Test
+    void completeEmptySnapshotsAreValid() {
         Set<Integer> protectedIds = BankSellerProtectionPolicy.snapshotProtectedIds(
                 Collections.emptyList(), Collections.emptyList(), id -> {
                     throw new AssertionError("Empty containers must not request definitions");
@@ -149,7 +133,8 @@ public final class BankSellerProtectionPolicyTest {
                 "Containers with only explicit empty slots must produce a valid empty snapshot");
     }
 
-    private static void snapshotIsImmutableAndIndependentOfLaterChanges() {
+    @Test
+    void snapshotIsImmutableAndIndependentOfLaterChanges() {
         Map<Integer, ItemComposition> definitions = definitions(4151, 11840);
         List<Integer> inventory = new ArrayList<>(Collections.singletonList(4151));
         List<Integer> equipment = new ArrayList<>(Collections.singletonList(11840));
@@ -167,7 +152,8 @@ public final class BankSellerProtectionPolicyTest {
         expectImmutable(() -> empty.add(4151), "An empty snapshot must also be immutable");
     }
 
-    private static void currenciesRemainProtectedWithoutInventingOtherIds() {
+    @Test
+    void currenciesRemainProtectedWithoutInventingOtherIds() {
         Map<Integer, ItemComposition> definitions = definitions(995, 13204);
         Set<Integer> protectedIds = BankSellerProtectionPolicy.snapshotProtectedIds(
                 Arrays.asList(995, 13204), Collections.emptyList(), definitions::get);
@@ -175,7 +161,8 @@ public final class BankSellerProtectionPolicyTest {
                 "Starting currencies may be protected; independent sellability policy keeps them unsellable");
     }
 
-    private static void fullyEmptySlotSnapshotsAllowAbsentContainers() {
+    @Test
+    void fullyEmptySlotSnapshotsAllowAbsentContainers() {
         List<Integer> inventory = BankSellerProtectionPolicy.resolveContainerIds(
                 null, Collections.nCopies(28, -1), 28, true);
         List<Integer> equipment = BankSellerProtectionPolicy.resolveContainerIds(
@@ -192,7 +179,8 @@ public final class BankSellerProtectionPolicyTest {
                 "Verified empty inventory and naked equipment must produce no protected item IDs");
     }
 
-    private static void explicitRingAndAmmoRemainProtected() {
+    @Test
+    void explicitRingAndAmmoRemainProtected() {
         Map<Integer, ItemComposition> definitions = definitions(2552, 886, 5318);
         definitions.put(5319, definition(5319, 799, 5318));
         List<Integer> wornSlots = new ArrayList<>(Collections.nCopies(11, -1));
@@ -218,7 +206,8 @@ public final class BankSellerProtectionPolicyTest {
                 "Later noted bank withdrawals must match fallback-captured protection");
     }
 
-    private static void incompleteSlotSnapshotsFailClosed() {
+    @Test
+    void incompleteSlotSnapshotsFailClosed() {
         check(BankSellerProtectionPolicy.resolveContainerIds(null, null, 11, true) == null,
                 "An absent equipment container without UI slots must remain unknown");
         check(BankSellerProtectionPolicy.resolveContainerIds(null, Collections.emptyList(), 11, true) == null,
@@ -241,7 +230,8 @@ public final class BankSellerProtectionPolicyTest {
                 "A negative expected slot count must fail closed");
     }
 
-    private static void invalidSlotValuesFailClosed() {
+    @Test
+    void invalidSlotValuesFailClosed() {
         List<Integer> missingSlot = new ArrayList<>(Collections.nCopies(11, -1));
         missingSlot.set(10, null);
         check(BankSellerProtectionPolicy.resolveContainerIds(null, missingSlot, 11, true) == null,
@@ -261,7 +251,8 @@ public final class BankSellerProtectionPolicyTest {
                 "An invalid real-container value must not be replaced by empty UI data");
     }
 
-    private static void realContainerTakesPriorityWithoutInventingEmptySlots() {
+    @Test
+    void realContainerTakesPriorityWithoutInventingEmptySlots() {
         List<Integer> trimmedContainer = BankSellerProtectionPolicy.resolveContainerIds(
                 Arrays.asList(4151, -1, 0), Collections.nCopies(11, -1), 11, true);
         check(trimmedContainer.equals(Arrays.asList(4151, -1, 0)),
@@ -276,7 +267,8 @@ public final class BankSellerProtectionPolicyTest {
                 "A known empty real container must outrank incomplete or stale UI slots");
     }
 
-    private static void resolvedSnapshotsAreCopiedAndImmutable() {
+    @Test
+    void resolvedSnapshotsAreCopiedAndImmutable() {
         List<Integer> container = new ArrayList<>(Arrays.asList(4151, -1));
         List<Integer> fromContainer = BankSellerProtectionPolicy.resolveContainerIds(container, null, 28, false);
         container.set(0, 11840);
@@ -319,7 +311,6 @@ public final class BankSellerProtectionPolicyTest {
     }
 
     private static void expectImmutable(Runnable mutation, String message) {
-        assertions++;
         try {
             mutation.run();
         } catch (UnsupportedOperationException expected) {
@@ -329,7 +320,6 @@ public final class BankSellerProtectionPolicyTest {
     }
 
     private static void check(boolean condition, String message) {
-        assertions++;
         if (!condition) {
             throw new AssertionError(message);
         }

@@ -236,10 +236,6 @@ afterEvaluate {
     tasks.named('test').configure {
         dependsOn allPluginCompileTasks
     }
-
-    if (validPlugins.any { it.name == 'BankSellerPlugin' }) {
-        apply from: 'gradle/bankseller-regressions.gradle'
-    }
 }
 
 tasks.register("copyPluginDocs") {
