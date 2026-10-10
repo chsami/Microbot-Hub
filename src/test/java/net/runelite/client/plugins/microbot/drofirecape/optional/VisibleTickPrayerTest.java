@@ -120,12 +120,14 @@ public class VisibleTickPrayerTest {
                 "Activate",Rs2PrayerEnum.PROTECT_MAGIC.getName());
             verifyNoInteractions(f.actions);
             f.plan();verify(f.client,times(1)).menuAction(anyInt(),anyInt(),any(),anyInt(),anyInt(),anyString(),anyString());
-            assertFalse("A dispatched widget request still needs observed acknowledgement",f.driver.protectionReady());
+            assertTrue("An ordered native ON permits input on its dispatch tick",f.driver.protectionReady());
+            f.clock.addAndGet(570_000_000L);f.begin(101);f.plan();
+            assertFalse("An unobserved native ON cannot carry permission into the next tick",f.driver.protectionReady());
             when(f.client.getVarbitValue(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit())).thenReturn(1);
             f.plan();assertTrue(f.driver.protectionReady());
         }
     }
-    @Test public void betaMovementDoesNotHoldPrayerThroughVerifiedCooldownGap()throws Exception {
+    @Test public void nativeMovementRetainsItsGuardThroughVerifiedCooldownGap()throws Exception {
         try(Fixture f=new Fixture()) {
             when(f.client.getGameState()).thenReturn(GameState.LOGGED_IN);
             when(f.client.getLocalPlayer()).thenReturn(mock(Player.class));
@@ -141,11 +143,12 @@ public class VisibleTickPrayerTest {
                 f.driver.gameTick(f.frame(tick,List.of(mage)),Protection.NONE,f.clock.get());
                 f.clock.addAndGet(30_000_000L);f.plan();if(tick<110)f.clock.addAndGet(570_000_000L);
             }
+            clearInvocations(f.client);
             f.driver.primeMovement(110,Protection.MAGIC);f.plan();
-            assertEquals(Protection.NONE,f.driver.requested());
+            assertEquals(Protection.MAGIC,f.driver.requested());
             assertTrue(f.driver.movementReady(Protection.MAGIC));
-            assertTrue(f.driver.status().contains("BETA"));
-            verify(f.client,atLeastOnce()).menuAction(-1,Rs2PrayerEnum.PROTECT_MAGIC.getIndex(),MenuAction.CC_OP,1,-1,
+            assertTrue(f.driver.status().contains("Native widget"));
+            verify(f.client,never()).menuAction(-1,Rs2PrayerEnum.PROTECT_MAGIC.getIndex(),MenuAction.CC_OP,1,-1,
                 "Deactivate",Rs2PrayerEnum.PROTECT_MAGIC.getName());
             verifyNoInteractions(f.actions);
         }
@@ -203,6 +206,13 @@ public class VisibleTickPrayerTest {
             new Mob(2,Kind.HEALER,new Tile(27,28),1,10,10,-1,Protection.MELEE,aggro));
     }
     private void calibrateJad(Fixture f,boolean magicLast)throws Exception {
+        // Enabling input invalidates old cadence. Establish ownership before
+        // the three attack observations, so they really supply two intervals.
+        when(f.client.getVarbitValue(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit())).thenReturn(1);
+        when(f.client.getVarbitValue(Rs2PrayerEnum.PROTECT_RANGE.getVarbit())).thenReturn(0);
+        f.clock.set(400_000_000L);
+        f.driver.gameTick(f.frame(0,healerGapMobs(true),Protection.MAGIC),Protection.NONE,f.clock.get());
+        f.clock.addAndGet(30_000_000L);f.plan();
         for(int tick=1;tick<=22;tick++) {
             boolean magic=tick<9||tick>=17&&magicLast;
             when(f.client.getVarbitValue(Rs2PrayerEnum.PROTECT_MAGIC.getVarbit())).thenReturn(magic?1:0);
@@ -545,7 +555,7 @@ public class VisibleTickPrayerTest {
         }
     }
 
-    @Test public void expiredUnsentMovementRetryReleasesBetaAttackWindow()throws Exception {
+    @Test public void nativeAttackWindowRemainsAvailableAcrossExpiredMovementRetry()throws Exception {
         try(Fixture f=new Fixture()) {
             when(f.client.getGameState()).thenReturn(GameState.LOGGED_IN);
             when(f.client.getLocalPlayer()).thenReturn(mock(Player.class));
@@ -572,12 +582,12 @@ public class VisibleTickPrayerTest {
             f.clock.addAndGet(20_000_000L);
             f.driver.clientTick(true,false,movement.pending());
             f.driver.clientTick(true,false,movement.pending());
-            assertFalse(f.driver.attackInputWindow(100,250));
+            assertTrue("Native prayer input is independent of the movement cursor",f.driver.attackInputWindow(100,250));
             assertEquals(net.runelite.client.plugins.microbot.drofirecape.optional.core.MovementAck.Result.FAILED,
                 movement.observe(stopped,101));
             f.driver.clientTick(true,false,movement.pending());
             f.driver.clientTick(true,false,movement.pending());
-            assertTrue("Expiry must release a confirmed short attack window without changing prayer timing",
+            assertTrue("Expiry must preserve the confirmed attack window",
                 f.driver.attackInputWindow(100,250));
         }
     }

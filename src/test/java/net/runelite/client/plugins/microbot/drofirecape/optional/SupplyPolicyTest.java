@@ -185,7 +185,65 @@ public class SupplyPolicyTest {
         set(script,"lastSupplyAt",0L);assertTrue(invoke(script,"supplies",f));
         verify(actions,times(2)).itemStep(any(),anyString()); // A sent dose still waits for observed consumption.
     }
-    @Test public void halfPrayerTopUpSelectsBrewBeforeRestoreAndFullPrayerNeedsCheckbox()throws Exception {
+    @Test public void depletedPrayerRestoreDoesNotWaitForTheMissingOverheadItMustEnable()throws Exception {
+        DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
+        DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
+        when(config.restorePrayer()).thenReturn(25);when(owner.ownsInput()).thenReturn(true);
+        when(owner.protectionReady()).thenReturn(false);when(owner.optionalInputWindow(anyInt(),anyLong())).thenReturn(false);
+        when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
+        set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
+        FcFrame f=supplyFrame(99);set(f,"prayer",5);set(f,"inventory",List.of(item(3024,"Super restore(4)")));
+        set(script,"frame",f);assertTrue(invoke(script,"supplies",f));
+        verify(actions).itemStep(argThat(i->i.name().startsWith("Super restore(")),eq("Drink"));
+        verify(owner,never()).optionalInputWindow(anyInt(),anyLong());
+    }
+    @Test public void nonurgentBoostAndOptionalOverbrewStillWaitForPrayerAcknowledgement()throws Exception {
+        for(boolean overbrew:List.of(false,true)) {
+            DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
+            DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
+            when(config.eatPercent()).thenReturn(60);when(config.recoveryOverbrew()).thenReturn(overbrew);
+            when(owner.ownsInput()).thenReturn(true);when(owner.protectionReady()).thenReturn(false);
+            when(owner.optionalInputWindow(anyInt(),anyLong())).thenReturn(true);
+            when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
+            set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
+            FcFrame f=supplyFrame(overbrew?85:99);set(f,"cave",true);
+            String name=overbrew?"Saradomin brew(4)":"Ranging potion(4)";
+            set(f,"inventory",List.of(item(overbrew?6687:2444,name)));set(script,"frame",f);
+            ((WaveTracker)get(script,"waves")).restore(53);
+            assertTrue(invoke(script,"supplies",f));verify(actions,never()).itemStep(any(),anyString());
+            when(owner.protectionReady()).thenReturn(true);
+            assertTrue(invoke(script,"supplies",f));verify(actions).itemStep(argThat(i->i.name().equals(name)),eq("Drink"));
+        }
+    }
+    @Test public void activeHealingAboveThresholdBypassesAcknowledgementOnlyAtCriticalHealth()throws Exception {
+        for(boolean exposed:List.of(false,true)) {
+            DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
+            DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
+            when(config.eatPercent()).thenReturn(60);when(owner.ownsInput()).thenReturn(true);
+            when(owner.protectionReady()).thenReturn(false);
+            when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
+            set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
+            FcFrame f=supplyFrame(62);set(f,"maxHp",100);set(script,"frame",f);
+            if(exposed)set(f,"model",scene(new Mob(1,Kind.MAGER,new Tile(21,30),5,10,10,98,Protection.MAGIC,true)));
+            assertTrue(((BrewHealing)get(script,"brewHealing")).needed(55,100,60,false,true));
+            assertTrue(invoke(script,"supplies",f));
+            if(exposed)verify(actions).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
+            else verify(actions,never()).itemStep(any(),anyString());
+        }
+    }
+    @Test public void urgentHealingStillRequiresTheObservedJadOverhead()throws Exception {
+        DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);
+        DroFirecapeConfig config=mock(DroFirecapeConfig.class);FcTickPrayers owner=mock(FcTickPrayers.class);
+        when(config.eatPercent()).thenReturn(60);when(owner.ownsInput()).thenReturn(true);
+        when(owner.protectionReady()).thenReturn(false);when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
+        set(script,"actions",actions);set(script,"config",config);set(script,"tickPrayers",owner);
+        FcFrame f=supplyFrame(20);set(f,"cave",true);set(script,"frame",f);
+        set(f,"model",scene(new Mob(1,Kind.JAD,new Tile(35,30),5,10,10,98,Protection.MAGIC,true)));
+        assertFalse(invoke(script,"supplies",f));verify(actions,never()).itemStep(any(),anyString());
+        when(actions.overheadActive(Protection.MAGIC)).thenReturn(true);
+        assertTrue(invoke(script,"supplies",f));verify(actions).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
+    }
+    @Test public void lowPrayerAt85HpRestoresWithoutWastingABrewUnlessLateOverbrewIsEnabled()throws Exception {
         for(int wave:List.of(52,53))for(boolean enabled:List.of(false,true))for(int prayer:List.of(30,77)) {
             DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);DroFirecapeConfig config=mock(DroFirecapeConfig.class);
             when(config.eatPercent()).thenReturn(60);when(config.restorePrayer()).thenReturn(35);when(config.recoveryOverbrew()).thenReturn(enabled);
@@ -194,8 +252,11 @@ public class SupplyPolicyTest {
             FcFrame f=supplyFrame(85);set(f,"maxHp",100);set(f,"prayer",prayer);set(f,"maxPrayer",77);
             set(f,"inventory",List.of(item(6687,"Saradomin brew(4)"),item(3024,"Super restore(4)")));set(script,"frame",f);
             ((WaveTracker)get(script,"waves")).restore(wave);
-            boolean heal=enabled&&wave>=53||prayer==30;assertEquals(heal,invoke(script,"supplies",f));
+            // At 85/100 there is no room for a full 17-HP dose, and the normal
+            // threshold-60 recovery target is already met. Only late overbrew heals.
+            boolean heal=enabled&&wave>=53;assertEquals(heal||prayer==30,invoke(script,"supplies",f));
             if(heal)verify(actions).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
+            else if(prayer==30)verify(actions).itemStep(argThat(i->i.name().startsWith("Super restore(")),eq("Drink"));
             else verify(actions,never()).itemStep(any(),anyString());
         }
     }
@@ -206,17 +267,20 @@ public class SupplyPolicyTest {
         FcFrame f=supplyFrame(55);set(f,"maxHp",100);set(f,"prayer",77);set(f,"maxPrayer",77);
         set(f,"ranged",90);set(f,"baseRanged",99);set(f,"inventory",List.of(item(6687,"Saradomin brew(4)"),item(3024,"Super restore(4)")));set(script,"frame",f);
         assertTrue(invoke(script,"supplies",f));
-        SupplyAck ack=(SupplyAck)get(script,"supplyAck");ack.reset();set(script,"lastSupplyAt",0L);set(f,"hp",85);
+        SupplyAck ack=(SupplyAck)get(script,"supplyAck");ack.reset();set(script,"lastSupplyAt",0L);set(f,"hp",72);
         assertTrue(invoke(script,"supplies",f));verify(actions,times(2)).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
-        ack.reset();set(script,"lastSupplyAt",0L);set(f,"hp",100);set(script,"brewDebt",2);
+        ack.reset();set(script,"lastSupplyAt",0L);set(f,"hp",89);set(script,"brewDebt",2);
         assertTrue(invoke(script,"supplies",f));verify(actions).itemStep(argThat(i->i.name().startsWith("Super restore(")),eq("Drink"));
     }
-    @Test public void emergencyBrewWinsOverStatRestoreAtHighPrayer()throws Exception {
+    @Test public void threeConfirmedBrewsRequireRestoreBeforeAnotherEmergencyDose()throws Exception {
         DroFirecapeScript script=new DroFirecapeScript();FcActions actions=mock(FcActions.class);DroFirecapeConfig config=mock(DroFirecapeConfig.class);
         when(config.eatPercent()).thenReturn(60);when(actions.itemStep(any(),anyString())).thenReturn(FcActions.ItemResult.SENT);
         set(script,"actions",actions);set(script,"config",config);set(script,"brewDebt",3);
         FcFrame f=supplyFrame(20);set(f,"ranged",80);set(f,"baseRanged",99);set(f,"prayer",77);set(f,"maxPrayer",77);
         set(f,"inventory",List.of(item(6687,"Saradomin brew(4)"),item(3024,"Super restore(4)")));set(script,"frame",f);
+        assertTrue(invoke(script,"supplies",f));verify(actions).itemStep(argThat(i->i.name().startsWith("Super restore(")),eq("Drink"));
+        verify(actions,never()).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
+        ((SupplyAck)get(script,"supplyAck")).reset();set(script,"lastSupplyAt",0L);set(script,"brewDebt",0);
         assertTrue(invoke(script,"supplies",f));verify(actions).itemStep(argThat(i->i.name().startsWith("Saradomin brew(")),eq("Drink"));
     }
     @Test public void lowPrayerTopUpRestoresAfterFullEvenWithoutDrainedRanged()throws Exception {

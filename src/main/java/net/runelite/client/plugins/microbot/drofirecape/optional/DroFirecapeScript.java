@@ -1596,7 +1596,13 @@ public final class DroFirecapeScript extends Script {
         if(item!=null&&!supplyPreparation.ready(item.id(),now))return false;
         if(item!=null) synchronized(optionalInputLock) {
             FcTickPrayers owner=tickPrayers;
-            if(f.prayer>0&&owner!=null&&owner.ownsInput()&&!owner.protectionReady())return true;
+            boolean healingDose="Eat".equals(action)||item.name().toLowerCase(Locale.ROOT).startsWith("saradomin brew(");
+            boolean urgentDose=healingDose&&(f.hp*100<=f.maxHp*config.eatPercent()
+                ||FcSupplyPolicy.criticalHealth(f.model,f.hp,f.maxHp))
+                ||isPrayerPotion(item.name())&&f.prayer<=8;
+            // Threshold healing and depleted prayer must not wait indefinitely
+            // for ordinary overhead acknowledgement. Jad keeps its explicit gate.
+            if(f.prayer>0&&owner!=null&&owner.ownsInput()&&!owner.protectionReady()&&!urgentDose)return true;
             if(jad&&f.prayer>0&&!actions.overheadActive(jadProtection(f)))return false;
             if(jad&&!critical&&!jadActions.available(f.tick,jadAttackTick,true))return false;
             result=actions.itemStep(item,action);
