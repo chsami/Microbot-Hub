@@ -20,8 +20,9 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
 
 import static net.runelite.client.plugins.microbot.geflipper.FlipperOverlayPrivacyTest.*;
@@ -31,9 +32,10 @@ import static org.junit.jupiter.api.Assertions.*;
 public class FlipperSettingsLifecycleTest {
     @TempDir Path temporary;
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @SuppressWarnings("unchecked")
-    public void startupConfigEventsAndShutdownPreservePreferencesAndSharedSettings() throws Exception {
+    public void startupConfigEventsAndShutdownPreservePreferencesAndSharedSettings(boolean randomizeMouseSpeed) throws Exception {
         Logger own = (Logger) LoggerFactory.getLogger("net.runelite.client.plugins.microbot.geflipper");
         Level previousLevel = own.getLevel();
         boolean previousNatural = Rs2AntibanSettings.naturalMouse;
@@ -65,9 +67,11 @@ public class FlipperSettingsLifecycleTest {
             preferences.put("microbot.useStaminaPotsIfNeeded", "false");
             preferences.put("Flipper Config.waitingMouseOffScreen", "true");
             preferences.put("Flipper Config.waitingMouseChance", "77");
+            preferences.put("Flipper Config.randomizeMouseSpeed", Boolean.toString(randomizeMouseSpeed));
             Map<String, String> expected = new HashMap<>(preferences);
             FlipperConfig config = new FlipperConfig() {
                 @Override public boolean waitingMouseOffScreen() { return true; }
+                @Override public boolean randomizeMouseSpeed() { return randomizeMouseSpeed; }
             };
             FlipperOverlay overlay = new FlipperOverlay(plugin, config);
             field(FlipperPlugin.class, "config").set(plugin, config);
@@ -87,7 +91,7 @@ public class FlipperSettingsLifecycleTest {
             assertEmpty(overlay);
             ScheduledFuture<?> main = (ScheduledFuture<?>) field(Script.class, "mainScheduledFuture").get(script);
             assertFalse(main.isCancelled());
-            for (String key : new String[]{"slotActionMode", "verboseLogging", "waitingMouseOffScreen", "waitingMouseChance"}) {
+            for (String key : new String[]{"slotActionMode", "verboseLogging", "waitingMouseOffScreen", "waitingMouseChance", "randomizeMouseSpeed"}) {
                 ConfigChanged changed = new ConfigChanged();
                 changed.setGroup("Flipper Config");
                 changed.setKey(key);

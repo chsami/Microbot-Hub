@@ -35,7 +35,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.70";
+    public static final String version = "1.2.80";
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FlipperPlugin.class);
     @Inject
     private Client client;
@@ -103,17 +103,40 @@ public class FlipperPlugin extends Plugin {
         if (settingsPanelProvider != null && configManager != null) {
             waitingMouseSettings = new WaitingMouseSettings(this, config,
                 settingsPanelProvider.get().getWrappedPanel(),
-                value -> configManager.setConfiguration("Flipper Config", "waitingMouseChance", value),
+                this::saveWaitingMouseChance,
                 this::requestFinish, () -> flipperScript != null && flipperScript.isRunning()
-                    && !flipperScript.isFinishing());
+                    && !flipperScript.isFinishing(),
+                () -> flipperScript.waitingMouseFrequency(config),
+                () -> config.waitingMousePreset() != FlipperConfig.RandomizationPreset.DAY_FATIGUE
+                    || !config.randomizeMouseSpeed(),
+                () -> flipperScript.waitingMouseDescription(config));
             waitingMouseSettings.start();
         }
         if (overlay != null) {
             overlay.clearStats();
             if (overlayManager != null) overlayManager.add(overlay);
         }
+        flipperScript.setSettingsAvailabilityChanged(this::refreshWaitingMouseSettings);
+        flipperScript.setWaitingMouseFrequencyChanged(this::refreshWaitingMouseValue);
         flipperScript.run(config);
         refreshWaitingMouseSettings();
+    }
+
+    /** Only an explicit slider edit saves the manual value; config replay never writes settings. */
+    void saveWaitingMouseChance(int value) {
+        if (configManager == null) return;
+        synchronized (configManager) {
+            configManager.setConfiguration("Flipper Config", "waitingMousePreset",
+                FlipperConfig.RandomizationPreset.CUSTOM);
+            configManager.setConfiguration("Flipper Config", "waitingMouseChance",
+                Math.max(0, Math.min(100, value)));
+        }
+    }
+
+    /** Called only by the owned native speed checkbox's explicit enable action. */
+    void selectFatigueFromMouseSpeedClick() {
+        if (configManager != null) configManager.setConfiguration("Flipper Config", "waitingMousePreset",
+            FlipperConfig.RandomizationPreset.DAY_FATIGUE);
     }
 
     private void requestFinish() {
@@ -158,8 +181,20 @@ public class FlipperPlugin extends Plugin {
             warnIfSlotSwapOff();
         }
         if ("verboseLogging".equals(event.getKey())) applyOwnLogLevel();
+        if ("randomizeMouseSpeed".equals(event.getKey())) {
+            if (flipperScript != null) {
+                flipperScript.invalidateMouseMovement();
+                flipperScript.resetWaitingMouse();
+                flipperScript.waitingMouseFrequency(config);
+            }
+            refreshWaitingMouseSettings();
+        }
         if (event.getKey().startsWith("waitingMouse")) {
-            if (flipperScript != null) flipperScript.resetWaitingMouse();
+            if (flipperScript != null) {
+                flipperScript.resetWaitingMouse();
+                // Observe preset transitions even when its settings panel is hidden.
+                flipperScript.waitingMouseFrequency(config);
+            }
             refreshWaitingMouseSettings();
         }
         if ("showOverlay".equals(event.getKey()) && overlay != null && !config.showOverlay()) overlay.clearStats();
@@ -168,7 +203,8 @@ public class FlipperPlugin extends Plugin {
     @Subscribe
     public void onProfileChanged(ProfileChanged event) {
         if (flipperScript != null) {
-            flipperScript.resetWaitingMouse();
+            flipperScript.invalidateMouseMovement();
+            flipperScript.resetWaitingMousePresets();
             flipperScript.pauseFinishForProfileChange();
         }
         refreshWaitingMouseSettings();
@@ -176,8 +212,18 @@ public class FlipperPlugin extends Plugin {
 
     private void refreshWaitingMouseSettings() {
         WaitingMouseSettings panel = waitingMouseSettings;
-        if (panel != null) SwingUtilities.invokeLater(() -> {
+        if (panel == null) return;
+        Runnable refresh = () -> {
             if (waitingMouseSettings == panel) panel.refresh();
+        };
+        if (SwingUtilities.isEventDispatchThread()) refresh.run();
+        else SwingUtilities.invokeLater(refresh);
+    }
+
+    private void refreshWaitingMouseValue() {
+        WaitingMouseSettings panel = waitingMouseSettings;
+        if (panel != null) SwingUtilities.invokeLater(() -> {
+            if (waitingMouseSettings == panel) panel.refreshValue();
         });
     }
 
@@ -192,6 +238,8 @@ public class FlipperPlugin extends Plugin {
     @Override
     protected void shutDown() {
         lifecycleGeneration++;
+        flipperScript.setSettingsAvailabilityChanged(null);
+        flipperScript.setWaitingMouseFrequencyChanged(null);
         flipperScript.shutdown();
         flipperScript.state = State.GOING_TO_GE;
         if (waitingMouseSettings != null) waitingMouseSettings.close();

@@ -9,7 +9,7 @@ final class WaitingMouse {
     interface Context {
         boolean waiting();
         boolean insideCanvas();
-        void moveOffScreen();
+        boolean moveOffScreen();
     }
 
     interface RandomInt {
@@ -66,7 +66,12 @@ final class WaitingMouse {
                 reset();
                 return false;
             }
-            context.moveOffScreen();
+            boolean moved = false;
+            try {
+                moved = context.moveOffScreen();
+            } finally {
+                completeAttempt(currentGeneration, moved);
+            }
         }
         return true;
     }
@@ -93,10 +98,21 @@ final class WaitingMouse {
             return false;
         }
         if (now < nextCheck) return false;
-        nextCheck = now + random.inclusive(minimum, maximum);
-        if (random.inclusive(1, 100) > Math.min(100, frequency)) return false;
-        parked = true;
+        if (random.inclusive(1, 100) > Math.min(100, frequency)) {
+            nextCheck = now + random.inclusive(minimum, maximum);
+            return false;
+        }
         return true;
+    }
+
+    private synchronized void completeAttempt(long expectedGeneration, boolean moved) {
+        if (generation.get() != expectedGeneration) return;
+        parked = moved;
+        if (!moved) {
+            // Arm from the next observation so even a slow failed gesture receives a full delay.
+            armed = false;
+            nextCheck = 0;
+        }
     }
 
     synchronized void reset() {
@@ -104,4 +120,6 @@ final class WaitingMouse {
         armed = parked = false;
         nextCheck = 0;
     }
+
+    long generation() { return generation.get(); }
 }
