@@ -5,6 +5,7 @@ import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigInformation;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.Range;
+import net.runelite.http.api.worlds.WorldRegion;
 
 @ConfigGroup("AutoHunter")
 @ConfigInformation("Builds and maintains box traps in a compact five-dot layout around the initial session tile. "
@@ -47,9 +48,19 @@ public interface AutoHunterConfig extends Config {
             position = 4,
             keyName = "avoidOccupiedWorlds",
             name = "Avoid occupied worlds",
-            description = "After login or a world change, scan within the hunting radius for players and existing box traps. If occupied, try eligible Australian worlds of the same membership type, up to five attempts."
+            description = "After login or a world change, scan within the hunting radius for players and existing box traps. If occupied, try eligible worlds in the selected region of the same membership type, up to five attempts."
     )
     default boolean avoidOccupiedWorlds() {
         return true;
+    }
+
+    @ConfigItem(
+            position = 5,
+            keyName = "worldRegion",
+            name = "World region",
+            description = "Region used when avoiding occupied worlds. Choose a nearby region for lower ping and more responsive trap interactions. Only eligible worlds in this region are tried; changing this setting does not immediately hop worlds."
+    )
+    default WorldRegion worldRegion() {
+        return WorldRegion.UNITED_KINGDOM;
     }
 }

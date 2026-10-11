@@ -108,6 +108,7 @@ public class AutoChinScript extends Script {
     private volatile int activeTraps;
     private volatile int trapLimit = 1;
     private volatile int huntingRadius = 6;
+    private volatile WorldRegion worldRegion = WorldRegion.UNITED_KINGDOM;
     private volatile boolean humanizerEnabled = true;
     private volatile PendingAction pending;
     private volatile WorldPoint moveTarget;
@@ -231,6 +232,7 @@ public class AutoChinScript extends Script {
             if (currentState == State.STOPPED) return;
 
             huntingRadius = Math.max(1, config.huntingRadius());
+            worldRegion = config.worldRegion();
             humanizerEnabled = config.humanizerEnabled();
             if (worldArrivalPending) {
                 beginWorldArrival(config, currentWorld);
@@ -364,7 +366,7 @@ public class AutoChinScript extends Script {
         if (AutoHunterPlanner.isHuntingAreaOccupied(nearbyPlayers, nearbyTraps, persistentPlayer)) {
             String reason = "occupied: players=" + nearbyPlayers + " traps=" + nearbyTraps;
             rejectCurrentWorld(reason);
-            requestAustralianWorldHop(reason);
+            requestRegionWorldHop(reason);
             return;
         }
 
@@ -416,27 +418,27 @@ public class AutoChinScript extends Script {
         Microbot.log("AutoHunter occupancy: rejecting world " + world + " (" + reason + ")");
     }
 
-    private void requestAustralianWorldHop(String reason) {
+    private void requestRegionWorldHop(String reason) {
         if (worldHopAttempts >= MAX_WORLD_HOP_ATTEMPTS) {
-            stopSafely("No clear Australian hunting world after " + MAX_WORLD_HOP_ATTEMPTS + " attempts");
+            stopSafely("No clear hunting world in " + worldRegion + " after " + MAX_WORLD_HOP_ATTEMPTS + " attempts");
             return;
         }
-        Integer target = selectAustralianWorld();
+        Integer target = selectRegionWorld();
         if (target == null) {
-            stopSafely("No eligible Australian world is currently available");
+            stopSafely("No eligible world in " + worldRegion + " is currently available");
             return;
         }
         worldHopAttempts++;
         hopSourceWorld = Microbot.getClient().getWorld();
         hopTargetWorld = target;
         hopStartedAt = System.currentTimeMillis();
-        transition(State.HOPPING_WORLD, "Hopping to Australian world " + target + " (" + reason + ")");
+        transition(State.HOPPING_WORLD, "Hopping to " + worldRegion + " world " + target + " (" + reason + ")");
         Microbot.log("AutoHunter occupancy: hopping " + hopSourceWorld + " -> " + target
                 + " attempt=" + worldHopAttempts);
         Microbot.hopToWorld(target);
     }
 
-    private Integer selectAustralianWorld() {
+    private Integer selectRegionWorld() {
         long now = System.currentTimeMillis();
         rejectedWorlds.entrySet().removeIf(entry -> entry.getValue() <= now);
         WorldResult result = Microbot.getWorldService() == null ? null : Microbot.getWorldService().getWorlds();
@@ -445,7 +447,7 @@ public class AutoChinScript extends Script {
         int currentWorld = Microbot.getClient().getWorld();
         List<World> candidates = new ArrayList<>();
         for (World world : result.getWorlds()) {
-            if (world == null || world.getId() == currentWorld || world.getRegion() != WorldRegion.AUSTRALIA) continue;
+            if (world == null || world.getId() == currentWorld || world.getRegion() != worldRegion) continue;
             Set<WorldType> types = world.getTypes();
             if (types == null || types.contains(WorldType.MEMBERS) != members) continue;
             if (!Collections.disjoint(types, UNSAFE_WORLD_TYPES)) continue;
@@ -465,7 +467,7 @@ public class AutoChinScript extends Script {
             rejectedWorlds.put(hopTargetWorld, System.currentTimeMillis() + REJECTED_WORLD_COOLDOWN_MS);
             Microbot.log("AutoHunter occupancy: hop to world " + hopTargetWorld + " timed out");
         }
-        requestAustralianWorldHop("previous hop timed out");
+        requestRegionWorldHop("previous hop timed out");
     }
 
     private void requestBreakRecovery() {
