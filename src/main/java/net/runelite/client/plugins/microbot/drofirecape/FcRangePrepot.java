@@ -21,12 +21,13 @@ final class FcRangePrepot {
     }
     private enum Phase { START, DRINK, DOSE, OPEN, DEPOSIT, DEPOSITED, WITHDRAW, FULL, DONE }
     private Phase phase=Phase.START;
-    private String full,partial,status="";
+    private String full,partial,status="",missingSupply;
     private int fullCount,partialCount,at=-1;
     private boolean failed;
-    void reset(){phase=Phase.START;full=partial=null;at=-1;failed=false;status="";}
+    void reset(){phase=Phase.START;full=partial=null;at=-1;failed=false;status="";missingSupply=null;}
     String status(){return status;}
     boolean failed(){return failed;}
+    String missingSupply(){return missingSupply;}
     private void next(Phase p,int tick){phase=p;at=tick;}
     private static int count(List<FcFrame.ItemSlot> inv,String name){return inv.stream().filter(i->i.name().equalsIgnoreCase(name)).mapToInt(FcFrame.ItemSlot::quantity).sum();}
     boolean step(int tick,int ranged,int base,List<FcFrame.ItemSlot> inv,Input input) {
@@ -50,7 +51,7 @@ final class FcRangePrepot {
                 return false;
             case OPEN:
                 if(!input.bankOpen()){input.openBank();return false;}
-                if(!input.stocked(full)){failed=true;status="Bank needs a "+full+" to replace the pre-dose";return false;}
+                if(!input.stocked(full)){missingSupply=full;failed=true;status="Bank needs a "+full+" to replace the pre-dose";return false;}
                 next(Phase.DEPOSIT,tick);return false;
             case DEPOSIT:
                 if(!input.bankOpen()){input.openBank();return false;}

@@ -15,11 +15,11 @@ import javax.inject.Inject;
         name = PluginConstants.DRO + "KBD",
         description = "King Black Dragon trips with Lava Maze travel, Wilderness safety, and death recovery.",
         tags = {"kbd", "king black dragon", "boss", "wilderness"},
-        version = "1.1.7",
+        version = "1.1.8",
         authors = {"droplugins"},
         iconUrl = "https://chsami.github.io/Microbot-Hub/DroKbdPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/DroKbdPlugin/assets/card.png",
-        minClientVersion = "2.6.25",
+        minClientVersion = "2.6.31",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )

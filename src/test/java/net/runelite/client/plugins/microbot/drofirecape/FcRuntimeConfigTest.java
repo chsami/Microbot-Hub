@@ -26,6 +26,7 @@ class FcRuntimeConfigTest {
         DroFirecapeConfig raw=realProxy(manager);
         assertThrows(NullPointerException.class,raw::observeOnly);
         DroFirecapeConfig resolved=FcRuntimeConfig.resolve(raw);
+        assertSame(resolved,FcRuntimeConfig.resolve(resolved),"Repeat runs must not stack config adapters");
         DroFirecapeConfig defaults=new DroFirecapeConfig(){};
         for(Method method:DroFirecapeConfig.class.getDeclaredMethods()) {
             if(method.isDefault()&&method.getAnnotation(ConfigItem.class)==null&&!method.getName().equals("diagnostics")) {
