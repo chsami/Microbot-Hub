@@ -154,7 +154,7 @@ public class DroFirecapeScript extends Script {
         if(mainScheduledFuture!=null)mainScheduledFuture.cancel(true);
         if(scheduledFuture!=null)scheduledFuture.cancel(true);
         FcTickPrayers previous=tickPrayers;if(previous!=null)previous.detach();
-        config=configuration;keybindings.reset();if(pointerLease!=null)pointerLease.close();
+        config=FcRuntimeConfig.resolve(configuration);keybindings.reset();if(pointerLease!=null)pointerLease.close();
         meleeMode=config.meleeCape();
         pointerLease=null;resetVariantRun();lureResetAfterReturn=false;rangePrepot.reset();sweetCancelTick=sweetProgressTick=sweetRetryTick=-1;supplyAck.reset();supplyPreparation.reset();jadActions.reset();lastFailedMoveTick=-1;movement.reset();lures.reset();bowPrayer.reset();requestedCaveProtection=Protection.NONE;caveBaseX=caveBaseY=Integer.MIN_VALUE;cavePlane=-1;actions.reset();actions.observeOnly(observeOnly());
         tickPrayers=createTickPrayers();
