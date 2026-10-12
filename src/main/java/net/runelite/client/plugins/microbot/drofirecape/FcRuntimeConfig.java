@@ -22,6 +22,14 @@ final class FcRuntimeConfig implements InvocationHandler {
     }
 
     @Override public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        if (method.getDeclaringClass() == Object.class) {
+            switch (method.getName()) {
+                case "equals": return proxy == args[0];
+                case "hashCode": return System.identityHashCode(proxy);
+                case "toString": return settings.toString();
+                default: throw new IllegalStateException("Unexpected Object method: " + method);
+            }
+        }
         if (method.isDefault() && method.getAnnotation(ConfigItem.class) == null) {
             return MethodHandles.privateLookupIn(method.getDeclaringClass(), MethodHandles.lookup())
                     .unreflectSpecial(method, method.getDeclaringClass()).bindTo(proxy)

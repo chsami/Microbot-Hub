@@ -15,7 +15,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
 
-@PluginDescriptor(name = PluginConstants.DRO + "Firecape",version=DroFirecapePlugin.version,minClientVersion="2.6.31",enabledByDefault=PluginConstants.DEFAULT_ENABLED,
+@PluginDescriptor(name = PluginConstants.DRO + "Firecape",version=DroFirecapePlugin.version,minClientVersion="2.6.32",enabledByDefault=PluginConstants.DEFAULT_ENABLED,
     description="Fight Caves with preserved regular combat and isolated pure positioning / native tick prayers",
     authors={"droplugins"},
     iconUrl="https://chsami.github.io/Microbot-Hub/DroFirecapePlugin/assets/icon.png",

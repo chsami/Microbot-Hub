@@ -13,7 +13,7 @@ public class DroZulrahDescriptorTest
     @Test public void hubRefreshAndUnloadCanRecognizeThisExternalPlugin() {
         assertTrue(descriptor.isExternal(), "Hub sync and unload filter on the external descriptor flag");
         assertFalse(descriptor.enabledByDefault());
-        assertEquals("2.6.31", descriptor.minClientVersion());
+        assertEquals("2.6.32", descriptor.minClientVersion());
     }
 
     @Test public void runtimeLogReportsThePublishedPluginVersion() {

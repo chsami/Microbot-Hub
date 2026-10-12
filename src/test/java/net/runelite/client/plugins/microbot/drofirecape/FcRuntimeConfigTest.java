@@ -49,4 +49,32 @@ class FcRuntimeConfigTest {
         assertFalse(resolved.pureMode());
         assertFalse(resolved.nativeTickPrayers());
     }
+
+    @Test void regularAndOptionalControllerDefaultsAreUsableWithRealProxy() throws Exception {
+        DroFirecapeConfig resolved=FcRuntimeConfig.resolve(realProxy(mock(ConfigManager.class)));
+        for(DroFirecapeScript script:new DroFirecapeScript[]{new DroFirecapeScript(),new OptionalFirecapeScript()}) {
+            script.config=resolved;
+            assertFalse(script.observeOnly());
+            assertFalse(script.strictZeroExposure());
+            assertEquals(0,script.weaponRangeSetting());
+            assertTrue(script.rangingPotion());
+            assertTrue(script.demonstrationLures());
+            assertTrue(script.blowpipeSpecial());
+            assertTrue(script.useThralls());
+            assertFalse(script.exitOnDamage());
+            assertTrue(script.traceEnabled());
+        }
+    }
+
+    @Test void adapterHasStableIdentityAndCanBeReusedForRepeatedStarts() throws Exception {
+        DroFirecapeConfig raw=realProxy(mock(ConfigManager.class));
+        DroFirecapeConfig resolved=FcRuntimeConfig.resolve(raw);
+        assertEquals(resolved,resolved);
+        assertNotEquals(resolved,raw);
+        assertNotEquals(resolved,null);
+        assertEquals(System.identityHashCode(resolved),resolved.hashCode());
+        for(int i=0;i<100;i++)resolved=FcRuntimeConfig.resolve(resolved);
+        assertFalse(resolved.observeOnly());
+        assertEquals("DroFirecapeConfig",resolved.toString());
+    }
 }

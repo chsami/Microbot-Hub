@@ -19,7 +19,7 @@ import javax.inject.Inject;
         authors = {"droplugins"},
         iconUrl = "https://chsami.github.io/Microbot-Hub/DroKbdPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/DroKbdPlugin/assets/card.png",
-        minClientVersion = "2.6.31",
+        minClientVersion = "2.6.32",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
