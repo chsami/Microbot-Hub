@@ -10,12 +10,15 @@ import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
                 + "Do not substitute other teleport methods. For crossbows, the selected bolts must be saved in the equipped ammunition slot. "
                 + "Inventory/equipment reference images: https://imgur.com/a/j8OGZlu "
                 + "Trips return to Ferox Enclave to restore stats and bank. Wilderness travel remains dangerous; only risk items you are willing to lose. "
-                + "Weapon modes: Ruby bolts (e) and Ruby dragon bolts (e) use exactly 35 equipped bolts per trip; Toxic blowpipe skips ammunition handling and requires extended super antifire; Melee skips ammunition handling and the five-tile KBD spacing rule. "
+                + "Weapon modes: Ruby bolts (e) and Ruby dragon bolts (e) use the equipped bolt quantity saved in the selected Inventory Setup; Toxic blowpipe skips ammunition handling and requires extended super antifire; Melee skips ammunition handling and the five-tile KBD spacing rule. "
                 + "Ranged modes support ranging and divine ranging potions. Melee supports super combat and divine super combat potions. Anti-dragon and Dragonfire shields are both accepted where a shield is required."
 )
 public interface DroKbdConfig extends Config
 {
     String GROUP = "DroKBD";
+
+    @ConfigItem(keyName="hideOverlay",name="Hide overlay",description="Hide the compact session card while the script continues running.",position=5)
+    default boolean hideOverlay(){return false;}
 
     @ConfigItem(
             keyName = "selectedInventorySetup",
@@ -31,7 +34,7 @@ public interface DroKbdConfig extends Config
     @ConfigItem(
             keyName = "ammunition",
             name = "Weapon / ammunition",
-            description = "Choose Ruby bolts (e), Ruby dragon bolts (e), Toxic blowpipe, or Melee. Bolt modes equip exactly 35; Blowpipe and Melee perform no ammunition handling; Blowpipe requires extended super antifire.",
+            description = "Choose Ruby bolts (e), Ruby dragon bolts (e), Toxic blowpipe, or Melee. Bolt modes equip the quantity saved in the selected Inventory Setup; Blowpipe and Melee perform no ammunition handling; Blowpipe requires extended super antifire.",
             position = -1
     )
     default DroKbdAmmo ammunition()

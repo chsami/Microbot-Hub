@@ -48,7 +48,7 @@ public final class ZulrahRotationHelper
         reset();
         timer = null;
     }
-    public boolean showOverlay() { return config.showRotationHelperOverlay(); }
+    public boolean showOverlay() { return !config.hideOverlay() && config.showRotationHelperOverlay(); }
     private void reset() { npc = null; attackTicks = -1; clouds.clear(); projectiles.clear(); if (timer != null) timer.resetTimer(); }
 
     @Subscribe public void onAnimationChanged(AnimationChanged event) {

@@ -114,6 +114,20 @@ public class SlotActionExecutorTest {
     }
 
     @Test
+    public void cancelledHoverStopsBothSlotActionsBeforeWaitingOrClicking() {
+        for (SlotActionExecutor.Action action : SlotActionExecutor.Action.values()) {
+            FakeUi ui = new FakeUi();
+            ui.hoverReady = false;
+
+            assertEquals(MENU_NOT_READY, SlotActionExecutor.execute(COPILOT_LEFT_CLICK, action, SLOT_ID, ui));
+
+            assertEquals(Arrays.asList("hover"), ui.operations);
+            assertEquals(0, ui.clicks);
+            assertEquals(0, ui.invocations);
+        }
+    }
+
+    @Test
     public void changedMenuAtFinalValidationDoesNotReportSuccessOrInvokeFallback() {
         FakeUi ui = new FakeUi();
         ui.finalValidation = false;
@@ -210,6 +224,7 @@ public class SlotActionExecutorTest {
     }
 
     private static final class FakeUi implements SlotActionExecutor.Ui {
+        boolean hoverReady = true;
         final List<String> operations = new ArrayList<>();
         boolean swapEnabled = true;
         boolean menuReady = true;
@@ -235,10 +250,11 @@ public class SlotActionExecutorTest {
         }
 
         @Override
-        public void hover(Point point) {
+        public boolean hover(Point point) {
             assertSame(this.point, point);
             hoveredPoint = point;
             operations.add("hover");
+            return hoverReady;
         }
 
         @Override

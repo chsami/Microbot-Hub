@@ -1,0 +1,236 @@
+[
+  {
+    "tick": 8284,
+    "wave": 58,
+    "player": [
+      54,
+      36
+    ],
+    "mobs": [
+      {
+        "index": 57538,
+        "kind": "MAGER",
+        "tile": [
+          35,
+          24
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 8282,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 57539,
+        "kind": "MELEER",
+        "tile": [
+          50,
+          32
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 8279,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 57541,
+        "kind": "BLOB",
+        "tile": [
+          52,
+          30
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "main-027-0.geometry.json",
+    "interaction": -1,
+    "hp": 66,
+    "prayer": 26
+  },
+  {
+    "tick": 8285,
+    "wave": 58,
+    "player": [
+      54,
+      36
+    ],
+    "mobs": [
+      {
+        "index": 57538,
+        "kind": "MAGER",
+        "tile": [
+          35,
+          24
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 8282,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 57539,
+        "kind": "MELEER",
+        "tile": [
+          50,
+          32
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 8279,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 57541,
+        "kind": "BLOB",
+        "tile": [
+          52,
+          30
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "main-027-0.geometry.json",
+    "interaction": -1,
+    "hp": 66,
+    "prayer": 26
+  },
+  {
+    "tick": 8286,
+    "wave": 58,
+    "player": [
+      54,
+      36
+    ],
+    "mobs": [
+      {
+        "index": 57538,
+        "kind": "MAGER",
+        "tile": [
+          35,
+          24
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 8286,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      },
+      {
+        "index": 57539,
+        "kind": "MELEER",
+        "tile": [
+          50,
+          32
+        ],
+        "size": 4,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": 8279,
+        "style": "MELEE",
+        "attackingPlayer": true
+      },
+      {
+        "index": 57541,
+        "kind": "BLOB",
+        "tile": [
+          52,
+          30
+        ],
+        "size": 2,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MELEE",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "main-027-0.geometry.json",
+    "interaction": -1,
+    "hp": 66,
+    "prayer": 26
+  },
+  {
+    "tick": 9232,
+    "wave": 63,
+    "player": [
+      54,
+      36
+    ],
+    "mobs": [
+      {
+        "index": 41776,
+        "kind": "JAD",
+        "tile": [
+          55,
+          20
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "main-027-0.geometry.json",
+    "interaction": -1,
+    "hp": 77,
+    "prayer": 34
+  },
+  {
+    "tick": 9233,
+    "wave": 63,
+    "player": [
+      55,
+      36
+    ],
+    "mobs": [
+      {
+        "index": 41776,
+        "kind": "JAD",
+        "tile": [
+          55,
+          21
+        ],
+        "size": 5,
+        "healthRatio": -1,
+        "healthScale": -1,
+        "attackTick": -1,
+        "style": "MAGIC",
+        "attackingPlayer": true
+      }
+    ],
+    "range": 5,
+    "running": true,
+    "geometry": "main-027-0.geometry.json",
+    "interaction": -1,
+    "hp": 77,
+    "prayer": 34
+  }
+]

@@ -36,7 +36,7 @@ import java.util.*;
 )
 @Slf4j
 public class DiscordPlugin extends Plugin {
-    public static final String version = "1.0.1";
+    public static final String version = "1.0.2";
     @Inject
     private DiscordConfig config;
 

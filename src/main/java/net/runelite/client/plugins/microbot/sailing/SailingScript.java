@@ -30,7 +30,7 @@ public class SailingScript extends Script {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
 
-                if (config.salvaging()) {
+                if (config.salvaging() && !config.trials()) {
                     salvagingFeature.run(config);
                 }
 
@@ -40,7 +40,7 @@ public class SailingScript extends Script {
 
 
             } catch (Exception ex) {
-                log.trace("Exception in main loop: ", ex);
+                log.error("Exception in sailing main loop", ex);
             }
         }, 0, 100, TimeUnit.MILLISECONDS);
         return true;

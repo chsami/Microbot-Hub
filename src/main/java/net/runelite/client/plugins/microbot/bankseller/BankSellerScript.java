@@ -1,8 +1,11 @@
 package net.runelite.client.plugins.microbot.bankseller;
 
 import net.runelite.api.ChatMessageType;
+import net.runelite.api.GameState;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
+import net.runelite.api.InventoryID;
+import net.runelite.api.ItemContainer;
 import net.runelite.api.MenuAction;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarClientID;
@@ -19,12 +22,14 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
+import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.Rectangle;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -119,6 +124,22 @@ public class BankSellerScript extends Script {
      */
     private final Set<Integer> foreignSlotOrdinals = new HashSet<>();
 
+    /** Item types that already had a GE offer when the run started; never sold from the bank. */
+    private final Set<Integer> preExistingOfferItemIds = new HashSet<>();
+
+    private boolean stopRequested;
+    private boolean protectionSnapshotted;
+    private int protectionSnapshotAttempts;
+    private Set<Integer> protectedStartingItemIds = Collections.emptySet();
+    private BankSellerLoginReadiness startingLoginReadiness = new BankSellerLoginReadiness();
+    private String protectionSnapshotFailure;
+    private boolean protectionNeedsEquipmentTab;
+    private boolean protectionNeedsInventoryTab;
+    private List<Integer> pendingStartingInventoryIds;
+    private List<Integer> pendingStartingEquipmentIds;
+    private boolean energySettingOverridden;
+    private boolean previousEnergyItemSetting;
+
     private BankSellerPlugin plugin;
 
     /** True after a logged-in client snapshot established the foreign-slot boundary. */
@@ -158,12 +179,20 @@ public class BankSellerScript extends Script {
 
     public boolean run(BankSellerPlugin plugin) {
         Microbot.enableAutoRunOn = false;
+        if (!energySettingOverridden) {
+            previousEnergyItemSetting = Microbot.useStaminaPotsIfNeeded;
+            energySettingOverridden = true;
+        }
+        // Auto-drinking would change a protected potion's dose/item ID and
+        // allow the resulting variant to escape starting-item protection.
+        Microbot.useStaminaPotsIfNeeded = false;
         this.plugin = plugin;
         unsellableItemIds.clear();
         skippedItemIds.clear();
         transientFailureCounts.clear();
         ownedOfferItemIds.clear();
         foreignSlotOrdinals.clear();
+        preExistingOfferItemIds.clear();
         occupiedSlotsSnapshotted = false;
         tradeRestrictionText = null;
         bankDrained = false;
@@ -175,9 +204,52 @@ public class BankSellerScript extends Script {
         liquidationAttempts = 0;
         sessionOffersPlaced = 0;
         sessionStacksRefused = 0;
+        stopRequested = false;
+        protectionSnapshotted = false;
+        protectionSnapshotAttempts = 0;
+        protectedStartingItemIds = Collections.emptySet();
+        startingLoginReadiness = new BankSellerLoginReadiness();
+        protectionSnapshotFailure = null;
+        protectionNeedsEquipmentTab = false;
+        protectionNeedsInventoryTab = false;
+        pendingStartingInventoryIds = null;
+        pendingStartingEquipmentIds = null;
+        // Capture the enabled-state contents immediately when available, not
+        // after the scheduler first gets time to run. Unknown containers still
+        // fail closed and are retried before any banking or GE actions.
+        if (Microbot.isLoggedIn()) {
+            protectionSnapshotted = snapshotStartingProtection();
+        }
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
-                if (!Microbot.isLoggedIn()) return;
+                if (stopRequested || !Microbot.isLoggedIn()) return;
+                if (!protectionSnapshotted) {
+                    if (!snapshotStartingProtection()) {
+                        if (startingLoginReadiness.accountChanged()) {
+                            stopSafely("The account changed while starting-item protection was being captured; "
+                                    + "nothing has been banked or sold. Stopping.");
+                            return;
+                        }
+                        // Modal bank/GE panels hide the side tabs. Close only
+                        // their frame, then verify the missing slots on a later
+                        // tick, before any deposit, withdrawal, Abort or Collect.
+                        revealStartingProtectionTabs();
+                        if (++protectionSnapshotAttempts >= 10) {
+                            stopSafely("Unable to reliably snapshot starting inventory/equipment; "
+                                    + (protectionSnapshotFailure == null ? "" : protectionSnapshotFailure + "; ")
+                                    + "nothing has been banked or sold. Stopping.");
+                        }
+                        return;
+                    }
+                    protectionSnapshotted = true;
+                }
+                if (!clientValue(() -> startingLoginReadiness.matchesProfile(
+                        Microbot.getConfigManager().getRSProfileKey()), false)) {
+                    stopSafely("The account changed after starting-item protection was captured; "
+                            + "stopping before further banking or selling.");
+                    return;
+                }
+                Microbot.useStaminaPotsIfNeeded = false;
                 if (!super.run()) return;
                 if (!occupiedSlotsSnapshotted) {
                     if (!snapshotOccupiedSlots()) {
@@ -301,14 +373,30 @@ public class BankSellerScript extends Script {
                 GrandExchangeOffer offer = offers[i];
                 if (offer != null && offer.getItemId() > 0 && offer.getState() != GrandExchangeOfferState.EMPTY) {
                     foreignSlotOrdinals.add(i);
+                    preExistingOfferItemIds.add(offer.getItemId());
                 }
             }
             return true;
         }, false);
     }
 
+    @Override
+    public void shutdown() {
+        stopRequested = true;
+        try {
+            super.shutdown();
+        } finally {
+            if (energySettingOverridden) {
+                Microbot.useStaminaPotsIfNeeded = previousEnergyItemSetting;
+                energySettingOverridden = false;
+            }
+        }
+    }
+
     private boolean isSellable(Rs2ItemModel item) {
         return item.isTradeable()
+                && !protectedStartingItemIds.contains(item.getUnNotedId())
+                && !preExistingOfferItemIds.contains(item.getUnNotedId())
                 && !IGNORED_ITEM_IDS.contains(item.getUnNotedId())
                 && !unsellableItemIds.contains(item.getUnNotedId())
                 && !skippedItemIds.contains(item.getUnNotedId());
@@ -322,6 +410,125 @@ public class BankSellerScript extends Script {
         return item.isTradeable()
                 && !IGNORED_ITEM_IDS.contains(item.getUnNotedId())
                 && ownedOfferItemIds.contains(item.getUnNotedId());
+    }
+
+    /** This must run before any GE collection, bank deposit or withdrawal. */
+    private boolean snapshotStartingProtection() {
+        protectionNeedsInventoryTab = false;
+        protectionNeedsEquipmentTab = false;
+        Set<Integer> snapshot = clientValue(() -> {
+            String profile = Microbot.getConfigManager().getRSProfileKey();
+            boolean loggedIn = Microbot.getClient().getGameState() == GameState.LOGGED_IN;
+            boolean playerPresent = Microbot.getClient().getLocalPlayer() != null;
+            boolean stableLoggedIn = startingLoginReadiness.observe(loggedIn, playerPresent, profile,
+                    Microbot.getClient().getTickCount());
+            if (!loggedIn || !playerPresent || !startingLoginReadiness.matchesProfile(profile)) {
+                protectionSnapshotFailure = "Logged-in account data is not ready or has changed";
+                return null;
+            }
+            ItemContainer inventory = Microbot.getClient().getItemContainer(InventoryID.INVENTORY);
+            ItemContainer equipment = Microbot.getClient().getItemContainer(InventoryID.EQUIPMENT);
+            if ((inventory != null && inventory.getItems() == null)
+                    || (equipment != null && equipment.getItems() == null)) {
+                protectionSnapshotFailure = "An item container has incomplete slot data";
+                return null;
+            }
+            // Only one side-panel tab can be visible. Keep each independently
+            // verified starting snapshot so two absent empty containers do not
+            // cause endless inventory/equipment tab switching.
+            if (pendingStartingInventoryIds == null) {
+                pendingStartingInventoryIds = BankSellerProtectionPolicy.resolveContainerIds(
+                        BankSellerStartingWidgets.containerIds(inventory),
+                        inventory == null ? BankSellerStartingWidgets.inventoryIds(Microbot.getClient()) : null,
+                        28, stableLoggedIn);
+            }
+            if (pendingStartingEquipmentIds == null) {
+                pendingStartingEquipmentIds = BankSellerProtectionPolicy.resolveContainerIds(
+                        BankSellerStartingWidgets.containerIds(equipment),
+                        equipment == null ? BankSellerStartingWidgets.equipmentIds(Microbot.getClient()) : null,
+                        11, stableLoggedIn);
+            }
+            List<Integer> inventoryIds = pendingStartingInventoryIds;
+            List<Integer> equipmentIds = pendingStartingEquipmentIds;
+            if (inventoryIds == null || equipmentIds == null) {
+                protectionNeedsInventoryTab = inventoryIds == null && inventory == null;
+                protectionNeedsEquipmentTab = equipmentIds == null && equipment == null;
+                protectionSnapshotFailure = !stableLoggedIn && (inventory == null || equipment == null)
+                        ? "Waiting for stable login before verifying empty containers"
+                        : inventoryIds == null ? "Inventory slots could not be verified"
+                        : "Equipment slots (including ring/ammo) could not be verified";
+                return null;
+            }
+            Set<Integer> ids = BankSellerProtectionPolicy.snapshotProtectedIds(inventoryIds, equipmentIds,
+                    Microbot.getClient()::getItemDefinition);
+            if (ids == null) {
+                protectionSnapshotFailure = "A starting item's definition is unavailable";
+            }
+            return ids;
+        }, null);
+        if (snapshot == null) {
+            return false;
+        }
+        protectedStartingItemIds = snapshot;
+        protectionSnapshotFailure = null;
+        Microbot.log("[BankSeller] Protected " + snapshot.size() + " starting inventory/equipment item types");
+        return true;
+    }
+
+    private void revealStartingProtectionTabs() {
+        BankSellerStartingUiPolicy.Action action = clientValue(() -> BankSellerStartingUiPolicy.nextAction(
+                protectionNeedsInventoryTab, protectionNeedsEquipmentTab,
+                isVisible(Microbot.getClient().getWidget(InterfaceID.GeOffers.CONTENTS))
+                        || isVisible(Microbot.getClient().getWidget(InterfaceID.GeOffers.FRAME)),
+                isVisible(Microbot.getClient().getWidget(InterfaceID.Bankmain.UNIVERSE))
+                        || isVisible(Microbot.getClient().getWidget(InterfaceID.Bankmain.FRAME))), null);
+        if (action == null) {
+            protectionSnapshotFailure = "The startup interfaces could not be read";
+            return;
+        }
+        switch (action) {
+            case CLOSE_EXCHANGE:
+                closeStartingProtectionFrame(InterfaceID.GeOffers.FRAME, "Grand Exchange");
+                return;
+            case CLOSE_BANK:
+                closeStartingProtectionFrame(InterfaceID.Bankmain.FRAME, "bank");
+                return;
+            case OPEN_INVENTORY:
+                Rs2Tab.switchToInventoryTab();
+                return;
+            case OPEN_EQUIPMENT:
+                Rs2Tab.switchToEquipmentTab();
+                return;
+            default:
+                return;
+        }
+    }
+
+    /** Both 2.6.26 modal frames use child 11 for X; never use offer or bank action buttons. */
+    private void closeStartingProtectionFrame(int frameId, String name) {
+        boolean clicked = clientValue(() -> {
+            Widget frame = Microbot.getClient().getWidget(frameId);
+            return isVisible(frame) && clickWidget(frame.getChild(11));
+        }, false);
+        if (!clicked) {
+            protectionSnapshotFailure = "The " + name + " panel is blocking startup slot verification";
+        }
+    }
+
+    /** Login, reconnect and world-hop boundaries invalidate empty-widget readiness. */
+    public void resetStartingReadiness() {
+        clientValue(() -> {
+            startingLoginReadiness.resetTiming();
+            pendingStartingInventoryIds = null;
+            pendingStartingEquipmentIds = null;
+            return true;
+        }, false);
+    }
+
+    private void stopSafely(String message) {
+        stopRequested = true;
+        announce(message);
+        Microbot.stopPlugin(plugin);
     }
 
     private boolean hasSellableInventoryItems() {

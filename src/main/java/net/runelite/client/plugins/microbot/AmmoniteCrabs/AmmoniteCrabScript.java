@@ -1,6 +1,8 @@
 package net.runelite.client.plugins.microbot.AmmoniteCrabs;
 
 import net.runelite.api.GameState;
+import net.runelite.api.Player;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -240,13 +242,19 @@ public class AmmoniteCrabScript extends Script {
         if (npcs.isEmpty()) {
             return true;
         }
-        for (Rs2NpcModel ammoniteRock : npcs) {
-            if (!ammoniteRock.getNpc().getWorldArea().isInMeleeDistance(Microbot.getClient().getLocalPlayer().getWorldArea()))
-                continue;
-
-            return false;
-        }
-        return true;
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Player localPlayer = Microbot.getClient().getLocalPlayer();
+            if (localPlayer == null) {
+                return true;
+            }
+            WorldArea playerArea = localPlayer.getWorldArea();
+            for (Rs2NpcModel ammoniteRock : npcs) {
+                if (ammoniteRock.getNpc().getWorldArea().isInMeleeDistance(playerArea)) {
+                    return false;
+                }
+            }
+            return true;
+        }).orElse(true);
     }
 
     private void resetAggro(AmmoniteCrabConfig config) {
