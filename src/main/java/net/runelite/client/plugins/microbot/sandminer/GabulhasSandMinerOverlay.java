@@ -72,7 +72,7 @@ public class GabulhasSandMinerOverlay extends OverlayPanel {
             // Status
             panelComponent.getChildren().add(LineComponent.builder()
                     .left("Status:")
-                    .right(GabulhasSandMinerInfo.botStatus.toString().replace("_", " "))
+                    .right(GabulhasSandMinerInfo.botStatus == null ? "Starting" : GabulhasSandMinerInfo.botStatus.toString().replace("_", " "))
                     .rightColor(getStateColor(GabulhasSandMinerInfo.botStatus))
                     .build());
 
