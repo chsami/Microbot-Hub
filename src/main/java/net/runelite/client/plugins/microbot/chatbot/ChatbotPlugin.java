@@ -3,7 +3,9 @@ package net.runelite.client.plugins.microbot.chatbot;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
+import net.runelite.api.GameState;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -17,8 +19,8 @@ import java.awt.*;
 
 @PluginDescriptor(
 	name = PluginConstants.DEFAULT_PREFIX + "Chatbot",
-	description = "AI-powered chatbot using OpenAI. Reads in-game chat and responds intelligently.",
-	tags = {"chatbot", "openai", "ai", "chat", "gpt"},
+	description = "Chat replies with OpenAI, Gemini or a custom provider, safe previews and automatic rate-limit recovery.",
+	tags = {"chatbot", "openai", "gemini", "ai", "chat", "gpt"},
 	authors = { "Bender" },
 	version = ChatbotPlugin.version,
 	minClientVersion = "1.9.8",
@@ -28,13 +30,19 @@ import java.awt.*;
 @Slf4j
 public class ChatbotPlugin extends Plugin {
 
-    static final String version = "1.0.0";
+    static final String version = "1.1.2";
 
     @Inject
     private ChatbotConfig config;
 
+    @Inject
+    private ConfigManager configManager;
+
     @Provides
     ChatbotConfig provideConfig(ConfigManager configManager) {
+        // The client fills default config values before startUp. Migrate while
+        // an absent new setting still means the player has not chosen it.
+        migrateCooldown(configManager);
         return configManager.getConfig(ChatbotConfig.class);
     }
 
@@ -49,6 +57,7 @@ public class ChatbotPlugin extends Plugin {
 
     @Override
     protected void startUp() throws AWTException {
+        migrateCooldown(configManager);
         if (overlayManager != null) {
             overlayManager.add(chatbotOverlay);
         }
@@ -63,6 +72,11 @@ public class ChatbotPlugin extends Plugin {
             overlayManager.remove(chatbotOverlay);
         }
         log.info("[Chatbot] Plugin stopped");
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event) {
+        chatbotScript.onLoginStateChanged(event.getGameState() == GameState.LOGGED_IN);
     }
 
     @Subscribe
@@ -84,9 +98,12 @@ public class ChatbotPlugin extends Plugin {
                 return;
             case CLAN_CHAT:
             case CLAN_GIM_CHAT:
-            case CLAN_GUEST_CHAT:
                 if (!config.listenClanChat()) return;
                 chatType = "clan";
+                break;
+            case CLAN_GUEST_CHAT:
+                if (!config.listenClanChat()) return;
+                chatType = "guestclan";
                 break;
             case FRIENDSCHAT:
                 if (!config.listenFriendsChat()) return;
@@ -103,5 +120,24 @@ public class ChatbotPlugin extends Plugin {
 
         // Enqueue for the script to process
         chatbotScript.enqueueMessage(sender, message, chatType);
+    }
+
+    private void migrateCooldown(ConfigManager configManager) {
+        if (configManager.getConfiguration(ChatbotConfig.configGroup, "cooldownMinSeconds") != null) {
+            return;
+        }
+        String savedCooldown = configManager.getConfiguration(ChatbotConfig.configGroup, "cooldownSeconds");
+        if (savedCooldown == null) {
+            return;
+        }
+        try {
+            int seconds = Integer.parseInt(savedCooldown.trim());
+            configManager.setConfiguration(ChatbotConfig.configGroup, "cooldownMinSeconds", Math.max(5, Math.min(120, seconds)));
+            if (configManager.getConfiguration(ChatbotConfig.configGroup, "cooldownMaxSeconds") == null) {
+                configManager.setConfiguration(ChatbotConfig.configGroup, "cooldownMaxSeconds", Math.max(15, Math.min(300, seconds)));
+            }
+        } catch (NumberFormatException ex) {
+            log.debug("[Chatbot] Invalid saved cooldown; using default request pacing");
+        }
     }
 }

@@ -70,4 +70,16 @@ public class DroZulrahProfileConfigTest
         assertEquals(0, setting(actual, "logoutBreakChance"));
         assertFalse(new BaseProfileDro(actual).forceParkCompletelyOffScreen());
     }
+    @Test public void allNineControlsAreDiscoverableInExpandedSmartBreakSection() throws Exception {
+        java.util.Set<String> keys = new java.util.HashSet<>();
+        for (java.lang.reflect.Method method : DroZulrahConfig.class.getMethods()) {
+            net.runelite.client.config.ConfigItem item = method.getAnnotation(net.runelite.client.config.ConfigItem.class);
+            if (item != null && item.section().equals(DroZulrahConfig.breakSection)) keys.add(item.keyName());
+        }
+        assertEquals(9,keys.size());
+        assertTrue(keys.contains("smartBreaks"));assertTrue(keys.contains("minBreakIntervalMinutes"));
+        assertTrue(keys.contains("maxBreakIntervalMinutes"));assertTrue(keys.contains("postLoginSettleSeconds"));
+        assertFalse(DroZulrahConfig.class.getField("breakSection")
+                .getAnnotation(net.runelite.client.config.ConfigSection.class).closedByDefault());
+    }
 }

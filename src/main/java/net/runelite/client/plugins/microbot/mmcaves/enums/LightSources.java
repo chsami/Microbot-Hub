@@ -9,7 +9,9 @@ public enum LightSources {
     SAPPHIRE_LANTERN("Sapphire lantern"),
     EMERALD_LANTERN("Emerald lantern"),
     BRUMA_TORCH("Bruma torch"),
-    ABBYSAL_LANTERN("Abbysal lantern");
+    ABBYSAL_LANTERN("Abbysal lantern"),
+    FIREMAKING_CAPE("Firemaking cape"),
+    FIREMAKING_CAPE_T("Firemaking cape(t)");
 
     private final String itemName;
 

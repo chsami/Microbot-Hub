@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.58]
+
+### Added
+- **Barracuda Trials start**: Auto Navigate starts the configured Target Rank from Rum-dashed Ralph's trial selection.
+- **Trials camera**: Auto Navigate turns the camera toward the next waypoint while sailing.
+
+### Fixed
+- **Tempor Tantrum Marlin supplies**: Supply waypoints, including the final lap supply point at 3037, 2761, must be reached within one tile and are never skipped.
+- **Trials stability**: Boat location lookups tolerate missing world views, decorations are removed only from their own scene, and salvaging is paused while Trials is enabled.
+
+---
+
 ## [2.2.57]
 
 ### Added

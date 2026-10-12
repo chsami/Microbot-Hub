@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -18,6 +19,7 @@ import javax.inject.Inject;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @PluginDescriptor(
         name = "MM Caves",
@@ -30,7 +32,7 @@ import java.util.Set;
 )
 @Slf4j
 public class MmCavesPlugin extends Plugin {
-    public static String version = "1.0.2";
+    public static String version = "1.0.3";
 
     @Inject
     private MmCavesConfig config;
@@ -42,6 +44,7 @@ public class MmCavesPlugin extends Plugin {
     }
 
     @Inject
+    @Getter
     private MmCavesScript script;
 
     @Inject
@@ -51,15 +54,17 @@ public class MmCavesPlugin extends Plugin {
     private MmCavesOverlay mmCavesOverlay;
 
     @Getter
-    private WorldPoint myWorldPoint;
+    private volatile WorldPoint myWorldPoint;
 
-    private final Set<Integer> checkedWorlds = new HashSet<>();
+    private final Set<Integer> checkedWorlds = ConcurrentHashMap.newKeySet();
 
     public String state = "test";
 
     @Override
     protected void startUp() {
         this.startTime = Instant.now();
+        myWorldPoint = null;
+        checkedWorlds.clear();
         
         if (overlayManager != null) {
             overlayManager.add(mmCavesOverlay);
@@ -70,14 +75,18 @@ public class MmCavesPlugin extends Plugin {
 
     @Override
     protected void shutDown() {
+        script.stopHoverTracking();
         script.shutdown();
+        script.releaseRangedPrayer();
         overlayManager.remove(mmCavesOverlay);
     }
 
     @Subscribe
     public void onGameTick(GameTick gameTick) {
-        if (Microbot.isLoggedIn()) {
+        if (Microbot.isLoggedIn() && Microbot.getClient().getLocalPlayer() != null) {
             myWorldPoint = Microbot.getClient().getLocalPlayer().getWorldLocation();
+        } else {
+            myWorldPoint = null;
         }
     }
 
@@ -104,5 +113,14 @@ public class MmCavesPlugin extends Plugin {
 
     public boolean isWorldChecked(int world) {
         return checkedWorlds.contains(world);
+    }
+
+    @Subscribe
+    public void onClientTick(ClientTick clientTick) {
+        script.onClientTick();
+    }
+
+    public Set<Integer> getCheckedWorlds() {
+        return new HashSet<>(checkedWorlds);
     }
 }

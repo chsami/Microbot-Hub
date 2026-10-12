@@ -1,0 +1,39 @@
+THIRD-PARTY NOTICES — DroFirecape source distribution
+
+The inherited source retains its existing file-level attribution. No upstream
+project is represented as endorsing this plugin or validating this release.
+
+1. Spawn mapping/generation: damencs/spawn-predictor, copyright (c) 2022 Damen.
+   See FC-SPAWN-PREDICTOR-LICENSE.txt, reproduced from the supplied 0.3.30 JAR.
+
+2. Collision/line-of-sight traversal: RuneLite WorldArea, copyright (c) 2018 Woox.
+   The complete terms remain at the top of both CollisionGrid.java copies.
+
+3. Original DRO contributions are distributed under BSD-2-Clause; see
+   LICENSE.txt. Inherited code retains its existing copyright notices and
+   license terms. Contributor acknowledgements are in CREDITS.txt.
+
+4. Attack animation catalogue reference (inherited attribution):
+   OreoCupcakes/kotori-plugins, Fight Caves helper port.
+   Copyright (c) 2018 Jordan Atwood.
+   Copyright (c) 2019 Ganom and Lucas.
+   All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

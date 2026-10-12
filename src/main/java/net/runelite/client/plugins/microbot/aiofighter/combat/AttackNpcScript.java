@@ -94,8 +94,9 @@ public class AttackNpcScript extends Script {
                     return;
 
                 WorldPoint playerLocation = Rs2Player.getWorldLocation();
-                if (playerLocation != null
-                        && config.centerLocation().distanceTo(playerLocation) < config.attackRadius()
+                if (playerLocation == null)
+                    return;
+                if (config.centerLocation().distanceTo(playerLocation) < config.attackRadius()
                         && !config.centerLocation().equals(new WorldPoint(0, 0, 0))
                         && AIOFighterPlugin.getState() != State.BANKING) {
                     if (ShortestPathPlugin.getPathfinder() != null)
@@ -277,7 +278,10 @@ public class AttackNpcScript extends Script {
 
 
                 } else {
-                    if (Rs2Player.getWorldLocation().isInArea(attackableArea)) {
+                    WorldPoint currentLocation = Rs2Player.getWorldLocation();
+                    if (currentLocation == null)
+                        return;
+                    if (currentLocation.isInArea(attackableArea)) {
                         Microbot.log(Level.INFO, "No attackable NPC found");
                         noNpcCount++;
                         if (noNpcCount > 60 && config.slayerMode()) {

@@ -8,6 +8,9 @@ import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ProjectileMoved;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.api.widgets.ComponentID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.game.ItemEquipmentStats;
@@ -135,6 +138,10 @@ public class DroZulrahScript extends Script
     private long lastDiagnosticLogAt;
     private boolean inventorySetupReady;
     private boolean feroxRestored;
+    private ZulrahFeroxReturn feroxReturn;
+    private volatile ZulrahDeathRecovery deathRecovery;
+    private boolean boatCameraAttempted;
+    private long nextBoatCameraAt;
     private long feroxBankReadyAt;
     private long poolDrinkIssuedAt;
     private long teleportClickIssuedAt;
@@ -207,6 +214,9 @@ public class DroZulrahScript extends Script
         this.nextAutoRetaliateAttemptAt = 0L;
         this.lastDiagnosticLogAt = 0L;
         this.feroxRestored = false;
+        this.feroxReturn = null;
+        this.deathRecovery = null;
+        this.boatCameraAttempted = false;
         this.feroxBankReadyAt = 0L;
         this.poolDrinkIssuedAt = 0L;
         this.teleportClickIssuedAt = 0L;
@@ -231,7 +241,14 @@ public class DroZulrahScript extends Script
         this.state = DroZulrahState.IDLE;
         this.status = "Waiting for login";
 
-        profile = new BaseProfileDro(profileSettings(config));
+        profile = new BaseProfileDro(profileSettings(config))
+                .setBreakSettingsUpdater(liveBreakSettings -> liveBreakSettings
+                        .customBreaksEnabled(config.smartBreaks())
+                        .breakIntervals(config.minBreakIntervalMinutes(), config.maxBreakIntervalMinutes())
+                        .logoutBreakChance(config.logoutBreakChance())
+                        .afkBreakDuration(config.afkBreakMinMinutes(), config.afkBreakMaxMinutes())
+                        .logoutBreakDuration(config.logoutBreakMinMinutes(), config.logoutBreakMaxMinutes())
+                        .postLoginSettleSeconds(config.postLoginSettleSeconds()));
 
         Microbot.log("[Dro] Zulrah " + BUILD + ": scheduler started; waiting for a logged-in player");
         if (watchdog != null) watchdog.shutdownNow();
@@ -260,6 +277,8 @@ public class DroZulrahScript extends Script
                 if (gameState == GameState.LOADING || gameState == GameState.HOPPING
                         || gameState == GameState.CONNECTION_LOST)
                 {
+                    if (feroxReturn != null) feroxReturn.pause(System.currentTimeMillis());
+                    if (deathRecovery != null) deathRecovery.pause(System.currentTimeMillis());
                     entryGate.reset();
                     state = DroZulrahState.TRAVELLING;
                     status = "Loading scene: " + gameState;
@@ -269,6 +288,8 @@ public class DroZulrahScript extends Script
                 operation = "Microbot guard";
                 if (!super.run())
                 {
+                    if (feroxReturn != null) feroxReturn.pause(System.currentTimeMillis());
+                    if (deathRecovery != null) deathRecovery.pause(System.currentTimeMillis());
                     maybeLogHeartbeat("Microbot guard paused loop");
                     return;
                 }
@@ -323,6 +344,8 @@ public class DroZulrahScript extends Script
 
         if (!Microbot.isLoggedIn())
         {
+            if (feroxReturn != null) feroxReturn.pause(System.currentTimeMillis());
+            if (deathRecovery != null) deathRecovery.pause(System.currentTimeMillis());
             if (System.currentTimeMillis() < sceneTransitionGraceUntil)
             {
                 state = DroZulrahState.TRAVELLING;
@@ -346,6 +369,12 @@ public class DroZulrahScript extends Script
         WorldPoint location = Rs2Player.getWorldLocation();
         if (location == null) return;
 
+        if (deathRecovery != null) {
+            operation = "death recovery";
+            tickDeathRecovery(location);
+            return;
+        }
+
         // A Zul-andra teleport is only considered successful after the world location actually
         // leaves Ferox. This prevents Rs2Inventory.interact()'s "item found" return value from
         // being mistaken for a completed teleport.
@@ -368,6 +397,8 @@ public class DroZulrahScript extends Script
             operation = "Ferox profile";
             if (profile != null && profile.tick(true, false, BaseProfileDro.MouseActivity.ACTIVE))
             {
+                if (feroxReturn != null) feroxReturn.pause(System.currentTimeMillis());
+                if (deathRecovery != null) deathRecovery.pause(System.currentTimeMillis());
                 state = DroZulrahState.BREAK;
                 status = profile.getProfileStatus();
                 return;
@@ -488,6 +519,12 @@ public class DroZulrahScript extends Script
             return false;
         }
 
+        if (deathRecovery == null && ZulrahDeathRecovery.spawnAt(startupLocation) != null) {
+            deathRecovery = new ZulrahDeathRecovery();
+            recoveryBankEpoch = -1;
+            recoveryApproachAt = 0L;
+        }
+
         // Match DroKBD's startup rule, but take the snapshot only now that a real player exists.
         // Starting in Ferox therefore skips the pool; later return/regear cycles still use it once.
         feroxRestored = FEROX_ENCLAVE.contains(startupLocation);
@@ -496,6 +533,7 @@ public class DroZulrahScript extends Script
         if (startupBankTrip) feroxRestored = true;
         feroxBankReadyAt = 0L;
         poolDrinkIssuedAt = 0L;
+        feroxReturn = null;
         teleportClickIssuedAt = 0L;
         nextTeleportRetryAt = 0L;
         teleportAttempts = 0;
@@ -557,59 +595,215 @@ public class DroZulrahScript extends Script
                 + " | location=" + location
                 + " | rotation=" + rotation + " | phase=" + phaseIndex
                 + " | initialized=" + runtimeInitialized
-                + " | setupReady=" + inventorySetupReady);
+                + " | setupReady=" + inventorySetupReady
+                + " | returnRoute=" + (feroxReturn == null ? "NONE" : feroxReturn.route)
+                + " | returnStep=" + (feroxReturn == null ? "NONE" : feroxReturn.stage()));
+    }
+
+    private final ZulrahFeroxReturn.Actions returnActions = new ZulrahFeroxReturn.Actions() {
+        public boolean initialize(ZulrahFeroxReturn.Route route) {
+            return tripAction(() -> {
+                Rs2Camera.setZoom(100);
+                return true;
+            });
+        }
+        public boolean turnPool() { return tripAction(() -> ZulrahTravelCamera.turnToObject(findFeroxPool())); }
+        public boolean walkPool(WorldPoint target) { return tripAction(() -> walkNoCamera(target)); }
+        public boolean walkKbd(WorldPoint target) { return tripAction(() -> Rs2Walker.walkTo(target, 2)); }
+        public void drink() {
+            // Keep the object click and return-value-independent one-click latch from Zulrah.
+            tripAction(() -> {
+                Rs2TileObjectModel pool = findFeroxPool();
+                if (pool == null) throw new IllegalStateException("Ferox pool is not loaded");
+                return pool.click("Drink");
+            });
+        }
+        public boolean park() { return tripAction(() -> profile.parkOffScreenForTrip()); }
+        public boolean walkBank(WorldPoint target) { return tripAction(() -> walkNoCamera(target)); }
+        public boolean openBank() { return tripAction(Rs2Bank::openBank); }
+        public boolean closeBank() { return tripAction(Rs2Bank::closeBank); }
+        public boolean skills() { return tripAction(() -> Rs2Tab.switchTo(InterfaceTab.SKILLS)); }
+        public boolean inventory() { return tripAction(() -> Rs2Tab.switchTo(InterfaceTab.INVENTORY)); }
+        public boolean hoverSkill(Skill skill) {
+            return tripAction(() -> {
+                Rectangle bounds = clientRead(() -> {
+                    int component = skill == Skill.MAGIC ? InterfaceID.Stats.MAGIC
+                            : skill == Skill.HITPOINTS ? InterfaceID.Stats.HITPOINTS : InterfaceID.Stats.RANGED;
+                    Widget widget = Microbot.getClient().getWidget(component);
+                    return widget == null || widget.isHidden() ? null : widget.getBounds();
+                }, null);
+                if (bounds == null || bounds.isEmpty()) return false;
+                Microbot.getMouse().move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+                return true;
+            });
+        }
+        public long completedAt(long ignored) { return System.currentTimeMillis(); }
+    };
+
+    private int recoveryBankEpoch = -1;
+    private long recoveryApproachAt;
+
+    private int recoveryRingId() {
+        // A missing charge variant is normal; never invoke the bank miss/retry wait for each one.
+        return clientRead(() -> Rs2Bank.bankItems().stream()
+                .filter(item -> item.getQuantity() > 0 && Arrays.stream(RINGS_OF_DUELING).anyMatch(id -> id == item.getId()))
+                .mapToInt(Rs2ItemModel::getId).min().orElse(-1), -1);
+    }
+
+    private final ZulrahRecoveryBankRoute.Actions recoveryBankActions = new ZulrahRecoveryBankRoute.Actions() {
+        public boolean walk(WorldPoint target) { return tripAction(() -> walkNoCamera(target)); }
+        public boolean interact(int id, WorldPoint position, String action) {
+            Rs2TileObjectModel object = clientRead(() -> Microbot.getRs2TileObjectCache().query()
+                    .withId(id).where(o -> o.getWorldLocation().distanceTo(position) <= 1).nearest(), null);
+            if (object == null) return false;
+            WorldPoint here = Rs2Player.getWorldLocation();
+            if (here == null || (!ZulrahTravelCamera.objectVisible(object) && here.distanceTo(position) > 3)) return false;
+            return tripAction(() -> object.click(action));
+        }
+    };
+
+    private final ZulrahDeathRecovery.Actions deathActions = new ZulrahDeathRecovery.Actions() {
+        public void bank(ZulrahDeathRecovery.Spawn spawn) {
+            ZulrahDeathRecovery recovery = deathRecovery;
+            if (recovery != null) recovery.bankRoute.tick(spawn, Rs2Player.getWorldLocation(),
+                    clientRead(Rs2Player::isMoving, false), System.currentTimeMillis(), recoveryBankActions);
+        }
+        public void withdrawRing() {
+            tripAction(() -> {
+                if (!Rs2Bank.setWithdrawAsItem()) return false;
+                int id = recoveryRingId();
+                return id > 0 && Rs2Bank.withdrawOne(id);
+            });
+        }
+        public void withdrawTeleport() {
+            tripAction(() -> Rs2Bank.setWithdrawAsItem() && Rs2Bank.withdrawOne(ZUL_ANDRA_TELEPORT));
+        }
+        public void closeBank() { tripAction(Rs2Bank::closeBank); }
+        public boolean teleport() { return tripAction(() -> Rs2Inventory.interact(ZUL_ANDRA_TELEPORT, "Teleport")); }
+        public boolean collect() {
+            net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel priestess = clientRead(() -> Microbot.getRs2NpcCache().query()
+                    .withName("Priestess Zul-Gwenwynig").nearest(), null);
+            if (priestess == null) return false;
+            WorldPoint target = clientRead(priestess::getWorldLocation, null);
+            WorldPoint here = Rs2Player.getWorldLocation();
+            if (target == null || here == null) return false;
+            if (here.distanceTo(target) > 4) {
+                long now = System.currentTimeMillis();
+                if (now < recoveryApproachAt || clientRead(Rs2Player::isMoving, false)) return false;
+                if (tripAction(() -> walkNoCamera(new WorldPoint(2210, 3057, 0)))) recoveryApproachAt = System.currentTimeMillis() + 1500L;
+                return false;
+            }
+            return tripAction(() -> priestess.click("Collect"));
+        }
+        public boolean reclaim() {
+            return tripAction(() -> Rs2Widget.isWidgetVisible(InterfaceID.GravestoneRetrieval.ITEMS_CONTAINER)
+                    && Rs2Widget.clickWidget(InterfaceID.GravestoneRetrieval.BUTTON));
+        }
+        public void clearInterface() {
+            tripAction(() -> {
+                if (Rs2Dialogue.hasContinue()) { Rs2Dialogue.clickContinue(); return true; }
+                Rs2Widget.findWidgetsWithAction("Close", InterfaceID.GRAVESTONE_RETRIEVAL, true);
+                return true;
+            });
+        }
+        public boolean ferox() {
+            return tripAction(() -> Rs2Inventory.interact(RINGS_OF_DUELING, "Ferox Enclave")
+                    || Rs2Equipment.interact(RINGS_OF_DUELING, "Ferox Enclave"));
+        }
+    };
+
+    private void tickDeathRecovery(WorldPoint location) {
+        ZulrahDeathRecovery recovery = deathRecovery;
+        if (recovery == null) return;
+        ZulrahDeathRecovery.Frame f = clientRead(() -> {
+            ZulrahDeathRecovery.Frame frame = new ZulrahDeathRecovery.Frame();
+            frame.here = location;
+            frame.arena = isInZulrahInstance();
+            frame.bankOpen = Rs2Bank.isOpen();
+            frame.ring = hasRingOfDueling();
+            frame.teleport = Rs2Inventory.contains(ZUL_ANDRA_TELEPORT);
+            frame.inventoryFull = Rs2Inventory.isFull();
+            frame.carriedSlots = Rs2Inventory.fullSlotCount() + Rs2Equipment.items().size();
+            frame.retrievalOpen = Rs2Widget.isWidgetVisible(InterfaceID.GravestoneRetrieval.ITEMS_CONTAINER);
+            if (frame.retrievalOpen) frame.retrievalItems = net.runelite.client.plugins.microbot.util.death.Rs2Death.getDeathsOfficeItems().size();
+            frame.nothingToCollect = Rs2Dialogue.hasDialogueText("don't have anything for you to collect");
+            frame.hasContinue = Rs2Dialogue.hasContinue();
+            return frame;
+        }, null);
+        if (f == null) return;
+        // Observe a fresh container after opening before declaring required supplies absent.
+        if (!f.bankOpen) recoveryBankEpoch = Rs2Bank.getBankLiveEpoch();
+        f.bankReady = f.bankOpen && Rs2Bank.getBankLiveEpoch() > Math.max(0, recoveryBankEpoch);
+        if (f.bankReady && recovery.stage() == ZulrahDeathRecovery.Stage.SUPPLIES) {
+            f.ringStock = recoveryRingId() > 0;
+            f.teleportStock = clientRead(() -> Rs2Bank.bankItems().stream()
+                    .anyMatch(item -> item.getId() == ZUL_ANDRA_TELEPORT && item.getQuantity() > 0), false);
+        }
+        ZulrahDeathRecovery.Stage before = recovery.stage();
+        recovery.tick(f, System.currentTimeMillis(), deathActions);
+        state = DroZulrahState.RECOVERING;
+        status = recovery.status();
+        if (before != recovery.stage()) Microbot.log("[Dro] Zulrah death recovery: step=" + recovery.stage()
+                + " | status=" + status + " | location=" + location);
+        if (recovery.stopped()) {
+            String reason = recovery.status();
+            shutdown();
+            state = DroZulrahState.OUT_OF_SUPPLIES;
+            status = Microbot.status = reason;
+            Microbot.log("[Dro] Zulrah: " + reason);
+            javax.swing.SwingUtilities.invokeLater(() -> Microbot.showMessage(reason));
+        } else if (recovery.done()) {
+            deathRecovery = null;
+            startupBankTrip = false;
+            feroxRestored = false;
+            feroxReturn = null;
+            inventorySetupReady = false;
+            inventorySetup = null;
+            boatClickPending = false;
+            awaitingFightStart = false;
+            resetFightTracking();
+        }
+    }
+
+    private Rs2TileObjectModel findFeroxPool() {
+        Rs2TileObjectModel pool = Microbot.getRs2TileObjectCache().query().withId(FEROX_REFRESHMENT_POOL).nearest();
+        return pool != null ? pool : Microbot.getRs2TileObjectCache().query().withName("Pool of Refreshment").nearest();
+    }
+
+    /** Travel inputs only. Combat keeps its existing timing and action batch ownership. */
+    private boolean tripAction(java.util.function.BooleanSupplier input) {
+        BaseProfileDro active = profile;
+        if (active == null || Thread.currentThread().isInterrupted()) return false;
+        return active.performAction(BaseProfileDro.ActionPhase.SETUP, false,
+                () -> !Thread.currentThread().isInterrupted() && active == profile && input.getAsBoolean());
     }
 
     private void prepareTrip(WorldPoint location)
     {
         if (!feroxRestored)
         {
-            state = DroZulrahState.RESTORING;
-            long now = System.currentTimeMillis();
-
-            // Once the pool click has been issued, do not click it again. The old 100 ms loop
-            // could re-enter the branch before the restore animation/state settled. One click is
-            // sufficient; simply wait through the same settle window used by DroKBD.
-            if (poolDrinkIssuedAt > 0L)
+            if (feroxReturn == null)
             {
-                long elapsed = now - poolDrinkIssuedAt;
-                if (elapsed < FEROX_POOL_SETTLE_MS)
-                {
-                    status = "Waiting for Ferox pool restore";
-                    return;
-                }
-
+                feroxReturn = ZulrahFeroxReturn.select(bound -> Rs2Random.between(0, bound), Rs2Random::betweenInclusive);
+                Microbot.log("[Dro] Zulrah return selected: route=" + feroxReturn.route
+                        + " | poolAfk=" + feroxReturn.poolAfk + " | xpCheck=" + feroxReturn.xpCheck
+                        + " | xpSkill=" + feroxReturn.xpSkill
+                        + " | afkMs=" + feroxReturn.afkDuration + " | xpHoverMs=" + feroxReturn.xpDuration);
+            }
+            ZulrahFeroxReturn.Stage before = feroxReturn.stage();
+            feroxReturn.tick(location, clientRead(Rs2Player::isMoving, false), clientRead(Rs2Bank::isOpen, false),
+                    System.currentTimeMillis(), returnActions);
+            state = feroxReturn.stage().ordinal() < ZulrahFeroxReturn.Stage.BANK_APPROACH.ordinal()
+                    ? DroZulrahState.RESTORING : DroZulrahState.BANKING;
+            status = feroxReturn.status();
+            if (before != feroxReturn.stage()) Microbot.log("[Dro] Zulrah return: route=" + feroxReturn.route
+                    + " | step=" + feroxReturn.stage() + " | status=" + status + " | tile=" + location);
+            if (feroxReturn.ready())
+            {
                 feroxRestored = true;
                 poolDrinkIssuedAt = 0L;
-                feroxBankReadyAt = now + 250L;
-                status = "Ferox restore complete";
-                return;
+                feroxBankReadyAt = 0L;
             }
-
-            if (location.distanceTo(FEROX_POOL_POINT) > 3)
-            {
-                status = "Walking to Ferox pool";
-                action(BaseProfileDro.ActionPhase.SETUP, false, () -> walkNoCamera(FEROX_POOL_POINT));
-                return;
-            }
-
-            Rs2TileObjectModel pool = Microbot.getRs2TileObjectCache().query().withId(FEROX_REFRESHMENT_POOL).nearest();
-            if (pool == null)
-            {
-                pool = Microbot.getRs2TileObjectCache().query().withName("Pool of Refreshment").nearest();
-            }
-            if (pool != null)
-            {
-                final Rs2TileObjectModel poolToDrink = pool;
-                status = "Drinking Ferox pool - one click";
-
-                // Latch BEFORE invoking. Rs2TileObjectModel.click() reports true even if its
-                // internal invoke throws, so the latch must be independent of its return value.
-                poolDrinkIssuedAt = now;
-                action(BaseProfileDro.ActionPhase.SETUP, false, () -> poolToDrink.click("Drink"));
-                return;
-            }
-            status = "Waiting for Ferox pool";
             return;
         }
 
@@ -776,8 +970,7 @@ public class DroZulrahScript extends Script
                 + " | location=" + location
                 + " | setupReady=" + inventorySetupReady);
 
-        boolean invoked = action(BaseProfileDro.ActionPhase.SETUP, false,
-                () -> Rs2Inventory.interact(teleport, teleportAction));
+        boolean invoked = tripAction(() -> Rs2Inventory.interact(teleport, teleportAction));
         if (!invoked)
         {
             teleportClickIssuedAt = 0L;
@@ -793,10 +986,14 @@ public class DroZulrahScript extends Script
     {
         if (teleportClickIssuedAt <= 0L) return;
         startupBankTrip = false;
+        // The startup bank skip belongs to the outgoing trip only. A later Ferox arrival
+        // must run the pool route even when the return teleport was issued manually.
+        feroxRestored = false;
+        feroxReturn = null;
 
         operation = "teleport arrival / price";
         trips++;
-        travelCost += clientRead(() -> Math.max(0L, (long) itemManager.getItemPrice(ZUL_ANDRA_TELEPORT)), 0L);
+        travelCost += clientRead(() -> Math.max(0, itemManager.getItemPrice(ZUL_ANDRA_TELEPORT)), 0L);
         teleportClickIssuedAt = 0L;
         nextTeleportRetryAt = 0L;
         teleportAttempts = 0;
@@ -808,6 +1005,8 @@ public class DroZulrahScript extends Script
         fightContinueClicked = false;
         state = DroZulrahState.TRAVELLING;
         status = "Arrived at Zul-Andra";
+        boatCameraAttempted = false;
+        nextBoatCameraAt = System.currentTimeMillis() + Rs2Random.betweenInclusive(700, 1200);
         Microbot.log("[Dro] Zulrah: teleport arrival confirmed; proceeding to boat");
     }
 
@@ -832,9 +1031,20 @@ public class DroZulrahScript extends Script
         if (here == null) return;
 
         int distance = here.distanceTo(boat.getWorldLocation());
-        boolean clickable = clientRead(() -> boat.getClickbox() != null
-                && !boat.getClickbox().getBounds().isEmpty()
-                && Rs2Camera.isTileOnScreen(boat.getLocalLocation()), false);
+        boolean clickable = ZulrahTravelCamera.objectVisible(boat);
+        if (!boatCameraAttempted) Microbot.log("[Dro] Zulrah boat: route="
+                + (clickable ? "VISIBLE_DIRECT" : "CAMERA_TO_BOAT") + " | distance=" + distance);
+        if (!clickable && !boatCameraAttempted)
+        {
+            if (System.currentTimeMillis() < nextBoatCameraAt) {
+                status = "Pausing before boat camera recovery";
+                return;
+            }
+            boatCameraAttempted = true;
+            status = "Turning camera to offscreen boat";
+            tripAction(() -> ZulrahTravelCamera.turnToObject(boat));
+            clickable = ZulrahTravelCamera.objectVisible(boat);
+        }
         if (ZulrahBoatRoute.shouldApproach(distance, clickable, boatApproachRequired))
         {
             state = DroZulrahState.TRAVELLING;
@@ -844,14 +1054,25 @@ public class DroZulrahScript extends Script
                 if (boatApproach == null || here.distanceTo(boatApproach) <= 1)
                     boatApproach = randomBoatApproach(boat.getWorldLocation());
                 // Randomization is optional: an unavailable route must never suppress travel.
-                boolean dispatched = boatApproach != null && walkToBoatApproach(boatApproach);
-                if (!dispatched) dispatched = walkNoCamera(boat.getWorldLocation());
+                boolean dispatched = tripAction(() -> {
+                    boolean issued = boatApproach != null && walkToBoatApproach(boatApproach);
+                    return issued || walkNoCamera(boat.getWorldLocation());
+                });
                 if (dispatched) lastMoveMs = System.currentTimeMillis();
                 else status = "Waiting for boat approach scene";
             }
             return;
         }
 
+        if (!clickable) {
+            status = "Waiting for visible boat after camera/approach";
+            if (System.currentTimeMillis() - lastMoveMs >= 700L) {
+                boatCameraAttempted = false;
+                nextBoatCameraAt = System.currentTimeMillis() + Rs2Random.betweenInclusive(50, 300);
+                lastMoveMs = System.currentTimeMillis();
+            }
+            return;
+        }
         state = DroZulrahState.BOARDING;
         status = "Quick-boarding Zulrah - one click";
         boatApproachRequired = false;
@@ -865,7 +1086,7 @@ public class DroZulrahScript extends Script
         fightContinueClicked = false;
         entryGate.reset();
         operation = "boat click";
-        action(BaseProfileDro.ActionPhase.SETUP, false, () -> boat.click("Quick-board"));
+        tripAction(() -> boat.click("Quick-board"));
     }
 
     private boolean entryReady(Rs2NpcModel boss)
@@ -1641,12 +1862,13 @@ public class DroZulrahScript extends Script
         disableCombatPrayers();
         Rs2Combat.setAutoRetaliate(false);
 
-        boolean teleported = action(BaseProfileDro.ActionPhase.SETUP, false,
+        boolean teleported = tripAction(
                 () -> Rs2Inventory.interact(RINGS_OF_DUELING, "Ferox Enclave")
                         || Rs2Equipment.interact(RINGS_OF_DUELING, "Ferox Enclave"));
         if (teleported)
         {
             feroxRestored = false;
+            feroxReturn = null;
             feroxBankReadyAt = 0L;
             poolDrinkIssuedAt = 0L;
             teleportClickIssuedAt = 0L;
@@ -2091,11 +2313,15 @@ public class DroZulrahScript extends Script
         if (actor != null && actor == Microbot.getClient().getLocalPlayer())
         {
             deaths++;
+            deathRecovery = new ZulrahDeathRecovery();
+            recoveryBankEpoch = -1;
+            recoveryApproachAt = 0L;
             inFight = false;
             killLootUntil = 0L;
             inventorySetupReady = false;
             inventorySetup = null;
             feroxRestored = false;
+            feroxReturn = null;
             poolDrinkIssuedAt = 0L;
             teleportClickIssuedAt = 0L;
             nextTeleportRetryAt = 0L;

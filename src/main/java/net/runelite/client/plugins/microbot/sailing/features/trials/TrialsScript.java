@@ -34,6 +34,7 @@ public class TrialsScript {
 
     private int currentWaypointIndex = 0;
     private TrialRoute activeRoute = null;
+    private final TrialAutomation automation = new TrialAutomation();
     private boolean rumActionPending;
     private boolean expectedRumState;
     private volatile int rumInteractionTick = -1;
@@ -44,6 +45,12 @@ public class TrialsScript {
 
     private static final int VISIT_TOLERANCE = 15;
     private static final int WAYPOINT_VISIT_TOLERANCE = 5;
+    private static final int SUPPLY_WAYPOINT_VISIT_TOLERANCE = 1;
+    static final Set<WorldPoint> TEMPOR_MARLIN_SUPPLY_WAYPOINTS = Set.of(
+            new WorldPoint(3028, 2815, 0),
+            new WorldPoint(3002, 2788, 0),
+            new WorldPoint(3037, 2761, 0),
+            new WorldPoint(3096, 2775, 0));
     private static final int RUM_INTERACTION_DISTANCE = 15;
     private static final int RUM_RETRY_TICKS = 2;
 
@@ -103,7 +110,7 @@ public class TrialsScript {
     private double maxCratePickupDistance;
 
     private int boatSpawnedAngle;
-    private boolean needsTrim;
+    private volatile boolean needsTrim;
     private int windMoteReleasedTick;
     private Directions hoveredHeadingDirection;
     private int boatSpawnedFineX;
@@ -135,7 +142,14 @@ public class TrialsScript {
 
             if (info == null) {
                 resetState();
+                if (config.autoNavigate()) {
+                    automation.startSelected(config.trialsRank());
+                }
                 return;
+            }
+
+            if (!config.autoNavigate()) {
+                automation.stop();
             }
 
             TrialRoute route = findRoute(info.Location, info.Rank);
@@ -163,7 +177,9 @@ public class TrialsScript {
                 currentWaypointIndex = 0;
             }
 
-            currentWaypointIndex = getNextWaypointIndex(routePoints, currentWaypointIndex, boatPos);
+            Set<WorldPoint> supplyWaypoints = info.Location == TrialLocations.TemporTantrum && info.Rank == TrialRanks.Marlin
+                    ? TEMPOR_MARLIN_SUPPLY_WAYPOINTS : Set.of();
+            currentWaypointIndex = getNextWaypointIndex(routePoints, currentWaypointIndex, boatPos, supplyWaypoints);
             WorldPoint target = routePoints.get(currentWaypointIndex);
 
             final WorldPoint hintTarget = target;
@@ -172,6 +188,7 @@ public class TrialsScript {
             int currentTick = Microbot.getClientThread().invoke(client::getTickCount);
             if (config.autoNavigate() && currentTick != rumInteractionTick) {
                 navigateToWaypoint(target);
+                automation.followCamera(boatPos, target);
             }
 
         } catch (Exception ex) {
@@ -189,13 +206,21 @@ public class TrialsScript {
     }
 
     static int getNextWaypointIndex(List<WorldPoint> routePoints, int currentWaypointIndex, WorldPoint boatPosition) {
-        int currentDistance = boatPosition.distanceTo(routePoints.get(currentWaypointIndex));
-        if (currentDistance <= WAYPOINT_VISIT_TOLERANCE) {
+        return getNextWaypointIndex(routePoints, currentWaypointIndex, boatPosition, Set.of());
+    }
+
+    static int getNextWaypointIndex(List<WorldPoint> routePoints, int currentWaypointIndex, WorldPoint boatPosition,
+                                    Set<WorldPoint> supplyWaypoints) {
+        WorldPoint current = routePoints.get(currentWaypointIndex);
+        boolean supplyWaypoint = supplyWaypoints.contains(current);
+        int currentDistance = boatPosition.distanceTo(current);
+        if (currentDistance <= (supplyWaypoint ? SUPPLY_WAYPOINT_VISIT_TOLERANCE : WAYPOINT_VISIT_TOLERANCE)) {
             return (currentWaypointIndex + 1) % routePoints.size();
         }
 
         int lastWaypointIndex = routePoints.size() - 1;
         while (currentWaypointIndex < lastWaypointIndex
+                && !supplyWaypoints.contains(routePoints.get(currentWaypointIndex))
                 && hasPassedWaypoint(routePoints.get(currentWaypointIndex), routePoints.get(currentWaypointIndex + 1), boatPosition)) {
             currentWaypointIndex++;
         }
@@ -231,10 +256,12 @@ public class TrialsScript {
     }
 
     public void shutdown() {
+        automation.stop();
         resetState();
     }
 
     private void resetState() {
+        automation.stopCamera();
         currentWaypointIndex = 0;
         activeRoute = null;
         rumActionPending = false;
@@ -485,17 +512,8 @@ public class TrialsScript {
         }
         toadFlagsById.entrySet().removeIf(entry -> entry.getValue().isEmpty());
 
-        for (var boat : trialBoatsById.values()) {
-            if (event.getWorldView() == boat.getWorldView()) {
-                trialBoatsById.remove(boat.getId());
-            }
-        }
-
-        for (var crate : trialCratesById.values()) {
-            if (event.getWorldView() == crate.getWorldView()) {
-                trialCratesById.remove(crate.getId());
-            }
-        }
+        trialBoatsById.values().removeIf(boat -> event.getWorldView() == boat.getWorldView());
+        trialCratesById.values().removeIf(crate -> event.getWorldView() == crate.getWorldView());
 
         for (var boostList : trialBoostsById.values()) {
             boostList.removeIf(obj -> event.getWorldView() == obj.getWorldView());
@@ -523,7 +541,9 @@ public class TrialsScript {
         }
 
         if (event.getGroup().equals(SailingConfig.configGroup)) {
-            if (event.getKey().equals("trials") && event.getNewValue().equals("false")) {
+            if ((event.getKey().equals("trials") || event.getKey().equals("autoNavigate"))
+                    && "false".equals(event.getNewValue())) {
+                automation.stop();
                 resetState();
             }
             return;
@@ -857,23 +877,9 @@ public class TrialsScript {
     }
 
     private void removeGameObjectFromScene(GameObject gameObject) {
-        if (gameObject != null) {
-            var renderable = gameObject == null ? null : gameObject.getRenderable();
-            if (renderable != null) {
-                var model = renderable instanceof Model ? (Model) renderable : renderable.getModel();
-                if (model != null) {
-                    var scene = client.getTopLevelWorldView().getScene();
-                    if (scene != null) {
-                        scene.removeGameObject(gameObject);
-                    }
-                    var playerWv = client.getLocalPlayer().getWorldView();
-                    var playerScene = playerWv != null ? playerWv.getScene() : null;
-                    if (playerScene != null) {
-                        playerScene.removeGameObject(gameObject);
-                    }
-                }
-            }
-        }
+        if (gameObject == null || gameObject.getWorldView() == null) return;
+        var scene = gameObject.getWorldView().getScene();
+        if (scene != null) scene.removeGameObject(gameObject);
     }
 
     private void updateWindMoteButtonWidget() {
