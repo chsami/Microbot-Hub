@@ -11,7 +11,7 @@ Install Dro KBD through the Microbot Hub; the Hub handles its plugin JAR and cat
 - Microbot client version 2.6.25 or later. Older clients, including 2.2.24, are not supported by the current path and cache APIs.
 - A saved Microbot Inventory Setup selected in the plugin configuration. The script uses that setup for each trip.
 - Burning amulets for travel to the Lava Maze and a ring of dueling for the return to Ferox Enclave. Other travel methods are not supported.
-- For crossbow modes, save the desired bolts in the setup's equipped ammunition slot. Ruby bolt modes use 35 bolts per trip. Toxic blowpipe mode requires extended super antifire.
+- For crossbow modes, save the desired bolts in the setup's equipped ammunition slot. Ruby bolt modes replenish the equipped stack to the quantity saved in the selected Inventory Setup. Toxic blowpipe mode requires extended super antifire.
 
 ## Usage
 

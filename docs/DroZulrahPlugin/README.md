@@ -30,6 +30,53 @@ The setup should include both styles' weapons and switch pieces for hybrid mode.
 - Collects Zulrah loot, returns to Ferox when the loot window ends or supplies are low, and prepares for the next trip.
 - Shows trip state and progress in the Zulrah overlay.
 
+## Automatic death recovery (1.10.16)
+
+After a death, the plugin waits for respawn and supports **Lumbridge and Edgeville**.
+It uses the local bank to withdraw a charged Ring of dueling and a Zul-andra teleport
+if they are not already carried, closes the bank, and teleports to Zul-andra.
+It approaches Priestess Zul-Gwenwynig, selects **Collect**, clicks **Reclaim**, and
+waits for the returned items to be observed. The game handles returning/equipping
+reclaimed gear; the script does not add a manual equip sequence at the priestess.
+It then uses the ring to return to Ferox, completes the pool/bank route, and loads
+the selected Inventory Setup before the next trip. It does not board the boat
+until recovery and normal trip preparation are complete.
+
+Keep charged dueling rings, Zul-andra teleport scrolls, required setup supplies and
+any applicable reclaim fee available. Recovery stops with a clear message for an
+unsupported respawn location, missing ring or teleport, insufficient inventory
+space, an unconfirmed teleport or reclaim, or a recovery step with no progress.
+It does not walk from unsupported respawns or guess an alternative death route.
+Starting the plugin at either supported spawn also starts this recovery sequence.
+
+Lumbridge follows the southern castle stairs to the top-floor bank; Edgeville uses
+the recorded local bank approach. Movement is observed before repeating inputs.
+Bank supplies are checked from fresh contents without waiting separately for each
+absent ring charge. Combat rotations, prayers, gear-switching and safety behavior
+retain their existing implementation.
+
+## Ferox return and boat travel
+
+Each return uses the tested camera-to-pool route, with the original short walk as
+fallback if the pool cannot be framed. After the pool click, arrival/restoration
+settling precedes banking. Existing startup at Ferox still skips the return pool
+sequence. Short walk clicks are not repeated while the character is already moving.
+
+Each return independently has a **1-in-10** pool AFK chance: wait 250–300ms after
+the pool click, move the mouse off the client canvas, then hold for 2.8–4.8 seconds.
+It also has a **1-in-35** XP-check chance after opening the bank: close the bank,
+open Skills, hover a randomly selected Ranged, Magic or Hitpoints skill for
+3.7–4.2 seconds, return to Inventory, and reopen the bank before regear.
+These are separate from Smart breaks and keep their selection during recovery.
+
+At Zul-andra, a visible sacrificial boat is Quick-boarded from the teleport spot.
+Otherwise the script attempts a bounded, slightly variable camera turn and retains
+the existing boat approach fallback. The ordinary one-click boarding latch stays
+in place. Travel and recovery inputs use BaseProfileDro; loading and breaks pause
+the route deadlines. Inventory setup loading uses the public client's standard
+`Rs2InventorySetup` implementation directly. The Hub plugin does not depend on
+private client mouse extensions.
+
 ## Configuration
 
 | Setting | Default | Purpose |
