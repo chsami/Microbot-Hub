@@ -26,6 +26,7 @@ class FcRuntimeConfigTest {
         DroFirecapeConfig raw=realProxy(manager);
         assertThrows(NullPointerException.class,raw::observeOnly);
         DroFirecapeConfig resolved=FcRuntimeConfig.resolve(raw);
+        assertSame(resolved,FcRuntimeConfig.resolve(resolved),"Repeat runs must not stack config adapters");
         DroFirecapeConfig defaults=new DroFirecapeConfig(){};
         for(Method method:DroFirecapeConfig.class.getDeclaredMethods()) {
             if(method.isDefault()&&method.getAnnotation(ConfigItem.class)==null&&!method.getName().equals("diagnostics")) {
@@ -47,5 +48,33 @@ class FcRuntimeConfigTest {
         verify(manager,atLeastOnce()).getConfiguration(DroFirecapeConfig.GROUP,"recordRun");
         assertFalse(resolved.pureMode());
         assertFalse(resolved.nativeTickPrayers());
+    }
+
+    @Test void regularAndOptionalControllerDefaultsAreUsableWithRealProxy() throws Exception {
+        DroFirecapeConfig resolved=FcRuntimeConfig.resolve(realProxy(mock(ConfigManager.class)));
+        for(DroFirecapeScript script:new DroFirecapeScript[]{new DroFirecapeScript(),new OptionalFirecapeScript()}) {
+            script.config=resolved;
+            assertFalse(script.observeOnly());
+            assertFalse(script.strictZeroExposure());
+            assertEquals(0,script.weaponRangeSetting());
+            assertTrue(script.rangingPotion());
+            assertTrue(script.demonstrationLures());
+            assertTrue(script.blowpipeSpecial());
+            assertTrue(script.useThralls());
+            assertFalse(script.exitOnDamage());
+            assertTrue(script.traceEnabled());
+        }
+    }
+
+    @Test void adapterHasStableIdentityAndCanBeReusedForRepeatedStarts() throws Exception {
+        DroFirecapeConfig raw=realProxy(mock(ConfigManager.class));
+        DroFirecapeConfig resolved=FcRuntimeConfig.resolve(raw);
+        assertEquals(resolved,resolved);
+        assertNotEquals(resolved,raw);
+        assertNotEquals(resolved,null);
+        assertEquals(System.identityHashCode(resolved),resolved.hashCode());
+        for(int i=0;i<100;i++)resolved=FcRuntimeConfig.resolve(resolved);
+        assertFalse(resolved.observeOnly());
+        assertEquals("DroFirecapeConfig",resolved.toString());
     }
 }
