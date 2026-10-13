@@ -1,6 +1,12 @@
 package net.runelite.client.plugins.microbot.shootingstar;
 
+import java.util.EnumSet;
+import java.util.Optional;
+import java.util.concurrent.Callable;
+import net.runelite.api.Client;
+import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.shootingstar.enums.ShootingStarLocation;
 import net.runelite.client.plugins.microbot.shootingstar.enums.ShootingStarState;
@@ -17,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -36,6 +43,8 @@ class ShootingStarWalkBeforeHopTest
 	private MockedStatic<Rs2Player> player;
 	private MockedStatic<Rs2Walker> walker;
 	private ShootingStarScript script;
+	private Client client;
+	private boolean onClientThread;
 
 	@BeforeEach
 	void setUp()
@@ -43,6 +52,21 @@ class ShootingStarWalkBeforeHopTest
 		microbot = mockStatic(Microbot.class);
 		player = mockStatic(Rs2Player.class);
 		walker = mockStatic(Rs2Walker.class);
+		client = mock(Client.class);
+		ClientThread clientThread = mock(ClientThread.class);
+		when(clientThread.runOnClientThreadOptional(any())).thenAnswer(invocation -> {
+			onClientThread = true;
+			try
+			{
+				return Optional.ofNullable(((Callable<?>) invocation.getArgument(0)).call());
+			}
+			finally
+			{
+				onClientThread = false;
+			}
+		});
+		microbot.when(Microbot::getClient).thenReturn(client);
+		microbot.when(Microbot::getClientThread).thenReturn(clientThread);
 		walker.when(() -> Rs2Walker.walkWithState(any(WorldPoint.class), anyInt())).thenReturn(WalkerState.MOVING);
 		player.when(Rs2Player::getWorld).thenReturn(MEMBERS_WORLD);
 		ShootingStarPlugin plugin = mock(ShootingStarPlugin.class);
@@ -175,6 +199,59 @@ class ShootingStarWalkBeforeHopTest
 	}
 
 	@Test
+	void membersWorldIsReadFromTheClientWorldTypeNotTheHttpWorldList()
+	{
+		standAt(FAR_AWAY, true);
+		player.when(Rs2Player::isInMemberWorld).thenReturn(false);
+
+		script.handleWalking(star(false));
+
+		microbot.verify(() -> Microbot.hopToWorld(anyInt()), never());
+		walker.verify(() -> Rs2Walker.walkWithState(LOCATION.getWorldPoint(), ShootingStarScript.STAR_ARRIVAL_DISTANCE));
+	}
+
+	@Test
+	void f2pWorldTypeHopsEvenWhenTheHttpWorldListSaysMembers()
+	{
+		standAt(FAR_AWAY, false);
+		player.when(Rs2Player::isInMemberWorld).thenReturn(true);
+		microbot.when(() -> Microbot.hopToWorld(STAR_WORLD)).thenReturn(true);
+
+		script.handleWalking(star(false));
+
+		microbot.verify(() -> Microbot.hopToWorld(STAR_WORLD));
+		walker.verify(() -> Rs2Walker.walkWithState(any(WorldPoint.class), anyInt()), never());
+	}
+
+	@Test
+	void walkerArrivedOnTheStarWorldFarFromTheStarKeepsWalkingInsteadOfMining()
+	{
+		standAt(FAR_AWAY, false);
+		player.when(Rs2Player::getWorld).thenReturn(STAR_WORLD);
+		walker.when(() -> Rs2Walker.walkWithState(any(WorldPoint.class), anyInt())).thenReturn(WalkerState.ARRIVED);
+
+		script.handleWalking(star(false));
+
+		assertEquals(ShootingStarState.WALKING, ShootingStarScript.state);
+		microbot.verify(() -> Microbot.hopToWorld(anyInt()), never());
+	}
+
+	@Test
+	void walkerArrivedOnTheStarWorldNextToTheStarStartsMining()
+	{
+		standAt(FAR_AWAY, false);
+		player.when(Rs2Player::getWorld).thenReturn(STAR_WORLD);
+		walker.when(() -> Rs2Walker.walkWithState(any(WorldPoint.class), anyInt())).thenAnswer(invocation -> {
+			player.when(Rs2Player::getWorldLocation).thenReturn(AT_STAR);
+			return WalkerState.ARRIVED;
+		});
+
+		script.handleWalking(star(false));
+
+		assertEquals(ShootingStarState.MINING, ShootingStarScript.state);
+	}
+
+	@Test
 	void walkBeforeHopResetsAfterASuccessfulHop()
 	{
 		standAt(FAR_AWAY, false);
@@ -210,7 +287,14 @@ class ShootingStarWalkBeforeHopTest
 	private void standAt(WorldPoint location, boolean onMembersWorld)
 	{
 		player.when(Rs2Player::getWorldLocation).thenReturn(location);
-		player.when(Rs2Player::isInMemberWorld).thenReturn(onMembersWorld);
+		EnumSet<WorldType> worldTypes = onMembersWorld ? EnumSet.of(WorldType.MEMBERS) : EnumSet.noneOf(WorldType.class);
+		doAnswer(invocation -> {
+			if (!onClientThread)
+			{
+				throw new AssertionError("world type read off the client thread");
+			}
+			return worldTypes;
+		}).when(client).getWorldType();
 	}
 
 	private static Star star(boolean membersWorld)

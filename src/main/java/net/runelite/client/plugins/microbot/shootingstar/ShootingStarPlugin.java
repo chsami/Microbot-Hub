@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
@@ -39,6 +40,8 @@ import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -73,10 +76,10 @@ import net.runelite.client.util.ImageUtil;
 public class ShootingStarPlugin extends Plugin
 {
 
-	static final String version = "1.4.9";
+	static final String version = "1.4.10";
 
 	@Getter
-	private final List<Star> starList = new ArrayList<>();
+	private final CopyOnWriteArrayList<Star> starList = new CopyOnWriteArrayList<>();
 
 	@Inject
 	private ShootingStarScript shootingStarScript;
@@ -114,10 +117,10 @@ public class ShootingStarPlugin extends Plugin
 	@Getter
 	private boolean displayAsMinutes;
 	@Getter
-	private boolean hideMembersWorlds;
+	private volatile boolean hideMembersWorlds;
 	@Getter
-	private boolean hideF2PWorlds;
-	private boolean worldFilterResolved;
+	private volatile boolean hideF2PWorlds;
+	private volatile boolean worldFilterResolved;
 
 	private Set<String> blacklistedLocations = new HashSet<>();
 
@@ -125,8 +128,10 @@ public class ShootingStarPlugin extends Plugin
 	protected void startUp() throws AWTException
 	{
 		displayAsMinutes = config.isDisplayAsMinutes();
-		worldFilterResolved = Microbot.isLoggedIn();
-		applyWorldFilter(worldFilterResolved && isOnMembersWorld());
+		Optional<Boolean> membersAccount = Microbot.getClientThread().runOnClientThreadOptional(
+			() -> Microbot.isLoggedIn() ? isMembersAccount() : null);
+		worldFilterResolved = membersAccount.isPresent();
+		applyWorldFilter(membersAccount.orElse(false));
 
 		loadBlacklistedLocations();
 		fetchStars();
@@ -226,7 +231,7 @@ public class ShootingStarPlugin extends Plugin
 			if (!worldFilterResolved)
 			{
 				worldFilterResolved = true;
-				applyWorldFilter(isOnMembersWorld());
+				applyWorldFilter(isMembersAccount());
 				updateHiddenStars();
 				updatePanelList(true);
 			}
@@ -250,6 +255,24 @@ public class ShootingStarPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onVarbitChanged(VarbitChanged event)
+	{
+		if (event.getVarpId() != VarPlayerID.ACCOUNT_CREDIT || event.getValue() <= 0)
+		{
+			return;
+		}
+
+		if (!worldFilterResolved || !hideMembersWorlds)
+		{
+			return;
+		}
+
+		applyWorldFilter(true);
+		updateHiddenStars();
+		updatePanelList(true);
+	}
+
+	@Subscribe
 	public void onChatMessage(ChatMessage event) {
 		if (event.getType() != ChatMessageType.GAMEMESSAGE) return;
 
@@ -259,13 +282,18 @@ public class ShootingStarPlugin extends Plugin
 		}
 	}
 
-	private void applyWorldFilter(boolean onMembersWorld)
+	private void applyWorldFilter(boolean membersAccount)
 	{
-		hideMembersWorlds = !onMembersWorld;
-		hideF2PWorlds = onMembersWorld;
+		hideMembersWorlds = !membersAccount;
+		hideF2PWorlds = membersAccount;
 	}
 
-	private boolean isOnMembersWorld()
+	private static boolean isMembersAccount()
+	{
+		return Microbot.getClient().getVarpValue(VarPlayerID.ACCOUNT_CREDIT) > 0 || isOnMembersWorld();
+	}
+
+	static boolean isOnMembersWorld()
 	{
 		return Microbot.getClient().getWorldType().contains(WorldType.MEMBERS);
 	}
@@ -291,8 +319,10 @@ public class ShootingStarPlugin extends Plugin
 			}
 
 			// If oldStar not found, add new star into the list
-			starList.add(star);
-			fullUpdate = true;
+			if (starList.addIfAbsent(star))
+			{
+				fullUpdate = true;
+			}
 		}
 
 		if (fullUpdate) {
