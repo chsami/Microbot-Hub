@@ -187,7 +187,9 @@ public class BlueDragonsScript extends Script {
 
     private void handleTravelToDragons() {
         if (isPlayerAtSafeSpot()) {
-            currentState = BlueDragonState.COMBAT;
+            if (hopIfPlayerAtSafeSpot()) {
+                currentState = BlueDragonState.COMBAT;
+            }
             return;
         }
 
@@ -199,8 +201,7 @@ public class BlueDragonsScript extends Script {
             sleepUntil(this::isPlayerAtSafeSpot, 10000);
         }
 
-        if (isPlayerAtSafeSpot()) {
-            hopIfPlayerAtSafeSpot();
+        if (isPlayerAtSafeSpot() && hopIfPlayerAtSafeSpot()) {
             currentState = BlueDragonState.COMBAT;
         }
     }
@@ -343,17 +344,23 @@ public class BlueDragonsScript extends Script {
                 Microbot.getClient().getLocalPlayer().getWorldLocation()));
     }
 
-    private void hopIfPlayerAtSafeSpot() {
+    private boolean hopIfPlayerAtSafeSpot() {
         List<Player> players = Rs2Player.getPlayers(it -> it != null).collect(Collectors.toList());
         boolean occupied = players.stream().anyMatch(p ->
                 p != null && !p.equals(Microbot.getClient().getLocalPlayer())
                         && p.getWorldLocation().distanceTo(SAFE_SPOT) <= 1);
 
-        if (occupied) {
-            Microbot.log("Player at safe spot. Hopping worlds.");
-            Microbot.hopToWorld(findRandomWorld());
-            sleep(5000);
+        if (!occupied) {
+            return true;
         }
+        Microbot.log("Player at safe spot. Hopping worlds.");
+        int world = findRandomWorld();
+        if (!Microbot.hopToWorld(world)) {
+            Microbot.log("World hop to " + world + " refused, retrying next loop");
+            return false;
+        }
+        sleep(5000);
+        return true;
     }
 
     private int findRandomWorld() {
