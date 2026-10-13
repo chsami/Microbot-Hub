@@ -231,6 +231,93 @@ class AutoChinHopResultTest {
         }
     }
 
+    @Test
+    void persistentLocalBlockStopsVisiblyAfterTheCapWithoutPenalisingTheTarget() throws Exception {
+        AutoChinScript script = new AutoChinScript();
+        Client client = mock(Client.class);
+        when(client.getWorld()).thenReturn(SOURCE_WORLD);
+        WorldService worldService = australianWorlds(480, 481, 482, 483, 484, 485, 486, 487);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getClient).thenReturn(client);
+            microbot.when(Microbot::getWorldService).thenReturn(worldService);
+            microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            player.when(Rs2Player::isMember).thenReturn(true);
+            player.when(Rs2Player::isInCombat).thenReturn(true);
+            microbot.when(() -> Microbot.hopToWorld(anyInt())).thenReturn(false);
+
+            invoke(script, "requestAustralianWorldHop", "occupied");
+            int target = (int) field(script, "hopTargetWorld");
+
+            setField(script, "hopBlockedSince", System.currentTimeMillis() - 170_000);
+            setField(script, "hopStartedAt", System.currentTimeMillis() - 3_000);
+            invoke(script, "monitorWorldHop");
+            assertEquals("HOPPING_WORLD", field(script, "currentState").toString());
+
+            setField(script, "hopBlockedSince", System.currentTimeMillis() - 181_000);
+            setField(script, "hopStartedAt", System.currentTimeMillis() - 3_000);
+            invoke(script, "monitorWorldHop");
+
+            assertEquals("STOPPED", field(script, "currentState").toString());
+            String reason = script.getStopReason();
+            assertTrue(reason.startsWith("World hop blocked locally for 18"), reason);
+            assertTrue(reason.endsWith("s: in combat"), reason);
+            microbot.verify(() -> Microbot.hopToWorld(anyInt()), never());
+            assertEquals(target, field(script, "hopTargetWorld"));
+            assertEquals(0, field(script, "worldHopAttempts"));
+            assertEquals(0, field(script, "hopRefusals"));
+            assertTrue(((Map<?, ?>) field(script, "rejectedWorlds")).isEmpty());
+        }
+    }
+
+    @Test
+    void localBlockTimerRestartsWhenTheBlockClears() throws Exception {
+        AutoChinScript script = new AutoChinScript();
+        Client client = mock(Client.class);
+        when(client.getWorld()).thenReturn(SOURCE_WORLD);
+        WorldService worldService = australianWorlds(TARGET_WORLD);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getClient).thenReturn(client);
+            microbot.when(Microbot::getWorldService).thenReturn(worldService);
+            microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            player.when(Rs2Player::isMember).thenReturn(true);
+            dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(true);
+            microbot.when(() -> Microbot.hopToWorld(TARGET_WORLD)).thenReturn(false);
+
+            invoke(script, "requestAustralianWorldHop", "occupied");
+            assertTrue((long) field(script, "hopBlockedSince") > 0);
+
+            setField(script, "hopBlockedSince", System.currentTimeMillis() - 170_000);
+            dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(false);
+            setField(script, "hopStartedAt", System.currentTimeMillis() - 3_000);
+            invoke(script, "monitorWorldHop");
+            assertEquals(0L, field(script, "hopBlockedSince"));
+            assertEquals(1, field(script, "hopRefusals"));
+
+            dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(true);
+            for (int i = 0; i < 5; i++) {
+                setField(script, "hopStartedAt", System.currentTimeMillis() - 3_000);
+                invoke(script, "monitorWorldHop");
+            }
+            assertEquals("HOPPING_WORLD", field(script, "currentState").toString());
+            assertTrue(System.currentTimeMillis() - (long) field(script, "hopBlockedSince") < 10_000);
+
+            setField(script, "hopBlockedSince", System.currentTimeMillis() - 170_000);
+            dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(false);
+            microbot.when(() -> Microbot.hopToWorld(TARGET_WORLD)).thenReturn(true);
+            setField(script, "hopStartedAt", System.currentTimeMillis() - 3_000);
+            invoke(script, "monitorWorldHop");
+
+            assertEquals(0L, field(script, "hopBlockedSince"));
+            assertEquals(1, field(script, "worldHopAttempts"));
+            assertEquals("HOPPING_WORLD", field(script, "currentState").toString());
+            assertTrue(((Map<?, ?>) field(script, "rejectedWorlds")).isEmpty());
+        }
+    }
+
     private static WorldService australianWorlds(int... ids) {
         List<World> worlds = new ArrayList<>();
         for (int id : ids) {
