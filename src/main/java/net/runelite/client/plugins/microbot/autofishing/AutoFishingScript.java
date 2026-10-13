@@ -14,6 +14,7 @@ import net.runelite.client.plugins.microbot.autofishing.enums.Fish;
 import net.runelite.client.plugins.microbot.autofishing.enums.HarpoonType;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -36,6 +37,13 @@ import java.awt.event.KeyEvent;
 @Slf4j
 public class AutoFishingScript extends Script {
 
+    /**
+     * Consecutive banking attempts tolerated before forcing a re-walk. Each attempt is a full
+     * {@link Rs2Bank#walkToBankAndUseBank()} call, which blocks while it walks, so a low count
+     * here does not cut a legitimate walk short.
+     */
+    private static final int MAX_BANK_OPEN_FAILURES = 3;
+
     private AutoFishingConfig config;
     private Fish selectedFish;
     @Getter
@@ -45,6 +53,7 @@ public class AutoFishingScript extends Script {
     private WorldPoint fishingLocation;
     private String fishAction = "";
     private long lastActionTime = System.currentTimeMillis();
+    private int bankOpenFailures;
 
     public boolean run(AutoFishingConfig config) {
         this.config = config;
@@ -283,6 +292,7 @@ public class AutoFishingScript extends Script {
 
     private void handleGettingGear() {
         if (Rs2Bank.walkToBankAndUseBank()) {
+            bankOpenFailures = 0;
             for (String tool : selectedFish.getMethod().getRequiredItems()) {
                 if (!Rs2Inventory.hasItem(tool) && !Rs2Equipment.isWearing(tool)) {
                     withdrawAndEquipItem(tool);
@@ -312,11 +322,14 @@ public class AutoFishingScript extends Script {
                 shutdown();
                 return;
             }
+        } else {
+            handleBankDidNotOpen("getting gear");
         }
     }
 
     private void handleDepositing() {
         if (Rs2Bank.walkToBankAndUseBank()) {
+            bankOpenFailures = 0;
             // Use API: empty barrel (deposits its fish contents directly when bank open),
             // then deposit everything except the protected tools/harpoon/barrel using ids.
             // This replaces the manual side-slot widget config + locking dance entirely.
@@ -359,7 +372,38 @@ public class AutoFishingScript extends Script {
             } catch (IllegalArgumentException e) {
                 log.warn("Antiban banking cooldown skipped due to invalid bounds: {}", e.getMessage());
             }
+        } else {
+            handleBankDidNotOpen("depositing");
         }
+    }
+
+    /**
+     * {@link Rs2Bank#walkToBankAndUseBank()} returns false both while it is still walking and when
+     * it gave up without opening the bank, so an isolated failure is normal and worth retrying.
+     * <p>
+     * Repeated failures are not. If the walker already believes it has arrived - which happens at
+     * an upstairs bank such as Lumbridge when the final plane change does not complete - then
+     * nothing moves the character again, the bank object never becomes reachable, and the script
+     * retries the same impossible action on every tick. That produced no log output at all, so the
+     * only symptom was a bot standing still indefinitely.
+     * <p>
+     * Force a fresh walk onto the bank tile so the walker re-evaluates its route, and say so.
+     */
+    private void handleBankDidNotOpen(String phase) {
+        if (++bankOpenFailures < MAX_BANK_OPEN_FAILURES) {
+            log.debug("Bank did not open while {} (attempt {}/{}), retrying.",
+                    phase, bankOpenFailures, MAX_BANK_OPEN_FAILURES);
+            return;
+        }
+        bankOpenFailures = 0;
+        BankLocation bank = Rs2Bank.getNearestBank();
+        if (bank == null) {
+            log.warn("Bank did not open while {} and no nearest bank could be resolved.", phase);
+            return;
+        }
+        log.warn("Bank did not open after {} attempts while {}; forcing a re-walk to {}.",
+                MAX_BANK_OPEN_FAILURES, phase, bank);
+        Rs2Walker.walkTo(bank.getWorldPoint(), 0);
     }
 
     private void handleErrorRecovery() {
