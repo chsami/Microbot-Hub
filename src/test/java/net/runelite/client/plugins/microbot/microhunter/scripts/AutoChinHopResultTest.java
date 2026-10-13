@@ -13,12 +13,15 @@ import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
@@ -69,6 +72,81 @@ class AutoChinHopResultTest {
             assertEquals(1, field(script, "worldHopAttempts"));
             assertTrue(((Map<?, ?>) field(script, "rejectedWorlds")).isEmpty());
         }
+    }
+
+    @Test
+    void persistentRefusalBlacklistsTheTargetAndMovesToAnotherWorld() throws Exception {
+        AutoChinScript script = new AutoChinScript();
+        Client client = mock(Client.class);
+        when(client.getWorld()).thenReturn(SOURCE_WORLD);
+        WorldService worldService = australianWorlds(TARGET_WORLD, TARGET_WORLD + 1);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getClient).thenReturn(client);
+            microbot.when(Microbot::getWorldService).thenReturn(worldService);
+            player.when(Rs2Player::isMember).thenReturn(true);
+            microbot.when(() -> Microbot.hopToWorld(anyInt())).thenReturn(false);
+
+            invoke(script, "requestAustralianWorldHop", "occupied");
+            int firstTarget = (int) field(script, "hopTargetWorld");
+
+            for (int i = 0; i < 3; i++) {
+                setField(script, "hopStartedAt", System.currentTimeMillis() - 3_000);
+                invoke(script, "monitorWorldHop");
+            }
+
+            microbot.verify(() -> Microbot.hopToWorld(firstTarget), times(3));
+            assertTrue(((Map<?, ?>) field(script, "rejectedWorlds")).containsKey(firstTarget));
+            assertEquals(1, field(script, "worldHopAttempts"));
+            int secondTarget = (int) field(script, "hopTargetWorld");
+            assertNotEquals(firstTarget, secondTarget);
+            microbot.verify(() -> Microbot.hopToWorld(secondTarget), times(1));
+            assertEquals("HOPPING_WORLD", field(script, "currentState").toString());
+        }
+    }
+
+    @Test
+    void persistentRefusalOnEveryWorldStopsAtTheAttemptCap() throws Exception {
+        AutoChinScript script = new AutoChinScript();
+        Client client = mock(Client.class);
+        when(client.getWorld()).thenReturn(SOURCE_WORLD);
+        WorldService worldService = australianWorlds(480, 481, 482, 483, 484, 485, 486, 487);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getClient).thenReturn(client);
+            microbot.when(Microbot::getWorldService).thenReturn(worldService);
+            player.when(Rs2Player::isMember).thenReturn(true);
+            microbot.when(() -> Microbot.hopToWorld(anyInt())).thenReturn(false);
+
+            invoke(script, "requestAustralianWorldHop", "occupied");
+            for (int i = 0; i < 100 && !"STOPPED".equals(field(script, "currentState").toString()); i++) {
+                setField(script, "hopStartedAt", System.currentTimeMillis() - 3_000);
+                invoke(script, "monitorWorldHop");
+            }
+
+            assertEquals("STOPPED", field(script, "currentState").toString());
+            microbot.verify(() -> Microbot.hopToWorld(anyInt()), times(15));
+            assertEquals(5, ((Map<?, ?>) field(script, "rejectedWorlds")).size());
+        }
+    }
+
+    private static WorldService australianWorlds(int... ids) {
+        List<World> worlds = new ArrayList<>();
+        for (int id : ids) {
+            World world = mock(World.class);
+            when(world.getId()).thenReturn(id);
+            when(world.getRegion()).thenReturn(WorldRegion.AUSTRALIA);
+            when(world.getTypes()).thenReturn(EnumSet.of(WorldType.MEMBERS));
+            when(world.getPlayers()).thenReturn(200);
+            worlds.add(world);
+        }
+        WorldResult worldResult = mock(WorldResult.class);
+        when(worldResult.getWorlds()).thenReturn(worlds);
+        WorldService worldService = mock(WorldService.class);
+        when(worldService.getWorlds()).thenReturn(worldResult);
+        return worldService;
     }
 
     private static void invoke(Object target, String name, Object... args) throws Exception {
