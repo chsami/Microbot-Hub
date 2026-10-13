@@ -279,15 +279,15 @@ ThievingNpcStrategy getActiveStrategy() {
             return applyOverride(State.ESCAPE);
         }
 
-        if (isEscapeHopPending()) return applyOverride(State.ESCAPE);
+        if (isEscapeHopPending()) {
+            if (needsToEat() && hasFoodToEat()) return applyOverride(State.EAT);
+            return applyOverride(State.ESCAPE);
+        }
 
         if (!hasReqs()) return applyOverride(State.BANK);
 
         if (config.useFood()) {
-            boolean needToEat = Rs2Player.getHealthPercentage() <= config.hitpoints();
-            boolean needToDrink = config.food() == ThievingFood.ANCIENT_BREW && !Rs2Player.hasPrayerPoints();
-
-            if (needToEat || needToDrink) {
+            if (needsToEat()) {
                 return applyOverride(State.EAT);
             }
 
@@ -624,6 +624,17 @@ ThievingNpcStrategy getActiveStrategy() {
             }
         }, 0, 20, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    private boolean needsToEat() {
+        if (!config.useFood()) return false;
+        if (Rs2Player.getHealthPercentage() <= config.hitpoints()) return true;
+        return config.food() == ThievingFood.ANCIENT_BREW && !Rs2Player.hasPrayerPoints();
+    }
+
+    private boolean hasFoodToEat() {
+        if (config.food() == ThievingFood.ANCIENT_BREW) return hasAncientBrew();
+        return !Rs2Inventory.getInventoryFood().isEmpty();
     }
 
     private boolean hasReqs() {

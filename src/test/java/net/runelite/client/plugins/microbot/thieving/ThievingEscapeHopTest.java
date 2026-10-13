@@ -1,14 +1,23 @@
 package net.runelite.client.plugins.microbot.thieving;
 
+import net.runelite.api.Client;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.thieving.enums.ThievingFood;
 import net.runelite.client.plugins.microbot.thieving.enums.ThievingNpc;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -77,6 +86,61 @@ class ThievingEscapeHopTest {
             assertFalse(call(script, "isEscapeHopPending"));
             microbot.verify(() -> Microbot.hopToWorld(anyInt()), never());
         }
+    }
+
+    @Test
+    void lowHitpointsEatBeforeAPendingEscapeHopAndTheHopStaysPending() throws Exception {
+        ThievingScript script = foodScript();
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            stubIdleWorld(microbot);
+            inventory.when(Rs2Inventory::getInventoryFood).thenReturn(List.of(mock(Rs2ItemModel.class)));
+            player.when(Rs2Player::getHealthPercentage).thenReturn(30.0);
+
+            invoke(script, "requestEscapeHop");
+
+            assertEquals(State.EAT, invoke(script, "getCurrentState"));
+            assertTrue(call(script, "isEscapeHopPending"));
+
+            player.when(Rs2Player::getHealthPercentage).thenReturn(80.0);
+            assertEquals(State.ESCAPE, invoke(script, "getCurrentState"));
+            assertTrue(call(script, "isEscapeHopPending"));
+        }
+    }
+
+    @Test
+    void pendingEscapeHopKeepsEscapingWhenThereIsNoFoodToEat() throws Exception {
+        ThievingScript script = foodScript();
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            stubIdleWorld(microbot);
+            inventory.when(Rs2Inventory::getInventoryFood).thenReturn(List.of());
+            player.when(Rs2Player::getHealthPercentage).thenReturn(30.0);
+
+            invoke(script, "requestEscapeHop");
+
+            assertEquals(State.ESCAPE, invoke(script, "getCurrentState"));
+            assertTrue(call(script, "isEscapeHopPending"));
+        }
+    }
+
+    private static ThievingScript foodScript() {
+        ThievingConfig config = mock(ThievingConfig.class);
+        when(config.THIEVING_NPC()).thenReturn(ThievingNpc.VYRES);
+        when(config.escapeAttacking()).thenReturn(true);
+        when(config.useFood()).thenReturn(true);
+        when(config.food()).thenReturn(ThievingFood.SHARK);
+        when(config.hitpoints()).thenReturn(50);
+        return new ThievingScript(config, mock(ThievingPlugin.class));
+    }
+
+    private static void stubIdleWorld(MockedStatic<Microbot> microbot) {
+        ClientThread clientThread = mock(ClientThread.class);
+        when(clientThread.runOnClientThreadOptional(any())).thenReturn(Optional.empty());
+        microbot.when(Microbot::getClientThread).thenReturn(clientThread);
+        microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
     }
 
     private static ThievingScript script(ThievingNpc npc) {
