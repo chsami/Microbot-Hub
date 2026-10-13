@@ -313,7 +313,7 @@ public class ShootingStarScript extends Script
 		toggleLockState(true);
 
 		boolean isOnStarWorld = Rs2Player.getWorld() == star.getWorld();
-		boolean isNearShootingStar = Rs2Player.getWorldLocation().distanceTo(star.getShootingStarLocation().getWorldPoint()) <= STAR_ARRIVAL_DISTANCE;
+		boolean isNearShootingStar = isNearStar(star);
 
 		if (!isOnStarWorld && (isNearShootingStar || !shouldWalkBeforeHop(star)))
 		{
@@ -341,11 +341,21 @@ public class ShootingStarScript extends Script
 				hopToStarWorld(star, true);
 				return;
 			}
+			if (!isNearStar(star))
+			{
+				log.debug("Walker reported {} but the player is still more than {} tiles from the star, retrying", walkerState, STAR_ARRIVAL_DISTANCE);
+				return;
+			}
 		}
 
 		initialPlayerLocation = Rs2Player.getWorldLocation();
 
 		state = ShootingStarState.MINING;
+	}
+
+	private static boolean isNearStar(Star star)
+	{
+		return Rs2Player.getWorldLocation().distanceTo(star.getShootingStarLocation().getWorldPoint()) <= STAR_ARRIVAL_DISTANCE;
 	}
 
 	private boolean shouldWalkBeforeHop(Star star)
@@ -354,7 +364,12 @@ public class ShootingStarScript extends Script
 		{
 			return false;
 		}
-		return star.equals(walkBeforeHopStar) || Rs2Player.isInMemberWorld();
+		return star.equals(walkBeforeHopStar) || isOnMembersWorld();
+	}
+
+	private static boolean isOnMembersWorld()
+	{
+		return Microbot.getClientThread().runOnClientThreadOptional(ShootingStarPlugin::isOnMembersWorld).orElse(false);
 	}
 
 	private void hopToStarWorld(Star star, boolean isNearShootingStar)
