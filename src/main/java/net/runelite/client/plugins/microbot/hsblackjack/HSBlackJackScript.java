@@ -685,10 +685,14 @@ public class HSBlackJackScript extends Script {
      * Hops to a random world - used when the tent stays blocked too long, the
      * bar's stock is too low, or a lure's NPC never makes it inside in time.
      */
-    private void hopWorld() {
+    private boolean hopWorld() {
         sleep(600, 1000);
         int world = Login.getRandomWorld(Rs2Player.isMember());
-        sleepUntil(() -> Microbot.hopToWorld(world), 15000);
+        if (Microbot.hopToWorld(world)) {
+            return true;
+        }
+        setState("World hop to " + world + " refused - retrying next loop");
+        return false;
     }
 
     /**
@@ -768,8 +772,9 @@ public class HSBlackJackScript extends Script {
 
         if (allInTent.size() != 1 || targetsInTent.size() != 1) {
             setState("Tent occupied by " + allInTent.size() + " NPC(s), not a clean single target - hopping world");
-            hopWorld();
-            phase = Phase.TRAVEL_TO_START;
+            if (hopWorld()) {
+                phase = Phase.TRAVEL_TO_START;
+            }
             return;
         }
 
@@ -1013,7 +1018,9 @@ public class HSBlackJackScript extends Script {
 
             if (waitedFor >= NPC_ENTER_TENT_TIMEOUT_MS) {
                 setState("NPC never entered tent (" + (waitedFor / 1000) + "s) - hopping world, restarting");
-                hopWorld();
+                if (!hopWorld()) {
+                    return;
+                }
                 npcEnterTentWaitSince = -1;
                 luredNpc = null;
                 needsLureInsideTent = false;
@@ -1062,7 +1069,9 @@ public class HSBlackJackScript extends Script {
 
             if (blockedFor >= ROOM_BLOCKED_HOP_THRESHOLD_MS) {
                 setState("Tent occupied too long (" + (blockedFor / 1000) + "s) - hopping world");
-                hopWorld();
+                if (!hopWorld()) {
+                    return;
+                }
                 roomBlockedSince = -1;
                 luredNpc = null;
                 phase = Phase.TRAVEL_TO_START;
@@ -1219,8 +1228,9 @@ public class HSBlackJackScript extends Script {
                 long stuckFor = System.currentTimeMillis() - restockCurtainStuckSince;
                 if (stuckFor >= CURTAIN_STUCK_TIMEOUT_MS) {
                     setState("Restock: stuck opening curtain for " + (stuckFor / 1000) + "s - hopping world");
-                    hopWorld();
-                    restockCurtainStuckSince = -1;
+                    if (hopWorld()) {
+                        restockCurtainStuckSince = -1;
+                    }
                     return;
                 }
 

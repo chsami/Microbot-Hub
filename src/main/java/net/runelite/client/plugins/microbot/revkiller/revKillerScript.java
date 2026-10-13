@@ -548,7 +548,9 @@ public class revKillerScript extends Script {
                         return;
                     }
                 }
-                hopToNewWorld();
+                if(!hopToNewWorld()){
+                    return;
+                }
                 startTime = currentTime;
                 howLongUntilHop = config.hopInMinutes();
                 int mixUp = Rs2Random.between(5,10);
@@ -892,21 +894,21 @@ public class revKillerScript extends Script {
         }
     }
 
-    public void hopToNewWorld(){
+    public boolean hopToNewWorld(){
         // Thank you george!
 
         World currentWorld = Microbot.getWorldService().getWorlds().findWorld(Microbot.getClient().getWorld());
 
         if(currentWorld == null){
             Microbot.log("Couldn't find our world");
-            return;
+            return false;
         }
 
         int newRandomWorld = Login.getRandomWorld(true, currentWorld.getRegion());
 
         if(newRandomWorld == 0){
             Microbot.log("Couldn't find a new random world");
-            return;
+            return false;
         }
 
         Microbot.log("We're going to world " + newRandomWorld);
@@ -928,7 +930,12 @@ public class revKillerScript extends Script {
             sleep(500,700);
             attempts++;
         }
+        if(Rs2Player.getWorld() != newRandomWorld){
+            Microbot.log("World hop to " + newRandomWorld + " refused, retrying later");
+            return false;
+        }
         hoppedWorld = true;
+        return true;
     }
 
     public void equipArrows(){

@@ -162,14 +162,15 @@ public class SandCrabScript extends Script {
                         break;
                     case HOP_WORLD:
                         int world = Login.getRandomWorld(true, null);
-                        boolean isHopped = Microbot.hopToWorld(world);
-                        if (isHopped) {
-                            boolean result = sleepUntil(() -> Rs2Widget.findWidget("Switch World") != null);
-                            if (result) {
-                                Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                                sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
-                                sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
-                            }
+                        if (!Microbot.hopToWorld(world)) {
+                            Microbot.log("World hop to " + world + " refused, retrying next loop");
+                            break;
+                        }
+                        boolean result = sleepUntil(() -> Rs2Widget.findWidget("Switch World") != null);
+                        if (result) {
+                            Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
+                            sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
+                            sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
                         }
 
                         if (timesHopped > 10) {

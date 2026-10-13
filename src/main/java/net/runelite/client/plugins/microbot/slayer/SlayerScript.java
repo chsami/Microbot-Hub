@@ -2947,7 +2947,10 @@ public class SlayerScript extends Script {
             }
             log.info("Hopping to world {}", world);
 
-            Microbot.hopToWorld(world);
+            if (!Microbot.hopToWorld(world)) {
+                log.warn("World hop to {} refused, retrying on a later loop", world);
+                return;
+            }
 
             // Wait for switch world confirmation dialog
             sleepUntil(() -> Rs2Widget.findWidget("Switch World") != null, 5000);

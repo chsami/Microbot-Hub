@@ -26,7 +26,7 @@ import java.awt.*;
 )
 @Slf4j
 public class SandCrabPlugin extends Plugin  {
-    public final static String version = "1.5.4";
+    public final static String version = "1.5.5";
     @Inject
     private SandCrabConfig config;
 
