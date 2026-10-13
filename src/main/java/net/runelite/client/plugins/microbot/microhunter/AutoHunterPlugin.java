@@ -31,7 +31,7 @@ import java.awt.*;
 @Slf4j
 @PluginDependency(HunterPlugin.class)
 public class AutoHunterPlugin extends Plugin {
-    public static final String version = "1.5.2";
+    public static final String version = "1.5.3";
     @Inject
     private AutoHunterConfig config;
 
