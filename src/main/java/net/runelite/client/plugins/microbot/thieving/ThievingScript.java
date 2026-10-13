@@ -9,7 +9,6 @@ import net.runelite.api.Player;
 import net.runelite.api.Tile;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.GameState;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.Skill;
 import net.runelite.api.events.ChatMessage;
@@ -247,15 +246,6 @@ ThievingNpcStrategy getActiveStrategy() {
 
     private boolean isBeingAttackByNpc() {
         return getAttackingNpcs(npcs -> npcs.findAny().isPresent(), false);
-    }
-
-    private Rs2NpcModel getAttackingNpc() {
-        final WorldPoint myLoc = Rs2Player.getWorldLocation();
-        if (myLoc == null) return null;
-        return getAttackingNpcs(npcs ->
-                npcs.min(Comparator.comparingInt(npc -> myLoc.distanceTo(npc.getWorldLocation())))
-                        .orElse(null), null
-        );
     }
 
     private int getMostExpensiveGroundItemId() {
@@ -1051,39 +1041,16 @@ ThievingNpcStrategy getActiveStrategy() {
             return;
         }
         lastHopAt = now;
-        DOOR_TIMER.unset();
-        final int maxAttempts = 5;
         log.debug("Hopping world, please wait");
 
-        for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            final int currentWorld = Microbot.getClient().getWorld();
-            Microbot.hopToWorld(Login.getRandomWorld(true, null));
-
-            BooleanSupplier attackedInterrupt = () -> {
-                final Rs2NpcModel attacking = getAttackingNpc();
-                if (attacking == null) return false;
-                final WorldPoint me = Rs2Player.getWorldLocation();
-                final WorldPoint npc = attacking.getWorldLocation();
-                if (me != null && npc != null && me.distanceTo(npc) <= 2) {
-                    log.warn("Getting attacked while hopping");
-                    return true;
-                }
-                return false;
-            };
-            
-            sleepUntilWithInterrupt(() -> Microbot.getClient().getGameState() == GameState.HOPPING, attackedInterrupt, 15_000);
-            sleepUntilWithInterrupt(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN, attackedInterrupt, 15_000);
-            boolean changed = sleepUntilWithInterrupt(() -> Microbot.getClient().getWorld() != currentWorld, attackedInterrupt, 15_000);
-
-            if (changed) {
-                log.debug("Successful hop world");
-                thievingNpc = null; // force fresh lookup after hop
-                return;
-            }
-            sleep(250, 350);
-            log.warn("Hop attempt {}/{} failed, retrying...", attempt + 1, maxAttempts);
+        final int world = Login.getRandomWorld(true, null);
+        if (!Microbot.hopToWorld(world)) {
+            log.warn("World hop to {} refused, retrying later", world);
+            return;
         }
-        log.error("Failed to hop world");
+        DOOR_TIMER.unset();
+        log.debug("Successful hop world");
+        thievingNpc = null; // force fresh lookup after hop
     }
 
     private void drinkAncientBrew() {

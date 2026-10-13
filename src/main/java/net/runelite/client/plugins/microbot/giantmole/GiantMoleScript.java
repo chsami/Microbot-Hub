@@ -230,7 +230,11 @@ public class GiantMoleScript extends Script
     public void hopWorlds()
     {
         int randomWorld = Login.getRandomWorld(isMember());
-        Microbot.hopToWorld(randomWorld);
+        if (!Microbot.hopToWorld(randomWorld))
+        {
+            Microbot.log("World hop to " + randomWorld + " refused, retrying next loop");
+            return;
+        }
         checkedIfWorldOccupied = false;
         state = GiantMoleState.IDLE;
     }

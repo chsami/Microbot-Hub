@@ -158,8 +158,9 @@ public class BanksShopperScript extends Script {
                         state = ShopperState.SHOPPING;
                         break;
                     case HOPPING:
-                        hopWorld();
-                        state = ShopperState.SHOPPING;
+                        if (hopWorld()) {
+                            state = ShopperState.SHOPPING;
+                        }
                         break;
                 }
             } catch (Exception ex) {
@@ -298,13 +299,17 @@ public class BanksShopperScript extends Script {
     /**
      * Hops to a new world
      */
-    private void hopWorld() {
+    private boolean hopWorld() {
         System.out.println("Hopping worlds...");
         Rs2Random.waitEx(3200, 800); // this sleep is required to avoid the message: please finish what you're doing before using the world switcher.
 
         int world = plugin.isUseNextWorld() ? Login.getNextWorld(Rs2Player.isMember()) : Login.getRandomWorld(Rs2Player.isMember());
-        sleepUntil(() -> Microbot.hopToWorld(world), 15000);
+        if (!Microbot.hopToWorld(world)) {
+            System.out.println("World hop to " + world + " refused, retrying next loop");
+            return false;
+        }
         System.out.println("Successfully hopped to world: " + world);
+        return true;
     }
 
 
