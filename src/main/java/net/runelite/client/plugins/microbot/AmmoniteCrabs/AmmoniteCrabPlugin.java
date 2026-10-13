@@ -28,7 +28,7 @@ import java.time.Instant;
 @Slf4j
 public class AmmoniteCrabPlugin extends Plugin {
 
-    public final static String version = "1.1.4";
+    public final static String version = "1.1.6";
     @Inject
     public AmmoniteCrabScript ammoniteCrabScript;
     @Inject

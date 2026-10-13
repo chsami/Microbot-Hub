@@ -17,11 +17,15 @@ import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectM
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.microhunter.AutoHunterConfig;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
+import net.runelite.client.plugins.microbot.util.shop.Rs2Shop;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.http.api.worlds.World;
 import net.runelite.http.api.worlds.WorldRegion;
@@ -84,9 +88,13 @@ public class AutoChinScript extends Script {
     private static final long OCCUPANCY_SCAN_MS = 7_000;
     private static final long PLAYER_PERSISTENCE_MS = 3_500;
     private static final long WORLD_HOP_TIMEOUT_MS = 15_000;
+    private static final long REFUSED_HOP_RETRY_MS = 3_000;
+    private static final int MAX_REFUSED_HOPS_PER_WORLD = 3;
+    private static final long LOCAL_HOP_BLOCK_LIMIT_MS = 180_000;
     private static final long REJECTED_WORLD_COOLDOWN_MS = 600_000;
     private static final long BREAK_RECOVERY_CLEAR_MS = 1_500;
     private static final int MAX_WORLD_HOP_ATTEMPTS = 5;
+    private static final String HOP_BLOCKER_DIALOGUE = "dialogue open";
     private static final EnumSet<WorldType> UNSAFE_WORLD_TYPES = EnumSet.of(
             WorldType.PVP, WorldType.BOUNTY, WorldType.PVP_ARENA, WorldType.SKILL_TOTAL,
             WorldType.QUEST_SPEEDRUNNING, WorldType.HIGH_RISK, WorldType.LAST_MAN_STANDING,
@@ -140,6 +148,10 @@ public class AutoChinScript extends Script {
     private int hopTargetWorld = -1;
     private int hopSourceWorld = -1;
     private long hopStartedAt;
+    private boolean hopRefused;
+    private int hopRefusals;
+    private String hopBlocker;
+    private long hopBlockedSince;
     private boolean breakRecoveryRequested;
     private boolean breakRecoveryComplete;
     private boolean breakRecoveryLockHeld;
@@ -196,6 +208,10 @@ public class AutoChinScript extends Script {
         hopTargetWorld = -1;
         hopSourceWorld = -1;
         hopStartedAt = 0;
+        hopRefused = false;
+        hopRefusals = 0;
+        hopBlocker = null;
+        hopBlockedSince = 0;
         breakRecoveryRequested = false;
         breakRecoveryComplete = false;
         breakRecoveryLockHeld = false;
@@ -307,6 +323,10 @@ public class AutoChinScript extends Script {
         hopTargetWorld = -1;
         hopSourceWorld = -1;
         hopStartedAt = 0;
+        hopRefused = false;
+        hopRefusals = 0;
+        hopBlocker = null;
+        hopBlockedSince = 0;
         nearbyPlayerSeenSince = 0;
         if (!config.avoidOccupiedWorlds()) {
             worldHopAttempts = 0;
@@ -426,14 +446,58 @@ public class AutoChinScript extends Script {
             stopSafely("No eligible Australian world is currently available");
             return;
         }
-        worldHopAttempts++;
         hopSourceWorld = Microbot.getClient().getWorld();
         hopTargetWorld = target;
-        hopStartedAt = System.currentTimeMillis();
+        hopRefusals = 0;
+        hopBlocker = null;
         transition(State.HOPPING_WORLD, "Hopping to Australian world " + target + " (" + reason + ")");
         Microbot.log("AutoHunter occupancy: hopping " + hopSourceWorld + " -> " + target
-                + " attempt=" + worldHopAttempts);
-        Microbot.hopToWorld(target);
+                + " attempt=" + (worldHopAttempts + 1));
+        issueWorldHop();
+    }
+
+    private void issueWorldHop() {
+        hopStartedAt = System.currentTimeMillis();
+        String blocker = localHopBlocker();
+        if (blocker == null) {
+            if (Microbot.hopToWorld(hopTargetWorld)) {
+                hopRefused = false;
+                hopBlocker = null;
+                hopBlockedSince = 0;
+                worldHopAttempts++;
+                return;
+            }
+            blocker = localHopBlocker();
+        }
+        hopRefused = true;
+        if (blocker != null) {
+            if (hopBlockedSince == 0) hopBlockedSince = hopStartedAt;
+            long blockedFor = hopStartedAt - hopBlockedSince;
+            if (blockedFor >= LOCAL_HOP_BLOCK_LIMIT_MS) {
+                stopSafely("World hop blocked locally for " + (blockedFor / 1_000) + "s: " + blocker);
+                return;
+            }
+            if (!blocker.equals(hopBlocker)) {
+                Microbot.log("AutoHunter occupancy: hop to world " + hopTargetWorld + " waiting (" + blocker + ")");
+            }
+            hopBlocker = blocker;
+            if (HOP_BLOCKER_DIALOGUE.equals(blocker)) Rs2Dialogue.clickContinue();
+            return;
+        }
+        hopBlocker = null;
+        hopBlockedSince = 0;
+        hopRefusals++;
+        Microbot.log("AutoHunter occupancy: hop to world " + hopTargetWorld + " refused ("
+                + hopRefusals + "/" + MAX_REFUSED_HOPS_PER_WORLD + ")");
+    }
+
+    private String localHopBlocker() {
+        if (!Microbot.isLoggedIn()) return "not logged in";
+        if (Rs2Player.isInCombat() || Rs2Combat.inCombat()) return "in combat";
+        if (Rs2Bank.isOpen() || Rs2Shop.isOpen()) return "interface open";
+        if (Rs2Dialogue.isInDialogue()) return HOP_BLOCKER_DIALOGUE;
+        if (Rs2Player.isAnimating()) return "animating";
+        return null;
     }
 
     private Integer selectAustralianWorld() {
@@ -460,6 +524,19 @@ public class AutoChinScript extends Script {
     private void monitorWorldHop() {
         int currentWorld = Microbot.getClient().getWorld();
         if (hopSourceWorld > 0 && currentWorld != hopSourceWorld) return;
+        if (hopRefused) {
+            if (System.currentTimeMillis() - hopStartedAt < REFUSED_HOP_RETRY_MS) return;
+            if (hopRefusals < MAX_REFUSED_HOPS_PER_WORLD) {
+                issueWorldHop();
+                return;
+            }
+            worldHopAttempts++;
+            rejectedWorlds.put(hopTargetWorld, System.currentTimeMillis() + REJECTED_WORLD_COOLDOWN_MS);
+            Microbot.log("AutoHunter occupancy: giving up on world " + hopTargetWorld + " after "
+                    + hopRefusals + " refused hops");
+            requestAustralianWorldHop("previous hop refused");
+            return;
+        }
         if (System.currentTimeMillis() - hopStartedAt < WORLD_HOP_TIMEOUT_MS) return;
         if (hopTargetWorld > 0) {
             rejectedWorlds.put(hopTargetWorld, System.currentTimeMillis() + REJECTED_WORLD_COOLDOWN_MS);

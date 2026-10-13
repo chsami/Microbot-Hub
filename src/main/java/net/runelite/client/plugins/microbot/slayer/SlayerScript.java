@@ -110,9 +110,11 @@ public class SlayerScript extends Script {
     // Crash detection / world hop tracking
     private long crashDetectionStartTime = 0;
     private long lastWorldHopTime = 0;
+    private long lastHopRefusedAt = 0;
     private boolean isSearchingForTargets = false;
     private static final int CRASH_HOP_DELAY_MS = 20000; // 20 seconds before hopping
     private static final int WORLD_HOP_COOLDOWN_MS = 60000; // 1 minute cooldown between hops
+    private static final int REFUSED_HOP_RETRY_MS = 10000;
 
     // Task completion loot delay
     private long taskCompletedTime = 0;
@@ -2898,7 +2900,11 @@ public class SlayerScript extends Script {
                         if (timeSinceStart >= CRASH_HOP_DELAY_MS) {
                             // Check cooldown
                             long timeSinceLastHop = System.currentTimeMillis() - lastWorldHopTime;
-                            if (timeSinceLastHop >= WORLD_HOP_COOLDOWN_MS) {
+                            long timeSinceRefusedHop = System.currentTimeMillis() - lastHopRefusedAt;
+                            if (timeSinceRefusedHop < REFUSED_HOP_RETRY_MS) {
+                                log.debug("Last world hop was refused, retrying in {} seconds",
+                                        (REFUSED_HOP_RETRY_MS - timeSinceRefusedHop) / 1000);
+                            } else if (timeSinceLastHop >= WORLD_HOP_COOLDOWN_MS) {
                                 log.info("No targets found for {} seconds - hopping worlds (likely crashed)",
                                         CRASH_HOP_DELAY_MS / 1000);
                                 hopToNewWorld();
@@ -2935,26 +2941,31 @@ public class SlayerScript extends Script {
      */
     private void hopToNewWorld() {
         try {
-            // Disable prayers before hopping
-            deactivateProfilePrayer();
-            deactivateOffensivePrayers();
+            if (Rs2Combat.inCombat()) {
+                lastHopRefusedAt = System.currentTimeMillis();
+                log.info("In combat, delaying world hop");
+                return;
+            }
 
             // Get world from config list or random
             int world = getHopWorld();
             if (world <= 0) {
+                lastHopRefusedAt = System.currentTimeMillis();
                 log.warn("Could not determine a valid world to hop to");
                 return;
             }
+
+            // Disable prayers before hopping
+            deactivateProfilePrayer();
+            deactivateOffensivePrayers();
             log.info("Hopping to world {}", world);
 
-            Microbot.hopToWorld(world);
+            if (!Microbot.hopToWorld(world)) {
+                lastHopRefusedAt = System.currentTimeMillis();
+                log.warn("World hop to {} refused, retrying in {} seconds", world, REFUSED_HOP_RETRY_MS / 1000);
+                return;
+            }
 
-            // Wait for switch world confirmation dialog
-            sleepUntil(() -> Rs2Widget.findWidget("Switch World") != null, 5000);
-            Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-
-            // Wait for hop to complete
-            sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING, 5000);
             sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN, 10000);
 
             // Brief pause after hopping

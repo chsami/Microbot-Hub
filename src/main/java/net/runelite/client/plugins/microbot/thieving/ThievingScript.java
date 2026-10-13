@@ -9,7 +9,6 @@ import net.runelite.api.Player;
 import net.runelite.api.Tile;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.GameState;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.Skill;
 import net.runelite.api.events.ChatMessage;
@@ -89,6 +88,8 @@ public class ThievingScript extends Script {
     private int doorCloseIndex = 0;
     private long lastAction = Long.MAX_VALUE;
     private long lastHopAt = 0;
+    private long escapeHopUntil = 0;
+    private static final long ESCAPE_HOP_WINDOW_MS = 60_000;
 
     protected static int getCloseDoorTime() {
         return DOOR_TIMER.getRemainingTime();
@@ -249,15 +250,6 @@ ThievingNpcStrategy getActiveStrategy() {
         return getAttackingNpcs(npcs -> npcs.findAny().isPresent(), false);
     }
 
-    private Rs2NpcModel getAttackingNpc() {
-        final WorldPoint myLoc = Rs2Player.getWorldLocation();
-        if (myLoc == null) return null;
-        return getAttackingNpcs(npcs ->
-                npcs.min(Comparator.comparingInt(npc -> myLoc.distanceTo(npc.getWorldLocation())))
-                        .orElse(null), null
-        );
-    }
-
     private int getMostExpensiveGroundItemId() {
         final int minPrice = config.keepItemsAboveValue();
         // takes long of client thread if there are a lot of dropped items
@@ -287,13 +279,15 @@ ThievingNpcStrategy getActiveStrategy() {
             return applyOverride(State.ESCAPE);
         }
 
+        if (isEscapeHopPending()) {
+            if (needsToEat() && hasFoodToEat()) return applyOverride(State.EAT);
+            return applyOverride(State.ESCAPE);
+        }
+
         if (!hasReqs()) return applyOverride(State.BANK);
 
         if (config.useFood()) {
-            boolean needToEat = Rs2Player.getHealthPercentage() <= config.hitpoints();
-            boolean needToDrink = config.food() == ThievingFood.ANCIENT_BREW && !Rs2Player.hasPrayerPoints();
-
-            if (needToEat || needToDrink) {
+            if (needsToEat()) {
                 return applyOverride(State.EAT);
             }
 
@@ -443,6 +437,10 @@ ThievingNpcStrategy getActiveStrategy() {
                 item.click("Take");
                 return;
             case ESCAPE:
+                if (!underAttack && isEscapeHopPending()) {
+                    if (attemptEscapeHop()) returnToStartAfterEscape();
+                    return;
+                }
                 WorldPoint escape = null;
                 final String escapeLocationString = config.customEscapeLocation();
                 if (!escapeLocationString.isBlank()) {
@@ -468,16 +466,14 @@ ThievingNpcStrategy getActiveStrategy() {
                             underAttack = false;
                             if (!isRunning()) return;
                             if (shouldHop()) {
-                                hopWorld();
+                                requestEscapeHop();
                             } else {
                                 log.debug("Skipping world hop (Wealthy Citizen)");
                             }
                         }
 
-                        if (walkTo("Walk to start", startingLocation, 3)) {
-                            sleepUntilWithInterrupt(() -> !Rs2Player.isMoving(), 1_200);
-                        }
-                        DOOR_TIMER.set();
+                        if (isEscapeHopPending() && !attemptEscapeHop()) return;
+                        returnToStartAfterEscape();
                         return;
                     } else {
                         log.error("Failed to use escape route defaulting to bank escape");
@@ -613,6 +609,7 @@ ThievingNpcStrategy getActiveStrategy() {
         lastAction = System.currentTimeMillis();
         nextShadowVeil = System.currentTimeMillis()+60_000;
         underAttack = false;
+        escapeHopUntil = 0;
         startupGraceUntil = System.currentTimeMillis() + 4_000;
         startTime = Instant.now();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -627,6 +624,17 @@ ThievingNpcStrategy getActiveStrategy() {
             }
         }, 0, 20, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    private boolean needsToEat() {
+        if (!config.useFood()) return false;
+        if (Rs2Player.getHealthPercentage() <= config.hitpoints()) return true;
+        return config.food() == ThievingFood.ANCIENT_BREW && !Rs2Player.hasPrayerPoints();
+    }
+
+    private boolean hasFoodToEat() {
+        if (config.food() == ThievingFood.ANCIENT_BREW) return hasAncientBrew();
+        return !Rs2Inventory.getInventoryFood().isEmpty();
     }
 
     private boolean hasReqs() {
@@ -1017,16 +1025,46 @@ ThievingNpcStrategy getActiveStrategy() {
         if (underAttack) {
             underAttack = false;
             if (shouldHop()) {
-                hopWorld();
+                requestEscapeHop();
             } else {
                 log.debug("Skipping world hop (Wealthy Citizen)");
             }
         }
 
-        if (walkTo("Return to npc", startingLocation, 3)) {
+        if (isEscapeHopPending() && !attemptEscapeHop()) return;
+        returnToStartAfterEscape();
+    }
+
+    private void returnToStartAfterEscape() {
+        if (walkTo("Walk to start", startingLocation, 3)) {
             sleepUntilWithInterrupt(() -> !Rs2Player.isMoving(), 1_200);
         }
         DOOR_TIMER.set();
+    }
+
+    private boolean isEscapeHopPending() {
+        return escapeHopUntil != 0;
+    }
+
+    private void requestEscapeHop() {
+        if (escapeHopUntil == 0) escapeHopUntil = System.currentTimeMillis() + ESCAPE_HOP_WINDOW_MS;
+    }
+
+    private boolean attemptEscapeHop() {
+        if (!config.escapeAttacking() || !shouldHop()) {
+            escapeHopUntil = 0;
+            return true;
+        }
+        if (hopWorld()) {
+            escapeHopUntil = 0;
+            return true;
+        }
+        if (System.currentTimeMillis() >= escapeHopUntil) {
+            log.warn("Escape hop did not succeed within {}s, returning without hopping", ESCAPE_HOP_WINDOW_MS / 1000);
+            escapeHopUntil = 0;
+            return true;
+        }
+        return false;
     }
 
     private void dropAllExceptImportant() {
@@ -1044,46 +1082,24 @@ ThievingNpcStrategy getActiveStrategy() {
     }
 
 
-    private void hopWorld() {
+    private boolean hopWorld() {
         final long now = System.currentTimeMillis();
         if (now - lastHopAt < 15000) {
             log.debug("Skipping hop; last hop was {}ms ago", now - lastHopAt);
-            return;
+            return false;
         }
         lastHopAt = now;
-        DOOR_TIMER.unset();
-        final int maxAttempts = 5;
         log.debug("Hopping world, please wait");
 
-        for (int attempt = 0; attempt < maxAttempts; attempt++) {
-            final int currentWorld = Microbot.getClient().getWorld();
-            Microbot.hopToWorld(Login.getRandomWorld(true, null));
-
-            BooleanSupplier attackedInterrupt = () -> {
-                final Rs2NpcModel attacking = getAttackingNpc();
-                if (attacking == null) return false;
-                final WorldPoint me = Rs2Player.getWorldLocation();
-                final WorldPoint npc = attacking.getWorldLocation();
-                if (me != null && npc != null && me.distanceTo(npc) <= 2) {
-                    log.warn("Getting attacked while hopping");
-                    return true;
-                }
-                return false;
-            };
-            
-            sleepUntilWithInterrupt(() -> Microbot.getClient().getGameState() == GameState.HOPPING, attackedInterrupt, 15_000);
-            sleepUntilWithInterrupt(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN, attackedInterrupt, 15_000);
-            boolean changed = sleepUntilWithInterrupt(() -> Microbot.getClient().getWorld() != currentWorld, attackedInterrupt, 15_000);
-
-            if (changed) {
-                log.debug("Successful hop world");
-                thievingNpc = null; // force fresh lookup after hop
-                return;
-            }
-            sleep(250, 350);
-            log.warn("Hop attempt {}/{} failed, retrying...", attempt + 1, maxAttempts);
+        final int world = Login.getRandomWorld(true, null);
+        if (!Microbot.hopToWorld(world)) {
+            log.warn("World hop to {} refused, retrying later", world);
+            return false;
         }
-        log.error("Failed to hop world");
+        DOOR_TIMER.unset();
+        log.debug("Successful hop world");
+        thievingNpc = null; // force fresh lookup after hop
+        return true;
     }
 
     private void drinkAncientBrew() {
