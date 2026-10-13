@@ -10,7 +10,6 @@ import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -18,9 +17,7 @@ import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
-import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -166,12 +163,7 @@ public class SandCrabScript extends Script {
                             Microbot.log("World hop to " + world + " refused, retrying next loop");
                             break;
                         }
-                        boolean result = sleepUntil(() -> Rs2Widget.findWidget("Switch World") != null);
-                        if (result) {
-                            Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                            sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
-                            sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
-                        }
+                        sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
 
                         if (timesHopped > 10) {
                             timesHopped = 0;
