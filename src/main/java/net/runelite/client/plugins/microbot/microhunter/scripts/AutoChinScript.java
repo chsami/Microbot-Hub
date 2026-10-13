@@ -90,6 +90,7 @@ public class AutoChinScript extends Script {
     private static final long WORLD_HOP_TIMEOUT_MS = 15_000;
     private static final long REFUSED_HOP_RETRY_MS = 3_000;
     private static final int MAX_REFUSED_HOPS_PER_WORLD = 3;
+    private static final long LOCAL_HOP_BLOCK_LIMIT_MS = 180_000;
     private static final long REJECTED_WORLD_COOLDOWN_MS = 600_000;
     private static final long BREAK_RECOVERY_CLEAR_MS = 1_500;
     private static final int MAX_WORLD_HOP_ATTEMPTS = 5;
@@ -150,6 +151,7 @@ public class AutoChinScript extends Script {
     private boolean hopRefused;
     private int hopRefusals;
     private String hopBlocker;
+    private long hopBlockedSince;
     private boolean breakRecoveryRequested;
     private boolean breakRecoveryComplete;
     private boolean breakRecoveryLockHeld;
@@ -209,6 +211,7 @@ public class AutoChinScript extends Script {
         hopRefused = false;
         hopRefusals = 0;
         hopBlocker = null;
+        hopBlockedSince = 0;
         breakRecoveryRequested = false;
         breakRecoveryComplete = false;
         breakRecoveryLockHeld = false;
@@ -323,6 +326,7 @@ public class AutoChinScript extends Script {
         hopRefused = false;
         hopRefusals = 0;
         hopBlocker = null;
+        hopBlockedSince = 0;
         nearbyPlayerSeenSince = 0;
         if (!config.avoidOccupiedWorlds()) {
             worldHopAttempts = 0;
@@ -459,6 +463,7 @@ public class AutoChinScript extends Script {
             if (Microbot.hopToWorld(hopTargetWorld)) {
                 hopRefused = false;
                 hopBlocker = null;
+                hopBlockedSince = 0;
                 worldHopAttempts++;
                 return;
             }
@@ -466,6 +471,12 @@ public class AutoChinScript extends Script {
         }
         hopRefused = true;
         if (blocker != null) {
+            if (hopBlockedSince == 0) hopBlockedSince = hopStartedAt;
+            long blockedFor = hopStartedAt - hopBlockedSince;
+            if (blockedFor >= LOCAL_HOP_BLOCK_LIMIT_MS) {
+                stopSafely("World hop blocked locally for " + (blockedFor / 1_000) + "s: " + blocker);
+                return;
+            }
             if (!blocker.equals(hopBlocker)) {
                 Microbot.log("AutoHunter occupancy: hop to world " + hopTargetWorld + " waiting (" + blocker + ")");
             }
@@ -474,6 +485,7 @@ public class AutoChinScript extends Script {
             return;
         }
         hopBlocker = null;
+        hopBlockedSince = 0;
         hopRefusals++;
         Microbot.log("AutoHunter occupancy: hop to world " + hopTargetWorld + " refused ("
                 + hopRefusals + "/" + MAX_REFUSED_HOPS_PER_WORLD + ")");
