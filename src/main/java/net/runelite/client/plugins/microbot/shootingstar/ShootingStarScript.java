@@ -39,6 +39,7 @@ import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 @Slf4j
 public class ShootingStarScript extends Script
 {
+	static final int STAR_ARRIVAL_DISTANCE = 6;
 	public static ShootingStarState state;
 	private final ShootingStarPlugin plugin;
 	private final ShootingStarConfig config;
@@ -47,7 +48,7 @@ public class ShootingStarScript extends Script
 	private Star currentStar;
 	private boolean hasEquipment = false;
 	private boolean hasInventory = false;
-	private boolean walkBeforeHop = false;
+	private Star walkBeforeHopStar;
 
     public Instant startTime;
 
@@ -75,7 +76,7 @@ public class ShootingStarScript extends Script
 		initialPlayerLocation = null;
 		hasEquipment = false;
 		hasInventory = false;
-		walkBeforeHop = false;
+		walkBeforeHopStar = null;
 		Rs2Antiban.resetAntibanSettings();
 		applyAntiBanSettings();
 		Rs2Antiban.setActivity(Activity.GENERAL_MINING);
@@ -312,7 +313,7 @@ public class ShootingStarScript extends Script
 		toggleLockState(true);
 
 		boolean isOnStarWorld = Rs2Player.getWorld() == star.getWorld();
-		boolean isNearShootingStar = Rs2Player.getWorldLocation().distanceTo(star.getShootingStarLocation().getWorldPoint()) < 6;
+		boolean isNearShootingStar = Rs2Player.getWorldLocation().distanceTo(star.getShootingStarLocation().getWorldPoint()) <= STAR_ARRIVAL_DISTANCE;
 
 		if (!isOnStarWorld && (isNearShootingStar || !shouldWalkBeforeHop(star)))
 		{
@@ -322,15 +323,24 @@ public class ShootingStarScript extends Script
 
 		if (!isNearShootingStar)
 		{
-			WalkerState walkerState = Rs2Walker.walkWithState(star.getShootingStarLocation().getWorldPoint(), 6);
+			WalkerState walkerState = Rs2Walker.walkWithState(star.getShootingStarLocation().getWorldPoint(), STAR_ARRIVAL_DISTANCE);
 			if (walkerState == WalkerState.UNREACHABLE)
 			{
 				log.debug("Walker State is {}, removing star from list", walkerState);
 				plugin.removeStar(plugin.getSelectedStar());
 				plugin.updatePanelList(true);
 				state = ShootingStarState.WAITING_FOR_STAR;
+				return;
 			}
-			return;
+			if (walkerState != WalkerState.ARRIVED)
+			{
+				return;
+			}
+			if (!isOnStarWorld)
+			{
+				hopToStarWorld(star, true);
+				return;
+			}
 		}
 
 		initialPlayerLocation = Rs2Player.getWorldLocation();
@@ -344,7 +354,7 @@ public class ShootingStarScript extends Script
 		{
 			return false;
 		}
-		return walkBeforeHop || Rs2Player.isInMemberWorld();
+		return star.equals(walkBeforeHopStar) || Rs2Player.isInMemberWorld();
 	}
 
 	private void hopToStarWorld(Star star, boolean isNearShootingStar)
@@ -356,14 +366,14 @@ public class ShootingStarScript extends Script
 
 		if (Microbot.hopToWorld(star.getWorld()))
 		{
-			walkBeforeHop = false;
+			walkBeforeHopStar = null;
 			return;
 		}
 
 		if (!star.isMemberWorld() && !isNearShootingStar)
 		{
 			log.info("Hop to non-members world {} failed, walking to the star before hopping again", star.getWorld());
-			walkBeforeHop = true;
+			walkBeforeHopStar = star;
 		}
 	}
 

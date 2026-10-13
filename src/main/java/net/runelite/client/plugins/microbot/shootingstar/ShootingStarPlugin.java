@@ -34,6 +34,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.GameState;
+import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
@@ -49,7 +50,6 @@ import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerPlugin;
 import net.runelite.client.plugins.microbot.shootingstar.model.Star;
 import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
 import net.runelite.client.plugins.microbot.shortestpath.pathfinder.Pathfinder;
-import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.task.Schedule;
 import net.runelite.client.ui.ClientToolbar;
@@ -73,7 +73,7 @@ import net.runelite.client.util.ImageUtil;
 public class ShootingStarPlugin extends Plugin
 {
 
-	static final String version = "1.4.8";
+	static final String version = "1.4.9";
 
 	@Getter
 	private final List<Star> starList = new ArrayList<>();
@@ -117,6 +117,7 @@ public class ShootingStarPlugin extends Plugin
 	private boolean hideMembersWorlds;
 	@Getter
 	private boolean hideF2PWorlds;
+	private boolean worldFilterResolved;
 
 	private Set<String> blacklistedLocations = new HashSet<>();
 
@@ -124,8 +125,8 @@ public class ShootingStarPlugin extends Plugin
 	protected void startUp() throws AWTException
 	{
 		displayAsMinutes = config.isDisplayAsMinutes();
-		hideMembersWorlds = !Rs2Player.isInMemberWorld();
-		hideF2PWorlds = Rs2Player.isInMemberWorld();
+		worldFilterResolved = Microbot.isLoggedIn();
+		applyWorldFilter(worldFilterResolved && isOnMembersWorld());
 
 		loadBlacklistedLocations();
 		fetchStars();
@@ -142,6 +143,7 @@ public class ShootingStarPlugin extends Plugin
 		removePanel();
 		starList.clear();
 		lastWorld = -1;
+		worldFilterResolved = false;
 		apiTickCounter.set(0);
 		overlayManager.remove(shootingStarOverlay);
 	}
@@ -213,8 +215,22 @@ public class ShootingStarPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
+		if (event.getGameState() == GameState.LOGIN_SCREEN)
+		{
+			worldFilterResolved = false;
+			return;
+		}
+
 		if (event.getGameState() == GameState.LOGGED_IN)
 		{
+			if (!worldFilterResolved)
+			{
+				worldFilterResolved = true;
+				applyWorldFilter(isOnMembersWorld());
+				updateHiddenStars();
+				updatePanelList(true);
+			}
+
 			if (lastWorld == -1)
 			{
 				lastWorld = Microbot.getClient().getWorld();
@@ -241,6 +257,17 @@ public class ShootingStarPlugin extends Plugin
 			Rs2Walker.setTarget(null);
 			shutDown();
 		}
+	}
+
+	private void applyWorldFilter(boolean onMembersWorld)
+	{
+		hideMembersWorlds = !onMembersWorld;
+		hideF2PWorlds = onMembersWorld;
+	}
+
+	private boolean isOnMembersWorld()
+	{
+		return Microbot.getClient().getWorldType().contains(WorldType.MEMBERS);
 	}
 
 	public void fetchStars()
