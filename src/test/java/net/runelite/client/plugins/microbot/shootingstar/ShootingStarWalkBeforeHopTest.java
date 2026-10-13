@@ -1,0 +1,152 @@
+package net.runelite.client.plugins.microbot.shootingstar;
+
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.shootingstar.enums.ShootingStarLocation;
+import net.runelite.client.plugins.microbot.shootingstar.enums.ShootingStarState;
+import net.runelite.client.plugins.microbot.shootingstar.model.Star;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.util.walker.WalkerState;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
+
+class ShootingStarWalkBeforeHopTest
+{
+	private static final int MEMBERS_WORLD = 302;
+	private static final int STAR_WORLD = 301;
+	private static final ShootingStarLocation LOCATION = ShootingStarLocation.DRAYNOR_VILLAGE;
+	private static final WorldPoint FAR_AWAY = new WorldPoint(2605, 3092, 0);
+	private static final WorldPoint AT_STAR = LOCATION.getWorldPoint().dx(2);
+
+	private MockedStatic<Microbot> microbot;
+	private MockedStatic<Rs2Player> player;
+	private MockedStatic<Rs2Walker> walker;
+	private ShootingStarScript script;
+
+	@BeforeEach
+	void setUp()
+	{
+		microbot = mockStatic(Microbot.class);
+		player = mockStatic(Rs2Player.class);
+		walker = mockStatic(Rs2Walker.class);
+		walker.when(() -> Rs2Walker.walkWithState(any(WorldPoint.class), anyInt())).thenReturn(WalkerState.MOVING);
+		player.when(Rs2Player::getWorld).thenReturn(MEMBERS_WORLD);
+		ShootingStarPlugin plugin = mock(ShootingStarPlugin.class);
+		script = new ShootingStarScript(plugin, mock(ShootingStarConfig.class));
+		ShootingStarScript.state = ShootingStarState.WALKING;
+		Microbot.cantHopWorld = false;
+	}
+
+	@AfterEach
+	void tearDown()
+	{
+		walker.close();
+		player.close();
+		microbot.close();
+		ShootingStarScript.state = null;
+		Microbot.cantHopWorld = false;
+	}
+
+	@Test
+	void f2pStarFromMembersWorldWalksToTheStarInsteadOfHopping()
+	{
+		standAt(FAR_AWAY, true);
+
+		script.handleWalking(star(false));
+
+		microbot.verify(() -> Microbot.hopToWorld(anyInt()), never());
+		walker.verify(() -> Rs2Walker.walkWithState(LOCATION.getWorldPoint(), 6));
+	}
+
+	@Test
+	void f2pStarHopsOnceThePlayerReachedTheStar()
+	{
+		standAt(AT_STAR, true);
+		microbot.when(() -> Microbot.hopToWorld(STAR_WORLD)).thenReturn(true);
+
+		script.handleWalking(star(false));
+
+		microbot.verify(() -> Microbot.hopToWorld(STAR_WORLD));
+		walker.verify(() -> Rs2Walker.walkWithState(any(WorldPoint.class), anyInt()), never());
+		assertEquals(ShootingStarState.WALKING, ShootingStarScript.state);
+	}
+
+	@Test
+	void membersStarStillHopsBeforeWalking()
+	{
+		standAt(FAR_AWAY, true);
+		microbot.when(() -> Microbot.hopToWorld(STAR_WORLD)).thenReturn(true);
+
+		script.handleWalking(star(true));
+
+		microbot.verify(() -> Microbot.hopToWorld(STAR_WORLD));
+		walker.verify(() -> Rs2Walker.walkWithState(any(WorldPoint.class), anyInt()), never());
+	}
+
+	@Test
+	void failedHopToF2pWorldMakesTheNextLoopWalkInsteadOfRetryingTheHop()
+	{
+		standAt(FAR_AWAY, false);
+		microbot.when(() -> Microbot.hopToWorld(STAR_WORLD)).thenReturn(false);
+		Star star = star(false);
+
+		script.handleWalking(star);
+		script.handleWalking(star);
+
+		microbot.verify(() -> Microbot.hopToWorld(STAR_WORLD), times(1));
+		walker.verify(() -> Rs2Walker.walkWithState(LOCATION.getWorldPoint(), 6), times(1));
+	}
+
+	@Test
+	void staleMembersAreaRefusalIsClearedOnceAtTheF2pStar()
+	{
+		standAt(AT_STAR, true);
+		Microbot.cantHopWorld = true;
+		microbot.when(() -> Microbot.hopToWorld(STAR_WORLD)).thenAnswer(invocation -> !Microbot.cantHopWorld);
+
+		script.handleWalking(star(false));
+
+		assertFalse(Microbot.cantHopWorld);
+		microbot.verify(() -> Microbot.hopToWorld(STAR_WORLD));
+	}
+
+	@Test
+	void onTheStarWorldNextToTheStarStartsMining()
+	{
+		standAt(AT_STAR, false);
+		player.when(Rs2Player::getWorld).thenReturn(STAR_WORLD);
+
+		script.handleWalking(star(false));
+
+		microbot.verify(() -> Microbot.hopToWorld(anyInt()), never());
+		assertEquals(ShootingStarState.MINING, ShootingStarScript.state);
+	}
+
+	private void standAt(WorldPoint location, boolean onMembersWorld)
+	{
+		player.when(Rs2Player::getWorldLocation).thenReturn(location);
+		player.when(Rs2Player::isInMemberWorld).thenReturn(onMembersWorld);
+	}
+
+	private static Star star(boolean membersWorld)
+	{
+		Star star = mock(Star.class);
+		when(star.getWorld()).thenReturn(STAR_WORLD);
+		when(star.isMemberWorld()).thenReturn(membersWorld);
+		when(star.getShootingStarLocation()).thenReturn(LOCATION);
+		return star;
+	}
+}
