@@ -24,7 +24,7 @@ import java.awt.*;
         tags = {"mm", "ranging", "revenant killer"}, // Tags to categorize the plugin (optional, default is '')
         authors = { "Gage" }, // Author(s) of the plugin (optional, default is "Unknown Author")
         version = revKillerPlugin.version, // Version of the plugin (required)
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.25",
         iconUrl = "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/icon.png", // URL to plugin icon shown in client (optional)
         cardUrl = "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/card.png", // URL to plugin card image for website (optional)
         enabledByDefault = PluginConstants.DEFAULT_ENABLED, // Whether the plugin is enabled by default
