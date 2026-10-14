@@ -41,10 +41,15 @@ public class BankInventoryStrategy implements IInventoryStrategy {
 
     private int[] getItemIdsToAlwaysDrop()
     {
-        if (config.alwaysDrop().isEmpty())
+        final String alwaysDrop = config.alwaysDrop();
+        if (alwaysDrop == null || alwaysDrop.isBlank())
         {
             return new int[0];
         }
-        return Arrays.stream(config.alwaysDrop().split("\\s*,\\s*")).mapToInt(Integer::parseInt).toArray();
+        return Arrays.stream(alwaysDrop.split(","))
+                .map(String::trim)
+                .filter(token -> token.matches("\\d{1,9}"))
+                .mapToInt(Integer::parseInt)
+                .toArray();
     }
 }
