@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.jad;
 
+import net.runelite.api.Actor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
@@ -41,7 +42,7 @@ public class JadScript extends Script {
                 int currentTick = Microbot.getClient().getTickCount();
 
                 List<Rs2NpcModel> jadNpcs = Microbot.getRs2NpcCache().query()
-                        .where(n -> n.getName() != null && n.getName().toLowerCase().contains("jad"))
+                        .where(n -> nameContains(n, "jad"))
                         .toList();
                 Set<Integer> activeJadIndexes = new HashSet<>();
 
@@ -83,16 +84,17 @@ public class JadScript extends Script {
 
     private void handleHealerInteraction() {
         var healer = Microbot.getRs2NpcCache().query()
-                .where(n -> n.getName() != null && n.getName().toLowerCase().contains("hurkot") && !n.isInteractingWithPlayer())
+                .where(n -> nameContains(n, "hurkot") && !n.isInteractingWithPlayer())
                 .nearest();
 
         if (healer != null) {
             healer.click("Attack");
         } else {
             var npc = Rs2Player.getInteracting();
-            if (npc == null || npc.getName().contains("hurkot")) {
+            String npcName = npc == null ? null : npc.getName();
+            if (npc == null || (npcName != null && npcName.contains("hurkot"))) {
                 var jad = Microbot.getRs2NpcCache().query()
-                        .where(n -> n.getName() != null && n.getName().toLowerCase().contains("jad"))
+                        .where(n -> nameContains(n, "jad"))
                         .nearest();
                 if (jad != null) {
                     jad.click("Attack");
@@ -100,6 +102,11 @@ public class JadScript extends Script {
             }
         }
 
+    }
+
+    static boolean nameContains(Actor actor, String part) {
+        String name = actor.getName();
+        return name != null && name.toLowerCase().contains(part);
     }
 
     @Override
@@ -207,7 +214,7 @@ public class JadScript extends Script {
 
     boolean isInJadFight() {
         var jad = Microbot.getRs2NpcCache().query()
-                .where(n -> n.getName() != null && n.getName().toLowerCase().contains("jad"))
+                .where(n -> nameContains(n, "jad"))
                 .nearest();
         return jad != null;
     }
