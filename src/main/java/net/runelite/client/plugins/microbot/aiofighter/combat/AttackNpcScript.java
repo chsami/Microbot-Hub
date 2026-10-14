@@ -227,18 +227,11 @@ public class AttackNpcScript extends Script {
                 }
                 messageShown = false;
 
-                if (Rs2AntibanSettings.antibanEnabled && Rs2AntibanSettings.actionCooldownChance > 0) {
-                    if (Rs2AntibanSettings.actionCooldownActive) {
-                        AIOFighterPlugin.setState(State.COMBAT);
-                        handleItemOnNpcToKill(config);
-                        return;
-                    }
-                } else {
-                    if (Rs2Combat.inCombat()) {
-                        AIOFighterPlugin.setState(State.COMBAT);
-                        handleItemOnNpcToKill(config);
-                        return;
-                    }
+                if (shouldHoldAttack(Rs2Combat.inCombat(), Rs2AntibanSettings.antibanEnabled,
+                        Rs2AntibanSettings.actionCooldownChance, Rs2AntibanSettings.actionCooldownActive)) {
+                    AIOFighterPlugin.setState(State.COMBAT);
+                    handleItemOnNpcToKill(config);
+                    return;
                 }
 
                 if (!attackableNpcs.isEmpty()) {
@@ -252,7 +245,7 @@ public class AttackNpcScript extends Script {
                     npc.click("attack");
                     Microbot.status = "Attacking " + npc.getName();
                     Rs2Antiban.actionCooldown();
-                    //sleepUntil(Rs2Player::isInteracting, 1000);
+                    sleepUntil(Rs2Player::isInteracting, 1000);
 
                     if (config.togglePrayer()) {
                         if (!config.toggleQuickPray()) {
@@ -302,6 +295,11 @@ public class AttackNpcScript extends Script {
         }, 0, 600, TimeUnit.MILLISECONDS);
     }
 
+
+    static boolean shouldHoldAttack(boolean inCombat, boolean antibanEnabled, double actionCooldownChance, boolean actionCooldownActive) {
+        if (inCombat) return true;
+        return antibanEnabled && actionCooldownChance > 0 && actionCooldownActive;
+    }
 
     /**
      * item on npcs that need to kill like rockslug
