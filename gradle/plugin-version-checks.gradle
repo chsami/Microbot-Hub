@@ -1,0 +1,104 @@
+tasks.register('verifyPluginVersionResolution') {
+    group = 'verification'
+    description = 'Checks that plugin descriptor versions resolve from literals and String constants, and fail loudly otherwise'
+
+    doLast {
+        def root = new File(temporaryDir, 'plugins')
+        root.deleteDir()
+
+        def writeSource = { String relativePath, String text ->
+            def file = new File(root, relativePath)
+            file.parentFile.mkdirs()
+            file.setText(text, 'UTF-8')
+            file
+        }
+        def plugin = { String dir, String className, String versionAttribute, String body = '' ->
+            def attribute = versionAttribute == null ? '' : "    ${versionAttribute},\n"
+            writeSource("${dir}/${className}.java", """package net.runelite.client.plugins.microbot.${dir};
+
+@PluginDescriptor(
+    name = PluginConstants.DEFAULT_PREFIX + "${className}",
+    description = "Fixture (do not use version = \\"9.9.9\\") for ${className}",
+    tags = {"fixture", "version"},
+${attribute}    minClientVersion = "2.0.0",
+    isExternal = PluginConstants.IS_EXTERNAL
+)
+public class ${className} extends Plugin
+{
+${body}
+}
+""")
+        }
+
+        writeSource('PluginConstants.java', '''package net.runelite.client.plugins.microbot;
+
+public class PluginConstants
+{
+    public static final String DEFAULT_PREFIX = "";
+    public static final String SHARED_VERSION = "3.1.4";
+    public static final boolean IS_EXTERNAL = true;
+}
+''')
+        writeSource('constantclass/util/ConstantClassVersion.java', '''package net.runelite.client.plugins.microbot.constantclass.util;
+
+public final class ConstantClassVersion
+{
+    public static final String CURRENT = "4.5.6";
+}
+''')
+
+        def expectations = [
+            [plugin('literal', 'LiteralPlugin', 'version = "2.3.4"'), '2.3.4'],
+            [plugin('upperconstant', 'UpperConstantPlugin', 'version = UpperConstantPlugin.VERSION',
+                    '    static final String VERSION = "1.0.7";'), '1.0.7'],
+            [plugin('lowerconstant', 'LowerConstantPlugin', 'version = LowerConstantPlugin.version',
+                    '    public static final String version = "2.2.7";'), '2.2.7'],
+            [plugin('unqualified', 'UnqualifiedPlugin', 'version = VERSION',
+                    '    public static final String VERSION = "0.2.3";'), '0.2.3'],
+            [plugin('constantclass', 'ConstantClassPlugin', 'version = ConstantClassVersion.CURRENT'), '4.5.6'],
+            [plugin('sharedconstant', 'SharedConstantPlugin', 'version = PluginConstants.SHARED_VERSION'), '3.1.4'],
+            [plugin('commented', 'CommentedPlugin', '// version = "0.0.1",\n    /* version = "0.0.2", */ version = CommentedPlugin.VERSION',
+                    '    // static final String VERSION = "0.0.3";\n    static final String VERSION = "1.2.0";'), '1.2.0'],
+        ]
+        def failures = [
+            [plugin('missing', 'MissingPlugin', null, '    public static final String version = "1.0.3";'), "Missing required 'version'"],
+            [plugin('unknown', 'UnknownConstantPlugin', 'version = UnknownConstantPlugin.VERSION'), 'Cannot resolve plugin version'],
+            [plugin('concatenated', 'ConcatenatedPlugin', 'version = "1." + ConcatenatedPlugin.MINOR',
+                    '    static final String MINOR = "4";'), 'Cannot resolve plugin version'],
+            [plugin('empty', 'EmptyPlugin', 'version = ""'), 'Cannot resolve plugin version'],
+            [plugin('ambiguous', 'AmbiguousPlugin', 'version = AmbiguousPlugin.VERSION',
+                    '    static final String VERSION = "1.0.0";\n    static class Legacy\n    {\n        static final String VERSION = "0.9.0";\n    }'), 'Ambiguous plugin version constant'],
+        ]
+
+        def problems = []
+        expectations.each { file, expected ->
+            try {
+                def actual = project.ext.getPluginDescriptorInfo(file).version
+                if (actual != expected) {
+                    problems << "${file.name}: expected version ${expected} but resolved ${actual}"
+                }
+            } catch (Exception e) {
+                problems << "${file.name}: expected version ${expected} but failed with ${e.message}"
+            }
+        }
+        failures.each { file, expectedMessage ->
+            try {
+                def actual = project.ext.getPluginDescriptorInfo(file).version
+                problems << "${file.name}: expected failure '${expectedMessage}' but resolved ${actual}"
+            } catch (Exception e) {
+                if (!e.message?.contains(expectedMessage)) {
+                    problems << "${file.name}: expected failure '${expectedMessage}' but failed with ${e.message}"
+                }
+            }
+        }
+
+        if (!problems.isEmpty()) {
+            throw new GradleException("Plugin version resolution checks failed:\n  " + problems.join('\n  '))
+        }
+        logger.lifecycle("Plugin version resolution: ${expectations.size() + failures.size()} checks passed")
+    }
+}
+
+tasks.named('check') {
+    dependsOn 'verifyPluginVersionResolution'
+}

@@ -32,7 +32,7 @@ import java.awt.*;
 )
 @Slf4j
 public class revKillerPlugin extends Plugin {
-    public static final String version = "2.0.10";
+    public static final String version = "2.0.11";
     @Inject
     private net.runelite.client.plugins.microbot.revkiller.revKillerConfig config;
     @Provides
