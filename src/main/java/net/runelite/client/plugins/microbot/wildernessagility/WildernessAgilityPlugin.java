@@ -92,4 +92,4 @@ public class WildernessAgilityPlugin extends Plugin {
         // Forward looting bag container changes to script for value tracking
         script.handleItemContainerChanged(event);
     }
-} 
+}

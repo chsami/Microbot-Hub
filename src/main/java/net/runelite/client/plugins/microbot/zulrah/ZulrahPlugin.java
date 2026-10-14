@@ -67,7 +67,7 @@ Refractored from OpenOSRS credit goes to Owain van Brakel for originally creatin
         tags = {"Zulrah", "Helper", "boss", "bossing", "snek", "snake", "tool"},
         authors = { "Syntax" },
         version = ZulrahPlugin.version,
-        minClientVersion = "2.0.1",
+        minClientVersion = "2.6.25",
         iconUrl = "https://i.imgur.com/syri2MC.png",
         cardUrl = "https://i.imgur.com/syri2MC.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
