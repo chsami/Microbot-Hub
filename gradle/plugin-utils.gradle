@@ -153,6 +153,138 @@ ext {
         return hexString.toString()
     }
 
+    stripJavaComments = { String content ->
+        def out = new StringBuilder()
+        int i = 0
+        while (i < content.length()) {
+            char c = content.charAt(i)
+            if (content.startsWith('//', i)) {
+                int end = content.indexOf('\n', i)
+                i = end < 0 ? content.length() : end
+            } else if (content.startsWith('/*', i)) {
+                int end = content.indexOf('*/', i + 2)
+                i = end < 0 ? content.length() : end + 2
+                out.append(' ')
+            } else if (c == '"' as char || c == '\'' as char) {
+                int literalStart = i++
+                while (i < content.length() && content.charAt(i) != c) {
+                    i += content.charAt(i) == '\\' as char ? 2 : 1
+                }
+                i = Math.min(i + 1, content.length())
+                out.append(content, literalStart, i)
+            } else {
+                out.append(c)
+                i++
+            }
+        }
+        out.toString()
+    }
+
+    getPluginDescriptorAttributes = { String content, File javaFile ->
+        def source = project.ext.stripJavaComments(content)
+        def start = source =~ /@(?:[\w$]+\.)*PluginDescriptor\s*\(/
+        if (!start.find()) {
+            throw new GradleException("No @PluginDescriptor annotation found in: ${javaFile.absolutePath}")
+        }
+        def attributes = [:]
+        def current = new StringBuilder()
+        def flush = {
+            def attribute = current.toString().trim()
+            current.setLength(0)
+            def separator = attribute.indexOf('=')
+            if (separator > 0) {
+                attributes[attribute.substring(0, separator).trim()] = attribute.substring(separator + 1).trim()
+            }
+        }
+        int depth = 0
+        int i = start.end()
+        while (i < source.length()) {
+            char c = source.charAt(i)
+            if (c == '"' as char || c == '\'' as char) {
+                int literalStart = i++
+                while (i < source.length() && source.charAt(i) != c) {
+                    i += source.charAt(i) == '\\' as char ? 2 : 1
+                }
+                i = Math.min(i + 1, source.length())
+                current.append(source, literalStart, i)
+                continue
+            }
+            if (c == '(' as char || c == '{' as char) {
+                depth++
+            } else if (c == ')' as char || c == '}' as char) {
+                if (depth == 0) {
+                    flush()
+                    return attributes
+                }
+                depth--
+            } else if (c == ',' as char && depth == 0) {
+                flush()
+                i++
+                continue
+            }
+            current.append(c)
+            i++
+        }
+        throw new GradleException("Unterminated @PluginDescriptor annotation in: ${javaFile.absolutePath}")
+    }
+
+    findStringConstant = { File sourceFile, String constantName ->
+        def source = project.ext.stripJavaComments(sourceFile.getText('UTF-8'))
+        def matcher = source =~ /\bString\s+${java.util.regex.Pattern.quote(constantName)}\s*=\s*"([^"\\]*)"\s*;/
+        def values = [] as LinkedHashSet
+        while (matcher.find()) {
+            values << matcher.group(1)
+        }
+        values
+    }
+
+    resolvePluginVersionConstant = { File javaFile, String expression ->
+        def segments = expression.split(/\./) as List
+        def constantName = segments.last()
+        def qualifiers = segments.size() > 1 ? segments[0..-2].reverse() : [javaFile.name - '.java']
+        def pluginDir = javaFile.parentFile
+        def pluginsRoot = pluginDir.parentFile
+
+        for (qualifier in qualifiers) {
+            def candidates = []
+            pluginDir.eachFileRecurse(groovy.io.FileType.FILES) { if (it.name == "${qualifier}.java") candidates << it }
+            def shared = new File(pluginsRoot, "${qualifier}.java")
+            if (shared.isFile()) {
+                candidates << shared
+            }
+            def values = candidates.collectMany { project.ext.findStringConstant(it, constantName) as List }.unique()
+            if (values.size() == 1) {
+                return values[0]
+            }
+            if (values.size() > 1) {
+                throw new GradleException("Ambiguous plugin version constant '${expression}' ${values} in: ${javaFile.absolutePath}")
+            }
+        }
+        throw new GradleException("Cannot resolve plugin version '${expression}' in: ${javaFile.absolutePath}. " +
+                "Use a string literal or a String constant initialised with a string literal in the plugin's sources.")
+    }
+
+    resolvePluginVersion = { String content, File javaFile ->
+        def expression = project.ext.getPluginDescriptorAttributes(content, javaFile).version
+        if (expression == null) {
+            throw new GradleException("Missing required 'version' field in plugin descriptor: ${javaFile.absolutePath}")
+        }
+        def literal = expression =~ /^"([^"\\]+)"$/
+        if (literal.matches()) {
+            return literal.group(1)
+        }
+        if (expression ==~ /[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*/) {
+            return project.ext.resolvePluginVersionConstant(javaFile, expression)
+        }
+        throw new GradleException("Cannot resolve plugin version '${expression}' in: ${javaFile.absolutePath}. " +
+                "Use a non-empty string literal or a single String constant.")
+    }
+
+    getPluginClassName = { plugin ->
+        def packageMatcher = project.ext.stripJavaComments(plugin.javaFile.getText('UTF-8')) =~ /(?m)^\s*package\s+([\w.]+)\s*;/
+        packageMatcher.find() ? "${packageMatcher.group(1)}.${plugin.name}".toString() : plugin.name
+    }
+
     // Plugin descriptor parsing utility
     getPluginDescriptorInfo = { File javaFile ->
         def content = javaFile.getText('UTF-8')
@@ -165,7 +297,6 @@ ext {
         def singleAuthorMatcher = content =~ /authors\s*=\s*"([^"]+)"/
         def iconUrlMatcher  = content =~ /iconUrl\s*=\s*"([^"]+)"/
         def cardUrlMatcher  = content =~ /cardUrl\s*=\s*"([^"]+)"/
-        def versionMatcher  = content =~ /version\s*=\s*"([^"]+)"/
         def minClientVersionMatcher  = content =~ /minClientVersion\s*=\s*"([^"]+)"/
         def disableMatcher  = content =~ /disable\s*=\s*(true|false)/
 
@@ -191,7 +322,7 @@ ext {
         descriptor.description = descMatcher.find() ? descMatcher.group(1) : ''
         descriptor.iconUrl = iconUrlMatcher.find() ? iconUrlMatcher.group(1) : ''
         descriptor.cardUrl = cardUrlMatcher.find() ? cardUrlMatcher.group(1) : ''
-        descriptor.version = versionMatcher.find() ? versionMatcher.group(1) : project.ext.DEFAULT_VERSION
+        descriptor.version = project.ext.resolvePluginVersion(content, javaFile)
         descriptor.disable = disableMatcher.find() ? Boolean.parseBoolean(disableMatcher.group(1)) : false
 
         descriptor.tags = tagsMatcher.find() ?
@@ -292,7 +423,7 @@ ext {
                 logger.info("✅ Plugin ${plugin.name} processed successfully")
 
             } catch (Exception e) {
-                logger.warn("⚠️ Error processing ${plugin.name}: ${e.message}")
+                throw new GradleException("Error processing ${plugin.name}: ${e.message}", e)
             }
         }
 
