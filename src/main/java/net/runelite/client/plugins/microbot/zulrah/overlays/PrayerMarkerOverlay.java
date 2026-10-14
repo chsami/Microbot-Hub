@@ -6,7 +6,7 @@ import java.awt.Graphics2D;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.Prayer;
-import net.runelite.api.VarClientInt;
+import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.zulrah.ZulrahConfig;
 import net.runelite.client.plugins.microbot.zulrah.ZulrahPlugin;
@@ -40,7 +40,7 @@ public class PrayerMarkerOverlay extends Overlay
 		{
 			plugin.getZulrahData().forEach((data) -> {
 				data.getCurrentPhasePrayer().ifPresent((prayer) -> {
-					if (client.getVarcIntValue(VarClientInt.INVENTORY_TAB) == 5)
+					if (client.getVarcIntValue(VarClientID.TOPLEVEL_PANEL) == 5)
 					{
 						Widget widget = client.getWidget(541, prayerToChildId(prayer));
 						Color color = !client.isPrayerActive(prayer) ? Color.RED : Color.GREEN;
