@@ -323,7 +323,7 @@ public class BankerScript extends Script {
     public boolean hasProtectiveSlayerEquipment() {
         String needed = Rs2Slayer.getSlayerTaskProtectiveEquipment();
 
-        if ("None".equals(needed)) {
+        if (!requiresProtectiveEquipment(needed)) {
             return true;
         }
 
@@ -349,7 +349,14 @@ public class BankerScript extends Script {
         return result;
     }
 
-    private boolean isBypassedBySlayerHelmet(String item) {
+    static boolean requiresProtectiveEquipment(String needed) {
+        return needed != null && !"None".equals(needed);
+    }
+
+    static boolean isBypassedBySlayerHelmet(String item) {
+        if (item == null) {
+            return false;
+        }
         switch (item) {
             case "Earmuffs":
             case "Facemask":
