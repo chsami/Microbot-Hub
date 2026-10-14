@@ -16,7 +16,7 @@ public class PrayerPotionScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
-                if ((Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER) * 100) / Microbot.getClient().getRealSkillLevel(Skill.PRAYER) > Rs2Random.between(25, 30))
+                if (isPrayerAboveThreshold(Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER), Microbot.getClient().getRealSkillLevel(Skill.PRAYER), Rs2Random.between(25, 30)))
                     return;
                 List<Rs2ItemModel> potions = Microbot.getClientThread().runOnClientThreadOptional(Rs2Inventory::getPotions).orElse(null);
                 if (potions == null || potions.isEmpty()) {
@@ -40,9 +40,10 @@ public class PrayerPotionScript extends Script {
     public boolean run(NmzConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
+                if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 if (!config.togglePrayerPotions()) return;
-                if ((Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER) * 100) / Microbot.getClient().getRealSkillLevel(Skill.PRAYER) > Rs2Random.between(25, 30))
+                if (isPrayerAboveThreshold(Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER), Microbot.getClient().getRealSkillLevel(Skill.PRAYER), Rs2Random.between(25, 30)))
                     return;
                 List<Rs2ItemModel> potions = Microbot.getClientThread().runOnClientThreadOptional(Rs2Inventory::getPotions).orElse(null);
                 if (potions == null || potions.isEmpty()) {
@@ -61,5 +62,10 @@ public class PrayerPotionScript extends Script {
             }
         }, 0, 600, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    static boolean isPrayerAboveThreshold(int boostedLevel, int realLevel, int thresholdPercent) {
+        if (realLevel <= 0) return true;
+        return (boostedLevel * 100) / realLevel > thresholdPercent;
     }
 }
