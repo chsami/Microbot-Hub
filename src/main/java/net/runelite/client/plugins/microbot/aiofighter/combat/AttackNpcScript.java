@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
 import static net.runelite.api.gameval.VarbitID.*;
@@ -158,12 +159,10 @@ public class AttackNpcScript extends Script {
                             String name = npc.getName();
                             return name != null && !npcsToAttack.isEmpty() && npcsToAttack.contains(name.toLowerCase());
                         })
-                        .toList()
-                        .stream()
-                        .sorted(Comparator
-                                .comparingInt((Rs2NpcModel npc) -> Objects.equals(npc.getInteracting(), localPlayer) ? 0 : 1)
-                                .thenComparingInt(npc -> rs2PlayerPoint.distanceToPath(npcWorldLocation(npc, instanced))))
-                        .collect(Collectors.toList());
+                        .toList();
+                attackableNpcs = sortBySnapshotKeys(attackableNpcs,
+                        npc -> Objects.equals(npc.getInteracting(), localPlayer) ? 0 : 1,
+                        npc -> rs2PlayerPoint.distanceToPath(npcWorldLocation(npc, instanced)));
 
                 filteredAttackableNpcs.set(attackableNpcs);
 
@@ -295,6 +294,20 @@ public class AttackNpcScript extends Script {
         }, 0, 600, TimeUnit.MILLISECONDS);
     }
 
+
+    static <T> List<T> sortBySnapshotKeys(List<T> items, ToIntFunction<T> primary, ToIntFunction<T> secondary) {
+        List<int[]> keyed = new ArrayList<>(items.size());
+        for (int i = 0; i < items.size(); i++) {
+            T item = items.get(i);
+            keyed.add(new int[]{primary.applyAsInt(item), secondary.applyAsInt(item), i});
+        }
+        keyed.sort(Comparator.<int[]>comparingInt(k -> k[0]).thenComparingInt(k -> k[1]));
+        List<T> sorted = new ArrayList<>(keyed.size());
+        for (int[] k : keyed) {
+            sorted.add(items.get(k[2]));
+        }
+        return sorted;
+    }
 
     static boolean shouldHoldAttack(boolean inCombat, boolean antibanEnabled, double actionCooldownChance, boolean actionCooldownActive) {
         if (inCombat) return true;
