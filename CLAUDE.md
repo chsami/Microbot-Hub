@@ -150,7 +150,7 @@ If a plugin needs additional libraries beyond the Microbot client:
 ## Version Management
 
 - **Always increment the plugin version** when making changes (even small fixes)
-- Store version in a static field: `static final String version = "1.2.3";`
+- Store version in a static field: `static final String version = "1.2.3";` and reference it from the descriptor (`version = MyPlugin.version`). The build resolves `version` from a string literal or a `String` constant initialised with a literal in the plugin's own sources or `PluginConstants`; a missing, empty or computed version fails the build (`verifyPluginVersionResolution`, `PluginManifestVersionTest`)
 - Follow semantic versioning: `MAJOR.MINOR.PATCH`
 - The version is used for JAR naming, GitHub release assets, and `plugins.json` generation
 

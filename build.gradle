@@ -12,6 +12,7 @@ import groovy.json.JsonOutput
 
 apply from: 'gradle/project-config.gradle'
 apply from: 'gradle/plugin-utils.gradle'
+apply from: 'gradle/plugin-version-checks.gradle'
 
 def microbotClientVersion = project.ext.getMicrobotClientVersion()
 def microbotClientPath = project.findProperty("microbotClientPath")
@@ -235,8 +236,27 @@ afterEvaluate {
         dependsOn allPluginCompileTasks
     }
 
+    def pluginVersions = new TreeMap(validPlugins.collectEntries { plugin ->
+        [(project.ext.getPluginClassName(plugin)): pluginVersionFromPluginJson(plugin.dir)]
+    })
+    def pluginVersionsFile = layout.buildDirectory.file('plugin-versions/plugin-versions.properties')
+    def writePluginVersions = tasks.register('writePluginVersions') {
+        group = 'verification'
+        description = 'Writes the plugin versions resolved for plugins.json so tests can compare them with the compiled descriptors'
+        inputs.property('pluginVersions', pluginVersions)
+        outputs.file(pluginVersionsFile)
+        doLast {
+            def output = pluginVersionsFile.get().asFile
+            output.parentFile.mkdirs()
+            output.text = pluginVersions.collect { className, version -> "${className}=${version}\n" }.join('')
+        }
+    }
+
     tasks.named('test').configure {
         dependsOn allPluginCompileTasks
+        dependsOn writePluginVersions
+        inputs.file(pluginVersionsFile)
+        systemProperty 'microbot.hub.pluginVersions', pluginVersionsFile.get().asFile.absolutePath
     }
 }
 
