@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.sulphurnaguafigther;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldArea;
@@ -236,7 +237,7 @@ public class SulphurNaguaScript extends Script {
             return;
         }
 
-        boolean isAvailableForAction = !Rs2Player.isInCombat() || Rs2Player.getInteracting() == null || Rs2Player.getInteracting().isDead();
+        boolean isAvailableForAction = !Rs2Player.isInCombat() || isMissingOrDead(Rs2Player.getInteracting());
 
         if (!dynamicLootIds.isEmpty() && isAvailableForAction && !Rs2Inventory.isFull() && isStackableLootNearby()) {
             currentState = SulphurNaguaState.LOOTING;
@@ -539,7 +540,7 @@ public class SulphurNaguaScript extends Script {
                 var attackingNagua = Microbot.getRs2NpcCache().query()
                         .withName("Sulphur Nagua")
                         .where(n -> !n.isDead())
-                        .where(n -> n.getInteracting() != null && n.getInteracting().equals(client.getLocalPlayer()))
+                        .where(n -> isInteractingWith(n, client.getLocalPlayer()))
                         .nearest();
 
                 boolean attackInitiated = false;
@@ -552,7 +553,7 @@ public class SulphurNaguaScript extends Script {
                             .withName("Sulphur Nagua")
                             .where(n -> !n.isDead())
                             .where(n -> combatArea.contains(n.getWorldLocation()))
-                            .where(n -> n.getInteracting() == null || n.getInteracting().equals(client.getLocalPlayer()))
+                            .where(n -> isFreeOrInteractingWith(n, client.getLocalPlayer()))
                             .interact("Attack");
                 }
 
@@ -718,5 +719,19 @@ public class SulphurNaguaScript extends Script {
         fixedItemCount += Rs2Inventory.count(SULPHUR_BLADE_ID);
 
         return fixedItemCount;
+    }
+
+    static boolean isMissingOrDead(Actor target) {
+        return target == null || target.isDead();
+    }
+
+    static boolean isInteractingWith(Actor actor, Actor other) {
+        Actor target = actor.getInteracting();
+        return target != null && target.equals(other);
+    }
+
+    static boolean isFreeOrInteractingWith(Actor actor, Actor other) {
+        Actor target = actor.getInteracting();
+        return target == null || target.equals(other);
     }
 }

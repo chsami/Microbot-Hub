@@ -29,7 +29,7 @@ import java.time.Instant;
 @Slf4j
 public class SulphurNaguaPlugin extends Plugin {
 
-    public static final String version = "2.0.2";
+    public static final String version = "2.0.3";
 
     @Inject
     SulphurNaguaScript sulphurNaguaScript;
