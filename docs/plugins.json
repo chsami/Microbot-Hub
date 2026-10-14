@@ -780,7 +780,7 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-21T12:35:11Z",
-        "sha256": "96b381e9dfac29f44641d47b8b1a5a56b0c920c6343f28fad0c036dd39250424",
+        "sha256": "d169fa29873763a9523a2905098df54a76b065aabb43875385e0819a0a54fd48",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mmcavesplugin-1.0.3.jar"
     },
     {
@@ -1395,7 +1395,7 @@
         "cardUrl": "https://i.imgur.com/syri2MC.png",
         "disable": false,
         "addedAt": "2025-11-25T17:22:31Z",
-        "sha256": "965f7336a8b5faf83bb1812ecbb41678782140023cdeed0499282a0b3b9c3dbe",
+        "sha256": "8eb177d24fe0e23ce85407f43af1aa00d33d1914560a3f5bd97fce7f606f94b0",
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/zulrahplugin-1.0.2.jar"
     },
     {
@@ -1827,7 +1827,7 @@
             "guild",
             "jane"
         ],
-        "version": "1.0.0",
+        "version": "0.2.3",
         "minClientVersion": "2.6.0",
         "authors": [
             "Pert"
@@ -1836,8 +1836,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FarmingContractPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2026-06-25T16:10:59Z",
-        "sha256": "65706e1e4d95c770fbde9821a2e2717f9e38951ff8abc9ad28772b2a45bed0de",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmingcontractplugin-1.0.0.jar"
+        "sha256": "e17bee07109aa1a603db5b197f08d635c396e65b364158584d045775e7bbe04f",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmingcontractplugin-0.2.3.jar"
     },
     {
         "internalName": "EnsouledHeadSlayerPlugin",
@@ -1960,7 +1960,7 @@
             "ranging",
             "revenant killer"
         ],
-        "version": "2.0.10",
+        "version": "2.0.11",
         "minClientVersion": "2.6.25",
         "authors": [
             "Gage"
@@ -1969,8 +1969,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-09T16:26:30Z",
-        "sha256": "db47cd94dd2390b0c61c1821f38db215a3698503eaefa717fb2fc1d6da26c699",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/revkillerplugin-2.0.10.jar"
+        "sha256": "0cf27a0c169b2c95070d7db7fb72bf9e48270f14a816747a9ce9cdb921443c73",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/revkillerplugin-2.0.11.jar"
     },
     {
         "internalName": "PlankRunnerPlugin",
@@ -2169,7 +2169,7 @@
             "maiden",
             "microbot"
         ],
-        "version": "1.0.0",
+        "version": "1.0.2",
         "minClientVersion": "2.0.13",
         "authors": [
             "Syntax"
@@ -2178,8 +2178,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-12-03T04:14:57Z",
-        "sha256": "cd182176c184fc66aac97b29615040f49ca4a169e6ecd2eb141a20ee9eb3d9ec",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/theatreplugin-1.0.0.jar"
+        "sha256": "aa158a5d21e1aa992e4bca20200ded4a812700048ad2cd299615e4669e85760d",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/theatreplugin-1.0.2.jar"
     },
     {
         "internalName": "EventDismissPlugin",
@@ -2349,7 +2349,7 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.2.2",
+        "version": "2.2.3",
         "minClientVersion": "2.1.32",
         "authors": [
             "Mocrosoft",
@@ -2359,8 +2359,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-13T19:11:17Z",
-        "sha256": "2d135d2c7e471bbe9de858ff810c519c28e8135f1c97326fc594b6e2e15f0978",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.2.2.jar"
+        "sha256": "1b2c18dd2124c52f1733d053f7eadad2978ce065744959b44f49340266568449",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.2.3.jar"
     },
     {
         "internalName": "LeftClickCastPlugin",
@@ -3196,7 +3196,7 @@
             "huey",
             "prayer"
         ],
-        "version": "1.0.0",
+        "version": "1.0.7",
         "minClientVersion": "2.1.34",
         "authors": [
             "Unknown Author"
@@ -3205,8 +3205,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2026-04-03T07:27:17Z",
-        "sha256": "702023580708257d21ca53ebe2d9942593e1d444e7187d9cefd1523b3e15fd7c",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/hueyprayerplugin-1.0.0.jar"
+        "sha256": "e0c6ac7b5de598b4f8462376e8e168499c1f7175ec32467e3d256acf302b7c8c",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/hueyprayerplugin-1.0.7.jar"
     },
     {
         "internalName": "ScurriusPlugin",
