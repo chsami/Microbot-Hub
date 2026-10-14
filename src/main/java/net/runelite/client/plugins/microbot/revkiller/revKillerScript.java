@@ -1154,7 +1154,7 @@ public class revKillerScript extends Script {
                     }
                     if(Rs2Inventory.contains(ItemID.RING_OF_DUELING8)){
                         if(Rs2Inventory.interact(ItemID.RING_OF_DUELING8, "Wear")){
-                            sleepUntil(()-> Rs2Equipment.get(EquipmentInventorySlot.RING).getName().contains("dueling"), generateRandomNumber(5000,15000));
+                            sleepUntil(()-> isWearingDuelingRing(), generateRandomNumber(5000,15000));
                         }
                     }
                 }
@@ -1234,7 +1234,7 @@ public class revKillerScript extends Script {
                     }
                     if(Rs2Inventory.contains(selectedArrow)){
                         if(Rs2Inventory.interact(selectedArrow, "Wield")){
-                            sleepUntil(()-> Rs2Equipment.get(EquipmentInventorySlot.AMMO).getQuantity() > 50, generateRandomNumber(5000,15000));
+                            sleepUntil(()-> hasEquippedAmmoAbove(50), generateRandomNumber(5000,15000));
                         }
                     }
                 }
@@ -1534,17 +1534,23 @@ public class revKillerScript extends Script {
             }
 
 
-            if ((player.getInteracting() != null) && (player.getInteracting().equals(Rs2Player.getLocalPlayer()))) {
-                Microbot.log(player.getName() + " is attacking us");
-                return true;
-            }
-
-            if((player.getInteracting() != null && player.getInteracting().getName() != null) && player.getInteracting().getName().equals(Rs2Player.getLocalPlayer().getName())){
+            Actor interacting = player.getInteracting();
+            if (interacting != null && interacting == Microbot.getClient().getLocalPlayer()) {
                 Microbot.log(player.getName() + " is attacking us");
                 return true;
             }
 
         }
         return false;
+    }
+
+    static boolean isWearingDuelingRing() {
+        Rs2ItemModel ring = Rs2Equipment.get(EquipmentInventorySlot.RING);
+        return ring != null && ring.getName() != null && ring.getName().contains("dueling");
+    }
+
+    static boolean hasEquippedAmmoAbove(int quantity) {
+        Rs2ItemModel ammo = Rs2Equipment.get(EquipmentInventorySlot.AMMO);
+        return ammo != null && ammo.getQuantity() > quantity;
     }
 }
