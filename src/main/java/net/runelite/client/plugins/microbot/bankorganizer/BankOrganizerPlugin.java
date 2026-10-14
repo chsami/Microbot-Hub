@@ -42,7 +42,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 @Slf4j
 public class BankOrganizerPlugin extends Plugin
 {
-	public static final String version = "1.0.0";
+	public static final String version = "1.0.1";
 
 	@Inject
 	private BankOrganizerConfig config;
