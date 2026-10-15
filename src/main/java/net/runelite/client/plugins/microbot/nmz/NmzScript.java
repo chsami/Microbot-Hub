@@ -146,7 +146,10 @@ public class NmzScript extends Script {
     }
 
     public boolean isOutside() {
-        WorldPoint loc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return isNearLobby(Rs2Player.getWorldLocation());
+    }
+
+    static boolean isNearLobby(WorldPoint loc) {
         return loc != null && loc.distanceTo(new WorldPoint(2602, 3116, 0)) < 20;
     }
 
@@ -379,7 +382,7 @@ public class NmzScript extends Script {
         }
         sleep(2000, 4000);
         Widget widget = Rs2Widget.getWidget(129, 6);
-        if (!Microbot.getClientThread().runOnClientThreadOptional(widget::isHidden).orElse(false)) {
+        if (widget != null && !Microbot.getClientThread().runOnClientThreadOptional(widget::isHidden).orElse(false)) {
             Rs2Widget.clickWidget(widget.getId());
             sleep(300);
             Rs2Widget.clickWidget(widget.getId());
@@ -438,14 +441,18 @@ public class NmzScript extends Script {
         for (int i = 0; i < overloadToBuy; i++) {
             Widget nmzRewardShop = Rs2Widget.getWidget(206, 6);
             if (nmzRewardShop == null) break;
-            Rs2Widget.clickWidgetFast(nmzRewardShop.getChild(6), 6, 4);
+            Widget potionButton = nmzRewardShop.getChild(6);
+            if (potionButton == null) break;
+            Rs2Widget.clickWidgetFast(potionButton, 6, 4);
             sleep(600, 1000);
         }
 
         for (int i = 0; i < absorptionToBuy; i++) {
             Widget nmzRewardShop = Rs2Widget.getWidget(206, 6);
             if (nmzRewardShop == null) break;
-            Rs2Widget.clickWidgetFast(nmzRewardShop.getChild(9), 9, 4);
+            Widget potionButton = nmzRewardShop.getChild(9);
+            if (potionButton == null) break;
+            Rs2Widget.clickWidgetFast(potionButton, 9, 4);
             sleep(600, 1000);
         }
     }
