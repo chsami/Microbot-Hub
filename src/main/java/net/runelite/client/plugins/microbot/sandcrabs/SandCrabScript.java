@@ -4,6 +4,7 @@ import net.runelite.api.GameState;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.sandcrabs.enums.State;
 import net.runelite.client.plugins.microbot.sandcrabs.models.ScanLocation;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
@@ -48,6 +49,10 @@ public class SandCrabScript extends Script {
 
     List<ScanLocation> sandCrabLocations = new ArrayList<>();
 
+    static boolean hasInventorySetup(InventorySetup setup) {
+        return setup != null && setup.getName() != null && !setup.getName().isEmpty();
+    }
+
     public boolean run(SandCrabConfig config, SandCrabPlugin plugin) {
         initialPlayerLocation = null;
         if (config.threeNpcs()) {
@@ -63,19 +68,20 @@ public class SandCrabScript extends Script {
                     initialPlayerLocation = Rs2Player.getWorldLocation();
                 }
                 long startTime = System.currentTimeMillis();
-                var inventorySetup = new Rs2InventorySetup(config.inventorySetup().getName(), mainScheduledFuture);
+                Rs2InventorySetup inventorySetup = null;
 
                 if (!config.DisableInventorySetup()) {
-                    if (inventorySetup == null || config.inventorySetup().getName().isEmpty()) {
+                    if (!hasInventorySetup(config.inventorySetup())) {
                         Microbot.showMessage("Please setup your Inventory Setup for sand crabs! Stopping...");
                         shutdown();
                         return;
                     }
+                    inventorySetup = new Rs2InventorySetup(config.inventorySetup().getName(), mainScheduledFuture);
                 }
 
                 Rs2Combat.enableAutoRetialiate();
 
-                if (!inventorySetup.doesEquipmentMatch() && !config.DisableInventorySetup()) {
+                if (!config.DisableInventorySetup() && !inventorySetup.doesEquipmentMatch()) {
                     if (Rs2Bank.walkToBankAndUseBank()) {
                         if (inventorySetup.loadEquipment()) {
                             Microbot.log("We're setup for sand crabs!");
