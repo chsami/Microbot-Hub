@@ -13,6 +13,7 @@ import org.mockito.MockedStatic;
 
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.lang.reflect.Field;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -27,7 +28,7 @@ import static org.mockito.Mockito.when;
 class AutoWoodcuttingOverlayTest {
 
     @Test
-    void renderSkipsAreaWhenReturnPointIsUnavailable() {
+    void renderSkipsAreaWhenReturnPointIsUnavailable() throws Exception {
         Client client = mock(Client.class);
         when(client.findWorldViewFromWorldPoint(isNull())).thenThrow(new NullPointerException());
 
@@ -42,6 +43,13 @@ class AutoWoodcuttingOverlayTest {
         script.woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
         plugin.autoWoodcuttingScript = script;
 
+        Field initialLocation = findField(AutoWoodcuttingScript.class, "initialPlayerLocation");
+        Field returnPoint = findField(AutoWoodcuttingScript.class, "returnPoint");
+        Object savedInitialLocation = initialLocation.get(null);
+        Object savedReturnPoint = returnPoint.get(null);
+        initialLocation.set(null, null);
+        returnPoint.set(null, null);
+
         Graphics2D graphics = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB).createGraphics();
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class, CALLS_REAL_METHODS);
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
@@ -55,6 +63,20 @@ class AutoWoodcuttingOverlayTest {
             verify(client, never()).findWorldViewFromWorldPoint(any(WorldPoint.class));
         } finally {
             graphics.dispose();
+            initialLocation.set(null, savedInitialLocation);
+            returnPoint.set(null, savedReturnPoint);
         }
+    }
+
+    private static Field findField(Class<?> type, String name) throws NoSuchFieldException {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            try {
+                Field field = current.getDeclaredField(name);
+                field.setAccessible(true);
+                return field;
+            } catch (NoSuchFieldException ignored) {
+            }
+        }
+        throw new NoSuchFieldException(name);
     }
 }
