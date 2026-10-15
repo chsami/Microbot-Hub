@@ -678,6 +678,14 @@ public class GotrScript extends Script {
                 && Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getX()) <= hugeMineX;
     }
 
+    static boolean isActiveAltarRenderable(Renderable renderable) {
+        if (!(renderable instanceof DynamicObject)) {
+            return false;
+        }
+        Animation animation = ((DynamicObject) renderable).getAnimation();
+        return animation != null && animation.getId() == 9363;
+    }
+
     public static boolean isGuardianPortal(GameObject gameObject) {
         return guardianPortalInfo.containsKey(gameObject.getId());
     }
@@ -745,10 +753,7 @@ public class GotrScript extends Script {
                         return false;
                     }
 
-                    if (((DynamicObject) x.getRenderable()).getAnimation() == null) {
-                        return false;
-                    }
-                    if (((DynamicObject) x.getRenderable()).getAnimation().getId() != 9363) {
+                    if (!isActiveAltarRenderable(x.getRenderable())) {
                         return false;
                     }
                     Microbot.log("Adding " + portalInfo.getName() + " to list of available altars");
