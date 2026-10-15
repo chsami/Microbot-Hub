@@ -190,8 +190,7 @@ public class ScurriusScript extends Script {
                         }
 
                         Rs2NpcModel giantRatModel = Microbot.getRs2NpcCache().query()
-                                .where(n -> n.getName() != null && n.getName().toLowerCase().contains("giant rat")
-                                        && !n.getNpc().isDead())
+                                .where(ScurriusScript::isLiveGiantRat)
                                 .nearest();
                         if (giantRatModel != null) {
                             boolean didWeAttackAGiantRat = scurrius != null && config.prioritizeRats() && giantRatModel.click("Attack");
@@ -273,6 +272,11 @@ public class ScurriusScript extends Script {
 
     static boolean isInArea(WorldArea area, WorldPoint location) {
         return location != null && area.contains(location);
+    }
+
+    static boolean isLiveGiantRat(Rs2NpcModel npc) {
+        String name = npc.getName();
+        return name != null && name.toLowerCase().contains("giant rat") && !npc.getNpc().isDead();
     }
 
     static int randomThreshold(int first, int second) {
