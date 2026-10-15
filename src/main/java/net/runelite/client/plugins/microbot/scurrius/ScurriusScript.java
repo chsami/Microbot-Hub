@@ -59,6 +59,7 @@ public class ScurriusScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
+                if (Rs2Player.getWorldLocation() == null) return;
                 long startTime = System.currentTimeMillis();
                 long currentTime = System.currentTimeMillis();
 
@@ -169,9 +170,7 @@ public class ScurriusScript extends Script {
                         }
 
                         if (currentTime - lastEatTime > EAT_COOLDOWN_MS) {
-                            int minEat = config.minEatPercent();
-                            int maxEat = config.maxEatPercent();
-                            int randomEatThreshold = ThreadLocalRandom.current().nextInt(minEat, maxEat + 1);
+                            int randomEatThreshold = randomThreshold(config.minEatPercent(), config.maxEatPercent());
 
                             if (Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) < randomEatThreshold && !Rs2Player.isAnimating()) {
                                 Rs2Player.eatAt(randomEatThreshold);
@@ -181,9 +180,7 @@ public class ScurriusScript extends Script {
                         }
 
                         if (currentTime - lastPrayerTime > PRAYER_COOLDOWN_MS) {
-                            int minPrayer = config.minPrayerPercent();
-                            int maxPrayer = config.maxPrayerPercent();
-                            int randomPrayerThreshold = ThreadLocalRandom.current().nextInt(minPrayer, maxPrayer + 1);
+                            int randomPrayerThreshold = randomThreshold(config.minPrayerPercent(), config.maxPrayerPercent());
 
                             if (Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER) < randomPrayerThreshold && !Rs2Player.isAnimating()) {
                                 Rs2Player.drinkPrayerPotionAt(randomPrayerThreshold);
@@ -271,7 +268,17 @@ public class ScurriusScript extends Script {
     }
 
     private boolean isInFightRoom() {
-        return fightRoom.contains(Rs2Player.getWorldLocation());
+        return isInArea(fightRoom, Rs2Player.getWorldLocation());
+    }
+
+    static boolean isInArea(WorldArea area, WorldPoint location) {
+        return location != null && area.contains(location);
+    }
+
+    static int randomThreshold(int first, int second) {
+        int low = Math.min(first, second);
+        int high = Math.max(first, second);
+        return ThreadLocalRandom.current().nextInt(low, high + 1);
     }
 
     private WorldPoint findSafeTile(WorldPoint playerLocation, List<WorldPoint> dangerousWorldPoints) {
