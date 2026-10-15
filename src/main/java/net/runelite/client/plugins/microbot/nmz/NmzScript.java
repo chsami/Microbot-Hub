@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.nmz;
 
 import lombok.Getter;
 import lombok.Setter;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
@@ -239,15 +240,22 @@ public class NmzScript extends Script {
         return orbHasSpawned;
     }
 
+    private static WorldPoint getLocalPlayerWorldLocation() {
+        return Microbot.getClientThread().invoke(() -> {
+            Player player = Microbot.getClient().getLocalPlayer();
+            return player == null ? null : player.getWorldLocation();
+        });
+    }
+
     public boolean interactWithObject(int objectId) {
         Rs2TileObjectModel obj = tileObjectCache.query().withId(objectId).nearest();
         if (obj != null) {
             sleep(1000, 15000);
-            WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+            WorldPoint playerLoc = getLocalPlayerWorldLocation();
             if (playerLoc != null && playerLoc.distanceTo(obj.getWorldLocation()) >= 15) {
                 Rs2Walker.walkFastLocal(obj.getLocalLocation());
                 sleepUntil(() -> {
-                    WorldPoint loc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+                    WorldPoint loc = getLocalPlayerWorldLocation();
                     return loc != null && loc.distanceTo(obj.getWorldLocation()) < 15;
                 }, 10000);
             }
