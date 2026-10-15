@@ -53,6 +53,7 @@ public class MahoganyHomesScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
+                if (Rs2Player.getWorldLocation() == null) return;
                 checkPlankSack();
                 fix();
                 finish();
@@ -393,8 +394,12 @@ public class MahoganyHomesScript extends Script {
                 }
                 return;
             }
-            WorldPoint contractLocation = getClosestContractLocation();
-            if (contractLocation.distanceTo2D(Rs2Player.getWorldLocation()) > 10) {
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            WorldPoint contractLocation = getClosestContractLocation(playerLocation);
+            if (contractLocation == null) {
+                return;
+            }
+            if (contractLocation.distanceTo2D(playerLocation) > 10) {
                 log("Walking to contract NPC");
                 Rs2Walker.walkWithState(contractLocation, 5);
 
@@ -642,7 +647,10 @@ public class MahoganyHomesScript extends Script {
     }
 
     // Get closest contract location
-    private WorldPoint getClosestContractLocation() {
+    static WorldPoint getClosestContractLocation(WorldPoint playerLocation) {
+        if (playerLocation == null) {
+            return null;
+        }
         List<WorldPoint> contractLocations = new ArrayList<>();
         contractLocations.add(ContractLocation.MAHOGANY_HOMES_ARDOUGNE.getLocation());
         contractLocations.add(ContractLocation.MAHOGANY_HOMES_FALADOR.getLocation());
@@ -650,7 +658,7 @@ public class MahoganyHomesScript extends Script {
         contractLocations.add(ContractLocation.MAHOGANY_HOMES_VARROCK.getLocation());
 
         return contractLocations.stream()
-                .min(Comparator.comparingInt(wp -> wp.distanceTo2D(Rs2Player.getWorldLocation())))
+                .min(Comparator.comparingInt(wp -> wp.distanceTo2D(playerLocation)))
                 .orElse(null);
     }
 
