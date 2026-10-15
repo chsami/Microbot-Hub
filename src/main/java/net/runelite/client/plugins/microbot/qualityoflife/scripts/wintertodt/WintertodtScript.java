@@ -5,6 +5,7 @@ import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.NpcChanged;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.NpcSpawned;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.widgets.Widget;
@@ -29,6 +30,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class WintertodtScript extends Script {
+    private static final Pattern DIGITS = Pattern.compile("\\d+");
     public static QoLConfig config;
     public static Rs2TileObjectModel unlitBrazier;
     public static Rs2TileObjectModel brokenBrazier;
@@ -64,7 +66,7 @@ public class WintertodtScript extends Script {
                     return;
                 }
 
-                Widget wintertodtHealthbar = Rs2Widget.getWidget(25952276);
+                Widget wintertodtHealthbar = Rs2Widget.getWidget(InterfaceID.WintStatus.ENERGY_TITLE);
                 isWintertodtAlive = Rs2Widget.hasWidget("Wintertodt's Energy");
                 if (wintertodtHealthbar != null && isWintertodtAlive) {
                     wintertodtHp = parseWintertodtHp(wintertodtHealthbar.getText());
@@ -241,7 +243,7 @@ public class WintertodtScript extends Script {
         if (widgetText == null) {
             return -1;
         }
-        Matcher matcher = Pattern.compile("\\d+").matcher(widgetText);
+        Matcher matcher = DIGITS.matcher(widgetText);
         if (matcher.find()) {
             return Integer.parseInt(matcher.group());
         }
@@ -251,8 +253,7 @@ public class WintertodtScript extends Script {
     public int getWarmthLevel() {
         String warmthWidgetText = Rs2Widget.getChildWidgetText(396, 20);
 
-        Pattern pattern = Pattern.compile("\\d+");
-        Matcher matcher = pattern.matcher(warmthWidgetText);
+        Matcher matcher = DIGITS.matcher(warmthWidgetText);
 
         if (matcher.find()) {
             return Integer.parseInt(matcher.group());
