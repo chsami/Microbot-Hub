@@ -242,6 +242,17 @@ public class BankerScript extends Script {
                 .anyMatch(name -> name.equalsIgnoreCase(setupName) || name.equals("default"));
     }
 
+    static InventorySetup findSetupByName(Collection<InventorySetup> setups, String setupName) {
+        if (setups == null || setupName == null) {
+            return null;
+        }
+        return setups.stream()
+                .filter(Objects::nonNull)
+                .filter(setup -> setupName.equalsIgnoreCase(setup.getName()))
+                .findFirst()
+                .orElse(null);
+    }
+
     /**
      * Checks if the given setup requires any variant of a specific potion but the player does not have it.
      */
@@ -479,7 +490,8 @@ public class BankerScript extends Script {
                         Rs2Bank.withdrawAndEquip(Rs2Slayer.getSlayerTaskProtectiveEquipment());
                         sleep(3000);
                         inventorySetupsPlugin.addInventorySetup("cache");
-                        InventorySetup inventorySetup1 = MInventorySetupsPlugin.getInventorySetups().stream().filter(Objects::nonNull).filter(x -> x.getName().equalsIgnoreCase("cache")).findFirst().orElse(null);
+                        sleepUntil(() -> findSetupByName(MInventorySetupsPlugin.getInventorySetups(), "cache") != null, 3000);
+                        InventorySetup inventorySetup1 = findSetupByName(MInventorySetupsPlugin.getInventorySetups(), "cache");
                          AIOFighterPlugin.setCurrentSlayerInventorySetup(inventorySetup1);
                     } else {
                         ShopScript.shopItems.add(new ShopItem(Rs2Slayer.getSlayerTaskProtectiveEquipment(), 1, Microbot.getRs2ItemManager().getItemId(Rs2Slayer.getSlayerTaskProtectiveEquipment()), ShopType.SLAYER_SHOP));
