@@ -31,8 +31,8 @@ public class RequirementHandlerTask extends ClueTask {
     private final EventBus eventBus;
     private final ExecutorService backgroundExecutor;
     private Iterator<ItemRequirement> requirementIterator;
-    private CompletableFuture<Boolean> itemReceivedFuture;
-    private ItemRequirement currentRequirement;
+    private volatile CompletableFuture<Boolean> itemReceivedFuture;
+    private volatile ItemRequirement currentRequirement;
     private volatile BankLocation targetBank;
     private final AtomicBoolean bankStepRunning = new AtomicBoolean(false);
 
@@ -130,7 +130,8 @@ public class RequirementHandlerTask extends ClueTask {
         // cascaded into "Failed to open the bank" + walker deadlock.
         WorldPoint playerLocation = getPlayerLocationSafe();
         if (playerLocation == null) {
-            log.debug("Player location unavailable in walkToBank; will retry next tick");
+            log.warn("Player location unavailable in walkToBank.");
+            completeTask(false);
             return;
         }
         BankLocation nearestBank = Rs2Bank.getNearestBank();
@@ -141,7 +142,10 @@ public class RequirementHandlerTask extends ClueTask {
         }
         targetBank = nearestBank;
         if (playerLocation.distanceTo(nearestBank.getWorldPoint()) > 10) {
-            Rs2Bank.walkToBankAndUseBank();
+            if (!Rs2Bank.walkToBankAndUseBank()) {
+                log.warn("Failed to walk to the bank.");
+                completeTask(false);
+            }
         } else {
             openBank();
         }
