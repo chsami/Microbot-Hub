@@ -183,9 +183,11 @@ public class AnagramClueTask extends ClueTask {
                 Rs2Dialogue.clickContinue();
             }
 
-            Rs2Keyboard.typeString(answer);
-            Rs2Keyboard.enter();
-            Rs2Dialogue.sleepUntilHasContinue();
+            if (answer != null && !answer.isBlank()) {
+                Rs2Keyboard.typeString(answer);
+                Rs2Keyboard.enter();
+                Rs2Dialogue.sleepUntilHasContinue();
+            }
 
             if (Rs2Dialogue.hasContinue()) {
                 Rs2Dialogue.clickContinue();
