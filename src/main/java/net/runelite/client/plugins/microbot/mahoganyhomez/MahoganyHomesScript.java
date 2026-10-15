@@ -53,6 +53,7 @@ public class MahoganyHomesScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
+                if (Rs2Player.getWorldLocation() == null) return;
                 checkPlankSack();
                 fix();
                 finish();
