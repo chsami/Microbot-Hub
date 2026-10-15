@@ -59,6 +59,7 @@ public class ScurriusScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
+                if (Rs2Player.getWorldLocation() == null) return;
                 long startTime = System.currentTimeMillis();
                 long currentTime = System.currentTimeMillis();
 
