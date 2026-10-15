@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.IntUnaryOperator;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
@@ -323,20 +324,26 @@ public class AttackNpcScript extends Script {
                 .where(n -> n.isDead() && Objects.equals(n.getInteracting(), localPlayer))
                 .first();
         if (npc == null) return;
-        List<String> lizardVariants = new ArrayList<>(Arrays.asList("Lizard", "Desert Lizard", "Small Lizard"));
+        int itemId = finishingItemFor(npc.getName(), npc.getHealthRatio(), Microbot::getVarbitValue);
+        if (itemId == -1) return;
         // Rs2Inventory.useItemOnNpc only accepts the legacy util.npc.Rs2NpcModel — wrap our underlying NPC at the call site.
         net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel legacyNpc =
                 new net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel(npc.getNpc());
-        if (Microbot.getVarbitValue(SLAYER_AUTOKILL_DESERTLIZARDS) == 0 && lizardVariants.contains(npc.getName()) && npc.getHealthRatio() < 5) {
-            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_ICY_WATER, legacyNpc);
-            Rs2Player.waitForAnimation();
-        } else if (Microbot.getVarbitValue(SLAYER_AUTOKILL_ROCKSLUGS) == 0 && npc.getName().equalsIgnoreCase("rockslug") && npc.getHealthRatio() < 5) {
-            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_BAG_OF_SALT, legacyNpc);
-            Rs2Player.waitForAnimation();
-        } else if (Microbot.getVarbitValue(SLAYER_AUTOKILL_GARGOYLES) == 0 && npc.getName().equalsIgnoreCase("gargoyle") && npc.getHealthRatio() < 3) {
-            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_ROCK_HAMMER, legacyNpc);
-            Rs2Player.waitForAnimation();
+        Rs2Inventory.useItemOnNpc(itemId, legacyNpc);
+        Rs2Player.waitForAnimation();
+    }
+
+    static int finishingItemFor(String name, int healthRatio, IntUnaryOperator varbits) {
+        if (name == null) return -1;
+        List<String> lizardVariants = Arrays.asList("Lizard", "Desert Lizard", "Small Lizard");
+        if (varbits.applyAsInt(SLAYER_AUTOKILL_DESERTLIZARDS) == 0 && lizardVariants.contains(name) && healthRatio < 5) {
+            return ItemID.SLAYER_ICY_WATER;
+        } else if (varbits.applyAsInt(SLAYER_AUTOKILL_ROCKSLUGS) == 0 && name.equalsIgnoreCase("rockslug") && healthRatio < 5) {
+            return ItemID.SLAYER_BAG_OF_SALT;
+        } else if (varbits.applyAsInt(SLAYER_AUTOKILL_GARGOYLES) == 0 && name.equalsIgnoreCase("gargoyle") && healthRatio < 3) {
+            return ItemID.SLAYER_ROCK_HAMMER;
         }
+        return -1;
     }
 
     /**

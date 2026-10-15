@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.aiofighter.combat;
 
+import net.runelite.api.gameval.ItemID;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -8,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -78,5 +80,29 @@ public final class AttackNpcScriptTest {
         assertTrue(primaryReads.values().stream().allMatch(count -> count == 1));
         assertTrue(secondaryReads.values().stream().allMatch(count -> count == 1));
         assertEquals(items.size(), primaryReads.size());
+    }
+
+    private static final IntUnaryOperator AUTOKILL_OFF = varbit -> 0;
+    private static final IntUnaryOperator AUTOKILL_ON = varbit -> 1;
+
+    @Test
+    void skipsNpcWhoseNameIsGoneWhileDespawning() {
+        assertEquals(-1, AttackNpcScript.finishingItemFor(null, 1, AUTOKILL_OFF));
+        assertEquals(-1, AttackNpcScript.finishingItemFor(null, 0, AUTOKILL_ON));
+    }
+
+    @Test
+    void picksFinishingItemForSlayerNpcsNearDeath() {
+        assertEquals(ItemID.SLAYER_ICY_WATER, AttackNpcScript.finishingItemFor("Desert Lizard", 4, AUTOKILL_OFF));
+        assertEquals(ItemID.SLAYER_BAG_OF_SALT, AttackNpcScript.finishingItemFor("Rockslug", 4, AUTOKILL_OFF));
+        assertEquals(ItemID.SLAYER_ROCK_HAMMER, AttackNpcScript.finishingItemFor("Gargoyle", 2, AUTOKILL_OFF));
+    }
+
+    @Test
+    void skipsFinishingItemWhenHealthyAutokillEnabledOrOtherNpc() {
+        assertEquals(-1, AttackNpcScript.finishingItemFor("Rockslug", 5, AUTOKILL_OFF));
+        assertEquals(-1, AttackNpcScript.finishingItemFor("Gargoyle", 3, AUTOKILL_OFF));
+        assertEquals(-1, AttackNpcScript.finishingItemFor("Rockslug", 1, AUTOKILL_ON));
+        assertEquals(-1, AttackNpcScript.finishingItemFor("Goblin", 0, AUTOKILL_OFF));
     }
 }
