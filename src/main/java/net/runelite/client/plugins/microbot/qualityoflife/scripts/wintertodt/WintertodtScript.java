@@ -67,8 +67,7 @@ public class WintertodtScript extends Script {
                 Widget wintertodtHealthbar = Rs2Widget.getWidget(25952276);
                 isWintertodtAlive = Rs2Widget.hasWidget("Wintertodt's Energy");
                 if (wintertodtHealthbar != null && isWintertodtAlive) {
-                    String widgetText = wintertodtHealthbar.getText();
-                    wintertodtHp = Integer.parseInt(widgetText.split("\\D+")[1]);
+                    wintertodtHp = parseWintertodtHp(wintertodtHealthbar.getText());
                 } else {
                     wintertodtHp = -1;
                 }
@@ -236,6 +235,17 @@ public class WintertodtScript extends Script {
             qolPlugin.updateWintertodtInterupted(false);
             qolPlugin.updateLastWinthertodtAction(WintertodtActions.NONE);
         }
+    }
+
+    static int parseWintertodtHp(String widgetText) {
+        if (widgetText == null) {
+            return -1;
+        }
+        Matcher matcher = Pattern.compile("\\d+").matcher(widgetText);
+        if (matcher.find()) {
+            return Integer.parseInt(matcher.group());
+        }
+        return -1;
     }
 
     public int getWarmthLevel() {
