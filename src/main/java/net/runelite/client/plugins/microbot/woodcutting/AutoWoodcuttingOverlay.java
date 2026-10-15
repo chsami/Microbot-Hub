@@ -4,6 +4,7 @@ import net.runelite.api.Client;
 import net.runelite.api.Perspective;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
 import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingTree;
@@ -185,8 +186,9 @@ public class AutoWoodcuttingOverlay extends OverlayPanel {
                     .build());
 
             // Display area boundary
-            if (config.distanceToStray() < 21) {
-                LocalPoint lp = LocalPoint.fromWorld(client, AutoWoodcuttingScript.getReturnPoint(config));
+            WorldPoint returnPoint = AutoWoodcuttingScript.getReturnPoint(config);
+            if (config.distanceToStray() < 21 && returnPoint != null) {
+                LocalPoint lp = LocalPoint.fromWorld(client, returnPoint);
                 if (lp != null) {
                     Polygon poly = Perspective.getCanvasTileAreaPoly(client, lp, config.distanceToStray() * 2);
 
