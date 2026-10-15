@@ -82,6 +82,23 @@ public final class AttackStyleScriptTest {
     }
 
     @Test
+    void weaponTypeStylesEmptyWhenStructMissing() {
+        EnumComposition weaponStyles = mock(EnumComposition.class);
+        when(weaponStyles.getIntValue(0)).thenReturn(5000);
+        EnumComposition weaponEnum = mock(EnumComposition.class);
+        when(weaponEnum.getIntVals()).thenReturn(new int[]{10, 11});
+        StructComposition named = mock(StructComposition.class);
+        when(named.getStringValue(ParamID.ATTACK_STYLE_NAME)).thenReturn("Accurate");
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            microbot.when(() -> Microbot.getEnum(EnumID.WEAPON_STYLES)).thenReturn(weaponStyles);
+            microbot.when(() -> Microbot.getEnum(5000)).thenReturn(weaponEnum);
+            microbot.when(() -> Microbot.getStructComposition(10)).thenReturn(null);
+            microbot.when(() -> Microbot.getStructComposition(11)).thenReturn(named);
+            assertEquals(0, AttackStyleScript.getWeaponTypeStyles(0).length);
+        }
+    }
+
+    @Test
     void weaponTypeStylesResolvedFromStructs() {
         EnumComposition weaponStyles = mock(EnumComposition.class);
         when(weaponStyles.getIntValue(0)).thenReturn(5000);
