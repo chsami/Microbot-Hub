@@ -17,6 +17,8 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 
 public class ResupplyHandler implements BaseHandler {
 
+    static final int BREAM_FISHING_SPOT_ID = ObjectID.RIVER_FISHING_SPOT;
+    static final long FISHING_STALL_TIMEOUT_MS = 60_000;
 
     private final int minMoonlightPotions;
     private final int minCookedBream;
@@ -173,6 +175,8 @@ public class ResupplyHandler implements BaseHandler {
 
         Rs2Walker.walkFastCanvas(new WorldPoint(1520, 9689, 0));
 
+        int lastFreeSlots = Rs2Inventory.emptySlotCount();
+        long lastProgressAt = System.currentTimeMillis();
         while (!Rs2Inventory.isFull()) {
             // If for any reason we lost the net mid-loop, bail
             if (!Rs2Inventory.contains(ItemID.BIG_NET)) {
@@ -180,9 +184,22 @@ public class ResupplyHandler implements BaseHandler {
                 return;
             }
 
+            int freeSlots = Rs2Inventory.emptySlotCount();
+            long now = System.currentTimeMillis();
+            if (freeSlots != lastFreeSlots) {
+                lastFreeSlots = freeSlots;
+                lastProgressAt = now;
+            } else if (isFishingStalled(lastProgressAt, now)) {
+                Microbot.log("No bream caught in " + FISHING_STALL_TIMEOUT_MS / 1000 + "s; giving up on fishing this resupply.");
+                return;
+            }
+
             if (!Rs2Player.isAnimating()) {
-                Microbot.getRs2TileObjectCache().query().interact(51367, "Fish");
-                sleep(3000, 4000);
+                if (Microbot.getRs2TileObjectCache().query().interact(BREAM_FISHING_SPOT_ID, "Fish")) {
+                    sleep(3000, 4000);
+                } else if (debugLogging) {
+                    Microbot.log("Bream fishing spot not found.");
+                }
             }
             sleep(300, 500);
         }
@@ -192,6 +209,10 @@ public class ResupplyHandler implements BaseHandler {
 
         // Recommendation: DON'T drop it, unless you have a specific reason
         // Rs2Inventory.drop(ItemID.BIG_NET);
+    }
+
+    static boolean isFishingStalled(long lastProgressAt, long now) {
+        return now - lastProgressAt >= FISHING_STALL_TIMEOUT_MS;
     }
 
     private void cookBream() {
