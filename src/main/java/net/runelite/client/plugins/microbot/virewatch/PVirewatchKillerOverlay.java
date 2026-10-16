@@ -5,6 +5,7 @@ import net.runelite.api.NPC;
 import net.runelite.api.Perspective;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
@@ -75,11 +76,12 @@ public class PVirewatchKillerOverlay extends Overlay {
             }
         }
 
-        if (!config.disableNPCOutline()) {
+        WorldArea fightArea = plugin.fightArea;
+        if (!config.disableNPCOutline() && fightArea != null) {
             for (var npcModel : Microbot.getRs2NpcCache().query().withName("Vyrewatch Sentinel").where(n -> !n.isDead()).toList()) {
                 NPC npc = npcModel.getNpc();
                 if (npc != null && npc.getCanvasTilePoly() != null) {
-                    if (!plugin.fightArea.contains(npc.getWorldLocation())) continue;
+                    if (!fightArea.contains(npc.getWorldLocation())) continue;
 
                     try {
                         modelOutlineRenderer.drawOutline(npc, 2, Color.ORANGE, 4);
