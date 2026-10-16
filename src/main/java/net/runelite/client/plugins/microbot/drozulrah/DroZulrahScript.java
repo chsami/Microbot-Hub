@@ -1418,7 +1418,6 @@ public class DroZulrahScript extends Script
                 Widget child = inventory.getChild(item.getSlot());
                 if (child == null || child.getItemId() != item.getId()) continue;
                 String[] actions = child.getActions();
-                if (actions == null) actions = item.getInventoryActions();
                 if (actions == null) continue;
                 for (int i = 0; i < actions.length; i++)
                 {
@@ -1652,7 +1651,6 @@ public class DroZulrahScript extends Script
         Widget child = inventory == null ? null : inventory.getChild(item.getSlot());
         if (child == null || child.getItemId() != item.getId()) return false;
         String[] actions = child.getActions();
-        if (actions == null) actions = item.getInventoryActions();
         if (actions == null) return false;
         for (int i = 0; i < actions.length; i++)
             if (wanted.equalsIgnoreCase(actions[i]))
