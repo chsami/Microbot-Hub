@@ -25,7 +25,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class TutorialIslandPlugin extends Plugin {
-    public static final String version = "1.3.16";
+    public static final String version = "1.3.17";
 
     private boolean toggleMusic;
     private boolean toggleRoofs;
