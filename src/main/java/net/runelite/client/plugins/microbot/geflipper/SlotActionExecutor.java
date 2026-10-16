@@ -1,11 +1,12 @@
 package net.runelite.client.plugins.microbot.geflipper;
 
+import java.awt.Rectangle;
 import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.Point;
 
 /** Executes supported slot operations without falling back to "View offer". */
-final class SlotActionExecutor {
+public final class SlotActionExecutor {
     enum Action {
         ABORT("Abort offer", 2),
         MODIFY("Modify offer", 3);
@@ -57,6 +58,17 @@ final class SlotActionExecutor {
     static boolean supportsAction(String[] actions, Action action) {
         return actions != null && action.identifier > 0 && actions.length >= action.identifier
             && action.option.equals(actions[action.identifier - 1]);
+    }
+
+    /**
+     * Planned click point and live cursor must both lie on the slot button.
+     * Exact pixel equality is not required: natural mouse often settles nearby after a hover.
+     */
+    public static boolean cursorOnSlotButton(Point mouse, Point planned, Rectangle buttonBounds) {
+        return mouse != null && planned != null && buttonBounds != null
+            && buttonBounds.width >= 2 && buttonBounds.height >= 2
+            && buttonBounds.contains(planned.getX(), planned.getY())
+            && buttonBounds.contains(mouse.getX(), mouse.getY());
     }
 
     /** The last menu entry is the actual left-click operation after Copilot's swap. */
