@@ -5,6 +5,7 @@ import net.runelite.api.NPC;
 import net.runelite.api.Perspective;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
@@ -55,10 +56,11 @@ public class PVirewatchKillerOverlay extends Overlay {
             renderOutline(graphics, alterStatue);
         }
 
-        if (plugin.fightArea != null && !config.disableFightArea()) {
-            for (int x = plugin.fightArea.getX(); x < plugin.fightArea.getX() + plugin.fightArea.getWidth(); x++) {
-                for (int y = plugin.fightArea.getY(); y < plugin.fightArea.getY() + plugin.fightArea.getHeight(); y++) {
-                    WorldPoint worldPoint = new WorldPoint(x, y, plugin.fightArea.getPlane());
+        WorldArea fightArea = plugin.fightArea;
+        if (fightArea != null && !config.disableFightArea()) {
+            for (int x = fightArea.getX(); x < fightArea.getX() + fightArea.getWidth(); x++) {
+                for (int y = fightArea.getY(); y < fightArea.getY() + fightArea.getHeight(); y++) {
+                    WorldPoint worldPoint = new WorldPoint(x, y, fightArea.getPlane());
                     drawTile(graphics, worldPoint, Color.YELLOW);
                 }
             }
@@ -75,11 +77,11 @@ public class PVirewatchKillerOverlay extends Overlay {
             }
         }
 
-        if (!config.disableNPCOutline()) {
+        if (!config.disableNPCOutline() && fightArea != null) {
             for (var npcModel : Microbot.getRs2NpcCache().query().withName("Vyrewatch Sentinel").where(n -> !n.isDead()).toList()) {
                 NPC npc = npcModel.getNpc();
                 if (npc != null && npc.getCanvasTilePoly() != null) {
-                    if (!plugin.fightArea.contains(npc.getWorldLocation())) continue;
+                    if (!fightArea.contains(npc.getWorldLocation())) continue;
 
                     try {
                         modelOutlineRenderer.drawOutline(npc, 2, Color.ORANGE, 4);

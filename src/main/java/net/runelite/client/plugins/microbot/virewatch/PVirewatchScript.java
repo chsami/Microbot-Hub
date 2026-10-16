@@ -1,6 +1,9 @@
 package net.runelite.client.plugins.microbot.virewatch;
 
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
+import net.runelite.api.coords.WorldArea;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
@@ -19,13 +22,21 @@ public class PVirewatchScript extends Script {
                 if (!super.run()) return;
                 Rs2Combat.enableAutoRetialiate();
 
-                if(plugin.fightArea.contains(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()))) {
+                WorldPoint playerLocation = Microbot.getClientThread().invoke(() -> {
+                    Player localPlayer = Microbot.getClient().getLocalPlayer();
+                    return localPlayer == null ? null : localPlayer.getWorldLocation();
+                });
+                WorldArea fightArea = plugin.fightArea;
+                WorldPoint startingLocation = plugin.startingLocation;
+                if (!hasFightState(playerLocation, fightArea, startingLocation)) return;
+
+                if(fightArea.contains(playerLocation)) {
                     Microbot.status = "Figthing";
                 }
 
-                if(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()) != plugin.startingLocation) {
+                if(isAwayFromStart(playerLocation, startingLocation)) {
                     if(plugin.ticksOutOfArea > config.tickToReturn() || plugin.countedTicks > config.tickToReturnCombat()) {
-                        Rs2Walker.walkTo(plugin.startingLocation, 0);
+                        Rs2Walker.walkTo(startingLocation, 0);
                     }
                 }
 
@@ -45,7 +56,7 @@ public class PVirewatchScript extends Script {
                             if(Rs2Player.isInteracting()) {
                                 sleepUntil(() -> Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER) > config.prayAt());
                                 Microbot.status = "WALKING TO STARTING POINT";
-                                Rs2Walker.walkTo(plugin.startingLocation, 0);
+                                Rs2Walker.walkTo(startingLocation, 0);
 
                             }
                         }
@@ -58,6 +69,14 @@ public class PVirewatchScript extends Script {
             }
         }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    static boolean hasFightState(WorldPoint playerLocation, WorldArea fightArea, WorldPoint startingLocation) {
+        return playerLocation != null && fightArea != null && startingLocation != null;
+    }
+
+    static boolean isAwayFromStart(WorldPoint playerLocation, WorldPoint startingLocation) {
+        return !playerLocation.equals(startingLocation);
     }
 
     @Override
