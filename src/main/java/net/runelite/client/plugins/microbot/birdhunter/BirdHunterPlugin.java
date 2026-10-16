@@ -42,7 +42,7 @@ import java.util.Map;
 @Slf4j
 public class BirdHunterPlugin extends Plugin {
 
-    public final static String version = "1.0.2";
+    public final static String version = "1.0.3";
 
     @Inject
     private Client client;
