@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.geflipper;
 
+import java.awt.Rectangle;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
