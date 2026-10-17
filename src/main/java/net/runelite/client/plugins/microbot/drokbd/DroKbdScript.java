@@ -253,9 +253,18 @@ public class DroKbdScript extends Script
     private long sessionStartedAt;
     private int startingRangedXp;
 
+    private final net.runelite.client.plugins.microbot.util.player.TerminalLogoutPrompt terminalLogout =
+            new net.runelite.client.plugins.microbot.util.player.TerminalLogoutPrompt();
+
+    private void stopForMissingSupply(String supply) {
+        terminalLogout.begin(Microbot.supplyMessage(supply));
+        status = Microbot.status = terminalLogout.message();
+    }
+
     public boolean run(DroKbdConfig config)
     {
         this.config = config;
+        terminalLogout.reset();
         bankCleared = false;
         inventorySetup = null;
         combatMouseHandled = false;
@@ -322,6 +331,11 @@ public class DroKbdScript extends Script
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try
             {
+                if (terminalLogout.active()) {
+                    status = Microbot.status = terminalLogout.message();
+                    if (terminalLogout.tick()) shutdown();
+                    return;
+                }
                 if (stopping || !Microbot.isLoggedIn() || !super.run() || threatLogoutActive.get()) return;
                 tick();
             }
@@ -486,6 +500,8 @@ public class DroKbdScript extends Script
         if (inventorySetup == null)
         {
             inventorySetup = new Rs2InventorySetup(sanitizeTripSetup(selectedSetup), mainScheduledFuture);
+            inventorySetup.withMissingSupplyPolicy(Rs2InventorySetup.MissingSupplyPolicy.LOGOUT_AND_STOP)
+                        .withMissingSupplyHandler(this::stopForMissingSupply);
         }
 
         if (!inventorySetup.loadEquipment()) return;
@@ -552,7 +568,7 @@ public class DroKbdScript extends Script
     {
         if (!hasBurningAmulet())
         {
-            status = "Loadout needs a charged Burning amulet";
+            stopForMissingSupply("Charged Burning amulet in selected Inventory Setup");
             return false;
         }
         if (selectedCombatMode() != DroKbdAmmo.TOXIC_BLOWPIPE
@@ -567,20 +583,20 @@ public class DroKbdScript extends Script
             hasDuelingRing |= Rs2Equipment.isWearing(ring) || Rs2Inventory.contains(ring);
         if (!hasDuelingRing)
         {
-            status = "Loadout needs a charged Ring of dueling";
+            stopForMissingSupply("Charged Ring of dueling in selected Inventory Setup");
             return false;
         }
         if (selectedCombatMode() == DroKbdAmmo.TOXIC_BLOWPIPE)
         {
             if (!Rs2Player.hasSuperAntiFireActive() && !hasExtendedSuperAntifireDose())
             {
-                status = "Blowpipe mode needs Extended super antifire (4)-(1)";
+                stopForMissingSupply("Extended super antifire (4)-(1)");
                 return false;
             }
         }
         else if (!Rs2Player.hasAntiFireActive() && !Rs2Inventory.contains(false, "antifire"))
         {
-            status = "Loadout needs an antifire potion";
+            stopForMissingSupply("Antifire potion");
             return false;
         }
         if (selectedCombatMode().isAmmunitionBootstrap()
@@ -1822,7 +1838,7 @@ public class DroKbdScript extends Script
                 {
                     if (!Rs2Bank.hasItem(ammoId))
                     {
-                        status = "Missing " + ammoName;
+                        stopForMissingSupply(ammoName);
                         return false;
                     }
 
@@ -2010,7 +2026,10 @@ public class DroKbdScript extends Script
         }
         else
         {
-            status = "Missing charged Ring of dueling for Ferox";
+            boolean hasRing = Arrays.stream(RINGS_OF_DUELING)
+                    .anyMatch(id -> Rs2Inventory.contains(id) || Rs2Equipment.isWearing(id));
+            if (!hasRing) stopForMissingSupply("Charged Ring of dueling for Ferox");
+            else status = "Ferox teleport not dispatched; retrying";
         }
         delay(1000);
     }

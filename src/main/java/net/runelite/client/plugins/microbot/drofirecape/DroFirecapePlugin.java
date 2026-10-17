@@ -15,7 +15,7 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
 
-@PluginDescriptor(name = PluginConstants.DRO + "Firecape",version=DroFirecapePlugin.version,minClientVersion="2.6.30",enabledByDefault=PluginConstants.DEFAULT_ENABLED,
+@PluginDescriptor(name = PluginConstants.DRO + "Firecape",version=DroFirecapePlugin.version,minClientVersion="2.6.32",enabledByDefault=PluginConstants.DEFAULT_ENABLED,
     description="Fight Caves with preserved regular combat and isolated pure positioning / native tick prayers",
     authors={"droplugins"},
     iconUrl="https://chsami.github.io/Microbot-Hub/DroFirecapePlugin/assets/icon.png",
@@ -23,7 +23,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
     isExternal=PluginConstants.IS_EXTERNAL,
     tags={"microbot","dro","firecape","fight caves","jad","boss"})
 public final class DroFirecapePlugin extends Plugin {
-    public static final String version="0.3.71";
+    public static final String version="0.3.74";
     @Inject private FcControllers script;
     @Inject private DroFirecapeConfig config;
     @Inject private DroFirecapeOverlay overlay;
