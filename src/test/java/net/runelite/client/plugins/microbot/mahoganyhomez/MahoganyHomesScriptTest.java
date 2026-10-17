@@ -3,6 +3,9 @@ package net.runelite.client.plugins.microbot.mahoganyhomez;
 import net.runelite.api.coords.WorldPoint;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -40,6 +43,28 @@ class MahoganyHomesScriptTest {
         MahoganyHomesScript script = scriptWithPlugin();
         assertTrue(script.isAwayFromHome(Home.JESS, new WorldPoint(3213, 3424, 0)));
         assertFalse(script.isAwayFromHome(Home.JESS, new WorldPoint(2615, 3293, 1)));
+    }
+
+    @Test
+    void fixableObjectIdsSkipsHotspotsBeyondHomeObjectCount() {
+        Set<Integer> ids = MahoganyHomesScript.getFixableObjectIds(Arrays.asList(Hotspot.values()), HotspotObjects.ROSS);
+        assertEquals(HotspotObjects.ROSS.objects.length, ids.size());
+        assertTrue(ids.contains(HotspotObjects.ROSS.objects[6].getObjectId()));
+    }
+
+    @Test
+    void fixableObjectIdsSkipsHotspotsBeyondSixObjectHome() {
+        Set<Integer> ids = MahoganyHomesScript.getFixableObjectIds(
+                Arrays.asList(Hotspot.MAHOGANY_HOMES_HOTSPOT_1, Hotspot.MAHOGANY_HOMES_HOTSPOT_7, Hotspot.MAHOGANY_HOMES_HOTSPOT_8),
+                HotspotObjects.SARAH);
+        assertEquals(Set.of(HotspotObjects.SARAH.objects[0].getObjectId()), ids);
+    }
+
+    @Test
+    void fixableObjectIdsMapsAllHotspotsForEightObjectHome() {
+        Set<Integer> ids = MahoganyHomesScript.getFixableObjectIds(Arrays.asList(Hotspot.values()), HotspotObjects.JESS);
+        assertEquals(8, ids.size());
+        assertTrue(ids.contains(HotspotObjects.JESS.objects[7].getObjectId()));
     }
 
     private static MahoganyHomesScript scriptWithPlugin() {
