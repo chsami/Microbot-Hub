@@ -74,16 +74,20 @@ public class MahoganyHomesScript extends Script {
         List<Hotspot> fixableHotspots = Hotspot.getBrokenHotspots();
         HotspotObjects hotspotObjects = plugin.getCurrentHome().getHotspotObjects();
 
-        // Precompute the set of IDs
-        Set<Integer> ids = fixableHotspots.stream()
-                .map(hotspot -> hotspotObjects.objects[hotspot.ordinal()].getObjectId())
-                .collect(Collectors.toSet());
+        Set<Integer> ids = getFixableObjectIds(fixableHotspots, hotspotObjects);
 
         // Filter using the precomputed set
         return objects.stream()
                 .filter(Objects::nonNull)
                 .filter(o -> ids.contains(o.getId()))
                 .collect(Collectors.toList());
+    }
+
+    static Set<Integer> getFixableObjectIds(List<Hotspot> hotspots, HotspotObjects hotspotObjects) {
+        return hotspots.stream()
+                .filter(hotspot -> hotspot.ordinal() < hotspotObjects.objects.length)
+                .map(hotspot -> hotspotObjects.objects[hotspot.ordinal()].getObjectId())
+                .collect(Collectors.toSet());
     }
 
     // Custom logging methods
