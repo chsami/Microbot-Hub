@@ -75,6 +75,9 @@ public class ShootingStarScript extends Script
         startTime = Instant.now();
 		Microbot.enableAutoRunOn = true;
 		initialPlayerLocation = null;
+		state = null;
+		currentStar = null;
+		pickaxe = null;
 		hasEquipment = false;
 		hasInventory = false;
 		walkBeforeHopStar = null;
@@ -104,8 +107,7 @@ public class ShootingStarScript extends Script
 					state = updateStarState();
 				}
 
-				ShootingStarState currentState = state;
-				if (currentState == null)
+				if (state == null)
 				{
 					Microbot.showMessage("Unable to evaluate state");
 					Microbot.stopPlugin(plugin);
@@ -127,7 +129,7 @@ public class ShootingStarScript extends Script
 					return;
 				}
 
-				switch (currentState)
+				switch (state)
 				{
 					case WAITING_FOR_STAR:
 						if (config.useNearestHighTierStar())
@@ -304,9 +306,6 @@ public class ShootingStarScript extends Script
 	public void shutdown()
 	{
 		super.shutdown();
-		state = null;
-		currentStar = null;
-		pickaxe = null;
 		Rs2Antiban.resetAntibanSettings();
 	}
 
