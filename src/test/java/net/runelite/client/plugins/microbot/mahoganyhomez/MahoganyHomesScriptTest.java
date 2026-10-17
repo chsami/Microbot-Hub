@@ -4,7 +4,9 @@ import net.runelite.api.coords.WorldPoint;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MahoganyHomesScriptTest {
 
@@ -23,5 +25,26 @@ class MahoganyHomesScriptTest {
                 MahoganyHomesScript.getClosestContractLocation(new WorldPoint(2662, 3305, 0)));
         assertEquals(ContractLocation.MAHOGANY_HOMES_HOSIDIUS.getLocation(),
                 MahoganyHomesScript.getClosestContractLocation(new WorldPoint(1760, 3600, 0)));
+    }
+
+    @Test
+    void isAwayFromHomeIsFalseWithoutHomeOrPlayerLocation() {
+        MahoganyHomesScript script = scriptWithPlugin();
+        assertFalse(script.isAwayFromHome(null, new WorldPoint(3213, 3424, 0)));
+        assertFalse(script.isAwayFromHome(Home.JESS, null));
+        assertFalse(script.isAwayFromHome(null, null));
+    }
+
+    @Test
+    void isAwayFromHomeComparesPlayerLocationToHomeArea() {
+        MahoganyHomesScript script = scriptWithPlugin();
+        assertTrue(script.isAwayFromHome(Home.JESS, new WorldPoint(3213, 3424, 0)));
+        assertFalse(script.isAwayFromHome(Home.JESS, new WorldPoint(2615, 3293, 1)));
+    }
+
+    private static MahoganyHomesScript scriptWithPlugin() {
+        MahoganyHomesScript script = new MahoganyHomesScript();
+        script.plugin = new MahoganyHomesPlugin();
+        return script;
     }
 }
