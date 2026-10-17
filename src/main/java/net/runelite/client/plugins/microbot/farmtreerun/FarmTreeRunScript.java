@@ -868,7 +868,11 @@ public class FarmTreeRunScript extends Script {
 
         // Gagex named actions differently, sometimes it's Pick-fruit and sometimes Pick-banana.
         // Also seen "Chop down" and "Chop-down".
-        List<String> exactTreeActions = Arrays.stream(Rs2GameObject.findObjectComposition(treePatch.getId()).getActions()).collect(Collectors.toList());
+        ObjectComposition treeComposition = Rs2GameObject.findObjectComposition(treePatch.getId());
+        if (treeComposition == null || treeComposition.getActions() == null) {
+            return false;
+        }
+        List<String> exactTreeActions = Arrays.stream(treeComposition.getActions()).collect(Collectors.toList());
         for (String action : exactTreeActions) {
             if (action == null)
                 continue;
@@ -954,13 +958,13 @@ public class FarmTreeRunScript extends Script {
      * @return {@code true} if payment was successful, else {@code false}
      */
     private boolean handlePayment(FarmTreeRunConfig config, Patch patch, PaymentKind action) {
-        if (isTreePatch(patch) && !isPatchEmpty(patch) && !shouldProtectTree(config) && action != PaymentKind.CLEAR)
+        if (isTreePatch(patch) && !shouldProtectTree(config) && action != PaymentKind.CLEAR)
             return true;
 
-        if (isFruitTreePatch(patch) && !isPatchEmpty(patch) && !shouldProtectFruitTree(config) && action != PaymentKind.CLEAR)
+        if (isFruitTreePatch(patch) && !shouldProtectFruitTree(config) && action != PaymentKind.CLEAR)
             return true;
 
-        if (isHardTreePatch(patch) && !isPatchEmpty(patch) && !shouldProtectHardTree(config) && action != PaymentKind.CLEAR)
+        if (isHardTreePatch(patch) && !shouldProtectHardTree(config) && action != PaymentKind.CLEAR)
             return true;
 
         int paymentId = isHardTreePatch(patch) ? config.selectedHardTree().getPaymentId()
@@ -1207,8 +1211,12 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean isPatchEmpty(Patch patch) {
-        String name = Rs2GameObject.getObjectComposition(patch.getId()).getName().toLowerCase();
-        return name.endsWith("patch");
+        return isEmptyPatchComposition(Rs2GameObject.getObjectComposition(patch.getId()));
+    }
+
+    static boolean isEmptyPatchComposition(ObjectComposition composition) {
+        if (composition == null || composition.getName() == null) return true;
+        return composition.getName().toLowerCase().endsWith("patch");
     }
 
     private Integer getLinkedId(int id) {
