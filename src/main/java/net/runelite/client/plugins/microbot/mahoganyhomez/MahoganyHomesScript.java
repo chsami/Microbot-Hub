@@ -541,9 +541,8 @@ public class MahoganyHomesScript extends Script {
     // Bank if we need to
     private void bank() {
         Home currentHome = plugin.getCurrentHome();
-        if (currentHome != null
-                && plugin.distanceBetween(currentHome.getArea(), Rs2Player.getWorldLocation()) > 0
-                && isMissingItems()) {
+        if (isAwayFromHome(currentHome, Rs2Player.getWorldLocation())
+                && isMissingItems(currentHome)) {
             ShortestPathPlugin.getPathfinderConfig().setIgnoreTeleportAndItems(true);
             BankLocation bankLocation = Rs2Bank.getNearestBank(currentHome.getLocation());
             ShortestPathPlugin.getPathfinderConfig().setIgnoreTeleportAndItems(false);
@@ -582,19 +581,19 @@ public class MahoganyHomesScript extends Script {
                         }
                     } else {
                         // Withdraw steel bars first if needed
-                        if (steelBarsNeeded() > steelBarsInInventory()) {
-                            Rs2Bank.withdrawX(ItemID.STEEL_BAR, steelBarsNeeded() - steelBarsInInventory());
+                        if (steelBarsNeeded(currentHome) > steelBarsInInventory()) {
+                            Rs2Bank.withdrawX(ItemID.STEEL_BAR, steelBarsNeeded(currentHome) - steelBarsInInventory());
                             Rs2Inventory.waitForInventoryChanges(5000);
                         }
                         
                         // Calculate if we'll have enough space for planks after steel bars
                         int freeSlots = Rs2Inventory.emptySlotCount();
                         int currentPlanks = planksInInventory() + planksInPlankSack();
-                        int additionalPlanksNeeded = planksNeeded() - currentPlanks;
+                        int additionalPlanksNeeded = planksNeeded(currentHome) - currentPlanks;
                         
                         if (additionalPlanksNeeded <= 0) {
                             // We already have enough planks
-                            log("Already have sufficient planks: %d/%d", currentPlanks, planksNeeded());
+                            log("Already have sufficient planks: %d/%d", currentPlanks, planksNeeded(currentHome));
                         } else if (freeSlots >= additionalPlanksNeeded) {
                             // Withdraw all planks to fill inventory
                             Rs2Bank.withdrawAll(plugin.getConfig().currentTier().getPlankSelection().getPlankId());
@@ -617,25 +616,31 @@ public class MahoganyHomesScript extends Script {
     // Walk to current home
     private void walkToHome() {
         Home currentHome = plugin.getCurrentHome();
-        if (currentHome != null
-                && plugin.distanceBetween(currentHome.getArea(), Rs2Player.getWorldLocation()) > 0
-                && !isMissingItems()) {
-            Rs2Walker.walkWithStateUntil(plugin.getCurrentHome().getLocation(), 3,
+        if (isAwayFromHome(currentHome, Rs2Player.getWorldLocation())
+                && !isMissingItems(currentHome)) {
+            Rs2Walker.walkWithStateUntil(currentHome.getLocation(), 3,
                     () -> readyFurniture() != null);
             if (readyFurniture() != null) fix();
         }
     }
-    private boolean isMissingItems() {
-        return (planksInInventory() + planksInPlankSack()) < planksNeeded()
-                || steelBarsInInventory() < steelBarsNeeded();
+
+    boolean isAwayFromHome(Home home, WorldPoint playerLocation) {
+        return home != null
+                && playerLocation != null
+                && plugin.distanceBetween(home.getArea(), playerLocation) > 0;
     }
 
-    private int planksNeeded() {
-        return plugin.getCurrentHome().getRequiredPlanks(plugin.getContractTier());
+    private boolean isMissingItems(Home home) {
+        return (planksInInventory() + planksInPlankSack()) < planksNeeded(home)
+                || steelBarsInInventory() < steelBarsNeeded(home);
     }
 
-    private int steelBarsNeeded() {
-        return plugin.getCurrentHome().getRequiredSteelBars(plugin.getContractTier());
+    private int planksNeeded(Home home) {
+        return home.getRequiredPlanks(plugin.getContractTier());
+    }
+
+    private int steelBarsNeeded(Home home) {
+        return home.getRequiredSteelBars(plugin.getContractTier());
     }
 
     private int planksInInventory() {
