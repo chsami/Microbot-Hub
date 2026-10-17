@@ -23,6 +23,7 @@ import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Category;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
@@ -74,6 +75,9 @@ public class ShootingStarScript extends Script
         startTime = Instant.now();
 		Microbot.enableAutoRunOn = true;
 		initialPlayerLocation = null;
+		state = null;
+		currentStar = null;
+		pickaxe = null;
 		hasEquipment = false;
 		hasInventory = false;
 		walkBeforeHopStar = null;
@@ -110,7 +114,7 @@ public class ShootingStarScript extends Script
 					return;
 				}
 
-				if (Rs2Player.isMoving() || Rs2Antiban.getCategory().isBusy())
+				if (Rs2Player.isMoving() || isAntibanBusy(Rs2Antiban.getCategory()))
 				{
 					return;
 				}
@@ -302,10 +306,12 @@ public class ShootingStarScript extends Script
 	public void shutdown()
 	{
 		super.shutdown();
-		state = null;
-		currentStar = null;
-		pickaxe = null;
 		Rs2Antiban.resetAntibanSettings();
+	}
+
+	static boolean isAntibanBusy(Category category)
+	{
+		return category != null && category.isBusy();
 	}
 
 	void handleWalking(Star star)

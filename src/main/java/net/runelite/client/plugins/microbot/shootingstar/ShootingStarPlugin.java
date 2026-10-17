@@ -76,7 +76,7 @@ import net.runelite.client.util.ImageUtil;
 public class ShootingStarPlugin extends Plugin
 {
 
-	static final String version = "1.4.10";
+	static final String version = "1.4.11";
 
 	@Getter
 	private final CopyOnWriteArrayList<Star> starList = new CopyOnWriteArrayList<>();
@@ -278,7 +278,7 @@ public class ShootingStarPlugin extends Plugin
 
 		if (event.getMessage().equalsIgnoreCase("oh dear, you are dead!") && config.shutdownOnDeath()) {
 			Rs2Walker.setTarget(null);
-			shutDown();
+			Microbot.stopPlugin(this);
 		}
 	}
 
@@ -412,16 +412,29 @@ public class ShootingStarPlugin extends Plugin
 
 	public void updatePanelList(boolean fullUpdate)
 	{
+		if (panel == null)
+		{
+			return;
+		}
+
 		List<Star> stars = new ArrayList<>(starList);
 
-		if (fullUpdate)
-		{
-			SwingUtilities.invokeLater(() -> panel.updateList(stars));
-		}
-		else
-		{
-			SwingUtilities.invokeLater(() -> panel.refreshList(stars));
-		}
+		SwingUtilities.invokeLater(() -> {
+			ShootingStarPanel currentPanel = panel;
+			if (currentPanel == null)
+			{
+				return;
+			}
+
+			if (fullUpdate)
+			{
+				currentPanel.updateList(stars);
+			}
+			else
+			{
+				currentPanel.refreshList(stars);
+			}
+		});
 	}
 
 	private void toggleOverlay(boolean hideOverlay)
