@@ -23,6 +23,7 @@ import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Category;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
@@ -103,14 +104,15 @@ public class ShootingStarScript extends Script
 					state = updateStarState();
 				}
 
-				if (state == null)
+				ShootingStarState currentState = state;
+				if (currentState == null)
 				{
 					Microbot.showMessage("Unable to evaluate state");
 					Microbot.stopPlugin(plugin);
 					return;
 				}
 
-				if (Rs2Player.isMoving() || Rs2Antiban.getCategory().isBusy())
+				if (Rs2Player.isMoving() || isAntibanBusy(Rs2Antiban.getCategory()))
 				{
 					return;
 				}
@@ -125,7 +127,7 @@ public class ShootingStarScript extends Script
 					return;
 				}
 
-				switch (state)
+				switch (currentState)
 				{
 					case WAITING_FOR_STAR:
 						if (config.useNearestHighTierStar())
@@ -306,6 +308,11 @@ public class ShootingStarScript extends Script
 		currentStar = null;
 		pickaxe = null;
 		Rs2Antiban.resetAntibanSettings();
+	}
+
+	static boolean isAntibanBusy(Category category)
+	{
+		return category != null && category.isBusy();
 	}
 
 	void handleWalking(Star star)
