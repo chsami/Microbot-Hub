@@ -1207,8 +1207,12 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean isPatchEmpty(Patch patch) {
-        String name = Rs2GameObject.getObjectComposition(patch.getId()).getName().toLowerCase();
-        return name.endsWith("patch");
+        return isEmptyPatchComposition(Rs2GameObject.getObjectComposition(patch.getId()));
+    }
+
+    static boolean isEmptyPatchComposition(ObjectComposition composition) {
+        if (composition == null || composition.getName() == null) return true;
+        return composition.getName().toLowerCase().endsWith("patch");
     }
 
     private Integer getLinkedId(int id) {
