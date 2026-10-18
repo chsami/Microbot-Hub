@@ -405,10 +405,7 @@ public class TowerOfLifeCCScript extends Script {
                 //Rs2Inventory.useItemOnObject(secondaryItem, altarObjectId);
                 //Rs2Inventory.waitForInventoryChanges(3000);
                 Microbot.getRs2TileObjectCache().query().interact(altarObjectId, "Activate");
-                sleepUntil(() -> { summonedCreature = Microbot.getRs2NpcCache().query()
-                        .where(npc -> npc.getNpc() != null
-                                && (npc.getNpc().getInteracting() == null || npc.getNpc().getInteracting() == Microbot.getClient().getLocalPlayer()))
-                        .nearest();
+                sleepUntil(() -> { summonedCreature = findSummonedCreature();
                     return summonedCreature != null;
                 }, 5000);
                 //Microbot.log("Summoned creature");
@@ -436,5 +433,13 @@ public class TowerOfLifeCCScript extends Script {
                 summonedCreature = null;
             }
         }
+    }
+
+    Rs2NpcModel findSummonedCreature()
+    {
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> npc.getNpc() != null
+                        && (npc.getNpc().getInteracting() == null || npc.getNpc().getInteracting() == Microbot.getClient().getLocalPlayer()))
+                .nearestOnClientThread();
     }
 }

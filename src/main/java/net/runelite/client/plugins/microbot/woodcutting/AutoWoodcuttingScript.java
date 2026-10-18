@@ -495,8 +495,15 @@ public class AutoWoodcuttingScript extends Script {
     }
 
     private void walkBack(AutoWoodcuttingConfig config) {
-        Rs2Walker.walkTo(new WorldPoint(getReturnPoint(config).getX() - Rs2Random.between(-1, 1), getReturnPoint(config).getY() - Rs2Random.between(-1, 1), getReturnPoint(config).getPlane()));
-        sleepUntil(() -> Rs2Player.getWorldLocation().distanceTo(getReturnPoint(config)) <= 4);
+        WorldPoint target = getReturnPoint(config);
+        if (target == null) {
+            return;
+        }
+        Rs2Walker.walkTo(new WorldPoint(target.getX() - Rs2Random.between(-1, 1), target.getY() - Rs2Random.between(-1, 1), target.getPlane()));
+        sleepUntil(() -> {
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            return playerLocation != null && playerLocation.distanceTo(target) <= 4;
+        });
     }
     
     /**

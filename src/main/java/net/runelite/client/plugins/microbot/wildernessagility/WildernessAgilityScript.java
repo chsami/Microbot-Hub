@@ -509,7 +509,7 @@ public final class WildernessAgilityScript extends Script {
     private boolean isInUndergroundPit() {
         return Microbot.getRs2TileObjectCache().query().withId(UNDERGROUND_OBJECT_ID).nearest() != null;
     }
-    private void recoverFromPit() {
+    void recoverFromPit() {
         // First check if we're still in the pit using game object detection
         if (isInUndergroundPit()) {
             // Immediately refresh ladder object before attempting to interact
@@ -521,9 +521,12 @@ public final class WildernessAgilityScript extends Script {
                 if (now - lastLadderInteractTime > 2000) {
                     // Refresh ladder object again just before interaction
                     List<Rs2TileObjectModel> laddersNow = Microbot.getRs2TileObjectCache().query().withId(17385).toList();
-                    ladderObj = laddersNow.isEmpty() ? null : laddersNow.get(0);
-                    ladderObj.click("Climb-up");
-                    lastLadderInteractTime = now;
+                    if (!laddersNow.isEmpty()) {
+                        ladderObj = laddersNow.get(0);
+                    }
+                    if (ladderObj.click("Climb-up")) {
+                        lastLadderInteractTime = now;
+                    }
                 }
             }
             return; // Return here to let the next tick handle the state transition

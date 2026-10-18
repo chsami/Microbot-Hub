@@ -37,7 +37,7 @@ import java.util.Scanner;
 import java.util.stream.Collectors;
 
  @PluginDescriptor(
-        version = "1.0.4",
+        version = "1.0.5",
         name = PluginDescriptor.eXioStorm + "Player Monitor",
         enabledByDefault = false,
         minClientVersion = "2.0.0",
@@ -215,7 +215,11 @@ import java.util.stream.Collectors;
      if (this.flashOverlay != null) {
        overlayManager.remove(flashOverlay);
      }
-     saveMouseClicks();
+     try {
+       saveMouseClicks();
+     } catch (IOException e) {
+       log.warn("Failed to save mouse clicks", e);
+     }
      this.mouseManager.unregisterMouseListener((net.runelite.client.input.MouseListener)this.mouseListener);
      this.mouseListener = null;
        if (this.overlayOn) {
@@ -275,17 +279,16 @@ import java.util.stream.Collectors;
     }
   }
    public static void saveMouseClicks() throws IOException {
-    if (!CLICK_TOTAL_FILE.exists())
-      try {
-        if (!CLICK_TOTAL_FILE.createNewFile())
-          System.out.println("Failed to create log file");
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
-    FileWriter writer = new FileWriter(CLICK_TOTAL_FILE);
-    Integer[] totals = { Integer.valueOf(getLeftClickCounter()) };
-    writer.write("" + totals[FILE_CLICK_TYPE_INDICES.LEFT.getValue()] + " ");
-    writer.close();
+    writeClickCount(CLICK_TOTAL_FILE, getLeftClickCounter());
+  }
+   static void writeClickCount(File file, int leftClicks) throws IOException {
+    File dir = file.getParentFile();
+    if (dir != null && !dir.isDirectory() && !dir.mkdirs() && !dir.isDirectory())
+      throw new IOException("Failed to create directory " + dir);
+    Integer[] totals = { Integer.valueOf(leftClicks) };
+    try (FileWriter writer = new FileWriter(file)) {
+      writer.write("" + totals[FILE_CLICK_TYPE_INDICES.LEFT.getValue()] + " ");
+    }
   }
    public void loadMouseClicks() throws FileNotFoundException {
     if (!this.CLICK_TOTAL_DIR.mkdir() && CLICK_TOTAL_FILE.exists()) {

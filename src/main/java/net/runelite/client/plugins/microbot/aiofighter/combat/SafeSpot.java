@@ -19,7 +19,7 @@ public class SafeSpot extends Script {
 public boolean run(AIOFighterConfig config) {
     mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
         try {
-            if (AIOFighterPlugin.getState().equals(State.BANKING) || AIOFighterPlugin.getState().equals(State.WALKING)) return;
+            if (isBlockedByState(AIOFighterPlugin.getState())) return;
             if (!Microbot.isLoggedIn() || !super.run() || !config.toggleSafeSpot() || Rs2Player.isMoving()) return;
 
             currentSafeSpot = config.safeSpot();
@@ -46,6 +46,10 @@ public boolean run(AIOFighterConfig config) {
         }
     }, 0, 600, TimeUnit.MILLISECONDS);
     return true;
+}
+
+static boolean isBlockedByState(State state) {
+    return state == State.BANKING || state == State.WALKING;
 }
 
 private boolean isDefaultSafeSpot(WorldPoint safeSpot) {

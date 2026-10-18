@@ -6,6 +6,7 @@ import net.runelite.api.Skill;
 import net.runelite.api.gameval.*;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
@@ -584,10 +585,12 @@ public class MageTrainingArenaScript extends Script {
         }
 
         Rs2Inventory.waitForInventoryChanges(() -> {
-            var rewardWidgets = Rs2Widget.getWidget(197, 11).getDynamicChildren();
-            if (rewardWidgets == null) return;
-            var widget = Arrays.stream(rewardWidgets).filter(x -> x.getItemId() == reward.getItemId()).findFirst().orElse(null);
-            Rs2Widget.clickWidgetFast(widget, Arrays.asList(rewardWidgets).indexOf(widget));
+            var rewardContainer = Rs2Widget.getWidget(197, 11);
+            if (rewardContainer == null) return;
+            var rewardWidgets = rewardContainer.getDynamicChildren();
+            var index = findRewardIndex(rewardWidgets, reward.getItemId());
+            if (index < 0) return;
+            Rs2Widget.clickWidgetFast(rewardWidgets[index], index);
             sleepGaussian(600, 150);
             Rs2Widget.clickWidget(197, 9);
             sleepGaussian(600, 150);
@@ -603,6 +606,14 @@ public class MageTrainingArenaScript extends Script {
             Microbot.log("Successfully obtained " + config.reward().toString() + "! Goal achieved.");
             finishWithSuccess("Successfully obtained " + config.reward().toString() + "! Goal achieved.");
         }
+    }
+
+    static int findRewardIndex(Widget[] rewardWidgets, int itemId) {
+        if (rewardWidgets == null) return -1;
+        for (int i = 0; i < rewardWidgets.length; i++) {
+            if (rewardWidgets[i] != null && rewardWidgets[i].getItemId() == itemId) return i;
+        }
+        return -1;
     }
 
     public static Rooms getCurrentRoom() {
