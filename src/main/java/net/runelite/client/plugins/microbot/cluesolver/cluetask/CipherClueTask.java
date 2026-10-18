@@ -52,7 +52,9 @@ public class CipherClueTask extends ClueTask {
     }
 
     private void walkToLocation() {
-        WorldPoint location = clue.getLocation(clueScrollPlugin);
+        WorldPoint location = Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> clue.getLocation(clueScrollPlugin))
+                .orElse(null);
         if (location == null) {
             log.error("Clue location is null.");
             completeTask(false);
