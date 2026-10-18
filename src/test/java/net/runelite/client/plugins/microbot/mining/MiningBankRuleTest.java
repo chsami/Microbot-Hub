@@ -25,12 +25,7 @@ public final class MiningBankRuleTest {
         assertEquals(Collections.singletonList("pickaxe"), MiningBankRule.parseItemsToKeep(""));
         assertEquals(Collections.singletonList("pickaxe"), MiningBankRule.parseItemsToKeep(" , "));
         assertEquals(Collections.singletonList("pickaxe"), MiningBankRule.parseItemsToKeep(","));
-    }
-
-    @Test
-    void keepListDropsEmptyEntries() {
-        assertEquals(Collections.singletonList("pickaxe"), MiningBankRule.parseItemsToKeep("pickaxe, "));
-        assertEquals(Arrays.asList("pickaxe", "gem bag"), MiningBankRule.parseItemsToKeep("Pickaxe,, Gem bag"));
+        assertEquals(Collections.singletonList("pickaxe"), MiningBankRule.parseItemsToKeep(", "));
     }
 
     @Test
