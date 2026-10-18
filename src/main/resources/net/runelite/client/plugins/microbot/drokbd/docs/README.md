@@ -29,3 +29,7 @@ Nearby attackable players trigger a logout attempt before combat. Once another p
 The plugin uses the combat antiban template while running and restores the previous global antiban settings and activity on stop. If global settings are configured to override script settings, the plugin respects that choice.
 
 If a future client changes the fields needed to capture the global antiban profile, KBD keeps that profile unchanged and skips its combat-template override rather than failing startup.
+
+## Required supply shortages
+
+Missing required Inventory Setup gear, ammunition or travel/protection supplies stop the run. The script closes the bank, waits for confirmed logout, then reports the missing supply. Auto Login stays suppressed until another script starts, the user logs in manually, or Auto Login restarts. Failed teleport clicks with the required item present remain retryable.

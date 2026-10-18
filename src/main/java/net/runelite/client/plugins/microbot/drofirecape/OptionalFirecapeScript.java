@@ -200,7 +200,7 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
                 .findFirst().orElse(null);
             if(item==null&&f.prayer<=config.restorePrayer())item=f.inventory.stream()
                 .filter(i->isPrayerPotion(i.name())).findFirst().orElse(null);
-            if(item==null&&f.prayer<=3&&!config.pureMode()){fail("Prayer supplies exhausted");return null;}
+            if(item==null&&f.prayer<=3&&!config.pureMode()){failForSupplies("Prayer potions or super restores");return null;}
         }
         if(item==null&&healing) {
             if(brewAllowed(f))item=f.inventory.stream()

@@ -181,9 +181,18 @@ public class DroZulrahScript extends Script
     private int startingMagicXp;
     private int startingRangedXp;
 
+    private final net.runelite.client.plugins.microbot.util.player.TerminalLogoutPrompt terminalLogout =
+            new net.runelite.client.plugins.microbot.util.player.TerminalLogoutPrompt();
+
+    private void stopForMissingSupply(String supply) {
+        terminalLogout.begin(Microbot.supplyMessage(supply));
+        status = Microbot.status = terminalLogout.message();
+    }
+
     public boolean run(DroZulrahConfig config)
     {
         this.config = config;
+        terminalLogout.reset();
         this.startupBankTrip = false;
         this.emergencyActive = false;
         this.emergencyBrews = 0;
@@ -272,6 +281,11 @@ public class DroZulrahScript extends Script
             loopEnteredAt = System.currentTimeMillis();
             try
             {
+                if (terminalLogout.active()) {
+                    status = Microbot.status = terminalLogout.message();
+                    if (terminalLogout.tick()) shutdown();
+                    return;
+                }
                 if (System.currentTimeMillis() < nextErrorRetryAt) return;
                 GameState gameState = clientRead(() -> Microbot.getClient().getGameState(), GameState.UNKNOWN);
                 if (gameState == GameState.LOADING || gameState == GameState.HOPPING
@@ -747,11 +761,12 @@ public class DroZulrahScript extends Script
                 + " | status=" + status + " | location=" + location);
         if (recovery.stopped()) {
             String reason = recovery.status();
-            shutdown();
             state = DroZulrahState.OUT_OF_SUPPLIES;
-            status = Microbot.status = reason;
-            Microbot.log("[Dro] Zulrah: " + reason);
-            javax.swing.SwingUtilities.invokeLater(() -> Microbot.showMessage(reason));
+            if (reason.contains("Ring of dueling")) stopForMissingSupply("Charged Ring of dueling");
+            else if (reason.contains("no Zul-andra teleports")) stopForMissingSupply("Zul-andra teleports");
+            else terminalLogout.begin(reason);
+            status = Microbot.status = terminalLogout.message();
+            Microbot.log("[Dro] Zulrah: " + status);
         } else if (recovery.done()) {
             deathRecovery = null;
             startupBankTrip = false;
@@ -834,6 +849,8 @@ public class DroZulrahScript extends Script
             if (inventorySetup == null)
             {
                 inventorySetup = new Rs2InventorySetup(selectedSetup, mainScheduledFuture);
+                inventorySetup.withMissingSupplyPolicy(Rs2InventorySetup.MissingSupplyPolicy.LOGOUT_AND_STOP)
+                        .withMissingSupplyHandler(this::stopForMissingSupply);
             }
 
             // Identical completion contract to DroKBD. loadEquipment already equips items;
@@ -887,12 +904,12 @@ public class DroZulrahScript extends Script
     {
         if (!Rs2Inventory.contains(ZUL_ANDRA_TELEPORT))
         {
-            status = "Inventory Setup needs Zul-andra teleport [12938]";
+            stopForMissingSupply("Zul-andra teleport in selected Inventory Setup");
             return false;
         }
         if (!hasRingOfDueling())
         {
-            status = "Inventory Setup needs a charged Ring of dueling";
+            stopForMissingSupply("Charged Ring of dueling in selected Inventory Setup");
             return false;
         }
         if (!hasMagicWeapon && !hasRangeWeapon)
@@ -1401,7 +1418,6 @@ public class DroZulrahScript extends Script
                 Widget child = inventory.getChild(item.getSlot());
                 if (child == null || child.getItemId() != item.getId()) continue;
                 String[] actions = child.getActions();
-                if (actions == null) actions = item.getInventoryActions();
                 if (actions == null) continue;
                 for (int i = 0; i < actions.length; i++)
                 {
@@ -1635,7 +1651,6 @@ public class DroZulrahScript extends Script
         Widget child = inventory == null ? null : inventory.getChild(item.getSlot());
         if (child == null || child.getItemId() != item.getId()) return false;
         String[] actions = child.getActions();
-        if (actions == null) actions = item.getInventoryActions();
         if (actions == null) return false;
         for (int i = 0; i < actions.length; i++)
             if (wanted.equalsIgnoreCase(actions[i]))
@@ -1884,8 +1899,10 @@ public class DroZulrahScript extends Script
         }
         else
         {
-            state = DroZulrahState.OUT_OF_SUPPLIES;
-            status = "Missing charged Ring of dueling for Ferox";
+            if (!hasRingOfDueling()) {
+                state = DroZulrahState.OUT_OF_SUPPLIES;
+                stopForMissingSupply("Charged Ring of dueling for Ferox");
+            } else status = "Ferox teleport not dispatched; retrying";
         }
     }
 
