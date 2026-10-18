@@ -21,6 +21,19 @@ public final class MiningBankRuleTest {
     }
 
     @Test
+    void blankKeepListFallsBackToPickaxe() {
+        assertEquals(Collections.singletonList("pickaxe"), MiningBankRule.parseItemsToKeep(""));
+        assertEquals(Collections.singletonList("pickaxe"), MiningBankRule.parseItemsToKeep(" , "));
+        assertEquals(Collections.singletonList("pickaxe"), MiningBankRule.parseItemsToKeep(","));
+    }
+
+    @Test
+    void keepListDropsEmptyEntries() {
+        assertEquals(Collections.singletonList("pickaxe"), MiningBankRule.parseItemsToKeep("pickaxe, "));
+        assertEquals(Arrays.asList("pickaxe", "gem bag"), MiningBankRule.parseItemsToKeep("Pickaxe,, Gem bag"));
+    }
+
+    @Test
     void defaultListStillBanksOres() {
         assertTrue(MiningBankRule.shouldBank("Tin ore", only(Rocks.TIN), DEFAULT_ITEMS));
         assertTrue(MiningBankRule.shouldBank("Iron ore", only(Rocks.IRON), DEFAULT_ITEMS));

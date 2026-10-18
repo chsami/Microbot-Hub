@@ -214,7 +214,7 @@ public class AutoMiningScript extends Script {
                             }
 
                         } else {
-                            Rs2Inventory.dropAllExcept(false, config.interactOrder(), MiningBankRule.parseItemNames(config.itemsToKeep()).toArray(new String[0]));
+                            Rs2Inventory.dropAllExcept(false, config.interactOrder(), MiningBankRule.parseItemsToKeep(config.itemsToKeep()).toArray(new String[0]));
                         }
 
                         state = State.MINING;
