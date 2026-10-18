@@ -39,6 +39,7 @@ import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.antiban.AntibanPlugin;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
@@ -158,7 +159,7 @@ public class MotherloadMineScript extends Script
             case IDLE:
                 break;
             case MINING:
-                Rs2Antiban.setActivityIntensity(Rs2Antiban.getActivity().getActivityIntensity());
+                Rs2Antiban.setActivityIntensity(miningIntensity(Rs2Antiban.getActivity()));
                 handleMining();
                 break;
             case EMPTY_SACK:
@@ -180,6 +181,12 @@ public class MotherloadMineScript extends Script
                 break;
         }
     }
+
+    static ActivityIntensity miningIntensity(Activity activity)
+    {
+        return (activity != null ? activity : Activity.GENERAL_MINING).getActivityIntensity();
+    }
+
     private String[] SPEC_PICKAXES = {"dragon pickaxe", "crystal pickaxe", "infernal pickaxe"};
 
     private void handlePickaxeSpec() {

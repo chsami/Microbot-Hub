@@ -42,7 +42,6 @@ public class FarmTreeRunScript extends Script {
     public static net.runelite.client.plugins.microbot.farmtreerun.enums.FarmTreeRunState botStatus;
     public static boolean test = false;
     public static Integer compostItemId = null;
-    private List<FarmingItem> items = new ArrayList<>();
     private final FarmTreeRunPlugin plugin;
     private final FarmTreeRunConfig config;
 
@@ -558,7 +557,7 @@ public class FarmTreeRunScript extends Script {
     }
 
     private void bank(FarmTreeRunConfig config) {
-        items.clear();
+        List<FarmingItem> items = new ArrayList<>();
         if (Rs2Bank.openBank() || Rs2Bank.walkToBank()) {
             sleepUntil(Rs2Bank::isOpen, 5000);
             if (!Rs2Bank.isOpen())
@@ -704,11 +703,11 @@ public class FarmTreeRunScript extends Script {
             }
 
             if (config.travelTablets()) {
-                addAvailableTravelItem(net.runelite.api.ItemID.VARROCK_TELEPORT, 2);
-                addAvailableTravelItem(net.runelite.api.ItemID.LUMBRIDGE_TELEPORT, 1);
-                addAvailableTravelItem(net.runelite.api.ItemID.FALADOR_TELEPORT, 2);
-                addAvailableTravelItem(net.runelite.api.ItemID.CAMELOT_TELEPORT, 1);
-                if (!config.preferHouseTravel()) addAvailableTravelItem(net.runelite.api.ItemID.TELEPORT_TO_HOUSE, 3);
+                addAvailableTravelItem(items, net.runelite.api.ItemID.VARROCK_TELEPORT, 2);
+                addAvailableTravelItem(items, net.runelite.api.ItemID.LUMBRIDGE_TELEPORT, 1);
+                addAvailableTravelItem(items, net.runelite.api.ItemID.FALADOR_TELEPORT, 2);
+                addAvailableTravelItem(items, net.runelite.api.ItemID.CAMELOT_TELEPORT, 1);
+                if (!config.preferHouseTravel()) addAvailableTravelItem(items, net.runelite.api.ItemID.TELEPORT_TO_HOUSE, 3);
             } else {
             items.add(new FarmingItem(ItemID.LAW_RUNE, 10));
             items.add(new FarmingItem(ItemID.FIRE_RUNE, 30));
@@ -717,31 +716,25 @@ public class FarmTreeRunScript extends Script {
             items.add(new FarmingItem(ItemID.WATER_RUNE, 30));
             }
             if (config.travelKourendBook()) {
-                addFirstTravelItem(net.runelite.api.ItemID.BOOK_OF_THE_DEAD, net.runelite.api.ItemID.KHAREDSTS_MEMOIRS);
+                addFirstTravelItem(items, net.runelite.api.ItemID.BOOK_OF_THE_DEAD, net.runelite.api.ItemID.KHAREDSTS_MEMOIRS);
             }
             if (config.preferHouseTravel()) {
                 items.add(new FarmingItem(net.runelite.api.ItemID.TELEPORT_TO_HOUSE, 10));
             }
             if (config.travelQuetzal()) {
-                addFirstTravelItem(net.runelite.api.ItemID.PERFECTED_QUETZAL_WHISTLEI,
+                addFirstTravelItem(items, net.runelite.api.ItemID.PERFECTED_QUETZAL_WHISTLEI,
                         net.runelite.api.ItemID.PERFECTED_QUETZAL_WHISTLE,
                         net.runelite.api.ItemID.ENHANCED_QUETZAL_WHISTLE,
                         net.runelite.api.ItemID.BASIC_QUETZAL_WHISTLE);
             }
             if (config.travelFairyStaff()) {
-                addFirstTravelItem(net.runelite.api.ItemID.DRAMEN_STAFF, net.runelite.api.ItemID.LUNAR_STAFF);
+                addFirstTravelItem(items, net.runelite.api.ItemID.DRAMEN_STAFF, net.runelite.api.ItemID.LUNAR_STAFF);
             }
 
 //              TODO: Need to handle what happens if a required item does not exist
 
             // Merge entries with the same itemId + noted flag so withdrawal doesn't under-count
-            Map<Long, FarmingItem> merged = new LinkedHashMap<>();
-            for (FarmingItem item : items) {
-                long key = ((long) item.getItemId() << 1) | (item.isNoted() ? 1 : 0);
-                merged.merge(key, item, (a, b) ->
-                    new FarmingItem(a.getItemId(), a.getQuantity() + b.getQuantity(), a.isNoted(), a.isOptional()));
-            }
-            items = new ArrayList<>(merged.values());
+            items = mergeItems(items);
 
             // Deposit only what we don't need: keep desired ids and their noted variants
             Set<Integer> keepIds = new HashSet<>();
@@ -824,16 +817,26 @@ public class FarmTreeRunScript extends Script {
         }
     }
 
-    private void addAvailableTravelItem(int id, int quantity) {
+    static List<FarmingItem> mergeItems(List<FarmingItem> items) {
+        Map<Long, FarmingItem> merged = new LinkedHashMap<>();
+        for (FarmingItem item : items) {
+            long key = ((long) item.getItemId() << 1) | (item.isNoted() ? 1 : 0);
+            merged.merge(key, item, (a, b) ->
+                new FarmingItem(a.getItemId(), a.getQuantity() + b.getQuantity(), a.isNoted(), a.isOptional()));
+        }
+        return new ArrayList<>(merged.values());
+    }
+
+    private void addAvailableTravelItem(List<FarmingItem> items, int id, int quantity) {
         int available = Rs2Inventory.itemQuantity(id) + Rs2Bank.count(id);
         if (available > 0) items.add(new FarmingItem(id, Math.min(quantity, available), false, true));
     }
 
-    private void addFirstTravelItem(int... ids) {
+    private void addFirstTravelItem(List<FarmingItem> items, int... ids) {
         for (int id : ids) {
             if (Rs2Equipment.isWearing(id)) return;
             if (Rs2Inventory.hasItem(id) || Rs2Bank.hasItem(id)) {
-                addAvailableTravelItem(id, 1);
+                addAvailableTravelItem(items, id, 1);
                 return;
             }
         }
@@ -865,7 +868,11 @@ public class FarmTreeRunScript extends Script {
 
         // Gagex named actions differently, sometimes it's Pick-fruit and sometimes Pick-banana.
         // Also seen "Chop down" and "Chop-down".
-        List<String> exactTreeActions = Arrays.stream(Rs2GameObject.findObjectComposition(treePatch.getId()).getActions()).collect(Collectors.toList());
+        ObjectComposition treeComposition = Rs2GameObject.findObjectComposition(treePatch.getId());
+        if (treeComposition == null || treeComposition.getActions() == null) {
+            return false;
+        }
+        List<String> exactTreeActions = Arrays.stream(treeComposition.getActions()).collect(Collectors.toList());
         for (String action : exactTreeActions) {
             if (action == null)
                 continue;
@@ -951,13 +958,13 @@ public class FarmTreeRunScript extends Script {
      * @return {@code true} if payment was successful, else {@code false}
      */
     private boolean handlePayment(FarmTreeRunConfig config, Patch patch, PaymentKind action) {
-        if (isTreePatch(patch) && !isPatchEmpty(patch) && !shouldProtectTree(config) && action != PaymentKind.CLEAR)
+        if (isTreePatch(patch) && !shouldProtectTree(config) && action != PaymentKind.CLEAR)
             return true;
 
-        if (isFruitTreePatch(patch) && !isPatchEmpty(patch) && !shouldProtectFruitTree(config) && action != PaymentKind.CLEAR)
+        if (isFruitTreePatch(patch) && !shouldProtectFruitTree(config) && action != PaymentKind.CLEAR)
             return true;
 
-        if (isHardTreePatch(patch) && !isPatchEmpty(patch) && !shouldProtectHardTree(config) && action != PaymentKind.CLEAR)
+        if (isHardTreePatch(patch) && !shouldProtectHardTree(config) && action != PaymentKind.CLEAR)
             return true;
 
         int paymentId = isHardTreePatch(patch) ? config.selectedHardTree().getPaymentId()
@@ -1204,8 +1211,12 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean isPatchEmpty(Patch patch) {
-        String name = Rs2GameObject.getObjectComposition(patch.getId()).getName().toLowerCase();
-        return name.endsWith("patch");
+        return isEmptyPatchComposition(Rs2GameObject.getObjectComposition(patch.getId()));
+    }
+
+    static boolean isEmptyPatchComposition(ObjectComposition composition) {
+        if (composition == null || composition.getName() == null) return true;
+        return composition.getName().toLowerCase().endsWith("patch");
     }
 
     private Integer getLinkedId(int id) {
@@ -1271,7 +1282,6 @@ public class FarmTreeRunScript extends Script {
     @Override
     public void shutdown() {
         if(isRunning()) {
-            items.clear();
             super.shutdown();
             Microbot.stopPlugin(plugin);
         }

@@ -197,14 +197,25 @@ public class AttackStyleScript extends Script {
         }
     }
 
-    private AttackStyle[] getWeaponTypeStyles(int weaponType) {
-        int weaponStyleEnum = Microbot.getEnum(EnumID.WEAPON_STYLES).getIntValue(weaponType);
-        int[] weaponStyleStructs = Microbot.getEnum(weaponStyleEnum).getIntVals();
+    static AttackStyle[] getWeaponTypeStyles(int weaponType) {
+        EnumComposition weaponStylesEnum = Microbot.getEnum(EnumID.WEAPON_STYLES);
+        if (weaponStylesEnum == null) {
+            return new AttackStyle[0];
+        }
+        EnumComposition weaponStyleEnum = Microbot.getEnum(weaponStylesEnum.getIntValue(weaponType));
+        if (weaponStyleEnum == null) {
+            return new AttackStyle[0];
+        }
+        int[] weaponStyleStructs = weaponStyleEnum.getIntVals();
 
         AttackStyle[] styles = new AttackStyle[weaponStyleStructs.length];
         int i = 0;
         for (int style : weaponStyleStructs) {
-            String attackStyleName = Microbot.getStructComposition(style).getStringValue(ParamID.ATTACK_STYLE_NAME);
+            StructComposition struct = Microbot.getStructComposition(style);
+            String attackStyleName = struct == null ? null : struct.getStringValue(ParamID.ATTACK_STYLE_NAME);
+            if (attackStyleName == null) {
+                return new AttackStyle[0];
+            }
             AttackStyle attackStyle = AttackStyle.valueOf(attackStyleName.toUpperCase());
 
             if (attackStyle == AttackStyle.OTHER) {

@@ -8,6 +8,7 @@ package net.runelite.client.plugins.microbot.bankorganizer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.api.ItemComposition;
@@ -44,14 +45,15 @@ final class BankSnapshotReader
 	BankSnapshot read()
 	{
 		return Microbot.getClientThread().runOnClientThreadOptional(this::readOnClientThread)
-			.orElseThrow(() -> new IllegalStateException("Could not read bank snapshot on the client thread."));
+			.orElseThrow(() -> new IllegalStateException("Could not read bank snapshot on the client thread."))
+			.orElseThrow(() -> new IllegalStateException("Open your bank before running Bank Organizer."));
 	}
 
-	private BankSnapshot readOnClientThread()
+	private Optional<BankSnapshot> readOnClientThread()
 	{
 		if (!Rs2Bank.isOpen())
 		{
-			throw new IllegalStateException("Open your bank before running Bank Organizer.");
+			return Optional.empty();
 		}
 
 		List<Rs2ItemModel> bankItems = new ArrayList<>(Rs2Bank.bankItems());
@@ -83,7 +85,7 @@ final class BankSnapshotReader
 				isEquipable(composition)));
 		}
 
-		return new BankSnapshot(stacks, tabCounts, client.getVarbitValue(Varbits.CURRENT_BANK_TAB));
+		return Optional.of(new BankSnapshot(stacks, tabCounts, client.getVarbitValue(Varbits.CURRENT_BANK_TAB)));
 	}
 
 	private int[] readTabCounts()

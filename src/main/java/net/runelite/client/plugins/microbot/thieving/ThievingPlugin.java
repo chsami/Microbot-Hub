@@ -14,6 +14,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
@@ -34,7 +35,7 @@ import java.time.Duration;
 )
 @Slf4j
 public class ThievingPlugin extends Plugin {
-	public static final String version = "2.1.5";
+	public static final String version = "2.1.6";
 
     @Inject
     @Getter
@@ -80,7 +81,11 @@ public class ThievingPlugin extends Plugin {
 
     private void setStartXp() {
         // this should handle changing accounts
-        final String name = Rs2Player.getLocalPlayer().getName();
+        final Rs2PlayerModel localPlayer = Rs2Player.getLocalPlayer();
+        if (localPlayer == null) {
+            return;
+        }
+        final String name = localPlayer.getName();
         if (startXp == 0 || (name != null && !name.equals(this.name))) {
             this.name = name;
             startXp = Microbot.getClient().getSkillExperience(Skill.THIEVING);

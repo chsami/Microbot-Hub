@@ -53,6 +53,7 @@ public class MahoganyHomesScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
+                if (Rs2Player.getWorldLocation() == null) return;
                 checkPlankSack();
                 fix();
                 finish();
@@ -73,16 +74,20 @@ public class MahoganyHomesScript extends Script {
         List<Hotspot> fixableHotspots = Hotspot.getBrokenHotspots();
         HotspotObjects hotspotObjects = plugin.getCurrentHome().getHotspotObjects();
 
-        // Precompute the set of IDs
-        Set<Integer> ids = fixableHotspots.stream()
-                .map(hotspot -> hotspotObjects.objects[hotspot.ordinal()].getObjectId())
-                .collect(Collectors.toSet());
+        Set<Integer> ids = getFixableObjectIds(fixableHotspots, hotspotObjects);
 
         // Filter using the precomputed set
         return objects.stream()
                 .filter(Objects::nonNull)
                 .filter(o -> ids.contains(o.getId()))
                 .collect(Collectors.toList());
+    }
+
+    static Set<Integer> getFixableObjectIds(List<Hotspot> hotspots, HotspotObjects hotspotObjects) {
+        return hotspots.stream()
+                .filter(hotspot -> hotspot.ordinal() < hotspotObjects.objects.length)
+                .map(hotspot -> hotspotObjects.objects[hotspot.ordinal()].getObjectId())
+                .collect(Collectors.toSet());
     }
 
     // Custom logging methods
@@ -393,8 +398,12 @@ public class MahoganyHomesScript extends Script {
                 }
                 return;
             }
-            WorldPoint contractLocation = getClosestContractLocation();
-            if (contractLocation.distanceTo2D(Rs2Player.getWorldLocation()) > 10) {
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            WorldPoint contractLocation = getClosestContractLocation(playerLocation);
+            if (contractLocation == null) {
+                return;
+            }
+            if (contractLocation.distanceTo2D(playerLocation) > 10) {
                 log("Walking to contract NPC");
                 Rs2Walker.walkWithState(contractLocation, 5);
 
@@ -536,9 +545,8 @@ public class MahoganyHomesScript extends Script {
     // Bank if we need to
     private void bank() {
         Home currentHome = plugin.getCurrentHome();
-        if (currentHome != null
-                && plugin.distanceBetween(currentHome.getArea(), Rs2Player.getWorldLocation()) > 0
-                && isMissingItems()) {
+        if (isAwayFromHome(currentHome, Rs2Player.getWorldLocation())
+                && isMissingItems(currentHome)) {
             ShortestPathPlugin.getPathfinderConfig().setIgnoreTeleportAndItems(true);
             BankLocation bankLocation = Rs2Bank.getNearestBank(currentHome.getLocation());
             ShortestPathPlugin.getPathfinderConfig().setIgnoreTeleportAndItems(false);
@@ -577,19 +585,19 @@ public class MahoganyHomesScript extends Script {
                         }
                     } else {
                         // Withdraw steel bars first if needed
-                        if (steelBarsNeeded() > steelBarsInInventory()) {
-                            Rs2Bank.withdrawX(ItemID.STEEL_BAR, steelBarsNeeded() - steelBarsInInventory());
+                        if (steelBarsNeeded(currentHome) > steelBarsInInventory()) {
+                            Rs2Bank.withdrawX(ItemID.STEEL_BAR, steelBarsNeeded(currentHome) - steelBarsInInventory());
                             Rs2Inventory.waitForInventoryChanges(5000);
                         }
                         
                         // Calculate if we'll have enough space for planks after steel bars
                         int freeSlots = Rs2Inventory.emptySlotCount();
                         int currentPlanks = planksInInventory() + planksInPlankSack();
-                        int additionalPlanksNeeded = planksNeeded() - currentPlanks;
+                        int additionalPlanksNeeded = planksNeeded(currentHome) - currentPlanks;
                         
                         if (additionalPlanksNeeded <= 0) {
                             // We already have enough planks
-                            log("Already have sufficient planks: %d/%d", currentPlanks, planksNeeded());
+                            log("Already have sufficient planks: %d/%d", currentPlanks, planksNeeded(currentHome));
                         } else if (freeSlots >= additionalPlanksNeeded) {
                             // Withdraw all planks to fill inventory
                             Rs2Bank.withdrawAll(plugin.getConfig().currentTier().getPlankSelection().getPlankId());
@@ -612,25 +620,31 @@ public class MahoganyHomesScript extends Script {
     // Walk to current home
     private void walkToHome() {
         Home currentHome = plugin.getCurrentHome();
-        if (currentHome != null
-                && plugin.distanceBetween(currentHome.getArea(), Rs2Player.getWorldLocation()) > 0
-                && !isMissingItems()) {
-            Rs2Walker.walkWithStateUntil(plugin.getCurrentHome().getLocation(), 3,
+        if (isAwayFromHome(currentHome, Rs2Player.getWorldLocation())
+                && !isMissingItems(currentHome)) {
+            Rs2Walker.walkWithStateUntil(currentHome.getLocation(), 3,
                     () -> readyFurniture() != null);
             if (readyFurniture() != null) fix();
         }
     }
-    private boolean isMissingItems() {
-        return (planksInInventory() + planksInPlankSack()) < planksNeeded()
-                || steelBarsInInventory() < steelBarsNeeded();
+
+    boolean isAwayFromHome(Home home, WorldPoint playerLocation) {
+        return home != null
+                && playerLocation != null
+                && plugin.distanceBetween(home.getArea(), playerLocation) > 0;
     }
 
-    private int planksNeeded() {
-        return plugin.getCurrentHome().getRequiredPlanks(plugin.getContractTier());
+    private boolean isMissingItems(Home home) {
+        return (planksInInventory() + planksInPlankSack()) < planksNeeded(home)
+                || steelBarsInInventory() < steelBarsNeeded(home);
     }
 
-    private int steelBarsNeeded() {
-        return plugin.getCurrentHome().getRequiredSteelBars(plugin.getContractTier());
+    private int planksNeeded(Home home) {
+        return home.getRequiredPlanks(plugin.getContractTier());
+    }
+
+    private int steelBarsNeeded(Home home) {
+        return home.getRequiredSteelBars(plugin.getContractTier());
     }
 
     private int planksInInventory() {
@@ -642,7 +656,10 @@ public class MahoganyHomesScript extends Script {
     }
 
     // Get closest contract location
-    private WorldPoint getClosestContractLocation() {
+    static WorldPoint getClosestContractLocation(WorldPoint playerLocation) {
+        if (playerLocation == null) {
+            return null;
+        }
         List<WorldPoint> contractLocations = new ArrayList<>();
         contractLocations.add(ContractLocation.MAHOGANY_HOMES_ARDOUGNE.getLocation());
         contractLocations.add(ContractLocation.MAHOGANY_HOMES_FALADOR.getLocation());
@@ -650,7 +667,7 @@ public class MahoganyHomesScript extends Script {
         contractLocations.add(ContractLocation.MAHOGANY_HOMES_VARROCK.getLocation());
 
         return contractLocations.stream()
-                .min(Comparator.comparingInt(wp -> wp.distanceTo2D(Rs2Player.getWorldLocation())))
+                .min(Comparator.comparingInt(wp -> wp.distanceTo2D(playerLocation)))
                 .orElse(null);
     }
 

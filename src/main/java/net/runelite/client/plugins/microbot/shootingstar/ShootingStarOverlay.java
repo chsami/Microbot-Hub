@@ -15,6 +15,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.shootingstar.ShootingStarConfig;
 import net.runelite.client.plugins.microbot.shootingstar.ShootingStarPlugin;
 import net.runelite.client.plugins.microbot.shootingstar.ShootingStarScript;
+import net.runelite.client.plugins.microbot.shootingstar.enums.ShootingStarState;
 import net.runelite.client.plugins.microbot.util.misc.TimeUtils;
 import net.runelite.client.ui.overlay.OverlayPanel;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -77,11 +78,12 @@ public class ShootingStarOverlay extends OverlayPanel
 
 			if (!config.isHideDevOverlay())
 			{
-				if (ShootingStarScript.state != null)
+				ShootingStarState state = ShootingStarScript.state;
+				if (state != null)
 				{
 					panelComponent.getChildren().add(LineComponent.builder()
 						.left("Current State:")
-						.right(ShootingStarScript.state.name())
+						.right(state.name())
 						.build());
 				}
 
