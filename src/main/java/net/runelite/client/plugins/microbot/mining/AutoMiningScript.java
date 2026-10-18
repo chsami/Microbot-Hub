@@ -79,7 +79,7 @@ public class AutoMiningScript extends Script {
 
                 updateActiveRock(config);
 
-                if (config.progressiveMode() && ensureProgressiveLocation(config)) {
+                if (config.progressiveMode() && state == State.MINING && ensureProgressiveLocation(config)) {
                     return;
                 }
 
@@ -214,7 +214,7 @@ public class AutoMiningScript extends Script {
                             }
 
                         } else {
-                            Rs2Inventory.dropAllExcept(false, config.interactOrder(), Arrays.stream(config.itemsToKeep().split(",")).map(String::trim).toArray(String[]::new));
+                            Rs2Inventory.dropAllExcept(false, config.interactOrder(), MiningBankRule.parseItemNames(config.itemsToKeep()).toArray(new String[0]));
                         }
 
                         state = State.MINING;
@@ -313,9 +313,7 @@ public class AutoMiningScript extends Script {
 
         WorldPoint targetPoint = activeLocation.getWorldPoint();
 
-        // Only update initialPlayerLocation if it's null
-        // Don't update just because player is far away (e.g., at bank) - that breaks return-to-location
-        if (initialPlayerLocation == null) {
+        if (!targetPoint.equals(initialPlayerLocation)) {
             initialPlayerLocation = targetPoint;
         }
 
