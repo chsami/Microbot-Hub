@@ -24,6 +24,18 @@ class GotrRegionCheckTest
             assertFalse(GotrScript.isInLargeMine());
             assertFalse(GotrScript.isOutsideBarrier());
             assertFalse(GotrScript.isInMainRegion());
+            assertFalse(GotrScript.isPlayerLocationKnown());
+        }
+    }
+
+    @Test
+    void knownLocationLetsLoopDecide()
+    {
+        try (MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class))
+        {
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3222, 3218, 0));
+
+            assertTrue(GotrScript.isPlayerLocationKnown());
         }
     }
 

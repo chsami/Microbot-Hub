@@ -126,6 +126,7 @@ public class GotrScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
+                if (!isPlayerLocationKnown()) return;
                 long startTime = System.currentTimeMillis();
 
                 if (!initCheck) {
@@ -704,6 +705,10 @@ public class GotrScript extends Script {
         int parentWidgetId = 48889857;
         Widget elementalRuneWidget = Microbot.getClient().getWidget(parentWidgetId);
         return elementalRuneWidget != null;
+    }
+
+    static boolean isPlayerLocationKnown() {
+        return Rs2Player.getWorldLocation() != null;
     }
 
     public static boolean isInMainRegion() {
