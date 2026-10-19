@@ -662,20 +662,26 @@ public class GotrScript extends Script {
 
     public static boolean isOutsideBarrier() {
         int outsideBarrierY = 9482;
-        return Rs2Player.getWorldLocation().getY() <= outsideBarrierY
-                && Rs2Player.getWorldLocation().getRegionID() == 14484;
+        WorldPoint location = Rs2Player.getWorldLocation();
+        return location != null
+                && location.getY() <= outsideBarrierY
+                && location.getRegionID() == 14484;
     }
 
     public  static boolean isInLargeMine() {
         int largeMineX = 3637;
-        return Rs2Player.getWorldLocation().getRegionID() == 14484
-                && Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getX()) >= largeMineX;
+        WorldPoint location = Rs2Player.getWorldLocation();
+        return location != null
+                && location.getRegionID() == 14484
+                && location.getX() >= largeMineX;
     }
 
     public  boolean isInHugeMine() {
         int hugeMineX = 3594;
-        return Rs2Player.getWorldLocation().getRegionID() == 14484
-                && Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getX()) <= hugeMineX;
+        WorldPoint location = Rs2Player.getWorldLocation();
+        return location != null
+                && location.getRegionID() == 14484
+                && location.getX() <= hugeMineX;
     }
 
     static boolean isActiveAltarRenderable(Renderable renderable) {
@@ -701,7 +707,8 @@ public class GotrScript extends Script {
     }
 
     public static boolean isInMainRegion() {
-        return Rs2Player.getWorldLocation().getRegionID() == 14484;
+        WorldPoint location = Rs2Player.getWorldLocation();
+        return location != null && location.getRegionID() == 14484;
     }
 
     public static int getStartTimer() {
