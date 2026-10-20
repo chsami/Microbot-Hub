@@ -338,7 +338,6 @@ class FcActions {
                 if(slot==null||slot.getIndex()!=item.slot()||slot.isHidden())continue;
                 Rectangle bounds=FcPrayerUi.visibleBounds(slot.getBounds(),client().getCanvasWidth(),client().getCanvasHeight());
                 int option=actionIndex(slot.getActions(),action);
-                if(option<0)option=actionIndex(client().getItemDefinition(item.id()).getInventoryActions(),action);
                 if(bounds==null||option<0)return null;
                 return new Click(new NewMenuEntry().option(action).target(item.name()).param0(item.slot())
                     .param1(inventory.getId()).type(MenuAction.CC_OP).identifier(option+1).itemId(item.id()),bounds);

@@ -149,12 +149,44 @@ public class DroFirecapeScript extends Script {
     protected boolean usesSharedLoginReadiness(){return false;}
 
 
+    protected volatile String exhaustedSupply;
+    private final net.runelite.client.plugins.microbot.util.player.TerminalLogoutPrompt terminalLogout =
+            new net.runelite.client.plugins.microbot.util.player.TerminalLogoutPrompt();
+
+    protected void failForSupplies(String supply) {
+        exhaustedSupply = supply;
+        fail(Microbot.supplyMessage(supply));
+    }
+
+    private void stopForMissingSupply(String supply) {
+        exhaustedSupply = supply;
+        fail(Microbot.supplyMessage(supply));
+    }
+
+    protected void afterExit() {
+        if (observeOnly()) return;
+        FcFrame outsideFrame = FcActions.read(this::captureFrame, null);
+        if (outsideFrame == null || outsideFrame.cave || outsideFrame.hp <= 0) {
+            status = "Waiting for confirmed cave exit / respawn";
+            return;
+        }
+        if (FcAfterExit.repeat(config.afterExitBehavior(), hadCave, exhaustedSupply != null, false)) {
+            trace.event("repeat", failed ? "Retry after failed cave attempt" : "Get another cape");
+            run(config);
+            return;
+        }
+        terminalLogout.begin(exhaustedSupply != null ? Microbot.supplyMessage(exhaustedSupply)
+                : state == State.COMPLETE ? "Fire cape completed; logged out"
+                : "Firecape stopped: " + failureReason);
+    }
+
     public boolean run(DroFirecapeConfig configuration) {
         enabled=false;
+        terminalLogout.reset();exhaustedSupply=null;
         if(mainScheduledFuture!=null)mainScheduledFuture.cancel(true);
         if(scheduledFuture!=null)scheduledFuture.cancel(true);
         FcTickPrayers previous=tickPrayers;if(previous!=null)previous.detach();
-        config=configuration;keybindings.reset();if(pointerLease!=null)pointerLease.close();
+        config=FcRuntimeConfig.resolve(configuration);keybindings.reset();if(pointerLease!=null)pointerLease.close();
         meleeMode=config.meleeCape();
         pointerLease=null;resetVariantRun();lureResetAfterReturn=false;rangePrepot.reset();sweetCancelTick=sweetProgressTick=sweetRetryTick=-1;supplyAck.reset();supplyPreparation.reset();jadActions.reset();lastFailedMoveTick=-1;movement.reset();lures.reset();bowPrayer.reset();requestedCaveProtection=Protection.NONE;caveBaseX=caveBaseY=Integer.MIN_VALUE;cavePlane=-1;actions.reset();actions.observeOnly(observeOnly());
         tickPrayers=createTickPrayers();
@@ -204,7 +236,7 @@ public class DroFirecapeScript extends Script {
         Microbot.log("[Dro Firecape] Full-run controller "+DroFirecapePlugin.version+" (recorded rock lures / visible protection switches / tick prayers / retained startup, supplies and thralls) started. Trace: "+trace.location()+startupDetail());
         return true;
     }
-    protected void setState(State next,String text){if(state!=next){state=next;stateAt=System.currentTimeMillis();trace.event("state",next+": "+text);}status=text;}
+    protected void setState(State next,String text){if(next==State.STOPPED&&failureReason.isEmpty())failureReason=text;if(state!=next){state=next;stateAt=System.currentTimeMillis();trace.event("state",next+": "+text);}status=text;}
     protected void logStatus() {
         long now=System.currentTimeMillis();
         String current=state+": "+status;
@@ -226,7 +258,12 @@ public class DroFirecapeScript extends Script {
     protected void loop() {
         if(!enabled||Thread.currentThread().isInterrupted())return;
         for(String e;(e=events.poll())!=null;)trace.event("game",e);
-        if(state==State.STOPPED||state==State.COMPLETE)return;
+        if (terminalLogout.active()) {
+            status = Microbot.status = terminalLogout.message();
+            if (terminalLogout.tick()) shutdown();
+            return;
+        }
+        if(state==State.STOPPED||state==State.COMPLETE){afterExit();return;}
         if(!Microbot.isLoggedIn()) {
             status="Waiting for login / world transition; preserving run";
             if(!observeOnly())super.run();
@@ -404,7 +441,9 @@ public class DroFirecapeScript extends Script {
                 break;
             }
             case WALK_BANK: {
-                if(f.location.distanceTo2D(BANK)<=6){setup=new Rs2InventorySetup(config.inventorySetup(),mainScheduledFuture);setState(State.BANK_EQUIPMENT,"Opening TzHaar bank");return;}
+                if(f.location.distanceTo2D(BANK)<=6){setup=new Rs2InventorySetup(config.inventorySetup(),mainScheduledFuture)
+                    .withMissingSupplyPolicy(Rs2InventorySetup.MissingSupplyPolicy.LOGOUT_AND_STOP)
+                    .withMissingSupplyHandler(this::stopForMissingSupply);setState(State.BANK_EQUIPMENT,"Opening TzHaar bank");return;}
                 travel(f,BANK);if(elapsed(90_000))fail("Unable to reach the TzHaar bank");
                 break;
             }
@@ -432,7 +471,7 @@ public class DroFirecapeScript extends Script {
                     public void withdraw(String name){Rs2Bank.withdrawOne(name,true);}
                 });
                 status=rangePrepot.status();
-                if(rangePrepot.failed()){fail(status);return;}
+                if(rangePrepot.failed()){if(rangePrepot.missingSupply()!=null)failForSupplies(rangePrepot.missingSupply());else fail(status);return;}
                 if(done){actions.releaseTab();setState(State.CAMERA,"Pre-dose and full inventory confirmed");}
                 return;
             }
@@ -1339,7 +1378,7 @@ public class DroFirecapeScript extends Script {
     protected boolean emergencyPrayer(FcFrame f) {
         if(observeOnly()||supplyAck.pending()||System.currentTimeMillis()-lastSupplyAt<1400)return false;
         FcFrame.ItemSlot dose=f.inventory.stream().filter(i->isPrayerPotion(i.name())).findFirst().orElse(null);
-        if(dose==null){if(!keepsFightingWhenDepleted())fail("Prayer exhausted: no restore dose remains");return false;}
+        if(dose==null){if(!keepsFightingWhenDepleted())failForSupplies("Prayer potions or super restores");return false;}
         long now=System.currentTimeMillis();
         if(!supplyPreparation.ready(dose.id(),now))return false;
         FcActions.ItemResult result;
@@ -1750,7 +1789,7 @@ public class DroFirecapeScript extends Script {
                 .findFirst().orElse(null);
             if(item==null&&f.prayer<=config.restorePrayer())item=f.inventory.stream()
                 .filter(i->isPrayerPotion(i.name())).findFirst().orElse(null);
-            if(item==null&&f.prayer<=3){fail("Prayer supplies exhausted");return null;}
+            if(item==null&&f.prayer<=3){failForSupplies("Prayer potions or super restores");return null;}
         }
         if(item==null&&f.hp*100<=f.maxHp*config.eatPercent()) {
             item=f.inventory.stream().filter(i->i.hasAction("Eat")&&!FcSupplyPolicy.sweet(i.name())).findFirst().orElse(null);action="Eat";
@@ -1857,7 +1896,7 @@ public class DroFirecapeScript extends Script {
         }
         if(e.getType()==ChatMessageType.GAMEMESSAGE&&hadCave&&(message.contains("Your TzTok-Jad kill count")||message.toLowerCase(Locale.ROOT).contains("you are awarded a fire cape"))){rewardConfirmed=true;events.add(message);}
         if(e.getType()==ChatMessageType.GAMEMESSAGE&&(message.toLowerCase(Locale.ROOT).contains("not enough ammo")||message.toLowerCase(Locale.ROOT).contains("run out of darts")
-            ||message.toLowerCase(Locale.ROOT).contains("run out of scales"))){events.add("AMMUNITION FAILURE: "+message);if(!keepsFightingWhenDepleted()){exitRequested=true;failed=true;failureReason="Weapon ammunition/charges exhausted";}
+            ||message.toLowerCase(Locale.ROOT).contains("run out of scales"))){events.add("AMMUNITION FAILURE: "+message);if(!keepsFightingWhenDepleted()){exitRequested=true;failed=true;exhaustedSupply="Weapon ammunition or charges";failureReason=Microbot.supplyMessage(exhaustedSupply);}
             else warning="Weapon ammunition/charges exhausted; staying in the cave";}
     }
     public void onNpcSpawned(NpcSpawned e) {
