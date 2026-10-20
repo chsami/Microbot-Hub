@@ -115,6 +115,10 @@ public class LootScript extends Script {
             log.debug("Skipping world-spawned {} at {}", groundItem.getName(), groundItem.getLocation());
             return;
         }
+        if (isOutsideFightArea(groundItem, config)) {
+            log.debug("Skipping {} at {} outside the fight area", groundItem.getName(), groundItem.getLocation());
+            return;
+        }
         if (config.toggleTelegrabUnreachableLoot()) {
             final WorldPoint wp = groundItem.getLocation();
             if (wp != null && !Rs2Tile.isTileReachable(wp)) {
@@ -141,6 +145,13 @@ public class LootScript extends Script {
             }
         }
         Rs2GroundItem.coreLoot(groundItem);
+    }
+
+    private static boolean isOutsideFightArea(GroundItem groundItem, AIOFighterConfig config) {
+        final WorldPoint center = config.centerLocation();
+        if (center == null || (center.getX() == 0 && center.getY() == 0)) return false;
+        final WorldPoint location = groundItem.getLocation();
+        return location == null || location.distanceTo(center) > config.attackRadius();
     }
 
     private static boolean hasDropInRange(int range) {
