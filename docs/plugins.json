@@ -2349,7 +2349,7 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.2.9",
+        "version": "2.2.10",
         "minClientVersion": "2.1.32",
         "authors": [
             "Mocrosoft",
@@ -2359,8 +2359,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-13T19:11:17Z",
-        "sha256": "f8d03c03c9bf55dfdab1c6890abcda9ea04ebb4bc68cda3ea9611b04957827e8",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.2.9.jar"
+        "sha256": "4c1f8fd9e2b09977d449769c6e0b124512a0b416cae12a826fb1d01f50141ffb",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.2.10.jar"
     },
     {
         "internalName": "LeftClickCastPlugin",
