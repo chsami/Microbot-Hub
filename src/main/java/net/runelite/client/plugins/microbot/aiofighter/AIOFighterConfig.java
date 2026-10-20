@@ -376,12 +376,23 @@ public interface AIOFighterConfig extends Config {
         return false;
     }
 
+    @ConfigItem(
+            keyName = "skipWorldSpawns",
+            name = "Skip World Spawns",
+            description = "Ignore world-spawned items (e.g. coins or bones on tables)",
+            position = 100,
+            section = lootSection
+    )
+    default boolean toggleSkipWorldSpawns() {
+        return true;
+    }
+
     //Force loot regardless if we are in combat or not
     @ConfigItem(
             keyName = "forceLoot",
             name = "Force Loot",
             description = "Force loot regardless if we are in combat or not",
-            position = 100,
+            position = 101,
             section = lootSection
     )
     default boolean toggleForceLoot() {
@@ -393,7 +404,7 @@ public interface AIOFighterConfig extends Config {
             keyName = "highAlchProfitable",
             name = "High alch profitable",
             description = "High alch profitable items",
-            position = 101,
+            position = 102,
             section = lootSection
     )
     default boolean toggleHighAlchProfitable() {
@@ -404,7 +415,7 @@ public interface AIOFighterConfig extends Config {
             keyName = "highAlchBlacklist",
             name = "High alch blacklist",
             description = "Items to NEVER be alched - use * as a wildcard (e.g., *full helm, Dragon*, Amulet of glory (*)",
-            position = 102,
+            position = 103,
             section = lootSection
     )
     default String highAlchBlacklist() {
@@ -415,7 +426,7 @@ public interface AIOFighterConfig extends Config {
             keyName =  "eatFoodForSpace",
             name = "Eat food for space",
             description = "Eats food before looting if low on space",
-            position = 103,
+            position = 104,
             section = lootSection
     )
     default boolean eatFoodForSpace() { return false; }
@@ -424,7 +435,7 @@ public interface AIOFighterConfig extends Config {
             keyName = "waitForLoot",
             name = "Wait for Loot",
             description = "Wait for loot to appear before attacking next NPC",
-            position = 104,
+            position = 105,
             section = lootSection,
             hidden = true
     )
@@ -437,7 +448,7 @@ public interface AIOFighterConfig extends Config {
             keyName = "lootWaitTimeout",
             name = "Loot Wait Timeout (s)",
             description = "Seconds to wait for loot before resuming combat (1-10)",
-            position = 105,
+            position = 106,
             section = lootSection,
             hidden = true
     )
