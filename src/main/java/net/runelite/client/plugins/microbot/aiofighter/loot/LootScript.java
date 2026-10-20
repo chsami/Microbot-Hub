@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.aiofighter.loot;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.TileItem;
 import net.runelite.client.plugins.grounditems.GroundItem;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -70,7 +71,8 @@ public class LootScript extends Script {
                         config.toggleDelayedLooting(),
                         config.toggleOnlyLootMyItems()
                 );
-                params.setEatFoodForSpace(config.eatFoodForSpace());
+                params.setEatFoodForSpace(config.eatFoodForSpace()
+                        && (!config.toggleSkipWorldSpawns() || hasDropInRange(config.attackRadius())));
 
                 Rs2LootEngine.Builder builder = Rs2LootEngine.with(params)
                         .withLootAction(gi -> lootOrTelegrab(gi, config));
@@ -109,6 +111,10 @@ public class LootScript extends Script {
      * on, unreachable items are never walked to, which stops the "can't reach" spam.
      */
     private void lootOrTelegrab(GroundItem groundItem, AIOFighterConfig config) {
+        if (config.toggleSkipWorldSpawns() && groundItem.getOwnership() == TileItem.OWNERSHIP_NONE) {
+            log.debug("Skipping world-spawned {} at {}", groundItem.getName(), groundItem.getLocation());
+            return;
+        }
         if (config.toggleTelegrabUnreachableLoot()) {
             final WorldPoint wp = groundItem.getLocation();
             if (wp != null && !Rs2Tile.isTileReachable(wp)) {
@@ -135,6 +141,13 @@ public class LootScript extends Script {
             }
         }
         Rs2GroundItem.coreLoot(groundItem);
+    }
+
+    private static boolean hasDropInRange(int range) {
+        final WorldPoint me = Rs2Player.getWorldLocation();
+        if (me == null) return false;
+        return Rs2GroundItem.getGroundItems().values().stream()
+                .anyMatch(gi -> gi.getOwnership() != TileItem.OWNERSHIP_NONE && gi.getLocation().distanceTo(me) < range);
     }
 
     /** Number of ground-item piles of the given id currently tracked nearby. */
