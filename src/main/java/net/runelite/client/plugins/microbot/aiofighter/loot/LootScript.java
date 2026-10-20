@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.aiofighter.loot;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.TileItem;
 import net.runelite.client.plugins.grounditems.GroundItem;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -109,6 +110,9 @@ public class LootScript extends Script {
      * on, unreachable items are never walked to, which stops the "can't reach" spam.
      */
     private void lootOrTelegrab(GroundItem groundItem, AIOFighterConfig config) {
+        if (config.skipWorldSpawns() && groundItem.getOwnership() == TileItem.OWNERSHIP_NONE) {
+            return;
+        }
         if (config.toggleTelegrabUnreachableLoot()) {
             final WorldPoint wp = groundItem.getLocation();
             if (wp != null && !Rs2Tile.isTileReachable(wp)) {

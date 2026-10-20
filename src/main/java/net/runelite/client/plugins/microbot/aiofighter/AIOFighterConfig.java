@@ -376,6 +376,17 @@ public interface AIOFighterConfig extends Config {
         return false;
     }
 
+    @ConfigItem(
+            keyName = "skipWorldSpawns",
+            name = "Skip World Spawns",
+            description = "Ignore items that spawn in the world (e.g. coins or bones on tables) and only loot drops",
+            position = 99,
+            section = lootSection
+    )
+    default boolean skipWorldSpawns() {
+        return true;
+    }
+
     //Force loot regardless if we are in combat or not
     @ConfigItem(
             keyName = "forceLoot",
