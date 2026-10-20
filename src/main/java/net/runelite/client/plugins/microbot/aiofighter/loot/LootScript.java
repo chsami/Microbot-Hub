@@ -22,8 +22,10 @@ import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -33,6 +35,7 @@ public class LootScript extends Script {
 
     private static final int DEFAULT_MIN_STACK_EXCLUSIVE_ARROWS = 9; // allow 2+
     private static final int DEFAULT_MIN_STACK_EXCLUSIVE_RUNES  = 1; // allow 2+
+    private static final int NO_SPACE_CHECK = -1;
 
     // Telegrab (unreachable-loot) tuning
     private static final int TELEGRAB_ARM_MIN_MS = 300;       // min wait for the spell to arm before clicking
@@ -62,33 +65,12 @@ public class LootScript extends Script {
                     return;
                 }
 
-                LootingParameters params = new LootingParameters(
-                        config.minPriceOfItemsToLoot(),
-                        config.maxPriceOfItemsToLoot(),
-                        config.attackRadius(),
-                        /* minQuantity */ 1,
-                        /* minInvSlots */ minFreeSlots,
-                        config.toggleDelayedLooting(),
-                        config.toggleOnlyLootMyItems()
-                );
+                LootingParameters params = lootingParameters(config, minFreeSlots);
                 params.setEatFoodForSpace(config.eatFoodForSpace()
-                        && (!config.toggleSkipWorldSpawns() || hasDropInRange(config.attackRadius())));
+                        && (Rs2Inventory.emptySlotCount() > minFreeSlots || hasLootableCandidate(config)));
 
-                Rs2LootEngine.Builder builder = Rs2LootEngine.with(params)
+                Rs2LootEngine.Builder builder = addIntents(Rs2LootEngine.with(params), config)
                         .withLootAction(gi -> lootOrTelegrab(gi, config));
-
-                // custom filter
-                if (config.looterStyle() == DefaultLooterStyle.ITEM_LIST || config.looterStyle() == DefaultLooterStyle.MIXED) {
-                    addCustomNames(builder, config.listOfItemsToLoot());
-                }
-
-                if (config.looterStyle() == DefaultLooterStyle.GE_PRICE_RANGE || config.looterStyle() == DefaultLooterStyle.MIXED) builder.addByValue();
-                if (config.toggleBuryBones())       builder.addBones();
-                if (config.toggleScatter())         builder.addAshes();
-                if (config.toggleLootCoins())       builder.addCoins();
-                if (config.toggleLootUntradables()) builder.addUntradables();
-                if (config.toggleLootArrows())      builder.addArrows(DEFAULT_MIN_STACK_EXCLUSIVE_ARROWS);
-                if (config.toggleLootRunes())       builder.addRunes(DEFAULT_MIN_STACK_EXCLUSIVE_RUNES);
 
                 // Execute one combined, distance-sorted looting pass
                 builder.loot();
@@ -111,8 +93,12 @@ public class LootScript extends Script {
      * on, unreachable items are never walked to, which stops the "can't reach" spam.
      */
     private void lootOrTelegrab(GroundItem groundItem, AIOFighterConfig config) {
-        if (config.toggleSkipWorldSpawns() && groundItem.getOwnership() == TileItem.OWNERSHIP_NONE) {
+        if (isSkippedWorldSpawn(groundItem, config)) {
             log.debug("Skipping world-spawned {} at {}", groundItem.getName(), groundItem.getLocation());
+            return;
+        }
+        if (isOutsideFightArea(groundItem, config)) {
+            log.debug("Skipping {} at {} outside the fight area", groundItem.getName(), groundItem.getLocation());
             return;
         }
         if (config.toggleTelegrabUnreachableLoot()) {
@@ -143,11 +129,52 @@ public class LootScript extends Script {
         Rs2GroundItem.coreLoot(groundItem);
     }
 
-    private static boolean hasDropInRange(int range) {
-        final WorldPoint me = Rs2Player.getWorldLocation();
-        if (me == null) return false;
-        return Rs2GroundItem.getGroundItems().values().stream()
-                .anyMatch(gi -> gi.getOwnership() != TileItem.OWNERSHIP_NONE && gi.getLocation().distanceTo(me) < range);
+    private static LootingParameters lootingParameters(AIOFighterConfig config, int minInvSlots) {
+        return new LootingParameters(
+                config.minPriceOfItemsToLoot(),
+                config.maxPriceOfItemsToLoot(),
+                config.attackRadius(),
+                /* minQuantity */ 1,
+                minInvSlots,
+                config.toggleDelayedLooting(),
+                config.toggleOnlyLootMyItems()
+        );
+    }
+
+    private Rs2LootEngine.Builder addIntents(Rs2LootEngine.Builder builder, AIOFighterConfig config) {
+        // custom filter
+        if (config.looterStyle() == DefaultLooterStyle.ITEM_LIST || config.looterStyle() == DefaultLooterStyle.MIXED) {
+            addCustomNames(builder, config.listOfItemsToLoot());
+        }
+
+        if (config.looterStyle() == DefaultLooterStyle.GE_PRICE_RANGE || config.looterStyle() == DefaultLooterStyle.MIXED) builder.addByValue();
+        if (config.toggleBuryBones())       builder.addBones();
+        if (config.toggleScatter())         builder.addAshes();
+        if (config.toggleLootCoins())       builder.addCoins();
+        if (config.toggleLootUntradables()) builder.addUntradables();
+        if (config.toggleLootArrows())      builder.addArrows(DEFAULT_MIN_STACK_EXCLUSIVE_ARROWS);
+        if (config.toggleLootRunes())       builder.addRunes(DEFAULT_MIN_STACK_EXCLUSIVE_RUNES);
+        return builder;
+    }
+
+    private boolean hasLootableCandidate(AIOFighterConfig config) {
+        final List<GroundItem> candidates = new ArrayList<>();
+        addIntents(Rs2LootEngine.with(lootingParameters(config, NO_SPACE_CHECK)), config)
+                .withLootAction(candidates::add)
+                .loot();
+        return candidates.stream()
+                .anyMatch(gi -> !isSkippedWorldSpawn(gi, config) && !isOutsideFightArea(gi, config));
+    }
+
+    private static boolean isSkippedWorldSpawn(GroundItem groundItem, AIOFighterConfig config) {
+        return config.toggleSkipWorldSpawns() && groundItem.getOwnership() == TileItem.OWNERSHIP_NONE;
+    }
+
+    private static boolean isOutsideFightArea(GroundItem groundItem, AIOFighterConfig config) {
+        final WorldPoint center = config.centerLocation();
+        if (center == null || (center.getX() == 0 && center.getY() == 0)) return false;
+        final WorldPoint location = groundItem.getLocation();
+        return location == null || location.distanceTo(center) > config.attackRadius();
     }
 
     /** Number of ground-item piles of the given id currently tracked nearby. */
