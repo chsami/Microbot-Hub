@@ -51,8 +51,8 @@
             "zulrah",
             "dro"
         ],
-        "version": "1.10.17",
-        "minClientVersion": "2.6.26",
+        "version": "1.10.19",
+        "minClientVersion": "2.6.32",
         "authors": [
             "droplugins"
         ],
@@ -60,8 +60,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/DroZulrahPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2026-10-06T18:07:39Z",
-        "sha256": "f2cd0859add5dcbd60b348e43cbb0b9391c17cade86708db45b0da18e9119788",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/drozulrahplugin-1.10.17.jar"
+        "sha256": "7aeec12e1ede9a782cfaa7392083eb16c7fbf6a041a8bb4b3533d888ef361a1f",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/drozulrahplugin-1.10.19.jar"
     },
     {
         "internalName": "PiePlugin",
@@ -224,7 +224,7 @@
             "gotr",
             "microbot"
         ],
-        "version": "1.5.10",
+        "version": "1.5.11",
         "minClientVersion": "2.1.0",
         "authors": [
             "Unknown Author"
@@ -233,8 +233,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "eaea6b7f72b69740c56c4821f237b1a8e13c4bba6a0e8a343e8557f6632c4080",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gotrplugin-1.5.10.jar"
+        "sha256": "89b24798f6045e45a1dba5830b55cdf0935f29848c4074576524c3ed8622713f",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gotrplugin-1.5.11.jar"
     },
     {
         "internalName": "GiantsFoundryPlugin",
@@ -1191,7 +1191,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.0.14",
+        "version": "1.0.15",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -1200,8 +1200,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "9ad36e4b2bbbbfe8dc1f4252349dfba6672f0ff98a1a6f817c392244abceb780",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autominingplugin-1.0.14.jar"
+        "sha256": "2aa7b1e14b6bd8b26415a2eb53bd4c4c42a157ff8747e4264839bd6ad7c44481",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autominingplugin-1.0.15.jar"
     },
     {
         "internalName": "HerbiboarPlugin",
@@ -2095,7 +2095,7 @@
             "varlamore",
             "microbot"
         ],
-        "version": "2.0.3",
+        "version": "2.0.4",
         "minClientVersion": "2.6.12",
         "authors": [
             "VIP"
@@ -2104,8 +2104,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/SulphurNaguaPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-09T10:13:40Z",
-        "sha256": "95ba6a9d7f727bce3086eef8e7bf1f190cd200524f65b452a8a1180eeae29d05",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sulphurnaguaplugin-2.0.3.jar"
+        "sha256": "a075dbb5dffa3ea4aace31833ccce30ba9a0ab05874789e5ea088fbc9ba6db4f",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sulphurnaguaplugin-2.0.4.jar"
     },
     {
         "internalName": "DriftNetPlugin",
@@ -2884,8 +2884,8 @@
             "jad",
             "boss"
         ],
-        "version": "0.3.71",
-        "minClientVersion": "2.6.30",
+        "version": "0.3.74",
+        "minClientVersion": "2.6.32",
         "authors": [
             "droplugins"
         ],
@@ -2893,8 +2893,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/DroFirecapePlugin/assets/card.png",
         "disable": false,
         "addedAt": "2026-10-12T12:45:12Z",
-        "sha256": "a86e242221aebd86d6198261317c0315bac53ef577507efc4d6e1e71c13e3059",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/drofirecapeplugin-0.3.71.jar"
+        "sha256": "68400c2177e22e1d0a938f549a722dc53d983b0372efdf01fb95d994887078a6",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/drofirecapeplugin-0.3.74.jar"
     },
     {
         "internalName": "MoonsOfPerilPlugin",
@@ -3574,8 +3574,8 @@
             "boss",
             "wilderness"
         ],
-        "version": "1.1.7",
-        "minClientVersion": "2.6.25",
+        "version": "1.1.8",
+        "minClientVersion": "2.6.32",
         "authors": [
             "droplugins"
         ],
@@ -3583,8 +3583,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/DroKbdPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2026-10-06T18:07:39Z",
-        "sha256": "783170aa719ffca468e5951763ca2e97a6bce67e6db41e7a2ac446b015d2de8a",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/drokbdplugin-1.1.7.jar"
+        "sha256": "c74b851949c03e337e24c865638143900a7b271e8905e9404c15584cd5fb9d6a",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/drokbdplugin-1.1.8.jar"
     },
     {
         "internalName": "MicroAgilityPlugin",
@@ -3615,7 +3615,7 @@
             "solver",
             "automation"
         ],
-        "version": "1.0.7",
+        "version": "1.0.8",
         "minClientVersion": "2.0.7",
         "authors": [
             "unknown"
@@ -3624,8 +3624,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ClueSolverPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-13T21:26:13Z",
-        "sha256": "d1f6329c45735590d6342406f24fd6ce6ffe89e13527cb6dabf71071103adfd5",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/cluesolverplugin-1.0.7.jar"
+        "sha256": "f6d26d39ce4a7d2d195b783563505ef21078c77300d7b0b322d9087450e5dd53",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/cluesolverplugin-1.0.8.jar"
     },
     {
         "internalName": "HumidifierPlugin",
