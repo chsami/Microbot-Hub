@@ -63,4 +63,12 @@ public interface DroFirecapeConfig extends Config {
     default boolean recordRun(){return true;}
     default boolean diagnostics(){return recordRun();}
     default boolean exitOnDamage(){return false;}
+    enum AfterExitBehavior {
+        LOGOUT("Log out"), GET_ANOTHER_CAPE("Get another cape");
+        private final String label;
+        AfterExitBehavior(String label) { this.label = label; }
+        @Override public String toString() { return label; }
+    }
+    @ConfigItem(keyName="afterExitBehavior",name="After exit",description="After a cape or a failed cave attempt: log out, or bank/regear and start another cape. Missing supplies always stop and log out.",position=1000)
+    default AfterExitBehavior afterExitBehavior(){return AfterExitBehavior.LOGOUT;}
 }

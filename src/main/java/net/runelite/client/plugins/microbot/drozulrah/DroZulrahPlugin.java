@@ -18,8 +18,8 @@ import javax.inject.Inject;
 
 @PluginDescriptor(
         name=PluginConstants.DRO + "Zulrah",
-        version="1.10.17",
-        minClientVersion = "2.6.26",
+        version="1.10.19",
+        minClientVersion = "2.6.32",
         description="Inventory-setup driven Zulrah trips, rotations, prayer, switches, thralls and regear",
         tags={"microbot","zulrah","dro"},
         authors={"droplugins"},

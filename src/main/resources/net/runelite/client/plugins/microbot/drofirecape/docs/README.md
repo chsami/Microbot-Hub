@@ -5,7 +5,7 @@
 
 ![Dro Firecape](assets/card.png)
 
-Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.71**, requiring **Microbot 2.6.30**.
+Automated Fight Caves for Microbot: all **63 waves and 15 rotations**, TzHaar travel, banking, equipment, positioning, protection prayers, potions and supported thralls. Version **0.3.73**, requiring the terminal-logout APIs planned for **Microbot 2.6.32 or newer**.
 
 **There is no guarantee of a Fire cape. Better gear and adequate supplies improve the chances. Test under supervision.** Normal ranged mode has completed capes; Pure has substantial live testing but no confirmed completed cape in the retained evidence. Melee remains untested.
 
@@ -131,3 +131,9 @@ Copyright (c) 2026, **DRO (droplugins)**. See LICENSE.txt for the full BSD-2-Cla
 - **Rick:** thank you for extensive Pure-mode testing and practical feedback.
 
 Third-party attribution and license notices are retained. Redistribution should credit DRO by retaining its copyright and license notices; the Codex and Rick acknowledgements are included in CREDITS.txt.
+
+## After exit
+
+The bottom **After exit** option defaults to **Log out**. **Get another cape** banks, regears and begins a new attempt after a cape or failed cave attempt. Startup failures and missing required supplies stop and log out instead of repeating. Supply messages appear after logout is confirmed; terminal supply stops suppress Auto Login. End-of-wave recovery pauses remain separate and still resume by world-hop.
+
+Version .72 fixes the startup config-proxy failure; .73 adds the After exit control and confirmed terminal logout. These changes have automated validation, not a new live cape run.

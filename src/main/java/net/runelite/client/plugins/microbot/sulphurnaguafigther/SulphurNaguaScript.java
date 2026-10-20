@@ -205,8 +205,11 @@ public class SulphurNaguaScript extends Script {
 
     private boolean isInCombatArea() {
         WorldArea combatArea = getNaguaCombatArea();
-        WorldPoint playerLoc = Rs2Player.getWorldLocation();
-        return combatArea != null && playerLoc != null && combatArea.contains(playerLoc);
+        return isInArea(combatArea, Rs2Player.getWorldLocation());
+    }
+
+    static boolean isInArea(WorldArea area, WorldPoint point) {
+        return area != null && point != null && area.contains(point);
     }
 
     private void determineState(SulphurNaguaConfig config) {
@@ -486,7 +489,12 @@ public class SulphurNaguaScript extends Script {
             return;
         }
 
-        if (Rs2Player.getWorldLocation().distanceTo(EYTALLALI_LOCATION) > 5) {
+        WorldPoint playerLoc = Rs2Player.getWorldLocation();
+        if (playerLoc == null) {
+            return;
+        }
+
+        if (playerLoc.distanceTo(EYTALLALI_LOCATION) > 5) {
             Rs2Walker.walkTo(EYTALLALI_LOCATION);
             sleep(400, 800);
             return;
@@ -533,9 +541,14 @@ public class SulphurNaguaScript extends Script {
         boolean needsNewTarget = !Rs2Player.isInCombat() || Rs2Player.getInteracting() == null;
 
         if (needsNewTarget) {
+            WorldPoint playerLoc = Rs2Player.getWorldLocation();
+            if (playerLoc == null) {
+                return;
+            }
+
             WorldArea combatArea = getNaguaCombatArea();
 
-            if (combatArea != null && combatArea.contains(Rs2Player.getWorldLocation())) {
+            if (isInArea(combatArea, playerLoc)) {
 
                 var attackingNagua = Microbot.getRs2NpcCache().query()
                         .withName("Sulphur Nagua")

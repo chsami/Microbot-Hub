@@ -41,7 +41,7 @@ import java.util.regex.Matcher;
 )
 @Slf4j
 public class GotrPlugin extends Plugin {
-    public static final String version = "1.5.10";
+    public static final String version = "1.5.11";
 
     @Inject
     private GotrConfig config;
