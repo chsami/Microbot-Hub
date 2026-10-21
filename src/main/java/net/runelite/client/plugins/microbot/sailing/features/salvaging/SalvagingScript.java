@@ -273,6 +273,11 @@ public class SalvagingScript {
                 return;
             }
 
+            if (player.getWorldLocation() == null) {
+                log.info("Player location unavailable, skipping salvaging tick");
+                return;
+            }
+
             if (config.useCargoHold()) {
                 if (handleCargoHoldMode(config, player)) {
                     return;
