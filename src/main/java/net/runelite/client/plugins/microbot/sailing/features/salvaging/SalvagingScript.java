@@ -1230,7 +1230,11 @@ public class SalvagingScript {
     }
 
     private boolean isWithinSalvageArea(WorldPoint playerLocation, Rs2TileObjectModel wreck) {
-        return playerLocation.distanceTo(wreck.getWorldLocation()) <= SIZE_SALVAGEABLE_AREA;
+        WorldPoint wreckLocation = wreck.getWorldLocation();
+        if (playerLocation == null || wreckLocation == null) {
+            return false;
+        }
+        return playerLocation.distanceTo(wreckLocation) <= SIZE_SALVAGEABLE_AREA;
     }
 
     /**
