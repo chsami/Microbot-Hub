@@ -443,7 +443,8 @@ public class OuraniaScript extends Script
 
 	private boolean isNearAltar()
 	{
-		return plugin.getOuraniaAltarArea().contains(Rs2Player.getWorldLocation());
+		WorldPoint location = Rs2Player.getWorldLocation();
+		return location != null && plugin.getOuraniaAltarArea().contains(location);
 	}
 
 	private int distanceToResetPoint()
@@ -459,7 +460,8 @@ public class OuraniaScript extends Script
 		{
 			return false;
 		}
-		return Rs2Player.getWorldLocation().distanceTo2D(eniola.getWorldLocation()) < 12;
+		WorldPoint location = Rs2Player.getWorldLocation();
+		return location != null && location.distanceTo2D(eniola.getWorldLocation()) < 12;
 	}
 
 	private void withdrawAndDrink(String potionItemName)
