@@ -117,19 +117,21 @@ public class SailingOverlay extends OverlayPanel {
                 var player = new Rs2PlayerModel();
                 var playerLocation = player.getWorldLocation();
 
-                var nearestWreck = activeWrecks.stream()
-                        .min(Comparator.comparingInt(w -> playerLocation.distanceTo(w.getWorldLocation())))
-                        .orElse(null);
+                if (playerLocation != null) {
+                    var nearestWreck = activeWrecks.stream()
+                            .min(Comparator.comparingInt(w -> playerLocation.distanceTo(w.getWorldLocation())))
+                            .orElse(null);
 
-                if (nearestWreck != null) {
-                    int distance = playerLocation.distanceTo(nearestWreck.getWorldLocation());
-                    Color distanceColor = distance <= 15 ? Color.GREEN : Color.ORANGE;
+                    if (nearestWreck != null) {
+                        int distance = playerLocation.distanceTo(nearestWreck.getWorldLocation());
+                        Color distanceColor = distance <= 15 ? Color.GREEN : Color.ORANGE;
 
-                    panelComponent.getChildren().add(LineComponent.builder()
-                            .left("Nearest Wreck:")
-                            .right(distance + " tiles")
-                            .rightColor(distanceColor)
-                            .build());
+                        panelComponent.getChildren().add(LineComponent.builder()
+                                .left("Nearest Wreck:")
+                                .right(distance + " tiles")
+                                .rightColor(distanceColor)
+                                .build());
+                    }
                 }
             }
         } catch (Exception ex) {
