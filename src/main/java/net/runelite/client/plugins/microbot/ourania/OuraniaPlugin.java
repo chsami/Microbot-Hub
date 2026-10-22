@@ -11,6 +11,7 @@ import net.runelite.api.ChatMessageType;
 import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.ItemContainer;
+import net.runelite.api.Player;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
@@ -46,7 +47,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 public class OuraniaPlugin extends Plugin
 {
 
-	static final String version = "1.4.6";
+	static final String version = "1.4.7";
 
 	@Inject
 	private OuraniaConfig config;
@@ -128,7 +129,9 @@ public class OuraniaPlugin extends Plugin
 		{
 			return;
 		}
-		if (!getOuraniaAltarArea().contains(Microbot.getClient().getLocalPlayer().getWorldLocation()))
+		Player localPlayer = Microbot.getClient().getLocalPlayer();
+		WorldPoint location = localPlayer == null ? null : localPlayer.getWorldLocation();
+		if (location == null || !getOuraniaAltarArea().contains(location))
 		{
 			previousInventoryRunes.clear();
 			return;

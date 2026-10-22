@@ -147,7 +147,7 @@ public class OuraniaScript extends Script
 						Rs2Inventory.waitForInventoryChanges(5000);
 						break;
 					case RESETTING:
-						if (distanceToResetPoint() > 24)
+						if (Rs2Player.getWorldLocation() != null && distanceToResetPoint() > 24)
 						{
 							Rs2Magic.cast(MagicAction.OURANIA_TELEPORT);
 						}
