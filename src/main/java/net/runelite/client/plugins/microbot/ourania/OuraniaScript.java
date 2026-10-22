@@ -147,11 +147,11 @@ public class OuraniaScript extends Script
 						Rs2Inventory.waitForInventoryChanges(5000);
 						break;
 					case RESETTING:
-						if (Rs2Player.getWorldLocation().distanceTo(new WorldPoint(2468, 3246, 0)) > 24)
+						if (Rs2Player.getWorldLocation() != null && distanceToResetPoint() > 24)
 						{
 							Rs2Magic.cast(MagicAction.OURANIA_TELEPORT);
 						}
-						sleepUntil(() -> Rs2Player.getWorldLocation().distanceTo(new WorldPoint(2468, 3246, 0)) < 24);
+						sleepUntil(() -> distanceToResetPoint() < 24);
 
 						if (plugin.isBreakHandlerEnabled())
 						{
@@ -443,7 +443,14 @@ public class OuraniaScript extends Script
 
 	private boolean isNearAltar()
 	{
-		return plugin.getOuraniaAltarArea().contains(Rs2Player.getWorldLocation());
+		WorldPoint location = Rs2Player.getWorldLocation();
+		return location != null && plugin.getOuraniaAltarArea().contains(location);
+	}
+
+	private int distanceToResetPoint()
+	{
+		WorldPoint location = Rs2Player.getWorldLocation();
+		return location == null ? Integer.MAX_VALUE : location.distanceTo(new WorldPoint(2468, 3246, 0));
 	}
 
 	private boolean isNearEniola()
@@ -453,7 +460,8 @@ public class OuraniaScript extends Script
 		{
 			return false;
 		}
-		return Rs2Player.getWorldLocation().distanceTo2D(eniola.getWorldLocation()) < 12;
+		WorldPoint location = Rs2Player.getWorldLocation();
+		return location != null && location.distanceTo2D(eniola.getWorldLocation()) < 12;
 	}
 
 	private void withdrawAndDrink(String potionItemName)
