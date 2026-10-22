@@ -14,7 +14,9 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -113,11 +115,12 @@ public class SlayerFlickerScript {
         });
 
         // Process monsters: decrement timers, flick prayer on exact tick, reset attacks
+        Set<Rs2PrayerEnum> toggledThisTick = EnumSet.noneOf(Rs2PrayerEnum.class);
         for (SlayerMonster monster : currentMonstersAttackingUsRef.get()) {
             monster.lastAttack--;
             if (monster.lastAttack == tickToFlick && !monster.npc.isDead()) {
                 Rs2PrayerEnum prayer = getPrayerToActivate(monster);
-                if (prayer != null && !Rs2Prayer.isPrayerActive(prayer)) {
+                if (prayer != null && !Rs2Prayer.isPrayerActive(prayer) && toggledThisTick.add(prayer)) {
                     log.debug("Flicking {} on (monster: {}, tick: {})", prayer, monster.npc.getName(), monster.lastAttack);
                     Rs2Prayer.toggle(prayer, true);
                 }

@@ -41,6 +41,7 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.plugins.microbot.util.walker.Rs2PathApi;
 import net.runelite.client.plugins.microbot.util.walker.Rs2RouteResult;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
@@ -2929,13 +2930,17 @@ public class BarrowsScript extends Script {
         if(hintNpcModel() != null && !hintNpcModel().getName().contains("Dharok") && hintNpcModel().getHealthPercentage() < Rs2Random.between(40,50)) skipThePot = true;
 
         if(!skipThePot) {
-            if (Rs2Player.getBoostedSkillLevel(Skill.PRAYER) <= Rs2Random.between(8, 15)) {
-                if (Rs2Inventory.contains(it -> it != null && it.getName().contains("Prayer potion") || it.getName().contains("Moonlight moth"))) {
-                    Rs2ItemModel prayerpotion = Rs2Inventory.get(it -> it != null && it.getName().contains("Prayer potion") || it.getName().contains("Moonlight moth"));
+            int prayerBefore = Rs2Player.getBoostedSkillLevel(Skill.PRAYER);
+            if (prayerBefore <= Rs2Random.between(8, 15)) {
+                Rs2ItemModel prayerpotion = Rs2Inventory.get(it -> it != null && it.getName() != null
+                        && (it.getName().contains("Prayer potion") || it.getName().contains("Moonlight moth")));
+                if (prayerpotion != null) {
                     String action = "Drink";
                     if (prayerpotion.getName().equals("Moonlight moth")) action = "Release";
 
-                    if (Rs2Inventory.interact(prayerpotion, action)) sleep(0, 750);
+                    if (Rs2Inventory.interact(prayerpotion, action)) {
+                        sleepUntil(() -> Rs2Player.getBoostedSkillLevel(Skill.PRAYER) > prayerBefore, Rs2Random.between(1800, 2400));
+                    }
                 }
             }
         }
@@ -3138,19 +3143,19 @@ public class BarrowsScript extends Script {
             return;
         }
 
-        // Already pathing to the chest — do not re-enter the walker (same-thread lock wait).
-        WorldPoint currentTarget = Rs2Walker.getCurrentTarget();
-        if(currentTarget != null && currentTarget.distanceTo(Chest) <= 2){
-            return;
-        }
-
+        WalkerState walkResult = WalkerState.EXIT;
         try {
-            Rs2Walker.walkWithStateUntil(Chest, 2, this::shouldDeferChestWalk);
+            Thread.interrupted();
+            walkResult = Rs2Walker.walkWithStateUntil(Chest, 2, this::shouldDeferChestWalk);
         } catch (Exception e) {
             Microbot.log("walkToChest failed: " + e.getClass().getSimpleName());
         } finally {
             // walkWithState / sleepUntil almost always leave this set.
             Thread.interrupted();
+        }
+        if(BarrowsTunnelRules.shouldReplanChestWalk(walkResult)){
+            Microbot.log("Chest walk ended with " + walkResult + " — re-planning next tick.");
+            stopFutureWalker();
         }
         if(isDoorPuzzleOpenRaw()){
             waitingOnPuzzle = true;
