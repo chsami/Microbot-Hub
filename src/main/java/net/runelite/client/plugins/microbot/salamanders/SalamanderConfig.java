@@ -8,8 +8,7 @@ import net.runelite.client.config.*;
         + "<p>Requirements:</p>\n"
         + "<ol>\n"
         + "    <li>Appropriate Hunter level for your chosen salamander type</li>\n"
-        + "    <li>Small fishing nets in bank or inventory</li>\n"
-        + "    <li>Rope in bank or inventory</li>\n"
+        + "    <li>Net traps in bank or inventory</li>\n"
         + "</ol>\n"
         + "<p>Configure sleep timings and salamander type in the settings for optimal performance.</p>\n"
         + "<p>Use the overlay option to display trap status and hunter information on screen.</p>"
@@ -50,8 +49,8 @@ public interface SalamanderConfig extends Config {
     @ConfigItem(
             position = 3,
             keyName = "withdrawNumber",
-            name = "Number of nets/ropes to withdraw",
-            description = "Number of nets/ropes to withdraw from bank"
+            name = "Number of net traps to withdraw",
+            description = "Number of net traps to withdraw from bank"
     )
     @Range(
             min = 3,
