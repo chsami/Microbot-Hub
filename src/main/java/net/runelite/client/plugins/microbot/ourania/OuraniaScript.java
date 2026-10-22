@@ -147,11 +147,11 @@ public class OuraniaScript extends Script
 						Rs2Inventory.waitForInventoryChanges(5000);
 						break;
 					case RESETTING:
-						if (Rs2Player.getWorldLocation().distanceTo(new WorldPoint(2468, 3246, 0)) > 24)
+						if (distanceToResetPoint() > 24)
 						{
 							Rs2Magic.cast(MagicAction.OURANIA_TELEPORT);
 						}
-						sleepUntil(() -> Rs2Player.getWorldLocation().distanceTo(new WorldPoint(2468, 3246, 0)) < 24);
+						sleepUntil(() -> distanceToResetPoint() < 24);
 
 						if (plugin.isBreakHandlerEnabled())
 						{
@@ -444,6 +444,12 @@ public class OuraniaScript extends Script
 	private boolean isNearAltar()
 	{
 		return plugin.getOuraniaAltarArea().contains(Rs2Player.getWorldLocation());
+	}
+
+	private int distanceToResetPoint()
+	{
+		WorldPoint location = Rs2Player.getWorldLocation();
+		return location == null ? Integer.MAX_VALUE : location.distanceTo(new WorldPoint(2468, 3246, 0));
 	}
 
 	private boolean isNearEniola()
