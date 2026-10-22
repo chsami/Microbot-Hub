@@ -59,6 +59,7 @@ public class FlaxSpinScript extends Script implements ICraftingScript {
     public boolean run(CraftingConfig config) {
         Microbot.enableAutoRunOn = false;
         initialPlayerLocation = null;
+        missingLocationLogged = false;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!super.run()) return;
