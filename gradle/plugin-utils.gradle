@@ -560,6 +560,35 @@ ext {
         }
     }
 
+    generateFallbackReadme = { descriptor ->
+        def lines = ["# ${descriptor.name}", ""]
+        if (descriptor.description) {
+            lines += [descriptor.description, ""]
+        }
+        lines += [
+            "| | |",
+            "|---|---|",
+            "| Version | ${descriptor.version} |",
+            "| Works with Microbot | ${descriptor.minClientVersion} or newer |",
+            "| Author${descriptor.authors.size() == 1 ? '' : 's'} | ${descriptor.authors.join(', ')} |"
+        ]
+        if (descriptor.tags) {
+            lines << "| Tags | ${descriptor.tags.join(', ')} |"
+        }
+        lines += [
+            "",
+            "## How to install",
+            "",
+            "1. Open the Microbot client and click the Microbot button.",
+            "2. Open the Plugin Hub and search for **${descriptor.name}**.",
+            "3. Click install. The plugin then appears under Installed, where you can turn it on and open its settings.",
+            "",
+            "This plugin has no written guide yet. If you use it and want to help other players, open a pull request on the [Microbot Hub repository](https://github.com/chsami/Microbot-Hub) that adds a `docs/README.md` for it.",
+            ""
+        ]
+        lines.join("\n")
+    }
+
     // Documentation processing utilities
     copyPluginDocumentation = { plugin, publicDir ->
         def pluginName = plugin.name
@@ -568,14 +597,9 @@ ext {
         def docsDir = new File("${project.ext.getPluginsResourcePath()}/${pluginDirName}/docs")
         def assetsSourceDir = new File(docsDir, "assets")
 
-        if (!docsDir.exists() || !docsDir.isDirectory()) {
-            logger.warn("⚠️ No docs folder found at: ${docsDir.absolutePath}")
-            return false
-        }
-
-        def readmeFile = docsDir.listFiles()?.find { file ->
+        def readmeFile = docsDir.isDirectory() ? docsDir.listFiles()?.find { file ->
             file.name.toLowerCase() == "readme.md"
-        }
+        } : null
 
         def pluginDocsDir = new File(publicDir, pluginName)
         pluginDocsDir.mkdirs()
@@ -587,7 +611,13 @@ ext {
             }
             logger.info("✅ Copied ${readmeFile.name} for plugin: ${pluginName}")
         } else {
-            logger.warn("⚠️ No README.md found in docs folder for plugin: ${pluginName}")
+            try {
+                new File(pluginDocsDir, "README.md").text = project.ext.generateFallbackReadme(getPluginDescriptorInfo(plugin.javaFile))
+                logger.warn("⚠️ No docs/README.md for plugin: ${pluginName}, generated one from its descriptor")
+            } catch (Exception e) {
+                logger.warn("⚠️ No docs/README.md for plugin: ${pluginName}, and its descriptor could not be read: ${e.message}")
+                return false
+            }
         }
 
         if (assetsSourceDir.exists() && assetsSourceDir.isDirectory()) {
