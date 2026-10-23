@@ -4,7 +4,6 @@ import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.GameTick;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -29,7 +28,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoChompyKillerPlugin extends Plugin {
-    static final String version = "1.0.1";
+    static final String version = "1.0.4";
     @Inject
     private AutoChompyKillerConfig config;
 
@@ -82,17 +81,6 @@ public class AutoChompyKillerPlugin extends Plugin {
         if (config.stopOnChompyChickPet() && (message.contains("you have a funny feeling like you're being followed") || 
             message.contains("you feel something weird sneaking into your backpack"))) {
             autoChompyKillerScript.handlePetReceived(config.logoutOnCompletion());
-        }
-    }
-
-    int ticks = 10;
-
-    @Subscribe
-    public void onGameTick(GameTick tick) {
-        if (ticks > 0) {
-            ticks--;
-        } else {
-            ticks = 10;
         }
     }
 }

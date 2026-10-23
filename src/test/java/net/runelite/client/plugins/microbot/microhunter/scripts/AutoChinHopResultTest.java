@@ -69,7 +69,7 @@ class AutoChinHopResultTest {
         WorldResult worldResult = mock(WorldResult.class);
         World target = mock(World.class);
         when(target.getId()).thenReturn(TARGET_WORLD);
-        when(target.getRegion()).thenReturn(WorldRegion.AUSTRALIA);
+        when(target.getRegion()).thenReturn(WorldRegion.UNITED_KINGDOM);
         when(target.getTypes()).thenReturn(EnumSet.of(WorldType.MEMBERS));
         when(target.getPlayers()).thenReturn(200);
         when(worldResult.getWorlds()).thenReturn(List.of(target));
@@ -83,7 +83,7 @@ class AutoChinHopResultTest {
             player.when(Rs2Player::isMember).thenReturn(true);
             microbot.when(() -> Microbot.hopToWorld(TARGET_WORLD)).thenReturn(false);
 
-            invoke(script, "requestAustralianWorldHop", "occupied");
+            invoke(script, "requestRegionWorldHop", "occupied");
 
             assertEquals(0, field(script, "worldHopAttempts"));
             assertTrue(((Map<?, ?>) field(script, "rejectedWorlds")).isEmpty());
@@ -108,7 +108,7 @@ class AutoChinHopResultTest {
         AutoChinScript script = new AutoChinScript();
         Client client = mock(Client.class);
         when(client.getWorld()).thenReturn(SOURCE_WORLD);
-        WorldService worldService = australianWorlds(TARGET_WORLD, TARGET_WORLD + 1);
+        WorldService worldService = regionWorlds(TARGET_WORLD, TARGET_WORLD + 1);
 
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
@@ -118,7 +118,7 @@ class AutoChinHopResultTest {
             player.when(Rs2Player::isMember).thenReturn(true);
             microbot.when(() -> Microbot.hopToWorld(anyInt())).thenReturn(false);
 
-            invoke(script, "requestAustralianWorldHop", "occupied");
+            invoke(script, "requestRegionWorldHop", "occupied");
             int firstTarget = (int) field(script, "hopTargetWorld");
 
             for (int i = 0; i < 3; i++) {
@@ -141,7 +141,7 @@ class AutoChinHopResultTest {
         AutoChinScript script = new AutoChinScript();
         Client client = mock(Client.class);
         when(client.getWorld()).thenReturn(SOURCE_WORLD);
-        WorldService worldService = australianWorlds(480, 481, 482, 483, 484, 485, 486, 487);
+        WorldService worldService = regionWorlds(480, 481, 482, 483, 484, 485, 486, 487);
 
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
@@ -151,7 +151,7 @@ class AutoChinHopResultTest {
             player.when(Rs2Player::isMember).thenReturn(true);
             microbot.when(() -> Microbot.hopToWorld(anyInt())).thenReturn(false);
 
-            invoke(script, "requestAustralianWorldHop", "occupied");
+            invoke(script, "requestRegionWorldHop", "occupied");
             for (int i = 0; i < 100 && !"STOPPED".equals(field(script, "currentState").toString()); i++) {
                 setField(script, "hopStartedAt", System.currentTimeMillis() - 3_000);
                 invoke(script, "monitorWorldHop");
@@ -168,7 +168,7 @@ class AutoChinHopResultTest {
         AutoChinScript script = new AutoChinScript();
         Client client = mock(Client.class);
         when(client.getWorld()).thenReturn(SOURCE_WORLD);
-        WorldService worldService = australianWorlds(480, 481, 482, 483, 484, 485, 486, 487);
+        WorldService worldService = regionWorlds(480, 481, 482, 483, 484, 485, 486, 487);
 
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
@@ -179,7 +179,7 @@ class AutoChinHopResultTest {
             player.when(Rs2Player::isInCombat).thenReturn(true);
             microbot.when(() -> Microbot.hopToWorld(anyInt())).thenReturn(false);
 
-            invoke(script, "requestAustralianWorldHop", "occupied");
+            invoke(script, "requestRegionWorldHop", "occupied");
             int target = (int) field(script, "hopTargetWorld");
             for (int i = 0; i < 40; i++) {
                 setField(script, "hopStartedAt", System.currentTimeMillis() - 3_000);
@@ -209,7 +209,7 @@ class AutoChinHopResultTest {
         AutoChinScript script = new AutoChinScript();
         Client client = mock(Client.class);
         when(client.getWorld()).thenReturn(SOURCE_WORLD);
-        WorldService worldService = australianWorlds(TARGET_WORLD);
+        WorldService worldService = regionWorlds(TARGET_WORLD);
 
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
@@ -220,7 +220,7 @@ class AutoChinHopResultTest {
             dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(false, true);
             microbot.when(() -> Microbot.hopToWorld(TARGET_WORLD)).thenReturn(false);
 
-            invoke(script, "requestAustralianWorldHop", "occupied");
+            invoke(script, "requestRegionWorldHop", "occupied");
 
             microbot.verify(() -> Microbot.hopToWorld(TARGET_WORLD), times(1));
             dialogue.verify(Rs2Dialogue::clickContinue, times(1));
@@ -236,7 +236,7 @@ class AutoChinHopResultTest {
         AutoChinScript script = new AutoChinScript();
         Client client = mock(Client.class);
         when(client.getWorld()).thenReturn(SOURCE_WORLD);
-        WorldService worldService = australianWorlds(480, 481, 482, 483, 484, 485, 486, 487);
+        WorldService worldService = regionWorlds(480, 481, 482, 483, 484, 485, 486, 487);
 
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
@@ -247,7 +247,7 @@ class AutoChinHopResultTest {
             player.when(Rs2Player::isInCombat).thenReturn(true);
             microbot.when(() -> Microbot.hopToWorld(anyInt())).thenReturn(false);
 
-            invoke(script, "requestAustralianWorldHop", "occupied");
+            invoke(script, "requestRegionWorldHop", "occupied");
             int target = (int) field(script, "hopTargetWorld");
 
             setField(script, "hopBlockedSince", System.currentTimeMillis() - 170_000);
@@ -276,7 +276,7 @@ class AutoChinHopResultTest {
         AutoChinScript script = new AutoChinScript();
         Client client = mock(Client.class);
         when(client.getWorld()).thenReturn(SOURCE_WORLD);
-        WorldService worldService = australianWorlds(TARGET_WORLD);
+        WorldService worldService = regionWorlds(TARGET_WORLD);
 
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
@@ -287,7 +287,7 @@ class AutoChinHopResultTest {
             dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(true);
             microbot.when(() -> Microbot.hopToWorld(TARGET_WORLD)).thenReturn(false);
 
-            invoke(script, "requestAustralianWorldHop", "occupied");
+            invoke(script, "requestRegionWorldHop", "occupied");
             assertTrue((long) field(script, "hopBlockedSince") > 0);
 
             setField(script, "hopBlockedSince", System.currentTimeMillis() - 170_000);
@@ -318,12 +318,12 @@ class AutoChinHopResultTest {
         }
     }
 
-    private static WorldService australianWorlds(int... ids) {
+    private static WorldService regionWorlds(int... ids) {
         List<World> worlds = new ArrayList<>();
         for (int id : ids) {
             World world = mock(World.class);
             when(world.getId()).thenReturn(id);
-            when(world.getRegion()).thenReturn(WorldRegion.AUSTRALIA);
+            when(world.getRegion()).thenReturn(WorldRegion.UNITED_KINGDOM);
             when(world.getTypes()).thenReturn(EnumSet.of(WorldType.MEMBERS));
             when(world.getPlayers()).thenReturn(200);
             worlds.add(world);

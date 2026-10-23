@@ -360,7 +360,7 @@ public class BirdHunterScript extends Script {
         if (hunterLevel >= 80) return 5;
         if (hunterLevel >= 60) return 4;
         if (hunterLevel >= 40) return 3;
-        if (hunterLevel >= 20) return 2;
+        if (hunterLevel >= 1) return 2;
         return 1;
     }
 }
