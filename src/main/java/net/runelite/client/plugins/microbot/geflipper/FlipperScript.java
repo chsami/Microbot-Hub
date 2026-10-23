@@ -1482,12 +1482,16 @@ public class FlipperScript extends Script {
         return readUi(() -> {
             if (Microbot.naturalMouse == null || Microbot.targetMenu != null || Microbot.getClient().isMenuOpen()
                 || !isSlotActionSwapEnabled() || !sameSlotSuggestion(key) || isOfferScreenOpen()) return false;
-            net.runelite.api.Point mouse = Microbot.getClient().getMouseCanvasPosition();
             Widget slot = Microbot.getClient().getWidget(slotId);
             Widget button = slot == null ? null : slot.getChild(2);
-            if (button == null || button.isHidden() || mouse == null
-                || mouse.getX() != point.getX() || mouse.getY() != point.getY()
-                || !button.getBounds().contains(point.getX(), point.getY())) return false;
+            if (button == null || button.isHidden()) return false;
+            Rectangle bounds = button.getBounds();
+            // Owned gestures can update PointerState a frame before the client mouse position.
+            net.runelite.api.Point mouse = Microbot.getClient().getMouseCanvasPosition();
+            if (!SlotActionExecutor.cursorOnSlotButton(mouse, point, bounds)
+                && !SlotActionExecutor.cursorOnSlotButton(PointerState.get(), point, bounds)) {
+                return false;
+            }
             return SlotActionExecutor.matchesDefaultAction(
                 Microbot.getClient().getMenu().getMenuEntries(), slotId, action);
         });
@@ -1520,47 +1524,53 @@ public class FlipperScript extends Script {
             final int slotId = grandExchangeSlotIds[boxId];
             final SlotActionExecutor.Action action = abort
                 ? SlotActionExecutor.Action.ABORT : SlotActionExecutor.Action.MODIFY;
-            SlotActionExecutor.Result result = SlotActionExecutor.execute(config.slotAction(), action, slotId,
-                new SlotActionExecutor.Ui() {
-                    private BooleanSupplier hoverGuard = () -> true;
-                    private boolean variedHover;
-                    public boolean slotSwapEnabled() { return isSlotActionSwapEnabled(); }
-                    public net.runelite.api.Point actionPoint(int id, SlotActionExecutor.Action a) {
-                        return slotActionPoint(id, a);
+            SlotActionExecutor.Ui ui = new SlotActionExecutor.Ui() {
+                private BooleanSupplier hoverGuard = () -> true;
+                private boolean variedHover;
+                public boolean slotSwapEnabled() { return isSlotActionSwapEnabled(); }
+                public net.runelite.api.Point actionPoint(int id, SlotActionExecutor.Action a) {
+                    return slotActionPoint(id, a);
+                }
+                public boolean hover(net.runelite.api.Point point) {
+                    // Mouse.move dispatches a single jump. Follow a smooth path on this
+                    // script thread; never block the client thread for mouse movement.
+                    if (randomizeMouseSpeed()) {
+                        variedHover = true;
+                        hoverGuard = mouseMovementGuard();
+                        return mouseMotion.move(point, true, hoverGuard);
                     }
-                    public boolean hover(net.runelite.api.Point point) {
-                        // Mouse.move dispatches a single jump. Follow a smooth path on this
-                        // script thread; never block the client thread for mouse movement.
-                        if (randomizeMouseSpeed()) {
-                            variedHover = true;
-                            hoverGuard = mouseMovementGuard();
-                            return mouseMotion.move(point, true, hoverGuard);
-                        }
-                        if (Microbot.naturalMouse != null && !Thread.currentThread().isInterrupted()) {
-                            Microbot.naturalMouse.moveTo(point.getX(), point.getY());
-                        }
-                        return true;
+                    if (Microbot.naturalMouse != null && !Thread.currentThread().isInterrupted()) {
+                        Microbot.naturalMouse.moveTo(point.getX(), point.getY());
                     }
-                    public boolean awaitDefaultAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
-                        return hoverGuard.getAsBoolean()
-                            && waitForUi(() -> !hoverGuard.getAsBoolean() || isSlotDefaultAction(id, a, point, key), 1800)
-                            && hoverGuard.getAsBoolean();
-                    }
-                    public boolean clickDefaultAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
-                        if (!hoverGuard.getAsBoolean() || !FlipperScript.this.isRunning() || Thread.currentThread().isInterrupted()
-                            || !isSlotDefaultAction(id, a, point, key)) return false;
-                        // Reuse the verified point; a rectangle would choose a different point.
-                        return variedHover ? mouseMotion.click(point, true, hoverGuard) : clickTradingMouse(point);
-                    }
-                    public boolean invokeAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
-                        if (Thread.currentThread().isInterrupted() || !sameSlotSuggestion(key)
-                            || isOfferScreenOpen() || slotActionPoint(id, a) == null) return false;
-                        return invokeTradingMouse(new NewMenuEntry().option(a.option).target("")
-                            .identifier(a.identifier).type(MenuAction.CC_OP).param0(2).param1(id)
-                            .itemId(-1).forceLeftClick(false),
-                            new Rectangle(point.getX() - 1, point.getY() - 1, 2, 2));
-                    }
-                });
+                    return true;
+                }
+                public boolean awaitDefaultAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
+                    return hoverGuard.getAsBoolean()
+                        && waitForUi(() -> !hoverGuard.getAsBoolean() || isSlotDefaultAction(id, a, point, key), 1800)
+                        && hoverGuard.getAsBoolean();
+                }
+                public boolean clickDefaultAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
+                    if (!hoverGuard.getAsBoolean() || !FlipperScript.this.isRunning() || Thread.currentThread().isInterrupted()
+                        || !isSlotDefaultAction(id, a, point, key)) return false;
+                    // Reuse the verified point; a rectangle would choose a different point.
+                    return variedHover ? mouseMotion.click(point, true, hoverGuard) : clickTradingMouse(point);
+                }
+                public boolean invokeAction(int id, SlotActionExecutor.Action a, net.runelite.api.Point point) {
+                    if (Thread.currentThread().isInterrupted() || !sameSlotSuggestion(key)
+                        || isOfferScreenOpen() || slotActionPoint(id, a) == null) return false;
+                    return invokeTradingMouse(new NewMenuEntry().option(a.option).target("")
+                        .identifier(a.identifier).type(MenuAction.CC_OP).param0(2).param1(id)
+                        .itemId(-1).forceLeftClick(false),
+                        new Rectangle(point.getX() - 1, point.getY() - 1, 2, 2));
+                }
+            };
+            SlotActionExecutor.Result result = SlotActionExecutor.execute(config.slotAction(), action, slotId, ui);
+            FlipperConfig.SlotAction fallback = slotActionFallback(config.slotAction(), result);
+            if (fallback != null) {
+                log.info("Copilot left-click for {} was not ready after hover; using explicit slot menu action.",
+                    action.option);
+                result = SlotActionExecutor.execute(fallback, action, slotId, ui);
+            }
             lastActionTime = System.currentTimeMillis();
             actionCooldown = DEFAULT_ACTION_COOLDOWN;
             if (handleSlotActionFailure(result, action, key)) return true;
@@ -1583,6 +1593,17 @@ public class FlipperScript extends Script {
             return true;
         }
     }
+    /**
+     * After a hovered left-click never becomes ready, run the explicit slot menu action once.
+     * Returns null when no fallback should run.
+     */
+    static FlipperConfig.SlotAction slotActionFallback(FlipperConfig.SlotAction mode,
+                                                       SlotActionExecutor.Result result) {
+        return result == SlotActionExecutor.Result.MENU_NOT_READY
+            && mode == FlipperConfig.SlotAction.COPILOT_LEFT_CLICK
+            ? FlipperConfig.SlotAction.MENU_OPTION : null;
+    }
+
     /** Transient failures consume this tick without permanently blocking the suggestion. */
     boolean handleSlotActionFailure(SlotActionExecutor.Result result, SlotActionExecutor.Action action, String key) {
         if (result == SlotActionExecutor.Result.ACTED) return false;

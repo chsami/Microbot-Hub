@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
@@ -34,10 +35,13 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.GameState;
+import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
@@ -49,7 +53,6 @@ import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerPlugin;
 import net.runelite.client.plugins.microbot.shootingstar.model.Star;
 import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
 import net.runelite.client.plugins.microbot.shortestpath.pathfinder.Pathfinder;
-import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.task.Schedule;
 import net.runelite.client.ui.ClientToolbar;
@@ -73,10 +76,10 @@ import net.runelite.client.util.ImageUtil;
 public class ShootingStarPlugin extends Plugin
 {
 
-	static final String version = "1.4.7";
+	static final String version = "1.4.11";
 
 	@Getter
-	private final List<Star> starList = new ArrayList<>();
+	private final CopyOnWriteArrayList<Star> starList = new CopyOnWriteArrayList<>();
 
 	@Inject
 	private ShootingStarScript shootingStarScript;
@@ -114,9 +117,10 @@ public class ShootingStarPlugin extends Plugin
 	@Getter
 	private boolean displayAsMinutes;
 	@Getter
-	private boolean hideMembersWorlds;
+	private volatile boolean hideMembersWorlds;
 	@Getter
-	private boolean hideF2PWorlds;
+	private volatile boolean hideF2PWorlds;
+	private volatile boolean worldFilterResolved;
 
 	private Set<String> blacklistedLocations = new HashSet<>();
 
@@ -124,8 +128,10 @@ public class ShootingStarPlugin extends Plugin
 	protected void startUp() throws AWTException
 	{
 		displayAsMinutes = config.isDisplayAsMinutes();
-		hideMembersWorlds = !Rs2Player.isInMemberWorld();
-		hideF2PWorlds = Rs2Player.isInMemberWorld();
+		Optional<Boolean> membersAccount = Microbot.getClientThread().runOnClientThreadOptional(
+			() -> Microbot.isLoggedIn() ? isMembersAccount() : null);
+		worldFilterResolved = membersAccount.isPresent();
+		applyWorldFilter(membersAccount.orElse(false));
 
 		loadBlacklistedLocations();
 		fetchStars();
@@ -142,6 +148,7 @@ public class ShootingStarPlugin extends Plugin
 		removePanel();
 		starList.clear();
 		lastWorld = -1;
+		worldFilterResolved = false;
 		apiTickCounter.set(0);
 		overlayManager.remove(shootingStarOverlay);
 	}
@@ -213,8 +220,22 @@ public class ShootingStarPlugin extends Plugin
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
+		if (event.getGameState() == GameState.LOGIN_SCREEN)
+		{
+			worldFilterResolved = false;
+			return;
+		}
+
 		if (event.getGameState() == GameState.LOGGED_IN)
 		{
+			if (!worldFilterResolved)
+			{
+				worldFilterResolved = true;
+				applyWorldFilter(isMembersAccount());
+				updateHiddenStars();
+				updatePanelList(true);
+			}
+
 			if (lastWorld == -1)
 			{
 				lastWorld = Microbot.getClient().getWorld();
@@ -234,13 +255,47 @@ public class ShootingStarPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onVarbitChanged(VarbitChanged event)
+	{
+		if (event.getVarpId() != VarPlayerID.ACCOUNT_CREDIT || event.getValue() <= 0)
+		{
+			return;
+		}
+
+		if (!worldFilterResolved || !hideMembersWorlds)
+		{
+			return;
+		}
+
+		applyWorldFilter(true);
+		updateHiddenStars();
+		updatePanelList(true);
+	}
+
+	@Subscribe
 	public void onChatMessage(ChatMessage event) {
 		if (event.getType() != ChatMessageType.GAMEMESSAGE) return;
 
 		if (event.getMessage().equalsIgnoreCase("oh dear, you are dead!") && config.shutdownOnDeath()) {
 			Rs2Walker.setTarget(null);
-			shutDown();
+			Microbot.stopPlugin(this);
 		}
+	}
+
+	private void applyWorldFilter(boolean membersAccount)
+	{
+		hideMembersWorlds = !membersAccount;
+		hideF2PWorlds = membersAccount;
+	}
+
+	private static boolean isMembersAccount()
+	{
+		return Microbot.getClient().getVarpValue(VarPlayerID.ACCOUNT_CREDIT) > 0 || isOnMembersWorld();
+	}
+
+	static boolean isOnMembersWorld()
+	{
+		return Microbot.getClient().getWorldType().contains(WorldType.MEMBERS);
 	}
 
 	public void fetchStars()
@@ -264,8 +319,10 @@ public class ShootingStarPlugin extends Plugin
 			}
 
 			// If oldStar not found, add new star into the list
-			starList.add(star);
-			fullUpdate = true;
+			if (starList.addIfAbsent(star))
+			{
+				fullUpdate = true;
+			}
 		}
 
 		if (fullUpdate) {
@@ -355,16 +412,29 @@ public class ShootingStarPlugin extends Plugin
 
 	public void updatePanelList(boolean fullUpdate)
 	{
+		if (panel == null)
+		{
+			return;
+		}
+
 		List<Star> stars = new ArrayList<>(starList);
 
-		if (fullUpdate)
-		{
-			SwingUtilities.invokeLater(() -> panel.updateList(stars));
-		}
-		else
-		{
-			SwingUtilities.invokeLater(() -> panel.refreshList(stars));
-		}
+		SwingUtilities.invokeLater(() -> {
+			ShootingStarPanel currentPanel = panel;
+			if (currentPanel == null)
+			{
+				return;
+			}
+
+			if (fullUpdate)
+			{
+				currentPanel.updateList(stars);
+			}
+			else
+			{
+				currentPanel.refreshList(stars);
+			}
+		});
 	}
 
 	private void toggleOverlay(boolean hideOverlay)

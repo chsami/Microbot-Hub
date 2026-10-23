@@ -17,8 +17,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class SalamanderScript extends Script {
-    public static final int SMALL_FISHING_NET = 303;
-    public static final int ROPE = 954;
+    public static final int NET_TRAP = 34631;
     public static int SalamandersCaught = 0;
     public boolean hasDied = false;
 
@@ -36,8 +35,8 @@ public class SalamanderScript extends Script {
                 if (config.salamanderHunting().getName().equals("Black salamander") && hasDied) {
                     Microbot.log("We died - Restocking supplies");
                     handleBanking(config);
-                } else if ((Rs2Inventory.count(ROPE) < 1 || Rs2Inventory.count(SMALL_FISHING_NET) < 1) && plugin.getTraps().isEmpty()) {
-                    Microbot.log("Not enough supplies, need ropes and fishing nets");
+                } else if (Rs2Inventory.count(NET_TRAP) < 1 && plugin.getTraps().isEmpty()) {
+                    Microbot.log("Not enough supplies, need net traps");
                     handleBanking(config);
                     return;
                 }
@@ -65,7 +64,7 @@ public class SalamanderScript extends Script {
                 if (handledTrap) return;
 
                 // Set new traps if we have space and supplies
-                if (activeTrapCount < maxTraps && !IsRopeOnTheGround()) {
+                if (activeTrapCount < maxTraps && !IsNetTrapOnTheGround()) {
                     setNewTrap(salamanderType, config);
                 }
 
@@ -121,9 +120,14 @@ public class SalamanderScript extends Script {
 
     private void handleBanking(SalamanderConfig config) {
         Rs2Bank.walkToBank();
-        Rs2Bank.openBank();
-        Rs2Bank.withdrawX(ROPE, config.withdrawNumber());
-        Rs2Bank.withdrawX(SMALL_FISHING_NET, config.withdrawNumber());
+        if (!Rs2Bank.openBank()) return;
+        if (!Rs2Bank.hasItem(NET_TRAP) && Rs2Inventory.count(NET_TRAP) < 1) {
+            Microbot.log("No net traps in bank: combine a rope and a small fishing net, or buy them from a hunter shop");
+            Rs2Bank.closeBank();
+            shutdown();
+            return;
+        }
+        Rs2Bank.withdrawX(NET_TRAP, config.withdrawNumber());
         Rs2Bank.closeBank();
         hasDied = false;
     }
@@ -173,9 +177,8 @@ public class SalamanderScript extends Script {
         }
     }
 
-    public boolean IsRopeOnTheGround() {
-        return Microbot.getRs2TileItemCache().query().withId(ROPE).within(7).count() > 0 ||
-                Microbot.getRs2TileItemCache().query().withId(303).within(7).count() > 0;
+    public boolean IsNetTrapOnTheGround() {
+        return Microbot.getRs2TileItemCache().query().withId(NET_TRAP).within(7).count() > 0;
     }
 
     @Override

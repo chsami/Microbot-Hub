@@ -26,7 +26,7 @@ import java.awt.*;
 )
 @Slf4j
 public class MageTrainingArenaPlugin extends Plugin {
-    public static final String version = "1.1.8";
+    public static final String version = "1.1.9";
 
     @Inject
     private MageTrainingArenaConfig config;

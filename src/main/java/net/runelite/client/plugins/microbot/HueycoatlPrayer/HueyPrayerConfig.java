@@ -59,7 +59,7 @@ public interface HueyPrayerConfig extends Config
     @ConfigItem(
             keyName = "trioMode",
             name = "Trio mode",
-            description = "While incoming Huey projectiles still use the correct protect vs type, after impact (requires Disable after impact) switches to your pillar role: Fixed or Autobalance protection from teammates' overheads.",
+            description = "While incoming Huey projectiles still use the correct protect vs type, after impact (requires Disable after impact) switches to your pillar role: Fixed or Autobalance protection from teammates' overheads. Prayers turn off when Huey dies or you leave the arena, until the next kill's first attack.",
             position = 0,
             section = trioSection
     )
@@ -95,7 +95,7 @@ public interface HueyPrayerConfig extends Config
     @ConfigItem(
             keyName = "trioRadius",
             name = "Autobalance radius",
-            description = "Tiles from your tile to include other players when autobalancing (they must still be loaded).",
+            description = "Tiles from your tile to include other players when autobalancing outside an instance. On the Huey summit every loaded teammate is counted.",
             position = 3,
             section = trioSection
     )

@@ -7,7 +7,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.GameState;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
@@ -24,6 +23,7 @@ import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Category;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
@@ -40,6 +40,7 @@ import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 @Slf4j
 public class ShootingStarScript extends Script
 {
+	static final int STAR_ARRIVAL_DISTANCE = 6;
 	public static ShootingStarState state;
 	private final ShootingStarPlugin plugin;
 	private final ShootingStarConfig config;
@@ -48,6 +49,7 @@ public class ShootingStarScript extends Script
 	private Star currentStar;
 	private boolean hasEquipment = false;
 	private boolean hasInventory = false;
+	private Star walkBeforeHopStar;
 
     public Instant startTime;
 
@@ -73,8 +75,12 @@ public class ShootingStarScript extends Script
         startTime = Instant.now();
 		Microbot.enableAutoRunOn = true;
 		initialPlayerLocation = null;
+		state = null;
+		currentStar = null;
+		pickaxe = null;
 		hasEquipment = false;
 		hasInventory = false;
+		walkBeforeHopStar = null;
 		Rs2Antiban.resetAntibanSettings();
 		applyAntiBanSettings();
 		Rs2Antiban.setActivity(Activity.GENERAL_MINING);
@@ -108,7 +114,7 @@ public class ShootingStarScript extends Script
 					return;
 				}
 
-				if (Rs2Player.isMoving() || Rs2Antiban.getCategory().isBusy())
+				if (Rs2Player.isMoving() || isAntibanBusy(Rs2Antiban.getCategory()))
 				{
 					return;
 				}
@@ -167,33 +173,7 @@ public class ShootingStarScript extends Script
 						state = ShootingStarState.WALKING;
 						break;
 					case WALKING:
-						toggleLockState(true);
-
-						if (Rs2Player.getWorld() != currentStar.getWorld())
-						{
-							Microbot.hopToWorld(currentStar.getWorld());
-							sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
-							return;
-						}
-
-						boolean isNearShootingStar = Rs2Player.getWorldLocation().distanceTo(currentStar.getShootingStarLocation().getWorldPoint()) < 6;
-
-						if (!isNearShootingStar)
-						{
-							WalkerState walkerState = Rs2Walker.walkWithState(currentStar.getShootingStarLocation().getWorldPoint(), 6);
-							if (walkerState == WalkerState.UNREACHABLE)
-							{
-								log.debug("Walker State is {}, removing star from list", walkerState);
-								plugin.removeStar(plugin.getSelectedStar());
-								plugin.updatePanelList(true);
-								state = ShootingStarState.WAITING_FOR_STAR;
-							}
-							return;
-						}
-
-						initialPlayerLocation = Rs2Player.getWorldLocation();
-
-						state = ShootingStarState.MINING;
+						handleWalking(currentStar);
 						break;
 					case MINING:
 						if (!currentStar.hasRequirements())
@@ -326,10 +306,96 @@ public class ShootingStarScript extends Script
 	public void shutdown()
 	{
 		super.shutdown();
-		state = null;
-		currentStar = null;
-		pickaxe = null;
 		Rs2Antiban.resetAntibanSettings();
+	}
+
+	static boolean isAntibanBusy(Category category)
+	{
+		return category != null && category.isBusy();
+	}
+
+	void handleWalking(Star star)
+	{
+		toggleLockState(true);
+
+		boolean isOnStarWorld = Rs2Player.getWorld() == star.getWorld();
+		boolean isNearShootingStar = isNearStar(star);
+
+		if (!isOnStarWorld && (isNearShootingStar || !shouldWalkBeforeHop(star)))
+		{
+			hopToStarWorld(star, isNearShootingStar);
+			return;
+		}
+
+		if (!isNearShootingStar)
+		{
+			WalkerState walkerState = Rs2Walker.walkWithState(star.getShootingStarLocation().getWorldPoint(), STAR_ARRIVAL_DISTANCE);
+			if (walkerState == WalkerState.UNREACHABLE)
+			{
+				log.debug("Walker State is {}, removing star from list", walkerState);
+				plugin.removeStar(plugin.getSelectedStar());
+				plugin.updatePanelList(true);
+				state = ShootingStarState.WAITING_FOR_STAR;
+				return;
+			}
+			if (walkerState != WalkerState.ARRIVED)
+			{
+				return;
+			}
+			if (!isOnStarWorld)
+			{
+				hopToStarWorld(star, true);
+				return;
+			}
+			if (!isNearStar(star))
+			{
+				log.debug("Walker reported {} but the player is still more than {} tiles from the star, retrying", walkerState, STAR_ARRIVAL_DISTANCE);
+				return;
+			}
+		}
+
+		initialPlayerLocation = Rs2Player.getWorldLocation();
+
+		state = ShootingStarState.MINING;
+	}
+
+	private static boolean isNearStar(Star star)
+	{
+		return Rs2Player.getWorldLocation().distanceTo(star.getShootingStarLocation().getWorldPoint()) <= STAR_ARRIVAL_DISTANCE;
+	}
+
+	private boolean shouldWalkBeforeHop(Star star)
+	{
+		if (star.isMemberWorld())
+		{
+			return false;
+		}
+		return star.equals(walkBeforeHopStar) || isOnMembersWorld();
+	}
+
+	private static boolean isOnMembersWorld()
+	{
+		return Microbot.getClientThread().runOnClientThreadOptional(ShootingStarPlugin::isOnMembersWorld).orElse(false);
+	}
+
+	private void hopToStarWorld(Star star, boolean isNearShootingStar)
+	{
+		if (isNearShootingStar && !star.isMemberWorld() && Microbot.cantHopWorld)
+		{
+			Microbot.cantHopWorld = false;
+		}
+
+		if (Microbot.hopToWorld(star.getWorld()))
+		{
+			walkBeforeHopStar = null;
+			return;
+		}
+
+		if (!star.isMemberWorld() && !isNearShootingStar)
+		{
+			log.info("Hop to non-members world {} failed, walking to the star before hopping again", star.getWorld());
+			walkBeforeHopStar = star;
+		}
 	}
 
 	private boolean isUsingInventorySetup()

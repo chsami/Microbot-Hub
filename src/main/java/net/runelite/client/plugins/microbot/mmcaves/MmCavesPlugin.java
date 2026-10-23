@@ -26,13 +26,14 @@ import java.util.concurrent.ConcurrentHashMap;
         description = "Automates chinning or bursting in Monkey Madness II caves",
         tags = {"mm", "mm2", "caves", "chinning", "bursting", "ranged", "magic"},
         authors = { "FreakJoost" },
+        version = MmCavesPlugin.version,
         minClientVersion = "2.0.6",
         isExternal = true,
         enabledByDefault = false
 )
 @Slf4j
 public class MmCavesPlugin extends Plugin {
-    public static String version = "1.0.3";
+    public static final String version = "1.0.3";
 
     @Inject
     private MmCavesConfig config;

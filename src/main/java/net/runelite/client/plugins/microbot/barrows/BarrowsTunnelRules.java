@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.barrows;
 
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 
 /**
  * Pure decision helpers for Barrows tunnel combat and Ferox restock.
@@ -54,6 +55,10 @@ final class BarrowsTunnelRules {
             boolean interactingWithCurrentTarget,
             boolean aggressorPresent) {
         return aggressorPresent && !interactingWithCurrentTarget;
+    }
+
+    static boolean shouldReplanChestWalk(WalkerState result) {
+        return result == null || result == WalkerState.EXIT || result == WalkerState.UNREACHABLE;
     }
 
     static boolean isAtFeroxEnclave(WorldPoint loc) {

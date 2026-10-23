@@ -1,6 +1,8 @@
 package net.runelite.client.plugins.microbot.AmmoniteCrabs;
 
 import net.runelite.api.GameState;
+import net.runelite.api.Player;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -11,15 +13,12 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
-import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
-import java.awt.event.KeyEvent;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -47,11 +46,12 @@ public class AmmoniteCrabScript extends Script {
 
                 switch (ammoniteCrabState) {
                     case FIGHT:
-                        if (!Microbot.getClient().getLocalPlayer().isInteracting() && !Rs2Combat.inCombat()) {
+                        if (!Rs2Player.isInteracting() && !Rs2Combat.inCombat()) {
                             Rs2Combat.enableAutoRetialiate();
                         }
 
-                        if (Rs2Player.getWorldLocation().distanceTo(config.crabLocation().getFightLocation()) > 0) {
+                        WorldPoint fightPlayerLocation = Rs2Player.getWorldLocation();
+                        if (fightPlayerLocation != null && fightPlayerLocation.distanceTo(config.crabLocation().getFightLocation()) > 0) {
                             Rs2Walker.walkFastCanvas(config.crabLocation().getFightLocation());
                         }
 
@@ -99,11 +99,11 @@ public class AmmoniteCrabScript extends Script {
                         break;
                     case HOP_WORLD:
                         int world = Login.getRandomWorld(true, null);
-                        Microbot.hopToWorld(world);
+                        if (!Microbot.hopToWorld(world)) {
+                            Microbot.log("World hop to " + world + " refused, retrying next loop");
+                            break;
+                        }
                         timesHopped++;
-                        boolean result = sleepUntil(() -> Rs2Widget.findWidget("Switch World") != null);
-                        Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
-                        sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
                         sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
                         sleep(1200, 2000);
                         // After successful hop, reset counters and scan the area
@@ -133,7 +133,8 @@ public class AmmoniteCrabScript extends Script {
             ammoniteCrabState = AmmoniteCrabState.HOP_WORLD;
         }
 
-        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).distanceTo(config.crabLocation().getWorldhopLocation()) > 10 && (ammoniteCrabState != AmmoniteCrabState.RESET_AGGRO && ammoniteCrabState != AmmoniteCrabState.WALK_BACK && ammoniteCrabState != AmmoniteCrabState.BANK)) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation != null && playerLocation.distanceTo(config.crabLocation().getWorldhopLocation()) > 10 && (ammoniteCrabState != AmmoniteCrabState.RESET_AGGRO && ammoniteCrabState != AmmoniteCrabState.WALK_BACK && ammoniteCrabState != AmmoniteCrabState.BANK)) {
             ammoniteCrabState = AmmoniteCrabState.WALK_BACK;
             resetAggro(config);
             resetAfkTimer();
@@ -179,7 +180,11 @@ public class AmmoniteCrabScript extends Script {
             ammoniteCrabState = AmmoniteCrabState.FIGHT;
             return;
         }
-        if (config.crabLocation().getWorldhopLocation().distanceTo(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())) > 2) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) {
+            return;
+        }
+        if (config.crabLocation().getWorldhopLocation().distanceTo(playerLocation) > 2) {
             Rs2Walker.walkTo(config.crabLocation().getWorldhopLocation());
             return;
         }
@@ -189,7 +194,7 @@ public class AmmoniteCrabScript extends Script {
             return;
         } else {
             Rs2Walker.walkTo(config.crabLocation().getFightLocation(), 0);
-            if (Rs2Player.getWorldLocation().distanceTo(config.crabLocation().getFightLocation()) <= 3) {
+            if (isWithin(Rs2Player.getWorldLocation(), config.crabLocation().getFightLocation(), 3)) {
                 resetAfkTimer();
                 ammoniteCrabState = AmmoniteCrabState.FIGHT;
             } else {
@@ -209,7 +214,7 @@ public class AmmoniteCrabScript extends Script {
 
     private void walkBack(AmmoniteCrabConfig config) {
         Rs2Walker.walkTo(config.crabLocation().getFightLocation());
-        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).distanceTo(config.crabLocation().getFightLocation()) <= 3) {
+        if (isWithin(Rs2Player.getWorldLocation(), config.crabLocation().getFightLocation(), 3)) {
             attackScatteredCrabs(config);
             resetAfkTimer();
             ammoniteCrabState = AmmoniteCrabState.FIGHT;
@@ -240,18 +245,24 @@ public class AmmoniteCrabScript extends Script {
         if (npcs.isEmpty()) {
             return true;
         }
-        for (Rs2NpcModel ammoniteRock : npcs) {
-            if (!ammoniteRock.getNpc().getWorldArea().isInMeleeDistance(Microbot.getClient().getLocalPlayer().getWorldArea()))
-                continue;
-
-            return false;
-        }
-        return true;
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Player localPlayer = Microbot.getClient().getLocalPlayer();
+            if (localPlayer == null) {
+                return true;
+            }
+            WorldArea playerArea = localPlayer.getWorldArea();
+            for (Rs2NpcModel ammoniteRock : npcs) {
+                if (ammoniteRock.getNpc().getWorldArea().isInMeleeDistance(playerArea)) {
+                    return false;
+                }
+            }
+            return true;
+        }).orElse(true);
     }
 
     private void resetAggro(AmmoniteCrabConfig config) {
         Rs2Walker.walkTo(config.crabLocation().getResetLocation());
-        if (Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()).distanceTo(config.crabLocation().getResetLocation()) <= 3) {
+        if (isWithin(Rs2Player.getWorldLocation(), config.crabLocation().getResetLocation(), 3)) {
             ammoniteCrabState = AmmoniteCrabState.WALK_BACK;
         }
     }
@@ -268,10 +279,17 @@ public class AmmoniteCrabScript extends Script {
     }
 
     private boolean otherPlayerDetected() {
-        return otherPlayerDetected(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation()));
+        return otherPlayerDetected(Rs2Player.getWorldLocation());
     }
 
-    private boolean otherPlayerDetected(WorldPoint worldPoint) {
+    static boolean isWithin(WorldPoint location, WorldPoint target, int distance) {
+        return location != null && location.distanceTo(target) <= distance;
+    }
+
+    static boolean otherPlayerDetected(WorldPoint worldPoint) {
+        if (worldPoint == null) {
+            return false;
+        }
         for (Rs2PlayerModel player : Rs2Player.getPlayers(player -> true).collect(Collectors.toList())) {
             if (player.getWorldLocation().distanceTo(worldPoint) > 3)
                 continue;

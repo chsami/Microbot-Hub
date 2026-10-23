@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.nmz;
 
 import lombok.Getter;
 import lombok.Setter;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
@@ -146,7 +147,10 @@ public class NmzScript extends Script {
     }
 
     public boolean isOutside() {
-        WorldPoint loc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return isNearLobby(Rs2Player.getWorldLocation());
+    }
+
+    static boolean isNearLobby(WorldPoint loc) {
         return loc != null && loc.distanceTo(new WorldPoint(2602, 3116, 0)) < 20;
     }
 
@@ -199,9 +203,13 @@ public class NmzScript extends Script {
     }
 
     private void walkToCenter() {
-        if (center.distanceTo(Rs2Player.getWorldLocation()) > 4) {
+        if (isAwayFromCenter(center, Rs2Player.getWorldLocation())) {
             Rs2Walker.walkTo(center, 6);
         }
+    }
+
+    static boolean isAwayFromCenter(WorldPoint center, WorldPoint loc) {
+        return loc != null && center.distanceTo(loc) > 4;
     }
 
     public void startNmzDream() {
@@ -236,15 +244,22 @@ public class NmzScript extends Script {
         return orbHasSpawned;
     }
 
+    private static WorldPoint getLocalPlayerWorldLocation() {
+        return Microbot.getClientThread().invoke(() -> {
+            Player player = Microbot.getClient().getLocalPlayer();
+            return player == null ? null : player.getWorldLocation();
+        });
+    }
+
     public boolean interactWithObject(int objectId) {
         Rs2TileObjectModel obj = tileObjectCache.query().withId(objectId).nearest();
         if (obj != null) {
             sleep(1000, 15000);
-            WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+            WorldPoint playerLoc = getLocalPlayerWorldLocation();
             if (playerLoc != null && playerLoc.distanceTo(obj.getWorldLocation()) >= 15) {
                 Rs2Walker.walkFastLocal(obj.getLocalLocation());
                 sleepUntil(() -> {
-                    WorldPoint loc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+                    WorldPoint loc = getLocalPlayerWorldLocation();
                     return loc != null && loc.distanceTo(obj.getWorldLocation()) < 15;
                 }, 10000);
             }
@@ -379,7 +394,7 @@ public class NmzScript extends Script {
         }
         sleep(2000, 4000);
         Widget widget = Rs2Widget.getWidget(129, 6);
-        if (!Microbot.getClientThread().runOnClientThreadOptional(widget::isHidden).orElse(false)) {
+        if (widget != null && !Microbot.getClientThread().runOnClientThreadOptional(widget::isHidden).orElse(false)) {
             Rs2Widget.clickWidget(widget.getId());
             sleep(300);
             Rs2Widget.clickWidget(widget.getId());
@@ -438,14 +453,18 @@ public class NmzScript extends Script {
         for (int i = 0; i < overloadToBuy; i++) {
             Widget nmzRewardShop = Rs2Widget.getWidget(206, 6);
             if (nmzRewardShop == null) break;
-            Rs2Widget.clickWidgetFast(nmzRewardShop.getChild(6), 6, 4);
+            Widget potionButton = nmzRewardShop.getChild(6);
+            if (potionButton == null) break;
+            Rs2Widget.clickWidgetFast(potionButton, 6, 4);
             sleep(600, 1000);
         }
 
         for (int i = 0; i < absorptionToBuy; i++) {
             Widget nmzRewardShop = Rs2Widget.getWidget(206, 6);
             if (nmzRewardShop == null) break;
-            Rs2Widget.clickWidgetFast(nmzRewardShop.getChild(9), 9, 4);
+            Widget potionButton = nmzRewardShop.getChild(9);
+            if (potionButton == null) break;
+            Rs2Widget.clickWidgetFast(potionButton, 9, 4);
             sleep(600, 1000);
         }
     }

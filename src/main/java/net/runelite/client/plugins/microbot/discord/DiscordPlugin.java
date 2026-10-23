@@ -36,7 +36,7 @@ import java.util.*;
 )
 @Slf4j
 public class DiscordPlugin extends Plugin {
-    public static final String version = "1.0.1";
+    public static final String version = "1.0.2";
     @Inject
     private DiscordConfig config;
 
@@ -309,9 +309,9 @@ public class DiscordPlugin extends Plugin {
             }
 
             if (isNewItem || currentItem.getQuantity() > oldQuantity) {
-                int gePrice = (int) itemManager.getItemPrice(currentItem.getId());
+                long gePrice = itemManager.getItemPrice(currentItem.getId());
                 int quantityIncrease = currentItem.getQuantity() - oldQuantity;
-                int totalValue = gePrice * quantityIncrease;
+                long totalValue = gePrice * quantityIncrease;
 
                 if (totalValue >= threshold) {
                     String itemName = itemManager.getItemComposition(currentItem.getId()).getName();
@@ -407,4 +407,4 @@ public class DiscordPlugin extends Plugin {
             }
         }
     }
-} 
+}

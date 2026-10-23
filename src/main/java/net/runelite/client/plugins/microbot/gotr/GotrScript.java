@@ -126,6 +126,7 @@ public class GotrScript extends Script {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
+                if (!isPlayerLocationKnown()) return;
                 long startTime = System.currentTimeMillis();
 
                 if (!initCheck) {
@@ -166,6 +167,8 @@ public class GotrScript extends Script {
 
                 if (isInMiniGame) {
 
+                    if (usePortal()) return;
+
                     if (waitingForGameToStart(timeToStart)) return;
             
 
@@ -174,7 +177,6 @@ public class GotrScript extends Script {
                         return;
                     }
 
-                    if (usePortal()) return;
                     //mine huge guardian remains
                     if (mineHugeGuardianRemain()) return;
 
@@ -365,11 +367,13 @@ public class GotrScript extends Script {
     }
 
     private boolean usePortal() {
-        if (!isInHugeMine() && Microbot.getClient().hasHintArrow() && Rs2Inventory.count() < config.maxAmountEssence()) {
+        if (!isInHugeMine() && Microbot.getClient().hasHintArrow() && shouldTakePortal(Rs2Inventory.count(GUARDIAN_ESSENCE), config.maxAmountEssence())) {
             if (leaveLargeMine()) return true;
-            Rs2Walker.walkFastCanvas(Microbot.getClient().getHintArrowPoint());
+            WorldPoint portalPoint = Microbot.getClient().getHintArrowPoint();
+            if (portalPoint == null) return false;
+            Rs2Walker.walkFastCanvas(portalPoint);
             sleepUntil(Rs2Player::isMoving);
-            Microbot.getRs2TileObjectCache().query().within(Microbot.getClient().getHintArrowPoint(), 0).interact();
+            Microbot.getRs2TileObjectCache().query().withId(portalId).within(portalPoint, 0).interact();
             log("Found a portal spawn...interacting with it...");
             Rs2Player.waitForWalking();
             sleepUntil(() -> isInHugeMine());
@@ -377,6 +381,18 @@ public class GotrScript extends Script {
             return true;
         }
         return false;
+    }
+
+    static boolean shouldTakePortal(int essenceHeld, int maxEssence) {
+        return essenceHeld < maxEssence;
+    }
+
+    static boolean isOutOfFragments(boolean hasFragments, boolean inventoryFull) {
+        return !hasFragments && !inventoryFull;
+    }
+
+    static boolean hasFragmentsToFillInventory(int fragments, int emptySlots, int pouchCapacity) {
+        return fragments >= emptySlots + pouchCapacity;
     }
 
     private boolean depositRunesIntoPool() {
@@ -445,7 +461,7 @@ public class GotrScript extends Script {
     }
 
     private boolean isOutOfFragments() {
-        if ((!Rs2Inventory.hasItem(GUARDIAN_FRAGMENTS) && !Rs2Inventory.isFull()) || (getTimeSincePortal() > 85 && !Rs2Inventory.hasItem(GUARDIAN_ESSENCE))) {
+        if (isOutOfFragments(Rs2Inventory.hasItem(GUARDIAN_FRAGMENTS), Rs2Inventory.isFull())) {
             shouldMineGuardianRemains = true;
             if(!Rs2Inventory.hasItem(GUARDIAN_FRAGMENTS))
                 log("Memorize that we no longer have guardian fragments...");
@@ -598,10 +614,16 @@ public class GotrScript extends Script {
             }
         } else {
             //guardian parts
+            if (isInLargeMine()) {
+                shouldMineGuardianRemains = false;
+                leaveLargeMine();
+                return;
+            }
+            if (hasFragmentsToFillInventory(Rs2Inventory.itemQuantity(GUARDIAN_FRAGMENTS), Rs2Inventory.emptySlotCount(), Rs2Inventory.getRemainingCapacityInPouches())) {
+                shouldMineGuardianRemains = false;
+                return;
+            }
             if (!Rs2Player.isAnimating() && getStartTimer() != -1) {
-                if(isInLargeMine()) {
-                    leaveLargeMine();
-                }
                 if (Rs2Equipment.isWearing("dragon pickaxe")) {
                     Rs2Combat.setSpecState(true, 1000);
                 }
@@ -662,20 +684,34 @@ public class GotrScript extends Script {
 
     public static boolean isOutsideBarrier() {
         int outsideBarrierY = 9482;
-        return Rs2Player.getWorldLocation().getY() <= outsideBarrierY
-                && Rs2Player.getWorldLocation().getRegionID() == 14484;
+        WorldPoint location = Rs2Player.getWorldLocation();
+        return location != null
+                && location.getY() <= outsideBarrierY
+                && location.getRegionID() == 14484;
     }
 
     public  static boolean isInLargeMine() {
         int largeMineX = 3637;
-        return Rs2Player.getWorldLocation().getRegionID() == 14484
-                && Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getX()) >= largeMineX;
+        WorldPoint location = Rs2Player.getWorldLocation();
+        return location != null
+                && location.getRegionID() == 14484
+                && location.getX() >= largeMineX;
     }
 
     public  boolean isInHugeMine() {
         int hugeMineX = 3594;
-        return Rs2Player.getWorldLocation().getRegionID() == 14484
-                && Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation().getX()) <= hugeMineX;
+        WorldPoint location = Rs2Player.getWorldLocation();
+        return location != null
+                && location.getRegionID() == 14484
+                && location.getX() <= hugeMineX;
+    }
+
+    static boolean isActiveAltarRenderable(Renderable renderable) {
+        if (!(renderable instanceof DynamicObject)) {
+            return false;
+        }
+        Animation animation = ((DynamicObject) renderable).getAnimation();
+        return animation != null && animation.getId() == 9363;
     }
 
     public static boolean isGuardianPortal(GameObject gameObject) {
@@ -692,8 +728,13 @@ public class GotrScript extends Script {
         return elementalRuneWidget != null;
     }
 
+    static boolean isPlayerLocationKnown() {
+        return Rs2Player.getWorldLocation() != null;
+    }
+
     public static boolean isInMainRegion() {
-        return Rs2Player.getWorldLocation().getRegionID() == 14484;
+        WorldPoint location = Rs2Player.getWorldLocation();
+        return location != null && location.getRegionID() == 14484;
     }
 
     public static int getStartTimer() {
@@ -745,10 +786,7 @@ public class GotrScript extends Script {
                         return false;
                     }
 
-                    if (((DynamicObject) x.getRenderable()).getAnimation() == null) {
-                        return false;
-                    }
-                    if (((DynamicObject) x.getRenderable()).getAnimation().getId() != 9363) {
+                    if (!isActiveAltarRenderable(x.getRenderable())) {
                         return false;
                     }
                     Microbot.log("Adding " + portalInfo.getName() + " to list of available altars");

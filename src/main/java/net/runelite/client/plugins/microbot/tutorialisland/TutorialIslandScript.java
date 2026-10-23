@@ -334,21 +334,26 @@ public class TutorialIslandScript extends Script {
     }
 
     private boolean walkAndAttackRat() {
-        // The rat pit gate (id 9719) blocks both Rs2Walker and native pathfinder.
-        // Explicitly open it if we're standing adjacent; after passing through, attack directly.
-        WorldPoint playerLoc = Rs2Player.getWorldLocation();
-        if (playerLoc != null && playerLoc.getX() == 3111 && playerLoc.getY() >= 9516 && playerLoc.getY() <= 9519) {
-            if (Microbot.getRs2TileObjectCache().query().withId(9719).interact("Open")) {
-                sleepUntil(() -> {
-                    WorldPoint p = Rs2Player.getWorldLocation();
-                    return p != null && p.getY() < 9516;
-                }, 3000);
-                return false;
-            }
-        }
         Rs2NpcModel rat = Microbot.getRs2NpcCache().query().withName("Giant rat").nearest();
         if (rat == null || rat.getWorldLocation() == null) return false;
-        if (!Rs2Walker.canReach(rat.getWorldLocation())) return false;
+        switch (RatPen.next(Rs2Player.getWorldLocation(), Rs2Tile.isTileReachable(rat.getWorldLocation()))) {
+            case ATTACK:
+                return rat.click("Attack");
+            case OPEN_GATE:
+                if (Microbot.getRs2TileObjectCache().query().withId(RatPen.GATE_ID).interact("Open")) {
+                    sleepUntil(() -> Rs2Tile.isTileReachable(RatPen.GATE_INSIDE), 3000);
+                }
+                return false;
+            default:
+                Rs2Walker.walkTo(RatPen.GATE_OUTSIDE, 1);
+                Rs2Player.waitForWalking();
+                return false;
+        }
+    }
+
+    private boolean attackRatAtRange() {
+        Rs2NpcModel rat = Microbot.getRs2NpcCache().query().withName("Giant rat").nearest();
+        if (rat == null) return false;
         return rat.click("Attack");
     }
 
@@ -655,7 +660,7 @@ public class TutorialIslandScript extends Script {
                 Rs2Inventory.wield("Bronze arrow");
                 Rs2Random.waitEx(600, 100);
             }
-            walkAndAttackRat();
+            attackRatAtRange();
         } else if (Microbot.getVarbitPlayerValue(281) == 470) {
             if (npc == null) return;
             walkAndTalk(npc);

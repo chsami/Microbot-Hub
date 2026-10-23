@@ -126,6 +126,8 @@ public class MKE_WintertodtScript extends Script {
     private boolean wasOnBreak = false;
     private boolean wasOnBreakHandlerBreak = false;
     private boolean worldChecked = false; // Track if we've already checked/hopped to Wintertodt world
+    private static final long REFUSED_HOP_RETRY_MS = 5_000;
+    private long lastRefusedHopAt = 0;
 
     // Wintertodt round timer tracking
     private long roundEndTime = -1;
@@ -3902,9 +3904,9 @@ public class MKE_WintertodtScript extends Script {
     /**
      * Ensures the player is on a Wintertodt world, hopping if necessary.
      * Only hops when in a safe location (not in combat, not interacting, etc.).
-     * Stops script and logs out on failure.
+     * A refused hop is retried on a later call.
      * 
-     * @return true if on Wintertodt world or successfully hopped, false if failed (script should stop)
+     * @return false only if the world check itself failed (script should stop)
      */
     private boolean ensureWintertodtWorldSafely() {
         try {
@@ -3932,16 +3934,17 @@ public class MKE_WintertodtScript extends Script {
                 return true; // Don't fail, just retry later
             }
             
+            if (System.currentTimeMillis() - lastRefusedHopAt < REFUSED_HOP_RETRY_MS) {
+                return true;
+            }
+
             // Not on a Wintertodt world, need to hop
             Microbot.log("Not on a Wintertodt world (current: " + currentWorld + ") - hopping to a Wintertodt world...");
             
-            boolean hopSuccess = hopToWintertodtWorldSafely(wintertodtWorlds);
-            
-            if (!hopSuccess) {
-                // Hop failed - stop script and logout
-                Microbot.log("CRITICAL: Failed to hop to Wintertodt world - stopping script and logging out");
-                stopScriptAndLogout();
-                return false;
+            if (!hopToWintertodtWorldSafely(wintertodtWorlds)) {
+                lastRefusedHopAt = System.currentTimeMillis();
+                Microbot.log("World hop to a Wintertodt world refused - will try again later");
+                return true;
             }
             
             worldChecked = true; // Mark as checked after successful hop
@@ -4000,30 +4003,6 @@ public class MKE_WintertodtScript extends Script {
     }
     
     /**
-     * Stops the script and logs out the player.
-     */
-    private void stopScriptAndLogout() {
-        try {
-            Microbot.log("Stopping script due to critical error...");
-            
-            // Stop the script
-            this.shutdown();
-            
-            // Wait a moment for shutdown to process
-            sleepGaussian(3000, 500);
-            
-            // Logout the player
-            if (Microbot.isLoggedIn()) {
-                Microbot.log("Logging out player...");
-                Rs2Player.logout();
-            }
-            
-        } catch (Exception e) {
-            Microbot.log("Error during script stop and logout: " + e.getMessage());
-        }
-    }
-    
-    /**
      * Hops to a random Wintertodt world from the available options.
      * 
      * @param wintertodtWorlds Array of Wintertodt world numbers
@@ -4031,105 +4010,13 @@ public class MKE_WintertodtScript extends Script {
      */
     private boolean hopToWintertodtWorldSafely(int[] wintertodtWorlds) {
         try {
-            // Select a random Wintertodt world
             int targetWorld = wintertodtWorlds[Rs2Random.between(0, wintertodtWorlds.length - 1)];
-            int originalWorld = Rs2Player.getWorld();
-            
             Microbot.log("Attempting to hop to Wintertodt world " + targetWorld + "...");
-            
-            // Perform the world hop (NOTE: Microbot.hopToWorld() has a bug - returns false even on success)
-            Microbot.hopToWorld(targetWorld);
-
-            sleep(1000);
-
-            // If the world hop failed, try again (This happens basically every time)
-            if (Rs2Player.getWorld() != targetWorld) {
-                Microbot.hopToWorld(targetWorld);
-            }
-            
-            // Don't rely on return value - wait and check if world actually changed
-            Microbot.log("World hop initiated, waiting for completion...");
-            
-            // Wait for world hop to complete (up to 15 seconds)
-            long hopStartTime = System.currentTimeMillis();
-            boolean hopCompleted = sleepUntilTrue(() -> {
-                int currentWorld = Rs2Player.getWorld();
-                // Success if we reach target world or any other Wintertodt world
-                if (currentWorld == targetWorld && Microbot.isLoggedIn()) {
-                    return true;
-                }
-                // Also accept if we ended up on any Wintertodt world
-                for (int wintertodtWorld : wintertodtWorlds) {
-                    if (currentWorld == wintertodtWorld && Microbot.isLoggedIn()) {
-                        return true;
-                    }
-                }
+            if (!Microbot.hopToWorld(targetWorld)) {
                 return false;
-            }, 100, 15000);
-            
-            int finalWorld = Rs2Player.getWorld();
-            
-            if (hopCompleted) {
-                Microbot.log("Successfully hopped to Wintertodt world " + finalWorld);
-                return true;
-            } else if (finalWorld != originalWorld) {
-                // We hopped somewhere, but not to a Wintertodt world - this is partial success
-                Microbot.log("Hopped to world " + finalWorld + " but not a Wintertodt world - trying to hop again");
-                
-                // Try once more to a Wintertodt world
-                int retryWorld = wintertodtWorlds[Rs2Random.between(0, wintertodtWorlds.length - 1)];
-                Microbot.log("Attempting second hop to Wintertodt world " + retryWorld + "...");
-                Microbot.hopToWorld(retryWorld);
-                
-                boolean retryCompleted = sleepUntilTrue(() -> {
-                    int currentWorld = Rs2Player.getWorld();
-                    for (int wintertodtWorld : wintertodtWorlds) {
-                        if (currentWorld == wintertodtWorld && Microbot.isLoggedIn()) {
-                            return true;
-                        }
-                    }
-                    return false;
-                }, 100, 15000);
-                
-                if (retryCompleted) {
-                    Microbot.log("Successfully hopped to Wintertodt world " + Rs2Player.getWorld() + " on second attempt");
-                    return true;
-                } else {
-                    Microbot.log("Second hop attempt failed - still on world " + Rs2Player.getWorld());
-                }
-            } else {
-                Microbot.log("World hop failed - still on original world " + originalWorld + " after 15 seconds");
             }
-            
-            // Final attempt with a different world if we have multiple options
-            if (wintertodtWorlds.length > 1) {
-                int finalAttemptWorld;
-                do {
-                    finalAttemptWorld = wintertodtWorlds[Rs2Random.between(0, wintertodtWorlds.length - 1)];
-                } while (finalAttemptWorld == targetWorld && wintertodtWorlds.length > 1);
-                
-                Microbot.log("Final attempt - trying Wintertodt world " + finalAttemptWorld + "...");
-                Microbot.hopToWorld(finalAttemptWorld);
-                
-                boolean finalCompleted = sleepUntilTrue(() -> {
-                    int currentWorld = Rs2Player.getWorld();
-                    for (int wintertodtWorld : wintertodtWorlds) {
-                        if (currentWorld == wintertodtWorld && Microbot.isLoggedIn()) {
-                            return true;
-                        }
-                    }
-                    return false;
-                }, 100, 15000);
-                
-                if (finalCompleted) {
-                    Microbot.log("Successfully hopped to Wintertodt world " + Rs2Player.getWorld() + " on final attempt");
-                    return true;
-                }
-            }
-            
-            Microbot.log("CRITICAL: Failed to hop to any Wintertodt world after multiple attempts");
-            return false;
-            
+            Microbot.log("Successfully hopped to Wintertodt world " + Rs2Player.getWorld());
+            return true;
         } catch (Exception e) {
             Microbot.log("Error during world hop: " + e.getMessage());
             e.printStackTrace();

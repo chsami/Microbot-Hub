@@ -548,7 +548,9 @@ public class revKillerScript extends Script {
                         return;
                     }
                 }
-                hopToNewWorld();
+                if(!hopToNewWorld()){
+                    return;
+                }
                 startTime = currentTime;
                 howLongUntilHop = config.hopInMinutes();
                 int mixUp = Rs2Random.between(5,10);
@@ -892,21 +894,21 @@ public class revKillerScript extends Script {
         }
     }
 
-    public void hopToNewWorld(){
+    public boolean hopToNewWorld(){
         // Thank you george!
 
         World currentWorld = Microbot.getWorldService().getWorlds().findWorld(Microbot.getClient().getWorld());
 
         if(currentWorld == null){
             Microbot.log("Couldn't find our world");
-            return;
+            return false;
         }
 
         int newRandomWorld = Login.getRandomWorld(true, currentWorld.getRegion());
 
         if(newRandomWorld == 0){
             Microbot.log("Couldn't find a new random world");
-            return;
+            return false;
         }
 
         Microbot.log("We're going to world " + newRandomWorld);
@@ -928,7 +930,12 @@ public class revKillerScript extends Script {
             sleep(500,700);
             attempts++;
         }
+        if(Rs2Player.getWorld() != newRandomWorld){
+            Microbot.log("World hop to " + newRandomWorld + " refused, retrying later");
+            return false;
+        }
         hoppedWorld = true;
+        return true;
     }
 
     public void equipArrows(){
@@ -1147,7 +1154,7 @@ public class revKillerScript extends Script {
                     }
                     if(Rs2Inventory.contains(ItemID.RING_OF_DUELING8)){
                         if(Rs2Inventory.interact(ItemID.RING_OF_DUELING8, "Wear")){
-                            sleepUntil(()-> Rs2Equipment.get(EquipmentInventorySlot.RING).getName().contains("dueling"), generateRandomNumber(5000,15000));
+                            sleepUntil(()-> isWearingDuelingRing(), generateRandomNumber(5000,15000));
                         }
                     }
                 }
@@ -1227,7 +1234,7 @@ public class revKillerScript extends Script {
                     }
                     if(Rs2Inventory.contains(selectedArrow)){
                         if(Rs2Inventory.interact(selectedArrow, "Wield")){
-                            sleepUntil(()-> Rs2Equipment.get(EquipmentInventorySlot.AMMO).getQuantity() > 50, generateRandomNumber(5000,15000));
+                            sleepUntil(()-> hasEquippedAmmoAbove(50), generateRandomNumber(5000,15000));
                         }
                     }
                 }
@@ -1354,7 +1361,7 @@ public class revKillerScript extends Script {
         return false;
     }
     public boolean isItTimeToGo(){
-        int value = 0; //set to 0 so list doesn't compound with each run
+        long value = 0;
         List<Rs2ItemModel> ItemsInInventory = Rs2Inventory.items().collect(Collectors.toList());
         int io = 0;
 
@@ -1527,17 +1534,23 @@ public class revKillerScript extends Script {
             }
 
 
-            if ((player.getInteracting() != null) && (player.getInteracting().equals(Rs2Player.getLocalPlayer()))) {
-                Microbot.log(player.getName() + " is attacking us");
-                return true;
-            }
-
-            if((player.getInteracting() != null && player.getInteracting().getName() != null) && player.getInteracting().getName().equals(Rs2Player.getLocalPlayer().getName())){
+            Actor interacting = player.getInteracting();
+            if (interacting != null && interacting == Microbot.getClient().getLocalPlayer()) {
                 Microbot.log(player.getName() + " is attacking us");
                 return true;
             }
 
         }
         return false;
+    }
+
+    static boolean isWearingDuelingRing() {
+        Rs2ItemModel ring = Rs2Equipment.get(EquipmentInventorySlot.RING);
+        return ring != null && ring.getName() != null && ring.getName().contains("dueling");
+    }
+
+    static boolean hasEquippedAmmoAbove(int quantity) {
+        Rs2ItemModel ammo = Rs2Equipment.get(EquipmentInventorySlot.AMMO);
+        return ammo != null && ammo.getQuantity() > quantity;
     }
 }

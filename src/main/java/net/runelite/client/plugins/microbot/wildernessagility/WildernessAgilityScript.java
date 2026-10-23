@@ -78,7 +78,7 @@ public final class WildernessAgilityScript extends Script {
     private boolean waitingForDispenserLoot = false;
     private int dispenserLootAttempts = 0;
     private int dispenserTicketsBefore = 0;
-    private int dispenserPreValue = 0;
+    private long dispenserPreValue = 0;
     private Rs2TileObjectModel cachedDispenserObj = null;
     private long lastObjectCheck = 0;
     
@@ -132,7 +132,7 @@ public final class WildernessAgilityScript extends Script {
     private int bankWorld1 = -1;
     private int bankWorld2 = -1;
     private long lastLadderInteractTime = 0;
-    private int cachedInventoryValue = 0;
+    private long cachedInventoryValue = 0;
     private long lastObstacleInteractTime = 0;
     private WorldPoint lastObstaclePosition = null;
     @Getter
@@ -190,7 +190,7 @@ public final class WildernessAgilityScript extends Script {
     private boolean deathDetected = false;
     
     // Looting bag value tracking
-    private int lootingBagValue = 0;
+    private long lootingBagValue = 0;
     private WildernessAgilityItems wildyItems;
     private boolean waitingForLootingBagSync = false;
     private boolean hasCheckedLootingBagOnStartup = false; // Only check once per script run
@@ -464,8 +464,8 @@ public final class WildernessAgilityScript extends Script {
         return false;
     }
 
-    public int getInventoryValue() {
-        int mainInventoryValue = (int) Rs2Inventory.items().filter(Objects::nonNull).mapToLong(Rs2ItemModel::getPrice).sum();
+    public long getInventoryValue() {
+        long mainInventoryValue = Rs2Inventory.items().filter(Objects::nonNull).mapToLong(Rs2ItemModel::getPrice).sum();
         
         // Now we track looting bag value via chat messages - much more accurate!
         return mainInventoryValue + lootingBagValue;
@@ -474,7 +474,7 @@ public final class WildernessAgilityScript extends Script {
     /**
      * Gets just the looting bag value
      */
-    public int getLootingBagValue() {
+    public long getLootingBagValue() {
         return lootingBagValue;
     }
     
@@ -483,7 +483,7 @@ public final class WildernessAgilityScript extends Script {
      * @deprecated Use getInventoryValue() instead - it now includes looting bag value
      */
     @Deprecated
-    public int getTotalValueWithLootingBag() {
+    public long getTotalValueWithLootingBag() {
         return getInventoryValue();
     }
     
@@ -509,7 +509,7 @@ public final class WildernessAgilityScript extends Script {
     private boolean isInUndergroundPit() {
         return Microbot.getRs2TileObjectCache().query().withId(UNDERGROUND_OBJECT_ID).nearest() != null;
     }
-    private void recoverFromPit() {
+    void recoverFromPit() {
         // First check if we're still in the pit using game object detection
         if (isInUndergroundPit()) {
             // Immediately refresh ladder object before attempting to interact
@@ -521,9 +521,12 @@ public final class WildernessAgilityScript extends Script {
                 if (now - lastLadderInteractTime > 2000) {
                     // Refresh ladder object again just before interaction
                     List<Rs2TileObjectModel> laddersNow = Microbot.getRs2TileObjectCache().query().withId(17385).toList();
-                    ladderObj = laddersNow.isEmpty() ? null : laddersNow.get(0);
-                    ladderObj.click("Climb-up");
-                    lastLadderInteractTime = now;
+                    if (!laddersNow.isEmpty()) {
+                        ladderObj = laddersNow.get(0);
+                    }
+                    if (ladderObj.click("Climb-up")) {
+                        lastLadderInteractTime = now;
+                    }
                 }
             }
             return; // Return here to let the next tick handle the state transition
@@ -890,7 +893,7 @@ public final class WildernessAgilityScript extends Script {
                 lastLapTimestamp = now;
                 dispenserLoots++;
                 lapCount++;
-                int dispenserValue = getInventoryValue() - dispenserPreValue;
+                long dispenserValue = getInventoryValue() - dispenserPreValue;
                 String formattedValue = NumberFormat.getIntegerInstance().format(dispenserValue);
                 info("Dispenser Value: " + formattedValue);
                 
@@ -2062,8 +2065,8 @@ public final class WildernessAgilityScript extends Script {
         int itemId1 = wildyItems.nameToItemId(item1);
         int itemId2 = wildyItems.nameToItemId(item2);
         
-        int value1 = (int) (Microbot.getItemManager().getItemPrice(itemId1) * qty1);
-        int value2 = (int) (Microbot.getItemManager().getItemPrice(itemId2) * qty2);
+        long value1 = Microbot.getItemManager().getItemPrice(itemId1) * qty1;
+        long value2 = Microbot.getItemManager().getItemPrice(itemId2) * qty2;
         
         lootingBagValue += value1 + value2;
     }
@@ -2076,9 +2079,9 @@ public final class WildernessAgilityScript extends Script {
         int itemId2 = wildyItems.nameToItemId(item2);
         int itemId3 = wildyItems.nameToItemId(item3);
         
-        int value1 = (int) (Microbot.getItemManager().getItemPrice(itemId1) * qty1);
-        int value2 = (int) (Microbot.getItemManager().getItemPrice(itemId2) * qty2);
-        int value3 = (int) (Microbot.getItemManager().getItemPrice(itemId3) * qty3);
+        long value1 = Microbot.getItemManager().getItemPrice(itemId1) * qty1;
+        long value2 = Microbot.getItemManager().getItemPrice(itemId2) * qty2;
+        long value3 = Microbot.getItemManager().getItemPrice(itemId3) * qty3;
         
         lootingBagValue += value1 + value2 + value3;
     }
@@ -2130,10 +2133,10 @@ public final class WildernessAgilityScript extends Script {
         wildyItems.setupWildernessItemsIfEmpty();
         
         // Calculate value from container items
-        int totalValue = 0;
+        long totalValue = 0;
         for (net.runelite.api.Item item : container.getItems()) {
             if (item.getId() > 0) { // Valid item
-                int itemValue = (int) (Microbot.getItemManager().getItemPrice(item.getId()) * item.getQuantity());
+                long itemValue = Microbot.getItemManager().getItemPrice(item.getId()) * item.getQuantity();
                 totalValue += itemValue;
             }
         }

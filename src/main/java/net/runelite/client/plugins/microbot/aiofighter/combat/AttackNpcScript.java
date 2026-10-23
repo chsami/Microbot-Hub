@@ -44,6 +44,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.IntUnaryOperator;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
 import static net.runelite.api.gameval.VarbitID.*;
@@ -158,12 +160,10 @@ public class AttackNpcScript extends Script {
                             String name = npc.getName();
                             return name != null && !npcsToAttack.isEmpty() && npcsToAttack.contains(name.toLowerCase());
                         })
-                        .toList()
-                        .stream()
-                        .sorted(Comparator
-                                .comparingInt((Rs2NpcModel npc) -> Objects.equals(npc.getInteracting(), localPlayer) ? 0 : 1)
-                                .thenComparingInt(npc -> rs2PlayerPoint.distanceToPath(npcWorldLocation(npc, instanced))))
-                        .collect(Collectors.toList());
+                        .toList();
+                attackableNpcs = sortBySnapshotKeys(attackableNpcs,
+                        npc -> Objects.equals(npc.getInteracting(), localPlayer) ? 0 : 1,
+                        npc -> rs2PlayerPoint.distanceToPath(npcWorldLocation(npc, instanced)));
 
                 filteredAttackableNpcs.set(attackableNpcs);
 
@@ -227,18 +227,11 @@ public class AttackNpcScript extends Script {
                 }
                 messageShown = false;
 
-                if (Rs2AntibanSettings.antibanEnabled && Rs2AntibanSettings.actionCooldownChance > 0) {
-                    if (Rs2AntibanSettings.actionCooldownActive) {
-                        AIOFighterPlugin.setState(State.COMBAT);
-                        handleItemOnNpcToKill(config);
-                        return;
-                    }
-                } else {
-                    if (Rs2Combat.inCombat()) {
-                        AIOFighterPlugin.setState(State.COMBAT);
-                        handleItemOnNpcToKill(config);
-                        return;
-                    }
+                if (shouldHoldAttack(Rs2Combat.inCombat(), Rs2AntibanSettings.antibanEnabled,
+                        Rs2AntibanSettings.actionCooldownChance, Rs2AntibanSettings.actionCooldownActive)) {
+                    AIOFighterPlugin.setState(State.COMBAT);
+                    handleItemOnNpcToKill(config);
+                    return;
                 }
 
                 if (!attackableNpcs.isEmpty()) {
@@ -252,7 +245,7 @@ public class AttackNpcScript extends Script {
                     npc.click("attack");
                     Microbot.status = "Attacking " + npc.getName();
                     Rs2Antiban.actionCooldown();
-                    //sleepUntil(Rs2Player::isInteracting, 1000);
+                    sleepUntil(Rs2Player::isInteracting, 1000);
 
                     if (config.togglePrayer()) {
                         if (!config.toggleQuickPray()) {
@@ -303,6 +296,25 @@ public class AttackNpcScript extends Script {
     }
 
 
+    static <T> List<T> sortBySnapshotKeys(List<T> items, ToIntFunction<T> primary, ToIntFunction<T> secondary) {
+        List<int[]> keyed = new ArrayList<>(items.size());
+        for (int i = 0; i < items.size(); i++) {
+            T item = items.get(i);
+            keyed.add(new int[]{primary.applyAsInt(item), secondary.applyAsInt(item), i});
+        }
+        keyed.sort(Comparator.<int[]>comparingInt(k -> k[0]).thenComparingInt(k -> k[1]));
+        List<T> sorted = new ArrayList<>(keyed.size());
+        for (int[] k : keyed) {
+            sorted.add(items.get(k[2]));
+        }
+        return sorted;
+    }
+
+    static boolean shouldHoldAttack(boolean inCombat, boolean antibanEnabled, double actionCooldownChance, boolean actionCooldownActive) {
+        if (inCombat) return true;
+        return antibanEnabled && actionCooldownChance > 0 && actionCooldownActive;
+    }
+
     /**
      * item on npcs that need to kill like rockslug
      */
@@ -312,20 +324,26 @@ public class AttackNpcScript extends Script {
                 .where(n -> n.isDead() && Objects.equals(n.getInteracting(), localPlayer))
                 .first();
         if (npc == null) return;
-        List<String> lizardVariants = new ArrayList<>(Arrays.asList("Lizard", "Desert Lizard", "Small Lizard"));
+        int itemId = finishingItemFor(npc.getName(), npc.getHealthRatio(), Microbot::getVarbitValue);
+        if (itemId == -1) return;
         // Rs2Inventory.useItemOnNpc only accepts the legacy util.npc.Rs2NpcModel — wrap our underlying NPC at the call site.
         net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel legacyNpc =
                 new net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel(npc.getNpc());
-        if (Microbot.getVarbitValue(SLAYER_AUTOKILL_DESERTLIZARDS) == 0 && lizardVariants.contains(npc.getName()) && npc.getHealthRatio() < 5) {
-            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_ICY_WATER, legacyNpc);
-            Rs2Player.waitForAnimation();
-        } else if (Microbot.getVarbitValue(SLAYER_AUTOKILL_ROCKSLUGS) == 0 && npc.getName().equalsIgnoreCase("rockslug") && npc.getHealthRatio() < 5) {
-            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_BAG_OF_SALT, legacyNpc);
-            Rs2Player.waitForAnimation();
-        } else if (Microbot.getVarbitValue(SLAYER_AUTOKILL_GARGOYLES) == 0 && npc.getName().equalsIgnoreCase("gargoyle") && npc.getHealthRatio() < 3) {
-            Rs2Inventory.useItemOnNpc(ItemID.SLAYER_ROCK_HAMMER, legacyNpc);
-            Rs2Player.waitForAnimation();
+        Rs2Inventory.useItemOnNpc(itemId, legacyNpc);
+        Rs2Player.waitForAnimation();
+    }
+
+    static int finishingItemFor(String name, int healthRatio, IntUnaryOperator varbits) {
+        if (name == null) return -1;
+        List<String> lizardVariants = Arrays.asList("Lizard", "Desert Lizard", "Small Lizard");
+        if (varbits.applyAsInt(SLAYER_AUTOKILL_DESERTLIZARDS) == 0 && lizardVariants.contains(name) && healthRatio < 5) {
+            return ItemID.SLAYER_ICY_WATER;
+        } else if (varbits.applyAsInt(SLAYER_AUTOKILL_ROCKSLUGS) == 0 && name.equalsIgnoreCase("rockslug") && healthRatio < 5) {
+            return ItemID.SLAYER_BAG_OF_SALT;
+        } else if (varbits.applyAsInt(SLAYER_AUTOKILL_GARGOYLES) == 0 && name.equalsIgnoreCase("gargoyle") && healthRatio < 3) {
+            return ItemID.SLAYER_ROCK_HAMMER;
         }
+        return -1;
     }
 
     /**
