@@ -1,9 +1,11 @@
 package net.runelite.client.plugins.microbot.crafting.scripts;
 
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.crafting.CraftingConfig;
+import net.runelite.client.plugins.microbot.crafting.enums.FlaxSpinLocations;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -28,6 +30,7 @@ public class FlaxSpinScript extends Script implements ICraftingScript {
 
     State state;
     boolean init = true;
+    private boolean missingLocationLogged = false;
 
     @Override
     public String getName() {
@@ -56,11 +59,21 @@ public class FlaxSpinScript extends Script implements ICraftingScript {
     public boolean run(CraftingConfig config) {
         Microbot.enableAutoRunOn = false;
         initialPlayerLocation = null;
+        missingLocationLogged = false;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!super.run()) return;
                 if (!Microbot.isLoggedIn()) return;
                 long startTime = System.currentTimeMillis();
+
+                if (getSpinLocation(config) == null) {
+                    if (!missingLocationLogged) {
+                        Microbot.log("Flax Spinner: select a flax spin location in the Crafting config");
+                        missingLocationLogged = true;
+                    }
+                    return;
+                }
+                missingLocationLogged = false;
 
                 if (init) {
                     getState(config);
@@ -141,6 +154,15 @@ public class FlaxSpinScript extends Script implements ICraftingScript {
     }
 
     private boolean isNearSpinningWheel(CraftingConfig config, int distance) {
-        return Rs2Player.getWorldLocation().distanceTo(config.flaxSpinLocation().getWorldPoint()) <= distance;
+        return isNearSpinningWheel(Rs2Player.getWorldLocation(), getSpinLocation(config), distance);
+    }
+
+    static boolean isNearSpinningWheel(WorldPoint playerLocation, WorldPoint spinLocation, int distance) {
+        return playerLocation != null && spinLocation != null && playerLocation.distanceTo(spinLocation) <= distance;
+    }
+
+    static WorldPoint getSpinLocation(CraftingConfig config) {
+        FlaxSpinLocations location = config.flaxSpinLocation();
+        return location == null ? null : location.getWorldPoint();
     }
 }
