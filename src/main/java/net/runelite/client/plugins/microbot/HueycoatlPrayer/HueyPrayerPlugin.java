@@ -7,11 +7,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import net.runelite.api.Client;
 import net.runelite.api.HeadIcon;
+import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.Projectile;
 import net.runelite.api.WorldView;
-import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.coords.LocalPoint;
 
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ProjectileMoved;
 
 import net.runelite.client.eventbus.Subscribe;
@@ -23,9 +25,12 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.Set;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @PluginDescriptor(
@@ -39,7 +44,7 @@ import java.util.Set;
 )
 public class HueyPrayerPlugin extends Plugin
 {
-    static final String VERSION = "1.0.7";
+    static final String VERSION = "1.0.9";
     @Inject
     private Client client;
 
@@ -53,9 +58,11 @@ public class HueyPrayerPlugin extends Plugin
     private Rs2PrayerEnum currentPrayer = null;
     private int lastSwitchTick = -1;
 
-    /** Huey projectiles still in flight toward the player (identity-based). */
-    private final Set<Projectile> incomingHueyProjectiles =
-            Collections.newSetFromMap(new IdentityHashMap<>());
+    /** End cycle snapshotted when each Huey projectile was first seen. */
+    private final Map<Projectile, Integer> incomingEndCycles = new IdentityHashMap<>();
+
+    /** After the last tracked projectile lands, trio mode keeps balancing until the next one. */
+    private boolean pillarWindow;
 
     @Provides
     HueyPrayerConfig provideConfig(net.runelite.client.config.ConfigManager configManager)
@@ -66,6 +73,10 @@ public class HueyPrayerPlugin extends Plugin
     @Override
     protected void startUp()
     {
+        currentPrayer = null;
+        lastSwitchTick = -1;
+        incomingEndCycles.clear();
+        pillarWindow = false;
         Microbot.log("Huey Prayer started");
     }
 
@@ -74,7 +85,8 @@ public class HueyPrayerPlugin extends Plugin
     {
         Rs2Prayer.disableAllPrayers();
         currentPrayer = null;
-        incomingHueyProjectiles.clear();
+        incomingEndCycles.clear();
+        pillarWindow = false;
     }
 
     @Subscribe
@@ -118,26 +130,13 @@ public class HueyPrayerPlugin extends Plugin
 
         if (!config.disableAfterImpact())
         {
-            if (!incomingHueyProjectiles.isEmpty())
-            {
-                incomingHueyProjectiles.clear();
-            }
+            incomingEndCycles.clear();
+            pillarWindow = false;
         }
 
-        if (config.disableAfterImpact())
+        if (incomingEndCycles.containsKey(projectile))
         {
-            if (incomingHueyProjectiles.contains(projectile))
-            {
-                if (projectile.getRemainingCycles() <= 0)
-                {
-                    incomingHueyProjectiles.remove(projectile);
-                    if (incomingHueyProjectiles.isEmpty())
-                    {
-                        onHueyProjectilePhaseEnded();
-                    }
-                }
-                return;
-            }
+            return;
         }
 
         if (projectile.getRemainingCycles() <= 0)
@@ -152,8 +151,9 @@ public class HueyPrayerPlugin extends Plugin
 
         if (config.disableAfterImpact())
         {
-            incomingHueyProjectiles.add(projectile);
+            incomingEndCycles.put(projectile, projectile.getEndCycle());
         }
+        pillarWindow = false;
 
         switch (id)
         {
@@ -170,6 +170,76 @@ public class HueyPrayerPlugin extends Plugin
                 switchPrayer(Rs2PrayerEnum.PROTECT_MELEE);
                 break;
         }
+    }
+
+    @Subscribe
+    public void onGameTick(GameTick event)
+    {
+        if (!config.enabled())
+        {
+            return;
+        }
+        if (!fightStillNeedsPrayer())
+        {
+            releaseManagedPrayers();
+            return;
+        }
+        if (!config.disableAfterImpact())
+        {
+            incomingEndCycles.clear();
+            pillarWindow = false;
+            return;
+        }
+        pruneLandedProjectiles();
+        if (!pillarWindow)
+        {
+            return;
+        }
+        if (!incomingEndCycles.isEmpty())
+        {
+            return;
+        }
+        if (!config.trioMode())
+        {
+            return;
+        }
+        applyTrioProtection();
+    }
+
+    /**
+     * ProjectileMoved stops while the projectile is still in the air, so impact is
+     * decided from the end cycle captured when it was first seen.
+     */
+    private void pruneLandedProjectiles()
+    {
+        int cycle = client.getGameCycle();
+        boolean removed = false;
+        Iterator<Map.Entry<Projectile, Integer>> it = incomingEndCycles.entrySet().iterator();
+        while (it.hasNext())
+        {
+            Map.Entry<Projectile, Integer> entry = it.next();
+            Integer endCycle = entry.getValue();
+            if (endCycle == null)
+            {
+                it.remove();
+                removed = true;
+                continue;
+            }
+            if (HueyPrayerBalance.hasLanded(cycle, endCycle))
+            {
+                it.remove();
+                removed = true;
+            }
+        }
+        if (!removed)
+        {
+            return;
+        }
+        if (!incomingEndCycles.isEmpty())
+        {
+            return;
+        }
+        onHueyProjectilePhaseEnded();
     }
 
     private void switchPrayer(Rs2PrayerEnum prayer)
@@ -199,17 +269,98 @@ public class HueyPrayerPlugin extends Plugin
      */
     private void onHueyProjectilePhaseEnded()
     {
-        if (config.trioMode())
+        if (!fightStillNeedsPrayer())
         {
-            Rs2PrayerEnum pillar = resolveTrioProtectionPrayer();
-            if (pillar != null)
-            {
-                switchPrayer(pillar);
-            }
+            releaseManagedPrayers();
             return;
         }
+        if (config.trioMode())
+        {
+            pillarWindow = true;
+            applyTrioProtection();
+            return;
+        }
+        pillarWindow = false;
         Rs2Prayer.disableAllPrayers();
         currentPrayer = null;
+    }
+
+    /**
+     * Trio and attack prayers are only held in the arena while Huey is alive.
+     * A defeated head, a respawn placeholder, or leaving the instance turns them off
+     * until the next kill's first projectile.
+     */
+    private boolean fightStillNeedsPrayer()
+    {
+        Player local = client.getLocalPlayer();
+        if (local == null)
+        {
+            return false;
+        }
+        WorldView worldView = local.getWorldView();
+        if (worldView == null)
+        {
+            worldView = client.getTopLevelWorldView();
+        }
+        if (worldView == null)
+        {
+            return false;
+        }
+        boolean inArena = false;
+        boolean hueyAlive = false;
+        for (NPC npc : worldView.npcs())
+        {
+            if (npc == null)
+            {
+                continue;
+            }
+            int id = npc.getId();
+            if (!HueyPrayerBalance.isArenaPresence(id))
+            {
+                continue;
+            }
+            inArena = true;
+            if (HueyPrayerBalance.isLivingForm(id))
+            {
+                if (!npc.isDead())
+                {
+                    hueyAlive = true;
+                }
+            }
+        }
+        return HueyPrayerBalance.shouldHoldPrayers(inArena, hueyAlive);
+    }
+
+    private void releaseManagedPrayers()
+    {
+        incomingEndCycles.clear();
+        if (!pillarWindow)
+        {
+            if (currentPrayer == null)
+            {
+                return;
+            }
+        }
+        pillarWindow = false;
+        Rs2Prayer.disableAllPrayers();
+        currentPrayer = null;
+    }
+
+    private void applyTrioProtection()
+    {
+        Rs2PrayerEnum pillar = resolveTrioProtectionPrayer();
+        if (pillar == null)
+        {
+            return;
+        }
+        if (pillar == currentPrayer)
+        {
+            if (Rs2Prayer.isPrayerActive(pillar))
+            {
+                return;
+            }
+        }
+        switchPrayer(pillar);
     }
 
     /**
@@ -231,20 +382,33 @@ public class HueyPrayerPlugin extends Plugin
         {
             return null;
         }
-        WorldPoint localPoint = local.getWorldLocation();
-        WorldView worldView = client.getTopLevelWorldView();
+        WorldView worldView = local.getWorldView();
+        if (worldView == null)
+        {
+            worldView = client.getTopLevelWorldView();
+        }
         if (worldView == null)
         {
             return null;
         }
 
-        int melee = 0;
-        int ranged = 0;
-        int magic = 0;
         int radius = config.trioRadius();
         if (radius < 1)
         {
             radius = 1;
+        }
+        boolean countWholeArena = worldView.isInstance();
+        LocalPoint localTile = local.getLocalLocation();
+        String myName = local.getName();
+
+        int melee = 0;
+        int ranged = 0;
+        int magic = 0;
+        List<String> groupNames = new ArrayList<>();
+        List<String> namesOnMyStyle = new ArrayList<>();
+        if (myName != null)
+        {
+            groupNames.add(myName);
         }
 
         for (Player p : worldView.players())
@@ -257,66 +421,96 @@ public class HueyPrayerPlugin extends Plugin
             {
                 continue;
             }
-            WorldPoint wp = p.getWorldLocation();
-            if (wp == null)
+            String name = p.getName();
+            if (myName != null)
             {
-                continue;
+                if (myName.equals(name))
+                {
+                    continue;
+                }
             }
-            if (wp.distanceTo(localPoint) > radius)
+            if (!countWholeArena)
             {
-                continue;
+                if (!withinRadius(localTile, p.getLocalLocation(), radius))
+                {
+                    continue;
+                }
             }
-            HeadIcon overhead = p.getOverheadIcon();
-            if (overhead == HeadIcon.MELEE)
+            if (name != null)
+            {
+                groupNames.add(name);
+            }
+            Rs2PrayerEnum style = overheadToPrayer(p.getOverheadIcon());
+            if (style == Rs2PrayerEnum.PROTECT_MELEE)
             {
                 melee++;
             }
-            else if (overhead == HeadIcon.RANGED)
+            else if (style == Rs2PrayerEnum.PROTECT_RANGE)
             {
                 ranged++;
             }
-            else if (overhead == HeadIcon.MAGIC)
+            else if (style == Rs2PrayerEnum.PROTECT_MAGIC)
             {
                 magic++;
             }
-        }
-
-        if (melee == 0)
-        {
-            if (ranged == 0)
+            if (style != null)
             {
-                if (magic == 0)
+                if (style == currentPrayer)
                 {
-                    return protectionMatchingLocalOverhead(local);
+                    if (name != null)
+                    {
+                        namesOnMyStyle.add(name);
+                    }
                 }
             }
         }
 
-        int minCount = melee;
-        if (ranged < minCount)
+        Collections.sort(groupNames, String.CASE_INSENSITIVE_ORDER);
+        Rs2PrayerEnum chosen = HueyPrayerBalance.chooseAutobalance(
+            melee,
+            ranged,
+            magic,
+            currentPrayer,
+            namesOnMyStyle,
+            groupNames,
+            myName);
+        if (config.debug())
         {
-            minCount = ranged;
+            if (chosen != currentPrayer)
+            {
+                Microbot.log("Huey autobalance melee=" + melee + " range=" + ranged + " magic=" + magic + " -> " + chosen);
+            }
         }
-        if (magic < minCount)
-        {
-            minCount = magic;
-        }
+        return chosen;
+    }
 
-        if (melee == minCount)
+    private static boolean withinRadius(LocalPoint localTile, LocalPoint otherTile, int radius)
+    {
+        if (localTile == null)
+        {
+            return false;
+        }
+        if (otherTile == null)
+        {
+            return false;
+        }
+        int distance = HueyPrayerBalance.sceneTileDistance(
+            localTile.getSceneX(),
+            localTile.getSceneY(),
+            localTile.getWorldView(),
+            otherTile.getSceneX(),
+            otherTile.getSceneY(),
+            otherTile.getWorldView());
+        return distance <= radius;
+    }
+
+    private static Rs2PrayerEnum overheadToPrayer(HeadIcon overhead)
+    {
+        if (overhead == HeadIcon.MELEE)
         {
             return Rs2PrayerEnum.PROTECT_MELEE;
         }
-        if (ranged == minCount)
-        {
-            return Rs2PrayerEnum.PROTECT_RANGE;
-        }
-        return Rs2PrayerEnum.PROTECT_MAGIC;
-    }
-
-    private static Rs2PrayerEnum protectionMatchingLocalOverhead(Player local)
-    {
-        HeadIcon overhead = local.getOverheadIcon();
-        if (overhead == HeadIcon.MELEE)
+        if (overhead == HeadIcon.DEFLECT_MELEE)
         {
             return Rs2PrayerEnum.PROTECT_MELEE;
         }
@@ -324,10 +518,18 @@ public class HueyPrayerPlugin extends Plugin
         {
             return Rs2PrayerEnum.PROTECT_RANGE;
         }
+        if (overhead == HeadIcon.DEFLECT_RANGE)
+        {
+            return Rs2PrayerEnum.PROTECT_RANGE;
+        }
         if (overhead == HeadIcon.MAGIC)
         {
             return Rs2PrayerEnum.PROTECT_MAGIC;
         }
-        return Rs2PrayerEnum.PROTECT_MELEE;
+        if (overhead == HeadIcon.DEFLECT_MAGE)
+        {
+            return Rs2PrayerEnum.PROTECT_MAGIC;
+        }
+        return null;
     }
 }
