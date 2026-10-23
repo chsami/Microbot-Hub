@@ -4,7 +4,7 @@ Auto prayer vs Hueycoatl (3-style projectile)
 
 | | |
 |---|---|
-| Version | 1.0.7 |
+| Version | 1.0.9 |
 | Works with Microbot | 2.1.34 or newer |
 | Author | Unknown Author |
 | Tags | microbot, huey, prayer |
