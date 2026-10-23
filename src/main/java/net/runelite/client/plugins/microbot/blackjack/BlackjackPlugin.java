@@ -33,7 +33,7 @@ import java.util.jar.JarFile;
         description = "Lures and blackjacks a supported Pollnivneach target",
         authors = {"jogonjohn"},
         version = BlackjackPlugin.VERSION,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.38",
         tags = {"thieving", "blackjack", "pollnivneach"},
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
