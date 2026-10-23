@@ -69,7 +69,7 @@ public class FishingTrawlerScript extends Script {
                         Microbot.log("Crossing Gangplank");
                         Rs2Player.waitForWalking(10000);
                     }
-                } else if (Microbot.getRs2TileObjectCache().query().withId(OBJECT_DAISIES).nearest() != null && Rs2Player.getWorldLocation().getPlane() == 0) {
+                } else if (Microbot.getRs2TileObjectCache().query().withId(OBJECT_DAISIES).nearest() != null && isOnGroundFloor()) {
                     Microbot.log("Washed up — heading back");
                     Rs2Walker.walkTo(new WorldPoint(2676, 3170, 0));
                 }
@@ -96,7 +96,7 @@ public class FishingTrawlerScript extends Script {
                     log.debug("Contribution widget missing or malformed.");
                 }
 
-                if (Rs2Player.getWorldLocation().getPlane() == 0 && Microbot.getRs2TileObjectCache().query().withId(OBJECT_SHIPSLADDER).nearest() != null) {
+                if (isOnGroundFloor() && Microbot.getRs2TileObjectCache().query().withId(OBJECT_SHIPSLADDER).nearest() != null) {
                     Microbot.log("In minigame — heading up ladder");
                     wasInsideBoat = true;
                     Rs2GameObject.interact(new WorldPoint(1884, 4826, 0), "Climb-up");
@@ -128,6 +128,7 @@ public class FishingTrawlerScript extends Script {
                         Rs2TileObjectModel ladderObject = Microbot.getRs2TileObjectCache().query().withId(OBJECT_TENTACLE_LADDER).nearest();
                         if (ladderObject != null) {
                             WorldPoint current = Rs2Player.getWorldLocation();
+                            if (current == null) return;
                             WorldPoint ladder = ladderObject.getWorldLocation();
                             int plane = current.getPlane();
                             int dx = ladder.dx(1).getX();
@@ -154,6 +155,11 @@ public class FishingTrawlerScript extends Script {
         }, 0, 600, TimeUnit.MILLISECONDS);
 
         return true;
+    }
+
+    static boolean isOnGroundFloor() {
+        WorldPoint location = Rs2Player.getWorldLocation();
+        return location != null && location.getPlane() == 0;
     }
 
     @Override
