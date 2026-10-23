@@ -923,6 +923,27 @@
         "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/playermonitorplugin-1.0.5.jar"
     },
     {
+        "internalName": "BlackjackPlugin",
+        "name": "<html>[<font color=#b8f704>JOJ</font>] Blackjack",
+        "description": "Lures and blackjacks a supported Pollnivneach target",
+        "tags": [
+            "thieving",
+            "blackjack",
+            "pollnivneach"
+        ],
+        "version": "1.1.29",
+        "minClientVersion": "2.6.38",
+        "authors": [
+            "jogonjohn"
+        ],
+        "iconUrl": "",
+        "cardUrl": "",
+        "disable": false,
+        "addedAt": "2026-10-23T05:14:03Z",
+        "sha256": "2ff248ef2b78df0cc8a4a68df28fa20a84446d7f592331f7c8012240661b7e28",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/blackjackplugin-1.1.29.jar"
+    },
+    {
         "internalName": "GabulhasGlassMakePlugin",
         "name": "Glass Make",
         "description": "",
@@ -1603,7 +1624,7 @@
             "hunter",
             "microbot"
         ],
-        "version": "1.5.4",
+        "version": "1.5.5",
         "minClientVersion": "2.6.30",
         "authors": [
             "Unknown Author"
@@ -1612,8 +1633,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "7ad55c66fa8e6b212fca87639d19ba9a5c16f3a2d5cdc1b04f1e4fbe4bd3b9b5",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autohunterplugin-1.5.4.jar"
+        "sha256": "94647efbb4de07191f169c205b3b195b95cdb26396fb699c897d1ad321c29e29",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autohunterplugin-1.5.5.jar"
     },
     {
         "internalName": "ZulrahSlayerPlugin",
@@ -3062,7 +3083,7 @@
             "chompy",
             "combat"
         ],
-        "version": "1.0.1",
+        "version": "1.0.4",
         "minClientVersion": "1.9.8",
         "authors": [
             "Unknown"
@@ -3071,8 +3092,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoChompyKillerPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-22T03:11:03Z",
-        "sha256": "219b68cc96a08ab6c0a13806407f0c55edf56501b8fa45eab421d2026847e1c3",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autochompykillerplugin-1.0.1.jar"
+        "sha256": "9f64ff4a887800f775e556e6f294bfe4efe537c94916235f9d8bd4cf528b0fec",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autochompykillerplugin-1.0.4.jar"
     },
     {
         "internalName": "SummerGardenPlugin",
@@ -3505,7 +3526,7 @@
             "bird",
             "skilling"
         ],
-        "version": "1.0.2",
+        "version": "1.0.3",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -3514,8 +3535,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-14T00:06:02Z",
-        "sha256": "1b08c88e4976e2bad044d20d9a5e546c055a4c0dbf25715873447b37f58ceda6",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/birdhunterplugin-1.0.2.jar"
+        "sha256": "e6d4f2e6d427e55e2d3451c55d133759e89a3fff661483e45cf493ad149b3682",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/birdhunterplugin-1.0.3.jar"
     },
     {
         "internalName": "ChatbotPlugin",
