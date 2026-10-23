@@ -41,7 +41,7 @@ import java.util.Map;
 )
 public class SalamanderPlugin extends Plugin {
 
-    public final static String version = "1.0.0";
+    public final static String version = "1.1.0";
 
     @Getter
     private final Map<WorldPoint, HunterTrap> traps = new HashMap<>();

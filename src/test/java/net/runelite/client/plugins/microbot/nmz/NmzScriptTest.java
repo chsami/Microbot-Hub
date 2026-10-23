@@ -22,4 +22,19 @@ class NmzScriptTest {
     void locationInsideDreamIsNotOutside() {
         assertFalse(NmzScript.isNearLobby(new WorldPoint(2273, 4694, 0)));
     }
+
+    @Test
+    void unknownPlayerLocationIsNotAwayFromCenter() {
+        assertFalse(NmzScript.isAwayFromCenter(new WorldPoint(2273, 4694, 0), null));
+    }
+
+    @Test
+    void playerFarFromCenterIsAwayFromCenter() {
+        assertTrue(NmzScript.isAwayFromCenter(new WorldPoint(2273, 4694, 0), new WorldPoint(2290, 4694, 0)));
+    }
+
+    @Test
+    void playerNearCenterIsNotAwayFromCenter() {
+        assertFalse(NmzScript.isAwayFromCenter(new WorldPoint(2273, 4694, 0), new WorldPoint(2275, 4694, 0)));
+    }
 }

@@ -172,7 +172,8 @@ public class DroFirecapeScript extends Script {
         }
         if (FcAfterExit.repeat(config.afterExitBehavior(), hadCave, exhaustedSupply != null, false)) {
             trace.event("repeat", failed ? "Retry after failed cave attempt" : "Get another cape");
-            run(config);
+            // This restart runs inside the old controller; do not interrupt its trace writes.
+            start(config, false);
             return;
         }
         terminalLogout.begin(exhaustedSupply != null ? Microbot.supplyMessage(exhaustedSupply)
@@ -180,10 +181,12 @@ public class DroFirecapeScript extends Script {
                 : "Firecape stopped: " + failureReason);
     }
 
-    public boolean run(DroFirecapeConfig configuration) {
+    public boolean run(DroFirecapeConfig configuration) { return start(configuration, true); }
+
+    private boolean start(DroFirecapeConfig configuration, boolean interruptPrevious) {
         enabled=false;
         terminalLogout.reset();exhaustedSupply=null;
-        if(mainScheduledFuture!=null)mainScheduledFuture.cancel(true);
+        if(mainScheduledFuture!=null)mainScheduledFuture.cancel(interruptPrevious);
         if(scheduledFuture!=null)scheduledFuture.cancel(true);
         FcTickPrayers previous=tickPrayers;if(previous!=null)previous.detach();
         config=FcRuntimeConfig.resolve(configuration);keybindings.reset();if(pointerLease!=null)pointerLease.close();
