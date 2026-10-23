@@ -120,7 +120,13 @@ public class SalamanderScript extends Script {
 
     private void handleBanking(SalamanderConfig config) {
         Rs2Bank.walkToBank();
-        Rs2Bank.openBank();
+        if (!Rs2Bank.openBank()) return;
+        if (!Rs2Bank.hasItem(NET_TRAP) && Rs2Inventory.count(NET_TRAP) < 1) {
+            Microbot.log("No net traps in bank: combine a rope and a small fishing net, or buy them from a hunter shop");
+            Rs2Bank.closeBank();
+            shutdown();
+            return;
+        }
         Rs2Bank.withdrawX(NET_TRAP, config.withdrawNumber());
         Rs2Bank.closeBank();
         hasDied = false;
