@@ -24,7 +24,7 @@ public class ClueSolverScript extends Script {
     private Future<?> currentTask;
     private Future<?> itemRequirementsTask;
     private ClueScroll currentClue;
-    private final ScheduledExecutorService executorService = Executors.newScheduledThreadPool(3);
+    private final ScheduledExecutorService executorService = newExecutorService();
 
     @Inject
     Client client;
@@ -42,6 +42,14 @@ public class ClueSolverScript extends Script {
 
     public ClueSolverScript() {
         initializeTaskFactoryMap();
+    }
+
+    private static ScheduledExecutorService newExecutorService() {
+        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(3);
+        executor.setKeepAliveTime(60, TimeUnit.SECONDS);
+        executor.allowCoreThreadTimeOut(true);
+        executor.setRemoveOnCancelPolicy(true);
+        return executor;
     }
 
     private void initializeTaskFactoryMap() {

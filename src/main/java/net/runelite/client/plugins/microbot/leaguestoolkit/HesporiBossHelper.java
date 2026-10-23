@@ -94,6 +94,10 @@ public class HesporiBossHelper {
             fastLoop.cancel(false);
             fastLoop = null;
         }
+        if (fastExecutor != null) {
+            fastExecutor.shutdown();
+            fastExecutor = null;
+        }
         if (lastPrayedStyle != -1) {
             Rs2Prayer.disableAllPrayers();
             lastPrayedStyle = -1;
