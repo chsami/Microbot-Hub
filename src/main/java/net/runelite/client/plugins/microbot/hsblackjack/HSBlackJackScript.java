@@ -522,7 +522,9 @@ public class HSBlackJackScript extends Script {
      */
     private void walkWaitingForNpc(WorldPoint target) {
         if (isLuredNpcValid() && luredNpc.isInteractingWithPlayer()) {
-            int npcDistance = luredNpc.getWorldLocation().distanceTo(Rs2Player.getWorldLocation());
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            if (playerLocation == null) return;
+            int npcDistance = luredNpc.getWorldLocation().distanceTo(playerLocation);
             if (npcDistance > 2) {
                 setState("Waiting for NPC to catch up (distance=" + npcDistance + ")");
                 return;
@@ -707,7 +709,9 @@ public class HSBlackJackScript extends Script {
      * than retrying forever.
      */
     private void handleTravelToStart() {
-        int distance = Rs2Player.getWorldLocation().distanceTo(START_POSITION);
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+        int distance = playerLocation.distanceTo(START_POSITION);
 
         if (distance <= START_ARRIVAL_DISTANCE) {
             setState("Arrived at start position");
@@ -803,7 +807,9 @@ public class HSBlackJackScript extends Script {
                     return;
                 }
 
-                int distance = Rs2Player.getWorldLocation().distanceTo(START_POSITION);
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (playerLocation == null) return;
+                int distance = playerLocation.distanceTo(START_POSITION);
                 if (distance > ARRIVAL_DISTANCE) {
                     setState("Stepping outside the tent to search (distance=" + distance + ")");
                     walkTo(START_POSITION);
@@ -831,7 +837,9 @@ public class HSBlackJackScript extends Script {
         }
 
         WorldPoint npcLocation = luredNpc.getWorldLocation();
-        int distance = Rs2Player.getWorldLocation().distanceTo(npcLocation);
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+        int distance = playerLocation.distanceTo(npcLocation);
 
         if (distance > ARRIVAL_DISTANCE) {
             setState("Running to " + TARGET_NPC_NAME + " (distance=" + distance + ")");
@@ -891,7 +899,8 @@ public class HSBlackJackScript extends Script {
                 sleepTicks(1);
                 boolean valid = isLuredNpcValid();
                 boolean interacting = valid && luredNpc.isInteractingWithPlayer();
-                int dist = valid ? luredNpc.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) : Integer.MAX_VALUE;
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                int dist = valid && playerLocation != null ? luredNpc.getWorldLocation().distanceTo(playerLocation) : Integer.MAX_VALUE;
 
                 if (!interacting || dist > 3) {
                     lureSucceeded = false;
@@ -932,7 +941,9 @@ public class HSBlackJackScript extends Script {
             return;
         }
 
-        int distance = Rs2Player.getWorldLocation().distanceTo(CURTAIN_POSITION);
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+        int distance = playerLocation.distanceTo(CURTAIN_POSITION);
         if (distance > ARRIVAL_DISTANCE) {
             setState("Walking to curtain (distance=" + distance + ")");
             walkWaitingForNpc(CURTAIN_POSITION);
@@ -965,7 +976,9 @@ public class HSBlackJackScript extends Script {
      * already lured and just continue to the close-curtain position.
      */
     private void handleWalkDeeper() {
-        int distance = Rs2Player.getWorldLocation().distanceTo(TENT_DEEP_POSITION);
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+        int distance = playerLocation.distanceTo(TENT_DEEP_POSITION);
         if (distance > ARRIVAL_DISTANCE) {
             setState("Walking deeper into tent (distance=" + distance + ")");
             walkWaitingForNpc(TENT_DEEP_POSITION);
@@ -985,7 +998,9 @@ public class HSBlackJackScript extends Script {
      * Step 6: walk back to a spot near the curtain (from the inside).
      */
     private void handleWalkToClosePosition() {
-        int distance = Rs2Player.getWorldLocation().distanceTo(CURTAIN_CLOSE_POSITION);
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+        int distance = playerLocation.distanceTo(CURTAIN_CLOSE_POSITION);
         if (distance > ARRIVAL_DISTANCE) {
             setState("Walking to close curtain (distance=" + distance + ")");
             walkWaitingForNpc(CURTAIN_CLOSE_POSITION);
@@ -1214,7 +1229,9 @@ public class HSBlackJackScript extends Script {
                     return;
                 }
 
-                int distance = Rs2Player.getWorldLocation().distanceTo(CURTAIN_POSITION);
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (playerLocation == null) return;
+                int distance = playerLocation.distanceTo(CURTAIN_POSITION);
                 if (distance > ARRIVAL_DISTANCE) {
                     restockCurtainStuckSince = -1; // still travelling, not stuck
                     setState("Restock: running to curtain to open it (distance=" + distance + ")");
@@ -1248,7 +1265,9 @@ public class HSBlackJackScript extends Script {
             }
 
             case RESTOCK_WALK_TO_BAR: {
-                int distance = Rs2Player.getWorldLocation().distanceTo(BAR_POSITION);
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (playerLocation == null) return;
+                int distance = playerLocation.distanceTo(BAR_POSITION);
                 if (distance > ARRIVAL_DISTANCE) {
                     setState("Restock: running to bar (distance=" + distance + ")");
                     runTo(BAR_POSITION);
