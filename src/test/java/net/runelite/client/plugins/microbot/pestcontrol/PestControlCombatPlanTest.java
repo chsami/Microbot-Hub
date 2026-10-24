@@ -304,21 +304,52 @@ public final class PestControlCombatPlanTest {
     }
 
     @Test
-    void crushAttackOptionAcceptsVisibleAliasesOnly() {
+    void crushAttackOptionAcceptsVisibleAliases() {
         check(PestControlScript.isAttackOptionMatch("crush", "crush"),
                 "literal Crush should remain valid");
         check(PestControlScript.isAttackOptionMatch("pummel", "crush"),
                 "Pummel should satisfy the configured crush mode");
         check(PestControlScript.isAttackOptionMatch("smash", "crush"),
                 "Smash should satisfy the configured crush mode");
-        check(!PestControlScript.isAttackOptionMatch("pound", "crush"),
-                "unconfigured crush labels must not be accepted");
+        check(PestControlScript.isAttackOptionMatch("pound", "crush"),
+                "Pound should satisfy the configured crush mode");
+        check(!PestControlScript.isAttackOptionMatch("pound", "stab"),
+                "Pound must not satisfy Stab");
         check(!PestControlScript.isAttackOptionMatch("stab", "slash"),
                 "Stab must not satisfy Slash");
         check(PestControlScript.isAttackOptionMatch("rapid", "rapid"),
                 "Rapid should retain exact matching");
         check(!PestControlScript.isAttackOptionMatch("rapid fire", "rapid"),
                 "partial labels must not satisfy Rapid");
+    }
+
+    @Test
+    void meleeAttackOptionsAcceptWeaponSpecificLabels() {
+        check(PestControlScript.isAttackOptionMatch("flick", "slash"),
+                "whip and tentacle Flick should satisfy Slash");
+        check(PestControlScript.isAttackOptionMatch("lash", "slash"),
+                "whip and tentacle Lash should satisfy Slash");
+        check(PestControlScript.isAttackOptionMatch("chop", "slash"),
+                "Chop should satisfy Slash");
+        check(PestControlScript.isAttackOptionMatch("lunge", "stab"),
+                "Lunge should satisfy Stab");
+        check(!PestControlScript.isAttackOptionMatch("lunge", "slash"),
+                "Lunge must not satisfy Slash");
+        check(!PestControlScript.isAttackOptionMatch("flick", "stab"),
+                "Flick must not satisfy Stab");
+        check(!PestControlScript.isAttackOptionMatch("block", "slash"),
+                "Block varies by weapon and must not be guessed");
+    }
+
+    @Test
+    void exactAttackOptionLabelBeatsAlias() {
+        check(PestControlScript.scoreAttackOption("Slash", "Slash")
+                        > PestControlScript.scoreAttackOption("Chop", "Slash"),
+                "scimitar Slash must be preferred over Chop");
+        check(PestControlScript.scoreAttackOption("Flick", "Slash") > 0,
+                "tentacle Flick must be selectable for Slash");
+        check(PestControlScript.scoreAttackOption("Deflect", "Stab") == 0,
+                "tentacle has no Stab option");
     }
 
     private static class TribridConfig implements PestControlConfig {
