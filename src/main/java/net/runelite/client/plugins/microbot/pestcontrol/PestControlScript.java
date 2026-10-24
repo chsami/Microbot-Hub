@@ -70,7 +70,12 @@ public class PestControlScript extends Script {
     private boolean startupCombatPrepared = false;
     private boolean startupAutocastPrepared = false;
     private final Set<String> loadoutFailuresLogged = new HashSet<>();
+    private String lastLoadoutFailure = null;
+    private boolean lastLoadoutFailureBlocking = false;
+    private long lastLoadoutFailureAt = 0L;
+    private long startupBlockedSince = 0L;
     private final Set<String> missingAttackOptionsLogged = new HashSet<>();
+    private boolean attackOptionMissing = false;
     private final Map<String, Integer> attackOptionIndexByWeaponStyle = new HashMap<>();
     private String activeAttackOptionKey = null;
     private long lastBoardingAttemptAt = 0L;
@@ -155,9 +160,15 @@ public class PestControlScript extends Script {
     private static final long BRAWLER_COMPASS_STEP_TIMEOUT_MILLIS = 2_500L;
     private static final long LOADOUT_RETRY_MILLIS = 1_500L;
     private static final long MISSING_LOADOUT_RETRY_MILLIS = 5_000L;
+    private static final long STARTUP_BLOCKED_STOP_MILLIS = 15_000L;
     private static final int BRAWLER_COMPASS_CLEARANCE = 2;
     private static final long SPINNER_TARGET_GRACE_MILLIS = 2_500L;
     private static final long PERIMETER_DETOUR_MILLIS = 10_000L;
+    private static final Map<String, Set<String>> ATTACK_OPTION_ALIASES = Map.of(
+            "stab", Set.of("lunge", "jab", "spike", "impale", "fend"),
+            "slash", Set.of("chop", "hack", "swipe", "flick", "lash", "deflect"),
+            "crush", Set.of("pound", "pummel", "smash", "bash")
+    );
     private static final Pattern POINT_COUNT = Pattern.compile("([\\d,]+)");
     public static final boolean DEBUG = false;
 
@@ -1022,6 +1033,10 @@ public class PestControlScript extends Script {
         startupAutocastPrepared = !combatPlan.supports(PestControlCombatStyle.MAGIC)
                 || config.magicCastingMode() != PestControlMagicMode.AUTOCAST;
         loadoutFailuresLogged.clear();
+        lastLoadoutFailure = null;
+        lastLoadoutFailureBlocking = false;
+        lastLoadoutFailureAt = 0L;
+        startupBlockedSince = 0L;
         missingAttackOptionsLogged.clear();
         attackOptionIndexByWeaponStyle.clear();
         activeAttackOptionKey = null;
@@ -1093,6 +1108,7 @@ public class PestControlScript extends Script {
                     overlayTargetCrowd = 0;
                     overlayTargetHasAttackAction = false;
                     long now = System.currentTimeMillis();
+                    resetStartupBlock();
                     if (loginUnavailableSince == 0L) {
                         loginUnavailableSince = now;
                     }
@@ -1111,15 +1127,23 @@ public class PestControlScript extends Script {
                     return;
                 }
                 loginUnavailableSince = 0L;
-                if (!super.run()) return;
+                if (!super.run()) {
+                    resetStartupBlock();
+                    return;
+                }
                 if (!confirmAutoRetaliateOff()) {
                     transitionTo(RuntimeState.INITIALISING, "disabling Auto Retaliate");
                     return;
                 }
                 if (!prepareStartupCombat()) {
-                    transitionTo(RuntimeState.INITIALISING, "preparing combat loadouts");
+                    if (stopIfStartupLoadoutBlocked()) {
+                        return;
+                    }
+                    transitionTo(RuntimeState.INITIALISING, "preparing combat loadouts"
+                            + (lastLoadoutFailure == null ? "" : " - " + lastLoadoutFailure));
                     return;
                 }
+                resetStartupBlock();
 
                 final boolean isInPestControl = isInPestControl();
                 final boolean isInBoat = isInBoat();
@@ -2593,7 +2617,7 @@ public class PestControlScript extends Script {
             if (applyLoadoutAttackMode(loadout)) {
                 return markLoadoutReady(loadout);
             }
-            logLoadoutFailure(loadout, "combat mode verification failed", false);
+            logAttackModeFailure(loadout);
             return false;
         }
         if (!isItemAvailable(loadout.weapon, EquipmentInventorySlot.WEAPON)) {
@@ -2647,7 +2671,7 @@ public class PestControlScript extends Script {
             return false;
         }
         if (!applyLoadoutAttackMode(loadout)) {
-            logLoadoutFailure(loadout, "combat mode verification failed", false);
+            logAttackModeFailure(loadout);
             return false;
         }
 
@@ -2663,6 +2687,15 @@ public class PestControlScript extends Script {
         }
         return Rs2Inventory.interact(itemName, action, true)
                 && sleepUntil(() -> isItemEquipped(itemName, slot), 2000);
+    }
+
+    private void logAttackModeFailure(PestControlLoadout loadout) {
+        if (attackOptionMissing) {
+            logLoadoutFailure(loadout,
+                    getEquippedWeaponName() + " has no " + loadout.attackOption + " attack style", true);
+            return;
+        }
+        logLoadoutFailure(loadout, "combat mode verification failed", false);
     }
 
     private boolean applyLoadoutAttackMode(PestControlLoadout loadout) {
@@ -2748,13 +2781,44 @@ public class PestControlScript extends Script {
         if (loadoutFailuresLogged.add(failureKey)) {
             Microbot.log("Pest Control loadout unavailable: " + loadout.label + " - " + reason);
         }
+        lastLoadoutFailure = loadout.label + ": " + reason;
+        lastLoadoutFailureBlocking = missingOrBlocked;
+        lastLoadoutFailureAt = System.currentTimeMillis();
         loadoutRetryAfterByKey.put(
                 loadout.key(),
                 System.currentTimeMillis()
                         + (missingOrBlocked ? MISSING_LOADOUT_RETRY_MILLIS : LOADOUT_RETRY_MILLIS));
     }
 
+    private void resetStartupBlock() {
+        startupBlockedSince = 0L;
+        lastLoadoutFailureBlocking = false;
+    }
+
+    private boolean stopIfStartupLoadoutBlocked() {
+        if (!lastLoadoutFailureBlocking) {
+            startupBlockedSince = 0L;
+            return false;
+        }
+        if (startupBlockedSince == 0L) {
+            startupBlockedSince = lastLoadoutFailureAt;
+        }
+        if (lastLoadoutFailureAt - startupBlockedSince < STARTUP_BLOCKED_STOP_MILLIS) {
+            return false;
+        }
+
+        String reason = lastLoadoutFailure;
+        transitionTo(RuntimeState.ERROR, reason);
+        Microbot.log("Pest Control stopped: " + reason);
+        Microbot.showMessage("Pest Control stopped: " + reason + "."
+                + "\nWear or carry the configured gear, or set your own exact item names"
+                + " under Combat styles and the loadout sections in the plugin config.");
+        Microbot.stopPlugin(PestControlPlugin.class);
+        return true;
+    }
+
     private boolean selectAttackOption(String desiredStyle) {
+        attackOptionMissing = false;
         String equippedWeapon = getEquippedWeaponName();
         recordCombatMode(equippedWeapon, desiredStyle + " (setting)");
         String attackOptionKey = normalizeWeaponName(equippedWeapon)
@@ -2798,6 +2862,7 @@ public class PestControlScript extends Script {
         }
 
         if (selectedIndex < 0) {
+            attackOptionMissing = true;
             if (missingAttackOptionsLogged.add(attackOptionKey)) {
                 Microbot.log("Pest Control could not find " + desiredStyle
                         + " combat option for " + equippedWeapon);
@@ -2847,7 +2912,8 @@ public class PestControlScript extends Script {
         for (int index = 0; index < lines.length; index++) {
             String line = lines[index].trim().toLowerCase(Locale.ROOT);
             if (isAttackOptionMatch(line, desired)) {
-                score = Math.max(score, index == 0 ? 100 : 50);
+                int lineScore = index == 0 ? 100 : 50;
+                score = Math.max(score, line.equals(desired) ? lineScore : lineScore - 10);
             }
             if (line.contains("strength xp")) {
                 score += 10;
@@ -2860,8 +2926,8 @@ public class PestControlScript extends Script {
         if (visibleLabel.equals(desiredStyle)) {
             return true;
         }
-        return "crush".equals(desiredStyle)
-                && ("pummel".equals(visibleLabel) || "smash".equals(visibleLabel));
+        return ATTACK_OPTION_ALIASES.getOrDefault(desiredStyle, Collections.emptySet())
+                .contains(visibleLabel);
     }
 
     private static String getEquippedWeaponName() {
@@ -3416,6 +3482,10 @@ public class PestControlScript extends Script {
         activeLoadoutKey = null;
         loadoutRetryAfterByKey.clear();
         loadoutFailuresLogged.clear();
+        lastLoadoutFailure = null;
+        lastLoadoutFailureBlocking = false;
+        lastLoadoutFailureAt = 0L;
+        startupBlockedSince = 0L;
         startupCombatPrepared = false;
         startupAutocastPrepared = false;
         lastBoardingAttemptAt = 0L;
