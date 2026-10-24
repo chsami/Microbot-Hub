@@ -308,7 +308,7 @@
             "utility",
             "afk"
         ],
-        "version": "1.3.0",
+        "version": "1.3.1",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -317,8 +317,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2026-04-16T17:22:07Z",
-        "sha256": "32d983aa955b133d44bb66cca08acd61e3d1faa2c9818ce564577756e8062166",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/leaguestoolkitplugin-1.3.0.jar"
+        "sha256": "09ea1812fac4e942a175f4174397dbf54cedf1e1d32a0a01a09bb0556128434a",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/leaguestoolkitplugin-1.3.1.jar"
     },
     {
         "internalName": "AutoFishingPlugin",
@@ -417,7 +417,7 @@
             "magic",
             "moneymaking"
         ],
-        "version": "1.0.9",
+        "version": "1.0.10",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -426,8 +426,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "9bb29842acf9fc27dd6b507650e11075a3597a87d711598d96d1d1d2f14d7fc0",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/housetabplugin-1.0.9.jar"
+        "sha256": "1650ad57c98ff3ec6ec6220b8810141410be4e1c1f2585a5ebf0959e0fdbf622",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/housetabplugin-1.0.10.jar"
     },
     {
         "internalName": "npcTannerPlugin",
@@ -1872,7 +1872,7 @@
             "taf",
             "microbot"
         ],
-        "version": "1.0.2",
+        "version": "1.0.3",
         "minClientVersion": "2.1.0",
         "authors": [
             "Unknown Author"
@@ -1881,8 +1881,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "1daae1fe26818055c7ca66b01b5e0be7d99e6fe2dc56dfe180536fd8c754941a",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/ensouledheadslayerplugin-1.0.2.jar"
+        "sha256": "f71b2ea4cc6fc4ed0efff5b2fa8826f6365ac4077fe70bb6d1e88235c50b30dd",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/ensouledheadslayerplugin-1.0.3.jar"
     },
     {
         "internalName": "HerbrunPlugin",
@@ -3636,7 +3636,7 @@
             "solver",
             "automation"
         ],
-        "version": "1.0.8",
+        "version": "1.0.9",
         "minClientVersion": "2.0.7",
         "authors": [
             "unknown"
@@ -3645,8 +3645,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ClueSolverPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-13T21:26:13Z",
-        "sha256": "f6d26d39ce4a7d2d195b783563505ef21078c77300d7b0b322d9087450e5dd53",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/cluesolverplugin-1.0.8.jar"
+        "sha256": "f4db20e791e078dc9bae2ae26b9fe9971e17f0c835ca839dd5b985865d39f045",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/cluesolverplugin-1.0.9.jar"
     },
     {
         "internalName": "HumidifierPlugin",

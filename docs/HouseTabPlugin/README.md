@@ -4,7 +4,7 @@ Microbot HouseTab plugin
 
 | | |
 |---|---|
-| Version | 1.0.9 |
+| Version | 1.0.10 |
 | Works with Microbot | 2.0.13 or newer |
 | Author | Unknown Author |
 | Tags | microbot, magic, moneymaking |

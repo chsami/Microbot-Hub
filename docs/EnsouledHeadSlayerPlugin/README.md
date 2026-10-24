@@ -4,7 +4,7 @@ EnsouledHeadSlayer
 
 | | |
 |---|---|
-| Version | 1.0.2 |
+| Version | 1.0.3 |
 | Works with Microbot | 2.1.0 or newer |
 | Author | Unknown Author |
 | Tags | Ensould, head, slayer, prayer, taf, microbot |
