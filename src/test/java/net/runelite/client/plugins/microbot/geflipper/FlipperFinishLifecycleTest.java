@@ -178,7 +178,7 @@ class FlipperFinishLifecycleTest {
                 if (types[i] == boolean.class) args[i] = false;
                 if (types[i] == EventBus.class) args[i] = bus;
                 if (types[i] == ConfigManager.class) args[i] = manager;
-                if (types[i] == Scheduler.class) args[i] = new Scheduler();
+                if (types[i] == Scheduler.class) args[i] = newScheduler(scheduler);
             }
             plugins = (PluginManager) pc.newInstance(args);
             ((List<Plugin>) field(PluginManager.class, "activePlugins").get(plugins)).add(plugin);
@@ -205,6 +205,14 @@ class FlipperFinishLifecycleTest {
             field(FlipperScript.class, "finishComplete").setBoolean(script, true);
             return copilot;
         }
+    }
+
+    private static Scheduler newScheduler(ScheduledExecutorService executor) throws Exception {
+        Constructor<?> constructor = Scheduler.class.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        return (Scheduler) (constructor.getParameterCount() == 0
+            ? constructor.newInstance()
+            : constructor.newInstance(executor));
     }
 
     private static ScheduledExecutorService inertScheduler() {
