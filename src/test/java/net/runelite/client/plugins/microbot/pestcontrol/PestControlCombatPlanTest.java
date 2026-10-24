@@ -304,15 +304,17 @@ public final class PestControlCombatPlanTest {
     }
 
     @Test
-    void crushAttackOptionAcceptsVisibleAliasesOnly() {
+    void crushAttackOptionAcceptsVisibleAliases() {
         check(PestControlScript.isAttackOptionMatch("crush", "crush"),
                 "literal Crush should remain valid");
         check(PestControlScript.isAttackOptionMatch("pummel", "crush"),
                 "Pummel should satisfy the configured crush mode");
         check(PestControlScript.isAttackOptionMatch("smash", "crush"),
                 "Smash should satisfy the configured crush mode");
-        check(!PestControlScript.isAttackOptionMatch("pound", "crush"),
-                "unconfigured crush labels must not be accepted");
+        check(PestControlScript.isAttackOptionMatch("pound", "crush"),
+                "Pound should satisfy the configured crush mode");
+        check(!PestControlScript.isAttackOptionMatch("pound", "stab"),
+                "Pound must not satisfy Stab");
         check(!PestControlScript.isAttackOptionMatch("stab", "slash"),
                 "Stab must not satisfy Slash");
         check(PestControlScript.isAttackOptionMatch("rapid", "rapid"),

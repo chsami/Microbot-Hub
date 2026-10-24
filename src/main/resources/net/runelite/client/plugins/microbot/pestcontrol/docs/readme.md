@@ -50,7 +50,7 @@ It handles portal and NPC combat with ordered melee, ranged, and magic loadouts.
 - **Ranged**: Exact weapon and optional off-hand; Rapid is selected and verified.
 - **Magic**: Exact weapon/off-hand plus powered-staff or autocast mode. Autocast is checked and set once at plugin startup, then left to the game's per-weapon memory.
 - **Melee**: Independent stab, slash, and crush weapon/off-hand loadouts, plus configurable default, Yellow, and Red variants.
-  Attack styles are matched by damage type, so weapon-specific buttons work: Flick/Lash on a whip or tentacle count as Slash, Lunge as Stab, Pummel/Smash as Crush.
+  Attack styles are matched by damage type, so weapon-specific buttons work: Flick/Lash on a whip or tentacle count as Slash, Lunge as Stab, Pound/Pummel/Smash as Crush.
 - **Void helmets**: Automatically maps Melee, Ranged, and Magic to their matching Void helmets.
 - **Opening selection**: Style 1, equal random, or normalized Purple/Blue/Yellow weights. Red is never selected first.
 - **Special attacks**: Enabled separately per portal and never used against ordinary pests or Brawlers.

@@ -167,7 +167,7 @@ public class PestControlScript extends Script {
     private static final Map<String, Set<String>> ATTACK_OPTION_ALIASES = Map.of(
             "stab", Set.of("lunge", "jab", "spike", "impale", "fend"),
             "slash", Set.of("chop", "hack", "swipe", "flick", "lash", "deflect"),
-            "crush", Set.of("pummel", "smash")
+            "crush", Set.of("pound", "pummel", "smash", "bash")
     );
     private static final Pattern POINT_COUNT = Pattern.compile("([\\d,]+)");
     public static final boolean DEBUG = false;
