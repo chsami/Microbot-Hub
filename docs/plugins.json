@@ -2652,7 +2652,7 @@
             "motherlode",
             "mlm"
         ],
-        "version": "1.9.9",
+        "version": "1.9.10",
         "minClientVersion": "1.9.8",
         "authors": [
             "Mocrosoft"
@@ -2661,8 +2661,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MotherloadMinePlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-18T21:07:49Z",
-        "sha256": "c53eec118b2fd215c5e84b580be18a6cda8c6a9f20df4323260436de6ff97b2d",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/motherloadmineplugin-1.9.9.jar"
+        "sha256": "86682555230ee23bb1185c17b58a8f993a03c13934e12680d0f0062e60d92602",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/motherloadmineplugin-1.9.10.jar"
     },
     {
         "internalName": "AutoRunecraftPlugin",
@@ -2995,7 +2995,7 @@
             "pest control",
             "minigames"
         ],
-        "version": "2.5.7",
+        "version": "2.5.9",
         "minClientVersion": "2.6.15",
         "authors": [
             "Mocrosoft"
@@ -3004,8 +3004,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/PestControlPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-09T22:37:06Z",
-        "sha256": "d3b83ac069cd84b0fcede8973b3ec71868d8d842a7031bb1c4e17723b5df73fe",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/pestcontrolplugin-2.5.7.jar"
+        "sha256": "0155d692ccdbc9c4002daec39d03df3d5916fe859e2138a6c5dffc1e67a18366",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/pestcontrolplugin-2.5.9.jar"
     },
     {
         "internalName": "ButterflyCatcherPlugin",
@@ -3132,7 +3132,7 @@
             "blackjack",
             "pollnivneach"
         ],
-        "version": "1.0.2",
+        "version": "1.0.3",
         "minClientVersion": "1.9.8",
         "authors": [
             "HalalSkiller"
@@ -3141,8 +3141,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2026-10-12T12:45:12Z",
-        "sha256": "e45bd6aa153352a5d59b2a89ed0d6fb5e925b516a2460320557b7f5d53b4c234",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/hsblackjackplugin-1.0.2.jar"
+        "sha256": "fbb9334030b6c434bf82c80af8c977da963170d0133f5150827defff8ec95486",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/hsblackjackplugin-1.0.3.jar"
     },
     {
         "internalName": "JewelleryEnchantPlugin",
