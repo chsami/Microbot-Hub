@@ -29,7 +29,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 @PluginDependency(ClueScrollPlugin.class)
 public class ClueSolverPlugin extends Plugin {
 
-    final static String version = "1.0.8";
+    final static String version = "1.0.9";
     @Inject
     private ClueSolverScript clueSolverScript;
 

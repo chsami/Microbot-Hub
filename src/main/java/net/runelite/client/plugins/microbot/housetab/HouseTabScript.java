@@ -19,9 +19,9 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.Arrays;
 import java.util.Map;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
@@ -61,7 +61,11 @@ public class HouseTabScript extends Script {
     public HouseTabScript(HOUSETABS_CONFIG houseTabConfig, String[] playerHouses) {
         this.houseTabConfig = houseTabConfig;
         this.playerHouses = playerHouses;
-        scheduledExecutorService = Executors.newScheduledThreadPool(1);
+        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
+        executor.setKeepAliveTime(60, TimeUnit.SECONDS);
+        executor.allowCoreThreadTimeOut(true);
+        executor.setRemoveOnCancelPolicy(true);
+        scheduledExecutorService = executor;
     }
 
     private void lookForHouseAdvertisementObject() {

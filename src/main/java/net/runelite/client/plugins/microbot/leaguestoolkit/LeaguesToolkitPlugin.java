@@ -25,7 +25,7 @@ import javax.inject.Inject;
 )
 @Slf4j
 public class LeaguesToolkitPlugin extends Plugin {
-    public static final String version = "1.3.0";
+    public static final String version = "1.3.1";
 
     @Inject
     private LeaguesToolkitConfig config;
