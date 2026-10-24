@@ -70,6 +70,9 @@ public class PestControlScript extends Script {
     private boolean startupCombatPrepared = false;
     private boolean startupAutocastPrepared = false;
     private final Set<String> loadoutFailuresLogged = new HashSet<>();
+    private String lastLoadoutFailure = null;
+    private boolean lastLoadoutFailureBlocking = false;
+    private long startupBlockedSince = 0L;
     private final Set<String> missingAttackOptionsLogged = new HashSet<>();
     private final Map<String, Integer> attackOptionIndexByWeaponStyle = new HashMap<>();
     private String activeAttackOptionKey = null;
@@ -155,6 +158,7 @@ public class PestControlScript extends Script {
     private static final long BRAWLER_COMPASS_STEP_TIMEOUT_MILLIS = 2_500L;
     private static final long LOADOUT_RETRY_MILLIS = 1_500L;
     private static final long MISSING_LOADOUT_RETRY_MILLIS = 5_000L;
+    private static final long STARTUP_BLOCKED_STOP_MILLIS = 15_000L;
     private static final int BRAWLER_COMPASS_CLEARANCE = 2;
     private static final long SPINNER_TARGET_GRACE_MILLIS = 2_500L;
     private static final long PERIMETER_DETOUR_MILLIS = 10_000L;
@@ -1022,6 +1026,9 @@ public class PestControlScript extends Script {
         startupAutocastPrepared = !combatPlan.supports(PestControlCombatStyle.MAGIC)
                 || config.magicCastingMode() != PestControlMagicMode.AUTOCAST;
         loadoutFailuresLogged.clear();
+        lastLoadoutFailure = null;
+        lastLoadoutFailureBlocking = false;
+        startupBlockedSince = 0L;
         missingAttackOptionsLogged.clear();
         attackOptionIndexByWeaponStyle.clear();
         activeAttackOptionKey = null;
@@ -1117,9 +1124,14 @@ public class PestControlScript extends Script {
                     return;
                 }
                 if (!prepareStartupCombat()) {
-                    transitionTo(RuntimeState.INITIALISING, "preparing combat loadouts");
+                    if (stopIfStartupLoadoutBlocked()) {
+                        return;
+                    }
+                    transitionTo(RuntimeState.INITIALISING, "preparing combat loadouts"
+                            + (lastLoadoutFailure == null ? "" : " - " + lastLoadoutFailure));
                     return;
                 }
+                startupBlockedSince = 0L;
 
                 final boolean isInPestControl = isInPestControl();
                 final boolean isInBoat = isInBoat();
@@ -2748,10 +2760,35 @@ public class PestControlScript extends Script {
         if (loadoutFailuresLogged.add(failureKey)) {
             Microbot.log("Pest Control loadout unavailable: " + loadout.label + " - " + reason);
         }
+        lastLoadoutFailure = loadout.label + ": " + reason;
+        lastLoadoutFailureBlocking = missingOrBlocked;
         loadoutRetryAfterByKey.put(
                 loadout.key(),
                 System.currentTimeMillis()
                         + (missingOrBlocked ? MISSING_LOADOUT_RETRY_MILLIS : LOADOUT_RETRY_MILLIS));
+    }
+
+    private boolean stopIfStartupLoadoutBlocked() {
+        if (!lastLoadoutFailureBlocking) {
+            startupBlockedSince = 0L;
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        if (startupBlockedSince == 0L) {
+            startupBlockedSince = now;
+        }
+        if (now - startupBlockedSince < STARTUP_BLOCKED_STOP_MILLIS) {
+            return false;
+        }
+
+        String reason = lastLoadoutFailure;
+        transitionTo(RuntimeState.ERROR, reason);
+        Microbot.log("Pest Control stopped: " + reason);
+        Microbot.showMessage("Pest Control stopped: " + reason + "."
+                + "\nWear or carry the configured gear, or set your own exact item names"
+                + " under Combat styles and the loadout sections in the plugin config.");
+        Microbot.stopPlugin(PestControlPlugin.class);
+        return true;
     }
 
     private boolean selectAttackOption(String desiredStyle) {
@@ -3416,6 +3453,9 @@ public class PestControlScript extends Script {
         activeLoadoutKey = null;
         loadoutRetryAfterByKey.clear();
         loadoutFailuresLogged.clear();
+        lastLoadoutFailure = null;
+        lastLoadoutFailureBlocking = false;
+        startupBlockedSince = 0L;
         startupCombatPrepared = false;
         startupAutocastPrepared = false;
         lastBoardingAttemptAt = 0L;
