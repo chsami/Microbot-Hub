@@ -61,7 +61,7 @@ It handles portal and NPC combat with ordered melee, ranged, and magic loadouts.
 ## How It Works
 1. The script checks if you are logged in and on the right world.
 2. If needed, it hops worlds and travels to the Pest Control island.
-3. Validates the configured Style 1 loadout and performs any one-time autocast setup.
+3. Validates the configured Style 1 loadout and performs any one-time autocast setup. If the configured loadout gear is still missing after about 15 seconds (weapon not worn or carried, no free slot to clear the off-hand, spell not castable), the plugin stops and shows the reason instead of waiting silently.
 4. During games:
     - Stages at a melee or ranged/magic distance appropriate to the selected portal loadout.
     - Activates prayers and special attacks as configured.
