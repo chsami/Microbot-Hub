@@ -72,6 +72,7 @@ public class PestControlScript extends Script {
     private final Set<String> loadoutFailuresLogged = new HashSet<>();
     private String lastLoadoutFailure = null;
     private boolean lastLoadoutFailureBlocking = false;
+    private long lastLoadoutFailureAt = 0L;
     private long startupBlockedSince = 0L;
     private final Set<String> missingAttackOptionsLogged = new HashSet<>();
     private final Map<String, Integer> attackOptionIndexByWeaponStyle = new HashMap<>();
@@ -1028,6 +1029,7 @@ public class PestControlScript extends Script {
         loadoutFailuresLogged.clear();
         lastLoadoutFailure = null;
         lastLoadoutFailureBlocking = false;
+        lastLoadoutFailureAt = 0L;
         startupBlockedSince = 0L;
         missingAttackOptionsLogged.clear();
         attackOptionIndexByWeaponStyle.clear();
@@ -1100,6 +1102,7 @@ public class PestControlScript extends Script {
                     overlayTargetCrowd = 0;
                     overlayTargetHasAttackAction = false;
                     long now = System.currentTimeMillis();
+                    resetStartupBlock();
                     if (loginUnavailableSince == 0L) {
                         loginUnavailableSince = now;
                     }
@@ -1118,7 +1121,10 @@ public class PestControlScript extends Script {
                     return;
                 }
                 loginUnavailableSince = 0L;
-                if (!super.run()) return;
+                if (!super.run()) {
+                    resetStartupBlock();
+                    return;
+                }
                 if (!confirmAutoRetaliateOff()) {
                     transitionTo(RuntimeState.INITIALISING, "disabling Auto Retaliate");
                     return;
@@ -1131,7 +1137,7 @@ public class PestControlScript extends Script {
                             + (lastLoadoutFailure == null ? "" : " - " + lastLoadoutFailure));
                     return;
                 }
-                startupBlockedSince = 0L;
+                resetStartupBlock();
 
                 final boolean isInPestControl = isInPestControl();
                 final boolean isInBoat = isInBoat();
@@ -2762,10 +2768,16 @@ public class PestControlScript extends Script {
         }
         lastLoadoutFailure = loadout.label + ": " + reason;
         lastLoadoutFailureBlocking = missingOrBlocked;
+        lastLoadoutFailureAt = System.currentTimeMillis();
         loadoutRetryAfterByKey.put(
                 loadout.key(),
                 System.currentTimeMillis()
                         + (missingOrBlocked ? MISSING_LOADOUT_RETRY_MILLIS : LOADOUT_RETRY_MILLIS));
+    }
+
+    private void resetStartupBlock() {
+        startupBlockedSince = 0L;
+        lastLoadoutFailureBlocking = false;
     }
 
     private boolean stopIfStartupLoadoutBlocked() {
@@ -2773,11 +2785,10 @@ public class PestControlScript extends Script {
             startupBlockedSince = 0L;
             return false;
         }
-        long now = System.currentTimeMillis();
         if (startupBlockedSince == 0L) {
-            startupBlockedSince = now;
+            startupBlockedSince = lastLoadoutFailureAt;
         }
-        if (now - startupBlockedSince < STARTUP_BLOCKED_STOP_MILLIS) {
+        if (lastLoadoutFailureAt - startupBlockedSince < STARTUP_BLOCKED_STOP_MILLIS) {
             return false;
         }
 
@@ -3455,6 +3466,7 @@ public class PestControlScript extends Script {
         loadoutFailuresLogged.clear();
         lastLoadoutFailure = null;
         lastLoadoutFailureBlocking = false;
+        lastLoadoutFailureAt = 0L;
         startupBlockedSince = 0L;
         startupCombatPrepared = false;
         startupAutocastPrepared = false;
