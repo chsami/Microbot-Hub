@@ -43,7 +43,9 @@ public class AnagramClueTask extends ClueTask {
         this.clue = clue;
         this.eventBus = eventBus;
         this.backgroundExecutor = backgroundExecutor;
-        this.location = clue.getLocation(clueScrollPlugin);
+        this.location = Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> clue.getLocation(clueScrollPlugin))
+                .orElse(null);
     }
 
     @Override
@@ -55,6 +57,11 @@ public class AnagramClueTask extends ClueTask {
     }
 
     private void walkToLocation() {
+        if (location == null) {
+            log.error("Clue location is null.");
+            completeTask(false);
+            return;
+        }
         log.info("Walking to location: {}", location);
         boolean startedWalking = Rs2Walker.walkTo(location, 2);
         if (!startedWalking) {

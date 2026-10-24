@@ -14,6 +14,7 @@ import net.runelite.client.plugins.microbot.api.npc.Rs2NpcQueryable;
 import net.runelite.client.plugins.microbot.cluesolver.cluetask.AnagramClueTask;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,7 @@ import java.util.function.Function;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -162,6 +164,45 @@ class AnagramClueTaskTest {
         microbot.verify(Microbot::getRs2NpcCache, never());
         assertTrue(result.isDone());
         assertFalse(result.join());
+    }
+
+    @Test
+    void locationIsResolvedOnClientThread() throws Exception {
+        when(clue.getLocation(clueScrollPlugin)).thenAnswer(invocation -> {
+            if (!onClientThread.get()) {
+                throw new IllegalStateException("must be called on client thread");
+            }
+            return LOCATION;
+        });
+        try (MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            walker.when(() -> Rs2Walker.walkTo(LOCATION, 2)).thenReturn(true);
+            AnagramClueTask task = new AnagramClueTask(client, clue, clueScrollPlugin, null,
+                    mock(EventBus.class), new DirectExecutor());
+            CompletableFuture<Boolean> result = new CompletableFuture<>();
+            task.setFuture(result);
+
+            task.run();
+
+            walker.verify(() -> Rs2Walker.walkTo(LOCATION, 2));
+            assertFalse(result.isDone());
+        }
+    }
+
+    @Test
+    void missingLocationFailsWithoutWalking() {
+        when(clue.getLocation(clueScrollPlugin)).thenReturn(null);
+        try (MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            AnagramClueTask task = new AnagramClueTask(client, clue, clueScrollPlugin, null,
+                    mock(EventBus.class), new DirectExecutor());
+            CompletableFuture<Boolean> result = new CompletableFuture<>();
+            task.setFuture(result);
+
+            task.run();
+
+            walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never());
+            assertTrue(result.isDone());
+            assertFalse(result.join());
+        }
     }
 
     @SuppressWarnings("unchecked")
