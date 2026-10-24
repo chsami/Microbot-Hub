@@ -193,7 +193,9 @@ public class LeaguesToolkitScript extends Script {
     public void shutdown() {
         super.shutdown();
         gorillaPrayerHelper.setActive(false);
+        gorillaPrayerWasEnabled = false;
         hesporiBossHelper.stop();
+        hesporiWasEnabled = false;
         transmuter.reset();
     }
 }

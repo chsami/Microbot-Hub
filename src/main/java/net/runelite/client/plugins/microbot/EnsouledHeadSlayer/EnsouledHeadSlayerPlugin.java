@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
 )
 public class EnsouledHeadSlayerPlugin extends Plugin {
 
-    public final static String version = "1.0.2";
+    public final static String version = "1.0.3";
 
     private Instant scriptStartTime;
     @Inject
@@ -84,11 +84,15 @@ public class EnsouledHeadSlayerPlugin extends Plugin {
             startingXp = Microbot.getClient().getSkillExperience(Skill.PRAYER);
             startingLevel = Microbot.getClient().getRealSkillLevel(Skill.PRAYER);
         }
-        scheduledExecutorService = Executors.newScheduledThreadPool(10);
+        scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
     }
 
     @Override
     protected void shutDown() {
+        if (scheduledExecutorService != null) {
+            scheduledExecutorService.shutdownNow();
+            scheduledExecutorService = null;
+        }
         ensouledHeadSlayerScript.shutdown();
         overlayManager.remove(ensouledHeadSlayerOverlay);
         startingXp = 0;
@@ -104,9 +108,10 @@ public class EnsouledHeadSlayerPlugin extends Plugin {
 
     @Subscribe
     public void onChatMessage(ChatMessage event) {
-        if (event.getType() == ChatMessageType.GAMEMESSAGE && event.getMessage().equalsIgnoreCase("The creature wouldn't have room to re-animate there.")) {
+        ScheduledExecutorService executor = scheduledExecutorService;
+        if (executor != null && event.getType() == ChatMessageType.GAMEMESSAGE && event.getMessage().equalsIgnoreCase("The creature wouldn't have room to re-animate there.")) {
             Microbot.log("Can't summon here, walking to altar.");
-            scheduledExecutorService.schedule(() ->
+            executor.schedule(() ->
             {
                 Rs2Walker.walkTo(ensouledHeadSlayerScript.ALTAR_LOCATION);
             }, 100, TimeUnit.MILLISECONDS);
