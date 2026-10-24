@@ -50,6 +50,7 @@ It handles portal and NPC combat with ordered melee, ranged, and magic loadouts.
 - **Ranged**: Exact weapon and optional off-hand; Rapid is selected and verified.
 - **Magic**: Exact weapon/off-hand plus powered-staff or autocast mode. Autocast is checked and set once at plugin startup, then left to the game's per-weapon memory.
 - **Melee**: Independent stab, slash, and crush weapon/off-hand loadouts, plus configurable default, Yellow, and Red variants.
+  Attack styles are matched by damage type, so weapon-specific buttons work: Flick/Lash on a whip or tentacle count as Slash, Lunge as Stab, Pound/Pummel/Smash as Crush.
 - **Void helmets**: Automatically maps Melee, Ranged, and Magic to their matching Void helmets.
 - **Opening selection**: Style 1, equal random, or normalized Purple/Blue/Yellow weights. Red is never selected first.
 - **Special attacks**: Enabled separately per portal and never used against ordinary pests or Brawlers.
@@ -61,7 +62,7 @@ It handles portal and NPC combat with ordered melee, ranged, and magic loadouts.
 ## How It Works
 1. The script checks if you are logged in and on the right world.
 2. If needed, it hops worlds and travels to the Pest Control island.
-3. Validates the configured Style 1 loadout and performs any one-time autocast setup. If the configured loadout gear is still missing after about 15 seconds (weapon not worn or carried, no free slot to clear the off-hand, spell not castable), the plugin stops and shows the reason instead of waiting silently.
+3. Validates the configured Style 1 loadout and performs any one-time autocast setup. If the configured loadout gear is still missing after about 15 seconds (weapon not worn or carried, no free slot to clear the off-hand, spell not castable, weapon has no button for the chosen attack style), the plugin stops and shows the reason instead of waiting silently.
 4. During games:
     - Stages at a melee or ranged/magic distance appropriate to the selected portal loadout.
     - Activates prayers and special attacks as configured.

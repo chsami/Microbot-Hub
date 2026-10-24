@@ -75,6 +75,7 @@ public class PestControlScript extends Script {
     private long lastLoadoutFailureAt = 0L;
     private long startupBlockedSince = 0L;
     private final Set<String> missingAttackOptionsLogged = new HashSet<>();
+    private boolean attackOptionMissing = false;
     private final Map<String, Integer> attackOptionIndexByWeaponStyle = new HashMap<>();
     private String activeAttackOptionKey = null;
     private long lastBoardingAttemptAt = 0L;
@@ -163,6 +164,11 @@ public class PestControlScript extends Script {
     private static final int BRAWLER_COMPASS_CLEARANCE = 2;
     private static final long SPINNER_TARGET_GRACE_MILLIS = 2_500L;
     private static final long PERIMETER_DETOUR_MILLIS = 10_000L;
+    private static final Map<String, Set<String>> ATTACK_OPTION_ALIASES = Map.of(
+            "stab", Set.of("lunge", "jab", "spike", "impale", "fend"),
+            "slash", Set.of("chop", "hack", "swipe", "flick", "lash", "deflect"),
+            "crush", Set.of("pound", "pummel", "smash", "bash")
+    );
     private static final Pattern POINT_COUNT = Pattern.compile("([\\d,]+)");
     public static final boolean DEBUG = false;
 
@@ -2611,7 +2617,7 @@ public class PestControlScript extends Script {
             if (applyLoadoutAttackMode(loadout)) {
                 return markLoadoutReady(loadout);
             }
-            logLoadoutFailure(loadout, "combat mode verification failed", false);
+            logAttackModeFailure(loadout);
             return false;
         }
         if (!isItemAvailable(loadout.weapon, EquipmentInventorySlot.WEAPON)) {
@@ -2665,7 +2671,7 @@ public class PestControlScript extends Script {
             return false;
         }
         if (!applyLoadoutAttackMode(loadout)) {
-            logLoadoutFailure(loadout, "combat mode verification failed", false);
+            logAttackModeFailure(loadout);
             return false;
         }
 
@@ -2681,6 +2687,15 @@ public class PestControlScript extends Script {
         }
         return Rs2Inventory.interact(itemName, action, true)
                 && sleepUntil(() -> isItemEquipped(itemName, slot), 2000);
+    }
+
+    private void logAttackModeFailure(PestControlLoadout loadout) {
+        if (attackOptionMissing) {
+            logLoadoutFailure(loadout,
+                    getEquippedWeaponName() + " has no " + loadout.attackOption + " attack style", true);
+            return;
+        }
+        logLoadoutFailure(loadout, "combat mode verification failed", false);
     }
 
     private boolean applyLoadoutAttackMode(PestControlLoadout loadout) {
@@ -2803,6 +2818,7 @@ public class PestControlScript extends Script {
     }
 
     private boolean selectAttackOption(String desiredStyle) {
+        attackOptionMissing = false;
         String equippedWeapon = getEquippedWeaponName();
         recordCombatMode(equippedWeapon, desiredStyle + " (setting)");
         String attackOptionKey = normalizeWeaponName(equippedWeapon)
@@ -2846,6 +2862,7 @@ public class PestControlScript extends Script {
         }
 
         if (selectedIndex < 0) {
+            attackOptionMissing = true;
             if (missingAttackOptionsLogged.add(attackOptionKey)) {
                 Microbot.log("Pest Control could not find " + desiredStyle
                         + " combat option for " + equippedWeapon);
@@ -2895,7 +2912,8 @@ public class PestControlScript extends Script {
         for (int index = 0; index < lines.length; index++) {
             String line = lines[index].trim().toLowerCase(Locale.ROOT);
             if (isAttackOptionMatch(line, desired)) {
-                score = Math.max(score, index == 0 ? 100 : 50);
+                int lineScore = index == 0 ? 100 : 50;
+                score = Math.max(score, line.equals(desired) ? lineScore : lineScore - 10);
             }
             if (line.contains("strength xp")) {
                 score += 10;
@@ -2908,8 +2926,8 @@ public class PestControlScript extends Script {
         if (visibleLabel.equals(desiredStyle)) {
             return true;
         }
-        return "crush".equals(desiredStyle)
-                && ("pummel".equals(visibleLabel) || "smash".equals(visibleLabel));
+        return ATTACK_OPTION_ALIASES.getOrDefault(desiredStyle, Collections.emptySet())
+                .contains(visibleLabel);
     }
 
     private static String getEquippedWeaponName() {
