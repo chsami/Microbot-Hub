@@ -1439,7 +1439,7 @@ public final class WildernessAgilityScript extends Script {
     /**
      * Handles Emergency Escape logic - following Netoxic's approach exactly
      */
-    private void handleEmergencyEscape() {
+    void handleEmergencyEscape() {
         if (!emergencyEscapeTriggered) {
             return;
         }
@@ -1466,10 +1466,13 @@ public final class WildernessAgilityScript extends Script {
         
         // Step 2: Check if player is in rock area and climb if needed (Netoxic's approach)
         if (!hasClimbedRocks) {
-            WorldArea rockArea = new WorldArea(SOUTH_WEST_CORNER, ROCK_AREA_WIDTH, ROCK_AREA_HEIGHT);
-            boolean isInArea = rockArea.contains(Rs2Player.getWorldLocation());
             WorldPoint currentLoc = Rs2Player.getWorldLocation();
-            
+            if (currentLoc == null) {
+                return;
+            }
+            WorldArea rockArea = new WorldArea(SOUTH_WEST_CORNER, ROCK_AREA_WIDTH, ROCK_AREA_HEIGHT);
+            boolean isInArea = rockArea.contains(currentLoc);
+
             // Initialize step timer
             if (escapeStep2StartTime == 0) {
                 escapeStep2StartTime = System.currentTimeMillis();
@@ -1494,7 +1497,7 @@ public final class WildernessAgilityScript extends Script {
                 return; // Wait for next loop iteration
             } else {
                 // Check if we're within 3 tiles of the gate area - consider it arrived
-                if (currentLoc != null && currentLoc.distanceTo(GATE_AREA) <= 3) {
+                if (currentLoc.distanceTo(GATE_AREA) <= 3) {
                     Microbot.log("[WildernessAgility] Emergency Escape Step 2: Arrived at gate area (within 3 tiles)");
                     hasClimbedRocks = true;
                     escapeStep2StartTime = 0; // Reset timer
