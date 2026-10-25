@@ -22,7 +22,7 @@ import java.awt.*;
 	tags = {"sailing"},
 	authors = { "Mocrosoft" },
 	version = MSailingPlugin.version,
-	minClientVersion = "2.1.0",
+	minClientVersion = "2.6.43",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL,
     cardUrl = "https://chsami.github.io/Microbot-Hub/MSailingPlugin/assets/card.jpg",
@@ -31,7 +31,7 @@ import java.awt.*;
 @Slf4j
 public class MSailingPlugin extends Plugin {
 
-	static final String version = "2.2.59";
+	static final String version = "2.2.60";
 
     @Inject
     private SailingConfig config;

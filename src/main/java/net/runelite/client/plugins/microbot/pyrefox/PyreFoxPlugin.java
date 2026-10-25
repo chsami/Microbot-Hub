@@ -28,7 +28,7 @@ import java.time.Instant;
         description = "Hunts pyre foxes for you!",
         tags = {"kaas", "hunter", "pyre", "fox"},
         version = PyreFoxPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.43",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -36,7 +36,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class PyreFoxPlugin extends Plugin {
-    public static final String version = "1.0.9";
+    public static final String version = "1.0.10";
     public static int catchCounter = 0;
     public static PyreFoxState currentState = PyreFoxState.INITIALIZE;
     public static boolean hasInitialized = false;
