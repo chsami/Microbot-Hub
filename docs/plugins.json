@@ -589,7 +589,7 @@
             "combat",
             "task"
         ],
-        "version": "1.1.4",
+        "version": "1.1.5",
         "minClientVersion": "2.1.11",
         "authors": [
             "Big L"
@@ -598,8 +598,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2026-02-10T21:45:13Z",
-        "sha256": "367f01d2f7a1032d710e5998646f8fca24a4d2fb24feeeaf7579578fa3709aa6",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/slayerplugin-1.1.4.jar"
+        "sha256": "3c11d8f600b69bc6d04d98061192f3ed5281bb1f1a9a5ce9656621c105e8c963",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/slayerplugin-1.1.5.jar"
     },
     {
         "internalName": "BlessedWinePlugin",
