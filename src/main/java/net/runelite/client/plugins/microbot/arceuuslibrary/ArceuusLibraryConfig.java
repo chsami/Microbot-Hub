@@ -19,17 +19,49 @@ public interface ArceuusLibraryConfig extends Config
 {
     @ConfigItem(
             keyName = "rewardXp",
-            name = "Reward XP",
-            description = "Which XP to claim from the Book of arcane knowledge reward (Magic = 15× Magic level, Runecraft = 5× Runecraft level)",
+            name = "Reward skill",
+            description = "Which XP to claim from the Book of arcane knowledge (Magic = 15x Magic level, Runecraft = 5x Runecraft level). Auto picks whichever pays more; ties go to Magic.",
             position = 1
     )
-    default RewardXp rewardXp() { return RewardXp.MAGIC; }
+    default RewardXp rewardXp() { return RewardXp.AUTO; }
+
+    @ConfigItem(
+            keyName = "readRewardBook",
+            name = "Read reward book",
+            description = "Read a Book of arcane knowledge as soon as it is received",
+            position = 2
+    )
+    default boolean readRewardBook() { return true; }
 
     @ConfigItem(
             keyName = "readSoulJourney",
             name = "Read Soul Journey",
             description = "If the requested book is Soul Journey, read it before delivery to start the Bear Your Soul miniquest",
-            position = 2
+            position = 3
     )
     default boolean readSoulJourney() { return true; }
+
+    @ConfigItem(
+            keyName = "useStaminaPotions",
+            name = "Use stamina/energy potions",
+            description = "Drink Extended stamina, Stamina, Super energy or Energy potions (any dose, best first) to keep running",
+            position = 4
+    )
+    default boolean useStaminaPotions() { return true; }
+
+    @ConfigItem(
+            keyName = "drinkAtEnergy",
+            name = "Drink at run energy %",
+            description = "Drink a potion when run energy is at or below this percentage",
+            position = 5
+    )
+    default int drinkAtEnergy() { return 30; }
+
+    @ConfigItem(
+            keyName = "potionsToBring",
+            name = "Potions to bring",
+            description = "How many potions to withdraw from the Arceuus bank when out of them and low on energy (0 disables restocking)",
+            position = 6
+    )
+    default int potionsToBring() { return 2; }
 }

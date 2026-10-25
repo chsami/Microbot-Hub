@@ -20,6 +20,9 @@ import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
+import net.runelite.api.Skill;
 import net.runelite.client.events.PluginMessage;
 
 import java.util.ArrayList;
@@ -79,6 +82,11 @@ public class ArceuusLibraryScript extends Script
      * plane than committed target) and {@code handleDeliver} re-routed to the customer.
      */
     private volatile WorldPoint pendingSweepTarget = null;
+    /** Sticky fetch target: the bookcase we are walking to / searching for the wanted book. */
+    private volatile WorldPoint pendingFetchTarget = null;
+    private volatile String lastBranch = "";
+    private volatile boolean restockGivenUp = false;
+    private volatile int restockFailures = 0;
     /**
      * Customer IDs we've clicked "Help" on since the last time we made progress
      * (got a new request or handed off a held book). Used to round-robin when the
@@ -150,6 +158,15 @@ public class ArceuusLibraryScript extends Script
                 log.info("[tick#{}] upstream enabled successfully", tickCount);
             }
 
+            maintainRunEnergy();
+
+            // Read a Book of arcane knowledge the moment it shows up, wherever we are.
+            if (config.readRewardBook() && Rs2Inventory.hasItem(BOOK_OF_ARCANE_KNOWLEDGE))
+            {
+                claimReward();
+                return;
+            }
+
             // The customer/book loop only makes sense inside the library. Elsewhere,
             // travel there first (with the pathfinder's teleports/transports enabled).
             WorldPoint playerLoc = Rs2Player.getWorldLocation();
@@ -162,13 +179,6 @@ public class ArceuusLibraryScript extends Script
             travelFailureRounds = 0;
             if (!pathfinderLocal) restrictPathfinderToLocal();
 
-            // Always claim a pending reward before starting the next loop
-            if (Rs2Inventory.hasItem(BOOK_OF_ARCANE_KNOWLEDGE))
-            {
-                claimReward();
-                return;
-            }
-
             Solved solved = bridge.getState();
             solverState = solved.name();
 
@@ -176,6 +186,13 @@ public class ArceuusLibraryScript extends Script
             wantedBookLabel = wantedOpt.map(BookSnapshot::getShortName).orElse("—");
             BookSnapshot held = wantedOpt.isPresent() ? null : findHeldLibraryBook();
             if (held != null) wantedBookLabel = held.getShortName() + " (held)";
+
+            // Between book cycles (no active request, nothing mid-delivery): top up potions if low.
+            if (!wantedOpt.isPresent() && held == null && shouldRestockNow())
+            {
+                restockPotions();
+                return;
+            }
 
             if (tickCount % 10 == 1)
             {
@@ -200,11 +217,11 @@ public class ArceuusLibraryScript extends Script
             {
                 if (held != null)
                 {
-                    log.info("[tick#{}] branch=held-book → talkToCustomer", tickCount);
+                    logBranch("held-book");
                     talkToCustomer("held-book");
                     return;
                 }
-                log.info("[tick#{}] branch=no-customer → talkToCustomer", tickCount);
+                logBranch("no-customer");
                 talkToCustomer("no-customer");
                 return;
             }
@@ -213,13 +230,13 @@ public class ArceuusLibraryScript extends Script
             if (Rs2Inventory.hasItem(wanted.getItemId()))
             {
                 if (trySectionSweep()) return;
-                log.info("[tick#{}] branch=deliver {}", tickCount, wanted.getShortName());
+                logBranch("deliver " + wanted.getShortName());
                 handleDeliver(wanted);
                 return;
             }
 
             if (trySectionSweep()) return;
-            log.info("[tick#{}] branch=fetch {}", tickCount, wanted.getShortName());
+            logBranch("fetch " + wanted.getShortName());
             handleFetch(wanted);
         }
         catch (Exception e)
@@ -436,8 +453,18 @@ public class ArceuusLibraryScript extends Script
         WorldPoint here = Rs2Player.getWorldLocation();
         if (here == null) return;
 
+        // Stay on the bookcase we committed to while it is still a candidate; re-sorting by the
+        // moving player position would otherwise flip between near-equal targets mid-walk.
         BookcaseSnapshot target = candidates.get(0);
+        if (pendingFetchTarget != null)
+        {
+            for (BookcaseSnapshot c : candidates)
+            {
+                if (pendingFetchTarget.equals(c.getLocation())) { target = c; break; }
+            }
+        }
         WorldPoint loc = target.getLocation();
+        pendingFetchTarget = loc;
 
         if (here.getPlane() == loc.getPlane()
                 && objectAt(loc) != null
@@ -446,6 +473,7 @@ public class ArceuusLibraryScript extends Script
             cancelBackgroundWalk();
             state = ArceuusLibraryState.SEARCH_BOOKCASE;
             searchBookcase(loc, wanted);
+            pendingFetchTarget = null;
             return;
         }
 
@@ -807,6 +835,7 @@ public class ArceuusLibraryScript extends Script
                 lastDeliveredCustomerId = customer.getId();
                 sweepSearchesThisTrip = 0;
                 pendingSweepTarget = null;
+                pendingFetchTarget = null;
                 recentlyAttempted.clear();
                 state = ArceuusLibraryState.IDLE;
             }
@@ -817,7 +846,8 @@ public class ArceuusLibraryScript extends Script
 
     private void claimReward()
     {
-        RewardXp choice = config.rewardXp();
+        RewardXp choice = config.rewardXp().resolve(
+                Rs2Player.getRealSkillLevel(Skill.MAGIC), Rs2Player.getRealSkillLevel(Skill.RUNECRAFT));
         if (!Rs2Inventory.interact(BOOK_OF_ARCANE_KNOWLEDGE, "Read"))
         {
             sleep(400, 700);
@@ -843,6 +873,91 @@ public class ArceuusLibraryScript extends Script
             sleep(300, 500);
         }
         sleepUntil(() -> !Rs2Inventory.hasItem(BOOK_OF_ARCANE_KNOWLEDGE), 3_000);
+    }
+
+    /* --------------- RUN ENERGY ------------------ */
+
+    private void logBranch(String branch)
+    {
+        // The dispatcher runs every 600ms; only log when the branch changes.
+        if (branch.equals(lastBranch)) return;
+        lastBranch = branch;
+        log.info("[tick#{}] branch={}", tickCount, branch);
+    }
+
+    private Rs2ItemModel heldPotion()
+    {
+        List<Rs2ItemModel> items = Rs2Inventory.all(i -> StaminaPotions.isPotion(i.getName()));
+        if (items.isEmpty()) return null;
+        List<String> names = new ArrayList<>();
+        for (Rs2ItemModel i : items) names.add(i.getName());
+        int idx = StaminaPotions.bestIndex(names);
+        return idx < 0 ? null : items.get(idx);
+    }
+
+    private void maintainRunEnergy()
+    {
+        int energy = Rs2Player.getRunEnergy();
+        if (StaminaPotions.shouldEnableRun(Rs2Player.isRunEnabled(), energy))
+        {
+            Rs2Player.toggleRunEnergy(true);
+        }
+        if (!config.useStaminaPotions()) return;
+        Rs2ItemModel potion = heldPotion();
+        boolean gives = potion != null && StaminaPotions.givesStaminaEffect(potion.getName());
+        if (StaminaPotions.shouldDrink(true, energy, config.drinkAtEnergy(),
+                Rs2Player.hasStaminaActive(), potion != null, gives))
+        {
+            log.info("[run] energy {}% <= {}%; drinking {}", energy, config.drinkAtEnergy(), potion.getName());
+            if (Rs2Inventory.interact(potion, "Drink")) sleep(600, 900);
+        }
+    }
+
+    private boolean shouldRestockNow()
+    {
+        int held = (int) Rs2Inventory.items().filter(i -> StaminaPotions.isPotion(i.getName())).count();
+        return StaminaPotions.shouldRestock(config.useStaminaPotions(), config.potionsToBring(), held,
+                Rs2Player.getRunEnergy(), config.drinkAtEnergy(), restockGivenUp);
+    }
+
+    /** Walks to the Arceuus bank and withdraws potions; the next tick's travel phase brings us back. */
+    private void restockPotions()
+    {
+        state = ArceuusLibraryState.RESTOCK;
+        log.info("[restock] out of potions at {}% energy; banking at Arceuus", Rs2Player.getRunEnergy());
+        boolean opened = Rs2Bank.isOpen() || Rs2Bank.walkToBankAndUseBank(BankLocation.ARCEUUS);
+        if (opened)
+        {
+            sleepUntil(Rs2Bank::isOpen, 3_000);
+        }
+        if (!Rs2Bank.isOpen())
+        {
+            if (++restockFailures >= 2)
+            {
+                restockGivenUp = true;
+                log.warn("[restock] could not open the bank twice; continuing without restocking");
+            }
+            return;
+        }
+        List<StaminaPotions.Stock> stock = new ArrayList<>();
+        for (Rs2ItemModel it : Rs2Bank.bankItems())
+        {
+            if (StaminaPotions.isPotion(it.getName()))
+                stock.add(new StaminaPotions.Stock(it.getId(), it.getName(), it.getQuantity()));
+        }
+        List<Integer> plan = StaminaPotions.planWithdraw(stock, config.potionsToBring());
+        if (plan.isEmpty())
+        {
+            restockGivenUp = true;
+            log.warn("[restock] no stamina/energy potions in the bank; continuing without");
+        }
+        for (Integer id : plan)
+        {
+            Rs2Bank.withdrawOne(id);
+            sleep(300, 500);
+        }
+        Rs2Bank.closeBank();
+        restockFailures = 0;
     }
 
     /* --------------- helpers ------------------ */
@@ -946,6 +1061,12 @@ public class ArceuusLibraryScript extends Script
     private void walkInBackground(WorldPoint target)
     {
         boolean running = backgroundWalk != null && !backgroundWalk.isDone();
+        if (running && LibraryTravel.shouldRetarget(inFlightTarget, target))
+        {
+            log.info("[walk] retargeting {} -> {}", inFlightTarget, target);
+            cancelBackgroundWalk();
+            running = false;
+        }
         if (!LibraryTravel.shouldStartWalk(running ? inFlightTarget : null, target,
                 System.currentTimeMillis(), walkBackoffUntil))
         {
@@ -980,7 +1101,8 @@ public class ArceuusLibraryScript extends Script
             }
             finally
             {
-                inFlightTarget = null;
+                // A retarget may already have installed a newer walk; only clear our own.
+                if (inFlightTarget == target) inFlightTarget = null;
             }
         });
     }
@@ -1045,7 +1167,8 @@ public class ArceuusLibraryScript extends Script
 
     private void cancelBackgroundWalk()
     {
-        Rs2Walker.setTarget(null);
+        boolean walking = backgroundWalk != null || inFlightTarget != null;
+        if (walking) Rs2Walker.setTarget(null, "arceuuslibrary:cancel-walk");
         if (backgroundWalk != null) backgroundWalk.cancel(true);
         backgroundWalk = null;
         inFlightTarget = null;

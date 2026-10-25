@@ -50,4 +50,19 @@ final class LibraryTravel
         if (inFlightTarget != null) return false;
         return nowMs >= backoffUntilMs;
     }
+
+    /** A running walk is replaced only when the new destination is on another plane or this far from it. */
+    static final int RETARGET_DISTANCE = 6;
+
+    /**
+     * True when a walk is in flight toward {@code inFlightTarget} but {@code target} is a genuinely
+     * different place, so the old walk should be cancelled. Small drifts (a roaming customer moving a
+     * few tiles) keep the existing walk instead of re-issuing it every tick.
+     */
+    static boolean shouldRetarget(WorldPoint inFlightTarget, WorldPoint target)
+    {
+        if (inFlightTarget == null || target == null) return false;
+        if (inFlightTarget.getPlane() != target.getPlane()) return true;
+        return inFlightTarget.distanceTo(target) > RETARGET_DISTANCE;
+    }
 }

@@ -4,6 +4,7 @@ public enum ArceuusLibraryState
 {
     IDLE,
     TRAVELING,
+    RESTOCK,
     TALK_TO_CUSTOMER,
     LOCATE_BOOK,
     WALK_TO_BOOKCASE,
