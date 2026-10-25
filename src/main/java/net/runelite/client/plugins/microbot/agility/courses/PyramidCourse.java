@@ -9,7 +9,6 @@ import net.runelite.client.plugins.microbot.agility.courses.PyramidObstacleData.
 import net.runelite.client.plugins.microbot.agility.models.AgilityObstacleModel;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -320,7 +319,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         
         // Special handling for pyramid top region - if completed, look for stairs down
         if (obstacle == null && playerPos.getRegionID() == PYRAMID_TOP_REGION && playerPos.getPlane() == 3) {
-            TileObject stairs = Rs2GameObject.getTileObject(10857);
+            TileObject stairs = AgilityObjects.nearestNonGameObject(10857);
             if (stairs != null) {
                 log.debug("No obstacle found on pyramid top, found stairs to go back down");
                 return stairs;
@@ -337,7 +336,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         
         // Special handling for plank end which is a ground object
         if (obstacleId == 10868) {
-            List<GroundObject> groundObjects = Rs2GameObject.getGroundObjects();
+            List<GroundObject> groundObjects = AgilityObjects.groundObjects();
             if (log.isDebugEnabled()) {
                 log.debug("Looking for plank end at {}, checking {} ground objects", location, groundObjects.size());
             }
@@ -362,7 +361,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         }
         
         // Normal game objects
-        List<TileObject> obstacles = Rs2GameObject.getAll(obj -> 
+        List<TileObject> obstacles = AgilityObjects.all(obj -> 
             obj.getId() == obstacleId && 
             obj.getWorldLocation().equals(location)
         );
@@ -374,7 +373,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         if (obstacles.isEmpty()) {
             if (log.isDebugEnabled()) {
                 // Log all obstacles of this type on the current plane
-                List<TileObject> allObstaclesOfType = Rs2GameObject.getAll(obj -> 
+                List<TileObject> allObstaclesOfType = AgilityObjects.all(obj -> 
                     obj.getId() == obstacleId && 
                     obj.getPlane() == location.getPlane()
                 );
@@ -402,7 +401,7 @@ public class PyramidCourse implements AgilityCourseHandler {
             if (playerPos.getX() == 3043 && playerPos.getY() >= 4701) {
                 log.debug("Player after low wall on floor 4, looking for second gap at (3048, 4695)");
                 // Find the gap at (3048, 4695) specifically
-                List<TileObject> gaps = Rs2GameObject.getAll(obj -> 
+                List<TileObject> gaps = AgilityObjects.all(obj -> 
                     obj.getId() == obstacleId && 
                     obj.getPlane() == playerPos.getPlane() &&
                     obj.getWorldLocation().getX() >= 3047 && obj.getWorldLocation().getX() <= 3049 &&
@@ -424,7 +423,7 @@ public class PyramidCourse implements AgilityCourseHandler {
                      playerPos.getY() >= 4695 && playerPos.getY() <= 4697) {
                 log.debug("Player at start of floor 4, looking for first gap");
                 // Find the gap at (3040, 4697) specifically
-                List<TileObject> gaps = Rs2GameObject.getAll(obj -> 
+                List<TileObject> gaps = AgilityObjects.all(obj -> 
                     obj.getId() == obstacleId && 
                     obj.getPlane() == playerPos.getPlane() &&
                     obj.getWorldLocation().getX() >= 3039 && obj.getWorldLocation().getX() <= 3041 &&
@@ -444,7 +443,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         // Special handling for floor 2 gaps to prevent skipping ahead
         if (playerPos.getPlane() == 2 && (obstacleId == 10859 || obstacleId == 10861 || obstacleId == 10884) && !currentArea.name.contains("floor 4")) {
             // Only search in a very limited area based on the current area definition
-            List<TileObject> obstacles = Rs2GameObject.getAll(obj -> {
+            List<TileObject> obstacles = AgilityObjects.all(obj -> {
                 if (obj.getId() != obstacleId || obj.getPlane() != playerPos.getPlane()) {
                     return false;
                 }
@@ -499,7 +498,7 @@ public class PyramidCourse implements AgilityCourseHandler {
             log.debug("Looking for obstacle {} within {} tiles", obstacleId, maxDistance);
         }
         
-        List<TileObject> obstacles = Rs2GameObject.getAll(obj -> 
+        List<TileObject> obstacles = AgilityObjects.all(obj -> 
             obj.getId() == obstacleId && 
             obj.getPlane() == playerPos.getPlane() &&
             obj.getWorldLocation().distanceTo(playerPos) <= maxDistance
@@ -551,7 +550,7 @@ public class PyramidCourse implements AgilityCourseHandler {
                 } else {
                     log.debug("Could not find east Ledge at expected location (3372, 2839)");
                     // Try to find any ledge on east side as fallback
-                    List<TileObject> eastLedges = Rs2GameObject.getAll(obj -> 
+                    List<TileObject> eastLedges = AgilityObjects.all(obj -> 
                         obj.getId() == obstacleId &&
                         obj.getPlane() == playerPos.getPlane() &&
                         obj.getWorldLocation().getX() >= 3372 && obj.getWorldLocation().getX() <= 3373 &&
@@ -564,7 +563,7 @@ public class PyramidCourse implements AgilityCourseHandler {
             }
             
             // Default behavior - look for middle ledge
-            List<TileObject> obstacles = Rs2GameObject.getAll(obj -> 
+            List<TileObject> obstacles = AgilityObjects.all(obj -> 
                 obj.getId() == obstacleId &&
                 obj.getPlane() == playerPos.getPlane() &&
                 obj.getWorldLocation().getX() < 3370 && // Exclude east side ledges
@@ -602,7 +601,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         }
         // Special handling for plank end which is a ground object
         if (obstacleId == 10868) {
-            List<GroundObject> groundObjects = Rs2GameObject.getGroundObjects();
+            List<GroundObject> groundObjects = AgilityObjects.groundObjects();
             List<GroundObject> nearbyPlanks = new ArrayList<>();
             
             for (GroundObject go : groundObjects) {
@@ -636,7 +635,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         }
         
         // Normal game objects
-        List<TileObject> obstacles = Rs2GameObject.getAll(obj -> 
+        List<TileObject> obstacles = AgilityObjects.all(obj -> 
             obj.getId() == obstacleId &&
             obj.getPlane() == playerPos.getPlane() &&
             obj.getWorldLocation().distanceTo(playerPos) <= 15
@@ -727,7 +726,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         List<Integer> finalObstacleIds = pyramidObstacleIds;
         
         // First check for ground objects (plank ends)
-        List<GroundObject> groundObjects = Rs2GameObject.getGroundObjects();
+        List<GroundObject> groundObjects = AgilityObjects.groundObjects();
         for (GroundObject go : groundObjects) {
             if (go.getId() == 10868 && 
                 go.getPlane() == playerPos.getPlane() &&
@@ -743,7 +742,7 @@ public class PyramidCourse implements AgilityCourseHandler {
         int searchDistance = (playerPos.getPlane() == 3) ? 25 : 15;
         
         // Then check normal game objects
-        List<TileObject> nearbyObstacles = Rs2GameObject.getAll(obj -> 
+        List<TileObject> nearbyObstacles = AgilityObjects.all(obj -> 
             finalObstacleIds.contains(obj.getId()) && 
             obj.getPlane() == playerPos.getPlane() &&
             obj.getWorldLocation().distanceTo(playerPos) <= searchDistance
@@ -758,7 +757,7 @@ public class PyramidCourse implements AgilityCourseHandler {
                 if (log.isDebugEnabled()) {
                     log.debug("Expanding search for floor 4 pyramid top area...");
                 }
-                nearbyObstacles = Rs2GameObject.getAll(obj -> 
+                nearbyObstacles = AgilityObjects.all(obj -> 
                     finalObstacleIds.contains(obj.getId()) && 
                     obj.getPlane() == playerPos.getPlane()
                 );
@@ -785,13 +784,13 @@ public class PyramidCourse implements AgilityCourseHandler {
     private boolean isObstacleReachable(TileObject obstacle) {
         if (obstacle instanceof GameObject) {
             GameObject go = (GameObject) obstacle;
-            return Rs2GameObject.canReach(go.getWorldLocation(), go.sizeX() + 2, go.sizeY() + 2, 4, 4);
+            return AgilityObjects.canReach(go.getWorldLocation(), go.sizeX() + 2, go.sizeY() + 2, 4, 4);
         } else if (obstacle instanceof GroundObject) {
-            return Rs2GameObject.canReach(obstacle.getWorldLocation(), 2, 2);
+            return AgilityObjects.canReach(obstacle.getWorldLocation(), 2, 2);
         } else if (obstacle instanceof WallObject) {
-            return Rs2GameObject.canReach(obstacle.getWorldLocation(), 1, 1);
+            return AgilityObjects.canReach(obstacle.getWorldLocation(), 1, 1);
         } else {
-            return Rs2GameObject.canReach(obstacle.getWorldLocation(), 2, 2);
+            return AgilityObjects.canReach(obstacle.getWorldLocation(), 2, 2);
         }
     }
     
@@ -823,19 +822,19 @@ public class PyramidCourse implements AgilityCourseHandler {
             int distanceToStart = playerLocation.distanceTo(START_POINT);
             if (distanceToStart > 3) {
                 // Try to directly click on the pyramid stairs if visible AND reachable
-                List<TileObject> stairsCandidates = Rs2GameObject.getAll(obj ->
+                List<TileObject> stairsCandidates = AgilityObjects.all(obj ->
                     obj.getId() == 10857 &&
                     obj.getPlane() == playerLocation.getPlane() &&
                     obj.getWorldLocation().distanceTo(playerLocation) <= 10 &&
                     obj.getWorldLocation().distanceTo(START_POINT) <= 2 &&
-                    Rs2GameObject.canReach(obj.getWorldLocation())
+                    AgilityObjects.canReach(obj.getWorldLocation())
                 );
                 if (!stairsCandidates.isEmpty()) {
                     TileObject pyramidStairs = stairsCandidates.stream()
                         .min(Comparator.comparingInt(obj -> obj.getWorldLocation().distanceTo(playerLocation)))
                         .orElse(null);
                     log.debug("Clicking directly on pyramid stairs (reachable from current position)");
-                    if (Rs2GameObject.interact(pyramidStairs)) {
+                    if (AgilityObjects.interact(pyramidStairs)) {
                         Global.sleep(600, 800); // Small delay after clicking
                         return true;
                     }
@@ -1156,7 +1155,7 @@ public class PyramidCourse implements AgilityCourseHandler {
             Rs2NpcModel simon = Microbot.getRs2NpcCache().query().withName(SIMON_NAME).nearestOnClientThread();
             
             // If Simon is found and reachable, use pyramid top on him
-            if (simon != null && Rs2GameObject.canReach(simon.getWorldLocation())) {
+            if (simon != null && AgilityObjects.canReach(simon.getWorldLocation())) {
                 log.debug("Simon found and reachable, using pyramid top");
                 
                 // Handle dialogue first if already in dialogue

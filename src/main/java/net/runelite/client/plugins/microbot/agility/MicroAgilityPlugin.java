@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 	description = "Microbot agility plugin",
     authors = { "Mocrosoft" },
     version = MicroAgilityPlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.43",
 	tags = {"agility", "microbot"},
     iconUrl = "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/icon.png",
     cardUrl = "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/card.png",
@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MicroAgilityPlugin extends Plugin
 {
-	public static final String version = "1.3.1";
+	public static final String version = "1.3.2";
 	@Inject
 	private MicroAgilityConfig config;
 	@Inject
