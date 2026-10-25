@@ -15,8 +15,8 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerPlugin;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
@@ -29,14 +29,14 @@ import java.time.Instant;
         tags = {"blood", "rc", "rune", "frosty", "wrath"},
         authors = {"Frosty"},
         version = RcPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.6.43",
         cardUrl = "https://chsami.github.io/Microbot-Hub/RcPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/RcPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class RcPlugin extends Plugin {
-    public static final String version = "1.1.4";
+    public static final String version = "1.1.5";
     @Inject
     private RcConfig config;
     @Inject
@@ -75,7 +75,7 @@ public class RcPlugin extends Plugin {
                 portalComposition = portalComposition.getImpostor();
             }
             String name = portalComposition.getName().toLowerCase();
-            if (name.contains("portal") && Rs2GameObject.isReachable(pohPortal)) {
+            if (name.contains("portal") && new Rs2TileObjectModel(pohPortal).isReachable()) {
                 this.pohPortal = pohPortal;
             }
         }
@@ -88,7 +88,7 @@ public class RcPlugin extends Plugin {
                 poolComposition = poolComposition.getImpostor();
             }
             String name = poolComposition.getName().toLowerCase();
-            if (name.contains("pool") && Rs2GameObject.isReachable(pool)) {
+            if (name.contains("pool") && new Rs2TileObjectModel(pool).isReachable()) {
                 this.pool = pool;
             }
         }
