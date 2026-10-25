@@ -11,7 +11,6 @@ import net.runelite.client.plugins.agility.AgilityPlugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.agility.models.AgilityObstacleModel;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
@@ -93,7 +92,7 @@ public class WerewolfCourse implements AgilityCourseHandler {
                     var objLocation = obj.getWorldLocation();
                     return objLocation.getY() == matchingObstacle.getRequiredY() && objLocation.getX() == matchingObstacle.getRequiredX();
                 }
-                return Rs2GameObject.canReach(obj.getWorldLocation(), 2, 2);
+                return AgilityObjects.canReach(obj.getWorldLocation(), 2, 2);
             }
 
             if (obj instanceof GameObject) {
@@ -102,13 +101,13 @@ public class WerewolfCourse implements AgilityCourseHandler {
                 if(_obj.getId() == ObjectID.WEREWOLF_HURDLE_MID)
                     return obj.getWorldLocation().getY() == matchingObstacle.getRequiredY() && obj.getWorldLocation().getX() == matchingObstacle.getRequiredX();
                 else
-                    return Rs2GameObject.canReach(_obj.getWorldLocation(), _obj.sizeX() + 2, _obj.sizeY() + 2, 4, 4);
+                    return AgilityObjects.canReach(_obj.getWorldLocation(), _obj.sizeX() + 2, _obj.sizeY() + 2, 4, 4);
             }
             return true;
         };
 
         // Store matching object as reference for handling logic
-        matchingObject = Rs2GameObject.getAll(validObjectPredicate).stream().findFirst().orElse(null);
+        matchingObject = AgilityObjects.all(validObjectPredicate).stream().findFirst().orElse(null);
         return matchingObject;
     }
 

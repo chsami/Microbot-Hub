@@ -9,7 +9,6 @@ import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.agility.models.AgilityObstacleModel;
 import net.runelite.client.plugins.microbot.util.Global;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -90,7 +89,7 @@ public interface AgilityCourseHandler
 
 			if (obj instanceof GroundObject)
 			{
-				return Rs2GameObject.canReach(obj.getWorldLocation(), 2, 2);
+				return AgilityObjects.canReach(obj.getWorldLocation(), 2, 2);
 			}
 
 			if (obj instanceof GameObject)
@@ -99,17 +98,17 @@ public interface AgilityCourseHandler
 				switch (obj.getId())
 				{
 					case ObjectID.ROOFTOPS_POLLNIVNEACH_MARKETSTALL:
-						return Rs2GameObject.canReach(obj.getWorldLocation(), _obj.sizeX(), _obj.sizeY(), 4, 4);
+						return AgilityObjects.canReach(obj.getWorldLocation(), _obj.sizeX(), _obj.sizeY(), 4, 4);
 					case ObjectID.SHAYZIEN_AGILITY_UP_SWING_JUMP_2:
 						return _obj.getWorldLocation().distanceTo(playerLocation) < 6;
 					default:
-						return Rs2GameObject.canReach(_obj.getWorldLocation(), _obj.sizeX() + 2, _obj.sizeY() + 2, 4, 4);
+						return AgilityObjects.canReach(_obj.getWorldLocation(), _obj.sizeX() + 2, _obj.sizeY() + 2, 4, 4);
 				}
 			}
 			return true;
 		};
 
-		return Rs2GameObject.getAll(validObjectPredicate).stream()
+		return AgilityObjects.all(validObjectPredicate).stream()
 			.min(Comparator.comparingInt(obj -> obj.getWorldLocation().distanceTo(playerLocation)))
 			.orElse(null);
 	}
@@ -203,7 +202,7 @@ public interface AgilityCourseHandler
 		{
 			AgilityObstacleModel o = getObstacles().get(i);
 
-			TileObject nearestObstacle = Rs2GameObject.getAll(obj -> obj.getId() == o.getObjectID() && obj.getPlane() == playerPlane)
+			TileObject nearestObstacle = AgilityObjects.all(obj -> obj.getId() == o.getObjectID() && obj.getPlane() == playerPlane)
 				.stream()
 				.min(Comparator.comparing(obj -> obj.getWorldLocation().distanceTo(playerLoc)))
 				.orElse(null);
