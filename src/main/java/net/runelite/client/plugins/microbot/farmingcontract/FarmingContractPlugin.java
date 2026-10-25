@@ -19,7 +19,7 @@ import javax.inject.Inject;
     tags = {"farming", "contract", "guild", "jane"},
     authors = {"Pert"},
     version = FarmingContractPlugin.VERSION,
-    minClientVersion = "2.6.0",
+    minClientVersion = "2.6.43",
     iconUrl = "https://chsami.github.io/Microbot-Hub/FarmingContractPlugin/assets/icon.png",
     cardUrl = "https://chsami.github.io/Microbot-Hub/FarmingContractPlugin/assets/card.png",
     enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -27,7 +27,7 @@ import javax.inject.Inject;
 )
 @Slf4j
 public class FarmingContractPlugin extends Plugin {
-    static final String VERSION = "0.2.3";
+    static final String VERSION = "0.2.4";
 
     @Getter
     @Setter
