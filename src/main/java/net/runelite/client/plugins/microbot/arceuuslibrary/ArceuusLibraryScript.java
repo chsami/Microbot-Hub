@@ -18,6 +18,8 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.util.walker.WalkerState;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.events.PluginMessage;
 
 import java.util.ArrayList;
@@ -94,15 +96,31 @@ public class ArceuusLibraryScript extends Script
     private volatile String currentCustomerLabel = "—";
     private volatile int candidateCount = 0;
 
+    /** Teleport tabs usable from inventory/bank, best (lands in the library) first. */
+    private static final String[] TRAVEL_TABS = { "Arceuus library teleport", "Kourend castle teleport" };
+    private static final int MAX_TRAVEL_FAILURES = 3;
+
+    private final Runnable onFatal;
+    private volatile boolean pathfinderLocal = false;
+    private volatile int walkFailures = 0;
+    private volatile long walkBackoffUntil = 0L;
+    private volatile WorldPoint inFlightTarget = null;
+    private volatile int travelFailureRounds = 0;
+
     public ArceuusLibraryScript(KourendLibraryBridge bridge)
     {
+        this(bridge, null);
+    }
+
+    public ArceuusLibraryScript(KourendLibraryBridge bridge, Runnable onFatal)
+    {
         this.bridge = bridge;
+        this.onFatal = onFatal;
     }
 
     public boolean run(ArceuusLibraryConfig config)
     {
         this.config = config;
-        restrictPathfinderToLocal();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(
                 this::tick, 0, 600, TimeUnit.MILLISECONDS);
         return true;
@@ -131,6 +149,18 @@ public class ArceuusLibraryScript extends Script
                 if (!bridge.ensureUpstreamEnabled()) return;
                 log.info("[tick#{}] upstream enabled successfully", tickCount);
             }
+
+            // The customer/book loop only makes sense inside the library. Elsewhere,
+            // travel there first (with the pathfinder's teleports/transports enabled).
+            WorldPoint playerLoc = Rs2Player.getWorldLocation();
+            if (!LibraryTravel.isInsideLibrary(playerLoc))
+            {
+                travelToLibrary(playerLoc);
+                return;
+            }
+            walkFailures = 0;
+            travelFailureRounds = 0;
+            if (!pathfinderLocal) restrictPathfinderToLocal();
 
             // Always claim a pending reward before starting the next loop
             if (Rs2Inventory.hasItem(BOOK_OF_ARCANE_KNOWLEDGE))
@@ -915,18 +945,102 @@ public class ArceuusLibraryScript extends Script
 
     private void walkInBackground(WorldPoint target)
     {
-        if (backgroundWalk != null && !backgroundWalk.isDone()) return;
+        boolean running = backgroundWalk != null && !backgroundWalk.isDone();
+        if (!LibraryTravel.shouldStartWalk(running ? inFlightTarget : null, target,
+                System.currentTimeMillis(), walkBackoffUntil))
+        {
+            return;
+        }
         log.info("[walk] starting background walk to {}", target);
+        inFlightTarget = target;
+        final WorldPoint startedAt = Rs2Player.getWorldLocation();
         backgroundWalk = CompletableFuture.runAsync(() -> {
             try
             {
-                Rs2Walker.walkTo(target, 2);
+                WalkerState result = Rs2Walker.walkWithState(target, 2);
+                WorldPoint now = Rs2Player.getWorldLocation();
+                boolean noProgress = result == WalkerState.EXIT && startedAt != null && startedAt.equals(now);
+                if (result == WalkerState.UNREACHABLE || noProgress)
+                {
+                    int n = ++walkFailures;
+                    long ms = LibraryTravel.backoffMillis(n);
+                    walkBackoffUntil = System.currentTimeMillis() + ms;
+                    log.warn("[walk] {} to {} from {}; backing off {}s (failure #{})",
+                            result, target, now, ms / 1000, n);
+                }
+                else if (result == WalkerState.ARRIVED)
+                {
+                    walkFailures = 0;
+                    walkBackoffUntil = 0L;
+                }
             }
             catch (Exception e)
             {
                 log.warn("[walk] background walk to {} failed: {}", target, e.getMessage());
             }
+            finally
+            {
+                inFlightTarget = null;
+            }
         });
+    }
+
+    /**
+     * Travel phase: get the player into the library. Clears the pathfinder's local-only
+     * restriction so the walker may use teleports/charters, walks to the entrance, and
+     * after a failed walk tries teleport tabs; gives up (stopping the plugin) after
+     * {@link #MAX_TRAVEL_FAILURES} unreachable results.
+     */
+    private void travelToLibrary(WorldPoint here)
+    {
+        state = ArceuusLibraryState.TRAVELING;
+        if (pathfinderLocal) clearPathfinderRestrictions();
+
+        if (backgroundWalk != null && !backgroundWalk.isDone()) return; // single in-flight walk
+
+        if (walkFailures > travelFailureRounds)
+        {
+            // A walk just failed: try travel items once for this failure round, then count it.
+            travelFailureRounds = walkFailures;
+            if (tryTravelItems(here)) return;
+            if (travelFailureRounds >= MAX_TRAVEL_FAILURES)
+            {
+                String msg = "Can't reach the Arceuus Library from " + here + " - travel to Kourend first";
+                log.error(msg);
+                Microbot.showMessage(msg);
+                shutdown();
+                if (onFatal != null) onFatal.run();
+                return;
+            }
+        }
+        walkInBackground(LibraryTravel.ENTRANCE);
+    }
+
+    /** Uses a teleport tab from the inventory (withdrawing from an open bank first). */
+    private boolean tryTravelItems(WorldPoint from)
+    {
+        for (String tab : TRAVEL_TABS)
+        {
+            if (!Rs2Inventory.hasItem(tab) && Rs2Bank.isOpen() && Rs2Bank.hasItem(tab))
+            {
+                Rs2Bank.withdrawOne(tab);
+                sleepUntil(() -> Rs2Inventory.hasItem(tab), 3_000);
+            }
+            if (Rs2Inventory.hasItem(tab))
+            {
+                log.info("[travel] unreachable by walking from {}; breaking {}", from, tab);
+                if (Rs2Bank.isOpen()) Rs2Bank.closeBank();
+                if (Rs2Inventory.interact(tab, "Break"))
+                {
+                    sleepUntil(() -> !from.equals(Rs2Player.getWorldLocation()), 8_000);
+                    walkFailures = 0;
+                    walkBackoffUntil = 0L;
+                    travelFailureRounds = 0;
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void cancelBackgroundWalk()
@@ -934,6 +1048,7 @@ public class ArceuusLibraryScript extends Script
         Rs2Walker.setTarget(null);
         if (backgroundWalk != null) backgroundWalk.cancel(true);
         backgroundWalk = null;
+        inFlightTarget = null;
     }
 
 
@@ -994,12 +1109,14 @@ public class ArceuusLibraryScript extends Script
         Map<String, Object> data = new HashMap<>();
         data.put("config", overrides);
         Microbot.getEventBus().post(new PluginMessage("shortestpath", "path", data));
+        pathfinderLocal = true;
         log.info("Pathfinder restricted to local routes (no teleports/transports)");
     }
 
     private void clearPathfinderRestrictions()
     {
         Microbot.getEventBus().post(new PluginMessage("shortestpath", "clear"));
+        pathfinderLocal = false;
         log.info("Pathfinder restrictions cleared");
     }
 

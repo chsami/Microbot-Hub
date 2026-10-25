@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.arceuuslibrary;
 public enum ArceuusLibraryState
 {
     IDLE,
+    TRAVELING,
     TALK_TO_CUSTOMER,
     LOCATE_BOOK,
     WALK_TO_BOOKCASE,

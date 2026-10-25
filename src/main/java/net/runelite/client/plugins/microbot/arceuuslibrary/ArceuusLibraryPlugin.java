@@ -7,6 +7,7 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginManager;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
 
@@ -27,7 +28,7 @@ import javax.inject.Inject;
 @Slf4j
 public class ArceuusLibraryPlugin extends Plugin
 {
-    public static final String version = "1.0.1";
+    public static final String version = "1.0.2";
 
     @Getter
     @Inject
@@ -64,7 +65,8 @@ public class ArceuusLibraryPlugin extends Plugin
         }
         bridge.wire();
 
-        script = new ArceuusLibraryScript(bridge);
+        script = new ArceuusLibraryScript(bridge,
+                () -> javax.swing.SwingUtilities.invokeLater(() -> Microbot.stopPlugin(this)));
 
         if (overlayManager != null)
         {
