@@ -33,7 +33,7 @@ import java.util.regex.Matcher;
         description = "Guardians of the rift plugin",
         tags = {"runecrafting", "guardians of the rift", "gotr", "microbot"},
         version = GotrPlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.43",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -41,7 +41,7 @@ import java.util.regex.Matcher;
 )
 @Slf4j
 public class GotrPlugin extends Plugin {
-    public static final String version = "1.5.12";
+    public static final String version = "1.5.13";
 
     @Inject
     private GotrConfig config;

@@ -30,7 +30,7 @@ import java.util.regex.Pattern;
         version = TemporossPlugin.version,
         // Conservative: verified compiling against 2.6.16; the rework uses APIs (tile-object cache
         // queries, Rs2Tile.isWalkable(LocalPoint), hopToWorld) not present in older clients.
-        minClientVersion = "2.6.16",
+        minClientVersion = "2.6.43",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
 )
 @Slf4j
 public class TemporossPlugin extends Plugin {
-    public static final String version = "2.24.6";
+    public static final String version = "2.24.7";
     @Inject
     private TemporossConfig config;
 
