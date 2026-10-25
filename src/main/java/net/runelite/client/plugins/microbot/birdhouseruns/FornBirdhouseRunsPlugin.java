@@ -18,7 +18,7 @@ import java.awt.*;
         tags = {"FornBirdhouseRuns", "forn"},
         authors = {"Forn"},
         version = FornBirdhouseRunsPlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.43",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL,
         iconUrl = "https://chsami.github.io/Microbot-Hub/FornBirdhouseRunsPlugin/assets/icon.jpg",
@@ -26,7 +26,7 @@ import java.awt.*;
 )
 @Slf4j
 public class FornBirdhouseRunsPlugin extends Plugin {
-    final static String version = "1.1.4";
+    final static String version = "1.1.5";
     @Provides
     FornBirdhouseRunsConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(FornBirdhouseRunsConfig.class);

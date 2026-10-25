@@ -16,7 +16,6 @@ import net.runelite.client.plugins.microbot.questhelper.helpers.mischelpers.farm
 import net.runelite.client.plugins.microbot.questhelper.helpers.mischelpers.farmruns.FarmingWorld;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
@@ -321,7 +320,7 @@ public class HerbrunScript extends Script {
     }
 
     private static String getHerbPatchState(TileObject rs2TileObject) {
-        var game_obj = Rs2GameObject.convertToObjectComposition(rs2TileObject, true);
+        var game_obj = Rs2TileObjectModel.compositionOf(rs2TileObject.getId(), true);
         var varbitValue = Microbot.getVarbitValue(game_obj.getVarbitId());
 
         if ((varbitValue >= 0 && varbitValue < 3) ||
@@ -568,12 +567,13 @@ public class HerbrunScript extends Script {
     // --- Shared patch state detection via game object actions ---
 
     private static String getPatchState(TileObject tileObj) {
-        if (Rs2GameObject.hasAction(tileObj, "Rake")) return "Weeds";
-        if (Rs2GameObject.hasAction(tileObj, "Pick")) return "Harvestable";
-        if (Rs2GameObject.hasAction(tileObj, "Harvest")) return "Harvestable";
-        if (Rs2GameObject.hasAction(tileObj, "Clear")) return "Dead";
+        Rs2TileObjectModel patch = new Rs2TileObjectModel(tileObj);
+        if (patch.hasActionContaining("Rake")) return "Weeds";
+        if (patch.hasActionContaining("Pick")) return "Harvestable";
+        if (patch.hasActionContaining("Harvest")) return "Harvestable";
+        if (patch.hasActionContaining("Clear")) return "Dead";
 
-        var comp = Rs2GameObject.convertToObjectComposition(tileObj, true);
+        var comp = Rs2TileObjectModel.compositionOf(tileObj.getId(), true);
         int varbit = Microbot.getVarbitValue(comp.getVarbitId());
         if (varbit <= 5) return "Empty";
 

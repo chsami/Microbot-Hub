@@ -1,22 +1,25 @@
 package net.runelite.client.plugins.microbot.farmtreerun;
 
-import net.runelite.api.GameObject;
 import net.runelite.api.ObjectComposition;
+import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
+import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectQueryable;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -34,17 +37,26 @@ class FarmTreeRunHandlePatchTest {
         return script;
     }
 
+    private static void stubTreePatchLookup(MockedStatic<Microbot> microbot, ObjectComposition composition) {
+        Rs2TileObjectModel treePatch = mock(Rs2TileObjectModel.class);
+        when(treePatch.getId()).thenReturn(8392);
+        Rs2TileObjectQueryable query = mock(Rs2TileObjectQueryable.class, RETURNS_SELF);
+        when(query.nearest()).thenReturn(treePatch);
+        Rs2TileObjectCache cache = mock(Rs2TileObjectCache.class);
+        when(cache.query()).thenReturn(query);
+        ClientThread clientThread = mock(ClientThread.class);
+        when(clientThread.runOnClientThreadOptional(any())).thenReturn(Optional.ofNullable(composition));
+        microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
+        microbot.when(Microbot::getClientThread).thenReturn(clientThread);
+    }
+
     @Test
     void nullTreeCompositionSkipsPatchInsteadOfThrowing() throws Exception {
         FarmTreeRunConfig config = mock(FarmTreeRunConfig.class);
         FarmTreeRunScript script = runningScript(config);
-        GameObject treePatch = mock(GameObject.class);
-        when(treePatch.getId()).thenReturn(8392);
-        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
-             MockedStatic<Rs2GameObject> gameObject = mockStatic(Rs2GameObject.class)) {
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
             microbot.when(Microbot::isLoggedIn).thenReturn(true);
-            gameObject.when(() -> Rs2GameObject.findObjectByImposter(anyInt(), anyString(), eq(false))).thenReturn(treePatch);
-            gameObject.when(() -> Rs2GameObject.findObjectComposition(anyInt())).thenReturn(null);
+            stubTreePatchLookup(microbot, null);
 
             Method handlePatch = FarmTreeRunScript.class.getDeclaredMethod("handlePatch", FarmTreeRunConfig.class, FarmTreeRunScript.Patch.class);
             handlePatch.setAccessible(true);
@@ -58,15 +70,12 @@ class FarmTreeRunHandlePatchTest {
     void nullTreeActionsSkipsPatchInsteadOfThrowing() throws Exception {
         FarmTreeRunConfig config = mock(FarmTreeRunConfig.class);
         FarmTreeRunScript script = runningScript(config);
-        GameObject treePatch = mock(GameObject.class);
-        when(treePatch.getId()).thenReturn(8392);
         ObjectComposition composition = mock(ObjectComposition.class);
         when(composition.getActions()).thenReturn(null);
-        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
-             MockedStatic<Rs2GameObject> gameObject = mockStatic(Rs2GameObject.class)) {
+        when(composition.getImpostorIds()).thenReturn(null);
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
             microbot.when(Microbot::isLoggedIn).thenReturn(true);
-            gameObject.when(() -> Rs2GameObject.findObjectByImposter(anyInt(), anyString(), eq(false))).thenReturn(treePatch);
-            gameObject.when(() -> Rs2GameObject.findObjectComposition(anyInt())).thenReturn(composition);
+            stubTreePatchLookup(microbot, composition);
 
             Method handlePatch = FarmTreeRunScript.class.getDeclaredMethod("handlePatch", FarmTreeRunConfig.class, FarmTreeRunScript.Patch.class);
             handlePatch.setAccessible(true);
@@ -81,9 +90,8 @@ class FarmTreeRunHandlePatchTest {
         FarmTreeRunConfig config = mock(FarmTreeRunConfig.class);
         when(config.protectTrees()).thenReturn(false);
         FarmTreeRunScript script = runningScript(config);
-        try (MockedStatic<Rs2GameObject> gameObject = mockStatic(Rs2GameObject.class);
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Npc> npc = mockStatic(Rs2Npc.class)) {
-            gameObject.when(() -> Rs2GameObject.getObjectComposition(anyInt())).thenReturn(null);
 
             Class<?> paymentKind = Class.forName(FarmTreeRunScript.class.getName() + "$PaymentKind");
             Object protect = java.util.Arrays.stream(paymentKind.getEnumConstants()).filter(k -> k.toString().equals("PROTECT")).findFirst().orElseThrow();
@@ -92,7 +100,7 @@ class FarmTreeRunHandlePatchTest {
             Object result = handlePayment.invoke(script, config, FarmTreeRunScript.Patch.GNOME_STRONGHOLD_TREE_PATCH, protect);
 
             assertEquals(Boolean.TRUE, result);
-            gameObject.verify(() -> Rs2GameObject.getObjectComposition(anyInt()), never());
+            microbot.verify(Microbot::getClientThread, never());
             npc.verify(() -> Rs2Npc.getNearestNpcWithAction(anyString()), never());
         }
     }
