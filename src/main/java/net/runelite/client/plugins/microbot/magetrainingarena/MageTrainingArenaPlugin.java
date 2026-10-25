@@ -16,7 +16,7 @@ import java.awt.*;
         name = PluginConstants.BASCHE + "MTA",
         authors = { "Basche" },
         version = MageTrainingArenaPlugin.version,
-        minClientVersion = "1.9.6",
+        minClientVersion = "2.6.43",
         description = "Automates the Mage Training Arena minigame",
         tags = {"mage", "training", "arena", "mta", "magic", "minigame", "microbot"},
         cardUrl = "https://chsami.github.io/Microbot-Hub/MageTrainingArenaPlugin/assets/card.png",
@@ -26,7 +26,7 @@ import java.awt.*;
 )
 @Slf4j
 public class MageTrainingArenaPlugin extends Plugin {
-    public static final String version = "1.1.9";
+    public static final String version = "1.1.10";
 
     @Inject
     private MageTrainingArenaConfig config;

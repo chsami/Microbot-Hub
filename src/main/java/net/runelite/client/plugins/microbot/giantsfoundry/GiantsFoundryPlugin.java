@@ -19,7 +19,7 @@ import java.awt.*;
         description = "Microbot giants foundry plugin",
         tags = {"minigame", "microbot", "smithing"},
         version = GiantsFoundryPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.43",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -28,7 +28,7 @@ import java.awt.*;
 @Slf4j
 public class GiantsFoundryPlugin extends Plugin {
 
-    public static final String version = "1.0.7";
+    public static final String version = "1.0.8";
 
     @Inject
     private GiantsFoundryConfig config;

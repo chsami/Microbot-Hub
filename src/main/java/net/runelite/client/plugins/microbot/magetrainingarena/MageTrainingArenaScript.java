@@ -9,6 +9,7 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.magetrainingarena.enums.*;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
@@ -17,7 +18,6 @@ import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2RunePouch;
@@ -194,7 +194,7 @@ public class MageTrainingArenaScript extends Script {
                     Rs2Player.waitForWalking();
                 }
                 if (currentRoom == Rooms.GRAVEYARD && Rs2Inventory.contains(ItemID.BANANA, ItemID.PEACH)) {
-                    Rs2GameObject.interact(new WorldPoint(3354, 9639, 1), "Deposit");
+                    interactAt(new WorldPoint(3354, 9639, 1), "Deposit");
                     Rs2Inventory.waitForInventoryChanges(5000);
                 }
                 leaveRoom();
@@ -504,18 +504,18 @@ public class MageTrainingArenaScript extends Script {
                 }
             }
             if (Rs2Inventory.contains(ItemID.BANANA, ItemID.PEACH)) {
-            Rs2GameObject.interact(new WorldPoint(3354, 9639, 1), "Deposit");
+            interactAt(new WorldPoint(3354, 9639, 1), "Deposit");
                 Rs2Inventory.waitForInventoryChanges(5000);
         }
             return;
         }
         if (mtaPlugin.getGraveyardRoom().getCounter() == null){
-            Rs2GameObject.interact(new WorldPoint(3352, 9637, 1), "Grab");
+            interactAt(new WorldPoint(3352, 9637, 1), "Grab");
             sleepUntil(()->!Rs2Player.isMoving() && Rs2Inventory.waitForInventoryChanges(2000));
         }
         while (mtaPlugin.getGraveyardRoom().getCounter() != null && mtaPlugin.getGraveyardRoom().getCounter().getCount() < boneGoal && isRunning()){
             System.out.println("Plugin Counter: " + mtaPlugin.getGraveyardRoom().getCounter().getCount() + " boneGoal: " + boneGoal);
-            Rs2GameObject.interact(new WorldPoint(3352, 9637, 1), "Grab");
+            interactAt(new WorldPoint(3352, 9637, 1), "Grab");
             Rs2Inventory.waitForInventoryChanges(5000);
             boneGoal = (Rs2Inventory.items().filter(x -> x.getName().equalsIgnoreCase("Animals' bones")).count()+Rs2Inventory.emptySlotCount());
             sleepGaussian(400, 150);
@@ -812,4 +812,17 @@ public class MageTrainingArenaScript extends Script {
         return false;
     }
 
+
+    private static boolean interactAt(WorldPoint location, String action) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return false;
+        Rs2TileObjectModel object = Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .where(o -> location.equals(o.getTileObject().getWorldLocation()))
+                .toList().stream()
+                .min(Comparator.comparing((Rs2TileObjectModel o) -> o.getTileObjectType() != TileObjectType.GAME)
+                        .thenComparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                .orElse(null);
+        return object != null && object.click(action);
+    }
 }

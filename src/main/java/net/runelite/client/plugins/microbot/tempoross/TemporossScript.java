@@ -7,6 +7,7 @@ import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
 import net.runelite.client.plugins.microbot.tempoross.enums.HarpoonType;
@@ -20,7 +21,6 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldArea;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
@@ -1939,8 +1939,12 @@ public class TemporossScript extends Script {
     }
 
     public static void updateCloudData(){
-        List<GameObject> allClouds = Rs2GameObject.getGameObjects().stream()
-                .filter(obj -> obj.getId() == CLOUD_SHADOW || obj.getId() == CLOUD_SHADOW_SHORT)
+        List<GameObject> allClouds = Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .ofType(TileObjectType.GAME)
+                .withIds(CLOUD_SHADOW, CLOUD_SHADOW_SHORT)
+                .toList().stream()
+                .map(o -> (GameObject) o.getTileObject())
                 .collect(Collectors.toList());
         LocalPoint playerLocal = cachedPlayerLocal;
         if (playerLocal == null) {
