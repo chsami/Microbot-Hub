@@ -205,12 +205,13 @@ public class BanksShopperScript extends Script {
         // and open the appropriate UI (bank widget or deposit-box widget).
         boolean alreadyOpen = Rs2Bank.isOpen() || Rs2DepositBox.isOpen();
         if (!alreadyOpen) {
-            TileObject bankObject = Microbot.getRs2TileObjectCache().query()
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            TileObject bankObject = playerLocation == null ? null : Microbot.getRs2TileObjectCache().query()
                     .fromWorldView()
                     .where(o -> Rs2BankID.BANK_ID_SET.contains(o.getId()))
                     .toList().stream()
                     .map(Rs2TileObjectModel::getTileObject)
-                    .min(Comparator.comparingInt(o -> o.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                    .min(Comparator.comparingInt(o -> o.getWorldLocation().distanceTo(playerLocation)))
                     .orElse(null);
 
             if (bankObject != null) {

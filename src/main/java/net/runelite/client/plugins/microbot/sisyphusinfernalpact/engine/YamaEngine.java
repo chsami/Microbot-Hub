@@ -6,6 +6,7 @@ import net.runelite.api.Constants;
 import net.runelite.api.GroundObject;
 import net.runelite.api.NPC;
 import net.runelite.api.Perspective;
+import net.runelite.api.Player;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -312,8 +313,13 @@ public class YamaEngine {
     private static List<GroundObject> groundObjectsNearPlayer() {
         WorldPoint playerLocation = Rs2Player.getWorldLocation();
         if (playerLocation == null) return Collections.emptyList();
-        LocalPoint anchor = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), playerLocation);
-        if (anchor == null) return Collections.emptyList();
+        LocalPoint anchorLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), playerLocation);
+        if (anchorLocal == null) {
+            Player player = Microbot.getClient().getLocalPlayer();
+            anchorLocal = player != null ? player.getLocalLocation() : null;
+            if (anchorLocal == null) return Collections.emptyList();
+        }
+        LocalPoint anchor = anchorLocal;
         int maxDistance = (Constants.SCENE_SIZE / 2) * Perspective.LOCAL_TILE_SIZE;
         return Microbot.getRs2TileObjectCache().query()
                 .fromWorldView()

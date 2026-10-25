@@ -1369,13 +1369,15 @@ public class HSBlackJackScript extends Script {
         WorldPoint playerLocation = Rs2Player.getWorldLocation();
         if (playerLocation == null) return false;
         int maxDistance = 52;
-        Rs2TileObjectModel door = Microbot.getRs2TileObjectCache().query()
-                .fromWorldView()
-                .ofType(TileObjectType.GAME)
-                .where(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation) <= maxDistance)
-                .withNameContains("door")
-                .toList().stream()
-                .min(Comparator.comparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+        Rs2TileObjectModel door = Microbot.getClientThread().runOnClientThreadOptional(() ->
+                Microbot.getRs2TileObjectCache().query()
+                        .fromWorldView()
+                        .ofType(TileObjectType.GAME)
+                        .where(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation) <= maxDistance)
+                        .withNameContains("door")
+                        .toList().stream()
+                        .min(Comparator.comparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                        .orElse(null))
                 .orElse(null);
         return door != null && door.click("Open");
     }
