@@ -1870,11 +1870,12 @@ public class SlayerScript extends Script {
         }
 
         // Place cannon if using cannon and not yet placed
-        if (isUsingCannon && !cannonPlaced && cannonSpot != null) {
+        WorldPoint spot = cannonSpot;
+        if (isUsingCannon && !cannonPlaced && spot != null) {
             WorldPoint playerLocation = Rs2Player.getWorldLocation();
-            if (playerLocation != null && playerLocation.distanceTo(cannonSpot) <= 2) {
+            if (playerLocation != null && playerLocation.distanceTo(spot) <= 2) {
                 if (hasCannonParts()) {
-                    log.info("Placing cannon at {}", cannonSpot);
+                    log.info("Placing cannon at {}", spot);
                     if (setupCannon()) {
                         // Wait for cannon assembly animation to complete (takes several seconds)
                         log.info("Waiting for cannon assembly...");
@@ -1903,9 +1904,9 @@ public class SlayerScript extends Script {
                 }
             } else {
                 // Walk closer to cannon spot
-                log.debug("Walking to cannon spot, distance: {}", playerLocation != null ? playerLocation.distanceTo(cannonSpot) : "unknown");
+                log.debug("Walking to cannon spot, distance: {}", playerLocation != null ? playerLocation.distanceTo(spot) : "unknown");
                 if (!Rs2Player.isMoving()) {
-                    Rs2Walker.walkTo(cannonSpot);
+                    Rs2Walker.walkTo(spot);
                 }
                 return;
             }

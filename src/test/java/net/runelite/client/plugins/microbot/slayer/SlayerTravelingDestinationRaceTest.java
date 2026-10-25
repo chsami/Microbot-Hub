@@ -85,6 +85,28 @@ class SlayerTravelingDestinationRaceTest {
         }
     }
 
+    @Test
+    void cannonSpotClearedAfterNullCheckStillWalksToSnapshot() throws Exception {
+        SlayerScript script = new SlayerScript();
+        setField(script, "isUsingCannon", true);
+        setField(script, "cannonPlaced", false);
+        setField(script, "cannonSpot", DESTINATION);
+        try (MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            player.when(Rs2Player::getWorldLocation).thenAnswer(invocation -> {
+                setField(script, "cannonSpot", null);
+                return new WorldPoint(3000, 3000, 0);
+            });
+            player.when(Rs2Player::isMoving).thenReturn(false);
+
+            Method method = SlayerScript.class.getDeclaredMethod("handleAtLocationState", boolean.class, int.class);
+            method.setAccessible(true);
+            assertDoesNotThrow(() -> method.invoke(script, true, 10));
+
+            walker.verify(() -> Rs2Walker.walkTo(DESTINATION));
+        }
+    }
+
     private static void invoke(Object target, String name) throws Exception {
         Method method = target.getClass().getDeclaredMethod(name);
         method.setAccessible(true);
