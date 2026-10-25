@@ -16,7 +16,7 @@ import java.awt.*;
         description = "Start either at the ash mine on Fossil Island or with a digsite pendant in your inventory. Have a pickaxe in your inventory or equipped.",
         authors = { "TaF" },
         version = VolcanicAshMinerPlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.43",
         tags = {"volcanic", "ash", "mining", "ironman", "taf", "microbot"},
         iconUrl = "https://chsami.github.io/Microbot-Hub/volcanicashminer/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/volcanicashminer/assets/card.png",
@@ -24,7 +24,7 @@ import java.awt.*;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class VolcanicAshMinerPlugin extends Plugin  {
-    public static final String version = "1.2.0";
+    public static final String version = "1.2.1";
 
     @Inject
     private VolcanicAshMinerConfig config;
