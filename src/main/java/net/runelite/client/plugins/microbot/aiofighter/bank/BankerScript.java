@@ -537,7 +537,7 @@ public class BankerScript extends Script {
         }
         
         // Find and use the pool. Bound to 20 tiles — replaces the legacy
-        // Rs2GameObject.interact 51-tile walk-to fallback. The new model's click()
+        // 51-tile walk-to fallback of the old interact. The new model's click()
         // does not walk-to-object, so we must guard distance up front to avoid
         // silently dispatching a click against an unreachable pool.
         Rs2TileObjectModel pool = Microbot.getRs2TileObjectCache().query()

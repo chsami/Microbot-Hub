@@ -9,7 +9,6 @@ import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
@@ -382,7 +381,7 @@ public class AutoChompyKillerScript extends Script {
                         log.info("Sucking swamp bubbles (id {}) at {} - {}/{} ogre bellows unfilled",
                                 bubble.getId(), bubbleLocation, unfilledBefore, countBellows());
                         // One 'Suck' fills every ogre bellows in the inventory; confirm via the count.
-                        if (Rs2GameObject.interact(bubble, "Suck", false)) {
+                        if (bubble.click("Suck")) {
                             sleepUntil(() -> countUnfilledBellows() < unfilledBefore, ACTION_START_TIMEOUT_MS);
                         }
 

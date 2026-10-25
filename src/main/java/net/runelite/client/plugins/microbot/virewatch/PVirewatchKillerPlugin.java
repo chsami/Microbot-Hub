@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
         tags = {"pumster", "microbot", "Vyrewatch"},
         authors = {"Pumsters"},
         version = PVirewatchKillerPlugin.version,
-        minClientVersion = "2.6.25",
+        minClientVersion = "2.6.43",
         iconUrl = "https://chsami.github.io/Microbot-Hub/PVirewatchKillerPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/PVirewatchKillerPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 )
 public class PVirewatchKillerPlugin extends Plugin {
 
-    public final static String version = "1.0.5";
+    public final static String version = "1.0.6";
 
     private PLooter looterScript = new PLooter();
     private PAlcher alchScript = new PAlcher();

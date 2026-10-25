@@ -8,12 +8,12 @@ import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.depositbox.Rs2DepositBox;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2BankID;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
@@ -200,12 +200,16 @@ public class BanksShopperScript extends Script {
     private boolean tryDirectBankDeposit() {
         // Closest in-scene Rs2BankID-matched object — booths use "Bank", chests use "Use",
         // deposit boxes use "Deposit". Same gate the agent server uses ("reachable" = same
-        // WorldView as player): if Rs2GameObject.getAll returns it, it's in scene. Clicking
+        // WorldView as player): if the tile object cache has it, it's in scene. Clicking
         // the default left-click action lets the server walk the player to an adjacent tile
         // and open the appropriate UI (bank widget or deposit-box widget).
         boolean alreadyOpen = Rs2Bank.isOpen() || Rs2DepositBox.isOpen();
         if (!alreadyOpen) {
-            TileObject bankObject = Rs2GameObject.getAll(o -> Rs2BankID.BANK_ID_SET.contains(o.getId())).stream()
+            TileObject bankObject = Microbot.getRs2TileObjectCache().query()
+                    .fromWorldView()
+                    .where(o -> Rs2BankID.BANK_ID_SET.contains(o.getId()))
+                    .toList().stream()
+                    .map(Rs2TileObjectModel::getTileObject)
                     .min(Comparator.comparingInt(o -> o.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
                     .orElse(null);
 
@@ -213,7 +217,7 @@ public class BanksShopperScript extends Script {
                 Microbot.log("[BanksShopper] direct-click bank id=" + bankObject.getId()
                         + " at " + bankObject.getWorldLocation()
                         + " from " + Rs2Player.getWorldLocation());
-                if (!Rs2GameObject.interact(bankObject)) return false;
+                if (!new Rs2TileObjectModel(bankObject).click()) return false;
                 if (!sleepUntil(() -> Rs2Bank.isOpen() || Rs2DepositBox.isOpen(), 15_000)) {
                     Microbot.log("[BanksShopper] click sent but no bank/deposit UI opened");
                     return false;

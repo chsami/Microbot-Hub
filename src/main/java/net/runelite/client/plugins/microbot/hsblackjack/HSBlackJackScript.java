@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
 import java.util.Objects;
@@ -24,9 +25,10 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
@@ -558,17 +560,17 @@ public class HSBlackJackScript extends Script {
 
     /**
      * Checks the curtain's REAL current state (open/closed) using the safe
-     * findObjectByLocation + convertToObjectComposition path (which degrades
+     * location lookup + client-thread composition read (which degrades
      * gracefully via runOnClientThreadOptional), instead of the tile-object
      * cache's own getName()/getObjectComposition(), which hangs forever for
      * this object. "Close" action available = open. Otherwise = closed.
      */
     private boolean isCurtainOpen() {
         return withTimeout(() -> {
-            TileObject curtain = Rs2GameObject.findObjectByLocation(CURTAIN_POSITION);
+            Rs2TileObjectModel curtain = nearestObject(o -> CURTAIN_POSITION.equals(o.getWorldLocation()));
             if (curtain == null) return false;
 
-            ObjectComposition composition = Rs2GameObject.convertToObjectComposition(curtain.getId());
+            ObjectComposition composition = visibleComposition(curtain.getId());
             if (composition == null || composition.getActions() == null) return false;
 
             for (String action : composition.getActions()) {
@@ -584,7 +586,10 @@ public class HSBlackJackScript extends Script {
      * Attempts to interact with the curtain (Open or Close) by exact location.
      */
     private boolean interactCurtain(String action) {
-        return withTimeout(() -> Rs2GameObject.interact(CURTAIN_POSITION, action), false);
+        return withTimeout(() -> {
+            Rs2TileObjectModel curtain = nearestObject(o -> CURTAIN_POSITION.equals(o.getWorldLocation()));
+            return curtain != null && curtain.click(action);
+        }, false);
     }
 
     /**
@@ -737,7 +742,7 @@ public class HSBlackJackScript extends Script {
                     && (travelToStartLastDoorAttempt < 0
                     || System.currentTimeMillis() - travelToStartLastDoorAttempt >= DOOR_OPEN_ATTEMPT_INTERVAL_MS)) {
                 setState("No progress (distance=" + distance + ") - trying to open a nearby door");
-                withTimeout(() -> Rs2GameObject.interact("Door", "Open"), false);
+                withTimeout(() -> openNearestDoor(), false);
                 travelToStartLastDoorAttempt = System.currentTimeMillis();
                 sleepTicks(1);
             }
@@ -1338,5 +1343,40 @@ public class HSBlackJackScript extends Script {
     @Override
     public void shutdown() {
         super.shutdown();
+    }
+
+    private static Rs2TileObjectModel nearestObject(java.util.function.Predicate<TileObject> predicate) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return null;
+        return Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .where(o -> predicate.test(o.getTileObject()))
+                .toList().stream()
+                .min(Comparator.comparing((Rs2TileObjectModel o) -> o.getTileObjectType() != TileObjectType.GAME)
+                        .thenComparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                .orElse(null);
+    }
+
+    private static ObjectComposition visibleComposition(int objectId) {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            ObjectComposition composition = Microbot.getClient().getObjectDefinition(objectId);
+            if (composition == null) return null;
+            return composition.getImpostorIds() == null ? composition : composition.getImpostor();
+        }).orElse(null);
+    }
+
+    private static boolean openNearestDoor() {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return false;
+        int maxDistance = 52;
+        Rs2TileObjectModel door = Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .ofType(TileObjectType.GAME)
+                .where(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation) <= maxDistance)
+                .withNameContains("door")
+                .toList().stream()
+                .min(Comparator.comparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                .orElse(null);
+        return door != null && door.click("Open");
     }
 }

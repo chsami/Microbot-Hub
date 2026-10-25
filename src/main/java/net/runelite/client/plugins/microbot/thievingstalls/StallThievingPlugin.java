@@ -16,7 +16,7 @@ import java.awt.*;
         description = "Stall Thieving",
         tags = {"thieving", "microbot"},
         version = StallThievingPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.43",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -25,7 +25,7 @@ import java.awt.*;
 @Slf4j
 public class StallThievingPlugin extends Plugin {
 
-    public final static String version = "1.0.1";
+    public final static String version = "1.0.2";
     @Inject
     private StallThievingConfig config;
     @Provides
