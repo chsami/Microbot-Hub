@@ -1405,7 +1405,12 @@ public class FarmingContractScript extends Script {
         }
 
         WorldPoint clearLoc = current.getWorldLocation();
-        clickObject(current, "Clear");
+        Rs2TileObjectModel clearTarget = new Rs2TileObjectModel(current);
+        if (clearTarget.hasAction("Clear")) {
+            clearTarget.click("Clear");
+        } else {
+            clearTarget.click();
+        }
         sleepUntil(() -> Rs2Dialogue.isInDialogue() || Rs2Player.isAnimating(), 5000);
 
         if (Rs2Dialogue.isInDialogue()) {
