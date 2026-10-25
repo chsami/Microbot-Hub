@@ -3,14 +3,18 @@ package net.runelite.client.plugins.microbot.farmingcontract;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.GameObject;
+import net.runelite.api.Perspective;
 import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.Rs2BankObjects;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -21,10 +25,16 @@ import net.runelite.client.plugins.timetracking.farming.PatchImplementation;
 import net.runelite.client.plugins.timetracking.farming.Produce;
 
 import javax.inject.Inject;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class FarmingContractScript extends Script {
@@ -239,7 +249,7 @@ public class FarmingContractScript extends Script {
     }
 
     private boolean binHasAction(TileObject bin, String action) {
-        return Rs2GameObject.hasAction(bin, action, true);
+        return new Rs2TileObjectModel(bin).hasAction(action);
     }
 
     private boolean drainBin() {
@@ -263,7 +273,7 @@ public class FarmingContractScript extends Script {
         TileObject bin = walkToBin();
         if (bin == null || !super.run()) return false;
 
-        Rs2GameObject.interact(bin, "Take");
+        clickObject(bin, "Take");
         sleepUntil(() -> {
             if (!Rs2Inventory.contains(FarmingContractData.BUCKET_EMPTY)) return true;
             TileObject b = findCompostBin();
@@ -317,7 +327,7 @@ public class FarmingContractScript extends Script {
         if (bin == null) return false;
 
         if (!binHasAction(bin, "Take")) {
-            Rs2GameObject.interact(bin, "Open");
+            clickObject(bin, "Open");
             sleepUntil(() -> {
                 if (Rs2Dialogue.isInDialogue()) return true;
                 TileObject b = findCompostBin();
@@ -358,7 +368,7 @@ public class FarmingContractScript extends Script {
         while (Rs2Inventory.contains(FarmingContractData.BUCKET_EMPTY) && super.run()) {
             bin = findCompostBin();
             if (bin == null || !binHasAction(bin, "Take")) break;
-            Rs2GameObject.interact(bin, "Take");
+            clickObject(bin, "Take");
             sleepUntil(() -> {
                 if (!Rs2Inventory.contains(FarmingContractData.BUCKET_EMPTY)) return true;
                 TileObject b = findCompostBin();
@@ -394,7 +404,7 @@ public class FarmingContractScript extends Script {
         if (bin == null) return false;
 
         if (Rs2Inventory.contains(FarmingContractData.BUCKET_EMPTY)) {
-            Rs2GameObject.interact(bin, "Take");
+            clickObject(bin, "Take");
             sleepUntil(() -> {
                 if (!Rs2Inventory.contains(FarmingContractData.BUCKET_EMPTY)) return true;
                 TileObject b = findCompostBin();
@@ -436,7 +446,7 @@ public class FarmingContractScript extends Script {
 
         bin = findCompostBin();
         if (bin == null) return false;
-        Rs2GameObject.interact(bin, "Close");
+        clickObject(bin, "Close");
         sleep(1200, 1800);
 
         log.info("Compost bin filled and closed");
@@ -492,7 +502,7 @@ public class FarmingContractScript extends Script {
 
         bin = findCompostBin();
         if (bin == null) return false;
-        Rs2GameObject.interact(bin, "Close");
+        clickObject(bin, "Close");
         sleep(1200, 1800);
 
         log.info("Compost bin filled and closed");
@@ -518,12 +528,10 @@ public class FarmingContractScript extends Script {
 
     private TileObject findCompostBin() {
         try {
-            for (GameObject obj : Rs2GameObject.getGameObjects(
-                    o -> {
-                        var name = Rs2GameObject.getCompositionName(o);
-                        return name.isPresent() && name.get().equalsIgnoreCase("Big compost bin");
-                    }, FarmingContractData.BIN_LOCATION, 5)) {
-                return obj;
+            List<TileObject> bins = gameObjectsNear(FarmingContractData.BIN_LOCATION, 5,
+                o -> "Big compost bin".equalsIgnoreCase(o.getName()));
+            if (!bins.isEmpty()) {
+                return bins.get(0);
             }
         } catch (RuntimeException e) {
             log.debug("findCompostBin interrupted, will retry", e);
@@ -807,9 +815,9 @@ public class FarmingContractScript extends Script {
     private boolean openNearestBank() {
         if (Rs2Bank.isOpen()) return true;
 
-        GameObject bankObj = Rs2GameObject.findBank(40);
+        Rs2TileObjectModel bankObj = Rs2BankObjects.findBank(40);
         if (bankObj != null) {
-            Rs2GameObject.interact(bankObj);
+            bankObj.click();
             sleepUntil(() -> !Rs2Player.isMoving(), 10000);
             sleep(600, 900);
             sleepUntil(Rs2Bank::isOpen, 5000);
@@ -1181,13 +1189,12 @@ public class FarmingContractScript extends Script {
             {"Pick-from", "HARVESTABLE"}, {"Pick-spine", "HARVESTABLE"},
             {"Chop down", "CHECKED_TREE"}, {"Clear", "DEAD"}, {"Rake", "WEEDS"}
         }) {
-            for (GameObject obj : Rs2GameObject.getGameObjects(
-                    o -> Rs2GameObject.hasAction(o, entry[0], true), loc, 3)) {
+            if (!gameObjectsNear(loc, 3, o -> o.hasAction(entry[0])).isEmpty()) {
                 return PatchState.valueOf(entry[1]);
             }
         }
 
-        var name = (patch instanceof GameObject) ? Rs2GameObject.getCompositionName((GameObject) patch) : java.util.Optional.<String>empty();
+        var name = (patch instanceof GameObject) ? compositionName(patch) : Optional.<String>empty();
         String lower = name.isPresent() ? name.get().toLowerCase() : "";
         if (lower.endsWith("patch") || lower.equals("allotment")) {
             return PatchState.EMPTY;
@@ -1198,7 +1205,7 @@ public class FarmingContractScript extends Script {
 
     private boolean isWrongCrop(TileObject patch) {
         if (contract == null) return false;
-        var comp = Rs2GameObject.convertToObjectComposition(patch.getId(), false);
+        var comp = Rs2TileObjectModel.compositionOf(patch.getId());
         if (comp == null) return false;
         String name = comp.getName().toLowerCase();
         if (name.endsWith("patch")) return false;
@@ -1217,19 +1224,17 @@ public class FarmingContractScript extends Script {
         FarmingContractPlugin.setStatus("Raking weeds");
         WorldPoint patchLoc = patch.getWorldLocation();
         while (super.run()) {
-            if (Rs2GameObject.getGameObjects(
-                    o -> Rs2GameObject.hasAction(o, "Rake", true), patchLoc, 3).isEmpty()) {
+            if (gameObjectsNear(patchLoc, 3, o -> o.hasAction("Rake")).isEmpty()) {
                 break;
             }
             if (Rs2Inventory.isFull()) {
                 Rs2Inventory.dropAll("Weeds");
                 sleep(600, 900);
             }
-            Rs2GameObject.interact(patch, "Rake");
+            clickObject(patch, "Rake");
             sleepUntil(() -> {
                 if (Rs2Inventory.isFull()) return true;
-                return Rs2GameObject.getGameObjects(
-                    o -> Rs2GameObject.hasAction(o, "Rake", true), patchLoc, 3).isEmpty();
+                return gameObjectsNear(patchLoc, 3, o -> o.hasAction("Rake")).isEmpty();
             }, 15000);
             sleep(600, 900);
         }
@@ -1326,15 +1331,11 @@ public class FarmingContractScript extends Script {
         }
 
         while (super.run()) {
-            if (!Rs2GameObject.getGameObjects(
-                    o -> Rs2GameObject.hasAction(o, action, true), patchLoc, 3).isEmpty()) {
-                Rs2GameObject.interact(
-                    Rs2GameObject.getGameObjects(
-                        o -> Rs2GameObject.hasAction(o, action, true), patchLoc, 3).get(0), action);
+            if (!gameObjectsNear(patchLoc, 3, o -> o.hasAction(action)).isEmpty()) {
+                clickObject(gameObjectsNear(patchLoc, 3, o -> o.hasAction(action)).get(0), action);
                 sleepUntil(() -> {
                     if (Rs2Inventory.isFull()) return true;
-                    return Rs2GameObject.getGameObjects(
-                        o -> Rs2GameObject.hasAction(o, action, true), patchLoc, 3).isEmpty();
+                    return gameObjectsNear(patchLoc, 3, o -> o.hasAction(action)).isEmpty();
                 }, 60000);
             } else {
                 break;
@@ -1374,7 +1375,7 @@ public class FarmingContractScript extends Script {
 
     private void checkHealth(TileObject patch) {
         FarmingContractPlugin.setStatus("Checking health");
-        Rs2GameObject.interact(patch, "Check-health");
+        clickObject(patch, "Check-health");
         Rs2Player.waitForXpDrop(Skill.FARMING);
         sleep(600, 1200);
     }
@@ -1390,9 +1391,13 @@ public class FarmingContractScript extends Script {
         if (current == null) current = patch;
 
         // Chop first if needed
-        GameObject chopTarget = Rs2GameObject.findObjectByImposter(current.getId(), "Chop", false);
+        Rs2TileObjectModel chopTarget = Microbot.getRs2TileObjectCache().query()
+            .ofType(TileObjectType.GAME)
+            .withId(current.getId())
+            .withActionContains("Chop")
+            .nearest();
         if (chopTarget != null) {
-            Rs2GameObject.interact(chopTarget, "Chop down");
+            chopTarget.click("Chop down");
             sleepUntil(() -> !Rs2Player.isAnimating(), 15000);
             sleep(600, 1200);
             current = findObjectAt(patchLoc);
@@ -1400,7 +1405,7 @@ public class FarmingContractScript extends Script {
         }
 
         WorldPoint clearLoc = current.getWorldLocation();
-        Rs2GameObject.interact(current, "Clear");
+        clickObject(current, "Clear");
         sleepUntil(() -> Rs2Dialogue.isInDialogue() || Rs2Player.isAnimating(), 5000);
 
         if (Rs2Dialogue.isInDialogue()) {
@@ -1412,8 +1417,7 @@ public class FarmingContractScript extends Script {
             sleep(600, 900);
         }
 
-        sleepUntil(() -> Rs2GameObject.getGameObjects(
-            o -> Rs2GameObject.hasAction(o, "Clear", true), clearLoc, 3).isEmpty(), 10000);
+        sleepUntil(() -> gameObjectsNear(clearLoc, 3, o -> o.hasAction("Clear")).isEmpty(), 10000);
     }
 
     private boolean payGardener(PatchImplementation patchType) {
@@ -1555,8 +1559,8 @@ public class FarmingContractScript extends Script {
         java.util.List<TileObject> results = new java.util.ArrayList<>();
 
         String cropLower = contract != null ? contract.getName().toLowerCase() : null;
-        for (GameObject obj : Rs2GameObject.getGameObjects(o -> true, loc, radius)) {
-            var name = Rs2GameObject.getCompositionName(obj);
+        for (TileObject obj : gameObjectsNear(loc, radius, o -> true)) {
+            var name = compositionName(obj);
             if (name.isEmpty()) continue;
             String n = name.get().toLowerCase();
             if ((cropLower != null && n.contains(cropLower)) || n.contains(lower)) {
@@ -1567,8 +1571,8 @@ public class FarmingContractScript extends Script {
         }
 
         if (results.isEmpty()) {
-            for (GameObject obj : Rs2GameObject.getGameObjects(o -> true, loc, radius)) {
-                var comp = Rs2GameObject.convertToObjectComposition(obj);
+            for (TileObject obj : gameObjectsNear(loc, radius, o -> true)) {
+                var comp = Rs2TileObjectModel.compositionOf(obj.getId());
                 if (comp == null || comp.getActions() == null) continue;
                 for (String action : comp.getActions()) {
                     if (action != null && FARMING_ACTIONS.contains(action)) {
@@ -1605,8 +1609,8 @@ public class FarmingContractScript extends Script {
         // If we have a contract, check for a growing crop first (name changes when growing)
         if (contract != null) {
             String cropLower = contract.getName().toLowerCase();
-            for (GameObject obj : Rs2GameObject.getGameObjects(o -> true, loc, radius)) {
-                var name = Rs2GameObject.getCompositionName(obj);
+            for (TileObject obj : gameObjectsNear(loc, radius, o -> true)) {
+                var name = compositionName(obj);
                 if (name.isPresent() && name.get().toLowerCase().contains(cropLower)) {
                     return obj;
                 }
@@ -1614,16 +1618,16 @@ public class FarmingContractScript extends Script {
         }
 
         // Search by patch base name (empty/weeded patches keep their base name)
-        for (GameObject obj : Rs2GameObject.getGameObjects(o -> true, loc, radius)) {
-            var name = Rs2GameObject.getCompositionName(obj);
+        for (TileObject obj : gameObjectsNear(loc, radius, o -> true)) {
+            var name = compositionName(obj);
             if (name.isPresent() && name.get().toLowerCase().contains(lower)) {
                 return obj;
             }
         }
 
         // Fallback: find nearest with farming actions
-        for (GameObject obj : Rs2GameObject.getGameObjects(o -> true, loc, radius)) {
-            var comp = Rs2GameObject.convertToObjectComposition(obj);
+        for (TileObject obj : gameObjectsNear(loc, radius, o -> true)) {
+            var comp = Rs2TileObjectModel.compositionOf(obj.getId());
             if (comp == null || comp.getActions() == null) continue;
             for (String action : comp.getActions()) {
                 if (action != null && FARMING_ACTIONS.contains(action)) {
@@ -1636,8 +1640,31 @@ public class FarmingContractScript extends Script {
         return null;
     }
 
+    private static List<TileObject> gameObjectsNear(WorldPoint anchor, int radius, Predicate<Rs2TileObjectModel> filter) {
+        LocalPoint anchorLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), anchor);
+        if (anchorLocal == null) return Collections.emptyList();
+        int maxDistance = radius * Perspective.LOCAL_TILE_SIZE;
+        return Microbot.getRs2TileObjectCache().query()
+            .ofType(TileObjectType.GAME)
+            .where(o -> o.getLocalLocation().distanceTo(anchorLocal) <= maxDistance)
+            .where(filter)
+            .toList().stream()
+            .sorted(Comparator.comparingInt(o -> o.getLocalLocation().distanceTo(anchorLocal)))
+            .map(Rs2TileObjectModel::getTileObject)
+            .collect(Collectors.toList());
+    }
+
+    private static Optional<String> compositionName(TileObject object) {
+        String name = new Rs2TileObjectModel(object).getName();
+        return name == null || name.equals("null") ? Optional.empty() : Optional.of(name);
+    }
+
+    private static boolean clickObject(TileObject object, String action) {
+        return new Rs2TileObjectModel(object).click(action);
+    }
+
     private TileObject findObjectAt(WorldPoint loc) {
-        for (GameObject obj : Rs2GameObject.getGameObjects(o -> true, loc, 1)) {
+        for (TileObject obj : gameObjectsNear(loc, 1, o -> true)) {
             if (obj.getWorldLocation().equals(loc)) return obj;
         }
         return null;
