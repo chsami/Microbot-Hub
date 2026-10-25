@@ -1,7 +1,10 @@
 package net.runelite.client.plugins.microbot.amethystminer;
 
+import net.runelite.api.Constants;
+import net.runelite.api.Perspective;
 import net.runelite.api.Skill;
 import net.runelite.api.WallObject;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -9,6 +12,8 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.amethystminer.enums.AmethystCraftingOption;
 import net.runelite.client.plugins.microbot.amethystminer.enums.MiningSpot;
 import net.runelite.client.plugins.microbot.amethystminer.enums.Status;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.util.antiban.AntibanPlugin;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
@@ -16,7 +21,6 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -26,7 +30,11 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class AmethystMiningScript extends Script {
     public static Status status = Status.IDLE;
@@ -208,7 +216,7 @@ public class AmethystMiningScript extends Script {
     }
 
     private WallObject findClosestVein() {
-        return Rs2GameObject.getWallObjects().stream()
+        return wallObjectsNearPlayer().stream()
                 .filter(this::isVein).min((a, b) -> Integer.compare(distanceToPlayer(a), distanceToPlayer(b))).orElse(null);
     }
 
@@ -224,7 +232,7 @@ public class AmethystMiningScript extends Script {
     }
 
     private void interactWithVein(WallObject vein) {
-        if (Rs2GameObject.interact(vein))
+        if (new Rs2TileObjectModel(vein).click())
             oreVein = vein;
         sleepUntil(AntibanPlugin::isMining, 5000);
         if (!AntibanPlugin.isMining()) {
@@ -265,5 +273,21 @@ public class AmethystMiningScript extends Script {
         status = Status.IDLE;
         miningSpot = MiningSpot.NULL;
         oreVein = null;
+    }
+
+    private static List<WallObject> wallObjectsNearPlayer() {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return Collections.emptyList();
+        LocalPoint anchor = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), playerLocation);
+        if (anchor == null) return Collections.emptyList();
+        int maxDistance = (Constants.SCENE_SIZE / 2) * Perspective.LOCAL_TILE_SIZE;
+        return Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .ofType(TileObjectType.WALL)
+                .toList().stream()
+                .map(o -> (WallObject) o.getTileObject())
+                .filter(o -> o.getLocalLocation().distanceTo(anchor) <= maxDistance)
+                .sorted(Comparator.comparingInt(o -> o.getLocalLocation().distanceTo(anchor)))
+                .collect(Collectors.toList());
     }
 }

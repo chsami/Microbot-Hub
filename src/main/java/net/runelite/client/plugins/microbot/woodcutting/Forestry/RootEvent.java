@@ -8,7 +8,6 @@ import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
@@ -34,10 +33,10 @@ public class RootEvent implements BlockingEvent {
             // Is the hasAction Check needed?
             // If special root is present
             if (specialRoot != null)
-                return Rs2GameObject.hasAction(specialRoot.getObjectComposition(), "Chop down");
+                return specialRoot.hasAction("Chop down");
             // If regular root is present
             if (root != null)
-                return (Rs2GameObject.hasAction(root.getObjectComposition(), "Chop down"));
+                return root.hasAction("Chop down");
 
             return false; // No roots found
         } catch (Exception e) {

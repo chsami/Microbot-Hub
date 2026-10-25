@@ -17,7 +17,7 @@ import java.awt.*;
         tags = {"mining", "essence", "skilling"},
         authors = {"Unknown"},
         version = AutoEssenceMiningPlugin.version,
-        minClientVersion = "1.9.8",
+        minClientVersion = "2.6.43",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoEssenceMiningPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/AutoEssenceMiningPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -25,7 +25,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoEssenceMiningPlugin extends Plugin {
-    static final String version = "1.0.3";
+    static final String version = "1.0.4";
     @Inject
     private AutoEssenceMiningConfig config;
     

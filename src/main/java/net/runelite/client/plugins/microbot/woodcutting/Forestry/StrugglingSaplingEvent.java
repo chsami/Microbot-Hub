@@ -6,7 +6,6 @@ import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -48,7 +47,7 @@ public class StrugglingSaplingEvent implements BlockingEvent {
                     .toListOnClientThread();
             if (strugglingSaplings.isEmpty()) return false;
             return strugglingSaplings.stream().anyMatch(obj ->
-                    Rs2GameObject.hasAction(obj.getObjectComposition(), "Add-mulch") &&
+                    obj.hasAction("Add-mulch") &&
                             obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= AutoWoodcuttingScript.FORESTRY_DISTANCE
             );
         } catch (Exception e) {
@@ -68,7 +67,7 @@ public class StrugglingSaplingEvent implements BlockingEvent {
                     .toListOnClientThread()
                     .stream()
                     .filter(obj ->
-                            Rs2GameObject.hasAction(obj.getObjectComposition(), "Add-mulch") &&
+                            obj.hasAction("Add-mulch") &&
                                     obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) <= AutoWoodcuttingScript.FORESTRY_DISTANCE
                     )
                     .findFirst()
@@ -78,7 +77,7 @@ public class StrugglingSaplingEvent implements BlockingEvent {
                     .where(gameObject -> ingredientIds.contains(gameObject.getId()))
                     .toList()
                     .stream()
-                    .filter(obj -> Rs2GameObject.hasAction(obj.getObjectComposition(), "Collect"))
+                    .filter(obj -> obj.hasAction("Collect"))
                     .collect(Collectors.toList());
 
             if (ingredients.isEmpty()) {
