@@ -1815,7 +1815,8 @@ public class SlayerScript extends Script {
             return;
         }
 
-        if (taskDestination == null) {
+        WorldPoint destination = taskDestination;
+        if (destination == null) {
             log.warn("No destination set, returning to DETECTING_TASK");
             SlayerPlugin.setState(SlayerState.DETECTING_TASK);
             return;
@@ -1823,7 +1824,7 @@ public class SlayerScript extends Script {
 
         // Check if we've arrived
         WorldPoint playerLocation = Rs2Player.getWorldLocation();
-        if (playerLocation != null && playerLocation.distanceTo(taskDestination) <= ARRIVAL_DISTANCE) {
+        if (playerLocation != null && playerLocation.distanceTo(destination) <= ARRIVAL_DISTANCE) {
             log.info("Arrived at task location: {}", taskLocationName);
             SlayerPlugin.setState(SlayerState.AT_LOCATION);
             return;
@@ -1832,7 +1833,7 @@ public class SlayerScript extends Script {
         // Walk to destination if not already moving
         if (!Rs2Player.isMoving()) {
             log.info("Walking to task location: {}", taskLocationName);
-            Rs2Walker.walkTo(taskDestination);
+            Rs2Walker.walkTo(destination);
         }
     }
 
@@ -1869,11 +1870,12 @@ public class SlayerScript extends Script {
         }
 
         // Place cannon if using cannon and not yet placed
-        if (isUsingCannon && !cannonPlaced && cannonSpot != null) {
+        WorldPoint spot = cannonSpot;
+        if (isUsingCannon && !cannonPlaced && spot != null) {
             WorldPoint playerLocation = Rs2Player.getWorldLocation();
-            if (playerLocation != null && playerLocation.distanceTo(cannonSpot) <= 2) {
+            if (playerLocation != null && playerLocation.distanceTo(spot) <= 2) {
                 if (hasCannonParts()) {
-                    log.info("Placing cannon at {}", cannonSpot);
+                    log.info("Placing cannon at {}", spot);
                     if (setupCannon()) {
                         // Wait for cannon assembly animation to complete (takes several seconds)
                         log.info("Waiting for cannon assembly...");
@@ -1902,9 +1904,9 @@ public class SlayerScript extends Script {
                 }
             } else {
                 // Walk closer to cannon spot
-                log.debug("Walking to cannon spot, distance: {}", playerLocation != null ? playerLocation.distanceTo(cannonSpot) : "unknown");
+                log.debug("Walking to cannon spot, distance: {}", playerLocation != null ? playerLocation.distanceTo(spot) : "unknown");
                 if (!Rs2Player.isMoving()) {
-                    Rs2Walker.walkTo(cannonSpot);
+                    Rs2Walker.walkTo(spot);
                 }
                 return;
             }
@@ -2763,6 +2765,8 @@ public class SlayerScript extends Script {
             return;
         }
 
+        WorldPoint destination = taskDestination;
+
         // Get target monster names (use variant if specified, otherwise use slayer task monsters)
         List<String> targetMonsters = getTargetMonsterNames();
 
@@ -2773,9 +2777,9 @@ public class SlayerScript extends Script {
                     activeJsonProfile != null ? "found" : "null");
 
             // Fallback: try to attack anything that's attacking us ONLY at task location
-            if (taskDestination != null) {
+            if (destination != null) {
                 WorldPoint playerLocation = Rs2Player.getWorldLocation();
-                if (playerLocation != null && playerLocation.distanceTo(taskDestination) <= config.attackRadius()) {
+                if (playerLocation != null && playerLocation.distanceTo(destination) <= config.attackRadius()) {
                     Rs2NpcModel anyAttacker = findAnyNpcAttackingUs();
                     if (anyAttacker != null) {
                         log.info("Fallback: Attacking {} that is attacking us (at task location)", anyAttacker.getName());
@@ -2831,9 +2835,9 @@ public class SlayerScript extends Script {
             }
 
             // Fallback: attack ANY NPC that is attacking us ONLY if we're at the task location
-            if (taskDestination != null) {
+            if (destination != null) {
                 WorldPoint playerLocation = Rs2Player.getWorldLocation();
-                if (playerLocation != null && playerLocation.distanceTo(taskDestination) <= config.attackRadius()) {
+                if (playerLocation != null && playerLocation.distanceTo(destination) <= config.attackRadius()) {
                     Rs2NpcModel anyAttacker = findAnyNpcAttackingUs();
                     if (anyAttacker != null) {
                         log.info("Fallback: Retaliating against {} (at task location, not in target list)", anyAttacker.getName());
@@ -2854,8 +2858,8 @@ public class SlayerScript extends Script {
                 .where(npc -> npc.getName() != null)
                 .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
-                .where(npc -> taskDestination == null ||
-                        npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius())
+                .where(npc -> destination == null ||
+                        npc.getWorldLocation().distanceTo(destination) <= config.attackRadius())
                 .toListOnClientThread()
                 .stream()
                 .sorted(Comparator
@@ -2872,8 +2876,8 @@ public class SlayerScript extends Script {
             List<String> nearbyNpcNames = Microbot.getRs2NpcCache().query()
                     .where(npc -> !npc.isDead())
                     .where(npc -> npc.getName() != null)
-                    .where(npc -> taskDestination == null ||
-                            npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius())
+                    .where(npc -> destination == null ||
+                            npc.getWorldLocation().distanceTo(destination) <= config.attackRadius())
                     .toListOnClientThread()
                     .stream()
                     .map(Rs2NpcModel::getName)
@@ -2884,10 +2888,10 @@ public class SlayerScript extends Script {
             }
 
             // Crash detection - check if we've been unable to find targets for too long
-            if (config.hopWhenCrashed() && taskDestination != null) {
+            if (config.hopWhenCrashed() && destination != null) {
                 WorldPoint playerLocation = Rs2Player.getWorldLocation();
                 boolean atTaskLocation = playerLocation != null &&
-                        playerLocation.distanceTo(taskDestination) <= config.attackRadius();
+                        playerLocation.distanceTo(destination) <= config.attackRadius();
 
                 if (atTaskLocation) {
                     // Start or check crash detection timer
@@ -3036,13 +3040,14 @@ public class SlayerScript extends Script {
      * Used when we're "in combat" (being attacked) but not attacking back.
      */
     private Rs2NpcModel findNpcAttackingUs(List<String> targetMonsters) {
+        WorldPoint destination = taskDestination;
         return Microbot.getRs2NpcCache().query()
                 .where(npc -> npc.getName() != null)
                 .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
                 .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
-                .where(npc -> taskDestination == null ||
-                        npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius() + 5)
+                .where(npc -> destination == null ||
+                        npc.getWorldLocation().distanceTo(destination) <= config.attackRadius() + 5)
                 .first();
     }
 
@@ -3119,14 +3124,15 @@ public class SlayerScript extends Script {
             return;
         }
 
+        WorldPoint destination = taskDestination;
         List<Rs2NpcModel> nearbyMonsters = Microbot.getRs2NpcCache().query()
                 .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
                 .where(npc -> npc.getName() != null)
                 .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> npc.getName().equalsIgnoreCase(monster)))
                 .where(npc -> !npc.isDead())
-                .where(npc -> taskDestination == null ||
-                        npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius())
+                .where(npc -> destination == null ||
+                        npc.getWorldLocation().distanceTo(destination) <= config.attackRadius())
                 .toList();
 
         if (nearbyMonsters.isEmpty()) {
@@ -3296,12 +3302,13 @@ public class SlayerScript extends Script {
      * @return The superior NPC if found, null otherwise
      */
     private Rs2NpcModel findNearbySuperior() {
+        WorldPoint destination = taskDestination;
         return Microbot.getRs2NpcCache().query()
                 .where(npc -> !npc.isDead())
                 .where(npc -> npc.getName() != null)
                 .where(npc -> SUPERIOR_MONSTERS.contains(npc.getName()))
-                .where(npc -> taskDestination == null ||
-                        npc.getWorldLocation().distanceTo(taskDestination) <= config.attackRadius() + 5)
+                .where(npc -> destination == null ||
+                        npc.getWorldLocation().distanceTo(destination) <= config.attackRadius() + 5)
                 .toList()
                 .stream()
                 .min(Comparator.comparingInt(npc ->
