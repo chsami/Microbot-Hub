@@ -1246,7 +1246,18 @@ class WaitingMouseNativeSettingsTest {
             Class<?> panelType = Class.forName("net.runelite.client.plugins.microbot.ui.MicrobotConfigPanel");
             Constructor<?> panelConstructor = panelType.getDeclaredConstructors()[0];
             panelConstructor.setAccessible(true);
-            panel = (JPanel) panelConstructor.newInstance(null, manager, pluginManager, null, null, null);
+            Class<?>[] panelParameters = panelConstructor.getParameterTypes();
+            Object[] panelArguments = new Object[panelParameters.length];
+            for (int index = 0; index < panelParameters.length; index++) {
+                if (panelParameters[index] == ConfigManager.class) panelArguments[index] = manager;
+                if (panelParameters[index] == PluginManager.class) panelArguments[index] = pluginManager;
+                if (panelParameters[index].getName().equals("net.runelite.client.plugins.microbot.ui.MicrobotBugReporter")) {
+                    Constructor<?> reporterConstructor = panelParameters[index].getDeclaredConstructors()[0];
+                    reporterConstructor.setAccessible(true);
+                    panelArguments[index] = reporterConstructor.newInstance(new Object[reporterConstructor.getParameterCount()]);
+                }
+            }
+            panel = (JPanel) panelConstructor.newInstance(panelArguments);
             root.add(panel, BorderLayout.CENTER);
             initializePanel();
         }
