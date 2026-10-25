@@ -15,7 +15,6 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -402,14 +401,14 @@ public class AirOrbScript extends Script {
     }
 
     private boolean shouldCharge() {
-        return Rs2Player.getWorldLocation().distanceTo(airObelisk) <= 3 || Rs2GameObject.exists(ObjectID.OBELISK_OF_AIR);
+        return Rs2Player.getWorldLocation().distanceTo(airObelisk) <= 3 || objectExists(ObjectID.OBELISK_OF_AIR);
     }
 
     private boolean shouldDrinkFromPool() {
         if (plugin.getTeleport() != Teleport.RING_OF_DUELING) return false;
         if (Rs2Player.getRunEnergy() > 80) return false;
         if (!hasRequiredItems()) return false;
-        if (!Rs2GameObject.exists(ObjectID.POOL_OF_REFRESHMENT)) return false;
+        if (!objectExists(ObjectID.POOL_OF_REFRESHMENT)) return false;
         
         Rs2TileObjectModel refreshmentPool = Microbot.getRs2TileObjectCache().query().withId(ObjectID.POOL_OF_REFRESHMENT).nearest();
         if (refreshmentPool == null) return false;
@@ -452,5 +451,9 @@ public class AirOrbScript extends Script {
             Rs2Bank.depositOne(ItemID.AMULET_OF_GLORY);
             Rs2Inventory.waitForInventoryChanges(1200);
         }
+    }
+
+    private static boolean objectExists(int objectId) {
+        return Microbot.getRs2TileObjectCache().query().fromWorldView().withId(objectId).first() != null;
     }
 }

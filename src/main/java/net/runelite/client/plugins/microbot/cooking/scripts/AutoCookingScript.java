@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.cooking.scripts;
 import net.runelite.api.AnimationID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.Rs2BankObjects;
 import net.runelite.client.plugins.microbot.cooking.AutoCookingConfig;
 import net.runelite.client.plugins.microbot.cooking.enums.CookingAreaType;
 import net.runelite.client.plugins.microbot.cooking.enums.CookingItem;
@@ -13,7 +14,6 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -161,7 +161,8 @@ public class AutoCookingScript extends Script {
                             if (!isNPCBankOpen) return;
                             sleepUntil(() -> !Rs2Player.isMoving());
                         } else {
-                            net.runelite.api.TileObject nearbyBankObject = Rs2GameObject.findBank(20);
+                            Rs2TileObjectModel bankModel = Rs2BankObjects.findBank(20);
+                            net.runelite.api.TileObject nearbyBankObject = bankModel != null ? bankModel.getTileObject() : null;
                             if (nearbyBankObject != null) {
                                 int distanceToBank = Rs2Player.getWorldLocation().distanceTo(nearbyBankObject.getWorldLocation());
                                 boolean isBankOpen = Rs2Bank.openBank(nearbyBankObject);
