@@ -17,7 +17,7 @@ import java.awt.*;
         tags = {"animated armour", "microbot", "warrior guild"},
         authors = {"See1Duck"},
         version = AnimatedArmourPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.6.43",
         cardUrl = "https://chsami.github.io/Microbot-Hub/AnimatedArmourPlugin/assets/card.png",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AnimatedArmourPlugin/assets/icon.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -26,7 +26,7 @@ import java.awt.*;
 @Slf4j
 public class AnimatedArmourPlugin extends Plugin {
 
-    static final String version = "1.0.2";
+    static final String version = "1.0.3";
     @Inject
     private AnimatedArmourConfig config;
 

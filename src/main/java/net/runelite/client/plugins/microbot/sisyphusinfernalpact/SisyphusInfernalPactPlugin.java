@@ -21,7 +21,7 @@ import javax.inject.Inject;
         description = "Automates Yama's stepping-stone circuit — avoids fire, loops the route, spam-clicks safe stones.",
         tags = {"leagues", "sisyphus", "yama", "demonic", "pacts", "infernal", "stepping stones"},
         version = SisyphusInfernalPactPlugin.VERSION,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.43",
         isExternal = PluginConstants.IS_EXTERNAL,
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         authors = {"Sisyphus"}
@@ -29,7 +29,7 @@ import javax.inject.Inject;
 @Slf4j
 public class SisyphusInfernalPactPlugin extends Plugin {
 
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.1";
 
     @Inject private SisyphusInfernalPactConfig config;
     @Inject private SisyphusInfernalPactScript  script;

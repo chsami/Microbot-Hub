@@ -20,7 +20,7 @@ import java.awt.*;
         tags = {"chompy", "combat"},
         authors = {"Unknown"},
         version = AutoChompyKillerPlugin.version,
-        minClientVersion = "1.9.8",
+        minClientVersion = "2.6.43",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoChompyKillerPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/AutoChompyKillerPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -28,7 +28,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoChompyKillerPlugin extends Plugin {
-    static final String version = "1.0.4";
+    static final String version = "1.0.5";
     @Inject
     private AutoChompyKillerConfig config;
 

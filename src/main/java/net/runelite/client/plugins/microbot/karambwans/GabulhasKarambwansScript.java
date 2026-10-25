@@ -28,7 +28,7 @@ import static net.runelite.client.plugins.microbot.karambwans.GabulhasKarambwans
 
 @Slf4j
 public class GabulhasKarambwansScript extends Script {
-    // Zanaris fairy ring object ID — Rs2GameObject.getAll() does NOT find it; use the tile object cache.
+    // Zanaris fairy ring object ID — the old scene scan did NOT find it; use the tile object cache.
     public static final int FAIRY_RING_ID = 29560;
     public static final int SPIRITUAL_FAIRY_TREE_ID = 35003;
     // Fairy ring is at 4434, not 4435 — off-by-one causes findObjectByLocation to miss it.

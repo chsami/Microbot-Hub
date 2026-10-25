@@ -19,7 +19,7 @@ import javax.inject.Inject;
         tags = {"prayer", "bones", "altar"},
         authors = {"Bee"},
         version = ChaosAltarPlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.43",
         cardUrl = "https://chsami.github.io/Microbot-Hub/ChaosAltarPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/ChaosAltarPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -27,7 +27,7 @@ import javax.inject.Inject;
 )
 @Slf4j
 public class ChaosAltarPlugin extends Plugin  {
-    final static String version = "1.1.1";
+    final static String version = "1.1.2";
     @Inject
     private ChaosAltarScript chaosAltarScript;
     @Inject

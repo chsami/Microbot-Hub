@@ -1,13 +1,14 @@
 package net.runelite.client.plugins.microbot.animatedarmour;
 
 import net.runelite.api.Skill;
+import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -15,6 +16,7 @@ import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
+import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
 
 
@@ -99,7 +101,7 @@ public class AnimatedArmourScript extends Script {
         // door is located by id once it has loaded, so no approach tile is hardcoded.
         WorldPoint loc = Rs2Player.getWorldLocation();
         if (loc != null && loc.distanceTo(ARMOUR_STAND_TILE) > 4) {
-            if (Rs2GameObject.interact(ARMOURY_DOOR_IDS, "Open")) {
+            if (openArmouryDoor()) {
                 sleepUntil(() -> !Rs2Player.isMoving(), 3000);
                 Rs2Walker.walkTo(ARMOUR_STAND_TILE, 4);
             }
@@ -152,5 +154,25 @@ public class AnimatedArmourScript extends Script {
     @Override
     public void shutdown() {
         super.shutdown();
+    }
+
+    private static boolean openArmouryDoor() {
+        for (int doorId : ARMOURY_DOOR_IDS) {
+            Rs2TileObjectModel door = nearestObject(o -> o.getId() == doorId);
+            if (door != null && door.click("Open")) return true;
+        }
+        return false;
+    }
+
+    private static Rs2TileObjectModel nearestObject(java.util.function.Predicate<TileObject> predicate) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return null;
+        return Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .where(o -> predicate.test(o.getTileObject()))
+                .toList().stream()
+                .min(Comparator.comparing((Rs2TileObjectModel o) -> o.getTileObjectType() != TileObjectType.GAME)
+                        .thenComparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                .orElse(null);
     }
 }
