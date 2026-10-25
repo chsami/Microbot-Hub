@@ -1943,6 +1943,7 @@ public class TemporossScript extends Script {
                 .fromWorldView()
                 .ofType(TileObjectType.GAME)
                 .withIds(CLOUD_SHADOW, CLOUD_SHADOW_SHORT)
+                .within(Constants.SCENE_SIZE / 2)
                 .toList().stream()
                 .map(o -> (GameObject) o.getTileObject())
                 .collect(Collectors.toList());
