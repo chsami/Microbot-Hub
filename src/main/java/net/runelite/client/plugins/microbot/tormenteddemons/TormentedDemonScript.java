@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.tormenteddemons;
 
+import net.runelite.api.Actor;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.HeadIcon;
 import net.runelite.api.NPC;
@@ -259,7 +260,8 @@ public class TormentedDemonScript extends Script {
 
                 if (attackSuccessful) {
                     Rs2Player.waitForAnimation();
-                    sleepUntil(() -> Rs2Player.getInteracting() instanceof NPC && ((NPC) Rs2Player.getInteracting()).getIndex() == currentTarget.getIndex(), 3000);
+                    Rs2NpcModel attackedTarget = currentTarget;
+                    sleepUntil(() -> isInteractingWith(Rs2Player.getInteracting(), attackedTarget), 3000);
                 } else {
                     logOnceToChat("Attack failed for target: " + (currentTarget != null ? currentTarget.getName() : "null"));
                     currentTarget = null;
@@ -334,6 +336,13 @@ public class TormentedDemonScript extends Script {
                     return false;
                 })
                 .firstOnClientThread();
+    }
+
+    static boolean isInteractingWith(Actor interacting, Rs2NpcModel target) {
+        if (target == null || !(interacting instanceof NPC)) {
+            return false;
+        }
+        return ((NPC) interacting).getIndex() == target.getIndex();
     }
 
     private void switchGear(TormentedDemonConfig config, HeadIcon combatNpcHeadIcon) {
