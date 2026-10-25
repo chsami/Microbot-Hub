@@ -3636,7 +3636,7 @@
             "solver",
             "automation"
         ],
-        "version": "1.0.9",
+        "version": "1.0.10",
         "minClientVersion": "2.0.7",
         "authors": [
             "unknown"
@@ -3645,8 +3645,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ClueSolverPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-13T21:26:13Z",
-        "sha256": "f4db20e791e078dc9bae2ae26b9fe9971e17f0c835ca839dd5b985865d39f045",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/cluesolverplugin-1.0.9.jar"
+        "sha256": "9341888270e556c7e8fc12772d965c462175e9eb10614773277e7aad47564e48",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/cluesolverplugin-1.0.10.jar"
     },
     {
         "internalName": "HumidifierPlugin",
