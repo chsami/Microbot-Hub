@@ -25,6 +25,8 @@ public class AnagramClueTask extends ClueTask {
     private final ExecutorService backgroundExecutor;
     private WorldPoint location;
     private Future<?> currentTask;
+    private String npcName;
+    private String answer;
     private enum State {
         WALKING_TO_LOCATION,
         INTERACTING_WITH_OBJECT,
@@ -41,7 +43,9 @@ public class AnagramClueTask extends ClueTask {
         this.clue = clue;
         this.eventBus = eventBus;
         this.backgroundExecutor = backgroundExecutor;
-        this.location = clue.getLocation(clueScrollPlugin);
+        this.location = Microbot.getClientThread()
+                .runOnClientThreadOptional(() -> clue.getLocation(clueScrollPlugin))
+                .orElse(null);
     }
 
     @Override
@@ -53,6 +57,11 @@ public class AnagramClueTask extends ClueTask {
     }
 
     private void walkToLocation() {
+        if (location == null) {
+            log.error("Clue location is null.");
+            completeTask(false);
+            return;
+        }
         log.info("Walking to location: {}", location);
         boolean startedWalking = Rs2Walker.walkTo(location, 2);
         if (!startedWalking) {
@@ -133,12 +142,31 @@ public class AnagramClueTask extends ClueTask {
     private void transitionToInteractionState() {
         if (clue.getObjectId() != -1) {
             state = State.INTERACTING_WITH_OBJECT;
-        } else if (clue.getNpcProvider() != null && Microbot.getRs2NpcCache().query().withName(clue.getNpcName(clueScrollPlugin)).nearestOnClientThread() != null) {
+        } else if (clue.getNpcProvider() != null && resolveNpcName() != null
+                && Microbot.getRs2NpcCache().query().withName(resolveNpcName()).nearestOnClientThread() != null) {
             state = State.INTERACTING_WITH_NPC;
         } else {
             log.warn("No valid interaction target found.");
             completeTask(false);
         }
+    }
+
+    private String resolveNpcName() {
+        if (npcName == null) {
+            npcName = Microbot.getClientThread()
+                    .runOnClientThreadOptional(() -> clue.getNpcName(clueScrollPlugin))
+                    .orElse(null);
+        }
+        return npcName;
+    }
+
+    private String resolveAnswer() {
+        if (answer == null) {
+            answer = Microbot.getClientThread()
+                    .runOnClientThreadOptional(() -> clue.getAnswer(clueScrollPlugin))
+                    .orElse(null);
+        }
+        return answer;
     }
 
     private boolean interactWithObject() {
@@ -158,24 +186,29 @@ public class AnagramClueTask extends ClueTask {
     }
 
     private boolean interactWithNpc() {
-        var targetNpc = Microbot.getRs2NpcCache().query().withName(clue.getNpcName(clueScrollPlugin)).nearestOnClientThread();
+        String targetName = resolveNpcName();
+        if (targetName == null) {
+            log.warn("NPC name for anagram clue is unavailable.");
+            return false;
+        }
+        var targetNpc = Microbot.getRs2NpcCache().query().withName(targetName).nearestOnClientThread();
         if (targetNpc == null) {
-            log.warn("NPC {} not found.", clue.getNpcName(clueScrollPlugin));
+            log.warn("NPC {} not found.", targetName);
             return false;
         }
 
         boolean interacted = targetNpc.click("Talk-to");
         if (interacted) {
-            log.info("Talking to NPC: {}", clue.getNpcName(clueScrollPlugin));
+            log.info("Talking to NPC: {}", targetName);
             Rs2Dialogue.sleepUntilInDialogue();
         } else {
-            log.warn("Failed to talk to NPC: {}", clue.getNpcName(clueScrollPlugin));
+            log.warn("Failed to talk to NPC: {}", targetName);
         }
         return interacted;
     }
 
     private boolean handleDialogue() {
-        String answer = clue.getAnswer(clueScrollPlugin);
+        String answer = resolveAnswer();
         log.info("Answering dialogue: {}", answer);
 
         if (Rs2Dialogue.isInDialogue()) {
