@@ -1,10 +1,20 @@
 package net.runelite.client.plugins.microbot.autofishing;
 
 import net.runelite.client.plugins.microbot.autofishing.enums.Fish;
+import net.runelite.client.plugins.microbot.util.Global;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 
 class AutoFishingScriptTest {
     @Test
@@ -23,23 +33,20 @@ class AutoFishingScriptTest {
     }
 
     @Test
-    void consumablesAreRecognised() {
-        assertTrue(AutoFishingScript.isConsumable("Feather"));
-        assertTrue(AutoFishingScript.isConsumable("Fishing bait"));
-        assertTrue(AutoFishingScript.isConsumable("Dark fishing bait"));
-        assertTrue(AutoFishingScript.isConsumable("Sandworms"));
-        assertTrue(AutoFishingScript.isConsumable("Raw karambwanji"));
-    }
+    void consumableGearIsWithdrawnAsWholeStackWithoutWielding() {
+        for (String consumable : List.of("Feather", "Fishing bait", "Dark fishing bait", "Sandworms", "Raw karambwanji")) {
+            try (MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+                 MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+                 MockedStatic<Global> global = mockStatic(Global.class)) {
+                bank.when(() -> Rs2Bank.hasItem(anyString())).thenReturn(true);
+                global.when(() -> Global.sleepUntil(any())).thenReturn(true);
 
-    @Test
-    void toolsAreNotConsumables() {
-        assertFalse(AutoFishingScript.isConsumable("Fly fishing rod"));
-        assertFalse(AutoFishingScript.isConsumable("Oily fishing rod"));
-        assertFalse(AutoFishingScript.isConsumable("Karambwan vessel"));
-        assertFalse(AutoFishingScript.isConsumable("Barbarian rod"));
-        assertFalse(AutoFishingScript.isConsumable("Lobster pot"));
-        assertFalse(AutoFishingScript.isConsumable("Big fishing net"));
-        assertFalse(AutoFishingScript.isConsumable("Hammer"));
-        assertFalse(AutoFishingScript.isConsumable("Knife"));
+                new AutoFishingScript().withdrawAndEquipItem(consumable);
+
+                bank.verify(() -> Rs2Bank.withdrawAll(consumable));
+                bank.verify(() -> Rs2Bank.withdrawOne(anyString()), never());
+                inventory.verifyNoInteractions();
+            }
+        }
     }
 }

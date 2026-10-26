@@ -507,7 +507,7 @@ public class AutoFishingScript extends Script {
         }
     }
 
-    private void withdrawAndEquipItem(String itemName) {
+    void withdrawAndEquipItem(String itemName) {
         if (Rs2Bank.hasItem(itemName)) {
             if (isConsumable(itemName)) {
                 Rs2Bank.withdrawAll(itemName);
