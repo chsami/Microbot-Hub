@@ -77,7 +77,7 @@ public class AIOMagicPlugin extends Plugin {
     @Inject
     private SpinFlaxScript spinFlaxScript;
 
-    public final static String version = "1.2.8";
+    public final static String version = "1.3.0";
 
     @Override
     protected void startUp() throws AWTException {
@@ -131,6 +131,10 @@ public class AIOMagicPlugin extends Plugin {
 
     public Rs2CombatSpells getCombatSpell() {
         return config.combatSpell();
+    }
+
+    public AIOMagicConfig getConfig() {
+        return config;
     }
 
     public List<String> getAlchItemNames() {
