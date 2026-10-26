@@ -61,12 +61,12 @@ import java.awt.image.BufferedImage;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -91,10 +91,10 @@ import static net.runelite.client.plugins.microbot.util.Global.awaitExecutionUnt
 )
 @Slf4j
 public class QoLPlugin extends Plugin implements KeyListener {
-    public static final String version = "1.8.19";
-    public static final List<NewMenuEntry> bankMenuEntries = new LinkedList<>();
-    public static final List<NewMenuEntry> furnaceMenuEntries = new LinkedList<>();
-    public static final List<NewMenuEntry> anvilMenuEntries = new LinkedList<>();
+    public static final String version = "1.8.20";
+    public static final List<NewMenuEntry> bankMenuEntries = new CopyOnWriteArrayList<>();
+    public static final List<NewMenuEntry> furnaceMenuEntries = new CopyOnWriteArrayList<>();
+    public static final List<NewMenuEntry> anvilMenuEntries = new CopyOnWriteArrayList<>();
     private static final AtomicBoolean uiUpdateQueued = new AtomicBoolean(false);
     private static final AtomicBoolean uiRestoreQueued = new AtomicBoolean(false);
     private static final AtomicBoolean uiQueuedDuringSplash = new AtomicBoolean(false);
