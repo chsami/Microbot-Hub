@@ -2,7 +2,6 @@ package net.runelite.client.plugins.microbot.motherloadmine.enums;
 
 import java.util.Arrays;
 import java.util.Comparator;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.Skill;
@@ -14,24 +13,46 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 @Getter
-@AllArgsConstructor
 public enum Pickaxe
 {
 
-	BRONZE_PICKAXE("bronze pickaxe", ItemID.BRONZE_PICKAXE, 1, 1),
-	IRON_PICKAXE("iron pickaxe", ItemID.IRON_PICKAXE, 1, 1),
-	STEEL_PICKAXE("steel pickaxe", ItemID.STEEL_PICKAXE, 6, 5),
-	BLACK_PICKAXE("black pickaxe", ItemID.BLACK_PICKAXE, 11, 10),
-	MITHRIL_PICKAXE("mithril pickaxe", ItemID.MITHRIL_PICKAXE, 21, 20),
-	ADAMANT_PICKAXE("adamant pickaxe", ItemID.ADAMANT_PICKAXE, 31, 30),
-	RUNE_PICKAXE("rune pickaxe", ItemID.RUNE_PICKAXE, 41, 40),
-	DRAGON_PICKAXE("dragon pickaxe", ItemID.DRAGON_PICKAXE, 61, 60),
-	CRYSTAL_PICKAXE("crystal pickaxe", ItemID.CRYSTAL_PICKAXE, 71, 70);
+	BRONZE_PICKAXE("bronze pickaxe", 1, 1, ItemID.BRONZE_PICKAXE),
+	IRON_PICKAXE("iron pickaxe", 1, 1, ItemID.IRON_PICKAXE),
+	STEEL_PICKAXE("steel pickaxe", 6, 5, ItemID.STEEL_PICKAXE),
+	BLACK_PICKAXE("black pickaxe", 11, 10, ItemID.BLACK_PICKAXE),
+	MITHRIL_PICKAXE("mithril pickaxe", 21, 20, ItemID.MITHRIL_PICKAXE),
+	ADAMANT_PICKAXE("adamant pickaxe", 31, 30, ItemID.ADAMANT_PICKAXE),
+	RUNE_PICKAXE("rune pickaxe", 41, 40, ItemID.RUNE_PICKAXE),
+	GILDED_PICKAXE("gilded pickaxe", 41, 40, ItemID.TRAIL_GILDED_PICKAXE),
+	DRAGON_PICKAXE("dragon pickaxe", 61, 60, ItemID.DRAGON_PICKAXE, ItemID.DRAGON_PICKAXE_PRETTY,
+		ItemID.ZALCANO_PICKAXE, ItemID.ZALCANO_PICKAXE_SPECIAL_GLOW,
+		ItemID.TRAILBLAZER_PICKAXE_NO_INFERNAL, ItemID.TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL),
+	INFERNAL_PICKAXE("infernal pickaxe", 61, 60, ItemID.INFERNAL_PICKAXE, ItemID.INFERNAL_PICKAXE_EMPTY,
+		ItemID.TRAILBLAZER_PICKAXE, ItemID.TRAILBLAZER_PICKAXE_EMPTY,
+		ItemID.TRAILBLAZER_RELOADED_PICKAXE, ItemID.TRAILBLAZER_RELOADED_PICKAXE_EMPTY),
+	THIRD_AGE_PICKAXE("3rd age pickaxe", 61, 65, ItemID._3A_PICKAXE),
+	CRYSTAL_PICKAXE("crystal pickaxe", 71, 70, ItemID.CRYSTAL_PICKAXE, ItemID.CRYSTAL_PICKAXE_INACTIVE,
+		ItemID.CRYSTAL_PICKAXE_GLOW);
 
 	private final String itemName;
-	private final int itemID;
 	private final int miningLevel;
 	private final int attackLevel;
+	private final int[] itemIds;
+
+	Pickaxe(String itemName, int miningLevel, int attackLevel, int... itemIds)
+	{
+		this.itemName = itemName;
+		this.miningLevel = miningLevel;
+		this.attackLevel = attackLevel;
+		this.itemIds = itemIds;
+	}
+
+	public static Pickaxe fromItemId(int itemId) {
+		return Arrays.stream(values())
+			.filter(p -> Arrays.stream(p.itemIds).anyMatch(id -> id == itemId))
+			.findFirst()
+			.orElse(null);
+	}
 
 	public static boolean hasItem() {
         return getBestPickaxe() != null;
@@ -62,32 +83,26 @@ public enum Pickaxe
             .orElse(null);
     }
 
+    public static boolean isBetterPickaxe(int candidateId, int currentId) {
+        return getMiningLevel(candidateId) > getMiningLevel(currentId);
+    }
+
     private static boolean isPickaxe(int itemId) {
-        return Arrays.stream(values())
-            .anyMatch(p -> p.itemID == itemId);
+        return fromItemId(itemId) != null;
     }
 
     private static boolean canUse(int itemId) {
-        return Arrays.stream(values())
-            .filter(p -> p.itemID == itemId)
-            .findFirst()
-            .map(p -> Rs2Player.getSkillRequirement(Skill.MINING, p.miningLevel))
-            .orElse(false);
+        Pickaxe pickaxe = fromItemId(itemId);
+        return pickaxe != null && Rs2Player.getSkillRequirement(Skill.MINING, pickaxe.miningLevel);
     }
 
     private static int getMiningLevel(int itemId) {
-        return Arrays.stream(values())
-            .filter(p -> p.itemID == itemId)
-            .mapToInt(Pickaxe::getMiningLevel)
-            .findFirst()
-            .orElse(0);
+        Pickaxe pickaxe = fromItemId(itemId);
+        return pickaxe == null ? 0 : pickaxe.miningLevel;
     }
 
     public static boolean hasAttackLevelRequirement(int itemId) {
-        return Arrays.stream(values())
-            .filter(p -> p.itemID == itemId)
-            .findFirst()
-            .map(p -> Rs2Player.getSkillRequirement(Skill.ATTACK, p.attackLevel))
-            .orElse(false);
+        Pickaxe pickaxe = fromItemId(itemId);
+        return pickaxe != null && Rs2Player.getSkillRequirement(Skill.ATTACK, pickaxe.attackLevel);
     }
 }

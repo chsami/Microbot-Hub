@@ -100,6 +100,7 @@ public class MotherloadMineScript extends Script
 	private long idleSince = 0;
 	private int idleThreshold = 0;
 	private boolean pickedUpHammer = false;
+	private boolean checkedBankForBetterPickaxe = false;
     private MLMStatus lastLoggedStatus = null;
 
 	@Inject
@@ -129,6 +130,7 @@ public class MotherloadMineScript extends Script
         shouldEmptySack = false;
 		shouldRepairWaterwheel = false;
 		emptySackWorkflowActive = false;
+		checkedBankForBetterPickaxe = false;
     }
 
     private void executeTaskSafely()
@@ -208,6 +210,12 @@ public class MotherloadMineScript extends Script
         {
             log.info("Missing required tools, running inventory setup");
             setupInventory();
+            return;
+        }
+
+        if (!config.useInventorySetup() && !checkedBankForBetterPickaxe)
+        {
+            upgradePickaxeFromBank();
             return;
         }
 
@@ -512,6 +520,7 @@ public class MotherloadMineScript extends Script
 			Rs2ItemModel pickaxe = Pickaxe.getBestPickaxe();
 
 			if (pickaxe == null) {
+				checkedBankForBetterPickaxe = true;
 				Rs2Bank.openBank();
 				sleepUntil(Rs2Bank::isOpen);
 
@@ -588,6 +597,46 @@ public class MotherloadMineScript extends Script
 		Rs2Bank.closeBank();
 		sleepUntil(() -> !Rs2Bank.isOpen());
         log.info("Inventory setup complete");
+	}
+
+	private void upgradePickaxeFromBank() {
+		checkedBankForBetterPickaxe = true;
+		final Rs2ItemModel carriedPickaxe = Pickaxe.getBestPickaxe();
+		if (carriedPickaxe == null || !Rs2Bank.openBank() || !sleepUntil(Rs2Bank::isOpen)) {
+			return;
+		}
+
+		final Rs2ItemModel bankPickaxe = Pickaxe.getBestPickaxeFromBank();
+		if (bankPickaxe != null && Pickaxe.isBetterPickaxe(bankPickaxe.getId(), carriedPickaxe.getId())) {
+			log.info("Swapping carried pickaxe {} for better bank pickaxe {}", carriedPickaxe.getId(), bankPickaxe.getId());
+			if (Rs2Inventory.isFull()) {
+				Rs2Bank.depositAllExcept(getItemsToKeep());
+				Rs2Inventory.waitForInventoryChanges(5000);
+			}
+
+			final int bankPickaxeId = bankPickaxe.getId();
+			if (Pickaxe.hasAttackLevelRequirement(bankPickaxeId)) {
+				final Rs2ItemModel currentWeapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+				Rs2Bank.withdrawAndEquip(bankPickaxeId);
+				if (sleepUntil(() -> Rs2Equipment.isWearing(bankPickaxeId)) && currentWeapon != null
+					&& Rs2Inventory.contains(currentWeapon.getId())) {
+					Rs2Bank.depositOne(currentWeapon.getId());
+					Rs2Inventory.waitForInventoryChanges(5000);
+				}
+			} else {
+				Rs2Bank.withdrawOne(bankPickaxeId);
+				Rs2Inventory.waitForInventoryChanges(5000);
+			}
+
+			final boolean hasBankPickaxe = Rs2Equipment.isWearing(bankPickaxeId) || Rs2Inventory.contains(bankPickaxeId);
+			if (hasBankPickaxe && Rs2Inventory.contains(carriedPickaxe.getId())) {
+				Rs2Bank.depositOne(carriedPickaxe.getId());
+				Rs2Inventory.waitForInventoryChanges(5000);
+			}
+		}
+
+		Rs2Bank.closeBank();
+		sleepUntil(() -> !Rs2Bank.isOpen());
 	}
 
     private void selectMiningSpotFromConfig() {
