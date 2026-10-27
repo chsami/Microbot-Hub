@@ -2,7 +2,10 @@ package net.runelite.client.plugins.microbot.motherloadmine.enums;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Optional;
 import java.util.function.IntPredicate;
+import java.util.function.ToIntFunction;
+import java.util.stream.Stream;
 import lombok.Getter;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.Skill;
@@ -74,16 +77,19 @@ public enum Pickaxe
      * Gets the best pickaxe available for mining (equipped or in inventory)
      */
     public static Rs2ItemModel getBestPickaxe() {
-        Rs2ItemModel equipped = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
-        if (equipped != null && isPickaxe(equipped.getId()) && canUse(equipped.getId())) {
-            return equipped;
-        }
-
-        // Then check inventory
-        return Rs2Inventory.items()
-            .filter(item -> isPickaxe(item.getId()) && canUse(item.getId()))
-            .max(Comparator.comparingInt(item -> tierOf(item.getId())))
+        final Rs2ItemModel equipped = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+        return bestUsable(Stream.concat(Stream.ofNullable(equipped), Rs2Inventory.items()), Rs2ItemModel::getId,
+            level -> Rs2Player.getSkillRequirement(Skill.MINING, level))
             .orElse(null);
+    }
+
+    public static <T> Optional<T> bestUsable(Stream<T> items, ToIntFunction<T> idOf, IntPredicate meetsMiningLevel) {
+        return items
+            .filter(item -> {
+                final Pickaxe pickaxe = fromItemId(idOf.applyAsInt(item));
+                return pickaxe != null && meetsMiningLevel.test(pickaxe.miningLevel);
+            })
+            .max(Comparator.comparingInt(item -> tierOf(idOf.applyAsInt(item))));
     }
 
     /**

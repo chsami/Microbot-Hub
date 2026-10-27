@@ -2,11 +2,13 @@ package net.runelite.client.plugins.microbot.motherloadmine;
 
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.motherloadmine.enums.Pickaxe;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public final class PickaxeTest {
@@ -71,6 +73,26 @@ public final class PickaxeTest {
         assertFalse(Pickaxe.isBetterPickaxe(ItemID.TRAIL_GILDED_PICKAXE, ItemID.RUNE_PICKAXE));
         assertFalse(Pickaxe.isBetterPickaxe(ItemID.RUNE_PICKAXE, ItemID.DRAGON_PICKAXE));
         assertFalse(Pickaxe.isBetterPickaxe(ItemID.HAMMER, ItemID.BRONZE_PICKAXE));
+    }
+
+    @Test
+    void carriedPickaxeIsHighestUsableTierAcrossWeaponAndInventory() {
+        final int[] wieldedRune = {ItemID.RUNE_PICKAXE, 0};
+        final int[] inventoryDragon = {ItemID.DRAGON_PICKAXE, 1};
+        final int[] inventoryHammer = {ItemID.HAMMER, 2};
+
+        assertSame(inventoryDragon, Pickaxe.bestUsable(Stream.of(wieldedRune, inventoryHammer, inventoryDragon), item -> item[0], level -> level <= 61).orElse(null));
+        assertSame(inventoryDragon, Pickaxe.bestUsable(Stream.of(inventoryDragon, wieldedRune), item -> item[0], level -> level <= 61).orElse(null));
+        assertSame(wieldedRune, Pickaxe.bestUsable(Stream.of(wieldedRune, inventoryDragon), item -> item[0], level -> level <= 60).orElse(null));
+        assertFalse(Pickaxe.bestUsable(Stream.of(inventoryHammer), item -> item[0], level -> true).isPresent());
+    }
+
+    @Test
+    void wieldedPickaxeWinsATierTie() {
+        final int[] wieldedDragon = {ItemID.DRAGON_PICKAXE, 0};
+        final int[] inventoryInfernal = {ItemID.INFERNAL_PICKAXE, 1};
+
+        assertSame(wieldedDragon, Pickaxe.bestUsable(Stream.of(wieldedDragon, inventoryInfernal), item -> item[0], level -> true).orElse(null));
     }
 
     @Test

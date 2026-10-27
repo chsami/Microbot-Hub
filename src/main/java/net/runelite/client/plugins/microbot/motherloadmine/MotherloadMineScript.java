@@ -628,6 +628,8 @@ public class MotherloadMineScript extends Script
 
 		log.info("Checking the bank once for a better pickaxe than your {}", carriedPickaxe.getName());
 		if (!Rs2Bank.openBank() || !sleepUntil(Rs2Bank::isOpen)) {
+			log.warn("Could not open the bank to look for a better pickaxe, mining with your {}. Restart the script near the Motherlode Mine bank chest to check again.",
+				carriedPickaxe.getName());
 			return;
 		}
 
@@ -665,8 +667,9 @@ public class MotherloadMineScript extends Script
 		final int carriedPickaxeId = carriedPickaxe.getId();
 		final int bankPickaxeId = bankPickaxe.getId();
 		final boolean carriedWielded = Rs2Equipment.isWearing(carriedPickaxeId);
+		final boolean canWieldBankPickaxe = Pickaxe.hasAttackLevelRequirement(bankPickaxeId);
 
-		if (Pickaxe.hasAttackLevelRequirement(bankPickaxeId)) {
+		if (canWieldBankPickaxe) {
 			final Rs2ItemModel currentWeapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
 			Rs2Bank.withdrawAndEquip(bankPickaxeId);
 			if (sleepUntil(() -> Rs2Equipment.isWearing(bankPickaxeId)) && currentWeapon != null
@@ -685,6 +688,7 @@ public class MotherloadMineScript extends Script
 			log.warn("Could not take the {} from the bank, mining with your {}", bankPickaxe.getName(), carriedPickaxe.getName());
 			return;
 		}
+		itemsToKeep = null;
 
 		if (Rs2Inventory.contains(carriedPickaxeId)) {
 			Rs2Bank.depositOne(carriedPickaxeId);
@@ -692,7 +696,10 @@ public class MotherloadMineScript extends Script
 		}
 
 		final String taken = wieldingBankPickaxe ? "equipped" : "took out";
-		if (Rs2Equipment.isWearing(carriedPickaxeId) || Rs2Inventory.contains(carriedPickaxeId)) {
+		if (!canWieldBankPickaxe && Rs2Equipment.isWearing(carriedPickaxeId)) {
+			log.info("Found a better pickaxe in the bank: took out the {}. It works from your inventory, and you keep wielding your {} because your Attack level is too low to wield the {}.",
+				bankPickaxe.getName(), carriedPickaxe.getName(), bankPickaxe.getName());
+		} else if (Rs2Equipment.isWearing(carriedPickaxeId) || Rs2Inventory.contains(carriedPickaxeId)) {
 			log.info("Found a better pickaxe in the bank: {} the {} and kept your {}", taken, bankPickaxe.getName(), carriedPickaxe.getName());
 		} else {
 			log.info("Found a better pickaxe in the bank: {} the {} and banked the {} {}", taken, bankPickaxe.getName(),
