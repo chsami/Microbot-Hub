@@ -43,6 +43,14 @@ public final class ThievingData {
         return house;
     }
 
+    /** Centre of a Darkmeyer vyre house, used as a travel target. */
+    public static WorldPoint getAnyVyreHouseCenter() {
+        final WorldPoint[] house = VYRE_HOUSES.get("Vallessia von Pitt");
+        int x = 0, y = 0;
+        for (WorldPoint p : house) { x += p.getX(); y += p.getY(); }
+        return new WorldPoint(x / house.length, y / house.length, house[0].getPlane());
+    }
+
     private static final Map<String, WorldPoint> VYRE_ESCAPE = Map.of(
             "Vallessia von Pitt", NULL_WORLD_POINT,
             "Misdrievus Shadum", NULL_WORLD_POINT,
