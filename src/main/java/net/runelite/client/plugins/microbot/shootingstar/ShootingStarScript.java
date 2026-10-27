@@ -249,15 +249,21 @@ public class ShootingStarScript extends Script
 						{
 							if (pickaxe == null)
 							{
+								Rs2ItemModel bestInBank = getBestPickaxe(Rs2Bank.bankItems());
+								boolean skippedThirdAge = bestInBank != null && !Pickaxe.fromItemId(bestInBank.getId()).isWithdrawableFromBank();
 								pickaxe = getBestPickaxe(Rs2Bank.bankItems(), Pickaxe::isWithdrawableFromBank);
 								if (pickaxe != null)
 								{
+									if (skippedThirdAge)
+									{
+										Microbot.log("Skipped the 3rd age pickaxe in your bank and took a " + pickaxe.getName() + " instead. Equip the 3rd age pickaxe before starting if you want to use it.");
+									}
 									Rs2Bank.withdrawItem(pickaxe.getId());
 									Rs2Random.waitEx(1200, 300);
 								}
-								else if (getBestPickaxe(Rs2Bank.bankItems()) != null)
+								else if (skippedThirdAge)
 								{
-									Microbot.showMessage("Only a 3rd age pickaxe was found in your bank. Equip it yourself before starting if you want to use it, or bank another pickaxe.");
+									Microbot.showMessage("Shooting Star will not take your 3rd age pickaxe out of the bank, because stars can land in the Wilderness. To use it, equip it or put it in your inventory before you press start. Otherwise, put another pickaxe you have the levels for in your bank.");
 									Microbot.stopPlugin(plugin);
 									return;
 								}
