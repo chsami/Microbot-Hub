@@ -185,11 +185,17 @@ ThievingNpcStrategy getActiveStrategy() {
                     filter = validateName(ThievingData.ELVES::contains);
                     break;
                 default:
-                    filter = validateName(name -> name.toLowerCase().contains(finalNpc.getName()));
+                    filter = validateName(name -> matchesNpcName(finalNpc, name));
                     break;
             }
         }
         return filter;
+    }
+
+    static boolean matchesNpcName(ThievingNpc target, String name) {
+        if (target == null || name == null) return false;
+        if (target == ThievingNpc.WARRIOR) return name.toLowerCase().contains(target.getName());
+        return name.equalsIgnoreCase(target.getName());
     }
 
     private Rs2NpcModel getThievingNpcCache() {

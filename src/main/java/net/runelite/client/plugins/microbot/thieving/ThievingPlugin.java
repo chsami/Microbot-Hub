@@ -35,7 +35,7 @@ import java.time.Duration;
 )
 @Slf4j
 public class ThievingPlugin extends Plugin {
-	public static final String version = "2.1.7";
+	public static final String version = "2.1.8";
 
     @Inject
     @Getter
