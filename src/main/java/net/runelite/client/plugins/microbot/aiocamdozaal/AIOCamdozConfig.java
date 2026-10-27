@@ -27,6 +27,7 @@ public interface AIOCamdozConfig extends Config {
         DRAGON_PICKAXE_OR,
         INFERNAL_PICKAXE,
         INFERNAL_PICKAXE_OR,
+        THIRD_AGE_PICKAXE,
         CRYSTAL_PICKAXE,
         TRAILBLAZER_PICKAXE
     }

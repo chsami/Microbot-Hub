@@ -25,7 +25,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AIOCamdozPlugin extends Plugin {
-    public final static String version = "1.0.0";
+    public final static String version = "1.0.1";
 
     @Inject
     private AIOCamdozConfig config;

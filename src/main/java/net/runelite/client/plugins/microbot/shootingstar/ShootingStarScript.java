@@ -45,7 +45,7 @@ public class ShootingStarScript extends Script
 	private final ShootingStarPlugin plugin;
 	private final ShootingStarConfig config;
 	private Rs2InventorySetup rs2InventorySetup;
-	private Pickaxe pickaxe;
+	private Rs2ItemModel pickaxe;
 	private Star currentStar;
 	private boolean hasEquipment = false;
 	private boolean hasInventory = false;
@@ -251,7 +251,7 @@ public class ShootingStarScript extends Script
 								pickaxe = getBestPickaxe(Rs2Bank.bankItems());
 								if (pickaxe != null)
 								{
-									Rs2Bank.withdrawItem(pickaxe.getItemName());
+									Rs2Bank.withdrawItem(pickaxe.getId());
 									Rs2Random.waitEx(1200, 300);
 								}
 								else
@@ -596,25 +596,9 @@ public class ShootingStarScript extends Script
 		return currentStar.getObjectId() != starModel.getId();
 	}
 
-	private Pickaxe getBestPickaxe(List<Rs2ItemModel> items)
+	private Rs2ItemModel getBestPickaxe(List<Rs2ItemModel> items)
 	{
-		Pickaxe bestPickaxe = null;
-
-		for (Pickaxe pickaxe : Pickaxe.values())
-		{
-			if (items.stream().noneMatch(i -> i.getName().toLowerCase().contains(pickaxe.getItemName())))
-			{
-				continue;
-			}
-			if (pickaxe.hasRequirements())
-			{
-				if (bestPickaxe == null || pickaxe.getMiningLevel() > bestPickaxe.getMiningLevel())
-				{
-					bestPickaxe = pickaxe;
-				}
-			}
-		}
-		return bestPickaxe;
+		return Pickaxe.best(items, Rs2ItemModel::getId, Pickaxe::hasRequirements).orElse(null);
 	}
 
 	private boolean shouldBreak()
