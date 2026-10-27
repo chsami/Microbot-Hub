@@ -5,6 +5,7 @@ import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.ItemID;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public final class AIOCamdozPickaxeTest
@@ -49,6 +50,17 @@ public final class AIOCamdozPickaxeTest
 			assertTrue(contains(ids, ItemID.TRAILBLAZER_PICKAXE));
 			assertTrue(contains(ids, ItemID.TRAILBLAZER_RELOADED_PICKAXE));
 		}
+	}
+
+	@Test
+	void selectedVariantIsWithdrawnFirst()
+	{
+		assertEquals(ItemID.DRAGON_PICKAXE, AIOCamdozScript.pickaxeIds(AIOCamdozConfig.Pickaxes.DRAGON_PICKAXE)[0]);
+		assertEquals(ItemID.DRAGON_PICKAXE_PRETTY, AIOCamdozScript.pickaxeIds(AIOCamdozConfig.Pickaxes.DRAGON_PICKAXE_OR)[0]);
+		assertEquals(ItemID.INFERNAL_PICKAXE, AIOCamdozScript.pickaxeIds(AIOCamdozConfig.Pickaxes.INFERNAL_PICKAXE)[0]);
+		assertEquals(ItemID.TRAILBLAZER_PICKAXE, AIOCamdozScript.pickaxeIds(AIOCamdozConfig.Pickaxes.INFERNAL_PICKAXE_OR)[0]);
+		assertEquals(ItemID.TRAILBLAZER_PICKAXE, AIOCamdozScript.pickaxeIds(AIOCamdozConfig.Pickaxes.TRAILBLAZER_PICKAXE)[0]);
+		assertEquals(ItemID.TRAILBLAZER_RELOADED_PICKAXE, AIOCamdozScript.pickaxeIds(AIOCamdozConfig.Pickaxes.TRAILBLAZER_PICKAXE)[1]);
 	}
 
 	@Test

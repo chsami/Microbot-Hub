@@ -723,16 +723,22 @@ public class AIOCamdozScript extends Script {
             case GILDED_PICKAXE:
                 return new int[]{ItemID.TRAIL_GILDED_PICKAXE};
             case DRAGON_PICKAXE:
-            case DRAGON_PICKAXE_OR:
                 return new int[]{ItemID.DRAGON_PICKAXE, ItemID.DRAGON_PICKAXE_PRETTY, ItemID.ZALCANO_PICKAXE,
                         ItemID.ZALCANO_PICKAXE_SPECIAL_GLOW, ItemID.TRAILBLAZER_PICKAXE_NO_INFERNAL,
                         ItemID.TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL};
+            case DRAGON_PICKAXE_OR:
+                return new int[]{ItemID.DRAGON_PICKAXE_PRETTY, ItemID.DRAGON_PICKAXE, ItemID.ZALCANO_PICKAXE,
+                        ItemID.ZALCANO_PICKAXE_SPECIAL_GLOW, ItemID.TRAILBLAZER_PICKAXE_NO_INFERNAL,
+                        ItemID.TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL};
             case INFERNAL_PICKAXE:
-            case INFERNAL_PICKAXE_OR:
-            case TRAILBLAZER_PICKAXE:
                 return new int[]{ItemID.INFERNAL_PICKAXE, ItemID.INFERNAL_PICKAXE_EMPTY, ItemID.TRAILBLAZER_PICKAXE,
                         ItemID.TRAILBLAZER_PICKAXE_EMPTY, ItemID.TRAILBLAZER_RELOADED_PICKAXE,
                         ItemID.TRAILBLAZER_RELOADED_PICKAXE_EMPTY};
+            case INFERNAL_PICKAXE_OR:
+            case TRAILBLAZER_PICKAXE:
+                return new int[]{ItemID.TRAILBLAZER_PICKAXE, ItemID.TRAILBLAZER_RELOADED_PICKAXE,
+                        ItemID.TRAILBLAZER_PICKAXE_EMPTY, ItemID.TRAILBLAZER_RELOADED_PICKAXE_EMPTY,
+                        ItemID.INFERNAL_PICKAXE, ItemID.INFERNAL_PICKAXE_EMPTY};
             case THIRD_AGE_PICKAXE:
                 return new int[]{ItemID._3A_PICKAXE};
             case CRYSTAL_PICKAXE:

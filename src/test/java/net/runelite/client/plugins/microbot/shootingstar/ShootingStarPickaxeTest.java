@@ -47,6 +47,28 @@ public final class ShootingStarPickaxeTest
 	}
 
 	@Test
+	void prefersDragonOrInfernalOverThirdAge()
+	{
+		assertEquals(ItemID.DRAGON_PICKAXE, Pickaxe.best(Arrays.asList(ItemID._3A_PICKAXE, ItemID.DRAGON_PICKAXE), Integer::intValue, p -> true).orElseThrow());
+		assertEquals(ItemID.DRAGON_PICKAXE_PRETTY, Pickaxe.best(Arrays.asList(ItemID.DRAGON_PICKAXE_PRETTY, ItemID._3A_PICKAXE), Integer::intValue, p -> true).orElseThrow());
+		assertEquals(ItemID.INFERNAL_PICKAXE, Pickaxe.best(Arrays.asList(ItemID._3A_PICKAXE, ItemID.INFERNAL_PICKAXE), Integer::intValue, p -> true).orElseThrow());
+		assertEquals(ItemID.TRAILBLAZER_PICKAXE, Pickaxe.best(Arrays.asList(ItemID.TRAILBLAZER_PICKAXE, ItemID._3A_PICKAXE), Integer::intValue, p -> true).orElseThrow());
+		assertEquals(ItemID._3A_PICKAXE, Pickaxe.best(Arrays.asList(ItemID.RUNE_PICKAXE, ItemID._3A_PICKAXE), Integer::intValue, p -> true).orElseThrow());
+	}
+
+	@Test
+	void prefersDragonOverInactiveCrystal()
+	{
+		assertEquals(ItemID.DRAGON_PICKAXE, Pickaxe.best(Arrays.asList(ItemID.CRYSTAL_PICKAXE_INACTIVE, ItemID.DRAGON_PICKAXE), Integer::intValue, p -> true).orElseThrow());
+	}
+
+	@Test
+	void prefersRuneOverGilded()
+	{
+		assertEquals(ItemID.RUNE_PICKAXE, Pickaxe.best(Arrays.asList(ItemID.TRAIL_GILDED_PICKAXE, ItemID.RUNE_PICKAXE), Integer::intValue, p -> true).orElseThrow());
+	}
+
+	@Test
 	void findsNothingWithoutAPickaxe()
 	{
 		List<Integer> items = Arrays.asList(ItemID.COINS, ItemID.DRAGON_PICKAXE_UPGRADE_KIT);
