@@ -57,6 +57,14 @@ public final class ShootingStarPickaxeTest
 	}
 
 	@Test
+	void neverWithdrawsThirdAgeFromBank()
+	{
+		assertEquals(ItemID.RUNE_PICKAXE, Pickaxe.best(Arrays.asList(ItemID._3A_PICKAXE, ItemID.RUNE_PICKAXE), Integer::intValue, Pickaxe::isWithdrawableFromBank).orElseThrow());
+		assertEquals(ItemID.TRAIL_GILDED_PICKAXE, Pickaxe.best(Arrays.asList(ItemID._3A_PICKAXE, ItemID.TRAIL_GILDED_PICKAXE), Integer::intValue, Pickaxe::isWithdrawableFromBank).orElseThrow());
+		assertFalse(Pickaxe.best(Arrays.asList(ItemID._3A_PICKAXE, ItemID.COINS), Integer::intValue, Pickaxe::isWithdrawableFromBank).isPresent());
+	}
+
+	@Test
 	void prefersDragonOverInactiveCrystal()
 	{
 		assertEquals(ItemID.DRAGON_PICKAXE, Pickaxe.best(Arrays.asList(ItemID.CRYSTAL_PICKAXE_INACTIVE, ItemID.DRAGON_PICKAXE), Integer::intValue, p -> true).orElseThrow());

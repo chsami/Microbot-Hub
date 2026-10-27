@@ -738,7 +738,8 @@ public class AIOCamdozScript extends Script {
             case TRAILBLAZER_PICKAXE:
                 return new int[]{ItemID.TRAILBLAZER_PICKAXE, ItemID.TRAILBLAZER_RELOADED_PICKAXE,
                         ItemID.TRAILBLAZER_PICKAXE_EMPTY, ItemID.TRAILBLAZER_RELOADED_PICKAXE_EMPTY,
-                        ItemID.INFERNAL_PICKAXE, ItemID.INFERNAL_PICKAXE_EMPTY};
+                        ItemID.INFERNAL_PICKAXE, ItemID.INFERNAL_PICKAXE_EMPTY, ItemID.TRAILBLAZER_PICKAXE_NO_INFERNAL,
+                        ItemID.TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL};
             case THIRD_AGE_PICKAXE:
                 return new int[]{ItemID._3A_PICKAXE};
             case CRYSTAL_PICKAXE:
@@ -773,12 +774,18 @@ public class AIOCamdozScript extends Script {
                         AnimationID.HUMAN_MINING_TRAILBLAZER_PICKAXE_NO_INFERNAL_WALL,
                         AnimationID.HUMAN_MINING_TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL_WALL};
             case INFERNAL_PICKAXE:
+                return new int[]{AnimationID.HUMAN_MINING_INFERNAL_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_LEAGUE_TRAILBLAZER_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_RELOADED_PICKAXE_WALL};
             case INFERNAL_PICKAXE_OR:
             case TRAILBLAZER_PICKAXE:
                 return new int[]{AnimationID.HUMAN_MINING_INFERNAL_PICKAXE_WALL,
                         AnimationID.HUMAN_MINING_LEAGUE_TRAILBLAZER_PICKAXE_WALL,
                         AnimationID.HUMAN_MINING_TRAILBLAZER_PICKAXE_WALL,
-                        AnimationID.HUMAN_MINING_TRAILBLAZER_RELOADED_PICKAXE_WALL};
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_RELOADED_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_PICKAXE_NO_INFERNAL_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL_WALL};
             case THIRD_AGE_PICKAXE:
                 return new int[]{AnimationID.HUMAN_MINING_3A_PICKAXE_WALL};
             case CRYSTAL_PICKAXE:

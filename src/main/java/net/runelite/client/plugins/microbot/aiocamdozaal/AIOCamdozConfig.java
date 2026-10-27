@@ -71,7 +71,7 @@ public interface AIOCamdozConfig extends Config {
     @ConfigItem(
             name = "Pickaxe",
             keyName = "pickaxe",
-            description = "The pickaxe tier to use. Ornament, upgraded and trailblazer versions of a tier count as that tier.",
+            description = "The pickaxe tier to use. Ornament and upgraded versions count as their tier; the Trailblazer option accepts every Trailblazer pickaxe.",
             position = 1,
             section = mineAndSmithSettingSection
     )

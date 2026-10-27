@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -248,11 +249,17 @@ public class ShootingStarScript extends Script
 						{
 							if (pickaxe == null)
 							{
-								pickaxe = getBestPickaxe(Rs2Bank.bankItems());
+								pickaxe = getBestPickaxe(Rs2Bank.bankItems(), Pickaxe::isWithdrawableFromBank);
 								if (pickaxe != null)
 								{
 									Rs2Bank.withdrawItem(pickaxe.getId());
 									Rs2Random.waitEx(1200, 300);
+								}
+								else if (getBestPickaxe(Rs2Bank.bankItems()) != null)
+								{
+									Microbot.showMessage("Only a 3rd age pickaxe was found in your bank. Equip it yourself before starting if you want to use it, or bank another pickaxe.");
+									Microbot.stopPlugin(plugin);
+									return;
 								}
 								else
 								{
@@ -598,7 +605,12 @@ public class ShootingStarScript extends Script
 
 	private Rs2ItemModel getBestPickaxe(List<Rs2ItemModel> items)
 	{
-		return Pickaxe.best(items, Rs2ItemModel::getId, Pickaxe::hasRequirements).orElse(null);
+		return getBestPickaxe(items, p -> true);
+	}
+
+	private Rs2ItemModel getBestPickaxe(List<Rs2ItemModel> items, Predicate<Pickaxe> allowed)
+	{
+		return Pickaxe.best(items, Rs2ItemModel::getId, p -> allowed.test(p) && p.hasRequirements()).orElse(null);
 	}
 
 	private boolean shouldBreak()

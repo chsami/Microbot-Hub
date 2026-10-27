@@ -52,6 +52,11 @@ public enum Pickaxe
 		return Rs2Player.getSkillRequirement(Skill.MINING, this.miningLevel) && Rs2Player.getSkillRequirement(Skill.ATTACK, this.attackLevel);
 	}
 
+	public boolean isWithdrawableFromBank()
+	{
+		return this != THIRD_AGE_PICKAXE;
+	}
+
 	public static Pickaxe fromItemId(int itemId)
 	{
 		return Arrays.stream(values())

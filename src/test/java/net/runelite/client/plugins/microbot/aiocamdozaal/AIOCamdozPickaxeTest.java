@@ -53,6 +53,21 @@ public final class AIOCamdozPickaxeTest
 	}
 
 	@Test
+	void trailblazerOptionsAcceptTrailblazerWithoutInfernal()
+	{
+		for (AIOCamdozConfig.Pickaxes pickaxe : new AIOCamdozConfig.Pickaxes[]{AIOCamdozConfig.Pickaxes.INFERNAL_PICKAXE_OR, AIOCamdozConfig.Pickaxes.TRAILBLAZER_PICKAXE})
+		{
+			int[] ids = AIOCamdozScript.pickaxeIds(pickaxe);
+			assertTrue(contains(ids, ItemID.TRAILBLAZER_PICKAXE_NO_INFERNAL));
+			assertTrue(contains(ids, ItemID.TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL));
+			assertEquals(ItemID.TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL, ids[ids.length - 1]);
+			int[] animations = AIOCamdozScript.miningAnimationIds(pickaxe);
+			assertTrue(contains(animations, AnimationID.HUMAN_MINING_TRAILBLAZER_PICKAXE_NO_INFERNAL_WALL));
+			assertTrue(contains(animations, AnimationID.HUMAN_MINING_TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL_WALL));
+		}
+	}
+
+	@Test
 	void selectedVariantIsWithdrawnFirst()
 	{
 		assertEquals(ItemID.DRAGON_PICKAXE, AIOCamdozScript.pickaxeIds(AIOCamdozConfig.Pickaxes.DRAGON_PICKAXE)[0]);
