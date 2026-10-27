@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.motherloadmine.enums;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.function.IntPredicate;
 import lombok.Getter;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.Skill;
@@ -31,12 +32,13 @@ public enum Pickaxe
 		ItemID.TRAILBLAZER_PICKAXE, ItemID.TRAILBLAZER_PICKAXE_EMPTY,
 		ItemID.TRAILBLAZER_RELOADED_PICKAXE, ItemID.TRAILBLAZER_RELOADED_PICKAXE_EMPTY),
 	THIRD_AGE_PICKAXE("3rd age pickaxe", 61, 65, ItemID._3A_PICKAXE),
-	CRYSTAL_PICKAXE("crystal pickaxe", 71, 70, ItemID.CRYSTAL_PICKAXE, ItemID.CRYSTAL_PICKAXE_INACTIVE,
-		ItemID.CRYSTAL_PICKAXE_GLOW);
+	CRYSTAL_PICKAXE_INACTIVE("crystal pickaxe", 71, 70, DRAGON_PICKAXE, ItemID.CRYSTAL_PICKAXE_INACTIVE),
+	CRYSTAL_PICKAXE("crystal pickaxe", 71, 70, ItemID.CRYSTAL_PICKAXE, ItemID.CRYSTAL_PICKAXE_GLOW);
 
 	private final String itemName;
 	private final int miningLevel;
 	private final int attackLevel;
+	private final int tier;
 	private final int[] itemIds;
 
 	Pickaxe(String itemName, int miningLevel, int attackLevel, int... itemIds)
@@ -44,6 +46,16 @@ public enum Pickaxe
 		this.itemName = itemName;
 		this.miningLevel = miningLevel;
 		this.attackLevel = attackLevel;
+		this.tier = miningLevel;
+		this.itemIds = itemIds;
+	}
+
+	Pickaxe(String itemName, int miningLevel, int attackLevel, Pickaxe minesLike, int... itemIds)
+	{
+		this.itemName = itemName;
+		this.miningLevel = miningLevel;
+		this.attackLevel = attackLevel;
+		this.tier = minesLike.tier;
 		this.itemIds = itemIds;
 	}
 
@@ -70,7 +82,7 @@ public enum Pickaxe
         // Then check inventory
         return Rs2Inventory.items()
             .filter(item -> isPickaxe(item.getId()) && canUse(item.getId()))
-            .max(Comparator.comparingInt(item -> getMiningLevel(item.getId())))
+            .max(Comparator.comparingInt(item -> tierOf(item.getId())))
             .orElse(null);
     }
 
@@ -79,12 +91,22 @@ public enum Pickaxe
      */
     public static Rs2ItemModel getBestPickaxeFromBank() {
         return Rs2Bank.getAll(item -> isPickaxe(item.getId()) && canUse(item.getId()))
-            .max(Comparator.comparingInt(item -> getMiningLevel(item.getId())))
+            .max(Comparator.comparingInt(item -> tierOf(item.getId())))
             .orElse(null);
     }
 
     public static boolean isBetterPickaxe(int candidateId, int currentId) {
-        return getMiningLevel(candidateId) > getMiningLevel(currentId);
+        return tierOf(candidateId) > tierOf(currentId);
+    }
+
+    public static boolean hasUsableBetterTier(int itemId) {
+        return hasUsableBetterTier(itemId, level -> Rs2Player.getSkillRequirement(Skill.MINING, level));
+    }
+
+    public static boolean hasUsableBetterTier(int itemId, IntPredicate meetsMiningLevel) {
+        final int currentTier = tierOf(itemId);
+        return Arrays.stream(values())
+            .anyMatch(p -> p.tier > currentTier && meetsMiningLevel.test(p.miningLevel));
     }
 
     private static boolean isPickaxe(int itemId) {
@@ -96,9 +118,9 @@ public enum Pickaxe
         return pickaxe != null && Rs2Player.getSkillRequirement(Skill.MINING, pickaxe.miningLevel);
     }
 
-    private static int getMiningLevel(int itemId) {
+    private static int tierOf(int itemId) {
         Pickaxe pickaxe = fromItemId(itemId);
-        return pickaxe == null ? 0 : pickaxe.miningLevel;
+        return pickaxe == null ? 0 : pickaxe.tier;
     }
 
     public static boolean hasAttackLevelRequirement(int itemId) {

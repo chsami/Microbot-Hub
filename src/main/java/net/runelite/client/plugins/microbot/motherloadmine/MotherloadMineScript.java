@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.EquipmentInventorySlot;
@@ -213,8 +214,9 @@ public class MotherloadMineScript extends Script
             return;
         }
 
-        if (!config.useInventorySetup() && !checkedBankForBetterPickaxe)
+        if (!config.useInventorySetup() && !checkedBankForBetterPickaxe && shouldCheckBankForBetterPickaxe())
         {
+            status = MLMStatus.CHECKING_BANK_FOR_PICKAXE;
             upgradePickaxeFromBank();
             return;
         }
@@ -599,44 +601,103 @@ public class MotherloadMineScript extends Script
         log.info("Inventory setup complete");
 	}
 
+	private boolean shouldCheckBankForBetterPickaxe() {
+		final Rs2ItemModel carriedPickaxe = Pickaxe.getBestPickaxe();
+		if (carriedPickaxe == null || !Pickaxe.hasUsableBetterTier(carriedPickaxe.getId())) {
+			checkedBankForBetterPickaxe = true;
+			return false;
+		}
+		return !Rs2Inventory.isFull() || findItemToMakeRoom() != null;
+	}
+
+	private Rs2ItemModel findItemToMakeRoom() {
+		final Predicate<Rs2ItemModel> isKept = Rs2ItemModel.matches(false, getItemsToKeep().toArray(String[]::new));
+		return Rs2Inventory.items()
+			.filter(item -> item.getId() != ItemID.PAYDIRT && Pickaxe.fromItemId(item.getId()) == null)
+			.filter(item -> item.getName() != null && !isKept.test(item))
+			.findFirst()
+			.orElse(null);
+	}
+
 	private void upgradePickaxeFromBank() {
 		checkedBankForBetterPickaxe = true;
 		final Rs2ItemModel carriedPickaxe = Pickaxe.getBestPickaxe();
-		if (carriedPickaxe == null || !Rs2Bank.openBank() || !sleepUntil(Rs2Bank::isOpen)) {
+		if (carriedPickaxe == null) {
+			return;
+		}
+
+		log.info("Checking the bank once for a better pickaxe than your {}", carriedPickaxe.getName());
+		if (!Rs2Bank.openBank() || !sleepUntil(Rs2Bank::isOpen)) {
 			return;
 		}
 
 		final Rs2ItemModel bankPickaxe = Pickaxe.getBestPickaxeFromBank();
-		if (bankPickaxe != null && Pickaxe.isBetterPickaxe(bankPickaxe.getId(), carriedPickaxe.getId())) {
-			log.info("Swapping carried pickaxe {} for better bank pickaxe {}", carriedPickaxe.getId(), bankPickaxe.getId());
-			if (Rs2Inventory.isFull()) {
-				Rs2Bank.depositAllExcept(getItemsToKeep());
-				Rs2Inventory.waitForInventoryChanges(5000);
-			}
-
-			final int bankPickaxeId = bankPickaxe.getId();
-			if (Pickaxe.hasAttackLevelRequirement(bankPickaxeId)) {
-				final Rs2ItemModel currentWeapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
-				Rs2Bank.withdrawAndEquip(bankPickaxeId);
-				if (sleepUntil(() -> Rs2Equipment.isWearing(bankPickaxeId)) && currentWeapon != null
-					&& Rs2Inventory.contains(currentWeapon.getId())) {
-					Rs2Bank.depositOne(currentWeapon.getId());
-					Rs2Inventory.waitForInventoryChanges(5000);
-				}
-			} else {
-				Rs2Bank.withdrawOne(bankPickaxeId);
-				Rs2Inventory.waitForInventoryChanges(5000);
-			}
-
-			final boolean hasBankPickaxe = Rs2Equipment.isWearing(bankPickaxeId) || Rs2Inventory.contains(bankPickaxeId);
-			if (hasBankPickaxe && Rs2Inventory.contains(carriedPickaxe.getId())) {
-				Rs2Bank.depositOne(carriedPickaxe.getId());
-				Rs2Inventory.waitForInventoryChanges(5000);
-			}
+		if (bankPickaxe != null && Pickaxe.isBetterPickaxe(bankPickaxe.getId(), carriedPickaxe.getId())
+			&& makeRoomForPickaxe()) {
+			swapInBankPickaxe(carriedPickaxe, bankPickaxe);
 		}
 
 		Rs2Bank.closeBank();
 		sleepUntil(() -> !Rs2Bank.isOpen());
+	}
+
+	private boolean makeRoomForPickaxe() {
+		if (!Rs2Inventory.isFull()) {
+			return true;
+		}
+
+		final Rs2ItemModel item = findItemToMakeRoom();
+		if (item == null) {
+			checkedBankForBetterPickaxe = false;
+			log.info("Inventory is full of pay-dirt, checking the bank for a better pickaxe after the next hopper deposit");
+			return false;
+		}
+
+		Rs2Bank.depositAll(item.getId());
+		final boolean madeRoom = sleepUntil(() -> !Rs2Inventory.isFull());
+		if (madeRoom) {
+			log.info("Banked your {} to make room for a better pickaxe", item.getName());
+		}
+		return madeRoom;
+	}
+
+	private void swapInBankPickaxe(Rs2ItemModel carriedPickaxe, Rs2ItemModel bankPickaxe) {
+		final int carriedPickaxeId = carriedPickaxe.getId();
+		final int bankPickaxeId = bankPickaxe.getId();
+		final boolean carriedWielded = Rs2Equipment.isWearing(carriedPickaxeId);
+
+		if (Pickaxe.hasAttackLevelRequirement(bankPickaxeId)) {
+			final Rs2ItemModel currentWeapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+			Rs2Bank.withdrawAndEquip(bankPickaxeId);
+			if (sleepUntil(() -> Rs2Equipment.isWearing(bankPickaxeId)) && currentWeapon != null
+				&& currentWeapon.getId() != carriedPickaxeId && Rs2Inventory.contains(currentWeapon.getId())) {
+				Rs2Bank.depositOne(currentWeapon.getId());
+				Rs2Inventory.waitForInventoryChanges(5000);
+				log.info("Banked your {} to wield the {}", currentWeapon.getName(), bankPickaxe.getName());
+			}
+		} else {
+			Rs2Bank.withdrawOne(bankPickaxeId);
+			Rs2Inventory.waitForInventoryChanges(5000);
+		}
+
+		final boolean wieldingBankPickaxe = Rs2Equipment.isWearing(bankPickaxeId);
+		if (!wieldingBankPickaxe && !Rs2Inventory.contains(bankPickaxeId)) {
+			log.warn("Could not take the {} from the bank, mining with your {}", bankPickaxe.getName(), carriedPickaxe.getName());
+			return;
+		}
+
+		if (Rs2Inventory.contains(carriedPickaxeId)) {
+			Rs2Bank.depositOne(carriedPickaxeId);
+			Rs2Inventory.waitForInventoryChanges(5000);
+		}
+
+		final String taken = wieldingBankPickaxe ? "equipped" : "took out";
+		if (Rs2Equipment.isWearing(carriedPickaxeId) || Rs2Inventory.contains(carriedPickaxeId)) {
+			log.info("Found a better pickaxe in the bank: {} the {} and kept your {}", taken, bankPickaxe.getName(), carriedPickaxe.getName());
+		} else {
+			log.info("Found a better pickaxe in the bank: {} the {} and banked the {} {}", taken, bankPickaxe.getName(),
+				carriedPickaxe.getName(), carriedWielded ? "you were wielding" : "from your inventory");
+		}
 	}
 
     private void selectMiningSpotFromConfig() {

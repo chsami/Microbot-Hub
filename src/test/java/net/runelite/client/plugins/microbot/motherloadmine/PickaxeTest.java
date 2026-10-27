@@ -34,9 +34,31 @@ public final class PickaxeTest {
     void recognisesThirdAgeAndCrystalPickaxes() {
         assertEquals(Pickaxe.THIRD_AGE_PICKAXE, Pickaxe.fromItemId(ItemID._3A_PICKAXE));
         assertEquals(Pickaxe.CRYSTAL_PICKAXE, Pickaxe.fromItemId(ItemID.CRYSTAL_PICKAXE));
-        assertEquals(Pickaxe.CRYSTAL_PICKAXE, Pickaxe.fromItemId(ItemID.CRYSTAL_PICKAXE_INACTIVE));
+        assertEquals(Pickaxe.CRYSTAL_PICKAXE_INACTIVE, Pickaxe.fromItemId(ItemID.CRYSTAL_PICKAXE_INACTIVE));
         assertEquals(Pickaxe.CRYSTAL_PICKAXE, Pickaxe.fromItemId(ItemID.CRYSTAL_PICKAXE_GLOW));
         assertEquals(Pickaxe.GILDED_PICKAXE, Pickaxe.fromItemId(ItemID.TRAIL_GILDED_PICKAXE));
+    }
+
+    @Test
+    void inactiveCrystalPickaxeKeepsCrystalRequirementsButRanksAsDragon() {
+        assertEquals(71, Pickaxe.CRYSTAL_PICKAXE_INACTIVE.getMiningLevel());
+        assertEquals(70, Pickaxe.CRYSTAL_PICKAXE_INACTIVE.getAttackLevel());
+        assertEquals(Pickaxe.DRAGON_PICKAXE.getTier(), Pickaxe.CRYSTAL_PICKAXE_INACTIVE.getTier());
+        assertFalse(Pickaxe.isBetterPickaxe(ItemID.CRYSTAL_PICKAXE_INACTIVE, ItemID.DRAGON_PICKAXE_PRETTY));
+        assertFalse(Pickaxe.isBetterPickaxe(ItemID.CRYSTAL_PICKAXE_INACTIVE, ItemID.INFERNAL_PICKAXE));
+        assertFalse(Pickaxe.isBetterPickaxe(ItemID.DRAGON_PICKAXE, ItemID.CRYSTAL_PICKAXE_INACTIVE));
+        assertTrue(Pickaxe.isBetterPickaxe(ItemID.CRYSTAL_PICKAXE, ItemID.CRYSTAL_PICKAXE_INACTIVE));
+        assertTrue(Pickaxe.isBetterPickaxe(ItemID.CRYSTAL_PICKAXE_INACTIVE, ItemID.RUNE_PICKAXE));
+    }
+
+    @Test
+    void skipsBankCheckWhenCarriedPickaxeIsBestUsableTier() {
+        assertFalse(Pickaxe.hasUsableBetterTier(ItemID.CRYSTAL_PICKAXE, level -> level <= 99));
+        assertFalse(Pickaxe.hasUsableBetterTier(ItemID.DRAGON_PICKAXE_PRETTY, level -> level <= 70));
+        assertFalse(Pickaxe.hasUsableBetterTier(ItemID.RUNE_PICKAXE, level -> level <= 60));
+        assertTrue(Pickaxe.hasUsableBetterTier(ItemID.DRAGON_PICKAXE_PRETTY, level -> level <= 71));
+        assertTrue(Pickaxe.hasUsableBetterTier(ItemID.CRYSTAL_PICKAXE_INACTIVE, level -> level <= 71));
+        assertTrue(Pickaxe.hasUsableBetterTier(ItemID.RUNE_PICKAXE, level -> level <= 61));
     }
 
     @Test
