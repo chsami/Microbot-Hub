@@ -49,6 +49,8 @@ public class BankerScript extends Script {
 
     public boolean run(AIOFighterConfig config) {
         this.config = config;
+        bankingTriggered = false;
+        inventorySetupChanged = false;
         this.inventorySetupsPlugin = Microbot.getPluginManager().getPlugins().stream()
                 .filter(plugin -> plugin instanceof MInventorySetupsPlugin)
                 .map(plugin -> (MInventorySetupsPlugin) plugin)
@@ -92,6 +94,10 @@ public class BankerScript extends Script {
                              AIOFighterPlugin.setState(State.IDLE);
 
                         }
+                    }
+                } else if (AIOFighterPlugin.getState() == State.BANKING && !needBanking() && !AIOFighterPlugin.needShopping) {
+                    if (Rs2Bank.closeBank()) {
+                        AIOFighterPlugin.setState(State.IDLE);
                     }
                 }
             } catch (Exception ex) {
@@ -427,6 +433,7 @@ public class BankerScript extends Script {
             
             if (setupName == null) {
                 Microbot.log("Cannot load inventory setup - null setup name");
+                depositAllAndReleaseBanking();
                 return;
             }
             
@@ -435,10 +442,7 @@ public class BankerScript extends Script {
                 return;
             }
             if (!isSetupAvailable(setupName)) {
-                Rs2Bank.depositAll();
-                Rs2Inventory.waitForInventoryChanges(2000);
-                bankingTriggered = false;
-                inventorySetupChanged = false;
+                depositAllAndReleaseBanking();
                 return;
             }
             Rs2InventorySetup inventorySetup = new Rs2InventorySetup(setupName, mainScheduledFuture);
@@ -503,8 +507,19 @@ public class BankerScript extends Script {
                 }
             }
             inventorySetupChanged = false;
+        } else {
+            depositAllAndReleaseBanking();
         }
 
+    }
+
+    private void depositAllAndReleaseBanking() {
+        if (Rs2Bank.isOpen()) {
+            Rs2Bank.depositAll();
+            Rs2Inventory.waitForInventoryChanges(2000);
+        }
+        bankingTriggered = false;
+        inventorySetupChanged = false;
     }
 
     public boolean handleBanking() {
