@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.tithefarming;
 
+import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.ItemID;
@@ -330,7 +331,11 @@ public class TitheFarmingScript extends Script {
 
         final TitheFarmPlant finalPlant = plant;
 
-        WorldPoint corePlayerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        WorldPoint corePlayerLoc = Microbot.getClientThread().invoke(() -> {
+            Player localPlayer = Microbot.getClient().getLocalPlayer();
+            return localPlayer == null ? null : localPlayer.getWorldLocation();
+        });
+        if (corePlayerLoc == null) return;
         Rs2TileObjectModel plantModel = plant.getGameObject();
         if (plantModel == null || plantModel.getWorldLocation().distanceTo2D(corePlayerLoc) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
             WorldPoint w = WorldPoint.fromRegion(corePlayerLoc.getRegionID(),
