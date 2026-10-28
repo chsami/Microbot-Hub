@@ -147,14 +147,18 @@ public class VolcanicAshMinerScript extends Script {
                     .within(localLocation, 15)
                     .count();
 
-            if (nearbyPlayers >= maxPlayers) {
-                Microbot.log("Too many players nearby. Hopping...");
+            if (nearbyPlayers > maxPlayers) {
                 Rs2Random.waitEx(3200, 800); // Delay to avoid UI locking
                 int world = Login.getRandomWorld(Rs2Player.isMember());
+                Microbot.log(nearbyPlayers + " other players are mining here (limit " + maxPlayers + "). Hopping to world " + world + "...");
                 boolean hopped = Microbot.hopToWorld(world);
-                if (!hopped) return false;
+                if (!hopped) {
+                    Microbot.log("Could not hop to world " + world + ". Will try again shortly.");
+                    return false;
+                }
                 sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
                 sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
+                return true;
             }
         }
         return false;
