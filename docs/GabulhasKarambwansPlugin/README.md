@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Version | 1.2.1 |
+| Version | 1.2.2 |
 | Works with Microbot | 2.0.13 or newer |
 | Author | Unknown Author |
 | Tags | GabulhasKarambwans, Gabulhas |

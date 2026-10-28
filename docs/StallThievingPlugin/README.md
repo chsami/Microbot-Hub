@@ -4,8 +4,8 @@ Stall Thieving
 
 | | |
 |---|---|
-| Version | 1.0.1 |
-| Works with Microbot | 2.0.13 or newer |
+| Version | 1.0.2 |
+| Works with Microbot | 2.6.43 or newer |
 | Author | Unknown Author |
 | Tags | thieving, microbot |
 

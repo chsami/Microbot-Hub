@@ -4,8 +4,8 @@ Guardians of the rift plugin
 
 | | |
 |---|---|
-| Version | 1.5.12 |
-| Works with Microbot | 2.1.0 or newer |
+| Version | 1.5.13 |
+| Works with Microbot | 2.6.43 or newer |
 | Author | Unknown Author |
 | Tags | runecrafting, guardians of the rift, gotr, microbot |
 

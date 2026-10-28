@@ -4,8 +4,8 @@ Microbot Orb Charger Plugin
 
 | | |
 |---|---|
-| Version | 1.1.1 |
-| Works with Microbot | 2.0.13 or newer |
+| Version | 1.1.2 |
+| Works with Microbot | 2.6.43 or newer |
 | Author | Unknown Author |
 | Tags | magic, microbot, money, money making |
 

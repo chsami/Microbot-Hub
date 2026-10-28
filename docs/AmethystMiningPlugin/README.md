@@ -4,8 +4,8 @@ Automates mining amethyst in the mining guild
 
 | | |
 |---|---|
-| Version | 1.2.4 |
-| Works with Microbot | 2.1.0 or newer |
+| Version | 1.2.5 |
+| Works with Microbot | 2.6.43 or newer |
 | Author | Unknown Author |
 | Tags | mining, amethyst, mining guild |
 

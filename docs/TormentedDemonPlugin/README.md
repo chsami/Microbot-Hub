@@ -4,7 +4,7 @@ Automates restocking, prayer flicking, and gear switching during Tormented Demon
 
 | | |
 |---|---|
-| Version | 1.2.3 |
+| Version | 1.2.4 |
 | Works with Microbot | 2.0.13 or newer |
 | Author | Unknown Author |
 | Tags | tormented, flicker, weapon, switch, microbot |

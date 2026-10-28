@@ -4,7 +4,7 @@ Automates Mahogany Homes contracts
 
 | | |
 |---|---|
-| Version | 0.0.16 |
+| Version | 0.0.17 |
 | Works with Microbot | 2.6.24 or newer |
 | Author | See1Duck |
 | Tags | mahogany, homes, construction, contract, minigame, s1d, see1duck, microbot |

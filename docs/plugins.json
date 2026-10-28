@@ -30,8 +30,8 @@
             "Farming",
             "Tree run"
         ],
-        "version": "1.2.5",
-        "minClientVersion": "2.1.0",
+        "version": "1.2.6",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Acun"
         ],
@@ -39,8 +39,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FarmTreeRunPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-09-13T21:26:13Z",
-        "sha256": "98d25bbd55ff3592f5bfd105dd15eee89a46975f8db007bb4dc994a696ac48bb",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmtreerunplugin-1.2.5.jar"
+        "sha256": "7bc4a3f846032aad8bdbd38ae1d05684ea566b20042690ecdf67a9bbb9d91a52",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmtreerunplugin-1.2.6.jar"
     },
     {
         "internalName": "DroZulrahPlugin",
@@ -158,8 +158,8 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.8.7",
-        "minClientVersion": "2.1.32",
+        "version": "1.8.8",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Mocrosoft"
         ],
@@ -167,8 +167,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-08-05T20:59:36Z",
-        "sha256": "222bf7a7df48d0127db24b59a8826405cb14f193290124409b4539c47a36fe7c",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.7.jar"
+        "sha256": "24684cb40c0d2471b9cf3e380cbdde790b8f31f19d3ed233a541a145d1544b7c",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.8.jar"
     },
     {
         "internalName": "ShadesKillerPlugin",
@@ -202,7 +202,7 @@
             "switch",
             "microbot"
         ],
-        "version": "1.2.3",
+        "version": "1.2.4",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -211,8 +211,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "12329ffb4f2f7833f65da266057508b74de1baee878886a5291c497d504a359d",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tormenteddemonplugin-1.2.3.jar"
+        "sha256": "8117cc763d08c4c204beecfd3689b1ba0750e2666aa6b2496dfbf40dec4f7feb",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tormenteddemonplugin-1.2.4.jar"
     },
     {
         "internalName": "GotrPlugin",
@@ -224,8 +224,8 @@
             "gotr",
             "microbot"
         ],
-        "version": "1.5.12",
-        "minClientVersion": "2.1.0",
+        "version": "1.5.13",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown Author"
         ],
@@ -233,8 +233,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "4e3a926d522099bbc7e58d0b91954ded2cdbfc905acab5b1853f4e1dc3af34a1",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gotrplugin-1.5.12.jar"
+        "sha256": "240abd48f4d8884483ba35ef803f50ce97777e95cd63e941057cd32a1d6c46f0",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gotrplugin-1.5.13.jar"
     },
     {
         "internalName": "GiantsFoundryPlugin",
@@ -245,8 +245,8 @@
             "microbot",
             "smithing"
         ],
-        "version": "1.0.7",
-        "minClientVersion": "2.0.13",
+        "version": "1.0.8",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown Author"
         ],
@@ -254,8 +254,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "8234e2b6291e486938b814581681c556d8b489f4f5f3b40909122b45605186db",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/giantsfoundryplugin-1.0.7.jar"
+        "sha256": "619703dadfc99e66fd68f747e8370197b66c865f9de823cf68eb9f1ee5174ecd",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/giantsfoundryplugin-1.0.8.jar"
     },
     {
         "internalName": "StoneChestThieverPlugin",
@@ -286,7 +286,7 @@
             "GabulhasKarambwans",
             "Gabulhas"
         ],
-        "version": "1.2.1",
+        "version": "1.2.2",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -295,8 +295,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "1b2cd8b4eb42fcfba24dcae8569f198820602fec00e80c39dca1dbe4515c4f2a",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gabulhaskarambwansplugin-1.2.1.jar"
+        "sha256": "bb1fd4fd9d474cf48092d7556b34616f40f64393cb4173ec1c5f8690124b724c",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gabulhaskarambwansplugin-1.2.2.jar"
     },
     {
         "internalName": "LeaguesToolkitPlugin",
@@ -328,7 +328,7 @@
             "fishing",
             "skilling"
         ],
-        "version": "1.0.9",
+        "version": "1.0.10",
         "minClientVersion": "1.9.8",
         "authors": [
             "AI Agent"
@@ -337,8 +337,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoFishingPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-22T03:11:03Z",
-        "sha256": "2037ee763df8f5f997726c2091cb04b4a9a389a564c84cb48e5c711a3eee0dea",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autofishingplugin-1.0.9.jar"
+        "sha256": "39b510811d85c702603bdb826c78568caa7552dee9a50a067493382dbe28696b",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autofishingplugin-1.0.10.jar"
     },
     {
         "internalName": "TowerOfLifeCCPlugin",
@@ -480,8 +480,8 @@
             "FornBirdhouseRuns",
             "forn"
         ],
-        "version": "1.1.4",
-        "minClientVersion": "2.1.0",
+        "version": "1.1.5",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Forn"
         ],
@@ -489,8 +489,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FornBirdhouseRunsPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-09-13T21:26:13Z",
-        "sha256": "5404b507341c5fbf22bc125fc27260b7574fe0751b936b4ec5e9fa80af3fe9b6",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/fornbirdhouserunsplugin-1.1.4.jar"
+        "sha256": "5750efa0c535f8ae851310bafac1e6675c5f20198a66e3fb0e65b0eb9bc1e58b",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/fornbirdhouserunsplugin-1.1.5.jar"
     },
     {
         "internalName": "BankTabSorterPlugin",
@@ -568,8 +568,8 @@
             "fishing trawler",
             "microbot"
         ],
-        "version": "1.0.2",
-        "minClientVersion": "2.0.7",
+        "version": "1.0.3",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown"
         ],
@@ -577,8 +577,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FishingTrawlerPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-09-14T00:06:02Z",
-        "sha256": "268e3ee189e87a03150e175ac0fe52c65b1262010cf39db660a65418dcf25aac",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/fishingtrawlerplugin-1.0.2.jar"
+        "sha256": "912cdc4f3b0616cd62ba42c8cf1f5aa7b7031db0e0277bd1072a13fa1d25ed28",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/fishingtrawlerplugin-1.0.3.jar"
     },
     {
         "internalName": "SlayerPlugin",
@@ -702,8 +702,8 @@
             "taf",
             "microbot"
         ],
-        "version": "1.2.0",
-        "minClientVersion": "2.1.0",
+        "version": "1.2.1",
+        "minClientVersion": "2.6.43",
         "authors": [
             "TaF"
         ],
@@ -711,8 +711,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/volcanicashminer/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-20T13:42:34Z",
-        "sha256": "52a8ec24761f9f525bd25a86a8913eae2d3e646316bc86dcb79ba740c1ec220f",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/volcanicashminerplugin-1.2.0.jar"
+        "sha256": "74c17ca7cd11c4a52c36049f46b2cfc201ecc4f307306379204ebcfa0aa151db",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/volcanicashminerplugin-1.2.1.jar"
     },
     {
         "internalName": "CalcifiedRockMinerPlugin",
@@ -797,8 +797,8 @@
             "fishing",
             "skilling"
         ],
-        "version": "2.24.6",
-        "minClientVersion": "2.6.16",
+        "version": "2.24.7",
+        "minClientVersion": "2.6.43",
         "authors": [
             "See1Duck",
             "infuse"
@@ -807,8 +807,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "a44946c1e7ef507eb87843cf7b89283669f9558d922af6d67fec5db835626901",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/temporossplugin-2.24.6.jar"
+        "sha256": "f126496615e83b5015865cfc65305c982cf717b7e14005336f1e997596a98bde",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/temporossplugin-2.24.7.jar"
     },
     {
         "internalName": "TutorialIslandPlugin",
@@ -1019,8 +1019,8 @@
             "minigame",
             "microbot"
         ],
-        "version": "1.1.9",
-        "minClientVersion": "1.9.6",
+        "version": "1.1.10",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Basche"
         ],
@@ -1028,8 +1028,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MageTrainingArenaPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-28T03:23:18Z",
-        "sha256": "c8547cf3ab24c2161f5751f0b16879cd9c20b8d7ff29202552d067b8f8a97a2c",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/magetrainingarenaplugin-1.1.9.jar"
+        "sha256": "c5ef07c20b54511979ea13da1509e26bbac6b345daf2b1b91f25f32bf62bba54",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/magetrainingarenaplugin-1.1.10.jar"
     },
     {
         "internalName": "TearsOfGuthixPlugin",
@@ -1171,8 +1171,8 @@
             "blast",
             "furnace"
         ],
-        "version": "1.2.2",
-        "minClientVersion": "2.1.0",
+        "version": "1.2.3",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Storm"
         ],
@@ -1180,8 +1180,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/BlastoiseFurnacePlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-09-13T21:26:13Z",
-        "sha256": "f8db56f82f5befd37c4f369e27084d4496a2615caec142c2704b8227f29dc35d",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/blastoisefurnaceplugin-1.2.2.jar"
+        "sha256": "540a744660249e457e04686a21d283380d4722b80540ba811d5d7b33a8da73e8",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/blastoisefurnaceplugin-1.2.3.jar"
     },
     {
         "internalName": "GabulhasSandMinerPlugin",
@@ -1212,8 +1212,8 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.0.15",
-        "minClientVersion": "2.0.13",
+        "version": "1.0.16",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown Author"
         ],
@@ -1221,8 +1221,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "2aa7b1e14b6bd8b26415a2eb53bd4c4c42a157ff8747e4264839bd6ad7c44481",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autominingplugin-1.0.15.jar"
+        "sha256": "0852dcb3fe6f12d7cc6dac0e07dcad926a44d558001ede938627c3e25900da68",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autominingplugin-1.0.16.jar"
     },
     {
         "internalName": "HerbiboarPlugin",
@@ -1233,8 +1233,8 @@
             "hunter",
             "herbiboar"
         ],
-        "version": "1.2.6",
-        "minClientVersion": "1.9.8",
+        "version": "1.2.7",
+        "minClientVersion": "2.6.43",
         "authors": [
             "AI Agent"
         ],
@@ -1242,8 +1242,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-31T03:09:51Z",
-        "sha256": "b8edfc2254f1027abb15e6ae4fc3952cb84fca95036e8fa52398e328e1ec540a",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/herbiboarplugin-1.2.6.jar"
+        "sha256": "37b2246047e673f0a78a412ddff919d0022322b35cc730cfd765af8098b870e4",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/herbiboarplugin-1.2.7.jar"
     },
     {
         "internalName": "HouseThievingPlugin",
@@ -1296,8 +1296,8 @@
             "money",
             "money making"
         ],
-        "version": "1.1.1",
-        "minClientVersion": "2.0.13",
+        "version": "1.1.2",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown Author"
         ],
@@ -1305,8 +1305,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "6f5128801600ee3648df45f54995b5414c40317aec06f59e5d761713fcdb8588",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/orbchargerplugin-1.1.1.jar"
+        "sha256": "a526f47c35f22c38266982e5be34f3160f66f27e82c4201d01f086fddc40f3e5",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/orbchargerplugin-1.1.2.jar"
     },
     {
         "internalName": "DemonicGorillaPlugin",
@@ -1341,8 +1341,8 @@
             "essence",
             "skilling"
         ],
-        "version": "1.0.3",
-        "minClientVersion": "1.9.8",
+        "version": "1.0.4",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown"
         ],
@@ -1350,8 +1350,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoEssenceMiningPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-22T03:11:03Z",
-        "sha256": "f786bda9a736ceaa041b7bd8608c923f502652608d7b024e4d459b2a8e0ab3eb",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autoessenceminingplugin-1.0.3.jar"
+        "sha256": "872561dcf3ba85c5c825cd741bf0114b0c4d268ceecba409895148389add8eb2",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autoessenceminingplugin-1.0.4.jar"
     },
     {
         "internalName": "GrapeFarmerPlugin",
@@ -1559,8 +1559,8 @@
             "frosty",
             "wrath"
         ],
-        "version": "1.1.4",
-        "minClientVersion": "2.0.7",
+        "version": "1.1.5",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Frosty"
         ],
@@ -1568,8 +1568,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/RcPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-09-14T00:06:02Z",
-        "sha256": "4084fe96b9e4adeff36987120f37e815990ae165748fbbef4b0af5f7981f94ad",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/rcplugin-1.1.4.jar"
+        "sha256": "676ce080e6ad11f2798039649ab2a9896ef6574694c4ec666b4fecfc6b2df060",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/rcplugin-1.1.5.jar"
     },
     {
         "internalName": "PitfallHunterPlugin",
@@ -1604,7 +1604,7 @@
             "firemaking",
             "minigame"
         ],
-        "version": "1.4.8",
+        "version": "1.4.9",
         "minClientVersion": "2.0.7",
         "authors": [
             "Mocrosoft"
@@ -1613,8 +1613,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MWintertodtPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-09-14T00:06:02Z",
-        "sha256": "25aa487fb1d0f116d662c0c6c7f426e4df04c010dc0c667321a7593b24632ce0",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mwintertodtplugin-1.4.8.jar"
+        "sha256": "7808bb89515d0b196c0bf9b731887b86f8fae2be3b0e921c2601aefc3302fdd2",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mwintertodtplugin-1.4.9.jar"
     },
     {
         "internalName": "AutoHunterPlugin",
@@ -1713,8 +1713,8 @@
             "fletching",
             "minigame"
         ],
-        "version": "1.0.14",
-        "minClientVersion": "1.9.7",
+        "version": "1.0.15",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Make"
         ],
@@ -1722,8 +1722,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-24T15:25:37Z",
-        "sha256": "dbada6ed452e6c167ef49fefbee440ce21df5713e02ec28ef35b8ee95cd0e257",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/valetotemplugin-1.0.14.jar"
+        "sha256": "62170e5535a0873f825682e01552fb29471ec913492b3d867ed440d2d6d4e3fc",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/valetotemplugin-1.0.15.jar"
     },
     {
         "internalName": "MicrobotDashboardPlusPlugin",
@@ -1848,8 +1848,8 @@
             "guild",
             "jane"
         ],
-        "version": "0.2.3",
-        "minClientVersion": "2.6.0",
+        "version": "0.2.4",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Pert"
         ],
@@ -1857,8 +1857,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/FarmingContractPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2026-06-25T16:10:59Z",
-        "sha256": "e17bee07109aa1a603db5b197f08d635c396e65b364158584d045775e7bbe04f",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmingcontractplugin-0.2.3.jar"
+        "sha256": "ee81d7ac34e3bf0fd1895a3653cec11c4539b0658e060a8c6517965b5236710a",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/farmingcontractplugin-0.2.4.jar"
     },
     {
         "internalName": "EnsouledHeadSlayerPlugin",
@@ -1894,8 +1894,8 @@
             "money making",
             "skilling"
         ],
-        "version": "1.2.0",
-        "minClientVersion": "2.1.0",
+        "version": "1.2.1",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Mocrosoft"
         ],
@@ -1903,8 +1903,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/HerbrunPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-09-14T00:06:02Z",
-        "sha256": "4ee84832eba9331c0af0f8d04be86adfb3978368475d287bd1071c45d9513ee2",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/herbrunplugin-1.2.0.jar"
+        "sha256": "b9dcfcf3404c4afbc966b2740253e608c0122e953777a20409c64916c34239cb",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/herbrunplugin-1.2.1.jar"
     },
     {
         "internalName": "GemCrabKillerPlugin",
@@ -2025,8 +2025,8 @@
             "fish",
             "raw"
         ],
-        "version": "1.0.1",
-        "minClientVersion": "1.9.6",
+        "version": "1.0.2",
+        "minClientVersion": "2.6.43",
         "authors": [
             "StickToTheScript"
         ],
@@ -2034,8 +2034,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/GECookerPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-19T05:46:56Z",
-        "sha256": "f31b898a7799995bfb74d0e45568c9a33f9925f91216b1b202dc28b400146cdf",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gecookerplugin-1.0.1.jar"
+        "sha256": "bf3a7f8803856b94fbeeae2a01e3968837de5824177a6b18cc5932f420e7fc24",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gecookerplugin-1.0.2.jar"
     },
     {
         "internalName": "AnonymousPlugin",
@@ -2071,8 +2071,8 @@
             "loot",
             "TaF"
         ],
-        "version": "1.1.0",
-        "minClientVersion": "2.1.0",
+        "version": "1.1.1",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown Author"
         ],
@@ -2080,8 +2080,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "291df45695885b10a8eedbedab710a65cba759f7bb2f1b90bb45442a890abe5e",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/deadfalltraphunterplugin-1.1.0.jar"
+        "sha256": "cb2866bc03a68771a3758899c704353342bd77ba14cd2d48d47fca26d98e2eec",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/deadfalltraphunterplugin-1.1.1.jar"
     },
     {
         "internalName": "PyreFoxPlugin",
@@ -2093,8 +2093,8 @@
             "pyre",
             "fox"
         ],
-        "version": "1.0.9",
-        "minClientVersion": "2.0.13",
+        "version": "1.0.10",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown Author"
         ],
@@ -2102,8 +2102,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "6f6472de708651a91987522dc5ea88bf4447837902273b91f2a5d0692e6e428e",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/pyrefoxplugin-1.0.9.jar"
+        "sha256": "2a352342e61fa3854a458592f6ffb2117df557e5cf01337a16607e5c4d45b27f",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/pyrefoxplugin-1.0.10.jar"
     },
     {
         "internalName": "SulphurNaguaPlugin",
@@ -2116,7 +2116,7 @@
             "varlamore",
             "microbot"
         ],
-        "version": "2.0.4",
+        "version": "2.0.5",
         "minClientVersion": "2.6.12",
         "authors": [
             "VIP"
@@ -2125,8 +2125,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/SulphurNaguaPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-09T10:13:40Z",
-        "sha256": "a075dbb5dffa3ea4aace31833ccce30ba9a0ab05874789e5ea088fbc9ba6db4f",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sulphurnaguaplugin-2.0.4.jar"
+        "sha256": "8d29229b0f0e5b1d05de493ccd4a20581366be816def63fa66f41880f6e45ce4",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sulphurnaguaplugin-2.0.5.jar"
     },
     {
         "internalName": "DriftNetPlugin",
@@ -2139,8 +2139,8 @@
             "drift",
             "net"
         ],
-        "version": "1.0.1",
-        "minClientVersion": "2.0.7",
+        "version": "1.0.2",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Mocrosoft"
         ],
@@ -2148,8 +2148,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/DriftNetPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-09-13T21:26:13Z",
-        "sha256": "0e8e8832852645fbc7c697d1d53d02a1d94f439d56e4f5ef14100b5b6e9cb549",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/driftnetplugin-1.0.1.jar"
+        "sha256": "7bf6fa62b0a8eb71297893b2730ef3efdb82dfa3baf7716d81eae88f6635adff",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/driftnetplugin-1.0.2.jar"
     },
     {
         "internalName": "AutoFiremakingPlusPlugin",
@@ -2162,8 +2162,8 @@
             "microbot",
             "plus"
         ],
-        "version": "0.2.3",
-        "minClientVersion": "2.6.25",
+        "version": "0.2.4",
+        "minClientVersion": "2.6.43",
         "authors": [
             "pjmarz"
         ],
@@ -2171,8 +2171,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoFiremakingPlusPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2026-06-16T20:39:30Z",
-        "sha256": "cd459a53533262591565d1dabca4e2480a1379a3ed9e7222754368784ece2018",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autofiremakingplusplugin-0.2.3.jar"
+        "sha256": "271635de95faa275538d724d36217119ce0ff2cb9705cbb29e411e5672455395",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autofiremakingplusplugin-0.2.4.jar"
     },
     {
         "internalName": "TheatrePlugin",
@@ -2234,8 +2234,8 @@
             "microbot",
             "crafting"
         ],
-        "version": "1.0.3",
-        "minClientVersion": "2.0.7",
+        "version": "1.0.4",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Mocrosoft"
         ],
@@ -2243,8 +2243,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-13T21:26:13Z",
-        "sha256": "77c89e01b57c0db956c67a594e51f1dfc164fca80fa7d389f23f6148855993f9",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/craftingplugin-1.0.3.jar"
+        "sha256": "604913649a20b22d93c92e428be014f89659a25f67235ceaf94fd1158cd8e6b5",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/craftingplugin-1.0.4.jar"
     },
     {
         "internalName": "AutoSmeltingPlugin",
@@ -2347,7 +2347,7 @@
             "see1duck",
             "microbot"
         ],
-        "version": "0.0.16",
+        "version": "0.0.17",
         "minClientVersion": "2.6.24",
         "authors": [
             "See1Duck"
@@ -2356,8 +2356,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "ddbd2397834c69cea287e8954a35500c3d66ad1d3661b1449109b398932dab67",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mahoganyhomesplugin-0.0.16.jar"
+        "sha256": "621f44a9f3c49575f3840a5e06cec0c095c9014e5f7e2166b327abed07da3d52",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mahoganyhomesplugin-0.0.17.jar"
     },
     {
         "internalName": "AIOFighterPlugin",
@@ -2370,7 +2370,7 @@
             "combat",
             "playerassistant"
         ],
-        "version": "2.2.12",
+        "version": "2.2.14",
         "minClientVersion": "2.1.32",
         "authors": [
             "Mocrosoft",
@@ -2380,8 +2380,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AIOFighterPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-13T19:11:17Z",
-        "sha256": "2d057e5f5a66341570bc0b1b25ecee99a32c83d9f09c706e9dad34ef364aa829",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.2.12.jar"
+        "sha256": "84ca48dc1fd49115a844549f086a60998b977cb7bc2a7b5dfd09ea1c949f5040",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/aiofighterplugin-2.2.14.jar"
     },
     {
         "internalName": "LeftClickCastPlugin",
@@ -2462,8 +2462,8 @@
             "microbot",
             "warrior guild"
         ],
-        "version": "1.0.2",
-        "minClientVersion": "2.0.7",
+        "version": "1.0.3",
+        "minClientVersion": "2.6.43",
         "authors": [
             "See1Duck"
         ],
@@ -2471,8 +2471,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AnimatedArmourPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-13T19:11:17Z",
-        "sha256": "7055e6d7f6f24fba4cbab571acf15bf28286357fb5308f1cedef9b631bdf4ff5",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/animatedarmourplugin-1.0.2.jar"
+        "sha256": "3c0212cf45f2f4d2b723d1fbe4be32ad4613c2728054f828a0da1a418ce7be7f",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/animatedarmourplugin-1.0.3.jar"
     },
     {
         "internalName": "ArceuusRcPlugin",
@@ -2547,8 +2547,8 @@
             "thieving",
             "microbot"
         ],
-        "version": "1.0.1",
-        "minClientVersion": "2.0.13",
+        "version": "1.0.2",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown Author"
         ],
@@ -2556,8 +2556,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "f7bb8ece0efcc4c6e4ed16b20b37e6795660b9632e1ec1b7f0d377c1f6e607c5",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/stallthievingplugin-1.0.1.jar"
+        "sha256": "3663e13328da087c302169a9b99c9e5df7ba6f6117a94e18cdd003355e9e92e2",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/stallthievingplugin-1.0.2.jar"
     },
     {
         "internalName": "PVirewatchKillerPlugin",
@@ -2568,8 +2568,8 @@
             "microbot",
             "Vyrewatch"
         ],
-        "version": "1.0.5",
-        "minClientVersion": "2.6.25",
+        "version": "1.0.6",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Pumsters"
         ],
@@ -2577,8 +2577,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/PVirewatchKillerPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-14T00:06:02Z",
-        "sha256": "9766b6754e93feb98c20095f9a6dc125d55f1c5b96d1c0202d58cb4e9a2d23d8",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/pvirewatchkillerplugin-1.0.5.jar"
+        "sha256": "a9d9b12c69a4234bbc8d7acf27372c26719a009d0636d4daefe9af670891cb61",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/pvirewatchkillerplugin-1.0.6.jar"
     },
     {
         "internalName": "DiscordPlugin",
@@ -2695,8 +2695,8 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.1.6",
-        "minClientVersion": "2.0.8",
+        "version": "1.1.7",
+        "minClientVersion": "2.6.43",
         "authors": [
             "George"
         ],
@@ -2704,8 +2704,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoCookingPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-09-13T21:26:13Z",
-        "sha256": "078570189823097bddd1e352f195de1694397abfefb37ee00ac2f7665630a7a9",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autocookingplugin-1.1.6.jar"
+        "sha256": "0ec79315a2254d5c69bc96e0177086de15d030fa6673a6dcfb85427ee3f43d50",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autocookingplugin-1.1.7.jar"
     },
     {
         "internalName": "SandCrabPlugin",
@@ -2813,8 +2813,8 @@
             "firemaking",
             "minigame"
         ],
-        "version": "2.2.4",
-        "minClientVersion": "1.9.7",
+        "version": "2.2.5",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Make"
         ],
@@ -2822,8 +2822,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MKE_WintertodtPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-22T03:16:16Z",
-        "sha256": "64e64b6817ab98e24cd0bf46707be25f4d5158468bf9bfd0a79bd8891d5cf8a9",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mke_wintertodtplugin-2.2.4.jar"
+        "sha256": "29d48c73b2de3dbfa9e94a1634e654f8d5614e524218cb2ddc66cf456c9962e9",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mke_wintertodtplugin-2.2.5.jar"
     },
     {
         "internalName": "SisyphusInfernalPactPlugin",
@@ -2838,8 +2838,8 @@
             "infernal",
             "stepping stones"
         ],
-        "version": "1.0.0",
-        "minClientVersion": "2.0.13",
+        "version": "1.0.1",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Sisyphus"
         ],
@@ -2847,8 +2847,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2026-05-03T19:49:41Z",
-        "sha256": "d326ccc58997f44c0f4a117e1b5ef2b01bcf7fd5c2365fadd5a237f60aa0a10b",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sisyphusinfernalpactplugin-1.0.0.jar"
+        "sha256": "c10abcb408ae6a7212315d09e40f04ee503fada4aacb6f28eeeab0f99840784e",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/sisyphusinfernalpactplugin-1.0.1.jar"
     },
     {
         "internalName": "WildernessAgilityPlugin",
@@ -2861,7 +2861,7 @@
             "mass",
             "MoneyMaking"
         ],
-        "version": "1.6.2",
+        "version": "1.6.3",
         "minClientVersion": "2.6.25",
         "authors": [
             "Cranny"
@@ -2870,8 +2870,8 @@
         "cardUrl": "httpa://chsami.github.io/Microbot-Hub/WildernessAgilityPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-25T14:37:23Z",
-        "sha256": "addb10be3498e0e88856396eb444ece9e68463d3d0412f61e3882d333c65cad7",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/wildernessagilityplugin-1.6.2.jar"
+        "sha256": "05ed536f66574bdcc7fa8445d3c608b95d1cea98aa187a2758192e7f0a1a8bff",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/wildernessagilityplugin-1.6.3.jar"
     },
     {
         "internalName": "BanksShopperPlugin",
@@ -2881,8 +2881,8 @@
             "shopper",
             "bank.js"
         ],
-        "version": "1.4.3",
-        "minClientVersion": "2.0.7",
+        "version": "1.4.4",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Bankjs"
         ],
@@ -2890,8 +2890,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/BanksShopperPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-13T19:11:17Z",
-        "sha256": "3d81ca2589d3037a1823f34572e932b4c51fb5b9fe411c3fa0612d6c2cebfcdd",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/banksshopperplugin-1.4.3.jar"
+        "sha256": "4afad2a742b82ee46e040aad231076e1eb4fd277c68c983c8ec346f0221297a6",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/banksshopperplugin-1.4.4.jar"
     },
     {
         "internalName": "DroFirecapePlugin",
@@ -2928,7 +2928,7 @@
             "combat",
             "microbot"
         ],
-        "version": "1.0.5",
+        "version": "1.0.6",
         "minClientVersion": "2.0.14",
         "authors": [
             "The Funk"
@@ -2937,8 +2937,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-09T16:26:30Z",
-        "sha256": "b764381727e47ad41bbf505dbe3e6f7a6694ce1ec38c06bfe4ace0e0dc6db04f",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/moonsofperilplugin-1.0.5.jar"
+        "sha256": "01a83e68c36572648a4b5b570682ae14f8d167b51924c6d27d571758650fbe53",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/moonsofperilplugin-1.0.6.jar"
     },
     {
         "internalName": "GEFiremakerPlugin",
@@ -2951,8 +2951,8 @@
             "exchange",
             "ge"
         ],
-        "version": "1.0.2",
-        "minClientVersion": "2.6.19",
+        "version": "1.0.3",
+        "minClientVersion": "2.6.43",
         "authors": [
             "StickToTheScript"
         ],
@@ -2960,8 +2960,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/GEFiremakerPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-19T05:46:56Z",
-        "sha256": "b04789706a3afb115226f25e5311998be67e17caf1ce741711f76969c4d6e1c7",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gefiremakerplugin-1.0.2.jar"
+        "sha256": "0061fd3e2d7dfcac47814e44517d7645b8ccabb66a5ea910f3b9a8b6af8633ff",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gefiremakerplugin-1.0.3.jar"
     },
     {
         "internalName": "TzhaarVenatorBowPlugin",
@@ -3063,8 +3063,8 @@
             "amethyst",
             "mining guild"
         ],
-        "version": "1.2.4",
-        "minClientVersion": "2.1.0",
+        "version": "1.2.5",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown Author"
         ],
@@ -3072,8 +3072,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "d6ec4f609350a9e99a6410d01ed71f0fa803c0c683a278afc8065c6172facd71",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/amethystminingplugin-1.2.4.jar"
+        "sha256": "1affc75dc995265c09244c68f01a7d2c426d04cb6deacead87b64fe0351469a1",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/amethystminingplugin-1.2.5.jar"
     },
     {
         "internalName": "AutoChompyKillerPlugin",
@@ -3083,8 +3083,8 @@
             "chompy",
             "combat"
         ],
-        "version": "1.0.4",
-        "minClientVersion": "1.9.8",
+        "version": "1.0.5",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Unknown"
         ],
@@ -3092,8 +3092,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoChompyKillerPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-22T03:11:03Z",
-        "sha256": "9f64ff4a887800f775e556e6f294bfe4efe537c94916235f9d8bd4cf528b0fec",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autochompykillerplugin-1.0.4.jar"
+        "sha256": "ac37ed7c90fb4b1651e9a1f4dccb0dc40bda927b8bfcf63ed5ed7f8f29e9ffda",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autochompykillerplugin-1.0.5.jar"
     },
     {
         "internalName": "SummerGardenPlugin",
@@ -3111,7 +3111,7 @@
             "sq'irk",
             "juice"
         ],
-        "version": "1.0.4",
+        "version": "1.0.5",
         "minClientVersion": "2.6.19",
         "authors": [
             "Unknown Author"
@@ -3120,8 +3120,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "f51936596bc591ad37d66bf894a10168179da50b3be716a2a1a8c27ca66ec35f",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/summergardenplugin-1.0.4.jar"
+        "sha256": "2fb9f07b04eb3fbe5ce17288815158a4b64008a4f26bcecfc6ca21b309fd4c3c",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/summergardenplugin-1.0.5.jar"
     },
     {
         "internalName": "HSBlackJackPlugin",
@@ -3132,8 +3132,8 @@
             "blackjack",
             "pollnivneach"
         ],
-        "version": "1.0.3",
-        "minClientVersion": "1.9.8",
+        "version": "1.0.4",
+        "minClientVersion": "2.6.43",
         "authors": [
             "HalalSkiller"
         ],
@@ -3141,8 +3141,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2026-10-12T12:45:12Z",
-        "sha256": "fbb9334030b6c434bf82c80af8c977da963170d0133f5150827defff8ec95486",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/hsblackjackplugin-1.0.3.jar"
+        "sha256": "627d9227fc37cfb72057c48e777faf975df72bf8c4931445656fcc83a97aceca",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/hsblackjackplugin-1.0.4.jar"
     },
     {
         "internalName": "JewelleryEnchantPlugin",
@@ -3196,7 +3196,7 @@
             "QoL",
             "microbot"
         ],
-        "version": "1.8.19",
+        "version": "1.8.20",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -3205,8 +3205,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "804cf198a2baa216b382480987dae706afca23a465e0653b17015e8d79be28e2",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.19.jar"
+        "sha256": "307b35769ede667bbb6d064aeb018afdef691dc9f43a8335819f67a593fa9f8d",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/qolplugin-1.8.20.jar"
     },
     {
         "internalName": "HueyPrayerPlugin",
@@ -3442,8 +3442,8 @@
             "runecraft",
             "minigame"
         ],
-        "version": "1.0.0",
-        "minClientVersion": "2.1.34",
+        "version": "1.0.1",
+        "minClientVersion": "2.6.43",
         "authors": [
             "runsonmypc"
         ],
@@ -3451,8 +3451,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ArceuusLibraryPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2026-06-08T03:12:39Z",
-        "sha256": "fc9916d2193b83afe2ed9383a4436c97acab384e9b2334ae4a4fc5e410e07197",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/arceuuslibraryplugin-1.0.0.jar"
+        "sha256": "7c34d854c88e75cdf11098bd5512f0fdf0eb920d178d53ac4162a77251d55421",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/arceuuslibraryplugin-1.0.1.jar"
     },
     {
         "internalName": "ThievingPlugin",
@@ -3462,7 +3462,7 @@
             "thieving",
             "skilling"
         ],
-        "version": "2.1.6",
+        "version": "2.1.8",
         "minClientVersion": "2.6.25",
         "authors": [
             "Mocrosoft",
@@ -3473,8 +3473,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ThievingPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-18T03:23:24Z",
-        "sha256": "d0fb40bb844dbb185399411205c7936634aa02a3246fa67f7496c4987feb11d9",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/thievingplugin-2.1.6.jar"
+        "sha256": "39c152a6916ad670496f33327f1b3f2491891582291e358f1b8d270d02eff9bc",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/thievingplugin-2.1.8.jar"
     },
     {
         "internalName": "BaggedPlantsPlugin",
@@ -3504,8 +3504,8 @@
         "tags": [
             "sailing"
         ],
-        "version": "2.2.59",
-        "minClientVersion": "2.1.0",
+        "version": "2.2.61",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Mocrosoft"
         ],
@@ -3513,8 +3513,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MSailingPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-12-27T16:22:30Z",
-        "sha256": "aca3feb0bed7d6a08e8cb7436ef3eb7a2eb87825b11dab69cdc3c946bd2ad578",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/msailingplugin-2.2.59.jar"
+        "sha256": "84dea61412a1ccdaa1d089bfea244dce1a461172258e4caf6bdd9cfaa029e680",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/msailingplugin-2.2.61.jar"
     },
     {
         "internalName": "BirdHunterPlugin",
@@ -3526,7 +3526,7 @@
             "bird",
             "skilling"
         ],
-        "version": "1.0.3",
+        "version": "1.0.4",
         "minClientVersion": "2.0.13",
         "authors": [
             "Unknown Author"
@@ -3535,8 +3535,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-14T00:06:02Z",
-        "sha256": "e6d4f2e6d427e55e2d3451c55d133759e89a3fff661483e45cf493ad149b3682",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/birdhunterplugin-1.0.3.jar"
+        "sha256": "3428b4d049efbb119e33b602f76aed6fff29493e5e547517144845d2c8823b5c",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/birdhunterplugin-1.0.4.jar"
     },
     {
         "internalName": "ChatbotPlugin",
@@ -3615,8 +3615,8 @@
             "agility",
             "microbot"
         ],
-        "version": "1.3.1",
-        "minClientVersion": "2.1.0",
+        "version": "1.3.2",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Mocrosoft"
         ],
@@ -3624,8 +3624,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-09T10:13:40Z",
-        "sha256": "e6e49d457d5f877bea57881fbb84114e8c8672e06a9f9451ab3e6f1f5056a672",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/microagilityplugin-1.3.1.jar"
+        "sha256": "3734e56b8638225565d4e6c3a0981f50b625b76ef9286f70e6dec60a7c4a3dec",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/microagilityplugin-1.3.2.jar"
     },
     {
         "internalName": "ClueSolverPlugin",
@@ -3679,8 +3679,8 @@
             "bones",
             "altar"
         ],
-        "version": "1.1.1",
-        "minClientVersion": "2.1.0",
+        "version": "1.1.2",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Bee"
         ],
@@ -3688,8 +3688,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/ChaosAltarPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-09-13T21:26:13Z",
-        "sha256": "fb9cefe28332e166e857fa62ae9b6fb28e4b1ddedb28e863ef80e839a25dcf80",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/chaosaltarplugin-1.1.1.jar"
+        "sha256": "e32608d75e38f977763dd9c455b15169596e056fdcde1f046aca1df7480274cc",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/chaosaltarplugin-1.1.2.jar"
     },
     {
         "internalName": "TheMessPlugin",
@@ -3700,8 +3700,8 @@
             "skilling",
             "microbot"
         ],
-        "version": "1.1.0",
-        "minClientVersion": "1.9.8",
+        "version": "1.1.1",
+        "minClientVersion": "2.6.43",
         "authors": [
             "Bolado"
         ],
@@ -3709,8 +3709,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/TheMessPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-23T06:55:19Z",
-        "sha256": "aa67f041ee8ee2771f26d9882d2b5462599cb98bb15ed418c4f9b177693e7295",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/themessplugin-1.1.0.jar"
+        "sha256": "5d043242a7d46f188a5055edba29a2ec86176c394161c18bc86c219e38e589b9",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/themessplugin-1.1.1.jar"
     },
     {
         "internalName": "CharterCrafterPlugin",

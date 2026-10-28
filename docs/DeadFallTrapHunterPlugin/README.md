@@ -4,8 +4,8 @@ Automates hunting all creatures with Deadfall traps
 
 | | |
 |---|---|
-| Version | 1.1.0 |
-| Works with Microbot | 2.1.0 or newer |
+| Version | 1.1.1 |
+| Works with Microbot | 2.6.43 or newer |
 | Author | Unknown Author |
 | Tags | hunter, deadfall, skilling, xp, loot, TaF |
 

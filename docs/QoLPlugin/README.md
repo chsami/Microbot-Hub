@@ -4,7 +4,7 @@ Quality of Life Plugin
 
 | | |
 |---|---|
-| Version | 1.8.19 |
+| Version | 1.8.20 |
 | Works with Microbot | 2.0.13 or newer |
 | Author | Unknown Author |
 | Tags | QoL, microbot |

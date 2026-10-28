@@ -4,8 +4,8 @@ Microbot giants foundry plugin
 
 | | |
 |---|---|
-| Version | 1.0.7 |
-| Works with Microbot | 2.0.13 or newer |
+| Version | 1.0.8 |
+| Works with Microbot | 2.6.43 or newer |
 | Author | Unknown Author |
 | Tags | minigame, microbot, smithing |
 

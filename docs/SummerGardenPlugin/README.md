@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| Version | 1.0.4 |
+| Version | 1.0.5 |
 | Works with Microbot | 2.6.19 or newer |
 | Author | Unknown Author |
 | Tags | Summers Garden, minigame, thieving, microbot, skilling, summer, summers, garden, sq'irk, juice |

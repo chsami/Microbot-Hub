@@ -4,8 +4,8 @@ Hunts pyre foxes for you!
 
 | | |
 |---|---|
-| Version | 1.0.9 |
-| Works with Microbot | 2.0.13 or newer |
+| Version | 1.0.10 |
+| Works with Microbot | 2.6.43 or newer |
 | Author | Unknown Author |
 | Tags | kaas, hunter, pyre, fox |
 
