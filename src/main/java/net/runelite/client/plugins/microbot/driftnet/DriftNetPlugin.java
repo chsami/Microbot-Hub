@@ -32,7 +32,7 @@ import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
         tags = {"fishing", "microbot", "hunter", "drift", "net"},
         authors = {"Mocrosoft"},
         version = DriftNetPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.6.43",
         cardUrl = "https://chsami.github.io/Microbot-Hub/DriftNetPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/DriftNetPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -40,7 +40,7 @@ import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
 )
 @Slf4j
 public class DriftNetPlugin extends Plugin {
-    final static String version = "1.0.1";
+    final static String version = "1.0.2";
     static final String CONFIG_GROUP = "driftnet";
     private static final int UNDERWATER_REGION = 15008;
     private static final String CHAT_PRODDING_FISH = "You prod at the shoal of fish to scare it.";

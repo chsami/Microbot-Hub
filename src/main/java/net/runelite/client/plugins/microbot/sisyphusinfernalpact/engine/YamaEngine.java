@@ -2,21 +2,28 @@ package net.runelite.client.plugins.microbot.sisyphusinfernalpact.engine;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Constants;
 import net.runelite.api.GroundObject;
 import net.runelite.api.NPC;
+import net.runelite.api.Perspective;
+import net.runelite.api.Player;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.sisyphusinfernalpact.SisyphusInfernalPactConfig;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
 /**
  * Yama's Lair stepping-stone engine — spam-click edition.
@@ -157,7 +164,7 @@ public class YamaEngine {
         }
 
         stuckCounter = 0;
-        if (Rs2GameObject.interact(target)) {
+        if (new Rs2TileObjectModel(target).click()) {
             state              = State.JUMPING;
             jumpStartTime      = System.currentTimeMillis();
             lastPlayerLocation = playerLocation;
@@ -217,8 +224,7 @@ public class YamaEngine {
 
     private List<GroundObject> getGroundObjects() {
         try {
-            List<GroundObject> list = Rs2GameObject.getGroundObjects();
-            return list != null ? list : Collections.emptyList();
+            return groundObjectsNearPlayer();
         } catch (Exception e) {
             log.debug("[Yama] Error getting ground objects", e);
             return Collections.emptyList();
@@ -302,5 +308,26 @@ public class YamaEngine {
     private static int distance2D(WorldPoint a, WorldPoint b) {
         if (a == null || b == null) return Integer.MAX_VALUE;
         return Math.abs(a.getX() - b.getX()) + Math.abs(a.getY() - b.getY());
+    }
+
+    private static List<GroundObject> groundObjectsNearPlayer() {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return Collections.emptyList();
+        LocalPoint anchorLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), playerLocation);
+        if (anchorLocal == null) {
+            Player player = Microbot.getClient().getLocalPlayer();
+            anchorLocal = player != null ? player.getLocalLocation() : null;
+            if (anchorLocal == null) return Collections.emptyList();
+        }
+        LocalPoint anchor = anchorLocal;
+        int maxDistance = (Constants.SCENE_SIZE / 2) * Perspective.LOCAL_TILE_SIZE;
+        return Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .ofType(TileObjectType.GROUND)
+                .toList().stream()
+                .map(o -> (GroundObject) o.getTileObject())
+                .filter(o -> o.getLocalLocation().distanceTo(anchor) <= maxDistance)
+                .sorted(Comparator.comparingInt(o -> o.getLocalLocation().distanceTo(anchor)))
+                .collect(Collectors.toList());
     }
 }

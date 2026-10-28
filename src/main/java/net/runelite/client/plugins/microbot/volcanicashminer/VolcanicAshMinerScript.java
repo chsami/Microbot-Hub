@@ -2,19 +2,25 @@ package net.runelite.client.plugins.microbot.volcanicashminer;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
+import net.runelite.api.Constants;
 import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
+import net.runelite.api.Perspective;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -24,7 +30,12 @@ import net.runelite.client.plugins.mining.MiningAnimation;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity.VERY_LOW;
 
@@ -110,10 +121,10 @@ public class VolcanicAshMinerScript extends Script {
             return;
         }
 
-        GameObject rock = Rs2GameObject.findReachableObject("Ash pile", true, 12, VOLCANIC_ASH_LOCATION);
+        GameObject rock = findReachableAshPile();
         if (rock != null) {
             BOT_STATUS = VolcanicAshMinerState.MINING;
-            if (Rs2GameObject.interact(rock)) {
+            if (new Rs2TileObjectModel(rock).click()) {
                 Rs2Player.waitForXpDrop(Skill.MINING, true);
                 Rs2Antiban.actionCooldown();
                 Rs2Antiban.takeMicroBreakByChance();
@@ -162,5 +173,50 @@ public class VolcanicAshMinerScript extends Script {
         DROPPING,
         MINING,
         WAITING
+    }
+
+    private GameObject findReachableAshPile() {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            List<GameObject> candidates = gameObjectsNear(VOLCANIC_ASH_LOCATION, 12,
+                    o -> "Ash pile".equalsIgnoreCase(new Rs2TileObjectModel(o).getName()));
+            if (candidates.isEmpty()) {
+                return null;
+            }
+            WorldPoint playerLocation = Rs2Player.getRs2WorldPoint().getWorldPoint();
+            return candidates.stream()
+                    .sorted(Comparator.comparingInt(o -> Rs2WorldPoint.quickDistance(playerLocation, o.getWorldLocation())))
+                    .filter(o -> new Rs2TileObjectModel(o).isReachable())
+                    .findFirst()
+                    .orElse(null);
+        }).orElse(null);
+    }
+
+    private static List<GameObject> gameObjectsNear(WorldPoint anchor, int distance, Predicate<GameObject> predicate) {
+        LocalPoint anchorLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), anchor);
+        if (anchorLocal == null) {
+            Player player = Microbot.getClient().getLocalPlayer();
+            anchorLocal = player != null ? player.getLocalLocation() : null;
+            if (anchorLocal == null) return Collections.emptyList();
+        }
+        LocalPoint from = anchorLocal;
+        int maxDistance = Math.min(distance, Constants.SCENE_SIZE) * Perspective.LOCAL_TILE_SIZE;
+        return Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .ofType(TileObjectType.GAME)
+                .toList().stream()
+                .map(o -> (GameObject) o.getTileObject())
+                .filter(o -> isWithin(from, o.getLocalLocation(), maxDistance))
+                .filter(predicate)
+                .sorted(Comparator.comparingInt(o -> o.getLocalLocation().distanceTo(from)))
+                .collect(Collectors.toList());
+    }
+
+    private static boolean isWithin(LocalPoint anchor, LocalPoint location, int maxDistance) {
+        if (maxDistance == 0) {
+            int dx = Math.abs(anchor.getX() - location.getX());
+            int dy = Math.abs(anchor.getY() - location.getY());
+            return (dx == Perspective.LOCAL_TILE_SIZE && dy == 0) || (dy == Perspective.LOCAL_TILE_SIZE && dx == 0);
+        }
+        return location.distanceTo(anchor) <= maxDistance;
     }
 }

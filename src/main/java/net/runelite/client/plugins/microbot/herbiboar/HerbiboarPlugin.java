@@ -34,7 +34,7 @@ import java.util.Deque;
         tags = {"skilling", "hunter", "herbiboar"},
         authors = {"AI Agent"},
         version = HerbiboarPlugin.version,
-        minClientVersion = "1.9.8",
+        minClientVersion = "2.6.43",
         iconUrl = "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/HerbiboarPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -42,7 +42,7 @@ import java.util.Deque;
 )
 
 public class HerbiboarPlugin extends Plugin {
-    static final String version = "1.2.6";
+    static final String version = "1.2.7";
 
     @Getter
     @Setter

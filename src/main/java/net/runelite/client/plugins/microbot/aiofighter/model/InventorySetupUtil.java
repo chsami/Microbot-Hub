@@ -28,9 +28,8 @@ public class InventorySetupUtil {
     public static void determineInventorySetup(String monsterName) {
         // Validate the monster name; if invalid, fallback to DEFAULT.
         log.info("Determining inventory setup for monster: " + monsterName);
-        if(config.currentInventorySetup() == null) {
-            log.info("Current inventory setup is null");
-            log.info("Setting current inventory setup to default"+ config.defaultInventorySetup().getName());
+        if (config.currentInventorySetup() == null && config.defaultInventorySetup() != null) {
+            log.info("Setting current inventory setup to default " + config.defaultInventorySetup().getName());
             AIOFighterPlugin.setCurrentSlayerInventorySetup(config.defaultInventorySetup());
         }
         if (!SlayerTaskMonster.isValidMonster(monsterName)) {

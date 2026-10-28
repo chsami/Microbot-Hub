@@ -15,7 +15,6 @@ import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
@@ -310,9 +309,9 @@ public class MahoganyHomesScript extends Script {
                 .where(obj -> obj.getWorldLocation().getPlane() == plane).nearest();
         if (closestLadder == null) return;
 
-        GameObject ladder = Microbot.getClientThread().invoke(() -> Rs2GameObject.getGameObject(
-                obj -> obj.getId() == closestLadder.getId()
-                        && obj.getHash() == closestLadder.getHash()));
+        GameObject ladder = closestLadder.getTileObject() instanceof GameObject
+                ? (GameObject) closestLadder.getTileObject()
+                : null;
         if (ladder == null) return;
         Rs2WorldPoint approach = Rs2Tile.getNearestWalkableTile(ladder);
         if (approach == null) return;

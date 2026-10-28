@@ -7,9 +7,9 @@ import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -211,7 +211,7 @@ public class DriftNetScript extends Script {
     private void handleFullNet(DriftNet net, DriftNetConfig config) {
 
         // 1) Interact with the net
-        Rs2GameObject.interact(net.getNet());
+        clickNet(net);
         sleepUntil(()-> Rs2Player.isAnimating(), Rs2Random.between(2000,6000));
         sleepUntil(()-> !Rs2Player.isAnimating(), Rs2Random.between(5000,10000));
 
@@ -233,7 +233,7 @@ public class DriftNetScript extends Script {
      * Handles an UNSET net by interacting with it once to set it.
      */
     private void handleUnsetNet(DriftNet net) {
-        Rs2GameObject.interact(net.getNet());
+        clickNet(net);
         sleepUntil(() -> Rs2Player.isAnimating());
     }
 
@@ -271,6 +271,12 @@ public class DriftNetScript extends Script {
             npc.click("Chase");
             sleepGaussian(1500, 300);
             break;
+        }
+    }
+
+    private static void clickNet(DriftNet net) {
+        if (net.getNet() != null) {
+            new Rs2TileObjectModel(net.getNet()).click();
         }
     }
 }

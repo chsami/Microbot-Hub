@@ -18,7 +18,6 @@ import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -1622,7 +1621,7 @@ public class MKE_WintertodtScript extends Script {
             if (random.nextInt(100) < 15) { // 15% chance
                 // Simulate checking other areas occasionally
                 if (currentBrazier != null && random.nextBoolean()) {
-                    if (currentBrazier != null) Rs2GameObject.hoverOverObject(currentBrazier);
+                    if (currentBrazier != null) new Rs2TileObjectModel(currentBrazier).hover();
                 }
                 lastMouseMovement = currentTime;
             }

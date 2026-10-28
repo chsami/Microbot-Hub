@@ -17,7 +17,7 @@ import java.awt.*;
         tags = {"fishing", "fishing trawler", "microbot"},
         authors = {"Unknown"},
         version = FishingTrawlerPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.6.43",
         cardUrl = "https://chsami.github.io/Microbot-Hub/FishingTrawlerPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/FishingTrawlerPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -25,7 +25,7 @@ import java.awt.*;
 )
 @Slf4j
 public class FishingTrawlerPlugin extends Plugin {
-    public static final String version = "1.0.2";
+    public static final String version = "1.0.3";
     @Inject
     private FishingTrawlerConfig config;
     @Provides

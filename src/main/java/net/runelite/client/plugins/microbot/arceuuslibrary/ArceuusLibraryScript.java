@@ -2,18 +2,18 @@ package net.runelite.client.plugins.microbot.arceuuslibrary;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.arceuuslibrary.KourendLibraryBridge.BookSnapshot;
 import net.runelite.client.plugins.microbot.arceuuslibrary.KourendLibraryBridge.BookcaseSnapshot;
 import net.runelite.client.plugins.microbot.arceuuslibrary.KourendLibraryBridge.Solved;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
@@ -410,7 +410,7 @@ public class ArceuusLibraryScript extends Script
         WorldPoint loc = target.getLocation();
 
         if (here.getPlane() == loc.getPlane()
-                && Rs2GameObject.findObjectByLocation(loc) != null
+                && objectAt(loc) != null
                 && isWalkReachable(here, loc))
         {
             cancelBackgroundWalk();
@@ -435,13 +435,12 @@ public class ArceuusLibraryScript extends Script
         }
     }
 
-    @SuppressWarnings("deprecation")
     private void searchBookcase(WorldPoint loc, BookSnapshot wanted)
     {
         log.info("Searching bookcase at {} for {}", loc, wanted.getShortName());
-        TileObject bookcase = Rs2GameObject.findObjectByLocation(loc);
-        if (bookcase != null) Rs2GameObject.hoverOverObject(bookcase);
-        if (!Rs2GameObject.interact(loc, "Search"))
+        Rs2TileObjectModel bookcase = objectAt(loc);
+        if (bookcase != null) bookcase.hover();
+        if (bookcase == null || !bookcase.click("Search"))
         {
             log.warn("Search interaction returned false at {}", loc);
             sleep(400, 700);
@@ -584,7 +583,7 @@ public class ArceuusLibraryScript extends Script
         }
 
         if (here.getPlane() == loc.getPlane()
-                && Rs2GameObject.findObjectByLocation(loc) != null
+                && objectAt(loc) != null
                 && isWalkReachable(here, loc))
         {
             cancelBackgroundWalk();
@@ -1010,5 +1009,18 @@ public class ArceuusLibraryScript extends Script
         super.shutdown();
         clearPathfinderRestrictions();
         state = ArceuusLibraryState.IDLE;
+    }
+
+    private static Rs2TileObjectModel objectAt(WorldPoint loc)
+    {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return null;
+        return Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .where(o -> loc.equals(o.getTileObject().getWorldLocation()))
+                .toList().stream()
+                .min(Comparator.comparing((Rs2TileObjectModel o) -> o.getTileObjectType() != TileObjectType.GAME)
+                        .thenComparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                .orElse(null);
     }
 }

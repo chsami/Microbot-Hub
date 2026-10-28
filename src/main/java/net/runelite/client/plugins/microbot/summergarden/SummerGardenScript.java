@@ -152,8 +152,6 @@ public class SummerGardenScript extends Script {
     }
 
     private WallObject getHouseDoor() {
-        //var houseDoorTest = Rs2GameObject.findDoor(OBJECT_HOUSE_DOOR_CLOSED);
-
         LocalPoint doorLp = LocalPoint.fromWorld(Microbot.getClient(), 3321, 3142);
         if (doorLp == null) {
             return null;

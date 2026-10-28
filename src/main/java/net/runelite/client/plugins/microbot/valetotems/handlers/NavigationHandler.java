@@ -695,10 +695,7 @@ public class NavigationHandler {
                         if (!obj.getWorldLocation().equals(nextPoint)) {
                             return false;
                         }
-                        net.runelite.api.ObjectComposition comp = obj.getObjectComposition();
-                        return net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.hasAction(comp, "Open") ||
-                               net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.hasAction(comp, "Close") ||
-                               net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject.hasAction(comp, "Pick-lock");
+                        return obj.hasAction("Open") || obj.hasAction("Close") || obj.hasAction("Pick-lock");
                     }).toList();
 
                 for (var door : doors) {

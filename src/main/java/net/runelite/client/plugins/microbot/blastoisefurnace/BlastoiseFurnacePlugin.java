@@ -27,7 +27,7 @@ import static net.runelite.client.plugins.microbot.blastoisefurnace.BlastoiseFur
         tags = {"microbot", "smithing", "bar", "ore", "blast", "furnace"},
         authors = {"Storm"},
         version = BlastoiseFurnacePlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.43",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL,
         iconUrl = "https://chsami.github.io/Microbot-Hub/BlastoiseFurnacePlugin/assets/icon.jpg",
@@ -35,7 +35,7 @@ import static net.runelite.client.plugins.microbot.blastoisefurnace.BlastoiseFur
 )
 @Slf4j
 public class BlastoiseFurnacePlugin extends Plugin {
-    final static String version = "1.2.2";
+    final static String version = "1.2.3";
     @Inject
     private BlastoiseFurnaceConfig config;
 

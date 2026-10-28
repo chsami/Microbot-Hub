@@ -20,7 +20,7 @@ import java.awt.*;
         tags = {"skilling", "microbot", "crafting"},
         authors = { "Mocrosoft" },
         version = CraftingPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.6.43",
         cardUrl = "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/card.png",
         iconUrl = "https://chsami.github.io/Microbot-Hub/CraftingPlugin/assets/icon.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -29,7 +29,7 @@ import java.awt.*;
 @Slf4j
 public class CraftingPlugin extends Plugin {
 
-    static final String version = "1.0.3";
+    static final String version = "1.0.4";
 
     private final DefaultScript defaultScript = new DefaultScript();
     private final GemsScript gemsScript = new GemsScript();

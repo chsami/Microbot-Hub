@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
         tags = {"shopper", "bank.js"},
         authors = {"Bankjs"},
         version = BanksShopperPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.6.43",
         iconUrl = "https://chsami.github.io/Microbot-Hub/BanksShopperPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/BanksShopperPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 )
 @Slf4j
 public class BanksShopperPlugin extends Plugin {
-    public final static String version = "1.4.3";
+    public final static String version = "1.4.4";
     @Inject
     private BanksShopperConfig config;
 

@@ -13,7 +13,6 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
@@ -319,7 +318,7 @@ public class JewelryScript extends Script {
                         // round-trip total. (Same pattern AutoSmeltingScript uses for its furnace.)
                         Rs2TileObjectModel furnaceObject = Microbot.getRs2TileObjectCache().query()
                                 .withName("Furnace")
-                                .where(o -> Rs2GameObject.hasAction(o, "Smelt"))
+                                .where(o -> o.hasActionContaining("Smelt"))
                                 .nearestOnClientThread(anchor, 20);
 
                         if (furnaceObject == null) {

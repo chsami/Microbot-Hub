@@ -21,12 +21,12 @@ import java.awt.*;
     iconUrl = "https://chsami.github.io/Microbot-Hub/GECookerPlugin/assets/cooking.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL,
-	minClientVersion = "1.9.6"
+	minClientVersion = "2.6.43"
 )
 
 @Slf4j
 public class GECookerPlugin extends Plugin {
-	static final String version = "1.0.1";
+	static final String version = "1.0.2";
     @Inject
     private GECookerConfig config;
     @Inject

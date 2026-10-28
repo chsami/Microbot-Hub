@@ -34,7 +34,7 @@ import java.time.Instant;
         tags = {"Wintertodt", "firemaking", "minigame"},
         authors = { "Make" },
         version = MKE_WintertodtPlugin.version,
-        minClientVersion = "1.9.7",
+        minClientVersion = "2.6.43",
         iconUrl = "https://chsami.github.io/Microbot-Hub/MKE_WintertodtPlugin/assets/card.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/MKE_WintertodtPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -42,7 +42,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class MKE_WintertodtPlugin extends Plugin {
-    static final String version = "2.2.4";
+    static final String version = "2.2.5";
 
     // Core plugin components
     @Inject

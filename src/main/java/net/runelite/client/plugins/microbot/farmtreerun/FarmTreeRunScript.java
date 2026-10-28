@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.Rs2Leprechaun;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.farmtreerun.enums.CompostType;
@@ -17,7 +19,6 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook;
@@ -846,14 +847,18 @@ public class FarmTreeRunScript extends Script {
     private boolean handlePatch(FarmTreeRunConfig config, Patch patch) {
         if (!canContinueInteraction()) return false;
         String[] possibleActions = {"Check", "Chop", "Pick", "Rake", "Clear", "Inspect"};
-        GameObject treePatch = null;
+        Rs2TileObjectModel treePatch = null;
         String foundAction = null;
         String exactAction = null;
 
         // Loop through the possible actions and try to find the tree patch with any valid action
         for (String action : possibleActions) {
             if (!canContinueInteraction()) return false;
-            treePatch = Rs2GameObject.findObjectByImposter(patch.getId(), action, false);  // Find object by patchId and action
+            treePatch = Microbot.getRs2TileObjectCache().query()  // Find object by patchId and action
+                    .ofType(TileObjectType.GAME)
+                    .withId(patch.getId())
+                    .withActionContains(action)
+                    .nearest();
             if (treePatch != null) {
                 foundAction = action;
                 if (!foundAction.contains("Inspect")) {
@@ -868,7 +873,7 @@ public class FarmTreeRunScript extends Script {
 
         // Gagex named actions differently, sometimes it's Pick-fruit and sometimes Pick-banana.
         // Also seen "Chop down" and "Chop-down".
-        ObjectComposition treeComposition = Rs2GameObject.findObjectComposition(treePatch.getId());
+        ObjectComposition treeComposition = visibleComposition(treePatch.getId());
         if (treeComposition == null || treeComposition.getActions() == null) {
             return false;
         }
@@ -1003,7 +1008,7 @@ public class FarmTreeRunScript extends Script {
         return false;
     }
 
-    private boolean handlePlantingTree(GameObject treePatch, Patch patch, FarmTreeRunConfig config) {
+    private boolean handlePlantingTree(Rs2TileObjectModel treePatch, Patch patch, FarmTreeRunConfig config) {
         // Skip if patch is not empty
         if (!isPatchEmpty(patch))
             return true;
@@ -1026,7 +1031,7 @@ public class FarmTreeRunScript extends Script {
             }
         }
 
-        if (!Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(patch.id), "Rake")) {
+        if (!hasAction(patch.id, "Rake")) {
             Rs2Inventory.useItemOnObject(saplingToUse, treePatch.getId());
             sleepUntil(() -> !isPatchEmpty(patch), 5000);
             return !isPatchEmpty(patch);
@@ -1035,27 +1040,27 @@ public class FarmTreeRunScript extends Script {
         return false;
     }
 
-    private void handlePickingFruit(GameObject fruitTreePatch, Patch patch, String exactAction) {
+    private void handlePickingFruit(Rs2TileObjectModel fruitTreePatch, Patch patch, String exactAction) {
         System.out.println("Picking fruit...");
-        if (!Rs2GameObject.interact(fruitTreePatch, exactAction)) return;
+        if (!fruitTreePatch.click(exactAction)) return;
         // Wait for the picking to complete (player stops animating and patch no longer has the "Pick" action)
-        sleepUntil(() -> !Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(fruitTreePatch.getId()), exactAction), 12000);
+        sleepUntil(() -> !hasAction(fruitTreePatch.getId(), exactAction), 12000);
         handleNotingFruit(patch);
     }
 
-    private void handleCheckHealth(GameObject treePatch) {
+    private void handleCheckHealth(Rs2TileObjectModel treePatch) {
         System.out.println("Checking health...");
 
         // Rake the patch
-        if (!Rs2GameObject.interact(treePatch, "Check-health")) return;
-        sleepUntil(() -> !Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(treePatch.getId()), "Check-health"), 5000);
+        if (!treePatch.click("Check-health")) return;
+        sleepUntil(() -> !hasAction(treePatch.getId(), "Check-health"), 5000);
     }
 
-    private void handleRakeAction(GameObject treePatch) {
+    private void handleRakeAction(Rs2TileObjectModel treePatch) {
         System.out.println("Raking the patch...");
 
-        if (!Rs2GameObject.interact(treePatch, "Rake")) return;
-        sleepUntil(() -> !Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(treePatch.getId()), "Rake"), 30000);
+        if (!treePatch.click("Rake")) return;
+        sleepUntil(() -> !hasAction(treePatch.getId(), "Rake"), 30000);
         sleep(400, 1200);
         if (Rs2Inventory.hasItem(ItemID.WEEDS)) {
             Rs2Inventory.dropAll(ItemID.WEEDS);
@@ -1063,15 +1068,15 @@ public class FarmTreeRunScript extends Script {
         }
     }
 
-    private void handleClearAction(GameObject treePatch) {
+    private void handleClearAction(Rs2TileObjectModel treePatch) {
         System.out.println("Clearing dead tree...");
 
-        boolean interactionSuccess = Rs2GameObject.interact(treePatch, "clear");
+        boolean interactionSuccess = treePatch.click("Clear");
         if (!interactionSuccess) {
             System.out.println("Failed to interact with the tree patch to clear it.");
             return;
         }
-        sleepUntil(() -> !Rs2GameObject.hasAction(Rs2GameObject.findObjectComposition(treePatch.getId()), "Clear"), 6000);
+        sleepUntil(() -> !hasAction(treePatch.getId(), "Clear"), 6000);
     }
 
     private void equipGraceful() {
@@ -1211,7 +1216,21 @@ public class FarmTreeRunScript extends Script {
     }
 
     private boolean isPatchEmpty(Patch patch) {
-        return isEmptyPatchComposition(Rs2GameObject.getObjectComposition(patch.getId()));
+        return isEmptyPatchComposition(visibleComposition(patch.getId()));
+    }
+
+    private static ObjectComposition visibleComposition(int objectId) {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            ObjectComposition composition = Microbot.getClient().getObjectDefinition(objectId);
+            if (composition == null) return null;
+            return composition.getImpostorIds() == null ? composition : composition.getImpostor();
+        }).orElse(null);
+    }
+
+    private static boolean hasAction(int objectId, String action) {
+        ObjectComposition composition = visibleComposition(objectId);
+        if (composition == null || composition.getActions() == null) return false;
+        return Arrays.stream(composition.getActions()).anyMatch(a -> a != null && a.equalsIgnoreCase(action));
     }
 
     static boolean isEmptyPatchComposition(ObjectComposition composition) {

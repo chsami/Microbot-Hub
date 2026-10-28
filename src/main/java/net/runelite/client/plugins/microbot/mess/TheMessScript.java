@@ -4,14 +4,16 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.GameState;
 import net.runelite.api.Skill;
-import net.runelite.api.TileObject;
 import net.runelite.api.VarClientStr;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
@@ -20,7 +22,6 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -31,6 +32,8 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.event.KeyEvent;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -226,12 +229,12 @@ public class TheMessScript extends Script {
         logDecision("withdraw[loc=" + loc + ",itemId=" + itemId + ",need=" + need + "]");
         setStatus("Getting supplies");
 
-        if (!Rs2GameObject.canReach(loc)) { log.info("[mess] walking to cupboard {}", loc); Rs2Walker.walkTo(loc, 4); return false; }
+        if (!canReach(loc)) { log.info("[mess] walking to cupboard {}", loc); Rs2Walker.walkTo(loc, 4); return false; }
 
         if (!Rs2Widget.isWidgetVisible(SHOP_WIDGET_ID)) {
             // Exact-tile interact: cupboards at (1644,3624) and (1645,3623) are 1 tile apart, so a within(loc,1)
-            // query catches both and may interact with the wrong one. findObjectByLocation matches the exact tile.
-            boolean interacted = Rs2GameObject.interact(loc, "Search");
+            // query catches both and may interact with the wrong one. objectAt matches the exact tile.
+            boolean interacted = interact(objectAt(loc), "Search");
             log.info("[mess] cupboard interact(Search) at {} -> {}", loc, interacted);
             if (!interacted) return false;
             if (!sleepUntil(() -> Rs2Widget.isWidgetVisible(SHOP_WIDGET_ID), 3000)) {
@@ -290,9 +293,9 @@ public class TheMessScript extends Script {
 
         logDecision("takeRawMeat[need=" + need + "]");
         setStatus("Taking raw meat");
-        if (!Rs2GameObject.canReach(MEAT_TABLE_LOC)) { Rs2Walker.walkTo(MEAT_TABLE_LOC, 4); return false; }
+        if (!canReach(MEAT_TABLE_LOC)) { Rs2Walker.walkTo(MEAT_TABLE_LOC, 4); return false; }
 
-        boolean ok = Rs2GameObject.interact(MEAT_TABLE_LOC, "Take-X");
+        boolean ok = interact(objectAt(MEAT_TABLE_LOC), "Take-X");
         log.info("[mess] meat-table interact(Take-X) -> {}", ok);
         if (!ok) return false;
         if (!sleepUntil(() -> Rs2Widget.hasWidget("Enter amount"), 2000)) { log.warn("[mess] Enter amount widget never appeared for raw meat"); return false; }
@@ -309,9 +312,9 @@ public class TheMessScript extends Script {
         if (!has(ItemID.BOWL_EMPTY)) return true;
         logDecision("fillBowls");
         setStatus("Filling bowls");
-        if (!Rs2GameObject.canReach(SINK_LOC)) { Rs2Walker.walkTo(SINK_LOC, 4); return false; }
+        if (!canReach(SINK_LOC)) { Rs2Walker.walkTo(SINK_LOC, 4); return false; }
 
-        TileObject sink = Rs2GameObject.findObjectByLocation(SINK_LOC);
+        Rs2TileObjectModel sink = objectAt(SINK_LOC);
         if (sink == null) { log.warn("[mess] sink not found at {}", SINK_LOC); return false; }
         boolean used = Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, sink.getId());
         log.info("[mess] use bowl on sink id={} -> {}", sink.getId(), used);
@@ -322,9 +325,9 @@ public class TheMessScript extends Script {
         if (!has(ItemID.BOWL_EMPTY)) return true;
         logDecision("returnEmptyBowls");
         setStatus("Returning empty bowls");
-        if (!Rs2GameObject.canReach(UTENSIL_CUPBOARD_LOC)) { Rs2Walker.walkTo(UTENSIL_CUPBOARD_LOC, 4); return false; }
+        if (!canReach(UTENSIL_CUPBOARD_LOC)) { Rs2Walker.walkTo(UTENSIL_CUPBOARD_LOC, 4); return false; }
 
-        TileObject cupboard = Rs2GameObject.findObjectByLocation(UTENSIL_CUPBOARD_LOC);
+        Rs2TileObjectModel cupboard = objectAt(UTENSIL_CUPBOARD_LOC);
         if (cupboard == null) { log.warn("[mess] utensil cupboard not found at {}", UTENSIL_CUPBOARD_LOC); return false; }
         boolean used = Rs2Inventory.useItemOnObject(ItemID.BOWL_EMPTY, cupboard.getId());
         log.info("[mess] return bowl on cupboard id={} -> {}", cupboard.getId(), used);
@@ -343,7 +346,7 @@ public class TheMessScript extends Script {
         if (!has(rawId)) return true;
         logDecision("cookOnOven[rawId=" + rawId + "]");
         setStatus("Cooking");
-        if (!Rs2GameObject.canReach(CLAY_OVEN_LOC)) { Rs2Walker.walkTo(CLAY_OVEN_LOC, 4); return false; }
+        if (!canReach(CLAY_OVEN_LOC)) { Rs2Walker.walkTo(CLAY_OVEN_LOC, 4); return false; }
 
         int before = count(rawId);
 
@@ -351,7 +354,7 @@ public class TheMessScript extends Script {
             // Dialog already up from a previous tick — confirm Cook-All.
             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
         } else {
-            TileObject oven = Rs2GameObject.findObjectByLocation(CLAY_OVEN_LOC);
+            Rs2TileObjectModel oven = objectAt(CLAY_OVEN_LOC);
             if (oven == null) { log.warn("[mess] clay oven not found at {}", CLAY_OVEN_LOC); return false; }
             boolean used = Rs2Inventory.useItemOnObject(rawId, oven.getId());
             log.info("[mess] use {} on oven id={} -> {}", rawId, oven.getId(), used);
@@ -547,11 +550,11 @@ public class TheMessScript extends Script {
             hopWorld();
             return;
         }
-        if (!Rs2GameObject.canReach(BUFFET_TABLE_LOC)) { Rs2Walker.walkTo(BUFFET_TABLE_LOC, 4); return; }
+        if (!canReach(BUFFET_TABLE_LOC)) { Rs2Walker.walkTo(BUFFET_TABLE_LOC, 4); return; }
 
         logDecision("serve");
         setStatus("Serving");
-        boolean ok = Rs2GameObject.interact(BUFFET_TABLE_LOC, "Serve");
+        boolean ok = interact(objectAt(BUFFET_TABLE_LOC), "Serve");
         log.info("[mess] buffet interact(Serve) -> {}", ok);
         Rs2Player.waitForXpDrop(Skill.COOKING, 2500, false);
     }
@@ -662,6 +665,32 @@ public class TheMessScript extends Script {
         if (mainScheduledFuture != null && !mainScheduledFuture.isCancelled()) {
             mainScheduledFuture.cancel(true);
         }
+    }
+
+    private static Rs2TileObjectModel objectAt(WorldPoint loc) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return null;
+        return Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .where(o -> loc.equals(o.getTileObject().getWorldLocation()))
+                .toList().stream()
+                .min(Comparator.comparing((Rs2TileObjectModel o) -> o.getTileObjectType() != TileObjectType.GAME)
+                        .thenComparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                .orElse(null);
+    }
+
+    private static boolean interact(Rs2TileObjectModel object, String action) {
+        return object != null && object.click(action);
+    }
+
+    private static boolean canReach(WorldPoint target) {
+        if (target == null) return false;
+        List<WorldPoint> path = Rs2Player.getRs2WorldPoint().pathTo(target, true);
+        if (path == null || path.isEmpty()) return false;
+        WorldPoint end = path.get(path.size() - 1);
+        WorldArea pathArea = new WorldArea(new WorldPoint(end.getX() - 1, end.getY() - 1, end.getPlane()), 2, 2);
+        WorldArea objectArea = new WorldArea(new WorldPoint(target.getX() - 2, target.getY() - 2, target.getPlane()), 4, 4);
+        return pathArea.intersectsWith2D(objectArea);
     }
 
     public enum Dish {

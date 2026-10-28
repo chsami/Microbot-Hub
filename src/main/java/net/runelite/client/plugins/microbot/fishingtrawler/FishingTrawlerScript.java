@@ -5,18 +5,19 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
+import java.util.Comparator;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -65,7 +66,7 @@ public class FishingTrawlerScript extends Script {
 
                     BreakHandlerScript.setLockState(true);
 
-                    if (Rs2GameObject.interact(new WorldPoint(2675, 3170, 0), "Cross")) {
+                    if (interactAt(new WorldPoint(2675, 3170, 0), "Cross")) {
                         Microbot.log("Crossing Gangplank");
                         Rs2Player.waitForWalking(10000);
                     }
@@ -99,7 +100,7 @@ public class FishingTrawlerScript extends Script {
                 if (isOnGroundFloor() && Microbot.getRs2TileObjectCache().query().withId(OBJECT_SHIPSLADDER).nearest() != null) {
                     Microbot.log("In minigame — heading up ladder");
                     wasInsideBoat = true;
-                    Rs2GameObject.interact(new WorldPoint(1884, 4826, 0), "Climb-up");
+                    interactAt(new WorldPoint(1884, 4826, 0), "Climb-up");
                     Rs2Player.waitForWalking();
                     Rs2Player.waitForAnimation();
                     Rs2Walker.walkFastCanvas(new WorldPoint(1885, 4827, 1));
@@ -167,5 +168,18 @@ public class FishingTrawlerScript extends Script {
         super.shutdown();
         wasInsideBoat = false;
         tentacle = false;
+    }
+
+    private static boolean interactAt(WorldPoint location, String action) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return false;
+        Rs2TileObjectModel object = Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .where(o -> location.equals(o.getTileObject().getWorldLocation()))
+                .toList().stream()
+                .min(Comparator.comparing((Rs2TileObjectModel o) -> o.getTileObjectType() != TileObjectType.GAME)
+                        .thenComparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                .orElse(null);
+        return object != null && object.click(action);
     }
 }

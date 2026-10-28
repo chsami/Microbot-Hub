@@ -5,18 +5,20 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.VarPlayerID;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
+import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 
 import net.runelite.client.Notifier;
 import net.runelite.client.config.Notification;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.birdhouseruns.FornBirdhouseRunsInfo.states;
 import net.runelite.client.plugins.microbot.birdhouseruns.enums.Log;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -28,10 +30,12 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 
 import javax.inject.Inject;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static net.runelite.client.plugins.microbot.birdhouseruns.FornBirdhouseRunsInfo.*;
@@ -220,7 +224,7 @@ public class FornBirdhouseRunsScript extends Script {
                             }
                             break;
                         case MUSHROOM_TELEPORT:
-                            Rs2GameObject.interact(MUSHTREE_OBJECT_ID, "Use");
+                            interact(findObject(o -> o.getId() == MUSHTREE_OBJECT_ID), "Use");
                             sleepUntil(() -> Rs2Widget.findWidget("Mycelium Transportation System") != null, 5000);
                             Rs2Widget.clickWidget("Mushroom Meadow");
                             sleepUntil(() -> Rs2Player.distanceTo(birdhouseLocation3) < 20, 10000);
@@ -377,6 +381,22 @@ public class FornBirdhouseRunsScript extends Script {
     private static boolean isBuilt(int varp)  { return varp > 0 && varp % 3 != 0; }
     private static boolean isSeeded(int varp) { return varp > 0 && varp % 3 == 0; }
 
+    private static Rs2TileObjectModel findObject(Predicate<TileObject> predicate) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return null;
+        return Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .where(o -> predicate.test(o.getTileObject()))
+                .toList().stream()
+                .min(Comparator.comparing((Rs2TileObjectModel o) -> o.getTileObjectType() != TileObjectType.GAME)
+                        .thenComparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                .orElse(null);
+    }
+
+    private static boolean interact(Rs2TileObjectModel object, String action) {
+        return object != null && object.click(action);
+    }
+
     /** Click Empty on the birdhouse at {@code loc}. Wait for varp to hit 0. */
     private boolean dismantleBirdhouse(WorldPoint loc, int varpId) {
         if (!isOnFossilIsland()) {
@@ -389,7 +409,7 @@ public class FornBirdhouseRunsScript extends Script {
             return true;
         }
         log.info("Dismantle[{}]: varp={} → Empty at {}", varpId, varp, loc);
-        if (!Rs2GameObject.interact(loc, "Empty")) {
+        if (!interact(findObject(o -> o.getWorldLocation().equals(loc)), "Empty")) {
             if (!arrivedAndStill(loc)) return false;
             log.warn("Dismantle[{}]: object not found at {} after arriving", varpId, loc);
             return false;
@@ -422,7 +442,7 @@ public class FornBirdhouseRunsScript extends Script {
             return false;
         }
         log.info("Build[{}]: varp=0 → Build at {} (logs in inv: {})", varpId, loc, logCount);
-        if (!Rs2GameObject.interact(loc, "Build")) {
+        if (!interact(findObject(o -> o.getWorldLocation().equals(loc)), "Build")) {
             if (!arrivedAndStill(loc)) return false;
             log.warn("Build[{}]: object not found at {} after arriving", varpId, loc);
             return false;
@@ -476,7 +496,7 @@ public class FornBirdhouseRunsScript extends Script {
             return false;
         }
         log.info("Seed[{}]: seed selected (id={}); clicking birdhouse at {}", varpId, seedId, loc);
-        if (!Rs2GameObject.interact(loc)) {
+        if (!interact(findObject(o -> o.getWorldLocation().equals(loc)), "")) {
             if (!arrivedAndStill(loc)) return false;
             log.warn("Seed[{}]: object not found at {} after arriving", varpId, loc);
             return false;

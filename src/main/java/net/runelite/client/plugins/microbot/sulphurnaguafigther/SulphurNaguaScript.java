@@ -376,7 +376,7 @@ public class SulphurNaguaScript extends Script {
                     Rs2Dialogue.clickOption("Take herblore supplies.");
                 } else if (!Rs2Player.isAnimating()) {
                     int SUPPLY_CRATE_ID = 51371;
-                    Microbot.getRs2TileObjectCache().query().interact(SUPPLY_CRATE_ID, "Take herblore supplies");
+                    Microbot.getRs2TileObjectCache().query().interact(SUPPLY_CRATE_ID, "Take-from");
                 }
                 sleep(300, 500);
             }

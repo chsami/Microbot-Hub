@@ -22,7 +22,7 @@ import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
         tags = {"cooking", "microbot", "skilling"},
         authors = {"George"},
         version = AutoCookingPlugin.version,
-        minClientVersion = "2.0.8",
+        minClientVersion = "2.6.43",
         cardUrl = "https://chsami.github.io/Microbot-Hub/AutoCookingPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoCookingPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -30,7 +30,7 @@ import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
 )
 @Slf4j
 public class AutoCookingPlugin extends Plugin {
-    public final static String version = "1.1.6";
+    public final static String version = "1.1.7";
     @Inject
     AutoCookingScript autoCookingScript;
     @Inject

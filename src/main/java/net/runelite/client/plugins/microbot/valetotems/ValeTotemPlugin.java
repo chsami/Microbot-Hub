@@ -19,7 +19,7 @@ import java.awt.*;
         tags = {"valetotems", "fletching", "minigame"},
         authors = { "Make" },
         version = ValeTotemPlugin.version,
-        minClientVersion = "1.9.7",
+        minClientVersion = "2.6.43",
         iconUrl = "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/ValeTotemPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -27,7 +27,7 @@ import java.awt.*;
 )
 @Slf4j
 public class ValeTotemPlugin extends Plugin {
-    static final String version = "1.0.14";
+    static final String version = "1.0.15";
 
     @Inject
     private ValeTotemConfig config;

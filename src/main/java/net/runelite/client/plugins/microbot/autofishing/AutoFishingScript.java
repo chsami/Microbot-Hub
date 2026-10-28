@@ -190,8 +190,9 @@ public class AutoFishingScript extends Script {
     private void handleDropping() {
         List<String> itemsToDrop = Rs2Inventory.all().stream()
                 .map(Rs2ItemModel::getName)
-                .filter(name -> name.startsWith("Raw") || 
-                                name.contains("Leaping") || 
+                .filter(name -> !isRequiredItem(selectedFish, name))
+                .filter(name -> name.startsWith("Raw") ||
+                                name.contains("Leaping") ||
                                 name.toLowerCase().contains("burnt"))
                 .distinct()
                 .collect(Collectors.toList());
@@ -263,7 +264,7 @@ public class AutoFishingScript extends Script {
 
                 String currentRaw = fishToCook;
                 sleepUntilTrue(() ->
-                                !Rs2Inventory.hasItem(currentRaw) &&
+                                !Rs2Inventory.hasItem(currentRaw, true) &&
                                 !Rs2Player.isAnimating(3500),
                         500, 150000);
 
@@ -393,8 +394,18 @@ public class AutoFishingScript extends Script {
         return Rs2Inventory.all().stream()
                 .map(Rs2ItemModel::getName)
                 .filter(name -> name.startsWith("Raw"))
+                .filter(name -> !isRequiredItem(selectedFish, name))
                 .distinct()
                 .collect(Collectors.toList());
+    }
+
+    static boolean isRequiredItem(Fish fish, String name) {
+        return fish.getRequiredItems().stream().anyMatch(req -> req.equalsIgnoreCase(name));
+    }
+
+    static boolean isConsumable(String item) {
+        String lower = item.toLowerCase();
+        return lower.contains("bait") || lower.contains("feather") || lower.contains("sandworm") || lower.contains("karambwanji");
     }
     
     private Rs2TileObjectModel getNearbyFireOrRange() {
@@ -437,8 +448,7 @@ public class AutoFishingScript extends Script {
         // Consumables that deplete while fishing (baits, feathers, etc.). Tools like rods/nets/pots are separate.
         List<String> required = selectedFish.getMethod().getRequiredItems();
         for (String item : required) {
-            String lower = item.toLowerCase();
-            if (lower.contains("bait") || lower.contains("feather") || lower.contains("sandworm") || lower.contains("karambwanji")) {
+            if (isConsumable(item)) {
                 if (!Rs2Inventory.hasItem(item)) {
                     return false;
                 }
@@ -497,8 +507,13 @@ public class AutoFishingScript extends Script {
         }
     }
 
-    private void withdrawAndEquipItem(String itemName) {
+    void withdrawAndEquipItem(String itemName) {
         if (Rs2Bank.hasItem(itemName)) {
+            if (isConsumable(itemName)) {
+                Rs2Bank.withdrawAll(itemName);
+                sleepUntil(() -> Rs2Inventory.hasItem(itemName));
+                return;
+            }
             Rs2Bank.withdrawOne(itemName);
             if (sleepUntil(() -> Rs2Inventory.hasItem(itemName))) {
                 if (itemName.equalsIgnoreCase("Hammer") || itemName.equalsIgnoreCase("Knife")) {

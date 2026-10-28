@@ -22,7 +22,7 @@ import java.awt.*;
         tags = {"Farming", "Tree run"},
         authors = {"Acun"},
         version = FarmTreeRunPlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.43",
         cardUrl = "https://chsami.github.io/Microbot-Hub/FarmTreeRunPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/FarmTreeRunPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -30,7 +30,7 @@ import java.awt.*;
 )
 @Slf4j
 public class FarmTreeRunPlugin extends Plugin {
-    public static final String version = "1.2.5";
+    public static final String version = "1.2.6";
     @Inject
     private FarmTreeRunConfig config;
     @Provides

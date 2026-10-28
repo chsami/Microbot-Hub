@@ -6,7 +6,6 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Gembag;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
@@ -50,7 +49,7 @@ public class FortisGemStallThievingSpot implements IStallThievingSpot {
             return;
         }
 
-        if (!Rs2GameObject.hasAction(stall.getObjectComposition(), "Steal-from")) {
+        if (!stall.hasAction("Steal-from")) {
             boolean started = Microbot.hopToWorld(Login.getRandomWorld(Rs2Player.isMember()));
             if (started) {
                 Global.sleepUntil(Microbot::isLoggedIn, 15000);
