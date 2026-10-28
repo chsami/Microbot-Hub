@@ -63,7 +63,10 @@ public class AutoFishingScript extends Script {
         try {
             if (!super.run() || !Microbot.isLoggedIn()) return;
 
-            currentState = determineState();
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            if (playerLocation == null) return;
+
+            currentState = determineState(playerLocation);
 
             if (currentState == AutoFishingState.FISHING && !hasFishingMaterials()) {
                 log.info("Out of required fishing materials for {}. Logging out and shutting down script.", selectedFish);
@@ -89,7 +92,7 @@ public class AutoFishingScript extends Script {
 
             switch (currentState) {
                 case GETTING_GEAR: handleGettingGear(); break;
-                case TRAVELING: handleTraveling(); break;
+                case TRAVELING: handleTraveling(playerLocation); break;
                 case FISHING: handleFishing(); break;
                 case PROCESSING_FISH: handleProcessingFish(); break;
                 case COOKING: handleCooking(); break;
@@ -103,7 +106,7 @@ public class AutoFishingScript extends Script {
         }
     }
 
-    private AutoFishingState determineState() {
+    private AutoFishingState determineState(WorldPoint playerLocation) {
         if (Rs2Inventory.isFull()) {
             if (isSpecialFish(selectedFish)) return AutoFishingState.PROCESSING_FISH;
             if (config.cookFish() && !getRawFishInInventory().isEmpty() && canCookAtLeastOneRaw()) return AutoFishingState.COOKING;
@@ -117,7 +120,7 @@ public class AutoFishingScript extends Script {
             }
         }
 
-        if (!isAtFishingLocation()) {
+        if (!isAtFishingLocation(playerLocation)) {
             return AutoFishingState.TRAVELING;
         }
 
@@ -127,8 +130,8 @@ public class AutoFishingScript extends Script {
     /**
      * Handle methods 
      */
-    private void handleTraveling() {
-        fishingLocation = selectedFish.getClosestLocation(Rs2Player.getWorldLocation());
+    private void handleTraveling(WorldPoint playerLocation) {
+        fishingLocation = selectedFish.getClosestLocation(playerLocation);
         if (fishingLocation != null) {
             Rs2Walker.walkTo(fishingLocation);
         }
@@ -249,9 +252,13 @@ public class AutoFishingScript extends Script {
             // Ensure we are close enough to the fire before using item on it.
             // If too far, the use may not open the widget, leading to repeated attempts (spam).
             WorldPoint firePoint = fireOrRange.getWorldLocation();
-            if (Rs2Player.getWorldLocation().distanceTo(firePoint) > 4) {
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            if (playerLocation == null) {
+                return;
+            }
+            if (playerLocation.distanceTo(firePoint) > 4) {
                 Rs2Walker.walkTo(firePoint);
-                sleepUntil(() -> !Rs2Player.isMoving() || Rs2Player.getWorldLocation().distanceTo(firePoint) <= 3, 10000);
+                sleepUntil(() -> !Rs2Player.isMoving() || isWithin(Rs2Player.getWorldLocation(), firePoint, 3), 10000);
                 sleepUntil(() -> !Rs2Player.isMoving(), 5000);
             }
 
@@ -457,14 +464,16 @@ public class AutoFishingScript extends Script {
         return true;
     }
 
-    private boolean isAtFishingLocation() {
-        if (fishingLocation != null) {
-            if (Rs2Player.getWorldLocation().distanceTo(fishingLocation) <= 5) {
-                return true;
-            }
+    private boolean isAtFishingLocation(WorldPoint playerLocation) {
+        if (isWithin(playerLocation, fishingLocation, 5)) {
+            return true;
         }
         // Bootstrap: if no target yet or far from it, treat as at location if a spot for this fish is visible.
         return findNearestFishingSpot() != null;
+    }
+
+    static boolean isWithin(WorldPoint playerLocation, WorldPoint target, int distance) {
+        return playerLocation != null && target != null && playerLocation.distanceTo(target) <= distance;
     }
 
     private boolean canCookAtLeastOneRaw() {
