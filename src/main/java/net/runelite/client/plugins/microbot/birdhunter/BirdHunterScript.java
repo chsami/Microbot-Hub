@@ -64,6 +64,7 @@ public class BirdHunterScript extends Script {
 
             try {
                 if (!super.run() || !Microbot.isLoggedIn()) return;
+                if (!ensureHuntingArea(config)) return;
 
                 if (!hasRequiredSnares()) {
                     int required = getAvailableTraps(Rs2Player.getRealSkillLevel(Skill.HUNTER));
@@ -102,6 +103,10 @@ public class BirdHunterScript extends Script {
 
     public void updateHuntingArea(BirdHunterConfig config) {
         huntingRadius = config.huntingRadiusValue();
+        if (initialStartTile == null) {
+            dynamicHuntingArea = null;
+            return;
+        }
         int side = (2 * huntingRadius) + 1;
         dynamicHuntingArea = new WorldArea(
                 initialStartTile.getX() - huntingRadius,
@@ -109,6 +114,14 @@ public class BirdHunterScript extends Script {
                 side, side,
                 initialStartTile.getPlane()
         );
+    }
+
+    private boolean ensureHuntingArea(BirdHunterConfig config) {
+        if (initialStartTile == null) {
+            initialStartTile = Rs2Player.getWorldLocation();
+            updateHuntingArea(config);
+        }
+        return dynamicHuntingArea != null;
     }
 
     private boolean isInHuntingArea() {

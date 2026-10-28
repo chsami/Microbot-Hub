@@ -21,12 +21,12 @@ import java.awt.*;
     iconUrl = "https://chsami.github.io/Microbot-Hub/GEFiremakerPlugin/assets/firemaking.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL,
-	minClientVersion = "2.6.19"
+	minClientVersion = "2.6.43"
 )
 
 @Slf4j
 public class GEFiremakerPlugin extends Plugin {
-	static final String version = "1.0.2";
+	static final String version = "1.0.3";
     @Inject
     private GEFiremakerConfig config;
     @Inject

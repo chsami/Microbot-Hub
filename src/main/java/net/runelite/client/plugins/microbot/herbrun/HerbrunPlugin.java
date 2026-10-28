@@ -17,7 +17,7 @@ import java.awt.*;
         tags = {"herb", "farming", "money making", "skilling"},
         authors = {"Mocrosoft"},
         version = HerbrunPlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.43",
         iconUrl = "https://chsami.github.io/Microbot-Hub/HerbrunPlugin/assets/icon.jpg",
         cardUrl = "https://chsami.github.io/Microbot-Hub/HerbrunPlugin/assets/card.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -26,7 +26,7 @@ import java.awt.*;
 @Slf4j
 
 public class HerbrunPlugin extends Plugin {
-    public static final String version = "1.2.0";
+    public static final String version = "1.2.1";
     @Inject
     private HerbrunConfig config;
 

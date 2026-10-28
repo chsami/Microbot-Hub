@@ -20,14 +20,14 @@ import java.awt.*;
         tags = {"thieving", "blackjack", "pollnivneach"},
         authors = { "HalalSkiller" },
         version = HSBlackJackPlugin.version,
-        minClientVersion = "1.9.8",
+        minClientVersion = "2.6.43",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 @Slf4j
 public class HSBlackJackPlugin extends Plugin {
 
-    static final String version = "1.0.3";
+    static final String version = "1.0.4";
 
     @Inject
     private HSBlackJackConfig config;

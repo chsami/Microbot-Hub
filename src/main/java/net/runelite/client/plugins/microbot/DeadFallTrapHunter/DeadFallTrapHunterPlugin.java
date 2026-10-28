@@ -31,7 +31,7 @@ import java.util.Map;
         description = "Automates hunting all creatures with Deadfall traps",
         tags = {"hunter", "deadfall", "skilling", "xp", "loot", "TaF"},
         version = DeadFallTrapHunterPlugin.version,
-        minClientVersion = "2.1.0",
+        minClientVersion = "2.6.43",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -39,7 +39,7 @@ import java.util.Map;
 )
 public class DeadFallTrapHunterPlugin extends Plugin {
 
-    public final static String version = "1.1.0";
+    public final static String version = "1.1.1";
 
     @Getter
     private final Map<WorldPoint, HunterTrap> traps = new HashMap<>();

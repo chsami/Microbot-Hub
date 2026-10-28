@@ -1,26 +1,34 @@
 package net.runelite.client.plugins.microbot.DeadFallTrapHunter;
 
+import net.runelite.api.Constants;
 import net.runelite.api.GameObject;
+import net.runelite.api.ObjectComposition;
+import net.runelite.api.Perspective;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.hunter.HunterTrap;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class DeadFallTrapHunterScript extends Script {
@@ -138,12 +146,15 @@ public class DeadFallTrapHunterScript extends Script {
             return;
         }
 
-        GameObject tree = Rs2GameObject.findReachableObject("tree", true, 20, config.deadFallTrapHunting().getHuntingPoint());
+        WorldPoint huntingPoint = config.deadFallTrapHunting().getHuntingPoint();
+        GameObject tree = findReachableObject("tree", 20, huntingPoint, o -> chopAction(o) != null);
         if (tree == null) {
-            tree = Rs2GameObject.findReachableObject("dead tree", true, 20, config.deadFallTrapHunting().getHuntingPoint());
+            tree = findReachableObject("dead tree", 20, huntingPoint, o -> chopAction(o) != null);
         }
         if (tree != null) {
-            if (Rs2GameObject.interact(tree, "Chop down")) {
+            Rs2TileObjectModel treeModel = new Rs2TileObjectModel(tree);
+            String chop = chopAction(treeModel);
+            if (chop != null && treeModel.click(chop)) {
                 Rs2Player.waitForAnimation();
                 Rs2Antiban.actionCooldown();
             }
@@ -360,5 +371,43 @@ public class DeadFallTrapHunterScript extends Script {
     public void shutdown() {
         super.shutdown();
         creaturesCaught = 0;
+    }
+
+    private static GameObject findReachableObject(String name, int distance, WorldPoint anchor, Predicate<Rs2TileObjectModel> filter) {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            LocalPoint anchorLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), anchor);
+            if (anchorLocal == null) {
+                Player player = Microbot.getClient().getLocalPlayer();
+                anchorLocal = player != null ? player.getLocalLocation() : null;
+                if (anchorLocal == null) return null;
+            }
+            LocalPoint from = anchorLocal;
+            int maxDistance = Math.min(distance, Constants.SCENE_SIZE) * Perspective.LOCAL_TILE_SIZE;
+            List<GameObject> candidates = Microbot.getRs2TileObjectCache().query()
+                    .fromWorldView()
+                    .ofType(TileObjectType.GAME)
+                    .toList().stream()
+                    .filter(o -> o.getLocalLocation().distanceTo(from) <= maxDistance)
+                    .filter(o -> name.equalsIgnoreCase(o.getName()) && filter.test(o))
+                    .sorted(Comparator.comparingInt(o -> o.getLocalLocation().distanceTo(from)))
+                    .map(o -> (GameObject) o.getTileObject())
+                    .collect(Collectors.toList());
+            if (candidates.isEmpty()) return null;
+            WorldPoint playerLocation = Rs2Player.getRs2WorldPoint().getWorldPoint();
+            return candidates.stream()
+                    .sorted(Comparator.comparingInt(o -> Rs2WorldPoint.quickDistance(playerLocation, o.getWorldLocation())))
+                    .filter(o -> new Rs2TileObjectModel(o).isReachable())
+                    .findFirst()
+                    .orElse(null);
+        }).orElse(null);
+    }
+
+    private static String chopAction(Rs2TileObjectModel tree) {
+        ObjectComposition composition = tree.getObjectComposition();
+        if (composition == null || composition.getActions() == null) return null;
+        for (String action : composition.getActions()) {
+            if (action != null && action.toLowerCase().startsWith("chop")) return action;
+        }
+        return null;
     }
 }

@@ -9,12 +9,13 @@ import net.runelite.api.gameval.ObjectID1;
 import net.runelite.client.plugins.microbot.agentserver.handler.ScriptHeartbeatRegistry;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.autoessencemining.enums.AutoEssenceMiningState;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
@@ -369,7 +370,7 @@ public class AutoEssenceMiningScript extends Script {
         String actionDescription = action == null || action.isBlank() ? "default" : action;
         log.info("Attempting portal object interaction with {} action", actionDescription);
 
-        if (Rs2GameObject.interact(ESSENCE_MINE_EXIT_PORTAL_OBJECT_IDS, action) && sleepUntil(() -> !isInEssenceMine(), 5000)) {
+        if (clickPortalObject(action) && sleepUntil(() -> !isInEssenceMine(), 5000)) {
             log.info("Successfully used portal object with {} action", actionDescription);
             hasTeleportedWithAubury = false;
             return true;
@@ -817,5 +818,25 @@ public class AutoEssenceMiningScript extends Script {
         if (scheduledFuture != null && !scheduledFuture.isDone()) {
             scheduledFuture.cancel(false);
         }
+    }
+
+    private static boolean clickPortalObject(String action) {
+        for (int objectId : ESSENCE_MINE_EXIT_PORTAL_OBJECT_IDS) {
+            Rs2TileObjectModel portal = nearestById(objectId);
+            if (portal != null && portal.click(action)) return true;
+        }
+        return false;
+    }
+
+    private static Rs2TileObjectModel nearestById(int objectId) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return null;
+        return Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .withId(objectId)
+                .toList().stream()
+                .min(Comparator.comparing((Rs2TileObjectModel o) -> o.getTileObjectType() != TileObjectType.GAME)
+                        .thenComparingInt(o -> o.getTileObject().getWorldLocation().distanceTo(playerLocation)))
+                .orElse(null);
     }
 }

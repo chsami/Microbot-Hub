@@ -8,7 +8,6 @@ import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.agility.models.AgilityObstacleModel;
 import net.runelite.client.plugins.microbot.util.Global;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.misc.Operation;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -126,7 +125,7 @@ public class PrifddinasCourse implements AgilityCourseHandler
 		if (playerLocation.distanceTo(getStartPoint()) < 5)
 		{
 			log.info("Near start point, searching for first obstacle within 5 tiles");
-			TileObject startLadder = Rs2GameObject.getGameObject(ObjectID.PRIF_AGILITY_START_LADDER, playerLocation, 5);
+			TileObject startLadder = AgilityObjects.nearestGameObject(ObjectID.PRIF_AGILITY_START_LADDER, playerLocation, 5);
 			if (startLadder != null)
 			{
 				log.info("Found start ladder at: {}", startLadder.getWorldLocation());

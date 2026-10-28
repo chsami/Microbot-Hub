@@ -11,7 +11,6 @@ import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectM
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
@@ -247,7 +246,7 @@ public class AutoFiremakingPlusScript extends Script {
             Microbot.log("[Firemaking] log did not select; retrying next tick");
             return;
         }
-        Rs2GameObject.interact(target);
+        target.click();
         if (sleepUntil(() -> Rs2Widget.getWidget(BURN_INTERFACE_WIDGET) != null, 5000)) {
             Rs2Keyboard.keyPress(KeyEvent.VK_SPACE);
             lastLogCount = count;

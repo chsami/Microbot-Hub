@@ -1,18 +1,25 @@
 package net.runelite.client.plugins.microbot.gecooker;
 
+import net.runelite.api.Constants;
+import net.runelite.api.GameObject;
+import net.runelite.api.Perspective;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.TileObject;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
+import net.runelite.client.plugins.microbot.api.tileobject.models.TileObjectType;
 import net.runelite.client.plugins.microbot.gecooker.enums.CookingItem;
 import net.runelite.client.plugins.microbot.gecooker.enums.GEWorkLocation;
 import net.runelite.client.plugins.microbot.gecooker.enums.LogType;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.coords.Rs2WorldPoint;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -21,8 +28,12 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import java.awt.event.KeyEvent;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 enum State {
     BANKING,
@@ -190,7 +201,7 @@ public class GECookerScript extends Script {
 
     private TileObject findFireObject() {
         if (lastFireLocation != null) {
-            TileObject fireObject = Rs2GameObject.findGameObjectByLocation(lastFireLocation);
+            TileObject fireObject = gameObjectAt(lastFireLocation);
             if (fireObject != null && FireIDs.contains(fireObject.getId())) {
                 return fireObject;
             }
@@ -198,7 +209,7 @@ public class GECookerScript extends Script {
 
         // check for forester campfires around each worksite
         for (WorldPoint fireSpot : FireSpots) {
-            TileObject fireObject = Rs2GameObject.findReachableObject("forester", false, 3, fireSpot);
+            TileObject fireObject = findReachableForesterCampfire(fireSpot);
 
             if (fireObject != null) {
                 return fireObject;
@@ -207,7 +218,7 @@ public class GECookerScript extends Script {
 
         // if no forester campfires, find regular fire
         for (WorldPoint fireSpot : FireSpots) {
-            TileObject fireObject = Rs2GameObject.findGameObjectByLocation(fireSpot);
+            TileObject fireObject = gameObjectAt(fireSpot);
             if (fireObject != null && FireIDs.contains(fireObject.getId())) {
                 return fireObject;
             }
@@ -285,5 +296,50 @@ public class GECookerScript extends Script {
     public void shutdown() {
         super.shutdown();
         Rs2Antiban.resetAntibanSettings();
+    }
+
+    private static GameObject gameObjectAt(WorldPoint location) {
+        List<GameObject> objects = gameObjectsNear(Rs2Player.getWorldLocation(), Constants.SCENE_SIZE / 2,
+                o -> o.getWorldLocation().equals(location));
+        return objects.isEmpty() ? null : objects.get(0);
+    }
+
+    private static GameObject findReachableForesterCampfire(WorldPoint fireSpot) {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            List<GameObject> candidates = gameObjectsNear(fireSpot, 3, o -> {
+                String name = new Rs2TileObjectModel(o).getName();
+                return name != null && name.toLowerCase().contains("forester");
+            });
+            if (candidates.isEmpty()) {
+                return null;
+            }
+            WorldPoint playerLocation = Rs2Player.getRs2WorldPoint().getWorldPoint();
+            return candidates.stream()
+                    .sorted(Comparator.comparingInt(o -> Rs2WorldPoint.quickDistance(playerLocation, o.getWorldLocation())))
+                    .filter(o -> new Rs2TileObjectModel(o).isReachable())
+                    .findFirst()
+                    .orElse(null);
+        }).orElse(null);
+    }
+
+    private static List<GameObject> gameObjectsNear(WorldPoint anchor, int distance, Predicate<GameObject> predicate) {
+        if (anchor == null) return Collections.emptyList();
+        LocalPoint anchorLocal = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), anchor);
+        if (anchorLocal == null) {
+            Player player = Microbot.getClient().getLocalPlayer();
+            anchorLocal = player != null ? player.getLocalLocation() : null;
+            if (anchorLocal == null) return Collections.emptyList();
+        }
+        LocalPoint from = anchorLocal;
+        int maxDistance = Math.min(distance, Constants.SCENE_SIZE) * Perspective.LOCAL_TILE_SIZE;
+        return Microbot.getRs2TileObjectCache().query()
+                .fromWorldView()
+                .ofType(TileObjectType.GAME)
+                .toList().stream()
+                .map(o -> (GameObject) o.getTileObject())
+                .filter(o -> o.getLocalLocation().distanceTo(from) <= maxDistance)
+                .filter(predicate)
+                .sorted(Comparator.comparingInt(o -> o.getLocalLocation().distanceTo(from)))
+                .collect(Collectors.toList());
     }
 }

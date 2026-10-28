@@ -26,7 +26,7 @@ import java.time.Instant;
         name = PluginConstants.BOLADO + "The Mess",
         authors = { "Bolado" },
         version = TheMessPlugin.version,
-        minClientVersion = "1.9.8",
+        minClientVersion = "2.6.43",
         description = "A plugin to automate cooking in The Mess hall.",
         cardUrl = "https://chsami.github.io/Microbot-Hub/TheMessPlugin/assets/card.png",
         iconUrl = "https://chsami.github.io/Microbot-Hub/TheMessPlugin/assets/icon.png",
@@ -38,7 +38,7 @@ import java.time.Instant;
 @Slf4j
 public class TheMessPlugin extends Plugin {
 
-    static final String version = "1.1.0";
+    static final String version = "1.1.1";
 
     @Inject
     private TheMessConfig config;

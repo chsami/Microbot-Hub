@@ -185,11 +185,17 @@ ThievingNpcStrategy getActiveStrategy() {
                     filter = validateName(ThievingData.ELVES::contains);
                     break;
                 default:
-                    filter = validateName(name -> name.toLowerCase().contains(finalNpc.getName()));
+                    filter = validateName(name -> matchesNpcName(finalNpc, name));
                     break;
             }
         }
         return filter;
+    }
+
+    static boolean matchesNpcName(ThievingNpc target, String name) {
+        if (target == null || name == null) return false;
+        if (target == ThievingNpc.WARRIOR) return name.toLowerCase().contains(target.getName());
+        return name.equalsIgnoreCase(target.getName());
     }
 
     private Rs2NpcModel getThievingNpcCache() {
@@ -795,7 +801,9 @@ ThievingNpcStrategy getActiveStrategy() {
 
             final WorldPoint doorWp = door.getWorldLocation();
             if (!door.click("Close")) return false;
-            if (door.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) > 1) {
+            final WorldPoint locAfterClick = Rs2Player.getWorldLocation();
+            if (locAfterClick == null) return false;
+            if (door.getWorldLocation().distanceTo(locAfterClick) > 1) {
                 if (!sleepUntilWithInterrupt(() -> Rs2Player.isMoving() || Rs2Player.isStunned(), 1_200)) return false;
                 if (Rs2Player.isStunned()) return false;
                 sleepUntilWithInterrupt(() -> !Rs2Player.isMoving(), 5_000);
@@ -922,8 +930,13 @@ ThievingNpcStrategy getActiveStrategy() {
 
     private void bankAndEquip() {
         if (!Rs2Bank.isOpen()) {
+            final WorldPoint myLoc = Rs2Player.getWorldLocation();
+            if (myLoc == null) {
+                log.warn("Player Location is null");
+                return;
+            }
             BankLocation bank;
-            if (config.THIEVING_NPC() == ThievingNpc.VYRES && ThievingData.OUTSIDE_HALLOWED_BANK.distanceTo(Rs2Player.getWorldLocation()) < 20) {
+            if (config.THIEVING_NPC() == ThievingNpc.VYRES && ThievingData.OUTSIDE_HALLOWED_BANK.distanceTo(myLoc) < 20) {
                 log.debug("Near Hallowed");
                 bank = BankLocation.HALLOWED_SEPULCHRE;
                 // it's not needed for banking, but if we have it in inv we should equip it

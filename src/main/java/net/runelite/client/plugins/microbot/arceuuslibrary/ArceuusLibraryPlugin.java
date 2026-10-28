@@ -17,7 +17,7 @@ import javax.inject.Inject;
         description = "Runs the Arceuus Library book-fetch loop using the upstream Kourend Library solver",
         authors = { "runsonmypc" },
         version = ArceuusLibraryPlugin.version,
-        minClientVersion = "2.1.34",
+        minClientVersion = "2.6.43",
         tags = {"arceuus", "library", "kourend", "magic", "runecraft", "minigame"},
         iconUrl = "https://chsami.github.io/Microbot-Hub/ArceuusLibraryPlugin/assets/card.jpg",
         cardUrl = "https://chsami.github.io/Microbot-Hub/ArceuusLibraryPlugin/assets/card.jpg",
@@ -27,7 +27,7 @@ import javax.inject.Inject;
 @Slf4j
 public class ArceuusLibraryPlugin extends Plugin
 {
-    public static final String version = "1.0.0";
+    public static final String version = "1.0.1";
 
     @Getter
     @Inject

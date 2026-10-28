@@ -32,7 +32,7 @@ import java.util.List;
         description = "Microbot Orb Charger Plugin",
         tags = {"magic", "microbot", "money", "money making"},
         version = OrbChargerPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.43",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -40,7 +40,7 @@ import java.util.List;
 )
 @Slf4j
 public class OrbChargerPlugin extends Plugin {
-    public final static String version = "1.1.1";
+    public final static String version = "1.1.2";
     
     @Inject
     private net.runelite.client.plugins.microbot.orbcharger.OrbChargerConfig config;

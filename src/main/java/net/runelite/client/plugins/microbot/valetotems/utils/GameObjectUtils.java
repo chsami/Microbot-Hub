@@ -5,7 +5,6 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.valetotems.enums.GameObjectId;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 
 import java.util.Arrays;
 import java.util.List;
@@ -16,7 +15,7 @@ import java.util.stream.Collectors;
 
 /**
  * Utility class for interacting with game objects in the Vale Totems minigame
- * Uses Rs2GameObject ready-made methods instead of reinventing functionality
+ * Uses the tile object cache instead of reinventing functionality
  * Updated to use string-based searching for totem sites and offerings
  */
 public class GameObjectUtils {
@@ -223,7 +222,7 @@ public class GameObjectUtils {
     }
 
     /**
-     * Interact with a game object using Rs2GameObject ready-made method
+     * Interact with a game object through the tile object model
      * @param gameObject the game object to interact with
      * @param action the action to perform (e.g., "Build", "Decorate", "Claim")
      * @return true if the interaction was successful
@@ -302,7 +301,7 @@ public class GameObjectUtils {
     }
 
     /**
-     * Check if a specific game object exists (using Rs2GameObject.exists)
+     * Check if a specific game object exists
      * @param objectId the game object ID to check for
      * @return true if the object exists anywhere nearby
      */

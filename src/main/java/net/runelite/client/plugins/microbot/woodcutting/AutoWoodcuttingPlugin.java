@@ -18,7 +18,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.InteractOrder;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel;
@@ -42,7 +42,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
         tags = {"Woodcutting", "microbot", "skilling"},
         authors = {"Mocrosoft"},
         version = AutoWoodcuttingPlugin.version,
-        minClientVersion = "2.1.32",
+        minClientVersion = "2.6.43",
         cardUrl = "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -50,7 +50,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 )
 @Slf4j
 public class AutoWoodcuttingPlugin extends Plugin {
-    public static final String version = "1.8.7";
+    public static final String version = "1.8.8";
     @Inject
     @Getter(AccessLevel.MODULE)
     public AutoWoodcuttingScript autoWoodcuttingScript;
@@ -135,8 +135,8 @@ public class AutoWoodcuttingPlugin extends Plugin {
 
             GameObject ingredientObj = this.saplingIngredients.stream()
                     .filter(obj -> {
-                        String compositionName = Rs2GameObject.getCompositionName(obj).orElse(null);
-                        return compositionName != null && msg.contains(compositionName.toLowerCase());
+                        String compositionName = new Rs2TileObjectModel(obj).getName();
+                        return compositionName != null && !compositionName.equals("null") && msg.contains(compositionName.toLowerCase());
                     })
                     .findAny()
                     .orElse(null);

@@ -46,7 +46,7 @@ public class SafetyScript extends Script {
                         setupName = config.inventorySetup().getName();
                     }
                 }
-                if (config.lowHealth() && Rs2Inventory.getInventoryFood().isEmpty() && (!config.bank() || setupName == null)){
+                if (config.lowHealth() && Rs2Inventory.getInventoryFood().isEmpty() && !bankRestocksFood(config, setupName)){
                     if (Rs2Player.getHealthPercentage() < config.healthSafetyValue()){
                         stopAndLog("Low health: " + Rs2Player.getHealthPercentage() + "%");
                     }
@@ -56,6 +56,11 @@ public class SafetyScript extends Script {
             }
         }, 0, 600, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    static boolean bankRestocksFood(AIOFighterConfig config, String setupName) {
+        return config.bank() && config.useInventorySetup() && config.currentInventorySetup() != null
+                && setupName != null && !setupName.isEmpty();
     }
 
     public void stopAndLog(String reason) {

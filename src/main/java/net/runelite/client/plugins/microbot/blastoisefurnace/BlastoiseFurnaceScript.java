@@ -19,7 +19,6 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
@@ -84,7 +83,7 @@ public class BlastoiseFurnaceScript extends Script {
                     return;
                 }
 
-                if (!Rs2GameObject.exists(BLAST_FURNACE_DISPENSER)) {
+                if (!objectExists(BLAST_FURNACE_DISPENSER)) {
                     if (Rs2Player.isAnimating()) {
                         return;
                     }
@@ -698,5 +697,9 @@ public class BlastoiseFurnaceScript extends Script {
     public boolean fullCoffer() {
         int coffer = Microbot.getVarbitValue(BLAST_FURNACE_COINSINCOFFER);
         return coffer == 1;
+    }
+
+    private static boolean objectExists(int objectId) {
+        return Microbot.getRs2TileObjectCache().query().fromWorldView().withId(objectId).first() != null;
     }
 }

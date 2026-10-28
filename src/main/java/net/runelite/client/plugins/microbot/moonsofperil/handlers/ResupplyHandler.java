@@ -74,7 +74,7 @@ public class ResupplyHandler implements BaseHandler {
             /* Take herblore supplies */
             while (Rs2Inventory.count(ItemID.VIAL_WATER) < amountToCreate) {
                 if (debugLogging) {Microbot.log("Take herblore supplies from supply crate");}
-                if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) {
+                if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_SUPPLY_CRATE, "Take-from")) {
                     Rs2Dialogue.sleepUntilHasDialogueOption("Take herblore supplies.");
                     Rs2Dialogue.clickOption("Take herblore supplies.");
                     Rs2Inventory.waitForInventoryChanges(1_500);
@@ -131,7 +131,7 @@ public class ResupplyHandler implements BaseHandler {
         long start = System.currentTimeMillis();
         while (!Rs2Inventory.contains(ItemID.BIG_NET) && System.currentTimeMillis() - start < 15_000) {
 
-            if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_SUPPLY_CRATE, "Take from")) { // interact exists :contentReference[oaicite:1]{index=1}
+            if (Microbot.getRs2TileObjectCache().query().interact(ObjectID.PMOON_SUPPLY_CRATE, "Take-from")) { // interact exists :contentReference[oaicite:1]{index=1}
                 Rs2Dialogue.sleepUntilHasDialogueOption("Take fishing supplies.");
                 Rs2Dialogue.clickOption("Take fishing supplies.");
 

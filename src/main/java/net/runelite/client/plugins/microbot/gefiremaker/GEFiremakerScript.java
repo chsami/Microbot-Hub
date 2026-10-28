@@ -10,7 +10,6 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -151,7 +150,7 @@ public class GEFiremakerScript extends Script {
                     debug("Log did not select; retrying next tick");
                     break;
                 }
-                Rs2GameObject.interact(fire);
+                fire.click();
 
                 // Newer game versions start burning immediately; older ones show the
                 // burn make-X dialog, which we confirm with space.
