@@ -1,5 +1,13 @@
 package net.runelite.client.plugins.microbot.tithefarming;
 
+import net.runelite.api.Client;
+import net.runelite.api.DecorativeObject;
+import net.runelite.api.GameObject;
+import net.runelite.api.GroundObject;
+import net.runelite.api.Tile;
+import net.runelite.api.TileObject;
+import net.runelite.api.WallObject;
+import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.ItemID;
@@ -163,6 +171,10 @@ public class TitheFarmingScript extends Script {
                         new TitheFarmPlant(50, 49, 17),
                         new TitheFarmPlant(55, 49, 18)));
                 break;
+        }
+
+        if (config.use16Plants()) {
+            plants = TitheFarmPlantLimits.apply16PlantLimit(plants, lane);
         }
     }
 
@@ -418,20 +430,120 @@ public class TitheFarmingScript extends Script {
     }
 
     private static boolean interactWithObject(int id, String action) {
+        // Cache first; if that misses, scan the live scene. Multi-tile GameObjects
+        // (seed table 27430) can be skipped by the cache's sceneMinLocation filter even
+        // when RuneLite still shows them — which caused endless "not in scene" loops.
         Rs2TileObjectModel model = Microbot.getRs2TileObjectCache().query()
                 .withId(id)
-                .nearest();
+                .nearestOnClientThread();
+        if (model == null) {
+            model = findSceneObjectById(id);
+        }
         if (model == null) {
             Microbot.log("Object id " + id + " not in scene");
             return false;
         }
-        WorldPoint playerLoc = Rs2Player.getWorldLocation();
-        if (playerLoc != null && playerLoc.distanceTo(model.getWorldLocation()) > 51) {
-            Microbot.log("Object id " + id + " is " + playerLoc.distanceTo(model.getWorldLocation()) + " tiles away, walking...");
-            Rs2Walker.walkTo(model.getWorldLocation());
+        WorldPoint objectLoc = model.getWorldLocation();
+        WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> {
+            if (Microbot.getClient().getLocalPlayer() == null) {
+                return null;
+            }
+            return Microbot.getClient().getLocalPlayer().getWorldLocation();
+        });
+        if (playerLoc != null && objectLoc != null && playerLoc.distanceTo(objectLoc) > 51) {
+            Microbot.log("Object id " + id + " is " + playerLoc.distanceTo(objectLoc) + " tiles away, walking...");
+            Rs2Walker.walkTo(objectLoc);
             return false;
         }
         return action == null ? model.click() : model.click(action);
+    }
+
+    /**
+     * Scans every tile object slot for {@code id} without the cache's
+     * sceneMinLocation dedupe, so multi-tile GameObjects are still found.
+     */
+    private static Rs2TileObjectModel findSceneObjectById(int id) {
+        return Microbot.getClientThread().invoke(() -> {
+            Client client = Microbot.getClient();
+            if (client == null) {
+                return null;
+            }
+            java.util.Set<Integer> worldViewIds = Microbot.getWorldViewIds();
+            if (worldViewIds != null) {
+                for (Integer worldViewId : worldViewIds) {
+                    Rs2TileObjectModel found = findSceneObjectInWorldView(client.getWorldView(worldViewId), id);
+                    if (found != null) {
+                        return found;
+                    }
+                }
+            }
+            return findSceneObjectInWorldView(client.getTopLevelWorldView(), id);
+        });
+    }
+
+    private static Rs2TileObjectModel findSceneObjectInWorldView(WorldView worldView, int id) {
+        if (worldView == null || worldView.getScene() == null) {
+            return null;
+        }
+        Tile[][][] tiles = worldView.getScene().getTiles();
+        if (tiles == null || worldView.getPlane() < 0 || worldView.getPlane() >= tiles.length) {
+            return null;
+        }
+        Tile[][] planeTiles = tiles[worldView.getPlane()];
+        if (planeTiles == null) {
+            return null;
+        }
+        for (Tile[] row : planeTiles) {
+            if (row == null) {
+                continue;
+            }
+            for (Tile tile : row) {
+                if (tile == null) {
+                    continue;
+                }
+                GameObject[] gameObjects = tile.getGameObjects();
+                if (gameObjects != null) {
+                    for (GameObject gameObject : gameObjects) {
+                        Rs2TileObjectModel match = wrapIfId(gameObject, id);
+                        if (match != null) {
+                            return match;
+                        }
+                    }
+                }
+                Rs2TileObjectModel wall = wrapIfId(tile.getWallObject(), id);
+                if (wall != null) {
+                    return wall;
+                }
+                Rs2TileObjectModel ground = wrapIfId(tile.getGroundObject(), id);
+                if (ground != null) {
+                    return ground;
+                }
+                Rs2TileObjectModel decorative = wrapIfId(tile.getDecorativeObject(), id);
+                if (decorative != null) {
+                    return decorative;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static Rs2TileObjectModel wrapIfId(TileObject tileObject, int id) {
+        if (tileObject == null || tileObject.getId() != id) {
+            return null;
+        }
+        if (tileObject instanceof GameObject) {
+            return new Rs2TileObjectModel((GameObject) tileObject);
+        }
+        if (tileObject instanceof WallObject) {
+            return new Rs2TileObjectModel((WallObject) tileObject);
+        }
+        if (tileObject instanceof GroundObject) {
+            return new Rs2TileObjectModel((GroundObject) tileObject);
+        }
+        if (tileObject instanceof DecorativeObject) {
+            return new Rs2TileObjectModel((DecorativeObject) tileObject);
+        }
+        return null;
     }
 
     private static void DropFertiliser() {

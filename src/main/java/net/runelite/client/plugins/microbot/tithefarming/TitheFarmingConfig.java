@@ -103,6 +103,17 @@ public interface TitheFarmingConfig extends Config {
         return false;
     }
 
+    @ConfigItem(
+            keyName = "use16Plants",
+            name = "Use 16 plants",
+            description = "Plant and care for 16 patches instead of the full set, skipping the farthest column to reduce neglect deaths",
+            position = 7,
+            section = scriptSettings
+    )
+    default boolean use16Plants() {
+        return false;
+    }
+
 
     @ConfigSection(
             name = "Debug Settings",
