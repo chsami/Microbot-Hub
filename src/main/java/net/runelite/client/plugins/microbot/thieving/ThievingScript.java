@@ -977,7 +977,8 @@ ThievingNpcStrategy getActiveStrategy() {
                 bank = Rs2Bank.getNearestBank();
                 if (bank == BankLocation.DARKMEYER) {
                     if (!equip(ThievingData.VYRE_SET)) {
-                        log.error("Did not equip vyre set cannot go to darkmeyer bank");
+                        showMessage("Vyre noble set (top, legs and shoes) is needed to bank at Darkmeyer. Carry or wear it and start the script again.");
+                        shutdown();
                         return;
                     }
                 }
