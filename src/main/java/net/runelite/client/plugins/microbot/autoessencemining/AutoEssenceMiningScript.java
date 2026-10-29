@@ -100,12 +100,21 @@ public class AutoEssenceMiningScript extends Script {
         RUNE(AutoEssenceMiningConfig.PickaxeOverride.RUNE, ItemID.RUNE_PICKAXE, "Rune pickaxe", 41, 40, 70),
         GILDED(AutoEssenceMiningConfig.PickaxeOverride.GILDED, ItemID.TRAIL_GILDED_PICKAXE, "Gilded pickaxe", 41, 40, 71),
         DRAGON(AutoEssenceMiningConfig.PickaxeOverride.DRAGON, ItemID.DRAGON_PICKAXE, "Dragon pickaxe", 61, 60, 80),
-        DRAGON_OR(AutoEssenceMiningConfig.PickaxeOverride.DRAGON_OR, ItemID.DRAGON_PICKAXE_PRETTY, "Dragon pickaxe (or)", 61, 60, 81),
-        INFERNAL_EMPTY(AutoEssenceMiningConfig.PickaxeOverride.INFERNAL_EMPTY, ItemID.INFERNAL_PICKAXE_EMPTY, "Infernal pickaxe (uncharged)", 61, 60, 82),
-        INFERNAL(AutoEssenceMiningConfig.PickaxeOverride.INFERNAL, ItemID.INFERNAL_PICKAXE, "Infernal pickaxe", 61, 60, 83),
-        THIRD_AGE(AutoEssenceMiningConfig.PickaxeOverride.THIRD_AGE, ItemID._3A_PICKAXE, "3rd age pickaxe", 61, 65, 84),
-        TRAILBLAZER(AutoEssenceMiningConfig.PickaxeOverride.TRAILBLAZER, ItemID.TRAILBLAZER_PICKAXE, "Trailblazer pickaxe", 61, 60, 85),
-        CRYSTAL(AutoEssenceMiningConfig.PickaxeOverride.CRYSTAL, ItemID.CRYSTAL_PICKAXE, "Crystal pickaxe", 71, 70, 90);
+        DRAGON_ZALCANO(AutoEssenceMiningConfig.PickaxeOverride.DRAGON, ItemID.ZALCANO_PICKAXE, "Dragon pickaxe (upgraded)", 61, 60, 81),
+        DRAGON_ZALCANO_GLOW(AutoEssenceMiningConfig.PickaxeOverride.DRAGON, ItemID.ZALCANO_PICKAXE_SPECIAL_GLOW, "Dragon pickaxe (upgraded)", 61, 60, 82),
+        TRAILBLAZER_NO_INFERNAL(AutoEssenceMiningConfig.PickaxeOverride.TRAILBLAZER, ItemID.TRAILBLAZER_PICKAXE_NO_INFERNAL, "Trailblazer pickaxe (no infernal)", 61, 60, 83),
+        TRAILBLAZER_RELOADED_NO_INFERNAL(AutoEssenceMiningConfig.PickaxeOverride.TRAILBLAZER, ItemID.TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL, "Trailblazer reloaded pickaxe (no infernal)", 61, 60, 84),
+        CRYSTAL_INACTIVE(AutoEssenceMiningConfig.PickaxeOverride.CRYSTAL, ItemID.CRYSTAL_PICKAXE_INACTIVE, "Crystal pickaxe (inactive)", 71, 70, 85),
+        DRAGON_OR(AutoEssenceMiningConfig.PickaxeOverride.DRAGON_OR, ItemID.DRAGON_PICKAXE_PRETTY, "Dragon pickaxe (or)", 61, 60, 86),
+        INFERNAL_EMPTY(AutoEssenceMiningConfig.PickaxeOverride.INFERNAL_EMPTY, ItemID.INFERNAL_PICKAXE_EMPTY, "Infernal pickaxe (uncharged)", 61, 60, 87),
+        INFERNAL(AutoEssenceMiningConfig.PickaxeOverride.INFERNAL, ItemID.INFERNAL_PICKAXE, "Infernal pickaxe", 61, 60, 88),
+        THIRD_AGE(AutoEssenceMiningConfig.PickaxeOverride.THIRD_AGE, ItemID._3A_PICKAXE, "3rd age pickaxe", 61, 65, 89),
+        TRAILBLAZER_EMPTY(AutoEssenceMiningConfig.PickaxeOverride.TRAILBLAZER, ItemID.TRAILBLAZER_PICKAXE_EMPTY, "Trailblazer pickaxe (uncharged)", 61, 60, 90),
+        TRAILBLAZER(AutoEssenceMiningConfig.PickaxeOverride.TRAILBLAZER, ItemID.TRAILBLAZER_PICKAXE, "Trailblazer pickaxe", 61, 60, 91),
+        TRAILBLAZER_RELOADED_EMPTY(AutoEssenceMiningConfig.PickaxeOverride.TRAILBLAZER, ItemID.TRAILBLAZER_RELOADED_PICKAXE_EMPTY, "Trailblazer reloaded pickaxe (uncharged)", 61, 60, 92),
+        TRAILBLAZER_RELOADED(AutoEssenceMiningConfig.PickaxeOverride.TRAILBLAZER, ItemID.TRAILBLAZER_RELOADED_PICKAXE, "Trailblazer reloaded pickaxe", 61, 60, 93),
+        CRYSTAL_GLOW(AutoEssenceMiningConfig.PickaxeOverride.CRYSTAL, ItemID.CRYSTAL_PICKAXE_GLOW, "Crystal pickaxe", 71, 70, 94),
+        CRYSTAL(AutoEssenceMiningConfig.PickaxeOverride.CRYSTAL, ItemID.CRYSTAL_PICKAXE, "Crystal pickaxe", 71, 70, 95);
 
         private final AutoEssenceMiningConfig.PickaxeOverride override;
         private final int id;
@@ -485,7 +494,7 @@ public class AutoEssenceMiningScript extends Script {
                     .filter(pickaxe -> pickaxe.override == override)
                     .filter(this::canUsePickaxe)
                     .filter(this::hasPickaxeAvailable)
-                    .findFirst();
+                    .max(Comparator.comparingInt(pickaxe -> pickaxe.priority));
         }
 
         return Arrays.stream(PickaxeTool.values())
