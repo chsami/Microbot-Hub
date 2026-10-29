@@ -11,6 +11,7 @@ import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -41,6 +42,11 @@ public class GemCrabKillerScript extends Script {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 if (config.useInventorySetup()) {
+                    if (config.inventorySetup() == null) {
+                        Microbot.showMessage("Please select an inventory setup in the plugin settings. If you've already done so, please reselect the inventory setup in the plugin settings.");
+                        shutdown();
+                        return;
+                    }
                     inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
                 }
                 switch (gemCrabKillerState) {
@@ -69,8 +75,8 @@ public class GemCrabKillerScript extends Script {
     }
 
     private void handleSafety(GemCrabKillerConfig config) {
+        int currentHP = Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS);
         if (config.dharokMode()) {
-            int currentHP = Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS);
             if (currentHP > 10) {
                 if (Rs2Inventory.hasItem(ItemID.LOCATOR_ORB)) {
                     Rs2Inventory.interact(ItemID.LOCATOR_ORB, "feel");
@@ -92,11 +98,14 @@ public class GemCrabKillerScript extends Script {
         } else {
             Rs2Player.eatAt(50);
         }
-        var hasFood = !Rs2Inventory.getInventoryFood().isEmpty();
-        var healthPercentage = Rs2Player.getHealthPercentage();
-        if (!hasFood && healthPercentage < 25d) {
+        boolean lowHp = isLowHp(config.dharokMode(), currentHP, Rs2Player.getHealthPercentage());
+        if (Rs2Inventory.getInventoryFood().isEmpty() && lowHp) {
             gemCrabKillerState = GemCrabKillerState.BANKING;
         }
+    }
+
+    static boolean isLowHp(boolean dharokMode, int currentHP, double healthPercentage) {
+        return dharokMode ? currentHP <= 2 : healthPercentage < 25d;
     }
 
     private void handlePotions(GemCrabKillerConfig config) {
@@ -146,13 +155,10 @@ public class GemCrabKillerScript extends Script {
                     return;
                 }
                 var equipmentMatches = inventorySetup.doesEquipmentMatch();
-                var inventoryMatches = inventorySetup.doesInventoryMatch();
                 if (!equipmentMatches) {
                     equipmentMatches = inventorySetup.loadEquipment();
                 }
-                if (!inventoryMatches) {
-                    inventoryMatches = inventorySetup.loadInventory();
-                }
+                var inventoryMatches = inventorySetup.loadInventory();
                 if (equipmentMatches && inventoryMatches) {
                     Rs2Bank.closeBank();
                     gemCrabKillerState = GemCrabKillerState.WALKING;
@@ -174,7 +180,7 @@ public class GemCrabKillerScript extends Script {
         Rs2NpcModel deadNpc = Microbot.getRs2NpcCache().query().withId(CRAB_NPC_DEAD_ID).nearest();
         if (deadNpc != null) {
             totalCrabKills++;
-            if (config.lootCrab() && Rs2Inventory.hasItem(" pickaxe", false) && !hasLooted) {
+            if (config.lootCrab() && (Rs2Inventory.hasItem(" pickaxe", false) || Rs2Equipment.isWearing(" pickaxe", false)) && !hasLooted) {
                 deadNpc.click("Mine");
                 Rs2Inventory.waitForInventoryChanges(2400);
                 sleep(3000, 5000);
