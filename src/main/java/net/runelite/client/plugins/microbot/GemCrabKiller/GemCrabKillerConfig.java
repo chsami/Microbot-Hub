@@ -40,10 +40,20 @@ public interface GemCrabKillerConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "offensivePotion",
+            name = "Offensive potion",
+            description = "Which offensive potion to re-drink once its boost has run out. Only used if offensive potions are enabled",
+            position = 4
+    )
+    default GemCrabKillerPotion offensivePotion() {
+        return GemCrabKillerPotion.ANY;
+    }
+
+    @ConfigItem(
             keyName = "lootCrab",
             name = "Mine and loot the Gem Crab?",
             description = "When enabled, the bot will attempt to mine the Gem Crab after the kill",
-            position = 4
+            position = 5
     )
     default boolean lootCrab() {
         return false;
@@ -53,7 +63,7 @@ public interface GemCrabKillerConfig extends Config {
             keyName = "dharokMode",
             name = "Dharok mode?",
             description = "When enabled, the bot will stay below 10hp",
-            position = 4
+            position = 6
     )
     default boolean dharokMode() {
         return false;
@@ -63,7 +73,7 @@ public interface GemCrabKillerConfig extends Config {
             keyName = "overrideState",
             name = "Override state?",
             description = "Enable to override script starting state",
-            position = 5
+            position = 7
     )
     default boolean overrideState() {
         return false;
@@ -73,7 +83,7 @@ public interface GemCrabKillerConfig extends Config {
             keyName = "startState",
             name = "Starting state",
             description = "The starting state of the bot. This is only used if override state is enabled.",
-            position = 6
+            position = 8
     )
     default GemCrabKillerState startState() {
         return GemCrabKillerState.FIGHTING;
