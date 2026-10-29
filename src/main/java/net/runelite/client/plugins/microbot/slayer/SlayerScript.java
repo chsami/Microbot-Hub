@@ -2812,7 +2812,7 @@ public class SlayerScript extends Script {
             boolean targetAlive = true;
             if (currentInteracting instanceof net.runelite.api.NPC) {
                 net.runelite.api.NPC npc = (net.runelite.api.NPC) currentInteracting;
-                targetAlive = !npc.isDead() && npc.getHealthRatio() != 0;
+                targetAlive = isLivingTarget(npc);
             }
             if (targetAlive) {
                 log.debug("In combat with: {}", currentInteracting.getName());
@@ -2854,7 +2854,7 @@ public class SlayerScript extends Script {
         // Find attackable NPCs matching target monsters
         // Prioritize NPCs that are already attacking us (interacting with player)
         List<Rs2NpcModel> attackableNpcs = Microbot.getRs2NpcCache().query()
-                .where(npc -> !npc.isDead())
+                .where(SlayerScript::isLivingTarget)
                 .where(npc -> npc.getName() != null)
                 .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
@@ -2874,7 +2874,7 @@ public class SlayerScript extends Script {
 
             // Debug: log nearby NPCs to help diagnose
             List<String> nearbyNpcNames = Microbot.getRs2NpcCache().query()
-                    .where(npc -> !npc.isDead())
+                    .where(SlayerScript::isLivingTarget)
                     .where(npc -> npc.getName() != null)
                     .where(npc -> destination == null ||
                             npc.getWorldLocation().distanceTo(destination) <= config.attackRadius())
@@ -3027,12 +3027,23 @@ public class SlayerScript extends Script {
     }
 
     /**
-     * Checks if any NPC is currently attacking the player.
+     * Dying NPCs can keep interacting during their death animation. Unknown health (-1)
+     * is still eligible, but zero health must not block switching to another target.
+     */
+    private static boolean isLivingTarget(Actor target) {
+        if (target == null) return false;
+        return Microbot.getClientThread().runOnClientThreadOptional(() ->
+                !target.isDead() && target.getHealthRatio() != 0).orElse(false);
+    }
+
+    /**
+     * Checks if any living NPC is currently attacking the player.
      */
     private boolean isBeingAttacked() {
         return Microbot.getRs2NpcCache().query()
+                .where(SlayerScript::isLivingTarget)
                 .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
-                .count() > 0;
+                .firstOnClientThread() != null;
     }
 
     /**
@@ -3042,13 +3053,14 @@ public class SlayerScript extends Script {
     private Rs2NpcModel findNpcAttackingUs(List<String> targetMonsters) {
         WorldPoint destination = taskDestination;
         return Microbot.getRs2NpcCache().query()
+                .where(SlayerScript::isLivingTarget)
                 .where(npc -> npc.getName() != null)
                 .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
                 .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
                 .where(npc -> destination == null ||
                         npc.getWorldLocation().distanceTo(destination) <= config.attackRadius() + 5)
-                .first();
+                .firstOnClientThread();
     }
 
     /**
@@ -3059,8 +3071,8 @@ public class SlayerScript extends Script {
         return Microbot.getRs2NpcCache().query()
                 .where(npc -> npc.getName() != null)
                 .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
-                .where(npc -> !npc.isDead())
-                .first();
+                .where(SlayerScript::isLivingTarget)
+                .firstOnClientThread();
     }
 
     /**
@@ -3105,7 +3117,7 @@ public class SlayerScript extends Script {
         // If already in combat with a valid target, let autocast handle it
         if (Rs2Player.isInteracting()) {
             Actor currentTarget = Rs2Player.getInteracting();
-            if (currentTarget != null && !currentTarget.isDead()) {
+            if (isLivingTarget(currentTarget)) {
                 log.debug("Already in combat with {} - autocast will continue", currentTarget.getName());
                 return;
             }
@@ -3130,10 +3142,10 @@ public class SlayerScript extends Script {
                 .where(npc -> npc.getName() != null)
                 .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> npc.getName().equalsIgnoreCase(monster)))
-                .where(npc -> !npc.isDead())
+                .where(SlayerScript::isLivingTarget)
                 .where(npc -> destination == null ||
                         npc.getWorldLocation().distanceTo(destination) <= config.attackRadius())
-                .toList();
+                .toListOnClientThread();
 
         if (nearbyMonsters.isEmpty()) {
             log.debug("No target monsters found nearby for AoE combat");
@@ -3304,12 +3316,12 @@ public class SlayerScript extends Script {
     private Rs2NpcModel findNearbySuperior() {
         WorldPoint destination = taskDestination;
         return Microbot.getRs2NpcCache().query()
-                .where(npc -> !npc.isDead())
+                .where(SlayerScript::isLivingTarget)
                 .where(npc -> npc.getName() != null)
                 .where(npc -> SUPERIOR_MONSTERS.contains(npc.getName()))
                 .where(npc -> destination == null ||
                         npc.getWorldLocation().distanceTo(destination) <= config.attackRadius() + 5)
-                .toList()
+                .toListOnClientThread()
                 .stream()
                 .min(Comparator.comparingInt(npc ->
                         Rs2Player.getWorldLocation().distanceTo(npc.getWorldLocation())))
