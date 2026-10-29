@@ -4,7 +4,7 @@ Calcified Rock Miner
 
 | | |
 |---|---|
-| Version | 1.1.4 |
+| Version | 1.1.5 |
 | Works with Microbot | 2.0.13 or newer |
 | Author | Unknown Author |
 | Tags | prayer, rock, calcified, taf, microbot |
