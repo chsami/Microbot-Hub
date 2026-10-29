@@ -41,7 +41,7 @@ public interface GemCrabKillerConfig extends Config {
 
     @ConfigItem(
             keyName = "offensivePotion",
-            name = "Offensive potion",
+            name = "Potion",
             description = "Which potion to drink while a Gem Crab is alive. Any: the best one you carry. "
                     + "Super combat skips the divine version (pick Divine super combat for that). "
                     + "Ranging also uses bastion, Magic also uses battlemage. "
