@@ -1,10 +1,17 @@
 package net.runelite.client.plugins.microbot.thieving;
 
+import net.runelite.api.Client;
 import net.runelite.api.NPC;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.thieving.enums.ThievingNpc;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -24,8 +31,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ThievingVyreTargetTest {
@@ -109,6 +121,35 @@ class ThievingVyreTargetTest {
         assertNull(method.invoke(script, "Knight of Ardougne"));
         assertNull(script.getThievingNpc());
         assertNull(getField(script, "startingNpc"));
+    }
+
+    @Test
+    void darkmeyerBankWithoutVyreSetStopsTheScript() throws Exception {
+        ThievingScript script = spy(script(ThievingNpc.VYRES));
+        doNothing().when(script).shutdown();
+        Client client = mock(Client.class);
+        when(client.isClientThread()).thenReturn(true);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            microbot.when(Microbot::getClient).thenReturn(client);
+            microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            bank.when(Rs2Bank::isOpen).thenReturn(false);
+            bank.when(Rs2Bank::getNearestBank).thenReturn(BankLocation.DARKMEYER);
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(3222, 3218, 0));
+
+            Method method = ThievingScript.class.getDeclaredMethod("bankAndEquip");
+            method.setAccessible(true);
+            method.invoke(script);
+
+            verify(script).shutdown();
+            microbot.verify(() -> Microbot.showMessage(contains("Vyre noble set")));
+            bank.verify(Rs2Bank::openBank, never());
+            bank.verify(() -> Rs2Bank.walkToBankAndUseBank(any()), never());
+        }
     }
 
     private void highlight(Rs2NpcModel model) {
