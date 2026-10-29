@@ -160,9 +160,16 @@ ThievingNpcStrategy getActiveStrategy() {
         return thievingNpc;
     }
 
+    static boolean usesHighlightedNpcs(ThievingNpc target, boolean hasHighlights) {
+        return hasHighlights && target != ThievingNpc.VYRES;
+    }
+
     private Predicate<Rs2NpcModel> getThievingNpcFilter() {
         Predicate<Rs2NpcModel> filter = npc -> true;
-        if (net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs().isEmpty()) {
+        final var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
+        if (usesHighlightedNpcs(config.THIEVING_NPC(), !highlighted.isEmpty())) {
+            filter = npc -> npc != null && highlighted.containsKey(npc.getNpc());
+        } else {
             final ThievingNpc finalNpc = config.THIEVING_NPC();
             if (finalNpc == null) {
                 log.error("Config Thieving NPC is null");
@@ -228,6 +235,16 @@ ThievingNpcStrategy getActiveStrategy() {
         
         log.debug("Found new NPC={} to thieve @ {}", getNpcName(npc), toString(npc.getWorldLocation()));
         return npc;
+    }
+
+    private WorldPoint[] getVyreHouseOrReset(String name) {
+        final WorldPoint[] house = ThievingData.getVyreHouse(name);
+        if (house == null) {
+            log.warn("No vyre house known for '{}', reselecting target", name);
+            thievingNpc = null;
+            startingNpc = null;
+        }
+        return house;
     }
 
     private <T> T getAttackingNpcs(Function<Stream<Rs2NpcModel>, T> consumer, T defaultValue) {
@@ -309,7 +326,8 @@ ThievingNpcStrategy getActiveStrategy() {
         if (isNpcNull(thievingNpc) && (thievingNpc = getThievingNpcCache()) == null && shouldHop()) return applyOverride(State.HOP);
 
         if (config.THIEVING_NPC() == ThievingNpc.VYRES) {
-            final WorldPoint[] housePolygon = ThievingData.getVyreHouse(getNpcName(thievingNpc));
+            final WorldPoint[] housePolygon = getVyreHouseOrReset(getNpcName(thievingNpc));
+            if (housePolygon == null) return State.IDLE;
 
             if (Microbot.getRs2NpcCache().query()
                     .where(Rs2NpcModel.matches(true, "Vyrewatch Sentinel"))
@@ -538,7 +556,8 @@ ThievingNpcStrategy getActiveStrategy() {
             case CLOSE_DOOR:
                 if (isNpcNull(thievingNpc)) return;
                 final String name = getNpcName(thievingNpc);
-                final WorldPoint[] house = ThievingData.getVyreHouse(name);
+                final WorldPoint[] house = getVyreHouseOrReset(name);
+                if (house == null) return;
                 final WorldPoint myLoc2 = Rs2Player.getWorldLocation();
                 if (isPointInPolygon(house, myLoc2)) {
                     log.debug("Closing door {} in {} house", toString(myLoc2), name);
