@@ -1,0 +1,3 @@
+# Sources outside this folder that the Hub build compiles into this plugin's jar (paths relative to
+# src/main/java, one glob per line).
+net/runelite/client/plugins/microbot/fourtify/core/**
