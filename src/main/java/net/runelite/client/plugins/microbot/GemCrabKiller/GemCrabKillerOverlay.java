@@ -116,8 +116,9 @@ public class GemCrabKillerOverlay extends OverlayPanel {
         Skill skill = plugin.getTrainedSkill();
         int level = skill == null ? 0 : Microbot.getClient().getRealSkillLevel(skill);
         if (skill == null || level >= Experience.MAX_REAL_LEVEL) {
-            panelComponent.getChildren().add(LineComponent.builder().left("Next level:").right("--").rightColor(NORMAL_COLOR).build());
-            panelComponent.getChildren().add(LineComponent.builder().left("XP to level:").right("--").rightColor(NORMAL_COLOR).build());
+            String nextLevel = skill == null ? "--" : "Maxed";
+            panelComponent.getChildren().add(LineComponent.builder().left(skill == null ? "Next Level:" : skill.getName() + ":").right(nextLevel).rightColor(NORMAL_COLOR).build());
+            panelComponent.getChildren().add(LineComponent.builder().left("XP To Level:").right(nextLevel).rightColor(NORMAL_COLOR).build());
             return;
         }
         long xpToLevel = Experience.getXpForLevel(level + 1) - Microbot.getClient().getSkillExperience(skill);
@@ -136,7 +137,7 @@ public class GemCrabKillerOverlay extends OverlayPanel {
                 .gap(new Point(2, 0))
                 .build());
         panelComponent.getChildren().add(LineComponent.builder()
-                .left("XP to level:")
+                .left("XP To Level:")
                 .right(formatNumber(xpToLevel))
                 .rightColor(NORMAL_COLOR)
                 .build());

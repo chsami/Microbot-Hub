@@ -42,7 +42,11 @@ public interface GemCrabKillerConfig extends Config {
     @ConfigItem(
             keyName = "offensivePotion",
             name = "Offensive potion",
-            description = "Which potion to drink while a Gem Crab is alive. Any: the best potion you carry. Super combat: regular super combat only (pick Divine super combat for the divine one). Super attack + strength, Ranging and Magic also use their divine, bastion and battlemage versions. Divine potions are only drunk above 20 HP. Only used if Use Offensive Potions is on.",
+            description = "Which potion to drink while a Gem Crab is alive. Any: the best one you carry. "
+                    + "Super combat skips the divine version (pick Divine super combat for that). "
+                    + "Ranging also uses bastion, Magic also uses battlemage. "
+                    + "Divine potions are skipped when the 10 HP cost would drop you low enough to bank. "
+                    + "Needs Use Offensive Potions on.",
             position = 4
     )
     default GemCrabKillerPotion offensivePotion() {

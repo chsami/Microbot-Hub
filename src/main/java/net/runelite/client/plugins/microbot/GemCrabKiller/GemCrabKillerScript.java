@@ -28,7 +28,9 @@ public class GemCrabKillerScript extends Script {
     private final int CAVE_ENTRANCE_ID = 57631;
     private final int CRAB_NPC_ID = 14779;
     private final int CRAB_NPC_DEAD_ID = 14780;
-    private final int DIVINE_POTION_MIN_HP = 20;
+    private final int DIVINE_POTION_HP_COST = 10;
+    // Bank threshold is 25% HP without food, plus a small margin
+    private final double DIVINE_POTION_MIN_HP_PERCENT = 30;
     private final WorldPoint CLOSEST_CRAB_LOCATION_TO_BANK = new WorldPoint(1274, 3168, 0);
     public GemCrabKillerState gemCrabKillerState = GemCrabKillerState.WALKING;
     public int totalCrabKills = 0;
@@ -115,8 +117,7 @@ public class GemCrabKillerScript extends Script {
         if (!config.useOffensivePotions() || crab == null) {
             return;
         }
-        // Divine potions cost 10 HP, so keep a margin to stay clear of a bank trip
-        boolean canDrinkDivine = Rs2Player.getBoostedSkillLevel(Skill.HITPOINTS) > DIVINE_POTION_MIN_HP;
+        boolean canDrinkDivine = canAffordDivineHpCost(config);
         for (GemCrabKillerPotion.Boost boost : config.offensivePotion().boosts) {
             if (isDivineActive(boost.skill)) {
                 continue;
@@ -133,6 +134,17 @@ public class GemCrabKillerScript extends Script {
                 return;
             }
         }
+    }
+
+    // Divine potions cost 10 HP: without food to heal it back, the drop must not push us towards a bank trip
+    private boolean canAffordDivineHpCost(GemCrabKillerConfig config) {
+        int hp = Rs2Player.getBoostedSkillLevel(Skill.HITPOINTS);
+        if (hp <= DIVINE_POTION_HP_COST) {
+            return false;
+        }
+        boolean hasFood = !Rs2Inventory.getInventoryFood().isEmpty();
+        double percentAfter = (hp - DIVINE_POTION_HP_COST) * 100d / Rs2Player.getRealSkillLevel(Skill.HITPOINTS);
+        return (hasFood && !config.dharokMode()) || percentAfter >= DIVINE_POTION_MIN_HP_PERCENT;
     }
 
     // Divine potions drop HP, so eating is checked every tick and right after a dose, in any state
