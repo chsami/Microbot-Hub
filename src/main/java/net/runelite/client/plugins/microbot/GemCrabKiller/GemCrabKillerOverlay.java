@@ -123,7 +123,7 @@ public class GemCrabKillerOverlay extends OverlayPanel {
         long xpToLevel = Experience.getXpForLevel(level + 1) - Microbot.getClient().getSkillExperience(skill);
         long xpPerHour = plugin.getSkillXpPerHour(skill);
         LineComponent nextLevel = LineComponent.builder()
-                .left(skill.getName() + " \u2192 " + (level + 1))
+                .left(skill.getName() + " " + (level + 1) + " in:")
                 .leftColor(NORMAL_COLOR)
                 .right(xpPerHour > 0 ? formatDuration(xpToLevel * 3600L / xpPerHour) : "--")
                 .rightColor(NORMAL_COLOR)
