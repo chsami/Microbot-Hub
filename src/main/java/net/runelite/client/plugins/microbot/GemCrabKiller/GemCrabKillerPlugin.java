@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.GemCrabKiller;
 
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.Skill;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -12,6 +13,9 @@ import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.Map;
 import java.time.Instant;
 
 @PluginDescriptor(
@@ -29,7 +33,8 @@ import java.time.Instant;
 @Slf4j
 public class GemCrabKillerPlugin extends Plugin {
 
-    public final static String version = "1.0.3";
+    public final static String version = "1.0.5";
+    private final Map<Skill, Integer> startSkillExp = new EnumMap<>(Skill.class);
     @Inject
     GemCrabKillerScript gemCrabKillerScript;
     @Inject
@@ -49,7 +54,6 @@ public class GemCrabKillerPlugin extends Plugin {
     @Override
     protected void startUp() throws AWTException {
         scriptStartTime = Instant.now();
-        startTotalExp = Microbot.getClient().getOverallExperience();
         if (overlayManager != null) {
             overlayManager.add(gemCrabKillerOverlay);
         }
@@ -61,6 +65,7 @@ public class GemCrabKillerPlugin extends Plugin {
         overlayManager.remove(gemCrabKillerOverlay);
         scriptStartTime = null;
         startTotalExp = 0;
+        startSkillExp.clear();
         gemCrabKillerScript.totalCrabKills = 0;
     }
 
@@ -69,13 +74,56 @@ public class GemCrabKillerPlugin extends Plugin {
     }
 
     public long getXpGained() {
-        if (startTotalExp == 0L && Microbot.isLoggedIn()) {
-            startTotalExp = Microbot.getClient().getOverallExperience();
-        }
-        return Microbot.getClient().getOverallExperience() - startTotalExp;
+        return hasStartExp() ? Microbot.getClient().getOverallExperience() - startTotalExp : 0;
     }
 
     public long getXpPerHour() {
+        return perHour(getXpGained());
+    }
+
+    public long getSkillXpPerHour(Skill skill) {
+        return perHour(getSkillXpGained(skill));
+    }
+
+    /**
+     * @return the skill that gained the most xp this session, or null if none gained any yet
+     */
+    public Skill getTrainedSkill() {
+        if (!hasStartExp()) {
+            return null;
+        }
+        return startSkillExp.keySet().stream()
+                .filter(skill -> getSkillXpGained(skill) > 0)
+                .max(Comparator.comparingInt(this::getSkillXpGained))
+                .orElse(null);
+    }
+
+    private int getSkillXpGained(Skill skill) {
+        return Microbot.getClient().getSkillExperience(skill) - startSkillExp.getOrDefault(skill, 0);
+    }
+
+    // Takes the start snapshot once logged in with real xp values, never from zeros
+    private boolean hasStartExp() {
+        if (startTotalExp == 0) {
+            long overallExp = Microbot.getClient().getOverallExperience();
+            if (!Microbot.isLoggedIn() || overallExp <= 0) {
+                return false;
+            }
+            startTotalExp = overallExp;
+            snapshotSkillExp();
+        }
+        return true;
+    }
+
+    private void snapshotSkillExp() {
+        for (Skill skill : Skill.values()) {
+            if (skill != Skill.OVERALL) {
+                startSkillExp.put(skill, Microbot.getClient().getSkillExperience(skill));
+            }
+        }
+    }
+
+    private long perHour(long xp) {
         if (scriptStartTime == null) {
             return 0;
         }
@@ -85,7 +133,6 @@ public class GemCrabKillerPlugin extends Plugin {
             return 0;
         }
 
-        // Calculate xp per hour
-        return (int) ((getXpGained() * 3600L) / secondsElapsed);
+        return (xp * 3600L) / secondsElapsed;
     }
 }

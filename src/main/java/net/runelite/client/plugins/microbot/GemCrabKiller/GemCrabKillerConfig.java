@@ -40,10 +40,24 @@ public interface GemCrabKillerConfig extends Config {
     }
 
     @ConfigItem(
+            keyName = "offensivePotion",
+            name = "Offensive potion",
+            description = "Which potion to drink while a Gem Crab is alive. Any: the best one you carry. "
+                    + "Super combat skips the divine version (pick Divine super combat for that). "
+                    + "Ranging also uses bastion, Magic also uses battlemage. "
+                    + "Divine potions are skipped when the 10 HP cost would drop you low enough to bank. "
+                    + "Needs Use Offensive Potions on.",
+            position = 4
+    )
+    default GemCrabKillerPotion offensivePotion() {
+        return GemCrabKillerPotion.ANY;
+    }
+
+    @ConfigItem(
             keyName = "lootCrab",
             name = "Mine and loot the Gem Crab?",
             description = "When enabled, the bot will attempt to mine the Gem Crab after the kill",
-            position = 4
+            position = 5
     )
     default boolean lootCrab() {
         return false;
@@ -53,7 +67,7 @@ public interface GemCrabKillerConfig extends Config {
             keyName = "dharokMode",
             name = "Dharok mode?",
             description = "When enabled, the bot will stay below 10hp",
-            position = 4
+            position = 6
     )
     default boolean dharokMode() {
         return false;
@@ -63,7 +77,7 @@ public interface GemCrabKillerConfig extends Config {
             keyName = "overrideState",
             name = "Override state?",
             description = "Enable to override script starting state",
-            position = 5
+            position = 7
     )
     default boolean overrideState() {
         return false;
@@ -73,7 +87,7 @@ public interface GemCrabKillerConfig extends Config {
             keyName = "startState",
             name = "Starting state",
             description = "The starting state of the bot. This is only used if override state is enabled.",
-            position = 6
+            position = 8
     )
     default GemCrabKillerState startState() {
         return GemCrabKillerState.FIGHTING;
