@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +46,7 @@ public class ShootingStarScript extends Script
 	private final ShootingStarPlugin plugin;
 	private final ShootingStarConfig config;
 	private Rs2InventorySetup rs2InventorySetup;
-	private Pickaxe pickaxe;
+	private Rs2ItemModel pickaxe;
 	private Star currentStar;
 	private boolean hasEquipment = false;
 	private boolean hasInventory = false;
@@ -248,11 +249,23 @@ public class ShootingStarScript extends Script
 						{
 							if (pickaxe == null)
 							{
-								pickaxe = getBestPickaxe(Rs2Bank.bankItems());
+								Rs2ItemModel bestInBank = getBestPickaxe(Rs2Bank.bankItems());
+								boolean skippedThirdAge = bestInBank != null && !Pickaxe.fromItemId(bestInBank.getId()).isWithdrawableFromBank();
+								pickaxe = getBestPickaxe(Rs2Bank.bankItems(), Pickaxe::isWithdrawableFromBank);
 								if (pickaxe != null)
 								{
-									Rs2Bank.withdrawItem(pickaxe.getItemName());
+									if (skippedThirdAge)
+									{
+										Microbot.log("Skipped the 3rd age pickaxe in your bank and took a " + pickaxe.getName() + " instead. Equip the 3rd age pickaxe before starting if you want to use it.");
+									}
+									Rs2Bank.withdrawItem(pickaxe.getId());
 									Rs2Random.waitEx(1200, 300);
+								}
+								else if (skippedThirdAge)
+								{
+									Microbot.showMessage("Shooting Star will not take your 3rd age pickaxe out of the bank, because stars can land in the Wilderness. To use it, equip it or put it in your inventory before you press start. Otherwise, put another pickaxe you have the levels for in your bank.");
+									Microbot.stopPlugin(plugin);
+									return;
 								}
 								else
 								{
@@ -596,25 +609,14 @@ public class ShootingStarScript extends Script
 		return currentStar.getObjectId() != starModel.getId();
 	}
 
-	private Pickaxe getBestPickaxe(List<Rs2ItemModel> items)
+	private Rs2ItemModel getBestPickaxe(List<Rs2ItemModel> items)
 	{
-		Pickaxe bestPickaxe = null;
+		return getBestPickaxe(items, p -> true);
+	}
 
-		for (Pickaxe pickaxe : Pickaxe.values())
-		{
-			if (items.stream().noneMatch(i -> i.getName().toLowerCase().contains(pickaxe.getItemName())))
-			{
-				continue;
-			}
-			if (pickaxe.hasRequirements())
-			{
-				if (bestPickaxe == null || pickaxe.getMiningLevel() > bestPickaxe.getMiningLevel())
-				{
-					bestPickaxe = pickaxe;
-				}
-			}
-		}
-		return bestPickaxe;
+	private Rs2ItemModel getBestPickaxe(List<Rs2ItemModel> items, Predicate<Pickaxe> allowed)
+	{
+		return Pickaxe.best(items, Rs2ItemModel::getId, p -> allowed.test(p) && p.hasRequirements()).orElse(null);
 	}
 
 	private boolean shouldBreak()

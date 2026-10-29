@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.EquipmentInventorySlot;
@@ -100,6 +101,7 @@ public class MotherloadMineScript extends Script
 	private long idleSince = 0;
 	private int idleThreshold = 0;
 	private boolean pickedUpHammer = false;
+	private boolean checkedBankForBetterPickaxe = false;
     private MLMStatus lastLoggedStatus = null;
 
 	@Inject
@@ -129,6 +131,7 @@ public class MotherloadMineScript extends Script
         shouldEmptySack = false;
 		shouldRepairWaterwheel = false;
 		emptySackWorkflowActive = false;
+		checkedBankForBetterPickaxe = false;
     }
 
     private void executeTaskSafely()
@@ -208,6 +211,13 @@ public class MotherloadMineScript extends Script
         {
             log.info("Missing required tools, running inventory setup");
             setupInventory();
+            return;
+        }
+
+        if (!config.useInventorySetup() && !checkedBankForBetterPickaxe && shouldCheckBankForBetterPickaxe())
+        {
+            status = MLMStatus.CHECKING_BANK_FOR_PICKAXE;
+            upgradePickaxeFromBank();
             return;
         }
 
@@ -512,6 +522,7 @@ public class MotherloadMineScript extends Script
 			Rs2ItemModel pickaxe = Pickaxe.getBestPickaxe();
 
 			if (pickaxe == null) {
+				checkedBankForBetterPickaxe = true;
 				Rs2Bank.openBank();
 				sleepUntil(Rs2Bank::isOpen);
 
@@ -588,6 +599,112 @@ public class MotherloadMineScript extends Script
 		Rs2Bank.closeBank();
 		sleepUntil(() -> !Rs2Bank.isOpen());
         log.info("Inventory setup complete");
+	}
+
+	private boolean shouldCheckBankForBetterPickaxe() {
+		final Rs2ItemModel carriedPickaxe = Pickaxe.getBestPickaxe();
+		if (carriedPickaxe == null || !Pickaxe.hasUsableBetterTier(carriedPickaxe.getId())) {
+			checkedBankForBetterPickaxe = true;
+			return false;
+		}
+		return !Rs2Inventory.isFull() || findItemToMakeRoom() != null;
+	}
+
+	private Rs2ItemModel findItemToMakeRoom() {
+		final Predicate<Rs2ItemModel> isKept = Rs2ItemModel.matches(false, getItemsToKeep().toArray(String[]::new));
+		return Rs2Inventory.items()
+			.filter(item -> item.getId() != ItemID.PAYDIRT && Pickaxe.fromItemId(item.getId()) == null)
+			.filter(item -> item.getName() != null && !isKept.test(item))
+			.findFirst()
+			.orElse(null);
+	}
+
+	private void upgradePickaxeFromBank() {
+		checkedBankForBetterPickaxe = true;
+		final Rs2ItemModel carriedPickaxe = Pickaxe.getBestPickaxe();
+		if (carriedPickaxe == null) {
+			return;
+		}
+
+		log.info("Checking the bank once for a better pickaxe than your {}", carriedPickaxe.getName());
+		if (!Rs2Bank.openBank() || !sleepUntil(Rs2Bank::isOpen)) {
+			log.warn("Could not open the bank to look for a better pickaxe, mining with your {}. Restart the script near the Motherlode Mine bank chest to check again.",
+				carriedPickaxe.getName());
+			return;
+		}
+
+		final Rs2ItemModel bankPickaxe = Pickaxe.getBestPickaxeFromBank();
+		if (bankPickaxe != null && Pickaxe.isBetterPickaxe(bankPickaxe.getId(), carriedPickaxe.getId())
+			&& makeRoomForPickaxe()) {
+			swapInBankPickaxe(carriedPickaxe, bankPickaxe);
+		}
+
+		Rs2Bank.closeBank();
+		sleepUntil(() -> !Rs2Bank.isOpen());
+	}
+
+	private boolean makeRoomForPickaxe() {
+		if (!Rs2Inventory.isFull()) {
+			return true;
+		}
+
+		final Rs2ItemModel item = findItemToMakeRoom();
+		if (item == null) {
+			checkedBankForBetterPickaxe = false;
+			log.info("Inventory is full of pay-dirt, checking the bank for a better pickaxe after the next hopper deposit");
+			return false;
+		}
+
+		Rs2Bank.depositAll(item.getId());
+		final boolean madeRoom = sleepUntil(() -> !Rs2Inventory.isFull());
+		if (madeRoom) {
+			log.info("Banked your {} to make room for a better pickaxe", item.getName());
+		}
+		return madeRoom;
+	}
+
+	private void swapInBankPickaxe(Rs2ItemModel carriedPickaxe, Rs2ItemModel bankPickaxe) {
+		final int carriedPickaxeId = carriedPickaxe.getId();
+		final int bankPickaxeId = bankPickaxe.getId();
+		final boolean carriedWielded = Rs2Equipment.isWearing(carriedPickaxeId);
+		final boolean canWieldBankPickaxe = Pickaxe.hasAttackLevelRequirement(bankPickaxeId);
+
+		if (canWieldBankPickaxe) {
+			final Rs2ItemModel currentWeapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+			Rs2Bank.withdrawAndEquip(bankPickaxeId);
+			if (sleepUntil(() -> Rs2Equipment.isWearing(bankPickaxeId)) && currentWeapon != null
+				&& currentWeapon.getId() != carriedPickaxeId && Rs2Inventory.contains(currentWeapon.getId())) {
+				Rs2Bank.depositOne(currentWeapon.getId());
+				Rs2Inventory.waitForInventoryChanges(5000);
+				log.info("Banked your {} to wield the {}", currentWeapon.getName(), bankPickaxe.getName());
+			}
+		} else {
+			Rs2Bank.withdrawOne(bankPickaxeId);
+			Rs2Inventory.waitForInventoryChanges(5000);
+		}
+
+		final boolean wieldingBankPickaxe = Rs2Equipment.isWearing(bankPickaxeId);
+		if (!wieldingBankPickaxe && !Rs2Inventory.contains(bankPickaxeId)) {
+			log.warn("Could not take the {} from the bank, mining with your {}", bankPickaxe.getName(), carriedPickaxe.getName());
+			return;
+		}
+		itemsToKeep = null;
+
+		if (Rs2Inventory.contains(carriedPickaxeId)) {
+			Rs2Bank.depositOne(carriedPickaxeId);
+			Rs2Inventory.waitForInventoryChanges(5000);
+		}
+
+		final String taken = wieldingBankPickaxe ? "equipped" : "took out";
+		if (!canWieldBankPickaxe && Rs2Equipment.isWearing(carriedPickaxeId)) {
+			log.info("Found a better pickaxe in the bank: took out the {}. It works from your inventory, and you keep wielding your {} because your Attack level is too low to wield the {}.",
+				bankPickaxe.getName(), carriedPickaxe.getName(), bankPickaxe.getName());
+		} else if (Rs2Equipment.isWearing(carriedPickaxeId) || Rs2Inventory.contains(carriedPickaxeId)) {
+			log.info("Found a better pickaxe in the bank: {} the {} and kept your {}", taken, bankPickaxe.getName(), carriedPickaxe.getName());
+		} else {
+			log.info("Found a better pickaxe in the bank: {} the {} and banked the {} {}", taken, bankPickaxe.getName(),
+				carriedPickaxe.getName(), carriedWielded ? "you were wielding" : "from your inventory");
+		}
 	}
 
     private void selectMiningSpotFromConfig() {
