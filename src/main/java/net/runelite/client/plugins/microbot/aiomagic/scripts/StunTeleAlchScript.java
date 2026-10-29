@@ -131,8 +131,8 @@ public class StunTeleAlchScript extends Script {
                 if (Rs2AntibanSettings.naturalMouse) {
                     Rs2Magic.alch(alchemyItem, 10, 50);
                 } else {
-                    Rs2Magic.alch(alchemyItem);
-                    sleep(200, 300);
+                    Rs2Magic.alch(alchemyItem, plugin.getAlchPauseMin(), plugin.getAlchPauseMax());
+                    sleep(plugin.nextClickDelay());
                 }
                 // 3) TELEPORT from user config
                 if (!Rs2Magic.hasRequiredRunes(plugin.getTeleportSpell().getRs2Spell())) {

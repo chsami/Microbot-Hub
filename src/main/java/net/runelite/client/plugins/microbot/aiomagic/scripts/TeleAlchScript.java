@@ -74,7 +74,7 @@ public class TeleAlchScript extends Script {
                             }
                         }
 
-                        Rs2Magic.alch(alchItem, 100, 150);
+                        Rs2Magic.alch(alchItem, plugin.getAlchPauseMin(), plugin.getAlchPauseMax());
 
                         if (!Rs2Magic.hasRequiredRunes(plugin.getTeleportSpell().getRs2Spell())) {
                             Microbot.showMessage("Out of runes for " + plugin.getTeleportSpell().name());

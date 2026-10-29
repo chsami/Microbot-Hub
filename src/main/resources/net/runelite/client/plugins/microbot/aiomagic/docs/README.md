@@ -149,3 +149,9 @@ The plugin provides a comprehensive configuration panel (`AIOMagicConfig`) where
 
 - **Overlay**: shows Magic XP gained, XP/hour, and the estimated time to the next Magic level plus XP to level (`--` until there is data, at 99, or at 0 XP/hr).
 - **Stop at Magic level** (General Settings, 0 = disabled): once your real Magic level reaches it, the plugin stops for every activity.
+
+## Click speed (v1.5.0)
+
+- **Click Speed** section: `Min click delay (ms)` and `Max click delay (ms)` (defaults 40 / 350; swapped if min is above max).
+- Delays between clicks are random but skewed fast, with occasional quick bursts and rare hesitations, never the same value twice in a row.
+- Waits on the game (XP drop, spell cooldown, teleport animation) are unchanged: the random delay is added after them, before the next click.

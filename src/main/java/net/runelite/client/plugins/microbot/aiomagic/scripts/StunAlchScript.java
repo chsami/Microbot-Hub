@@ -129,8 +129,8 @@ public class StunAlchScript extends Script {
                 if (Rs2AntibanSettings.naturalMouse) {
                     Rs2Magic.alch(alchItem, 10, 50);
                 } else {
-                    Rs2Magic.alch(alchItem);
-                    sleep(200, 300);
+                    Rs2Magic.alch(alchItem, plugin.getAlchPauseMin(), plugin.getAlchPauseMax());
+                    sleep(plugin.nextClickDelay());
                 }
 
                 long endTime = System.currentTimeMillis();

@@ -83,11 +83,14 @@ public class AIOMagicPlugin extends Plugin {
     @Inject
     private SpinFlaxScript spinFlaxScript;
 
-    public final static String version = "1.4.0";
+    public final static String version = "1.5.0";
+
+    private static final int ALCH_MIN_PAUSE_MS = 80;
 
     private Instant scriptStartTime;
     private int startMagicExp;
     private boolean stopping;
+    private final ClickDelay clickDelay = new ClickDelay();
 
     @Override
     protected void startUp() throws AWTException {
@@ -157,6 +160,27 @@ public class AIOMagicPlugin extends Plugin {
             Microbot.stopPlugin(this);
             Microbot.showMessage("AIO Magic stopped at target Magic level " + stopLevel, 10000);
         });
+    }
+
+    public int getMinClickDelay() {
+        return Math.min(config.minClickDelay(), config.maxClickDelay());
+    }
+
+    public int getMaxClickDelay() {
+        return Math.max(config.minClickDelay(), config.maxClickDelay());
+    }
+
+    // Rs2Magic.alch pauses between the spell click and the item click; keep it long enough for the tab switch
+    public int getAlchPauseMin() {
+        return Math.max(ALCH_MIN_PAUSE_MS, getMinClickDelay());
+    }
+
+    public int getAlchPauseMax() {
+        return Math.max(ALCH_MIN_PAUSE_MS, getMaxClickDelay());
+    }
+
+    public int nextClickDelay() {
+        return clickDelay.next(getMinClickDelay(), getMaxClickDelay());
     }
 
     public int getMagicXpGained() {

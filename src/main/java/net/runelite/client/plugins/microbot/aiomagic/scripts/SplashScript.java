@@ -614,6 +614,7 @@ public class SplashScript extends Script {
             return;
         }
 
+        sleep(plugin.nextClickDelay());
         if (targetNpc.click("Attack")) {
             lastClickTime = System.currentTimeMillis();
             afkIntervalMs = SplashLogic.nextAfkIntervalMs(random);

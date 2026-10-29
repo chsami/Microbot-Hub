@@ -25,6 +25,8 @@ public interface AIOMagicConfig extends Config {
 	String stunSpell = "stunSpell";
 	String stunNpcName = "stunNpcName";
 	String stopAtMagicLevel = "stopAtMagicLevel";
+	String minClickDelay = "minClickDelay";
+	String maxClickDelay = "maxClickDelay";
 	String splashSpellMode = "splashSpellMode";
 	String castsPerTrip = "splashCastsPerTrip";
 	String buyRunesOnGe = "splashBuyRunesOnGe";
@@ -40,6 +42,13 @@ public interface AIOMagicConfig extends Config {
 			position = 0
 	)
 	String generalSection = "general";
+
+	@ConfigSection(
+			name = "Click Speed",
+			description = "Configure how fast the plugin clicks",
+			position = 0
+	)
+	String clickSpeedSection = "clickSpeed";
 
 	@ConfigSection(
 			name = "Splashing Settings",
@@ -97,6 +106,30 @@ public interface AIOMagicConfig extends Config {
 	@Range(min = 0, max = 99)
 	default int stopAtMagicLevel() {
 		return 0;
+	}
+
+	@ConfigItem(
+			keyName = minClickDelay,
+			name = "Min click delay (ms)",
+			description = "Fastest delay between clicks. Delays are random between min and max, mostly on the fast side",
+			position = 0,
+			section = clickSpeedSection
+	)
+	@Range(min = 0, max = 5000)
+	default int minClickDelay() {
+		return 40;
+	}
+
+	@ConfigItem(
+			keyName = maxClickDelay,
+			name = "Max click delay (ms)",
+			description = "Slowest delay between clicks. If lower than min, the two are swapped",
+			position = 1,
+			section = clickSpeedSection
+	)
+	@Range(min = 0, max = 5000)
+	default int maxClickDelay() {
+		return 350;
 	}
 
 	@ConfigItem(
