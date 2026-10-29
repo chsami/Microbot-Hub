@@ -2,9 +2,12 @@ package net.runelite.client.plugins.microbot.aiomagic;
 
 import com.google.inject.Provides;
 import net.runelite.api.Skill;
+import net.runelite.api.events.GameTick;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.aiomagic.AIOMagicConfig;
 import net.runelite.client.plugins.microbot.aiomagic.AIOMagicOverlay;
@@ -18,7 +21,10 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
+import javax.swing.SwingUtilities;
 import java.awt.*;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -77,10 +83,17 @@ public class AIOMagicPlugin extends Plugin {
     @Inject
     private SpinFlaxScript spinFlaxScript;
 
-    public final static String version = "1.3.0";
+    public final static String version = "1.4.0";
+
+    private Instant scriptStartTime;
+    private int startMagicExp;
+    private boolean stopping;
 
     @Override
     protected void startUp() throws AWTException {
+        scriptStartTime = null;
+        startMagicExp = 0;
+        stopping = false;
         if (overlayManager != null) {
             overlayManager.add(aioMagicOverlay);
         }
@@ -127,6 +140,47 @@ public class AIOMagicPlugin extends Plugin {
         if (stunTeleAlchScript != null) stunTeleAlchScript.shutdown(); // NEW
         if (spinFlaxScript != null) spinFlaxScript.shutdown();
         overlayManager.remove(aioMagicOverlay);
+        scriptStartTime = null;
+    }
+
+    // One central check for every activity: stops the plugin once the real Magic level reaches the target
+    @Subscribe
+    public void onGameTick(GameTick event) {
+        int stopLevel = config.stopAtMagicLevel();
+        if (stopping || stopLevel <= 0 || Microbot.getClient().getRealSkillLevel(Skill.MAGIC) < stopLevel) {
+            return;
+        }
+        stopping = true;
+        Microbot.status = "Reached Magic level " + stopLevel + ", stopping";
+        // Off the client thread: showMessage(String) is modal and would freeze the game until dismissed
+        SwingUtilities.invokeLater(() -> {
+            Microbot.stopPlugin(this);
+            Microbot.showMessage("AIO Magic stopped at target Magic level " + stopLevel, 10000);
+        });
+    }
+
+    public int getMagicXpGained() {
+        return hasStartExp() ? Microbot.getClient().getSkillExperience(Skill.MAGIC) - startMagicExp : 0;
+    }
+
+    public long getMagicXpPerHour() {
+        if (scriptStartTime == null) {
+            return 0;
+        }
+        long secondsElapsed = Duration.between(scriptStartTime, Instant.now()).getSeconds();
+        return secondsElapsed <= 0 ? 0 : getMagicXpGained() * 3600L / secondsElapsed;
+    }
+
+    // Takes the start snapshot once logged in with real xp values, never from zeros
+    private boolean hasStartExp() {
+        if (scriptStartTime == null) {
+            if (!Microbot.isLoggedIn() || Microbot.getClient().getOverallExperience() <= 0) {
+                return false;
+            }
+            startMagicExp = Microbot.getClient().getSkillExperience(Skill.MAGIC);
+            scriptStartTime = Instant.now();
+        }
+        return true;
     }
 
     public Rs2CombatSpells getCombatSpell() {

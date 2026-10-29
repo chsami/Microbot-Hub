@@ -144,3 +144,8 @@ The plugin provides a comprehensive configuration panel (`AIOMagicConfig`) where
 - **Runes**: restocks from the bank (`Casts per trip`, default 1000); optional GE buying capped by `Max gp per purchase`; wields an owned elemental staff when it keeps you at -65 or lower.
 - **Auto splash gear**: wears only metal armour (owned first, else cheapest bought on the GE) until the magic attack bonus is -65 or lower. `Require -65 magic bonus` stops the script if that cannot be reached.
 - **AFK**: re-attacks every 15-19 minutes, re-targets NPCs further than 10 tiles, returns if drifted over 8 tiles. With no NPC name set it picks the nearest safe low-level NPC (chicken, rat, man, ...).
+
+## XP tracking and stop level (v1.4.0)
+
+- **Overlay**: shows Magic XP gained, XP/hour, and the estimated time to the next Magic level plus XP to level (`--` until there is data, at 99, or at 0 XP/hr).
+- **Stop at Magic level** (General Settings, 0 = disabled): once your real Magic level reaches it, the plugin stops for every activity.

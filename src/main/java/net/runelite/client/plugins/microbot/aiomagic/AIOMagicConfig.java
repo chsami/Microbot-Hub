@@ -4,6 +4,7 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
+import net.runelite.client.config.Range;
 import net.runelite.client.plugins.microbot.aiomagic.enums.MagicActivity;
 import net.runelite.client.plugins.microbot.aiomagic.enums.SplashSpellMode;
 import net.runelite.client.plugins.microbot.aiomagic.enums.StunSpell;
@@ -23,6 +24,7 @@ public interface AIOMagicConfig extends Config {
 	String teleportSpell = "teleportSpell";
 	String stunSpell = "stunSpell";
 	String stunNpcName = "stunNpcName";
+	String stopAtMagicLevel = "stopAtMagicLevel";
 	String splashSpellMode = "splashSpellMode";
 	String castsPerTrip = "splashCastsPerTrip";
 	String buyRunesOnGe = "splashBuyRunesOnGe";
@@ -83,6 +85,18 @@ public interface AIOMagicConfig extends Config {
 	)
 	default MagicActivity magicActivity() {
 		return MagicActivity.SPLASHING;
+	}
+
+	@ConfigItem(
+			keyName = stopAtMagicLevel,
+			name = "Stop at Magic level",
+			description = "Stops the script once your real Magic level reaches this level. 0 = disabled",
+			position = 1,
+			section = generalSection
+	)
+	@Range(min = 0, max = 99)
+	default int stopAtMagicLevel() {
+		return 0;
 	}
 
 	@ConfigItem(
