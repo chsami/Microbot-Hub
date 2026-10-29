@@ -53,11 +53,11 @@ public class AIOCamdozScript extends Script {
 
     List<Rs2TileObjectModel> mineableRocks = new ArrayList<>();
 
-    int pickaxeToUse;
+    int[] pickaxeIds = new int[0];
     int netToUse;
 
     int lastInteractedBarroniteID = 41548;
-    int targetMiningAnimationID = 0;
+    int[] miningAnimationIds = new int[0];
 
     int targetFishingAnimationID = 0;
     boolean processTwice = false;
@@ -135,7 +135,7 @@ public class AIOCamdozScript extends Script {
 
         switch (state) {
             case WALKING_TO_ROCKS:
-                if (!Rs2Equipment.isWearing(pickaxeToUse)) {
+                if (!Rs2Equipment.isWearing(pickaxeIds)) {
                     state = State.WALKING_TO_BANK;
                 }
                 if (Rs2Inventory.isFull()) {
@@ -155,7 +155,7 @@ public class AIOCamdozScript extends Script {
                 break;
 
             case MINING:
-                if (!Rs2Equipment.isWearing(pickaxeToUse) && !Rs2Inventory.hasItem(pickaxeToUse)) {
+                if (!Rs2Equipment.isWearing(pickaxeIds) && !Rs2Inventory.hasItem(pickaxeIds)) {
                     state = State.WALKING_TO_BANK;
                     break;
                 }
@@ -179,11 +179,11 @@ public class AIOCamdozScript extends Script {
                 }
 
                 if (!Rs2Player.isMoving()) {
-                    if (Rs2Player.getAnimation() != targetMiningAnimationID) {
+                    if (!isMiningAnimation(Rs2Player.getAnimation())) {
                         // Wait a moment. If we get an xp drop, we will be mining. otherwise will continue to click on rock.
                         Rs2Player.waitForXpDrop(Skill.MINING, 1000);
                         int sleepBetween = 2200 + (int) (Math.random() * (4000 - 2200));
-                        if (sleepUntil(() -> Rs2Player.getAnimation() != targetMiningAnimationID, sleepBetween)) {
+                        if (sleepUntil(() -> !isMiningAnimation(Rs2Player.getAnimation()), sleepBetween)) {
                             // Mine the available rocks
                             mineableRocks.clear();
                             if (lastInteractedBarroniteID == 41547) {
@@ -246,7 +246,7 @@ public class AIOCamdozScript extends Script {
                     if (Rs2Inventory.hasItem(ItemID.HAMMER) || Rs2Inventory.hasItem(ItemID.IMCANDO_HAMMER) || Rs2Inventory.hasItem(ItemID.IMCANDO_HAMMER_OFFHAND)
                             || Rs2Equipment.isWearing(ItemID.IMCANDO_HAMMER) || Rs2Equipment.isWearing(ItemID.IMCANDO_HAMMER_OFFHAND)) {
                         // We have some form of hammer
-                        if (Rs2Inventory.hasItem(pickaxeToUse) || Rs2Equipment.isWearing(pickaxeToUse)) {
+                        if (Rs2Inventory.hasItem(pickaxeIds) || Rs2Equipment.isWearing(pickaxeIds)) {
                             // We have a pickaxe
                             state = State.WALKING_TO_ROCKS;
                             break;
@@ -272,12 +272,12 @@ public class AIOCamdozScript extends Script {
                 } else {
                     hasHammer = false;
                 }
-                if (Rs2Equipment.isWearing(pickaxeToUse)) {
+                if (Rs2Equipment.isWearing(pickaxeIds)) {
                     hasPickaxe = true;
                 } else {
-                    if (Rs2Inventory.hasItem(pickaxeToUse)) {
+                    if (Rs2Inventory.hasItem(pickaxeIds)) {
                         hasPickaxe = true;
-                        Rs2Inventory.equip(pickaxeToUse);
+                        Rs2Inventory.equip(pickaxeIds);
                     } else {
                         hasPickaxe = false;
                     }
@@ -304,12 +304,12 @@ public class AIOCamdozScript extends Script {
                         }
                     }
                     if (!hasPickaxe) {
-                        Rs2Bank.withdrawOne(pickaxeToUse);
+                        Arrays.stream(pickaxeIds).filter(Rs2Bank::hasItem).findFirst().ifPresent(Rs2Bank::withdrawOne);
                     }
                     Rs2Bank.closeBank();
-                    if (Rs2Inventory.hasItem(pickaxeToUse)) {
+                    if (Rs2Inventory.hasItem(pickaxeIds)) {
                         hasPickaxe = true;
-                        Rs2Inventory.equip(pickaxeToUse);
+                        Rs2Inventory.equip(pickaxeIds);
                     }
                     if (Rs2Inventory.hasItem(ItemID.IMCANDO_HAMMER)) {
                         Rs2Inventory.interact(ItemID.IMCANDO_HAMMER, "Swap");
@@ -696,59 +696,102 @@ public class AIOCamdozScript extends Script {
     }
 
     private void GetConfigPickaxe(AIOCamdozConfig _config) {
-        switch (_config.SelectedPickaxe()) {
+        pickaxeIds = pickaxeIds(_config.SelectedPickaxe());
+        miningAnimationIds = miningAnimationIds(_config.SelectedPickaxe());
+    }
+
+    private boolean isMiningAnimation(int animationId) {
+        return Arrays.stream(miningAnimationIds).anyMatch(id -> id == animationId);
+    }
+
+    static int[] pickaxeIds(AIOCamdozConfig.Pickaxes pickaxe) {
+        switch (pickaxe) {
             case BRONZE:
-                pickaxeToUse = ItemID.BRONZE_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_BRONZE_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.BRONZE_PICKAXE};
             case IRON:
-                pickaxeToUse = ItemID.IRON_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_IRON_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.IRON_PICKAXE};
             case STEEL:
-                pickaxeToUse = ItemID.STEEL_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_STEEL_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.STEEL_PICKAXE};
             case BLACK:
-                pickaxeToUse = ItemID.BLACK_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_BLACK_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.BLACK_PICKAXE};
             case MITHRIL:
-                pickaxeToUse = ItemID.MITHRIL_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_MITHRIL_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.MITHRIL_PICKAXE};
             case ADAMANT:
-                pickaxeToUse = ItemID.ADAMANT_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_ADAMANT_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.ADAMANT_PICKAXE};
             case RUNE:
-                pickaxeToUse = ItemID.RUNE_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_RUNE_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.RUNE_PICKAXE};
             case GILDED_PICKAXE:
-                pickaxeToUse = ItemID.TRAIL_GILDED_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_GILDED_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.TRAIL_GILDED_PICKAXE};
             case DRAGON_PICKAXE:
-                pickaxeToUse = ItemID.DRAGON_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_DRAGON_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.DRAGON_PICKAXE, ItemID.DRAGON_PICKAXE_PRETTY, ItemID.ZALCANO_PICKAXE,
+                        ItemID.ZALCANO_PICKAXE_SPECIAL_GLOW, ItemID.TRAILBLAZER_PICKAXE_NO_INFERNAL,
+                        ItemID.TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL};
             case DRAGON_PICKAXE_OR:
-                pickaxeToUse = ItemID.DRAGON_PICKAXE_PRETTY;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_DRAGON_PICKAXE_PRETTY_WALL;
-                break;
+                return new int[]{ItemID.DRAGON_PICKAXE_PRETTY, ItemID.DRAGON_PICKAXE, ItemID.ZALCANO_PICKAXE,
+                        ItemID.ZALCANO_PICKAXE_SPECIAL_GLOW, ItemID.TRAILBLAZER_PICKAXE_NO_INFERNAL,
+                        ItemID.TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL};
             case INFERNAL_PICKAXE:
-                pickaxeToUse = ItemID.INFERNAL_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_INFERNAL_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.INFERNAL_PICKAXE, ItemID.INFERNAL_PICKAXE_EMPTY, ItemID.TRAILBLAZER_PICKAXE,
+                        ItemID.TRAILBLAZER_PICKAXE_EMPTY, ItemID.TRAILBLAZER_RELOADED_PICKAXE,
+                        ItemID.TRAILBLAZER_RELOADED_PICKAXE_EMPTY};
             case INFERNAL_PICKAXE_OR:
-                pickaxeToUse = ItemID.TRAILBLAZER_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_TRAILBLAZER_PICKAXE_WALL;
-                break;
+            case TRAILBLAZER_PICKAXE:
+                return new int[]{ItemID.TRAILBLAZER_PICKAXE, ItemID.TRAILBLAZER_RELOADED_PICKAXE,
+                        ItemID.TRAILBLAZER_PICKAXE_EMPTY, ItemID.TRAILBLAZER_RELOADED_PICKAXE_EMPTY,
+                        ItemID.INFERNAL_PICKAXE, ItemID.INFERNAL_PICKAXE_EMPTY, ItemID.TRAILBLAZER_PICKAXE_NO_INFERNAL,
+                        ItemID.TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL};
+            case THIRD_AGE_PICKAXE:
+                return new int[]{ItemID._3A_PICKAXE};
             case CRYSTAL_PICKAXE:
-                pickaxeToUse = ItemID.CRYSTAL_PICKAXE;
-                targetMiningAnimationID = AnimationID.HUMAN_MINING_CRYSTAL_PICKAXE_WALL;
-                break;
+                return new int[]{ItemID.CRYSTAL_PICKAXE, ItemID.CRYSTAL_PICKAXE_INACTIVE, ItemID.CRYSTAL_PICKAXE_GLOW};
+            default:
+                return new int[0];
+        }
+    }
+
+    static int[] miningAnimationIds(AIOCamdozConfig.Pickaxes pickaxe) {
+        switch (pickaxe) {
+            case BRONZE:
+                return new int[]{AnimationID.HUMAN_MINING_BRONZE_PICKAXE_WALL};
+            case IRON:
+                return new int[]{AnimationID.HUMAN_MINING_IRON_PICKAXE_WALL};
+            case STEEL:
+                return new int[]{AnimationID.HUMAN_MINING_STEEL_PICKAXE_WALL};
+            case BLACK:
+                return new int[]{AnimationID.HUMAN_MINING_BLACK_PICKAXE_WALL};
+            case MITHRIL:
+                return new int[]{AnimationID.HUMAN_MINING_MITHRIL_PICKAXE_WALL};
+            case ADAMANT:
+                return new int[]{AnimationID.HUMAN_MINING_ADAMANT_PICKAXE_WALL};
+            case RUNE:
+                return new int[]{AnimationID.HUMAN_MINING_RUNE_PICKAXE_WALL};
+            case GILDED_PICKAXE:
+                return new int[]{AnimationID.HUMAN_MINING_GILDED_PICKAXE_WALL};
+            case DRAGON_PICKAXE:
+            case DRAGON_PICKAXE_OR:
+                return new int[]{AnimationID.HUMAN_MINING_DRAGON_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_DRAGON_PICKAXE_PRETTY_WALL, AnimationID.HUMAN_MINING_ZALCANO_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_PICKAXE_NO_INFERNAL_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL_WALL};
+            case INFERNAL_PICKAXE:
+                return new int[]{AnimationID.HUMAN_MINING_INFERNAL_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_LEAGUE_TRAILBLAZER_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_RELOADED_PICKAXE_WALL};
+            case INFERNAL_PICKAXE_OR:
+            case TRAILBLAZER_PICKAXE:
+                return new int[]{AnimationID.HUMAN_MINING_INFERNAL_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_LEAGUE_TRAILBLAZER_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_RELOADED_PICKAXE_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_PICKAXE_NO_INFERNAL_WALL,
+                        AnimationID.HUMAN_MINING_TRAILBLAZER_RELOADED_PICKAXE_NO_INFERNAL_WALL};
+            case THIRD_AGE_PICKAXE:
+                return new int[]{AnimationID.HUMAN_MINING_3A_PICKAXE_WALL};
+            case CRYSTAL_PICKAXE:
+                return new int[]{AnimationID.HUMAN_MINING_CRYSTAL_PICKAXE_WALL};
+            default:
+                return new int[0];
         }
     }
 

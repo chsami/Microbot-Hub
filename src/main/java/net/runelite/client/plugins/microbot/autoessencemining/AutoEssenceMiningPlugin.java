@@ -25,7 +25,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoEssenceMiningPlugin extends Plugin {
-    static final String version = "1.0.4";
+    static final String version = "1.0.5";
     @Inject
     private AutoEssenceMiningConfig config;
     
