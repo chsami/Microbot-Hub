@@ -164,11 +164,19 @@ ThievingNpcStrategy getActiveStrategy() {
         return hasHighlights && target != ThievingNpc.VYRES;
     }
 
+    private boolean hasHighlightedVyre() {
+        final var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
+        if (highlighted.isEmpty()) return false;
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> highlighted.keySet().stream()
+                .anyMatch(npc -> npc != null && ThievingData.VYRES.contains(npc.getName()))).orElse(false);
+    }
+
     private Predicate<Rs2NpcModel> getThievingNpcFilter() {
         Predicate<Rs2NpcModel> filter = npc -> true;
         final var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
+        final Predicate<Rs2NpcModel> isHighlighted = npc -> npc != null && highlighted.containsKey(npc.getNpc());
         if (usesHighlightedNpcs(config.THIEVING_NPC(), !highlighted.isEmpty())) {
-            filter = npc -> npc != null && highlighted.containsKey(npc.getNpc());
+            filter = isHighlighted;
         } else {
             final ThievingNpc finalNpc = config.THIEVING_NPC();
             if (finalNpc == null) {
@@ -183,6 +191,7 @@ ThievingNpcStrategy getActiveStrategy() {
             switch (finalNpc) {
                 case VYRES:
                     filter = validateName(ThievingData.VYRES::contains);
+                    if (hasHighlightedVyre()) filter = filter.and(isHighlighted);
                     break;
                 case ARDOUGNE_KNIGHT:
                     filter = validateName("knight of ardougne"::equalsIgnoreCase);
@@ -231,6 +240,9 @@ ThievingNpcStrategy getActiveStrategy() {
         if (startingNpc == null && config.THIEVING_NPC() == ThievingNpc.VYRES) {
             startingNpc = getNpcName(npc);
             log.debug("Set starting npc to {}", startingNpc);
+            if (!net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs().isEmpty() && !hasHighlightedVyre()) {
+                log.info("None of your highlighted NPCs is a supported vyre, targeting the nearest vyre {}", startingNpc);
+            }
         }
         
         log.debug("Found new NPC={} to thieve @ {}", getNpcName(npc), toString(npc.getWorldLocation()));
@@ -240,7 +252,7 @@ ThievingNpcStrategy getActiveStrategy() {
     private WorldPoint[] getVyreHouseOrReset(String name) {
         final WorldPoint[] house = ThievingData.getVyreHouse(name);
         if (house == null) {
-            log.warn("No vyre house known for '{}', reselecting target", name);
+            log.warn("'{}' is not a supported vyre for Vyres mode, picking another vyre nearby", name);
             thievingNpc = null;
             startingNpc = null;
         }
@@ -615,7 +627,7 @@ ThievingNpcStrategy getActiveStrategy() {
                 if ((timeSince / 30_000d) > rand) sleep(300, 700); // around every 30s
 
                 var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
-                if (highlighted.isEmpty()) {
+                if (highlighted.isEmpty() || config.THIEVING_NPC() == ThievingNpc.VYRES) {
                     if (isNpcNull(thievingNpc)) return;
                     Rs2Npc.pickpocket(thievingNpc.getNpc());
                 } else {

@@ -12,6 +12,8 @@ import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Predicate;
@@ -28,11 +30,11 @@ import static org.mockito.Mockito.when;
 
 class ThievingVyreTargetTest {
 
-    private NPC highlightedNpc;
+    private final List<NPC> highlightedNpcs = new ArrayList<>();
 
     @AfterEach
     void clearHighlights() {
-        if (highlightedNpc != null) NpcIndicatorsPlugin.getHighlightedNpcs().remove(highlightedNpc);
+        highlightedNpcs.forEach(NpcIndicatorsPlugin.getHighlightedNpcs()::remove);
     }
 
     @Test
@@ -45,7 +47,7 @@ class ThievingVyreTargetTest {
     }
 
     @Test
-    void vyresModeIgnoresHighlights() {
+    void vyresModeDoesNotUseHighlightOnlyFilter() {
         assertFalse(ThievingScript.usesHighlightedNpcs(ThievingNpc.VYRES, true));
         assertFalse(ThievingScript.usesHighlightedNpcs(ThievingNpc.ARDOUGNE_KNIGHT, false));
         assertTrue(ThievingScript.usesHighlightedNpcs(ThievingNpc.ARDOUGNE_KNIGHT, true));
@@ -62,6 +64,23 @@ class ThievingVyreTargetTest {
             Predicate<Rs2NpcModel> filter = filter(script);
             assertFalse(filter.test(knight));
             assertTrue(filter.test(vyre));
+        }
+    }
+
+    @Test
+    void vyresFilterPrefersHighlightedVyre() throws Exception {
+        ThievingScript script = script(ThievingNpc.VYRES);
+        Rs2NpcModel knight = npc("Knight of Ardougne");
+        Rs2NpcModel tagged = npc("Vonnetta Varnis");
+        highlight(knight);
+        highlight(tagged);
+        Rs2NpcModel other = npc("Vallessia von Pitt");
+
+        try (MockedStatic<Microbot> microbot = mockClientThread()) {
+            Predicate<Rs2NpcModel> filter = filter(script);
+            assertTrue(filter.test(tagged));
+            assertFalse(filter.test(other));
+            assertFalse(filter.test(knight));
         }
     }
 
@@ -93,8 +112,8 @@ class ThievingVyreTargetTest {
     }
 
     private void highlight(Rs2NpcModel model) {
-        highlightedNpc = model.getNpc();
-        NpcIndicatorsPlugin.getHighlightedNpcs().put(highlightedNpc, null);
+        highlightedNpcs.add(model.getNpc());
+        NpcIndicatorsPlugin.getHighlightedNpcs().put(model.getNpc(), null);
     }
 
     @SuppressWarnings("unchecked")
@@ -117,7 +136,9 @@ class ThievingVyreTargetTest {
     private static Rs2NpcModel npc(String name) {
         Rs2NpcModel model = mock(Rs2NpcModel.class);
         when(model.getName()).thenReturn(name);
-        when(model.getNpc()).thenReturn(mock(NPC.class));
+        NPC npc = mock(NPC.class);
+        when(npc.getName()).thenReturn(name);
+        when(model.getNpc()).thenReturn(npc);
         return model;
     }
 
