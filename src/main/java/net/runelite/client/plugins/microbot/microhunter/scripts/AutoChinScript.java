@@ -733,6 +733,7 @@ public class AutoChinScript extends Script {
             return;
         }
         WorldPoint player = Rs2Player.getWorldLocation();
+        if (player == null) return;
         WorldPoint target = layoutSlots.stream()
                 .filter(tile -> !managedTiles.contains(tile))
                 .filter(tile -> !isTemporarilyBlockedSetupTile(tile))
@@ -788,6 +789,7 @@ public class AutoChinScript extends Script {
 
     private void handleMoveTarget() {
         WorldPoint player = Rs2Player.getWorldLocation();
+        if (player == null) return;
         if (!player.equals(moveTarget)) {
             if ((!managedTiles.contains(moveTarget) && !isSafePlacementTile(moveTarget, false))
                     || System.currentTimeMillis() - moveTargetStartedAt >= 6_000
@@ -1312,6 +1314,7 @@ public class AutoChinScript extends Script {
 
     private void updateSpawnRing(AutoHunterConfig config) {
         WorldPoint player = Rs2Player.getWorldLocation();
+        if (player == null) return;
         long now = System.currentTimeMillis();
         if (now < nextRingEvaluationAt) return;
         nextRingEvaluationAt = now + 2_000;

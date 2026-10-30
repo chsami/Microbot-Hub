@@ -338,6 +338,9 @@ public class SlayerScript extends Script {
         }
 
         SlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         SlayerPlugin.setCurrentLocation(master.getName());
 
@@ -530,6 +533,9 @@ public class SlayerScript extends Script {
         }
 
         SlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         SlayerPlugin.setCurrentLocation(master.getName() + " (Skipping)");
 
@@ -565,6 +571,46 @@ public class SlayerScript extends Script {
     private void resetSkipState() {
         skipAttemptCounter = 0;
         taskBeingSkipped = "";
+    }
+
+    private boolean canUseSlayerMaster(SlayerMaster master) {
+        int combatLevel = Rs2Player.getCombatLevel();
+        int slayerLevel = Rs2Player.getRealSkillLevel(Skill.SLAYER);
+        if (combatLevel <= 0 || slayerLevel <= 0) {
+            return false;
+        }
+        if (master.isAvailableAt(combatLevel, slayerLevel)) {
+            return true;
+        }
+        String reason = slayerMasterTooHighMessage(master, combatLevel, slayerLevel);
+        log.warn(reason);
+        Microbot.log("Slayer stopped: " + reason);
+        SlayerPlugin.setState(SlayerState.IDLE);
+        Microbot.stopPlugin(SlayerPlugin.class);
+        Microbot.showMessage("Slayer stopped: " + reason);
+        return false;
+    }
+
+    static String slayerMasterTooHighMessage(SlayerMaster master, int combatLevel, int slayerLevel) {
+        String cause = combatLevel < master.getCombatLevelRequired()
+                ? master.getName() + " only gives tasks from combat level " + master.getCombatLevelRequired()
+                        + "; you are combat level " + combatLevel + "."
+                : master.getName() + " only gives tasks from Slayer level " + master.getSlayerLevelRequired()
+                        + "; you are Slayer level " + slayerLevel + ".";
+        SlayerMaster suggestion = SlayerMaster.highestAvailableAt(combatLevel, slayerLevel, false);
+        SlayerMaster questOption = SlayerMaster.highestAvailableAt(combatLevel, slayerLevel, true);
+        String advice;
+        if (suggestion == SlayerMaster.NIEVE) {
+            advice = suggestion.getName() + " works at your level (pick " + SlayerMaster.STEVE.getName()
+                    + " instead if you have finished " + SlayerMaster.STEVE.getQuestRequired() + ").";
+        } else if (questOption.getCombatLevelRequired() > suggestion.getCombatLevelRequired()) {
+            advice = suggestion.getName() + " works at your level with no quest needed (" + questOption.getName()
+                    + " also works if you have finished " + questOption.getQuestRequired() + ").";
+        } else {
+            advice = suggestion.getName() + " works at your level with no quest needed.";
+        }
+        return cause + "\n" + advice
+                + "\nPick a Slayer Master you can use in the plugin settings, then start the plugin again.";
     }
 
     // ==================== POH Methods ====================
@@ -1038,6 +1084,9 @@ public class SlayerScript extends Script {
         }
 
         SlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         SlayerPlugin.setCurrentLocation(master.getName() + " (Blocking)");
 

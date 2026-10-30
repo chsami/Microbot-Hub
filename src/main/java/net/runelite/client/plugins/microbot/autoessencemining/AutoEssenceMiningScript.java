@@ -169,7 +169,11 @@ public class AutoEssenceMiningScript extends Script {
                 long startTime = System.currentTimeMillis();
                 
                 // determine current location and state
-                isInEssenceMine = isInEssenceMine();
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (playerLocation == null) {
+                    return;
+                }
+                isInEssenceMine = isInEssenceMine(playerLocation);
                 needsToBank = needsBankingBeforeTrip(config);
 
                 if (shouldStop()) {
@@ -185,7 +189,7 @@ public class AutoEssenceMiningScript extends Script {
                     return;
                 }
                 
-                logStateEvaluation();
+                logStateEvaluation(playerLocation);
 
                 if (isInEssenceMine) {
                     if (!needsToBank) {
@@ -201,7 +205,7 @@ public class AutoEssenceMiningScript extends Script {
                         log.info("Need to bank, switching to BANKING");
                         changeState(AutoEssenceMiningState.BANKING);
                     } else {
-                        if (Rs2Player.getWorldLocation().distanceTo(AUBURY_LOCATION) <= 8) {
+                        if (playerLocation.distanceTo(AUBURY_LOCATION) <= 8) {
                             log.info("Near Aubury, switching to TELEPORTING_WITH_AUBURY");
                             if (hasTeleportedWithAubury) {
                                 hasTeleportedWithAubury = false;
@@ -262,7 +266,11 @@ public class AutoEssenceMiningScript extends Script {
         }
         
         // validate current distance before walking
-        int currentDistance = Rs2Player.getWorldLocation().distanceTo(AUBURY_LOCATION);
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) {
+            return;
+        }
+        int currentDistance = playerLocation.distanceTo(AUBURY_LOCATION);
         log.info("Current distance to Aubury: {} tiles", currentDistance);
         
         if (currentDistance <= AUBURY_INTERACTION_DISTANCE) {
@@ -270,7 +278,7 @@ public class AutoEssenceMiningScript extends Script {
             return;
         }
         
-        if (walkTowardAuburyNonBlocking()) {
+        if (walkTowardAuburyNonBlocking(playerLocation)) {
             log.info("Issued short walk step toward Aubury");
         } else {
             log.info("Failed short Aubury step, will retry next loop");
@@ -303,8 +311,12 @@ public class AutoEssenceMiningScript extends Script {
         Microbot.status = "Mining essence";
         
         // validate we're in the essence mine
-        if (Rs2Player.getWorldLocation().getRegionID() != ESSENCE_MINE_REGION) {
-            log.info("Not in essence mine, current region: {}", Rs2Player.getWorldLocation().getRegionID());
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) {
+            return;
+        }
+        if (playerLocation.getRegionID() != ESSENCE_MINE_REGION) {
+            log.info("Not in essence mine, current region: {}", playerLocation.getRegionID());
             return;
         }
         
@@ -334,7 +346,7 @@ public class AutoEssenceMiningScript extends Script {
             }
         } else {
             log.info("No rune essence rocks found nearby");
-            log.info("Current region: {}, expected: {}", Rs2Player.getWorldLocation().getRegionID(), ESSENCE_MINE_REGION);
+            log.info("Current region: {}, expected: {}", playerLocation.getRegionID(), ESSENCE_MINE_REGION);
         }
     }
 
@@ -347,7 +359,7 @@ public class AutoEssenceMiningScript extends Script {
         Microbot.status = "Using portal to exit";
         
         // validate we're in the essence mine before looking for portal
-        if (Rs2Player.getWorldLocation().getRegionID() != ESSENCE_MINE_REGION) {
+        if (!isInEssenceMine()) {
             log.info("Not in essence mine, cannot use portal");
             return;
         }
@@ -397,7 +409,11 @@ public class AutoEssenceMiningScript extends Script {
         log.info("State: BANKING");
         Microbot.status = "Banking at Varrock East";
         
-        int distanceToBank = Rs2Player.getWorldLocation().distanceTo(VARROCK_EAST_BANK_LOCATION);
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) {
+            return;
+        }
+        int distanceToBank = playerLocation.distanceTo(VARROCK_EAST_BANK_LOCATION);
         
         log.info("=== Banking State Check ===");
         log.info("Distance to bank: {} tiles", distanceToBank);
@@ -408,7 +424,7 @@ public class AutoEssenceMiningScript extends Script {
         if (!Rs2Bank.isOpen()) {
             if (distanceToBank > BANK_INTERACTION_DISTANCE) {
                 log.info("Too far from bank, walking there");
-                walkTowardBankNonBlocking();
+                walkTowardBankNonBlocking(playerLocation);
                 return;
             }
             
@@ -416,7 +432,7 @@ public class AutoEssenceMiningScript extends Script {
             log.info("Near bank, attempting to open");
             if (!Rs2Bank.openBank()) {
                 log.info("Failed to open bank");
-                walkTowardBankNonBlocking();
+                walkTowardBankNonBlocking(playerLocation);
                 return;
             }
         }
@@ -686,7 +702,11 @@ public class AutoEssenceMiningScript extends Script {
     }
 
     private boolean isInEssenceMine() {
-        return Rs2Player.getWorldLocation().getRegionID() == ESSENCE_MINE_REGION;
+        return isInEssenceMine(Rs2Player.getWorldLocation());
+    }
+
+    private static boolean isInEssenceMine(WorldPoint location) {
+        return location != null && location.getRegionID() == ESSENCE_MINE_REGION;
     }
 
     private boolean waitUntilInEssenceMine() {
@@ -714,13 +734,12 @@ public class AutoEssenceMiningScript extends Script {
         return true;
     }
 
-    private boolean walkTowardAuburyNonBlocking() {
+    private boolean walkTowardAuburyNonBlocking(WorldPoint currentLocation) {
         long now = System.currentTimeMillis();
         if (now - lastAuburyWalkAttempt < AUBURY_WALK_RETRY_DELAY_MS) {
             return true;
         }
 
-        WorldPoint currentLocation = Rs2Player.getWorldLocation();
         WorldPoint nextStep = stepToward(currentLocation, AUBURY_LOCATION, AUBURY_STEP_DISTANCE);
         lastAuburyWalkAttempt = now;
 
@@ -728,13 +747,12 @@ public class AutoEssenceMiningScript extends Script {
         return !shouldStop() && Rs2Walker.walkMiniMap(nextStep);
     }
 
-    private boolean walkTowardBankNonBlocking() {
+    private boolean walkTowardBankNonBlocking(WorldPoint currentLocation) {
         long now = System.currentTimeMillis();
         if (now - lastBankWalkAttempt < BANK_WALK_RETRY_DELAY_MS) {
             return true;
         }
 
-        WorldPoint currentLocation = Rs2Player.getWorldLocation();
         WorldPoint nextStep = stepToward(currentLocation, VARROCK_EAST_BANK_LOCATION, BANK_STEP_DISTANCE);
         lastBankWalkAttempt = now;
 
@@ -775,7 +793,7 @@ public class AutoEssenceMiningScript extends Script {
         log.info("Antiban cooldown active, waiting");
     }
 
-    private void logStateEvaluation() {
+    private void logStateEvaluation(WorldPoint playerLocation) {
         long now = System.currentTimeMillis();
         if (now - lastStateEvaluationLog < STATE_EVALUATION_LOG_INTERVAL_MS) {
             return;
@@ -786,7 +804,7 @@ public class AutoEssenceMiningScript extends Script {
         log.info("In essence mine: {}", isInEssenceMine);
         log.info("Needs banking: {}", needsToBank);
         log.info("Inventory full: {}", Rs2Inventory.isFull());
-        log.info("Distance to Aubury: {}", Rs2Player.getWorldLocation().distanceTo(AUBURY_LOCATION));
+        log.info("Distance to Aubury: {}", playerLocation.distanceTo(AUBURY_LOCATION));
     }
 
     private void teleportWithAubury(Rs2NpcModel aubury) {
