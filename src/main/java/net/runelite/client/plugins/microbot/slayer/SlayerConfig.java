@@ -46,7 +46,7 @@ public interface SlayerConfig extends Config {
     @ConfigItem(
             keyName = "slayerMaster",
             name = "Slayer Master",
-            description = "Which slayer master to get tasks from. Turael/Spria: any level. Mazchna: 20 combat + Priest in Peril. Vannaka: 40 combat. Chaeldar: 70 combat + Lost City. Nieve/Steve: 85 combat + Monkey Madness II. Duradel: 100 combat + 50 Slayer + Shilo Village. Kuradal: 100 combat + 75 Slayer + Shilo Village.",
+            description = "Which Slayer Master gives you tasks.<br>Turael / Spria: any level<br>Mazchna: 20 combat, Priest in Peril<br>Vannaka: 40 combat<br>Chaeldar: 70 combat, Lost City<br>Nieve: 85 combat (Steve after Monkey Madness II)<br>Duradel: 100 combat, 50 Slayer, Shilo Village",
             position = 2,
             section = generalSection
     )

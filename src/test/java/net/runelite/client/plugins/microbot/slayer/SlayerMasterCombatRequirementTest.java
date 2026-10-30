@@ -38,8 +38,11 @@ class SlayerMasterCombatRequirementTest {
         assertFalse(SlayerMaster.DURADEL.isAvailableAt(63, 12));
         assertFalse(SlayerMaster.DURADEL.isAvailableAt(100, 49));
         assertTrue(SlayerMaster.DURADEL.isAvailableAt(100, 50));
-        assertFalse(SlayerMaster.KURADAL.isAvailableAt(126, 74));
-        assertTrue(SlayerMaster.KURADAL.isAvailableAt(126, 75));
+        assertFalse(SlayerMaster.KURADAL.isAvailableAt(126, 49));
+        assertTrue(SlayerMaster.KURADAL.isAvailableAt(100, 50));
+        assertTrue(SlayerMaster.NIEVE.isAvailableAt(85, 1));
+        assertFalse(SlayerMaster.NIEVE.needsQuest());
+        assertTrue(SlayerMaster.STEVE.needsQuest());
         assertTrue(SlayerMaster.VANNAKA.isAvailableAt(40, 1));
         assertFalse(SlayerMaster.VANNAKA.isAvailableAt(39, 1));
     }
@@ -49,8 +52,9 @@ class SlayerMasterCombatRequirementTest {
         assertEquals(SlayerMaster.TURAEL, SlayerMaster.highestAvailableAt(3, 1, false));
         assertEquals(SlayerMaster.TURAEL, SlayerMaster.highestAvailableAt(30, 1, false));
         assertEquals(SlayerMaster.VANNAKA, SlayerMaster.highestAvailableAt(63, 12, false));
-        assertEquals(SlayerMaster.VANNAKA, SlayerMaster.highestAvailableAt(88, 40, false));
-        assertEquals(SlayerMaster.VANNAKA, SlayerMaster.highestAvailableAt(126, 99, false));
+        assertEquals(SlayerMaster.VANNAKA, SlayerMaster.highestAvailableAt(75, 40, false));
+        assertEquals(SlayerMaster.NIEVE, SlayerMaster.highestAvailableAt(88, 40, false));
+        assertEquals(SlayerMaster.NIEVE, SlayerMaster.highestAvailableAt(126, 99, false));
     }
 
     @Test
@@ -67,14 +71,22 @@ class SlayerMasterCombatRequirementTest {
 
         assertTrue(message.contains("Duradel only gives tasks from combat level 100; you are combat level 63."));
         assertTrue(message.contains("Vannaka works at your level with no quest needed."));
+        assertTrue(message.contains("Pick a Slayer Master you can use in the plugin settings, then start the plugin again."));
     }
 
     @Test
     void messageNamesQuestForHigherQuestMaster() {
+        String message = SlayerScript.slayerMasterTooHighMessage(SlayerMaster.DURADEL, 75, 40);
+
+        assertTrue(message.contains("Vannaka works at your level with no quest needed (Chaeldar also works if you have finished Lost City)."));
+    }
+
+    @Test
+    void messageSuggestsNieveAndSteveAfterMonkeyMadness() {
         String message = SlayerScript.slayerMasterTooHighMessage(SlayerMaster.DURADEL, 88, 40);
 
-        assertTrue(message.contains("Vannaka works at your level with no quest needed"));
-        assertTrue(message.contains("Nieve also works if you have finished Monkey Madness II"));
+        assertTrue(message.contains("Nieve works at your level (pick Steve instead if you have finished Monkey Madness II)."));
+        assertFalse(message.contains("Vannaka"));
     }
 
     @Test
@@ -82,6 +94,7 @@ class SlayerMasterCombatRequirementTest {
         String message = SlayerScript.slayerMasterTooHighMessage(SlayerMaster.DURADEL, 100, 12);
 
         assertTrue(message.contains("Duradel only gives tasks from Slayer level 50; you are Slayer level 12."));
+        assertTrue(message.contains("Nieve works at your level (pick Steve instead if you have finished Monkey Madness II)."));
         assertFalse(message.contains("Duradel also works"));
     }
 

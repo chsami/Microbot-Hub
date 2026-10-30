@@ -599,12 +599,18 @@ public class SlayerScript extends Script {
                         + "; you are Slayer level " + slayerLevel + ".";
         SlayerMaster suggestion = SlayerMaster.highestAvailableAt(combatLevel, slayerLevel, false);
         SlayerMaster questOption = SlayerMaster.highestAvailableAt(combatLevel, slayerLevel, true);
-        String alternative = questOption.getCombatLevelRequired() > suggestion.getCombatLevelRequired()
-                ? " (" + questOption.getName() + " also works if you have finished " + questOption.getQuestRequired() + ")"
-                : "";
-        return cause
-                + "\nPick a Slayer Master you can use in the plugin settings. "
-                + suggestion.getName() + " works at your level with no quest needed" + alternative + ".";
+        String advice;
+        if (suggestion == SlayerMaster.NIEVE) {
+            advice = suggestion.getName() + " works at your level (pick " + SlayerMaster.STEVE.getName()
+                    + " instead if you have finished " + SlayerMaster.STEVE.getQuestRequired() + ").";
+        } else if (questOption.getCombatLevelRequired() > suggestion.getCombatLevelRequired()) {
+            advice = suggestion.getName() + " works at your level with no quest needed (" + questOption.getName()
+                    + " also works if you have finished " + questOption.getQuestRequired() + ").";
+        } else {
+            advice = suggestion.getName() + " works at your level with no quest needed.";
+        }
+        return cause + "\n" + advice
+                + "\nPick a Slayer Master you can use in the plugin settings, then start the plugin again.";
     }
 
     // ==================== POH Methods ====================
