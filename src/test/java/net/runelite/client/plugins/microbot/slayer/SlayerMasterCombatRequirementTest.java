@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.slayer;
 
+import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
@@ -33,52 +34,65 @@ class SlayerMasterCombatRequirementTest {
     }
 
     @Test
-    void masterIsAvailableOnlyFromItsCombatLevel() {
-        assertFalse(SlayerMaster.DURADEL.isAvailableAt(63));
-        assertTrue(SlayerMaster.DURADEL.isAvailableAt(100));
-        assertTrue(SlayerMaster.VANNAKA.isAvailableAt(40));
-        assertFalse(SlayerMaster.VANNAKA.isAvailableAt(39));
+    void masterIsAvailableOnlyFromItsCombatAndSlayerLevel() {
+        assertFalse(SlayerMaster.DURADEL.isAvailableAt(63, 12));
+        assertFalse(SlayerMaster.DURADEL.isAvailableAt(100, 49));
+        assertTrue(SlayerMaster.DURADEL.isAvailableAt(100, 50));
+        assertFalse(SlayerMaster.KURADAL.isAvailableAt(126, 74));
+        assertTrue(SlayerMaster.KURADAL.isAvailableAt(126, 75));
+        assertTrue(SlayerMaster.VANNAKA.isAvailableAt(40, 1));
+        assertFalse(SlayerMaster.VANNAKA.isAvailableAt(39, 1));
     }
 
     @Test
-    void highestAvailableMasterMatchesCombatLevel() {
-        assertEquals(SlayerMaster.TURAEL, SlayerMaster.highestAvailableAt(3));
-        assertEquals(SlayerMaster.MAZCHNA, SlayerMaster.highestAvailableAt(20));
-        assertEquals(SlayerMaster.VANNAKA, SlayerMaster.highestAvailableAt(63));
-        assertEquals(SlayerMaster.CHAELDAR, SlayerMaster.highestAvailableAt(84));
-        assertEquals(SlayerMaster.NIEVE, SlayerMaster.highestAvailableAt(99));
-        assertEquals(SlayerMaster.DURADEL, SlayerMaster.highestAvailableAt(126));
+    void suggestedMasterNeedsNoQuest() {
+        assertEquals(SlayerMaster.TURAEL, SlayerMaster.highestAvailableAt(3, 1, false));
+        assertEquals(SlayerMaster.TURAEL, SlayerMaster.highestAvailableAt(30, 1, false));
+        assertEquals(SlayerMaster.VANNAKA, SlayerMaster.highestAvailableAt(63, 12, false));
+        assertEquals(SlayerMaster.VANNAKA, SlayerMaster.highestAvailableAt(88, 40, false));
+        assertEquals(SlayerMaster.VANNAKA, SlayerMaster.highestAvailableAt(126, 99, false));
     }
 
     @Test
-    void messageNamesMasterRequiredLevelAndSuggestion() {
-        String message = SlayerScript.slayerMasterTooHighMessage(SlayerMaster.DURADEL, 63);
+    void questMasterOptionRespectsSlayerLevel() {
+        assertEquals(SlayerMaster.MAZCHNA, SlayerMaster.highestAvailableAt(30, 1, true));
+        assertEquals(SlayerMaster.CHAELDAR, SlayerMaster.highestAvailableAt(75, 1, true));
+        assertEquals(SlayerMaster.NIEVE, SlayerMaster.highestAvailableAt(126, 12, true));
+        assertEquals(SlayerMaster.DURADEL, SlayerMaster.highestAvailableAt(126, 60, true));
+    }
 
-        assertTrue(message.contains("Duradel needs combat level 100"));
-        assertTrue(message.contains("combat level 63"));
-        assertTrue(message.contains("Vannaka"));
+    @Test
+    void lowCombatMessageNamesLevelAndQuestFreeMaster() {
+        String message = SlayerScript.slayerMasterTooHighMessage(SlayerMaster.DURADEL, 63, 12);
+
+        assertTrue(message.contains("Duradel only gives tasks from combat level 100; you are combat level 63."));
+        assertTrue(message.contains("Vannaka works at your level with no quest needed."));
+    }
+
+    @Test
+    void messageNamesQuestForHigherQuestMaster() {
+        String message = SlayerScript.slayerMasterTooHighMessage(SlayerMaster.DURADEL, 88, 40);
+
+        assertTrue(message.contains("Vannaka works at your level with no quest needed"));
+        assertTrue(message.contains("Nieve also works if you have finished Monkey Madness II"));
+    }
+
+    @Test
+    void lowSlayerMessageNamesSlayerLevel() {
+        String message = SlayerScript.slayerMasterTooHighMessage(SlayerMaster.DURADEL, 100, 12);
+
+        assertTrue(message.contains("Duradel only gives tasks from Slayer level 50; you are Slayer level 12."));
+        assertFalse(message.contains("Duradel also works"));
     }
 
     @Test
     void tooLowCombatStopsInsteadOfWalkingToMaster() throws Exception {
-        SlayerScript script = scriptWithMaster(SlayerMaster.DURADEL);
-        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
-             MockedStatic<Rs2Dialogue> dialogue = mockStatic(Rs2Dialogue.class);
-             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
-             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
-            dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(false);
-            player.when(Rs2Player::getCombatLevel).thenReturn(63);
-            player.when(Rs2Player::getWorldLocation).thenReturn(LUMBRIDGE);
-            player.when(Rs2Player::isMoving).thenReturn(false);
-            SlayerPlugin.setState(SlayerState.GETTING_TASK);
+        assertStopsWithoutWalking(63, 12);
+    }
 
-            gettingTask(script);
-
-            microbot.verify(() -> Microbot.stopPlugin(SlayerPlugin.class));
-            microbot.verify(() -> Microbot.showMessage(anyString()));
-            walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class)), never());
-            assertEquals(SlayerState.IDLE, SlayerPlugin.getState());
-        }
+    @Test
+    void tooLowSlayerStopsInsteadOfWalkingToMaster() throws Exception {
+        assertStopsWithoutWalking(100, 12);
     }
 
     @Test
@@ -90,6 +104,7 @@ class SlayerMasterCombatRequirementTest {
              MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
             dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(false);
             player.when(Rs2Player::getCombatLevel).thenReturn(63);
+            player.when(() -> Rs2Player.getRealSkillLevel(Skill.SLAYER)).thenReturn(12);
             player.when(Rs2Player::getWorldLocation).thenReturn(LUMBRIDGE);
             player.when(Rs2Player::isMoving).thenReturn(false);
 
@@ -101,7 +116,7 @@ class SlayerMasterCombatRequirementTest {
     }
 
     @Test
-    void unknownCombatLevelWaitsWithoutStopping() throws Exception {
+    void unknownLevelsWaitWithoutStopping() throws Exception {
         SlayerScript script = scriptWithMaster(SlayerMaster.DURADEL);
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Dialogue> dialogue = mockStatic(Rs2Dialogue.class);
@@ -109,12 +124,35 @@ class SlayerMasterCombatRequirementTest {
              MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
             dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(false);
             player.when(Rs2Player::getCombatLevel).thenReturn(0);
+            player.when(() -> Rs2Player.getRealSkillLevel(Skill.SLAYER)).thenReturn(0);
             player.when(Rs2Player::getWorldLocation).thenReturn(LUMBRIDGE);
 
             gettingTask(script);
 
             microbot.verify(() -> Microbot.stopPlugin(SlayerPlugin.class), never());
             walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class)), never());
+        }
+    }
+
+    private static void assertStopsWithoutWalking(int combatLevel, int slayerLevel) throws Exception {
+        SlayerScript script = scriptWithMaster(SlayerMaster.DURADEL);
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Dialogue> dialogue = mockStatic(Rs2Dialogue.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(false);
+            player.when(Rs2Player::getCombatLevel).thenReturn(combatLevel);
+            player.when(() -> Rs2Player.getRealSkillLevel(Skill.SLAYER)).thenReturn(slayerLevel);
+            player.when(Rs2Player::getWorldLocation).thenReturn(LUMBRIDGE);
+            player.when(Rs2Player::isMoving).thenReturn(false);
+            SlayerPlugin.setState(SlayerState.GETTING_TASK);
+
+            gettingTask(script);
+
+            microbot.verify(() -> Microbot.stopPlugin(SlayerPlugin.class));
+            microbot.verify(() -> Microbot.showMessage(anyString()));
+            walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class)), never());
+            assertEquals(SlayerState.IDLE, SlayerPlugin.getState());
         }
     }
 

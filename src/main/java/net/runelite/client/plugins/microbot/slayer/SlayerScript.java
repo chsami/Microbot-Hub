@@ -575,13 +575,14 @@ public class SlayerScript extends Script {
 
     private boolean canUseSlayerMaster(SlayerMaster master) {
         int combatLevel = Rs2Player.getCombatLevel();
-        if (combatLevel <= 0) {
+        int slayerLevel = Rs2Player.getRealSkillLevel(Skill.SLAYER);
+        if (combatLevel <= 0 || slayerLevel <= 0) {
             return false;
         }
-        if (master.isAvailableAt(combatLevel)) {
+        if (master.isAvailableAt(combatLevel, slayerLevel)) {
             return true;
         }
-        String reason = slayerMasterTooHighMessage(master, combatLevel);
+        String reason = slayerMasterTooHighMessage(master, combatLevel, slayerLevel);
         log.warn(reason);
         Microbot.log("Slayer stopped: " + reason);
         SlayerPlugin.setState(SlayerState.IDLE);
@@ -590,11 +591,20 @@ public class SlayerScript extends Script {
         return false;
     }
 
-    static String slayerMasterTooHighMessage(SlayerMaster master, int combatLevel) {
-        return master.getName() + " needs combat level " + master.getCombatLevelRequired()
-                + " and you are combat level " + combatLevel + "."
-                + "\nPick a Slayer Master you can use in the plugin settings, for example "
-                + SlayerMaster.highestAvailableAt(combatLevel).getName() + ".";
+    static String slayerMasterTooHighMessage(SlayerMaster master, int combatLevel, int slayerLevel) {
+        String cause = combatLevel < master.getCombatLevelRequired()
+                ? master.getName() + " only gives tasks from combat level " + master.getCombatLevelRequired()
+                        + "; you are combat level " + combatLevel + "."
+                : master.getName() + " only gives tasks from Slayer level " + master.getSlayerLevelRequired()
+                        + "; you are Slayer level " + slayerLevel + ".";
+        SlayerMaster suggestion = SlayerMaster.highestAvailableAt(combatLevel, slayerLevel, false);
+        SlayerMaster questOption = SlayerMaster.highestAvailableAt(combatLevel, slayerLevel, true);
+        String alternative = questOption.getCombatLevelRequired() > suggestion.getCombatLevelRequired()
+                ? " (" + questOption.getName() + " also works if you have finished " + questOption.getQuestRequired() + ")"
+                : "";
+        return cause
+                + "\nPick a Slayer Master you can use in the plugin settings. "
+                + suggestion.getName() + " works at your level with no quest needed" + alternative + ".";
     }
 
     // ==================== POH Methods ====================
