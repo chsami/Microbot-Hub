@@ -4,6 +4,9 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.runelite.api.coords.WorldPoint;
 
+import java.util.Arrays;
+import java.util.Comparator;
+
 @Getter
 @RequiredArgsConstructor
 public enum SlayerMaster {
@@ -21,6 +24,17 @@ public enum SlayerMaster {
     private final String name;
     private final WorldPoint location;
     private final int combatLevelRequired;
+
+    public boolean isAvailableAt(int combatLevel) {
+        return combatLevel >= combatLevelRequired;
+    }
+
+    public static SlayerMaster highestAvailableAt(int combatLevel) {
+        return Arrays.stream(values())
+                .filter(master -> master.isAvailableAt(combatLevel))
+                .max(Comparator.comparingInt(SlayerMaster::getCombatLevelRequired))
+                .orElse(TURAEL);
+    }
 
     @Override
     public String toString() {

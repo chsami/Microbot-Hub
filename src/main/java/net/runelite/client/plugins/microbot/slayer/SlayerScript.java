@@ -338,6 +338,9 @@ public class SlayerScript extends Script {
         }
 
         SlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         SlayerPlugin.setCurrentLocation(master.getName());
 
@@ -530,6 +533,9 @@ public class SlayerScript extends Script {
         }
 
         SlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         SlayerPlugin.setCurrentLocation(master.getName() + " (Skipping)");
 
@@ -565,6 +571,30 @@ public class SlayerScript extends Script {
     private void resetSkipState() {
         skipAttemptCounter = 0;
         taskBeingSkipped = "";
+    }
+
+    private boolean canUseSlayerMaster(SlayerMaster master) {
+        int combatLevel = Rs2Player.getCombatLevel();
+        if (combatLevel <= 0) {
+            return false;
+        }
+        if (master.isAvailableAt(combatLevel)) {
+            return true;
+        }
+        String reason = slayerMasterTooHighMessage(master, combatLevel);
+        log.warn(reason);
+        Microbot.log("Slayer stopped: " + reason);
+        SlayerPlugin.setState(SlayerState.IDLE);
+        Microbot.stopPlugin(SlayerPlugin.class);
+        Microbot.showMessage("Slayer stopped: " + reason);
+        return false;
+    }
+
+    static String slayerMasterTooHighMessage(SlayerMaster master, int combatLevel) {
+        return master.getName() + " needs combat level " + master.getCombatLevelRequired()
+                + " and you are combat level " + combatLevel + "."
+                + "\nPick a Slayer Master you can use in the plugin settings, for example "
+                + SlayerMaster.highestAvailableAt(combatLevel).getName() + ".";
     }
 
     // ==================== POH Methods ====================
@@ -1038,6 +1068,9 @@ public class SlayerScript extends Script {
         }
 
         SlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         SlayerPlugin.setCurrentLocation(master.getName() + " (Blocking)");
 
