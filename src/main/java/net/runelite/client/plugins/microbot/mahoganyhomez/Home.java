@@ -147,6 +147,10 @@ enum Home
 
     public boolean isInside(final WorldPoint point)
     {
+        if (point == null)
+        {
+            return false;
+        }
         for (final Home h : values())
         {
             if (h.getArea().contains2D(point))

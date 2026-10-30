@@ -33,7 +33,7 @@ import java.time.Instant;
 @Slf4j
 public class GemCrabKillerPlugin extends Plugin {
 
-    public final static String version = "1.0.5";
+    public final static String version = "1.0.6";
     private final Map<Skill, Integer> startSkillExp = new EnumMap<>(Skill.class);
     @Inject
     GemCrabKillerScript gemCrabKillerScript;
