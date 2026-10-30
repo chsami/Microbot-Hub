@@ -387,7 +387,7 @@
             "training",
             "gem"
         ],
-        "version": "1.0.5",
+        "version": "1.0.6",
         "minClientVersion": "2.0.13",
         "authors": [
             "TaF"
@@ -396,8 +396,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/GemCrabKillerPlugin/assets/GemStoneCrab.png",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "f03459685d5d6140de2116b43205c2bf16d1140ea16ed0de5c9ce224b0878604",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gemcrabkillerplugin-1.0.5.jar"
+        "sha256": "05abd0787ff87345fba03ffd017926433831c452d01f0ec6c8d39a6a8460f805",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gemcrabkillerplugin-1.0.6.jar"
     },
     {
         "internalName": "TzhaarVenatorBowPlugin",
@@ -793,7 +793,7 @@
             "agility",
             "microbot"
         ],
-        "version": "1.3.2",
+        "version": "1.3.3",
         "minClientVersion": "2.6.43",
         "authors": [
             "Mocrosoft"
@@ -802,8 +802,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MicroAgilityPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-09T10:13:40Z",
-        "sha256": "3734e56b8638225565d4e6c3a0981f50b625b76ef9286f70e6dec60a7c4a3dec",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/microagilityplugin-1.3.2.jar"
+        "sha256": "10021ca894108b9abb0d9009a76e5578ea74c4277270d6d17ddc9a3cae85d4fc",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/microagilityplugin-1.3.3.jar"
     },
     {
         "internalName": "AutoRunecraftPlugin",
@@ -1980,7 +1980,7 @@
             "combat",
             "task"
         ],
-        "version": "1.1.6",
+        "version": "1.1.7",
         "minClientVersion": "2.1.11",
         "authors": [
             "Big L"
@@ -1989,8 +1989,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2026-02-10T21:45:13Z",
-        "sha256": "d044051570f8ec35f1ffae2150e2546380b50c9fbe616c7741a43dcfb42aac7b",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/slayerplugin-1.1.6.jar"
+        "sha256": "0132ef1ed883b1260c55da3cb4503174cc325acbbe5b30bfd4740aa64530a4f6",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/slayerplugin-1.1.7.jar"
     },
     {
         "internalName": "ShootingStarPlugin",
@@ -3289,7 +3289,7 @@
             "essence",
             "skilling"
         ],
-        "version": "1.0.5",
+        "version": "1.0.6",
         "minClientVersion": "2.6.43",
         "authors": [
             "Unknown"
@@ -3298,8 +3298,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoEssenceMiningPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-22T03:11:03Z",
-        "sha256": "4d5c76d799a217080477d24a7c6c744f161b519d49f245a2c746025ebadb4380",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autoessenceminingplugin-1.0.5.jar"
+        "sha256": "8ffa6169bdf686eaf2e12c4029e9da4b3c904865a7698a71c7bcb8e0abe45906",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autoessenceminingplugin-1.0.6.jar"
     },
     {
         "internalName": "CombatHotkeysPlugin",
@@ -3336,7 +3336,7 @@
             "see1duck",
             "microbot"
         ],
-        "version": "0.0.17",
+        "version": "0.0.18",
         "minClientVersion": "2.6.24",
         "authors": [
             "See1Duck"
@@ -3345,8 +3345,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MahoganyHomesPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "621f44a9f3c49575f3840a5e06cec0c095c9014e5f7e2166b327abed07da3d52",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mahoganyhomesplugin-0.0.17.jar"
+        "sha256": "c4eab99f5de07e4af6ec25b50c8489bda3280592ba6381fa6cce863b0f2c49ff",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mahoganyhomesplugin-0.0.18.jar"
     },
     {
         "internalName": "PumperPlugin",
@@ -3607,7 +3607,7 @@
             "hunter",
             "microbot"
         ],
-        "version": "1.5.5",
+        "version": "1.5.6",
         "minClientVersion": "2.6.30",
         "authors": [
             "Unknown Author"
@@ -3616,8 +3616,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "94647efbb4de07191f169c205b3b195b95cdb26396fb699c897d1ad321c29e29",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autohunterplugin-1.5.5.jar"
+        "sha256": "0c339500a92fbe5676cb7fa2531998045eb4b1459f64c8d273d8d90f55ec0d00",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autohunterplugin-1.5.6.jar"
     },
     {
         "internalName": "ArceuusLibraryPlugin",

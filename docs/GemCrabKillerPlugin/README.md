@@ -4,7 +4,7 @@ Automatically kills the Gem Crab boss
 
 | | |
 |---|---|
-| Version | 1.0.5 |
+| Version | 1.0.6 |
 | Works with Microbot | 2.0.13 or newer |
 | Author | TaF |
 | Tags | TaF, crab, combat, training, gem |
