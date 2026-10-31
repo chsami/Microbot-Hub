@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class revKillerScript extends Script {
+    static final int MAX_FLEE_TELEPORT_ATTEMPTS = 5;
     private revKillerConfig config;
     @Provides
     revKillerConfig provideConfig(ConfigManager configManager) {
@@ -671,7 +672,8 @@ public class revKillerScript extends Script {
                     }
                 }
             }
-            if(Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) >= 20 && Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 30) {
+            if(Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) >= 20 && Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 30 && hasGloryTeleport()) {
+                int failedTeleports = 0;
                 while (Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) >= 20 && Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 30) {
                     Microbot.log("Attempting to teleport via glory");
                     if (!super.isRunning()) break;
@@ -680,6 +682,7 @@ public class revKillerScript extends Script {
                         shouldFlee = false;
                         return;
                     }
+                    if (!hasGloryTeleport() || failedTeleports >= MAX_FLEE_TELEPORT_ATTEMPTS) break;
 
                     if (Rs2Equipment.interact(EquipmentInventorySlot.AMULET, "Edgeville")) {
                         sleepUntil(()-> TeleTimerIsThere() || Rs2Player.getAnimation() == 714,generateRandomNumber(250,500));
@@ -688,6 +691,9 @@ public class revKillerScript extends Script {
                             //we successfully teleported out
                             sleepUntil(()-> !Rs2Player.isAnimating() && !WeAreInTheCaves(),generateRandomNumber(4000,6000));
                         }
+                    } else {
+                        failedTeleports++;
+                        sleepUntil(()-> !WeAreInTheCaves() || Rs2Player.isTeleBlocked(), generateRandomNumber(600,1200));
                     }
                     if (!WeAreInTheCaves()) {
                         sleep(10000,15000);
@@ -698,11 +704,13 @@ public class revKillerScript extends Script {
                         break;
                     }
                 }
+                fleeOnFootIfStillInCaves();
                 Rs2Prayer.disableAllPrayers();
                 shouldFlee = false;
                 return;
             }
-            if(Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 20) {
+            if(Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 20 && hasDuelingTeleport()) {
+                int failedTeleports = 0;
                 while (Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 20) {
                     Microbot.log("Attempting to teleport via dueling");
                     if (!super.isRunning()) break;
@@ -711,6 +719,7 @@ public class revKillerScript extends Script {
                         return;
                     }
                     if(!shouldFlee) break;
+                    if (!hasDuelingTeleport() || failedTeleports >= MAX_FLEE_TELEPORT_ATTEMPTS) break;
 
                     if (Rs2Equipment.interact(EquipmentInventorySlot.RING, "Ferox Enclave")) {
                         sleepUntil(()-> TeleTimerIsThere() || Rs2Player.getAnimation() == 714,generateRandomNumber(250,500));
@@ -719,6 +728,9 @@ public class revKillerScript extends Script {
                             //we successfully teleported out
                             sleepUntil(()-> !Rs2Player.isAnimating() && !WeAreInTheCaves(),generateRandomNumber(4000,6000));
                         }
+                    } else {
+                        failedTeleports++;
+                        sleepUntil(()-> !WeAreInTheCaves() || Rs2Player.isTeleBlocked(), generateRandomNumber(600,1200));
                     }
                     if (!WeAreInTheCaves()) {
                         sleep(10000,15000);
@@ -730,6 +742,7 @@ public class revKillerScript extends Script {
                     }
                 }
             }
+            fleeOnFootIfStillInCaves();
             Rs2Prayer.disableAllPrayers();
             shouldFlee = false;
         } else {
@@ -1547,6 +1560,25 @@ public class revKillerScript extends Script {
     static boolean isWearingDuelingRing() {
         Rs2ItemModel ring = Rs2Equipment.get(EquipmentInventorySlot.RING);
         return ring != null && ring.getName() != null && ring.getName().contains("dueling");
+    }
+
+    static boolean hasDuelingTeleport() {
+        Rs2ItemModel ring = Rs2Equipment.get(EquipmentInventorySlot.RING);
+        return ring != null && ring.getName() != null && ring.getName().toLowerCase().matches("ring of dueling\\s?\\(\\d\\)");
+    }
+
+    static boolean hasGloryTeleport() {
+        Rs2ItemModel amulet = Rs2Equipment.get(EquipmentInventorySlot.AMULET);
+        if (amulet == null || amulet.getName() == null) return false;
+        String name = amulet.getName().toLowerCase();
+        return name.equals("amulet of eternal glory") || name.matches("amulet of glory\\s?\\(t?\\d\\)");
+    }
+
+    void fleeOnFootIfStillInCaves() {
+        if (!isRunning() || !shouldFlee || weDied || !WeAreInTheCaves()) return;
+        Microbot.log("No usable teleport, running to Ferox Enclave.");
+        Rs2Walker.walkTo(BankLocation.FEROX_ENCLAVE.getWorldPoint());
+        Rs2Walker.setTarget(null);
     }
 
     static boolean hasEquippedAmmoAbove(int quantity) {
