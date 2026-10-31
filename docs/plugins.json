@@ -73,7 +73,7 @@
             "combat",
             "microbot"
         ],
-        "version": "1.0.6",
+        "version": "1.0.7",
         "minClientVersion": "2.0.14",
         "authors": [
             "The Funk"
@@ -82,8 +82,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-09T16:26:30Z",
-        "sha256": "01a83e68c36572648a4b5b570682ae14f8d167b51924c6d27d571758650fbe53",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/moonsofperilplugin-1.0.6.jar"
+        "sha256": "629c22ad5e3695ee982a1f232134bda1580bd4689651227a2b7a196de282739b",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/moonsofperilplugin-1.0.7.jar"
     },
     {
         "internalName": "DelvePrayerHelperPlugin",
@@ -1824,7 +1824,7 @@
             "varrock",
             "anvil"
         ],
-        "version": "1.0.3",
+        "version": "1.0.4",
         "minClientVersion": "1.9.6",
         "authors": [
             "StickToTheScript"
@@ -1833,8 +1833,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/VarrockAnvilPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-08-19T05:46:56Z",
-        "sha256": "ce95d8bd92663c91ae6c2bae6613901ef58753979415f20fa559d4df43cc2d83",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/varrockanvilplugin-1.0.3.jar"
+        "sha256": "42a5e8d666cc5d13ae9f1561d344e90136c1ca5dc3f38295eebfaf3e97a4ad74",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/varrockanvilplugin-1.0.4.jar"
     },
     {
         "internalName": "BankSellerPlugin",
@@ -2044,7 +2044,7 @@
             "TutorialIsland",
             "microbot"
         ],
-        "version": "1.3.17",
+        "version": "1.3.18",
         "minClientVersion": "1.9.9.2",
         "authors": [
             "Mocrosoft"
@@ -2053,8 +2053,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/TutorialIslandPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-03T12:48:58Z",
-        "sha256": "92956808715e7f026e30af18934db573974e713ffd81ee532902f84bf24b4753",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tutorialislandplugin-1.3.17.jar"
+        "sha256": "b47140fdad18f082df4f73918fda4a70b797ea8da98eddc4ecfbd0778adcc163",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/tutorialislandplugin-1.3.18.jar"
     },
     {
         "internalName": "BanksBankStanderPlugin",
@@ -2365,7 +2365,7 @@
             "microbot",
             "skilling"
         ],
-        "version": "1.8.8",
+        "version": "1.8.9",
         "minClientVersion": "2.6.43",
         "authors": [
             "Mocrosoft"
@@ -2374,8 +2374,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/AutoWoodcuttingPlugin/assets/card.jpg",
         "disable": false,
         "addedAt": "2025-08-05T20:59:36Z",
-        "sha256": "24684cb40c0d2471b9cf3e380cbdde790b8f31f19d3ed233a541a145d1544b7c",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.8.jar"
+        "sha256": "0b603308388be82c19ce6e70a4290539d9f0ea54919d3aebaf5884d9927b102d",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/autowoodcuttingplugin-1.8.9.jar"
     },
     {
         "internalName": "ThievingPlugin",
