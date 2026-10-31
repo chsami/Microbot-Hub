@@ -205,6 +205,9 @@ public final class BossHandler {
                 }
             }
 
+            eatIfNeeded();
+            drinkIfNeeded();
+
             /* 4 ─ attack the boss whenever not in combat */
             Rs2NpcModel boss = Microbot.getRs2NpcCache().query().withId(bossNpcID).nearest();
             if (boss != null && !Rs2Combat.inCombat()) {
