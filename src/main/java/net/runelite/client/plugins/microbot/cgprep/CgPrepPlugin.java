@@ -99,6 +99,8 @@ public class CgPrepPlugin extends Plugin
 		public void hotkeyPressed()
 		{
 			script.requestContinue();
+			Microbot.getClientThread().invoke(() ->
+				Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", "<col=ff9040>[Auto Gauntlet]</col> Next run requested: it starts when you're in the Gauntlet lobby.", null));
 			Microbot.log("[CG Prep] continue requested");
 		}
 	};

@@ -48,7 +48,7 @@ public class CgPrepOverlay extends OverlayPanel
 				panelComponent.getChildren().add(LineComponent.builder().left(line).leftColor(
 					line.startsWith("WARNING") ? Color.RED : Color.WHITE).build());
 			}
-			panelComponent.getChildren().add(LineComponent.builder().left("After the run: " + config.continueKey() + " to go again").build());
+			panelComponent.getChildren().add(LineComponent.builder().left(config.autoLoop() ? "After the run: the bot loots the chest and goes again" : "After the run: " + config.continueKey() + " to go again").build());
 			return super.render(g);
 		}
 

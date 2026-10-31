@@ -383,7 +383,7 @@ public interface CgPrepConfig extends Config
 
 	@ConfigItem(keyName = "decisionLog", name = "Decision log",
 		description = "Write a cg-prep-*.log file in .runelite/cg-prep each session, for bug reports. Old files are not deleted.",
-		position = 4, section = hotkeySection)
+		position = 6, section = runSection)
 	default boolean decisionLog()
 	{
 		return true;

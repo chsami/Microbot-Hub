@@ -331,7 +331,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		}
 		net.runelite.client.plugins.microbot.cgprep.stats.RunStats rs = stats;
 		boolean died = rs != null && deathsAtRunStart >= 0 && rs.setupDeaths() + rs.bossDeaths() > deathsAtRunStart;
-		String next = config.autoLoop() ? "" : " Press " + config.continueKey() + " for the next run.";
+		String next = !config.autoLoop() ? " Press " + config.continueKey() + " for the next run." : bossOnly() ? " Next run starting now: prep it yourself." : "";
 		String msg = (died ? "Auto Gauntlet: you died." : "Auto Gauntlet: Hunllef killed!") + next;
 		Microbot.getNotifier().notify(msg);
 		pl("LOBBY", "notification: " + msg);
@@ -1027,6 +1027,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		{
 			runsCompleted++;
 			continueRequested = false;
+			handover.clear();
 			notifyRunEnd();
 			if (!config.dryRun())
 			{
