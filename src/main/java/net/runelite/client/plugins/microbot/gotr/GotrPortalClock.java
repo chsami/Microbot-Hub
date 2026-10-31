@@ -35,6 +35,10 @@ public final class GotrPortalClock {
         return firstPortal;
     }
 
+    public synchronized boolean isRoundRunning() {
+        return lastPortalEvent != null;
+    }
+
     public synchronized int secondsSincePortal(Instant now) {
         if (lastPortalEvent == null) {
             return -1;
@@ -43,6 +47,6 @@ public final class GotrPortalClock {
         if (elapsed < 0 || elapsed > STALE_AFTER_SECONDS) {
             return -1;
         }
-        return (int) elapsed - (firstPortal ? FIRST_PORTAL_ADJUSTMENT_SECONDS : 0);
+        return Math.max(0, (int) elapsed - (firstPortal ? FIRST_PORTAL_ADJUSTMENT_SECONDS : 0));
     }
 }
