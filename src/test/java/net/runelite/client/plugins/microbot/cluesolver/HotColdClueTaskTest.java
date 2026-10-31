@@ -216,15 +216,38 @@ class HotColdClueTaskTest {
         }
 
         inventory.verify(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig"), times(1));
-        assertEquals(HotColdClueTask.STATUS_KILL_WIZARD, statuses.get(statuses.size() - 1));
+        assertEquals(HotColdClueTask.STATUS_UNDER_ATTACK, statuses.get(statuses.size() - 1));
 
         npcs.clear();
         task.onGameTick(new GameTick());
 
         inventory.verify(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig"), times(2));
         assertEquals(List.of(HotColdClueTask.STATUS_WAITING_FOR_DEVICE, HotColdClueTask.STATUS_DUG,
-                HotColdClueTask.STATUS_KILL_WIZARD, HotColdClueTask.STATUS_DUG_AGAIN), statuses);
+                HotColdClueTask.STATUS_UNDER_ATTACK, HotColdClueTask.STATUS_DUG_AGAIN), statuses);
         assertFalse(result.isDone());
+    }
+
+    @Test
+    void clueSolvedWhileUnderAttackAfterDigSucceeds() {
+        when(clue.getLocation(clueScrollPlugin)).thenReturn(DIG_SPOT);
+        when(player.getWorldLocation()).thenReturn(DIG_SPOT);
+        inventory.when(() -> Rs2Inventory.contains("Spade")).thenReturn(true);
+        inventory.when(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig")).thenReturn(true);
+        HotColdClueTask task = newTask(new DirectExecutor());
+        CompletableFuture<Boolean> result = start(task);
+
+        task.onGameTick(new GameTick());
+        Rs2NpcModel wizard = mock(Rs2NpcModel.class);
+        when(wizard.isInteractingWithPlayer()).thenReturn(true);
+        npcs.add(wizard);
+        for (int i = 0; i < HotColdClueTask.DIG_RESULT_TICKS; i++) {
+            task.onGameTick(new GameTick());
+        }
+        when(clueScrollPlugin.getClue()).thenReturn(null);
+        task.onGameTick(new GameTick());
+
+        verify(eventBus).unregister(task);
+        assertTrue(result.join());
     }
 
     @Test
@@ -250,7 +273,8 @@ class HotColdClueTaskTest {
     }
 
     @Test
-    void unreachableDigSpotShowsReasonAndFails() {
+    void unreachableDigSpotKeepsReasonAndRetriesOnlyAfterPlayerMoves() {
+        String cannotReach = "Hot Cold clue: can't find a path to the dig spot at 3110, 3260. Walk closer and the solver will try again.";
         when(clue.getLocation(clueScrollPlugin)).thenReturn(DIG_SPOT);
         walker.when(() -> Rs2Walker.walkTo(DIG_SPOT, 0)).thenReturn(false);
         inventory.when(() -> Rs2Inventory.contains("Spade")).thenReturn(true);
@@ -258,11 +282,34 @@ class HotColdClueTaskTest {
         CompletableFuture<Boolean> result = start(task);
 
         task.onGameTick(new GameTick());
+        task.onGameTick(new GameTick());
+        task.onGameTick(new GameTick());
 
+        walker.verify(() -> Rs2Walker.walkTo(DIG_SPOT, 0), times(1));
+        microbot.verify(() -> Microbot.log(cannotReach), times(1));
+        microbot.verify(() -> Microbot.log(HotColdClueTask.START_MESSAGE), times(1));
         inventory.verify(() -> Rs2Inventory.interact(anyInt(), anyString()), never());
+        assertEquals(List.of(HotColdClueTask.STATUS_WAITING_FOR_DEVICE, HotColdClueTask.STATUS_WALKING,
+                HotColdClueTask.STATUS_CANNOT_REACH), statuses);
+        verify(eventBus, never()).unregister(task);
+        assertFalse(result.isDone());
+
+        when(player.getWorldLocation()).thenReturn(new WorldPoint(3105, 3255, 0));
+        task.onGameTick(new GameTick());
+        task.onGameTick(new GameTick());
+
+        walker.verify(() -> Rs2Walker.walkTo(DIG_SPOT, 0), times(2));
+        microbot.verify(() -> Microbot.log(cannotReach), times(1));
         assertEquals(HotColdClueTask.STATUS_CANNOT_REACH, statuses.get(statuses.size() - 1));
-        verify(eventBus).unregister(task);
-        assertFalse(result.join());
+        assertFalse(result.isDone());
+
+        walker.when(() -> Rs2Walker.walkTo(DIG_SPOT, 0)).thenReturn(true);
+        inventory.when(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig")).thenReturn(true);
+        when(player.getWorldLocation()).thenReturn(new WorldPoint(3108, 3258, 0));
+        task.onGameTick(new GameTick());
+
+        inventory.verify(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig"));
+        assertEquals(HotColdClueTask.STATUS_DUG, statuses.get(statuses.size() - 1));
     }
 
     @Test

@@ -24,11 +24,11 @@ import java.util.function.Consumer;
 public class HotColdClueTask extends ClueTask {
     public static final String STATUS_WAITING_FOR_DEVICE = "Hot Cold: use Strange device until spot is marked";
     public static final String STATUS_WALKING = "Hot Cold: walking to dig spot";
-    public static final String STATUS_NO_SPADE = "Hot Cold: no Spade, add one to dig";
+    public static final String STATUS_NO_SPADE = "Hot Cold: put a Spade in your inventory";
     public static final String STATUS_DUG = "Hot Cold: dug, waiting";
     public static final String STATUS_DUG_AGAIN = "Hot Cold: clue unchanged, dug again";
-    public static final String STATUS_KILL_WIZARD = "Hot Cold: kill the wizard, then I dig again";
-    public static final String STATUS_CANNOT_REACH = "Hot Cold: can't reach dig spot, walk closer";
+    public static final String STATUS_UNDER_ATTACK = "Hot Cold: fight off the attacker, solver digs again after";
+    public static final String STATUS_CANNOT_REACH = "Hot Cold: can't walk to dig spot, walk closer yourself";
     public static final String START_MESSAGE = "Hot Cold clue: use your Strange device until the dig spot is marked. The solver then walks there and digs.";
     public static final int DIG_RESULT_TICKS = 5;
 
@@ -39,6 +39,8 @@ public class HotColdClueTask extends ClueTask {
     private final AtomicBoolean completed = new AtomicBoolean();
     private Future<?> currentTask;
     private WorldPoint digLocation;
+    private WorldPoint unreachableSpot;
+    private WorldPoint unreachableFrom;
     private String lastStatus;
     private boolean spadeWarningLogged;
     private boolean dug;
@@ -85,7 +87,7 @@ public class HotColdClueTask extends ClueTask {
         }
 
         if (!clue.equals(clueScrollPlugin.getClue())) {
-            completeTask(dug);
+            completeTask(dugBefore);
             return;
         }
 
@@ -97,7 +99,7 @@ public class HotColdClueTask extends ClueTask {
         }
 
         if (dugBefore && isNpcAttackingPlayer()) {
-            setStatus(STATUS_KILL_WIZARD);
+            setStatus(STATUS_UNDER_ATTACK);
             return;
         }
 
@@ -126,6 +128,10 @@ public class HotColdClueTask extends ClueTask {
         }
 
         if (!digLocation.equals(playerLocation)) {
+            if (digLocation.equals(unreachableSpot) && playerLocation.equals(unreachableFrom)) {
+                setStatus(STATUS_CANNOT_REACH);
+                return;
+            }
             setStatus(STATUS_WALKING);
             boolean walked = Rs2Walker.walkTo(digLocation, 0);
             if (!ClueSolverPlugin.isSolverRunning) {
@@ -133,9 +139,13 @@ public class HotColdClueTask extends ClueTask {
                 return;
             }
             if (!walked) {
+                WorldPoint stoppedAt = getPlayerLocationSafe();
+                unreachableFrom = stoppedAt != null ? stoppedAt : playerLocation;
+                if (!digLocation.equals(unreachableSpot)) {
+                    Microbot.log(cannotReachMessage(digLocation));
+                }
+                unreachableSpot = digLocation;
                 setStatus(STATUS_CANNOT_REACH);
-                Microbot.log(STATUS_CANNOT_REACH + " " + digLocation);
-                completeTask(false);
                 return;
             }
         }
@@ -146,6 +156,11 @@ public class HotColdClueTask extends ClueTask {
             setStatus(dugBefore ? STATUS_DUG_AGAIN : STATUS_DUG);
             dugBefore = true;
         }
+    }
+
+    private static String cannotReachMessage(WorldPoint spot) {
+        return "Hot Cold clue: can't find a path to the dig spot at " + spot.getX() + ", " + spot.getY()
+                + (spot.getPlane() != 0 ? " upstairs" : "") + ". Walk closer and the solver will try again.";
     }
 
     private boolean isNpcAttackingPlayer() {
