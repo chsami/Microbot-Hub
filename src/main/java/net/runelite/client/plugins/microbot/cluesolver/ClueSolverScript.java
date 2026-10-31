@@ -25,6 +25,7 @@ public class ClueSolverScript extends Script {
     private Future<?> itemRequirementsTask;
     private volatile ClueTask activeTask;
     private ClueScroll currentClue;
+    private volatile ClueScroll failedClue;
     private final ScheduledExecutorService executorService = newExecutorService();
 
     @Inject
@@ -82,13 +83,20 @@ public class ClueSolverScript extends Script {
 
 
 
-    private void processClues() {
+    void processClues() {
         if (executorService.isShutdown()) {
             log.warn("Executor service is shut down; skipping task submission.");
             return;
         }
 
         ClueScroll clue = clueScrollPlugin.getClue();
+        ClueScroll failed = failedClue;
+        if (failed != null) {
+            if (failed.equals(clue)) {
+                return;
+            }
+            failedClue = null;
+        }
         if (clue != null && !clue.equals(currentClue)) {
             currentClue = clue;
             overlay.updateTaskStatus("New Clue Detected: " + clue.getClass().getSimpleName());
@@ -186,7 +194,13 @@ public class ClueSolverScript extends Script {
                 log.error("Error executing clue task", e);
                 return false;
             } finally {
-                resetCurrentClue();
+                if (task instanceof HotColdClueTask && ((HotColdClueTask) task).hasFailedWithError()) {
+                    failedClue = currentClue;
+                    currentClue = null;
+                    overlay.updateTaskStatus(HotColdClueTask.STATUS_STOPPED_AFTER_ERROR);
+                } else {
+                    resetCurrentClue();
+                }
             }
         });
     }
@@ -210,6 +224,7 @@ public class ClueSolverScript extends Script {
         if (task instanceof HotColdClueTask) {
             ((HotColdClueTask) task).stop();
         }
+        failedClue = null;
         eventBus.unregister(this);
 
         overlay.updateTaskStatus("Clue Solver Script stopped");

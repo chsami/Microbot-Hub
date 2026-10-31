@@ -24,11 +24,12 @@ import java.util.function.Consumer;
 public class HotColdClueTask extends ClueTask {
     public static final String STATUS_WAITING_FOR_DEVICE = "Hot Cold: use Strange device until it is visibly shaking";
     public static final String STATUS_WALKING = "Hot Cold: walking to dig spot";
-    public static final String STATUS_NO_SPADE = "Hot Cold: get a Spade, then it digs";
+    public static final String STATUS_NO_SPADE = "Hot Cold: get a Spade to dig";
     public static final String STATUS_DUG = "Hot Cold: dug, checking result";
     public static final String STATUS_DUG_AGAIN = "Hot Cold: digging again";
-    public static final String STATUS_UNDER_ATTACK = "Hot Cold: kill the attacker, then it digs again";
+    public static final String STATUS_UNDER_ATTACK = "Hot Cold: kill the attacker to dig again";
     public static final String STATUS_CANNOT_REACH = "Hot Cold: no path, walk closer and stand still";
+    public static final String STATUS_STOPPED_AFTER_ERROR = "Hot Cold: stopped after an error, restart solver";
     public static final String START_MESSAGE = "Hot Cold clue: the solver does not search for you. Walk to the area in the clue hint and use your Strange device. When it says the device is visibly shaking, the solver digs there for you.";
     public static final String NO_SPADE_MESSAGE = "Hot Cold clue: you have no Spade. Bring one before the device shakes, or the solver cannot dig.";
     public static final String CANNOT_REACH_MESSAGE = "Hot Cold clue: can't find a path to the dig spot (the spade marker on the ground). Walk closer to the spade marker and stand still for a moment; the solver will try again.";
@@ -41,6 +42,7 @@ public class HotColdClueTask extends ClueTask {
     private final ExecutorService backgroundExecutor;
     private final Consumer<String> statusUpdater;
     private final AtomicBoolean completed = new AtomicBoolean();
+    private volatile boolean failedWithError;
     private volatile Future<?> currentTask;
     private WorldPoint digLocation;
     private WorldPoint unreachableSpot;
@@ -93,11 +95,16 @@ public class HotColdClueTask extends ClueTask {
             } catch (Exception ex) {
                 log.error("Error processing Hot Cold clue tick", ex);
                 if (!completed.get()) {
+                    failedWithError = true;
                     Microbot.log(ERROR_MESSAGE);
                 }
                 completeTask(false);
             }
         });
+    }
+
+    public boolean hasFailedWithError() {
+        return failedWithError;
     }
 
     private void processGameTick() {

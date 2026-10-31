@@ -373,6 +373,7 @@ class HotColdClueTaskTest {
         microbot.verify(() -> Microbot.log(HotColdClueTask.ERROR_MESSAGE), times(1));
         verify(eventBus, times(1)).unregister(task);
         assertFalse(result.join());
+        assertTrue(task.hasFailedWithError());
     }
 
     @Test
@@ -404,6 +405,7 @@ class HotColdClueTaskTest {
         verify(executor, times(1)).submit(any(Runnable.class));
         verify(eventBus, times(1)).unregister(task);
         assertFalse(result.join());
+        assertFalse(task.hasFailedWithError());
     }
 
     @Test
