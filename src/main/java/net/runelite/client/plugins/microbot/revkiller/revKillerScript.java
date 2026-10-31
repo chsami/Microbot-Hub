@@ -704,11 +704,12 @@ public class revKillerScript extends Script {
                         break;
                     }
                 }
-                fleeOnFootIfStillInCaves();
+                fleeOnFootIfStillInCaves(failedTeleports >= MAX_FLEE_TELEPORT_ATTEMPTS ? equippedName(EquipmentInventorySlot.AMULET) : null);
                 Rs2Prayer.disableAllPrayers();
                 shouldFlee = false;
                 return;
             }
+            String failedTeleportItem = null;
             if(Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 20 && hasDuelingTeleport()) {
                 int failedTeleports = 0;
                 while (Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation()) <= 20) {
@@ -741,8 +742,9 @@ public class revKillerScript extends Script {
                         break;
                     }
                 }
+                if (failedTeleports >= MAX_FLEE_TELEPORT_ATTEMPTS) failedTeleportItem = equippedName(EquipmentInventorySlot.RING);
             }
-            fleeOnFootIfStillInCaves();
+            fleeOnFootIfStillInCaves(failedTeleportItem);
             Rs2Prayer.disableAllPrayers();
             shouldFlee = false;
         } else {
@@ -1072,7 +1074,7 @@ public class revKillerScript extends Script {
     }
 
     private void teleToFerox(){
-        if(Rs2Equipment.isWearing(it->it!=null&&it.getName().toLowerCase().contains("ring of dueling"))) {
+        if(hasDuelingTeleport()) {
             if (Rs2Equipment.interact(EquipmentInventorySlot.RING, "Ferox Enclave")) {
                 sleepUntil(() -> Rs2Player.isAnimating(), generateRandomNumber(2000, 4000));
                 sleepUntil(() -> !Rs2Player.isAnimating(), generateRandomNumber(6000, 10000));
@@ -1574,11 +1576,32 @@ public class revKillerScript extends Script {
         return name.equals("amulet of eternal glory") || name.matches("amulet of glory\\s?\\(t?\\d\\)");
     }
 
-    void fleeOnFootIfStillInCaves() {
+    void fleeOnFootIfStillInCaves(String failedTeleportItem) {
         if (!isRunning() || !shouldFlee || weDied || !WeAreInTheCaves()) return;
-        Microbot.log("No usable teleport, running to Ferox Enclave.");
+        if (Rs2Player.isTeleBlocked()) {
+            Microbot.log("We're teleblocked! Attempting to run to the bank");
+        } else if (failedTeleportItem != null) {
+            Microbot.log("Teleport with " + failedTeleportItem + " failed " + MAX_FLEE_TELEPORT_ATTEMPTS + " times, running to Ferox Enclave on foot.");
+        } else {
+            Microbot.log(noChargedTeleportMessage(Rs2Pvp.getWildernessLevelFrom(Rs2Player.getWorldLocation())));
+        }
         Rs2Walker.walkTo(BankLocation.FEROX_ENCLAVE.getWorldPoint());
         Rs2Walker.setTarget(null);
+    }
+
+    static String noChargedTeleportMessage(int wildernessLevel) {
+        if (wildernessLevel > 20 && wildernessLevel <= 30) {
+            return "No charged Amulet of glory equipped, running to Ferox Enclave on foot. Wear a charged Amulet of glory to teleport out of the caves.";
+        }
+        if (wildernessLevel < 20) {
+            return "No charged Ring of dueling equipped, running to Ferox Enclave on foot. Wear a Ring of dueling to teleport out of the caves.";
+        }
+        return "No charged Ring of dueling or Amulet of glory equipped, running to Ferox Enclave on foot. Wear a Ring of dueling (and a charged glory) to teleport out of the caves.";
+    }
+
+    private static String equippedName(EquipmentInventorySlot slot) {
+        Rs2ItemModel item = Rs2Equipment.get(slot);
+        return item != null ? item.getName() : null;
     }
 
     static boolean hasEquippedAmmoAbove(int quantity) {
