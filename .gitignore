@@ -51,5 +51,15 @@ nbactions.xml
 nb-configuration.xml
 nbproject/
 public/**
+# The Plugin Hub pages' Jekyll layout and theme hooks are kept; the generated plugin docs are not.
+!public/docs/
+!public/docs/_config.yml
+!public/docs/_layouts/
+!public/docs/_layouts/**
+!public/docs/_includes/
+!public/docs/_includes/**
+!public/docs/assets/
+!public/docs/assets/css/
+!public/docs/assets/css/hub.css
 /CreatePluginDocs.ps1
 .worktrees/
