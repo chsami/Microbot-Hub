@@ -30,6 +30,8 @@ public class VarrockAnvilScript extends Script {
     public State state = State.BANKING;
     public String debug = "";
     private boolean expectingXPDrop = false;
+    private static final int MAX_WITHDRAW_ATTEMPTS = 3;
+    private int failedWithdraws = 0;
 
     private static WorldPoint AnvilLocation = new WorldPoint(3188, 3426, 0);
     private static WorldPoint BankLocation = new WorldPoint(3185, 3438, 0);
@@ -41,6 +43,7 @@ public class VarrockAnvilScript extends Script {
         Bars barType = config.sBarType();
         AnvilItem anvilItem = config.sAnvilItem();
         logout = config.sLogout();
+        failedWithdraws = 0;
 
         Microbot.enableAutoRunOn = false;
 
@@ -121,7 +124,8 @@ public class VarrockAnvilScript extends Script {
                     break;
 
                 case BANKING:
-                    debug("Banking");
+                    debug(failedWithdraws == 0 ? "Banking"
+                            : "Banking, withdraw failed, retrying (" + failedWithdraws + "/" + MAX_WITHDRAW_ATTEMPTS + ")");
                     bank(barType);
                     break;
 
@@ -168,6 +172,7 @@ public class VarrockAnvilScript extends Script {
         debug("Determine state");
 
         if (Rs2Inventory.hasItemAmount(barType.toString(), anvilItem.getRequiredBars()) && Rs2Inventory.hasItem(ItemID.HAMMER)) {
+            failedWithdraws = 0;
             if (!closeToLocation(AnvilLocation)) {
                 state = State.WALK_TO_ANVIL;
                 debug("Walking to anvil");
@@ -188,30 +193,46 @@ public class VarrockAnvilScript extends Script {
 
     // Handle all banking actions
     private void bank(Bars barType) {
+        boolean bankWasOpen = Rs2Bank.isOpen();
+        int epochBeforeOpen = Rs2Bank.getBankLiveEpoch();
         if (Rs2Bank.openBank()) {
             sleepUntil(Rs2Bank::isOpen);
+            if (!Rs2Bank.verifyBankMirrorAfterOpen(bankWasOpen, epochBeforeOpen)
+                    && !sleepUntil(() -> Rs2Bank.verifyBankMirrorAfterOpen(bankWasOpen, epochBeforeOpen), 1800)) {
+                debug("Waiting for the bank to load");
+                Rs2Bank.closeBank();
+                return;
+            }
             debug("Bank is open");
+            String bars = barsName(barType);
             Rs2Bank.depositAllExcept(ItemID.HAMMER, barType.getId());
             debug("Items deposited");
             sleep(180, 540);
 
             if (!Rs2Inventory.hasItem(ItemID.HAMMER)) {
-                Rs2Bank.withdrawOne(ItemID.HAMMER);
-                sleepUntil(() -> Rs2Inventory.hasItem(ItemID.HAMMER), 3500);
-
-                // Exit if we did not end up finding it.
-                if (!Rs2Inventory.hasItem(ItemID.HAMMER)) {
+                if (Rs2Bank.count(ItemID.HAMMER) < 1) {
                     Rs2Bank.closeBank();
-                    stop("Could not find hammer in bank.");
+                    stop("No hammer in your inventory or bank. Put a hammer in your bank and start again.");
+                    return;
+                }
+                Rs2Bank.withdrawOne(ItemID.HAMMER);
+                if (!sleepUntil(() -> Rs2Inventory.hasItem(ItemID.HAMMER), 3500)) {
+                    withdrawFailed("Hammer withdraw failed, retrying", "Could not withdraw a hammer after "
+                            + MAX_WITHDRAW_ATTEMPTS + " tries. Clear the bank search, make sure the hammer is visible in the bank, then start the script again.");
                     return;
                 }
                 sleep(180, 540);
-
             }
 
             if (Rs2Bank.count(barType.getId()) < 1) {
                 Rs2Bank.closeBank();
-                stop("Out of bars.");
+                stop("Out of " + bars + " in the bank. Stopping.");
+                return;
+            }
+            String withdrawStop = "Could not withdraw " + bars + " after " + MAX_WITHDRAW_ATTEMPTS
+                    + " tries. Clear the bank search, make sure the bars are visible in the bank, then start the script again.";
+            if (!Rs2Bank.setWithdrawAsItem()) {
+                withdrawFailed("Withdraw failed, retrying", withdrawStop);
                 return;
             }
             int barsBefore = Rs2Inventory.count(barType.getId());
@@ -220,13 +241,33 @@ public class VarrockAnvilScript extends Script {
                 if (Rs2Bank.isOpen() && Rs2Bank.count(barType.getId()) < 1
                         && Rs2Inventory.count(barType.getId()) <= barsBefore) {
                     Rs2Bank.closeBank();
-                    stop("Could not find bars in bank.");
+                    stop(Rs2Inventory.hasNotedItem(barType.toString(), true)
+                            ? bars + " were withdrawn as notes. Set the bank to 'Withdraw as: Item', deposit the noted bars, and start the script again."
+                            : "Out of " + bars + " in the bank. Stopping.");
+                    return;
                 }
+                withdrawFailed("Withdraw failed, retrying", withdrawStop);
                 return;
             }
+            failedWithdraws = 0;
             sleep(180, 540);
             Rs2Bank.closeBank();
         }
+    }
+
+    private void withdrawFailed(String retrying, String stopMessage) {
+        failedWithdraws++;
+        if (failedWithdraws >= MAX_WITHDRAW_ATTEMPTS) {
+            Rs2Bank.closeBank();
+            stop(stopMessage);
+            return;
+        }
+        debug(retrying + " (" + failedWithdraws + "/" + MAX_WITHDRAW_ATTEMPTS + ")");
+    }
+
+    private static String barsName(Bars barType) {
+        String name = barType.toString();
+        return name.endsWith("bar") ? name + "s" : name;
     }
 
     private void debug(String msg) {
