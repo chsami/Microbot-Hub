@@ -39,6 +39,14 @@ Use at your own risk.
 ---
 
 ## Changelog
+### 1.0.4
+- Fixed: the script no longer stops with 'Could not find bars in bank.' while you still have bars in the bank; if a withdraw is slow it simply tries again.
+- Fixed: the script no longer stops with "Out of bars." before the bank has finished loading.
+- Fixed: when the script stops (no hammer, out of bars) it no longer withdraws your bars on the way out.
+- The bank is switched to 'Withdraw as: Item' before taking out bars.
+- If bars or the hammer still cannot be withdrawn after 3 tries, the script stops and tells you what to check.
+- Stop messages now name the bar that ran out.
+
 ### 1.0.3
 - Add icon PNG
 
