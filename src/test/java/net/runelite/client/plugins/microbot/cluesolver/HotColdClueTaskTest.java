@@ -30,6 +30,7 @@ import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -162,6 +164,7 @@ class HotColdClueTaskTest {
         task.onGameTick(new GameTick());
 
         walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never());
+        microbot.verify(() -> Microbot.log(HotColdClueTask.NO_SPADE_MESSAGE), times(1));
         verify(eventBus, never()).unregister(task);
         assertFalse(result.isDone());
         assertEquals(List.of(HotColdClueTask.STATUS_WAITING_FOR_DEVICE, HotColdClueTask.STATUS_NO_SPADE), statuses);
@@ -273,8 +276,8 @@ class HotColdClueTaskTest {
     }
 
     @Test
-    void unreachableDigSpotKeepsReasonAndRetriesOnlyAfterPlayerMoves() {
-        String cannotReach = "Hot Cold clue: can't find a path to the dig spot at 3110, 3260. Walk closer and the solver will try again.";
+    void unreachableDigSpotKeepsReasonAndRetriesOnlyAfterPlayerMovesAndStops() {
+        String cannotReach = "Hot Cold clue: can't find a path to the dig spot at 3110, 3260. Walk closer and stop. The solver will try again.";
         when(clue.getLocation(clueScrollPlugin)).thenReturn(DIG_SPOT);
         walker.when(() -> Rs2Walker.walkTo(DIG_SPOT, 0)).thenReturn(false);
         inventory.when(() -> Rs2Inventory.contains("Spade")).thenReturn(true);
@@ -288,13 +291,26 @@ class HotColdClueTaskTest {
         walker.verify(() -> Rs2Walker.walkTo(DIG_SPOT, 0), times(1));
         microbot.verify(() -> Microbot.log(cannotReach), times(1));
         microbot.verify(() -> Microbot.log(HotColdClueTask.START_MESSAGE), times(1));
+        microbot.verify(() -> Microbot.log(HotColdClueTask.NO_SPADE_MESSAGE), never());
         inventory.verify(() -> Rs2Inventory.interact(anyInt(), anyString()), never());
         assertEquals(List.of(HotColdClueTask.STATUS_WAITING_FOR_DEVICE, HotColdClueTask.STATUS_WALKING,
                 HotColdClueTask.STATUS_CANNOT_REACH), statuses);
         verify(eventBus, never()).unregister(task);
         assertFalse(result.isDone());
 
-        when(player.getWorldLocation()).thenReturn(new WorldPoint(3105, 3255, 0));
+        for (int step = 1; step <= 4; step++) {
+            when(player.getWorldLocation()).thenReturn(new WorldPoint(3100 + step, 3250 + step, 0));
+            task.onGameTick(new GameTick());
+        }
+        walker.verify(() -> Rs2Walker.walkTo(DIG_SPOT, 0), times(1));
+
+        WorldPoint stoppedAt = new WorldPoint(3105, 3255, 0);
+        when(player.getWorldLocation()).thenReturn(stoppedAt);
+        for (int i = 0; i < HotColdClueTask.RETRY_STILL_TICKS; i++) {
+            task.onGameTick(new GameTick());
+        }
+        walker.verify(() -> Rs2Walker.walkTo(DIG_SPOT, 0), times(1));
+
         task.onGameTick(new GameTick());
         task.onGameTick(new GameTick());
 
@@ -306,8 +322,11 @@ class HotColdClueTaskTest {
         walker.when(() -> Rs2Walker.walkTo(DIG_SPOT, 0)).thenReturn(true);
         inventory.when(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig")).thenReturn(true);
         when(player.getWorldLocation()).thenReturn(new WorldPoint(3108, 3258, 0));
-        task.onGameTick(new GameTick());
+        for (int i = 0; i <= HotColdClueTask.RETRY_STILL_TICKS; i++) {
+            task.onGameTick(new GameTick());
+        }
 
+        walker.verify(() -> Rs2Walker.walkTo(DIG_SPOT, 0), times(3));
         inventory.verify(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig"));
         assertEquals(HotColdClueTask.STATUS_DUG, statuses.get(statuses.size() - 1));
     }
@@ -353,6 +372,42 @@ class HotColdClueTaskTest {
 
         walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never());
         verify(eventBus).unregister(task);
+        assertFalse(result.join());
+    }
+
+    @Test
+    void stopEndsTaskAndInterruptsRunningTick() {
+        ExecutorService executor = mock(ExecutorService.class);
+        Future<?> runningTick = mock(Future.class);
+        doReturn(runningTick).when(executor).submit(any(Runnable.class));
+        HotColdClueTask task = newTask(executor);
+        CompletableFuture<Boolean> result = start(task);
+
+        task.onGameTick(new GameTick());
+        task.stop();
+        task.onGameTick(new GameTick());
+
+        verify(runningTick).cancel(true);
+        verify(executor, times(1)).submit(any(Runnable.class));
+        verify(eventBus, times(1)).unregister(task);
+        assertFalse(result.join());
+    }
+
+    @Test
+    void stopDuringWalkDoesNotDig() {
+        when(clue.getLocation(clueScrollPlugin)).thenReturn(DIG_SPOT);
+        inventory.when(() -> Rs2Inventory.contains("Spade")).thenReturn(true);
+        HotColdClueTask task = newTask(new DirectExecutor());
+        walker.when(() -> Rs2Walker.walkTo(DIG_SPOT, 0)).thenAnswer(invocation -> {
+            task.stop();
+            return true;
+        });
+        CompletableFuture<Boolean> result = start(task);
+
+        task.onGameTick(new GameTick());
+
+        inventory.verify(() -> Rs2Inventory.interact(anyInt(), anyString()), never());
+        verify(eventBus, times(1)).unregister(task);
         assertFalse(result.join());
     }
 

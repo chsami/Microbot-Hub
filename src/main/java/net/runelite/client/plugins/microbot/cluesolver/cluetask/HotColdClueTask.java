@@ -22,25 +22,29 @@ import java.util.function.Consumer;
 
 @Slf4j
 public class HotColdClueTask extends ClueTask {
-    public static final String STATUS_WAITING_FOR_DEVICE = "Hot Cold: use Strange device until spot is marked";
+    public static final String STATUS_WAITING_FOR_DEVICE = "Hot Cold: use Strange device until it is visibly shaking";
     public static final String STATUS_WALKING = "Hot Cold: walking to dig spot";
-    public static final String STATUS_NO_SPADE = "Hot Cold: put a Spade in your inventory";
-    public static final String STATUS_DUG = "Hot Cold: dug, waiting";
-    public static final String STATUS_DUG_AGAIN = "Hot Cold: clue unchanged, dug again";
-    public static final String STATUS_UNDER_ATTACK = "Hot Cold: fight off the attacker, solver digs again after";
-    public static final String STATUS_CANNOT_REACH = "Hot Cold: can't walk to dig spot, walk closer yourself";
-    public static final String START_MESSAGE = "Hot Cold clue: use your Strange device until the dig spot is marked. The solver then walks there and digs.";
+    public static final String STATUS_NO_SPADE = "Hot Cold: need a Spade";
+    public static final String STATUS_DUG = "Hot Cold: dug, checking result";
+    public static final String STATUS_DUG_AGAIN = "Hot Cold: digging again";
+    public static final String STATUS_UNDER_ATTACK = "Hot Cold: kill the attacker, then it digs again";
+    public static final String STATUS_CANNOT_REACH = "Hot Cold: no path, walk closer and stop";
+    public static final String START_MESSAGE = "Hot Cold clue: walk toward the hint and use your Strange device. When it says the device is visibly shaking, the solver digs there for you.";
+    public static final String NO_SPADE_MESSAGE = "Hot Cold clue: you have no Spade. Bring one before the device shakes, or the solver cannot dig.";
     public static final int DIG_RESULT_TICKS = 5;
+    public static final int RETRY_STILL_TICKS = 2;
 
     private final HotColdClue clue;
     private final EventBus eventBus;
     private final ExecutorService backgroundExecutor;
     private final Consumer<String> statusUpdater;
     private final AtomicBoolean completed = new AtomicBoolean();
-    private Future<?> currentTask;
+    private volatile Future<?> currentTask;
     private WorldPoint digLocation;
     private WorldPoint unreachableSpot;
     private WorldPoint unreachableFrom;
+    private WorldPoint lastPlayerLocation;
+    private int stillTicks;
     private String lastStatus;
     private boolean spadeWarningLogged;
     private boolean dug;
@@ -62,7 +66,18 @@ public class HotColdClueTask extends ClueTask {
         setStatus(STATUS_WAITING_FOR_DEVICE);
         eventBus.register(this);
         Microbot.log(START_MESSAGE);
+        if (!Rs2Inventory.contains("Spade")) {
+            Microbot.log(NO_SPADE_MESSAGE);
+        }
         return true;
+    }
+
+    public void stop() {
+        completeTask(false);
+        Future<?> tick = currentTask;
+        if (tick != null) {
+            tick.cancel(true);
+        }
     }
 
     @Subscribe
@@ -128,19 +143,21 @@ public class HotColdClueTask extends ClueTask {
         }
 
         if (!digLocation.equals(playerLocation)) {
-            if (digLocation.equals(unreachableSpot) && playerLocation.equals(unreachableFrom)) {
+            if (digLocation.equals(unreachableSpot) && !hasStoppedElsewhere(playerLocation)) {
                 setStatus(STATUS_CANNOT_REACH);
                 return;
             }
             setStatus(STATUS_WALKING);
             boolean walked = Rs2Walker.walkTo(digLocation, 0);
-            if (!ClueSolverPlugin.isSolverRunning) {
+            if (completed.get() || !ClueSolverPlugin.isSolverRunning) {
                 completeTask(false);
                 return;
             }
             if (!walked) {
                 WorldPoint stoppedAt = getPlayerLocationSafe();
                 unreachableFrom = stoppedAt != null ? stoppedAt : playerLocation;
+                lastPlayerLocation = unreachableFrom;
+                stillTicks = 0;
                 if (!digLocation.equals(unreachableSpot)) {
                     Microbot.log(cannotReachMessage(digLocation));
                 }
@@ -160,7 +177,17 @@ public class HotColdClueTask extends ClueTask {
 
     private static String cannotReachMessage(WorldPoint spot) {
         return "Hot Cold clue: can't find a path to the dig spot at " + spot.getX() + ", " + spot.getY()
-                + (spot.getPlane() != 0 ? " upstairs" : "") + ". Walk closer and the solver will try again.";
+                + (spot.getPlane() != 0 ? " upstairs" : "") + ". Walk closer and stop. The solver will try again.";
+    }
+
+    private boolean hasStoppedElsewhere(WorldPoint playerLocation) {
+        if (playerLocation.equals(lastPlayerLocation)) {
+            stillTicks++;
+        } else {
+            lastPlayerLocation = playerLocation;
+            stillTicks = 0;
+        }
+        return stillTicks >= RETRY_STILL_TICKS && !playerLocation.equals(unreachableFrom);
     }
 
     private boolean isNpcAttackingPlayer() {

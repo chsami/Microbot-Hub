@@ -23,6 +23,7 @@ import java.util.function.Supplier;
 public class ClueSolverScript extends Script {
     private Future<?> currentTask;
     private Future<?> itemRequirementsTask;
+    private volatile ClueTask activeTask;
     private ClueScroll currentClue;
     private final ScheduledExecutorService executorService = newExecutorService();
 
@@ -171,6 +172,7 @@ public class ClueSolverScript extends Script {
             return;
         }
 
+        activeTask = task;
         currentTask = executorService.submit(() -> {
             CompletableFuture<Boolean> future = new CompletableFuture<>();
             task.setFuture(future);
@@ -202,6 +204,11 @@ public class ClueSolverScript extends Script {
         }
         if (itemRequirementsTask != null && !itemRequirementsTask.isDone()) {
             itemRequirementsTask.cancel(true);
+        }
+        ClueTask task = activeTask;
+        activeTask = null;
+        if (task instanceof HotColdClueTask) {
+            ((HotColdClueTask) task).stop();
         }
         eventBus.unregister(this);
 
