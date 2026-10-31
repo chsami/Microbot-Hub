@@ -4,6 +4,12 @@ import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsStackCompareID;
 import org.junit.jupiter.api.Test;
 
+import java.util.AbstractMap.SimpleEntry;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -69,5 +75,71 @@ class BarrowsGearRulesTest
         InventorySetupsItem helm = new InventorySetupsItem(4716, "Dharok's helm", 1, false, InventorySetupsStackCompareID.None, false, 0);
 
         assertFalse(BarrowsGearRules.isEmptySetupRow(helm));
+    }
+
+    private static Map.Entry<Integer, String> candidate(int id, String name)
+    {
+        return new SimpleEntry<>(id, name);
+    }
+
+    private static Map.Entry<Integer, String> closest(int setupId, String setupName, List<Map.Entry<Integer, String>> candidates)
+    {
+        return candidates.stream()
+                .filter(c -> BarrowsGearRules.fillsSetupRow(setupName, c.getValue()))
+                .min(BarrowsGearRules.closestToSetupRow(setupId, setupName, Map.Entry::getKey, Map.Entry::getValue))
+                .orElse(null);
+    }
+
+    @Test
+    void exactItemWinsOverATrimmedVariantInAnEarlierSlot()
+    {
+        List<Map.Entry<Integer, String>> bank = Arrays.asList(
+                candidate(2615, "Rune platebody (g)"),
+                candidate(2623, "Rune platebody (t)"),
+                candidate(1127, "Rune platebody"));
+
+        assertEquals(1127, closest(1127, "Rune platebody", bank).getKey());
+    }
+
+    @Test
+    void exactNameWinsWhenTheSetupIdIsNotThere()
+    {
+        List<Map.Entry<Integer, String>> bank = Arrays.asList(
+                candidate(20575, "Mystic robe top (dark)"),
+                candidate(4091, "Mystic robe top"));
+
+        assertEquals(4091, closest(-2, "mystic robe top", bank).getKey());
+    }
+
+    @Test
+    void setupIdWinsOverOtherChargeStages()
+    {
+        List<Map.Entry<Integer, String>> bank = Arrays.asList(
+                candidate(4716, "Dharok's helm"),
+                candidate(4881, "Dharok's helm 75"),
+                candidate(4880, "Dharok's helm 100"));
+
+        assertEquals(4880, closest(4880, "Dharok's helm", bank).getKey());
+    }
+
+    @Test
+    void shortestNameWinsWhenNothingMatchesExactly()
+    {
+        List<Map.Entry<Integer, String>> bank = Arrays.asList(
+                candidate(4881, "Dharok's helm 75"),
+                candidate(4880, "Dharok's helm 100"),
+                candidate(4884, "Dharok's helm 0"));
+
+        assertEquals(4881, closest(4716, "Dharok's helm", bank).getKey());
+    }
+
+    @Test
+    void brokenCopyIsNeverPickedEvenWithTheSetupId()
+    {
+        List<Map.Entry<Integer, String>> bank = Arrays.asList(
+                candidate(4884, "Dharok's helm 0"),
+                candidate(4883, "Dharok's helm 25"));
+
+        assertEquals(4883, closest(4884, "Dharok's helm", bank).getKey());
     }
 }

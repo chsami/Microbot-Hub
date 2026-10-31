@@ -49,6 +49,7 @@ import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -3263,11 +3264,6 @@ public class BarrowsScript extends Script {
         }
     }
 
-    /**
-     * Hub workaround for client Rs2InventorySetup.loadEquipment aborting when
-     * depositAllExcept returns false (nothing deposited) even though bank has the
-     * missing gear. Withdraw/equip missing slots directly by name.
-     */
     private void tryDirectEquipMissingGear(Rs2InventorySetup inventorySetup) {
         if (!Rs2Bank.isOpen() && !Rs2Bank.openBank()) {
             return;
@@ -3278,7 +3274,7 @@ public class BarrowsScript extends Script {
         }
         Microbot.log("loadEquipment aborted before withdraw; trying direct withdrawAndEquip for missing gear...");
         for (InventorySetupsItem item : equipment) {
-            if (!super.isRunning()) {
+            if (!super.isRunning() || Microbot.pauseAllScripts.get()) {
                 return;
             }
             if (BarrowsGearRules.isEmptySetupRow(item)) {
@@ -3292,11 +3288,17 @@ public class BarrowsScript extends Script {
             if (Rs2Equipment.isWearing(fillsRow)) {
                 continue;
             }
-            Rs2ItemModel carried = Rs2Inventory.get(fillsRow);
+            Comparator<Rs2ItemModel> closest = BarrowsGearRules.closestToSetupRow(
+                    item.getId(), name, Rs2ItemModel::getId, Rs2ItemModel::getName);
+            Rs2ItemModel carried = Rs2Inventory.items(fillsRow.and(it -> !it.isNoted()))
+                    .min(closest)
+                    .orElse(null);
             if (carried != null) {
                 Rs2Bank.wearItem(carried.getId());
             } else {
-                Rs2ItemModel banked = Rs2Bank.get(fillsRow);
+                Rs2ItemModel banked = Rs2Bank.getAll(fillsRow.and(it -> it.getQuantity() > 0))
+                        .min(closest)
+                        .orElse(null);
                 if (banked != null) {
                     Rs2Bank.withdrawAndEquip(banked.getId());
                 }
