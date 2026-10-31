@@ -39,6 +39,10 @@ Use at your own risk.
 ---
 
 ## Changelog
+### 1.0.4
+- No longer stops with "Could not find bars in bank." while bars are still in the bank; a slow withdraw is retried on the next tick.
+- Stops right away after deciding to stop instead of withdrawing bars first.
+
 ### 1.0.3
 - Add icon PNG
 

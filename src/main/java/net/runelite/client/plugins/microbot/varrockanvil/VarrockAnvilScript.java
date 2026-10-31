@@ -203,21 +203,26 @@ public class VarrockAnvilScript extends Script {
                 if (!Rs2Inventory.hasItem(ItemID.HAMMER)) {
                     Rs2Bank.closeBank();
                     stop("Could not find hammer in bank.");
+                    return;
                 }
                 sleep(180, 540);
 
             }
 
-            if (Rs2Bank.count(barType.toString()) < 1) {
+            if (Rs2Bank.count(barType.getId()) < 1) {
                 Rs2Bank.closeBank();
                 stop("Out of bars.");
+                return;
             }
-            Rs2Bank.withdrawAll(barType.toString());
-            sleepUntil(() -> Rs2Inventory.hasItem(barType.toString()), 3500);
-
-            // Exit if we did not end up finding it.
-            if (!Rs2Inventory.hasItem(barType.toString())) {
-                stop("Could not find bars in bank.");
+            int barsBefore = Rs2Inventory.count(barType.getId());
+            Rs2Bank.withdrawAll(barType.getId());
+            if (!sleepUntil(() -> Rs2Inventory.count(barType.getId()) > barsBefore, 3500)) {
+                if (Rs2Bank.isOpen() && Rs2Bank.count(barType.getId()) < 1
+                        && Rs2Inventory.count(barType.getId()) <= barsBefore) {
+                    Rs2Bank.closeBank();
+                    stop("Could not find bars in bank.");
+                }
+                return;
             }
             sleep(180, 540);
             Rs2Bank.closeBank();
