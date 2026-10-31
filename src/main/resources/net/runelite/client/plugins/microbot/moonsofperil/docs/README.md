@@ -11,7 +11,8 @@ Babysit until you are 100% comfortable.Run the latest nightly build.
 - Passive fishing & cooking XP
 
 # Prerequisites For Using The Plugin
-- Turn on Quality Of Live (QoL) plugin and enable:
+- The script eats and drinks by itself during the whole boss fight (see Health % topup and Prayer % topup in General settings)
+- Optional backup: turn on the Quality Of Life (QoL) plugin at a lower threshold than the script, so it only steps in if the script misses a top-up:
   - 'Auto Eat Food' set to ~ 30-40%.
   - 'Auto Drink Prayer Pot' set to ~ 5-10
 - InventorySetup preset per boss + for eclipse moon clone phase (4 in total)
@@ -30,7 +31,7 @@ Babysit until you are 100% comfortable.Run the latest nightly build.
 4. Claim rewards chest, then repeat
 
 ## Boss Notes
-- Ideally a full normal attack sequence can run without the need to eat or drink. This drastically increases DPS
+- During the main attack phase the script eats when your HP drops below Health % topup and drinks when prayer drops below Prayer % topup (both in General settings). Lower these values, for example to 50%, for more DPS, or raise them if you die.
 - **Eclipse Moon:** use your best **stab** weapon.
   - Clone phase = burst DPS with your highest-hit 2-handed weapon. 
   - If you spawn into the boss arena mid-shield special attack, the script exits the arena and re-enters.
