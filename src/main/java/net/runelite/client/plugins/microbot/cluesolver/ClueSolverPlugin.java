@@ -42,7 +42,7 @@ public class ClueSolverPlugin extends Plugin {
     @Inject
     private ClueSolverConfig clueSolverConfig;
 
-    public static boolean isSolverRunning = false;
+    public static volatile boolean isSolverRunning = false;
 
     @Provides
     ClueSolverConfig provideClueSolverConfig(ConfigManager configManager) {

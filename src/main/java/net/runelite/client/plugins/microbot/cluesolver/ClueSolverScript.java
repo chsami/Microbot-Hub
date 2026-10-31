@@ -63,7 +63,7 @@ public class ClueSolverScript extends Script {
         taskFactoryMap.put(SkillChallengeClue.class, () -> new SkillChallengeClueTask(client, (SkillChallengeClue) currentClue, clueScrollPlugin, clueSolverPlugin, eventBus, executorService));
         taskFactoryMap.put(AnagramClue.class, () -> new AnagramClueTask(client, (AnagramClue) currentClue, clueScrollPlugin, clueSolverPlugin, eventBus, executorService));
         taskFactoryMap.put(ThreeStepCrypticClue.class, () -> new ThreeStepCrypticClueTask(client, (ThreeStepCrypticClue) currentClue, clueScrollPlugin, clueSolverPlugin, eventBus, executorService));
-        taskFactoryMap.put(HotColdClue.class, () -> new HotColdClueTask(client, (HotColdClue) currentClue, clueScrollPlugin, clueSolverPlugin, eventBus, executorService));
+        taskFactoryMap.put(HotColdClue.class, () -> new HotColdClueTask(client, (HotColdClue) currentClue, clueScrollPlugin, clueSolverPlugin, eventBus, executorService, overlay::updateTaskStatus));
         taskFactoryMap.put(CipherClue.class, () -> new CipherClueTask(client, (CipherClue) currentClue, clueScrollPlugin, clueSolverPlugin, eventBus, executorService));
     }
 
