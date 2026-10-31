@@ -656,44 +656,43 @@ public class TemporossScript extends Script {
     }
 
     /**
-     * Resolves and interacts with an NPC as one client-thread operation. The executor only keeps the
-     * immutable identity/location snapshot; the live actor never escapes this callback.
+     * Resolves an NPC on the client thread and clicks it from the calling script thread, so the
+     * client's can't-reach recovery can walk. The executor only keeps the immutable identity/location
+     * snapshot; the live actor is never stored.
      */
     private static boolean clickNpc(TemporossNpcSnapshot snapshot, String action, boolean face) {
         if (snapshot == null) {
             return false;
         }
-        Supplier<Boolean> operation = () -> {
-            Rs2NpcModel npc = Microbot.getRs2NpcCache().query()
-                    .withId(snapshot.id)
-                    .where(candidate -> candidate.getIndex() == snapshot.index)
-                    .nearest();
-            if (npc == null || npc.getNpc() == null) {
-                return false;
-            }
-            if (face) {
-                faceIfNeeded(npc.getNpc());
-            }
-            return npc.click(action);
-        };
-        Boolean clicked = Microbot.getClientThread().invoke(operation);
-        return Boolean.TRUE.equals(clicked);
+        Supplier<Rs2NpcModel> lookup = () -> Microbot.getRs2NpcCache().query()
+                .withId(snapshot.id)
+                .where(candidate -> candidate.getIndex() == snapshot.index)
+                .nearest();
+        Rs2NpcModel npc = Microbot.getClientThread().invoke(lookup);
+        if (npc == null || npc.getNpc() == null) {
+            return false;
+        }
+        if (face) {
+            faceIfNeeded(npc.getNpc());
+        }
+        return npc.click(action);
     }
 
-    /** Resolves and clicks a tile object without retaining its live RuneLite wrapper. */
+    /**
+     * Resolves a tile object on the client thread and clicks it from the calling script thread, so the
+     * client's can't-reach recovery can walk. The live RuneLite wrapper is never stored.
+     */
     private static boolean clickObject(TemporossObjectSnapshot snapshot, String action) {
         if (snapshot == null) {
             return false;
         }
-        Supplier<Boolean> operation = () -> {
-            Rs2TileObjectModel object = Microbot.getRs2TileObjectCache().query()
-                    .withId(snapshot.id)
-                    .where(candidate -> snapshot.worldLocation != null
-                            && snapshot.worldLocation.equals(candidate.getWorldLocation()))
-                    .nearest();
-            return object != null && object.click(action);
-        };
-        return Boolean.TRUE.equals(Microbot.getClientThread().invoke(operation));
+        Supplier<Rs2TileObjectModel> lookup = () -> Microbot.getRs2TileObjectCache().query()
+                .withId(snapshot.id)
+                .where(candidate -> snapshot.worldLocation != null
+                        && snapshot.worldLocation.equals(candidate.getWorldLocation()))
+                .nearest();
+        Rs2TileObjectModel object = Microbot.getClientThread().invoke(lookup);
+        return object != null && object.click(action);
     }
 
     /** Runs an NPC lookup and copies every result before returning to the executor. */
