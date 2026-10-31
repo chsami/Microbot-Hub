@@ -496,6 +496,7 @@ public class TutorialIslandScript extends Script {
                 if (hasSelectAnOption()) {
                     if (Rs2Dialogue.keyPressForDialogueOption("Yes, I'd like to go to the mainland")) return;
                     if (Rs2Dialogue.keyPressForDialogueOption("Yes, send me to the mainland")) return;
+                    if (Rs2Dialogue.keyPressForDialogueOption("No, I'm not planning to do that.")) return;
                     if (Rs2Dialogue.keyPressForDialogueOption("Yes")) return;
                     Rs2Dialogue.keyPressForDialogueOption(1);
                     return;
