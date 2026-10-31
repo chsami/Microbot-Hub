@@ -1,0 +1,12 @@
+title: Microbot Hub
+description: Community plugins for the Microbot client
+markdown: kramdown
+kramdown:
+  input: GFM
+plugins:
+  - jekyll-seo-tag
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
