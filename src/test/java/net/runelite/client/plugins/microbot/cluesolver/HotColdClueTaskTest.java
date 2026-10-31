@@ -212,6 +212,24 @@ class HotColdClueTaskTest {
         assertFalse(result.join());
     }
 
+    @Test
+    void completedTaskUnregistersOnceAndIgnoresLaterTicks() {
+        ClueSolverPlugin.isSolverRunning = false;
+        HotColdClueTask task = newTask(new DirectExecutor());
+        CompletableFuture<Boolean> result = start(task);
+
+        task.onGameTick(new GameTick());
+        ClueSolverPlugin.isSolverRunning = true;
+        when(clue.getLocation(clueScrollPlugin)).thenReturn(DIG_SPOT);
+        inventory.when(() -> Rs2Inventory.contains("Spade")).thenReturn(true);
+        task.onGameTick(new GameTick());
+        task.onGameTick(new GameTick());
+
+        verify(eventBus, times(1)).unregister(task);
+        walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never());
+        assertFalse(result.join());
+    }
+
     private HotColdClueTask newTask(ExecutorService executor) {
         return new HotColdClueTask(client, clue, clueScrollPlugin, null, eventBus, executor, statuses::add);
     }

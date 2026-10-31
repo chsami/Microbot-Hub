@@ -16,6 +16,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 @Slf4j
@@ -30,6 +31,7 @@ public class HotColdClueTask extends ClueTask {
     private final EventBus eventBus;
     private final ExecutorService backgroundExecutor;
     private final Consumer<String> statusUpdater;
+    private final AtomicBoolean completed = new AtomicBoolean();
     private Future<?> currentTask;
     private WorldPoint digLocation;
     private String lastStatus;
@@ -57,7 +59,7 @@ public class HotColdClueTask extends ClueTask {
 
     @Subscribe
     public void onGameTick(GameTick event) {
-        if (currentTask != null && !currentTask.isDone()) {
+        if (completed.get() || (currentTask != null && !currentTask.isDone())) {
             return;
         }
         currentTask = backgroundExecutor.submit(() -> {
@@ -135,6 +137,9 @@ public class HotColdClueTask extends ClueTask {
 
     @Override
     protected void completeTask(boolean success) {
+        if (completed.getAndSet(true)) {
+            return;
+        }
         super.completeTask(success);
         eventBus.unregister(this);
         log.info("Hot Cold clue task completed with status: {}", success ? "Success" : "Failure");
