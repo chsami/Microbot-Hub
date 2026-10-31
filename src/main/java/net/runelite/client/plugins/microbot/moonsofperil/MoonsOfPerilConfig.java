@@ -4,7 +4,7 @@ import net.runelite.client.config.*;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 
 @ConfigGroup("perilousMoons")
-@ConfigInformation("Check Guide on Discord \n-QoL plugin required \n-Start with empty Inventory besides gear")
+@ConfigInformation("Check Guide on Discord \n-QoL plugin recommended as a backup (covers jaguar and clone phases) \n-Start with empty Inventory besides gear")
 public interface MoonsOfPerilConfig extends Config {
 
     @ConfigSection(
@@ -70,7 +70,7 @@ public interface MoonsOfPerilConfig extends Config {
     @ConfigItem(
             keyName  = "healthPercentage",
             name     = "Health % topup",
-            description = "Strategically eat during boss sequences below this health %",
+            description = "Eat when HP is below this % during the boss fight (not during the Blood Moon jaguar phase, only at the start of the Eclipse clone phase). Lower = more DPS, higher = safer.",
             position = 2,
             section  = generalSection
     )
@@ -79,7 +79,7 @@ public interface MoonsOfPerilConfig extends Config {
     @ConfigItem(
             keyName  = "prayerPercentage",
             name     = "Prayer % topup",
-            description = "Strategically drink during boss sequences below this prayer %",
+            description = "Drink a prayer or moonlight potion when prayer is below this % during the boss fight (not during the Blood Moon jaguar phase, only at the start of the Eclipse clone phase).",
             position = 2,
             section  = generalSection
     )
