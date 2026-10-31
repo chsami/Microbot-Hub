@@ -6,11 +6,13 @@ import org.junit.jupiter.api.Test;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BarrowsGearRulesTest
@@ -141,5 +143,37 @@ class BarrowsGearRulesTest
                 candidate(4883, "Dharok's helm 25"));
 
         assertEquals(4883, closest(4884, "Dharok's helm", bank).getKey());
+    }
+
+    @Test
+    void rowIsBrokenOnlyWhenEveryMatchingCopyIsBroken()
+    {
+        assertEquals("Dharok's helm 0", BarrowsGearRules.brokenOnlyMatch("Dharok's helm",
+                Arrays.asList("Dharok's greataxe 100", "Dharok's helm 0", "Rune platebody")));
+    }
+
+    @Test
+    void workingCopyMeansTheRowIsNotBrokenOnly()
+    {
+        assertNull(BarrowsGearRules.brokenOnlyMatch("Dharok's helm",
+                Arrays.asList("Dharok's helm 0", "Dharok's helm 25")));
+        assertNull(BarrowsGearRules.brokenOnlyMatch("Dharok's helm",
+                Arrays.asList("Dharok's helm", "Dharok's helm 0")));
+    }
+
+    @Test
+    void rowWithNoCopyAtAllIsNotBrokenOnly()
+    {
+        assertNull(BarrowsGearRules.brokenOnlyMatch("Dharok's helm", Arrays.asList("Guthan's helm 0", "Rune platebody")));
+        assertNull(BarrowsGearRules.brokenOnlyMatch("Dharok's helm", Collections.emptyList()));
+        assertNull(BarrowsGearRules.brokenOnlyMatch("Dharok's helm", null));
+    }
+
+    @Test
+    void brokenOnlyMatchIgnoresCaseAndMissingNames()
+    {
+        assertEquals("Karil's crossbow 0", BarrowsGearRules.brokenOnlyMatch("karil's crossbow",
+                Arrays.asList(null, "Karil's crossbow 0")));
+        assertNull(BarrowsGearRules.brokenOnlyMatch("", Arrays.asList("Karil's crossbow 0")));
     }
 }

@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.barrows;
 
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.Locale;
 import java.util.function.Function;
@@ -36,6 +37,26 @@ final class BarrowsGearRules {
         }
         return !isBrokenBarrowsPiece(itemName)
                 && itemName.toLowerCase(Locale.ROOT).contains(setupItemName.toLowerCase(Locale.ROOT));
+    }
+
+    static String brokenOnlyMatch(String setupItemName, Collection<String> candidateNames) {
+        if (setupItemName == null || setupItemName.isEmpty() || candidateNames == null) {
+            return null;
+        }
+        String row = setupItemName.toLowerCase(Locale.ROOT);
+        String broken = null;
+        for (String candidate : candidateNames) {
+            if (candidate == null || !candidate.toLowerCase(Locale.ROOT).contains(row)) {
+                continue;
+            }
+            if (!isBrokenBarrowsPiece(candidate)) {
+                return null;
+            }
+            if (broken == null) {
+                broken = candidate;
+            }
+        }
+        return broken;
     }
 
     static <T> Comparator<T> closestToSetupRow(int setupItemId, String setupItemName,

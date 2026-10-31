@@ -44,6 +44,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
+import org.slf4j.event.Level;
 
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
@@ -51,6 +52,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -1010,6 +1012,8 @@ public class BarrowsScript extends Script {
 
         int equipmentLoadAttempts = 0;
         final int maxEquipmentLoadAttempts = 8;
+        boolean announcedDirectEquip = false;
+        Map<String, String> brokenOnlyRows = new LinkedHashMap<>();
         while(!inventorySetup.doesEquipmentMatch() && equipmentLoadAttempts < maxEquipmentLoadAttempts) {
             if(!super.isRunning() || Microbot.pauseAllScripts.get()){ return false; }
             BankLocation nearestBank = Rs2Bank.getNearestBank();
@@ -1029,7 +1033,11 @@ public class BarrowsScript extends Script {
                     return false;
                 }
                 if (!loaded && !inventorySetup.doesEquipmentMatch()) {
-                    tryDirectEquipMissingGear(inventorySetup);
+                    if (!announcedDirectEquip) {
+                        Microbot.log("Some setup gear didn't equip — trying to withdraw it again.");
+                        announcedDirectEquip = true;
+                    }
+                    tryDirectEquipMissingGear(inventorySetup, brokenOnlyRows);
                 }
                 equipmentLoadAttempts++;
                 if (Rs2Bank.isOpen() && !inventorySetup.doesEquipmentMatch()) {
@@ -1044,6 +1052,17 @@ public class BarrowsScript extends Script {
             return false;
         }
         if (!inventorySetup.doesEquipmentMatch()) {
+            for (Map.Entry<String, String> row : brokenOnlyRows.entrySet()) {
+                String rowName = row.getKey();
+                if (Rs2Equipment.isWearing(it -> it != null && BarrowsGearRules.fillsSetupRow(rowName, it.getName()))) {
+                    continue;
+                }
+                Microbot.log(rowName + " is broken (" + row.getValue() + ") and you have no working copy in your bank or inventory."
+                        + " Repair it (Bob in Lumbridge, Perdu, or an armour stand in your house), then start Barrows again.", Level.WARN);
+                Microbot.status = "Barrows stopped: " + rowName + " is broken";
+                super.shutdown();
+                return false;
+            }
             Microbot.log("Inventory Setup equipment still mismatched after " + maxEquipmentLoadAttempts
                     + " bank attempts — will retry. Check the setup has every required item in the bank.");
             return false;
@@ -3264,7 +3283,7 @@ public class BarrowsScript extends Script {
         }
     }
 
-    private void tryDirectEquipMissingGear(Rs2InventorySetup inventorySetup) {
+    private void tryDirectEquipMissingGear(Rs2InventorySetup inventorySetup, Map<String, String> brokenOnlyRows) {
         if (!Rs2Bank.isOpen() && !Rs2Bank.openBank()) {
             return;
         }
@@ -3272,7 +3291,6 @@ public class BarrowsScript extends Script {
         if (equipment == null || equipment.isEmpty()) {
             return;
         }
-        Microbot.log("loadEquipment aborted before withdraw; trying direct withdrawAndEquip for missing gear...");
         for (InventorySetupsItem item : equipment) {
             if (!super.isRunning() || Microbot.pauseAllScripts.get()) {
                 return;
@@ -3286,6 +3304,7 @@ public class BarrowsScript extends Script {
             }
             Predicate<Rs2ItemModel> fillsRow = it -> it != null && BarrowsGearRules.fillsSetupRow(name, it.getName());
             if (Rs2Equipment.isWearing(fillsRow)) {
+                brokenOnlyRows.remove(name);
                 continue;
             }
             Comparator<Rs2ItemModel> closest = BarrowsGearRules.closestToSetupRow(
@@ -3301,9 +3320,24 @@ public class BarrowsScript extends Script {
                         .orElse(null);
                 if (banked != null) {
                     Rs2Bank.withdrawAndEquip(banked.getId());
+                } else {
+                    rememberBrokenOnlyRow(name, brokenOnlyRows);
                 }
             }
             sleep(Rs2Random.between(300, 600));
+        }
+    }
+
+    private void rememberBrokenOnlyRow(String rowName, Map<String, String> brokenOnlyRows) {
+        String row = rowName.toLowerCase();
+        Predicate<Rs2ItemModel> namesRow = it -> it != null && it.getName() != null
+                && it.getName().toLowerCase().contains(row);
+        List<String> candidates = new ArrayList<>();
+        Rs2Bank.getAll(namesRow.and(it -> it.getQuantity() > 0)).forEach(it -> candidates.add(it.getName()));
+        Rs2Inventory.items(namesRow.and(it -> !it.isNoted())).forEach(it -> candidates.add(it.getName()));
+        String broken = BarrowsGearRules.brokenOnlyMatch(rowName, candidates);
+        if (broken != null) {
+            brokenOnlyRows.put(rowName, broken);
         }
     }
 
