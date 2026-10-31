@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -1009,7 +1010,7 @@ public class BarrowsScript extends Script {
         int equipmentLoadAttempts = 0;
         final int maxEquipmentLoadAttempts = 8;
         while(!inventorySetup.doesEquipmentMatch() && equipmentLoadAttempts < maxEquipmentLoadAttempts) {
-            if(!super.isRunning()){ return false; }
+            if(!super.isRunning() || Microbot.pauseAllScripts.get()){ return false; }
             BankLocation nearestBank = Rs2Bank.getNearestBank();
             if (nearestBank == null
                     || nearestBank.getWorldPoint().distanceTo(Rs2Player.getWorldLocation()) > 6) {
@@ -1023,6 +1024,9 @@ public class BarrowsScript extends Script {
                     sleepUntil(Rs2Bank::isOpen, Rs2Random.between(3000, 5000));
                 }
                 boolean loaded = inventorySetup.loadEquipment();
+                if (Microbot.pauseAllScripts.get()) {
+                    return false;
+                }
                 if (!loaded && !inventorySetup.doesEquipmentMatch()) {
                     tryDirectEquipMissingGear(inventorySetup);
                 }
@@ -1034,6 +1038,9 @@ public class BarrowsScript extends Script {
                 equipmentLoadAttempts++;
                 sleep(Rs2Random.between(400, 800));
             }
+        }
+        if (Microbot.pauseAllScripts.get()) {
+            return false;
         }
         if (!inventorySetup.doesEquipmentMatch()) {
             Microbot.log("Inventory Setup equipment still mismatched after " + maxEquipmentLoadAttempts
@@ -3274,20 +3281,25 @@ public class BarrowsScript extends Script {
             if (!super.isRunning()) {
                 return;
             }
-            if (item == null || InventorySetupsItem.itemIsDummy(item)) {
+            if (BarrowsGearRules.isEmptySetupRow(item)) {
                 continue;
             }
             String name = item.getName();
             if (name == null || name.isEmpty()) {
                 continue;
             }
-            if (Rs2Equipment.isWearing(name)) {
+            Predicate<Rs2ItemModel> fillsRow = it -> it != null && BarrowsGearRules.fillsSetupRow(name, it.getName());
+            if (Rs2Equipment.isWearing(fillsRow)) {
                 continue;
             }
-            if (Rs2Inventory.hasItem(name)) {
-                Rs2Bank.wearItem(name);
-            } else if (Rs2Bank.hasBankItem(name)) {
-                Rs2Bank.withdrawAndEquip(name);
+            Rs2ItemModel carried = Rs2Inventory.get(fillsRow);
+            if (carried != null) {
+                Rs2Bank.wearItem(carried.getId());
+            } else {
+                Rs2ItemModel banked = Rs2Bank.get(fillsRow);
+                if (banked != null) {
+                    Rs2Bank.withdrawAndEquip(banked.getId());
+                }
             }
             sleep(Rs2Random.between(300, 600));
         }
