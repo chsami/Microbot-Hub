@@ -90,8 +90,8 @@ public interface CgPrepConfig extends Config
 	}
 
 	@Range(min = 0, max = 6)
-	@ConfigItem(keyName = "potionTarget", name = "Max brews (herbs)",
-		description = "Egniol potions to brew each run.",
+	@ConfigItem(keyName = "potionTarget", name = "Egniol potions",
+		description = "How many Egniol potions to brew each run (one grym leaf each).",
 		position = 3, section = runSection)
 	default int potionTarget()
 	{
@@ -195,7 +195,7 @@ public interface CgPrepConfig extends Config
 	// ------------------------------------------------------------------ handover
 
 	@ConfigItem(keyName = "autoLoop", name = "Loot chest + go again",
-		description = "After each run, loot the chest and start the next run.",
+		description = "After each run, loot the chest and enter the next run. In Boss Only mode the prep timer then starts right away: you have to prep it yourself.",
 		position = 4, section = runSection)
 	default boolean autoLoop()
 	{
@@ -382,8 +382,8 @@ public interface CgPrepConfig extends Config
 	}
 
 	@ConfigItem(keyName = "decisionLog", name = "Decision log",
-		description = "Write a cg-prep-*.log file per session (every decision, fight tick and click), for troubleshooting",
-		position = 100, hidden = true)
+		description = "Write a cg-prep-*.log file in .runelite/cg-prep each session, for bug reports. Old files are not deleted.",
+		position = 4, section = hotkeySection)
 	default boolean decisionLog()
 	{
 		return true;

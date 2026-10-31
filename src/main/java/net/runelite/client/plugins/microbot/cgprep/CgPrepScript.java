@@ -331,7 +331,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		}
 		net.runelite.client.plugins.microbot.cgprep.stats.RunStats rs = stats;
 		boolean died = rs != null && deathsAtRunStart >= 0 && rs.setupDeaths() + rs.bossDeaths() > deathsAtRunStart;
-		String next = config.autoLoop() ? "" : " Press Continue for the next run.";
+		String next = config.autoLoop() ? "" : " Press " + config.continueKey() + " for the next run.";
 		String msg = (died ? "Auto Gauntlet: you died." : "Auto Gauntlet: Hunllef killed!") + next;
 		Microbot.getNotifier().notify(msg);
 		pl("LOBBY", "notification: " + msg);
@@ -704,8 +704,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			net.runelite.client.plugins.microbot.cgprep.fight.WorldScan scan = net.runelite.client.plugins.microbot.cgprep.fight.WorldScan.latest();
 			perfLedger = (System.nanoTime() - t1) / 1_000_000;
 			long t2 = System.nanoTime();
-			int potions = config.profile() == net.runelite.client.plugins.microbot.cgprep.data.PrepProfile.DEV_ALL_T1
-				? config.profile().potions : config.potionTarget();
+			int potions = config.potionTarget();
 			// Doses drunk = every drop in the bag's Egniol dose total (decanting keeps it, brewing
 			// adds). 0.3.29: a sip that landed after the "drink" check gave up wasn't counted, so the
 			// planner thought a potion was missing and fetched a 4th grym leaf.
@@ -724,8 +723,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			lastDoseTotal = l.potionDoses;
 			dosesDrunk = Math.max(0, brewedDoses - l.potionDoses);
 			l.dosesDrunk = dosesDrunk;
-			boolean decant = config.decantMethod()
-				&& config.profile() != net.runelite.client.plugins.microbot.cgprep.data.PrepProfile.DEV_ALL_T1;
+			boolean decant = config.decantMethod();
 			Needs n = Needs.compute(l, net.runelite.client.plugins.microbot.cgprep.plan.PrepPlanner.profileNow(l, config.profile()), net.runelite.client.plugins.microbot.cgprep.plan.PrepPlanner.fishTargetNow(l, config.profile(), config.fishTarget(), config.fishMin()), config.shardBuffer(), potions, decant, vialsSmash());
 			boolean fishLater = net.runelite.client.plugins.microbot.cgprep.plan.PrepPlanner.fishTargetNow(l, config.profile(), config.fishTarget(), config.fishMin()) < config.fishTarget();
 			ledger = l;
@@ -1042,7 +1040,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			continueRequested = false; // that run has started
 		}
 		// Boss Only: the player's prayers during their own prep are left alone (1.4.0).
-		if ((to == CgState.PAUSED || to == CgState.HANDOVER) && !config.dryRun() && !(bossOnly() && from != CgState.BOSS))
+		if (((to == CgState.PAUSED && from != CgState.BOSS) || to == CgState.HANDOVER) && !config.dryRun() && !(bossOnly() && from != CgState.BOSS))
 		{
 			// Script thread (step() runs here), never the client thread: toggling prayers clicks.
 			Rs2Prayer.disableAllPrayers();
@@ -1098,8 +1096,8 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				{
 					lastOutsideLogMs = System.currentTimeMillis();
 					net.runelite.api.coords.WorldPoint wp = net.runelite.client.plugins.microbot.util.player.Rs2Player.getWorldLocation();
-					String why = !config.autoLoop() ? "'Loot chest + go again' is off: start a run yourself"
-						: !inLobby ? "not in the Gauntlet lobby (no entrance found nearby)" : "waiting";
+					String why = !config.autoLoop() ? "loop off: enter a run yourself"
+						: !inLobby ? "walk to the Gauntlet lobby" : "waiting";
 					pl("OUTSIDE", why + " | inLobby=" + inLobby + " autoLoop=" + config.autoLoop()
 						+ " at " + (wp == null ? "?" : wp.getX() + "," + wp.getY() + "," + wp.getPlane() + " region " + wp.getRegionID()));
 					lastAction = "outside: " + why;

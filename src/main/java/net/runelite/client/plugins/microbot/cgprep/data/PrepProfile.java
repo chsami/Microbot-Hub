@@ -24,12 +24,7 @@ public enum PrepProfile
 	 */
 	T3_ARMOUR_T3_BOW_STAFF("T3 armour + T3 bow + T3 staff", 3, 3, 3, 3, 3, 0, 3),
 	/** Speed variant: perfected bow, basic staff. Only needs the Dark Beast. */
-	T1_ARMOUR_T3_BOW_T1_STAFF("T1 armour + T3 bow + T1 staff", 1, 1, 1, 3, 1, 0, 3),
-	/**
-	 * Dev profile for testing the crafting/brewing/cooking chain quickly (M2): everything T1 and
-	 * exactly one potion, regardless of the Potions setting. Not meant for an actual kill.
-	 */
-	DEV_ALL_T1("DEV: all T1, 1 potion", 1, 1, 1, 1, 1, 0, 1);
+	T1_ARMOUR_T3_BOW_T1_STAFF("T1 armour + T3 bow + T1 staff", 1, 1, 1, 3, 1, 0, 3);
 
 	public final String label;
 	public final Map<GearSlot, Integer> targetTier = new EnumMap<>(GearSlot.class);
