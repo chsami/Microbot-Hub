@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.mmcaves;
 
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.microbot.mmcaves.enums.LightSources;
 import net.runelite.client.plugins.microbot.mmcaves.enums.Mode;
 import org.junit.jupiter.api.Test;
 
@@ -93,6 +94,15 @@ class MmCavesDecisionsTest {
     void rejectsUnlitTorchAndCandle() {
         assertFalse(MmCavesDecisions.hasLightSource("Unlit torch"::equals, name -> false));
         assertFalse(MmCavesDecisions.hasLightSource("Candle"::equals, name -> false));
+    }
+
+    @Test
+    void missingLightSourceMessageListsEveryAcceptedItem() {
+        String message = MmCavesDecisions.missingLightSourceMessage();
+        for (LightSources source : LightSources.values()) {
+            assertTrue(message.contains(source.getItemName()), source.getItemName());
+        }
+        assertTrue(message.contains("Unlit torches and candles do not count"));
     }
 
     @Test
