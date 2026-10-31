@@ -74,6 +74,28 @@ class MmCavesDecisionsTest {
     }
 
     @Test
+    void acceptsKandarinHeadgearAllTiers() {
+        for (int tier = 1; tier <= 4; tier++) {
+            String headgear = "Kandarin headgear " + tier;
+            assertTrue(MmCavesDecisions.hasLightSource(headgear::equals, name -> false));
+            assertTrue(MmCavesDecisions.hasLightSource(name -> false, headgear::equals));
+        }
+    }
+
+    @Test
+    void acceptsInGameNamesOfLitSources() {
+        assertTrue(MmCavesDecisions.hasLightSource("Abyssal lantern"::equals, name -> false));
+        assertTrue(MmCavesDecisions.hasLightSource("Lit torch"::equals, name -> false));
+        assertTrue(MmCavesDecisions.hasLightSource("Lit candle"::equals, name -> false));
+    }
+
+    @Test
+    void rejectsUnlitTorchAndCandle() {
+        assertFalse(MmCavesDecisions.hasLightSource("Unlit torch"::equals, name -> false));
+        assertFalse(MmCavesDecisions.hasLightSource("Candle"::equals, name -> false));
+    }
+
+    @Test
     void rejectsMissingLightSource() {
         assertFalse(MmCavesDecisions.hasLightSource(
                 name -> false, name -> false));
