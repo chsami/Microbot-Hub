@@ -24,13 +24,15 @@ import java.util.function.Consumer;
 public class HotColdClueTask extends ClueTask {
     public static final String STATUS_WAITING_FOR_DEVICE = "Hot Cold: use Strange device until it is visibly shaking";
     public static final String STATUS_WALKING = "Hot Cold: walking to dig spot";
-    public static final String STATUS_NO_SPADE = "Hot Cold: need a Spade";
+    public static final String STATUS_NO_SPADE = "Hot Cold: get a Spade, then it digs";
     public static final String STATUS_DUG = "Hot Cold: dug, checking result";
     public static final String STATUS_DUG_AGAIN = "Hot Cold: digging again";
     public static final String STATUS_UNDER_ATTACK = "Hot Cold: kill the attacker, then it digs again";
-    public static final String STATUS_CANNOT_REACH = "Hot Cold: no path, walk closer and stop";
-    public static final String START_MESSAGE = "Hot Cold clue: walk toward the hint and use your Strange device. When it says the device is visibly shaking, the solver digs there for you.";
+    public static final String STATUS_CANNOT_REACH = "Hot Cold: no path, walk closer and stand still";
+    public static final String START_MESSAGE = "Hot Cold clue: the solver does not search for you. Walk to the area in the clue hint and use your Strange device. When it says the device is visibly shaking, the solver digs there for you.";
     public static final String NO_SPADE_MESSAGE = "Hot Cold clue: you have no Spade. Bring one before the device shakes, or the solver cannot dig.";
+    public static final String CANNOT_REACH_MESSAGE = "Hot Cold clue: can't find a path to the dig spot (the spade marker on the ground). Walk closer to the spade marker and stand still for a moment; the solver will try again.";
+    public static final String ERROR_MESSAGE = "Hot Cold clue: something went wrong, so the solver stopped this clue. Stop and start the Clue Solver to try again.";
     public static final int DIG_RESULT_TICKS = 5;
     public static final int RETRY_STILL_TICKS = 2;
 
@@ -90,6 +92,9 @@ public class HotColdClueTask extends ClueTask {
                 processGameTick();
             } catch (Exception ex) {
                 log.error("Error processing Hot Cold clue tick", ex);
+                if (!completed.get()) {
+                    Microbot.log(ERROR_MESSAGE);
+                }
                 completeTask(false);
             }
         });
@@ -159,7 +164,8 @@ public class HotColdClueTask extends ClueTask {
                 lastPlayerLocation = unreachableFrom;
                 stillTicks = 0;
                 if (!digLocation.equals(unreachableSpot)) {
-                    Microbot.log(cannotReachMessage(digLocation));
+                    log.info("Hot Cold no path to dig spot {} from {}", digLocation, unreachableFrom);
+                    Microbot.log(CANNOT_REACH_MESSAGE);
                 }
                 unreachableSpot = digLocation;
                 setStatus(STATUS_CANNOT_REACH);
@@ -173,11 +179,6 @@ public class HotColdClueTask extends ClueTask {
             setStatus(dugBefore ? STATUS_DUG_AGAIN : STATUS_DUG);
             dugBefore = true;
         }
-    }
-
-    private static String cannotReachMessage(WorldPoint spot) {
-        return "Hot Cold clue: can't find a path to the dig spot at " + spot.getX() + ", " + spot.getY()
-                + (spot.getPlane() != 0 ? " upstairs" : "") + ". Walk closer and stop. The solver will try again.";
     }
 
     private boolean hasStoppedElsewhere(WorldPoint playerLocation) {

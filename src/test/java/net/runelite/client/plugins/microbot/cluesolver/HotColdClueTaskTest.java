@@ -277,7 +277,7 @@ class HotColdClueTaskTest {
 
     @Test
     void unreachableDigSpotKeepsReasonAndRetriesOnlyAfterPlayerMovesAndStops() {
-        String cannotReach = "Hot Cold clue: can't find a path to the dig spot at 3110, 3260. Walk closer and stop. The solver will try again.";
+        String cannotReach = HotColdClueTask.CANNOT_REACH_MESSAGE;
         when(clue.getLocation(clueScrollPlugin)).thenReturn(DIG_SPOT);
         walker.when(() -> Rs2Walker.walkTo(DIG_SPOT, 0)).thenReturn(false);
         inventory.when(() -> Rs2Inventory.contains("Spade")).thenReturn(true);
@@ -359,6 +359,19 @@ class HotColdClueTaskTest {
         task.onGameTick(new GameTick());
 
         verify(eventBus).unregister(task);
+        assertFalse(result.join());
+    }
+
+    @Test
+    void unexpectedErrorEndsTaskAndTellsPlayer() {
+        when(clue.getLocation(clueScrollPlugin)).thenThrow(new IllegalStateException("boom"));
+        HotColdClueTask task = newTask(new DirectExecutor());
+        CompletableFuture<Boolean> result = start(task);
+
+        task.onGameTick(new GameTick());
+
+        microbot.verify(() -> Microbot.log(HotColdClueTask.ERROR_MESSAGE), times(1));
+        verify(eventBus, times(1)).unregister(task);
         assertFalse(result.join());
     }
 
