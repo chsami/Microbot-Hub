@@ -572,7 +572,7 @@
             "mm",
             "barrows"
         ],
-        "version": "2.5.24",
+        "version": "2.5.25",
         "minClientVersion": "2.1.0",
         "authors": [
             "Gage"
@@ -581,8 +581,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/BarrowsPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-09T10:13:40Z",
-        "sha256": "c5a5cb66102eec06cac5df962cc19253cf1e38deb4b07d6dae5d34b91449ac08",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/barrowsplugin-2.5.24.jar"
+        "sha256": "7dcbe1e567db453cf665bed1c4e76e455ac0100f3bf6b560aacb395664cf3890",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/barrowsplugin-2.5.25.jar"
     },
     {
         "internalName": "OrbChargerPlugin",
@@ -2155,7 +2155,7 @@
             "ranged",
             "magic"
         ],
-        "version": "1.0.3",
+        "version": "1.0.4",
         "minClientVersion": "2.0.6",
         "authors": [
             "FreakJoost"
@@ -2164,8 +2164,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-21T12:35:11Z",
-        "sha256": "d169fa29873763a9523a2905098df54a76b065aabb43875385e0819a0a54fd48",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mmcavesplugin-1.0.3.jar"
+        "sha256": "867ed7141f770314fc50a3a1b5b7bc90f61dddaf64e004d805a6a4f292065bb2",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/mmcavesplugin-1.0.4.jar"
     },
     {
         "internalName": "GauntletHelperPlugin",
@@ -2229,7 +2229,7 @@
             "gotr",
             "microbot"
         ],
-        "version": "1.5.13",
+        "version": "1.5.14",
         "minClientVersion": "2.6.43",
         "authors": [
             "Unknown Author"
@@ -2238,8 +2238,8 @@
         "cardUrl": "",
         "disable": false,
         "addedAt": "2025-09-24T20:16:06Z",
-        "sha256": "240abd48f4d8884483ba35ef803f50ce97777e95cd63e941057cd32a1d6c46f0",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gotrplugin-1.5.13.jar"
+        "sha256": "4741bb6e0355013dfdb4e7ac2e3a63aa59ab07b9f591e17b3d4e0329e616f32d",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/gotrplugin-1.5.14.jar"
     },
     {
         "internalName": "DemonicGorillaPlugin",
@@ -2816,7 +2816,7 @@
             "ranging",
             "revenant killer"
         ],
-        "version": "2.0.12",
+        "version": "2.0.13",
         "minClientVersion": "2.6.25",
         "authors": [
             "Gage"
@@ -2825,8 +2825,8 @@
         "cardUrl": "https://chsami.github.io/Microbot-Hub/revKillerPlugin/assets/card.png",
         "disable": false,
         "addedAt": "2025-09-09T16:26:30Z",
-        "sha256": "0037037ff0e60a299a974e80ae89984e78f5fc9af1664ec04f68c1eec246909c",
-        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/revkillerplugin-2.0.12.jar"
+        "sha256": "e2b6d0bafbbc1e72063d56e1f2666ad9587d3c9a95b204d0a8581a2ac228d6c9",
+        "url": "https://github.com/chsami/Microbot-Hub/releases/download/latest-release/revkillerplugin-2.0.13.jar"
     },
     {
         "internalName": "AnimatedArmourPlugin",

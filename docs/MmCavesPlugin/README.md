@@ -68,7 +68,7 @@ targets apply. Unmapped selections intentionally stop before moving.
 
 ## 📋 Requirements
 
-- A **light source** in your inventory or equipped
+- A **lit light source** in your inventory or equipped: Lit torch, Lit candle, Oil lamp, Oil lantern, Bullseye lantern, Sapphire/Emerald lantern, Bruma torch, Abyssal lantern, Kandarin headgear (any tier) or Firemaking cape. Unlit torches and candles are not accepted.
 - **Monkey Madness II** quest completed (access to caves)
 - Proper gear equipped:
     - Chinchompas or runes for your spell
@@ -81,3 +81,11 @@ targets apply. Unmapped selections intentionally stop before moving.
 
 - Do **not** run this plugin unattended for extended periods.
 - Always monitor for unexpected behavior or issues.  
+
+---
+
+## Changelog
+### 1.0.4
+- Kandarin headgear (any tier) and the Abyssal lantern now count as a light source.
+- Torches and candles must be lit: an unlit Torch or Candle no longer counts, so light it before you start.
+- When no light source is found, the stop message now lists every accepted item.
