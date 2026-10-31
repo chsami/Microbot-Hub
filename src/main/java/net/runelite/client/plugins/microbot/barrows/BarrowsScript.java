@@ -1058,7 +1058,7 @@ public class BarrowsScript extends Script {
                     continue;
                 }
                 Microbot.log(rowName + " is broken (" + row.getValue() + ") and you have no working copy in your bank or inventory."
-                        + " Repair it (Bob in Lumbridge, Perdu, or an armour stand in your house), then start Barrows again.", Level.WARN);
+                        + " Repair it (Bob in Lumbridge or an armour stand in your house), then start Barrows again.", Level.WARN);
                 Microbot.status = "Barrows stopped: " + rowName + " is broken";
                 super.shutdown();
                 return false;
@@ -3313,12 +3313,14 @@ public class BarrowsScript extends Script {
                     .min(closest)
                     .orElse(null);
             if (carried != null) {
+                brokenOnlyRows.remove(name);
                 Rs2Bank.wearItem(carried.getId());
             } else {
                 Rs2ItemModel banked = Rs2Bank.getAll(fillsRow.and(it -> it.getQuantity() > 0))
                         .min(closest)
                         .orElse(null);
                 if (banked != null) {
+                    brokenOnlyRows.remove(name);
                     Rs2Bank.withdrawAndEquip(banked.getId());
                 } else {
                     rememberBrokenOnlyRow(name, brokenOnlyRows);
