@@ -11,6 +11,9 @@ import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 import net.runelite.client.plugins.cluescrolls.clues.ClueScroll;
 import net.runelite.client.plugins.cluescrolls.clues.HotColdClue;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.Rs2NpcCache;
+import net.runelite.client.plugins.microbot.api.npc.Rs2NpcQueryable;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.cluesolver.cluetask.HotColdClueTask;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -34,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -57,14 +61,19 @@ class HotColdClueTaskTest {
     private Player player;
     private boolean solverWasRunning;
     private final List<String> statuses = new ArrayList<>();
+    private final List<Rs2NpcModel> npcs = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
         ClientThread clientThread = mock(ClientThread.class);
         when(clientThread.runOnClientThreadOptional(any())).thenAnswer(invocation ->
                 Optional.ofNullable(((Callable<?>) invocation.getArgument(0)).call()));
+        Rs2NpcCache npcCache = mock(Rs2NpcCache.class);
+        when(npcCache.query()).thenAnswer(invocation -> new Rs2NpcQueryable());
+        when(npcCache.getStream()).thenAnswer(invocation -> new ArrayList<>(npcs).stream());
         microbot = mockStatic(Microbot.class);
         microbot.when(Microbot::getClientThread).thenReturn(clientThread);
+        microbot.when(Microbot::getRs2NpcCache).thenReturn(npcCache);
         walker = mockStatic(Rs2Walker.class);
         inventory = mockStatic(Rs2Inventory.class);
 
@@ -185,6 +194,94 @@ class HotColdClueTaskTest {
         inventory.verify(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig"), times(2));
         walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never());
         assertFalse(result.isDone());
+        assertEquals(List.of(HotColdClueTask.STATUS_WAITING_FOR_DEVICE, HotColdClueTask.STATUS_DUG,
+                HotColdClueTask.STATUS_DUG_AGAIN), statuses);
+    }
+
+    @Test
+    void attackingWizardAfterDigBlocksDigUntilItIsGone() {
+        when(clue.getLocation(clueScrollPlugin)).thenReturn(DIG_SPOT);
+        when(player.getWorldLocation()).thenReturn(DIG_SPOT);
+        inventory.when(() -> Rs2Inventory.contains("Spade")).thenReturn(true);
+        inventory.when(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig")).thenReturn(true);
+        HotColdClueTask task = newTask(new DirectExecutor());
+        CompletableFuture<Boolean> result = start(task);
+
+        task.onGameTick(new GameTick());
+        Rs2NpcModel wizard = mock(Rs2NpcModel.class);
+        when(wizard.isInteractingWithPlayer()).thenReturn(true);
+        npcs.add(wizard);
+        for (int i = 0; i < HotColdClueTask.DIG_RESULT_TICKS + 3; i++) {
+            task.onGameTick(new GameTick());
+        }
+
+        inventory.verify(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig"), times(1));
+        assertEquals(HotColdClueTask.STATUS_KILL_WIZARD, statuses.get(statuses.size() - 1));
+
+        npcs.clear();
+        task.onGameTick(new GameTick());
+
+        inventory.verify(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig"), times(2));
+        assertEquals(List.of(HotColdClueTask.STATUS_WAITING_FOR_DEVICE, HotColdClueTask.STATUS_DUG,
+                HotColdClueTask.STATUS_KILL_WIZARD, HotColdClueTask.STATUS_DUG_AGAIN), statuses);
+        assertFalse(result.isDone());
+    }
+
+    @Test
+    void movedDigSpotIsFollowed() {
+        when(clue.getLocation(clueScrollPlugin)).thenReturn(DIG_SPOT);
+        walker.when(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt())).thenReturn(true);
+        inventory.when(() -> Rs2Inventory.contains("Spade")).thenReturn(true);
+        inventory.when(() -> Rs2Inventory.interact(ItemID.SPADE, "Dig")).thenReturn(false);
+        HotColdClueTask task = newTask(new DirectExecutor());
+        start(task);
+
+        task.onGameTick(new GameTick());
+        when(clue.getLocation(clueScrollPlugin)).thenReturn(null);
+        task.onGameTick(new GameTick());
+        WorldPoint newSpot = new WorldPoint(3120, 3270, 0);
+        when(clue.getLocation(clueScrollPlugin)).thenReturn(newSpot);
+        task.onGameTick(new GameTick());
+
+        walker.verify(() -> Rs2Walker.walkTo(DIG_SPOT, 0), times(1));
+        walker.verify(() -> Rs2Walker.walkTo(newSpot, 0), times(1));
+        assertEquals(List.of(HotColdClueTask.STATUS_WAITING_FOR_DEVICE, HotColdClueTask.STATUS_WALKING,
+                HotColdClueTask.STATUS_WAITING_FOR_DEVICE, HotColdClueTask.STATUS_WALKING), statuses);
+    }
+
+    @Test
+    void unreachableDigSpotShowsReasonAndFails() {
+        when(clue.getLocation(clueScrollPlugin)).thenReturn(DIG_SPOT);
+        walker.when(() -> Rs2Walker.walkTo(DIG_SPOT, 0)).thenReturn(false);
+        inventory.when(() -> Rs2Inventory.contains("Spade")).thenReturn(true);
+        HotColdClueTask task = newTask(new DirectExecutor());
+        CompletableFuture<Boolean> result = start(task);
+
+        task.onGameTick(new GameTick());
+
+        inventory.verify(() -> Rs2Inventory.interact(anyInt(), anyString()), never());
+        assertEquals(HotColdClueTask.STATUS_CANNOT_REACH, statuses.get(statuses.size() - 1));
+        verify(eventBus).unregister(task);
+        assertFalse(result.join());
+    }
+
+    @Test
+    void solverStoppedDuringWalkDoesNotDig() {
+        when(clue.getLocation(clueScrollPlugin)).thenReturn(DIG_SPOT);
+        walker.when(() -> Rs2Walker.walkTo(DIG_SPOT, 0)).thenAnswer(invocation -> {
+            ClueSolverPlugin.isSolverRunning = false;
+            return true;
+        });
+        inventory.when(() -> Rs2Inventory.contains("Spade")).thenReturn(true);
+        HotColdClueTask task = newTask(new DirectExecutor());
+        CompletableFuture<Boolean> result = start(task);
+
+        task.onGameTick(new GameTick());
+
+        inventory.verify(() -> Rs2Inventory.interact(anyInt(), anyString()), never());
+        assertFalse(statuses.contains(HotColdClueTask.STATUS_CANNOT_REACH));
+        verify(eventBus).unregister(task);
+        assertFalse(result.join());
     }
 
     @Test

@@ -9,6 +9,7 @@ import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.cluescrolls.ClueScrollPlugin;
 import net.runelite.client.plugins.cluescrolls.clues.HotColdClue;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.cluesolver.ClueSolverPlugin;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -21,10 +22,14 @@ import java.util.function.Consumer;
 
 @Slf4j
 public class HotColdClueTask extends ClueTask {
-    public static final String STATUS_WAITING_FOR_DEVICE = "Hot Cold clue: use your Strange device until the dig spot is marked. I will walk there and dig.";
-    public static final String STATUS_WALKING = "Hot Cold clue: walking to dig spot";
-    public static final String STATUS_NO_SPADE = "Hot Cold clue: no Spade in inventory. Add a Spade to dig.";
-    public static final String STATUS_DUG = "Hot Cold clue: dug, waiting for result";
+    public static final String STATUS_WAITING_FOR_DEVICE = "Hot Cold: use Strange device until spot is marked";
+    public static final String STATUS_WALKING = "Hot Cold: walking to dig spot";
+    public static final String STATUS_NO_SPADE = "Hot Cold: no Spade, add one to dig";
+    public static final String STATUS_DUG = "Hot Cold: dug, waiting";
+    public static final String STATUS_DUG_AGAIN = "Hot Cold: clue unchanged, dug again";
+    public static final String STATUS_KILL_WIZARD = "Hot Cold: kill the wizard, then I dig again";
+    public static final String STATUS_CANNOT_REACH = "Hot Cold: can't reach dig spot, walk closer";
+    public static final String START_MESSAGE = "Hot Cold clue: use your Strange device until the dig spot is marked. The solver then walks there and digs.";
     public static final int DIG_RESULT_TICKS = 5;
 
     private final HotColdClue clue;
@@ -37,6 +42,7 @@ public class HotColdClueTask extends ClueTask {
     private String lastStatus;
     private boolean spadeWarningLogged;
     private boolean dug;
+    private boolean dugBefore;
     private int ticksSinceDig;
 
     public HotColdClueTask(Client client, HotColdClue clue, ClueScrollPlugin clueScrollPlugin,
@@ -53,7 +59,7 @@ public class HotColdClueTask extends ClueTask {
     protected boolean executeTask() throws Exception {
         setStatus(STATUS_WAITING_FOR_DEVICE);
         eventBus.register(this);
-        log.info("Starting HotColdClueTask, waiting for the strange device to find the dig spot.");
+        Microbot.log(START_MESSAGE);
         return true;
     }
 
@@ -90,11 +96,18 @@ public class HotColdClueTask extends ClueTask {
             dug = false;
         }
 
-        if (digLocation == null) {
-            digLocation = clue.getLocation(clueScrollPlugin);
-            if (digLocation == null) {
-                return;
-            }
+        if (dugBefore && isNpcAttackingPlayer()) {
+            setStatus(STATUS_KILL_WIZARD);
+            return;
+        }
+
+        WorldPoint spot = clue.getLocation(clueScrollPlugin);
+        if (spot == null) {
+            setStatus(STATUS_WAITING_FOR_DEVICE);
+            return;
+        }
+        if (!spot.equals(digLocation)) {
+            digLocation = spot;
             log.info("Hot Cold dig spot found: {}", digLocation);
         }
 
@@ -114,8 +127,14 @@ public class HotColdClueTask extends ClueTask {
 
         if (!digLocation.equals(playerLocation)) {
             setStatus(STATUS_WALKING);
-            if (!Rs2Walker.walkTo(digLocation, 0)) {
-                log.error("Failed to walk to Hot Cold dig spot: {}", digLocation);
+            boolean walked = Rs2Walker.walkTo(digLocation, 0);
+            if (!ClueSolverPlugin.isSolverRunning) {
+                completeTask(false);
+                return;
+            }
+            if (!walked) {
+                setStatus(STATUS_CANNOT_REACH);
+                Microbot.log(STATUS_CANNOT_REACH + " " + digLocation);
                 completeTask(false);
                 return;
             }
@@ -124,8 +143,15 @@ public class HotColdClueTask extends ClueTask {
         if (Rs2Inventory.interact(ItemID.SPADE, "Dig")) {
             dug = true;
             ticksSinceDig = 0;
-            setStatus(STATUS_DUG);
+            setStatus(dugBefore ? STATUS_DUG_AGAIN : STATUS_DUG);
+            dugBefore = true;
         }
+    }
+
+    private boolean isNpcAttackingPlayer() {
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> !npc.isDead() && npc.isInteractingWithPlayer())
+                .first() != null;
     }
 
     private void setStatus(String status) {
