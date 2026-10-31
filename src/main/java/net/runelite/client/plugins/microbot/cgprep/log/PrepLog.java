@@ -50,6 +50,27 @@ public final class PrepLog
 		String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date());
 		file = new File(dir, "cg-prep-" + stamp + ".log");
 		out = Files.newBufferedWriter(file.toPath(), StandardCharsets.UTF_8);
+		prune(dir);
+	}
+
+	/** Files kept in the log folder (newest first by name = date); older ones are deleted at start. */
+	public static final int KEEP_FILES = 20;
+
+	private void prune(File dir)
+	{
+		File[] all = dir.listFiles((d, n) -> n.startsWith("cg-prep-") && n.endsWith(".log"));
+		if (all == null || all.length <= KEEP_FILES)
+		{
+			return;
+		}
+		java.util.Arrays.sort(all, (a, b) -> b.getName().compareTo(a.getName()));
+		for (int i = KEEP_FILES; i < all.length; i++)
+		{
+			if (!all[i].equals(file) && !all[i].delete())
+			{
+				log.debug("could not delete old decision log {}", all[i]);
+			}
+		}
 	}
 
 	public File getFile()
@@ -59,7 +80,7 @@ public final class PrepLog
 
 	public void line(String type, String body)
 	{
-		if (out == null)
+		if (out == null || io.isShutdown())
 		{
 			return;
 		}
@@ -75,7 +96,14 @@ public final class PrepLog
 		}
 		String s = String.format("%08.2f t%d %s %s", secs, t, type, body);
 		pending.incrementAndGet();
-		io.execute(() -> write(s));
+		try
+		{
+			io.execute(() -> write(s));
+		}
+		catch (java.util.concurrent.RejectedExecutionException e)
+		{
+			pending.decrementAndGet(); // closing: the line is dropped
+		}
 	}
 
 	public void error(String where, Throwable ex)

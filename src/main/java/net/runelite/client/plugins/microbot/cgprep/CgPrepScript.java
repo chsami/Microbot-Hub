@@ -85,6 +85,12 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	volatile long reenterAtMs = -1;
 	private long lastLobbyClickMs;
 	private int chestFails;
+	/** Entrance clicks in a row that didn't get us in (review: a locked Corrupted Gauntlet looped forever). */
+	private int enterFails;
+	/** Set after {@link #ENTER_GIVE_UP} failed entries: no more Enter clicks until Continue / the Gauntlet setting changes / restart. */
+	volatile String enterBlocked;
+	private CgMode enterBlockedMode;
+	private static final int ENTER_GIVE_UP = 3;
 
 	private boolean wasInGauntlet;
 	private volatile PrepLog plog;
@@ -192,6 +198,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 
 	public boolean run()
 	{
+		breakGate.arm();
 		gather = new GatherAction(nav);
 		weaver = new net.runelite.client.plugins.microbot.cgprep.actions.Weaver();
 		brewChain = new net.runelite.client.plugins.microbot.cgprep.actions.BrewChain();
@@ -298,7 +305,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			}
 			catch (Exception ex)
 			{
-				log.warn("[CG Prep] loop error", ex);
+				log.warn("[Auto Gauntlet] loop error", ex);
 				PrepLog p = plog;
 				if (p != null)
 				{
@@ -637,7 +644,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			exploreDoorRoom = -1;
 			routeFor = null;
 			maze.setRoute(null, null);
-			log.info("[CG Prep] run started ({})", mode());
+			log.info("[Auto Gauntlet] run started ({})", mode());
 			if (station != null)
 			{
 				station.resetRun();
@@ -931,7 +938,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			if (config.verbose() && System.currentTimeMillis() - lastPlanLogMs > 3000)
 			{
 				lastPlanLogMs = System.currentTimeMillis();
-				log.info("[CG Prep] t-{}s room {},{} grid {} | goal {} | missing {} | {}", secondsLeft,
+				log.info("[Auto Gauntlet] t-{}s room {},{} grid {} | goal {} | missing {} | {}", secondsLeft,
 					maze.roomX(), maze.roomZ(), maze.grid().describe(), goal, n, l.compact());
 			}
 		}
@@ -994,7 +1001,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	protected void onTransition(CgState from, CgState to, String reason)
 	{
 		super.onTransition(from, to, reason);
-		log.info("[CG Prep] {} -> {} ({})", from, to, reason);
+		log.info("[Auto Gauntlet] {} -> {} ({})", from, to, reason);
 		pl("STATE", from + " -> " + to + " (" + reason + ")");
 		if (to == CgState.HANDOVER)
 		{
@@ -1005,7 +1012,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			}
 			else if (l != null)
 			{
-				handover.announce(l, config.profile(), secondsLeft, config.popup(), config.notifyOnHandover());
+				handover.announce(l, config.profile(), secondsLeft, config.popup(), config.notifyRunEnd());
 				pl("HANDOVER", String.join(" | ", handover.lines()));
 			}
 		}
@@ -1051,7 +1058,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	@Override
 	protected CgState onError(CgState state, Exception e)
 	{
-		log.warn("[CG Prep] error in {}: {}", state, e.toString());
+		log.warn("[Auto Gauntlet] error in {}: {}", state, e.toString());
 		PrepLog p = plog;
 		if (p != null)
 		{
@@ -1097,7 +1104,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				{
 					lastOutsideLogMs = System.currentTimeMillis();
 					net.runelite.api.coords.WorldPoint wp = net.runelite.client.plugins.microbot.util.player.Rs2Player.getWorldLocation();
-					String why = !config.autoLoop() ? "loop off: enter a run yourself"
+					String why = !config.autoLoop() ? "loop off: press " + config.continueKey() + " to start a run"
 						: !inLobby ? "walk to the Gauntlet lobby" : "waiting";
 					pl("OUTSIDE", why + " | inLobby=" + inLobby + " autoLoop=" + config.autoLoop()
 						+ " at " + (wp == null ? "?" : wp.getX() + "," + wp.getY() + "," + wp.getPlane() + " region " + wp.getRegionID()));
@@ -1989,12 +1996,13 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			long quiet = net.runelite.client.plugins.microbot.util.input.InputArbiter.millisSinceRealActivity();
 			if (net.runelite.client.plugins.microbot.util.input.InputArbiter.isRealButtonOrKeyDown())
 			{
-				why = "keys/buttons look held: keys=" + net.runelite.client.plugins.microbot.util.input.InputArbiter.realKeysDown()
-					+ " buttons=" + net.runelite.client.plugins.microbot.util.input.InputArbiter.realButtonsDown();
+				why = "a key or mouse button looks held down: let go of it (clears itself in a few seconds)";
 				if (quiet > 4000)
 				{
 					net.runelite.client.plugins.microbot.util.input.InputArbiter.onFocusLost(); // clears the held sets
-					pl("WAIT", why + " with no input for " + quiet + " ms: treating as stuck, cleared");
+					pl("WAIT", why + " (keys=" + net.runelite.client.plugins.microbot.util.input.InputArbiter.realKeysDown()
+						+ " buttons=" + net.runelite.client.plugins.microbot.util.input.InputArbiter.realButtonsDown()
+						+ ") with no input for " + quiet + " ms: treating as stuck, cleared");
 					return false; // next loop re-checks after the 1.8 s idle window
 				}
 			}
@@ -2337,18 +2345,50 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			breakWaitSinceMs = 0;
 			breakWaitGaveUp = false;
 		}
+		if (enterBlocked != null)
+		{
+			if (enterBlockedMode == mode() && !continueRequested)
+			{
+				lastAction = "lobby: stopped, can't enter (see chat)";
+				return;
+			}
+			enterBlocked = null; // the Gauntlet setting changed or Continue was pressed: try again
+			enterFails = 0;
+		}
 		lastLobbyClickMs = now;
 		ActionResult r = clickLobbyObject(new int[]{CgIds.OBJ_LOBBY_ENTRANCE}, mode().entranceOption());
 		record("lobby: " + mode().entranceOption(), r);
 		if (r == ActionResult.CLICKED)
 		{
 			boolean in = Global.sleepUntil(() -> Microbot.getVarbitValue(CgIds.VB_PLAYER_IN_GAUNTLET) != 0, 10000);
-			pl("LOBBY", mode().entranceOption() + (in ? ": entered" : ": not in yet (retrying)"));
+			pl("LOBBY", mode().entranceOption() + (in ? ": entered" : ": not in yet (" + (enterFails + 1) + "/" + ENTER_GIVE_UP + ")"));
 			if (in)
 			{
 				reenterAtMs = -1;
+				enterFails = 0;
+			}
+			else if (++enterFails >= ENTER_GIVE_UP)
+			{
+				blockEntering();
 			}
 		}
+	}
+
+	/** Several entrance clicks didn't get us in: stop and say why, once (review). */
+	private void blockEntering()
+	{
+		boolean corrupted = mode() == CgMode.CORRUPTED;
+		String msg = corrupted
+			? "Auto Gauntlet: can't enter the Corrupted Gauntlet. Finish one normal Gauntlet first (it unlocks Corrupted), or set Gauntlet to Normal. Press "
+				+ config.continueKey() + " to try again."
+			: "Auto Gauntlet: can't enter the Gauntlet (" + ENTER_GIVE_UP + " tries). Check you can go in by hand, then press " + config.continueKey() + " to try again.";
+		enterBlocked = corrupted ? "can't enter Corrupted: finish a normal Gauntlet first, or set Gauntlet to Normal" : "can't enter the Gauntlet (see chat)";
+		enterBlockedMode = mode();
+		continueRequested = false;
+		reenterAtMs = -1;
+		pl("LOBBY", "WARN " + msg);
+		Microbot.getClientThread().invoke(() ->
+			Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", "<col=ff0000>" + msg + "</col>", null));
 	}
 
 	/** Click a lobby object (first of the ids found), turning the camera without keys; walk closer if it's off screen. */
@@ -2389,7 +2429,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			failStreak++;
 			if (failStreak >= 6)
 			{
-				log.warn("[CG Prep] {} failing repeatedly ({}), resetting nav", what, r);
+				log.warn("[Auto Gauntlet] {} failing repeatedly ({}), resetting nav", what, r);
 				nav.reset();
 				failStreak = 0;
 			}
@@ -2414,11 +2454,11 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				+ " dryRun=" + config.dryRun() + " skipDemi=" + config.skipDemiBosses() + " fishTarget=" + config.fishTarget()
 				+ " potions=" + config.potionTarget() + " finishReserve=" + config.finishReserve() + " handoverReserve=" + config.handoverReserve()
 				+ " eatBelow=" + config.eatBelowPercent() + "%" + " autoLobby=" + config.autoLobby());
-			Microbot.log("[CG Prep] decision log: " + p.getFile().getAbsolutePath());
+			Microbot.log("[Auto Gauntlet] decision log: " + p.getFile().getAbsolutePath());
 		}
 		catch (Exception e)
 		{
-			Microbot.log("[CG Prep] could not open decision log in " + dir + ": " + e.getMessage());
+			Microbot.log("[Auto Gauntlet] could not open decision log in " + dir + ": " + e.getMessage());
 		}
 	}
 
@@ -2459,6 +2499,20 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	public void togglePause()
 	{
 		paused = !paused;
+		if (paused)
+		{
+			// The weave and the potion chain run on their own threads: stop them too (review).
+			net.runelite.client.plugins.microbot.cgprep.actions.Weaver w = weaver;
+			if (w != null)
+			{
+				w.disarm();
+			}
+			net.runelite.client.plugins.microbot.cgprep.actions.BrewChain bc = brewChain;
+			if (bc != null)
+			{
+				bc.stop();
+			}
+		}
 	}
 
 	public void requestContinue()
@@ -2597,7 +2651,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			}
 			catch (Exception ex)
 			{
-				log.debug("[CG Prep] prayer tick", ex);
+				log.debug("[Auto Gauntlet] prayer tick", ex);
 			}
 			finally
 			{
@@ -2668,7 +2722,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	public void shutdown()
 	{
 		boss.shutdown();
-		breakGate.release();
+		breakGate.release(); // sets "stopped": a last loop pass can't lock it again
 		breakWaitSinceMs = 0;
 		breakWaitGaveUp = false;
 		synchronized (this)
@@ -2689,6 +2743,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			bc.shutdown();
 		}
 		super.shutdown();
+		breakGate.release(); // again, after the loop's last pass (review)
 		antiban.stop();
 		handover.clear();
 	}

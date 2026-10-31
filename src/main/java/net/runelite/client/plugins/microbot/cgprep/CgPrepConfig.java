@@ -203,7 +203,7 @@ public interface CgPrepConfig extends Config
 	}
 
 	@ConfigItem(keyName = "notifyRunEnd", name = "Notify on win / death",
-		description = "A desktop notification when a run ends in a kill or a death.",
+		description = "A desktop notification when a run ends in a kill or a death (and when prep is done in Prep Only).",
 		position = 5, section = runSection)
 	default boolean notifyRunEnd()
 	{
@@ -226,6 +226,7 @@ public interface CgPrepConfig extends Config
 		return true;
 	}
 
+	/** Unused since 1.7.4 (the handover notification follows "Notify on win / death"); kept so old settings load. */
 	@ConfigItem(keyName = "notify", name = "Desktop notification", description = "Flash/notify via RuneLite's notifier",
 		position = 100, hidden = true)
 	default boolean notifyOnHandover()
@@ -317,6 +318,7 @@ public interface CgPrepConfig extends Config
 		return net.runelite.client.plugins.microbot.cgprep.boss.BrainConfig.Offense.ALWAYS;
 	}
 
+	@Range(min = 1, max = 99)
 	@ConfigItem(keyName = "bossEatBelow", name = "Eat at or below (HP)",
 		description = "Eat a paddlefish at or below this HP.",
 		position = 1, section = bossSection)
@@ -325,6 +327,7 @@ public interface CgPrepConfig extends Config
 		return 40;
 	}
 
+	@Range(min = 0, max = 99)
 	@ConfigItem(keyName = "bossDrinkBelow", name = "Drink at or below (prayer)",
 		description = "Drink a potion at or below this many prayer points.",
 		position = 2, section = bossSection)
@@ -382,7 +385,7 @@ public interface CgPrepConfig extends Config
 	}
 
 	@ConfigItem(keyName = "decisionLog", name = "Decision log",
-		description = "Write a cg-prep-*.log file in .runelite/cg-prep each session, for bug reports. Old files are not deleted.",
+		description = "Write a cg-prep-*.log file in .runelite/cg-prep each session, for bug reports. Only the newest 20 are kept.",
 		position = 6, section = runSection)
 	default boolean decisionLog()
 	{

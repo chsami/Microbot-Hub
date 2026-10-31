@@ -551,7 +551,7 @@ public final class BossFight
 		catch (Exception e)
 		{
 			log.accept("FIGHT", "ERROR " + e);
-			LOG.warn("[CG Prep] boss fight tick", e);
+			LOG.warn("[Auto Gauntlet] boss fight tick", e);
 		}
 		finally
 		{

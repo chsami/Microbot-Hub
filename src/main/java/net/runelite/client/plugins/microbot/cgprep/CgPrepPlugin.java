@@ -40,17 +40,18 @@ import net.runelite.client.util.HotkeyListener;
  */
 @PluginDescriptor(
 	name = PluginConstants.SYD + "Auto Gauntlet",
-	description = "Corrupted Gauntlet: preps (gathers, kills demi-bosses, crafts armour + T3 bow/staff, brews, cooks) and fights the Hunllef. Prep & Boss, Prep Only or Boss Only",
+	description = "Normal or Corrupted Gauntlet: preps (gathers, kills demi-bosses, crafts armour + T3 bow/staff, brews, cooks) and fights the Hunllef. Prep & Boss, Prep Only or Boss Only",
 	tags = {"gauntlet", "corrupted", "hunllef", "cg", "prep", "pvm", "boss"},
 	authors = {"Syd"},
 	version = CgPrepPlugin.version,
 	minClientVersion = "2.6.43",
+	iconUrl = "https://chsami.github.io/Microbot-Hub/CgPrepPlugin/assets/icon.png",
 	enabledByDefault = PluginConstants.DEFAULT_ENABLED,
 	isExternal = PluginConstants.IS_EXTERNAL
 )
 public class CgPrepPlugin extends Plugin
 {
-	static final String version = "1.7.3";
+	static final String version = "1.7.4";
 
 	@Inject
 	private CgPrepConfig config;
@@ -84,10 +85,10 @@ public class CgPrepPlugin extends Plugin
 			script.togglePause();
 			boolean paused = script.paused;
 			boolean dry = config.dryRun();
-			Microbot.log("[CG Prep] " + (paused ? "paused" : "resumed") + (dry ? " (DRY RUN: no actions)" : ""));
-			String msg = paused ? "<col=ff9040>[CG Prep]</col> Paused."
-				: dry ? "<col=ff0000>[CG Prep] Resumed in DRY RUN: it will plan but NOT click. Turn off 'Dry run (plan only)' under Development.</col>"
-				: "<col=ff9040>[CG Prep]</col> Resumed (live).";
+			Microbot.log("[Auto Gauntlet] " + (paused ? "paused" : "resumed") + (dry ? " (DRY RUN: no actions)" : ""));
+			String msg = paused ? "<col=ff9040>[Auto Gauntlet]</col> Paused."
+				: dry ? "<col=ff0000>[Auto Gauntlet] Resumed in DRY RUN: it will plan but NOT click. Turn off 'Dry run (plan only)'.</col>"
+				: "<col=ff9040>[Auto Gauntlet]</col> Resumed (live).";
 			Microbot.getClientThread().invoke(() ->
 				Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", msg, null));
 		}
@@ -101,7 +102,7 @@ public class CgPrepPlugin extends Plugin
 			script.requestContinue();
 			Microbot.getClientThread().invoke(() ->
 				Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", "<col=ff9040>[Auto Gauntlet]</col> Next run requested: it starts when you're in the Gauntlet lobby.", null));
-			Microbot.log("[CG Prep] continue requested");
+			Microbot.log("[Auto Gauntlet] continue requested");
 		}
 	};
 
@@ -135,7 +136,7 @@ public class CgPrepPlugin extends Plugin
 		script.saveSetting = (key, value) -> configManager.setConfiguration(CgPrepConfig.GROUP, key, value);
 		script.stats = new net.runelite.client.plugins.microbot.cgprep.stats.RunStats(configManager, itemManager, script::note);
 		script.run();
-		Microbot.log("[CG Prep] started" + (config.dryRun() ? " in DRY RUN (no actions)" : ""));
+		Microbot.log("[Auto Gauntlet] started" + (config.dryRun() ? " in DRY RUN (no actions)" : ""));
 	}
 
 	@Override

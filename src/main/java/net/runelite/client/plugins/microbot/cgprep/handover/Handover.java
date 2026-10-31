@@ -10,8 +10,8 @@ import net.runelite.client.plugins.microbot.cgprep.plan.Ledger;
 
 /**
  * Builds and delivers the "setup complete" message: time left first, then loadout, then anything
- * that came out worse than planned. Delivered three ways (popup, desktop notification, chat) so it
- * reaches the player whether they're watching the client or tabbed out.
+ * that came out worse than planned. Delivered as a chat line, an optional popup and (with "Notify on
+ * win / death" on) a desktop notification, so it reaches the player even when tabbed out.
  */
 public final class Handover
 {
@@ -69,7 +69,7 @@ public final class Handover
 		}
 
 		lines = out;
-		bannerText = "CG PREP COMPLETE - " + time + " left - your turn";
+		bannerText = "PREP COMPLETE - " + time + " left - your turn";
 		active = true;
 
 		String html = String.join("<br>", out);
@@ -77,13 +77,17 @@ public final class Handover
 		Microbot.getClientThread().invoke(() ->
 		{
 			Microbot.getClient().addChatMessage(ChatMessageType.GAMEMESSAGE, "",
-				"<col=ff9040>[CG Prep]</col> Setup complete. " + plain, null);
+				"<col=ff9040>[Auto Gauntlet]</col> Setup complete. " + plain, null);
 			if (popup)
 			{
 				Microbot.openPopUp("Auto Gauntlet: prep complete", "<col=ffffff>" + html + "</col>");
 			}
 		});
-		// No desktop notification here (1.6.3, user): the only one is a run ending with the loop
-		// off (CgPrepScript.notifyRunEnd). The popup and chat line above stay.
+		// Prep Only: a tabbed-out player has to know it's their turn before the timer runs out
+		// (review). Gated by "Notify on win / death".
+		if (notify && Microbot.getNotifier() != null)
+		{
+			Microbot.getNotifier().notify("Auto Gauntlet: prep done, " + time + " left. Your turn: go through the boss barrier.");
+		}
 	}
 }

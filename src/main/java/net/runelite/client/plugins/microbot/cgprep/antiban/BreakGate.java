@@ -16,10 +16,22 @@ import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 public final class BreakGate
 {
 	private boolean locked;
+	/** Set by {@link #release} (plugin stopping): no more locking until {@link #arm} (next start). */
+	private volatile boolean stopped;
+
+	/** Plugin starting: locking allowed again. */
+	public void arm()
+	{
+		stopped = false;
+	}
 
 	/** Lock while inside the Gauntlet, unlock outside. Script thread, every loop. */
-	public void sync(boolean inGauntlet, Consumer<String> log)
+	public synchronized void sync(boolean inGauntlet, Consumer<String> log)
 	{
+		if (stopped && inGauntlet)
+		{
+			return; // stopping: never take the lock again (a fast-follow pass after shutdown)
+		}
 		if (inGauntlet == locked)
 		{
 			return;
@@ -30,8 +42,9 @@ public final class BreakGate
 	}
 
 	/** Plugin stopping: let go of the lock if we hold it. */
-	public void release()
+	public synchronized void release()
 	{
+		stopped = true;
 		if (locked)
 		{
 			BreakHandlerScript.setLockState(false);

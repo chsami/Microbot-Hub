@@ -52,9 +52,15 @@ public class CgPrepOverlay extends OverlayPanel
 			return super.render(g);
 		}
 
-		String state = s.getCurrentState() == null ? "-" : s.getCurrentState().name() + (s.paused ? " (PAUSED)" : "");
+		String state = s.getCurrentState() == null ? "-" : s.getCurrentState().name()
+			+ (s.paused && !"PAUSED".equals(s.getCurrentState().name()) ? " (PAUSED)" : "");
 		long reenter = s.reenterAtMs;
-		if (s.getCurrentState() == CgState.LOBBY_SETUP && reenter > 0)
+		String blocked = s.enterBlocked;
+		if (s.getCurrentState() == CgState.LOBBY_SETUP && blocked != null)
+		{
+			state += " (stopped: " + blocked + ")";
+		}
+		else if (s.getCurrentState() == CgState.LOBBY_SETUP && reenter > 0)
 		{
 			long left = Math.max(0, reenter - System.currentTimeMillis());
 			state += " (going back in: " + ((left + 999) / 1000) + "s)";
