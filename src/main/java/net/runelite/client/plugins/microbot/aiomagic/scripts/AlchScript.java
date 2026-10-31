@@ -87,8 +87,9 @@ public class AlchScript extends Script {
                             }
                         }
                         
-                        Rs2Magic.alch(alchItem);
+                        Rs2Magic.alch(alchItem, plugin.getAlchPauseMin(), plugin.getAlchPauseMax());
                         Rs2Player.waitForXpDrop(Skill.MAGIC, 10000, false);
+                        sleep(plugin.nextClickDelay());
                         break;
                 }
 
@@ -99,7 +100,7 @@ public class AlchScript extends Script {
             } catch (Exception ex) {
                 System.out.println(ex.getMessage());
             }
-        }, 0, 1000, TimeUnit.MILLISECONDS);
+        }, 0, 100, TimeUnit.MILLISECONDS);
         return true;
     }
 
