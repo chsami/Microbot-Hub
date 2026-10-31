@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.mmcaves;
 
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.microbot.mmcaves.enums.LightSources;
 import net.runelite.client.plugins.microbot.mmcaves.enums.Mode;
 import org.junit.jupiter.api.Test;
 
@@ -71,6 +72,37 @@ class MmCavesDecisionsTest {
     void acceptsEquippedLightSource() {
         assertTrue(MmCavesDecisions.hasLightSource(
                 name -> false, "Bullseye lantern"::equals));
+    }
+
+    @Test
+    void acceptsKandarinHeadgearAllTiers() {
+        for (int tier = 1; tier <= 4; tier++) {
+            String headgear = "Kandarin headgear " + tier;
+            assertTrue(MmCavesDecisions.hasLightSource(headgear::equals, name -> false));
+            assertTrue(MmCavesDecisions.hasLightSource(name -> false, headgear::equals));
+        }
+    }
+
+    @Test
+    void acceptsInGameNamesOfLitSources() {
+        assertTrue(MmCavesDecisions.hasLightSource("Abyssal lantern"::equals, name -> false));
+        assertTrue(MmCavesDecisions.hasLightSource("Lit torch"::equals, name -> false));
+        assertTrue(MmCavesDecisions.hasLightSource("Lit candle"::equals, name -> false));
+    }
+
+    @Test
+    void rejectsUnlitTorchAndCandle() {
+        assertFalse(MmCavesDecisions.hasLightSource("Unlit torch"::equals, name -> false));
+        assertFalse(MmCavesDecisions.hasLightSource("Candle"::equals, name -> false));
+    }
+
+    @Test
+    void missingLightSourceMessageListsEveryAcceptedItem() {
+        String message = MmCavesDecisions.missingLightSourceMessage();
+        for (LightSources source : LightSources.values()) {
+            assertTrue(message.contains(source.getItemName()), source.getItemName());
+        }
+        assertTrue(message.contains("Unlit torches and candles do not count"));
     }
 
     @Test
