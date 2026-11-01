@@ -1,107 +1,60 @@
-﻿# Barbarian Fishing Plugin
+# Barbarian Fishing Plugin
 
-The **Barbarian Fishing Plugin** is an automation tool for Old School RuneScape, designed to efficiently train Fishing (and optionally Strength and Agility) by automating the barbarian fishing activity at the Barbarian Outpost. Built for the Microbot RuneLite client, this plugin streamlines the process of catching fish, dropping or banking them, and managing inventory, allowing for hands-free and optimized experience gains.
+The **Barbarian Fishing Plugin** is an automation tool for Old School RuneScape, designed to efficiently train Fishing, Strength, and Agility by automating barbarian fishing at **Otto's Grotto** and **Mount Quidamortem** (Chambers of Xeric lake). Built for the Microbot RuneLite client with pure native `Rs2Walker` navigation.
 
 ---
 
 ## Features
 
-- **Automated Barbarian Fishing:**  
-  Automatically fishes at the Barbarian Outpost, catching leaping fish for fast Fishing, Strength, and Agility XP.
+- **Multiple Fishing Locations:**  
+  - **Otto's Grotto:** Classic barbarian fishing area with power-dropping.
+  - **Mount Quidamortem:** Lake right beside Chambers of Xeric with optional bank trips to the CoX bank chest.
 
-- **Inventory Management:**  
-  Drops fish when inventory is full (powerfishing) or banks them if configured, ensuring continuous fishing.
+- **Native Rs2Walker Navigation:**  
+  Seamless movement between fishing spots and the Mount Quidamortem bank chest using standard `Rs2Walker`.
 
-- **Overlay Display:**  
-  Real-time overlay shows current status, fish caught, experience gained, runtime, and other useful stats.
+- **Fish Barrel Support:**  
+  Automatically fills your fish barrel (open or closed) while inventory fills up, doubling your trip capacity before dropping or banking.
 
-- **Configurable Options:**  
-  Users can adjust plugin settings via the configuration panel, such as overlay preferences and advanced behaviors.
+- **CoX Bank Chest Routing:**  
+  When configured at Mount Quidamortem, walks to the nearby bank chest (`30087`), opens the bank via `Rs2TileObjectCache`, empties the fish barrel, deposits fish, and walks back to the lake.
 
-- **Failsafes and Error Handling:**  
-  Handles running out of bait, full inventory, or unexpected in-game events.
+- **Dragon Harpoon Special Attack:**  
+  Optionally activates the Dragon Harpoon special attack whenever special energy reaches 100% for a temporary +3 Fishing level boost.
 
----
+- **Configurable Dropping:**  
+  Drop leaping trout, salmon, and sturgeon with configurable drop patterns (Standard, Left-to-right, Top-to-bottom, Snake, Random).
 
-## How It Works
-
-1. **Configuration:**  
-   Adjust settings in the plugin panel to match your preferences (e.g., dropping vs. banking fish).
-
-2. **Startup:**  
-   The plugin checks for required items (fishing rod, bait) and inventory space.
-
-3. **Automation Loop:**  
-   The script performs the following:
-    - Fishes at the correct spots using barbarian fishing methods
-    - Drops or banks fish as needed
-    - Repeats the process for continuous training
-
-4. **Overlay:**  
-   Displays real-time information such as:
-    - Current action (e.g., "Fishing", "Dropping Fish", "Banking")
-    - Fish caught
-    - Experience gained
-    - Runtime and efficiency stats
-
-5. **Failsafes:**  
-   Pauses or stops if requirements are not met, or if unexpected events occur.
-
----
-
-## Configuration
-
-The plugin provides a configuration panel (`BarbarianFishingConfig`) where you can:
-
-- Enable or disable the overlay
-- Choose between dropping or banking fish
-- Adjust advanced options (delays, anti-patterns, etc.)
+- **Real-Time Overlay:**  
+  Displays location, current action, fish caught, XP gained, XP/hr, runtime, and fish barrel status.
 
 ---
 
 ## Requirements
 
-- Microbot RuneLite client
-- Sufficient Fishing level for barbarian fishing
-- Required items (barbarian rod, bait) in the bank/inventory
-- Access to the Barbarian Outpost fishing area
+- Barbarian fishing rod and feathers / fishing bait / fish offal in inventory.
+- Required Fishing, Agility, and Strength levels for barbarian leaping fish (48+ Fishing, 15+ Agility/Strength for leaping trout; 58+ for leaping salmon; 70+ for leaping sturgeon).
+- (Optional) Fish barrel for expanded capacity.
+- (Optional) Dragon Harpoon equipped or in inventory for special attack boosts.
 
 ---
 
-## Usage
+## Configuration
 
-1. **Enable the Plugin:**  
-   Open the Microbot sidebar, find the Barbarian Fishing Plugin, and enable it.
-
-2. **Configure Settings:**  
-   Adjust your preferences in the configuration panel.
-
-3. **Start the Plugin:**  
-   Click "Start" to begin automated barbarian fishing.
-
-4. **Monitor Progress:**  
-   Watch the overlay for real-time updates on progress and status.
-
-5. **Stop at Any Time:**  
-   Click "Stop" to halt the automation.
+- **Location:** Choose between **Otto's Grotto** and **Mount Quidamortem**.
+- **Drop Order:** Select inventory drop ordering (Standard, Top-to-bottom, Left-to-right, Snake, Random).
+- **Use Fish Barrel:** Enable to store leaping fish in your fish barrel.
+- **Bank at CoX:** (Mount Quidamortem only) Walk to the Chambers of Xeric bank chest to empty fish barrel and deposit catch instead of dropping.
+- **Use Dragon Harpoon Spec:** Automatically trigger special attack when at 100%.
 
 ---
 
-## Limitations
+## Changelog
 
-- Only supports barbarian fishing as defined in the script logic.
-- Requires the player to have the necessary items and skill levels.
-- May not handle all random events or interruptions (e.g., player death, aggressive NPCs).
-
----
-
-## Source Files
-
-- `BarbarianFishingPlugin.java` – Main plugin class, manages lifecycle and integration.
-- `BarbarianFishingScript.java` – Core automation logic for barbarian fishing.
-- `BarbarianFishingConfig.java` – User configuration options.
-- `BarbarianFishingOverlay.java` – In-game overlay display.
-
----
-
-**Automate your Fishing, Strength, and Agility training and maximize your experience gains with the Barbarian Fishing Plugin!**
+### 1.2.0
+- Added Mount Quidamortem (Chambers of Xeric) location support.
+- Added native `Rs2Walker` spot routing and CoX bank chest navigation.
+- Added Fish Barrel auto-fill and auto-empty at CoX bank chest.
+- Added Dragon Harpoon special attack support.
+- Migrated tile object interactions to `Rs2TileObjectCache` query API.
+- Replaced third-party walkers with standard `Rs2Walker`.
