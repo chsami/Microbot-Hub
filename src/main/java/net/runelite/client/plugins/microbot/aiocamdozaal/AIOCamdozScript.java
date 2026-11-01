@@ -373,15 +373,16 @@ public class AIOCamdozScript extends Script {
                 if (Rs2Inventory.isFull()) {
                     state = State.PROCESSING;
                 }
+                boolean fishingSpotClicked = true;
                 if (!Rs2Player.isInteracting() && !Rs2Player.isMoving()) {
                     if (netToUse == 303) {
-                        Microbot.getRs2NpcCache().query().withId(FISHING_SPOT_ID).where(spot -> isFishingSpotInArea(spot.getWorldLocation())).interact("Small Net");
+                        fishingSpotClicked = Microbot.getRs2NpcCache().query().withId(FISHING_SPOT_ID).where(spot -> isFishingSpotInArea(spot.getWorldLocation())).interact("Small Net");
                     } else if (netToUse == 305) {
-                        Microbot.getRs2NpcCache().query().withId(FISHING_SPOT_ID).where(spot -> isFishingSpotInArea(spot.getWorldLocation())).interact("Big Net");
+                        fishingSpotClicked = Microbot.getRs2NpcCache().query().withId(FISHING_SPOT_ID).where(spot -> isFishingSpotInArea(spot.getWorldLocation())).interact("Big Net");
 
                     }
                 }
-                Microbot.status = "Fishing";
+                Microbot.status = fishingSpotClicked ? "Fishing" : "Waiting for a fishing spot near the fishing area";
                 break;
 
             case PROCESSING:
