@@ -26,7 +26,7 @@ import net.runelite.client.eventbus.Subscribe;
 )
 public class WildernessAgilityPlugin extends Plugin {
 
-    static final String version = "1.6.3";
+    static final String version = "1.6.4";
     @Inject
     private OverlayManager overlayManager;
     @Inject
