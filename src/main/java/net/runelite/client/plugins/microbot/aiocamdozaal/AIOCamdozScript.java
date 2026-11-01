@@ -64,6 +64,10 @@ public class AIOCamdozScript extends Script {
 
     WorldPoint bankLocation = new WorldPoint(2978, 5798, 0);
 
+    static final WorldPoint FISHING_LOCATION = new WorldPoint(2930, 5776, 0);
+    static final int FISHING_AREA_RANGE = 5;
+    static final int FISHING_SPOT_ID = 10686;
+
     List<Rs2NpcModel> golems = new ArrayList<>();
     List<Rs2NpcModel> rubbles = new ArrayList<>();
     List<Rs2NpcModel> golemsAttackingPlayer = new ArrayList<>();
@@ -332,7 +336,7 @@ public class AIOCamdozScript extends Script {
     }
 
     private void FishAndCook() {
-        WorldPoint fishingLocation = new WorldPoint(2930, 5776, 0);
+        WorldPoint fishingLocation = FISHING_LOCATION;
         WorldPoint processingLocation = new WorldPoint(2934, 5772, 0);
         //Microbot.log(state.name());
         switch (state) {
@@ -348,7 +352,7 @@ public class AIOCamdozScript extends Script {
                     break;
                 }
 
-                if (!Rs2Walker.isInArea(fishingLocation, 5)) {
+                if (!Rs2Walker.isInArea(fishingLocation, FISHING_AREA_RANGE)) {
                     //Microbot.log("Trying to walk to fishingLocation");
                     Rs2Walker.walkTo(fishingLocation);
                 } else {
@@ -362,7 +366,7 @@ public class AIOCamdozScript extends Script {
                     state = State.WALKING_TO_BANK;
                     break;
                 }
-                if (!Rs2Walker.isInArea(fishingLocation, 5)) {
+                if (!Rs2Walker.isInArea(fishingLocation, FISHING_AREA_RANGE)) {
                     state = State.WALKING_TO_FISH;
                     break;
                 }
@@ -371,9 +375,9 @@ public class AIOCamdozScript extends Script {
                 }
                 if (!Rs2Player.isInteracting() && !Rs2Player.isMoving()) {
                     if (netToUse == 303) {
-                        Microbot.getRs2NpcCache().query().withId(10686).interact("Small Net");
+                        Microbot.getRs2NpcCache().query().withId(FISHING_SPOT_ID).where(spot -> isFishingSpotInArea(spot.getWorldLocation())).interact("Small Net");
                     } else if (netToUse == 305) {
-                        Microbot.getRs2NpcCache().query().withId(10686).interact("Big Net");
+                        Microbot.getRs2NpcCache().query().withId(FISHING_SPOT_ID).where(spot -> isFishingSpotInArea(spot.getWorldLocation())).interact("Big Net");
 
                     }
                 }
@@ -793,6 +797,10 @@ public class AIOCamdozScript extends Script {
             default:
                 return new int[0];
         }
+    }
+
+    static boolean isFishingSpotInArea(WorldPoint spot) {
+        return spot != null && spot.distanceTo(FISHING_LOCATION) < FISHING_AREA_RANGE;
     }
 
     private void GetConfigNet(AIOCamdozConfig config) {
