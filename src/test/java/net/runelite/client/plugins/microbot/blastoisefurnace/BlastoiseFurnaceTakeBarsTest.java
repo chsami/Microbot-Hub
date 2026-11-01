@@ -1,12 +1,14 @@
 package net.runelite.client.plugins.microbot.blastoisefurnace;
 
 import net.runelite.api.Client;
+import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectQueryable;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.RETURNS_SELF;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -125,6 +128,27 @@ class BlastoiseFurnaceTakeBarsTest {
 
         assertEquals(1, presses.get());
         verify(query, atLeastOnce()).withAction("Take");
+    }
+
+    @Test
+    void stopsWithOneMessageAfterThreeFailedLootCyclesInARow() {
+        BlastoiseFurnaceScript script = script();
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            for (int cycle = 1; cycle < BlastoiseFurnaceScript.MAX_FAILED_LOOT_CYCLES; cycle++) {
+                assertFalse(script.recordFailedLootCycle());
+                assertEquals("Couldn't take bars, retrying", Microbot.status);
+            }
+            microbot.verify(() -> Microbot.showMessage(anyString()), never());
+            microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), never());
+            player.verify(Rs2Player::logout, never());
+
+            assertTrue(script.recordFailedLootCycle());
+
+            microbot.verify(() -> Microbot.showMessage(anyString()), times(1));
+            microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), times(1));
+            player.verify(Rs2Player::logout, times(1));
+        }
     }
 
     private void dispenserOffersTake() {

@@ -41,7 +41,9 @@ public class BlastoiseFurnaceScript extends Script {
     private static final int MAX_ORE_PER_INTERACTION = 27;
     private static final int MAX_ORE_PER_HYBRID_INTERACTION = 26;
     private static final int MAX_TAKE_ATTEMPTS = 3;
+    static final int MAX_FAILED_LOOT_CYCLES = 3;
     public static State state = State.BANKING;
+    private int failedLootCycles = 0;
     static boolean coalBagEmpty;
     static boolean primaryOreEmpty;
     static boolean secondaryOreEmpty;
@@ -69,6 +71,7 @@ public class BlastoiseFurnaceScript extends Script {
     public boolean run() {
         Microbot.enableAutoRunOn = false;
         state = State.BANKING;
+        failedLootCycles = 0;
         primaryOreEmpty = !Rs2Inventory.hasItem(config.getBars().getPrimaryOre());
         secondaryOreEmpty = !Rs2Inventory.hasItem(config.getBars().getSecondaryOre());
         Rs2Antiban.resetAntibanSettings();
@@ -218,6 +221,7 @@ public class BlastoiseFurnaceScript extends Script {
     }
 
     private boolean handleDispenserLooting() {
+        Microbot.status = failedLootCycles == 0 ? "Taking bars from dispenser" : "Couldn't take bars, retrying";
         if (!Rs2Inventory.isFull()) {
             if (!dispenserContainsBars()) {
                 sleepUntil(this::dispenserContainsBars, Rs2Random.between(3000, 5000));
@@ -239,9 +243,10 @@ public class BlastoiseFurnaceScript extends Script {
             }
 
             if (!takeBarsFromDispenser()) {
-                log.warn("Bars were not taken from the dispenser, retrying");
+                recordFailedLootCycle();
                 return false;
             }
+            failedLootCycles = 0;
 
             Rs2Bank.openBank();
             equipGoldSmithGauntlets();
@@ -249,6 +254,21 @@ public class BlastoiseFurnaceScript extends Script {
 
         state = State.BANKING;
         return true;
+    }
+
+    boolean recordFailedLootCycle() {
+        failedLootCycles++;
+        if (failedLootCycles >= MAX_FAILED_LOOT_CYCLES) {
+            log.warn("Couldn't take bars from the dispenser (try {} of {}), stopping", failedLootCycles, MAX_FAILED_LOOT_CYCLES);
+            Microbot.status = "Couldn't take bars, stopped";
+            Microbot.showMessage("Couldn't take bars from the Bar dispenser after several tries. Take them manually, then start the script again.");
+            Rs2Player.logout();
+            Microbot.stopPlugin(plugin);
+            return true;
+        }
+        log.warn("Couldn't take bars from the dispenser (try {} of {}), retrying", failedLootCycles, MAX_FAILED_LOOT_CYCLES);
+        Microbot.status = "Couldn't take bars, retrying";
+        return false;
     }
 
     boolean takeBarsFromDispenser() {
@@ -642,6 +662,7 @@ public class BlastoiseFurnaceScript extends Script {
     public void shutdown() {
         init = false;
         state = State.BANKING;
+        failedLootCycles = 0;
         primaryOreEmpty = false;
         secondaryOreEmpty = false;
         super.shutdown();
