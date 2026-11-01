@@ -28,7 +28,7 @@ package net.runelite.client.plugins.microbot.driftnet;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-import java.awt.*;
+import java.awt.Color;
 
 @Getter
 @RequiredArgsConstructor
