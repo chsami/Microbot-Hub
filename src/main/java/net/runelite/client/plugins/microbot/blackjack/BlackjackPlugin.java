@@ -41,7 +41,7 @@ import java.util.jar.JarFile;
 @Slf4j
 public class BlackjackPlugin extends Plugin
 {
-    public static final String VERSION = "1.1.29";
+    public static final String VERSION = "1.1.30";
 
     @Inject
     @Getter
@@ -115,7 +115,7 @@ public class BlackjackPlugin extends Plugin
     @Subscribe
     public void onChatMessage(ChatMessage event)
     {
-        script.onChatMessage(event.getMessage());
+        script.onChatMessage(event.getType(), event.getMessage());
     }
 
     @Subscribe

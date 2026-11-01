@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.blackjack;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.NPC;
@@ -3852,9 +3853,10 @@ public class BlackjackScript extends Script
                 && combatResetKnockoutAt > 0;
     }
 
-    public void onChatMessage(String rawMessage)
+    public void onChatMessage(ChatMessageType type, String rawMessage)
     {
-        if (rawMessage == null)
+        // Player-authored chat must never be interpreted as gameplay feedback.
+        if ((type != ChatMessageType.GAMEMESSAGE && type != ChatMessageType.SPAM) || rawMessage == null)
         {
             return;
         }
