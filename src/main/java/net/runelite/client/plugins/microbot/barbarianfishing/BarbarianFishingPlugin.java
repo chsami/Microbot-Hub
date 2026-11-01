@@ -16,10 +16,10 @@ import javax.inject.Inject;
 import java.awt.*;
 
 @PluginDescriptor(
-        name = PluginConstants.DEFAULT_PREFIX + "Barbarian Fishing",
+        name = PluginDescriptor.See1Duck + " Barbarian Fisher",
         description = "Automated Barbarian Fishing at Otto's Grotto and Mount Quidamortem (CoX)",
         tags = {"Fishing", "barbarian", "skilling", "cox", "fish barrel"},
-        authors = {"See1Duck", "Microbot"},
+        authors = {"See1Duck", "Dro"},
         version = BarbarianFishingPlugin.version,
         minClientVersion = "2.6.32",
         cardUrl = "https://chsami.github.io/Microbot-Hub/BarbarianFishingPlugin/assets/card.jpg",
