@@ -88,7 +88,7 @@ public class StunScript extends Script {
                             }
                         }
 
-                        sleep(200, 300);
+                        sleep(plugin.nextClickDelay());
                         break;
                     case BANKING:
                         break;
