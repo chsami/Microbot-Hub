@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.drodriftnet;
+package net.runelite.client.plugins.microbot.driftnet;
 
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.coords.WorldPoint;
@@ -18,13 +18,13 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.function.Consumer;
 
 /** Single travel sequence, resumed from the observed location after login. */
-final class DroDriftTravel
+final class DriftNetTravel
 {
     static final WorldPoint ISLAND_BANK = new WorldPoint(3764, 3900, 0);
     static final WorldPoint ENTRANCE = new WorldPoint(3729, 10294, 1);
-    private final DroDriftNetConfig config;
+    private final DriftNetConfig config;
     private final ScheduledFuture<?> future;
-    private final BaseProfileDro profile;
+    private final DriftNetProfile profile;
     private final Consumer<String> status;
     private boolean equipped;
     private boolean loaded;
@@ -32,8 +32,8 @@ final class DroDriftTravel
     private long lastInput;
     private int setupAttempts;
 
-    DroDriftTravel(DroDriftNetConfig config,
-                   ScheduledFuture<?> future, BaseProfileDro profile, Consumer<String> status)
+    DriftNetTravel(DriftNetConfig config,
+                   ScheduledFuture<?> future, DriftNetProfile profile, Consumer<String> status)
     {
         this.config = config;
         this.future = future;
@@ -75,7 +75,7 @@ final class DroDriftTravel
                     clickObject(30796, "Use", "Bank");
                     return;
                 }
-                DroInventorySetup setup = new DroInventorySetup(config.driftInventorySetup(), future);
+                DriftNetInventorySetup setup = new DriftNetInventorySetup(config.driftInventorySetup(), future);
                 beforeInput();
                 boolean success;
                 if (!equipped) {
@@ -144,7 +144,7 @@ final class DroDriftTravel
     private void beforeInput()
     {
         lastInput = System.currentTimeMillis();
-        profile.beforeAction(BaseProfileDro.ActionPhase.SETUP, false);
+        profile.beforeAction(DriftNetProfile.ActionPhase.SETUP, false);
     }
 
     private void fail(String reason)

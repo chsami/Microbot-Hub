@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.drodriftnet;
+package net.runelite.client.plugins.microbot.driftnet;
 
 import net.runelite.api.GameState;
 import net.runelite.api.gameval.InterfaceID;
@@ -27,19 +27,19 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 
 /**
- * Shared Dro behavior/profile layer intended to be embedded by any Microbot script.
+ * Shared behavior/profile layer intended to be embedded by any Microbot script.
  *
- * <p>It centralizes the pieces that otherwise end up being copied into every Dro script:
+ * <p>It centralizes the pieces that otherwise end up being copied into every script:
  * startup camera zoom/pitch, a stable per-login session personality, MKE-style reaction
  * timing, NaturalMouse helpers, fixed-edge off-screen parking, ACTIVE/BALANCED/AFK mouse
- * activity, native antiban setup with active cooldowns disabled, the DroZone smart break +
+ * activity, native antiban setup with active cooldowns disabled, the shared smart break +
  * auto-login flow, and an optional live overlay.
  *
  * <p>This class deliberately does not own task-specific pathing, banking, combat, mining,
  * thieving, target selection, or safety rules. The host script tells it when a break is safe
  * and when the script has entered an idle opportunity.
  */
-public final class BaseProfileDro {
+public final class DriftNetProfile {
 
     public static final String VERSION = "1.0.0";
 
@@ -74,11 +74,11 @@ public final class BaseProfileDro {
     private OverlayManager overlayManager;
     private ProfileOverlay overlay;
 
-    public BaseProfileDro() {
+    public DriftNetProfile() {
         this(new Settings());
     }
 
-    public BaseProfileDro(Settings settings) {
+    public DriftNetProfile(Settings settings) {
         this.settings = settings == null ? new Settings() : settings;
         this.breakManager = new SmartBreakManager(this.settings);
         this.attentionAction = this::glanceAtInventory;
@@ -90,9 +90,9 @@ public final class BaseProfileDro {
      * <pre>
      * profile.setNativeTemplateApplier(() -> Rs2Antiban.antibanSetupTemplates.applyThievingSetup());
      * </pre>
-     * The base then applies its shared MKE/Dro overrides afterward.
+     * The base then applies its shared MKE overrides afterward.
      */
-    public BaseProfileDro setNativeTemplateApplier(Runnable nativeTemplateApplier) {
+    public DriftNetProfile setNativeTemplateApplier(Runnable nativeTemplateApplier) {
         this.nativeTemplateApplier = nativeTemplateApplier;
         return this;
     }
@@ -101,7 +101,7 @@ public final class BaseProfileDro {
      * Optional safe on-screen attention action. By default the profile only glances at a random
      * point inside the inventory widget. A host may replace this with a known-safe hover/click.
      */
-    public BaseProfileDro setAttentionAction(BooleanSupplier attentionAction) {
+    public DriftNetProfile setAttentionAction(BooleanSupplier attentionAction) {
         this.attentionAction = attentionAction == null ? this::glanceAtInventory : attentionAction;
         return this;
     }
@@ -164,7 +164,7 @@ public final class BaseProfileDro {
     private java.util.function.Consumer<Settings> breakSettingsUpdater;
 
     /** Refresh break controls on the script worker; keep humanization and active deadlines intact. */
-    public BaseProfileDro setBreakSettingsUpdater(java.util.function.Consumer<Settings> updater) {
+    public DriftNetProfile setBreakSettingsUpdater(java.util.function.Consumer<Settings> updater) {
         this.breakSettingsUpdater = updater;
         return this;
     }
@@ -509,7 +509,7 @@ public final class BaseProfileDro {
                     int pitchMax = Math.max(pitchMin + 1, settings.startupPitchMaxExclusive);
                     Rs2Camera.setPitch(ThreadLocalRandom.current().nextInt(pitchMin, pitchMax));
                 } catch (Exception ex) {
-                    Microbot.log("[BaseProfileDro] Startup camera settings could not be applied: " + ex.getMessage());
+                    Microbot.log("[DriftNetProfile] Startup camera settings could not be applied: " + ex.getMessage());
                 }
             }
         }
@@ -586,7 +586,7 @@ public final class BaseProfileDro {
             Rs2Antiban.setPlayStyle(settings.playStyle);
             Rs2Antiban.activateAntiban();
 
-            // Complete adaptive MKE/Dro profile. Long breaks and deliberate off-screen parking are
+            // Complete adaptive MKE profile. Long breaks and deliberate off-screen parking are
             // owned locally so they respect the host's safe point and the selected fixed edge.
             Rs2AntibanSettings.antibanEnabled = true;
             Rs2AntibanSettings.usePlayStyle = true;
@@ -604,14 +604,14 @@ public final class BaseProfileDro {
             Rs2AntibanSettings.simulateMistakes = true;
             Rs2AntibanSettings.naturalMouse = true;
 
-            // Keep native mouse variation, but BaseProfileDro owns the actual off-screen exit so the
+            // Keep native mouse variation, but DriftNetProfile owns the actual off-screen exit so the
             // edge cannot randomly change behind AfkParkSide.
             Rs2AntibanSettings.moveMouseRandomly = true;
             Rs2AntibanSettings.moveMouseRandomlyChance = settings.nativeRandomMouseChance;
             Rs2AntibanSettings.moveMouseOffScreen = false;
             Rs2AntibanSettings.moveMouseOffScreenChance = 0.0;
 
-            // DroZone-style smart breaks own breaks. Do not stack native microbreaks on top.
+            // Smart smart breaks own breaks. Do not stack native microbreaks on top.
             Rs2AntibanSettings.takeMicroBreaks = false;
             Rs2AntibanSettings.microBreakChance = 0.0;
 
@@ -619,7 +619,7 @@ public final class BaseProfileDro {
             Rs2AntibanSettings.actionCooldownChance = 0.0;
             Rs2AntibanSettings.actionCooldownActive = false;
         } catch (Exception ex) {
-            Microbot.log("[BaseProfileDro] Native antiban setup skipped: " + ex.getMessage());
+            Microbot.log("[DriftNetProfile] Native antiban setup skipped: " + ex.getMessage());
         }
     }
 
@@ -807,7 +807,7 @@ public final class BaseProfileDro {
         BALANCED,
         ACTIVE;
 
-        public int offScreenChance(BaseProfileDro profile) {
+        public int offScreenChance(DriftNetProfile profile) {
             if (profile == null) return 0;
             switch (this) {
                 case AFK:
@@ -974,7 +974,7 @@ public final class BaseProfileDro {
         }
     }
 
-    /** Generic timing helpers retained from the Dro/MKE behavior classes. */
+    /** Generic timing helpers retained from the MKE behavior classes. */
     public static final class HumanBehaviorProfile {
         private HumanBehaviorProfile() {
         }
@@ -1006,7 +1006,7 @@ public final class BaseProfileDro {
     }
 
     /**
-     * Shared defaults. These mirror the currently working DroZone break/login values and the
+     * Shared defaults. These mirror the currently working shared break/login values and the
      * requested shared mouse defaults. Scripts can change only the values that make sense for them.
      */
     public static final class Settings {
@@ -1172,7 +1172,7 @@ public final class BaseProfileDro {
     /** Extra rows/status supplied by a host plugin to the reusable overlay. */
     public interface OverlayDataProvider {
         default String title() {
-            return "DRO PROFILE";
+            return "PROFILE";
         }
 
         default String status() {
@@ -1202,9 +1202,9 @@ public final class BaseProfileDro {
         }
     }
 
-    /** Compact DroZone-style live overlay that can be attached to any host plugin. */
+    /** Compact Smart live overlay that can be attached to any host plugin. */
     private static final class ProfileOverlay extends Overlay {
-    private final DroOverlayDropdown dropdown = new DroOverlayDropdown(this);
+    private final DriftNetOverlayDropdown dropdown = new DriftNetOverlayDropdown(this);
     public void enableDropDownInput() { dropdown.enable(); }
     public void disableDropDownInput() { dropdown.disable(); }
     @Override public Dimension render(Graphics2D graphics) { return dropdown.render(graphics, this::renderExpanded); }
@@ -1223,10 +1223,10 @@ public final class BaseProfileDro {
         private static final Font LABEL_FONT = FontManager.getRunescapeSmallFont();
         private static final Font VALUE_FONT = FontManager.getRunescapeFont();
 
-        private final BaseProfileDro profile;
+        private final DriftNetProfile profile;
         private final OverlayDataProvider provider;
 
-        private ProfileOverlay(Plugin plugin, BaseProfileDro profile, OverlayDataProvider provider) {
+        private ProfileOverlay(Plugin plugin, DriftNetProfile profile, OverlayDataProvider provider) {
             super(plugin);
             this.profile = profile;
             this.provider = provider;
@@ -1253,7 +1253,7 @@ public final class BaseProfileDro {
             graphics.setColor(BORDER);
             graphics.drawRoundRect(0, 0, WIDTH - 1, height - 1, 10, 10);
 
-            String title = provider == null ? "DRO PROFILE" : safe(provider.title(), "DRO PROFILE");
+            String title = provider == null ? "PROFILE" : safe(provider.title(), "PROFILE");
             String status = provider == null ? profile.getProfileStatus() : safe(provider.status(), profile.getProfileStatus());
             drawText(graphics, TITLE_FONT, PURPLE, title, PADDING, 18);
             graphics.setColor(LIVE);
@@ -1311,7 +1311,7 @@ public final class BaseProfileDro {
         }
     }
 
-    /** DroZone-identical smart break and logout-return logic, made host-agnostic. */
+    /** Smart smart break and logout-return logic, made host-agnostic. */
     private static final class SmartBreakManager {
         private final Settings settings;
 
@@ -1441,7 +1441,7 @@ public final class BaseProfileDro {
             int max = Math.max(min, Math.max(settings.minBreakIntervalMinutes, settings.maxBreakIntervalMinutes));
             nextBreakIn = randomBetween(min * 60, max * 60);
             nextBreakCheck = 0L;
-            Microbot.log("[BaseProfileDro] Next smart break scheduled in about "
+            Microbot.log("[DriftNetProfile] Next smart break scheduled in about "
                     + (nextBreakIn / 60) + " minute(s)");
         }
 
@@ -1477,7 +1477,7 @@ public final class BaseProfileDro {
             breakTimeRemaining = minutes * 60;
             status = "AFK break " + formatSeconds(breakTimeRemaining);
             safePark(parkMouse);
-            Microbot.log("[BaseProfileDro] Started smart AFK break for " + minutes + " minute(s)");
+            Microbot.log("[DriftNetProfile] Started smart AFK break for " + minutes + " minute(s)");
         }
 
         private void startLogoutBreak() {
@@ -1494,17 +1494,17 @@ public final class BaseProfileDro {
 
             boolean loggedOut = attemptLogoutWithRetries(3);
             if (!loggedOut) {
-                Microbot.log("[BaseProfileDro] Logout did not confirm after 3 attempts; "
+                Microbot.log("[DriftNetProfile] Logout did not confirm after 3 attempts; "
                         + "break timer continues and return handling will retry later.");
             }
-            Microbot.log("[BaseProfileDro] Started smart logout break for " + minutes + " minute(s)");
+            Microbot.log("[DriftNetProfile] Started smart logout break for " + minutes + " minute(s)");
         }
 
         private boolean attemptLogoutWithRetries(int maxAttempts) {
             for (int attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
                     if (!Microbot.isLoggedIn()) return true;
-                    Microbot.log("[BaseProfileDro] Logout attempt " + attempt + "/" + maxAttempts);
+                    Microbot.log("[DriftNetProfile] Logout attempt " + attempt + "/" + maxAttempts);
                     Rs2Player.logout();
 
                     long deadline = System.currentTimeMillis() + 2_000L;
@@ -1514,7 +1514,7 @@ public final class BaseProfileDro {
                     if (!Microbot.isLoggedIn()) return true;
                     if (attempt < maxAttempts) sleepQuietly(3_000);
                 } catch (Exception ex) {
-                    Microbot.log("[BaseProfileDro] Logout attempt failed: " + ex.getMessage());
+                    Microbot.log("[DriftNetProfile] Logout attempt failed: " + ex.getMessage());
                     if (attempt < maxAttempts) sleepQuietly(3_000);
                 }
             }
@@ -1526,10 +1526,10 @@ public final class BaseProfileDro {
             afkBreakActive = false;
             breakTimeRemaining = 0;
             status = "Resuming";
-            Microbot.log("[BaseProfileDro] AFK break ended");
+            Microbot.log("[DriftNetProfile] AFK break ended");
         }
 
-        /** Exact DroZone/AutoLogin 5/15/60/300s backoff with +/-30% jitter + post-login settle. */
+        /** Exact AutoLogin 5/15/60/300s backoff with +/-30% jitter + post-login settle. */
         private boolean updateLogoutReturn(long now) {
             if (Microbot.isLoggedIn()) {
                 if (settleAfterLoginUntil == 0L) {
@@ -1542,7 +1542,7 @@ public final class BaseProfileDro {
                     return true;
                 }
 
-                Microbot.log("[BaseProfileDro] Auto login succeeded; logout break ended");
+                Microbot.log("[DriftNetProfile] Auto login succeeded; logout break ended");
                 scheduleNextBreak();
                 return false;
             }
@@ -1575,12 +1575,12 @@ public final class BaseProfileDro {
                 status = initiated
                         ? "Auto login attempt " + loginRetryCount
                         : "Auto login retry pending";
-                Microbot.log("[BaseProfileDro] Auto login attempt " + loginRetryCount
+                Microbot.log("[DriftNetProfile] Auto login attempt " + loginRetryCount
                         + " initiated=" + initiated
                         + "; next retry in about " + backoffSeconds + "s");
             } catch (Exception ex) {
                 status = "Auto login retry";
-                Microbot.log("[BaseProfileDro] Auto login attempt failed: " + ex.getMessage());
+                Microbot.log("[DriftNetProfile] Auto login attempt failed: " + ex.getMessage());
             }
             return true;
         }

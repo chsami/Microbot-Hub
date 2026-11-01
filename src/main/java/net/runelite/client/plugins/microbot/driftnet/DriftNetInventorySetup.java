@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.drodriftnet;
+package net.runelite.client.plugins.microbot.driftnet;
 
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
@@ -9,9 +9,9 @@ import java.util.Locale;
 import java.util.concurrent.ScheduledFuture;
 
 /** Equipment-only variant matching for this script; other banking remains in the standard helper. */
-public final class DroInventorySetup extends Rs2InventorySetup {
+public final class DriftNetInventorySetup extends Rs2InventorySetup {
     private final InventorySetup setup;
-    public DroInventorySetup(InventorySetup setup, ScheduledFuture<?> scheduler) {
+    public DriftNetInventorySetup(InventorySetup setup, ScheduledFuture<?> scheduler) {
         super(setup, scheduler);
         withMissingSupplyPolicy(MissingSupplyPolicy.LOGOUT_AND_STOP);
         this.setup = setup;

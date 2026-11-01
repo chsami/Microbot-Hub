@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.drodriftnet;
+package net.runelite.client.plugins.microbot.driftnet;
 
 import net.runelite.api.coords.WorldPoint;
 

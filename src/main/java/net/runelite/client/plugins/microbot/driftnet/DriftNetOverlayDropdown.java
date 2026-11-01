@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.drodriftnet;
+package net.runelite.client.plugins.microbot.driftnet;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
@@ -11,7 +11,7 @@ import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.components.*;
 
-final class DroOverlayDropdown {
+final class DriftNetOverlayDropdown {
     static final Color BACKGROUND = new Color(42,42,42,156);
     static final Color ACCENT = new Color(205,211,218,225);
     static final Color TEXT = new Color(218,222,228);
@@ -57,7 +57,7 @@ final class DroOverlayDropdown {
             return event;
         }
     };
-    DroOverlayDropdown(Overlay owner){this.owner=owner;}
+    DriftNetOverlayDropdown(Overlay owner){this.owner=owner;}
     void enable() {
         if(manager!=null||Microbot.getInjector()==null)return;
         collapsed=true;captured=false;shown=false;

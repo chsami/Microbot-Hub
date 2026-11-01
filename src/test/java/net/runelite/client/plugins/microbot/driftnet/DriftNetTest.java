@@ -1,4 +1,4 @@
-package net.runelite.client.plugins.microbot.drodriftnet;
+package net.runelite.client.plugins.microbot.driftnet;
 
 import net.runelite.api.NullObjectID;
 import net.runelite.api.Varbits;
@@ -11,7 +11,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class DroDriftNetTest
+public class DriftNetTest
 {
     @Test
     public void testDriftNetStatusOf()
@@ -50,47 +50,47 @@ public class DroDriftNetTest
     @Test
     public void testDriftTravelAtFishingEntrance()
     {
-        assertTrue(DroDriftTravel.atFishingEntrance(new WorldPoint(3729, 10294, 1)));
-        assertTrue(DroDriftTravel.atFishingEntrance(new WorldPoint(3738, 10288, 1)));
-        assertFalse(DroDriftTravel.atFishingEntrance(new WorldPoint(3764, 3900, 0)));
-        assertFalse(DroDriftTravel.atFishingEntrance(null));
+        assertTrue(DriftNetTravel.atFishingEntrance(new WorldPoint(3729, 10294, 1)));
+        assertTrue(DriftNetTravel.atFishingEntrance(new WorldPoint(3738, 10288, 1)));
+        assertFalse(DriftNetTravel.atFishingEntrance(new WorldPoint(3764, 3900, 0)));
+        assertFalse(DriftNetTravel.atFishingEntrance(null));
     }
 
     @Test
     public void testScriptDriftEntryOption()
     {
-        assertTrue(DroDriftNetScript.isDriftEntryOption("Enter instance.", false));
-        assertTrue(DroDriftNetScript.isDriftEntryOption("Pay 200 numulites", false));
-        assertFalse(DroDriftNetScript.isDriftEntryOption("Pay permanent 20,000 numulites", false));
-        assertTrue(DroDriftNetScript.isDriftEntryOption("I'll steer clear, thanks.", true));
+        assertTrue(DriftNetScript.isDriftEntryOption("Enter instance.", false));
+        assertTrue(DriftNetScript.isDriftEntryOption("Pay 200 numulites", false));
+        assertFalse(DriftNetScript.isDriftEntryOption("Pay permanent 20,000 numulites", false));
+        assertTrue(DriftNetScript.isDriftEntryOption("I'll steer clear, thanks.", true));
     }
 
     @Test
     public void testScriptDriftAmountPrompt()
     {
-        assertTrue(DroDriftNetScript.isDriftAmountPrompt("Enter amount:", null));
-        assertTrue(DroDriftNetScript.isDriftAmountPrompt(null, "How many?"));
-        assertFalse(DroDriftNetScript.isDriftAmountPrompt("Search", "Take"));
+        assertTrue(DriftNetScript.isDriftAmountPrompt("Enter amount:", null));
+        assertTrue(DriftNetScript.isDriftAmountPrompt(null, "How many?"));
+        assertFalse(DriftNetScript.isDriftAmountPrompt("Search", "Take"));
     }
 
     @Test
     public void testScriptWithdrawalAmount()
     {
         // weight=20 (23-20=3), slots=10, stored=100 -> min(19, min(3, 10, 100)) = 3
-        assertEquals(3, DroDriftNetScript.driftWithdrawalAmount(20, 10, 100));
+        assertEquals(3, DriftNetScript.driftWithdrawalAmount(20, 10, 100));
         // weight=25 (too heavy: 23-25=-2) -> 0
-        assertEquals(0, DroDriftNetScript.driftWithdrawalAmount(25, 10, 100));
+        assertEquals(0, DriftNetScript.driftWithdrawalAmount(25, 10, 100));
         // slots=2 -> 2
-        assertEquals(2, DroDriftNetScript.driftWithdrawalAmount(10, 2, 100));
+        assertEquals(2, DriftNetScript.driftWithdrawalAmount(10, 2, 100));
     }
 
     @Test
     public void testScriptDriftSetupAction()
     {
-        assertEquals("Set-up", DroDriftNetScript.driftSetupAction(new String[]{"Examine", "Set-up"}));
-        assertEquals("Setup", DroDriftNetScript.driftSetupAction(new String[]{"Setup"}));
-        assertNull(DroDriftNetScript.driftSetupAction(new String[]{"Check", "Take"}));
-        assertNull(DroDriftNetScript.driftSetupAction(null));
+        assertEquals("Set-up", DriftNetScript.driftSetupAction(new String[]{"Examine", "Set-up"}));
+        assertEquals("Setup", DriftNetScript.driftSetupAction(new String[]{"Setup"}));
+        assertNull(DriftNetScript.driftSetupAction(new String[]{"Check", "Take"}));
+        assertNull(DriftNetScript.driftSetupAction(null));
     }
 
     @Test
