@@ -328,6 +328,12 @@ public class DroDriftNetScript extends Script
                     () -> Rs2Inventory.interact(gracefulBoots, "Wear"))) return;
         }
 
+        // Store carried noted nets first, then the original withdrawal takes up to 19.
+        if (Rs2Inventory.hasItem(ItemID.Cert.FOSSIL_DRIFT_NET))
+        {
+            depositNotedDriftNets();
+            return;
+        }
         if (!Rs2Inventory.hasItem(ItemID.FOSSIL_DRIFT_NET))
         {
             fetchDriftNetsFromAnnetteOriginal();
@@ -437,6 +443,56 @@ public class DroDriftNetScript extends Script
 
     private void traceDroAction(String action)
     {
+    }
+
+    /** Use the noted nets withdrawn at the island bank on Annette; Store-All then stores them. */
+    private void depositNotedDriftNets()
+    {
+        if (driftNetFetchAttempts >= MAX_DRIFT_NET_FETCH_ATTEMPTS)
+        {
+            stopDrift("Could not deposit noted drift nets with Annette");
+            return;
+        }
+        if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
+        setStatus("Depositing noted drift nets with Annette");
+        // Using the notes opens Annette's storage; Store-All on the inventory side stores them.
+        if (Rs2Widget.isWidgetVisible(20250629))
+        {
+            storeAllNotedDriftNets();
+            return;
+        }
+        profile.beforeAction(BaseProfileDro.ActionPhase.MAINTENANCE, false);
+        boolean used = Rs2Inventory.useItemOnObject(ItemID.Cert.FOSSIL_DRIFT_NET, ObjectID.FOSSIL_MERMAID_DRIFTNETS);
+        profile.afterAction(BaseProfileDro.ActionPhase.MAINTENANCE, false);
+        if (!used || !sleepUntil(() -> Rs2Widget.isWidgetVisible(20250629)
+                || !Rs2Inventory.hasItem(ItemID.Cert.FOSSIL_DRIFT_NET), 5000))
+            driftNetFetchAttempts++;
+    }
+
+    /** Store-All on the noted net in Annette's inventory panel (307:0, op 4). */
+    private void storeAllNotedDriftNets()
+    {
+        Rs2ItemModel noted = Rs2Inventory.get(ItemID.Cert.FOSSIL_DRIFT_NET);
+        if (noted == null) return;
+        int slot = noted.getSlot();
+        Rectangle bounds = Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Widget panel = Microbot.getClient().getWidget(20119552);
+            Widget item = panel == null || panel.isHidden() ? null : panel.getChild(slot);
+            return item == null || item.isHidden() ? null : item.getBounds();
+        }).orElse(null);
+        if (bounds == null)
+        {
+            driftNetFetchAttempts++;
+            return;
+        }
+        profile.beforeAction(BaseProfileDro.ActionPhase.MAINTENANCE, false);
+        Microbot.doInvoke(new NewMenuEntry("Store-All", slot, 20119552, MenuAction.CC_OP.getId(), 4,
+                ItemID.Cert.FOSSIL_DRIFT_NET, "<col=ff9040>Drift net</col>"), bounds);
+        profile.afterAction(BaseProfileDro.ActionPhase.MAINTENANCE, false);
+        if (sleepUntil(() -> !Rs2Inventory.hasItem(ItemID.Cert.FOSSIL_DRIFT_NET), 4000))
+            driftNetFetchAttempts = 0;
+        else
+            driftNetFetchAttempts++;
     }
 
     /** Annette supplies nets inside the instance; an empty store is not a bank route. */
