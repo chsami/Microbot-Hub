@@ -2379,10 +2379,10 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	{
 		boolean corrupted = mode() == CgMode.CORRUPTED;
 		String msg = corrupted
-			? "Auto Gauntlet: can't enter the Corrupted Gauntlet. Finish one normal Gauntlet first (it unlocks Corrupted), or set Gauntlet to Normal. Press "
+			? "Auto Gauntlet: tried " + ENTER_GIVE_UP + " times and couldn't get into the Corrupted Gauntlet, so it stopped. If you haven't finished a normal Gauntlet yet, do that first (it unlocks Corrupted) or set Gauntlet to Normal. Then press "
 				+ config.continueKey() + " to try again."
 			: "Auto Gauntlet: can't enter the Gauntlet (" + ENTER_GIVE_UP + " tries). Check you can go in by hand, then press " + config.continueKey() + " to try again.";
-		enterBlocked = corrupted ? "can't enter Corrupted: finish a normal Gauntlet first, or set Gauntlet to Normal" : "can't enter the Gauntlet (see chat)";
+		enterBlocked = corrupted ? "can't enter Corrupted (see chat)" : "can't enter the Gauntlet (see chat)";
 		enterBlockedMode = mode();
 		continueRequested = false;
 		reenterAtMs = -1;
