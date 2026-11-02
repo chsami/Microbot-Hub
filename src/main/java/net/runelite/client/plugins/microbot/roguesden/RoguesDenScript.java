@@ -246,7 +246,10 @@ public class RoguesDenScript extends Script {
     }
 
     private boolean useFlashPowder() {
-        if (Rs2Inventory.hasItem(ItemID.ROGUESDEN_FLASH_POWDER) && Rs2Player.getWorldLocation().getX() < 3026) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return true;
+
+        if (Rs2Inventory.hasItem(ItemID.ROGUESDEN_FLASH_POWDER) && playerLocation.getX() < 3026) {
             Microbot.log("Stunning guard");
             Rs2NpcModel guard = Rs2Npc.getNpc(NpcID.ROGUESDEN_GUARD2);
             if (guard == null) return false;

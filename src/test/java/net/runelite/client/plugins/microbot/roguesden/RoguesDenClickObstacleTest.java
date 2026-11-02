@@ -1,10 +1,13 @@
 package net.runelite.client.plugins.microbot.roguesden;
 
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectQueryable;
 import net.runelite.client.plugins.microbot.util.Global;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,8 +83,30 @@ class RoguesDenClickObstacleTest {
         }
     }
 
+    @Test
+    void flashPowderNullPlayerLocationSkipsTick() throws Exception {
+        RoguesDenScript script = new RoguesDenScript();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Rs2Npc> npc = mockStatic(Rs2Npc.class)) {
+            player.when(Rs2Player::getWorldLocation).thenReturn(null);
+            inventory.when(() -> Rs2Inventory.hasItem(ItemID.ROGUESDEN_FLASH_POWDER)).thenReturn(true);
+
+            assertTrue(invoke(script, "useFlashPowder"));
+
+            microbot.verifyNoInteractions();
+            npc.verifyNoInteractions();
+        }
+    }
+
     private static boolean clickObstacle(RoguesDenScript script) throws Exception {
-        Method method = RoguesDenScript.class.getDeclaredMethod("clickObstacle");
+        return invoke(script, "clickObstacle");
+    }
+
+    private static boolean invoke(RoguesDenScript script, String name) throws Exception {
+        Method method = RoguesDenScript.class.getDeclaredMethod(name);
         method.setAccessible(true);
         return (boolean) method.invoke(script);
     }
