@@ -145,9 +145,8 @@ class AutoWoodcuttingBurnStateTest {
         verify(script, never()).shutdown();
     }
 
-    @Test
-    void missingTinderboxThatCannotBeWithdrawnStopsWithMessage() {
-        AutoWoodcuttingConfig config = burnConfig(WoodcuttingPrimaryAction.BURN);
+    private static void assertStopsWithMessage(WoodcuttingPrimaryAction action, String expectedMessage) {
+        AutoWoodcuttingConfig config = burnConfig(action);
         AutoWoodcuttingScript script = burningScript(config, false);
         doReturn(false).when(script).withdrawTinderbox();
 
@@ -156,10 +155,28 @@ class AutoWoodcuttingBurnStateTest {
              MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
             inventory.when(() -> Rs2Inventory.contains(TREE.getLog())).thenReturn(true);
             script.resetInventory(config);
-            microbot.verify(() -> Microbot.showMessage(anyString()));
+            microbot.verify(() -> Microbot.showMessage(expectedMessage));
         }
 
         verify(script).shutdown();
         assertEquals(WoodcuttingScriptState.RESETTING, script.woodcuttingScriptState);
+    }
+
+    @Test
+    void missingTinderboxThatCannotBeWithdrawnStopsWithMessage() {
+        assertStopsWithMessage(WoodcuttingPrimaryAction.BURN,
+                "Auto Woodcutting stopped: no Tinderbox in your inventory or in a nearby bank. Put a Tinderbox in your inventory and start again, or set Primary action to 'Burn logs at campfire' and cut next to a lit fire.");
+    }
+
+    @Test
+    void campfireModeWithNoFireNearbyStopsWithFireMessage() {
+        assertStopsWithMessage(WoodcuttingPrimaryAction.BURN_CAMPFIRE,
+                "Auto Woodcutting stopped: no lit fire or Forester's Campfire within 6 tiles, and no Tinderbox to light one. Cut closer to a fire, or put a Tinderbox in your inventory and start again.");
+    }
+
+    @Test
+    void stopMessageNamesTheCampfireOptionAsShownInTheDropdown() {
+        AutoWoodcuttingConfig config = burnConfig(WoodcuttingPrimaryAction.BURN);
+        assertTrue(script().noTinderboxMessage(config).contains("'" + WoodcuttingPrimaryAction.BURN_CAMPFIRE + "'"));
     }
 }

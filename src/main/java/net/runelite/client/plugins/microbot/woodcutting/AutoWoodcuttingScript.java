@@ -111,6 +111,13 @@ public class AutoWoodcuttingScript extends Script {
         return sleepUntil(() -> Rs2Inventory.hasItem(TINDERBOX), 3000);
     }
 
+    String noTinderboxMessage(AutoWoodcuttingConfig config) {
+        if (config.primaryAction() == WoodcuttingPrimaryAction.BURN_CAMPFIRE) {
+            return "Auto Woodcutting stopped: no lit fire or Forester's Campfire within 6 tiles, and no Tinderbox to light one. Cut closer to a fire, or put a Tinderbox in your inventory and start again.";
+        }
+        return "Auto Woodcutting stopped: no Tinderbox in your inventory or in a nearby bank. Put a Tinderbox in your inventory and start again, or set Primary action to 'Burn logs at campfire' and cut next to a lit fire.";
+    }
+
     boolean shouldBankForLogs(AutoWoodcuttingConfig config, boolean hasLogs) {
         return config.firemakeOnly() && !hasLogs;
     }
@@ -324,10 +331,11 @@ public class AutoWoodcuttingScript extends Script {
 
                 if (Rs2Inventory.contains(getActiveTree().getLog())) {
                     if (!usedCampfire && !Rs2Inventory.hasItem(TINDERBOX)) {
+                        Microbot.log("No Tinderbox in inventory, trying to take one from a nearby bank");
                         boolean restocked = withdrawTinderbox();
                         Rs2Bank.closeBank();
                         if (!restocked) {
-                            Microbot.showMessage("No tinderbox found. Put a Tinderbox in your inventory, or set Primary action to Burn at campfire next to a lit fire.");
+                            Microbot.showMessage(noTinderboxMessage(config));
                             shutdown();
                             return;
                         }
