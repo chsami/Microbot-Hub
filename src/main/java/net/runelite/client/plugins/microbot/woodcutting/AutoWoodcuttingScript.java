@@ -89,12 +89,10 @@ public class AutoWoodcuttingScript extends Script {
         WoodcuttingTree treeType = getActiveTree();
 
         if (!Rs2Inventory.hasItem(TINDERBOX)) {
-            Rs2Bank.openBank();
-            sleepUntil(Rs2Bank::isOpen, 20000);
-            Rs2Bank.withdrawItem(true, "Tinderbox");
+            withdrawTinderbox();
         }
 
-        if (!Rs2Inventory.hasItem(treeType.getLog())) {
+        if (shouldBankForLogs(config, Rs2Inventory.hasItem(treeType.getLog()))) {
             Microbot.log("Opening bank");
             Rs2Bank.openBank();
             sleepUntil(Rs2Bank::isOpen, 20000);
@@ -102,6 +100,33 @@ public class AutoWoodcuttingScript extends Script {
             Rs2Bank.closeBank();
             sleep(500, 1200);
         }
+    }
+
+    boolean withdrawTinderbox() {
+        Rs2Bank.openBank();
+        if (!sleepUntil(Rs2Bank::isOpen, 20000)) {
+            return false;
+        }
+        Rs2Bank.withdrawItem(true, "Tinderbox");
+        return sleepUntil(() -> Rs2Inventory.hasItem(TINDERBOX), 3000);
+    }
+
+    String noTinderboxMessage(AutoWoodcuttingConfig config) {
+        if (config.primaryAction() == WoodcuttingPrimaryAction.BURN_CAMPFIRE) {
+            return "Auto Woodcutting stopped: no lit fire or Forester's Campfire within 6 tiles, and no Tinderbox to light one. Cut closer to a fire, or put a Tinderbox in your inventory and start again.";
+        }
+        return "Auto Woodcutting stopped: no Tinderbox in your inventory or in a nearby bank. Put a Tinderbox in your inventory and start again, or set Primary action to 'Burn logs at campfire' and cut next to a lit fire.";
+    }
+
+    boolean shouldBankForLogs(AutoWoodcuttingConfig config, boolean hasLogs) {
+        return config.firemakeOnly() && !hasLogs;
+    }
+
+    WoodcuttingScriptState stateAfterBurning(AutoWoodcuttingConfig config, boolean hasLogs) {
+        if (hasLogs) {
+            return WoodcuttingScriptState.RESETTING;
+        }
+        return config.firemakeOnly() ? WoodcuttingScriptState.FIREMAKING : WoodcuttingScriptState.WOODCUTTING;
     }
 
     public static WorldPoint getReturnPoint(AutoWoodcuttingConfig config) {
@@ -133,7 +158,7 @@ public class AutoWoodcuttingScript extends Script {
                     case FIREMAKING:
                         handleFiremaking(config);
                         walkBack(config);
-                        woodcuttingScriptState = WoodcuttingScriptState.RESETTING;
+                        woodcuttingScriptState = stateAfterBurning(config, Rs2Inventory.hasItem(getActiveTree().getLog()));
                         break;
                     case RESETTING:
                         resetInventory(config);
@@ -288,7 +313,7 @@ public class AutoWoodcuttingScript extends Script {
         return Rs2AntibanSettings.actionCooldownActive;
     }
 
-    private void resetInventory(AutoWoodcuttingConfig config) {
+    void resetInventory(AutoWoodcuttingConfig config) {
         switch (config.primaryAction()) {
             case DROP:
                 var itemNames = Arrays.stream(config.itemsToKeep().split(",")).map(String::trim).toArray(String[]::new);
@@ -302,18 +327,26 @@ public class AutoWoodcuttingScript extends Script {
                 break;
             case BURN_CAMPFIRE:
             case BURN:
-                woodcuttingScriptState = WoodcuttingScriptState.FIREMAKING;
-                burnLog(config);
+                boolean usedCampfire = burnLog(config);
 
-                if (Rs2Inventory.contains(getActiveTree().getLog())) return;
+                if (Rs2Inventory.contains(getActiveTree().getLog())) {
+                    if (!usedCampfire && !Rs2Inventory.hasItem(TINDERBOX)) {
+                        Microbot.log("No Tinderbox in inventory, trying to take one from a nearby bank");
+                        boolean restocked = withdrawTinderbox();
+                        Rs2Bank.closeBank();
+                        if (!restocked) {
+                            Microbot.showMessage(noTinderboxMessage(config));
+                            shutdown();
+                            return;
+                        }
+                    }
+                    woodcuttingScriptState = stateAfterBurning(config, true);
+                    return;
+                }
 
                 walkBack(config);
 
-                if (config.firemakeOnly()){
-                    woodcuttingScriptState = WoodcuttingScriptState.FIREMAKING;
-                } else {
-                    woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
-                }
+                woodcuttingScriptState = stateAfterBurning(config, false);
                 break;
             case FLETCH:
                 if (handleFletchingWorkflow(config)) {
@@ -411,7 +444,7 @@ public class AutoWoodcuttingScript extends Script {
         return Rs2GroundItem.lootItemsBasedOnNames(itemLootParams);
     }
 
-    private void burnLog(AutoWoodcuttingConfig config) {
+    boolean burnLog(AutoWoodcuttingConfig config) {
         WoodcuttingTree treeType = getActiveTree();
         WorldPoint fireSpot;
         boolean useCampfire = false;
@@ -446,7 +479,7 @@ public class AutoWoodcuttingScript extends Script {
             Microbot.log("Sleeping until not animating or no more logs");
             sleepUntil(() -> !Rs2Inventory.contains(treeType.getLog()) || !Rs2Player.isAnimating(), 40000);
 
-            return;
+            return true;
         }
         sleepUntil(() -> !isFiremake());
         if (!isFiremake()) {
@@ -455,6 +488,7 @@ public class AutoWoodcuttingScript extends Script {
         if (!cannotLightFire && isFiremake()) {
             sleepUntil(() -> Rs2Player.waitForXpDrop(Skill.FIREMAKING, 40000), 40000);
         }
+        return useCampfire;
     }
 
     private WorldPoint fireSpot(int distance) {
@@ -499,7 +533,7 @@ public class AutoWoodcuttingScript extends Script {
         return Rs2Player.isAnimating(3000) && Rs2Player.getLastAnimationID() == AnimationID.FLETCHING_BOW_CUTTING;
     }
 
-    private void walkBack(AutoWoodcuttingConfig config) {
+    void walkBack(AutoWoodcuttingConfig config) {
         WorldPoint target = getReturnPoint(config);
         if (target == null) {
             return;
