@@ -1373,8 +1373,50 @@ public class SlayerScript extends Script {
             log.info("Transitioning to TRAVELING");
             SlayerPlugin.setState(SlayerState.TRAVELING);
         } else {
-            log.info("Auto travel disabled, staying in DETECTING_TASK");
+            handleArrivalWithoutAutoTravel();
         }
+    }
+
+    private void handleArrivalWithoutAutoTravel() {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) {
+            return;
+        }
+
+        WorldPoint destination = taskDestination;
+        if (destination != null && playerLocation.distanceTo(destination) <= ARRIVAL_DISTANCE) {
+            log.info("Auto travel disabled, at task location: {}", taskLocationName);
+            SlayerPlugin.setState(SlayerState.AT_LOCATION);
+            return;
+        }
+
+        if (isTaskMonsterNearby(playerLocation)) {
+            log.info("Auto travel disabled, task monsters nearby, fighting at current location {}", playerLocation);
+            taskDestination = playerLocation;
+            taskLocationName = "Current location";
+            SlayerPlugin.setCurrentLocation(taskLocationName);
+            isUsingCannon = false;
+            cannonSpot = null;
+            SlayerPlugin.setState(SlayerState.AT_LOCATION);
+            return;
+        }
+
+        log.info("Auto travel disabled, waiting in DETECTING_TASK until the player reaches {}", taskLocationName);
+    }
+
+    private boolean isTaskMonsterNearby(WorldPoint playerLocation) {
+        List<String> targetMonsters = getTargetMonsterNames();
+        if (targetMonsters == null || targetMonsters.isEmpty()) {
+            return false;
+        }
+        return Microbot.getRs2NpcCache().query()
+                .where(SlayerScript::isLivingTarget)
+                .where(npc -> npc.getName() != null)
+                .where(npc -> targetMonsters.stream()
+                        .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
+                .where(npc -> npc.getWorldLocation() != null &&
+                        npc.getWorldLocation().distanceTo(playerLocation) <= config.attackRadius())
+                .firstOnClientThread() != null;
     }
 
     private void handleBankingState() {
