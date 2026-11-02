@@ -98,6 +98,8 @@ public class AutoMiningScript extends Script {
 
                 if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
 
+                if (Rs2Player.getWorldLocation() == null) return;
+
                 if (handleNearbyPlayers(config)) return;
 
 
