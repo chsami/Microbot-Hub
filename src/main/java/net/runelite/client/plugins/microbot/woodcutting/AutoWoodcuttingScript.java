@@ -89,9 +89,7 @@ public class AutoWoodcuttingScript extends Script {
         WoodcuttingTree treeType = getActiveTree();
 
         if (!Rs2Inventory.hasItem(TINDERBOX)) {
-            Rs2Bank.openBank();
-            sleepUntil(Rs2Bank::isOpen, 20000);
-            Rs2Bank.withdrawItem(true, "Tinderbox");
+            withdrawTinderbox();
         }
 
         if (shouldBankForLogs(config, Rs2Inventory.hasItem(treeType.getLog()))) {
@@ -102,6 +100,15 @@ public class AutoWoodcuttingScript extends Script {
             Rs2Bank.closeBank();
             sleep(500, 1200);
         }
+    }
+
+    boolean withdrawTinderbox() {
+        Rs2Bank.openBank();
+        if (!sleepUntil(Rs2Bank::isOpen, 20000)) {
+            return false;
+        }
+        Rs2Bank.withdrawItem(true, "Tinderbox");
+        return sleepUntil(() -> Rs2Inventory.hasItem(TINDERBOX), 3000);
     }
 
     boolean shouldBankForLogs(AutoWoodcuttingConfig config, boolean hasLogs) {
@@ -299,7 +306,7 @@ public class AutoWoodcuttingScript extends Script {
         return Rs2AntibanSettings.actionCooldownActive;
     }
 
-    private void resetInventory(AutoWoodcuttingConfig config) {
+    void resetInventory(AutoWoodcuttingConfig config) {
         switch (config.primaryAction()) {
             case DROP:
                 var itemNames = Arrays.stream(config.itemsToKeep().split(",")).map(String::trim).toArray(String[]::new);
@@ -313,9 +320,18 @@ public class AutoWoodcuttingScript extends Script {
                 break;
             case BURN_CAMPFIRE:
             case BURN:
-                burnLog(config);
+                boolean usedCampfire = burnLog(config);
 
                 if (Rs2Inventory.contains(getActiveTree().getLog())) {
+                    if (!usedCampfire && !Rs2Inventory.hasItem(TINDERBOX)) {
+                        boolean restocked = withdrawTinderbox();
+                        Rs2Bank.closeBank();
+                        if (!restocked) {
+                            Microbot.showMessage("No tinderbox found. Put a Tinderbox in your inventory, or set Primary action to Burn at campfire next to a lit fire.");
+                            shutdown();
+                            return;
+                        }
+                    }
                     woodcuttingScriptState = stateAfterBurning(config, true);
                     return;
                 }
@@ -420,7 +436,7 @@ public class AutoWoodcuttingScript extends Script {
         return Rs2GroundItem.lootItemsBasedOnNames(itemLootParams);
     }
 
-    private void burnLog(AutoWoodcuttingConfig config) {
+    boolean burnLog(AutoWoodcuttingConfig config) {
         WoodcuttingTree treeType = getActiveTree();
         WorldPoint fireSpot;
         boolean useCampfire = false;
@@ -455,7 +471,7 @@ public class AutoWoodcuttingScript extends Script {
             Microbot.log("Sleeping until not animating or no more logs");
             sleepUntil(() -> !Rs2Inventory.contains(treeType.getLog()) || !Rs2Player.isAnimating(), 40000);
 
-            return;
+            return true;
         }
         sleepUntil(() -> !isFiremake());
         if (!isFiremake()) {
@@ -464,6 +480,7 @@ public class AutoWoodcuttingScript extends Script {
         if (!cannotLightFire && isFiremake()) {
             sleepUntil(() -> Rs2Player.waitForXpDrop(Skill.FIREMAKING, 40000), 40000);
         }
+        return useCampfire;
     }
 
     private WorldPoint fireSpot(int distance) {
@@ -508,7 +525,7 @@ public class AutoWoodcuttingScript extends Script {
         return Rs2Player.isAnimating(3000) && Rs2Player.getLastAnimationID() == AnimationID.FLETCHING_BOW_CUTTING;
     }
 
-    private void walkBack(AutoWoodcuttingConfig config) {
+    void walkBack(AutoWoodcuttingConfig config) {
         WorldPoint target = getReturnPoint(config);
         if (target == null) {
             return;
