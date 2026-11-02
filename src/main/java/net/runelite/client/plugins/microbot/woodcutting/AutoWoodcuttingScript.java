@@ -94,7 +94,7 @@ public class AutoWoodcuttingScript extends Script {
             Rs2Bank.withdrawItem(true, "Tinderbox");
         }
 
-        if (!Rs2Inventory.hasItem(treeType.getLog())) {
+        if (shouldBankForLogs(config, Rs2Inventory.hasItem(treeType.getLog()))) {
             Microbot.log("Opening bank");
             Rs2Bank.openBank();
             sleepUntil(Rs2Bank::isOpen, 20000);
@@ -102,6 +102,17 @@ public class AutoWoodcuttingScript extends Script {
             Rs2Bank.closeBank();
             sleep(500, 1200);
         }
+    }
+
+    boolean shouldBankForLogs(AutoWoodcuttingConfig config, boolean hasLogs) {
+        return config.firemakeOnly() && !hasLogs;
+    }
+
+    WoodcuttingScriptState stateAfterBurning(AutoWoodcuttingConfig config, boolean hasLogs) {
+        if (hasLogs) {
+            return WoodcuttingScriptState.RESETTING;
+        }
+        return config.firemakeOnly() ? WoodcuttingScriptState.FIREMAKING : WoodcuttingScriptState.WOODCUTTING;
     }
 
     public static WorldPoint getReturnPoint(AutoWoodcuttingConfig config) {
@@ -133,7 +144,7 @@ public class AutoWoodcuttingScript extends Script {
                     case FIREMAKING:
                         handleFiremaking(config);
                         walkBack(config);
-                        woodcuttingScriptState = WoodcuttingScriptState.RESETTING;
+                        woodcuttingScriptState = stateAfterBurning(config, Rs2Inventory.hasItem(getActiveTree().getLog()));
                         break;
                     case RESETTING:
                         resetInventory(config);
@@ -302,18 +313,16 @@ public class AutoWoodcuttingScript extends Script {
                 break;
             case BURN_CAMPFIRE:
             case BURN:
-                woodcuttingScriptState = WoodcuttingScriptState.FIREMAKING;
                 burnLog(config);
 
-                if (Rs2Inventory.contains(getActiveTree().getLog())) return;
+                if (Rs2Inventory.contains(getActiveTree().getLog())) {
+                    woodcuttingScriptState = stateAfterBurning(config, true);
+                    return;
+                }
 
                 walkBack(config);
 
-                if (config.firemakeOnly()){
-                    woodcuttingScriptState = WoodcuttingScriptState.FIREMAKING;
-                } else {
-                    woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
-                }
+                woodcuttingScriptState = stateAfterBurning(config, false);
                 break;
             case FLETCH:
                 if (handleFletchingWorkflow(config)) {
