@@ -196,8 +196,15 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		this.config = config;
 	}
 
+	private Boolean savedCantReachDetection;
+
 	public boolean run()
 	{
+		if (savedCantReachDetection == null)
+		{
+			savedCantReachDetection = Microbot.isCantReachTargetDetectionEnabled;
+		}
+		Microbot.isCantReachTargetDetectionEnabled = false;
 		breakGate.arm();
 		gather = new GatherAction(nav);
 		weaver = new net.runelite.client.plugins.microbot.cgprep.actions.Weaver();
@@ -1972,21 +1979,6 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			return true;
 		}
 		String why;
-		if (Microbot.pauseAllScripts.get() && Microbot.cantReachTarget)
-		{
-			// Microbot's can't-reach recovery paused everything after its own retries. Our planner
-			// copes with unreachable targets, so clear it and re-plan rather than sit forever.
-			Microbot.cantReachTarget = false;
-			Microbot.cantReachTargetRetries = 0;
-			Microbot.pauseAllScripts.set(false);
-			PrepGoal g = goal;
-			if (g != null && g.type == PrepGoal.Type.EXPLORE && g.room != null)
-			{
-				maze.blockExplore(g.room[0], g.room[1], 60_000);
-			}
-			pl("WAIT", "Microbot paused all scripts after 'can't reach'; cleared it and re-planning (goal " + g + ")");
-			return false;
-		}
 		if (Microbot.pauseAllScripts.get())
 		{
 			why = "Microbot pause-all / antiban cooldown (check Microbot's pause button)";
@@ -2744,6 +2736,11 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		}
 		super.shutdown();
 		breakGate.release(); // again, after the loop's last pass (review)
+		if (savedCantReachDetection != null)
+		{
+			Microbot.isCantReachTargetDetectionEnabled = savedCantReachDetection;
+			savedCantReachDetection = null;
+		}
 		antiban.stop();
 		handover.clear();
 	}
