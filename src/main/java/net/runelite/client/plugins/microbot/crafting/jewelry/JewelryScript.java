@@ -108,8 +108,10 @@ public class JewelryScript extends Script {
                         int barItemID = plugin.getJewelry().getJewelryType().getItemID();
                         int cutGemItemID = plugin.getJewelry().getGem().getCutItemID();
                         int toolItemID = plugin.getJewelry().getToolItemID();
+                        int totalBars = Rs2Bank.count(barItemID) + Rs2Inventory.count(barItemID);
+                        int totalGems = needsGem ? Rs2Bank.count(cutGemItemID) + Rs2Inventory.count(cutGemItemID) : 0;
 
-                        if (hasMaterialsForCraft(Rs2Bank.count(barItemID) > 0, needsGem, Rs2Bank.count(cutGemItemID) > 0)) {
+                        if (hasMaterialsForCraft(totalBars > 0, needsGem, totalGems > 0)) {
                             if (!Rs2Inventory.onlyContains(toolItemID)) {
                                 Rs2Bank.depositAllExcept(toolItemID);
                                 if (!sleepUntil(() -> Rs2Inventory.onlyContains(toolItemID), 1800)) return;
@@ -303,7 +305,9 @@ public class JewelryScript extends Script {
                                 if (!Rs2Inventory.isEmpty()) {
                                     Rs2Bank.depositAll();
                                 }
-                                Microbot.showMessage("Crafting has been completed!");
+                                Microbot.showMessage(getOutOfMaterialsMessage(
+                                        capitalize(plugin.getJewelry().getJewelryType().name()) + " bars", totalBars,
+                                        capitalize(plugin.getJewelry().getGem().getCutItemName()), totalGems, needsGem));
                                 shutdown();
                                 return;
                         }
@@ -498,6 +502,23 @@ public class JewelryScript extends Script {
     static int getWithdrawAmount(int availableBars, int availableGems, boolean needsGem, int freeSlots) {
         if (!needsGem) return Math.max(0, Math.min(availableBars, freeSlots));
         return Math.max(0, Math.min(Math.min(availableBars, availableGems), freeSlots / 2));
+    }
+
+    static String getOutOfMaterialsMessage(String barName, int bars, String gemName, int gems, boolean needsGem) {
+        if (!needsGem || (bars <= 0 && gems <= 0)) {
+            String missing = needsGem ? barName + " and " + gemName : barName;
+            return "Out of " + missing + ". Crafting stopped.";
+        }
+        if (bars <= 0) {
+            return "Out of " + barName + " (" + gems + " x " + gemName + " left in bank). Crafting stopped. Get more " + barName + " and press start again.";
+        }
+        return "Out of " + gemName + " (" + bars + " x " + barName + " left in bank). Crafting stopped. Get more " + gemName + " and press start again.";
+    }
+
+    static String capitalize(String text) {
+        if (text == null || text.isEmpty()) return "";
+        String lower = text.toLowerCase();
+        return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
     }
     
     private boolean isAlching() {

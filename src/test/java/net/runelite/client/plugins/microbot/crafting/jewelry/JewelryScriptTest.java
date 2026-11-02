@@ -56,6 +56,37 @@ class JewelryScriptTest {
     }
 
     @Test
+    void outOfBarsMessageNamesGemsLeftInBank() {
+        assertEquals("Out of Gold bars (13 x Ruby left in bank). Crafting stopped. Get more Gold bars and press start again.",
+                JewelryScript.getOutOfMaterialsMessage("Gold bars", 0, "Ruby", 13, true));
+    }
+
+    @Test
+    void outOfGemsMessageNamesBarsLeftInBank() {
+        assertEquals("Out of Ruby (5 x Gold bars left in bank). Crafting stopped. Get more Ruby and press start again.",
+                JewelryScript.getOutOfMaterialsMessage("Gold bars", 5, "Ruby", 0, true));
+    }
+
+    @Test
+    void outOfBothMessageNamesBoth() {
+        assertEquals("Out of Gold bars and Ruby. Crafting stopped.",
+                JewelryScript.getOutOfMaterialsMessage("Gold bars", 0, "Ruby", 0, true));
+    }
+
+    @Test
+    void outOfBarsMessageForGoldOnlyItem() {
+        assertEquals("Out of Gold bars. Crafting stopped.",
+                JewelryScript.getOutOfMaterialsMessage("Gold bars", 0, "", 0, false));
+    }
+
+    @Test
+    void capitalizeFormatsEnumAndGemNames() {
+        assertEquals("Gold", JewelryScript.capitalize("GOLD"));
+        assertEquals("Red topaz", JewelryScript.capitalize("red topaz"));
+        assertEquals("", JewelryScript.capitalize(""));
+    }
+
+    @Test
     void negativeInputsWithdrawNothing() {
         assertEquals(0, JewelryScript.getWithdrawAmount(-1, 100, true, 27));
         assertEquals(0, JewelryScript.getWithdrawAmount(100, 0, false, -1));
