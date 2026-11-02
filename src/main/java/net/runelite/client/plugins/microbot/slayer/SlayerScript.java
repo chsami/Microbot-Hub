@@ -101,6 +101,8 @@ public class SlayerScript extends Script {
     // Break handler resume tracking
     private boolean wasLoggedOut = false;
 
+    private boolean arrivalHintShown = false;
+
     // Cannon state tracking
     private boolean isUsingCannon = false;
     private boolean cannonPlaced = false;
@@ -166,6 +168,7 @@ public class SlayerScript extends Script {
         this.config = config;
         SlayerPlugin.setState(SlayerState.IDLE);
         initialSetupDone = false;
+        arrivalHintShown = false;
 
         // Load NPC location data required for Rs2Slayer.getSlayerTaskLocation()
         try {
@@ -217,6 +220,9 @@ public class SlayerScript extends Script {
 
                 // State machine
                 SlayerState currentState = SlayerPlugin.getState();
+                if (currentState != SlayerState.DETECTING_TASK) {
+                    arrivalHintShown = false;
+                }
 
                 // Update break handler lock state - only allow breaks during safe states
                 updateBreakHandlerLock(currentState);
@@ -1298,7 +1304,7 @@ public class SlayerScript extends Script {
         }
 
         // Determine if we should use cannon for this task
-        isUsingCannon = shouldUseCannon(taskName);
+        isUsingCannon = shouldUseCannon(taskName) && (taskDestination == null || cannonSpot != null);
 
         // Get task location
         if (taskDestination == null) {
@@ -1373,8 +1379,80 @@ public class SlayerScript extends Script {
             log.info("Transitioning to TRAVELING");
             SlayerPlugin.setState(SlayerState.TRAVELING);
         } else {
-            log.info("Auto travel disabled, staying in DETECTING_TASK");
+            handleArrivalWithoutAutoTravel(taskName);
         }
+    }
+
+    private void handleArrivalWithoutAutoTravel(String taskName) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) {
+            return;
+        }
+
+        WorldPoint destination = taskDestination;
+        if (destination != null && playerLocation.distanceTo(destination) <= ARRIVAL_DISTANCE) {
+            log.info("Auto Travel is off. You are at {}, starting the task.", taskLocationName);
+            SlayerPlugin.setCurrentLocation(isUsingCannon ? taskLocationName + " (Cannon)" : taskLocationName);
+            SlayerPlugin.setState(SlayerState.AT_LOCATION);
+            return;
+        }
+
+        if (isTaskMonsterNearby(playerLocation)) {
+            boolean cannonDropped = isUsingCannon;
+            if (cannonDropped) {
+                log.warn("Auto Travel is off and you are fighting {} away from {}, so the script will fight here without a cannon. " +
+                        "Walk to the cannon spot before starting if you want to use your cannon.", taskName, describeCannonSpot(taskName));
+            } else {
+                log.info("Auto Travel is off. Fighting {} where you are standing.", taskName);
+            }
+            taskDestination = playerLocation;
+            taskLocationName = "Current location";
+            SlayerPlugin.setCurrentLocation(cannonDropped ? taskLocationName + " (no cannon)" : taskLocationName);
+            isUsingCannon = false;
+            cannonSpot = null;
+            SlayerPlugin.setState(SlayerState.AT_LOCATION);
+            return;
+        }
+
+        String destinationName = describeTaskDestination(taskName);
+        SlayerPlugin.setCurrentLocation("Walk to " + destinationName);
+        if (!arrivalHintShown) {
+            arrivalHintShown = true;
+            log.info("Auto Travel is off. Walk to {}, or stand within {} tiles of {}, and the script will start fighting.",
+                    destinationName, config.attackRadius(), taskName);
+        }
+    }
+
+    private String describeTaskDestination(String taskName) {
+        if ("Cannon spot".equals(taskLocationName)) {
+            return "the " + taskName + " cannon spot";
+        }
+        if ("Current location".equals(taskLocationName)) {
+            return "your last fighting spot";
+        }
+        return taskLocationName;
+    }
+
+    private String describeCannonSpot(String taskName) {
+        if ("Cannon spot".equals(taskLocationName)) {
+            return "the " + taskName + " cannon spot";
+        }
+        return "the " + taskLocationName + " cannon spot";
+    }
+
+    private boolean isTaskMonsterNearby(WorldPoint playerLocation) {
+        List<String> targetMonsters = getTargetMonsterNames();
+        if (targetMonsters == null || targetMonsters.isEmpty()) {
+            return false;
+        }
+        return Microbot.getRs2NpcCache().query()
+                .where(SlayerScript::isLivingTarget)
+                .where(npc -> npc.getName() != null)
+                .where(npc -> targetMonsters.stream()
+                        .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
+                .where(npc -> npc.getWorldLocation() != null &&
+                        npc.getWorldLocation().distanceTo(playerLocation) <= config.attackRadius())
+                .firstOnClientThread() != null;
     }
 
     private void handleBankingState() {
