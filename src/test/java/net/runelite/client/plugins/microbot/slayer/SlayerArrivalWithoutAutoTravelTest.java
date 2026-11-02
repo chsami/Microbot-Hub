@@ -2,12 +2,14 @@ package net.runelite.client.plugins.microbot.slayer;
 
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
-import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.npc.Rs2NpcCache;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.slayer.profile.SlayerProfileManager;
+import net.runelite.client.plugins.microbot.slayer.profile.SlayerTaskProfileJson;
+import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.skills.slayer.Rs2Slayer;
 import org.junit.jupiter.api.AfterEach;
@@ -27,6 +29,7 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -34,14 +37,17 @@ import static org.mockito.Mockito.when;
 
 class SlayerArrivalWithoutAutoTravelTest {
 
-    private static final WorldPoint CANNON_SPOT = new WorldPoint(1419, 10072, 0);
+    private static final String TASK = "Black demons";
+    private static final WorldPoint CHASM_OF_FIRE = SlayerLocation.CHASM_OF_FIRE.getWorldPoint();
     private static final WorldPoint CATACOMBS = new WorldPoint(1719, 10089, 0);
 
     private final List<Rs2NpcModel> scene = new ArrayList<>();
     private MockedStatic<Microbot> microbot;
     private MockedStatic<Rs2Player> player;
     private MockedStatic<Rs2Slayer> slayer;
-    private Player localPlayer;
+    private MockedStatic<Rs2Dialogue> dialogue;
+    private SlayerConfig config;
+    private SlayerTaskProfileJson profile;
     private SlayerScript script;
 
     @BeforeEach
@@ -49,9 +55,8 @@ class SlayerArrivalWithoutAutoTravelTest {
         microbot = mockStatic(Microbot.class);
         player = mockStatic(Rs2Player.class);
         slayer = mockStatic(Rs2Slayer.class);
-        localPlayer = mock(Player.class);
+        dialogue = mockStatic(Rs2Dialogue.class);
         Client client = mock(Client.class);
-        when(client.getLocalPlayer()).thenReturn(localPlayer);
         microbot.when(Microbot::getClient).thenReturn(client);
 
         ClientThread clientThread = mock(ClientThread.class);
@@ -65,15 +70,25 @@ class SlayerArrivalWithoutAutoTravelTest {
         when(cache.getStream()).thenAnswer(invocation -> scene.stream());
         when(cache.query()).thenCallRealMethod();
         microbot.when(Microbot::getRs2NpcCache).thenReturn(cache);
+        dialogue.when(Rs2Dialogue::isInDialogue).thenReturn(false);
+        slayer.when(Rs2Slayer::getSlayerTask).thenReturn(TASK);
         slayer.when(Rs2Slayer::getSlayerMonsters).thenReturn(List.of("Black demon"));
 
-        SlayerConfig config = mock(SlayerConfig.class);
+        config = mock(SlayerConfig.class);
         when(config.attackRadius()).thenReturn(10);
+        when(config.enableAutoTravel()).thenReturn(false);
+        when(config.enableAutoBanking()).thenReturn(false);
+        when(config.enableCannon()).thenReturn(true);
+
+        profile = new SlayerTaskProfileJson();
+        profile.setCannon(true);
+        profile.setCannonLocation("Chasm of Fire");
+        SlayerProfileManager profileManager = mock(SlayerProfileManager.class);
+        when(profileManager.findProfile(TASK)).thenReturn(profile);
+
         script = new SlayerScript();
         setField("config", config);
-        setField("taskDestination", CANNON_SPOT);
-        setField("cannonSpot", CANNON_SPOT);
-        setField("isUsingCannon", true);
+        setField("profileManager", profileManager);
         SlayerPlugin.setState(SlayerState.DETECTING_TASK);
     }
 
@@ -81,49 +96,87 @@ class SlayerArrivalWithoutAutoTravelTest {
     void tearDown() {
         SlayerPlugin.setState(SlayerState.IDLE);
         SlayerPlugin.setCurrentLocation("");
+        dialogue.close();
         slayer.close();
         player.close();
         microbot.close();
     }
 
     @Test
-    void playerAtTaskDestinationMovesToAtLocation() throws Exception {
-        player.when(Rs2Player::getWorldLocation).thenReturn(CANNON_SPOT.dx(5));
+    void playerAtCannonSpotStartsTheTaskWithCannon() throws Exception {
+        player.when(Rs2Player::getWorldLocation).thenReturn(CHASM_OF_FIRE.dx(5));
 
-        handleArrival();
+        detectTask();
 
         assertEquals(SlayerState.AT_LOCATION, SlayerPlugin.getState());
-        assertEquals(CANNON_SPOT, getField("taskDestination"));
-        assertEquals(CANNON_SPOT, getField("cannonSpot"));
+        assertEquals(CHASM_OF_FIRE, getField("taskDestination"));
+        assertEquals(CHASM_OF_FIRE, getField("cannonSpot"));
+        assertTrue((Boolean) getField("isUsingCannon"));
+        assertEquals("Chasm of Fire (Cannon)", SlayerPlugin.getCurrentLocation());
     }
 
     @Test
-    void taskMonsterNearbyAwayFromDestinationFightsAtCurrentLocation() throws Exception {
+    void taskMonsterNearbyAwayFromCannonSpotFightsHereWithoutCannon() throws Exception {
         player.when(Rs2Player::getWorldLocation).thenReturn(CATACOMBS);
-        npc("Black demon", CATACOMBS.dy(-3), true);
+        npc("Black demon", CATACOMBS.dy(-3));
 
-        handleArrival();
+        detectTask();
 
         assertEquals(SlayerState.AT_LOCATION, SlayerPlugin.getState());
         assertEquals(CATACOMBS, getField("taskDestination"));
         assertNull(getField("cannonSpot"));
         assertFalse((Boolean) getField("isUsingCannon"));
+        assertEquals("Current location (no cannon)", SlayerPlugin.getCurrentLocation());
     }
 
     @Test
-    void otherMonstersNearbyAwayFromDestinationKeepsWaiting() throws Exception {
+    void returningToDetectingTaskKeepsTheCannonOffForTheAdoptedLocation() throws Exception {
         player.when(Rs2Player::getWorldLocation).thenReturn(CATACOMBS);
-        npc("Goblin", CATACOMBS.dy(-3), true);
-        npc("Black demon", CATACOMBS.dy(-30), false);
+        npc("Black demon", CATACOMBS.dy(-3));
+        detectTask();
 
-        handleArrival();
+        SlayerPlugin.setState(SlayerState.DETECTING_TASK);
+        scene.clear();
+        detectTask();
 
-        assertEquals(SlayerState.DETECTING_TASK, SlayerPlugin.getState());
-        assertEquals(CANNON_SPOT, getField("taskDestination"));
-        assertEquals(CANNON_SPOT, getField("cannonSpot"));
+        assertEquals(SlayerState.AT_LOCATION, SlayerPlugin.getState());
+        assertEquals(CATACOMBS, getField("taskDestination"));
+        assertNull(getField("cannonSpot"));
+        assertFalse((Boolean) getField("isUsingCannon"));
+        assertEquals("Current location", SlayerPlugin.getCurrentLocation());
     }
 
-    private void npc(String name, WorldPoint location, boolean attacking) {
+    @Test
+    void taskMonsterNearbyWithoutCannonFightsHere() throws Exception {
+        when(config.enableCannon()).thenReturn(false);
+        profile.setLocation("Chasm of Fire");
+        player.when(Rs2Player::getWorldLocation).thenReturn(CATACOMBS);
+        npc("Black demon", CATACOMBS.dy(-3));
+
+        detectTask();
+
+        assertEquals(SlayerState.AT_LOCATION, SlayerPlugin.getState());
+        assertEquals(CATACOMBS, getField("taskDestination"));
+        assertEquals("Current location", SlayerPlugin.getCurrentLocation());
+    }
+
+    @Test
+    void noTaskMonsterInRangeKeepsWaitingAndShowsWhereToWalk() throws Exception {
+        player.when(Rs2Player::getWorldLocation).thenReturn(CATACOMBS);
+        npc("Goblin", CATACOMBS.dy(-3));
+        npc("Black demon", CATACOMBS.dy(-11));
+
+        detectTask();
+        detectTask();
+
+        assertEquals(SlayerState.DETECTING_TASK, SlayerPlugin.getState());
+        assertEquals(CHASM_OF_FIRE, getField("taskDestination"));
+        assertEquals(CHASM_OF_FIRE, getField("cannonSpot"));
+        assertEquals("Walk to Chasm of Fire", SlayerPlugin.getCurrentLocation());
+        assertTrue((Boolean) getField("arrivalHintShown"));
+    }
+
+    private void npc(String name, WorldPoint location) {
         NPC raw = mock(NPC.class);
         when(raw.getName()).thenReturn(name);
         Rs2NpcModel npc = mock(Rs2NpcModel.class);
@@ -131,15 +184,14 @@ class SlayerArrivalWithoutAutoTravelTest {
         when(npc.getName()).thenReturn(name);
         when(npc.isDead()).thenReturn(false);
         when(npc.getHealthRatio()).thenReturn(-1);
-        when(npc.getInteracting()).thenReturn(attacking ? localPlayer : null);
         when(npc.getWorldLocation()).thenReturn(location);
         scene.add(npc);
     }
 
-    private void handleArrival() throws Exception {
-        Method method = SlayerScript.class.getDeclaredMethod("handleArrivalWithoutAutoTravel");
+    private void detectTask() throws Exception {
+        Method method = SlayerScript.class.getDeclaredMethod("handleDetectingTaskState", boolean.class);
         method.setAccessible(true);
-        method.invoke(script);
+        method.invoke(script, true);
     }
 
     private Object getField(String name) throws Exception {
