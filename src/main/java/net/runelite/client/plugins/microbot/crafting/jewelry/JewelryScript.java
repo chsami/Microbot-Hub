@@ -104,18 +104,19 @@ public class JewelryScript extends Script {
                             return;
                         }
 
-                        int maxPerTrip = plugin.getJewelry().getGem() != Gem.NONE ? 13 : 27;
-                        int availableBars = Rs2Bank.count(plugin.getJewelry().getJewelryType().getItemID());
-                        int craftAmount = plugin.getJewelry().getGem() != Gem.NONE
-                                ? Math.min(Math.min(maxPerTrip, availableBars), Rs2Bank.count(plugin.getJewelry().getGem().getCutItemID()))
-                                : Math.min(maxPerTrip, availableBars);
+                        boolean needsGem = plugin.getJewelry().getGem() != Gem.NONE;
+                        int barItemID = plugin.getJewelry().getJewelryType().getItemID();
+                        int cutGemItemID = plugin.getJewelry().getGem().getCutItemID();
+                        int toolItemID = plugin.getJewelry().getToolItemID();
+                        int totalBars = Rs2Bank.count(barItemID) + Rs2Inventory.count(barItemID);
+                        int totalGems = needsGem ? Rs2Bank.count(cutGemItemID) + Rs2Inventory.count(cutGemItemID) : 0;
 
-                        if (craftAmount > 0) {
-                            if (!Rs2Inventory.isEmpty()){
-                                Rs2Bank.depositAllExcept(plugin.getJewelry().getToolItemID());
-                                Rs2Inventory.waitForInventoryChanges(1800);
+                        if (hasMaterialsForCraft(totalBars > 0, needsGem, totalGems > 0)) {
+                            if (!Rs2Inventory.onlyContains(toolItemID)) {
+                                Rs2Bank.depositAllExcept(toolItemID);
+                                if (!sleepUntil(() -> Rs2Inventory.onlyContains(toolItemID), 1800)) return;
                             }
-                            
+
                             if (!Rs2Inventory.hasItem(plugin.getJewelry().getToolItemID())) {
                                 if (!Rs2Bank.hasItem(plugin.getJewelry().getToolItemID())) {
                                     Microbot.showMessage("Missing tool item");
@@ -126,12 +127,15 @@ public class JewelryScript extends Script {
                                 Rs2Inventory.waitForInventoryChanges(1800);
                             }
                             
-                            if (plugin.getJewelry().getGem() != Gem.NONE) {
-                                Rs2Bank.withdrawX(plugin.getJewelry().getGem().getCutItemID(), craftAmount);
+                            int craftAmount = getWithdrawAmount(Rs2Bank.count(barItemID), Rs2Bank.count(cutGemItemID), needsGem, Rs2Inventory.emptySlotCount());
+                            if (craftAmount <= 0) return;
+
+                            if (needsGem) {
+                                Rs2Bank.withdrawX(cutGemItemID, craftAmount);
                                 Rs2Inventory.waitForInventoryChanges(1800);
                             }
-                            
-                            Rs2Bank.withdrawX(plugin.getJewelry().getJewelryType().getItemID(), craftAmount);
+
+                            Rs2Bank.withdrawX(barItemID, craftAmount);
                             Rs2Inventory.waitForInventoryChanges(1800);
                             Rs2Bank.closeBank();
                             sleepUntil(() -> !Rs2Bank.isOpen());
@@ -301,7 +305,9 @@ public class JewelryScript extends Script {
                                 if (!Rs2Inventory.isEmpty()) {
                                     Rs2Bank.depositAll();
                                 }
-                                Microbot.showMessage("Crafting has been completed!");
+                                Microbot.showMessage(getOutOfMaterialsMessage(
+                                        capitalize(plugin.getJewelry().getJewelryType().name()) + " bars", totalBars,
+                                        capitalize(plugin.getJewelry().getGem().getCutItemName()), totalGems, needsGem));
                                 shutdown();
                                 return;
                         }
@@ -463,13 +469,7 @@ public class JewelryScript extends Script {
     
     private boolean hasFinishedCrafting() {
         if (!Rs2Inventory.hasItem(plugin.getJewelry().getToolItemID())) return false;
-
-        boolean hasCraftingItem = Rs2Inventory.hasItem(plugin.getJewelry().getJewelryType().getItemID());
-        boolean hasNoGem = plugin.getJewelry().getGem() == Gem.NONE;
-        boolean hasCutGem = Rs2Inventory.hasItem(plugin.getJewelry().getGem().getCutItemID());
-
-        return Rs2Inventory.hasItem(plugin.getJewelry().getItemID()) 
-                && hasNoGem ? !hasCraftingItem : !hasCraftingItem && !hasCutGem;
+        return !hasCraftingMaterials();
     }
     
     private boolean hasFinishedEnchanting() {
@@ -484,12 +484,41 @@ public class JewelryScript extends Script {
     
     private boolean isCrafting() {
         if(!Rs2Inventory.hasItem(plugin.getJewelry().getToolItemID())) return false;
-        
-        boolean hasCraftingItem = Rs2Inventory.hasItem(plugin.getJewelry().getJewelryType().getItemID());
-        boolean hasNoGem = plugin.getJewelry().getGem() == Gem.NONE;
-        boolean hasCutGem = Rs2Inventory.hasItem(plugin.getJewelry().getGem().getCutItemID());
-        
-        return hasNoGem ? hasCraftingItem : hasCraftingItem && hasCutGem;
+        return hasCraftingMaterials();
+    }
+
+    private boolean hasCraftingMaterials() {
+        boolean needsGem = plugin.getJewelry().getGem() != Gem.NONE;
+        return hasMaterialsForCraft(
+                Rs2Inventory.hasItem(plugin.getJewelry().getJewelryType().getItemID()),
+                needsGem,
+                needsGem && Rs2Inventory.hasItem(plugin.getJewelry().getGem().getCutItemID()));
+    }
+
+    static boolean hasMaterialsForCraft(boolean hasCraftingItem, boolean needsGem, boolean hasCutGem) {
+        return hasCraftingItem && (!needsGem || hasCutGem);
+    }
+
+    static int getWithdrawAmount(int availableBars, int availableGems, boolean needsGem, int freeSlots) {
+        if (!needsGem) return Math.max(0, Math.min(availableBars, freeSlots));
+        return Math.max(0, Math.min(Math.min(availableBars, availableGems), freeSlots / 2));
+    }
+
+    static String getOutOfMaterialsMessage(String barName, int bars, String gemName, int gems, boolean needsGem) {
+        if (!needsGem || (bars <= 0 && gems <= 0)) {
+            String missing = needsGem ? barName + " and " + gemName : barName;
+            return "Out of " + missing + ". Crafting stopped.";
+        }
+        if (bars <= 0) {
+            return "Out of " + barName + " (" + gems + " x " + gemName + " left in bank). Crafting stopped. Get more " + barName + " and press start again.";
+        }
+        return "Out of " + gemName + " (" + bars + " x " + barName + " left in bank). Crafting stopped. Get more " + gemName + " and press start again.";
+    }
+
+    static String capitalize(String text) {
+        if (text == null || text.isEmpty()) return "";
+        String lower = text.toLowerCase();
+        return Character.toUpperCase(lower.charAt(0)) + lower.substring(1);
     }
     
     private boolean isAlching() {
