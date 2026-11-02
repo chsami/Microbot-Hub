@@ -47,7 +47,9 @@ public class MahoganyHomesScript extends Script {
     private static final long NPC_CONTACT_RETRY_MS = 5000;
     private static final String[] CONTACT_SPELL_NAMES = {"Astral Contact", "NPC Contact", "Npc Contact"};
     private static final String CONTACT_TARGET = "Amy";
+    private static final String CONTRACT_OPTION_TEXT = "contract";
     private long lastNpcContactAttempt;
+    private String lastContactProblem;
 
     public boolean run(MahoganyHomesConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -443,28 +445,73 @@ public class MahoganyHomesScript extends Script {
             return false;
         }
 
+        if (hasAmyContractOptions()) {
+            lastContactProblem = null;
+            return true;
+        }
+
+        if (Rs2Dialogue.isInDialogue()
+                && !sleepUntil(() -> !Rs2Dialogue.isInDialogue(), Rs2Dialogue::clickContinue, 3000, 300)) {
+            logContactProblem("A chat box is open, so Astral Contact was not cast. Close it and the script will carry on.");
+            return false;
+        }
+
         if (!castContactSpell(CONTACT_TARGET)) {
             log("Unable to cast Astral Contact / NPC Contact.");
             return false;
         }
 
-        if (!sleepUntil(() -> !Rs2Widget.isHidden(CHOOSE_CHARACTER_WIDGET_ID)
-                || Rs2Dialogue.isInDialogue() || Rs2Dialogue.hasSelectAnOption(), 7000)) {
-            log("Astral Contact cast, but neither contact selection nor a dialogue opened.");
+        if (!sleepUntil(() -> !Rs2Widget.isHidden(CHOOSE_CHARACTER_WIDGET_ID) || Rs2Dialogue.isInDialogue(), 7000)) {
+            logContactProblem("Astral Contact did not reach Amy. Check that you have the runes for Astral Contact, or turn off \"Use NPC Contact\" to walk to the contract NPC instead.");
             return false;
         }
 
-        if (Rs2Widget.isHidden(CHOOSE_CHARACTER_WIDGET_ID)) {
+        if (!Rs2Widget.isHidden(CHOOSE_CHARACTER_WIDGET_ID)) {
+            if (!selectContactTarget("amy")) {
+                log("Astral Contact opened, but Amy could not be selected.");
+                return false;
+            }
+            Rs2Player.waitForAnimation();
+            lastContactProblem = null;
             return true;
         }
 
-        if (!selectContactTarget("amy")) {
-            log("Astral Contact opened, but Amy could not be selected.");
+        if (!sleepUntil(Rs2Dialogue::hasSelectAnOption, Rs2Dialogue::clickContinue, 5000, 300) || !hasAmyContractOptions()) {
+            Microbot.showMessage("Astral Contact went to your last contact instead of Amy. Cast Astral Contact on Amy once by hand so she becomes your last contact, then start the script again.");
+            Microbot.stopPlugin(plugin);
             return false;
         }
 
-        Rs2Player.waitForAnimation();
+        lastContactProblem = null;
         return true;
+    }
+
+    private boolean hasAmyContractOptions() {
+        if (!Rs2Dialogue.hasSelectAnOption()) {
+            return false;
+        }
+        List<String> options = Rs2Dialogue.getDialogueOptions().stream()
+                .map(Widget::getText)
+                .collect(Collectors.toList());
+        return isContractTierDialogue(options);
+    }
+
+    static boolean isContractTierDialogue(List<String> options) {
+        if (options == null) {
+            return false;
+        }
+        return options.stream()
+                .filter(Objects::nonNull)
+                .map(option -> Text.removeTags(option).toLowerCase())
+                .anyMatch(option -> option.contains(CONTRACT_OPTION_TEXT));
+    }
+
+    private void logContactProblem(String message) {
+        if (message.equals(lastContactProblem)) {
+            return;
+        }
+        lastContactProblem = message;
+        log(message);
     }
 
     private boolean castContactSpell(String npcName) {
