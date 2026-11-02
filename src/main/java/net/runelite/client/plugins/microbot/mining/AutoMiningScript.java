@@ -98,38 +98,7 @@ public class AutoMiningScript extends Script {
 
                 if (Rs2Player.isMoving() || Rs2Player.isAnimating()) return;
 
-                //code to change worlds if there are too many players in the distance to stray tiles
-                int maxPlayers = config.maxPlayersInArea();
-                if (maxPlayers > 0) {
-                    WorldPoint localLocation = Rs2Player.getWorldLocation();
-                    long nearbyPlayers = Microbot.getClientThread().runOnClientThreadOptional(() ->
-                                    Microbot.getClient().getTopLevelWorldView().players().stream()
-                                            .filter(p -> p != null && p != Microbot.getClient().getLocalPlayer())
-                                            .filter(p -> {
-                                                if (config.distanceToStray() == 0) {
-                                                    // Only count players standing on the same exact tile
-                                                    return p.getWorldLocation().equals(localLocation);
-                                                }
-                                                // Count players within distanceToStray
-                                                return p.getWorldLocation().distanceTo(localLocation) <= config.distanceToStray();
-                                            })
-                                            // filter if players are using mining animation
-                                            .filter(p -> p.getAnimation() != -1)
-                                            .count())
-                            .orElse(0L);
-
-                    if (nearbyPlayers >= maxPlayers) {
-                        Microbot.status = "Too many players nearby. Hopping...";
-                        Rs2Random.waitEx(3200, 800); // Delay to avoid UI locking
-
-                        int world = Login.getRandomWorld(Rs2Player.isMember());
-                        boolean hopped = Microbot.hopToWorld(world);
-                        if (hopped) {
-                            Microbot.status = "Hopped to world: " + world;
-                            return; // Exit current cycle after hop
-                        }
-                    }
-                }
+                if (handleNearbyPlayers(config)) return;
 
 
                 switch (state) {
@@ -236,6 +205,46 @@ public class AutoMiningScript extends Script {
     public void shutdown() {
         super.shutdown();
         Rs2Antiban.resetAntibanSettings();
+    }
+
+    boolean handleNearbyPlayers(AutoMiningConfig config) {
+        //code to change worlds if there are too many players in the distance to stray tiles
+        int maxPlayers = config.maxPlayersInArea();
+        if (maxPlayers <= 0) {
+            return false;
+        }
+        WorldPoint localLocation = Rs2Player.getWorldLocation();
+        if (localLocation == null) {
+            return true;
+        }
+        long nearbyPlayers = Microbot.getClientThread().runOnClientThreadOptional(() ->
+                        Microbot.getClient().getTopLevelWorldView().players().stream()
+                                .filter(p -> p != null && p != Microbot.getClient().getLocalPlayer())
+                                .filter(p -> {
+                                    if (config.distanceToStray() == 0) {
+                                        // Only count players standing on the same exact tile
+                                        return p.getWorldLocation().equals(localLocation);
+                                    }
+                                    // Count players within distanceToStray
+                                    return p.getWorldLocation().distanceTo(localLocation) <= config.distanceToStray();
+                                })
+                                // filter if players are using mining animation
+                                .filter(p -> p.getAnimation() != -1)
+                                .count())
+                .orElse(0L);
+
+        if (nearbyPlayers >= maxPlayers) {
+            Microbot.status = "Too many players nearby. Hopping...";
+            Rs2Random.waitEx(3200, 800); // Delay to avoid UI locking
+
+            int world = Login.getRandomWorld(Rs2Player.isMember());
+            boolean hopped = Microbot.hopToWorld(world);
+            if (hopped) {
+                Microbot.status = "Hopped to world: " + world;
+                return true; // Exit current cycle after hop
+            }
+        }
+        return false;
     }
 
     private GameObject findRock(int distance) {
