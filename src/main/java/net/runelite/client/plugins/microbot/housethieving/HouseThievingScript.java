@@ -314,7 +314,7 @@ public class HouseThievingScript extends Script {
 
     private void handleThievingHouse(Rs2NpcModel houseNpc) {
         if (Rs2Inventory.emptySlotCount() < 1) {
-            if (!exitHouse())
+            if (!exitHouse(false))
                 return;
             state = State.BANKING;
             return;
@@ -324,7 +324,7 @@ public class HouseThievingScript extends Script {
             var laviniaWorldLoc = houseNpc.getWorldLocation();
             if (laviniaWorldLoc.distanceTo(currentThievingHouse.lockedDoorEntrance) < 5) {
                 Microbot.log("Owner in house or approaching currently", Level.INFO);
-                if (exitHouse())
+                if (exitHouse(true))
                     return;
             }
         }
@@ -400,30 +400,42 @@ public class HouseThievingScript extends Script {
         searchingPiece = false; // auto-loot ended; let the loop search a different, non-exhausted piece
     }
 
-    boolean exitHouse() {
+    boolean exitHouse(boolean ownerApproaching) {
         var windowTile = Rs2Tile.getTile(currentThievingHouse.windowEntrance.getX(), currentThievingHouse.windowEntrance.getY());
-        if (windowTile != null) {
-            var windowTileWallObject = windowTile.getWallObject();
-            if (windowTileWallObject != null) {
-                if (!Rs2Camera.isTileOnScreen(windowTileWallObject.getLocalLocation())) {
-                    Rs2Camera.turnTo(windowTileWallObject);
-                }
-                if (!clickWindowExit(windowTileWallObject.getId())) {
-                    if (!warnedWindowExitFailed) {
-                        Microbot.log("Couldn't climb out of the window in " + currentThievingHouse.npcName + "'s house (no Exit option found). Leave the house yourself; the script will keep trying.", Level.WARN);
-                        warnedWindowExitFailed = true;
-                    }
-                    return false;
-                }
+        var windowTileWallObject = windowTile != null ? windowTile.getWallObject() : null;
+        if (windowTileWallObject != null) {
+            if (!Rs2Camera.isTileOnScreen(windowTileWallObject.getLocalLocation())) {
+                Rs2Camera.turnTo(windowTileWallObject);
+            }
+            if (clickWindowExit(windowTileWallObject.getId())) {
                 Rs2Random.waitEx(5000.0, 200.0);
-                searchingPiece = false;
-                warnedWindowExitFailed = false;
-                setNextThievingHouse();
-                state = State.FINDING_HOUSE;
+                leftHouse();
                 return true;
             }
         }
+        if (!Rs2Tile.isTileReachable(currentThievingHouse.houseCenter)) {
+            Microbot.log("Left " + currentThievingHouse.npcName + "'s house, continuing.", Level.INFO);
+            leftHouse();
+            return true;
+        }
+        if (!warnedWindowExitFailed) {
+            var reason = ownerApproaching
+                    ? currentThievingHouse.npcName + " is coming home and the window in their house has no 'Exit' option."
+                    : "Can't climb out of the window in " + currentThievingHouse.npcName + "'s house: the window has no 'Exit' option.";
+            var advice = ownerApproaching
+                    ? " Leave the house yourself now; the script keeps looting until you do and carries on once you're outside."
+                    : " Leave the house yourself; the script carries on once you're outside.";
+            Microbot.log(reason + advice, Level.WARN);
+            warnedWindowExitFailed = true;
+        }
         return false;
+    }
+
+    private void leftHouse() {
+        searchingPiece = false;
+        warnedWindowExitFailed = false;
+        setNextThievingHouse();
+        state = State.FINDING_HOUSE;
     }
 
     static boolean clickWindowExit(int windowId) {
