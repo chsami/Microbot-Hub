@@ -57,6 +57,7 @@ public class AgilityScript extends Script
 	private int pendingMarkOfGraceCount = 0;
 	private long pendingMarkOfGraceStartedAt = 0;
 	private long lastMarkOfGraceScanAt = 0;
+	private boolean hasMarkOfGraceTarget = false;
 	private WorldPoint alchDecisionObstacleLocation = null;
 	private int alchDecisionObstacleId = -1;
 	private boolean alchDecisionShouldAlch = false;
@@ -421,7 +422,7 @@ public class AgilityScript extends Script
 		return activeHandler;
 	}
 
-	private boolean lootMarksOfGrace(AgilityCourseHandler courseHandler)
+	boolean lootMarksOfGrace(AgilityCourseHandler courseHandler)
 	{
 		if (shuttingDown)
 		{
@@ -457,7 +458,7 @@ public class AgilityScript extends Script
 		}
 
 		long now = System.currentTimeMillis();
-		if (now - lastMarkOfGraceScanAt < MARK_OF_GRACE_SCAN_INTERVAL_MS)
+		if (!hasMarkOfGraceTarget && now - lastMarkOfGraceScanAt < MARK_OF_GRACE_SCAN_INTERVAL_MS)
 		{
 			return false;
 		}
@@ -477,14 +478,17 @@ public class AgilityScript extends Script
 
 		if (markOfGrace == null)
 		{
+			hasMarkOfGraceTarget = false;
 			return false;
 		}
 
 		if (Rs2Player.isMoving() || Rs2Player.isAnimating())
 		{
+			hasMarkOfGraceTarget = true;
 			return true;
 		}
 
+		hasMarkOfGraceTarget = false;
 		WorldPoint markLocation = markOfGrace.getWorldLocation();
 		var markLocalLocation = markOfGrace.getLocalLocation();
 		if (markLocation == null || markLocalLocation == null)
@@ -494,6 +498,7 @@ public class AgilityScript extends Script
 
 		if (!Rs2Camera.isTileOnScreen(markLocalLocation))
 		{
+			hasMarkOfGraceTarget = true;
 			Rs2Camera.turnTo(markLocalLocation);
 			sleep(300, 600);
 			return true;
@@ -529,6 +534,7 @@ public class AgilityScript extends Script
 		pendingMarkOfGraceCount = 0;
 		pendingMarkOfGraceStartedAt = 0;
 		lastMarkOfGraceScanAt = 0;
+		hasMarkOfGraceTarget = false;
 	}
 
 	private boolean hasLootableMarkAt(WorldPoint markLocation)
