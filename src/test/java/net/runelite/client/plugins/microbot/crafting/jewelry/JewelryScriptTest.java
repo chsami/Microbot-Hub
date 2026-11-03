@@ -9,6 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JewelryScriptTest {
 
     @Test
+    void missingAntibanCategoryIsNotBusy() {
+        assertFalse(JewelryScript.isCategoryBusy(null));
+    }
+
+    @Test
     void barsAndGemsCanCraft() {
         assertTrue(JewelryScript.hasMaterialsForCraft(true, true, true));
     }
