@@ -46,7 +46,7 @@ public class HouseThievingScript extends Script {
     }
 
     State state = State.PICKPOCKETING;
-    private ThievingHouse currentThievingHouse = null;
+    ThievingHouse currentThievingHouse = null;
     private Rs2NpcModel pickpocketNpc = null;
     private boolean clickedThisDistraction = false;
     // Furniture we last searched, and the piece the game told us is emptied ("nothing else worth taking").
@@ -58,6 +58,7 @@ public class HouseThievingScript extends Script {
     // "click once, the game auto-repeats" mechanic as a distracted pickpocket. Gating on animation is wrong here:
     // the auto-loot has long stretches with no animation, so any isAnimating() window goes false mid-loot and re-clicks.
     private volatile boolean searchingPiece = false;
+    private boolean warnedWindowExitFailed = false;
     private final static String HOUSE_KEYS = "House keys";
     private final static String DODGY_NECKLACE = "Dodgy necklace";
     private final static String COIN_POUCH = "Coin pouch";
@@ -279,6 +280,7 @@ public class HouseThievingScript extends Script {
                     lastSearchedValuables = null;
                     exhaustedValuables = null;
                     searchingPiece = false;
+                    warnedWindowExitFailed = false;
                     state = State.THIEVING_HOUSES;
                     Microbot.log("Starting thieving in " + currentThievingHouse.npcName + " house.", Level.INFO);
                     return;
@@ -398,7 +400,7 @@ public class HouseThievingScript extends Script {
         searchingPiece = false; // auto-loot ended; let the loop search a different, non-exhausted piece
     }
 
-    private boolean exitHouse() {
+    boolean exitHouse() {
         var windowTile = Rs2Tile.getTile(currentThievingHouse.windowEntrance.getX(), currentThievingHouse.windowEntrance.getY());
         if (windowTile != null) {
             var windowTileWallObject = windowTile.getWallObject();
@@ -407,11 +409,15 @@ public class HouseThievingScript extends Script {
                     Rs2Camera.turnTo(windowTileWallObject);
                 }
                 if (!clickWindowExit(windowTileWallObject.getId())) {
-                    Microbot.log("Failed to exit " + currentThievingHouse.npcName + " house through the window, retrying..", Level.WARN);
+                    if (!warnedWindowExitFailed) {
+                        Microbot.log("Couldn't climb out of the window in " + currentThievingHouse.npcName + "'s house (no Exit option found). Leave the house yourself; the script will keep trying.", Level.WARN);
+                        warnedWindowExitFailed = true;
+                    }
                     return false;
                 }
                 Rs2Random.waitEx(5000.0, 200.0);
                 searchingPiece = false;
+                warnedWindowExitFailed = false;
                 setNextThievingHouse();
                 state = State.FINDING_HOUSE;
                 return true;
