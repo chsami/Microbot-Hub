@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.mining;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Constants;
 import net.runelite.api.GameObject;
 import net.runelite.api.Perspective;
@@ -34,6 +35,7 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2Pvp;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import org.slf4j.event.Level;
 
 import java.util.ArrayList;
 import java.awt.event.KeyEvent;
@@ -327,7 +329,7 @@ public class AutoMiningScript extends Script {
         updateStatus();
     }
 
-    static String wildernessWarning(Rocks rock, LocationOption location, boolean membersWorld) {
+    static String wildernessWarning(Rocks rock, LocationOption location, boolean membersWorld, boolean membersAccount) {
         if (location == null || location.getWorldPoint() == null) {
             return null;
         }
@@ -335,19 +337,24 @@ public class AutoMiningScript extends Script {
         if (wildernessLevel <= 0) {
             return null;
         }
-        String advice = membersWorld
-                ? "Turn off Progressive mode if you don't want to go there."
-                : "Hop to a members world or turn off Progressive mode if you don't want to go there.";
+        String advice = !membersWorld && membersAccount
+                ? "If you don't want to go there, stop the script, then log in to a members world or turn off Progressive mode before you start it again."
+                : "If you don't want to go there, stop the script, then turn off Progressive mode before you start it again.";
         return "Auto Mining: the nearest place to mine " + rock.getName()
                 + (membersWorld ? "" : " on this free world")
-                + " is " + location.getName() + ", in level " + wildernessLevel + " Wilderness. " + advice;
+                + " is " + location.getName().replace(" (Wilderness)", "")
+                + ", in level " + wildernessLevel + " Wilderness. " + advice;
     }
 
     private void warnIfWildernessLocation(Rocks rock, LocationOption location) {
-        String warning = wildernessWarning(rock, location, Microbot.getClient().getWorldType().contains(WorldType.MEMBERS));
-        if (warning != null) {
-            Microbot.log(warning);
+        boolean membersWorld = Microbot.getClient().getWorldType().contains(WorldType.MEMBERS);
+        String warning = wildernessWarning(rock, location, membersWorld, membersWorld || Rs2Player.isMember());
+        if (warning == null) {
+            return;
         }
+        Microbot.log(warning, Level.WARN);
+        Microbot.getClientThread().invokeLater(() ->
+                Microbot.getClient().addChatMessage(ChatMessageType.GAMEMESSAGE, "", "<col=ff0000>" + warning + "</col>", null));
     }
 
     private boolean ensureProgressiveLocation(AutoMiningConfig config) {

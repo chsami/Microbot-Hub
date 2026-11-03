@@ -14,24 +14,31 @@ class AutoMiningWildernessWarningTest {
             new WorldPoint(3058, 3884, 0), "Lava Maze Runite Mine (Wilderness)", false);
 
     @Test
-    void warnsAboutWildernessMineOnFreeWorld() {
+    void freeAccountOnFreeWorldIsOnlyToldToTurnOffProgressiveMode() {
         assertEquals(
-                "Auto Mining: the nearest place to mine runite rocks on this free world is Lava Maze Runite Mine (Wilderness), in level 46 Wilderness. Hop to a members world or turn off Progressive mode if you don't want to go there.",
-                AutoMiningScript.wildernessWarning(Rocks.RUNITE, LAVA_MAZE, false));
+                "Auto Mining: the nearest place to mine runite rocks on this free world is Lava Maze Runite Mine, in level 46 Wilderness. If you don't want to go there, stop the script, then turn off Progressive mode before you start it again.",
+                AutoMiningScript.wildernessWarning(Rocks.RUNITE, LAVA_MAZE, false, false));
     }
 
     @Test
-    void warnsAboutWildernessMineOnMembersWorld() {
+    void membersAccountOnFreeWorldIsAlsoOfferedAMembersWorld() {
         assertEquals(
-                "Auto Mining: the nearest place to mine runite rocks is Lava Maze Runite Mine (Wilderness), in level 46 Wilderness. Turn off Progressive mode if you don't want to go there.",
-                AutoMiningScript.wildernessWarning(Rocks.RUNITE, LAVA_MAZE, true));
+                "Auto Mining: the nearest place to mine runite rocks on this free world is Lava Maze Runite Mine, in level 46 Wilderness. If you don't want to go there, stop the script, then log in to a members world or turn off Progressive mode before you start it again.",
+                AutoMiningScript.wildernessWarning(Rocks.RUNITE, LAVA_MAZE, false, true));
+    }
+
+    @Test
+    void membersWorldIsOnlyToldToTurnOffProgressiveMode() {
+        assertEquals(
+                "Auto Mining: the nearest place to mine runite rocks is Lava Maze Runite Mine, in level 46 Wilderness. If you don't want to go there, stop the script, then turn off Progressive mode before you start it again.",
+                AutoMiningScript.wildernessWarning(Rocks.RUNITE, LAVA_MAZE, true, true));
     }
 
     @Test
     void noWarningOutsideWilderness() {
         LocationOption dwarvenMine = new LocationOption(new WorldPoint(3034, 9822, 0), "Dwarven Mine", false);
 
-        assertNull(AutoMiningScript.wildernessWarning(Rocks.COAL, dwarvenMine, false));
-        assertNull(AutoMiningScript.wildernessWarning(Rocks.COAL, null, false));
+        assertNull(AutoMiningScript.wildernessWarning(Rocks.COAL, dwarvenMine, false, false));
+        assertNull(AutoMiningScript.wildernessWarning(Rocks.COAL, null, false, false));
     }
 }
