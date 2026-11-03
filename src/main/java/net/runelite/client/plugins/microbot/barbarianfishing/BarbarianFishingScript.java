@@ -38,6 +38,7 @@ public class BarbarianFishingScript extends Script
             "The barrel is full. It may be emptied at a bank.";
     private static final int MAX_BANK_OPEN_ATTEMPTS = 5;
     private static final int MAX_BANK_WALK_ATTEMPTS = 8;
+    private static final int SUPPLY_CHECK_TICKS = 5;
     private static final String BARREL_EMPTIED_MESSAGE =
             "You empty all of your containers into the bank.";
 
@@ -107,6 +108,8 @@ public class BarbarianFishingScript extends Script
     private long lastBankInteractAt;
     private int bankOpenAttempts;
     private int bankWalkAttempts;
+    private int missingRodTicks;
+    private int missingBaitTicks;
     private volatile String stopReason;
     @Getter
     private volatile Instant stoppedAt;
@@ -119,6 +122,8 @@ public class BarbarianFishingScript extends Script
         this.stopReason = null;
         this.bankOpenAttempts = 0;
         this.bankWalkAttempts = 0;
+        this.missingRodTicks = 0;
+        this.missingBaitTicks = 0;
         this.status = "Initializing";
         this.coxTravel = CoxTravel.NONE;
         this.banking = false;
@@ -152,15 +157,20 @@ public class BarbarianFishingScript extends Script
 
                 hasBarrel = config.useFishBarrel() && Rs2Inventory.hasItem("Fish barrel", "Open fish barrel");
 
-                if (!hasBarbarianRod())
+                // Right after a login or world hop the inventory can read empty for a
+                // moment, so only stop once the check has failed for several ticks.
+                missingRodTicks = hasBarbarianRod() ? 0 : missingRodTicks + 1;
+                missingBaitTicks = hasBait() ? 0 : missingBaitTicks + 1;
+
+                if (missingRodTicks >= SUPPLY_CHECK_TICKS)
                 {
                     stopWithReason("Stopped: no Barbarian rod found - put a Barbarian rod (or Pearl barbarian rod) in your inventory and start the plugin again");
                     return;
                 }
 
-                if (!hasBait())
+                if (missingBaitTicks >= SUPPLY_CHECK_TICKS)
                 {
-                    stopWithReason("Stopped: out of feathers/bait - restock and restart the plugin");
+                    stopWithReason("Stopped: no feathers or bait left - put Feathers (or Fishing bait, Fish offal, Roe or Caviar) in your inventory and start the plugin again");
                     return;
                 }
 
@@ -337,7 +347,7 @@ public class BarbarianFishingScript extends Script
 
                 if (++bankWalkAttempts > MAX_BANK_WALK_ATTEMPTS)
                 {
-                    abandonBankTrip("Could not reach the CoX bank chest - dropping fish");
+                    abandonBankTrip("Could not reach the CoX bank chest - dropped the fish instead. If this keeps happening, turn off Bank at CoX");
                     break;
                 }
 
@@ -375,6 +385,7 @@ public class BarbarianFishingScript extends Script
         bankApproach = null;
         Rs2Walker.clearWalkingRoute("CoX bank trip abandoned");
         setStatus(reason);
+        Microbot.log(reason);
         InteractOrder order = config.dropOrder() == InteractOrder.RANDOM ? InteractOrder.random() : config.dropOrder();
         Rs2DropUtils.dropAllHumanized(x -> isLeapingFish(x.getName()), order);
     }
@@ -390,7 +401,7 @@ public class BarbarianFishingScript extends Script
 
         if (bankOpenAttempts >= MAX_BANK_OPEN_ATTEMPTS)
         {
-            abandonBankTrip("Could not open CoX bank chest - dropping fish");
+            abandonBankTrip("Could not open the CoX bank chest - dropped the fish instead. If this keeps happening, turn off Bank at CoX");
             return;
         }
 

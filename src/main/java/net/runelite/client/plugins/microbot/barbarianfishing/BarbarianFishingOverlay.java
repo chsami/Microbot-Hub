@@ -47,8 +47,7 @@ public class BarbarianFishingOverlay extends OverlayPanel
                     .build());
 
             panelComponent.getChildren().add(LineComponent.builder()
-                    .left("Status:")
-                    .right(script != null ? script.getStatus() : "Idle")
+                    .left("Status: " + (script != null ? script.getStatus() : "Idle"))
                     .build());
 
             if (script != null && script.getStartedAt() != null)

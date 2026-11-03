@@ -55,4 +55,6 @@ The **Barbarian Fishing Plugin** is an automation tool for Old School RuneScape,
 - Added Mount Quidamortem (Chambers of Xeric) location support.
 - Walks to fishing spots and the CoX bank chest automatically.
 - Added Fish Barrel auto-fill and auto-empty at CoX bank chest.
-- Added Dragon Harpoon special attack support.
+- Added a Dragon Harpoon Spec toggle (on by default; only used when the Dragon harpoon is equipped).
+- The plugin now stops and shows a message when your Barbarian rod or feathers/bait run out (it used to stand idle).
+- Use Fish Barrel is on by default: a Fish barrel in your inventory is filled when your inventory is full (it is only emptied with Bank at CoX).

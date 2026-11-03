@@ -35,7 +35,7 @@ public interface BarbarianFishingConfig extends Config
     {
         return "Automated Barbarian Fishing at Otto's Grotto and Mount Quidamortem (CoX).\n\n"
                 + "Start at Otto's Grotto or the Mount Quidamortem lake with a Barbarian rod (or Pearl barbarian rod) and feathers / bait in inventory.\n"
-                + "At Mount Quidamortem (CoX), Bank at CoX enables walking to the bank chest when full.";
+                + "At Mount Quidamortem (CoX), turn on Bank at CoX to bank your fish at the chest instead of dropping them.";
     }
 
     @ConfigItem(
@@ -77,7 +77,7 @@ public interface BarbarianFishingConfig extends Config
     @ConfigItem(
             keyName = "bankAtCox",
             name = "Bank at CoX",
-            description = "At Mount Quidamortem (CoX), walk to the bank chest and deposit fish when barrel and inventory are full",
+            description = "At Mount Quidamortem (CoX), walk to the bank chest and deposit fish when your inventory (and Fish barrel, if used) is full, instead of dropping them",
             position = 0,
             section = coxSection
     )
