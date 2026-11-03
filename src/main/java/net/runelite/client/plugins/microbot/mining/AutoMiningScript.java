@@ -7,6 +7,7 @@ import net.runelite.api.Perspective;
 import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.Tile;
+import net.runelite.api.WorldType;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
@@ -30,6 +31,7 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.player.Rs2Pvp;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
@@ -317,9 +319,35 @@ public class AutoMiningScript extends Script {
         if (rock != activeRock || activeLocation == null) {
             activeRock = rock;
             activeLocation = MiningRockLocations.getBestAccessibleLocation(rock);
+            if (config.progressiveMode()) {
+                warnIfWildernessLocation(rock, activeLocation);
+            }
         }
 
         updateStatus();
+    }
+
+    static String wildernessWarning(Rocks rock, LocationOption location, boolean membersWorld) {
+        if (location == null || location.getWorldPoint() == null) {
+            return null;
+        }
+        int wildernessLevel = Rs2Pvp.getWildernessLevelFrom(location.getWorldPoint());
+        if (wildernessLevel <= 0) {
+            return null;
+        }
+        String advice = membersWorld
+                ? "Turn off Progressive mode if you don't want to go there."
+                : "Hop to a members world or turn off Progressive mode if you don't want to go there.";
+        return "Auto Mining: the nearest place to mine " + rock.getName()
+                + (membersWorld ? "" : " on this free world")
+                + " is " + location.getName() + ", in level " + wildernessLevel + " Wilderness. " + advice;
+    }
+
+    private void warnIfWildernessLocation(Rocks rock, LocationOption location) {
+        String warning = wildernessWarning(rock, location, Microbot.getClient().getWorldType().contains(WorldType.MEMBERS));
+        if (warning != null) {
+            Microbot.log(warning);
+        }
     }
 
     private boolean ensureProgressiveLocation(AutoMiningConfig config) {

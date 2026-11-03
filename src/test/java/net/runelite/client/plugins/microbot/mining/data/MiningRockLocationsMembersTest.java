@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.mining.data;
 
 import net.runelite.api.Client;
+import net.runelite.api.Skill;
 import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -22,6 +23,7 @@ import static org.mockito.Mockito.when;
 class MiningRockLocationsMembersTest {
 
     private static final WorldPoint RIMMINGTON = new WorldPoint(2975, 3262, 0);
+    private static final WorldPoint MINING_GUILD = new WorldPoint(3046, 9756, 0);
 
     private MockedStatic<Microbot> microbot;
     private MockedStatic<Rs2Player> player;
@@ -75,5 +77,29 @@ class MiningRockLocationsMembersTest {
         LocationOption best = MiningRockLocations.getBestAccessibleLocation(Rocks.IRON);
 
         assertEquals("Ardougne South East Mine", best.getName());
+    }
+
+    @Test
+    void freeToPlayMiningGuildStaysBestInsideGuildOnFreeWorld() {
+        when(client.getWorldType()).thenReturn(EnumSet.noneOf(WorldType.class));
+        player.when(Rs2Player::getWorldLocation).thenReturn(MINING_GUILD);
+        player.when(() -> Rs2Player.getSkillRequirement(Skill.MINING, 60)).thenReturn(true);
+
+        for (Rocks rock : new Rocks[]{Rocks.IRON, Rocks.COAL, Rocks.MITHRIL, Rocks.ADAMANTITE}) {
+            LocationOption best = MiningRockLocations.getBestAccessibleLocation(rock);
+            assertEquals("Mining Guild", best.getName(), rock.name());
+            assertFalse(best.isMembersOnly(), rock.name());
+        }
+    }
+
+    @Test
+    void miningGuildRuniteStaysMembersOnly() {
+        when(client.getWorldType()).thenReturn(EnumSet.noneOf(WorldType.class));
+        player.when(Rs2Player::getWorldLocation).thenReturn(MINING_GUILD);
+        player.when(() -> Rs2Player.getSkillRequirement(Skill.MINING, 60)).thenReturn(true);
+
+        LocationOption best = MiningRockLocations.getBestAccessibleLocation(Rocks.RUNITE);
+
+        assertEquals("Lava Maze Runite Mine (Wilderness)", best.getName());
     }
 }
