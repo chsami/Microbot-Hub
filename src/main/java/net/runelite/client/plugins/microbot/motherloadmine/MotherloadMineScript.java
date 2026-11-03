@@ -282,6 +282,8 @@ public class MotherloadMineScript extends Script
 			selectMiningSpotFromConfig();
 		}
 
+		if (miningTargetOf(miningSpot) == null) return;
+
 		if (isOnSelectedMiningFloor() && findClosestVein() != null && attemptToMineVein())
 		{
 			return;
@@ -752,18 +754,27 @@ public class MotherloadMineScript extends Script
         log.info("Selected mining spot: {}", miningSpot);
     }
 
+    static WorldPoint miningTargetOf(MLMMiningSpot spot)
+    {
+        if (spot == null) return null;
+        List<WorldPoint> points = spot.getWorldPoint();
+        return points == null || points.isEmpty() ? null : points.get(0);
+    }
+
     private boolean walkToMiningSpot()
     {
-        WorldPoint target = miningSpot.getWorldPoint().get(0);
+        MLMMiningSpot spot = miningSpot;
+        WorldPoint target = miningTargetOf(spot);
+        if (target == null) return false;
 
         // Navigates to correct floor based on selected mining area
-        if (miningSpot.isUpstairs() && !isUpperFloor())
+        if (spot.isUpstairs() && !isUpperFloor())
         {
-            goUp();
+            goUp(target);
             return false; // Wait until we've gone up
         }
 
-        if (miningSpot.isDownstairs() && isUpperFloor()) {
+        if (spot.isDownstairs() && isUpperFloor()) {
             goDown();
             return false; // Wait until we've gone down
         }
@@ -856,25 +867,27 @@ public class MotherloadMineScript extends Script
 
     private void repositionCameraAndMove()
     {
+        WorldPoint target = miningTargetOf(miningSpot);
+        if (target == null) return;
         Rs2Camera.resetPitch();
         Rs2Camera.resetZoom();
 		LocalPoint localTarget = Microbot.getClientThread().invoke(() ->
-			LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), miningSpot.getWorldPoint().get(0))
+			LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), target)
 		);
 		if (localTarget != null) {
         	Rs2Camera.turnTo(localTarget);
 		}
-        Rs2Walker.walkFastCanvas(miningSpot.getWorldPoint().get(0));
+        Rs2Walker.walkFastCanvas(target);
     }
 
-    private void goUp()
+    private void goUp(WorldPoint fallbackTarget)
     {
         if (isUpperFloor()) return;
         log.debug("Transitioning to upper floor");
 
 		Rs2TileObjectModel ladder = rs2TileObjectCache.query().withId(ObjectID.MOTHERLODE_LADDER_BOTTOM).nearest();
 		if (ladder == null) {
-			Rs2Walker.walkTo(miningSpot.getWorldPoint().get(0), 6);
+			Rs2Walker.walkTo(fallbackTarget, 6);
 			return;
 		}
 
