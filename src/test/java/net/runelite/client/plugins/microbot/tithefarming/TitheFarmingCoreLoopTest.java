@@ -109,6 +109,91 @@ class TitheFarmingCoreLoopTest {
     }
 
     @Test
+    void coreLoopWatersADryPlantBeforeSeedingTheNextEmptyPatch() throws Exception {
+        TitheFarmPlant empty = patch(1, 35);
+        when(empty.isEmptyPatch()).thenReturn(true);
+        when(empty.isEmptyPatchOrSeedling()).thenReturn(true);
+        TitheFarmPlant dry = patch(2, 40);
+        when(dry.isStage1()).thenReturn(true);
+        TitheFarmingScript.plants = new ArrayList<>(List.of(empty, dry));
+        TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
+
+        assertEquals(40, walkTargetOfOneLoop().getRegionX());
+    }
+
+    @Test
+    void coreLoopKeepsWateringDryPlantsWhileHarvesting() throws Exception {
+        TitheFarmPlant dry = patch(1, 40);
+        when(dry.isStage2()).thenReturn(true);
+        TitheFarmingScript.plants = new ArrayList<>(List.of(dry));
+        TitheFarmingScript.state = TitheFarmState.HARVEST;
+
+        assertEquals(40, walkTargetOfOneLoop().getRegionX());
+    }
+
+    @Test
+    void coreLoopStartsTheNextRoundWhenOnlyEmptyAndDeadPatchesRemain() throws Exception {
+        TitheFarmPlant empty = patch(1, 35);
+        when(empty.isEmptyPatch()).thenReturn(true);
+        TitheFarmPlant dead = patch(2, 40);
+        when(dead.isDead()).thenReturn(true);
+        TitheFarmingScript.plants = new ArrayList<>(List.of(empty, dead));
+        TitheFarmingScript.state = TitheFarmState.HARVEST;
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            method("coreLoop", TitheFarmingConfig.class).invoke(new TitheFarmingScript(), mock(TitheFarmingConfig.class));
+
+            assertEquals(TitheFarmState.STARTING, TitheFarmingScript.state);
+            walker.verifyNoInteractions();
+            inventory.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void coreLoopDoesNotReplantAPatchWhosePlantDiedMidCycle() throws Exception {
+        Rs2TileObjectModel patchObject = objectAt(SACK);
+        TitheFarmPlant growing = patch(1, 35);
+        when(growing.getGameObject()).thenReturn(patchObject);
+        TitheFarmPlant dead = patch(2, 40);
+        when(dead.getGameObject()).thenReturn(patchObject);
+        when(dead.isDead()).thenReturn(true);
+        TitheFarmingScript.plants = new ArrayList<>(List.of(growing, dead));
+        TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
+        TitheFarmingScript script = new TitheFarmingScript();
+        Client client = clientWithPlayerAt(SACK);
+        ClientThread clientThread = runsOnCaller();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Global> global = mockStatic(Global.class)) {
+            microbot.when(Microbot::getClientThread).thenReturn(clientThread);
+            microbot.when(Microbot::getClient).thenReturn(client);
+            Method coreLoop = method("coreLoop", TitheFarmingConfig.class);
+            coreLoop.invoke(script, mock(TitheFarmingConfig.class));
+
+            when(dead.isDead()).thenReturn(false);
+            when(dead.isEmptyPatch()).thenReturn(true);
+            when(dead.isEmptyPatchOrSeedling()).thenReturn(true);
+            coreLoop.invoke(script, mock(TitheFarmingConfig.class));
+
+            assertEquals(TitheFarmState.PLANTING_SEEDS, TitheFarmingScript.state);
+            walker.verifyNoInteractions();
+            inventory.verifyNoInteractions();
+            verify(patchObject, never()).click();
+
+            when(growing.isDead()).thenReturn(true);
+            coreLoop.invoke(script, mock(TitheFarmingConfig.class));
+
+            assertEquals(TitheFarmState.STARTING, TitheFarmingScript.state);
+        }
+    }
+
+    @Test
     void walkToBarrelDoesNotWalkWhenTheLocalPlayerIsNotLoaded() {
         Client client = mock(Client.class);
         when(client.getLocalPlayer()).thenReturn(null);
@@ -197,6 +282,44 @@ class TitheFarmingCoreLoopTest {
         TitheFarmingScript.plants = new ArrayList<>(List.of(plant));
         TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
         return plant;
+    }
+
+    private static TitheFarmPlant patch(int index, int regionX) {
+        TitheFarmPlant plant = mock(TitheFarmPlant.class);
+        when(plant.getIndex()).thenReturn(index);
+        plant.regionX = regionX;
+        plant.regionY = 25;
+        return plant;
+    }
+
+    private static Client clientWithPlayerAt(WorldPoint location) {
+        Player localPlayer = mock(Player.class);
+        when(localPlayer.getWorldLocation()).thenReturn(location);
+        WorldView worldView = mock(WorldView.class);
+        Client client = mock(Client.class);
+        when(client.getLocalPlayer()).thenReturn(localPlayer);
+        when(client.getTopLevelWorldView()).thenReturn(worldView);
+        return client;
+    }
+
+    private static WorldPoint walkTargetOfOneLoop() throws Exception {
+        Client client = clientWithPlayerAt(SACK);
+        ClientThread clientThread = runsOnCaller();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            microbot.when(Microbot::getClientThread).thenReturn(clientThread);
+            microbot.when(Microbot::getClient).thenReturn(client);
+
+            method("coreLoop", TitheFarmingConfig.class).invoke(new TitheFarmingScript(), mock(TitheFarmingConfig.class));
+
+            ArgumentCaptor<WorldPoint> target = ArgumentCaptor.forClass(WorldPoint.class);
+            walker.verify(() -> Rs2Walker.walkMiniMap(target.capture(), anyDouble()));
+            inventory.verifyNoInteractions();
+            return target.getValue();
+        }
     }
 
     private static Rs2TileObjectModel objectAt(WorldPoint location) {
