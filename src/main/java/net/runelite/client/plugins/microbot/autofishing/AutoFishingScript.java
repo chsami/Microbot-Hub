@@ -131,7 +131,9 @@ public class AutoFishingScript extends Script {
      * Handle methods 
      */
     private void handleTraveling(WorldPoint playerLocation) {
-        fishingLocation = selectedFish.getClosestLocation(playerLocation);
+        if (fishingLocation == null) {
+            fishingLocation = selectedFish.getClosestLocation(playerLocation);
+        }
         if (fishingLocation != null) {
             Rs2Walker.walkTo(fishingLocation);
         }
@@ -373,13 +375,12 @@ public class AutoFishingScript extends Script {
     private void handleErrorRecovery() {
         if (Rs2Bank.isOpen()) Rs2Bank.closeBank();
         fishAction = "";
-        fishingLocation = null;
     }
 
     /**
      * Helper methods
      */
-    private Rs2NpcModel findNearestFishingSpot() {
+    Rs2NpcModel findNearestFishingSpot() {
         if (Thread.currentThread().isInterrupted()) {
             return null;
         }
@@ -468,8 +469,11 @@ public class AutoFishingScript extends Script {
         if (isWithin(playerLocation, fishingLocation, 5)) {
             return true;
         }
-        // Bootstrap: if no target yet or far from it, treat as at location if a spot for this fish is visible.
-        return findNearestFishingSpot() != null;
+        if (findNearestFishingSpot() == null) {
+            return false;
+        }
+        fishingLocation = playerLocation;
+        return true;
     }
 
     static boolean isWithin(WorldPoint playerLocation, WorldPoint target, int distance) {
