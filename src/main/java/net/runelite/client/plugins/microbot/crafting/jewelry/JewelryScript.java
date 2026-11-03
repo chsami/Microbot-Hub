@@ -9,6 +9,7 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.crafting.jewelry.enums.*;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Category;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
@@ -60,7 +61,7 @@ public class JewelryScript extends Script {
                 
                 if (state == null) return; // Used to switch into completion action 
                 
-                if (Rs2Player.isMoving() || Rs2Player.isAnimating() || Rs2Antiban.getCategory().isBusy()) return;
+                if (Rs2Player.isMoving() || Rs2Player.isAnimating() || isCategoryBusy(Rs2Antiban.getCategory())) return;
                 if (Rs2AntibanSettings.actionCooldownActive) return;
                 
                 switch (state) {
@@ -493,6 +494,10 @@ public class JewelryScript extends Script {
                 Rs2Inventory.hasItem(plugin.getJewelry().getJewelryType().getItemID()),
                 needsGem,
                 needsGem && Rs2Inventory.hasItem(plugin.getJewelry().getGem().getCutItemID()));
+    }
+
+    static boolean isCategoryBusy(Category category) {
+        return category != null && category.isBusy();
     }
 
     static boolean hasMaterialsForCraft(boolean hasCraftingItem, boolean needsGem, boolean hasCutGem) {
