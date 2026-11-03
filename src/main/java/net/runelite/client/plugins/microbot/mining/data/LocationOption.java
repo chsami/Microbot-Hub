@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Quest;
 import net.runelite.api.QuestState;
 import net.runelite.api.Skill;
+import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
@@ -70,6 +71,9 @@ public class LocationOption {
         }
         if(!Microbot.isLoggedIn()){
             log.debug("Player is not logged in, cannot check location requirements");
+            return false;
+        }
+        if (membersOnly && !Microbot.getClient().getWorldType().contains(WorldType.MEMBERS)) {
             return false;
         }
         // Check quest requirements using streams
