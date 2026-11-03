@@ -17,6 +17,7 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
+import net.runelite.client.plugins.microbot.util.inventory.InteractOrder;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
@@ -34,6 +35,7 @@ public class BarbarianFishingScript extends Script
 {
     private static final String BARREL_FULL_MESSAGE =
             "The barrel is full. It may be emptied at a bank.";
+    private static final int MAX_BANK_OPEN_ATTEMPTS = 5;
     private static final String BARREL_EMPTIED_MESSAGE =
             "You empty all of your containers into the bank.";
 
@@ -101,11 +103,18 @@ public class BarbarianFishingScript extends Script
     private CoxTravel coxTravel = CoxTravel.NONE;
     private MountQuidamortem.BankApproach bankApproach;
     private long lastBankInteractAt;
+    private int bankOpenAttempts;
+    private volatile String stopReason;
+    @Getter
+    private volatile Instant stoppedAt;
 
     public boolean run(BarbarianFishingConfig config)
     {
         this.config = config;
         this.startedAt = Instant.now();
+        this.stoppedAt = null;
+        this.stopReason = null;
+        this.bankOpenAttempts = 0;
         this.status = "Initializing";
         this.coxTravel = CoxTravel.NONE;
         this.banking = false;
@@ -141,15 +150,13 @@ public class BarbarianFishingScript extends Script
 
                 if (!hasBarbarianRod())
                 {
-                    setStatus("Missing Barbarian rod");
-                    shutdown();
+                    stopWithReason("Stopped: no Barbarian rod in inventory or equipped");
                     return;
                 }
 
                 if (!hasBait())
                 {
-                    setStatus("Out of bait");
-                    shutdown();
+                    stopWithReason("Stopped: out of feathers/bait - restock and restart the plugin");
                     return;
                 }
 
@@ -219,7 +226,7 @@ public class BarbarianFishingScript extends Script
             catch (Exception ex)
             {
                 Microbot.logStackTrace(getClass().getSimpleName(), ex);
-                setStatus("Error: " + ex.getClass().getSimpleName());
+                setStatus("Something went wrong - see the log console");
             }
         }, 0, 600, TimeUnit.MILLISECONDS);
 
@@ -273,7 +280,8 @@ public class BarbarianFishingScript extends Script
         }
 
         setStatus("Dropping fish");
-        Rs2Inventory.dropAll(x -> isLeapingFish(x.getName()), config.dropOrder());
+        InteractOrder order = config.dropOrder() == InteractOrder.RANDOM ? InteractOrder.random() : config.dropOrder();
+        Rs2DropUtils.dropAllHumanized(x -> isLeapingFish(x.getName()), order);
     }
 
     private boolean handleCoxControl()
@@ -293,7 +301,7 @@ public class BarbarianFishingScript extends Script
         coxTravel = CoxTravel.TO_BANK;
         banking = true;
         Rs2Walker.clearWalkingRoute("CoX bank trip started");
-        setStatus("CoX -> bank (" + bankApproach.label + ")");
+        setStatus("Walking to CoX bank chest");
     }
 
     private void handleCoxTravel()
@@ -309,7 +317,7 @@ public class BarbarianFishingScript extends Script
                     bankApproach = MountQuidamortem.randomBankApproach();
                 }
 
-                setStatus("CoX -> bank (" + bankApproach.label + ")");
+                setStatus("Walking to CoX bank chest");
 
                 if (MountQuidamortem.isAtBank(here))
                 {
@@ -318,7 +326,7 @@ public class BarbarianFishingScript extends Script
                 }
 
                 Rs2Walker.walkTo(bankApproach.target, bankApproach.arrivalRadius);
-                if (MountQuidamortem.isAtBank(here))
+                if (MountQuidamortem.isAtBank(Rs2Player.getWorldLocation()))
                 {
                     coxTravel = CoxTravel.OPEN_BANK;
                 }
@@ -333,7 +341,7 @@ public class BarbarianFishingScript extends Script
                 break;
 
             case RETURN_TO_FISH:
-                setStatus("Bank -> fishing");
+                setStatus("Walking back to the lake");
                 WorldPoint returnTarget = MountQuidamortem.randomReturnAnchor();
                 Rs2Walker.walkTo(returnTarget, 2);
                 coxTravel = CoxTravel.NONE;
@@ -346,7 +354,20 @@ public class BarbarianFishingScript extends Script
     {
         if (Rs2Bank.isOpen())
         {
+            bankOpenAttempts = 0;
             coxTravel = CoxTravel.BANKING;
+            return;
+        }
+
+        if (bankOpenAttempts >= MAX_BANK_OPEN_ATTEMPTS)
+        {
+            bankOpenAttempts = 0;
+            coxTravel = CoxTravel.NONE;
+            banking = false;
+            bankApproach = null;
+            setStatus("Could not open CoX bank chest - dropping fish");
+            Rs2DropUtils.dropAllHumanized(x -> isLeapingFish(x.getName()),
+                    config.dropOrder() == InteractOrder.RANDOM ? InteractOrder.random() : config.dropOrder());
             return;
         }
 
@@ -357,6 +378,7 @@ public class BarbarianFishingScript extends Script
             return;
         }
         lastBankInteractAt = now;
+        bankOpenAttempts++;
 
         setStatus("Opening CoX bank chest");
         Rs2TileObjectModel chest = Microbot.getRs2TileObjectCache().query()
@@ -383,6 +405,7 @@ public class BarbarianFishingScript extends Script
 
         if (Rs2Bank.isOpen())
         {
+            bankOpenAttempts = 0;
             coxTravel = CoxTravel.BANKING;
         }
     }
@@ -466,10 +489,7 @@ public class BarbarianFishingScript extends Script
             return;
         }
 
-        boolean hasHarpoon = Rs2Equipment.isWearing(ItemID.DRAGON_HARPOON)
-                || Rs2Inventory.hasItem(ItemID.DRAGON_HARPOON);
-
-        if (!hasHarpoon)
+        if (!Rs2Equipment.isWearing(ItemID.DRAGON_HARPOON))
         {
             return;
         }
@@ -560,13 +580,26 @@ public class BarbarianFishingScript extends Script
         Microbot.status = message;
     }
 
+    private void stopWithReason(String reason)
+    {
+        stopReason = reason;
+        Microbot.stopPlugin(BarbarianFishingPlugin.class);
+        setStatus(reason);
+        Microbot.showMessage(reason);
+    }
+
     @Override
     public void shutdown()
     {
+        Rs2Antiban.resetAntibanSettings();
         super.shutdown();
+        stoppedAt = Instant.now();
         coxTravel = CoxTravel.NONE;
         banking = false;
         Rs2Walker.clearWalkingRoute("Barbarian fishing shutdown");
-        setStatus("Stopped");
+        if (stopReason == null)
+        {
+            setStatus("Stopped");
+        }
     }
 }

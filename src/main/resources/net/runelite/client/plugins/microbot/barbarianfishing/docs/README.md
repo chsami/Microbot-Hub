@@ -23,7 +23,7 @@ The **Barbarian Fishing Plugin** is an automation tool for Old School RuneScape,
   Optionally activates the Dragon Harpoon special attack whenever special energy reaches 100% for a temporary +3 Fishing level boost.
 
 - **Configurable Dropping:**  
-  Drop leaping trout, salmon, and sturgeon with configurable drop patterns (Standard, Left-to-right, Top-to-bottom, Snake, Random).
+  Drop leaping trout, salmon, and sturgeon with configurable drop patterns (Standard, Efficient Row, Column, Efficient Column, Zigzag, Random).
 
 - **Real-Time Overlay:**  
   Displays location, current action, fish caught, XP gained, XP/hr, runtime, and fish barrel status.
@@ -35,17 +35,17 @@ The **Barbarian Fishing Plugin** is an automation tool for Old School RuneScape,
 - Barbarian fishing rod and feathers / fishing bait / fish offal in inventory.
 - Required Fishing, Agility, and Strength levels for barbarian leaping fish (48+ Fishing, 15+ Agility/Strength for leaping trout; 58+ for leaping salmon; 70+ for leaping sturgeon).
 - (Optional) Fish barrel for expanded capacity.
-- (Optional) Dragon Harpoon equipped or in inventory for special attack boosts.
+- (Optional) Dragon Harpoon equipped for special attack boosts (it must be equipped).
 
 ---
 
 ## Configuration
 
-- **Location:** Choose between **Otto's Grotto** and **Mount Quidamortem**.
-- **Drop Order:** Select inventory drop ordering (Standard, Top-to-bottom, Left-to-right, Snake, Random).
+- Location is detected automatically (**Otto's Grotto** or **Mount Quidamortem**); there is no Location setting.
+- **Drop Order:** Select inventory drop ordering (Standard, Efficient Row, Column, Efficient Column, Zigzag, Random).
 - **Use Fish Barrel:** Enable to store leaping fish in your fish barrel.
 - **Bank at CoX:** (Mount Quidamortem only) Walk to the Chambers of Xeric bank chest to empty fish barrel and deposit catch instead of dropping.
-- **Use Dragon Harpoon Spec:** Automatically trigger special attack when at 100%.
+- **Dragon Harpoon Spec:** Automatically trigger special attack when at 100%.
 
 ---
 

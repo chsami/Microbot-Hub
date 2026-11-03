@@ -35,7 +35,7 @@ public interface BarbarianFishingConfig extends Config
     {
         return "Automated Barbarian Fishing at Otto's Grotto and Mount Quidamortem (CoX).\n\n"
                 + "Start with a Barbarian rod (or Pearl barbarian rod) and feathers / bait in inventory.\n"
-                + "At Mount Quidamortem (CoX), Use Fish Barrel enables walking to the bank chest when full.";
+                + "At Mount Quidamortem (CoX), Bank at CoX enables walking to the bank chest when full.";
     }
 
     @ConfigItem(
@@ -65,7 +65,7 @@ public interface BarbarianFishingConfig extends Config
     @ConfigItem(
             keyName = "useDragonHarpoonSpec",
             name = "Dragon Harpoon Spec",
-            description = "Automatically use Dragon harpoon special attack when at 100% spec energy",
+            description = "Automatically use Dragon harpoon special attack when at 100% spec energy (the Dragon harpoon must be equipped)",
             position = 3,
             section = generalSection
     )
@@ -83,6 +83,6 @@ public interface BarbarianFishingConfig extends Config
     )
     default boolean bankAtCox()
     {
-        return true;
+        return false;
     }
 }

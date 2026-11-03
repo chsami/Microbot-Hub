@@ -53,7 +53,8 @@ public class BarbarianFishingOverlay extends OverlayPanel
 
             if (script != null && script.getStartedAt() != null)
             {
-                Duration elapsed = Duration.between(script.getStartedAt(), Instant.now());
+                Instant end = script.getStoppedAt() != null ? script.getStoppedAt() : Instant.now();
+                Duration elapsed = Duration.between(script.getStartedAt(), end);
                 long seconds = Math.max(1, elapsed.getSeconds());
                 int xpGained = script.getFishingXpGained();
                 long xpPerHour = (long) (xpGained * (3600.0 / seconds));
@@ -92,8 +93,8 @@ public class BarbarianFishingOverlay extends OverlayPanel
             Rs2Antiban.renderAntibanOverlayComponents(panelComponent);
 
             panelComponent.getChildren().add(LineComponent.builder()
-                    .left(Microbot.status)
-                    .right("v" + BarbarianFishingPlugin.version)
+                    .left("Version:")
+                    .right(BarbarianFishingPlugin.version)
                     .build());
         }
         catch (Exception ex)
