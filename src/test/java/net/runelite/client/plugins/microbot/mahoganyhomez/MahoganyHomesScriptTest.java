@@ -67,6 +67,39 @@ class MahoganyHomesScriptTest {
         assertTrue(ids.contains(HotspotObjects.JESS.objects[7].getObjectId()));
     }
 
+    @Test
+    void contactActionIndexFindsNpcOptionOnSpell() {
+        assertEquals(1, MahoganyHomesScript.contactActionIndex(new String[] {"Cast", "<col=ff9040>Amy</col>", null, "Honest Jimmy"}, "Amy"));
+        assertEquals(0, MahoganyHomesScript.contactActionIndex(new String[] {"amy"}, "Amy"));
+    }
+
+    @Test
+    void contactActionIndexIsNegativeWithoutNpcOption() {
+        assertEquals(-1, MahoganyHomesScript.contactActionIndex(null, "Amy"));
+        assertEquals(-1, MahoganyHomesScript.contactActionIndex(new String[] {"Cast", null, "Honest Jimmy"}, "Amy"));
+        assertEquals(-1, MahoganyHomesScript.contactActionIndex(new String[] {"Cast"}, null));
+    }
+
+    @Test
+    void contractTierDialogueRecognisesAmysOptions() {
+        assertTrue(MahoganyHomesScript.isContractTierDialogue(Arrays.asList(
+                "Beginner Contract",
+                "<col=000000>Novice Contract (Requires 20 Construction)</col>",
+                "Adept Contract (Requires 50 Construction)",
+                "Expert Contract (Requires 70 Construction)",
+                "I'll pass actually.")));
+    }
+
+    @Test
+    void contractTierDialogueRejectsOtherContacts() {
+        assertFalse(MahoganyHomesScript.isContractTierDialogue(null));
+        assertFalse(MahoganyHomesScript.isContractTierDialogue(Arrays.asList()));
+        assertFalse(MahoganyHomesScript.isContractTierDialogue(Arrays.asList(
+                "Can you repair my pouches?",
+                null,
+                "Nothing, sorry.")));
+    }
+
     private static MahoganyHomesScript scriptWithPlugin() {
         MahoganyHomesScript script = new MahoganyHomesScript();
         script.plugin = new MahoganyHomesPlugin();

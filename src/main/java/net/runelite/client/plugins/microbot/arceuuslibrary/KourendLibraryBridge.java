@@ -63,6 +63,7 @@ public final class KourendLibraryBridge
     private Method libGetCustomerBook;
     private Method libGetCustomerId;
     private Method libGetBookcases;
+    private Method libReset;
 
     private Method bookcaseGetLocation;
     private Method bookcaseGetBook;
@@ -105,10 +106,12 @@ public final class KourendLibraryBridge
             libGetCustomerBook = libraryClass.getDeclaredMethod("getCustomerBook");
             libGetCustomerId = libraryClass.getDeclaredMethod("getCustomerId");
             libGetBookcases = libraryClass.getDeclaredMethod("getBookcases");
+            libReset = libraryClass.getDeclaredMethod("reset");
             libGetState.setAccessible(true);
             libGetCustomerBook.setAccessible(true);
             libGetCustomerId.setAccessible(true);
             libGetBookcases.setAccessible(true);
+            libReset.setAccessible(true);
 
             bookcaseGetLocation = bookcaseClass.getDeclaredMethod("getLocation");
             bookcaseGetBook = bookcaseClass.getDeclaredMethod("getBook");
@@ -317,6 +320,21 @@ public final class KourendLibraryBridge
         }
         catch (ReflectiveOperationException ignored) {}
         return false;
+    }
+
+    public void resetSolver()
+    {
+        if (!wire()) return;
+        Object lib = library();
+        if (lib == null) return;
+        try
+        {
+            libReset.invoke(lib);
+        }
+        catch (ReflectiveOperationException e)
+        {
+            log.warn("Could not reset Library solver: {}", e.toString());
+        }
     }
 
     /** Resolve a library {@link BookSnapshot} from an inventory item id, or null if not a library book. */

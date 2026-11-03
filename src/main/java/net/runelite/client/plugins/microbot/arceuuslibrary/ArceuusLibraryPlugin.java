@@ -3,7 +3,10 @@ package net.runelite.client.plugins.microbot.arceuuslibrary;
 import com.google.inject.Provides;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginManager;
@@ -27,7 +30,10 @@ import javax.inject.Inject;
 @Slf4j
 public class ArceuusLibraryPlugin extends Plugin
 {
-    public static final String version = "1.0.1";
+    public static final String version = "1.0.2";
+    private static final String NOTHING_FOUND_MESSAGE = "You don't find anything useful here.";
+    private static final String BOOKS_SHIFTED_MESSAGE =
+            "You hear the shifting of books due to a mysterious force...or are you just hearing things?";
 
     @Getter
     @Inject
@@ -43,7 +49,7 @@ public class ArceuusLibraryPlugin extends Plugin
     private PluginManager pluginManager;
 
     @Getter
-    private ArceuusLibraryScript script;
+    ArceuusLibraryScript script;
 
     @Getter
     private KourendLibraryBridge bridge;
@@ -78,5 +84,20 @@ public class ArceuusLibraryPlugin extends Plugin
     {
         if (script != null) script.shutdown();
         if (overlayManager != null) overlayManager.remove(overlay);
+    }
+
+    @Subscribe
+    public void onChatMessage(ChatMessage event)
+    {
+        if (script == null || event.getType() != ChatMessageType.GAMEMESSAGE) return;
+        String message = event.getMessage();
+        if (NOTHING_FOUND_MESSAGE.equals(message))
+        {
+            script.onNothingFound();
+        }
+        else if (message != null && message.endsWith(BOOKS_SHIFTED_MESSAGE))
+        {
+            script.onBooksShifted();
+        }
     }
 }

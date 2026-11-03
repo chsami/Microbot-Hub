@@ -38,7 +38,7 @@ import java.time.Instant;
 @Slf4j
 public class TheMessPlugin extends Plugin {
 
-    static final String version = "1.1.1";
+    static final String version = "1.1.2";
 
     @Inject
     private TheMessConfig config;
