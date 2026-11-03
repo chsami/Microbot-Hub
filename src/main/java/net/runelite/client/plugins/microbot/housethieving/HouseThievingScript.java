@@ -25,6 +25,7 @@ import org.slf4j.event.Level;
 
 import javax.annotation.Nullable;
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -61,6 +62,7 @@ public class HouseThievingScript extends Script {
     private final static String DODGY_NECKLACE = "Dodgy necklace";
     private final static String COIN_POUCH = "Coin pouch";
     private final static String WEALTHY_CITIZEN = "Wealthy citizen";
+    private final static List<String> WINDOW_EXIT_ACTIONS = List.of("Exit", "Exit-window");
 
     public boolean run(HouseThievingConfig config) {
         Microbot.pauseAllScripts.compareAndSet(true, false);
@@ -404,13 +406,24 @@ public class HouseThievingScript extends Script {
                 if (!Rs2Camera.isTileOnScreen(windowTileWallObject.getLocalLocation())) {
                     Rs2Camera.turnTo(windowTileWallObject);
                 }
-                Microbot.getRs2TileObjectCache().query().withId(windowTileWallObject.getId()).interact("Exit-window");
+                if (!clickWindowExit(windowTileWallObject.getId())) {
+                    Microbot.log("Failed to exit " + currentThievingHouse.npcName + " house through the window, retrying..", Level.WARN);
+                    return false;
+                }
                 Rs2Random.waitEx(5000.0, 200.0);
                 searchingPiece = false;
                 setNextThievingHouse();
                 state = State.FINDING_HOUSE;
                 return true;
             }
+        }
+        return false;
+    }
+
+    static boolean clickWindowExit(int windowId) {
+        for (var action : WINDOW_EXIT_ACTIONS) {
+            if (Microbot.getRs2TileObjectCache().query().withId(windowId).interact(action))
+                return true;
         }
         return false;
     }
