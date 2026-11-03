@@ -23,7 +23,7 @@ The **Barbarian Fishing Plugin** is an automation tool for Old School RuneScape,
   Optionally activates the Dragon Harpoon special attack whenever special energy reaches 100% for a temporary +3 Fishing level boost.
 
 - **Configurable Dropping:**  
-  Drop leaping trout, salmon, and sturgeon with configurable drop patterns (Standard, Efficient Row, Column, Efficient Column, Zigzag, Random).
+  Drop leaping trout, salmon, and sturgeon with configurable drop patterns (STANDARD, EFFICIENT_ROW, COLUMN, EFFICIENT_COLUMN, ZIGZAG, RANDOM).
 
 - **Real-Time Overlay:**  
   Displays location, current action, fish caught, XP gained, XP/hr, runtime, and fish barrel status.
@@ -42,7 +42,7 @@ The **Barbarian Fishing Plugin** is an automation tool for Old School RuneScape,
 ## Configuration
 
 - Location is detected automatically (**Otto's Grotto** or **Mount Quidamortem**); there is no Location setting.
-- **Drop Order:** Select inventory drop ordering (Standard, Efficient Row, Column, Efficient Column, Zigzag, Random).
+- **Drop Order:** Select inventory drop ordering (STANDARD, EFFICIENT_ROW, COLUMN, EFFICIENT_COLUMN, ZIGZAG, RANDOM).
 - **Use Fish Barrel:** Store leaping fish in your fish barrel. The barrel is only emptied at the CoX bank chest, so it matters only with Bank at CoX on.
 - **Bank at CoX:** (Mount Quidamortem only) Walk to the Chambers of Xeric bank chest to empty fish barrel and deposit catch instead of dropping.
 - **Dragon Harpoon Spec:** Automatically trigger special attack when at 100%.
