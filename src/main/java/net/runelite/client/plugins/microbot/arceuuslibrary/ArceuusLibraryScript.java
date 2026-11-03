@@ -21,6 +21,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.events.PluginMessage;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,6 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -85,6 +87,8 @@ public class ArceuusLibraryScript extends Script
      * the moment any customer accepts our held book or gives us a new request.
      */
     private final Set<Integer> recentlyAttempted = new HashSet<>();
+    private final Set<WorldPoint> emptyBookcases = ConcurrentHashMap.newKeySet();
+    private volatile boolean nothingFound = false;
 
     @Getter private volatile ArceuusLibraryState state = ArceuusLibraryState.IDLE;
     @Getter private volatile int delivered = 0;
@@ -141,6 +145,7 @@ public class ArceuusLibraryScript extends Script
 
             Solved solved = bridge.getState();
             solverState = solved.name();
+            if (solved == Solved.NO_DATA) emptyBookcases.clear();
 
             Optional<BookSnapshot> wantedOpt = bridge.getCustomerBook();
             wantedBookLabel = wantedOpt.map(BookSnapshot::getShortName).orElse("—");
@@ -440,6 +445,7 @@ public class ArceuusLibraryScript extends Script
         log.info("Searching bookcase at {} for {}", loc, wanted.getShortName());
         Rs2TileObjectModel bookcase = objectAt(loc);
         if (bookcase != null) bookcase.hover();
+        nothingFound = false;
         if (bookcase == null || !bookcase.click("Search"))
         {
             log.warn("Search interaction returned false at {}", loc);
@@ -451,7 +457,26 @@ public class ArceuusLibraryScript extends Script
         // it stays true for the whole layout — on a re-visit (modal-dismiss click,
         // or stale-state re-search) the condition is true at entry and we'd exit
         // before the animation even started, producing spam-clicks.
-        sleepUntil(() -> isBookcaseSearched(loc), 10_000);
+        sleepUntil(() -> nothingFound || isBookcaseSearched(loc), 10_000);
+        recordIfEmpty(loc);
+    }
+
+    boolean recordIfEmpty(WorldPoint loc)
+    {
+        if (!nothingFound) return false;
+        emptyBookcases.add(loc);
+        log.info("Bookcase {} came back empty; skipping it until the layout resets", loc);
+        return true;
+    }
+
+    void onNothingFound()
+    {
+        nothingFound = true;
+    }
+
+    void onBooksShifted()
+    {
+        emptyBookcases.clear();
     }
 
     private boolean isBookcaseSearched(WorldPoint loc)
@@ -467,9 +492,28 @@ public class ArceuusLibraryScript extends Script
         // an empty possibleBooks means "ruled out for this layout" — do NOT search.
         boolean noData = bridge.getState() == Solved.NO_DATA;
         List<BookcaseSnapshot> raw = bridge.getBookcases();
+        List<BookcaseSnapshot> filtered = filterCandidates(raw, wanted, noData, emptyBookcases);
+        if (filtered.isEmpty()
+                && !emptyBookcases.isEmpty()
+                && !filterCandidates(raw, wanted, noData, Collections.emptySet()).isEmpty())
+        {
+            log.info("Every candidate for {} came back empty; resetting the solver", wanted.getShortName());
+            emptyBookcases.clear();
+            Microbot.getClientThread().invokeLater(bridge::resetSolver);
+            return filtered;
+        }
+        WorldPoint here = Rs2Player.getWorldLocation();
+        if (here != null) sortByReachableDistance(filtered, here);
+        return filtered;
+    }
+
+    static List<BookcaseSnapshot> filterCandidates(List<BookcaseSnapshot> raw, BookSnapshot wanted,
+                                                   boolean noData, Set<WorldPoint> emptyBookcases)
+    {
         List<BookcaseSnapshot> filtered = new ArrayList<>();
         for (BookcaseSnapshot bc : raw)
         {
+            if (emptyBookcases.contains(bc.getLocation())) continue;
             // Already searched: include only if upstream still believes it holds the
             // wanted book. That covers two cases this layout: (a) we just searched it
             // and the modal is pending — re-clicking dismisses the modal and the book
@@ -503,8 +547,6 @@ public class ArceuusLibraryScript extends Script
                 }
             }
         }
-        WorldPoint here = Rs2Player.getWorldLocation();
-        if (here != null) sortByReachableDistance(filtered, here);
         return filtered;
     }
 
@@ -650,9 +692,10 @@ public class ArceuusLibraryScript extends Script
         return null;
     }
 
-    private boolean isUsefulSweepCandidate(BookcaseSnapshot bc)
+    boolean isUsefulSweepCandidate(BookcaseSnapshot bc)
     {
         if (bc.isBookSet()) return false;
+        if (emptyBookcases.contains(bc.getLocation())) return false;
         if (bc.getPossible().isEmpty()) return false;
         if (bc.getPossible().size() == 1
                 && holdsBook(bc.getPossible().iterator().next())) return false;
@@ -778,6 +821,7 @@ public class ArceuusLibraryScript extends Script
                 sweepSearchesThisTrip = 0;
                 pendingSweepTarget = null;
                 recentlyAttempted.clear();
+                emptyBookcases.clear();
                 state = ArceuusLibraryState.IDLE;
             }
         }
