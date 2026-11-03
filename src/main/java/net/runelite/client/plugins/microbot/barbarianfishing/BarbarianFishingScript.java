@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.barbarianfishing;
 
 import lombok.Getter;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
@@ -36,6 +37,7 @@ public class BarbarianFishingScript extends Script
     private static final String BARREL_FULL_MESSAGE =
             "The barrel is full. It may be emptied at a bank.";
     private static final int MAX_BANK_OPEN_ATTEMPTS = 5;
+    private static final int MAX_BANK_WALK_ATTEMPTS = 8;
     private static final String BARREL_EMPTIED_MESSAGE =
             "You empty all of your containers into the bank.";
 
@@ -104,6 +106,7 @@ public class BarbarianFishingScript extends Script
     private MountQuidamortem.BankApproach bankApproach;
     private long lastBankInteractAt;
     private int bankOpenAttempts;
+    private int bankWalkAttempts;
     private volatile String stopReason;
     @Getter
     private volatile Instant stoppedAt;
@@ -115,6 +118,7 @@ public class BarbarianFishingScript extends Script
         this.stoppedAt = null;
         this.stopReason = null;
         this.bankOpenAttempts = 0;
+        this.bankWalkAttempts = 0;
         this.status = "Initializing";
         this.coxTravel = CoxTravel.NONE;
         this.banking = false;
@@ -150,7 +154,7 @@ public class BarbarianFishingScript extends Script
 
                 if (!hasBarbarianRod())
                 {
-                    stopWithReason("Stopped: no Barbarian rod in inventory or equipped");
+                    stopWithReason("Stopped: no Barbarian rod found - put a Barbarian rod (or Pearl barbarian rod) in your inventory and start the plugin again");
                     return;
                 }
 
@@ -190,12 +194,16 @@ public class BarbarianFishingScript extends Script
                 {
                     if (location == Location.MOUNT_QUIDAMORTEM)
                     {
-                        setStatus("Recovering to lake center");
+                        setStatus("No fishing spot in view - walking to the middle of the lake");
                         Rs2Walker.walkTo(MountQuidamortem.RECOVERY_CENTER, 3);
+                    }
+                    else if (location == Location.OTTOS_GROTTO)
+                    {
+                        setStatus("Waiting for fishing spot");
                     }
                     else
                     {
-                        setStatus("Waiting for fishing spot");
+                        setStatus("Not at a fishing spot - go to Otto's Grotto or the Mount Quidamortem lake");
                     }
                     return;
                 }
@@ -264,7 +272,7 @@ public class BarbarianFishingScript extends Script
             if (barrel != null)
             {
                 Rs2Inventory.interact(barrel, "Fill");
-                sleep(Rs2Random.between(600, 1000));
+                sleepUntil(() -> !Rs2Inventory.isFull(), Rs2Random.between(1800, 2400));
                 if (Rs2Inventory.isFull())
                 {
                     barrelFull = true;
@@ -299,6 +307,8 @@ public class BarbarianFishingScript extends Script
     {
         bankApproach = MountQuidamortem.randomBankApproach();
         coxTravel = CoxTravel.TO_BANK;
+        bankWalkAttempts = 0;
+        bankOpenAttempts = 0;
         banking = true;
         Rs2Walker.clearWalkingRoute("CoX bank trip started");
         setStatus("Walking to CoX bank chest");
@@ -322,6 +332,12 @@ public class BarbarianFishingScript extends Script
                 if (MountQuidamortem.isAtBank(here))
                 {
                     coxTravel = CoxTravel.OPEN_BANK;
+                    break;
+                }
+
+                if (++bankWalkAttempts > MAX_BANK_WALK_ATTEMPTS)
+                {
+                    abandonBankTrip("Could not reach the CoX bank chest - dropping fish");
                     break;
                 }
 
@@ -350,6 +366,19 @@ public class BarbarianFishingScript extends Script
         }
     }
 
+    private void abandonBankTrip(String reason)
+    {
+        bankOpenAttempts = 0;
+        bankWalkAttempts = 0;
+        coxTravel = CoxTravel.NONE;
+        banking = false;
+        bankApproach = null;
+        Rs2Walker.clearWalkingRoute("CoX bank trip abandoned");
+        setStatus(reason);
+        InteractOrder order = config.dropOrder() == InteractOrder.RANDOM ? InteractOrder.random() : config.dropOrder();
+        Rs2DropUtils.dropAllHumanized(x -> isLeapingFish(x.getName()), order);
+    }
+
     private void openCoxBankChest()
     {
         if (Rs2Bank.isOpen())
@@ -361,20 +390,14 @@ public class BarbarianFishingScript extends Script
 
         if (bankOpenAttempts >= MAX_BANK_OPEN_ATTEMPTS)
         {
-            bankOpenAttempts = 0;
-            coxTravel = CoxTravel.NONE;
-            banking = false;
-            bankApproach = null;
-            setStatus("Could not open CoX bank chest - dropping fish");
-            Rs2DropUtils.dropAllHumanized(x -> isLeapingFish(x.getName()),
-                    config.dropOrder() == InteractOrder.RANDOM ? InteractOrder.random() : config.dropOrder());
+            abandonBankTrip("Could not open CoX bank chest - dropping fish");
             return;
         }
 
         long now = System.currentTimeMillis();
         if (now - lastBankInteractAt < 1200L)
         {
-            setStatus("Opening CoX bank");
+            setStatus("Opening CoX bank chest");
             return;
         }
         lastBankInteractAt = now;
@@ -452,7 +475,6 @@ public class BarbarianFishingScript extends Script
     {
         return Rs2Inventory.hasItem("Barbarian rod")
                 || Rs2Inventory.hasItem("Pearl barbarian rod")
-                || Rs2Equipment.isWearing("Barbarian rod")
                 || Rs2Equipment.isWearing("Pearl barbarian rod");
     }
 
@@ -533,6 +555,11 @@ public class BarbarianFishingScript extends Script
 
     public void onChatMessage(ChatMessage event)
     {
+        if (event.getType() != ChatMessageType.GAMEMESSAGE && event.getType() != ChatMessageType.SPAM)
+        {
+            return;
+        }
+
         String message = event.getMessage();
         if (message == null)
         {
