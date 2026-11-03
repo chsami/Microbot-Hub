@@ -35,7 +35,7 @@ public interface SlayerConfig extends Config {
     @ConfigItem(
             keyName = "enableAutoTravel",
             name = "Auto Travel",
-            description = "Automatically travel to slayer task location",
+            description = "Automatically travel to slayer task location. When off, walk there yourself: the script starts once you are at the task location or within Attack Radius of a task monster.",
             position = 1,
             section = generalSection
     )

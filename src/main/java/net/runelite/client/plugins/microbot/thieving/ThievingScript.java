@@ -550,6 +550,11 @@ ThievingNpcStrategy getActiveStrategy() {
                     log.warn("Player Location is null");
                     return;
                 }
+                if (startingLocation == null) {
+                    startingLocation = myLoc;
+                    log.debug("Set starting location to {}", myLoc);
+                    return;
+                }
                 if (myLoc.distanceTo(startingLocation) <= 5) {
                     if (thievingNpc != null) {
                         walkTo("Walk to npc ", thievingNpc.getWorldLocation(), 1);
