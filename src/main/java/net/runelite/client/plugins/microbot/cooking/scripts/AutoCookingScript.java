@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.cooking.scripts;
 
 import net.runelite.api.AnimationID;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2BankObjects;
@@ -23,6 +24,7 @@ import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 
 import java.awt.event.KeyEvent;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -34,7 +36,15 @@ enum CookingState {
     DROPPING,
 }
 
+enum CookingObjectStep {
+    WALK,
+    TURN_CAMERA,
+    USE,
+}
+
 public class AutoCookingScript extends Script {
+
+    static final int COOKING_OBJECT_REACH = 4;
 
     private CookingState state;
     private boolean init;
@@ -102,7 +112,14 @@ public class AutoCookingScript extends Script {
                         }
 
                         if (cookingObject != null) {
-                            if (!Rs2Camera.isTileOnScreen(cookingObject.getLocalLocation())) {
+                            CookingObjectStep step = nextCookingObjectStep(Rs2Camera.isTileOnScreen(cookingObject.getLocalLocation()),
+                                    Rs2Player.getWorldLocation(), cookingObject.getWorldLocation());
+                            if (step == CookingObjectStep.WALK) {
+                                Microbot.status = walkingStatus(location);
+                                Rs2Walker.walkTo(cookingObject.getWorldLocation(), 2);
+                                return;
+                            }
+                            if (step == CookingObjectStep.TURN_CAMERA) {
                                 Rs2Camera.turnTo(cookingObject.getLocalLocation());
                                 return;
                             }
@@ -141,6 +158,17 @@ public class AutoCookingScript extends Script {
                             state = CookingState.BANKING;
                             break;
                         }
+                        if (!isWithinCookingReach(Rs2Player.getWorldLocation(), location.getCookingObjectWorldPoint())) {
+                            Microbot.status = walkingStatus(location);
+                            Rs2Walker.walkTo(location.getCookingObjectWorldPoint(), 2);
+                            state = CookingState.WALKING;
+                            break;
+                        }
+                        String missingObjectStatus = missingCookingObjectStatus(location);
+                        if (!missingObjectStatus.equals(Microbot.status)) {
+                            Microbot.log(missingObjectStatus);
+                        }
+                        Microbot.status = missingObjectStatus;
                         state = CookingState.WALKING;
                         break;
                     case DROPPING:
@@ -205,9 +233,11 @@ public class AutoCookingScript extends Script {
                         }
 
                         if (!isNearCookingLocation(location, 10)) {
+                            Microbot.status = walkingStatus(location);
                             boolean walkTo = Rs2Walker.walkTo(location.getCookingObjectWorldPoint(), 2);
                             if (!walkTo) return;
                         } else if (!isNearCookingLocation(location, 2)) {
+                            Microbot.status = walkingStatus(location);
                             Rs2Walker.walkFastCanvas(location.getCookingObjectWorldPoint());
                         }
 
@@ -243,7 +273,7 @@ public class AutoCookingScript extends Script {
             return;
         }
 
-        if (!isNearCookingLocation(location, 4)) {
+        if (!isNearCookingLocation(location, COOKING_OBJECT_REACH)) {
             state = CookingState.WALKING;
             init = false;
             return;
@@ -251,6 +281,44 @@ public class AutoCookingScript extends Script {
 
         state = CookingState.COOKING;
         init = false;
+    }
+
+    static boolean isWithinCookingReach(WorldPoint playerLocation, WorldPoint cookingObjectLocation) {
+        return playerLocation != null && cookingObjectLocation != null
+                && playerLocation.distanceTo(cookingObjectLocation) <= COOKING_OBJECT_REACH;
+    }
+
+    static CookingObjectStep nextCookingObjectStep(boolean onScreen, WorldPoint playerLocation, WorldPoint cookingObjectLocation) {
+        if (onScreen) {
+            return CookingObjectStep.USE;
+        }
+        return isWithinCookingReach(playerLocation, cookingObjectLocation) ? CookingObjectStep.TURN_CAMERA : CookingObjectStep.WALK;
+    }
+
+    static String readableLocationName(CookingLocation location) {
+        StringBuilder name = new StringBuilder();
+        for (String word : location.name().toLowerCase(Locale.ROOT).split("_")) {
+            if (word.isEmpty()) continue;
+            if (name.length() > 0) name.append(' ');
+            name.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return name.toString();
+    }
+
+    static String walkingStatus(CookingLocation location) {
+        return "Walking to the " + cookingObjectNoun(location) + " at " + readableLocationName(location);
+    }
+
+    static String missingCookingObjectStatus(CookingLocation location) {
+        String name = readableLocationName(location);
+        if (location.getCookingAreaType() == CookingAreaType.FIRE) {
+            return "Can't find a fire at " + name + ". Waiting for a fire, or pick a location with a range.";
+        }
+        return "Can't find a range at " + name + ". Waiting. If this does not change, pick another Location in the settings.";
+    }
+
+    private static String cookingObjectNoun(CookingLocation location) {
+        return location.getCookingAreaType() == CookingAreaType.FIRE ? "fire" : "range";
     }
 
     private boolean isNearCookingLocation(CookingLocation location, int distance) {
