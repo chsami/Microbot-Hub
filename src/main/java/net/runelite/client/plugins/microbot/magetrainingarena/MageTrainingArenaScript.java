@@ -394,10 +394,10 @@ public class MageTrainingArenaScript extends Script {
             return;
         }
 
+        var teleRoom = findTelekineticRoom(Rs2Player.getWorldLocation());
+        if (teleRoom == null) return;
+
         var room = mtaPlugin.getTelekineticRoom();
-        var teleRoom = Arrays.stream(TelekineticRooms.values())
-                .filter(x -> Rs2Player.getWorldLocation().distanceTo(x.getArea()) == 0)
-                .findFirst().orElseThrow();
 
         // Walk to maze if guardian is not visible
         WorldPoint target;
@@ -430,9 +430,9 @@ public class MageTrainingArenaScript extends Script {
             sleepUntil(() -> room.getGuardian().getId() == NpcID.MAGICTRAINING_GUARD_MAZE_COMPLETE);
             sleep(200, 400);
             new Rs2NpcModel(room.getGuardian()).click("New-maze");
-            sleepUntil(() -> Rs2Player.getWorldLocation().distanceTo(teleRoom.getArea()) != 0);
+            sleepUntil(() -> hasLeftTelekineticRoom(Rs2Player.getWorldLocation(), teleRoom));
         } else {
-            while (!Rs2Player.getWorldLocation().equals(targetConverted)
+            while (isAwayFrom(Rs2Player.getWorldLocation(), targetConverted)
                     && !Objects.equals(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalDestinationLocation()), localTarget)) {
                 if (Rs2Camera.isTileOnScreen(localTarget)) {
                     Rs2Walker.walkFastCanvas(targetConverted);
@@ -464,6 +464,21 @@ public class MageTrainingArenaScript extends Script {
                 sleepUntil(()->room.getGuardian().getId() != NpcID.MAGICTRAINING_GUARD_MAZE_MOVING);
             }
         }
+    }
+
+    static TelekineticRooms findTelekineticRoom(WorldPoint location) {
+        if (location == null) return null;
+        return Arrays.stream(TelekineticRooms.values())
+                .filter(x -> location.distanceTo(x.getArea()) == 0)
+                .findFirst().orElse(null);
+    }
+
+    static boolean hasLeftTelekineticRoom(WorldPoint location, TelekineticRooms teleRoom) {
+        return location != null && location.distanceTo(teleRoom.getArea()) != 0;
+    }
+
+    static boolean isAwayFrom(WorldPoint location, WorldPoint target) {
+        return location != null && !location.equals(target);
     }
 
     private void handleGraveyardRoom() {
