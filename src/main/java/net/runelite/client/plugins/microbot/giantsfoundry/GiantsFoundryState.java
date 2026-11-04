@@ -136,7 +136,18 @@ public class GiantsFoundryState {
     }
 
     public static Stage getCurrentStage() {
-        int index = (int) (getProgressAmount() / 1000d * getStages().size());
+        return getStage(getCurrentStageIndex());
+    }
+
+    public static Stage getNextStage() {
+        return getStage(getCurrentStageIndex() + 1);
+    }
+
+    private static int getCurrentStageIndex() {
+        return (int) (getProgressAmount() / 1000d * getStages().size());
+    }
+
+    private static Stage getStage(int index) {
         if (index < 0 || index > getStages().size() - 1) {
             return null;
         }
@@ -211,17 +222,20 @@ public class GiantsFoundryState {
                 return 0;
         }
 
-        return getHeatChangeNeeded(heat, stage.getHeatChange(), range);
+        return getHeatChangeNeeded(heat, range, stage, getActionsLeftInStage(), getNextStage());
     }
 
-    static int getHeatChangeNeeded(int heat, int stageHeatChange, int[] range)
+    static int getHeatChangeNeeded(int heat, int[] range, Stage stage, int actionsLeftInStage, Stage nextStage)
     {
         if (heat < range[0])
             return range[0] - heat;
         else if (heat > range[1])
             return range[1] - heat;
 
-        int nextHeat = heat + stageHeatChange;
+        if (actionsLeftInStage <= 1 && nextStage != stage)
+            return 0;
+
+        int nextHeat = heat + stage.getHeatChange();
         if (nextHeat < range[0])
             return range[0] - nextHeat;
         else if (nextHeat > range[1])

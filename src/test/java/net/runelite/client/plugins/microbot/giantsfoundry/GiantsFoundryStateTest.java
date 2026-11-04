@@ -1,8 +1,10 @@
 package net.runelite.client.plugins.microbot.giantsfoundry;
 
-import net.runelite.client.plugins.microbot.giantsfoundry.enums.Stage;
 import org.junit.jupiter.api.Test;
 
+import static net.runelite.client.plugins.microbot.giantsfoundry.enums.Stage.GRINDSTONE;
+import static net.runelite.client.plugins.microbot.giantsfoundry.enums.Stage.POLISHING_WHEEL;
+import static net.runelite.client.plugins.microbot.giantsfoundry.enums.Stage.TRIP_HAMMER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -14,37 +16,51 @@ class GiantsFoundryStateTest {
 
     @Test
     void polishingWheelHeatsBeforeTheNextActionDropsBelowRange() {
-        int change = GiantsFoundryState.getHeatChangeNeeded(39, Stage.POLISHING_WHEEL.getHeatChange(), LOW_RANGE);
+        int change = GiantsFoundryState.getHeatChangeNeeded(39, LOW_RANGE, POLISHING_WHEEL, 9, TRIP_HAMMER);
 
         assertTrue(change > 0);
     }
 
     @Test
     void tripHammerHeatsBeforeTheNextActionDropsBelowRange() {
-        int change = GiantsFoundryState.getHeatChangeNeeded(716, Stage.TRIP_HAMMER.getHeatChange(), HIGH_RANGE);
+        int change = GiantsFoundryState.getHeatChangeNeeded(716, HIGH_RANGE, TRIP_HAMMER, 5, POLISHING_WHEEL);
 
         assertTrue(change > 0);
     }
 
     @Test
     void grindstoneCoolsBeforeTheNextActionRisesAboveRange() {
-        int change = GiantsFoundryState.getHeatChangeNeeded(620, Stage.GRINDSTONE.getHeatChange(), MED_RANGE);
+        int change = GiantsFoundryState.getHeatChangeNeeded(620, MED_RANGE, GRINDSTONE, 4, POLISHING_WHEEL);
 
         assertTrue(change < 0);
     }
 
     @Test
     void staysAtStationWhileTheNextActionRemainsInRange() {
-        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(60, Stage.POLISHING_WHEEL.getHeatChange(), LOW_RANGE));
-        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(800, Stage.TRIP_HAMMER.getHeatChange(), HIGH_RANGE));
-        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(500, Stage.GRINDSTONE.getHeatChange(), MED_RANGE));
+        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(60, LOW_RANGE, POLISHING_WHEEL, 9, TRIP_HAMMER));
+        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(800, HIGH_RANGE, TRIP_HAMMER, 5, POLISHING_WHEEL));
+        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(500, MED_RANGE, GRINDSTONE, 4, POLISHING_WHEEL));
+    }
+
+    @Test
+    void finishesTheLastActionOfAStageInPlaceWhenTheNextStageUsesAnotherStation() {
+        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(39, LOW_RANGE, POLISHING_WHEEL, 1, TRIP_HAMMER));
+        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(716, HIGH_RANGE, TRIP_HAMMER, 1, GRINDSTONE));
+        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(620, MED_RANGE, GRINDSTONE, 1, null));
+    }
+
+    @Test
+    void stillLooksAheadOnTheLastActionWhenTheNextStageUsesTheSameStation() {
+        int change = GiantsFoundryState.getHeatChangeNeeded(716, HIGH_RANGE, TRIP_HAMMER, 1, TRIP_HAMMER);
+
+        assertTrue(change > 0);
     }
 
     @Test
     void outOfRangeHeatStillMovesTowardTheRange() {
-        assertEquals(10, GiantsFoundryState.getHeatChangeNeeded(20, Stage.POLISHING_WHEEL.getHeatChange(), LOW_RANGE));
-        assertEquals(-10, GiantsFoundryState.getHeatChangeNeeded(310, Stage.POLISHING_WHEEL.getHeatChange(), LOW_RANGE));
-        assertEquals(20, GiantsFoundryState.getHeatChangeNeeded(680, Stage.TRIP_HAMMER.getHeatChange(), HIGH_RANGE));
-        assertEquals(-10, GiantsFoundryState.getHeatChangeNeeded(640, Stage.GRINDSTONE.getHeatChange(), MED_RANGE));
+        assertEquals(10, GiantsFoundryState.getHeatChangeNeeded(20, LOW_RANGE, POLISHING_WHEEL, 1, TRIP_HAMMER));
+        assertEquals(-10, GiantsFoundryState.getHeatChangeNeeded(310, LOW_RANGE, POLISHING_WHEEL, 9, TRIP_HAMMER));
+        assertEquals(20, GiantsFoundryState.getHeatChangeNeeded(680, HIGH_RANGE, TRIP_HAMMER, 1, TRIP_HAMMER));
+        assertEquals(-10, GiantsFoundryState.getHeatChangeNeeded(640, MED_RANGE, GRINDSTONE, 4, POLISHING_WHEEL));
     }
 }
