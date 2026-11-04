@@ -462,13 +462,16 @@ public class NmzScript extends Script {
 
     boolean handleRewardChestBankPin() {
         if (!Rs2Bank.isBankPinWidgetVisible()) return true;
-        if (!Rs2Bank.handleBankPin() && Rs2Bank.isBankPinWidgetVisible()) {
-            Microbot.showMessage("BOT SHUTDOWN: A bank PIN is required to buy NMZ potions. Set your bank PIN in your profile.");
-            Microbot.stopPlugin(plugin);
-            return false;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            if (Rs2Bank.handleBankPin() || !Rs2Bank.isBankPinWidgetVisible()) {
+                sleepUntil(() -> Rs2Widget.isWidgetVisible(13500418), 10000);
+                return true;
+            }
         }
-        sleepUntil(() -> Rs2Widget.isWidgetVisible(13500418), 10000);
-        return true;
+        Microbot.showMessage("BOT SHUTDOWN: Could not enter your bank PIN at the NMZ reward chest, so NMZ potions were not bought. "
+                + "Check that the Bank PIN field in your Microbot profile holds your 4-digit PIN, or enter the PIN yourself and start the script again.");
+        Microbot.stopPlugin(plugin);
+        return false;
     }
 
 }
