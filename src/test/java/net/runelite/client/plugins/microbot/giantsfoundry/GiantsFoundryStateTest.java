@@ -36,6 +36,20 @@ class GiantsFoundryStateTest {
     }
 
     @Test
+    void lookaheadIncludesPassiveDecayOverTheToolCycle() {
+        assertTrue(GiantsFoundryState.getHeatChangeNeeded(LOW_RANGE[0] + 17, LOW_RANGE, POLISHING_WHEEL, 9, TRIP_HAMMER) > 0);
+        assertTrue(GiantsFoundryState.getHeatChangeNeeded(HIGH_RANGE[0] + 27, HIGH_RANGE, TRIP_HAMMER, 5, POLISHING_WHEEL) > 0);
+        assertTrue(GiantsFoundryState.getHeatChangeNeeded(MED_RANGE[1] - 13, MED_RANGE, GRINDSTONE, 4, POLISHING_WHEEL) < 0);
+    }
+
+    @Test
+    void staysWhenHeatLandsExactlyOnTheBoundAfterDecay() {
+        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(LOW_RANGE[0] + 18, LOW_RANGE, POLISHING_WHEEL, 9, TRIP_HAMMER));
+        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(HIGH_RANGE[0] + 28, HIGH_RANGE, TRIP_HAMMER, 5, POLISHING_WHEEL));
+        assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(MED_RANGE[1] - 14, MED_RANGE, GRINDSTONE, 4, POLISHING_WHEEL));
+    }
+
+    @Test
     void staysAtStationWhileTheNextActionRemainsInRange() {
         assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(60, LOW_RANGE, POLISHING_WHEEL, 9, TRIP_HAMMER));
         assertEquals(0, GiantsFoundryState.getHeatChangeNeeded(800, HIGH_RANGE, TRIP_HAMMER, 5, POLISHING_WHEEL));

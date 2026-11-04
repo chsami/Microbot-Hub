@@ -235,7 +235,7 @@ public class GiantsFoundryState {
         if (actionsLeftInStage <= 1 && nextStage != stage)
             return 0;
 
-        int nextHeat = heat + stage.getHeatChange();
+        int nextHeat = heat + stage.getHeatChange() - (HeatActionSolver.TOOL_TICK_CYCLE[stage.ordinal()] + 1) / 2;
         if (nextHeat < range[0])
             return range[0] - nextHeat;
         else if (nextHeat > range[1])
