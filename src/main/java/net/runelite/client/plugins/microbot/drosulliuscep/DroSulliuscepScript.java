@@ -25,7 +25,6 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.PlayStyle;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
-import net.runelite.client.plugins.microbot.util.gameobject.Rs2GameObject;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -1201,7 +1200,7 @@ public class DroSulliuscepScript extends DroScript
 
     private TileObject findMudPit()
     {
-        return Rs2GameObject.getGameObject(
+        return SulliuscepObjects.nearest(
                 o -> o.getId() == SulliuscepRouteData.PIT_OBJECT_ID, 30);
     }
 
@@ -1416,7 +1415,7 @@ public class DroSulliuscepScript extends DroScript
         state = DroSulliuscepState.TO_ACTIVE_TREE;
         status = "Jump on Rubber cap mushroom";
         clearCantReachRecovery();
-        if (doAction(ACTIVE_WORK, true, () -> Rs2GameObject.interact(rubber, "Jump on", false)))
+        if (doAction(ACTIVE_WORK, true, () -> SulliuscepObjects.interact(rubber, "Jump on")))
         {
             rubberJumpClickIssued = true;
             rubberJumpWatchdogAt = now + 8_000L;
@@ -1593,16 +1592,12 @@ public class DroSulliuscepScript extends DroScript
         }).orElse(null);
     }
 
-    // Rs2GameObject.getTileObject only scans walls, ground objects and decorations in this
-    // checkout. Trees and vines are GameObjects, so that lookup alone always loses them.
-    // Use the candidate's local centre to avoid anchor conversion through the player cache.
+    // Cache models wrap the live scene object; hand back that object (GameObject, wall,
+    // ground or decoration) so its footprint is available when building menu coordinates.
     static TileObject resolveCourseObject(TileObject candidate)
     {
         if (candidate == null || candidate.getLocalLocation() == null) return null;
-        TileObject object = Rs2GameObject.getGameObject(
-                o -> o.getHash() == candidate.getHash(), candidate.getLocalLocation(), 128);
-        return object != null ? object : Rs2GameObject.getTileObject(
-                o -> o.getHash() == candidate.getHash(), candidate.getLocalLocation(), 128);
+        return SulliuscepObjects.unwrap(candidate);
     }
 
     private WorldPoint currentPlayerLocation()
@@ -1656,7 +1651,7 @@ public class DroSulliuscepScript extends DroScript
         if (!ready) return false;
         // Keep the local DRO reaction distribution on course clicks as well.
         clearCantReachRecovery();
-        return doAction(ACTIVE_WORK, false, () -> Rs2GameObject.interact(object, action, false));
+        return doAction(ACTIVE_WORK, false, () -> SulliuscepObjects.interact(object, action));
     }
 
     private boolean directObjectAction(TileObject object, String action,
@@ -1673,7 +1668,7 @@ public class DroSulliuscepScript extends DroScript
             // previous interaction raised the global "can't reach" flag. This script owns
             // the local Sulliuscep route, so explicitly prevent that hidden hand-off.
             clearCantReachRecovery();
-            return Rs2GameObject.interact(object, action);
+            return SulliuscepObjects.interact(object, action);
         });
     }
 
@@ -2016,7 +2011,7 @@ public class DroSulliuscepScript extends DroScript
                 }
                 if (!houseEnterDelayElapsed(now)) return;
                 houseEntry.issued(now, 10_000L);
-                TileObject portal = Rs2GameObject.getGameObject(home.getPortalId());
+                TileObject portal = SulliuscepObjects.nearest(home.getPortalId());
                 if (portal != null) directObjectAction(portal, "Home", SETUP, true);
                 return;
             }
@@ -2126,7 +2121,7 @@ public class DroSulliuscepScript extends DroScript
 
     TileObject findHousePool()
     {
-        return Rs2GameObject.getGameObject(o -> o.getId() == ObjectID.POH_POOL_REGENERATION
+        return SulliuscepObjects.nearest(o -> o.getId() == ObjectID.POH_POOL_REGENERATION
                 || o.getId() == ObjectID.XMAS20_POH_POOL_REGENERATION, 60);
     }
 
@@ -2135,7 +2130,7 @@ public class DroSulliuscepScript extends DroScript
         if (pool == null) return false;
         return doAction(MAINTENANCE, true, () -> {
             clearCantReachRecovery();
-            if (!Rs2GameObject.interact(pool, "Drink")) return false;
+            if (!SulliuscepObjects.interact(pool, "Drink")) return false;
             if (doubleClickHousePool())
             {
                 // Humanized double-click spacing on the script thread, not a game-state wait.
@@ -2149,7 +2144,7 @@ public class DroSulliuscepScript extends DroScript
                     return true;
                 }
                 clearCantReachRecovery();
-                Rs2GameObject.interact(pool, "Drink");
+                SulliuscepObjects.interact(pool, "Drink");
             }
             return true;
         });
@@ -2326,11 +2321,11 @@ public class DroSulliuscepScript extends DroScript
 
         // Visible object ALWAYS wins over routing. Let the game's object interaction walk the
         // short final distance exactly like a normal click.
-        TileObject pool = Rs2GameObject.getGameObject(
+        TileObject pool = SulliuscepObjects.nearest(
                 o -> o.getId() == SulliuscepRouteData.POOL_OF_REFRESHMENT_OBJECT_ID, 30);
         if (pool == null)
         {
-            pool = Rs2GameObject.getGameObject("Pool of Refreshment", false, 30);
+            pool = SulliuscepObjects.nearestNamed("Pool of Refreshment", 30);
         }
 
         if (pool != null)
@@ -2538,11 +2533,11 @@ public class DroSulliuscepScript extends DroScript
 
             // First priority: click the actual chest if it is in the loaded scene. The supplied
             // recording used "Use Bank chest" on object 26711 at 3130,3632.
-            TileObject bankChest = Rs2GameObject.getGameObject(
+            TileObject bankChest = SulliuscepObjects.nearest(
                     o -> o.getId() == SulliuscepRouteData.FEROX_BANK_CHEST_OBJECT_ID, 30);
             if (bankChest == null)
             {
-                bankChest = Rs2GameObject.getGameObject("Bank chest", false, 30);
+                bankChest = SulliuscepObjects.nearestNamed("Bank chest", 30);
             }
 
             if (bankChest != null)
@@ -3038,7 +3033,7 @@ public class DroSulliuscepScript extends DroScript
             fail("Sticky Swamp landing not observed after 3 Mushtree attempts");
             return;
         }
-        TileObject tree = Rs2GameObject.getGameObject(
+        TileObject tree = SulliuscepObjects.nearest(
                 object -> object.getId() == SulliuscepRouteData.MAGIC_MUSHTREE_HOUSE_OBJECT_ID, 30);
         if (tree == null)
         {
