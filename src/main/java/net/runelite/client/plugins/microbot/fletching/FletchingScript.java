@@ -173,7 +173,16 @@ public class FletchingScript extends Script {
             if (isBowStringSpool(primaryItemToFletch)) {
                 Rs2Bank.withdrawItem(primaryItemToFletch);
             } else {
-                Rs2Bank.withdrawX(primaryItemToFletch, fletchingMode.getAmount(), true);
+                boolean withdrawn = Rs2Bank.withdrawX(primaryItemToFletch, fletchingMode.getAmount(), true);
+                if (!withdrawn && !usesKnife()) {
+                    // Not enough bow strings for a batch: without this the script banks forever.
+                    Rs2Bank.closeBank();
+                    Microbot.status = "[Shutting down] - Reason: Not enough bow strings in the bank (need "
+                            + fletchingMode.getAmount() + "). Bank more bow strings, then start again.";
+                    Microbot.showMessage(Microbot.status);
+                    shutdown();
+                    return;
+                }
             }
         }
 
