@@ -65,6 +65,17 @@ public interface FletchingConfig extends Config {
     {
         return FletchingItem.SHORT;
     }
+    @ConfigItem(
+            keyName = "UseBowStringSpool",
+            name = "Use bow string spool",
+            description = "Stringing modes only: if a bow string spool with string on it is in your bank or inventory, string 27 bows per trip with it instead of 14 bow strings. An empty spool is refilled from your banked bow strings. Turn off to always use loose bow strings.",
+            position = 3,
+            section = generalSection
+    )
+    default boolean useBowStringSpool()
+    {
+        return true;
+    }
     @ConfigSection(
             name = "Antiban",
             description = "Configure antiban measures",
