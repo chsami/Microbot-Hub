@@ -39,6 +39,8 @@ While stringing, if your bank or inventory contains a **bow string spool** with 
 - It only pulls as many bows as the spool can string (or as many as the bank has left).
 - If the spool is empty, missing, or you have no spool, stringing falls back to bow strings as before.
 - If the spool runs out and there are no bow strings in the bank, the script stops. Fill the spool or bank more bow strings.
+- To keep using loose bow strings, turn off Use bow string spool in the plugin's General settings.
+- If using the spool does not open the stringing menu, the script switches to bow strings for the rest of the session.
 
 ---
 

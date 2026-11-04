@@ -41,6 +41,8 @@ public class FletchingScript extends Script {
     private static final String BOW_STRING_SPOOL = "bow string spool";
     // The spool takes one inventory slot instead of the 14 bow strings, so 27 bows fit per trip.
     private static final int BOW_STRING_SPOOL_BOWS_PER_TRIP = 27;
+    // Total attempts to open the stringing menu with the spool before switching to bow strings.
+    private static final int BOW_STRING_SPOOL_MENU_ATTEMPTS = 3;
 
     ProgressiveFletchingModel model = new ProgressiveFletchingModel();
 
@@ -50,6 +52,7 @@ public class FletchingScript extends Script {
     FletchingMode fletchingMode;
 
     private boolean bowStringSpoolDisabled;
+    private int bowStringSpoolMenuFailures;
     private String lastStringingItem = "";
 
     public void run(FletchingConfig config) {
@@ -151,13 +154,18 @@ public class FletchingScript extends Script {
         boolean hasPrimaryInInventory = hasPrimaryItemInInventory();
         if (!hasPrimaryInBank && !hasPrimaryInInventory) {
             Rs2Bank.closeBank();
+            boolean spoolUnusable = bowStringSpoolDisabled && config.useBowStringSpool() && !usesKnife();
             boolean spoolEmpty = config.useBowStringSpool()
                     && !usesKnife()
                     && getBowStringSpoolCharges() <= 0
                     && (Rs2Bank.hasItem(BOW_STRING_SPOOL) || Rs2Inventory.hasItem(BOW_STRING_SPOOL));
-            Microbot.status = spoolEmpty
-                    ? "[Shutting down] - Reason: Your bow string spool is empty and there are no bow strings in the bank. Fill the spool with bow strings or bank more bow strings, then start again."
-                    : "[Shutting down] - Reason: " + primaryItemToFletch + " not found in the bank.";
+            if (spoolUnusable) {
+                Microbot.status = "[Shutting down] - Reason: Your bow string spool could not be used (the stringing menu did not open) and there are no bow strings in the bank. Bank some bow strings, or start the script again to retry the spool.";
+            } else if (spoolEmpty) {
+                Microbot.status = "[Shutting down] - Reason: Your bow string spool is empty and there are no bow strings in the bank. Fill the spool with bow strings or bank more bow strings, then start again.";
+            } else {
+                Microbot.status = "[Shutting down] - Reason: " + primaryItemToFletch + " not found in the bank.";
+            }
             Microbot.showMessage(Microbot.status);
             shutdown();
             return;
@@ -174,11 +182,13 @@ public class FletchingScript extends Script {
                 Rs2Bank.withdrawItem(primaryItemToFletch);
             } else {
                 boolean withdrawn = Rs2Bank.withdrawX(primaryItemToFletch, fletchingMode.getAmount(), true);
-                if (!withdrawn && !usesKnife()) {
-                    // Not enough bow strings for a batch: without this the script banks forever.
+                if (!withdrawn && !usesKnife()
+                        && !Rs2Bank.hasBankItem(primaryItemToFletch, fletchingMode.getAmount(), true)) {
+                    // Fewer bow strings than a batch: without this the script banks forever.
                     Rs2Bank.closeBank();
-                    Microbot.status = "[Shutting down] - Reason: Not enough bow strings in the bank (need "
-                            + fletchingMode.getAmount() + "). Bank more bow strings, then start again.";
+                    Microbot.status = "[Shutting down] - Reason: Only " + Rs2Bank.count(primaryItemToFletch)
+                            + " bow strings in the bank (need " + fletchingMode.getAmount()
+                            + " per trip). Bank more bow strings or fill your bow string spool, then start again.";
                     Microbot.showMessage(Microbot.status);
                     shutdown();
                     return;
@@ -241,11 +251,17 @@ public class FletchingScript extends Script {
         Rs2Inventory.combineClosest(itemToUse, secondaryItemToFletch);
         boolean stringingMenuOpen = sleepUntil(() -> Rs2Widget.getWidget(FLETCHING_WIDGET_GROUP_ID) != null, 5000);
         if (!stringingMenuOpen && usingBowStringSpool) {
+            if (++bowStringSpoolMenuFailures < BOW_STRING_SPOOL_MENU_ATTEMPTS) {
+                Microbot.log("Bow string spool did not open the stringing menu, retrying");
+                return;
+            }
             bowStringSpoolDisabled = true;
             lastStringingItem = fletchingMode.getItemName();
+            Microbot.status = "Bow string spool could not be used, switching to bow strings";
             Microbot.log("Bow string spool did not open the stringing menu, switching to bow strings");
             return;
         }
+        bowStringSpoolMenuFailures = 0;
         char option;
         if (fletchingMode == FletchingMode.PROGRESSIVE || fletchingMode == FletchingMode.PROGRESSIVE_STRUNG) {
 

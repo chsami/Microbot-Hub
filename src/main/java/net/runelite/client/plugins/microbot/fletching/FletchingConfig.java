@@ -68,7 +68,7 @@ public interface FletchingConfig extends Config {
     @ConfigItem(
             keyName = "UseBowStringSpool",
             name = "Use bow string spool",
-            description = "Use a charged bow string spool for stringing when one is available",
+            description = "Stringing modes only: use a charged bow string spool (27 bows per trip) instead of bow strings when one is in your bank or inventory. Falls back to bow strings when the spool is empty.",
             position = 3,
             section = generalSection
     )
