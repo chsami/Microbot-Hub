@@ -39,8 +39,6 @@ public class FletchingScript extends Script {
     private static final String FLETCHING_KNIFE = "fletching knife";
     private static final String KNIFE = "knife";
     private static final String BOW_STRING_SPOOL = "bow string spool";
-    // The spool takes one inventory slot instead of the 14 bow strings, so 27 bows fit per trip.
-    private static final int BOW_STRING_SPOOL_BOWS_PER_TRIP = 27;
     // Total attempts to open the stringing menu with the spool before switching to bow strings.
     private static final int BOW_STRING_SPOOL_MENU_ATTEMPTS = 3;
 
@@ -127,10 +125,22 @@ public class FletchingScript extends Script {
         // Re-evaluate the stringing item now that the bank is open (the bank snapshot is not available before).
         primaryItemToFletch = usesKnife() ? getPreferredKnife() : getStringingItem(config);
 
+        // A spool trip leaves the spool in the inventory. Deposit only the strung bows with one
+        // Deposit-All click, then withdraw the unstrung bows in one click below.
+        boolean spoolInInventory = isBowStringSpool(primaryItemToFletch) && Rs2Inventory.hasItem(BOW_STRING_SPOOL);
+        String strungBowName = getStrungBowName();
+        if (spoolInInventory) {
+            if (Rs2Bank.depositAll(strungBowName, true)) {
+                sleepUntil(() -> !Rs2Inventory.hasItem(strungBowName, true), 5000);
+            }
+        }
+
         // Deposit items based on the fletching mode
         switch (fletchingMode) {
             case STRUNG:
-                Rs2Bank.depositAll();
+                if (!spoolInInventory) {
+                    Rs2Bank.depositAll();
+                }
                 break;
             case PROGRESSIVE:
                 Rs2Bank.depositAll(model.getFletchingItem().getContainsInventoryName());
@@ -138,7 +148,9 @@ public class FletchingScript extends Script {
                 secondaryItemToFletch = model.getFletchingMaterial().getLogItemName();
                 break;
             case PROGRESSIVE_STRUNG:
-                Rs2Bank.depositAll();
+                if (!spoolInInventory) {
+                    Rs2Bank.depositAll();
+                }
                 calculateItemToFletch();
                 secondaryItemToFletch = model.getFletchingMaterial().getName() + " "
                         + model.getFletchingItem().getContainsInventoryName() + " (u)";
@@ -213,10 +225,8 @@ public class FletchingScript extends Script {
         // Withdraw the secondary item if not already in the inventory
         if (!Rs2Inventory.hasItem(secondaryItemToFletch)) {
             if (isBowStringSpool(primaryItemToFletch)) {
-                int bowsToWithdraw = getBowStringSpoolBowsToWithdraw();
-                if (bowsToWithdraw > 0) {
-                    Rs2Bank.withdrawX(secondaryItemToFletch, bowsToWithdraw);
-                }
+                // Withdraw-All fills the free slots in one click (27 with the spool still in the inventory).
+                Rs2Bank.withdrawAll(secondaryItemToFletch);
             } else if (fletchingMode == FletchingMode.STRUNG) {
                 Rs2Bank.withdrawDeficit(secondaryItemToFletch, fletchingMode.getAmount());
             } else {
@@ -357,9 +367,11 @@ public class FletchingScript extends Script {
         return BOW_STRING_SPOOL.equals(itemName);
     }
 
-    private int getBowStringSpoolBowsToWithdraw() {
-        return Math.min(BOW_STRING_SPOOL_BOWS_PER_TRIP,
-                Math.min(getBowStringSpoolCharges(), Rs2Bank.count(secondaryItemToFletch)));
+    private String getStrungBowName() {
+        // The strung bow is the unstrung name without the " (u)" suffix.
+        return secondaryItemToFletch.endsWith(" (u)")
+                ? secondaryItemToFletch.substring(0, secondaryItemToFletch.length() - 4)
+                : secondaryItemToFletch;
     }
 
     private int getBowStringSpoolCharges() {

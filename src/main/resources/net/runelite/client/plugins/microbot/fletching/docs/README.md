@@ -36,7 +36,7 @@ The **Fletching Plugin** provides an automated way to train fletching.
 While stringing, if your bank or inventory contains a **bow string spool** with string on it, the plugin uses it automatically (before any loose bow strings):
 
 - It withdraws the spool and **27 unstrung bows** per trip instead of 14 bows and 14 bow strings.
-- It only pulls as many bows as the spool can string (or as many as the bank has left).
+- It keeps the spool, deposits only the strung bows, and withdraws as many unstrung bows as fit (or as many as the bank has left).
 - If the spool is empty, missing, or you have no spool, stringing falls back to bow strings as before.
 - If the spool runs out and there are no bow strings in the bank, the script stops. Fill the spool or bank more bow strings.
 - To keep using loose bow strings, turn off Use bow string spool in the plugin's General settings.
