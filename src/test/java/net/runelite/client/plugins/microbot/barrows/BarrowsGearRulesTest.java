@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.barrows;
 
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsStackCompareID;
+import net.runelite.client.plugins.microbot.util.magic.Runes;
 import org.junit.jupiter.api.Test;
 
 import java.util.AbstractMap.SimpleEntry;
@@ -175,5 +176,25 @@ class BarrowsGearRulesTest
         assertEquals("Karil's crossbow 0", BarrowsGearRules.brokenOnlyMatch("karil's crossbow",
                 Arrays.asList(null, "Karil's crossbow 0")));
         assertNull(BarrowsGearRules.brokenOnlyMatch("", Arrays.asList("Karil's crossbow 0")));
+    }
+
+    @Test
+    void combatRuneNamesMapToPouchRunes()
+    {
+        assertEquals(Runes.WRATH, BarrowsGearRules.runeByName("Wrath rune"));
+        assertEquals(Runes.BLOOD, BarrowsGearRules.runeByName("Blood rune"));
+        assertEquals(Runes.DEATH, BarrowsGearRules.runeByName("Death rune"));
+        assertNull(BarrowsGearRules.runeByName("unknown"));
+        assertNull(BarrowsGearRules.runeByName(null));
+    }
+
+    @Test
+    void runesInThePouchCountTowardsTheMinimum()
+    {
+        assertTrue(BarrowsGearRules.hasMoreRunesThan(0, 5400, 180));
+        assertTrue(BarrowsGearRules.hasMoreRunesThan(100, 100, 180));
+        assertTrue(BarrowsGearRules.hasMoreRunesThan(500, 0, 180));
+        assertFalse(BarrowsGearRules.hasMoreRunesThan(0, 180, 180));
+        assertFalse(BarrowsGearRules.hasMoreRunesThan(0, 0, 180));
     }
 }
