@@ -49,6 +49,9 @@ public class FletchingScript extends Script {
 
     FletchingMode fletchingMode;
 
+    private boolean bowStringSpoolDisabled;
+    private String lastStringingItem = "";
+
     public void run(FletchingConfig config) {
         fletchingMode = config.fletchingMode();
         Rs2Antiban.resetAntibanSettings();
@@ -75,7 +78,7 @@ public class FletchingScript extends Script {
 
                 boolean hasRequirementsToFletch;
                 boolean hasRequirementsToBank;
-                primaryItemToFletch = usesKnife() ? getPreferredKnife() : getStringingItem();
+                primaryItemToFletch = usesKnife() ? getPreferredKnife() : getStringingItem(config);
 
                 if (fletchingMode == FletchingMode.PROGRESSIVE) {
                     secondaryItemToFletch = model.getFletchingMaterial().getLogItemName();
@@ -119,7 +122,7 @@ public class FletchingScript extends Script {
         }
 
         // Re-evaluate the stringing item now that the bank is open (the bank snapshot is not available before).
-        primaryItemToFletch = usesKnife() ? getPreferredKnife() : getStringingItem();
+        primaryItemToFletch = usesKnife() ? getPreferredKnife() : getStringingItem(config);
 
         // Deposit items based on the fletching mode
         switch (fletchingMode) {
@@ -148,7 +151,13 @@ public class FletchingScript extends Script {
         boolean hasPrimaryInInventory = hasPrimaryItemInInventory();
         if (!hasPrimaryInBank && !hasPrimaryInInventory) {
             Rs2Bank.closeBank();
-            Microbot.status = "[Shutting down] - Reason: " + primaryItemToFletch + " not found in the bank.";
+            boolean spoolEmpty = config.useBowStringSpool()
+                    && !usesKnife()
+                    && getBowStringSpoolCharges() <= 0
+                    && (Rs2Bank.hasItem(BOW_STRING_SPOOL) || Rs2Inventory.hasItem(BOW_STRING_SPOOL));
+            Microbot.status = spoolEmpty
+                    ? "[Shutting down] - Reason: Your bow string spool is empty and there are no bow strings in the bank. Fill the spool with bow strings or bank more bow strings, then start again."
+                    : "[Shutting down] - Reason: " + primaryItemToFletch + " not found in the bank.";
             Microbot.showMessage(Microbot.status);
             shutdown();
             return;
@@ -219,8 +228,15 @@ public class FletchingScript extends Script {
 
     private void fletch(FletchingConfig config) {
         String itemToUse = usesKnife() ? getKnifeInInventory() : primaryItemToFletch;
+        boolean usingBowStringSpool = isBowStringSpool(itemToUse);
         Rs2Inventory.combineClosest(itemToUse, secondaryItemToFletch);
-        sleepUntil(() -> Rs2Widget.getWidget(FLETCHING_WIDGET_GROUP_ID) != null, 5000);
+        boolean stringingMenuOpen = sleepUntil(() -> Rs2Widget.getWidget(FLETCHING_WIDGET_GROUP_ID) != null, 5000);
+        if (!stringingMenuOpen && usingBowStringSpool) {
+            bowStringSpoolDisabled = true;
+            lastStringingItem = fletchingMode.getItemName();
+            Microbot.log("Bow string spool did not open the stringing menu, switching to bow strings");
+            return;
+        }
         char option;
         if (fletchingMode == FletchingMode.PROGRESSIVE || fletchingMode == FletchingMode.PROGRESSIVE_STRUNG) {
 
@@ -234,7 +250,10 @@ public class FletchingScript extends Script {
         Rs2Bank.preHover();
 
         // A spool trip strings 27 bows instead of the usual 14, so give it more time to finish.
-        sleepUntil(() -> !Rs2Inventory.hasItem(secondaryItemToFletch), isBowStringSpool(itemToUse) ? 90000 : 60000);
+        // Stop waiting early if the spool runs dry before the batch is finished.
+        sleepUntil(() -> !Rs2Inventory.hasItem(secondaryItemToFletch)
+                        || (usingBowStringSpool && getBowStringSpoolCharges() == 0),
+                usingBowStringSpool ? 90000 : 60000);
         Rs2Antiban.actionCooldown();
         Rs2Antiban.takeMicroBreakByChance();
     }
@@ -285,11 +304,23 @@ public class FletchingScript extends Script {
         return usesKnife() ? hasAnyKnife() : Rs2Inventory.hasItem(primaryItemToFletch, true);
     }
 
-    private String getStringingItem() {
-        return isUsingBowStringSpool() ? BOW_STRING_SPOOL : fletchingMode.getItemName();
+    private String getStringingItem(FletchingConfig config) {
+        String stringingItem = isUsingBowStringSpool(config) ? BOW_STRING_SPOOL : fletchingMode.getItemName();
+        if (!stringingItem.equals(lastStringingItem)) {
+            if (BOW_STRING_SPOOL.equals(stringingItem)) {
+                Microbot.log("Using bow string spool (" + getBowStringSpoolCharges() + " strings left)");
+            } else if (!lastStringingItem.isEmpty()) {
+                Microbot.log("Bow string spool is empty or missing, using bow strings");
+            }
+            lastStringingItem = stringingItem;
+        }
+        return stringingItem;
     }
 
-    private boolean isUsingBowStringSpool() {
+    private boolean isUsingBowStringSpool(FletchingConfig config) {
+        if (bowStringSpoolDisabled || !config.useBowStringSpool()) {
+            return false;
+        }
         if (fletchingMode != FletchingMode.STRUNG && fletchingMode != FletchingMode.PROGRESSIVE_STRUNG) {
             return false;
         }

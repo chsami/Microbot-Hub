@@ -65,6 +65,17 @@ public interface FletchingConfig extends Config {
     {
         return FletchingItem.SHORT;
     }
+    @ConfigItem(
+            keyName = "UseBowStringSpool",
+            name = "Use bow string spool",
+            description = "Use a charged bow string spool for stringing when one is available",
+            position = 3,
+            section = generalSection
+    )
+    default boolean useBowStringSpool()
+    {
+        return true;
+    }
     @ConfigSection(
             name = "Antiban",
             description = "Configure antiban measures",
