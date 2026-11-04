@@ -42,6 +42,11 @@ public class BarbarianFishingOverlay extends OverlayPanel
             panelComponent.getChildren().add(LineComponent.builder().build());
 
             panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Bait:")
+                    .right(script != null ? script.getBaitSummary() : "None")
+                    .build());
+
+            panelComponent.getChildren().add(LineComponent.builder()
                     .left("Location:")
                     .right(script != null ? script.getLocation().getDisplayName() : "Unknown")
                     .build());

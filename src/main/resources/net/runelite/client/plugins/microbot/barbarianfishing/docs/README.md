@@ -32,7 +32,7 @@ The **Barbarian Fishing Plugin** is an automation tool for Old School RuneScape,
 
 ## Requirements
 
-- Start at Otto's Grotto or the Mount Quidamortem lake with a Barbarian rod (or Pearl barbarian rod) and feathers / fishing bait / fish offal in inventory.
+- Start at Otto's Grotto or the Mount Quidamortem lake with a Barbarian rod (or Pearl barbarian rod) and feathers / fishing bait / fish offcuts / roe / caviar in inventory.
 - Fishing, Agility and Strength levels for each fish: leaping trout 48/15/15, leaping salmon 58/30/30, leaping sturgeon 70/45/45.
 - (Optional) Fish barrel for expanded capacity.
 - (Optional) Dragon harpoon equipped for special attack boosts.
@@ -56,5 +56,5 @@ The **Barbarian Fishing Plugin** is an automation tool for Old School RuneScape,
 - Walks to fishing spots and the CoX bank chest automatically.
 - Added Fish Barrel auto-fill and auto-empty at CoX bank chest.
 - Added a Dragon Harpoon Spec toggle (on by default; only used when the Dragon harpoon is equipped).
-- The plugin now stops and shows a message when your Barbarian rod or feathers/bait run out (it used to stand idle).
+- The plugin now stops and shows a message when your Barbarian rod or your feathers/bait are missing for a few seconds (it used to stand idle).
 - Use Fish Barrel is on by default: a Fish barrel in your inventory is filled when your inventory is full (it is only emptied with Bank at CoX).

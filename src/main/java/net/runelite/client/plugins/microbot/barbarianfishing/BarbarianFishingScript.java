@@ -148,6 +148,8 @@ public class BarbarianFishingScript extends Script
 
                 if (!Microbot.isLoggedIn())
                 {
+                    missingRodTicks = 0;
+                    missingBaitTicks = 0;
                     status = "Logged out";
                     return;
                 }
@@ -170,7 +172,7 @@ public class BarbarianFishingScript extends Script
 
                 if (missingBaitTicks >= SUPPLY_CHECK_TICKS)
                 {
-                    stopWithReason("Stopped: no feathers or bait left - put Feathers (or Fishing bait, Fish offal, Roe or Caviar) in your inventory and start the plugin again");
+                    stopWithReason("Stopped: no feathers or bait left - put Feathers (or Fishing bait, Fish offcuts, Roe or Caviar) in your inventory and start the plugin again");
                     return;
                 }
 
@@ -489,13 +491,31 @@ public class BarbarianFishingScript extends Script
                 || Rs2Equipment.isWearing("Pearl barbarian rod");
     }
 
+    private static final String[] BAIT_NAMES = {"feather", "fishing bait", "fish offcuts", "roe", "caviar"};
+
+    public String getBaitSummary()
+    {
+        for (String name : BAIT_NAMES)
+        {
+            int count = Rs2Inventory.count(name);
+            if (count > 0)
+            {
+                return name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1) + ": " + count;
+            }
+        }
+        return "None";
+    }
+
     private boolean hasBait()
     {
-        return Rs2Inventory.hasItem("feather")
-                || Rs2Inventory.hasItem("fishing bait")
-                || Rs2Inventory.hasItem("fish offal")
-                || Rs2Inventory.hasItem("roe")
-                || Rs2Inventory.hasItem("caviar");
+        for (String name : BAIT_NAMES)
+        {
+            if (Rs2Inventory.hasItem(name))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasAnyLeapingFish()
