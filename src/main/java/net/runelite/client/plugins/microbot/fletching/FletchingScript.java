@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import net.runelite.api.Point;
 import net.runelite.api.Skill;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -37,6 +38,9 @@ public class FletchingScript extends Script {
 
     private static final String FLETCHING_KNIFE = "fletching knife";
     private static final String KNIFE = "knife";
+    private static final String BOW_STRING_SPOOL = "bow string spool";
+    // The spool takes one inventory slot instead of the 14 bow strings, so 27 bows fit per trip.
+    private static final int BOW_STRING_SPOOL_BOWS_PER_TRIP = 27;
 
     ProgressiveFletchingModel model = new ProgressiveFletchingModel();
 
@@ -71,26 +75,26 @@ public class FletchingScript extends Script {
 
                 boolean hasRequirementsToFletch;
                 boolean hasRequirementsToBank;
-                primaryItemToFletch = usesKnife() ? getPreferredKnife() : fletchingMode.getItemName();
+                primaryItemToFletch = usesKnife() ? getPreferredKnife() : getStringingItem();
 
                 if (fletchingMode == FletchingMode.PROGRESSIVE) {
                     secondaryItemToFletch = model.getFletchingMaterial().getLogItemName();
-                    hasRequirementsToFletch = Rs2Inventory.hasItem(primaryItemToFletch)
+                    hasRequirementsToFletch = hasPrimaryItemInInventory()
                             && Rs2Inventory.hasItemAmount(secondaryItemToFletch, model.getFletchingItem().getAmountRequired());
-                    hasRequirementsToBank = !Rs2Inventory.hasItem(primaryItemToFletch)
+                    hasRequirementsToBank = !hasPrimaryItemInInventory()
                             || !Rs2Inventory.hasItemAmount(secondaryItemToFletch, model.getFletchingItem().getAmountRequired());
                 } else if (fletchingMode == FletchingMode.PROGRESSIVE_STRUNG) {
                     secondaryItemToFletch = model.getFletchingMaterial().getName() + " "
                             + model.getFletchingItem().getContainsInventoryName() + " (u)";
-                    hasRequirementsToFletch = Rs2Inventory.hasItem(primaryItemToFletch) && Rs2Inventory.hasItem(secondaryItemToFletch);
-                    hasRequirementsToBank = !Rs2Inventory.hasItem(primaryItemToFletch) || !Rs2Inventory.hasItem(secondaryItemToFletch);
+                    hasRequirementsToFletch = hasPrimaryItemInInventory() && Rs2Inventory.hasItem(secondaryItemToFletch);
+                    hasRequirementsToBank = !hasPrimaryItemInInventory() || !Rs2Inventory.hasItem(secondaryItemToFletch);
                 } else {
                     secondaryItemToFletch = fletchingMode == FletchingMode.STRUNG
                             ? config.fletchingMaterial().getName() + " " + config.fletchingItem().getContainsInventoryName() + " (u)"
                             : config.fletchingMaterial().getLogItemName();
-                    hasRequirementsToFletch = Rs2Inventory.hasItem(primaryItemToFletch)
+                    hasRequirementsToFletch = hasPrimaryItemInInventory()
                             && Rs2Inventory.hasItemAmount(secondaryItemToFletch, config.fletchingItem().getAmountRequired());
-                    hasRequirementsToBank = !Rs2Inventory.hasItem(primaryItemToFletch)
+                    hasRequirementsToBank = !hasPrimaryItemInInventory()
                             || !Rs2Inventory.hasItemAmount(secondaryItemToFletch, config.fletchingItem().getAmountRequired());
                 }
 
@@ -113,6 +117,9 @@ public class FletchingScript extends Script {
                 return; // Bank didn't open, retry next iteration
             }
         }
+
+        // Re-evaluate the stringing item now that the bank is open (the bank snapshot is not available before).
+        primaryItemToFletch = usesKnife() ? getPreferredKnife() : getStringingItem();
 
         // Deposit items based on the fletching mode
         switch (fletchingMode) {
@@ -137,8 +144,8 @@ public class FletchingScript extends Script {
         }
 
         // Check if the primary item is available
-        boolean hasPrimaryInBank = usesKnife() ? bankHasAnyKnife() : Rs2Bank.hasItem(primaryItemToFletch);
-        boolean hasPrimaryInInventory = usesKnife() ? hasAnyKnife() : Rs2Inventory.hasItem(primaryItemToFletch);
+        boolean hasPrimaryInBank = hasPrimaryItemInBank();
+        boolean hasPrimaryInInventory = hasPrimaryItemInInventory();
         if (!hasPrimaryInBank && !hasPrimaryInInventory) {
             Rs2Bank.closeBank();
             Microbot.status = "[Shutting down] - Reason: " + primaryItemToFletch + " not found in the bank.";
@@ -154,7 +161,11 @@ public class FletchingScript extends Script {
 
         // Withdraw the primary item if not already in the inventory
         if (!hasPrimaryInInventory) {
-            Rs2Bank.withdrawX(primaryItemToFletch, fletchingMode.getAmount(), true);
+            if (isBowStringSpool(primaryItemToFletch)) {
+                Rs2Bank.withdrawItem(primaryItemToFletch);
+            } else {
+                Rs2Bank.withdrawX(primaryItemToFletch, fletchingMode.getAmount(), true);
+            }
         }
 
         // Check if the secondary item is available
@@ -173,7 +184,12 @@ public class FletchingScript extends Script {
 
         // Withdraw the secondary item if not already in the inventory
         if (!Rs2Inventory.hasItem(secondaryItemToFletch)) {
-            if (fletchingMode == FletchingMode.STRUNG) {
+            if (isBowStringSpool(primaryItemToFletch)) {
+                int bowsToWithdraw = getBowStringSpoolBowsToWithdraw();
+                if (bowsToWithdraw > 0) {
+                    Rs2Bank.withdrawX(secondaryItemToFletch, bowsToWithdraw);
+                }
+            } else if (fletchingMode == FletchingMode.STRUNG) {
                 Rs2Bank.withdrawDeficit(secondaryItemToFletch, fletchingMode.getAmount());
             } else {
                 Rs2Bank.withdrawAll(secondaryItemToFletch);
@@ -190,7 +206,7 @@ public class FletchingScript extends Script {
         }
 
         // Final check to ensure both items are in the inventory
-        boolean hasPrimaryFinal = usesKnife() ? hasAnyKnife() : Rs2Inventory.hasItem(primaryItemToFletch);
+        boolean hasPrimaryFinal = hasPrimaryItemInInventory();
         if (!hasPrimaryFinal || !Rs2Inventory.hasItem(secondaryItemToFletch)) {
             Microbot.log("waiting for inventory changes.");
             Rs2Inventory.waitForInventoryChanges(5000);
@@ -217,7 +233,8 @@ public class FletchingScript extends Script {
 
         Rs2Bank.preHover();
 
-        sleepUntil(() -> !Rs2Inventory.hasItem(secondaryItemToFletch), 60000);
+        // A spool trip strings 27 bows instead of the usual 14, so give it more time to finish.
+        sleepUntil(() -> !Rs2Inventory.hasItem(secondaryItemToFletch), isBowStringSpool(itemToUse) ? 90000 : 60000);
         Rs2Antiban.actionCooldown();
         Rs2Antiban.takeMicroBreakByChance();
     }
@@ -257,6 +274,40 @@ public class FletchingScript extends Script {
         return fletchingMode == FletchingMode.UNSTRUNG
                 || fletchingMode == FletchingMode.UNSTRUNG_STRUNG
                 || fletchingMode == FletchingMode.PROGRESSIVE;
+    }
+
+    private boolean hasPrimaryItemInBank() {
+        // Exact match keeps "bow string" from matching the "bow string spool".
+        return usesKnife() ? bankHasAnyKnife() : Rs2Bank.hasBankItem(primaryItemToFletch, true);
+    }
+
+    private boolean hasPrimaryItemInInventory() {
+        return usesKnife() ? hasAnyKnife() : Rs2Inventory.hasItem(primaryItemToFletch, true);
+    }
+
+    private String getStringingItem() {
+        return isUsingBowStringSpool() ? BOW_STRING_SPOOL : fletchingMode.getItemName();
+    }
+
+    private boolean isUsingBowStringSpool() {
+        if (fletchingMode != FletchingMode.STRUNG && fletchingMode != FletchingMode.PROGRESSIVE_STRUNG) {
+            return false;
+        }
+        return getBowStringSpoolCharges() > 0
+                && (Rs2Inventory.hasItem(BOW_STRING_SPOOL) || Rs2Bank.hasItem(BOW_STRING_SPOOL));
+    }
+
+    private boolean isBowStringSpool(String itemName) {
+        return BOW_STRING_SPOOL.equals(itemName);
+    }
+
+    private int getBowStringSpoolBowsToWithdraw() {
+        return Math.min(BOW_STRING_SPOOL_BOWS_PER_TRIP,
+                Math.min(getBowStringSpoolCharges(), Rs2Bank.count(secondaryItemToFletch)));
+    }
+
+    private int getBowStringSpoolCharges() {
+        return Microbot.getVarbitValue(VarbitID.BOWSTRING_SPOOL_CHARGES);
     }
 
     public void calculateItemToFletch() {
