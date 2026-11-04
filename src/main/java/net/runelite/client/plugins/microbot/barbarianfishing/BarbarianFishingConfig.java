@@ -53,7 +53,7 @@ public interface BarbarianFishingConfig extends Config
     @ConfigItem(
             keyName = "useFishBarrel",
             name = "Use Fish Barrel",
-            description = "Use a Fish barrel if present in inventory to hold extra fish. The barrel is only emptied at the CoX bank chest, so it fills once and stays full unless Bank at CoX is on",
+            description = "Use a Fish barrel if present in inventory to hold extra fish. The barrel is only filled at Mount Quidamortem with Bank at CoX on, because it is only emptied at the CoX bank chest",
             position = 2,
             section = generalSection
     )

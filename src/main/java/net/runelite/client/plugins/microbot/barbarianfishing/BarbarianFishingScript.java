@@ -277,7 +277,8 @@ public class BarbarianFishingScript extends Script
 
     private void handleFullInventory()
     {
-        if (config.useFishBarrel() && hasBarrel && !barrelFull)
+        if (config.useFishBarrel() && hasBarrel && !barrelFull
+                && config.bankAtCox() && location == Location.MOUNT_QUIDAMORTEM)
         {
             setStatus("Filling Fish barrel");
             Rs2ItemModel barrel = Rs2Inventory.get("Fish barrel", "Open fish barrel");
@@ -497,10 +498,10 @@ public class BarbarianFishingScript extends Script
     {
         for (String name : BAIT_NAMES)
         {
-            int count = Rs2Inventory.count(name);
-            if (count > 0)
+            Rs2ItemModel item = Rs2Inventory.get(name);
+            if (item != null)
             {
-                return name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1) + ": " + count;
+                return item.getName() + ": " + Rs2Inventory.itemQuantity(name, false);
             }
         }
         return "None";
