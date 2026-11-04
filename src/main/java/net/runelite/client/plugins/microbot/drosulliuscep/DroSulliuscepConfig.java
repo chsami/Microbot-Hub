@@ -11,27 +11,28 @@ import net.runelite.client.config.*;
 
 @ConfigGroup(DroSulliuscepConfig.GROUP)
 @ConfigInformation(
-        "[Dro] Sulliuscep Run - script-owned travel + recorded swamp course.<br/><br/>" +
-        "<b>Requirements:</b> 65 Woodcutting, Fossil Island/Bone Voyage access, a rake, a usable axe, and travel items for the selected mode. " +
-        "Ferox requires a dueling ring and Digsite pendant. POH requires an ornate rejuvenation pool and mounted Digsite pendant, plus a house tablet or Construction cape.<br/><br/>" +
-        "The script handles Digsite pendant and Mushtree travel directly. Built-in WebWalk handles pool/bank approaches when their objects are not nearby. " +
-        "Once Sticky Swamp is reached, the walker is cancelled and the six Sulliusceps use the recorded tree/vine/rake route directly. " +
-        "Bank and restoration travel follows the selected mode. " +
-        "Select Jump on mushroom for no banking re-runs, autofills mudpit with 9 mushrooms. Will bank when no food detected.<br/><br/>" +
-        "Numulites/fossils always kept. Choose to drop mushrooms, Mort myre fungus, or both. " +
-        "Food and antipoison are suggested (disabled by default)."
+        "[Dro] Sulliuscep Run - cuts the six Sulliusceps on Fossil Island.<br/><br/>" +
+        "<b>Requirements:</b> 65 Woodcutting, Fossil Island access (Bone Voyage), a rake, a usable axe, and the travel items for your travel mode. " +
+        "Ferox needs a Ring of dueling and a Digsite pendant. POH needs an ornate rejuvenation pool, a mounted Digsite pendant, and house tablets or a Construction cape.<br/><br/>" +
+        "<b>On start:</b> auto retaliate is turned off, and at the first bank visit everything in your inventory except the rake is deposited. " +
+        "The script then takes out the travel items and any supplies you enabled.<br/><br/>" +
+        "It teleports with the Digsite pendant, takes the Magic Mushtree to Sticky Swamp, cuts the six trees in order and clears the vines on the way. " +
+        "After the last tree it banks and restores HP using your travel mode. " +
+        "Turn on Jump on Rubber cap mushroom to loop without banking; it fills the mud pit with 9 mushrooms and still banks when food runs out.<br/><br/>" +
+        "Numulites, caps, supplies and gear are always kept. Drop when full chooses whether mushrooms, Mort myre fungus or unidentified fossils are dropped. " +
+        "Food and antipoison are off by default; turning them on is recommended."
 )
 public interface DroSulliuscepConfig extends Config
 {
     String GROUP = "droSulliuscep";
 
-    @ConfigSection(name = "Run", description = "Core Sulliuscep behavior learned from the recorded run.", position = 0)
+    @ConfigSection(name = "Run", description = "What the script does on each lap.", position = 0)
     String run = "run";
 
     @ConfigItem(
             keyName = "dropMode",
             name = "Drop when full",
-            description = "Choose mushrooms/fungus and optionally small or all unidentified fossils to drop when full. Numulite, caps, supplies and gear are kept.",
+            description = "What to drop when the inventory is full: mushrooms, Mort myre fungus or both. The \"+ small fossils\" and \"+ ALL fossils\" options also drop unidentified fossils. Numulites, caps, supplies and gear are always kept.",
             position = 1,
             section = run
     )
@@ -40,7 +41,7 @@ public interface DroSulliuscepConfig extends Config
     @ConfigItem(
             keyName = "useAxeSpecial",
             name = "Use axe special",
-            description = "Use the equipped axe special when 100% special energy is available. The recording used it during the run.",
+            description = "Use the equipped axe's special attack when special energy is full.",
             position = 2,
             section = run
     )
@@ -49,7 +50,7 @@ public interface DroSulliuscepConfig extends Config
     @ConfigItem(
             keyName = "jumpRubberCapMushroom",
             name = "Jump on Rubber cap mushroom",
-            description = "Loop with the Rubber cap mushroom when ready. Mushrooms are NOT required to start: if 9 are available at tree #1 the mud pit is filled immediately; otherwise the course runs normally and gathers them. After tree #6, a loaded pit triggers Jump on even with no spare mushrooms. Only tree #6 starts reserving mushrooms, and only with more than 15 usable slots after disposable cleanup; otherwise normal dropping continues and it banks after the complete run. Tree #1 keeps any shortfall until nine are available, fills the pit, then resumes normal dropping. Returns to the selected bank if the pit is not loaded or enabled food supplies are exhausted.",
+            description = "Instead of banking after the last tree, jump on the Rubber cap mushroom to start the next lap straight away. The script fills the mud pit with 9 mushrooms it cuts along the way, so you don't need any to start. It still banks when the pit isn't filled in time, your inventory is too full, your enabled food runs out, or HP reaches the emergency level.",
             position = 5,
             section = run
     )
@@ -65,13 +66,13 @@ public interface DroSulliuscepConfig extends Config
     )
     default int emergencyRetreatHp() { return 25; }
 
-    @ConfigSection(name = "Optional supplies", description = "Optional safety supplies. The recorded run used neither food nor antipoison.", position = 1)
+    @ConfigSection(name = "Optional supplies", description = "Optional food and antipoison. Both are off by default.", position = 1)
     String supplies = "supplies";
 
     @ConfigItem(
             keyName = "useFood",
             name = "Use food",
-            description = "Enable food withdrawal/eating. Disabled by default to match the recording.",
+            description = "Take food from the bank and eat it during the run.",
             position = 10,
             section = supplies
     )
@@ -91,7 +92,7 @@ public interface DroSulliuscepConfig extends Config
     @ConfigItem(
             keyName = "useAntipoison",
             name = "Use antipoison",
-            description = "Enable antipoison withdrawal/use. Disabled by default to match the recording; Ferox pool clears poison on normal resets.",
+            description = "Take antipoison from the bank and drink it when poisoned. The Ferox pool also cures poison each time you bank.",
             position = 14,
             section = supplies
     )
@@ -104,7 +105,7 @@ public interface DroSulliuscepConfig extends Config
     @ConfigItem(keyName = "antiPoisonAmount", name = "Antipoison count", description = "Potion items to maintain per trip when enabled.", position = 16, section = supplies)
     default int antiPoisonAmount() { return 1; }
 
-    @ConfigSection(name = "Travel", description = "The script owns pendant/Mushtree travel and uses built-in WebWalk for ordinary approaches. The Sticky Swamp Sulliuscep course uses the recorded local route.", position = 2)
+    @ConfigSection(name = "Travel", description = "How the script gets to the bank and back to Sticky Swamp.", position = 2)
     String travel = "travel";
 
     @ConfigItem(
@@ -116,47 +117,47 @@ public interface DroSulliuscepConfig extends Config
     )
     default DroSulliuscepTravelMode travelMode() { return DroSulliuscepTravelMode.FEROX_DUELING; }
 
-    @ConfigSection(name = "Dro Profile", description = "BaseProfileDro behavior.", position = 3)
+    @ConfigSection(name = "Dro Profile", description = "Mouse movement and break settings.", position = 3)
     String profile = "profile";
 
-    @ConfigItem(keyName = "mouseActivity", name = "Mouse activity", description = "Dro mouse activity profile.", position = 30, section = profile)
+    @ConfigItem(keyName = "mouseActivity", name = "Mouse activity", description = "How much the mouse moves around between actions. Lower settings move it less.", position = 30, section = profile)
     default BaseProfileDro.MouseActivity mouseActivity() { return BaseProfileDro.MouseActivity.BALANCED; }
 
-    @ConfigItem(keyName = "parkSide", name = "Park side", description = "Preferred off-screen parking side.", position = 31, section = profile)
+    @ConfigItem(keyName = "parkSide", name = "Park side", description = "Which side of the game window the mouse rests off-screen while waiting.", position = 31, section = profile)
     default BaseProfileDro.AfkParkSide parkSide() { return BaseProfileDro.AfkParkSide.RANDOM; }
 
-    @ConfigItem(keyName = "smartBreaks", name = "Smart breaks", description = "Enable BaseProfileDro smart breaks. New breaks are only allowed from the selected safe bank area.", position = 32, section = profile)
+    @ConfigItem(keyName = "smartBreaks", name = "Smart breaks", description = "Take breaks at random times. Breaks only start at the bank, never in the swamp.", position = 32, section = profile)
     default boolean smartBreaks() { return false; }
 
     @Range(min = 1, max = 300)
-    @ConfigItem(keyName = "breakMin", name = "Break interval min", description = "Minutes between smart breaks.", position = 33, section = profile)
+    @ConfigItem(keyName = "breakMin", name = "Break interval min", description = "Shortest time in minutes between breaks.", position = 33, section = profile)
     default int breakIntervalMin() { return 35; }
 
     @Range(min = 1, max = 300)
-    @ConfigItem(keyName = "breakMax", name = "Break interval max", description = "Minutes between smart breaks.", position = 34, section = profile)
+    @ConfigItem(keyName = "breakMax", name = "Break interval max", description = "Longest time in minutes between breaks.", position = 34, section = profile)
     default int breakIntervalMax() { return 140; }
 
     @Range(min = 0, max = 100)
-    @ConfigItem(keyName = "logoutBreakChance", name = "Logout break %", description = "Chance a smart break logs out.", position = 35, section = profile)
+    @ConfigItem(keyName = "logoutBreakChance", name = "Logout break %", description = "Chance that a break logs you out. Otherwise you stay logged in and idle.", position = 35, section = profile)
     default int logoutBreakChance() { return 100; }
 
     @Range(min = 1, max = 60)
-    @ConfigItem(keyName = "afkBreakMin", name = "AFK break min", description = "Minimum AFK-break minutes.", position = 36, section = profile)
+    @ConfigItem(keyName = "afkBreakMin", name = "AFK break min", description = "Shortest logged-in break, in minutes.", position = 36, section = profile)
     default int afkBreakMin() { return 2; }
 
     @Range(min = 1, max = 60)
-    @ConfigItem(keyName = "afkBreakMax", name = "AFK break max", description = "Maximum AFK-break minutes.", position = 37, section = profile)
+    @ConfigItem(keyName = "afkBreakMax", name = "AFK break max", description = "Longest logged-in break, in minutes.", position = 37, section = profile)
     default int afkBreakMax() { return 6; }
 
     @Range(min = 1, max = 120)
-    @ConfigItem(keyName = "logoutBreakMin", name = "Logout min", description = "Minimum logout-break minutes.", position = 38, section = profile)
+    @ConfigItem(keyName = "logoutBreakMin", name = "Logout min", description = "Shortest logged-out break, in minutes.", position = 38, section = profile)
     default int logoutBreakMin() { return 5; }
 
     @Range(min = 1, max = 180)
-    @ConfigItem(keyName = "logoutBreakMax", name = "Logout max", description = "Maximum logout-break minutes.", position = 39, section = profile)
+    @ConfigItem(keyName = "logoutBreakMax", name = "Logout max", description = "Longest logged-out break, in minutes.", position = 39, section = profile)
     default int logoutBreakMax() { return 40; }
 
     @Range(min = 0, max = 60)
-    @ConfigItem(keyName = "postLoginSettle", name = "Post-login settle", description = "Seconds to settle after a logout break.", position = 40, section = profile)
+    @ConfigItem(keyName = "postLoginSettle", name = "Post-login settle", description = "Seconds to wait after logging back in before the script continues.", position = 40, section = profile)
     default int postLoginSettleSeconds() { return 12; }
 }

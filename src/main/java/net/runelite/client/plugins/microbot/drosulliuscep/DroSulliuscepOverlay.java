@@ -129,7 +129,10 @@ public class DroSulliuscepOverlay extends OverlayPanel
         drawText(graphics, TITLE_FONT, RED, "Dro Sulliuscep Run", textX, 19);
 
         String status = value(script.getStatus());
-        boolean active = !"-".equals(status)
+        DroSulliuscepState state = script.getState();
+        boolean active = state != DroSulliuscepState.ERROR
+                && state != DroSulliuscepState.PAUSED
+                && !"-".equals(status)
                 && !"Starting".equalsIgnoreCase(status)
                 && !"Idle".equalsIgnoreCase(status)
                 && !"Stopped".equalsIgnoreCase(status);

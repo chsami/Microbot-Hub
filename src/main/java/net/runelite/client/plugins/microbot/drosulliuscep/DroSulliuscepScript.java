@@ -183,6 +183,9 @@ public class DroSulliuscepScript extends DroScript
     private boolean logoutObservedDuringProfileBreak;
     private boolean requirementsValidated;
     private boolean fatalError;
+    private long guardPausedSince;
+    private int coursePlanReachedTree = -1;
+    private long nextChoppingPlanAt;
 
     public boolean run(DroSulliuscepConfig config)
     {
@@ -255,6 +258,9 @@ public class DroSulliuscepScript extends DroScript
         logoutObservedDuringProfileBreak = false;
         requirementsValidated = false;
         fatalError = false;
+        guardPausedSince = 0L;
+        coursePlanReachedTree = -1;
+        nextChoppingPlanAt = 0L;
         state = DroSulliuscepState.INITIALIZING;
         status = "Starting";
 
@@ -267,7 +273,7 @@ public class DroSulliuscepScript extends DroScript
             catch (Exception ex)
             {
                 state = DroSulliuscepState.ERROR;
-                status = "Error: " + safeMessage(ex);
+                status = "Something went wrong, retrying";
                 log.error("[DroSulliuscep] tick failed", ex);
             }
         }, 0, LOOP_MS, TimeUnit.MILLISECONDS);
@@ -314,6 +320,23 @@ public class DroSulliuscepScript extends DroScript
         if (fatalError)
         {
             return;
+        }
+        if (!super.run())
+        {
+            if (guardPausedSince == 0L)
+            {
+                guardPausedSince = System.currentTimeMillis();
+                cancelTreeCameraWork();
+            }
+            state = DroSulliuscepState.PAUSED;
+            status = "Paused";
+            return;
+        }
+        if (guardPausedSince != 0L)
+        {
+            // Time spent paused must not count against any travel or retry deadline.
+            shiftRetryDeadlines(System.currentTimeMillis() - guardPausedSince);
+            guardPausedSince = 0L;
         }
 
         boolean loggedIn = Microbot.isLoggedIn() && currentPlayerLocation() != null;
@@ -373,7 +396,7 @@ public class DroSulliuscepScript extends DroScript
         {
             if (Rs2Player.getRealSkillLevel(Skill.WOODCUTTING) < 65)
             {
-                fail("65 Woodcutting is required for Sulliusceps");
+                fail("need 65 Woodcutting", "Sulliusceps need 65 Woodcutting; train it, then restart");
                 return;
             }
             requirementsValidated = true;
@@ -445,7 +468,7 @@ public class DroSulliuscepScript extends DroScript
                 nextLocalRecoveryClickAt = 0L;
                 lastMovementTarget = null;
                 state = DroSulliuscepState.TO_ACTIVE_TREE;
-                status = "Rubber landing -> resume tree #1 locally";
+                status = "Landed, back to tree #1";
                 maybeUseAxeSpecial();
                 handleSwampRun();
                 return;
@@ -454,7 +477,7 @@ public class DroSulliuscepScript extends DroScript
             // The landing animation/plane transition has not finished yet.
             // Do nothing here: especially do not fall through into outboundTravelReady()/walker.
             state = DroSulliuscepState.TO_ACTIVE_TREE;
-            status = "Rubber landing -> waiting for local return";
+            status = "Landed, walking back";
             return;
         }
 
@@ -498,7 +521,7 @@ public class DroSulliuscepScript extends DroScript
             if (feroxHp < 0)
             {
                 state = DroSulliuscepState.INITIALIZING;
-                status = "Waiting for HP state at selected bank";
+                status = "Checking HP at the bank";
                 return;
             }
             if (!travelMode.poh && feroxHp < 99.0)
@@ -550,7 +573,7 @@ public class DroSulliuscepScript extends DroScript
         }
         if (Rs2Bank.isOpen())
         {
-            status = "Closing bank before disabling auto retaliate";
+            status = "Closing bank";
             long now = System.currentTimeMillis();
             if (now >= autoRetaliateBankCloseAt)
             {
@@ -559,13 +582,13 @@ public class DroSulliuscepScript extends DroScript
             }
             return false; // Observe the bank closed before trying to switch combat tabs.
         }
-        status = "Auto retaliate OFF";
+        status = "Turning off auto retaliate";
         if (doAction(SETUP, false, () -> Rs2Combat.setAutoRetaliate(false)))
         {
             autoRetaliateApplied = true;
             return true;
         }
-        status = "Waiting to disable auto retaliate";
+        status = "Turning off auto retaliate";
         return false;
     }
 
@@ -595,7 +618,7 @@ public class DroSulliuscepScript extends DroScript
         nextObstacleActionAt = 0L;
         nextLocalRecoveryClickAt = 0L;
 
-        Microbot.log("[DroSulliuscep] active tree " + (previous + 1) + " -> " + (current + 1));
+        log.debug("[DroSulliuscep] active tree " + (previous + 1) + " -> " + (current + 1));
 
         if (previous == 5 && current == 0)
         {
@@ -622,7 +645,7 @@ public class DroSulliuscepScript extends DroScript
                 nextLocalRecoveryClickAt = Long.MAX_VALUE;
                 lastMovementTarget = null;
                 feroxDepartureArmed = false;
-                Microbot.log("[DroSulliuscep] six-tree cycle complete; Rubber cap object hand-off armed");
+                Microbot.log("[DroSulliuscep] Lap complete, jumping on the Rubber cap for the next lap");
             }
             else
             {
@@ -646,7 +669,7 @@ public class DroSulliuscepScript extends DroScript
                     reason = " - mud pit not loaded";
                 }
                 requestFeroxService("Six-tree cycle complete" + reason);
-                Microbot.log("[DroSulliuscep] six-tree cycle complete; selected bank reset armed" + reason);
+                Microbot.log("[DroSulliuscep] Lap complete, heading to the bank" + reason);
             }
         }
     }
@@ -658,7 +681,7 @@ public class DroSulliuscepScript extends DroScript
         if (hp < 0)
         {
             state = DroSulliuscepState.INITIALIZING;
-            status = "Waiting for HP state";
+            status = "Checking HP";
             return true;
         }
 
@@ -759,7 +782,7 @@ public class DroSulliuscepScript extends DroScript
     {
         if (inventorySlotCount() < 0)
         {
-            status = "Waiting for live inventory";
+            status = "Checking inventory";
             return true;
         }
         if (!inventoryIsFull())
@@ -782,7 +805,7 @@ public class DroSulliuscepScript extends DroScript
         }
         if (attempted && ++failedFullInventoryDrops < 3)
         {
-            status = "Inventory still full -> retrying Drop";
+            status = "Inventory full, dropping again";
             return true;
         }
 
@@ -982,11 +1005,11 @@ public class DroSulliuscepScript extends DroScript
             if (isChopping() || now < nextTreeClickAt)
             {
                 state = DroSulliuscepState.CHOPPING;
-                status = "Tree #6 -> waiting for Rubber cap hand-off";
+                status = "Tree #6 done, getting ready to jump";
                 return;
             }
             treeClickIssued = false;
-            Microbot.log("[DroSulliuscep] tree #6 watchdog expired; permitting one recovery Cut");
+            log.debug("[DroSulliuscep] tree #6 watchdog expired; permitting one recovery Cut");
         }
 
         if (active == 4 && !parkedAtFifthTree && profile != null
@@ -1020,7 +1043,7 @@ public class DroSulliuscepScript extends DroScript
 
             // Watchdog expired and we are still not chopping: allow exactly one recovery click.
             treeClickIssued = false;
-            Microbot.log("[DroSulliuscep] tree watchdog expired while not chopping -> " + tree.displayName());
+            log.debug("[DroSulliuscep] tree watchdog expired while not chopping -> " + tree.displayName());
         }
 
         TileObject object = findSulliuscepTree(tree);
@@ -1052,15 +1075,15 @@ public class DroSulliuscepScript extends DroScript
                     feroxServiceRequired = false;
                     feroxReason = "";
                 }
-                Microbot.log("[DroSulliuscep] Rubber landing reset complete; tree #1 resumed");
+                log.debug("[DroSulliuscep] Rubber landing reset complete; tree #1 resumed");
             }
-            Microbot.log("[DroSulliuscep] single Cut -> " + tree.displayName());
+            log.debug("[DroSulliuscep] single Cut -> " + tree.displayName());
             return;
         }
 
         // A failed interaction did not consume the tree click; reposition immediately.
         state = DroSulliuscepState.TO_ACTIVE_TREE;
-        status = "Cut retry -> " + tree.displayName();
+        status = "Cutting " + tree.displayName() + " again";
         clickRecordedTile(thirdTreeRecovery ? THIRD_TREE_SAFE_TILE : RecordedCourseNavigator.approach(tree.index()), "Repositioning for " + tree.displayName(),
                 DroSulliuscepState.TO_ACTIVE_TREE);
     }
@@ -1177,7 +1200,7 @@ public class DroSulliuscepScript extends DroScript
         }
 
         state = DroSulliuscepState.DROPPING;
-        status = "Fast drop reserve cleanup; keep 9 mushrooms";
+        status = "Dropping extras, keeping 9 mushrooms";
         for (int slot : slots)
         {
             Rs2ItemModel selected = items.stream().filter(item -> item.getSlot() == slot).findFirst().orElse(null);
@@ -1248,7 +1271,7 @@ public class DroSulliuscepScript extends DroScript
             if (Rs2Player.isMoving() || now < mudPitFillWatchdogAt)
             {
                 state = DroSulliuscepState.TO_ACTIVE_TREE;
-                status = "Mud pit fill in progress";
+                status = "Filling the mud pit";
                 return true;
             }
             mudPitFillClickIssued = false;
@@ -1345,7 +1368,7 @@ public class DroSulliuscepScript extends DroScript
         }
 
         state = DroSulliuscepState.TO_ACTIVE_TREE;
-        status = "Scene approach -> Rubber cap mushroom";
+        status = "Walking to the Rubber cap";
         return doAction(ACTIVE_WORK, true, () -> {
             Microbot.getMouse().click(canvas);
             return true;
@@ -1380,7 +1403,7 @@ public class DroSulliuscepScript extends DroScript
             nextCoursePlanAt = 0L;
             nextLocalRecoveryClickAt = 0L;
             lastMovementTarget = null;
-            status = "Rubber cap landed -> resume tree #1";
+            status = "Landed, back to tree #1";
             handleMudPitReload();
             return;
         }
@@ -1467,13 +1490,22 @@ public class DroSulliuscepScript extends DroScript
         WorldPoint player = currentPlayerLocation();
         if (player == null) return true;
         long now = System.currentTimeMillis();
+        // While the active tree is being chopped (not a vine), the last plan already reached it.
+        // Re-check only occasionally instead of rescanning reachable tiles every loop.
+        boolean choppingTree = obstacleActionLatched < 0 && isChopping();
+        if (choppingTree && coursePlanReachedTree == activeTree && now < nextChoppingPlanAt) return false;
         if (now < nextCoursePlanAt) return true;
         nextCoursePlanAt = now + 25L;
+        coursePlanReachedTree = -1;
 
         Map<WorldPoint, Integer> reachable = Rs2Tile.getReachableTilesFromTile(player, 104, false);
         WorldPoint goal = RecordedCourseNavigator.approach(activeTree);
         if (reachable.containsKey(goal) && findSulliuscepTree(SulliuscepRouteData.tree(activeTree)) != null)
+        {
+            coursePlanReachedTree = activeTree;
+            nextChoppingPlanAt = now + 1_200L;
             return false;
+        }
 
         Set<Integer> blocked = new HashSet<>();
         for (int i = 0; i < SulliuscepRouteData.OBSTACLES.size(); i++)
@@ -1490,7 +1522,7 @@ public class DroSulliuscepScript extends DroScript
         if (path.isEmpty())
         {
             state = DroSulliuscepState.TO_ACTIVE_TREE;
-            status = "Waiting for a reachable recorded path to tree #" + (activeTree + 1);
+            status = "Finding a path to tree #" + (activeTree + 1);
             return true;
         }
 
@@ -1506,7 +1538,7 @@ public class DroSulliuscepScript extends DroScript
                 {
                     SulliuscepRouteData.RouteObstacle obstacle = SulliuscepRouteData.OBSTACLES.get(barrier);
                     state = DroSulliuscepState.CLEARING_OBSTACLE;
-                    status = obstacle.action() + " " + obstacle.displayName() + " -> tree #" + (activeTree + 1);
+                    status = obstacle.action() + " " + obstacle.displayName() + " to reach tree #" + (activeTree + 1);
                     TileObject object = findRecordedObstacle(obstacle);
                     if (object == null)
                     {
@@ -1744,7 +1776,7 @@ public class DroSulliuscepScript extends DroScript
                 LOCAL_RECOVERY_RETRY_MIN_MS, LOCAL_RECOVERY_RETRY_MAX_MS + 1L);
         if (clicked)
         {
-            Microbot.log("[DroSulliuscep] raw minimap recovery -> " + target + " | " + label);
+            log.debug("[DroSulliuscep] raw minimap recovery -> " + target + " | " + label);
         }
         return clicked;
     }
@@ -1786,7 +1818,7 @@ public class DroSulliuscepScript extends DroScript
         rubberLoopReturnPending = false;
         rubberLandingResetPending = false;
         rubberCycleContinuationActive = false;
-        Microbot.log("[DroSulliuscep] immediate bank recovery: " + reason);
+        Microbot.log("[DroSulliuscep] Heading to the bank early: " + reason);
         requestFeroxService(reason);
     }
 
@@ -1878,13 +1910,13 @@ public class DroSulliuscepScript extends DroScript
         {
             if (!withdrawCape("Crafting"))
             {
-                closeBankBeforeFailure("Crafting cape required for Crafting Guild banking");
+                closeBankBeforeFailure("no Crafting cape", "Crafting Guild mode needs a Crafting cape; put one in your bank or pick another travel mode, then restart");
                 return false;
             }
         }
         else if (!ensureDuelingRingAtBank())
         {
-            closeBankBeforeFailure("Charged Ring of dueling required for the next bank return");
+            closeBankBeforeFailure("no Ring of dueling", "Put a charged Ring of dueling in your bank, then restart");
             return false;
         }
 
@@ -1898,14 +1930,14 @@ public class DroSulliuscepScript extends DroScript
                         || !doAction(SETUP, false, () -> Rs2Bank.withdrawOne(8013))
                         || !sleepUntil(this::hasHouseTab, 2_800))
                 {
-                    closeBankBeforeFailure("POH return requires a Construction cape or house tablet");
+                    closeBankBeforeFailure("no house teleport", "POH modes need a Construction cape or Teleport to house tablets; put one in your bank, then restart");
                     return false;
                 }
             }
         }
         else if (!ensureDigsitePendantAtBank())
         {
-            closeBankBeforeFailure("Charged Digsite pendant required for Fossil Island return");
+            closeBankBeforeFailure("no Digsite pendant", "Put a charged Digsite pendant in your bank, then restart");
             return false;
         }
         return travelMode.travelItemsReady(hasDuelingRing(), hasCraftingCape(), hasDigsitePendant(),
@@ -1923,18 +1955,18 @@ public class DroSulliuscepScript extends DroScript
     {
         traceDroAction("teleportToServiceBank");
         state = DroSulliuscepState.TO_BANK;
-        status = "Returning: " + travelMode;
+        status = "Heading to the bank";
         webWalk.cancelIfActive();
         long now = System.currentTimeMillis();
         if (bankTravel.waiting(now)) return;
         if (bankTravel.exhausted(now))
         {
-            fail("Selected bank landing not observed after 3 teleport attempts: " + travelMode);
+            fail("bank teleport failed", "The teleport to the bank did not arrive after 3 tries (" + travelMode + "); check your teleport item, then restart");
             return;
         }
         if (travelMode.crafting ? !hasCraftingCape() : !hasDuelingRing())
         {
-            fail("Missing bank teleport: " + (travelMode.crafting ? "Crafting cape" : "charged Ring of dueling"));
+            fail("no bank teleport", "Carry " + (travelMode.crafting ? "a Crafting cape" : "a charged Ring of dueling") + ", then restart");
             return;
         }
         bankTravel.issued(now, 10_000L);
@@ -1959,7 +1991,7 @@ public class DroSulliuscepScript extends DroScript
         if (now < nextServiceActionAt) return;
         if (bankOpening.exhausted(now))
         {
-            fail("Could not open selected bank after 3 attempts: " + travelMode);
+            fail("bank would not open", "The bank did not open after 3 tries (" + travelMode + "); stand near it and restart");
             return;
         }
         if (bankOpening.waiting(now)) return;
@@ -1993,11 +2025,11 @@ public class DroSulliuscepScript extends DroScript
             if (houseRestored)
             {
                 if (mountedTravel.waiting(now)) return;
-                fail("Left POH without observing the Fossil Island landing");
+                fail("left house unexpectedly", "You left the house before reaching Fossil Island; restart from your bank");
                 return;
             }
             state = DroSulliuscepState.TELEPORTING_HOUSE;
-            status = "House teleport -> waiting for inside-house arrival";
+            status = "Teleporting to house";
             // A cape may respect the game's outside-house setting. Enter the actual home portal.
             var home = net.runelite.client.plugins.microbot.util.poh.data.HouseLocation.getHouseLocation();
             WorldPoint player = currentPlayerLocation();
@@ -2006,7 +2038,7 @@ public class DroSulliuscepScript extends DroScript
                 if (houseEntry.waiting(now)) return;
                 if (houseEntry.exhausted(now))
                 {
-                    fail("Own house entry not observed after 3 portal attempts");
+                    fail("house entry failed", "Could not enter your house after 3 tries; check your house is set to teleport inside, then restart");
                     return;
                 }
                 if (!houseEnterDelayElapsed(now)) return;
@@ -2018,7 +2050,7 @@ public class DroSulliuscepScript extends DroScript
             if (houseTravel.waiting(now)) return;
             if (houseTravel.exhausted(now))
             {
-                fail("House arrival not observed after 3 teleport attempts");
+                fail("house teleport failed", "The house teleport did not arrive after 3 tries; check your cape or tablets, then restart");
                 return;
             }
             if (!hasConstructionCape() && !hasHouseTab())
@@ -2039,11 +2071,11 @@ public class DroSulliuscepScript extends DroScript
         if (!houseRestored)
         {
             state = DroSulliuscepState.RESTORING;
-            status = "POH -> ornate pool restoration";
+            status = "Using the ornate pool";
             TileObject pool = findHousePool();
             if (pool == null)
             {
-                if (housePool.exhausted(now)) fail("POH requires an ornate rejuvenation pool; none found");
+                if (housePool.exhausted(now)) fail("no ornate pool", "POH modes need an ornate rejuvenation pool in your house; build one or use Ferox mode, then restart");
                 else if (!housePool.waiting(now)) housePool.issued(now, 3_000L);
                 return;
             }
@@ -2059,7 +2091,7 @@ public class DroSulliuscepScript extends DroScript
                 if (housePool.waiting(now)) return;
                 if (housePool.exhausted(now))
                 {
-                    fail("Ornate pool did not restore stats after 3 attempts");
+                    fail("pool did not restore", "The ornate pool did not restore you after 3 tries; check it is reachable, then restart");
                     return;
                 }
                 if (poolClickReadyAt < 0) poolClickReadyAt = now + houseActionDelay();
@@ -2153,7 +2185,7 @@ public class DroSulliuscepScript extends DroScript
     void handleMountedDigsite(long now)
     {
         state = DroSulliuscepState.TELEPORTING_FOSSIL_ISLAND;
-        status = "Mounted Digsite -> waiting for Fossil Island arrival";
+        status = "Teleporting to Fossil Island";
         if (now >= nextTravelMenuAt && mountedTravel.menuAllowed(now) && Rs2Widget.hasWidget("Fossil Island"))
         {
             if (doAction(SETUP, false, () -> Rs2Widget.clickWidget("Fossil Island"))) mountedTravel.menuIssued();
@@ -2163,7 +2195,7 @@ public class DroSulliuscepScript extends DroScript
         if (mountedTravel.waiting(now)) return;
         if (mountedTravel.exhausted(now))
         {
-            fail("Mounted Digsite pendant missing or Fossil Island arrival not observed after 3 attempts");
+            fail("mounted pendant failed", "POH modes need a Digsite pendant mounted in your house; check it, then restart");
             return;
         }
         mountedTravel.issued(now, 12_000L);
@@ -2238,7 +2270,7 @@ public class DroSulliuscepScript extends DroScript
             nextTreeClickAt = 0L;
             thirdTreeMove.reset();
             cancelTreeCameraWork();
-            Microbot.log("[DroSulliuscep] Combat hit after 8s observation at tree #3 -> recovery tile 3682,3775");
+            log.debug("[DroSulliuscep] Combat hit after 8s observation at tree #3 -> recovery tile 3682,3775");
         }
         if (!thirdTreeRecovery || THIRD_TREE_SAFE_TILE.equals(player)) return false;
         if (thirdTreeMove.waiting(now)) return true;
@@ -2249,7 +2281,7 @@ public class DroSulliuscepScript extends DroScript
         }
         thirdTreeMove.issued(now, 4_000L);
         Point point = recordedWorldToMinimap(THIRD_TREE_SAFE_TILE);
-        status = "Attacked at tree #3 -> moving to recovery tile";
+        status = "Under attack at tree #3, stepping away";
         state = DroSulliuscepState.TO_ACTIVE_TREE;
         if (point != null) doAction(ACTIVE_WORK, true, () -> {
             Microbot.getMouse().click(point);
@@ -2331,7 +2363,7 @@ public class DroSulliuscepScript extends DroScript
         if (pool != null)
         {
             webWalk.cancelIfActive();
-            status = "Clicking visible Ferox pool";
+            status = "Using the Ferox pool";
 
             if (now < nextServiceActionAt)
             {
@@ -2359,14 +2391,14 @@ public class DroSulliuscepScript extends DroScript
             }
 
             poolAttemptsThisVisit++;
-            status = "Ferox pool click retry " + poolAttemptsThisVisit;
+            status = "Using the Ferox pool again";
             return;
         }
 
         // Pool is not in the scene yet. Now—and only now—ask WebWalk to approach
         // the recorded standable tile that brings it into view.
         state = DroSulliuscepState.TO_FEROX_POOL;
-        status = "WebWalk -> Ferox pool";
+        status = "Walking to the Ferox pool";
         checkTravelResult(webWalk.approach(SulliuscepRouteData.FEROX_POOL_APPROACH), "Approaching Ferox pool");
     }
 
@@ -2374,7 +2406,7 @@ public class DroSulliuscepScript extends DroScript
     {
         traceDroAction("handleStartupFeroxBank");
         state = DroSulliuscepState.BANKING;
-        status = "Startup trip setup";
+        status = "Getting ready";
 
         // Once the startup bank work is complete and Escape has closed the interface, finalize
         // instead of falling back into another bank-open attempt on the next 220 ms tick.
@@ -2414,7 +2446,7 @@ public class DroSulliuscepScript extends DroScript
 
             webWalk.cancelIfActive();
             state = DroSulliuscepState.TO_FEROX_BANK;
-            status = "Opening selected bank once";
+            status = "Opening bank";
             startupBankOpenAttempted = true;
             startupBankOpenAttemptAt = now;
             doAction(SETUP, false, Rs2Bank::openBank);
@@ -2440,12 +2472,12 @@ public class DroSulliuscepScript extends DroScript
 
             if (!ensureRakeAtBank())
             {
-                fail("Rake required - none in inventory or bank");
+                fail("no rake", "Put a rake in your bank, then restart");
                 return;
             }
             if (!ensureAxeAtBank())
             {
-                fail("No usable Woodcutting axe equipped/inventory/bank");
+                fail("no usable axe", "Put an axe you can use in your bank, then restart");
                 return;
             }
             if (!ensureTravelItemsAtBank()) return;
@@ -2463,7 +2495,7 @@ public class DroSulliuscepScript extends DroScript
 
         if (Rs2Bank.isOpen())
         {
-            status = "Closing bank with Escape";
+            status = "Closing bank";
             doAction(SETUP, true, () -> {
                 Rs2Keyboard.keyPress(KeyEvent.VK_ESCAPE);
                 return true;
@@ -2495,7 +2527,7 @@ public class DroSulliuscepScript extends DroScript
         nextLocalRecoveryClickAt = 0L;
         bankNotBeforeAt = 0L;
         returnToSwampInProgress = true;
-        status = "Ready -> Sticky Swamp";
+        status = "Heading to Sticky Swamp";
     }
 
     private void handleFeroxBank()
@@ -2544,7 +2576,7 @@ public class DroSulliuscepScript extends DroScript
             {
                 webWalk.cancelIfActive();
                 state = DroSulliuscepState.TO_FEROX_BANK;
-                status = "Using visible Ferox bank chest";
+                status = "Opening Ferox bank";
 
                 if (now < nextServiceActionAt)
                 {
@@ -2590,7 +2622,7 @@ public class DroSulliuscepScript extends DroScript
             // Only use WebWalk to reach the standable approach tile. Never give it the
             // bank chest's unstandable object coordinate.
             state = DroSulliuscepState.TO_FEROX_BANK;
-            status = "WebWalk -> Ferox bank";
+            status = "Walking to the Ferox bank";
             checkTravelResult(webWalk.approach(SulliuscepRouteData.FEROX_BANK_APPROACH), "Approaching Ferox bank");
             return;
         }
@@ -2612,12 +2644,12 @@ public class DroSulliuscepScript extends DroScript
 
             if (!ensureRakeAtBank())
             {
-                fail("Rake required - none in inventory or bank");
+                fail("no rake", "Put a rake in your bank, then restart");
                 return;
             }
             if (!ensureAxeAtBank())
             {
-                fail("No usable Woodcutting axe equipped/inventory/bank");
+                fail("no usable axe", "Put an axe you can use in your bank, then restart");
                 return;
             }
             if (!ensureTravelItemsAtBank()) return;
@@ -2664,7 +2696,7 @@ public class DroSulliuscepScript extends DroScript
         nextLocalRecoveryClickAt = 0L;
         bankNotBeforeAt = 0L;
         returnToSwampInProgress = true;
-        status = "Ready -> Sticky Swamp";
+        status = "Heading to Sticky Swamp";
     }
 
     private boolean depositStartupInventoryExceptRake()
@@ -2683,7 +2715,7 @@ public class DroSulliuscepScript extends DroScript
                 continue;
             }
             final int itemId = id;
-            status = "Clearing startup inventory";
+            status = "Depositing inventory";
             if (!doBankDeposit(() -> Rs2Bank.depositAll(itemId))
                     || !sleepUntil(() -> !Rs2Inventory.contains(itemId), 2_800)) return false;
         }
@@ -2704,7 +2736,7 @@ public class DroSulliuscepScript extends DroScript
                 continue;
             }
             final int itemId = id;
-            status = "Depositing run loot";
+            status = "Depositing loot";
             if (!doBankDeposit(() -> Rs2Bank.depositAll(itemId))
                     || !sleepUntil(() -> !Rs2Inventory.contains(itemId), 2_800)) return false;
         }
@@ -2740,7 +2772,7 @@ public class DroSulliuscepScript extends DroScript
             int retained = id == keepId ? 1 : 0;
             int excess = Rs2Inventory.count(id) - retained;
             if (excess <= 0) continue;
-            status = "Banking surplus Ring of dueling";
+            status = "Depositing spare Ring of dueling";
             if (!doBankDeposit(() -> retained == 0
                     ? Rs2Bank.depositAll(id) : Rs2Bank.depositX(id, excess))
                     || !sleepUntil(() -> Rs2Inventory.count(id) <= retained, 2_800)) return false;
@@ -2779,8 +2811,11 @@ public class DroSulliuscepScript extends DroScript
                 new AxeChoice("Dragon felling axe", 61),
                 new AxeChoice("Infernal axe", 61),
                 new AxeChoice("Dragon axe", 61),
+                new AxeChoice("3rd age felling axe", 61),
+                new AxeChoice("3rd age axe", 61),
                 new AxeChoice("Rune felling axe", 41),
                 new AxeChoice("Rune axe", 41),
+                new AxeChoice("Gilded axe", 41),
                 new AxeChoice("Adamant axe", 31),
                 new AxeChoice("Mithril axe", 21),
                 new AxeChoice("Black axe", 11),
@@ -2842,16 +2877,16 @@ public class DroSulliuscepScript extends DroScript
                 && sleepUntil(this::hasEquippedDuelingRing, 3_500);
     }
 
-    private void closeBankBeforeFailure(String message)
+    private void closeBankBeforeFailure(String reason, String fix)
     {
         traceDroAction("closeBankBeforeFailure");
         if (Rs2Bank.isOpen())
         {
-            status = "Closing bank after setup failure";
+            status = "Closing bank";
             doAction(SETUP, true, Rs2Bank::closeBank);
             if (Rs2Bank.isOpen()) return;
         }
-        fail(message);
+        fail(reason, fix);
     }
 
     private boolean ensureOptionalSuppliesAtBank()
@@ -2864,7 +2899,7 @@ public class DroSulliuscepScript extends DroScript
             {
                 if (!Rs2Bank.hasBankItem(config.antiPoisonName(), false))
                 {
-                    fail("Antipoison enabled but bank is missing: " + config.antiPoisonName());
+                    fail("no antipoison", "Put " + config.antiPoisonName() + " in your bank or turn off Use antipoison, then restart");
                     return false;
                 }
                 final int amount = need;
@@ -2872,7 +2907,7 @@ public class DroSulliuscepScript extends DroScript
                         || !sleepUntil(() -> countInventoryByFragment(config.antiPoisonName())
                                 >= config.antiPoisonAmount(), 2_800))
                 {
-                    fail("Failed to withdraw antipoison");
+                    fail("antipoison withdraw failed", "Could not take antipoison from the bank; free a slot or turn off Use antipoison, then restart");
                     return false;
                 }
             }
@@ -2886,7 +2921,7 @@ public class DroSulliuscepScript extends DroScript
             {
                 if (!Rs2Bank.hasBankItem(config.foodName(), false))
                 {
-                    fail("Food enabled but bank is missing: " + config.foodName());
+                    fail("no food", "Put " + config.foodName() + " in your bank or turn off Use food, then restart");
                     return false;
                 }
                 final int amount = need;
@@ -2894,7 +2929,7 @@ public class DroSulliuscepScript extends DroScript
                         || !sleepUntil(() -> countInventoryByFragment(config.foodName())
                                 >= config.foodAmount(), 2_800))
                 {
-                    fail("Failed to withdraw food");
+                    fail("food withdraw failed", "Could not take food from the bank; free some slots or lower Food amount, then restart");
                     return false;
                 }
             }
@@ -2929,7 +2964,7 @@ public class DroSulliuscepScript extends DroScript
     {
         if (Rs2Bank.isOpen())
         {
-            status = "Closing bank for Sticky Swamp";
+            status = "Closing bank";
             doAction(SETUP, false, Rs2Bank::closeBank);
             return;
         }
@@ -2965,7 +3000,7 @@ public class DroSulliuscepScript extends DroScript
         }
 
         state = DroSulliuscepState.TELEPORTING_FOSSIL_ISLAND;
-        status = "Digsite pendant -> waiting for Fossil Island landing";
+        status = "Teleporting to Fossil Island";
         long now = System.currentTimeMillis();
         // The final charge may disappear before the landing is observed. Keep ownership
         // through that transition instead of treating the missing pendant as a supply failure.
@@ -2980,7 +3015,7 @@ public class DroSulliuscepScript extends DroScript
         if (pendantTravel.waiting(now)) return;
         if (pendantTravel.exhausted(now))
         {
-            fail("Fossil Island landing not observed after 3 pendant attempts");
+            fail("pendant teleport failed", "The Digsite pendant did not reach Fossil Island after 3 tries; check it is charged, then restart");
             return;
         }
         if (!hasDigsitePendant())
@@ -3018,7 +3053,7 @@ public class DroSulliuscepScript extends DroScript
     void handleHouseMushtree()
     {
         state = DroSulliuscepState.USING_MUSHTREE;
-        status = "House Mushtree -> waiting for Sticky Swamp landing";
+        status = "Taking the Mushtree to Sticky Swamp";
         long now = System.currentTimeMillis();
         if (now >= nextTravelMenuAt && mushtreeTravel.menuAllowed(now) && Rs2Widget.hasWidget("Mycelium"))
         {
@@ -3030,7 +3065,7 @@ public class DroSulliuscepScript extends DroScript
         if (mushtreeTravel.waiting(now)) return;
         if (mushtreeTravel.exhausted(now))
         {
-            fail("Sticky Swamp landing not observed after 3 Mushtree attempts");
+            fail("Mushtree failed", "The Magic Mushtree did not reach Sticky Swamp after 3 tries; check you unlocked it, then restart");
             return;
         }
         TileObject tree = SulliuscepObjects.nearest(
@@ -3064,12 +3099,12 @@ public class DroSulliuscepScript extends DroScript
         {
             long now = System.currentTimeMillis();
             if (approachObjectWait.exhausted(now))
-                fail(label + ": destination object did not load");
+                fail("destination not found", label + ": arrived but the target did not appear; restart near it");
             else if (!approachObjectWait.waiting(now))
                 approachObjectWait.issued(now, 3_000L);
         }
         if (result == WalkerState.UNREACHABLE || result == WalkerState.EXIT)
-            fail(label + " failed after bounded WebWalk retries");
+            fail("could not walk there", label + ": the walker could not reach it after several tries; walk closer and restart");
     }
 
     private boolean hasRake()
@@ -3120,10 +3155,11 @@ public class DroSulliuscepScript extends DroScript
             return false;
         }
         String n = item.getName().toLowerCase(Locale.ROOT);
-        if (!n.contains("axe")) return false;
+        if (!n.contains("axe") || n.contains("pickaxe") || n.contains("battleaxe")) return false;
         if (n.contains("crystal")) return wc >= 71;
-        if (n.contains("dragon") || n.contains("infernal")) return wc >= 61;
-        if (n.contains("rune")) return wc >= 41;
+        if (n.contains("3rd age")) return wc >= 61;
+        if (n.contains("dragon") || n.contains("infernal") || n.contains("trailblazer")) return wc >= 61;
+        if (n.contains("rune") || n.contains("gilded")) return wc >= 41;
         if (n.contains("adamant")) return wc >= 31;
         if (n.contains("mithril")) return wc >= 21;
         if (n.contains("black")) return wc >= 11;
@@ -3315,14 +3351,28 @@ public class DroSulliuscepScript extends DroScript
         }
     }
 
-    private void fail(String message)
+    /**
+     * Stops the script. {@code reason} is the short overlay status; {@code fix} is the log line
+     * that tells the player what happened and what to do before restarting.
+     */
+    private void fail(String reason, String fix)
     {
         webWalk.cancelIfActive();
         stopTreeCamera();
         fatalError = true;
         state = DroSulliuscepState.ERROR;
-        status = message;
-        Microbot.log("[DroSulliuscep] " + message);
+        status = "Stopped: " + reason;
+        Microbot.log("[DroSulliuscep] Stopped: " + reason + ". " + fix);
+    }
+
+    private void shiftRetryDeadlines(long pausedMs)
+    {
+        if (pausedMs <= 0L) return;
+        for (TravelRetry retry : new TravelRetry[] {bankTravel, bankOpening, houseEntry, houseTravel, housePool,
+                mountedTravel, thirdTreeMove, pendantTravel, mushtreeTravel, approachObjectWait})
+        {
+            retry.shift(pausedMs);
+        }
     }
 
     private static String safeMessage(Exception ex)

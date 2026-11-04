@@ -20,4 +20,6 @@ final class TravelRetry
     void menuIssued() { menuSelected = true; }
     void issued(long now, long timeout) { attempts++; deadline = now + timeout; menuSelected = false; }
     void reset() { attempts = 0; deadline = 0L; menuSelected = false; }
+    /** Moves a pending deadline forward by time the script spent paused. */
+    void shift(long ms) { if (deadline > 0L) deadline += ms; }
 }

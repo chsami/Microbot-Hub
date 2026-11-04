@@ -20,11 +20,11 @@ import javax.inject.Inject;
 
 @PluginDescriptor(
         name = PluginConstants.DRO + "Sulliuscep Run",
-        description = "Sulliuscep runner: direct pendant/Mushtree travel with built-in WebWalk approaches, exact recording-derived six-tree/obstacle routing, direct tree/vine interaction, Ferox service, and BaseProfileDro.",
+        description = "Cuts the six Sulliusceps on Fossil Island, clearing the vines on the way. Travels with a Digsite pendant and the Magic Mushtree, and banks at Ferox Enclave or through your house. Can loop with the Rubber cap mushroom instead of banking.",
         tags = {"dro", "sulliuscep", "sullicep", "woodcutting", "fossil island", "microbot"},
         authors = {"Dro"},
         version = DroSulliuscepPlugin.VERSION,
-        minClientVersion = "2.1.32",
+        minClientVersion = "2.6.32",
         iconUrl = "https://chsami.github.io/Microbot-Hub/DroSulliuscepPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/DroSulliuscepPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -32,7 +32,7 @@ import javax.inject.Inject;
 )
 public class DroSulliuscepPlugin extends Plugin
 {
-    public static final String VERSION = "1.4.15.19";
+    public static final String VERSION = "1.0.0";
 
     @Inject private DroSulliuscepScript script;
     @Inject private DroSulliuscepConfig config;
