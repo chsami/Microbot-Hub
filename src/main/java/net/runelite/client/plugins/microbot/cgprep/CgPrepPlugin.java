@@ -51,7 +51,7 @@ import net.runelite.client.util.HotkeyListener;
 )
 public class CgPrepPlugin extends Plugin
 {
-	static final String version = "1.7.5";
+	static final String version = "1.7.6";
 
 	@Inject
 	private CgPrepConfig config;
@@ -89,8 +89,10 @@ public class CgPrepPlugin extends Plugin
 			String msg = paused ? "<col=ff9040>[Auto Gauntlet]</col> Paused."
 				: dry ? "<col=ff0000>[Auto Gauntlet] Resumed in DRY RUN: it will plan but NOT click. Turn off 'Dry run (plan only)'.</col>"
 				: "<col=ff9040>[Auto Gauntlet]</col> Resumed (live).";
-			Microbot.getClientThread().invoke(() ->
-				Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", msg, null));
+			Microbot.getClientThread().invokeLater(() ->
+			{
+				Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", msg, null);
+			});
 		}
 	};
 
@@ -100,8 +102,10 @@ public class CgPrepPlugin extends Plugin
 		public void hotkeyPressed()
 		{
 			script.requestContinue();
-			Microbot.getClientThread().invoke(() ->
-				Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", "<col=ff9040>[Auto Gauntlet]</col> Next run requested: it starts when you're in the Gauntlet lobby.", null));
+			Microbot.getClientThread().invokeLater(() ->
+			{
+				Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", "<col=ff9040>[Auto Gauntlet]</col> Next run requested: it starts when you're in the Gauntlet lobby.", null);
+			});
 			Microbot.log("[Auto Gauntlet] continue requested");
 		}
 	};
