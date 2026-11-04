@@ -89,7 +89,7 @@ public class BarbarianFishingOverlay extends OverlayPanel
             {
                 panelComponent.getChildren().add(LineComponent.builder()
                         .left("Fish Barrel:")
-                        .right(script.isBarrelFull() ? "Full" : "Filling")
+                        .right(script.isBarrelFull() ? "Full" : "Not full")
                         .build());
             }
 

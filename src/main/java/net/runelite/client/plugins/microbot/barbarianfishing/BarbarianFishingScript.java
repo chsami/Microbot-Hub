@@ -218,7 +218,7 @@ public class BarbarianFishingScript extends Script
                     }
                     else
                     {
-                        setStatus("Not at a fishing spot - go to Otto's Grotto or the Mount Quidamortem lake");
+                        setStatus("Not at a fishing area - go to Otto's Grotto or the Mount Quidamortem lake");
                     }
                     return;
                 }

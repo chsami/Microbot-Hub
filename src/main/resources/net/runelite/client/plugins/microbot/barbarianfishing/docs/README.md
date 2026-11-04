@@ -58,3 +58,4 @@ The **Barbarian Fishing Plugin** is an automation tool for Old School RuneScape,
 - Added a Dragon Harpoon Spec toggle (on by default; only used when the Dragon harpoon is equipped).
 - The plugin now stops and shows a message when your Barbarian rod or your feathers/bait are missing for a few seconds (it used to stand idle).
 - Use Fish Barrel is on by default: a Fish barrel in your inventory is filled when your inventory is full, but only at Mount Quidamortem with Bank at CoX on (it is only emptied there).
+- Roe and Caviar are no longer dropped with your fish, so they can be used as bait.
