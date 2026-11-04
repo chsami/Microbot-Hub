@@ -126,7 +126,13 @@ public class FletchingScript extends Script {
 
         // Refill the spool from banked bow strings when it has run dry.
         if (shouldRefillBowStringSpool(config)) {
-            refillBowStringSpool();
+            if (refillBowStringSpool()) {
+                Microbot.status = "Stringing with bow string spool";
+            } else {
+                bowStringSpoolRefillFailed = true;
+                Microbot.status = "Could not refill the bow string spool, using bow strings for the rest of this run";
+                Microbot.log(Microbot.status);
+            }
         }
 
         // Re-evaluate the stringing item now that the bank is open (the bank snapshot is not available before).
@@ -181,7 +187,7 @@ public class FletchingScript extends Script {
             if (spoolUnusable) {
                 Microbot.status = "[Shutting down] - Reason: Your bow string spool could not be used (the stringing menu did not open) and there are no bow strings in the bank. Bank some bow strings, or start the script again to retry the spool.";
             } else if (spoolEmpty) {
-                Microbot.status = "[Shutting down] - Reason: Your bow string spool is empty and there are no bow strings in the bank. Fill the spool with bow strings or bank more bow strings, then start again.";
+                Microbot.status = "[Shutting down] - Reason: Your bow string spool is empty and there are no bow strings in the bank to refill it. Bank more bow strings (the script refills the spool for you), then start again.";
             } else {
                 Microbot.status = "[Shutting down] - Reason: " + primaryItemToFletch + " not found in the bank.";
             }
@@ -205,9 +211,11 @@ public class FletchingScript extends Script {
                         && !Rs2Bank.hasBankItem(primaryItemToFletch, fletchingMode.getAmount(), true)) {
                     // Fewer bow strings than a batch: without this the script banks forever.
                     Rs2Bank.closeBank();
-                    Microbot.status = "[Shutting down] - Reason: Only " + Rs2Bank.count(primaryItemToFletch)
-                            + " bow strings in the bank (need " + fletchingMode.getAmount()
-                            + " per trip). Bank more bow strings or fill your bow string spool, then start again.";
+                    int bowStringsLeft = Rs2Bank.count(primaryItemToFletch);
+                    Microbot.status = "[Shutting down] - Reason: Only " + bowStringsLeft
+                            + (bowStringsLeft == 1 ? " bow string" : " bow strings")
+                            + " left in the bank (" + fletchingMode.getAmount()
+                            + " needed per trip). Bank more bow strings, then start again.";
                     Microbot.showMessage(Microbot.status);
                     shutdown();
                     return;
@@ -352,7 +360,9 @@ public class FletchingScript extends Script {
             if (BOW_STRING_SPOOL.equals(stringingItem)) {
                 Microbot.log("Using bow string spool (" + getBowStringSpoolCharges() + " strings left)");
             } else if (!lastStringingItem.isEmpty()) {
-                Microbot.log("Bow string spool is empty or missing, using bow strings");
+                Microbot.log(shouldRefillBowStringSpool(config)
+                        ? "Bow string spool is empty, refilling from the bank"
+                        : "Bow string spool is empty or missing, using bow strings");
             }
             lastStringingItem = stringingItem;
         }
@@ -433,17 +443,17 @@ public class FletchingScript extends Script {
             }
             Rs2Inventory.interact(BOW_STRING_SPOOL, "Fill");
             refilled = sleepUntil(() -> getBowStringSpoolCharges() > 0, 5000);
+            if (!refilled) {
+                // Fallback for interfaces where Fill does not accept the noted stack.
+                Rs2Inventory.combineClosest(BOW_STRING, BOW_STRING_SPOOL);
+                refilled = sleepUntil(() -> getBowStringSpoolCharges() > 0, 5000);
+            }
         } finally {
             // Always return any leftover strings: a failed fill must not leave noted strings behind.
             Rs2Bank.depositAll(BOW_STRING, true);
             sleepUntil(() -> !Rs2Inventory.hasItem(BOW_STRING, true), 5000);
             Rs2Bank.setWithdrawAs(withdrawNoted);
         }
-        if (!refilled) {
-            bowStringSpoolRefillFailed = true;
-            Microbot.log("Could not refill the bow string spool, using bow strings for the rest of this run");
-        }
-        Microbot.status = refilled ? "Bow string spool refilled" : "Could not refill the bow string spool, using bow strings for the rest of this run";
         return refilled;
     }
 
