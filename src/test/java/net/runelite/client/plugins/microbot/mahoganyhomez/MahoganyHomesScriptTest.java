@@ -100,6 +100,19 @@ class MahoganyHomesScriptTest {
                 "Nothing, sorry.")));
     }
 
+    @Test
+    void hasLeftPlaneIsFalseWithoutPlayerLocation() {
+        assertFalse(MahoganyHomesScript.hasLeftPlane(null, 0));
+        assertFalse(MahoganyHomesScript.hasLeftPlane(null, 1));
+    }
+
+    @Test
+    void hasLeftPlaneComparesPlayerPlane() {
+        assertFalse(MahoganyHomesScript.hasLeftPlane(new WorldPoint(2615, 3293, 0), 0));
+        assertTrue(MahoganyHomesScript.hasLeftPlane(new WorldPoint(2615, 3293, 1), 0));
+        assertTrue(MahoganyHomesScript.hasLeftPlane(new WorldPoint(2615, 3293, 0), 1));
+    }
+
     private static MahoganyHomesScript scriptWithPlugin() {
         MahoganyHomesScript script = new MahoganyHomesScript();
         script.plugin = new MahoganyHomesPlugin();

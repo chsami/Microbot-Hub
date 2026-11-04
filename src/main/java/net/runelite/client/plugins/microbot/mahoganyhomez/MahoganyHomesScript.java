@@ -307,7 +307,9 @@ public class MahoganyHomesScript extends Script {
 
     private void tryToUseLadder() {
         log("Walker missing transport, trying to find ladder manually.");
-        int plane = Rs2Player.getWorldLocation().getPlane();
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+        int plane = playerLocation.getPlane();
         var closestLadder = Microbot.getRs2TileObjectCache().query()
                 .withIds(Arrays.stream(plugin.getCurrentHome().getLadders()).mapToInt(Integer::intValue).toArray())
                 .where(obj -> obj.getWorldLocation().getPlane() == plane).nearest();
@@ -321,7 +323,7 @@ public class MahoganyHomesScript extends Script {
         if (approach == null) return;
 
         // Geometric proximity can put us behind the house, across a closed door.
-        if (approach.distanceToPath(Rs2Player.getWorldLocation()) > 2) {
+        if (approach.distanceToPath(playerLocation) > 2) {
             log("Reaching ladder entrance before climbing: " + approach.getWorldPoint());
             if (!openDoorToObject(ladder, approach)) {
                 Rs2Walker.walkWithState(approach.getWorldPoint(), 0);
@@ -329,9 +331,13 @@ public class MahoganyHomesScript extends Script {
             return;
         }
         if (closestLadder.click()) {
-            sleepUntil(() -> Rs2Player.getWorldLocation().getPlane() != plane, 5000);
+            sleepUntil(() -> hasLeftPlane(Rs2Player.getWorldLocation(), plane), 5000);
             sleep(200, 600);
         }
+    }
+
+    static boolean hasLeftPlane(WorldPoint location, int plane) {
+        return location != null && location.getPlane() != plane;
     }
 
 
