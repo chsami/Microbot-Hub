@@ -1,7 +1,7 @@
 /*
- * DroSulliuscep - Copyright (c) 2026, Dorian (DRO / droplugins).
+ * DroSulliuscep - Copyright (c) 2026, DRO (droplugins).
  * SPDX-License-Identifier: BSD-2-Clause
- * Created by Dorian (DRO / droplugins). Free and open source.
+ * Created by DRO (droplugins). Free and open source.
  * Reuse is permitted only under LICENSE.txt: every copy, fork or excerpt of this
  * file must keep this notice, the author credit and the license text. See CREDITS.txt.
  */
@@ -21,7 +21,7 @@ import javax.inject.Inject;
 
 @PluginDescriptor(
         name = PluginConstants.DRO + "Sulliuscep",
-        description = "Sulliuscep runs by Dorian (DRO / droplugins): Digsite pendant and Magic Mushtree travel, the recorded six-tree and vine route, and Ferox Enclave pool and bank recovery.",
+        description = "Sulliuscep runs by DRO (droplugins): Digsite pendant and Magic Mushtree travel, the recorded six-tree and vine route, and Ferox Enclave pool and bank recovery.",
         tags = {"dro", "sulliuscep", "sullicep", "woodcutting", "fossil island", "microbot"},
         authors = {"droplugins"},
         version = DroSulliuscepPlugin.version,

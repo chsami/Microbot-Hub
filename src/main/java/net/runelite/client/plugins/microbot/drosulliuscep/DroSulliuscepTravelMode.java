@@ -1,7 +1,7 @@
 /*
- * DroSulliuscep - Copyright (c) 2026, Dorian (DRO / droplugins).
+ * DroSulliuscep - Copyright (c) 2026, DRO (droplugins).
  * SPDX-License-Identifier: BSD-2-Clause
- * Created by Dorian (DRO / droplugins). Free and open source.
+ * Created by DRO (droplugins). Free and open source.
  * Reuse is permitted only under LICENSE.txt: every copy, fork or excerpt of this
  * file must keep this notice, the author credit and the license text. See CREDITS.txt.
  */

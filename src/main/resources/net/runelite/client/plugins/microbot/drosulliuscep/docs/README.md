@@ -1,6 +1,6 @@
 # Dro Sulliuscep
 
-Created by **Dorian (DRO / droplugins)**.
+Created by **DRO (droplugins)**.
 
 Dro Sulliuscep runs the Fossil Island Sulliuscep course: Digsite pendant and Magic Mushtree travel to Sticky Swamp, the recorded six-tree route with its vines, and pool and bank recovery at Ferox Enclave.
 
@@ -47,4 +47,4 @@ The Hub build walks to the pool and bank with Microbot's walker, on a separate w
 
 ## Credits and license
 
-Dro Sulliuscep is © 2026 Dorian (DRO / droplugins) and is free and open source under the BSD-2-Clause license. Any copy, fork or excerpt must keep the copyright notice, the author credit and the license text. See `LICENSE.txt` and `CREDITS.txt` in the source folder.
+Dro Sulliuscep is © 2026 DRO (droplugins) and is free and open source under the BSD-2-Clause license. Any copy, fork or excerpt must keep the copyright notice, the author credit and the license text. See `LICENSE.txt` and `CREDITS.txt` in the source folder.
