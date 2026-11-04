@@ -85,6 +85,9 @@ class NmzScriptBankPinTest {
         microbot.verify(() -> Microbot.showMessage(message.capture()));
         assertTrue(message.getValue().contains("Bank PIN field in your Microbot profile"));
         assertTrue(message.getValue().contains("enter the PIN yourself"));
+        for (String line : message.getValue().split("\n")) {
+            assertTrue(line.length() <= 90, line);
+        }
         microbot.verify(() -> Microbot.stopPlugin(plugin));
     }
 
