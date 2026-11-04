@@ -46,7 +46,7 @@ public class BarbarianFishingScript extends Script
     {
         OTTOS_GROTTO("Otto's Grotto", 10038),
         MOUNT_QUIDAMORTEM("Mount Quidamortem (CoX)", 4919),
-        OTHER("Other", -1);
+        OTHER("Not at a fishing area", -1);
 
         private final String displayName;
         private final int regionId;
@@ -157,7 +157,10 @@ public class BarbarianFishingScript extends Script
                 updateLocation();
                 initializeXpIfNeeded();
 
-                hasBarrel = config.useFishBarrel() && Rs2Inventory.hasItem("Fish barrel", "Open fish barrel");
+                // The barrel is only used when banking at the CoX chest, so only then does it count.
+                hasBarrel = config.useFishBarrel() && config.bankAtCox()
+                        && location == Location.MOUNT_QUIDAMORTEM
+                        && Rs2Inventory.hasItem("Fish barrel", "Open fish barrel");
 
                 // Right after a login or world hop the inventory can read empty for a
                 // moment, so only stop once the check has failed for several ticks.
@@ -277,8 +280,7 @@ public class BarbarianFishingScript extends Script
 
     private void handleFullInventory()
     {
-        if (config.useFishBarrel() && hasBarrel && !barrelFull
-                && config.bankAtCox() && location == Location.MOUNT_QUIDAMORTEM)
+        if (hasBarrel && !barrelFull)
         {
             setStatus("Filling Fish barrel");
             Rs2ItemModel barrel = Rs2Inventory.get("Fish barrel", "Open fish barrel");
