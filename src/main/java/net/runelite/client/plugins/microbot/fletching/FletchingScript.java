@@ -441,8 +441,9 @@ public class FletchingScript extends Script {
         }
         if (!refilled) {
             bowStringSpoolRefillFailed = true;
-            Microbot.log("Bow string spool refill failed, falling back to bow strings");
+            Microbot.log("Could not refill the bow string spool, using bow strings for the rest of this run");
         }
+        Microbot.status = refilled ? "Bow string spool refilled" : "Could not refill the bow string spool, using bow strings for the rest of this run";
         return refilled;
     }
 
