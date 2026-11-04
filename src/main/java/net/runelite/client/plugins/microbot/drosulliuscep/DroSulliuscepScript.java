@@ -30,6 +30,7 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
+import net.runelite.client.plugins.microbot.util.mouse.MouseMotionVariation;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 
@@ -98,8 +99,6 @@ public class DroSulliuscepScript extends Script
     private DroSulliuscepTravelMode travelMode = DroSulliuscepTravelMode.FEROX_DUELING;
     private final TravelRetry bankTravel = new TravelRetry();
     private final TravelRetry bankOpening = new TravelRetry();
-    private boolean startupTeleportBank;
-    private int startupTeleportBankEpoch = -1;
     private final TravelRetry houseEntry = new TravelRetry();
     private boolean housePoolUsed;
     private int[] housePoolBefore;
@@ -202,9 +201,6 @@ public class DroSulliuscepScript extends Script
         this.config = config;
         travelMode = config.travelMode();
         bankTravel.reset();
-        startupTeleportBank = false;
-        startupTeleportBankEpoch = -1;
-        bankOpening.reset();
         resetHouseTravel();
         thirdTreeMove.reset();
         thirdTreeRecovery = false;
@@ -265,7 +261,8 @@ public class DroSulliuscepScript extends Script
         status = "Starting";
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
-            try
+            BaseProfileDro owner = profile;
+            try (var variation = owner == null ? MouseMotionVariation.open(null) : owner.openMouseVariation())
             {
                 tick();
             }
@@ -1186,7 +1183,7 @@ public class DroSulliuscepScript extends Script
         for (int slot : slots)
         {
             Rs2ItemModel selected = items.stream().filter(item -> item.getSlot() == slot).findFirst().orElse(null);
-            if (selected != null) doAction(ACTIVE_WORK, true, () -> Rs2Inventory.drop(live -> live.getId()==selected.getId()&&live.getSlot()==selected.getSlot()));
+            if (selected != null) doAction(ACTIVE_WORK, true, () -> Rs2Inventory.interact(selected, "Drop"));
         }
         sleepUntil(() -> !inventoryIsFull(), 2_000);
         nextTreeClickAt = 0L;
@@ -1673,7 +1670,7 @@ public class DroSulliuscepScript extends Script
 
         clearCantReachRecovery();
         return doAction(phase, urgent, () -> {
-            // Dro's generic object helper can enter its own walker recovery if a
+            // Microbot's generic object helper can enter its own walker recovery if a
             // previous interaction raised the global "can't reach" flag. This script owns
             // the local Sulliuscep route, so explicitly prevent that hidden hand-off.
             clearCantReachRecovery();
@@ -1933,6 +1930,7 @@ public class DroSulliuscepScript extends Script
         traceDroAction("teleportToServiceBank");
         state = DroSulliuscepState.TO_BANK;
         status = "Returning: " + travelMode;
+        webWalk.cancelIfActive();
         long now = System.currentTimeMillis();
         if (bankTravel.waiting(now)) return;
         if (bankTravel.exhausted(now))
@@ -1940,15 +1938,6 @@ public class DroSulliuscepScript extends Script
             fail("Selected bank landing not observed after 3 teleport attempts: " + travelMode);
             return;
         }
-        // AIO can start at another bank with the ring still banked. Fetch it before
-        // attempting the first service-bank teleport; retain ownership until closure.
-        if (startupTeleportBank || (!startupPrepared && !travelMode.crafting
-                && !inSwamp() && !hasDuelingRing()))
-        {
-            startupTeleportBank = true;
-            if (!prepareStartupBankTeleport(now)) return;
-        }
-        webWalk.cancelIfActive();
         if (travelMode.crafting ? !hasCraftingCape() : !hasDuelingRing())
         {
             fail("Missing bank teleport: " + (travelMode.crafting ? "Crafting cape" : "charged Ring of dueling"));
@@ -1967,67 +1956,6 @@ public class DroSulliuscepScript extends Script
             else
                 doAction(SETUP, true, () -> Rs2Equipment.interact("Ring of dueling", travelMode.bankAction));
         }
-    }
-
-    private boolean prepareStartupBankTeleport(long now)
-    {
-        state = DroSulliuscepState.BANKING;
-        status = "Fetching banked Ring of dueling for startup";
-        if (hasDuelingRing())
-        {
-            if (Rs2Bank.isOpen())
-            {
-                if (!bankOpening.waiting(now))
-                {
-                    if (bankOpening.exhausted(now))
-                    {
-                        fail("Could not close startup bank before teleporting");
-                        return false;
-                    }
-                    bankOpening.issued(now, 3_000L);
-                    doAction(SETUP, false, Rs2Bank::closeBank);
-                }
-                return false;
-            }
-            startupTeleportBank = false;
-            startupTeleportBankEpoch = -1;
-            bankOpening.reset();
-            return true;
-        }
-        if (bankOpening.exhausted(now))
-        {
-            fail("Could not fetch charged Ring of dueling from startup bank after 3 attempts");
-            return false;
-        }
-        if (Rs2Bank.isOpen())
-        {
-            if (Rs2Bank.getBankLiveEpoch() <= Math.max(0, startupTeleportBankEpoch))
-            {
-                if (!bankOpening.waiting(now)) bankOpening.issued(now, 3_000L);
-                status = "Waiting for startup bank contents";
-                return false;
-            }
-            if (bankOpening.waiting(now)) return false;
-            bankOpening.issued(now, 4_000L);
-            if (!Rs2Bank.setWithdrawAs(false)) return false;
-            ensureDuelingRingAtBank();
-            if (hasDuelingRing()) bankOpening.reset();
-            return false;
-        }
-        if (bankOpening.waiting(now)) return false;
-        var nearest = Rs2Bank.getNearestBank();
-        WorldPoint player = currentPlayerLocation();
-        if (nearest == null || player == null) return false;
-        if (player.distanceTo(nearest.getWorldPoint()) > 8)
-        {
-            checkTravelResult(webWalk.approach(nearest.getWorldPoint()), "Approaching startup bank");
-            return false;
-        }
-        webWalk.cancelIfActive();
-        startupTeleportBankEpoch = Rs2Bank.getBankLiveEpoch();
-        bankOpening.issued(now, 6_000L);
-        doAction(SETUP, false, Rs2Bank::openBank);
-        return false;
     }
 
     private void openSelectedBank()
@@ -2912,10 +2840,9 @@ public class DroSulliuscepScript extends Script
                     && sleepUntil(this::hasEquippedDuelingRing, 2_500);
         }
 
-        Rs2ItemModel bankRing = Rs2Bank.bankItems().stream()
-                .filter(item -> item.getQuantity() > 0 && isChargedDuelingRing(item))
-                .max(Comparator.comparing(Rs2ItemModel::getName)).orElse(null);
-        if (bankRing == null) return false;
+        Rs2ItemModel bankRing = Rs2Bank.findBankItem("Ring of dueling(8)");
+        if (bankRing == null) bankRing = Rs2Bank.findBankItem("Ring of dueling");
+        if (bankRing == null || !isChargedDuelingRing(bankRing)) return false;
         int id = bankRing.getId();
         return doAction(SETUP, true, () -> Rs2Bank.withdrawAndEquip(id))
                 && sleepUntil(this::hasEquippedDuelingRing, 3_500);
@@ -3302,7 +3229,7 @@ public class DroSulliuscepScript extends Script
         }
         catch (Exception ex)
         {
-            // Keep the existing Dro player-state cache as a harmless fallback.
+            // Keep the existing Microbot player-state cache as a harmless fallback.
             try
             {
                 return Microbot.getVarbitPlayerValue(VarPlayerID.POISON) > 0;

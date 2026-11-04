@@ -10,7 +10,7 @@ Install Dro Sulliuscep through the Microbot Hub; the Hub handles its plugin JAR 
 
 ## Requirements
 
-- Microbot client version 2.6.32 or later.
+- Microbot client version 2.1.32 or later.
 - 65+ Woodcutting.
 - Fossil Island access (Bone Voyage).
 - A rake (required for the vines before tree #4).
@@ -24,7 +24,7 @@ Install Dro Sulliuscep through the Microbot Hub; the Hub handles its plugin JAR 
 1. Choose a **Travel mode**: Ferox / Ring of dueling, POH / Castle Wars / Ring of dueling, or POH / Crafting Guild / Crafting cape.
 2. Choose what **Drop when full** removes: both mushrooms and Mort myre fungus (optionally with small or all fossils), mushrooms only, or Mort myre fungus only.
 3. Optional settings: food and antipoison are off by default; the axe special attack is on by default; smart breaks are off by default.
-4. Enable **[Dro] Sulliuscep** and start the script.
+4. Enable **[Dro] Sulliuscep Run** and start the script.
 
 ## Route
 
@@ -41,9 +41,9 @@ The active tree is read from varbit 5808. Trees are targeted by name and **Cut**
 
 After tree #6 the script travels to the selected bank, restores HP only when it is missing, banks the run's loot, and travels back to Sticky Swamp.
 
-## Walking in the Hub build
+## Walking
 
-The Hub build walks to the pool and bank with Microbot's walker, on a separate worker thread so the script keeps checking safety while it walks. Once the character reaches Sticky Swamp, the walker stops and the recorded course handles all movement.
+Pool and bank approaches use Microbot's walker. Once the character reaches Sticky Swamp, the walker is cancelled and the recorded course handles all movement.
 
 ## Credits and license
 

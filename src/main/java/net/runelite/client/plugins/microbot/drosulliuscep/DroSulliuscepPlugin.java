@@ -11,7 +11,6 @@ import net.runelite.api.events.HitsplatApplied;
 import net.runelite.client.eventbus.Subscribe;
 
 import com.google.inject.Provides;
-import lombok.extern.slf4j.Slf4j;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -20,21 +19,20 @@ import net.runelite.client.ui.overlay.OverlayManager;
 import javax.inject.Inject;
 
 @PluginDescriptor(
-        name = PluginConstants.DRO + "Sulliuscep",
-        description = "Sulliuscep runs by DRO (droplugins): Digsite pendant and Magic Mushtree travel, the recorded six-tree and vine route, and Ferox Enclave pool and bank recovery.",
+        name = PluginConstants.DRO + "Sulliuscep Run",
+        description = "Sulliuscep runner: direct pendant/Mushtree travel with built-in WebWalk approaches, exact recording-derived six-tree/obstacle routing, direct tree/vine interaction, Ferox service, and BaseProfileDro.",
         tags = {"dro", "sulliuscep", "sullicep", "woodcutting", "fossil island", "microbot"},
-        authors = {"droplugins"},
-        version = DroSulliuscepPlugin.version,
-        minClientVersion = "2.6.32",
+        authors = {"Dro"},
+        version = DroSulliuscepPlugin.VERSION,
+        minClientVersion = "2.1.32",
         iconUrl = "https://chsami.github.io/Microbot-Hub/DroSulliuscepPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/DroSulliuscepPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
-@Slf4j
 public class DroSulliuscepPlugin extends Plugin
 {
-    static final String version = "1.0.0";
+    public static final String VERSION = "1.4.15.19";
 
     @Inject private DroSulliuscepScript script;
     @Inject private DroSulliuscepConfig config;
@@ -50,7 +48,6 @@ public class DroSulliuscepPlugin extends Plugin
     @Override
     protected void startUp()
     {
-        log.info("{} v{} - {}", PluginConstants.DRO + "Sulliuscep", version, PluginConstants.CREDIT);
         { overlayManager.add(overlay); overlay.enableDropDownInput(); }
         script.run(config);
     }

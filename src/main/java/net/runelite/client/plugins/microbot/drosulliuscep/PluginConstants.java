@@ -7,12 +7,10 @@
  */
 package net.runelite.client.plugins.microbot.drosulliuscep;
 
-/** Plugin descriptor values and author credit included locally to keep DroSulliuscep portable as one folder. */
+/** Plugin descriptor values included locally; the Hub's shared PluginConstants has no DRO prefix. */
 final class PluginConstants
 {
     static final String DRO = "[Dro] ";
-    static final String AUTHOR = "DRO (droplugins)";
-    static final String CREDIT = "Created by " + AUTHOR + ". BSD-2-Clause; retain the copyright and license notices when reusing.";
     static final boolean DEFAULT_ENABLED = false;
     static final boolean IS_EXTERNAL = true;
 

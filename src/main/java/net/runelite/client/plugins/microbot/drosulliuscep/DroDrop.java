@@ -39,7 +39,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
  *
  * RANDOM
  * ------
- * Deliberately remains Dro's normal RANDOM interact order. CUSTOM and
+ * Deliberately remains Microbot's normal RANDOM interact order. CUSTOM and
  * RANDOM are separate so other Dro scripts can explicitly opt into the learned
  * profile without changing the semantics of RANDOM.
  *
@@ -263,7 +263,7 @@ public final class DroDrop
     }
 
     /**
-     * Fixed/RANDOM Dro orders remain available. They use normal inventory
+     * Fixed/RANDOM Microbot orders remain available. They use normal inventory
      * interaction ordering and do NOT silently inherit the learned CUSTOM route.
      */
     private static void dropFixedOrder(

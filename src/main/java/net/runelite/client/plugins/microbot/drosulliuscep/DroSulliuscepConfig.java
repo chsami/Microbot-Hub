@@ -11,7 +11,7 @@ import net.runelite.client.config.*;
 
 @ConfigGroup(DroSulliuscepConfig.GROUP)
 @ConfigInformation(
-        "[Dro] Sulliuscep Run by DRO (droplugins) - script-owned travel + recorded swamp course.<br/><br/>" +
+        "[Dro] Sulliuscep Run - script-owned travel + recorded swamp course.<br/><br/>" +
         "<b>Requirements:</b> 65 Woodcutting, Fossil Island/Bone Voyage access, a rake, a usable axe, and travel items for the selected mode. " +
         "Ferox requires a dueling ring and Digsite pendant. POH requires an ornate rejuvenation pool and mounted Digsite pendant, plus a house tablet or Construction cape.<br/><br/>" +
         "The script handles Digsite pendant and Mushtree travel directly. Built-in WebWalk handles pool/bank approaches when their objects are not nearby. " +

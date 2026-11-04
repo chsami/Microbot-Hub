@@ -20,6 +20,7 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.PlayStyle;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
+import net.runelite.client.plugins.microbot.util.mouse.MouseMotionVariation;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.LoginManager;
 import net.runelite.client.ui.FontManager;
@@ -34,10 +35,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BooleanSupplier;
 
 /**
- * Shared Dro behavior/profile layer intended to be embedded by any Dro script.
+ * Shared Dro behavior/profile layer intended to be embedded by any Microbot script.
  *
  * <p>It centralizes the pieces that otherwise end up being copied into every Dro script:
- * startup camera zoom/pitch, a stable per-login session personality, Dro-style reaction
+ * startup camera zoom/pitch, a stable per-login session personality, MKE-style reaction
  * timing, NaturalMouse helpers, fixed-edge off-screen parking, ACTIVE/BALANCED/AFK mouse
  * activity, native antiban setup with active cooldowns disabled, the DroZone smart break +
  * auto-login flow, and an optional live overlay.
@@ -47,6 +48,12 @@ import java.util.function.BooleanSupplier;
  * and when the script has entered an idle opportunity.
  */
 public final class BaseProfileDro {
+    private volatile MouseMotionVariation.Session mouseVariation = new MouseMotionVariation.Session();
+
+    /** Motion-only variation across chopping, movement, banking and recovery inputs. */
+    public MouseMotionVariation.Scope openMouseVariation() {
+        return mouseVariation.open();
+    }
 
     public static final String VERSION = "1.0.0";
 
@@ -57,6 +64,8 @@ public final class BaseProfileDro {
     private final Settings settings;
     private final Random random = new Random();
     private final SmartBreakManager breakManager;
+    private final net.runelite.client.plugins.microbot.accountselector.AutoLoginProfileGuard autoLoginGuard =
+            new net.runelite.client.plugins.microbot.accountselector.AutoLoginProfileGuard(this::isAutoLoginBlockedByBreak);
 
     private SessionPersonality personality = SessionPersonality.neutral();
     private AfkParkSide resolvedParkSide = AfkParkSide.RIGHT;
@@ -96,7 +105,7 @@ public final class BaseProfileDro {
     }
 
     /**
-     * Optional activity-specific Dro template, for example:
+     * Optional activity-specific Microbot template, for example:
      * <pre>
      * profile.setNativeTemplateApplier(() -> Rs2Antiban.antibanSetupTemplates.applyThievingSetup());
      * </pre>
@@ -149,7 +158,10 @@ public final class BaseProfileDro {
                 this::randomPoint,
                 () -> handleIdleMouse(true, settings.mouseActivity), () -> started && !isBreakActive());
 
+        autoLoginGuard.start();
         if (started) return;
+        mouseVariation.close();
+        mouseVariation = new MouseMotionVariation.Session();
         started = true;
         sessionStartedAt = System.currentTimeMillis();
         wasLoggedIn = false;
@@ -219,6 +231,8 @@ public final class BaseProfileDro {
     }
 
     public void shutdown() {
+        mouseVariation.close();
+        autoLoginGuard.shutdown();
         net.runelite.client.plugins.microbot.inventorysetups.DroSetupMouse.unregister(this);
         detachOverlay();
         breakManager.shutdown();
@@ -284,7 +298,7 @@ public final class BaseProfileDro {
     }
 
     /**
-     * Small local settling and Dro-style cadence after a real successful action. This is deliberately
+     * Small local settling and MKE-style cadence after a real successful action. This is deliberately
      * not Rs2Antiban.actionCooldown(); native active cooldowns remain disabled.
      */
     public void afterAction(ActionPhase phase) {
@@ -374,7 +388,7 @@ public final class BaseProfileDro {
 
     /**
      * Picks a non-fixed point inside a known-safe clickbox. This is the reusable "different places"
-     * part of the Dro profile; it does not invent unrelated clicks.
+     * part of the MKE profile; it does not invent unrelated clicks.
      */
     public net.runelite.api.Point randomPoint(Rectangle bounds) {
         return randomPoint(bounds, 3);
@@ -506,7 +520,7 @@ public final class BaseProfileDro {
             resetAdaptiveCadence();
             if (settings.startupCameraEnabled) {
                 try {
-                    // Preserve the player's zoom at startup and login.
+                    Rs2Camera.setZoom(settings.startupCameraZoom);
                     int pitchMin = Math.min(settings.startupPitchMin, settings.startupPitchMaxExclusive - 1);
                     int pitchMax = Math.max(pitchMin + 1, settings.startupPitchMaxExclusive);
                     Rs2Camera.setPitch(ThreadLocalRandom.current().nextInt(pitchMin, pitchMax));
@@ -953,7 +967,7 @@ public final class BaseProfileDro {
         }
     }
 
-    /** Generic timing helpers retained from the Dro behavior classes. */
+    /** Generic timing helpers retained from the Dro/MKE behavior classes. */
     public static final class HumanBehaviorProfile {
         private HumanBehaviorProfile() {
         }
@@ -1214,7 +1228,7 @@ public final class BaseProfileDro {
             setPriority(OverlayPriority.HIGH);
         }
 
-
+        
         private Dimension renderExpanded(Graphics2D graphics) {
             List<OverlayRow> rows = new ArrayList<>();
             rows.add(new OverlayRow("Runtime", formatDuration(profile.getSessionElapsedMs())));

@@ -8,7 +8,6 @@
 package net.runelite.client.plugins.microbot.drosulliuscep;
 
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -16,18 +15,9 @@ import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 
-/**
- * Script-owned walker requests. Arrival is checked against the current location.
- * Hub build: the AIO Efficient Walker is not available, so walks use Microbot's Rs2Walker on a
- * script-owned worker thread; approaches stay non-blocking for the script loop.
- */
+/** Script-owned WebWalk requests. Arrival is always checked against the current location. */
 final class DroSulliuscepWebWalk
 {
-    private static final ExecutorService APPROACH_WORKER = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "DroSulliuscep-walker");
-        thread.setDaemon(true);
-        return thread;
-    });
     private WorldPoint target;
     private WorldPoint lastPosition;
     private long progressAt;
@@ -37,7 +27,7 @@ final class DroSulliuscepWebWalk
 
     WalkerState approach(WorldPoint destination)
     {
-        return advance(destination, APPROACH_WORKER);
+        return advance(destination, null);
     }
 
     WalkerState travel(WorldPoint destination, ExecutorService executor)
@@ -87,11 +77,6 @@ final class DroSulliuscepWebWalk
                 return WalkerState.MOVING;
             }
             if (!journey.isDone()) return WalkerState.MOVING;
-            try{
-                WalkerState result=journey.get();journey=null;
-                if(result==WalkerState.MOVING)return result;
-            }catch(InterruptedException interrupted){Thread.currentThread().interrupt();return WalkerState.EXIT;}
-            catch(java.util.concurrent.ExecutionException failure){throw new IllegalStateException("Sulliuscep walker request failed",failure.getCause());}
             // A completed task is not proof of arrival; the live location above owns success.
             return retry(now);
         }
@@ -103,7 +88,7 @@ final class DroSulliuscepWebWalk
 
     WalkerState walkStep(WorldPoint destination)
     {
-        return Rs2Walker.walkWithState(destination, 3);
+        return Rs2Walker.walkStep(destination, 3);
     }
 
     private WalkerState retry(long now)
@@ -132,6 +117,7 @@ final class DroSulliuscepWebWalk
     {
         if (journey != null) journey.cancel(true);
         journey = null;
-        Rs2Walker.setTarget(null);
+        if (target != null && target.equals(Rs2Walker.getCurrentTarget()))
+            Rs2Walker.setTarget(null, "sulliuscep:travel-handoff");
     }
 }
