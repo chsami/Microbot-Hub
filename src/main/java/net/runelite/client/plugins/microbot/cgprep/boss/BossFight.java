@@ -57,6 +57,7 @@ public final class BossFight
 	/** Natural: the cursor travels to every target and tabs are opened with their F-keys. */
 	public volatile boolean naturalInput = true;
 	private final HumanInput human = new HumanInput();
+	private int reaimedAtStart;
 	private final Humanizer humanizer = new Humanizer(new java.util.Random());
 	private final java.util.Random rnd = new java.util.Random();
 	private InputTiming.Zone cursorZone = InputTiming.Zone.SCENE;
@@ -184,6 +185,7 @@ public final class BossFight
 			brain = new HunllefBrain(brainConfig);
 			exec.reset();
 			humanizer.reset();
+			reaimedAtStart = human.reaimed;
 			fightPrepared = false;
 			warnedSlowBow = false;
 			fightTicks = 0;
@@ -661,6 +663,7 @@ public final class BossFight
 			if (ok)
 			{
 				exec.sent(c, tick);
+				brain.sent(c, tick);
 				// While running, a person sometimes clicks the tile again (only when nothing else is waiting).
 				if (ht != null && c.type == Click.Type.MOVE && c == clicks.get(clicks.size() - 1) && rnd.nextDouble() < 0.15 && done < 380)
 				{
@@ -905,6 +908,7 @@ public final class BossFight
 		FightModel m = model;
 		FightObs o = lastObs;
 		log.accept("FIGHT", "END " + outcome + (o == null ? "" : " hp " + o.hp + " fish " + o.fish + " doses " + o.doses + " boss " + o.bossHp)
-			+ " attacks " + m.attacksTotal + " swings " + m.swings + " style misses " + m.styleMisses + "/" + m.styleChecks);
+			+ " attacks " + m.attacksTotal + " swings " + m.swings + " style misses " + m.styleMisses + "/" + m.styleChecks
+			+ " walk re-aims " + (human.reaimed - reaimedAtStart));
 	}
 }

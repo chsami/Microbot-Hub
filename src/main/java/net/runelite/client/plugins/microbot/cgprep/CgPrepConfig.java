@@ -95,7 +95,9 @@ public interface CgPrepConfig extends Config
 		position = 3, section = runSection)
 	default int potionTarget()
 	{
-		return 3;
+		// 1.8.0: the setting now means potions brewed (it used to be "max brews", where 3 gave
+		// the boss 2 potions). 2 keeps the old default's 6 boss doses.
+		return 2;
 	}
 
 	@Range(min = 0, max = 100)

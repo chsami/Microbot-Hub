@@ -147,18 +147,20 @@ public final class Needs
 		// Potions: each brew = 1 grym + 10 dust (10 shards) and gives a 3-dose. Brews done are
 		// counted in doses (held + the planned prep sips), so decanting and sipping don't confuse it;
 		// an emergency sip beyond the allowance makes room for an extra brew.
-		if (decant && potionTarget >= 2)
+		if (decant && potionTarget >= 1)
 		{
-			// Dose model (user, 0.3.32): the boss needs 6 doses (= 3 x (brews - 1)), and no more than
-			// `potionTarget` brews (3 herbs) in a run. Two brews do it if nothing is sipped; every
-			// sip (up to 3) calls for the 3rd. Brews made = doses brewed / 3 (in the bag + drunk).
-			int bossDoses = 3 * (potionTarget - 1);
+			// The setting is the number of potions to brew (user, 1.8.0; 0.3.32-1.7.x read it as
+			// "max brews" and gave the boss 3 x (setting - 1) doses, so 2 meant ONE potion). All
+			// `potionTarget` brews are required. Up to 3 doses may be sipped during prep; a sip
+			// calls for one extra brew to replace it, which is a nice-to-have (its herb only from
+			// close by). Brews made = doses brewed / 3 (in the bag + drunk).
+			int bossDoses = 3 * potionTarget;
 			n.bossDoses = bossDoses;
-			n.prepDoseAllowance = 3 * potionTarget - bossDoses;
+			n.prepDoseAllowance = 3;
 			int brewsMade = (l.potionDoses + l.dosesDrunk) / 3;
-			int wanted = Math.min(potionTarget, (bossDoses + l.dosesDrunk + 2) / 3);
+			int wanted = potionTarget + (l.dosesDrunk > 0 ? 1 : 0);
 			n.potionsToMake = Math.max(0, wanted - brewsMade);
-			n.requiredPotionsToMake = Math.max(0, Math.min(n.potionsToMake, (bossDoses + 2) / 3 - brewsMade));
+			n.requiredPotionsToMake = Math.max(0, potionTarget - brewsMade);
 		}
 		else
 		{
@@ -170,10 +172,11 @@ public final class Needs
 		add(want, Resource.GRYM, Math.max(0, n.potionsToMake - l.unfinishedPotions));
 		int dustNeeded = Math.max(0, n.potionsToMake * CgIds.DUST_PER_POTION - l.dust);
 		add(want, Resource.SHARDS, dustNeeded);
-		// Containers: every potion item, vial, water vial or unfinished potion is one. The decant
-		// method ends with 2 (the 3rd brew reuses the vial the sipped 2-dose leaves behind).
+		// Containers: every potion item, vial, water vial or unfinished potion is one, one per
+		// required brew (the extra brew reuses the vial a sipped potion leaves behind, unless
+		// vials vanish on this account).
 		n.vialsSmash = vialsSmash;
-		n.containersTarget = decant && potionTarget >= 2 && !vialsSmash ? potionTarget - 1 : potionTarget;
+		n.containersTarget = potionTarget;
 		int containers = l.emptyVials + l.waterVials + l.unfinishedPotions + l.potions;
 		// Vanishing vials: one per brew, but at most 2 in progress (user: 2 vials on the first trip
 		// home; the 3rd is made on a later visit once those are brewed).
@@ -240,6 +243,20 @@ public final class Needs
 			}
 		}
 		return n;
+	}
+
+	/**
+	 * What the overlay's "Missing" row shows (1.8.0): the settings as set. The planner works with
+	 * less on purpose (fish up to the "Paddlefish minimum" until the bowstring and orb are in hand;
+	 * the last potion only if a sip used up the spare doses or its herb is close), so its own
+	 * needs showed 12 fish and 2 grym leaves whatever the targets said.
+	 */
+	public static Needs goal(Ledger l, PrepProfile p, int fishTarget, int shardBuffer, int potionTarget, boolean vialsSmash)
+	{
+		Ledger c = l.copy();
+		// Brews done = doses brewed (held + drunk), as in the planner.
+		c.potionDoses = l.potionDoses + l.dosesDrunk;
+		return compute(c, p, fishTarget, shardBuffer, potionTarget, false, vialsSmash);
 	}
 
 	/** A copy with one resource's deficit capped (e.g. fish limited by the slot budget). */

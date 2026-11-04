@@ -839,6 +839,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			in.mobFighting = (ft == Monster.WEAK || ft == Monster.STRONG) && prayer.attackingOnPurpose ? ft : null;
 			in.potionTarget = potions;
 			in.fishMin = config.fishMin();
+			in.fishTarget = config.fishTarget();
 			in.fishLater = fishLater;
 			// Escape: low HP with no cooked food while something is on us (0.3.12 stood still and died).
 			if (maze.inStartRoom())
@@ -902,7 +903,9 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			prayer.fightTarget = fighting ? gNow.monster : null;
 			prayer.attackingOnPurpose = fighting && interactingNow;
 			prayer.weaponStyle = styleNow;
-			gather.weave = config.weaveAttacks();
+			// Weave attacks into gathering only while shards are still short (user, 1.8.0): the kills
+			// are for their shards; with the shard target met they only cost time.
+			gather.weave = config.weaveAttacks() && n.get(net.runelite.client.plugins.microbot.cgprep.data.Resource.SHARDS) > 0;
 			prayer.lazyFlick = config.lazyFlick();
 			gather.meleeWeapon = styleNow == net.runelite.client.plugins.microbot.cgprep.fight.PrayerGuard.Style.MELEE;
 			lootNeeds = in.gather != null ? in.gather : n;
@@ -1269,7 +1272,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 					boolean demi = g.monster != Monster.WEAK && g.monster != Monster.STRONG;
 					if (demi)
 					{
-						maze.markKilled(g.monster);
+						maze.markKilled(g.monster, combat.lastTargetTile());
 					}
 					pendingLoot = true;
 					lootTile = combat.lastTargetTile();
@@ -1845,6 +1848,12 @@ public class CgPrepScript extends StateMachineScript<CgState>
 
 	/** Set once vials were seen to vanish (or not); falls back to the stored setting. */
 	private volatile Boolean vialsSmashSeen;
+
+	/** For the overlay. */
+	boolean vialsSmashSetting()
+	{
+		return vialsSmash();
+	}
 
 	private boolean vialsSmash()
 	{

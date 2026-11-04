@@ -101,6 +101,9 @@ public final class HumanInput
 		nature.setReactionTimeVariationMs(35);
 	}
 
+	/** Walk clicks re-aimed after the cursor arrived (the tile had moved), for the fight log. */
+	volatile int reaimed;
+
 	/** Move along a natural path to (x, y). Call inside a gesture (see {@link #gesture}). */
 	private void moveTo(int x, int y) throws InterruptedException
 	{
@@ -156,18 +159,34 @@ public final class HumanInput
 		return gesture(emit ->
 		{
 			moveTo(p.x, p.y);
+			java.awt.Point q = p;
+			net.runelite.client.plugins.microbot.util.menu.NewMenuEntry entry = t.entry;
+			// A walk: the camera follows the running player, so the tile may have slid away from
+			// under the cursor during the travel (1.8.0). Aim again from where it is now.
+			if (t.reaim != null && t.entryAt != null)
+			{
+				java.awt.Point r = t.reaim.apply(p);
+				if (r != null && (r.x != p.x || r.y != p.y))
+				{
+					overshoots.setOvershoots(0);
+					new MouseMotion(nature, rnd, r.x, r.y).move();
+					q = r;
+					entry = t.entryAt.apply(r);
+					reaimed++;
+				}
+			}
 			// What VirtualMouse's quick click does once the cursor is there: the menu entry rides the
 			// press, then press / short hold / release.
-			if (!net.runelite.client.plugins.microbot.util.input.PointerState.isAt(p.x, p.y))
+			if (!net.runelite.client.plugins.microbot.util.input.PointerState.isAt(q.x, q.y))
 			{
-				emit.move(p.x, p.y);
+				emit.move(q.x, q.y);
 			}
-			Microbot.targetMenu = t.entry;
-			emit.press(p.x, p.y, 1);
+			Microbot.targetMenu = entry;
+			emit.press(q.x, q.y, 1);
 			Thread.sleep(30 + rnd.nextInt(36));
-			emit.release(p.x, p.y, 1);
-			emit.click(p.x, p.y, 1);
-			Microbot.getMouse().setLastClick(new net.runelite.api.Point(p.x, p.y));
+			emit.release(q.x, q.y, 1);
+			emit.click(q.x, q.y, 1);
+			Microbot.getMouse().setLastClick(new net.runelite.api.Point(q.x, q.y));
 		});
 	}
 
