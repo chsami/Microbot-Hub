@@ -20,7 +20,6 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.PlayStyle;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
-import net.runelite.client.plugins.microbot.util.mouse.MouseMotionVariation;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.LoginManager;
 import net.runelite.client.ui.FontManager;
@@ -64,8 +63,8 @@ public final class BaseProfileDro {
     private final Settings settings;
     private final Random random = new Random();
     private final SmartBreakManager breakManager;
-    private final net.runelite.client.plugins.microbot.accountselector.AutoLoginProfileGuard autoLoginGuard =
-            new net.runelite.client.plugins.microbot.accountselector.AutoLoginProfileGuard(this::isAutoLoginBlockedByBreak);
+    private final AutoLoginProfileGuard autoLoginGuard =
+            new AutoLoginProfileGuard(this::isAutoLoginBlockedByBreak);
 
     private SessionPersonality personality = SessionPersonality.neutral();
     private AfkParkSide resolvedParkSide = AfkParkSide.RIGHT;
@@ -152,7 +151,7 @@ public final class BaseProfileDro {
      * the single owner of its loop and simply calls {@link #tick(boolean, boolean)}.
      */
     public void start() {
-        net.runelite.client.plugins.microbot.inventorysetups.DroSetupMouse.register(this,
+        DroSetupMouse.register(this,
                 () -> beforeAction(ActionPhase.SETUP, false),
                 () -> afterAction(ActionPhase.SETUP),
                 this::randomPoint,
@@ -233,7 +232,7 @@ public final class BaseProfileDro {
     public void shutdown() {
         mouseVariation.close();
         autoLoginGuard.shutdown();
-        net.runelite.client.plugins.microbot.inventorysetups.DroSetupMouse.unregister(this);
+        DroSetupMouse.unregister(this);
         detachOverlay();
         breakManager.shutdown();
         started = false;

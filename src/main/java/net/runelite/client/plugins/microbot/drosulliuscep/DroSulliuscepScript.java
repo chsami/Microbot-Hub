@@ -30,7 +30,6 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Potion;
-import net.runelite.client.plugins.microbot.util.mouse.MouseMotionVariation;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 
@@ -67,7 +66,7 @@ import static net.runelite.client.plugins.microbot.drosulliuscep.BaseProfileDro.
  */
 @Slf4j
 @Singleton
-public class DroSulliuscepScript extends Script
+public class DroSulliuscepScript extends DroScript
 {
     private int detectedActiveTree = -1;
     private long nextCoursePlanAt;
