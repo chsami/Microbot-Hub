@@ -30,8 +30,6 @@ import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
-import net.runelite.client.plugins.microbot.util.security.Encryption;
-import net.runelite.client.plugins.microbot.util.security.LoginManager;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
@@ -431,14 +429,7 @@ public class NmzScript extends Script {
         if (chest == null) return;
         chest.click();
         sleepUntil(() -> Rs2Widget.isWidgetVisible(13500418) || Rs2Bank.isBankPinWidgetVisible(), 10000);
-        if (Rs2Bank.isBankPinWidgetVisible()) {
-            try {
-                Rs2Bank.handleBankPin(Encryption.decrypt(LoginManager.getActiveProfile().getBankPin()));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            sleepUntil(() -> Rs2Widget.isWidgetVisible(13500418), 10000);
-        }
+        if (!handleRewardChestBankPin()) return;
 
         Widget benefitsBtn = Rs2Widget.getWidget(13500418);
         if (benefitsBtn == null) return;
@@ -467,6 +458,17 @@ public class NmzScript extends Script {
             Rs2Widget.clickWidgetFast(potionButton, 9, 4);
             sleep(600, 1000);
         }
+    }
+
+    boolean handleRewardChestBankPin() {
+        if (!Rs2Bank.isBankPinWidgetVisible()) return true;
+        if (!Rs2Bank.handleBankPin() && Rs2Bank.isBankPinWidgetVisible()) {
+            Microbot.showMessage("BOT SHUTDOWN: A bank PIN is required to buy NMZ potions. Set your bank PIN in your profile.");
+            Microbot.stopPlugin(plugin);
+            return false;
+        }
+        sleepUntil(() -> Rs2Widget.isWidgetVisible(13500418), 10000);
+        return true;
     }
 
 }
