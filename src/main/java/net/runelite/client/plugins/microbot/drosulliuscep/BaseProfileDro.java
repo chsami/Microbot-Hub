@@ -57,8 +57,6 @@ public final class BaseProfileDro {
     private final Settings settings;
     private final Random random = new Random();
     private final SmartBreakManager breakManager;
-    private final net.runelite.client.plugins.microbot.accountselector.AutoLoginProfileGuard autoLoginGuard =
-            new net.runelite.client.plugins.microbot.accountselector.AutoLoginProfileGuard(this::isAutoLoginBlockedByBreak);
 
     private SessionPersonality personality = SessionPersonality.neutral();
     private AfkParkSide resolvedParkSide = AfkParkSide.RIGHT;
@@ -151,7 +149,6 @@ public final class BaseProfileDro {
                 this::randomPoint,
                 () -> handleIdleMouse(true, settings.mouseActivity), () -> started && !isBreakActive());
 
-        autoLoginGuard.start();
         if (started) return;
         started = true;
         sessionStartedAt = System.currentTimeMillis();
@@ -222,7 +219,6 @@ public final class BaseProfileDro {
     }
 
     public void shutdown() {
-        autoLoginGuard.shutdown();
         net.runelite.client.plugins.microbot.inventorysetups.DroSetupMouse.unregister(this);
         detachOverlay();
         breakManager.shutdown();
