@@ -24,6 +24,9 @@ public class DriftNetOverlay extends OverlayPanel
     private static final int WIDTH = 280;
     private static final int ROW_HEIGHT = 16;
     private static final int PADDING = 10;
+    private static final int STATUS_X = 55;
+    private static final int STATUS_WIDTH = WIDTH - STATUS_X - PADDING;
+    private static final int STATUS_LINE_HEIGHT = 13;
 
     private static final Color BACKGROUND = new Color(42, 42, 42, 156);
     private static final Color BORDER = new Color(205, 211, 218, 120);
@@ -54,8 +57,10 @@ public class DriftNetOverlay extends OverlayPanel
     private Dimension renderExpanded(Graphics2D graphics)
     {
         DriftNetScript script = plugin.getScript();
+        java.util.List<String> statusLines = wrap(graphics, LABEL_FONT, value(script.getStatus()), STATUS_WIDTH);
+        int extra = (statusLines.size() - 1) * STATUS_LINE_HEIGHT;
         int rows = 6;
-        int height = 58 + (rows * ROW_HEIGHT) + 5;
+        int height = 58 + extra + (rows * ROW_HEIGHT) + 5;
 
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
@@ -66,12 +71,12 @@ public class DriftNetOverlay extends OverlayPanel
         graphics.setColor(BORDER);
         graphics.drawRoundRect(0, 0, WIDTH - 1, height - 1, 9, 9);
 
-        renderHeader(graphics);
+        renderHeader(graphics, statusLines);
 
         graphics.setColor(new Color(205, 211, 218, 76));
-        graphics.drawLine(PADDING, 45, WIDTH - PADDING, 45);
+        graphics.drawLine(PADDING, 45 + extra, WIDTH - PADDING, 45 + extra);
 
-        int y = 64;
+        int y = 64 + extra;
         row(graphics, "Mode", "Drift Net", y, TEXT);
         y += ROW_HEIGHT;
         row(graphics, "Runtime", duration(script.getRuntimeMs()), y, TEXT);
@@ -86,7 +91,7 @@ public class DriftNetOverlay extends OverlayPanel
         return new Dimension(WIDTH, height);
     }
 
-    private void renderHeader(Graphics2D graphics)
+    private void renderHeader(Graphics2D graphics, java.util.List<String> statusLines)
     {
         int iconX = PADDING;
         int iconY = 3;
@@ -114,15 +119,39 @@ public class DriftNetOverlay extends OverlayPanel
 
         DriftNetScript script = plugin.getScript();
         String status = value(script.getStatus());
-        boolean active = !"-".equals(status)
+        boolean active = script.isRunning()
+                && !"-".equals(status)
                 && !"Starting".equalsIgnoreCase(status)
                 && !"Idle".equalsIgnoreCase(status);
 
         graphics.setColor(active ? LIVE : MUTED);
         graphics.fillOval(textX, 23, 6, 6);
-        drawText(graphics, LABEL_FONT, MUTED,
-                fit(graphics, LABEL_FONT, status, WIDTH - (textX + 12) - PADDING),
-                textX + 12, 35);
+        int y = 35;
+        for (String line : statusLines)
+        {
+            drawText(graphics, LABEL_FONT, MUTED, line, textX + 12, y);
+            y += STATUS_LINE_HEIGHT;
+        }
+    }
+
+    /** Word-wraps the status to at most two lines; the second line is cut with an ellipsis. */
+    private java.util.List<String> wrap(Graphics2D graphics, Font font, String text, int maxWidth)
+    {
+        FontMetrics metrics = graphics.getFontMetrics(font);
+        if (metrics.stringWidth(text) <= maxWidth) return java.util.List.of(text);
+        String[] words = text.split(" ");
+        StringBuilder first = new StringBuilder();
+        int i = 0;
+        for (; i < words.length; i++)
+        {
+            String candidate = first.length() == 0 ? words[i] : first + " " + words[i];
+            if (metrics.stringWidth(candidate) > maxWidth) break;
+            first.setLength(0);
+            first.append(candidate);
+        }
+        if (first.length() == 0) return java.util.List.of(fit(graphics, font, text, maxWidth));
+        String rest = String.join(" ", java.util.Arrays.copyOfRange(words, i, words.length));
+        return java.util.List.of(first.toString(), fit(graphics, font, rest, maxWidth));
     }
 
     private void row(Graphics2D graphics, String label, String value, int baselineY, Color valueColor)

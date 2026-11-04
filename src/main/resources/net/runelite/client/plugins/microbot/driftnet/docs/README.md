@@ -7,7 +7,7 @@ Automation for the Drift Net fishing and Hunter minigame in the underwater caver
 - **Autonomous drift net operation:** sets nets, monitors fill levels via game varbits, loots full nets and resets empty ones immediately.
 - **Directional shoal targeting:** weighs shoal distance, angle and line of sight to herd shoals toward the active nets with minimal movement.
 - **Annette resupply:** withdraws more drift nets from Annette when the inventory runs out, including Store-All for noted nets.
-- **Rs2Walker travel:** all area and surface travel uses `Rs2Walker`.
+- **Travel to Drift Net:** optionally walks to the Fossil Island bank from anywhere, loads your chosen inventory setup, dives from the rowboat and swims to the nets.
 - **Gear and stance management:** unequips conflicting weapon slots and manages underwater swim speed via sprint toggling.
 - **Collapsible overlay:** runtime, Fishing and Hunter XP/hr, next break countdown and status.
 - **Humanized behaviour:** configurable mouse activity, off-screen idle parking and AFK/logout break intervals.
@@ -15,15 +15,22 @@ Automation for the Drift Net fishing and Hunter minigame in the underwater caver
 ## Requirements
 
 - Fossil Island access plus a fishbowl helmet and diving apparatus.
-- Drift nets stored with Annette (or noted nets to deposit).
+- Numulites for Ceto's 200-numulite daily entry fee (the script pays it).
+- Drift nets stored with Annette, or noted nets in your inventory (the script hands them to her).
 - A merfolk trident or an empty weapon slot to prod shoals.
+- For Travel: an inventory setup with the helmet, diving apparatus, trident, numulites and nets, a free slot to remove your weapon and shield, and a total weight under 28 kg.
 
 ## Usage
 
 1. Equip the diving apparatus and fishbowl helmet.
 2. Have drift nets with Annette inside the underwater cavern.
-3. Adjust the plugin configuration (mouse activity, breaks, shoal chasing distance).
-4. Start the plugin near the underwater entrance or inside the net area.
+3. Adjust the plugin configuration (bank fish, tag timeout, Travel and setup, mouse activity, breaks).
+4. Start the plugin near the underwater entrance, inside the net area, or anywhere with Travel turned on.
+
+## Notes
+
+- The in-world net, shoal and Annette highlights from the original plugin were removed. Use RuneLite's built-in Drift Net plugin if you want them.
+- Smart breaks are separate from the Break Handler plugin; use one or the other.
 
 ## Source files
 

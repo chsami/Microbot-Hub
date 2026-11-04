@@ -49,7 +49,6 @@ public class DriftNetScript extends Script
     private DriftNetProfile profile;
 
     private volatile String status = "Starting";
-    private volatile boolean runInputsActive;
 
     private volatile boolean fishingXpInitialized;
     private volatile int startFishingXp;
@@ -91,7 +90,6 @@ public class DriftNetScript extends Script
     public boolean run(DriftNetConfig config)
     {
         this.config = config;
-        runInputsActive = true;
         resetRuntime();
 
         DriftNetProfile.Settings settings = new DriftNetProfile.Settings()
@@ -158,22 +156,11 @@ public class DriftNetScript extends Script
             catch (Exception ex)
             {
                 Microbot.logStackTrace(getClass().getSimpleName(), ex);
-                setStatus("Recovering: " + ex.getClass().getSimpleName());
+                setStatus("Something went wrong; retrying");
             }
         }, 0, 600, TimeUnit.MILLISECONDS);
 
         return true;
-    }
-
-    public boolean ownsRunInputs()
-    {
-        return runInputsActive;
-    }
-
-    public boolean isAutoLoginBlockedByBreak()
-    {
-        DriftNetProfile activeProfile = profile;
-        return activeProfile != null && activeProfile.isAutoLoginBlockedByBreak();
     }
 
     /** Re-evaluate entry, equipment and supplies from observed state on every tick. */
@@ -191,12 +178,12 @@ public class DriftNetScript extends Script
         if (!inDriftNetArea && !DriftNetTravel.atFishingEntrance(here))
         {
             if (!config.driftAutoTravel()) {
-                setStatus("Start Drift Net near the underwater entrance or enable automatic travel");
+                setStatus("Start near the underwater entrance or enable Travel");
                 return;
             }
             if (driftTravel == null)
                 driftTravel = new DriftNetTravel(config, mainScheduledFuture,
-                        profile, this::setStatus);
+                        profile, this::setStatus, this::stopDrift);
             driftTravel.tick(here);
             return;
         }
@@ -222,7 +209,7 @@ public class DriftNetScript extends Script
                 Rs2Dialogue.clickOption(option, true);
                 profile.afterAction(DriftNetProfile.ActionPhase.SETUP, false);
             }
-            else setStatus("Drift Net: unrecognised dialogue; select the entry option");
+            else setStatus("Unknown dialogue; pick the entry option");
             return;
         }
         if (Rs2Dialogue.hasContinue())
@@ -438,7 +425,7 @@ public class DriftNetScript extends Script
     {
         Microbot.log("Drift Net stopped: " + reason);
         shutdown();
-        setStatus(reason);
+        setStatus("Stopped: " + reason);
     }
 
     private void traceAction(String action)
@@ -881,7 +868,7 @@ public class DriftNetScript extends Script
 
     public void onGameTick(GameTick event)
     {
-        if (!inDriftNetArea)
+        if (!inDriftNetArea || config == null)
         {
             return;
         }
@@ -1138,7 +1125,6 @@ public class DriftNetScript extends Script
     @Override
     public void shutdown()
     {
-        runInputsActive = false;
         super.shutdown();
         if (profile != null)
         {

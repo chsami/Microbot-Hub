@@ -7,7 +7,6 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
 
@@ -31,7 +30,7 @@ import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
 @Slf4j
 public class DriftNetPlugin extends Plugin
 {
-    public static final String version = "1.1.0";
+    public static final String version = "1.1.1";
 
     @Inject
     private DriftNetConfig config;
@@ -54,7 +53,6 @@ public class DriftNetPlugin extends Plugin
     @Override
     protected void startUp() throws AWTException
     {
-        Microbot.pauseAllScripts.compareAndSet(true, false);
         if (overlayManager != null)
         {
             overlayManager.add(overlay);
@@ -77,6 +75,24 @@ public class DriftNetPlugin extends Plugin
     public DriftNetScript getScript()
     {
         return script;
+    }
+
+    @Subscribe
+    public void onGameTick(GameTick event)
+    {
+        script.onGameTick(event);
+    }
+
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged event)
+    {
+        script.onGameStateChanged(event);
+    }
+
+    @Subscribe
+    public void onInteractingChanged(InteractingChanged event)
+    {
+        script.onInteractingChanged(event);
     }
 
     @Subscribe

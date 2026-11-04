@@ -509,7 +509,7 @@ public final class DriftNetProfile {
                     int pitchMax = Math.max(pitchMin + 1, settings.startupPitchMaxExclusive);
                     Rs2Camera.setPitch(ThreadLocalRandom.current().nextInt(pitchMin, pitchMax));
                 } catch (Exception ex) {
-                    Microbot.log("[DriftNetProfile] Startup camera settings could not be applied: " + ex.getMessage());
+                    Microbot.log("Drift Net: Startup camera settings could not be applied: " + ex.getMessage());
                 }
             }
         }
@@ -619,7 +619,7 @@ public final class DriftNetProfile {
             Rs2AntibanSettings.actionCooldownChance = 0.0;
             Rs2AntibanSettings.actionCooldownActive = false;
         } catch (Exception ex) {
-            Microbot.log("[DriftNetProfile] Native antiban setup skipped: " + ex.getMessage());
+            Microbot.log("Drift Net: Native antiban setup skipped: " + ex.getMessage());
         }
     }
 
@@ -1441,7 +1441,7 @@ public final class DriftNetProfile {
             int max = Math.max(min, Math.max(settings.minBreakIntervalMinutes, settings.maxBreakIntervalMinutes));
             nextBreakIn = randomBetween(min * 60, max * 60);
             nextBreakCheck = 0L;
-            Microbot.log("[DriftNetProfile] Next smart break scheduled in about "
+            Microbot.log("Drift Net: Next smart break scheduled in about "
                     + (nextBreakIn / 60) + " minute(s)");
         }
 
@@ -1477,7 +1477,7 @@ public final class DriftNetProfile {
             breakTimeRemaining = minutes * 60;
             status = "AFK break " + formatSeconds(breakTimeRemaining);
             safePark(parkMouse);
-            Microbot.log("[DriftNetProfile] Started smart AFK break for " + minutes + " minute(s)");
+            Microbot.log("Drift Net: Started smart AFK break for " + minutes + " minute(s)");
         }
 
         private void startLogoutBreak() {
@@ -1494,17 +1494,17 @@ public final class DriftNetProfile {
 
             boolean loggedOut = attemptLogoutWithRetries(3);
             if (!loggedOut) {
-                Microbot.log("[DriftNetProfile] Logout did not confirm after 3 attempts; "
+                Microbot.log("Drift Net: Logout did not confirm after 3 attempts; "
                         + "break timer continues and return handling will retry later.");
             }
-            Microbot.log("[DriftNetProfile] Started smart logout break for " + minutes + " minute(s)");
+            Microbot.log("Drift Net: Started smart logout break for " + minutes + " minute(s)");
         }
 
         private boolean attemptLogoutWithRetries(int maxAttempts) {
             for (int attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
                     if (!Microbot.isLoggedIn()) return true;
-                    Microbot.log("[DriftNetProfile] Logout attempt " + attempt + "/" + maxAttempts);
+                    Microbot.log("Drift Net: Logout attempt " + attempt + "/" + maxAttempts);
                     Rs2Player.logout();
 
                     long deadline = System.currentTimeMillis() + 2_000L;
@@ -1514,7 +1514,7 @@ public final class DriftNetProfile {
                     if (!Microbot.isLoggedIn()) return true;
                     if (attempt < maxAttempts) sleepQuietly(3_000);
                 } catch (Exception ex) {
-                    Microbot.log("[DriftNetProfile] Logout attempt failed: " + ex.getMessage());
+                    Microbot.log("Drift Net: Logout attempt failed: " + ex.getMessage());
                     if (attempt < maxAttempts) sleepQuietly(3_000);
                 }
             }
@@ -1526,7 +1526,7 @@ public final class DriftNetProfile {
             afkBreakActive = false;
             breakTimeRemaining = 0;
             status = "Resuming";
-            Microbot.log("[DriftNetProfile] AFK break ended");
+            Microbot.log("Drift Net: AFK break ended");
         }
 
         /** Exact AutoLogin 5/15/60/300s backoff with +/-30% jitter + post-login settle. */
@@ -1542,7 +1542,7 @@ public final class DriftNetProfile {
                     return true;
                 }
 
-                Microbot.log("[DriftNetProfile] Auto login succeeded; logout break ended");
+                Microbot.log("Drift Net: Auto login succeeded; logout break ended");
                 scheduleNextBreak();
                 return false;
             }
@@ -1575,12 +1575,11 @@ public final class DriftNetProfile {
                 status = initiated
                         ? "Auto login attempt " + loginRetryCount
                         : "Auto login retry pending";
-                Microbot.log("[DriftNetProfile] Auto login attempt " + loginRetryCount
-                        + " initiated=" + initiated
+                Microbot.log("Drift Net: Auto login attempt " + loginRetryCount
                         + "; next retry in about " + backoffSeconds + "s");
             } catch (Exception ex) {
                 status = "Auto login retry";
-                Microbot.log("[DriftNetProfile] Auto login attempt failed: " + ex.getMessage());
+                Microbot.log("Drift Net: Auto login attempt failed: " + ex.getMessage());
             }
             return true;
         }

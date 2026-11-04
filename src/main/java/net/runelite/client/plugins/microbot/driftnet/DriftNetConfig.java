@@ -6,9 +6,14 @@ import net.runelite.client.config.*;
 @ConfigInformation(
         "<b>Drift Net Fishing</b><br />" +
         "<br />" +
-        "<i>Drift net start next to Ceto, bring fishbowl helmet, diving apparatus, & trident. Auto pays 200 Numulite per day. " +
-        "Selecting Travel to Drift Net will use Rs2Walker to take you out to sea, bank, use your pre-set InventorySetup, " +
-        "and automatically start from anywhere in the game. Manually give noted nets to Annette.</i><br />"
+        "Wear a fishbowl helmet and diving apparatus, and bring a trident (or leave your weapon slot empty). " +
+        "Start next to the underwater entrance, or turn on Travel to Drift Net to start from anywhere.<br /><br />" +
+        "<b>Travel</b> walks to the Fossil Island bank, loads your chosen inventory setup, dives from the rowboat " +
+        "and swims to the nets. Leave a free slot so your weapon and shield can be taken off.<br /><br />" +
+        "<b>Entry fee:</b> the script pays Ceto's 200-numulite daily fee, so carry numulites.<br />" +
+        "<b>Nets:</b> noted drift nets in your inventory are handed to Annette automatically.<br />" +
+        "<b>Camera and run:</b> the script sets the camera and drinks stamina potions if you carry them.<br />" +
+        "In-world net, shoal and Annette highlights are no longer drawn; use the RuneLite Drift Net plugin for those.<br />"
 )
 public interface DriftNetConfig extends Config
 {
@@ -39,7 +44,7 @@ public interface DriftNetConfig extends Config
     String BREAKS_SECTION = "breaks";
 
     @ConfigItem(
-            keyName = "driftBankFish",
+            keyName = "bankFish",
             name = "Bank drift-net fish",
             description = "Use the drift-net reward interface to bank fish when looting a full net.",
             position = 0,
@@ -52,7 +57,7 @@ public interface DriftNetConfig extends Config
 
     @Range(min = 1, max = 100)
     @ConfigItem(
-            keyName = "driftTagTimeout",
+            keyName = "timeoutDelay",
             name = "Tag timeout (ticks)",
             description = "How long a chased shoal stays tagged before it can be selected again.",
             position = 1,
@@ -66,7 +71,7 @@ public interface DriftNetConfig extends Config
     @ConfigItem(
             keyName = "driftAutoTravel",
             name = "Travel to Drift Net",
-            description = "Use Rs2Walker to House on the Hill, then the zip line, island bank and dive. Uses the north rowboat below 74 Agility. Requires a selected setup.",
+            description = "Walk to the Fossil Island bank from anywhere, load your setup and dive to the nets. Below 74 Agility the north rowboat is used. Needs a setup selected below.",
             position = 2,
             section = DRIFT_SECTION
     )
@@ -102,7 +107,7 @@ public interface DriftNetConfig extends Config
     @ConfigItem(
             keyName = "smartBreaks",
             name = "Enable smart breaks",
-            description = "Use AFK/logout breaks.",
+            description = "Take short AFK or logout breaks. This is separate from the Break Handler plugin; do not use both.",
             position = 0,
             section = BREAKS_SECTION
     )
@@ -206,7 +211,7 @@ public interface DriftNetConfig extends Config
     @ConfigItem(
             keyName = "postLoginSettle",
             name = "Post-login settle (seconds)",
-            description = "Quiet settle time after DriftNetProfile returns from a logout break.",
+            description = "Seconds to wait after logging back in from a break before the script acts.",
             position = 8,
             section = BREAKS_SECTION
     )
