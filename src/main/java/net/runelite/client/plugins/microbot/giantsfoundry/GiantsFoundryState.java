@@ -191,7 +191,8 @@ public class GiantsFoundryState {
 
     public static int getHeatChangeNeeded()
     {
-        Heat requiredHeat = getCurrentStage().getHeat();
+        Stage stage = getCurrentStage();
+        Heat requiredHeat = stage.getHeat();
         int heat = getHeatAmount();
 
         int[] range;
@@ -210,10 +211,21 @@ public class GiantsFoundryState {
                 return 0;
         }
 
+        return getHeatChangeNeeded(heat, stage.getHeatChange(), range);
+    }
+
+    static int getHeatChangeNeeded(int heat, int stageHeatChange, int[] range)
+    {
         if (heat < range[0])
             return range[0] - heat;
         else if (heat > range[1])
             return range[1] - heat;
+
+        int nextHeat = heat + stageHeatChange;
+        if (nextHeat < range[0])
+            return range[0] - nextHeat;
+        else if (nextHeat > range[1])
+            return range[1] - nextHeat;
         else
             return 0;
     }
