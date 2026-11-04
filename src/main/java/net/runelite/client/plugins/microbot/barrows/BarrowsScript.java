@@ -754,6 +754,9 @@ public class BarrowsScript extends Script {
                                     Microbot.log("Out of supplies at Barrows — teleporting to Ferox to bank.");
                                     sleepUntil(() -> Rs2Player.isAnimating(), Rs2Random.between(2000, 4000));
                                     sleepUntil(() -> !Rs2Player.isAnimating(), Rs2Random.between(6000, 10000));
+                                } else if(!hasDuelingRingAvailable()){
+                                    Microbot.log("Need a Ring of dueling to leave Barrows for the bank. stopping...");
+                                    super.shutdown();
                                 }
                                 return;
                             }
@@ -795,7 +798,7 @@ public class BarrowsScript extends Script {
 
                         // Catalytic runes before POH checks — POH must not abort banking before Blood/Death fallback.
                         if(!usingPoweredStaffs) {
-                            if (Rs2Inventory.get(neededRune) == null || Rs2Inventory.get(neededRune).getQuantity() <= config.minRuneAmount()) {
+                            if (!inventoryHasEnoughRunes(neededRune, config.minRuneAmount())) {
                                 if (bankHasEnoughRunes(neededRune, config.minRuneAmount())) {
                                     withdrawNeededRunes(config);
                                 } else if (downgradeRuneTier(config)) {
@@ -2571,7 +2574,10 @@ public class BarrowsScript extends Script {
     private boolean inventoryHasEnoughRunes(String rune, int minAmount) {
         if (rune == null || "unknown".equals(rune)) return false;
         Rs2ItemModel item = Rs2Inventory.get(rune);
-        return item != null && item.getQuantity() > minAmount;
+        int inventoryQuantity = item == null ? 0 : item.getQuantity();
+        Runes pouchRune = BarrowsGearRules.runeByName(rune);
+        int pouchQuantity = pouchRune != null && Rs2Inventory.hasRunePouch() ? Rs2RunePouch.getQuantity(pouchRune) : 0;
+        return BarrowsGearRules.hasMoreRunesThan(inventoryQuantity, pouchQuantity, minAmount);
     }
 
     private boolean switchToInventoryRuneTier(int minAmount) {
