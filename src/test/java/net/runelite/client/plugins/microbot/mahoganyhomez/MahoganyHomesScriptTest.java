@@ -113,6 +113,19 @@ class MahoganyHomesScriptTest {
         assertTrue(MahoganyHomesScript.hasLeftPlane(new WorldPoint(2615, 3293, 0), 1));
     }
 
+    @Test
+    void isOnPlaneIsFalseWithoutPlayerLocation() {
+        assertFalse(MahoganyHomesScript.isOnPlane(null, 0));
+        assertFalse(MahoganyHomesScript.isOnPlane(null, 1));
+    }
+
+    @Test
+    void isOnPlaneComparesPlayerPlane() {
+        assertTrue(MahoganyHomesScript.isOnPlane(new WorldPoint(2615, 3293, 0), 0));
+        assertTrue(MahoganyHomesScript.isOnPlane(new WorldPoint(2615, 3293, 1), 1));
+        assertFalse(MahoganyHomesScript.isOnPlane(new WorldPoint(2615, 3293, 1), 0));
+    }
+
     private static MahoganyHomesScript scriptWithPlugin() {
         MahoganyHomesScript script = new MahoganyHomesScript();
         script.plugin = new MahoganyHomesPlugin();
