@@ -30,7 +30,7 @@ import static net.runelite.client.plugins.PluginDescriptor.Mocrosoft;
 @Slf4j
 public class DriftNetPlugin extends Plugin
 {
-    public static final String version = "1.1.1";
+    public static final String version = "1.1.2";
 
     @Inject
     private DriftNetConfig config;
@@ -111,12 +111,6 @@ public class DriftNetPlugin extends Plugin
     public void onVarbitChanged(VarbitChanged event)
     {
         script.onVarbitChanged(event);
-    }
-
-    @Subscribe
-    public void onNpcSpawned(NpcSpawned event)
-    {
-        script.onNpcSpawned(event);
     }
 
     @Subscribe

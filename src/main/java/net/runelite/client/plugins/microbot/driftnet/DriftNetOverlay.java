@@ -19,7 +19,7 @@ public class DriftNetOverlay extends OverlayPanel
     private final DriftNetOverlayDropdown dropdown = new DriftNetOverlayDropdown(this);
     public void enableDropDownInput() { dropdown.enable(); }
     public void disableDropDownInput() { dropdown.disable(); }
-    @Override public Dimension render(Graphics2D graphics) { return dropdown.render(graphics, this::renderExpanded); }
+    @Override public Dimension render(Graphics2D graphics) { return dropdown.render(graphics, statusExtraHeight(graphics), this::renderExpanded); }
 
     private static final int WIDTH = 280;
     private static final int ROW_HEIGHT = 16;
@@ -52,6 +52,13 @@ public class DriftNetOverlay extends OverlayPanel
         setPosition(OverlayPosition.TOP_LEFT);
         setLayer(OverlayLayer.ABOVE_WIDGETS);
         setPriority(OverlayPriority.HIGH);
+    }
+
+    /** Extra header height needed when the status wraps past one line. */
+    private int statusExtraHeight(Graphics2D graphics)
+    {
+        int lines = wrap(graphics, LABEL_FONT, value(plugin.getScript().getStatus()), STATUS_WIDTH).size();
+        return (lines - 1) * STATUS_LINE_HEIGHT;
     }
 
     private Dimension renderExpanded(Graphics2D graphics)

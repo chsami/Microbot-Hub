@@ -59,7 +59,6 @@ public class DriftNetScript extends Script
     private volatile int hunterXpGained;
 
     // Drift-net event state.
-    private final Set<Integer> driftFish = ConcurrentHashMap.newKeySet();
     private final Map<Integer, Integer> driftTaggedFish = new ConcurrentHashMap<>();
     private final List<DriftNet> driftNets = Arrays.asList(
             new DriftNet(NullObjectID.NULL_31433, Varbits.NORTH_NET_STATUS, Varbits.NORTH_NET_CATCH_COUNT,
@@ -74,7 +73,6 @@ public class DriftNetScript extends Script
 
     private boolean inDriftNetArea;
     private boolean driftArmInteraction;
-    private GameObject annette;
 
     private int driftNetFetchAttempts;
     private long driftWithdrawRequestedAt;
@@ -166,7 +164,6 @@ public class DriftNetScript extends Script
     /** Re-evaluate entry, equipment and supplies from observed state on every tick. */
     private void handleDriftNet()
     {
-        traceAction("handleDriftNet");
         WorldPoint here = Microbot.getClientThread().runOnClientThreadOptional(() -> {
             // Starting inside the instance does not emit a fresh LOGGED_IN event.
             updateDriftAreaFlag();
@@ -428,10 +425,6 @@ public class DriftNetScript extends Script
         setStatus("Stopped: " + reason);
     }
 
-    private void traceAction(String action)
-    {
-    }
-
     /** Use the noted nets withdrawn at the island bank on Annette; Store-All then stores them. */
     private void depositNotedDriftNets()
     {
@@ -562,7 +555,6 @@ public class DriftNetScript extends Script
 
     private void processDriftNetsOriginal()
     {
-        traceAction("processDriftNetsOriginal");
         for (DriftNet net : driftNets)
         {
             if (net.getStatus() == DriftNetStatus.UNSET)
@@ -583,7 +575,6 @@ public class DriftNetScript extends Script
 
     private void handleFullDriftNetOriginal(DriftNet net)
     {
-        traceAction("handleFullDriftNetOriginal");
         setStatus("Looting drift net");
 
         if (!clickDriftObject(net.getObjectId(), null)) return;
@@ -625,7 +616,6 @@ public class DriftNetScript extends Script
 
     private void handleUnsetDriftNetOriginal(DriftNet net)
     {
-        traceAction("handleUnsetDriftNetOriginal");
         if (!Rs2Inventory.hasItem(ItemID.FOSSIL_DRIFT_NET)) return;
         Rs2TileObjectModel anchor = Microbot.getRs2TileObjectCache().query()
                 .withId(net.getObjectId()).nearestOnClientThread();
@@ -825,11 +815,6 @@ public class DriftNetScript extends Script
         {
             return;
         }
-        if (event.getGameState() != GameState.LOGGED_IN)
-        {
-            annette = null;
-        }
-
         switch (event.getGameState())
         {
             case LOGIN_SCREEN:
@@ -885,19 +870,10 @@ public class DriftNetScript extends Script
         driftArmInteraction = false;
     }
 
-    public void onNpcSpawned(NpcSpawned event)
-    {
-        if (event != null && event.getNpc() != null && event.getNpc().getId() == NpcID.FOSSIL_FISH_SHOAL)
-        {
-            driftFish.add(event.getNpc().getIndex());
-        }
-    }
-
     public void onNpcDespawned(NpcDespawned event)
     {
         if (event != null && event.getNpc() != null)
         {
-            driftFish.remove(event.getNpc().getIndex());
             driftTaggedFish.remove(event.getNpc().getIndex());
         }
     }
@@ -909,10 +885,6 @@ public class DriftNetScript extends Script
             return;
         }
         GameObject object = event.getGameObject();
-        if (object.getId() == ObjectID.FOSSIL_MERMAID_DRIFTNETS)
-        {
-            annette = object;
-        }
         for (DriftNet net : driftNets)
         {
             if (net.getObjectId() == object.getId())
@@ -929,10 +901,6 @@ public class DriftNetScript extends Script
             return;
         }
         GameObject object = event.getGameObject();
-        if (object == annette)
-        {
-            annette = null;
-        }
         for (DriftNet net : driftNets)
         {
             if (net.getNet() == object)
@@ -1009,11 +977,9 @@ public class DriftNetScript extends Script
         driftCameraApplied = false;
         driftNextEmptyClickAt = 0;
         driftNextDoubleClickAt = 0;
-        driftFish.clear();
         driftTaggedFish.clear();
         driftArmInteraction = false;
         inDriftNetArea = false;
-        annette = null;
         for (DriftNet net : driftNets)
         {
             net.setNet(null);

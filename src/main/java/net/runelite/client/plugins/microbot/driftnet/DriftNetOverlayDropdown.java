@@ -72,22 +72,24 @@ final class DriftNetOverlayDropdown {
         Toolkit.getDefaultToolkit().removeAWTEventListener(canvasInput);
         manager=null;overlayManager=null;canvas=null;shown=false;captured=false;
     }
-    Dimension render(Graphics2D graphics,Function<Graphics2D,Dimension> content) {
+    Dimension render(Graphics2D graphics,Function<Graphics2D,Dimension> content) {return render(graphics,0,content);}
+    Dimension render(Graphics2D graphics,int extraHeight,Function<Graphics2D,Dimension> content) {
+        int clip=42+Math.max(0,extraHeight);
         Graphics2D body=(Graphics2D)graphics.create();
         Dimension size;
         try {
             body.setFont(FontManager.getRunescapeFont());
-            if(collapsed)body.clip(new Rectangle(0,0,16384,42));
+            if(collapsed)body.clip(new Rectangle(0,0,16384,clip));
             size=content.apply(body);
         } finally {body.dispose();}
         shown=size!=null&&size.width>0;
         if(!shown)return size;
-        int width=size.width,height=collapsed?50:Math.max(50,size.height);
+        int width=size.width,height=collapsed?clip+8:Math.max(clip+8,size.height);
         Graphics2D g=(Graphics2D)graphics.create();
         try {
-            if(collapsed){g.setColor(BACKGROUND);g.fillRect(0,42,width,8);}
+            if(collapsed){g.setColor(BACKGROUND);g.fillRect(0,clip,width,8);}
             border(g,width,height);
-            if(collapsed){g.setColor(new Color(205,211,218,75));g.drawLine(10,45,width-10,45);}
+            if(collapsed){g.setColor(new Color(205,211,218,75));g.drawLine(10,clip+3,width-10,clip+3);}
             g.setComposite(AlphaComposite.SrcOver);
             g.setColor(BACKGROUND);g.fillRect(width-25,4,22,22);
             g.setColor(new Color(205,211,218,40));g.fillRoundRect(width-25,4,22,22,5,5);

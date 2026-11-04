@@ -95,7 +95,7 @@ public interface DriftNetConfig extends Config
     @ConfigItem(
             keyName = "mouseActivity",
             name = "Mouse activity",
-            description = "Mouse profile. AFK favors complete off-screen parking while fishing; Balanced and Active remain more present.",
+            description = "How much the mouse moves while fishing. AFK moves it off the game screen most of the time; Balanced and Active keep it on screen and move it more often.",
             position = 0,
             section = BEHAVIOR_SECTION
     )

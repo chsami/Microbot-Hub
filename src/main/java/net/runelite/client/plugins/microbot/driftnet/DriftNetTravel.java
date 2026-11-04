@@ -58,8 +58,8 @@ final class DriftNetTravel
     {
         if (failure != null) { status.accept(failure); return; }
         if (config.driftInventorySetup() == null) {
-            String msg = "Pick a Drift Net setup for Travel";
-            logOnce("Drift Net: pick an inventory setup in the config to use Travel");
+            String msg = "Pick a Travel setup, or start at the underwater entrance";
+            logOnce("Drift Net: select a Drift Net inventory setup to use Travel, or turn Travel off and start at the underwater entrance");
             status.accept(msg);
             return;
         }
@@ -68,7 +68,7 @@ final class DriftNetTravel
 
         // Already underwater: preserve gear and swim to Ceto/entrance using local movement.
         if (here.getPlane() == 1 && here.getRegionID() == 15008) {
-            if (!hasBreathingGear()) { fail("Wear fishbowl helmet and diving gear"); return; }
+            if (!hasBreathingGear()) { fail("Wear a fishbowl helmet and diving gear and restart"); return; }
             if (removeSwimmingWeapon()) return;
             status.accept("Swimming to the Drift Net entrance");
             beforeInput();
@@ -98,15 +98,15 @@ final class DriftNetTravel
                     if (success) loaded = setup.doesInventoryMatch();
                 }
                 if (failure != null) return;
-                if (!success && ++setupAttempts >= 3) fail("Could not load setup; check your bank");
+                if (!success && ++setupAttempts >= 3) fail("Could not load the setup; check your bank and restart");
                 return;
             }
             if (Rs2Bank.isOpen()) { beforeInput(); Rs2Bank.closeBank(); return; }
-            if (!hasBreathingGear()) { fail("Setup needs fishbowl helmet and diving gear"); return; }
+            if (!hasBreathingGear()) { fail("Setup needs a fishbowl helmet and diving gear; fix it and restart"); return; }
             if (removeSwimmingWeapon()) return;
             int weight = Microbot.getClientThread().runOnClientThreadOptional(
                     () -> Microbot.getClient().getWeight()).orElse(100);
-            if (weight > 27) { fail("Setup too heavy to swim; keep it under 28 kg"); return; }
+            if (weight > 27) { fail("Setup too heavy to swim; keep it under 28 kg and restart"); return; }
             status.accept("Diving from the island rowboat");
             if (Rs2Dialogue.hasDialogueOption("Dive into the sea", false)) {
                 beforeInput();
@@ -131,7 +131,7 @@ final class DriftNetTravel
     {
         for (EquipmentInventorySlot slot : new EquipmentInventorySlot[]{EquipmentInventorySlot.WEAPON, EquipmentInventorySlot.SHIELD}) {
             if (Rs2Equipment.get(slot) == null) continue;
-            if (Rs2Inventory.emptySlotCount() == 0) { fail("Leave a free slot for weapon and shield"); return true; }
+            if (Rs2Inventory.emptySlotCount() == 0) { fail("Leave a free slot for weapon and shield and restart"); return true; }
             beforeInput();
             Rs2Equipment.unEquip(slot);
             return true;
@@ -149,7 +149,7 @@ final class DriftNetTravel
             return Arrays.stream(composition.getActions()).filter(a -> a != null
                     && Arrays.stream(options).anyMatch(a::equalsIgnoreCase)).findFirst().orElse(null);
         }).orElse(null);
-        if (action == null) { status.accept("Can't use the rowboat; retrying"); return; }
+        if (action == null) { status.accept("Can't use the bank or rowboat; retrying"); return; }
         beforeInput();
         object.click(action);
     }
@@ -168,8 +168,6 @@ final class DriftNetTravel
     private void fail(String reason)
     {
         failure = reason;
-        logOnce("Drift Net travel stopped: " + reason);
-        Rs2Walker.clearWalkingRoute("Drift travel failure: " + reason);
-        status.accept(reason);
+        stop.accept(reason);
     }
 }

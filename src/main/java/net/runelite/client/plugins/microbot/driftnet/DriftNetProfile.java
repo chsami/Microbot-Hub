@@ -775,11 +775,6 @@ public final class DriftNetProfile {
         return breakManager.isBreakActive();
     }
 
-    /** Login is allowed once the break countdown enters its return phase. */
-    public boolean isAutoLoginBlockedByBreak() {
-        return breakManager.breakActive && !breakManager.loginPending;
-    }
-
     public String getBreakDisplay() {
         return breakManager.getTimeUntilNextBreak();
     }
