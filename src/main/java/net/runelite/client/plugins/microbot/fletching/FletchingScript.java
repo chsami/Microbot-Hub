@@ -39,6 +39,7 @@ public class FletchingScript extends Script {
     private static final String FLETCHING_KNIFE = "fletching knife";
     private static final String KNIFE = "knife";
     private static final String BOW_STRING_SPOOL = "bow string spool";
+    private static final String BOW_STRING = "bow string";
     // Total attempts to open the stringing menu with the spool before switching to bow strings.
     private static final int BOW_STRING_SPOOL_MENU_ATTEMPTS = 3;
 
@@ -50,6 +51,7 @@ public class FletchingScript extends Script {
     FletchingMode fletchingMode;
 
     private boolean bowStringSpoolDisabled;
+    private boolean bowStringSpoolRefillFailed;
     private int bowStringSpoolMenuFailures;
     private String lastStringingItem = "";
 
@@ -120,6 +122,11 @@ public class FletchingScript extends Script {
             if (!Rs2Bank.openBank()) {
                 return; // Bank didn't open, retry next iteration
             }
+        }
+
+        // Refill the spool from banked bow strings when it has run dry.
+        if (shouldRefillBowStringSpool(config)) {
+            refillBowStringSpool();
         }
 
         // Re-evaluate the stringing item now that the bank is open (the bank snapshot is not available before).
@@ -376,6 +383,67 @@ public class FletchingScript extends Script {
 
     private int getBowStringSpoolCharges() {
         return Microbot.getVarbitValue(VarbitID.BOWSTRING_SPOOL_CHARGES);
+    }
+
+    private boolean shouldRefillBowStringSpool(FletchingConfig config) {
+        if (!config.useBowStringSpool() || bowStringSpoolDisabled || bowStringSpoolRefillFailed) {
+            return false;
+        }
+        if (fletchingMode != FletchingMode.STRUNG && fletchingMode != FletchingMode.PROGRESSIVE_STRUNG) {
+            return false;
+        }
+        if (getBowStringSpoolCharges() > 0) {
+            return false;
+        }
+        if (!Rs2Inventory.hasItem(BOW_STRING_SPOOL) && !Rs2Bank.hasItem(BOW_STRING_SPOOL)) {
+            return false;
+        }
+        return Rs2Bank.hasBankItem(BOW_STRING, 1, true);
+    }
+
+    private boolean refillBowStringSpool() {
+        Microbot.status = "Refilling bow string spool";
+        if (!Rs2Inventory.hasItem(BOW_STRING_SPOOL)) {
+            // The spool is banked: clear the inventory, then pull it out.
+            Rs2Bank.depositAll();
+            Rs2Bank.withdrawItem(BOW_STRING_SPOOL);
+            if (!sleepUntil(() -> Rs2Inventory.hasItem(BOW_STRING_SPOOL), 5000)) {
+                return false;
+            }
+        } else {
+            // Keep the spool; clear the strung bows and leftover unstrung bows to make room
+            // for the noted bow strings.
+            Rs2Bank.depositAll(getStrungBowName(), true);
+            Rs2Bank.depositAll(secondaryItemToFletch, true);
+            if (!sleepUntil(() -> !Rs2Inventory.isFull(), 5000)) {
+                return false;
+            }
+        }
+        boolean withdrawNoted = Rs2Bank.hasWithdrawAsNote();
+        boolean refilled;
+        try {
+            if (!Rs2Bank.setWithdrawAsNote()) {
+                return false;
+            }
+            // Withdraw the whole stack as notes, then Fill takes exactly the spool's remaining
+            // capacity and any leftovers are deposited back.
+            Rs2Bank.withdrawAll(BOW_STRING, true);
+            if (!sleepUntil(() -> Rs2Inventory.hasItem(BOW_STRING, true), 5000)) {
+                return false;
+            }
+            Rs2Inventory.interact(BOW_STRING_SPOOL, "Fill");
+            refilled = sleepUntil(() -> getBowStringSpoolCharges() > 0, 5000);
+        } finally {
+            // Always return any leftover strings: a failed fill must not leave noted strings behind.
+            Rs2Bank.depositAll(BOW_STRING, true);
+            sleepUntil(() -> !Rs2Inventory.hasItem(BOW_STRING, true), 5000);
+            Rs2Bank.setWithdrawAs(withdrawNoted);
+        }
+        if (!refilled) {
+            bowStringSpoolRefillFailed = true;
+            Microbot.log("Bow string spool refill failed, falling back to bow strings");
+        }
+        return refilled;
     }
 
     public void calculateItemToFletch() {
