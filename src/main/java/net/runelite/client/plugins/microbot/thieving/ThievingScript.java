@@ -538,7 +538,7 @@ ThievingNpcStrategy getActiveStrategy() {
         if (selected == ThievingNpc.ELVES || selected == ThievingNpc.MASTER_FARMER) {
             return "Can't walk to " + npcName + " automatically. Stand next to one and start again.";
         }
-        return "Couldn't find a safe place to thieve " + npcName + ". Walk closer to one and start again.";
+        return "Couldn't find a " + npcName + " spawn outside the Wilderness to walk to. Walk next to one yourself and start again.";
     }
 
     private void stopNoLocation(String reason) {
