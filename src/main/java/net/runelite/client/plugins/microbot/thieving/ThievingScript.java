@@ -558,7 +558,7 @@ ThievingNpcStrategy getActiveStrategy() {
             stopNoLocation("Vyre thieving needs the vyre noble outfit. Put it in your inventory and start again.");
             return;
         }
-        final String npcName = ThievingTravel.titleCase(String.valueOf(config.THIEVING_NPC()));
+        final String npcName = config.THIEVING_NPC() == ThievingNpc.NONE ? "highlighted NPC" : ThievingTravel.titleCase(String.valueOf(config.THIEVING_NPC()));
         Microbot.status = "Walking to " + npcName + " area";
         final boolean arrived = walkTo("Walk to NPC area", target, 3);
         final WorldPoint me = Rs2Player.getWorldLocation();
@@ -576,7 +576,7 @@ ThievingNpcStrategy getActiveStrategy() {
         travelFailures++;
         log.warn("Walk to {} area failed ({}/{})", npcName, travelFailures, MAX_TRAVEL_FAILURES);
         if (travelFailures >= MAX_TRAVEL_FAILURES) {
-            stopNoLocation("Couldn't reach a " + npcName + " area from here. Walk closer to one and start again.");
+            stopNoLocation("Couldn't reach the " + npcName + " area from here. Walk closer to one and start again.");
         }
     }
 

@@ -57,6 +57,7 @@ class ThievingTravelTest
 	{
 		assertEquals(List.of("Man", "man"), ThievingTravel.locationNames(ThievingNpc.MEN, null));
 		assertEquals("Warrior (Thieving)", ThievingTravel.locationNames(ThievingNpc.WARRIOR, null).get(0));
+		assertEquals(List.of("Knight of Ardougne"), ThievingTravel.locationNames(ThievingNpc.ARDOUGNE_KNIGHT, null));
 		assertTrue(ThievingTravel.locationNames(ThievingNpc.MASTER_FARMER, null).isEmpty());
 		assertTrue(ThievingTravel.locationNames(ThievingNpc.NONE, null).isEmpty());
 		assertEquals("Master Farmer", ThievingTravel.titleCase("master farmer"));

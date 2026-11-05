@@ -67,6 +67,9 @@ final class ThievingTravel {
                     names.add(titleCase(fallbackName));
                 }
                 break;
+            case ARDOUGNE_KNIGHT:
+                names.add("Knight of Ardougne");
+                break;
             default:
                 names.add(titleCase(npc.getName()));
                 names.add(npc.getName());
