@@ -39,7 +39,8 @@ import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(name = "<html><font color=#f5dd42>Fourtifys Barrows", configName = "fourtifyBarrows",
                     description = "Complete Barrows chest runs with supplies and normal Microbot walking", tags = {"fourtifys", "barrows"}, enabledByDefault = false,
-                    authors = {"Fourtifys"}, version = FourtifysBarrowsPlugin.VERSION, minClientVersion = "2.6.43", isExternal = true)
+                    authors = {"Fourtifys"}, version = FourtifysBarrowsPlugin.VERSION, minClientVersion = "2.6.43", isExternal = true,
+                    iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysBarrowsPlugin/assets/icon.png")
 public class FourtifysBarrowsPlugin extends Plugin
 {
     public static final String VERSION = "1.0.0";
