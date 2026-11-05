@@ -15,6 +15,18 @@ public final class BrainConfig
 	public int eatBelowSoft = 62;
 	/** Drink a dose at or below this many prayer points. */
 	public int drinkBelow = 22;
+	/**
+	 * 1.8.0: an escape (urgent move) is clicked before a protection prayer that can still wait a
+	 * tick. The natural mouse gets about one panel click a tick (F-key + travel), so prayer-first
+	 * left the dodge for the next tick: 4 tornadoes for 58 (log 11-02 22:05), 2 for 38 (11-01).
+	 */
+	public boolean dodgeFirst = true;
+	/**
+	 * 1.8.0: the 3 ticks between eats (and drinks) count from the click that really went out, not
+	 * from the plan. A planned eat that didn't fit the tick was otherwise not planned again for
+	 * 3 ticks (11-01: died at 7 HP with 7 fish).
+	 */
+	public boolean eatOnSend = true;
 
 	// ---- movement planner
 	public int horizon = 6;

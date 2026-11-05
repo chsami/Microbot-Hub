@@ -43,6 +43,14 @@ final class QuickClicks
 		Shape shape;
 		/** A point that must be clicked exactly (a walk: the entry carries it). */
 		java.awt.Point fixed;
+		/**
+		 * A walk only (1.8.0): the tile's screen point again once the cursor has arrived (the
+		 * camera follows the running player, so the tile has moved under the cursor), null when it
+		 * can't be read.
+		 */
+		java.util.function.Function<java.awt.Point, java.awt.Point> reaim;
+		/** A walk only: the "Walk here" entry for another screen point (after a re-aim). */
+		java.util.function.Function<java.awt.Point, NewMenuEntry> entryAt;
 	}
 
 	private QuickClicks()
@@ -141,16 +149,7 @@ final class QuickClicks
 			Polygon poly = Perspective.getCanvasTilePoly(client, lp);
 			if (poly != null)
 			{
-				Rectangle b = poly.getBounds();
-				for (int i = 0; i < 12 && pt == null; i++)
-				{
-					int x = (int) Math.round(b.getCenterX() + RND.nextGaussian() * b.width / 7.0);
-					int y = (int) Math.round(b.getCenterY() + RND.nextGaussian() * b.height / 7.0);
-					if (poly.contains(x, y))
-					{
-						pt = new java.awt.Point(x, y);
-					}
-				}
+				pt = pointIn(poly);
 			}
 			if (pt == null)
 			{
@@ -164,9 +163,69 @@ final class QuickClicks
 			Target t = new Target();
 			t.fixed = pt;
 			t.rect = new Rectangle(pt.x, pt.y, 1, 1);
-			t.entry = new NewMenuEntry().option("Walk here").target("").param0(pt.x).param1(pt.y)
-				.type(MenuAction.WALK).identifier(0).itemId(0);
+			t.entry = walkEntry(pt);
+			t.entryAt = QuickClicks::walkEntry;
+			t.reaim = cur -> reaimWalk(client, lp, cur);
 			return t;
+		}).orElse(null);
+	}
+
+	private static NewMenuEntry walkEntry(java.awt.Point pt)
+	{
+		return new NewMenuEntry().option("Walk here").target("").param0(pt.x).param1(pt.y)
+			.type(MenuAction.WALK).identifier(0).itemId(0);
+	}
+
+	/**
+	 * A point well inside the tile (the inner 70%), centre-biased like a person aiming. In the 1.7.5
+	 * logs 11% of walk clicks ended on a neighbouring tile (17% while running, 5% standing): a point
+	 * near the edge plus the camera following the player during the mouse travel.
+	 */
+	private static java.awt.Point pointIn(Polygon poly)
+	{
+		Rectangle b = poly.getBounds();
+		double cx = b.getCenterX();
+		double cy = b.getCenterY();
+		for (int i = 0; i < 16; i++)
+		{
+			int x = (int) Math.round(cx + RND.nextGaussian() * b.width / 9.0);
+			int y = (int) Math.round(cy + RND.nextGaussian() * b.height / 9.0);
+			if (inCore(poly, x, y, cx, cy))
+			{
+				return new java.awt.Point(x, y);
+			}
+		}
+		int x = (int) Math.round(cx);
+		int y = (int) Math.round(cy);
+		return poly.contains(x, y) ? new java.awt.Point(x, y) : null;
+	}
+
+	/** Inside the polygon shrunk to 70% around (cx, cy). */
+	private static boolean inCore(Polygon poly, int x, int y, double cx, double cy)
+	{
+		return poly.contains(cx + (x - cx) / 0.7, cy + (y - cy) / 0.7);
+	}
+
+	/**
+	 * The walk target's tile where it is NOW: {@code cur} if the cursor is still well inside it,
+	 * else a new point inside it (null = can't tell, click where we are).
+	 */
+	static java.awt.Point reaimWalk(Client client, LocalPoint lp, java.awt.Point cur)
+	{
+		return Microbot.getClientThread().runOnClientThreadOptional(() ->
+		{
+			Polygon poly = Perspective.getCanvasTilePoly(client, lp);
+			if (poly == null)
+			{
+				return null;
+			}
+			Rectangle b = poly.getBounds();
+			if (inCore(poly, cur.x, cur.y, b.getCenterX(), b.getCenterY()))
+			{
+				return cur;
+			}
+			java.awt.Point p = pointIn(poly);
+			return p != null && Rs2UiHelper.isRectangleWithinViewport(new Rectangle(p.x, p.y, 1, 1)) ? p : null;
 		}).orElse(null);
 	}
 

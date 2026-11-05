@@ -76,10 +76,12 @@ public final class PrepPlanner
 		public Monster demiOnUs;
 		/** Vials made at the bowl this run (user, 0.3.26: 2 during prep, a 3rd only on the final trip). */
 		public int vialsMade;
-		/** Egniol potions wanted (setting; 3 = the 3rd is a nice-to-have, user 0.3.29). */
+		/** Egniol potions to brew (setting, all required since 1.8.0; a sip adds a loose extra one). */
 		public int potionTarget = 3;
 		/** Fish that are enough (user, 0.3.32: at least 12, ideally the target of 16). */
 		public int fishMin = 12;
+		/** The "Paddlefish target" setting (0 = unknown: the needs' own fish target). */
+		public int fishTarget;
 		/** More fish come later (the setting is above {@link PrepPlanner#fishTargetNow} for now): keep the harpoon. */
 		public boolean fishLater;
 		/** The armour target rises later (T3 setting, see {@link PrepPlanner#profileNow}): keep the pickaxe and axe. */
@@ -136,6 +138,7 @@ public final class PrepPlanner
 			c.vialsMade = vialsMade;
 			c.potionTarget = potionTarget;
 			c.fishMin = fishMin;
+			c.fishTarget = fishTarget;
 			c.fishLater = fishLater;
 			c.armourLater = armourLater;
 			c.demiFighting = demiFighting;
@@ -277,8 +280,8 @@ public final class PrepPlanner
 		// is made (user, 0.3.26: 9 linum gathered for 7). One stack / item per chore.
 		for (Resource r : new Resource[]{Resource.ORE, Resource.BARK, Resource.LINUM, Resource.GRYM, Resource.FRAME})
 		{
-			// A spare grym leaf is kept while a 3rd brew could still be needed (a sip calls for it).
-			boolean keepSpareGrym = r == Resource.GRYM && (l.potionDoses + l.dosesDrunk) / 3 + l.unfinishedPotions < in.potionTarget
+			// A spare grym leaf is kept while the extra brew could still be needed (a sip calls for it).
+			boolean keepSpareGrym = r == Resource.GRYM && in.potionTarget > 0 && (l.potionDoses + l.dosesDrunk) / 3 + l.unfinishedPotions < in.potionTarget + 1
 				&& l.get(Resource.GRYM) <= 1;
 			if (l.get(r) > 0 && n.demand.getOrDefault(r, 0) == 0 && !keepSpareGrym && !in.droppedRecently.contains(r))
 			{
@@ -367,10 +370,10 @@ public final class PrepPlanner
 			fishRoom = Math.max(fishRoom, easyRoom);
 		}
 		in.gather = n.withCap(Resource.RAW_FISH, fishCap);
-		// The last brew (only needed after sips, to keep the boss's 6 doses): its grym leaf from
-		// a node within reach, never a search across the map (user, 0.3.29).
-		boolean grymOptional = in.potionTarget >= 3 && n.potionsToMake == 1 && (l.potionDoses + l.dosesDrunk) / 3 >= 2
-			&& n.get(Resource.GRYM) > 0;
+		// The extra brew (only needed after prep sips, to give the boss its full doses back): its
+		// grym leaf from a node within reach, never a search across the map (user, 0.3.29). The
+		// "Egniol potions" brews themselves are required (user, 1.8.0).
+		boolean grymOptional = n.requiredPotionsToMake == 0 && n.potionsToMake > 0 && n.get(Resource.GRYM) > 0;
 		boolean grymExtra = grymOptional; // a nice-to-have, even when a node close by makes it worth taking
 		if (grymOptional)
 		{
@@ -397,6 +400,24 @@ public final class PrepPlanner
 			}
 			else
 			{
+				in.gather = in.gather.withCap(Resource.RAW_FISH, 0);
+			}
+		}
+
+		// Required before loose, late (user, 1.8.0): in the last CRITICAL_START_SLACK seconds before
+		// the final trip, while a T2 armour material is still short, the loose extras (the extra
+		// brew's herb, fish past the minimum) aren't taken even from close by. 11-02 run 9: a grym
+		// leaf for the optional 3rd potion at t-71, one linum short at handover (helm T1).
+		if (armourMaterialsShort(n) && in.secondsLeft >= 0 && slackSeconds(in) <= CRITICAL_START_SLACK)
+		{
+			if (grymExtra && !grymOptional)
+			{
+				grymOptional = true;
+				in.gather = in.gather.withCap(Resource.GRYM, 0);
+			}
+			if (fishExtra && !fishOptional)
+			{
+				fishOptional = true;
 				in.gather = in.gather.withCap(Resource.RAW_FISH, 0);
 			}
 		}
@@ -563,12 +584,17 @@ public final class PrepPlanner
 
 		boolean demisAllowed = !in.skipDemiBosses && in.secondsLeft - in.demiBossBudget > in.finishReserve;
 		boolean componentsNeeded = n.get(Resource.BOWSTRING) > 0 || n.get(Resource.ORB) > 0;
+		// Past the flat demi-boss budget, a known Dragon / Dark Beast whose part we still need is
+		// still fought when the walk there, the fight and the way home fit the clock (user, 1.8.0:
+		// PrepSim runs saw the Dragon at t-99, went home "nothing more to get" and handed over
+		// with 54 s unused, staff T2).
+		Monster lateDemi = !demisAllowed && !in.skipDemiBosses && componentsNeeded ? lateDemiThatFits(in) : null;
 		// Demi-bosses: one we've run into, or one seen earlier (e.g. on a red-route peek: "head
 		// there and kill them", user), any distance.
-		if (demisAllowed && componentsNeeded)
+		if ((demisAllowed || lateDemi != null) && componentsNeeded)
 		{
-			Monster close = closestDemi(maze, n, 24, 15_000);
-			Monster known = close != null ? null : closestDemi(maze, n, Integer.MAX_VALUE, Long.MAX_VALUE);
+			Monster close = demisAllowed ? closestDemi(maze, n, 24, 15_000) : null;
+			Monster known = close != null ? null : demisAllowed ? closestDemi(maze, n, Integer.MAX_VALUE, Long.MAX_VALUE) : lateDemi;
 			Monster target = close != null ? close : known;
 			// T2 armour materials right by us come before walking off to a demi-boss we merely know
 			// about (user, 0.4.7: after the Bear at ~4:00 it left needed ore/bark in the room).
@@ -629,6 +655,14 @@ public final class PrepPlanner
 			}
 		}
 
+		// T2 armour materials that are short late, or scarce (user, 1.8.0): see armourPush. After the
+		// vial fill at a spot right here (a few seconds, and the potions are required too).
+		PrepGoal push = armourPush(in);
+		if (push != null)
+		{
+			return push;
+		}
+
 		// Only fish left (no demi drop still being hunted) and a crystal in the bag: when the nearest
 		// spot is a long walk but a live one is lit next to home, teleport home and fish there; the
 		// final trip is then a few steps (0.3.25 walked 83 tiles for 7 fish with a crystal in the
@@ -686,7 +720,23 @@ public final class PrepPlanner
 		// demi drops are missing (and time allows) or resources are still to find.
 		// Only with time to use what the route finds (1.7.0 replay: the blue route was taken at t-55).
 		boolean routeTime = in.secondsLeft < 0 || in.secondsLeft - in.finishReserve > ROUTE_MIN_SLACK;
-		if (calibrated && routeTime && ((demisAllowed && componentsNeeded) || nodeNeeds))
+		// The peeked demi-bosses are dead (none known any more) and one died in a peeked room: the
+		// ring lap goes on from there, along the ring on that side (user, 1.8.0).
+		// With that lap there's no blue path: it was only the way out to the ring (PrepSim: after
+		// the lap it walked the whole ring back for a blue-path room next to the start).
+		java.util.List<int[]> peekLap = ringFromPeek(in);
+		if (calibrated && routeTime && peekLap != null && demisAllowed && componentsNeeded)
+		{
+			for (int[] room : peekLap)
+			{
+				if (!maze.found(room[0], room[1]) && !maze.exploreBlocked(room[0], room[1]))
+				{
+					return PrepGoal.explore(room, "outer-ring lap from the peeked room " + peekLap.get(0)[0] + "," + peekLap.get(0)[1]
+						+ " for demi-bosses");
+				}
+			}
+		}
+		if (calibrated && routeTime && peekLap == null && ((demisAllowed && componentsNeeded) || nodeNeeds))
 		{
 			int sign = blueSide(in);
 			for (int[] room : Route.blue(maze.startX(), maze.startZ(), sign))
@@ -1101,6 +1151,148 @@ public final class PrepPlanner
 			: PrepGoal.explore(new int[]{pick.x, pick.z}, "no armour without it: looking for " + what + ", " + pick);
 	}
 
+	/** Any of ore / bark / linum still short of the armour target. */
+	static boolean armourMaterialsShort(Needs n)
+	{
+		return n.get(Resource.ORE) + n.get(Resource.BARK) + n.get(Resource.LINUM) > 0;
+	}
+
+	/**
+	 * A material is scarce when the live nodes we know of can't cover what's still needed: more
+	 * of it has to be found, not just walked to (1.8.0).
+	 */
+	static boolean scarce(GauntletMaze m, Needs n, Resource r)
+	{
+		int need = n.get(r);
+		return need > 0 && m.liveNodeList(r).size() * ExplorePlanner.yieldPerNode(r) < need;
+	}
+
+	/** Seconds before the final trip from which a SCARCE armour material is pushed (see armourPush). */
+	static final int SCARCE_START_SLACK = 240;
+
+	/**
+	 * T2 armour first, late (user, 1.8.0: full gear in ~95% of runs; 3 of the 4 misses in the
+	 * 1-3 Nov logs were 1 linum / 1 ore + 4 bark short at handover, found short too late). In the
+	 * last {@link #CRITICAL_START_SLACK} seconds before the final trip any short material, and in
+	 * the last {@link #SCARCE_START_SLACK} a scarce one (known nodes can't cover it), comes before
+	 * the shard hunt and the route: the nearest known node that fits the clock (within
+	 * {@link #CRITICAL_TILES}), else, for a scarce one, a search for it alone.
+	 */
+	private PrepGoal armourPush(Inputs in)
+	{
+		GauntletMaze m = in.maze;
+		Ledger l = in.ledger;
+		Needs n = in.needs;
+		if (m.roomX() < 0 || in.secondsLeft < 0)
+		{
+			return null;
+		}
+		int slack = slackSeconds(in);
+		java.util.List<Resource> want = new java.util.ArrayList<>();
+		java.util.List<Resource> scarceOnes = new java.util.ArrayList<>();
+		for (Resource r : new Resource[]{Resource.ORE, Resource.BARK, Resource.LINUM})
+		{
+			if (n.get(r) <= 0 || (l.get(r) == 0 && l.freeSlots <= 0))
+			{
+				continue;
+			}
+			boolean sc = scarce(m, n, r);
+			if (slack <= (sc ? SCARCE_START_SLACK : CRITICAL_START_SLACK))
+			{
+				want.add(r);
+				if (sc)
+				{
+					scarceOnes.add(r);
+				}
+			}
+		}
+		if (want.isEmpty())
+		{
+			return null;
+		}
+		GauntletMaze.Node best = null;
+		int bestTiles = Integer.MAX_VALUE;
+		for (Resource r : want)
+		{
+			int items = Math.min(n.get(r), ExplorePlanner.yieldPerNode(r));
+			for (GauntletMaze.Node node : m.liveNodeList(r))
+			{
+				int w = m.walkTiles(node);
+				if (w < 0 || w > CRITICAL_TILES || w >= bestTiles)
+				{
+					continue;
+				}
+				// there (walking padded 20%) and ~2.4 s an item; the way home is in the reserve
+				if (w * 0.36 + items * 2.4 + 2 <= slack)
+				{
+					best = node;
+					bestTiles = w;
+				}
+			}
+		}
+		if (best != null)
+		{
+			Resource r = best.type;
+			return PrepGoal.gatherAt(r, best.raw, "T2 armour" + (scarceOnes.contains(r) ? " (scarce: known nodes give "
+				+ m.liveNodeList(r).size() * ExplorePlanner.yieldPerNode(r) + " of " + n.get(r) + ")" : "") + ": "
+				+ r.label + " " + bestTiles + " tiles away, " + slack + " s before the final trip");
+		}
+		// Searching for it costs the demi-boss lap its rooms (PrepSim: armour misses 9 -> 5 of 640,
+		// but 11 more preps without the orb), so only once both T3 parts are in hand.
+		boolean demiPartsNeeded = n.get(Resource.ORB) > 0 || n.get(Resource.BOWSTRING) > 0;
+		if (scarceOnes.isEmpty() || slack < 40 || demiPartsNeeded)
+		{
+			return null;
+		}
+		ExplorePlanner.Option pick = search(in, n.only(scarceOnes.toArray(new Resource[0])), false, false, 0, false, Integer.MAX_VALUE);
+		if (pick == null)
+		{
+			return null;
+		}
+		String what = scarceOnes.get(0).label + (scarceOnes.size() > 1 ? " (+" + (scarceOnes.size() - 1) + ")" : "");
+		return pick.kind == ExplorePlanner.Kind.GATHER
+			? PrepGoal.gather(pick.resource, "T2 armour, scarce: " + pick)
+			: PrepGoal.explore(new int[]{pick.x, pick.z}, "T2 armour: looking for " + what + " (scarce), " + pick);
+	}
+
+	/** Seconds a late demi-boss fight is costed at (logs: Dragon ~25 s, Dark Beast ~28 s, goal to kill). */
+	static final int LATE_DEMI_FIGHT_SECONDS = 32;
+
+	/**
+	 * A known Dragon / Dark Beast whose part we still need, when walking there, the fight and the
+	 * way home fit before the final trip (1.8.0). Walking: straight line x 1.4, 0.3 s a tile (2 a
+	 * tick), padded 20%; home: the crystal, else the same way back.
+	 */
+	private static Monster lateDemiThatFits(Inputs in)
+	{
+		GauntletMaze maze = in.maze;
+		Needs n = in.needs;
+		net.runelite.api.coords.WorldPoint me = maze.playerRaw();
+		if (me == null || in.secondsLeft < 0)
+		{
+			return null;
+		}
+		Monster best = null;
+		double bestNeed = Double.MAX_VALUE;
+		for (Monster m : new Monster[]{Monster.DARK_BEAST, Monster.DRAGON})
+		{
+			boolean wanted = m == Monster.DARK_BEAST ? n.get(Resource.BOWSTRING) > 0 : n.get(Resource.ORB) > 0;
+			GauntletMaze.Sighting s = maze.lastSeen(m);
+			if (!wanted || s == null)
+			{
+				continue;
+			}
+			double walk = s.raw.distanceTo2D(me) * 1.4 * 0.36;
+			double need = walk + LATE_DEMI_FIGHT_SECONDS + (in.hasTeleport ? 0 : walk);
+			if (need < bestNeed && in.secondsLeft - need > in.finishReserve)
+			{
+				best = m;
+				bestNeed = need;
+			}
+		}
+		return best;
+	}
+
 	/** Low HP and nothing cooked: no fights we'd pick ourselves (0.4.7 bailed out of one every 3 s at 21%). */
 	static boolean hungry(Inputs in)
 	{
@@ -1281,10 +1473,36 @@ public final class PrepPlanner
 		return false;
 	}
 
+	/**
+	 * The ring lap from the last peeked room a demi-boss died in (see {@link Route#fromPeek}), or
+	 * null. From the middle peek the direction is random, fixed per run.
+	 */
+	private java.util.List<int[]> ringFromPeek(Inputs in)
+	{
+		GauntletMaze m = in.maze;
+		if (m.startX() < 0)
+		{
+			return null;
+		}
+		return Route.fromPeek(m.startX(), m.startZ(), m.demiKillRooms(), ((in.runSeed >>> 5) & 1) == 0 ? -1 : 1);
+	}
+
 	/** The next blue / green route room still to light, or null (same order as below). */
 	private int[] loop2RouteRoom(Inputs in, boolean demiLap)
 	{
 		GauntletMaze maze = in.maze;
+		java.util.List<int[]> peekLap = ringFromPeek(in);
+		if (peekLap != null)
+		{
+			for (int[] room : demiLap ? peekLap : java.util.Collections.<int[]>emptyList())
+			{
+				if (!maze.found(room[0], room[1]) && !maze.exploreBlocked(room[0], room[1]))
+				{
+					return room;
+				}
+			}
+			return null;
+		}
 		int sign = blueSide(in);
 		for (int[] room : Route.blue(maze.startX(), maze.startZ(), sign))
 		{
@@ -1611,7 +1829,10 @@ public final class PrepPlanner
 	{
 		Ledger l = in.ledger;
 		Needs n = in.needs;
-		double s = 8; // margin
+		// Margin (1.8.0: was 8). 1-3 Nov logs: final trips with nothing gathered on the way came in
+		// 7-21 s (median 14) under this estimate; the handover reserve stays on top. 2 let 1 PrepSim
+		// prep in 1,280 run out of clock.
+		double s = 4;
 		GauntletMaze maze = in.maze;
 		if (!maze.inStartRoom())
 		{
@@ -1668,7 +1889,6 @@ public final class PrepPlanner
 	static final double COOK_SECONDS_PER_FISH = 1.2;
 
 	private int topUpSeed = Integer.MIN_VALUE;
-	private int topUpTotal;
 	private int topUpBackTiles;
 
 	/** A live fishing spot within 2 rooms of the start (not the boss room), nearest first. */
@@ -1706,11 +1926,31 @@ public final class PrepPlanner
 			+ (in.ledger.get(Resource.RAW_FISH) + fish) * COOK_SECONDS_PER_FISH + 3 + TOP_UP_MARGIN + endReserve(in);
 	}
 
+	/** The fishing spot this top-up is working (raw tile), or null (a floor pile, or none yet). */
+	private net.runelite.api.coords.WorldPoint topUpSpot;
+
+	/** Fish wanted at the boss: the "Paddlefish target" setting (else what the needs aim for). */
+	static int fishGoal(Inputs in)
+	{
+		if (in.fishTarget > 0)
+		{
+			return in.fishTarget;
+		}
+		Ledger l = in.ledger;
+		return l.cookedFish + l.get(Resource.RAW_FISH) + (in.needs == null ? 0 : in.needs.get(Resource.RAW_FISH));
+	}
+
 	/**
 	 * Everything else done (or a top-up under way): fetch more fish when the COOKED fish can be in
 	 * the bag before the timer runs out (user, 1.6.0): from a fishing spot within 2 rooms of the
-	 * start, or raw paddlefish lying on the floor nearby (monster drops). As many as fit the time,
-	 * re-checked every tick. Started only from the start room; null = no (more) top-up.
+	 * start, or raw paddlefish lying on the floor nearby (monster drops). Started only from the
+	 * start room; null = no (more) top-up.
+	 *
+	 * User, 1.8.0: only started while we're below the paddlefish target. Once at a spot we fish
+	 * until the target is met AND (the spot is fished out OR the bag is full): with the target met
+	 * the spot is finished rather than left with fish in it; below the target a fished-out spot
+	 * moves on to the next one near home. The clock still has the last word (the cooked fish must be
+	 * in the bag before the timer ends).
 	 */
 	private PrepGoal topUp(Inputs in, String why)
 	{
@@ -1727,6 +1967,7 @@ public final class PrepPlanner
 			return null;
 		}
 		int have = l.cookedFish + l.get(Resource.RAW_FISH);
+		int goal = fishGoal(in);
 		// The two sources: a live spot near home (needs the harpoon), the nearest floor pile.
 		GauntletMaze.Node spot = l.harpoon ? homeFishSpot(m) : null;
 		int spotTiles = spot == null ? -1 : m.walkTiles(spot);
@@ -1737,22 +1978,23 @@ public final class PrepPlanner
 		int groundTiles = in.groundFishAt != null && in.groundFishCount > 0 ? in.groundFishTiles : -1;
 		if (!active)
 		{
-			if (!m.inStartRoom())
+			if (!m.inStartRoom() || have >= goal)
 			{
-				return null;
+				return null; // 1.8.0: only below the target
 			}
-			boolean belowTarget = in.needs != null && in.needs.get(Resource.RAW_FISH) > 0;
 			int room = Math.min(l.freeSlots, TOP_UP_CAP - have);
 			PrepGoal best = null;
 			int bestFish = 0;
+			net.runelite.api.coords.WorldPoint bestSpot = null;
 			// Floor first when it's as good: no fishing time, nothing to deplete.
 			if (groundTiles >= 0)
 			{
 				int fish = fitFish(in, groundTiles, Math.min(room, in.groundFishCount), true);
-				if (fish >= (belowTarget ? 1 : 2))
+				if (fish >= 1)
 				{
-					best = PrepGoal.pickUpFish(in.groundFishAt, why + ": " + fish + " raw paddlefish on the floor " + groundTiles + " tiles away, cooked by the end ("
-						+ in.secondsLeft + " s left, needs ~" + Math.round(topUpNeed(in, groundTiles, groundTiles, fish, true)) + " s)");
+					best = PrepGoal.pickUpFish(in.groundFishAt, why + ": " + have + "/" + goal + " fish, " + fish + " raw paddlefish on the floor "
+						+ groundTiles + " tiles away, cooked by the end (" + in.secondsLeft + " s left, needs ~"
+						+ Math.round(topUpNeed(in, groundTiles, groundTiles, fish, true)) + " s)");
 					bestFish = fish;
 					topUpBackTiles = groundTiles;
 				}
@@ -1760,11 +2002,12 @@ public final class PrepPlanner
 			if (spotTiles >= 0)
 			{
 				int fish = fitFish(in, spotTiles, Math.min(room, ExplorePlanner.yieldPerNode(Resource.RAW_FISH)), false);
-				if (fish >= (belowTarget ? 1 : 2) && fish > bestFish)
+				if (fish >= 1 && fish > bestFish)
 				{
-					best = PrepGoal.gatherAt(Resource.RAW_FISH, spot.raw, why + ": " + fish + " more fish from the spot " + spotTiles + " tiles away, cooked by the end ("
-						+ in.secondsLeft + " s left, needs ~" + Math.round(topUpNeed(in, spotTiles, spotTiles, fish, false)) + " s)");
+					best = PrepGoal.gatherAt(Resource.RAW_FISH, spot.raw, why + ": " + have + "/" + goal + " fish, more from the spot "
+						+ spotTiles + " tiles away, cooked by the end (" + in.secondsLeft + " s left, ~" + fish + " fit)");
 					bestFish = fish;
+					bestSpot = spot.raw;
 					topUpBackTiles = spotTiles;
 				}
 			}
@@ -1773,23 +2016,41 @@ public final class PrepPlanner
 				return null;
 			}
 			topUpSeed = in.runSeed;
-			topUpTotal = have + bestFish;
+			topUpSpot = bestSpot;
 			return best;
 		}
-		int left = topUpTotal - have;
-		if (left <= 0 || l.freeSlots == 0)
+		if (l.freeSlots == 0 || have >= TOP_UP_CAP)
 		{
-			topUpSeed = Integer.MIN_VALUE; // done or full: home to cook
+			topUpSeed = Integer.MIN_VALUE; // bag full: home to cook
 			return null;
 		}
-		// Keep going with whichever source still has fish and still fits the clock.
-		if (groundTiles >= 0 && topUpNeed(in, groundTiles, topUpBackTiles, Math.min(left, in.groundFishCount), true) <= in.secondsLeft)
+		boolean met = have >= goal;
+		// The spot we're working: finish it, target met or not, while the clock allows a fish.
+		GauntletMaze.Node cur = topUpSpot == null ? null : m.nodeAt(topUpSpot);
+		if (cur != null && !cur.depleted && l.harpoon)
 		{
-			return PrepGoal.pickUpFish(in.groundFishAt, "top-up: " + left + " more fish (" + in.secondsLeft + " s left)");
+			int t = m.walkTiles(cur);
+			if (t >= 0 && t != Integer.MAX_VALUE && topUpNeed(in, t, topUpBackTiles, 1, false) <= in.secondsLeft)
+			{
+				return PrepGoal.gatherAt(Resource.RAW_FISH, cur.raw, "top-up: " + have + "/" + goal + " fish"
+					+ (met ? ", target met: finishing the spot" : "") + " (" + in.secondsLeft + " s left)");
+			}
+		}
+		if (met)
+		{
+			topUpSeed = Integer.MIN_VALUE; // target met and the spot is done: home to cook
+			return null;
+		}
+		// Below the target: a floor pile, else the next live spot near home, while the clock allows.
+		if (groundTiles >= 0 && topUpNeed(in, groundTiles, topUpBackTiles, Math.min(goal - have, in.groundFishCount), true) <= in.secondsLeft)
+		{
+			topUpSpot = null;
+			return PrepGoal.pickUpFish(in.groundFishAt, "top-up: " + have + "/" + goal + " fish, from the floor (" + in.secondsLeft + " s left)");
 		}
 		if (spotTiles >= 0 && topUpNeed(in, spotTiles, topUpBackTiles, 1, false) <= in.secondsLeft)
 		{
-			return PrepGoal.gatherAt(Resource.RAW_FISH, spot.raw, "top-up: " + left + " more fish (" + in.secondsLeft + " s left)");
+			topUpSpot = spot.raw;
+			return PrepGoal.gatherAt(Resource.RAW_FISH, spot.raw, "top-up: " + have + "/" + goal + " fish, next spot (" + in.secondsLeft + " s left)");
 		}
 		topUpSeed = Integer.MIN_VALUE; // out of time (or the fish are gone): home to cook
 		return null;

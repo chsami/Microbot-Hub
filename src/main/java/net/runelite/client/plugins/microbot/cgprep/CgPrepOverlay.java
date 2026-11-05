@@ -90,7 +90,12 @@ public class CgPrepOverlay extends OverlayPanel
 			boolean youPrep = config.autoMode() == CgPrepConfig.AutoMode.BOSS_ONLY && s.getCurrentState() != CgState.LOBBY_SETUP;
 			row("Goal", youPrep ? "You prep (Boss Only)" : goal == null ? "-" : goal.headline());
 			row("Last", shorten(s.lastAction));
-			Needs n = s.needs;
+			// Recomputed here from the last bag reading, so a changed setting shows at once (also
+			// while paused or in the lobby).
+			net.runelite.client.plugins.microbot.cgprep.plan.Ledger l = s.ledger;
+			Needs n = l == null ? s.needs : Needs.goal(l,
+				net.runelite.client.plugins.microbot.cgprep.plan.PrepPlanner.profileNow(l, config.profile()),
+				config.fishTarget(), config.shardBuffer(), config.potionTarget(), s.vialsSmashSetting());
 			row("Missing", n == null ? "-" : n.toString());
 		}
 

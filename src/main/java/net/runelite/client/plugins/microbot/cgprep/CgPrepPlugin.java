@@ -51,7 +51,7 @@ import net.runelite.client.util.HotkeyListener;
 )
 public class CgPrepPlugin extends Plugin
 {
-	static final String version = "1.7.6";
+	static final String version = "1.8.0";
 
 	@Inject
 	private CgPrepConfig config;
@@ -110,9 +110,61 @@ public class CgPrepPlugin extends Plugin
 		}
 	};
 
+	private void migratePotionSetting()
+	{
+		String old = configManager.getConfiguration(CgPrepConfig.GROUP, "potionTarget");
+		if (old == null)
+		{
+			return;
+		}
+		configManager.unsetConfiguration(CgPrepConfig.GROUP, "potionTarget");
+		int value;
+		try
+		{
+			value = Integer.parseInt(old.trim());
+		}
+		catch (NumberFormatException e)
+		{
+			return;
+		}
+		int brewed = Math.max(0, Math.min(6, value >= 2 ? value - 1 : value));
+		configManager.setConfiguration(CgPrepConfig.GROUP, "potionsBrewed", brewed);
+		String change = brewed == value ? "kept at " + brewed : "changed from " + value + " to " + brewed;
+		pendingMigrationMsg = "<col=ff9040>[Auto Gauntlet]</col> 'Egniol potions' now counts potions brewed. Your setting was "
+			+ change + ", which gives the boss the same potions as before." + (brewed == value ? "" : " No need to change it back.");
+		Microbot.log("[Auto Gauntlet] Egniol potions setting " + change);
+	}
+
+	private volatile String pendingMigrationMsg;
+
+	private void postMigrationMsg()
+	{
+		String msg = pendingMigrationMsg;
+		if (msg == null)
+		{
+			return;
+		}
+		pendingMigrationMsg = null;
+		client.addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", msg, null);
+	}
+
+	@Subscribe
+	public void onGameStateChanged(net.runelite.api.events.GameStateChanged e)
+	{
+		if (e.getGameState() == net.runelite.api.GameState.LOGGED_IN)
+		{
+			postMigrationMsg();
+		}
+	}
+
 	@Override
 	protected void startUp()
 	{
+		migratePotionSetting();
+		if (pendingMigrationMsg != null && client.getGameState() == net.runelite.api.GameState.LOGGED_IN)
+		{
+			Microbot.getClientThread().invokeLater(this::postMigrationMsg);
+		}
 		overlayManager.add(overlay);
 		bossOverlay = new net.runelite.client.plugins.microbot.cgprep.boss.BossFightOverlay(client, () -> script.boss, config::bossOverlay);
 		overlayManager.add(bossOverlay);
