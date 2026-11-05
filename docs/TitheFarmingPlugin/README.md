@@ -32,10 +32,13 @@ The TitheFarming plugin automates the Tithe Farm minigame in Old School RuneScap
 
 ## Configuration
 
-- **Seed Type:** Choose which seed to use (Golovanova, Bologano, or Logavano).
-- **Plot Count:** Set the number of plots to use (typically 5, 10, or 20).
-- **Watering Preferences:** Enable or disable automatic watering.
-- **Deposit Options:** Choose whether to deposit crops automatically.
+- **Tithe farm lanes:** Choose which lane pair to farm (or randomize).
+- **Use 16 plants:** Plant 16 patches instead of the lane's 19-20 by leaving its short extra column empty (fewer dead plants when timing is tight). Applies from the next round.
+- **Store fruit threshold:** How many fruits to hold before depositing in the sack.
+- **Gricoller's can refill threshold:** Percentage at which to refill Gricoller's can.
+- **Sleep timings:** Optional delays after plant / water / harvest (defaults are usually fine).
+- **Enable Antiban:** Optional natural mouse / antiban features.
+- **Debug / Overlay:** Optional debugger and overlay.
 
 ## Usage
 
