@@ -485,12 +485,12 @@ ThievingNpcStrategy getActiveStrategy() {
                 break;
         }
 
-        String highlightedName = null;
         final var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
-        if (!highlighted.isEmpty()) {
-            final net.runelite.api.NPC first = highlighted.keySet().iterator().next();
-            highlightedName = Microbot.getClientThread().runOnClientThreadOptional(first::getName).orElse(null);
-        }
+        final String highlightedName = highlighted.isEmpty() ? null : Microbot.getClientThread().runOnClientThreadOptional(() -> highlighted.keySet().stream()
+                .filter(n -> n != null && n.getName() != null)
+                .map(net.runelite.api.NPC::getName)
+                .findFirst()
+                .orElse(null)).orElse(null);
         try {
             Rs2NpcManager.loadJson();
         } catch (Exception ex) {
@@ -528,7 +528,7 @@ ThievingNpcStrategy getActiveStrategy() {
 
     private String noLocationReason() {
         final ThievingNpc selected = config.THIEVING_NPC();
-        final String npcName = ThievingTravel.titleCase(String.valueOf(selected));
+        final String npcName = ThievingTravel.displayName(selected);
         if (selected == ThievingNpc.VYRES && Rs2Player.getQuestState(Quest.SINS_OF_THE_FATHER) != QuestState.FINISHED) {
             return "Vyre thieving needs the Sins of the Father quest. Finish it and start again.";
         }
@@ -543,14 +543,17 @@ ThievingNpcStrategy getActiveStrategy() {
 
     private void stopNoLocation(String reason) {
         log.warn("Thieving stopped: {}", reason);
-        Microbot.status = "No NPC location found";
+        Microbot.status = "Stopped: " + reason;
         Microbot.showMessage(reason);
         Microbot.stopPlugin(plugin);
     }
 
     private void walkToNpcArea() {
+        final Rs2NpcModel visible = thievingNpc;
+        final boolean chasing = !isNpcNull(visible) && visible.getWorldLocation() != null;
         final WorldPoint target = resolveTravelTarget();
         if (target == null) {
+            if (ThievingTravel.anchorsInPlace(config.THIEVING_NPC())) return;
             stopNoLocation(noLocationReason());
             return;
         }
@@ -558,12 +561,13 @@ ThievingNpcStrategy getActiveStrategy() {
             stopNoLocation("Vyre thieving needs the vyre noble outfit. Put it in your inventory and start again.");
             return;
         }
-        final String npcName = config.THIEVING_NPC() == ThievingNpc.NONE ? "highlighted NPC" : ThievingTravel.titleCase(String.valueOf(config.THIEVING_NPC()));
-        Microbot.status = "Walking to " + npcName + " area";
+        final String npcName = config.THIEVING_NPC() == ThievingNpc.NONE ? "highlighted NPC" : ThievingTravel.displayName(config.THIEVING_NPC());
+        final String visibleName = chasing ? getNpcName(visible) : null;
+        Microbot.status = chasing ? "Walking to nearest " + (visibleName != null ? visibleName : npcName) : "Walking to " + npcName + " area";
         final boolean arrived = walkTo("Walk to NPC area", target, 3);
         final WorldPoint me = Rs2Player.getWorldLocation();
         if (me != null && me.distanceTo(target) <= ThievingTravel.TARGET_RADIUS) {
-            if (startingLocation == null || startingLocation.distanceTo(me) > ThievingTravel.TARGET_RADIUS) {
+            if (startingLocation == null) {
                 startingLocation = me;
                 log.debug("Anchored starting location at {}", me);
             }
@@ -1283,6 +1287,10 @@ ThievingNpcStrategy getActiveStrategy() {
     }
 
     private void returnToStartAfterEscape() {
+        if (startingLocation == null) {
+            DOOR_TIMER.set();
+            return;
+        }
         if (walkTo("Walk to start", startingLocation, 3)) {
             sleepUntilWithInterrupt(() -> !Rs2Player.isMoving(), 1_200);
         }

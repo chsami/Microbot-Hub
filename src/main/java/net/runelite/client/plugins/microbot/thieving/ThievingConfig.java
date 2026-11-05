@@ -14,7 +14,7 @@ import net.runelite.client.plugins.microbot.thieving.enums.ThievingFood;
         "Thieving plugin.<br/>" +
         "<b>NOTES:</b><br/>" +
         "- If the npc is not in the list, select “None” and mark the npc with RL “Npc Indicators” plugin.<br/><br/>" +
-        "- With \"Walk to NPC location\" on (default), the plugin walks to the nearest spawn area of the selected npc if none is nearby, then stays there. For None, Elves, Master Farmer and Wealthy citizen, or with the option off, it uses your starting position, so stand next to the npc before starting.<br/><br/>" +
+        "- With \"Walk to NPC location\" on (default), if no matching npc is within 15 tiles the plugin walks to the nearest spawn area of the selected npc (spawn areas in the Wilderness are skipped) and only hops worlds once there. Vyres: walks to Vallessia von Pitt's house in Darkmeyer and equips the vyre noble outfit (needs Sins of the Father). None, Elves and Master Farmer: only walks to one you can see, otherwise stays where you started and hops. Wealthy citizen, or with the option off: it never walks to the npc and uses your starting position, so stand next to the npc before starting.<br/><br/>" +
         "<b>EXPERIMENTAL:</b> Vyre mode is still in testing, by default it only supports stealing from: Natalidae Shadum, Misdrievus Shadum and Vallessia von Pitt.<br/><br/>" +
         "<b>EQUIPMENT:</b><br/>" +
         "- Equip as usual your rogue set. In case you are in Darkmeyer, have your vyre noble outfit in your inventory.<br/><br/>" +
@@ -53,7 +53,7 @@ public interface ThievingConfig extends Config {
     @ConfigItem(
             keyName = "walkToNpc",
             name = "Walk to NPC location",
-            description = "If no matching NPC is nearby, walk to the nearest spawn area of the selected NPC instead of hopping worlds where you stand. Never walks into the Wilderness. Not used for Wealthy citizen, Elves or Master Farmer.",
+            description = "If no matching NPC is within 15 tiles, walk to the nearest spawn area of the selected NPC (spawn areas in the Wilderness are skipped) and only hop worlds once there. Vyres: walks to Vallessia von Pitt's house in Darkmeyer and equips the vyre noble outfit (needs Sins of the Father). None, Elves and Master Farmer: only walks to one you can see, otherwise stays where you started and hops. Wealthy citizen: never walks.",
             position = 2,
             section = generalSection
     )

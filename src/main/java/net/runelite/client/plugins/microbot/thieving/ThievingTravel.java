@@ -97,6 +97,10 @@ final class ThievingTravel {
         return npc == ThievingNpc.ELVES || npc == ThievingNpc.MASTER_FARMER || npc == ThievingNpc.NONE;
     }
 
+    static String displayName(ThievingNpc npc) {
+        return titleCase(String.valueOf(npc)).replace(" Of ", " of ");
+    }
+
     static String titleCase(String s) {
         if (s == null || s.isEmpty()) return s;
         final StringBuilder sb = new StringBuilder(s.length());
