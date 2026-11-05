@@ -161,7 +161,8 @@ public final class PrayerGuard
 			}
 			demiNear |= Engagement.isDemi(m) && a.tiles <= 12;
 			int reach = m == Monster.BEAR ? BEAR_APPROACH_TILES : m == goal ? APPROACH_TILES_TARGET : APPROACH_TILES;
-			if (Engagement.isDemi(m) && a.tiles <= reach)
+			// 1.8.1: a Bear that can't get to us isn't prayed against on its way in either.
+			if (Engagement.isDemi(m) && a.tiles <= reach && !(m == Monster.BEAR && a.cantReach))
 			{
 				nearDemis.add(a.index);
 				int first = aheadSince.computeIfAbsent(a.index, k -> scan.tick);
@@ -179,7 +180,7 @@ public final class PrayerGuard
 			int[] prev = prevAnims.get(a.index);
 			boolean started = a.anim != -1 && (prev == null || prev[0] != a.anim || a.animFrame < prev[1]);
 			anims.put(a.index, new int[]{a.anim, a.animFrame});
-			seen.add(new Engagement.Seen(a.index, m, a.tiles, a.targetingUs, started));
+			seen.add(new Engagement.Seen(a.index, m, a.tiles, a.targetingUs, started, a.cantReach));
 		}
 		aheadSince.keySet().retainAll(nearDemis);
 		engagement.tick(seen, alive);
@@ -205,7 +206,8 @@ public final class PrayerGuard
 		Monster target = fightTarget;
 		Monster demiEngaged = engagement.engagedDemi(attackingOnPurpose ? target : null);
 		int melee = engagement.engagedMelee();
-		if (demiEngaged == null && target != null && target != Monster.WEAK && target != Monster.STRONG && attackingOnPurpose)
+		if (demiEngaged == null && target != null && target != Monster.WEAK && target != Monster.STRONG && attackingOnPurpose
+			&& !(target == Monster.BEAR && targetCantReach(scan)))
 		{
 			demiEngaged = target; // we started it: its first hit should already be blocked
 		}
@@ -278,7 +280,9 @@ public final class PrayerGuard
 		// one that went out in the last 2 ticks and doesn't show yet isn't sent again.
 		StringBuilder did = new StringBuilder();
 		java.util.List<Rs2PrayerEnum> clicks = new java.util.ArrayList<>();
-		String offWhy = inSafeRoom ? "in the start room (monsters can't come in)" : "nothing engaged";
+		int stuck = engagement.stuckMelee();
+		String offWhy = inSafeRoom ? "in the start room (monsters can't come in)"
+			: stuck > 0 ? stuck + " melee after us can't reach us (safe)" : "nothing engaged";
 		if (want == null)
 		{
 			for (Rs2PrayerEnum p : new Rs2PrayerEnum[]{Rs2PrayerEnum.PROTECT_MELEE, Rs2PrayerEnum.PROTECT_RANGE, Rs2PrayerEnum.PROTECT_MAGIC})
@@ -342,6 +346,19 @@ public final class PrayerGuard
 		}
 		offensive = wantOff;
 		return did.length() == 0 ? null : did.substring(0, did.length() - 2);
+	}
+
+	/** 1.8.1: the monster we're attacking can't get to us (we're safespotting it). */
+	private static boolean targetCantReach(WorldScan scan)
+	{
+		for (WorldScan.Npc a : scan.npcs)
+		{
+			if (a.index == scan.interactingIndex)
+			{
+				return a.cantReach;
+			}
+		}
+		return false;
 	}
 
 	/** Queue a click on this prayer unless the same click went out in the last 2 ticks. */

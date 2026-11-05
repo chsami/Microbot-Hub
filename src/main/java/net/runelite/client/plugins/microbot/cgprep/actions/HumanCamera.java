@@ -18,9 +18,11 @@ import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
  * turn the camera how far isn't known up front (it depends on the client), so the first drag is
  * a moderate one and the yaw it actually produced sets the scale; each later drag is sized from
  * that and re-checked. Small leftovers are left alone (a tile only has to be on screen). If drags
- * don't turn the camera (middle-button camera off in the game settings), the arrow keys are held
- * instead (Microbot's Rs2Camera.setAngle), and only if that doesn't move it either (keys need the
- * window focused, 0.3.23) Microbot's eased yaw.
+ * don't turn the camera (middle-button camera off in the game settings), an arrow key is held
+ * instead (1.8.1: our own hold, released the moment the camera reaches or passes the angle; Microbot's
+ * Rs2Camera.setAngle turns 3x fast and checks every 50 ms, so it could pass a narrow window and
+ * spin on), and only if that doesn't move it either (keys need the window focused, 0.3.23)
+ * Microbot's eased yaw.
  *
  * ZOOM: the mouse wheel, a few notches at a time with short pauses, until the zoom stops changing.
  */
@@ -71,6 +73,22 @@ public final class HumanCamera
 			return Rs2Camera.isTileOnScreen(lp);
 		}
 		return sleepUntil(() -> Rs2Camera.isTileOnScreen(lp), 600);
+	}
+
+	/**
+	 * 1.8.1: face the tile (on screen but hidden behind the chatbox, side panel or minimap): turned
+	 * so it sits in the middle of the view. True if the camera now faces it.
+	 */
+	public boolean face(LocalPoint lp) throws InterruptedException
+	{
+		Integer to = lp == null ? null : angleTo(lp);
+		if (to == null)
+		{
+			return false;
+		}
+		int deg = Math.floorMod(to - 90, 360);
+		int yaw = (int) Math.round(deg / 0.17578125) % TURN;
+		return turnTo(yaw, 60, deg);
 	}
 
 	/**
@@ -137,12 +155,63 @@ public final class HumanCamera
 			return false; // drags work, 4 weren't enough: the caller walks closer instead
 		}
 		int before = Rs2Camera.getYaw();
-		Rs2Camera.setAngle(degrees, 25); // holds the arrow keys until the angle is reached
+		keyTurn(target, tolerance);
 		if (Math.abs(shortest(Rs2Camera.getYaw() - before)) < 4)
 		{
 			Rs2Camera.setYaw(target); // keys don't reach an unfocused client: Microbot's eased turn
 		}
 		return Math.abs(shortest(target - Rs2Camera.getYaw())) <= tolerance;
+	}
+
+	/**
+	 * 1.8.1: hold the arrow key that turns toward {@code target} and let go as soon as the yaw is
+	 * within {@code tolerance} or has gone past the target (never a second lap). Which key turns
+	 * which way is checked from the first movement, not assumed. At most 3 s.
+	 */
+	private void keyTurn(int target, int tolerance) throws InterruptedException
+	{
+		int start = Rs2Camera.getYaw();
+		int d0 = shortest(target - start);
+		if (Math.abs(d0) <= tolerance)
+		{
+			return;
+		}
+		int key = d0 > 0 ? java.awt.event.KeyEvent.VK_RIGHT : java.awt.event.KeyEvent.VK_LEFT;
+		boolean checked = false;
+		long until = System.currentTimeMillis() + 3000;
+		net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard.keyHold(key);
+		try
+		{
+			while (System.currentTimeMillis() < until)
+			{
+				Thread.sleep(15 + rnd.nextInt(10));
+				int yaw = Rs2Camera.getYaw();
+				int d = shortest(target - yaw);
+				if (!checked && Math.abs(shortest(yaw - start)) >= 8)
+				{
+					checked = true;
+					if (Math.abs(d) > Math.abs(d0))
+					{
+						// this key turns the other way: swap
+						net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard.keyRelease(key);
+						key = key == java.awt.event.KeyEvent.VK_RIGHT ? java.awt.event.KeyEvent.VK_LEFT : java.awt.event.KeyEvent.VK_RIGHT;
+						net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard.keyHold(key);
+						start = yaw;
+						d0 = d;
+						continue;
+					}
+				}
+				if (Math.abs(d) <= tolerance || Integer.signum(d) != Integer.signum(d0))
+				{
+					break; // there, or just past it: stop rather than go round again
+				}
+			}
+		}
+		finally
+		{
+			net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard.keyRelease(key);
+		}
+		settle();
 	}
 
 	/**

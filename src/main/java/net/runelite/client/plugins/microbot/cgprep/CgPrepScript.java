@@ -2153,7 +2153,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				// the first click of a run was a minimap click 2 tiles ahead, then the door; a
 				// player clicks the door). The server walks the rest. Farther: minimap hops.
 				int far = InstanceNav.chebyshev(me, at);
-				if (far > 10 && (far > 22 || !net.runelite.client.plugins.microbot.cgprep.actions.Aim.onScreen(node.getLocalLocation())))
+				if (far > 10 && (far > 22 || !net.runelite.client.plugins.microbot.cgprep.actions.Aim.clickable(node)))
 				{
 					InstanceNav.Result res = nav.step(at, 10);
 					return res == InstanceNav.Result.NO_PATH ? ActionResult.NO_PATH : ActionResult.WALKING;
@@ -2164,7 +2164,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				// object for N times..."). We handle unreachable doorways ourselves (blacklist + re-plan).
 				Microbot.cantReachTarget = false;
 				Microbot.cantReachTargetRetries = 0;
-				if (!net.runelite.client.plugins.microbot.cgprep.actions.Aim.onScreen(node.getLocalLocation()))
+				if (!net.runelite.client.plugins.microbot.cgprep.actions.Aim.clickable(node))
 				{
 					nav.step(at, 3); // still off screen after the camera turn: get closer first
 					return ActionResult.WALKING;
@@ -2409,7 +2409,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			lastAction = "lobby: object " + java.util.Arrays.toString(ids) + " not found";
 			return ActionResult.NOT_AVAILABLE;
 		}
-		if (!net.runelite.client.plugins.microbot.cgprep.actions.Aim.onScreen(obj.getLocalLocation()))
+		if (!net.runelite.client.plugins.microbot.cgprep.actions.Aim.clickable(obj))
 		{
 			WorldPoint at = obj.getWorldLocation();
 			if (at != null)
@@ -2694,7 +2694,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			pl("FIGHT", "WARN enter: boss barrier " + mode().objBossBarrier + " not found");
 			return;
 		}
-		boolean sent = net.runelite.client.plugins.microbot.cgprep.actions.Aim.onScreen(barrier.getLocalLocation()) && barrier.click("Quick-pass");
+		boolean sent = net.runelite.client.plugins.microbot.cgprep.actions.Aim.clickable(barrier) && barrier.click("Quick-pass");
 		pl("FIGHT", "enter: Quick-pass on the boss barrier " + (sent ? "sent" : "NOT sent (off screen?)"));
 	}
 

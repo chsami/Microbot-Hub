@@ -36,7 +36,7 @@ public final class PlanExecutor
 		prevPx = o.px;
 		prevPy = o.py;
 		// 0. an escape that can't wait while the prayer can (1.8.0)
-		if (p.moveFirst && p.moving() && (o.px != p.moveX || o.py != p.moveY))
+		if (p.moveFirst && p.moving() && !p.continueRun && (o.px != p.moveX || o.py != p.moveY))
 		{
 			add(out, tick, new Click(Click.Type.MOVE, null, p.moveX, p.moveY));
 		}
@@ -57,7 +57,7 @@ public final class PlanExecutor
 		// 2. move or attack
 		if (p.moving())
 		{
-			if (!p.moveFirst && (o.px != p.moveX || o.py != p.moveY))
+			if (!p.moveFirst && !p.continueRun && (o.px != p.moveX || o.py != p.moveY))
 			{
 				add(out, tick, new Click(Click.Type.MOVE, null, p.moveX, p.moveY));
 			}
