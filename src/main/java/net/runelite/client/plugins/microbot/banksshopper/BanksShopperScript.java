@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.concurrent.CompletableFuture;
 
+import lombok.Setter;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -36,6 +37,8 @@ public class BanksShopperScript extends Script {
     private final BanksShopperPlugin plugin;
     private ShopperState state = ShopperState.SHOPPING;
     private WorldPoint shopNpcLocation;
+    @Setter
+    private volatile boolean stopForSupply;
 
     public BanksShopperScript(final BanksShopperPlugin plugin) {
         this.plugin = plugin;
@@ -46,6 +49,7 @@ public class BanksShopperScript extends Script {
         Microbot.enableAutoRunOn = false;
         initialPlayerLocation = null;
         shopNpcLocation = null;
+        stopForSupply = false;
         Rs2Antiban.resetAntibanSettings();
         Rs2AntibanSettings.naturalMouse = true;
 
@@ -71,6 +75,7 @@ public class BanksShopperScript extends Script {
                         if (missingAllRequiredItems && plugin.getSelectedAction() == Actions.SELL) {
                             Microbot.status = "[Shutting down] - Reason: Not enough supplies.";
                             Microbot.showMessage(Microbot.status);
+                            stopForSupply = true;
                             Microbot.stopPlugin(plugin);
                             return;
                         }
@@ -94,11 +99,11 @@ public class BanksShopperScript extends Script {
                                     case BUY:
                                         // Check if name is purely numeric or alphanumeric
                                         if (itemName.matches("\\d+")) {
-                                            outOfStock = !Rs2Shop.hasMinimumStock(Integer.parseInt(itemName), plugin.getMinStock());
+                                            outOfStock = !Rs2Shop.hasMinimumStock(Integer.parseInt(itemName), Math.max(1, plugin.getMinStock()));
                                             if (outOfStock) continue;
                                             successfullAction = processBuyAction(Integer.parseInt(itemName), plugin.getSelectedQuantity().toString());
                                         } else {
-                                            outOfStock = !Rs2Shop.hasMinimumStock(itemName, plugin.getMinStock());
+                                            outOfStock = !Rs2Shop.hasMinimumStock(itemName, Math.max(1, plugin.getMinStock()));
                                             if (outOfStock) continue;
                                             successfullAction = processBuyAction(itemName, plugin.getSelectedQuantity().toString());
                                         }
@@ -176,7 +181,9 @@ public class BanksShopperScript extends Script {
             Rs2Shop.closeShop();
         }
 
-        if (plugin.isUseLogout()) {
+        boolean logoutForSupply = stopForSupply;
+        stopForSupply = false;
+        if (plugin.isUseLogout() && logoutForSupply) {
             Rs2Player.logout();
         }
 
