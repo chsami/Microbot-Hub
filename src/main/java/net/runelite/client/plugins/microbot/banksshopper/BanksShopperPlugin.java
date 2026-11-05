@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 )
 @Slf4j
 public class BanksShopperPlugin extends Plugin {
-    public final static String version = "1.4.4";
+    public final static String version = "1.4.5";
     @Inject
     private BanksShopperConfig config;
 
@@ -101,8 +101,9 @@ public class BanksShopperPlugin extends Plugin {
         if (event.getType() == ChatMessageType.GAMEMESSAGE && !Microbot.pauseAllScripts.get()) {
             if (event.getMessage().toLowerCase().contains("you don't have enough coins.")) {
                 Microbot.status = "[Shutting down] - Reason: Not enough coins.";
-                Microbot.showMessage(Microbot.status);
-                banksShopperScript.shutdown();
+                Microbot.log(Microbot.status);
+                banksShopperScript.setStopForSupply(true);
+                Microbot.stopPlugin(this);
             }
         }
     }

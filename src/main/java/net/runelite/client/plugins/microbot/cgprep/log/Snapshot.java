@@ -278,6 +278,7 @@ public final class Snapshot
 		in.ledger = l;
 		in.needs = Needs.compute(l, PrepPlanner.profileNow(l, c.profile), PrepPlanner.fishTargetNow(l, c.profile, c.fishTarget), c.shardBuffer, c.potions, c.decant, c.vialsSmash);
 		in.potionTarget = c.potions;
+		in.fishTarget = c.fishTarget;
 		in.fishLater = PrepPlanner.fishTargetNow(l, c.profile, c.fishTarget) < c.fishTarget;
 		in.maze = maze;
 		in.profile = PrepPlanner.profileNow(l, c.profile);

@@ -14,7 +14,7 @@ import net.runelite.client.plugins.microbot.thieving.enums.ThievingFood;
         "Thieving plugin.<br/>" +
         "<b>NOTES:</b><br/>" +
         "- If the npc is not in the list, select “None” and mark the npc with RL “Npc Indicators” plugin.<br/><br/>" +
-        "- The plugin takes the player's starting position, not the npc's. Get close to the npc to steal before starting the plugin.<br/><br/>" +
+        "- With \"Walk to NPC location\" on (default), if no matching npc is within 15 tiles the plugin walks to the nearest spawn area of the selected npc (spawn areas in the Wilderness are skipped) and only hops worlds once there. Vyres: walks to Vallessia von Pitt's house in Darkmeyer and equips the vyre noble outfit (needs Sins of the Father). None, Elves and Master Farmer: only walks to one you can see, otherwise stays where you started and hops. Wealthy citizen, or with the option off: it never walks to the npc and uses your starting position, so stand next to the npc before starting.<br/><br/>" +
         "<b>EXPERIMENTAL:</b> Vyre mode is still in testing, by default it only supports stealing from: Natalidae Shadum, Misdrievus Shadum and Vallessia von Pitt.<br/><br/>" +
         "<b>EQUIPMENT:</b><br/>" +
         "- Equip as usual your rogue set. In case you are in Darkmeyer, have your vyre noble outfit in your inventory.<br/><br/>" +
@@ -48,6 +48,17 @@ public interface ThievingConfig extends Config {
     )
     default boolean ardougneAreaCheck() {
         return false;
+    }
+
+    @ConfigItem(
+            keyName = "walkToNpc",
+            name = "Walk to NPC location",
+            description = "If no matching NPC is within 15 tiles, walk to the nearest<br>spawn area (never in the Wilderness) and only hop worlds there.<br>Vyres: walks to Vallessia von Pitt's house in Darkmeyer<br>(needs Sins of the Father and the vyre noble outfit).<br>None, Elves, Master Farmer: only walks to one you can see.<br>Wealthy citizen: never walks.",
+            position = 2,
+            section = generalSection
+    )
+    default boolean walkToNpc() {
+        return true;
     }
 
     @ConfigSection(

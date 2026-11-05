@@ -10,6 +10,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginManager;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.ui.overlay.OverlayManager;
 
@@ -30,7 +31,7 @@ import javax.inject.Inject;
 @Slf4j
 public class ArceuusLibraryPlugin extends Plugin
 {
-    public static final String version = "1.0.2";
+    public static final String version = "1.0.4";
     private static final String NOTHING_FOUND_MESSAGE = "You don't find anything useful here.";
     private static final String BOOKS_SHIFTED_MESSAGE =
             "You hear the shifting of books due to a mysterious force...or are you just hearing things?";
@@ -70,7 +71,8 @@ public class ArceuusLibraryPlugin extends Plugin
         }
         bridge.wire();
 
-        script = new ArceuusLibraryScript(bridge);
+        script = new ArceuusLibraryScript(bridge,
+                () -> javax.swing.SwingUtilities.invokeLater(() -> Microbot.stopPlugin(this)));
 
         if (overlayManager != null)
         {

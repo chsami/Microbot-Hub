@@ -103,6 +103,17 @@ public interface TitheFarmingConfig extends Config {
         return false;
     }
 
+    @ConfigItem(
+            keyName = "use16Plants",
+            name = "Use 16 plants",
+            description = "Only plant 16 patches instead of the lane's 19-20 by leaving its short extra column empty, so every plant gets watered in time. Applies from the next round.",
+            position = 7,
+            section = scriptSettings
+    )
+    default boolean use16Plants() {
+        return false;
+    }
+
 
     @ConfigSection(
             name = "Debug Settings",
