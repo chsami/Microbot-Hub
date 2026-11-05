@@ -161,7 +161,7 @@ public class FourtifysBarrowsPlugin extends Plugin
     private String settingsProblem()
     {
         String[][] lists = {{"Magic equipment IDs", config.magicGear()}, {"Ahrim equipment IDs", config.rangedGear()},
-            {"Tunnel equipment IDs", config.meleeGear()}, {"Retained inventory IDs", config.keepItems()}};
+            {"Tunnel equipment IDs", config.meleeGear()}, {"Items to keep (IDs)", config.keepItems()}};
         for (String[] list : lists)
         {
             try

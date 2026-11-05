@@ -89,7 +89,7 @@ public class BarrowsConfigInitializationTest
         assertEquals("travelMethod", outboundItem.keyName());
         assertEquals(BankTeleport.class, BarrowsConfig.class.getMethod("bankTeleport").getReturnType());
         assertEquals(1, BankTeleport.values().length);
-        assertEquals("Ring of Dueling", BankTeleport.RING_OF_DUELING.toString());
+        assertEquals("Ring of dueling", BankTeleport.RING_OF_DUELING.toString());
         ConfigItem supplies = BarrowsConfig.class.getMethod("restockItems").getAnnotation(ConfigItem.class);
         assertEquals("Additional supplies/ammunition", supplies.name());
         assertEquals("restockItems", supplies.keyName());

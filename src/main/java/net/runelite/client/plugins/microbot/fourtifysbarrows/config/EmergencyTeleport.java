@@ -7,6 +7,6 @@ public enum EmergencyTeleport
     @Override
     public String toString()
     {
-        return "Ring of Dueling";
+        return "Ring of dueling";
     }
 }

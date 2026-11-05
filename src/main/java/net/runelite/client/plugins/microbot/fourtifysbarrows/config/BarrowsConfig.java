@@ -44,7 +44,7 @@ public interface BarrowsConfig extends TimingConfig
     }
 
     @Range(min = 0, max = 880)
-    @ConfigItem(keyName = "rewardTarget", name = "Reward potential target", description = "Auto-retaliate is disabled and remains off after stopping. Target reward points before searching the chest; remaining brother combat levels count toward this target.", position = 2, section = GENERAL)
+    @ConfigItem(keyName = "rewardTarget", name = "Reward potential target", description = "Reward points to reach before searching the chest; remaining brothers' combat levels count toward it. The game's Barrows overlay shows points as a share of the 1012 maximum, so 880 shows as about 87%. Auto-retaliate is turned off and stays off after stopping.", position = 2, section = GENERAL)
     default int rewardTarget()
     {
         return 880;
@@ -56,7 +56,7 @@ public interface BarrowsConfig extends TimingConfig
         return TravelMethod.BARROWS_TABLET;
     }
 
-    @ConfigItem(keyName = "bankTeleport", name = "Teleport to bank", description = "Use a charged Ring of Dueling to reach Ferox Enclave, then restore at the pool and use the bank.", position = 0, section = BANK_TRAVEL)
+    @ConfigItem(keyName = "bankTeleport", name = "Teleport to bank", description = "Use a charged Ring of dueling to reach Ferox Enclave, then restore at the pool and use the bank.", position = 0, section = BANK_TRAVEL)
     default BankTeleport bankTeleport()
     {
         return BankTeleport.RING_OF_DUELING;
@@ -97,25 +97,25 @@ public interface BarrowsConfig extends TimingConfig
         return 20;
     }
 
-    @ConfigItem(keyName = "magicGear", name = "Magic equipment IDs", description = "Comma-separated item IDs to equip for brothers other than Ahrim. Configure autocast or a powered weapon before starting. Blank keeps the equipment supplied by the player.", position = 0, section = EQUIPMENT)
+    @ConfigItem(keyName = "magicGear", name = "Magic equipment IDs", description = "Comma-separated item IDs to equip for brothers other than Ahrim. Configure autocast or a powered weapon before starting. Leave blank to keep what you are wearing.", position = 0, section = EQUIPMENT)
     default String magicGear()
     {
         return "";
     }
 
-    @ConfigItem(keyName = "rangedGear", name = "Ahrim equipment IDs", description = "Comma-separated ranged equipment item IDs for Ahrim. Supply ammunition as required. Blank keeps the equipment supplied by the player.", position = 1, section = EQUIPMENT)
+    @ConfigItem(keyName = "rangedGear", name = "Ahrim equipment IDs", description = "Comma-separated ranged equipment item IDs for Ahrim. Supply ammunition as required. Leave blank to keep what you are wearing.", position = 1, section = EQUIPMENT)
     default String rangedGear()
     {
         return "";
     }
 
-    @ConfigItem(keyName = "meleeGear", name = "Tunnel equipment IDs", description = "Comma-separated melee equipment item IDs for tunnel creatures. Blank keeps the equipment supplied by the player.", position = 2, section = EQUIPMENT)
+    @ConfigItem(keyName = "meleeGear", name = "Tunnel equipment IDs", description = "Comma-separated melee equipment item IDs for tunnel creatures. Leave blank to keep what you are wearing.", position = 2, section = EQUIPMENT)
     default String meleeGear()
     {
         return "";
     }
 
-    @ConfigItem(keyName = "keepItems", name = "Retained inventory IDs", description = "Comma-separated extra inventory item IDs to retain when banking, such as runes, a rune pouch, teleports or weapon charges. These items must be supplied by the player.", position = 3, section = EQUIPMENT)
+    @ConfigItem(keyName = "keepItems", name = "Items to keep (IDs)", description = "Comma-separated item IDs to keep in the inventory when banking, such as runes, a rune pouch, teleports or weapon charges. Bring these yourself; the plugin does not withdraw them.", position = 3, section = EQUIPMENT)
     default String keepItems()
     {
         return "";
@@ -127,7 +127,7 @@ public interface BarrowsConfig extends TimingConfig
         return "";
     }
 
-    @ConfigItem(keyName = "emergencyTeleport", name = "Teleport", description = "Use a charged Ring of Dueling to reach Ferox Enclave when Hitpoints are low. Carry or wear the ring before starting.", position = 0, section = SAFETY)
+    @ConfigItem(keyName = "emergencyTeleport", name = "Teleport", description = "Use a charged Ring of dueling to reach Ferox Enclave when Hitpoints are low. Carry or wear the ring before starting.", position = 0, section = SAFETY)
     default EmergencyTeleport emergencyTeleport()
     {
         return EmergencyTeleport.RING_OF_DUELING;

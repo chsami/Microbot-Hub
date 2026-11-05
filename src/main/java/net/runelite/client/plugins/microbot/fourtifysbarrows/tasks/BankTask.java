@@ -245,7 +245,7 @@ public final class BankTask implements FourtifysTask
             {
                 withdraw(ring, "Ring of dueling", 1, "bank a charged one");
             }
-            else if (prepare("withdraw charged bank ring", "Out of charged Rings of dueling in the bank: bank one, then enable the plugin again"))
+            else if (prepare("withdraw charged bank ring", "No charged Ring of dueling in the bank: bank one, then enable the plugin again"))
             {
                 status = "Waiting for a charged bank ring in the bank";
             }
