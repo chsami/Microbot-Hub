@@ -42,6 +42,9 @@ public final class AgilityOverlay extends FourtifysOverlay
                 return render(graphics, "Fourtifys Agility", elapsed, plugin.getStatus(), context, "Laps: " + plugin.getCompletedLaps());
             case AGILITY_PYRAMID:
                 return render(graphics, "Fourtifys Agility", elapsed, plugin.getStatus(), context, "Tops: " + plugin.getPyramidTops());
+            case COLOSSAL_WYRM:
+                // The course gives termites, not marks of grace, and its laps are not counted.
+                return render(graphics, "Fourtifys Agility", elapsed, plugin.getStatus(), context);
             case WILDERNESS:
                 return render(graphics, "Fourtifys Agility", elapsed, plugin.getStatus(), context, "Tickets: " + plugin.getWildernessTickets());
             case BRIMHAVEN:
