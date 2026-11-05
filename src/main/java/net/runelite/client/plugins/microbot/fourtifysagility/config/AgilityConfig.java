@@ -30,7 +30,7 @@ public interface AgilityConfig extends TimingConfig
     @ConfigSection(name = "High Alchemy", description = "Configure alchemy while moving.", position = 40, closedByDefault = true)
     String alchemySection = "highAlchemy";
 
-    @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 10, closedByDefault = true)
+    @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 80, closedByDefault = true)
     String timingSection = "advancedTiming";
 
     @ConfigItem(keyName = "enableUI", name = "Show overlay", description = "Show runtime, course, status, and session progress while the plugin is enabled.", position = 0)
@@ -39,19 +39,11 @@ public interface AgilityConfig extends TimingConfig
         return true;
     }
 
-    @ConfigItem(keyName = "mode", name = "Course", description = "Choose the course to run. Walk closer to its first obstacle to begin.", position = 0, section = trainingSection)
+    @ConfigItem(keyName = "mode", name = "Course", description = "Choose the course to run. Start within 20 tiles of its first obstacle; the plugin does not travel between courses.", position = 0, section = trainingSection)
     default AgilityCourse area()
     {
         return AgilityCourse.SEERS_VILLAGE;
     }
-
-    /* Auto progress is temporarily disabled.
-    @ConfigItem(keyName = "autoProgress", name = "Auto progress", description = "Select the next course for your level. Walk there yourself.", position = 1, section = trainingSection)
-    default boolean autoProgress() {
-        return false;
-    }
-
-    */
 
     @ConfigItem(keyName = "ignoreMarks", name = "Ignore marks of grace", description = "Leave marks of grace on the ground instead of picking them up.", position = 2, section = trainingSection)
     default boolean ignoreMarks()
@@ -59,7 +51,7 @@ public interface AgilityConfig extends TimingConfig
         return false;
     }
 
-    @ConfigItem(keyName = "seersTeleport", name = "Use diary teleport", description = "Use the Seers Village diary teleport while running the Seers Village course. Requires the diary reward and teleport supplies.", position = 0, section = seersSection)
+    @ConfigItem(keyName = "seersTeleport", name = "Use diary teleport", description = "Cast Camelot Teleport after each Seers Village lap. Needs the Kandarin hard diary, the teleport set to Seers' Village (right-click the spell, Toggle-location), 45 Magic, and 1 law and 5 air runes or an air staff.", position = 0, section = seersSection)
     default boolean seersTeleport()
     {
         return false;
@@ -83,7 +75,7 @@ public interface AgilityConfig extends TimingConfig
         return BrimhavenVoucherReward.NONE;
     }
 
-    @ConfigItem(keyName = "foodId", name = "Food item ID", description = "Item ID of the food to eat from your inventory when below the Hitpoints threshold.", position = 0, section = suppliesSection)
+    @ConfigItem(keyName = "foodId", name = "Food item ID", description = "Item ID of the food to eat when Hitpoints fall below the threshold, for example 385 for a shark. At 0, the plugin stops at the threshold instead.", position = 0, section = suppliesSection)
     default int foodId()
     {
         return 0;
@@ -101,7 +93,7 @@ public interface AgilityConfig extends TimingConfig
         return false;
     }
 
-    @ConfigItem(keyName = "alchId", name = "Alchemy item ID", description = "Item ID to cast alchemy on when Use High Alchemy is enabled.", position = 1, section = alchemySection)
+    @ConfigItem(keyName = "alchId", name = "Alchemy item ID", description = "Item ID to cast High Level Alchemy on. The default, 856, is a noted yew longbow.", position = 1, section = alchemySection)
     default int alchId()
     {
         return 856;

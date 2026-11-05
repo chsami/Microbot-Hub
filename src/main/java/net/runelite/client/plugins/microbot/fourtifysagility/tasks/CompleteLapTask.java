@@ -28,6 +28,8 @@ import net.runelite.client.util.Text;
 
 public final class CompleteLapTask implements FourtifysTask
 {
+    private static final String SEERS_TELEPORT_FAILED = "Seers teleport failed: it needs the Kandarin hard diary, Camelot"
+        + " Teleport set to Seers' Village, 45 Magic and its runes. Turn the plugin off and on to try again";
     private final FourtifysAgilityPlugin plugin;
     private final Client client;
     private final AgilityConfig config;
@@ -80,9 +82,11 @@ public final class CompleteLapTask implements FourtifysTask
         }
     }
 
-    public void cancelBrimhavenMovement()
+    /** Drops queued arena and course-start walks, and the walker goal a course-start walk set. */
+    public void cancelMovement()
     {
         brimhaven.cancelMovement();
+        movement.cancelStep();
     }
 
     public void seersTeleportMessage(String text)
@@ -103,7 +107,7 @@ public final class CompleteLapTask implements FourtifysTask
     {
         if (seersTeleportFailed)
         {
-            plugin.setStatus("Seers teleport failed; check requirements and restart");
+            plugin.setStatus(SEERS_TELEPORT_FAILED);
             return true;
         }
         if (seersCastOrigin == null)
@@ -122,7 +126,7 @@ public final class CompleteLapTask implements FourtifysTask
         {
             seersCastOrigin = null;
             seersTeleportFailed = true;
-            plugin.setStatus("Seers teleport failed; check requirements and restart");
+            plugin.setStatus(SEERS_TELEPORT_FAILED);
         }
         else
         {
@@ -167,7 +171,7 @@ public final class CompleteLapTask implements FourtifysTask
             },
             () -> {
                 seersTeleportFailed = true;
-                plugin.setStatus("Seers teleport failed; check requirements and restart");
+                plugin.setStatus(SEERS_TELEPORT_FAILED);
             });
     }
 
@@ -246,7 +250,7 @@ public final class CompleteLapTask implements FourtifysTask
                     // The Wyrm branch and shared zipline also serve the level-50 basic course.
                     int required = (obstacle == CourseObstacle.COLOSSAL_WYRM_THREE && agility < 62)
                         || obstacle == CourseObstacle.COLOSSAL_WYRM_SIX ? 50 : obstacle.level;
-                    if (agility == this.client.getRealSkillLevel(Skill.AGILITY) || agility < obstacle.level)
+                    if (agility < required)
                     {
                         if (Rs2Inventory.contains(7220))
                         {
@@ -281,7 +285,7 @@ public final class CompleteLapTask implements FourtifysTask
                     if (obstacle == CourseObstacle.PYRAMID_ZERO
                         && player.getWorldLocation().distanceTo(new WorldPoint(3354, 2831, 0)) > TargetRange.GAME_OBJECT_SEARCH_RADIUS)
                     {
-                        this.walkToCourseTile(new WorldPoint(3364, 2830, 0));
+                        this.walkToCourseTile(new WorldPoint(3364, 2830, 0), "the Agility Pyramid start");
                         return;
                     }
 
@@ -323,7 +327,7 @@ public final class CompleteLapTask implements FourtifysTask
                                 {
                                     if (!player.getWorldLocation().equals(new WorldPoint(3001, 3943, 0)))
                                     {
-                                        this.walkToCourseTile(new WorldPoint(3001, 3943, 0));
+                                        this.walkToCourseTile(new WorldPoint(3001, 3943, 0), "a safe spot away from the skulled player");
                                         return;
                                     }
                                     break;
@@ -344,13 +348,13 @@ public final class CompleteLapTask implements FourtifysTask
                             switch (this.wildernessObstacle)
                             {
                                 case 3:
-                                    this.walkToCourseTile(new WorldPoint(3005, 3953, 0));
+                                    this.walkToCourseTile(new WorldPoint(3005, 3953, 0), "the rope swing");
                                     continue;
                                 case 4:
-                                    this.walkToCourseTile(new WorldPoint(3002, 3960, 0));
+                                    this.walkToCourseTile(new WorldPoint(3002, 3960, 0), "the stepping stones");
                                     continue;
                                 case 5:
-                                    this.walkToCourseTile(new WorldPoint(3002, 3946, 0));
+                                    this.walkToCourseTile(new WorldPoint(3002, 3946, 0), "the log balance");
                                     continue;
                                 default:
                                     this.plugin.setStatus("Walk back to the obstacle you were attempting");
@@ -374,7 +378,7 @@ public final class CompleteLapTask implements FourtifysTask
                         case PYRAMID_THREE:
                             if (!this.client.getLocalPlayer().getWorldLocation().equals(new WorldPoint(3375, 2849, 1)))
                             {
-                                this.walkToCourseTile(new WorldPoint(3375, 2849, 1));
+                                this.walkToCourseTile(new WorldPoint(3375, 2849, 1), "the tile beside the moving block");
                                 return;
                             }
 
@@ -399,7 +403,7 @@ public final class CompleteLapTask implements FourtifysTask
                             {
                                 if (!this.client.getLocalPlayer().getWorldLocation().equals(new WorldPoint(3365, 2848, 3)))
                                 {
-                                    this.walkToCourseTile(new WorldPoint(3365, 2848, 3));
+                                    this.walkToCourseTile(new WorldPoint(3365, 2848, 3), "the tile beside the moving block");
                                     return;
                                 }
 
@@ -451,6 +455,13 @@ public final class CompleteLapTask implements FourtifysTask
                             }
                             break;
                         default:
+                            if (obstacle == CourseHandoff.firstObstacle(obstacle.area)
+                                && !this.actions.obstacleInRange(obstacle.type, obstacle.id))
+                            {
+                                this.walkToCourseStart(obstacle.area);
+                                break;
+                            }
+                            this.movement.cancelStep();
                             this.interactObstacle(obstacle.type, obstacle.id, MenuAction.GAME_OBJECT_FIRST_OPTION.getId());
                     }
                 }
@@ -458,16 +469,29 @@ public final class CompleteLapTask implements FourtifysTask
         }
     }
 
-    private void walkToCourseTile(WorldPoint destination)
+    /** The lap ended beyond the object range of the first obstacle: walk back where the course has a known start. */
+    private void walkToCourseStart(AgilityCourse course)
     {
-        String tile = destination.getX() + ", " + destination.getY() + " (plane " + destination.getPlane() + ")";
-        if (this.movement.walk(destination) || this.movement.isWalkingTo(destination))
+        WorldPoint start = CourseMovement.COURSE_STARTS.get(course);
+        if (start != null && this.movement.walkToStart(start))
         {
-            this.plugin.setStatus("Walking to " + tile);
+            this.plugin.setStatus("Walking to the " + course.getDisplayName() + " start");
         }
         else
         {
-            this.plugin.setStatus("Walk closer to " + tile);
+            this.plugin.setStatus("Walk closer to the " + course.getDisplayName() + " start");
+        }
+    }
+
+    private void walkToCourseTile(WorldPoint destination, String name)
+    {
+        if (this.movement.walk(destination) || this.movement.isWalkingTo(destination))
+        {
+            this.plugin.setStatus("Walking to " + name);
+        }
+        else
+        {
+            this.plugin.setStatus("Walk closer to " + name);
         }
     }
 

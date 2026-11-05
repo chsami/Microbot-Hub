@@ -28,8 +28,11 @@ between obstacles.
 1. Meet the course's requirements in the table above.
 2. Choose the course in **Course**.
 3. Stand at the course, within 20 tiles of its first obstacle. The
-   plugin does not travel between courses.
-4. Enable the plugin.
+   plugin does not travel between courses. When a lap ends further
+   from the first obstacle, as on Seers Village, Pollnivneach,
+   Rellekka and Al Kharid, it walks back on its own.
+4. Enable the plugin. It waits while Microbot scripts are paused,
+   including Break Handler breaks.
 
 Course settings:
 
@@ -37,12 +40,15 @@ Course settings:
   vouchers when you leave.
 - **Agility Pyramid**: **Turn in Pyramid tops** sets when tops are
   handed in.
-- **Seers Village**: **Use diary teleport** needs the diary reward and
-  the teleport's runes.
+- **Seers Village**: **Use diary teleport** casts Camelot Teleport
+  after each lap. It needs the Kandarin hard diary, the teleport set to
+  Seers' Village (right-click the spell, Toggle-location), 45 Magic,
+  and 1 law and 5 air runes or an air staff.
 
 Optional settings:
 
-- **Food item ID** and **Eat below (Hitpoints)**: carry that food.
+- **Food item ID** and **Eat below (Hitpoints)**: carry that food,
+  for example 385 for sharks.
 - **Use High Alchemy** and **Alchemy item ID**: carry the item and
-  the runes.
+  the runes. The default item, 856, is a noted yew longbow.
 - **Ignore marks of grace**: leave marks on the ground.

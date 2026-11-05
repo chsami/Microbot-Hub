@@ -1,5 +1,7 @@
 package net.runelite.client.plugins.microbot.fourtifysagility;
 
+import net.runelite.client.plugins.microbot.PluginConstants;
+
 import com.google.inject.Provides;
 import java.time.Instant;
 import java.util.HashMap;
@@ -28,6 +30,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.fourtifysagility.config.AgilityConfig;
 import net.runelite.client.plugins.microbot.fourtifysagility.course.AgilityCourse;
 import net.runelite.client.plugins.microbot.fourtifysagility.course.CourseHandoff;
@@ -46,15 +49,14 @@ import net.runelite.client.plugins.microbot.fourtifysagility.util.timing.TickDel
 import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(name = "<html><font color=#f5dd42>Fourtifys Agility", configName = "fourtifyAgility",
-                    description = "Agility course training", tags = {"fourtifys", "agility"}, enabledByDefault = false,
-                    authors = {"Fourtifys"}, version = FourtifysAgilityPlugin.VERSION, minClientVersion = "2.6.43", isExternal = true,
+                    description = "Agility course training", tags = {"fourtifys", "agility"}, enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+                    authors = {"Fourtifys"}, version = FourtifysAgilityPlugin.VERSION, minClientVersion = "2.6.43", isExternal = PluginConstants.IS_EXTERNAL,
                     iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysAgilityPlugin/assets/icon.png")
 public class FourtifysAgilityPlugin extends Plugin
 {
     public static final String VERSION = "1.0.0";
     @Inject private Client client;
     @Inject private ClientThread clientThread;
-    @Inject private ConfigManager configManager;
     @Inject private AgilityConfig config;
     @Inject private AgilityActions actions;
     @Inject private Spellbook spells;
@@ -142,6 +144,7 @@ public class FourtifysAgilityPlugin extends Plugin
         if (laps != null)
         {
             laps.resetSeersTeleport();
+            laps.cancelMovement();
         }
         handoff.reset();
         startTime = null;
@@ -184,7 +187,7 @@ public class FourtifysAgilityPlugin extends Plugin
         {
             if (laps != null)
             {
-                laps.cancelBrimhavenMovement();
+                laps.cancelMovement();
             }
             marks.suspend();
             lapTracker.suspend();
@@ -251,6 +254,12 @@ public class FourtifysAgilityPlugin extends Plugin
         {
             return;
         }
+        // The Break Handler and the Microbot pause control set this flag for every script.
+        if (Microbot.pauseAllScripts.get())
+        {
+            status = "Paused";
+            return;
+        }
         if (!lifecycle.isStarted())
         {
             start();
@@ -266,8 +275,6 @@ public class FourtifysAgilityPlugin extends Plugin
             return;
         }
         updatePyramidBlocks();
-        // Auto progress is temporarily disabled.
-        // updateSelectedCourse();
         handoff.update(player.getWorldLocation(), config.area());
         lapTracker.observeCourse(activeCourse());
         laps.observeBrimhavenHint();
@@ -465,20 +472,6 @@ public class FourtifysAgilityPlugin extends Plugin
         return handoff.activeCourse(config.area());
     }
 
-    /* Auto progress is temporarily disabled.
-    private void updateSelectedCourse()
-    {
-        if (config.autoProgress())
-        {
-            AgilityCourse course = CourseSelection.forLevel(client.getBoostedSkillLevel(Skill.AGILITY), client.getVarpValue(302));
-            if (config.area() != course)
-            {
-                configManager.setConfiguration(AgilityConfig.GROUP, "mode", course);
-            }
-        }
-    }
-
-    */
 
     public boolean hasPlayerMoved()
     {

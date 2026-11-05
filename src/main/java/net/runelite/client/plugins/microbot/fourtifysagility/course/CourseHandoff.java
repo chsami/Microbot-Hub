@@ -51,7 +51,7 @@ public final class CourseHandoff
         else if (position.getPlane() == 0)
         {
             // Earlier falls restart the old lap. Only the final descent hands it over.
-            if (finalObstacleSeen && entry(finishing).extendedWorldArea.contains(position))
+            if (finalObstacleSeen && firstObstacle(finishing).extendedWorldArea.contains(position))
             {
                 finishing = null;
             }
@@ -103,11 +103,12 @@ public final class CourseHandoff
         {
             return null;
         }
-        CourseObstacle first = entry(course);
+        CourseObstacle first = firstObstacle(course);
         return first.extendedWorldArea.getPlane() == position.getPlane() && inRange.test(first) ? first : null;
     }
 
-    private static CourseObstacle entry(AgilityCourse course)
+    /** The obstacle a lap of the course starts with. */
+    public static CourseObstacle firstObstacle(AgilityCourse course)
     {
         for (CourseObstacle obstacle : CourseObstacle.values())
         {
