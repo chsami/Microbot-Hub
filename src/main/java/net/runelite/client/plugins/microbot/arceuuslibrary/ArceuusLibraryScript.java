@@ -122,6 +122,8 @@ public class ArceuusLibraryScript extends Script
     private volatile long walkBackoffUntil = 0L;
     private volatile WorldPoint inFlightTarget = null;
     private volatile int travelFailureRounds = 0;
+    private final Set<String> usedTravelTabs = ConcurrentHashMap.newKeySet();
+    private volatile String failedTravelTab = null;
 
     public ArceuusLibraryScript(KourendLibraryBridge bridge)
     {
@@ -184,7 +186,11 @@ public class ArceuusLibraryScript extends Script
                 travelToLibrary(playerLoc);
                 return;
             }
-            walkFailures = 0;
+            if (state == ArceuusLibraryState.TRAVELING)
+            {
+                walkFailures = 0;
+                walkBackoffUntil = 0L;
+            }
             travelFailureRounds = 0;
             if (!pathfinderLocal) restrictPathfinderToLocal();
 
@@ -1156,7 +1162,14 @@ public class ArceuusLibraryScript extends Script
                             result, target, now, ms / 1000, n);
                     if (state != ArceuusLibraryState.TRAVELING)
                     {
-                        log.warn("Couldn't walk to the next spot in the library; trying again in {} s.", ms / 1000);
+                        if (n == 1)
+                        {
+                            log.warn("Couldn't walk to the next spot in the library; trying again in {} s.", ms / 1000);
+                        }
+                        else
+                        {
+                            log.debug("Couldn't walk to the next spot in the library; trying again in {} s.", ms / 1000);
+                        }
                     }
                     else if (n < MAX_TRAVEL_FAILURES)
                     {
@@ -1200,6 +1213,7 @@ public class ArceuusLibraryScript extends Script
             stopWithMessage("Arceuus Library needs a members world. Hop to a members world and start the plugin again.");
             return;
         }
+        if (state != ArceuusLibraryState.TRAVELING) walkFailures = 0;
         state = ArceuusLibraryState.TRAVELING;
         if (pathfinderLocal) clearPathfinderRestrictions();
 
@@ -1213,6 +1227,14 @@ public class ArceuusLibraryScript extends Script
             if (travelFailureRounds >= MAX_TRAVEL_FAILURES)
             {
                 log.debug("No route to the Arceuus Library from {}", here);
+                String failedTab = failedTravelTab;
+                if (failedTab != null)
+                {
+                    String article = "AEIOUaeiou".indexOf(failedTab.charAt(0)) >= 0 ? "an " : "a ";
+                    stopWithMessage("Arceuus Library stopped: " + article + failedTab + " tab didn't work here. "
+                            + "Move somewhere you can teleport from and start the plugin again.");
+                    return;
+                }
                 stopWithMessage("Arceuus Library stopped: couldn't find a route to the library. "
                         + "Go to Great Kourend, or carry an Arceuus library teleport or Kourend castle teleport tab, "
                         + "and start the plugin again.");
@@ -1257,6 +1279,7 @@ public class ArceuusLibraryScript extends Script
     {
         for (String tab : TRAVEL_TABS)
         {
+            if (usedTravelTabs.contains(tab)) continue;
             if (!Rs2Inventory.hasItem(tab) && Rs2Bank.isOpen() && Rs2Bank.hasItem(tab))
             {
                 Rs2Bank.withdrawOne(tab);
@@ -1269,11 +1292,18 @@ public class ArceuusLibraryScript extends Script
                 if (Rs2Bank.isOpen()) Rs2Bank.closeBank();
                 if (Rs2Inventory.interact(tab, "Break"))
                 {
-                    sleepUntil(() -> !from.equals(Rs2Player.getWorldLocation()), 8_000);
-                    walkFailures = 0;
-                    walkBackoffUntil = 0L;
-                    travelFailureRounds = 0;
-                    return true;
+                    usedTravelTabs.add(tab);
+                    if (sleepUntil(() -> !from.equals(Rs2Player.getWorldLocation()), 8_000))
+                    {
+                        failedTravelTab = null;
+                        walkFailures = 0;
+                        walkBackoffUntil = 0L;
+                        travelFailureRounds = 0;
+                        return true;
+                    }
+                    log.info("The {} tab didn't teleport you; it won't be used again this run.", tab);
+                    failedTravelTab = tab;
+                    return false;
                 }
             }
         }

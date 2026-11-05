@@ -28,7 +28,7 @@ public interface ArceuusLibraryConfig extends Config
     @ConfigItem(
             keyName = "rewardXp",
             name = "Reward skill",
-            description = "Which XP to claim from the Book of arcane knowledge (Magic = 15x Magic level, Runecraft = 5x Runecraft level). Auto picks whichever pays more; ties go to Magic.",
+            description = "Which XP to claim from the Book of arcane knowledge (Magic = 15x Magic level, Runecraft = 5x Runecraft level). Auto picks whichever pays more; ties go to Magic. Only used when 'Read reward book' is on.",
             position = 1
     )
     default RewardXp rewardXp() { return RewardXp.MAGIC; }
@@ -60,7 +60,7 @@ public interface ArceuusLibraryConfig extends Config
     @ConfigItem(
             keyName = "drinkAtEnergy",
             name = "Drink at run energy %",
-            description = "Drink a potion when run energy is at or below this percentage",
+            description = "Only used when 'Use stamina/energy potions' is on. Drink a potion when run energy is at or below this percentage",
             position = 5
     )
     @Range(min = 1, max = 99)
@@ -69,7 +69,7 @@ public interface ArceuusLibraryConfig extends Config
     @ConfigItem(
             keyName = "potionsToBring",
             name = "Potions to bring",
-            description = "When you run out of potions and energy is low, the script walks to the Arceuus bank, takes this many, and walks back to the library. If the bank has none, or none reach your inventory, it stops trying and carries on without them. 0 turns restocking off.",
+            description = "Only used when 'Use stamina/energy potions' is on. When you run out of potions and energy is low, the script walks to the Arceuus bank, takes this many, and walks back to the library. If the bank has none, or none reach your inventory, it stops trying and carries on without them. 0 turns restocking off.",
             position = 6
     )
     @Range(min = 0, max = 10)
