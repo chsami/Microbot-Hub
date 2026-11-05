@@ -431,7 +431,7 @@ public class CryptTaskTest
             task.execute();
         }
         assertNotNull(actions.failure);
-        assertTrue(actions.failure.startsWith("Stuck on: "));
+        assertEquals("Could not search Barrows chest after five tries; enable the plugin again to retry", actions.failure);
         assertEquals(5, actions.options.size());
     }
 

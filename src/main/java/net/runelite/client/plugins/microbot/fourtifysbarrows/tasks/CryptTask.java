@@ -291,7 +291,7 @@ public final class CryptTask implements FourtifysTask
             }
             if (next == null)
             {
-                actions.fail("No tunnel found after searching all six crypts");
+                actions.fail("No tunnel found after searching all six sarcophagi; search them yourself or enable the plugin again to retry");
                 return;
             }
         }
@@ -514,7 +514,7 @@ public final class CryptTask implements FourtifysTask
             exitRoomsSearched++;
             if (exitRoomsSearched >= CORNER_ROOMS.length)
             {
-                actions.fail("No visible exit ladder found in any corner room");
+                actions.fail("Could not find the tunnel exit ladder; enable the plugin again at Barrows to retry");
                 return false;
             }
             goal = CORNER_ROOMS[exitCorner];
@@ -627,7 +627,8 @@ public final class CryptTask implements FourtifysTask
         }
         if (attempts >= 5)
         {
-            actions.fail("Stuck on: " + label + " (five tries); enable the plugin again to retry");
+            actions.fail("Could not " + Character.toLowerCase(label.charAt(0)) + label.substring(1)
+                + " after five tries; enable the plugin again to retry");
             return;
         }
         attempts++;

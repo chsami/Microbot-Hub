@@ -342,7 +342,7 @@ public class FourtifysBarrowsPlugin extends Plugin
         }
         if (client.getRealSkillLevel(Skill.PRAYER) < 43)
         {
-            actions.fail("Prayer level 43 required for protection prayers");
+            actions.fail("Protection prayers need level 43 Prayer; train Prayer to 43, then enable the plugin again");
             status = actions.getStatus();
             return;
         }
