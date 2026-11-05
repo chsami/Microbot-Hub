@@ -90,8 +90,8 @@ public interface CgPrepConfig extends Config
 	}
 
 	@Range(min = 0, max = 6)
-	@ConfigItem(keyName = "potionTarget", name = "Egniol potions",
-		description = "How many Egniol potions to brew each run (one grym leaf each).",
+	@ConfigItem(keyName = "potionsBrewed", name = "Egniol potions",
+		description = "Egniol potions to bring to the boss (one grym leaf each). If the bot sips one during prep, it brews a replacement.",
 		position = 3, section = runSection)
 	default int potionTarget()
 	{

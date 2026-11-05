@@ -110,9 +110,39 @@ public class CgPrepPlugin extends Plugin
 		}
 	};
 
+	private void migratePotionSetting()
+	{
+		String old = configManager.getConfiguration(CgPrepConfig.GROUP, "potionTarget");
+		if (old == null)
+		{
+			return;
+		}
+		configManager.unsetConfiguration(CgPrepConfig.GROUP, "potionTarget");
+		int value;
+		try
+		{
+			value = Integer.parseInt(old.trim());
+		}
+		catch (NumberFormatException e)
+		{
+			return;
+		}
+		int brewed = Math.max(0, Math.min(6, value >= 2 ? value - 1 : value));
+		configManager.setConfiguration(CgPrepConfig.GROUP, "potionsBrewed", brewed);
+		String change = brewed == value ? "kept at " + brewed : "converted from " + value + " to " + brewed;
+		String msg = "<col=ff9040>[Auto Gauntlet]</col> 'Egniol potions' now means potions brought to the boss"
+			+ " (a potion sipped in prep is brewed again). Your setting was " + change + ".";
+		Microbot.log("[Auto Gauntlet] Egniol potions setting " + change);
+		Microbot.getClientThread().invokeLater(() ->
+		{
+			Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", msg, null);
+		});
+	}
+
 	@Override
 	protected void startUp()
 	{
+		migratePotionSetting();
 		overlayManager.add(overlay);
 		bossOverlay = new net.runelite.client.plugins.microbot.cgprep.boss.BossFightOverlay(client, () -> script.boss, config::bossOverlay);
 		overlayManager.add(bossOverlay);

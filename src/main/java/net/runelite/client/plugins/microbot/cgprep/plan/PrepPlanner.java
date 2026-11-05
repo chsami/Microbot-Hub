@@ -281,7 +281,7 @@ public final class PrepPlanner
 		for (Resource r : new Resource[]{Resource.ORE, Resource.BARK, Resource.LINUM, Resource.GRYM, Resource.FRAME})
 		{
 			// A spare grym leaf is kept while the extra brew could still be needed (a sip calls for it).
-			boolean keepSpareGrym = r == Resource.GRYM && (l.potionDoses + l.dosesDrunk) / 3 + l.unfinishedPotions < in.potionTarget + 1
+			boolean keepSpareGrym = r == Resource.GRYM && in.potionTarget > 0 && (l.potionDoses + l.dosesDrunk) / 3 + l.unfinishedPotions < in.potionTarget + 1
 				&& l.get(Resource.GRYM) <= 1;
 			if (l.get(r) > 0 && n.demand.getOrDefault(r, 0) == 0 && !keepSpareGrym && !in.droppedRecently.contains(r))
 			{
