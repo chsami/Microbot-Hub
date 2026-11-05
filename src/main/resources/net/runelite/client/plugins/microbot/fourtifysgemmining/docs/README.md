@@ -20,6 +20,6 @@ world.
 3. Choose the mine in **Mine**.
 4. Optional: carry a gem bag. If you use the bag yourself while the
    plugin runs, it waits a few ticks and checks the bag again.
-5. Start near the mine and enable the plugin. It waits while Microbot
-   scripts are paused, during a Break Handler break and while you use the
-   mouse or keyboard yourself.
+5. Start near the mine and enable the plugin. It waits while scripts
+   are paused from the client header pause button or by the Break
+   Handler, and while you use the mouse or keyboard yourself.

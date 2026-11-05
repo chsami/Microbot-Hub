@@ -20,9 +20,10 @@ public final class TickDelay
         {
             return false;
         }
-        status.accept("Short pause (" + remaining + (remaining == 1 ? " tick)" : " ticks)"));
+        // The countdown only runs while the player is idle, so the status shows it only then.
         if (player.getAnimation() == -1)
         {
+            status.accept("Short pause (" + remaining + (remaining == 1 ? " tick)" : " ticks)"));
             remaining--;
         }
         return true;

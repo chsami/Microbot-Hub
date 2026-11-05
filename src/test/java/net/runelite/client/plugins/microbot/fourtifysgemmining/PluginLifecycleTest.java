@@ -33,7 +33,7 @@ public class PluginLifecycleTest
         {
             fixture.tick();
             fixture.tick();
-            assertEquals("Paused", fixture.plugin.getStatus());
+            assertEquals("Paused by Microbot (pause or break)", fixture.plugin.getStatus());
             assertTrue(fixture.world.requests.isEmpty());
         }
         finally
@@ -69,7 +69,7 @@ public class PluginLifecycleTest
             fixture.clientTick();
             assertTrue(fixture.world.requests.isEmpty(), "A held key must keep the queued click from dispatching");
             fixture.tick();
-            assertEquals("Paused", fixture.plugin.getStatus());
+            assertEquals("Paused while you use the mouse or keyboard", fixture.plugin.getStatus());
             assertTrue(fixture.world.requests.isEmpty());
         }
         finally
@@ -272,7 +272,7 @@ public class PluginLifecycleTest
         }
         assertTrue(fixture.world.requests.isEmpty());
         assertEquals("Walking to the underground gem mine", fixture.plugin.getStatus());
-        assertTrue(fixture.plugin.getActiveMineName().contains("destination"));
+        assertFalse(fixture.plugin.getActiveMineName().contains("destination"), "The overlay names the mine only");
     }
 
     @Test
@@ -311,7 +311,7 @@ public class PluginLifecycleTest
             fixture.tick();
         }
         assertTrue(fixture.world.requests.isEmpty());
-        assertTrue(fixture.plugin.getStatus().contains("main world view"));
+        assertTrue(fixture.plugin.getStatus().contains("Step off the boat"));
     }
 
     @Test

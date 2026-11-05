@@ -345,11 +345,12 @@ public class FourtifysGemMiningPlugin extends Plugin
             walking.cancel();
             return;
         }
-        if (SessionLifecycle.scriptsPaused())
+        String paused = SessionLifecycle.pauseReason();
+        if (paused != null)
         {
             walking.cancel();
             actions.reset();
-            status = "Paused";
+            status = paused;
             return;
         }
         if (!lifecycle.isStarted())
@@ -391,7 +392,7 @@ public class FourtifysGemMiningPlugin extends Plugin
         if (player.getWorldView() != client.getTopLevelWorldView())
         {
             walking.cancel();
-            status = "Please return to the main world view";
+            status = "Step off the boat and return to Shilo Village to continue";
             return;
         }
         if (player.isDead())
@@ -427,7 +428,7 @@ public class FourtifysGemMiningPlugin extends Plugin
                 bagTransferPending = false;
                 bagTransferBarrierSent = false;
                 mining.reset();
-                status = "Gem bag transfer observed";
+                status = "Gem bag used. Resuming";
             }
             else
             {
@@ -576,6 +577,6 @@ public class FourtifysGemMiningPlugin extends Plugin
 
     public String getActiveMineName()
     {
-        return activeMine == null ? config.mine().getDisplayName() + " (destination)" : activeMine.getDisplayName();
+        return activeMine == null ? config.mine().getDisplayName() : activeMine.getDisplayName();
     }
 }

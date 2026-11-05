@@ -287,11 +287,11 @@ public class GemMiningActions
         }
         if (client.getBoostedSkillLevel(Skill.MINING) < 40)
         {
-            return "Requires Mining level 40";
+            return "Needs Mining level 40. Train Mining or use a boost";
         }
         if (Quest.SHILO_VILLAGE.getState(client) != QuestState.FINISHED)
         {
-            return "Requires the Shilo Village quest";
+            return "Complete the Shilo Village quest to use this mine";
         }
         if (mine.isUnderground() && client.getVarbitValue(3599) < 2)
         {

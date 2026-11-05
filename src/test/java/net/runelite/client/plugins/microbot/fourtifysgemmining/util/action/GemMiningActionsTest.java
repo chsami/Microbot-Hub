@@ -430,7 +430,7 @@ public class GemMiningActionsTest
         world.diary = 0;
         assertEquals("Underground mine needs the medium Karamja Diary. Set Mine to Surface or complete the diary", world.actions.prerequisite(GemMine.UNDERGROUND));
         world.questState = 1;
-        assertEquals("Requires the Shilo Village quest", world.actions.prerequisite(GemMine.SURFACE));
+        assertEquals("Complete the Shilo Village quest to use this mine", world.actions.prerequisite(GemMine.SURFACE));
     }
 
     @Test

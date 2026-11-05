@@ -630,7 +630,7 @@ public class SurfaceTripIntegrationTest
         foreign.clientTick();
         assertFalse(foreign.walking.active);
         foreign.tick();
-        assertTrue(foreign.plugin.getStatus().contains("main world view"));
+        assertTrue(foreign.plugin.getStatus().contains("Step off the boat"));
     }
 
     @Test
