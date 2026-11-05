@@ -1,13 +1,6 @@
 package net.runelite.client.plugins.microbot.tithefarming;
 
-import net.runelite.api.Client;
-import net.runelite.api.DecorativeObject;
-import net.runelite.api.GameObject;
-import net.runelite.api.GroundObject;
-import net.runelite.api.Tile;
-import net.runelite.api.TileObject;
-import net.runelite.api.WallObject;
-import net.runelite.api.WorldView;
+import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.ItemID;
@@ -292,32 +285,29 @@ public class TitheFarmingScript extends Script {
     private void coreLoop(TitheFarmingConfig config) {
         if (Rs2Player.isMoving()) return;
         Comparator<TitheFarmPlant> sortByIndex = Comparator.comparingInt(TitheFarmPlant::getIndex);
-        TitheFarmPlant plant = null;
-        if (state != HARVEST) {
-            if (!allPlanted) {
-                plant = plants.stream()
-                        .sorted(sortByIndex)
-                        .filter(TitheFarmPlant::isEmptyPatchOrSeedling) //empty patch and seedling first
-                        .findFirst().orElse(null);
-            }
-            if (plant == null)
-                plant = plants.stream()
-                        .sorted(sortByIndex)
-                        .filter(TitheFarmPlant::isStage1) // then stage1 plants
-                        .findFirst()
-                        .orElseGet(() ->
-                                plants.stream()
-                                        .sorted(sortByIndex)
-                                        .filter(TitheFarmPlant::isStage2) //then stage2 plants
-                                        .findFirst()
-                                        .orElse(null)
-                        );
+        TitheFarmPlant plant = plants.stream()
+                .sorted(sortByIndex)
+                .filter(TitheFarmPlant::isStage1)
+                .findFirst()
+                .orElseGet(() ->
+                        plants.stream()
+                                .sorted(sortByIndex)
+                                .filter(TitheFarmPlant::isStage2)
+                                .findFirst()
+                                .orElse(null)
+                );
+        if (plant == null && state != HARVEST && !allPlanted) {
+            plant = plants.stream()
+                    .sorted(sortByIndex)
+                    .filter(TitheFarmPlant::isEmptyPatchOrSeedling)
+                    .findFirst().orElse(null);
         }
 
 
-        if (state == TitheFarmState.HARVEST && hasAllEmptyPatches()) {
+        if ((state == TitheFarmState.HARVEST || allPlanted) && hasAllEmptyPatches()) {
             state = STARTING;
             allPlanted = false;
+            return;
         }
 
         // if we finished planting all patches, don't plant anything until we finish harvesting
@@ -326,7 +316,8 @@ public class TitheFarmingScript extends Script {
         // the patches yet, isEmptyPatch() returns false for all of them and noneMatch would
         // erroneously trip even though we have planted nothing.
         if (plants.stream().allMatch(p -> p.getGameObject() != null)
-                && plants.stream().noneMatch(TitheFarmPlant::isEmptyPatch))
+                && plants.stream().noneMatch(TitheFarmPlant::isEmptyPatch)
+                && !hasAllEmptyPatches())
             allPlanted = true;
 
         if (plant == null && plants.stream().anyMatch(TitheFarmPlant::isValidToHarvest)) {
@@ -342,7 +333,8 @@ public class TitheFarmingScript extends Script {
 
         final TitheFarmPlant finalPlant = plant;
 
-        WorldPoint corePlayerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        WorldPoint corePlayerLoc = playerLocation();
+        if (corePlayerLoc == null) return;
         Rs2TileObjectModel plantModel = plant.getGameObject();
         if (plantModel == null || plantModel.getWorldLocation().distanceTo2D(corePlayerLoc) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
             WorldPoint w = WorldPoint.fromRegion(corePlayerLoc.getRegionID(),
@@ -430,120 +422,20 @@ public class TitheFarmingScript extends Script {
     }
 
     private static boolean interactWithObject(int id, String action) {
-        // Cache first; if that misses, scan the live scene. Multi-tile GameObjects
-        // (seed table 27430) can be skipped by the cache's sceneMinLocation filter even
-        // when RuneLite still shows them — which caused endless "not in scene" loops.
         Rs2TileObjectModel model = Microbot.getRs2TileObjectCache().query()
                 .withId(id)
-                .nearestOnClientThread();
-        if (model == null) {
-            model = findSceneObjectById(id);
-        }
+                .nearest();
         if (model == null) {
             Microbot.log("Object id " + id + " not in scene");
             return false;
         }
-        WorldPoint objectLoc = model.getWorldLocation();
-        WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> {
-            if (Microbot.getClient().getLocalPlayer() == null) {
-                return null;
-            }
-            return Microbot.getClient().getLocalPlayer().getWorldLocation();
-        });
-        if (playerLoc != null && objectLoc != null && playerLoc.distanceTo(objectLoc) > 51) {
-            Microbot.log("Object id " + id + " is " + playerLoc.distanceTo(objectLoc) + " tiles away, walking...");
-            Rs2Walker.walkTo(objectLoc);
+        WorldPoint playerLoc = Rs2Player.getWorldLocation();
+        if (playerLoc != null && playerLoc.distanceTo(model.getWorldLocation()) > 51) {
+            Microbot.log("Object id " + id + " is " + playerLoc.distanceTo(model.getWorldLocation()) + " tiles away, walking...");
+            Rs2Walker.walkTo(model.getWorldLocation());
             return false;
         }
         return action == null ? model.click() : model.click(action);
-    }
-
-    /**
-     * Scans every tile object slot for {@code id} without the cache's
-     * sceneMinLocation dedupe, so multi-tile GameObjects are still found.
-     */
-    private static Rs2TileObjectModel findSceneObjectById(int id) {
-        return Microbot.getClientThread().invoke(() -> {
-            Client client = Microbot.getClient();
-            if (client == null) {
-                return null;
-            }
-            java.util.Set<Integer> worldViewIds = Microbot.getWorldViewIds();
-            if (worldViewIds != null) {
-                for (Integer worldViewId : worldViewIds) {
-                    Rs2TileObjectModel found = findSceneObjectInWorldView(client.getWorldView(worldViewId), id);
-                    if (found != null) {
-                        return found;
-                    }
-                }
-            }
-            return findSceneObjectInWorldView(client.getTopLevelWorldView(), id);
-        });
-    }
-
-    private static Rs2TileObjectModel findSceneObjectInWorldView(WorldView worldView, int id) {
-        if (worldView == null || worldView.getScene() == null) {
-            return null;
-        }
-        Tile[][][] tiles = worldView.getScene().getTiles();
-        if (tiles == null || worldView.getPlane() < 0 || worldView.getPlane() >= tiles.length) {
-            return null;
-        }
-        Tile[][] planeTiles = tiles[worldView.getPlane()];
-        if (planeTiles == null) {
-            return null;
-        }
-        for (Tile[] row : planeTiles) {
-            if (row == null) {
-                continue;
-            }
-            for (Tile tile : row) {
-                if (tile == null) {
-                    continue;
-                }
-                GameObject[] gameObjects = tile.getGameObjects();
-                if (gameObjects != null) {
-                    for (GameObject gameObject : gameObjects) {
-                        Rs2TileObjectModel match = wrapIfId(gameObject, id);
-                        if (match != null) {
-                            return match;
-                        }
-                    }
-                }
-                Rs2TileObjectModel wall = wrapIfId(tile.getWallObject(), id);
-                if (wall != null) {
-                    return wall;
-                }
-                Rs2TileObjectModel ground = wrapIfId(tile.getGroundObject(), id);
-                if (ground != null) {
-                    return ground;
-                }
-                Rs2TileObjectModel decorative = wrapIfId(tile.getDecorativeObject(), id);
-                if (decorative != null) {
-                    return decorative;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static Rs2TileObjectModel wrapIfId(TileObject tileObject, int id) {
-        if (tileObject == null || tileObject.getId() != id) {
-            return null;
-        }
-        if (tileObject instanceof GameObject) {
-            return new Rs2TileObjectModel((GameObject) tileObject);
-        }
-        if (tileObject instanceof WallObject) {
-            return new Rs2TileObjectModel((WallObject) tileObject);
-        }
-        if (tileObject instanceof GroundObject) {
-            return new Rs2TileObjectModel((GroundObject) tileObject);
-        }
-        if (tileObject instanceof DecorativeObject) {
-            return new Rs2TileObjectModel((DecorativeObject) tileObject);
-        }
-        return null;
     }
 
     private static void DropFertiliser() {
@@ -586,12 +478,23 @@ public class TitheFarmingScript extends Script {
                 .nearest();
         if (barrel == null) return;
         WorldPoint barrelLoc = barrel.getWorldLocation();
-        WorldPoint barrelPlayerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        WorldPoint barrelPlayerLoc = playerLocation();
+        if (barrelPlayerLoc == null) return;
         if (barrelLoc.distanceTo2D(barrelPlayerLoc) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
             Rs2Walker.walkMiniMap(barrelLoc, 1);
             sleepUntil(Rs2Player::isMoving);
         }
-        sleepUntil(() -> barrelLoc.distanceTo2D(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())) < DISTANCE_THRESHOLD_MINIMAP_WALK);
+        sleepUntil(() -> {
+            WorldPoint loc = playerLocation();
+            return loc != null && barrelLoc.distanceTo2D(loc) < DISTANCE_THRESHOLD_MINIMAP_WALK;
+        });
+    }
+
+    private static WorldPoint playerLocation() {
+        return Microbot.getClientThread().invoke(() -> {
+            Player localPlayer = Microbot.getClient().getLocalPlayer();
+            return localPlayer == null ? null : localPlayer.getWorldLocation();
+        });
     }
 
     private void checkGricollerCharges() {
@@ -631,11 +534,15 @@ public class TitheFarmingScript extends Script {
                 return true;
             }
             WorldPoint sackLoc = sack.getWorldLocation();
-            WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+            WorldPoint playerLoc = playerLocation();
+            if (playerLoc == null) return true;
             if (sackLoc.distanceTo2D(playerLoc) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
                 Rs2Walker.walkMiniMap(sackLoc, 1);
                 sleepUntil(Rs2Player::isMoving);
-                sleepUntil(() -> sackLoc.distanceTo2D(Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation())) < DISTANCE_THRESHOLD_MINIMAP_WALK);
+                sleepUntil(() -> {
+                    WorldPoint loc = playerLocation();
+                    return loc != null && sackLoc.distanceTo2D(loc) < DISTANCE_THRESHOLD_MINIMAP_WALK;
+                });
             }
             sack.click();
             Rs2Player.waitForAnimation();
@@ -650,7 +557,7 @@ public class TitheFarmingScript extends Script {
     }
 
     private boolean hasAllEmptyPatches() {
-        return plants.stream().allMatch(TitheFarmPlant::isEmptyPatch);
+        return plants.stream().allMatch(p -> p.isEmptyPatch() || p.isDead());
     }
 
     private boolean isInMinigame() {

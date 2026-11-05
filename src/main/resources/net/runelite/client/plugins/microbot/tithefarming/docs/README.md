@@ -33,7 +33,7 @@ The TitheFarming plugin automates the Tithe Farm minigame in Old School RuneScap
 ## Configuration
 
 - **Tithe farm lanes:** Choose which lane pair to farm (or randomize).
-- **Use 16 plants:** When enabled, plant and care for 16 patches instead of the full set by skipping the farthest column (reduces neglect deaths when timing is tight).
+- **Use 16 plants:** Plant 16 patches instead of the lane's 19-20 by leaving its short extra column empty (fewer dead plants when timing is tight). Applies from the next round.
 - **Store fruit threshold:** How many fruits to hold before depositing in the sack.
 - **Gricoller's can refill threshold:** Percentage at which to refill Gricoller's can.
 - **Sleep timings:** Optional delays after plant / water / harvest (defaults are usually fine).

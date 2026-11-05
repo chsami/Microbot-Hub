@@ -206,6 +206,7 @@ public class MKE_WintertodtScript extends Script {
     // Exit failure tracking for banking
     private int consecutiveExitFailures = 0;
     private static final int MAX_EXIT_FAILURES = 10;
+    private boolean forfeitPointsLogged = false;
     
     // Mouse and camera movement tracking
     private long lastMouseMovement = 0;
@@ -257,6 +258,7 @@ public class MKE_WintertodtScript extends Script {
         Rs2TileObjectModel burningBrazier;
         boolean needBanking;
         boolean needPotions = false; // For rejuvenation potion logic
+        boolean lowAndOutOfFood;
         int wintertodtHp = -1;
         boolean inventoryFull;
         boolean hasItemsToBurn;
@@ -1501,6 +1503,7 @@ public class MKE_WintertodtScript extends Script {
             boolean lowAndOutOfFood =
                     (foodCount == 0) &&
                     (gameState.playerWarmth <= config.eatAtWarmthLevel());
+            gameState.lowAndOutOfFood = lowAndOutOfFood;
 
             /* ─────────── BANKING RULES FOR REJUVENATION POTIONS ─────────── */
             if (usesPotions) {
@@ -1880,7 +1883,9 @@ public class MKE_WintertodtScript extends Script {
         if (state == State.BANKING && isInsideWintertodtArea()) {
             // Skip round timer updates, reward cart checks, and main game activities
             // But execute the banking state logic directly to handle the actual exit
-            Microbot.log("Emergency banking exit in progress - executing banking logic directly");
+            if (!waitingForRoundEnd) {
+                Microbot.log("Emergency banking exit in progress - executing banking logic directly");
+            }
             executeStateLogic(gameState);
             return;
         }
@@ -2075,27 +2080,46 @@ public class MKE_WintertodtScript extends Script {
                 }
                 // Reset exit failure counter on successful exit
                 consecutiveExitFailures = 0;
+                forfeitPointsLogged = false;
             } else {
                 previouslyInsideArena = true;
-                
+
                 // Check points before leaving - wait for rewards if we have enough
                 int currentPoints = getWintertodtPoints();
-                if (currentPoints >= 500) {
-                    Microbot.log("Have " + currentPoints + " points - waiting near door for round to end naturally");
+                if (currentPoints >= 500 && !gameState.lowAndOutOfFood) {
+                    if (!waitingForRoundEnd) {
+                        Microbot.log("Have " + currentPoints + " points - waiting at the door until the round ends to collect rewards");
+                    }
                     waitingForRoundEnd = true; // Set flag to prevent resuming activities
+                    Microbot.status = "Waiting at door for round end (" + currentPoints + " points)";
                 } else {
                     waitingForRoundEnd = false; // Reset waiting flag if points dropped below threshold
+                    if (currentPoints >= 500) {
+                        if (!forfeitPointsLogged) {
+                            Microbot.log("Out of " + config.food().getName() + " and warmth is " + gameState.playerWarmth
+                                    + "% (at or below your Consume at Warmth Level of " + config.eatAtWarmthLevel()
+                                    + "). Leaving now to stay alive, so this round's " + currentPoints
+                                    + " points are lost. Raise Healing Items Per Trip to avoid this.");
+                            forfeitPointsLogged = true;
+                        }
+                        Microbot.status = "Leaving to restock food (low warmth)";
+                    }
                 }
-                
-                if (!WintertodtLocationManager.attemptLeaveWintertodt()) {
+
+                if (!WintertodtLocationManager.attemptLeaveWintertodt(waitingForRoundEnd)) {
+                    if (waitingForRoundEnd) {
+                        consecutiveExitFailures = 0;
+                        return;
+                    }
                     consecutiveExitFailures++;
                     if (consecutiveExitFailures >= MAX_EXIT_FAILURES) {
-                        Microbot.log("CRITICAL: Too many exit failures (" + consecutiveExitFailures + ") - emergency logout to prevent infinite loop");
+                        Microbot.log("Could not leave Wintertodt through the Doors of Dinh after " + MAX_EXIT_FAILURES
+                                + " tries. Logging out and stopping the script. Leave manually and restart.");
                         Rs2Player.logout();
                         shutdown();
                         return;
                     }
-                    Microbot.log("Exit attempt failed (" + consecutiveExitFailures + "/" + MAX_EXIT_FAILURES + ") - retrying next tick");
+                    Microbot.log("Leaving Wintertodt (step " + consecutiveExitFailures + ")...");
                     return; // still inside → try again next tick
                 }
             }

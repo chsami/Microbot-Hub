@@ -101,6 +101,8 @@ public class SlayerScript extends Script {
     // Break handler resume tracking
     private boolean wasLoggedOut = false;
 
+    private boolean arrivalHintShown = false;
+
     // Cannon state tracking
     private boolean isUsingCannon = false;
     private boolean cannonPlaced = false;
@@ -166,6 +168,7 @@ public class SlayerScript extends Script {
         this.config = config;
         SlayerPlugin.setState(SlayerState.IDLE);
         initialSetupDone = false;
+        arrivalHintShown = false;
 
         // Load NPC location data required for Rs2Slayer.getSlayerTaskLocation()
         try {
@@ -217,6 +220,9 @@ public class SlayerScript extends Script {
 
                 // State machine
                 SlayerState currentState = SlayerPlugin.getState();
+                if (currentState != SlayerState.DETECTING_TASK) {
+                    arrivalHintShown = false;
+                }
 
                 // Update break handler lock state - only allow breaks during safe states
                 updateBreakHandlerLock(currentState);
@@ -338,6 +344,9 @@ public class SlayerScript extends Script {
         }
 
         SlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         SlayerPlugin.setCurrentLocation(master.getName());
 
@@ -530,6 +539,9 @@ public class SlayerScript extends Script {
         }
 
         SlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         SlayerPlugin.setCurrentLocation(master.getName() + " (Skipping)");
 
@@ -565,6 +577,46 @@ public class SlayerScript extends Script {
     private void resetSkipState() {
         skipAttemptCounter = 0;
         taskBeingSkipped = "";
+    }
+
+    private boolean canUseSlayerMaster(SlayerMaster master) {
+        int combatLevel = Rs2Player.getCombatLevel();
+        int slayerLevel = Rs2Player.getRealSkillLevel(Skill.SLAYER);
+        if (combatLevel <= 0 || slayerLevel <= 0) {
+            return false;
+        }
+        if (master.isAvailableAt(combatLevel, slayerLevel)) {
+            return true;
+        }
+        String reason = slayerMasterTooHighMessage(master, combatLevel, slayerLevel);
+        log.warn(reason);
+        Microbot.log("Slayer stopped: " + reason);
+        SlayerPlugin.setState(SlayerState.IDLE);
+        Microbot.stopPlugin(SlayerPlugin.class);
+        Microbot.showMessage("Slayer stopped: " + reason);
+        return false;
+    }
+
+    static String slayerMasterTooHighMessage(SlayerMaster master, int combatLevel, int slayerLevel) {
+        String cause = combatLevel < master.getCombatLevelRequired()
+                ? master.getName() + " only gives tasks from combat level " + master.getCombatLevelRequired()
+                        + "; you are combat level " + combatLevel + "."
+                : master.getName() + " only gives tasks from Slayer level " + master.getSlayerLevelRequired()
+                        + "; you are Slayer level " + slayerLevel + ".";
+        SlayerMaster suggestion = SlayerMaster.highestAvailableAt(combatLevel, slayerLevel, false);
+        SlayerMaster questOption = SlayerMaster.highestAvailableAt(combatLevel, slayerLevel, true);
+        String advice;
+        if (suggestion == SlayerMaster.NIEVE) {
+            advice = suggestion.getName() + " works at your level (pick " + SlayerMaster.STEVE.getName()
+                    + " instead if you have finished " + SlayerMaster.STEVE.getQuestRequired() + ").";
+        } else if (questOption.getCombatLevelRequired() > suggestion.getCombatLevelRequired()) {
+            advice = suggestion.getName() + " works at your level with no quest needed (" + questOption.getName()
+                    + " also works if you have finished " + questOption.getQuestRequired() + ").";
+        } else {
+            advice = suggestion.getName() + " works at your level with no quest needed.";
+        }
+        return cause + "\n" + advice
+                + "\nPick a Slayer Master you can use in the plugin settings, then start the plugin again.";
     }
 
     // ==================== POH Methods ====================
@@ -1038,6 +1090,9 @@ public class SlayerScript extends Script {
         }
 
         SlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         SlayerPlugin.setCurrentLocation(master.getName() + " (Blocking)");
 
@@ -1249,7 +1304,7 @@ public class SlayerScript extends Script {
         }
 
         // Determine if we should use cannon for this task
-        isUsingCannon = shouldUseCannon(taskName);
+        isUsingCannon = shouldUseCannon(taskName) && (taskDestination == null || cannonSpot != null);
 
         // Get task location
         if (taskDestination == null) {
@@ -1324,8 +1379,80 @@ public class SlayerScript extends Script {
             log.info("Transitioning to TRAVELING");
             SlayerPlugin.setState(SlayerState.TRAVELING);
         } else {
-            log.info("Auto travel disabled, staying in DETECTING_TASK");
+            handleArrivalWithoutAutoTravel(taskName);
         }
+    }
+
+    private void handleArrivalWithoutAutoTravel(String taskName) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) {
+            return;
+        }
+
+        WorldPoint destination = taskDestination;
+        if (destination != null && playerLocation.distanceTo(destination) <= ARRIVAL_DISTANCE) {
+            log.info("Auto Travel is off. You are at {}, starting the task.", taskLocationName);
+            SlayerPlugin.setCurrentLocation(isUsingCannon ? taskLocationName + " (Cannon)" : taskLocationName);
+            SlayerPlugin.setState(SlayerState.AT_LOCATION);
+            return;
+        }
+
+        if (isTaskMonsterNearby(playerLocation)) {
+            boolean cannonDropped = isUsingCannon;
+            if (cannonDropped) {
+                log.warn("Auto Travel is off and you are fighting {} away from {}, so the script will fight here without a cannon. " +
+                        "Walk to the cannon spot before starting if you want to use your cannon.", taskName, describeCannonSpot(taskName));
+            } else {
+                log.info("Auto Travel is off. Fighting {} where you are standing.", taskName);
+            }
+            taskDestination = playerLocation;
+            taskLocationName = "Current location";
+            SlayerPlugin.setCurrentLocation(cannonDropped ? taskLocationName + " (no cannon)" : taskLocationName);
+            isUsingCannon = false;
+            cannonSpot = null;
+            SlayerPlugin.setState(SlayerState.AT_LOCATION);
+            return;
+        }
+
+        String destinationName = describeTaskDestination(taskName);
+        SlayerPlugin.setCurrentLocation("Walk to " + destinationName);
+        if (!arrivalHintShown) {
+            arrivalHintShown = true;
+            log.info("Auto Travel is off. Walk to {}, or stand within {} tiles of {}, and the script will start fighting.",
+                    destinationName, config.attackRadius(), taskName);
+        }
+    }
+
+    private String describeTaskDestination(String taskName) {
+        if ("Cannon spot".equals(taskLocationName)) {
+            return "the " + taskName + " cannon spot";
+        }
+        if ("Current location".equals(taskLocationName)) {
+            return "your last fighting spot";
+        }
+        return taskLocationName;
+    }
+
+    private String describeCannonSpot(String taskName) {
+        if ("Cannon spot".equals(taskLocationName)) {
+            return "the " + taskName + " cannon spot";
+        }
+        return "the " + taskLocationName + " cannon spot";
+    }
+
+    private boolean isTaskMonsterNearby(WorldPoint playerLocation) {
+        List<String> targetMonsters = getTargetMonsterNames();
+        if (targetMonsters == null || targetMonsters.isEmpty()) {
+            return false;
+        }
+        return Microbot.getRs2NpcCache().query()
+                .where(SlayerScript::isLivingTarget)
+                .where(npc -> npc.getName() != null)
+                .where(npc -> targetMonsters.stream()
+                        .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
+                .where(npc -> npc.getWorldLocation() != null &&
+                        npc.getWorldLocation().distanceTo(playerLocation) <= config.attackRadius())
+                .firstOnClientThread() != null;
     }
 
     private void handleBankingState() {
@@ -2812,7 +2939,7 @@ public class SlayerScript extends Script {
             boolean targetAlive = true;
             if (currentInteracting instanceof net.runelite.api.NPC) {
                 net.runelite.api.NPC npc = (net.runelite.api.NPC) currentInteracting;
-                targetAlive = !npc.isDead() && npc.getHealthRatio() != 0;
+                targetAlive = isLivingTarget(npc);
             }
             if (targetAlive) {
                 log.debug("In combat with: {}", currentInteracting.getName());
@@ -2854,7 +2981,7 @@ public class SlayerScript extends Script {
         // Find attackable NPCs matching target monsters
         // Prioritize NPCs that are already attacking us (interacting with player)
         List<Rs2NpcModel> attackableNpcs = Microbot.getRs2NpcCache().query()
-                .where(npc -> !npc.isDead())
+                .where(SlayerScript::isLivingTarget)
                 .where(npc -> npc.getName() != null)
                 .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
@@ -2874,7 +3001,7 @@ public class SlayerScript extends Script {
 
             // Debug: log nearby NPCs to help diagnose
             List<String> nearbyNpcNames = Microbot.getRs2NpcCache().query()
-                    .where(npc -> !npc.isDead())
+                    .where(SlayerScript::isLivingTarget)
                     .where(npc -> npc.getName() != null)
                     .where(npc -> destination == null ||
                             npc.getWorldLocation().distanceTo(destination) <= config.attackRadius())
@@ -3027,12 +3154,23 @@ public class SlayerScript extends Script {
     }
 
     /**
-     * Checks if any NPC is currently attacking the player.
+     * Dying NPCs can keep interacting during their death animation. Unknown health (-1)
+     * is still eligible, but zero health must not block switching to another target.
+     */
+    private static boolean isLivingTarget(Actor target) {
+        if (target == null) return false;
+        return Microbot.getClientThread().runOnClientThreadOptional(() ->
+                !target.isDead() && target.getHealthRatio() != 0).orElse(false);
+    }
+
+    /**
+     * Checks if any living NPC is currently attacking the player.
      */
     private boolean isBeingAttacked() {
         return Microbot.getRs2NpcCache().query()
+                .where(SlayerScript::isLivingTarget)
                 .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
-                .count() > 0;
+                .firstOnClientThread() != null;
     }
 
     /**
@@ -3042,13 +3180,14 @@ public class SlayerScript extends Script {
     private Rs2NpcModel findNpcAttackingUs(List<String> targetMonsters) {
         WorldPoint destination = taskDestination;
         return Microbot.getRs2NpcCache().query()
+                .where(SlayerScript::isLivingTarget)
                 .where(npc -> npc.getName() != null)
                 .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
                 .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
                 .where(npc -> destination == null ||
                         npc.getWorldLocation().distanceTo(destination) <= config.attackRadius() + 5)
-                .first();
+                .firstOnClientThread();
     }
 
     /**
@@ -3059,8 +3198,8 @@ public class SlayerScript extends Script {
         return Microbot.getRs2NpcCache().query()
                 .where(npc -> npc.getName() != null)
                 .where(npc -> npc.getInteracting() == Microbot.getClient().getLocalPlayer())
-                .where(npc -> !npc.isDead())
-                .first();
+                .where(SlayerScript::isLivingTarget)
+                .firstOnClientThread();
     }
 
     /**
@@ -3105,7 +3244,7 @@ public class SlayerScript extends Script {
         // If already in combat with a valid target, let autocast handle it
         if (Rs2Player.isInteracting()) {
             Actor currentTarget = Rs2Player.getInteracting();
-            if (currentTarget != null && !currentTarget.isDead()) {
+            if (isLivingTarget(currentTarget)) {
                 log.debug("Already in combat with {} - autocast will continue", currentTarget.getName());
                 return;
             }
@@ -3130,10 +3269,10 @@ public class SlayerScript extends Script {
                 .where(npc -> npc.getName() != null)
                 .where(npc -> targetMonsters.stream()
                         .anyMatch(monster -> npc.getName().equalsIgnoreCase(monster)))
-                .where(npc -> !npc.isDead())
+                .where(SlayerScript::isLivingTarget)
                 .where(npc -> destination == null ||
                         npc.getWorldLocation().distanceTo(destination) <= config.attackRadius())
-                .toList();
+                .toListOnClientThread();
 
         if (nearbyMonsters.isEmpty()) {
             log.debug("No target monsters found nearby for AoE combat");
@@ -3304,12 +3443,12 @@ public class SlayerScript extends Script {
     private Rs2NpcModel findNearbySuperior() {
         WorldPoint destination = taskDestination;
         return Microbot.getRs2NpcCache().query()
-                .where(npc -> !npc.isDead())
+                .where(SlayerScript::isLivingTarget)
                 .where(npc -> npc.getName() != null)
                 .where(npc -> SUPERIOR_MONSTERS.contains(npc.getName()))
                 .where(npc -> destination == null ||
                         npc.getWorldLocation().distanceTo(destination) <= config.attackRadius() + 5)
-                .toList()
+                .toListOnClientThread()
                 .stream()
                 .min(Comparator.comparingInt(npc ->
                         Rs2Player.getWorldLocation().distanceTo(npc.getWorldLocation())))

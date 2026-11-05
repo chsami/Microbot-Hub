@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.GemCrabKiller;
 
 import net.runelite.api.ItemID;
+import net.runelite.api.Varbits;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -10,8 +11,9 @@ import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectM
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
-import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
@@ -19,12 +21,16 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 public class GemCrabKillerScript extends Script {
     private final int CAVE_ENTRANCE_ID = 57631;
     private final int CRAB_NPC_ID = 14779;
     private final int CRAB_NPC_DEAD_ID = 14780;
+    private final int DIVINE_POTION_HP_COST = 10;
+    // Bank threshold is 25% HP without food, plus a small margin
+    private final double DIVINE_POTION_MIN_HP_PERCENT = 30;
     private final WorldPoint CLOSEST_CRAB_LOCATION_TO_BANK = new WorldPoint(1274, 3168, 0);
     public GemCrabKillerState gemCrabKillerState = GemCrabKillerState.WALKING;
     public int totalCrabKills = 0;
@@ -41,16 +47,23 @@ public class GemCrabKillerScript extends Script {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 if (config.useInventorySetup()) {
+                    if (config.inventorySetup() == null) {
+                        Microbot.showMessage("Please select an inventory setup in the plugin settings. If you've already done so, please reselect the inventory setup in the plugin settings.");
+                        shutdown();
+                        return;
+                    }
                     inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
                 }
+                eatIfHurt(config);
                 switch (gemCrabKillerState) {
                     case WALKING:
                         handleWalking();
                         break;
                     case FIGHTING:
-                        handlePotions(config);
+                        Rs2NpcModel crab = Microbot.getRs2NpcCache().query().withId(CRAB_NPC_ID).nearest();
+                        handlePotions(config, crab);
                         handleSafety(config);
-                        handleFighting(config);
+                        handleFighting(config, crab);
                         break;
                     case BANKING:
                         handleBanking(config);
@@ -69,8 +82,8 @@ public class GemCrabKillerScript extends Script {
     }
 
     private void handleSafety(GemCrabKillerConfig config) {
+        int currentHP = Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS);
         if (config.dharokMode()) {
-            int currentHP = Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS);
             if (currentHP > 10) {
                 if (Rs2Inventory.hasItem(ItemID.LOCATOR_ORB)) {
                     Rs2Inventory.interact(ItemID.LOCATOR_ORB, "feel");
@@ -89,34 +102,104 @@ public class GemCrabKillerScript extends Script {
                     Rs2Prayer.toggle(Rs2PrayerEnum.RAPID_HEAL, false);
                 }
             }
-        } else {
-            Rs2Player.eatAt(50);
         }
-        var hasFood = !Rs2Inventory.getInventoryFood().isEmpty();
-        var healthPercentage = Rs2Player.getHealthPercentage();
-        if (!hasFood && healthPercentage < 25d) {
+        boolean lowHp = isLowHp(config.dharokMode(), currentHP, Rs2Player.getHealthPercentage());
+        if (Rs2Inventory.getInventoryFood().isEmpty() && lowHp) {
             gemCrabKillerState = GemCrabKillerState.BANKING;
         }
     }
 
-    private void handlePotions(GemCrabKillerConfig config) {
-        if (config.useOffensivePotions() && Rs2Combat.inCombat()) {
-            if (Rs2Player.drinkCombatPotionAt(Skill.RANGED, false)) {
-                Rs2Player.waitForAnimation();
+    static boolean isLowHp(boolean dharokMode, int currentHP, double healthPercentage) {
+        return dharokMode ? currentHP <= 2 : healthPercentage < 25d;
+    }
+
+    private void handlePotions(GemCrabKillerConfig config, Rs2NpcModel crab) {
+        if (!config.useOffensivePotions() || crab == null) {
+            return;
+        }
+        boolean canDrinkDivine = canAffordDivineHpCost(config);
+        for (GemCrabKillerPotion.Boost boost : config.offensivePotion().boosts) {
+            if (isDivineActive(boost.skill)) {
+                continue;
             }
-            if (Rs2Player.drinkCombatPotionAt(Skill.MAGIC, false)) {
-                Rs2Player.waitForAnimation();
+            Rs2ItemModel potion = findPotion(boost.itemNames, canDrinkDivine, isBoostRunOut(boost.skill));
+            if (potion == null) {
+                continue;
             }
-            if (Rs2Player.drinkCombatPotionAt(Skill.STRENGTH)) {
-                Rs2Player.waitForAnimation();
-            }
-            if (Rs2Player.drinkCombatPotionAt(Skill.ATTACK)) {
-                Rs2Player.waitForAnimation();
-            }
-            if (Rs2Player.drinkCombatPotionAt(Skill.DEFENCE)) {
-                Rs2Player.waitForAnimation();
+            int boostedBefore = Rs2Player.getBoostedSkillLevel(boost.skill);
+            if (Rs2Inventory.interact(potion, "Drink")) {
+                // One dose per tick: wait for the boost to register so another potion isn't wasted on the same boost
+                sleepUntil(() -> Rs2Player.getBoostedSkillLevel(boost.skill) > boostedBefore, 3000);
+                eatIfHurt(config);
+                return;
             }
         }
+    }
+
+    // Divine potions cost 10 HP: without food to heal it back, the drop must not push us towards a bank trip
+    private boolean canAffordDivineHpCost(GemCrabKillerConfig config) {
+        int hp = Rs2Player.getBoostedSkillLevel(Skill.HITPOINTS);
+        if (hp <= DIVINE_POTION_HP_COST) {
+            return false;
+        }
+        boolean hasFood = !Rs2Inventory.getInventoryFood().isEmpty();
+        double percentAfter = (hp - DIVINE_POTION_HP_COST) * 100d / Rs2Player.getRealSkillLevel(Skill.HITPOINTS);
+        return (hasFood && !config.dharokMode()) || percentAfter >= DIVINE_POTION_MIN_HP_PERCENT;
+    }
+
+    // Divine potions drop HP, so eating is checked every tick and right after a dose, in any state
+    private void eatIfHurt(GemCrabKillerConfig config) {
+        if (!config.dharokMode()) {
+            Rs2Player.eatAt(50);
+        }
+    }
+
+    // A divine boost is held for 5 minutes and then drains, so it is only re-drunk once its timer varbit hits 0
+    private boolean isDivineActive(Skill skill) {
+        int[] timers;
+        switch (skill) {
+            case ATTACK:
+                timers = new int[]{Varbits.DIVINE_SUPER_COMBAT, Varbits.DIVINE_SUPER_ATTACK};
+                break;
+            case STRENGTH:
+                timers = new int[]{Varbits.DIVINE_SUPER_COMBAT, Varbits.DIVINE_SUPER_STRENGTH};
+                break;
+            case DEFENCE:
+                timers = new int[]{Varbits.DIVINE_SUPER_COMBAT, Varbits.DIVINE_SUPER_DEFENCE, Varbits.DIVINE_BASTION, Varbits.DIVINE_BATTLEMAGE};
+                break;
+            case RANGED:
+                timers = new int[]{Varbits.DIVINE_RANGING, Varbits.DIVINE_BASTION};
+                break;
+            case MAGIC:
+                timers = new int[]{Varbits.DIVINE_MAGIC, Varbits.DIVINE_BATTLEMAGE};
+                break;
+            default:
+                return false;
+        }
+        return Arrays.stream(timers).anyMatch(timer -> Microbot.getVarbitValue(timer) > 0);
+    }
+
+    private boolean isBoostRunOut(Skill skill) {
+        int real = Rs2Player.getRealSkillLevel(skill);
+        int boost = Rs2Player.getBoostedSkillLevel(skill) - real;
+        // Magic potions give a flat +4 boost, the others 15% + 5 (re-drink at 20% of that)
+        return boost <= (skill == Skill.MAGIC ? 1 : (real * 0.15 + 5) * 0.2);
+    }
+
+    // Names are best first. Divine potions are only drunk with enough HP, the rest only once the boost has run out
+    private Rs2ItemModel findPotion(String[] itemNames, boolean canDrinkDivine, boolean boostRunOut) {
+        for (String itemName : itemNames) {
+            boolean divine = itemName.toLowerCase().startsWith("divine");
+            if (divine ? !canDrinkDivine : !boostRunOut) {
+                continue;
+            }
+            Rs2ItemModel potion = Rs2Inventory.get(item -> !item.isNoted()
+                    && itemName.equalsIgnoreCase(item.getName().replaceAll("\\s*\\(\\d+\\)$", "")));
+            if (potion != null) {
+                return potion;
+            }
+        }
+        return null;
     }
 
     private void handleWaiting(GemCrabKillerConfig config) {
@@ -146,13 +229,10 @@ public class GemCrabKillerScript extends Script {
                     return;
                 }
                 var equipmentMatches = inventorySetup.doesEquipmentMatch();
-                var inventoryMatches = inventorySetup.doesInventoryMatch();
                 if (!equipmentMatches) {
                     equipmentMatches = inventorySetup.loadEquipment();
                 }
-                if (!inventoryMatches) {
-                    inventoryMatches = inventorySetup.loadInventory();
-                }
+                var inventoryMatches = inventorySetup.loadInventory();
                 if (equipmentMatches && inventoryMatches) {
                     Rs2Bank.closeBank();
                     gemCrabKillerState = GemCrabKillerState.WALKING;
@@ -169,12 +249,11 @@ public class GemCrabKillerScript extends Script {
         Rs2Bank.closeBank();
     }
 
-    private void handleFighting(GemCrabKillerConfig config) {
-        Rs2NpcModel npc = Microbot.getRs2NpcCache().query().withId(CRAB_NPC_ID).nearest();
+    private void handleFighting(GemCrabKillerConfig config, Rs2NpcModel npc) {
         Rs2NpcModel deadNpc = Microbot.getRs2NpcCache().query().withId(CRAB_NPC_DEAD_ID).nearest();
         if (deadNpc != null) {
             totalCrabKills++;
-            if (config.lootCrab() && Rs2Inventory.hasItem(" pickaxe", false) && !hasLooted) {
+            if (config.lootCrab() && (Rs2Inventory.hasItem(" pickaxe", false) || Rs2Equipment.isWearing(" pickaxe", false)) && !hasLooted) {
                 deadNpc.click("Mine");
                 Rs2Inventory.waitForInventoryChanges(2400);
                 sleep(3000, 5000);

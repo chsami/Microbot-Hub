@@ -106,7 +106,7 @@ public interface TitheFarmingConfig extends Config {
     @ConfigItem(
             keyName = "use16Plants",
             name = "Use 16 plants",
-            description = "Plant and care for 16 patches instead of the full set, skipping the farthest column to reduce neglect deaths",
+            description = "Only plant 16 patches instead of the lane's 19-20 by leaving its short extra column empty, so every plant gets watered in time. Applies from the next round.",
             position = 7,
             section = scriptSettings
     )

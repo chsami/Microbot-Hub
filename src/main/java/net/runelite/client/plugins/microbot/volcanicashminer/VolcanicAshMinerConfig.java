@@ -11,7 +11,7 @@ public interface VolcanicAshMinerConfig extends Config {
     @ConfigItem(
             keyName = "maxPlayersInArea",
             name = "Max players in area",
-            description = "If more players than this are nearby, hop worlds. 0 = disable",
+            description = "Hop worlds when more than this many other players are mining ash within 15 tiles of you. 0 = off",
             position = 1
     )
     default int maxPlayersInArea() {

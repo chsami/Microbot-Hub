@@ -25,6 +25,7 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
@@ -200,11 +201,14 @@ public class RoguesDenScript extends Script {
     }
 
     private boolean clickObstacle() {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return true;
+
         int closestIndex = IntStream.range(currentObstacleIndex, OBSTACLES.length)
                 .boxed()
                 .min((i1, i2) -> {
-                    double distanceToO1 = Rs2Player.getWorldLocation().distanceTo(OBSTACLES[i1].getTile());
-                    double distanceToO2 = Rs2Player.getWorldLocation().distanceTo(OBSTACLES[i2].getTile());
+                    double distanceToO1 = playerLocation.distanceTo(OBSTACLES[i1].getTile());
+                    double distanceToO2 = playerLocation.distanceTo(OBSTACLES[i2].getTile());
                     return Double.compare(distanceToO1, distanceToO2);
                 })
                 .orElse(-1); // Return null if OBSTACLES array is empty
@@ -218,13 +222,13 @@ public class RoguesDenScript extends Script {
         Obstacles.Obstacle currentObstacle = OBSTACLES[closestIndex];
         Obstacles.Obstacle nextObstacle = OBSTACLES[closestIndex + 1];
 
-        if (closestIndex == 0 && !Rs2Player.getWorldLocation().equals(currentObstacle.getTile())) {
+        if (closestIndex == 0 && !playerLocation.equals(currentObstacle.getTile())) {
             Microbot.getRs2TileObjectCache().query().interact(currentObstacle.getObjectId());
-            sleepUntil(() -> Rs2Player.getWorldLocation().equals(currentObstacle.getTile()));
+            sleepUntil(() -> Objects.equals(currentObstacle.getTile(), Rs2Player.getWorldLocation()));
             return true;
         }
 
-        if (Rs2Player.getWorldLocation().equals(currentObstacle.getTile())) {
+        if (playerLocation.equals(currentObstacle.getTile())) {
             // interact with nextObstacle
             handleObstacle(nextObstacle);
         } else {
@@ -242,7 +246,10 @@ public class RoguesDenScript extends Script {
     }
 
     private boolean useFlashPowder() {
-        if (Rs2Inventory.hasItem(ItemID.ROGUESDEN_FLASH_POWDER) && Rs2Player.getWorldLocation().getX() < 3026) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return true;
+
+        if (Rs2Inventory.hasItem(ItemID.ROGUESDEN_FLASH_POWDER) && playerLocation.getX() < 3026) {
             Microbot.log("Stunning guard");
             Rs2NpcModel guard = Rs2Npc.getNpc(NpcID.ROGUESDEN_GUARD2);
             if (guard == null) return false;
