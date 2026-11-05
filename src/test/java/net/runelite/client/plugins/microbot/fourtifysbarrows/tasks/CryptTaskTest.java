@@ -431,7 +431,7 @@ public class CryptTaskTest
             task.execute();
         }
         assertNotNull(actions.failure);
-        assertTrue(actions.failure.contains("made no progress after five tries"));
+        assertTrue(actions.failure.startsWith("Stuck on: "));
         assertEquals(5, actions.options.size());
     }
 

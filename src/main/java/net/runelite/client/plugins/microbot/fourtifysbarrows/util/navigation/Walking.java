@@ -75,16 +75,17 @@ public class Walking
     }
 
     /** Poll from the client thread; the blocking Microbot API call runs on an owned worker. */
-    public synchronized State walkTo(WorldPoint target)
+    public synchronized State walkTo(WorldPoint target, String label)
     {
+        String couldNotWalk = "Could not walk to " + label + "; walk there yourself, then enable the plugin again";
         if (!backend.isClientThread())
         {
-            return fail("Walking decisions require the client thread");
+            return fail(couldNotWalk);
         }
         WorldPoint position = backend.position();
         if (target == null || position == null)
         {
-            return fail("Walking requires an alive logged-in player");
+            return fail(couldNotWalk);
         }
         if (!Objects.equals(destination, target))
         {
@@ -111,7 +112,7 @@ public class Walking
         }
         if (now - lastProgressAt >= TIMEOUT_MS)
         {
-            return fail("Walking timed out after 120 seconds without movement; clear the path, then enable the plugin again");
+            return fail("Walking to " + label + " made no progress for 120 seconds; clear the path, then enable the plugin again");
         }
         state = State.WALKING;
         if (operation != null)
@@ -124,8 +125,8 @@ public class Walking
             {
                 if (operation.failure != null)
                 {
-                    return fail(operation.failure instanceof RouteFailure ? operation.failure.getMessage()
-                        : "Walking failed (" + describe(operation.failure) + "); check the walker settings, then enable the plugin again");
+                    return fail(operation.failure instanceof RouteFailure
+                        ? operation.failure.getMessage().replace(RouteFailure.LABEL, label) : couldNotWalk);
                 }
                 nextAttemptAt = now + RETRY_DELAY_MS;
             }
@@ -143,7 +144,7 @@ public class Walking
         }
         catch (RuntimeException failure)
         {
-            return fail("Walking could not start (" + describe(failure) + "); enable the plugin again");
+            return fail(couldNotWalk);
         }
         return state;
     }
@@ -191,11 +192,6 @@ public class Walking
                 pending.finished = true;
             }
         }
-    }
-
-    private static String describe(Throwable failure)
-    {
-        return failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
     }
 
     private State fail(String reason)
@@ -299,8 +295,11 @@ public class Walking
         }
     }
 
+    /** A walk failure to show the player; {@link #LABEL} stands for the destination's name. */
     private static final class RouteFailure extends IllegalStateException
     {
+        static final String LABEL = "{destination}";
+
         private RouteFailure(String message)
         {
             super(message);
@@ -419,7 +418,7 @@ public class Walking
             {
                 if (active != null && !active.equals(ownedTarget))
                 {
-                    throw new RouteFailure("Stop the active Microbot route before Barrows travel.");
+                    throw new RouteFailure("Another Microbot walk is running; stop it, then enable the plugin again");
                 }
             }
             diagnostic = attempt + ": checking local route; start=" + start + "; target=" + target;
@@ -437,7 +436,7 @@ public class Walking
                 if (selected != null && (selected.distanceTo(target) > 1
                     || LocalPoint.fromWorld(client.getTopLevelWorldView(), selected) == null))
                 {
-                    throw new RouteFailure("Microbot returned an invalid local arrival tile; travel stopped.");
+                    throw new RouteFailure("Could not walk to " + RouteFailure.LABEL + "; walk there yourself, then enable the plugin again");
                 }
                 diagnostic += ", reachable=" + (selected != null);
                 return generation.get() == expected && start.equals(readPosition()) ? selected : null;
@@ -469,7 +468,7 @@ public class Walking
             diagnostic = localDiagnostic + "; Microbot walker " + result;
             if (result == WalkerState.UNREACHABLE)
             {
-                throw new RouteFailure("Microbot found no route to the destination. Move closer or check the blocked path.");
+                throw new RouteFailure("No path found to " + RouteFailure.LABEL + "; move closer, then enable the plugin again");
             }
             return result == WalkerState.ARRIVED;
         }

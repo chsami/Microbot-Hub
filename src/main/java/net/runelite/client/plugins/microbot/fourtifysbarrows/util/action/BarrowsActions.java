@@ -105,9 +105,7 @@ public class BarrowsActions
         queue.clear();
         if (worker != null && worker.getFailure() != null)
         {
-            Throwable cause = worker.getFailure();
-            fail("A game action failed (" + (cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage())
-                + "); enable the plugin again to retry");
+            fail("A game action did not go through; enable the plugin again to retry");
         }
     }
 
@@ -187,7 +185,7 @@ public class BarrowsActions
     public String npcAttackProblem()
     {
         return client.getVarpValue(VarPlayerID.OPTION_ATTACKPRIORITY_NPC) == 3
-            ? "NPC Attack options are Hidden; choose a non-Hidden option in Settings > Controls and restart Barrows"
+            ? "NPC Attack options are set to Hidden; choose another option in Settings > Controls, then enable the plugin again"
             : null;
     }
 
@@ -398,7 +396,8 @@ public class BarrowsActions
                 }
                 if (count(carried) == 0)
                 {
-                    fail(gearName(id) + " is no longer worn or carried; restock it, then enable the plugin again");
+                    String missing = missingGear();
+                    fail(missing != null ? missing : "Wear or carry " + gearName(id) + ", then enable the plugin again");
                 }
                 else if (!inventory(carried, "Wear", callback))
                 {
@@ -422,7 +421,7 @@ public class BarrowsActions
                 boolean ring = Arrays.stream(BANK_RING_IDS).anyMatch(value -> value == id);
                 if (!wearing(id) && count(id) == 0 && !(ring && hasBankTravelRing()))
                 {
-                    return "Wear or carry " + gearName(id) + ", or remove it from " + set[0];
+                    return "Wear or carry " + gearName(id) + ", or remove it from " + set[0] + ", then enable the plugin again";
                 }
             }
         }
@@ -699,7 +698,7 @@ public class BarrowsActions
             return false;
         }
         status("Walking to " + label);
-        Walking.State state = walking.walkTo(point);
+        Walking.State state = walking.walkTo(point, label);
         if (state == Walking.State.FAILED)
         {
             fail(walking.getFailureReason());
@@ -1034,6 +1033,12 @@ public class BarrowsActions
                 return false;
         }
         return point.distanceTo(destination) <= 8;
+    }
+
+    /** Minutes left on the Shades of Mort'ton teleport cooldown, or 0 when it is ready. */
+    public long shadesCooldown()
+    {
+        return ShadesTeleport.cooldownMinutes(client);
     }
 
     public String travelProblem(TravelMethod method)

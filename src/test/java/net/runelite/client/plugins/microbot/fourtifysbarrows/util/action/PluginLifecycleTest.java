@@ -63,7 +63,7 @@ public class PluginLifecycleTest
         fixture.thread.runNext();
         fixture.plugin.onGameTick(new GameTick());
         assertFalse(fixture.actions.ready());
-        assertTrue(fixture.plugin.getStatus().contains("NPC Attack options are Hidden"));
+        assertTrue(fixture.plugin.getStatus().contains("NPC Attack options are set to Hidden"));
         assertEquals(0, fixture.actions.walks);
         assertFalse(fixture.actions.bankPending());
         assertEquals(3, fixture.npcAttackOption);
@@ -430,24 +430,26 @@ public class PluginLifecycleTest
     {
         // Earlier tests can leave switch-off requests on the Swing queue.
         SwingUtilities.invokeAndWait(() -> { });
-        RecordingPluginManager manager = RecordingPluginManager.install();
-        Fixture fixture = new Fixture();
-        fixture.location = new WorldPoint(3130, 3632, 0);
-        fixture.npcAttackOption = 3;
-        fixture.gameState = GameState.LOGGED_IN;
-        fixture.player = fixture.player();
-        fixture.enable();
-        fixture.thread.runNext();
-        fixture.plugin.onGameTick(new GameTick());
-        fixture.plugin.onGameTick(new GameTick());
-        SwingUtilities.invokeAndWait(() -> { });
-        assertEquals(1, fixture.chat.size());
-        assertTrue(fixture.chat.get(0).startsWith("<col=ff0000>Fourtifys Barrows stopped: NPC Attack options are Hidden"), fixture.chat.get(0));
-        assertEquals(1, manager.stopped.stream().filter(plugin -> plugin == fixture.plugin).count());
-        fixture.thread.runNext();
-        assertNull(fixture.plugin.getStartTime());
-        assertEquals(0, countOverlays(fixture.overlays));
-        assertTrue(fixture.plugin.getStatus().startsWith("NPC Attack options are Hidden"), "The reason stays readable after the stop");
+        try (RecordingPluginManager manager = RecordingPluginManager.install())
+        {
+            Fixture fixture = new Fixture();
+            fixture.location = new WorldPoint(3130, 3632, 0);
+            fixture.npcAttackOption = 3;
+            fixture.gameState = GameState.LOGGED_IN;
+            fixture.player = fixture.player();
+            fixture.enable();
+            fixture.thread.runNext();
+            fixture.plugin.onGameTick(new GameTick());
+            fixture.plugin.onGameTick(new GameTick());
+            SwingUtilities.invokeAndWait(() -> { });
+            assertEquals(1, fixture.chat.size());
+            assertTrue(fixture.chat.get(0).startsWith("<col=ff0000>Fourtifys Barrows stopped: NPC Attack options are set to Hidden"), fixture.chat.get(0));
+            assertEquals(1, manager.stopped.stream().filter(plugin -> plugin == fixture.plugin).count());
+            fixture.thread.runNext();
+            assertNull(fixture.plugin.getStartTime());
+            assertEquals(0, countOverlays(fixture.overlays));
+            assertTrue(fixture.plugin.getStatus().startsWith("NPC Attack options are set to Hidden"), "The reason stays readable after the stop");
+        }
     }
 
     @Test
@@ -461,7 +463,7 @@ public class PluginLifecycleTest
         fixture.enable();
         fixture.thread.runNext();
         assertFalse(fixture.actions.ready());
-        assertEquals("Wear or carry item 4151, or remove it from Magic equipment IDs", fixture.actions.getStatus());
+        assertEquals("Wear or carry item 4151, or remove it from Magic equipment IDs, then enable the plugin again", fixture.actions.getStatus());
     }
 
     @Test

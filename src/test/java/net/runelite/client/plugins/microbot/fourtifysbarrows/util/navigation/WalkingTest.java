@@ -52,9 +52,9 @@ public class WalkingTest
     @Test
     public void runsTheSdkCallOnAWorkerAndSuppressesDuplicateRequests()
     {
-        assertEquals(Walking.State.WALKING, walking.walkTo(TARGET));
+        assertEquals(Walking.State.WALKING, walking.walkTo(TARGET, "the bank"));
         assertEquals(0, backend.calls);
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         assertEquals(1, workers.size());
         workers.get(0).runAll();
         assertEquals(1, backend.calls);
@@ -67,12 +67,12 @@ public class WalkingTest
     public void aSuccessfulSdkResultDoesNotFabricateArrival()
     {
         backend.result = true;
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         workers.get(0).runAll();
-        assertEquals(Walking.State.WALKING, walking.walkTo(TARGET));
+        assertEquals(Walking.State.WALKING, walking.walkTo(TARGET, "the bank"));
         assertTrue(walking.isActive());
         backend.position = TARGET;
-        assertEquals(Walking.State.ARRIVED, walking.walkTo(TARGET));
+        assertEquals(Walking.State.ARRIVED, walking.walkTo(TARGET, "the bank"));
         assertFalse(walking.isActive());
     }
 
@@ -80,7 +80,7 @@ public class WalkingTest
     public void observedArrivalWithinSdkToleranceNeedsNoWorker()
     {
         backend.position = new WorldPoint(TARGET.getX() + 1, TARGET.getY(), 0);
-        assertEquals(Walking.State.ARRIVED, walking.walkTo(TARGET));
+        assertEquals(Walking.State.ARRIVED, walking.walkTo(TARGET, "the bank"));
         assertTrue(workers.isEmpty());
     }
 
@@ -88,7 +88,7 @@ public class WalkingTest
     public void aDifferentPlaneCannotBeReportedAsArrival()
     {
         backend.position = new WorldPoint(TARGET.getX(), TARGET.getY(), 1);
-        assertEquals(Walking.State.WALKING, walking.walkTo(TARGET));
+        assertEquals(Walking.State.WALKING, walking.walkTo(TARGET, "the bank"));
         workers.get(0).runAll();
         assertEquals(1, backend.calls);
     }
@@ -97,15 +97,15 @@ public class WalkingTest
     public void falseSdkResultCanBeRetriedAfterItsDelay()
     {
         backend.result = false;
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         workers.get(0).runAll();
-        assertEquals(Walking.State.WALKING, walking.walkTo(TARGET));
+        assertEquals(Walking.State.WALKING, walking.walkTo(TARGET, "the bank"));
         assertEquals(1, workers.size());
         now.set(Walking.RETRY_DELAY_MS - 1);
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         assertEquals(1, workers.size());
         now.incrementAndGet();
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         assertEquals(2, workers.size());
     }
 
@@ -114,26 +114,26 @@ public class WalkingTest
     {
         for (int attempt = 0; attempt < 8; attempt++)
         {
-            assertEquals(Walking.State.WALKING, walking.walkTo(TARGET));
+            assertEquals(Walking.State.WALKING, walking.walkTo(TARGET, "the bank"));
             workers.get(attempt).runAll();
-            assertEquals(Walking.State.WALKING, walking.walkTo(TARGET));
+            assertEquals(Walking.State.WALKING, walking.walkTo(TARGET, "the bank"));
             assertEquals(0, backend.cancels);
             now.addAndGet(Walking.RETRY_DELAY_MS);
         }
         now.set(Walking.TIMEOUT_MS);
-        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET));
+        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET, "the bank"));
         assertEquals(8, backend.calls);
         assertEquals(1, backend.cancels);
-        assertTrue(walking.getFailureReason().contains("timed out"));
-        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET));
+        assertTrue(walking.getFailureReason().contains("made no progress for 120 seconds"));
+        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET, "the bank"));
         walking.cancel();
-        assertEquals(Walking.State.WALKING, walking.walkTo(TARGET));
+        assertEquals(Walking.State.WALKING, walking.walkTo(TARGET, "the bank"));
     }
 
     @Test
     public void cancellationBeforeWorkerStartPreventsAnySdkCall()
     {
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         walking.cancel();
         workers.get(0).runAll();
         assertEquals(0, backend.calls);
@@ -145,18 +145,18 @@ public class WalkingTest
     @Test
     public void unavailablePlayerBeforeWorkerStartPreventsAnySdkCall()
     {
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         backend.position = null;
         workers.get(0).runAll();
         assertEquals(0, backend.calls);
-        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET));
+        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET, "the bank"));
         assertFalse(walking.isActive());
     }
 
     @Test
     public void cancellingAFinishedSdkCallAlsoCleansUpItsRemainingOwnedRoute()
     {
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         workers.get(0).runAll();
         walking.cancel();
         assertEquals(1, backend.cancels);
@@ -167,11 +167,11 @@ public class WalkingTest
     @Test
     public void cancellingAQueuedRetryAlsoClearsTheRouteFromItsFinishedPreviousAttempt()
     {
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         workers.get(0).runAll();
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         now.addAndGet(Walking.RETRY_DELAY_MS);
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         assertEquals(2, workers.size());
         assertEquals(1, backend.calls);
         walking.cancel();
@@ -184,8 +184,8 @@ public class WalkingTest
     @Test
     public void changingDestinationDiscardsTheQueuedOldRequest()
     {
-        walking.walkTo(TARGET);
-        assertEquals(Walking.State.WALKING, walking.walkTo(new WorldPoint(START.getX() + 5, START.getY(), 0)));
+        walking.walkTo(TARGET, "the bank");
+        assertEquals(Walking.State.WALKING, walking.walkTo(new WorldPoint(START.getX() + 5, START.getY(), 0), "the bank"));
         workers.get(0).runAll();
         assertEquals(0, backend.calls);
         workers.get(1).runAll();
@@ -196,26 +196,26 @@ public class WalkingTest
     @Test
     public void timeoutCancelsQueuedWorkWithoutDispatch()
     {
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         now.set(Walking.TIMEOUT_MS);
-        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET));
+        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET, "the bank"));
         workers.get(0).runAll();
         assertEquals(0, backend.calls);
-        assertTrue(walking.getFailureReason().contains("timed out"));
+        assertTrue(walking.getFailureReason().contains("made no progress for 120 seconds"));
     }
 
     @Test
     public void observedMovementAllowsLongTripsButStationaryTravelStillTimesOut()
     {
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         for (int step = 1; step <= 3; step++)
         {
             now.addAndGet(Walking.TIMEOUT_MS - 1);
             backend.position = new WorldPoint(START.getX() + step, START.getY(), 0);
-            assertEquals(Walking.State.WALKING, walking.walkTo(TARGET));
+            assertEquals(Walking.State.WALKING, walking.walkTo(TARGET, "the bank"));
         }
         now.addAndGet(Walking.TIMEOUT_MS);
-        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET));
+        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET, "the bank"));
         workers.get(0).runAll();
         assertEquals(0, backend.calls);
     }
@@ -224,12 +224,12 @@ public class WalkingTest
     public void unavailablePlayerAndWrongThreadNeverStartWalking()
     {
         backend.position = null;
-        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET));
+        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET, "the bank"));
         assertTrue(workers.isEmpty());
         backend.position = START;
         backend.clientThread = false;
         walking.cancel();
-        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET));
+        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET, "the bank"));
         assertTrue(workers.isEmpty());
     }
 
@@ -237,10 +237,10 @@ public class WalkingTest
     public void workerFailurePausesUntilCancelled()
     {
         backend.failure = new IllegalStateException("Microbot API failure");
-        walking.walkTo(TARGET);
+        walking.walkTo(TARGET, "the bank");
         workers.get(0).runAll();
-        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET));
-        assertEquals("Walking failed (Microbot API failure); check the walker settings, then enable the plugin again",
+        assertEquals(Walking.State.FAILED, walking.walkTo(TARGET, "the bank"));
+        assertEquals("Could not walk to the bank; walk there yourself, then enable the plugin again",
             walking.getFailureReason());
         assertFalse(walking.isActive());
     }
@@ -297,16 +297,16 @@ public class WalkingTest
         });
         try
         {
-            active.walkTo(TARGET);
+            active.walkTo(TARGET, "the bank");
             assertTrue(started.await(1, TimeUnit.SECONDS));
             active.cancel();
             assertTrue(running.cancels > 0);
-            assertEquals(Walking.State.WALKING, active.walkTo(replacement));
+            assertEquals(Walking.State.WALKING, active.walkTo(replacement, "the bank"));
             assertEquals(1, actualWorkers.size());
             release.countDown();
             assertTrue(finished.await(1, TimeUnit.SECONDS));
             assertTrue(actualWorkers.get(0).awaitTermination(1, TimeUnit.SECONDS));
-            assertEquals(Walking.State.WALKING, active.walkTo(replacement));
+            assertEquals(Walking.State.WALKING, active.walkTo(replacement, "the bank"));
             assertEquals(2, actualWorkers.size());
         }
         finally
@@ -442,17 +442,17 @@ public class WalkingTest
         fixture.walkResult = WalkerState.UNREACHABLE;
         WorldPoint target = new WorldPoint(START.getX() + 40, START.getY(), 0);
         IllegalStateException failure = assertThrows(IllegalStateException.class, () -> fixture.backend.walkTo(target));
-        assertTrue(failure.getMessage().contains("found no route"));
+        assertTrue(failure.getMessage().contains("No path found to"));
         Walking active = new Walking(fixture.backend, now::get, () ->
         {
             ManualExecutor executor = new ManualExecutor();
             workers.add(executor);
             return executor;
         });
-        active.walkTo(target);
+        active.walkTo(target, "the bank");
         workers.get(0).runAll();
-        assertEquals(Walking.State.FAILED, active.walkTo(target));
-        assertTrue(active.getFailureReason().contains("Move closer or check the blocked path"));
+        assertEquals(Walking.State.FAILED, active.walkTo(target, "the bank"));
+        assertTrue(active.getFailureReason().equals("No path found to the bank; move closer, then enable the plugin again"));
     }
 
     @Test
@@ -462,7 +462,7 @@ public class WalkingTest
         WorldPoint target = new WorldPoint(START.getX() + 40, START.getY(), 0);
         fixture.active = new WorldPoint(3200, 3200, 0);
         IllegalStateException failure = assertThrows(IllegalStateException.class, () -> fixture.backend.walkTo(target));
-        assertTrue(failure.getMessage().contains("Stop the active Microbot route"));
+        assertTrue(failure.getMessage().equals("Another Microbot walk is running; stop it, then enable the plugin again"));
         assertEquals(0, fixture.walks);
         fixture.active = null;
         assertTrue(fixture.backend.walkTo(target));

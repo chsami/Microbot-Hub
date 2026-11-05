@@ -19,13 +19,13 @@ public interface BarrowsConfig extends TimingConfig
     @ConfigSection(name = "Supplies", description = "Choose supplies and the remaining points at which to use them.", position = 30, closedByDefault = false)
     String SUPPLIES = "supplies";
 
-    @ConfigSection(name = "Travel to Bank", description = "Return to Ferox Enclave for banking and restoration.", position = 34, closedByDefault = false)
+    @ConfigSection(name = "Travel to Bank", description = "Return to Ferox Enclave for banking and restoration.", position = 35, closedByDefault = false)
     String BANK_TRAVEL = "bankTravel";
 
-    @ConfigSection(name = "Travel to Barrows", description = "Choose the prepared teleport used to reach Barrows.", position = 35, closedByDefault = false)
+    @ConfigSection(name = "Travel to Barrows", description = "Choose the prepared teleport used to reach Barrows.", position = 34, closedByDefault = false)
     String TRAVEL = "travel";
 
-    @ConfigSection(name = "Equipment", description = "Use the equipment supplied by the player. Configure autocast or a powered weapon before starting.", position = 40, closedByDefault = false)
+    @ConfigSection(name = "Equipment", description = "Item IDs of the gear to swap to. Leave a list blank to keep what you wear. Set autocast or use a powered staff before starting.", position = 40, closedByDefault = false)
     String EQUIPMENT = "equipment";
 
     @ConfigSection(name = "Emergency teleport", description = "At Barrows, teleport to Ferox Enclave at low Hitpoints, then stop the plugin.", position = 60, closedByDefault = true)
@@ -37,7 +37,7 @@ public interface BarrowsConfig extends TimingConfig
         return true;
     }
 
-    @ConfigItem(keyName = "bankEachChest", name = "Bank after each chest", description = "Use a charged Ring of dueling to return to Ferox Enclave after every observed chest reward.", position = 1, section = GENERAL)
+    @ConfigItem(keyName = "bankEachChest", name = "Bank after each chest", description = "On: after every chest, use a charged Ring of dueling to Ferox Enclave and bank. Off: start the next run at Barrows and bank only when food or prayer potions run out.", position = 1, section = GENERAL)
     default boolean bankEachChest()
     {
         return true;
@@ -50,7 +50,7 @@ public interface BarrowsConfig extends TimingConfig
         return 880;
     }
 
-    @ConfigItem(keyName = "travelMethod", name = "Teleport to Barrows", description = "Use the selected teleport only. Carry its item in inventory, or prepare the active Arceuus spellbook and the Barrows spell's requirements. The minigame teleport must be unlocked and ready.", position = 0, section = TRAVEL)
+    @ConfigItem(keyName = "travelMethod", name = "Teleport to Barrows", description = "Use the selected teleport only. Carry its item in inventory, or prepare the active Arceuus spellbook and the Barrows spell's requirements. The minigame teleport needs Shades of Mort'ton; the plugin waits out its 20-minute cooldown.", position = 0, section = TRAVEL)
     default TravelMethod travelMethod()
     {
         return TravelMethod.BARROWS_TABLET;
@@ -84,7 +84,7 @@ public interface BarrowsConfig extends TimingConfig
     }
 
     @Range(min = 0, max = 20)
-    @ConfigItem(keyName = "potionCount", name = "Prayer potion count", description = "Number of prayer potion bottles to carry. Accepts item IDs 2434, 139, 141 and 143, covering four to one doses.", position = 3, section = SUPPLIES)
+    @ConfigItem(keyName = "potionCount", name = "Prayer potion count", description = "Number of Prayer potions (any dose) to carry.", position = 3, section = SUPPLIES)
     default int potionCount()
     {
         return 4;
@@ -134,7 +134,7 @@ public interface BarrowsConfig extends TimingConfig
     }
 
     @Range(min = 1, max = 99)
-    @ConfigItem(keyName = "emergencyAt", name = "At or below HP (%)", description = "At Barrows, use the Ring of dueling to Ferox Enclave when Hitpoints are at or below this percentage of maximum Hitpoints, then stop the plugin. Elsewhere, low Hitpoints start the normal bank trip.", position = 1, section = SAFETY)
+    @ConfigItem(keyName = "emergencyAt", name = "At or below Hitpoints (%)", description = "At Barrows, use the Ring of dueling to Ferox Enclave when Hitpoints are at or below this percentage of maximum Hitpoints, then stop the plugin. Elsewhere, low Hitpoints start the normal bank trip.", position = 1, section = SAFETY)
     default int emergencyAt()
     {
         return 25;

@@ -89,7 +89,7 @@ public final class EmergencyTask implements FourtifysTask
                     return;
                 }
                 prayerDeadline = -1;
-                status = "Emergency teleport completed at Ferox Enclave; heal and restock, then enable the plugin again";
+                status = "Hitpoints fell to the emergency level, so you were teleported to Ferox Enclave; heal and restock, then enable the plugin again";
                 armed = false;
                 pending = false;
                 actions.fail(status);

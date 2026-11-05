@@ -14,7 +14,7 @@ restores at the pool, banks the loot, restocks and goes again.
 | Barrows Teleport (Arceuus) | 83 Magic and the Arceuus spellbook; spoken to Drezel after Priest in Peril | 2 law, 2 soul and 1 blood rune |
 | Morytania legs 3 | Hard Morytania Diary | Morytania legs 3 in the inventory |
 | Morytania legs 4 | Elite Morytania Diary | Morytania legs 4 in the inventory |
-| Shades of Mort'ton | Shades of Mort'ton quest; the minigame teleport is off cooldown | None |
+| Shades of Mort'ton | Shades of Mort'ton quest. The teleport has a 20-minute cooldown, so the plugin often waits at Ferox Enclave before using it | None |
 
 ## Setup
 
@@ -42,7 +42,7 @@ restores at the pool, banks the loot, restocks and goes again.
 
 - **Emergency teleport:** at Barrows only, low Hitpoints make the plugin
   use the Ring of dueling to Ferox Enclave, turn off the protection
-  prayer and stop. Set the level in **At or below HP (%)**. Elsewhere,
+  prayer and stop. Set the level in **At or below Hitpoints (%)**. Elsewhere,
   low Hitpoints start the normal bank trip, and the Ferox pool heals you.
 - **Auto-retaliate:** the plugin turns it off so that only the planned
   fights count toward the reward. It stays off after the plugin stops;

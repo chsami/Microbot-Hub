@@ -70,7 +70,7 @@ public class BarrowsConfigInitializationTest
     }
 
     @Test
-    public void bankTravelDropdownHasOnlyTheRequestedOptionAndPrecedesBarrowsTravel() throws Exception
+    public void bankTravelDropdownHasOnlyTheRequestedOptionAndFollowsBarrowsTravel() throws Exception
     {
         List<ConfigSection> sections = Arrays.stream(BarrowsConfig.class.getDeclaredFields())
             .map(field -> field.getAnnotation(ConfigSection.class))
@@ -78,9 +78,9 @@ public class BarrowsConfigInitializationTest
             .sorted(Comparator.comparingInt(ConfigSection::position))
             .collect(Collectors.toList());
         List<String> names = sections.stream().map(ConfigSection::name).collect(Collectors.toList());
-        int bank = names.indexOf("Travel to Bank");
-        assertTrue(bank >= 0);
-        assertEquals("Travel to Barrows", names.get(bank + 1));
+        int barrows = names.indexOf("Travel to Barrows");
+        assertTrue(barrows >= 0);
+        assertEquals("Travel to Bank", names.get(barrows + 1));
         ConfigItem bankItem = BarrowsConfig.class.getMethod("bankTeleport").getAnnotation(ConfigItem.class);
         ConfigItem outboundItem = BarrowsConfig.class.getMethod("travelMethod").getAnnotation(ConfigItem.class);
         assertEquals(BarrowsConfig.BANK_TRAVEL, bankItem.section());
@@ -128,7 +128,7 @@ public class BarrowsConfigInitializationTest
         assertEquals(BarrowsConfig.SAFETY, item.section());
         assertEquals(0, item.position());
         ConfigItem threshold = BarrowsConfig.class.getMethod("emergencyAt").getAnnotation(ConfigItem.class);
-        assertEquals("At or below HP (%)", threshold.name());
+        assertEquals("At or below Hitpoints (%)", threshold.name());
         assertEquals("emergencyAt", threshold.keyName());
         assertEquals(BarrowsConfig.SAFETY, threshold.section());
         assertEquals(1, threshold.position());

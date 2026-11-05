@@ -111,6 +111,14 @@ public final class TravelTask implements FourtifysTask
         }
         if (phase == Phase.CONTROLS)
         {
+            // The cooldown outlasts a trip, so waiting at the bank beats stopping every other trip.
+            long cooldown = method == TravelMethod.SHADES_MINIGAME ? actions.shadesCooldown() : 0;
+            if (cooldown > 0)
+            {
+                status = "Waiting for Shades of Mort'ton teleport cooldown (" + cooldown + " min)";
+                controlsDeadline = -1;
+                return;
+            }
             String problem = actions.travelProblem(method);
             if (problem != null)
             {
@@ -139,7 +147,7 @@ public final class TravelTask implements FourtifysTask
         }
         if (actions.tick() >= controlsDeadline)
         {
-            stop("Could not use " + method + "; carry it or meet its requirements, then enable the plugin again");
+            stop("Could not use " + method + "; check its requirements under Teleport to Barrows, then enable the plugin again");
             return;
         }
         status = "Using " + method;

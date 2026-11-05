@@ -26,7 +26,7 @@ public class EmergencyTaskTest
         assertEquals("", actions.failure);
         actions.point = new WorldPoint(3510, 3480, 0);
         task.execute();
-        assertTrue(actions.failure.contains("completed"));
+        assertTrue(actions.failure.contains("emergency level"));
         assertEquals(0, actions.bankRequests);
     }
 
@@ -44,7 +44,7 @@ public class EmergencyTaskTest
         assertEquals("", actions.failure);
         actions.protection = null;
         task.execute();
-        assertTrue(actions.failure.contains("completed"));
+        assertTrue(actions.failure.contains("emergency level"));
     }
 
     @Test
@@ -58,7 +58,7 @@ public class EmergencyTaskTest
         task.execute();
         actions.now = 8;
         task.execute();
-        assertTrue(actions.failure.contains("completed"));
+        assertTrue(actions.failure.contains("emergency level"));
     }
 
     @Test
@@ -170,7 +170,7 @@ public class EmergencyTaskTest
         assertEquals(1, actions.requests);
         actions.point = new WorldPoint(3151, 3636, 0);
         task.execute();
-        assertTrue(actions.failure.contains("completed"));
+        assertTrue(actions.failure.contains("emergency level"));
         assertEquals(0, actions.bankRequests);
     }
 

@@ -38,9 +38,9 @@ public class NpcAttackOptionsTest
             String problem = actions.npcAttackProblem();
             if (option == 3)
             {
-                assertTrue(problem.contains("NPC Attack options are Hidden"));
+                assertTrue(problem.contains("NPC Attack options are set to Hidden"));
                 assertTrue(problem.contains("Settings > Controls"));
-                assertTrue(problem.contains("restart Barrows"));
+                assertTrue(problem.endsWith("then enable the plugin again"));
             }
             else
             {

@@ -44,9 +44,21 @@ public final class ShadesTeleport
         {
             return "Complete Shades of Mort'ton for the minigame teleport";
         }
+        long remaining = cooldownMinutes(client, nowMinutes);
+        return remaining > 0 ? "Shades of Mort'ton teleport is on cooldown for " + remaining + " more minute"
+            + (remaining == 1 ? "" : "s") : null;
+    }
+
+    /** Minutes left before the minigame teleport can be used again, or 0 when it is ready. */
+    public static long cooldownMinutes(Client client)
+    {
+        return cooldownMinutes(client, System.currentTimeMillis() / 60_000L);
+    }
+
+    static long cooldownMinutes(Client client, long nowMinutes)
+    {
         int lastMinute = client.getVarpValue(LAST_TELEPORT_VARP);
-        long remaining = lastMinute <= 0 ? 0 : lastMinute + (long) COOLDOWN_MINUTES - nowMinutes;
-        return remaining > 0 ? "Minigame teleport cooldown: " + remaining + " minute" + (remaining == 1 ? "" : "s") : null;
+        return lastMinute <= 0 ? 0 : Math.max(0, lastMinute + (long) COOLDOWN_MINUTES - nowMinutes);
     }
 
     /**

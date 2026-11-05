@@ -147,6 +147,25 @@ public class BarrowsActionsTest
     }
 
     @Test
+    public void aFailedGameActionStopsWithoutTheClientErrorText() throws Exception
+    {
+        BarrowsActions actions = new BarrowsActions();
+        new Scene(actions, FEROX);
+        java.lang.reflect.Field field = BarrowsActions.class.getDeclaredField("worker");
+        field.setAccessible(true);
+        field.set(actions, new InteractionWorker((net.runelite.client.callback.ClientThread) null)
+        {
+            @Override
+            public RuntimeException getFailure()
+            {
+                return new NullPointerException("Cannot invoke \"getId()\" because \"w\" is null");
+            }
+        });
+        actions.nextTick();
+        assertEquals("A game action did not go through; enable the plugin again to retry", actions.getStatus());
+    }
+
+    @Test
     public void aNewSessionClearsAPendingStop() throws Exception
     {
         BarrowsActions actions = new BarrowsActions();

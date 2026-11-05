@@ -627,7 +627,7 @@ public final class CryptTask implements FourtifysTask
         }
         if (attempts >= 5)
         {
-            actions.fail(label + " made no progress after five tries; enable the plugin again to retry");
+            actions.fail("Stuck on: " + label + " (five tries); enable the plugin again to retry");
             return;
         }
         attempts++;

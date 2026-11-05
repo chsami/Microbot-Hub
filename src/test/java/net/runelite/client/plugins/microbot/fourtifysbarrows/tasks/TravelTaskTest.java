@@ -142,6 +142,28 @@ public class TravelTaskTest
     }
 
     @Test
+    public void shadesCooldownWaitsInsteadOfStoppingThenTeleports()
+    {
+        FakeActions actions = new FakeActions();
+        actions.selected = TravelMethod.SHADES_MINIGAME;
+        actions.cooldown = 12;
+        actions.problem = "Shades of Mort'ton teleport is on cooldown for 12 more minutes";
+        TravelTask task = new TravelTask(actions);
+        for (int tick = 0; tick <= 100; tick += 25)
+        {
+            actions.now = tick;
+            task.execute();
+        }
+        assertEquals("", actions.failure);
+        assertTrue(actions.requests.isEmpty());
+        assertEquals("Waiting for Shades of Mort'ton teleport cooldown (12 min)", task.getStatus());
+        actions.cooldown = 0;
+        actions.problem = null;
+        task.execute();
+        assertEquals(List.of(TravelMethod.SHADES_MINIGAME), actions.requests);
+    }
+
+    @Test
     public void missingRequirementStopsWithoutFallbackWalking()
     {
         FakeActions actions = new FakeActions();
@@ -343,6 +365,7 @@ public class TravelTaskTest
         private int now;
         private int walks;
         private String problem;
+        private long cooldown;
         private String failure = "";
         private WorldPoint destination;
 
@@ -386,6 +409,12 @@ public class TravelTaskTest
         public String travelProblem(TravelMethod method)
         {
             return problem;
+        }
+
+        @Override
+        public long shadesCooldown()
+        {
+            return cooldown;
         }
 
         @Override

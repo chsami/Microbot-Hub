@@ -46,7 +46,7 @@ public class AutoRetaliateTaskTest
             task.execute();
         }
         assertEquals(3, actions.requests);
-        assertTrue(actions.failure.contains("auto-retaliate off"));
+        assertTrue(actions.failure.contains("Auto-retaliate did not turn off"));
     }
 
     @Test
@@ -58,7 +58,7 @@ public class AutoRetaliateTaskTest
         task.execute();
         actions.now = 24;
         task.execute();
-        assertTrue(actions.failure.contains("auto-retaliate off"));
+        assertTrue(actions.failure.contains("Auto-retaliate did not turn off"));
     }
 
     @Test

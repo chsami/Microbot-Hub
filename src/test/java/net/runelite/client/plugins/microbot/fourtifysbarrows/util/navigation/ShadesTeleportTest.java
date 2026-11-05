@@ -28,13 +28,15 @@ public class ShadesTeleportTest
     @Test
     public void sharedCooldownUsesMinutesAndExpiresAtTwentyMinutes()
     {
-        assertEquals("Minigame teleport cooldown: 20 minutes",
+        assertEquals("Shades of Mort'ton teleport is on cooldown for 20 more minutes",
             ShadesTeleport.unavailable(client(2, 1_000), 1_000));
-        assertEquals("Minigame teleport cooldown: 1 minute",
+        assertEquals("Shades of Mort'ton teleport is on cooldown for 1 more minute",
             ShadesTeleport.unavailable(client(2, 1_000), 1_019));
+        assertEquals(12, ShadesTeleport.cooldownMinutes(client(2, 1_000), 1_008));
+        assertEquals(0, ShadesTeleport.cooldownMinutes(client(2, 1_000), 1_020));
         assertNull(ShadesTeleport.unavailable(client(2, 1_000), 1_020));
         assertNull(ShadesTeleport.unavailable(client(2, 1_000), 1_021));
-        assertEquals("Minigame teleport cooldown: 21 minutes",
+        assertEquals("Shades of Mort'ton teleport is on cooldown for 21 more minutes",
             ShadesTeleport.unavailable(client(2, 1_001), 1_000));
     }
 

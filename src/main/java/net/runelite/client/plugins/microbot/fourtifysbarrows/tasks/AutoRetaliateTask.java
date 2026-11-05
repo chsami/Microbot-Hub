@@ -60,7 +60,7 @@ public final class AutoRetaliateTask implements FourtifysTask
         }
         if (actions.tick() >= deadline || attempts >= 3 && actions.tick() >= nextAttempt)
         {
-            actions.fail("Could not observe auto-retaliate off; turn it off in Combat Options and restart");
+            actions.fail("Auto-retaliate did not turn off; turn it off in Combat Options, then enable the plugin again");
             return;
         }
         if (actions.tick() < nextAttempt)
