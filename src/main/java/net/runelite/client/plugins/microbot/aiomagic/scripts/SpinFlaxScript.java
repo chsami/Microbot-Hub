@@ -129,7 +129,6 @@ public class SpinFlaxScript extends Script {
                             break;
                         }
                         Rs2Player.waitForXpDrop(Skill.MAGIC, 10000, false);
-                        sleep(plugin.nextClickDelay());
                         castsDone++;
                         break;
                 }
@@ -137,7 +136,7 @@ public class SpinFlaxScript extends Script {
             } catch (Exception ex) {
                 System.out.println(ex.getMessage());
             }
-        }, 0, 100, TimeUnit.MILLISECONDS);
+        }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
     }
 

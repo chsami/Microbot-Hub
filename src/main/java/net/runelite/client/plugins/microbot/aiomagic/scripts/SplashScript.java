@@ -39,6 +39,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.Random;
@@ -65,6 +66,7 @@ public class SplashScript extends Script {
     private int lastMagicLevel = -1;
     private Rs2CombatSpells activeSpell;
     private int autocastFailures;
+    private final Set<Rs2CombatSpells> restockTried = new HashSet<>();
     private String lastLoggedDefaultNpc = "";
 
     @Inject
@@ -96,6 +98,7 @@ public class SplashScript extends Script {
         lastMagicLevel = -1;
         activeSpell = null;
         autocastFailures = 0;
+        restockTried.clear();
         lastLoggedDefaultNpc = "";
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -103,7 +106,7 @@ public class SplashScript extends Script {
                 if (!super.run()) return;
                 tick();
             } catch (Exception ex) {
-                Microbot.log("Splash error: " + ex.getMessage());
+                Microbot.log("Splash error: " + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
             }
         }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
@@ -126,7 +129,8 @@ public class SplashScript extends Script {
 
         if (Rs2Magic.getCurrentAutoCastSpell() != activeSpell) {
             if (!Rs2Combat.setAutoCastSpell(activeSpell, false) && ++autocastFailures >= 5) {
-                Microbot.showMessage("Unable to autocast " + activeSpell.name() + " (wrong spellbook or runes?)");
+                Microbot.showMessage("Unable to autocast " + spellName(activeSpell) + ". AIO Magic stopped. Wield a staff,"
+                        + " switch to the standard spellbook and check you have the runes for it.");
                 shutdown();
             }
             return;
@@ -151,11 +155,12 @@ public class SplashScript extends Script {
             Microbot.log("Magic attack bonus " + bonus + " - splash safe.");
             return true;
         }
-        String msg = "Magic attack bonus is " + bonus + " (needs <= " + SplashLogic.SPLASH_SAFE_MAGIC_BONUS
-                + "); you will hit instead of splash.";
+        String msg = "Magic attack bonus is " + bonus + " (needs " + SplashLogic.SPLASH_SAFE_MAGIC_BONUS
+                + " or lower); you would hit instead of splash.";
         if (cfg().requireSplashBonus()) {
             Microbot.log("WARNING: " + msg + " Stopping (Require -65 magic bonus is on).");
-            Microbot.showMessage(msg);
+            Microbot.showMessage(msg + " AIO Magic stopped. Wear more metal armour, turn on 'Auto splash gear',"
+                    + " or turn off 'Require -65 magic bonus'.");
             shutdown();
             return false;
         }
@@ -172,13 +177,8 @@ public class SplashScript extends Script {
     }
 
     private int magicBonusOf(int itemId) {
-        try {
-            ItemStats stats = Microbot.getItemManager().getItemStats(itemId);
-            ItemEquipmentStats eq = stats == null ? null : stats.getEquipment();
-            return eq == null ? 0 : eq.getAmagic();
-        } catch (Exception e) {
-            return 0;
-        }
+        ItemEquipmentStats eq = equipmentStats(itemId);
+        return eq == null ? 0 : eq.getAmagic();
     }
 
     // ------------------------------------------------------------------ splash gear
@@ -199,12 +199,38 @@ public class SplashScript extends Script {
         List<Rs2ItemModel> owned = new ArrayList<>(Rs2Equipment.items());
         owned.addAll(Rs2Inventory.all());
         owned.addAll(Rs2Bank.bankItems());
+        Rs2ItemModel weapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+        Rs2ItemModel staff = null;
+        ItemEquipmentStats staffStats = null;
         for (Rs2ItemModel item : owned) {
             if (item == null || !seen.add(item.getId())) continue;
             ItemEquipmentStats eq = equipmentStats(item.getId());
-            if (eq == null || eq.getAmagic() >= 0 || eq.getSlot() == SplashGear.WEAPON) continue;
+            if (eq == null) continue;
+            if (eq.getSlot() == SplashGear.WEAPON) {
+                if (!isStaff(item)) continue;
+                boolean wielded = weapon != null && weapon.getId() == item.getId();
+                boolean staffWielded = staff != null && weapon != null && weapon.getId() == staff.getId();
+                if (staff == null || wielded || (!staffWielded && eq.getAmagic() < staffStats.getAmagic())) {
+                    staff = item;
+                    staffStats = eq;
+                }
+                continue;
+            }
+            if (eq.getAmagic() >= 0) continue;
             pieces.add(new SplashGear.Piece(eq.getSlot(), item.getName(), item.getId(), eq.getAmagic(), 0, true));
         }
+        if (staff == null) {
+            String msg = "Autocast needs a staff. AIO Magic stopped. Put a staff (e.g. Staff of air) in your bank or inventory and start again.";
+            Microbot.log(msg);
+            Microbot.showMessage(msg);
+            Rs2Bank.closeBank();
+            shutdown();
+            return false;
+        }
+        final int staffId = staff.getId();
+        final String staffName = staff.getName();
+        int staffBonus = staffStats.getAmagic();
+        boolean twoHanded = staffStats.isTwoHanded();
 
         List<SplashGear.Piece> all = new ArrayList<>(pieces);
         int defence = Rs2Player.getRealSkillLevel(Skill.DEFENCE);
@@ -228,21 +254,24 @@ public class SplashScript extends Script {
         int target = SplashLogic.SPLASH_SAFE_MAGIC_BONUS;
         boolean allowBuy = cfg().buySplashGear();
         long maxGp = cfg().maxGpPerPurchase();
-        SplashGear.Plan plan = SplashGear.select(pieces, 0, target, false);
+        SplashGear.Plan plan = SplashGear.select(pieces, staffBonus, target, twoHanded);
         if (plan == null && allowBuy) {
-            SplashGear.Plan withBuying = SplashGear.select(all, 0, target, false);
+            SplashGear.Plan withBuying = SplashGear.select(all, staffBonus, target, twoHanded);
             if (withBuying != null && withBuying.cost * GE_PRICE_MARKUP_PERCENT / 100 <= maxGp) plan = withBuying;
         }
         if (plan == null) {
-            SplashGear.Plan wish = SplashGear.select(all, 0, target, false);
-            StringBuilder need = new StringBuilder();
+            SplashGear.Plan wish = SplashGear.select(all, staffBonus, target, twoHanded);
+            List<String> need = new ArrayList<>();
             if (wish != null) {
-                for (SplashGear.Piece pc : wish.pieces) if (!pc.owned) need.append(pc.name).append(", ");
+                for (SplashGear.Piece pc : wish.pieces) if (!pc.owned) need.add(pc.name);
             }
             String msg = wish == null
-                    ? "Cannot reach a " + target + " magic bonus with metal armour at Defence " + defence + "."
-                    : "Splash gear still needed: " + need + "about " + wish.cost + " gp ("
-                    + (allowBuy ? "over the " + maxGp + " gp cap" : "buying is off") + ").";
+                    ? "Cannot reach a " + target + " magic bonus with metal armour at Defence " + defence + " and your "
+                    + staffName + ". AIO Magic stopped. Train Defence for heavier armour, or turn off 'Auto splash gear'"
+                    + " and set up your gear yourself."
+                    : "Splash gear still needed: " + String.join(", ", need) + " (about " + gp(wish.cost) + "). AIO Magic stopped. "
+                    + (allowBuy ? "Raise 'Max gp per purchase' above " + gp(maxGp) + " or buy the pieces yourself."
+                    : "Buy the pieces yourself or turn on 'Buy splash gear on the GE'.");
             Microbot.log(msg);
             Microbot.showMessage(msg);
             Rs2Bank.closeBank();
@@ -253,6 +282,10 @@ public class SplashScript extends Script {
         // Take everything off (this banks any positive-bonus items), then withdraw only the planned pieces.
         Rs2Bank.depositEquipment();
         sleepUntil(() -> !Rs2Equipment.isWearing(), 3000);
+        if (!Rs2Inventory.hasItem(staffId)) {
+            Rs2Bank.withdrawOne(staffId);
+            sleepUntil(() -> Rs2Inventory.hasItem(staffId), 3000);
+        }
         List<SplashGear.Piece> toBuy = new ArrayList<>();
         for (SplashGear.Piece pc : plan.pieces) {
             if (!pc.owned) {
@@ -271,17 +304,21 @@ public class SplashScript extends Script {
                 sleepUntil(() -> Rs2Inventory.itemQuantity(ItemID.COINS) > 0, 3000);
             }
             Rs2Bank.closeBank();
-            Microbot.log("Buying splash gear for about " + cost + " gp (cap " + maxGp + ").");
+            Microbot.log("Buying splash gear for about " + gp(cost) + " (cap " + gp(maxGp) + ").");
             Rs2GrandExchange.walkToGrandExchange();
-            if (Rs2GrandExchange.openExchange()) {
-                for (SplashGear.Piece pc : toBuy) {
-                    Rs2GrandExchange.buyItem(pc.name, (int) (pc.cost * GE_PRICE_MARKUP_PERCENT / 100 + 1), 1);
-                    sleepUntil(Rs2GrandExchange::isOpen, 3000);
-                }
-                sleepUntil(Rs2GrandExchange::hasFinishedBuyingOffers, 90_000);
-                Rs2GrandExchange.collectAllToInventory();
-                Rs2GrandExchange.closeExchange();
+            if (!Rs2GrandExchange.openExchange()) {
+                Microbot.showMessage("Could not open the Grand Exchange to buy splash gear. AIO Magic stopped."
+                        + " Buy the pieces yourself or start the script near the Grand Exchange.");
+                shutdown();
+                return false;
             }
+            for (SplashGear.Piece pc : toBuy) {
+                Rs2GrandExchange.buyItem(pc.name, (int) (pc.cost * GE_PRICE_MARKUP_PERCENT / 100 + 1), 1);
+                sleepUntil(Rs2GrandExchange::isOpen, 3000);
+            }
+            sleepUntil(Rs2GrandExchange::hasFinishedBuyingOffers, 90_000);
+            Rs2GrandExchange.collectAllToInventory();
+            Rs2GrandExchange.closeExchange();
         } else {
             Rs2Bank.closeBank();
         }
@@ -290,6 +327,10 @@ public class SplashScript extends Script {
             if (!Rs2Inventory.hasItem(pc.itemId)) continue;
             if (!Rs2Inventory.interact(pc.itemId, "Wear")) Rs2Inventory.interact(pc.itemId, "Wield");
             sleepUntil(() -> Rs2Equipment.get(pc.itemId) != null, 3000);
+        }
+        if (Rs2Inventory.hasItem(staffId)) {
+            Rs2Inventory.interact(staffId, "Wield");
+            sleepUntil(() -> Rs2Equipment.get(staffId) != null, 3000);
         }
         StringBuilder worn = new StringBuilder();
         for (Rs2ItemModel it : Rs2Equipment.items()) if (it != null) worn.append(it.getName()).append(", ");
@@ -300,11 +341,62 @@ public class SplashScript extends Script {
 
     private ItemEquipmentStats equipmentStats(int itemId) {
         try {
-            ItemStats stats = Microbot.getItemManager().getItemStats(itemId);
+            ItemStats stats = Microbot.getClientThread()
+                    .runOnClientThreadOptional(() -> Microbot.getItemManager().getItemStats(itemId))
+                    .orElse(null);
             return stats == null ? null : stats.getEquipment();
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private static String readable(String enumName) {
+        StringBuilder out = new StringBuilder();
+        for (String word : enumName.toLowerCase(Locale.ROOT).split("_")) {
+            if (word.isEmpty()) continue;
+            if (out.length() > 0) out.append(' ');
+            out.append(out.length() > 0 && word.equals("of") ? word
+                    : Character.toUpperCase(word.charAt(0)) + word.substring(1));
+        }
+        return out.toString();
+    }
+
+    private static String spellName(Rs2CombatSpells spell) {
+        return readable(spell.name());
+    }
+
+    private static String gp(long amount) {
+        return String.format("%,d gp", amount);
+    }
+
+    private static boolean isStaff(Rs2ItemModel item) {
+        return Rs2Staff.byItemId(item.getId()) != Rs2Staff.NONE
+                || (item.getName() != null && item.getName().toLowerCase(Locale.ROOT).contains("staff"));
+    }
+
+    private static String runeNames(Iterable<Runes> runes) {
+        List<String> names = new ArrayList<>();
+        for (Runes r : runes) names.add(SplashLogic.runeItemName(r).toLowerCase(Locale.ROOT) + "s");
+        return String.join(", ", names);
+    }
+
+    private static List<Runes> shortRunes(Rs2CombatSpells spell, Map<Runes, Integer> carried) {
+        List<Runes> out = new ArrayList<>();
+        for (Map.Entry<Runes, Integer> e : spell.getRequiredRunes().entrySet()) {
+            if (carried.getOrDefault(e.getKey(), 0) < e.getValue()) out.add(e.getKey());
+        }
+        return out.isEmpty() ? new ArrayList<>(spell.getRequiredRunes().keySet()) : out;
+    }
+
+    private void stopOutOfRunes(Rs2CombatSpells spell, Map<Runes, Integer> carried) {
+        String fix = !bankingAllowed()
+                ? "Bring more runes, or set 'Casts per trip' above 0 so the script restocks from the bank."
+                : cfg().buyRunesOnGe()
+                ? "Put more runes or coins in your bank, or raise 'Max gp per purchase'."
+                : "Put more runes in your bank, or turn on 'Buy runes on the GE'.";
+        Microbot.showMessage("Out of runes for " + spellName(spell) + ": need " + runeNames(shortRunes(spell, carried))
+                + ". AIO Magic stopped. " + fix);
+        shutdown();
     }
 
     // ------------------------------------------------------------------ spell + runes
@@ -335,6 +427,7 @@ public class SplashScript extends Script {
     private boolean selectAndStock(int level) {
         Map<Runes, Integer> carried = carriedRunes();
         Rs2CombatSpells target = chooseSpell(level, carried);
+        if (!isRunning()) return false;
         if (target == null) {
             if (bankingAllowed() && !initialStockDone) {
                 // Bank contents are unknown until it has been opened once: look inside before giving up.
@@ -342,13 +435,15 @@ public class SplashScript extends Script {
                 visitBank(null);
                 return false;
             }
-            Microbot.showMessage("No castable combat spell: no runes available for your Magic level " + level);
+            Microbot.showMessage("No combat spell you can cast at Magic level " + level + ": no runes in your inventory"
+                    + (bankingAllowed() ? " or bank" : "") + ". AIO Magic stopped. Put runes for a strike spell (e.g. air and mind runes"
+                    + " for Wind Strike) in your bank or inventory, or turn on 'Buy runes on the GE'.");
             shutdown();
             return false;
         }
 
         if (target != activeSpell) {
-            Microbot.log("Splash spell: " + (activeSpell == null ? "none" : activeSpell.name()) + " -> " + target.name()
+            Microbot.log("Splash spell: " + (activeSpell == null ? "none" : spellName(activeSpell)) + " -> " + spellName(target)
                     + " (Magic " + level + ")");
             autocastFailures = 0;
         }
@@ -356,17 +451,22 @@ public class SplashScript extends Script {
         lastMagicLevel = level;
 
         int casts = SplashLogic.castsAvailable(target.getRequiredRunes(), carried);
+        if (casts >= MIN_CASTS_BEFORE_RESTOCK) restockTried.clear();
         boolean needRestock = casts < MIN_CASTS_BEFORE_RESTOCK || (!initialStockDone && casts < cfg().castsPerTrip() / 4);
         initialStockDone = true;
         if (!needRestock || !bankingAllowed()) {
             if (casts < MIN_CASTS_BEFORE_RESTOCK) {
-                Microbot.showMessage("Out of runes for " + target.name());
-                shutdown();
+                stopOutOfRunes(target, carried);
                 return false;
             }
             return true;
         }
 
+        if (casts < MIN_CASTS_BEFORE_RESTOCK && restockTried.contains(target)) {
+            stopOutOfRunes(target, carried);
+            return false;
+        }
+        if (casts < MIN_CASTS_BEFORE_RESTOCK) restockTried.add(target);
         visitBank(target);
         // Re-check after the trip; the next tick re-evaluates (downgrades the spell if the restock failed).
         activeSpell = null;
@@ -377,7 +477,8 @@ public class SplashScript extends Script {
         if (cfg().splashSpellMode() == SplashSpellMode.CONFIGURED) {
             Rs2CombatSpells fixed = plugin.getCombatSpell();
             if (fixed.getRequiredLevel() > level) {
-                Microbot.showMessage(fixed.name() + " needs Magic " + fixed.getRequiredLevel());
+                Microbot.showMessage(spellName(fixed) + " needs Magic level " + fixed.getRequiredLevel() + ". AIO Magic stopped."
+                        + " Pick a lower 'Combat Spell', or set 'Splash spell' to Auto.");
                 shutdown();
                 return null;
             }
@@ -411,7 +512,7 @@ public class SplashScript extends Script {
 
     /** Walks to the nearest bank (by round trip), equips a staff and withdraws runes for the spell, then returns. */
     private void visitBank(Rs2CombatSpells spell) {
-        Microbot.log(spell == null ? "Visiting the bank to check for runes." : "Restocking runes for " + spell.name() + ".");
+        Microbot.log(spell == null ? "Visiting the bank to check for runes." : "Restocking runes for " + spellName(spell) + ".");
         if (!Rs2Bank.walkToBankAndUseBank()) {
             Microbot.log("Could not reach a bank.");
             return;
@@ -454,7 +555,7 @@ public class SplashScript extends Script {
             Rs2Bank.withdrawOne(best.getItemID());
             sleepUntil(() -> Rs2Inventory.hasItem(best.getItemID()), 3000);
         }
-        Microbot.log("Wielding " + best.name() + " to save runes.");
+        Microbot.log("Wielding " + readable(best.name()) + " to save runes.");
         Rs2Inventory.interact(best.getItemID(), "Wield");
         sleepUntil(() -> Rs2Equipment.get(best.getItemID()) != null, 3000);
     }
@@ -514,7 +615,8 @@ public class SplashScript extends Script {
         int coinsInBank = Rs2Bank.count(ItemID.COINS);
         long budget = Math.min(cap, (long) coinsInBank + Rs2Inventory.itemQuantity(ItemID.COINS));
         if (budget <= 0) {
-            Microbot.showMessage("Out of runes and no coins to buy more.");
+            Microbot.showMessage("Out of runes for " + spellName(spell) + " and no coins to buy more. AIO Magic stopped."
+                    + " Put coins or runes in your bank.");
             Rs2Bank.closeBank();
             shutdown();
             return;
@@ -530,14 +632,20 @@ public class SplashScript extends Script {
         int casts = SplashLogic.affordableCasts(spell.getRequiredRunes(), cfg().castsPerTrip(), carried, prices, budget);
         Map<Runes, Integer> toBuy = SplashLogic.runesToWithdraw(spell.getRequiredRunes(), casts, carried);
         if (casts < 1 || toBuy.isEmpty()) {
-            Microbot.showMessage("Cannot afford runes for " + spell.name() + " within " + cap + " gp.");
+            Microbot.showMessage("Cannot afford runes for " + spellName(spell) + " within " + gp(cap) + ". AIO Magic stopped."
+                    + " Raise 'Max gp per purchase' or put more coins or runes in your bank.");
             shutdown();
             return;
         }
         Microbot.log("Buying " + String.join(", ", SplashLogic.describe(toBuy)) + " for about "
-                + SplashLogic.estimateCost(toBuy, prices) + " gp (cap " + cap + ").");
+                + gp(SplashLogic.estimateCost(toBuy, prices)) + " (cap " + gp(cap) + ").");
         Rs2GrandExchange.walkToGrandExchange();
-        if (!Rs2GrandExchange.openExchange()) return;
+        if (!Rs2GrandExchange.openExchange()) {
+            Microbot.showMessage("Could not open the Grand Exchange to buy runes for " + spellName(spell) + ". AIO Magic stopped."
+                    + " Buy the runes yourself or start the script near the Grand Exchange.");
+            shutdown();
+            return;
+        }
         for (Map.Entry<Runes, Integer> e : toBuy.entrySet()) {
             Rs2GrandExchange.buyItem(SplashLogic.runeItemName(e.getKey()), prices.get(e.getKey()), e.getValue());
             sleepUntil(Rs2GrandExchange::isOpen, 3000);
@@ -614,7 +722,6 @@ public class SplashScript extends Script {
             return;
         }
 
-        sleep(plugin.nextClickDelay());
         if (targetNpc.click("Attack")) {
             lastClickTime = System.currentTimeMillis();
             afkIntervalMs = SplashLogic.nextAfkIntervalMs(random);

@@ -4,7 +4,6 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
-import net.runelite.client.config.Range;
 import net.runelite.client.plugins.microbot.aiomagic.enums.MagicActivity;
 import net.runelite.client.plugins.microbot.aiomagic.enums.SplashSpellMode;
 import net.runelite.client.plugins.microbot.aiomagic.enums.StunSpell;
@@ -24,9 +23,6 @@ public interface AIOMagicConfig extends Config {
 	String teleportSpell = "teleportSpell";
 	String stunSpell = "stunSpell";
 	String stunNpcName = "stunNpcName";
-	String stopAtMagicLevel = "stopAtMagicLevel";
-	String minClickDelay = "minClickDelay";
-	String maxClickDelay = "maxClickDelay";
 	String splashSpellMode = "splashSpellMode";
 	String castsPerTrip = "splashCastsPerTrip";
 	String buyRunesOnGe = "splashBuyRunesOnGe";
@@ -42,13 +38,6 @@ public interface AIOMagicConfig extends Config {
 			position = 0
 	)
 	String generalSection = "general";
-
-	@ConfigSection(
-			name = "Click Speed",
-			description = "Configure how fast the plugin clicks",
-			position = 0
-	)
-	String clickSpeedSection = "clickSpeed";
 
 	@ConfigSection(
 			name = "Splashing Settings",
@@ -97,42 +86,6 @@ public interface AIOMagicConfig extends Config {
 	}
 
 	@ConfigItem(
-			keyName = stopAtMagicLevel,
-			name = "Stop at Magic level",
-			description = "Stops the script once your real Magic level reaches this level. 0 = disabled",
-			position = 1,
-			section = generalSection
-	)
-	@Range(min = 0, max = 99)
-	default int stopAtMagicLevel() {
-		return 0;
-	}
-
-	@ConfigItem(
-			keyName = minClickDelay,
-			name = "Min click delay (ms)",
-			description = "Fastest delay between clicks. Delays are random between min and max, mostly on the fast side",
-			position = 0,
-			section = clickSpeedSection
-	)
-	@Range(min = 0, max = 5000)
-	default int minClickDelay() {
-		return 40;
-	}
-
-	@ConfigItem(
-			keyName = maxClickDelay,
-			name = "Max click delay (ms)",
-			description = "Slowest delay between clicks. If lower than min, the two are swapped",
-			position = 1,
-			section = clickSpeedSection
-	)
-	@Range(min = 0, max = 5000)
-	default int maxClickDelay() {
-		return 350;
-	}
-
-	@ConfigItem(
 			keyName = stunNpcName,
 			name = "Stun npc name",
 			description = "Name of the npc to stun",
@@ -156,7 +109,7 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = npcName,
 			name = "NPC Name",
-			description = "Name of the NPC you would like to splash",
+			description = "Name of the NPC you would like to splash. Leave empty to auto-pick the nearest safe low-level NPC (chicken, rat, man, cow...) within 10 tiles",
 			position = 0,
 			section = splashSection
 	)
@@ -178,18 +131,18 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = splashSpellMode,
 			name = "Splash spell",
-			description = "Auto picks the highest standard-book combat spell your Magic level and runes allow, and upgrades as you level up",
+			description = "'Combat Spell setting' always casts the spell chosen below. Auto picks the highest standard-book combat spell your Magic level and runes allow, and upgrades as you level up",
 			position = 1,
 			section = splashSection
 	)
 	default SplashSpellMode splashSpellMode() {
-		return SplashSpellMode.AUTO;
+		return SplashSpellMode.CONFIGURED;
 	}
 
 	@ConfigItem(
 			keyName = castsPerTrip,
 			name = "Casts per trip",
-			description = "How many casts' worth of runes to withdraw when restocking at the bank",
+			description = "How many casts' worth of runes to withdraw when restocking at the bank. 0 = never bank (the script stops when runes run out)",
 			position = 3,
 			section = splashSection
 	)
@@ -222,7 +175,7 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = maxGpPerPurchase,
 			name = "Max gp per purchase",
-			description = "Never spend more than this on one GE rune purchase",
+			description = "Never spend more than this on one GE purchase of runes or splash gear",
 			position = 6,
 			section = splashSection
 	)
@@ -244,12 +197,12 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = autoSplashGear,
 			name = "Auto splash gear",
-			description = "Before splashing, wear only metal armour (owned, else bought) until the magic attack bonus is -65 or lower",
+			description = "Before splashing, bank your worn items and wear only metal armour (owned, else bought) plus a staff for autocast until the magic attack bonus is -65 or lower",
 			position = 8,
 			section = splashSection
 	)
 	default boolean autoSplashGear() {
-		return true;
+		return false;
 	}
 
 	@ConfigItem(
@@ -260,7 +213,7 @@ public interface AIOMagicConfig extends Config {
 			section = splashSection
 	)
 	default boolean buySplashGear() {
-		return true;
+		return false;
 	}
 
 	@ConfigItem(

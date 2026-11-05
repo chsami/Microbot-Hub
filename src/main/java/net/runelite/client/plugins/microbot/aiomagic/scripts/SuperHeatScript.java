@@ -147,7 +147,6 @@ public class SuperHeatScript extends Script {
                         }
                         Rs2Magic.superHeat(plugin.getSuperHeatItem().getItemID());
                         Rs2Player.waitForXpDrop(Skill.MAGIC, 10000, false);
-                        sleep(plugin.nextClickDelay());
                         break;
                 }
 
@@ -158,7 +157,7 @@ public class SuperHeatScript extends Script {
             } catch (Exception ex) {
                 System.out.println(ex.getMessage());
             }
-        }, 0, 100, TimeUnit.MILLISECONDS);
+        }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
     }
 
