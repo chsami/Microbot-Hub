@@ -2,9 +2,7 @@ package net.runelite.client.plugins.microbot.aiomagic.scripts;
 
 import net.runelite.api.Actor;
 import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.ItemComposition;
 import net.runelite.api.Skill;
-import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.game.ItemEquipmentStats;
@@ -34,7 +32,6 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import javax.inject.Inject;
 import net.runelite.client.game.ItemManager;
-import net.runelite.http.api.item.ItemPrice;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -55,8 +52,9 @@ public class SplashScript extends Script {
     private static final RuneFilter CARRIED = RuneFilter.builder().includeBank(false).build();
     private static final int MIN_CASTS_BEFORE_RESTOCK = 1;
     private static final int GE_PRICE_MARKUP_PERCENT = 115;
-    private static final String PENALTY_PIECES_HINT = "Your staff adds to the bonus, so wear extra pieces with a magic penalty"
-            + " (for example d'hide vambraces or metal boots), or turn off 'Require -65 magic bonus'.";
+    private static final String SPLASH_GEAR_HINT = "Wear metal armour (helm, platebody, platelegs, kiteshield) plus a piece"
+            + " with a magic penalty such as green d'hide vambraces";
+    private static final String STAFF_BONUS_NOTE = "Metal armour plus a staff only reaches about -55.";
 
     private final AIOMagicPlugin plugin;
     private final Random random = new Random();
@@ -74,7 +72,6 @@ public class SplashScript extends Script {
     private String lastLoggedDefaultNpc = "";
     private String lastNoTargetLog = "";
     private String lastErrorLog = "";
-    private final List<String> missingSplashGear = new ArrayList<>();
 
     @Inject
     public SplashScript(AIOMagicPlugin plugin) {
@@ -109,7 +106,6 @@ public class SplashScript extends Script {
         lastLoggedDefaultNpc = "";
         lastNoTargetLog = "";
         lastErrorLog = "";
-        missingSplashGear.clear();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -165,10 +161,6 @@ public class SplashScript extends Script {
 
     private boolean checkSplashSafety() {
         int bonus = totalMagicBonus();
-        if (!SplashLogic.isSplashSafe(bonus) && cfg().autoSplashGear()) {
-            if (!setupSplashGear()) return false;
-            bonus = totalMagicBonus();
-        }
         if (SplashLogic.isSplashSafe(bonus)) {
             Microbot.log("Magic attack bonus " + bonus + " - splash safe.");
             return true;
@@ -177,18 +169,12 @@ public class SplashScript extends Script {
                 + " or lower); you may hit instead of splash.";
         if (cfg().requireSplashBonus()) {
             Microbot.log("WARNING: " + msg + " Stopping (Require -65 magic bonus is on).");
-            boolean onePiece = missingSplashGear.size() == 1;
-            String hint = !missingSplashGear.isEmpty()
-                    ? "Could not buy " + String.join(", ", missingSplashGear) + " on the GE (offer" + (onePiece ? "" : "s")
-                    + " not filled). Check your GE offers, buy " + (onePiece ? "it" : "them") + " yourself and start again."
-                    : cfg().autoSplashGear()
-                    ? "Auto splash gear could not reach " + SplashLogic.SPLASH_SAFE_MAGIC_BONUS + " (see the log). " + PENALTY_PIECES_HINT
-                    : PENALTY_PIECES_HINT;
-            Microbot.showMessage(msg + " AIO Magic stopped. " + hint);
+            Microbot.showMessage(msg + " AIO Magic stopped. " + SPLASH_GEAR_HINT
+                    + ", or turn off 'Require -65 magic bonus'. " + STAFF_BONUS_NOTE);
             shutdown();
             return false;
         }
-        Microbot.log("WARNING: " + msg + " Continuing anyway.");
+        Microbot.log("WARNING: " + msg + " Continuing anyway. " + SPLASH_GEAR_HINT + ". " + STAFF_BONUS_NOTE);
         return true;
     }
 
@@ -198,7 +184,7 @@ public class SplashScript extends Script {
             if (item != null) ids.add(item.getId());
         }
         int total = 0;
-        Map<Integer, ItemEquipmentStats> stats = equipmentStats(ids, false);
+        Map<Integer, ItemEquipmentStats> stats = equipmentStats(ids);
         for (int id : ids) {
             ItemEquipmentStats eq = stats.get(id);
             if (eq != null) total += eq.getAmagic();
@@ -209,209 +195,6 @@ public class SplashScript extends Script {
     private int magicBonusOf(int itemId) {
         ItemEquipmentStats eq = equipmentStats(itemId);
         return eq == null ? 0 : eq.getAmagic();
-    }
-
-    // ------------------------------------------------------------------ splash gear
-
-    /** Wears the cheapest metal-only outfit that reaches the splash bonus. False if the script stopped. */
-    private boolean setupSplashGear() {
-        missingSplashGear.clear();
-        Microbot.log("Magic bonus " + totalMagicBonus() + " is above " + SplashLogic.SPLASH_SAFE_MAGIC_BONUS
-                + "; setting up splash gear.");
-        if (!Rs2Bank.walkToBankAndUseBank()) {
-            Microbot.log("Could not reach a bank for splash gear.");
-            return true;
-        }
-        sleepUntil(Rs2Bank::isOpen, 5000);
-        if (!Rs2Bank.isOpen()) return true;
-
-        List<SplashGear.Piece> pieces = new ArrayList<>();
-        Set<Integer> seen = new HashSet<>();
-        List<Rs2ItemModel> owned = new ArrayList<>(Rs2Equipment.items());
-        owned.addAll(Rs2Inventory.all());
-        owned.addAll(Rs2Bank.bankItems());
-        Rs2ItemModel weapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
-        Rs2ItemModel staff = null;
-        ItemEquipmentStats staffStats = null;
-        int defence = Rs2Player.getRealSkillLevel(Skill.DEFENCE);
-        List<Integer> ownedIds = new ArrayList<>();
-        for (Rs2ItemModel item : owned) {
-            if (item != null) ownedIds.add(item.getId());
-        }
-        Map<Integer, ItemEquipmentStats> ownedStats = equipmentStats(ownedIds, true);
-        for (Rs2ItemModel item : owned) {
-            if (item == null || !seen.add(item.getId())) continue;
-            ItemEquipmentStats eq = ownedStats.get(item.getId());
-            if (eq == null) continue;
-            if (eq.getSlot() == SplashGear.WEAPON) {
-                if (!isStaff(item)) continue;
-                boolean wielded = weapon != null && weapon.getId() == item.getId();
-                boolean staffWielded = staff != null && weapon != null && weapon.getId() == staff.getId();
-                if (staff == null || wielded || (!staffWielded && eq.getAmagic() < staffStats.getAmagic())) {
-                    staff = item;
-                    staffStats = eq;
-                }
-                continue;
-            }
-            if (eq.getAmagic() >= 0) continue;
-            int needed = SplashGear.defenceRequirement(item.getName());
-            if (needed > defence) {
-                Microbot.log("Skipping " + item.getName() + " for splash gear: needs " + needed + " Defence.");
-                continue;
-            }
-            pieces.add(new SplashGear.Piece(eq.getSlot(), item.getName(), item.getId(), eq.getAmagic(), 0, true));
-        }
-        if (staff == null) {
-            String msg = "Autocast needs a staff. AIO Magic stopped. Put a staff (e.g. Staff of air) in your bank or inventory and start again.";
-            Microbot.log(msg);
-            Microbot.showMessage(msg);
-            Rs2Bank.closeBank();
-            shutdown();
-            return false;
-        }
-        final int staffId = staff.getId();
-        final String staffName = staff.getName();
-        int staffBonus = staffStats.getAmagic();
-        boolean twoHanded = staffStats.isTwoHanded();
-
-        List<SplashGear.Piece> all = new ArrayList<>(pieces);
-        ItemManager im = Microbot.getItemManager();
-        int[] slots = {SplashGear.HEAD, SplashGear.BODY, SplashGear.LEGS, SplashGear.SHIELD};
-        List<ItemPrice> shopItems = new ArrayList<>();
-        List<Integer> shopSlots = new ArrayList<>();
-        for (int m = 0; m < SplashGear.METALS.length; m++) {
-            if (!SplashGear.metalWearable(m, defence)) continue;
-            for (int p = 0; p < SplashGear.PIECES.length; p++) {
-                String name = SplashGear.metalPieceName(SplashGear.METALS[m], SplashGear.PIECES[p]);
-                for (ItemPrice ip : im.search(name)) {
-                    if (!ip.getName().equalsIgnoreCase(name)) continue;
-                    if (!seen.contains(ip.getId())) {
-                        shopItems.add(ip);
-                        shopSlots.add(slots[p]);
-                    }
-                    break;
-                }
-            }
-        }
-        List<Integer> shopIds = new ArrayList<>();
-        for (ItemPrice ip : shopItems) shopIds.add(ip.getId());
-        Map<Integer, ItemEquipmentStats> shopStats = equipmentStats(shopIds, true);
-        for (int i = 0; i < shopItems.size(); i++) {
-            ItemPrice ip = shopItems.get(i);
-            ItemEquipmentStats eq = shopStats.get(ip.getId());
-            if (eq != null && eq.getAmagic() < 0) {
-                all.add(new SplashGear.Piece(shopSlots.get(i), ip.getName(), ip.getId(), eq.getAmagic(), ip.getPrice(), false));
-            }
-        }
-
-        int target = SplashLogic.SPLASH_SAFE_MAGIC_BONUS;
-        boolean allowBuy = cfg().buySplashGear();
-        long maxGp = cfg().maxGpPerPurchase();
-        SplashGear.Plan plan = SplashGear.select(pieces, staffBonus, target, twoHanded);
-        if (plan == null && allowBuy) {
-            SplashGear.Plan withBuying = SplashGear.select(all, staffBonus, target, twoHanded);
-            if (withBuying != null && withBuying.cost * GE_PRICE_MARKUP_PERCENT / 100 <= maxGp) plan = withBuying;
-        }
-        if (plan == null) {
-            SplashGear.Plan wish = SplashGear.select(all, staffBonus, target, twoHanded);
-            List<String> need = new ArrayList<>();
-            if (wish != null) {
-                for (SplashGear.Piece pc : wish.pieces) if (!pc.owned) need.add(pc.name);
-            }
-            String reason = wish == null
-                    ? "Cannot reach a " + target + " magic bonus with metal armour and your " + staffName + "."
-                    : "Splash gear still needed: " + String.join(", ", need) + " (about " + gp(wish.cost) + ").";
-            String fix = wish == null ? PENALTY_PIECES_HINT
-                    : allowBuy ? "Raise 'Max gp per purchase' above " + gp(maxGp) + " or buy the pieces yourself."
-                    : "Buy the pieces yourself or turn on 'Buy splash gear on the GE'.";
-            if (!cfg().requireSplashBonus()) {
-                Microbot.log(reason + " Keeping your current gear ('Require -65 magic bonus' is off). "
-                        + (wish == null ? "Your staff adds to the bonus, so wear extra pieces with a magic penalty"
-                        + " (for example d'hide vambraces or metal boots)." : fix));
-                Rs2Bank.closeBank();
-                returnToStart();
-                return true;
-            }
-            String msg = reason + " AIO Magic stopped. " + fix;
-            Microbot.log(msg);
-            Microbot.showMessage(msg);
-            Rs2Bank.closeBank();
-            shutdown();
-            return false;
-        }
-
-        // Take everything off (this banks any positive-bonus items), then withdraw only the planned pieces.
-        Rs2Bank.depositEquipment();
-        sleepUntil(() -> !Rs2Equipment.isWearing(), 3000);
-        if (!Rs2Inventory.hasItem(staffId)) {
-            Rs2Bank.withdrawOne(staffId);
-            sleepUntil(() -> Rs2Inventory.hasItem(staffId), 3000);
-        }
-        List<SplashGear.Piece> toBuy = new ArrayList<>();
-        for (SplashGear.Piece pc : plan.pieces) {
-            if (!pc.owned) {
-                toBuy.add(pc);
-            } else if (!Rs2Inventory.hasItem(pc.itemId)) {
-                Rs2Bank.withdrawOne(pc.itemId);
-                sleepUntil(() -> Rs2Inventory.hasItem(pc.itemId), 3000);
-            }
-        }
-        if (!toBuy.isEmpty()) {
-            long cost = 0;
-            for (SplashGear.Piece pc : toBuy) cost += pc.cost * GE_PRICE_MARKUP_PERCENT / 100 + 1;
-            int take = (int) Math.min(Math.min(cost, maxGp), Rs2Bank.count(ItemID.COINS));
-            if (take > 0) {
-                Rs2Bank.withdrawX(ItemID.COINS, take);
-                sleepUntil(() -> Rs2Inventory.itemQuantity(ItemID.COINS) > 0, 3000);
-            }
-            Rs2Bank.closeBank();
-            Microbot.log("Buying splash gear for about " + gp(cost) + " (cap " + gp(maxGp) + ").");
-            Rs2GrandExchange.walkToGrandExchange();
-            if (!Rs2GrandExchange.openExchange()) {
-                Microbot.showMessage("Could not open the Grand Exchange to buy splash gear. AIO Magic stopped."
-                        + " Buy the pieces yourself or start the script near the Grand Exchange.");
-                shutdown();
-                return false;
-            }
-            for (SplashGear.Piece pc : toBuy) {
-                Rs2GrandExchange.buyItem(pc.name, (int) (pc.cost * GE_PRICE_MARKUP_PERCENT / 100 + 1), 1);
-                sleepUntil(Rs2GrandExchange::isOpen, 3000);
-            }
-            sleepUntil(Rs2GrandExchange::hasFinishedBuyingOffers, 90_000);
-            Rs2GrandExchange.collectAllToInventory();
-            sleepUntil(() -> toBuy.stream().allMatch(pc -> Rs2Inventory.hasItem(pc.itemId)), 3000);
-            Rs2GrandExchange.closeExchange();
-            for (SplashGear.Piece pc : toBuy) {
-                if (Rs2Inventory.hasItem(pc.itemId)) continue;
-                missingSplashGear.add(pc.name);
-                Microbot.log("Could not buy " + pc.name + " on the GE (offer not filled).");
-            }
-        } else {
-            Rs2Bank.closeBank();
-        }
-
-        for (SplashGear.Piece pc : plan.pieces) {
-            if (!Rs2Inventory.hasItem(pc.itemId)) continue;
-            if (!Rs2Inventory.interact(pc.itemId, "Wear")) Rs2Inventory.interact(pc.itemId, "Wield");
-            sleepUntil(() -> Rs2Equipment.get(pc.itemId) != null, 3000);
-            if (Rs2Equipment.get(pc.itemId) == null) {
-                String msg = "Could not wear " + pc.name + ". AIO Magic stopped. Your worn items are in the bank."
-                        + " Check the item's requirements (e.g. Rune platebody needs Dragon Slayer I) or turn off 'Auto splash gear'.";
-                Microbot.log(msg);
-                Microbot.showMessage(msg);
-                shutdown();
-                return false;
-            }
-        }
-        if (Rs2Inventory.hasItem(staffId)) {
-            Rs2Inventory.interact(staffId, "Wield");
-            sleepUntil(() -> Rs2Equipment.get(staffId) != null, 3000);
-        }
-        StringBuilder worn = new StringBuilder();
-        for (Rs2ItemModel it : Rs2Equipment.items()) if (it != null) worn.append(it.getName()).append(", ");
-        Microbot.log("Splash gear worn: " + worn + "magic bonus now " + totalMagicBonus());
-        returnToStart();
-        return true;
     }
 
     private ItemEquipmentStats equipmentStats(int itemId) {
@@ -425,18 +208,13 @@ public class SplashScript extends Script {
         }
     }
 
-    private Map<Integer, ItemEquipmentStats> equipmentStats(List<Integer> itemIds, boolean skipMembersOnF2p) {
+    private Map<Integer, ItemEquipmentStats> equipmentStats(List<Integer> itemIds) {
         try {
             return Microbot.getClientThread().runOnClientThreadOptional(() -> {
                 Map<Integer, ItemEquipmentStats> out = new HashMap<>();
                 ItemManager im = Microbot.getItemManager();
-                boolean f2p = !Microbot.getClient().getWorldType().contains(WorldType.MEMBERS);
                 for (int id : itemIds) {
                     if (out.containsKey(id)) continue;
-                    if (skipMembersOnF2p && f2p) {
-                        ItemComposition comp = im.getItemComposition(id);
-                        if (comp != null && comp.isMembers()) continue;
-                    }
                     ItemStats stats = im.getItemStats(id);
                     if (stats != null && stats.getEquipment() != null) out.put(id, stats.getEquipment());
                 }
@@ -464,11 +242,6 @@ public class SplashScript extends Script {
 
     private static String gp(long amount) {
         return String.format("%,d gp", amount);
-    }
-
-    private static boolean isStaff(Rs2ItemModel item) {
-        return Rs2Staff.byItemId(item.getId()) != Rs2Staff.NONE
-                || (item.getName() != null && item.getName().toLowerCase(Locale.ROOT).contains("staff"));
     }
 
     private static String runeNames(Iterable<Runes> runes) {

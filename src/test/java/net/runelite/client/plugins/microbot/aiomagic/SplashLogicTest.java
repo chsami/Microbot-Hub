@@ -1,12 +1,10 @@
 package net.runelite.client.plugins.microbot.aiomagic;
 
-import net.runelite.client.plugins.microbot.aiomagic.scripts.SplashGear;
 import net.runelite.client.plugins.microbot.aiomagic.scripts.SplashLogic;
 import net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells;
 import net.runelite.client.plugins.microbot.util.magic.Runes;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -112,61 +110,5 @@ class SplashLogicTest {
         assertTrue(SplashLogic.isSafeDefaultNpc("Chicken", 1));
         assertFalse(SplashLogic.isSafeDefaultNpc("Chicken", 11));
         assertFalse(SplashLogic.isSafeDefaultNpc("Dark wizard", 7));
-    }
-
-    // ---- splash gear ----
-
-    private static SplashGear.Piece p(int slot, String n, int bonus, long cost, boolean owned) {
-        return new SplashGear.Piece(slot, n, n.hashCode(), bonus, cost, owned);
-    }
-
-    @Test
-    void gearPicksCheapestSetReachingTarget() {
-        List<SplashGear.Piece> c = new ArrayList<>();
-        c.add(p(SplashGear.HEAD, "Iron full helm", -6, 100, false));
-        c.add(p(SplashGear.BODY, "Iron platebody", -30, 300, false));
-        c.add(p(SplashGear.LEGS, "Iron platelegs", -21, 200, false));
-        c.add(p(SplashGear.SHIELD, "Iron kiteshield", -8, 150, false));
-        c.add(p(SplashGear.HEAD, "Rune full helm", -6, 9000, false));
-        c.add(p(SplashGear.CAPE, "Cheap cape", -2, 5, false));
-        SplashGear.Plan plan = SplashGear.select(c, 0, -65, false);
-        assertNotNull(plan);
-        assertEquals(-65, plan.bonus);
-        assertEquals(750, plan.cost);
-        assertEquals(4, plan.pieces.size());
-    }
-
-    @Test
-    void gearUsesOwnedPiecesFirstAndNeverPositive() {
-        List<SplashGear.Piece> c = new ArrayList<>();
-        c.add(p(SplashGear.BODY, "Owned platebody", -30, 0, true));
-        c.add(p(SplashGear.HEAD, "Iron full helm", -6, 100, false));
-        c.add(p(SplashGear.LEGS, "Iron platelegs", -21, 200, false));
-        c.add(p(SplashGear.SHIELD, "Iron kiteshield", -8, 150, false));
-        c.add(p(SplashGear.AMULET, "Amulet of magic", 10, 1, true));
-        SplashGear.Plan plan = SplashGear.select(c, 0, -65, false);
-        assertNotNull(plan);
-        assertEquals(450, plan.cost);
-        assertTrue(plan.pieces.stream().noneMatch(x -> x.bonus >= 0));
-    }
-
-    @Test
-    void gearUnreachableOrStaffBaseOrTwoHandedShield() {
-        List<SplashGear.Piece> c = new ArrayList<>();
-        c.add(p(SplashGear.HEAD, "Iron full helm", -6, 100, false));
-        c.add(p(SplashGear.BODY, "Iron platebody", -30, 300, false));
-        c.add(p(SplashGear.LEGS, "Iron platelegs", -21, 200, false));
-        c.add(p(SplashGear.SHIELD, "Iron kiteshield", -8, 150, false));
-        assertNull(SplashGear.select(c, 10, -65, false)); // staff +10 needs -75
-        assertNull(SplashGear.select(c, 0, -65, true));   // two-handed weapon blocks the shield
-        assertNull(SplashGear.select(new ArrayList<>(), 0, -65, false));
-    }
-
-    @Test
-    void gearMetalDefenceRequirements() {
-        assertTrue(SplashGear.metalWearable(1, 1));   // iron
-        assertFalse(SplashGear.metalWearable(2, 4));  // steel
-        assertTrue(SplashGear.metalWearable(6, 40));  // rune
-        assertEquals("Iron kiteshield", SplashGear.metalPieceName("Iron", "kiteshield"));
     }
 }

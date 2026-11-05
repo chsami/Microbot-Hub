@@ -29,8 +29,6 @@ public interface AIOMagicConfig extends Config {
 	String maxGpPerPurchase = "splashMaxGpPerPurchase";
 	String requireSplashBonus = "splashRequireMagicBonus";
 	String useElementalStaff = "splashUseElementalStaff";
-	String autoSplashGear = "splashAutoGear";
-	String buySplashGear = "splashBuyGear";
 
 	@ConfigSection(
 			name = "General Settings",
@@ -175,7 +173,7 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = maxGpPerPurchase,
 			name = "Max gp per purchase",
-			description = "Never spend more than this in total on one Grand Exchange trip for runes or splash gear",
+			description = "Never spend more than this in total on one Grand Exchange trip for runes",
 			position = 6,
 			section = splashSection
 	)
@@ -187,36 +185,12 @@ public interface AIOMagicConfig extends Config {
 			keyName = requireSplashBonus,
 			name = "Require -65 magic bonus",
 			description = "Stop if your equipment magic attack bonus is above -65 (you may hit instead of splash). Off = only warn."
-					+ " A staff for autocast adds +10 or more, so full metal armour (-65) with a staff is about -55: reaching -65 then"
-					+ " needs extra pieces with a magic penalty (e.g. d'hide vambraces or metal boots)",
+					+ " Wear metal armour (helm, platebody, platelegs, kiteshield) plus a piece with a magic penalty such as"
+					+ " green d'hide vambraces: metal armour plus a staff only reaches about -55",
 			position = 7,
 			section = splashSection
 	)
 	default boolean requireSplashBonus() {
-		return false;
-	}
-
-	@ConfigItem(
-			keyName = autoSplashGear,
-			name = "Auto splash gear",
-			description = "Before splashing, bank your worn items and wear only metal armour (owned, else bought) plus a staff for autocast until the magic attack bonus is -65 or lower."
-					+ " Owned pieces with a magic penalty (e.g. d'hide vambraces) are used too; if -65 cannot be reached your gear is left as it is,"
-					+ " or the script stops when 'Require -65 magic bonus' is on",
-			position = 8,
-			section = splashSection
-	)
-	default boolean autoSplashGear() {
-		return false;
-	}
-
-	@ConfigItem(
-			keyName = buySplashGear,
-			name = "Buy splash gear on the GE",
-			description = "Buy the cheapest metal armour pieces needed to reach -65 (spend capped by 'Max gp per purchase')",
-			position = 9,
-			section = splashSection
-	)
-	default boolean buySplashGear() {
 		return false;
 	}
 
