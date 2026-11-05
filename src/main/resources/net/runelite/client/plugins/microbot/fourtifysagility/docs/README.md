@@ -36,8 +36,9 @@ between obstacles.
 
 Course settings:
 
-- **Brimhaven Agility Arena**: **Voucher reward on exit** can spend
-  vouchers when you leave.
+- **Brimhaven Agility Arena**: **Voucher reward on exit** spends
+  carried vouchers at Pirate Jackie after the plugin leaves the arena.
+  It is only used when **Leave the arena** is on.
 - **Agility Pyramid**: **Turn in Pyramid tops** sets when tops are
   handed in.
 - **Seers Village**: **Use diary teleport** casts Camelot Teleport
@@ -49,6 +50,8 @@ Optional settings:
 
 - **Food item ID** and **Eat below (Hitpoints)**: carry that food,
   for example 385 for sharks.
-- **Use High Alchemy** and **Alchemy item ID**: carry the item and
-  the runes. The default item, 856, is a noted yew longbow.
+- **Use High Alchemy** and **Alchemy item ID**: casts High Level
+  Alchemy, or Low Level Alchemy below 55 Magic. Carry the item, nature
+  runes and fire runes or a fire staff; if any are missing, alching is
+  skipped. The default item, 856, is a noted yew longbow.
 - **Ignore marks of grace**: leave marks on the ground.

@@ -33,7 +33,7 @@ public interface AgilityConfig extends TimingConfig
     @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 80, closedByDefault = true)
     String timingSection = "advancedTiming";
 
-    @ConfigItem(keyName = "enableUI", name = "Show overlay", description = "Show runtime, course, status, and session progress while the plugin is enabled.", position = 0)
+    @ConfigItem(keyName = "enableUI", name = "Show overlay", description = "Show runtime, course, status and session progress. The status line is the only place the plugin explains why it is waiting, so keep it on if the plugin seems stuck.", position = 0)
     default boolean enableUI()
     {
         return true;
@@ -63,13 +63,13 @@ public interface AgilityConfig extends TimingConfig
         return PyramidTopTurnIn.EVERY_LAP;
     }
 
-    @ConfigItem(keyName = "brimhavenLeave", name = "Leave the arena", description = "Finish crossing the arena and climb the exit ladder. Turn this off to enter again.", position = 0, section = brimhavenSection)
+    @ConfigItem(keyName = "brimhavenLeave", name = "Leave the arena", description = "On: head to the exit ladder and leave the arena, then buy the Voucher reward if one is set. Off: keep tagging dispensers and re-enter after each visit.", position = 0, section = brimhavenSection)
     default boolean brimhavenLeave()
     {
         return false;
     }
 
-    @ConfigItem(keyName = "brimhavenVoucherReward", name = "Voucher reward on exit", description = "Buy the selected reward with carried vouchers after leaving. None leaves vouchers untouched.", position = 2, section = brimhavenSection)
+    @ConfigItem(keyName = "brimhavenVoucherReward", name = "Voucher reward on exit", description = "Spend carried vouchers on this reward at Pirate Jackie once the plugin has left the arena. Only used when Leave the arena is on. None keeps your vouchers.", position = 2, section = brimhavenSection)
     default BrimhavenVoucherReward brimhavenVoucherReward()
     {
         return BrimhavenVoucherReward.NONE;
@@ -87,13 +87,13 @@ public interface AgilityConfig extends TimingConfig
         return 5;
     }
 
-    @ConfigItem(keyName = "highAlch", name = "Use High Alchemy", description = "Cast alchemy on the configured item while moving. Carry the item and required runes.", position = 0, section = alchemySection)
+    @ConfigItem(keyName = "highAlch", name = "Use High Alchemy", description = "Cast High Level Alchemy on the configured item while moving, or Low Level Alchemy below 55 Magic. Carry the item, nature runes and fire runes or a fire staff. If any are missing, alching is skipped.", position = 0, section = alchemySection)
     default boolean highAlch()
     {
         return false;
     }
 
-    @ConfigItem(keyName = "alchId", name = "Alchemy item ID", description = "Item ID to cast High Level Alchemy on. The default, 856, is a noted yew longbow.", position = 1, section = alchemySection)
+    @ConfigItem(keyName = "alchId", name = "Alchemy item ID", description = "Item ID to alch, for example 856 for a noted yew longbow (the default).", position = 1, section = alchemySection)
     default int alchId()
     {
         return 856;
