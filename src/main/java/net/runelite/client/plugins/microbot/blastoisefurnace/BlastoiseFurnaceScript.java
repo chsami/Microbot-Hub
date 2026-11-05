@@ -350,8 +350,9 @@ public class BlastoiseFurnaceScript extends Script {
         sleep(500, 1200);
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen());
-        depositOre();
-        doOreRun(false, false);
+        if (depositOre()) {
+            doOreRun(false, false);
+        }
     }
 
     private void retrieveCoalAndGold() {
@@ -365,8 +366,9 @@ public class BlastoiseFurnaceScript extends Script {
         sleep(500, 1200);
         Rs2Bank.closeBank();
         sleepUntil(() -> !Rs2Bank.isOpen());
-        depositOre();
-        doOreRun(true, true);
+        if (depositOre()) {
+            doOreRun(true, true);
+        }
     }
 
     private void retrieveGold() {
@@ -374,8 +376,9 @@ public class BlastoiseFurnaceScript extends Script {
             Rs2Bank.withdrawAll(GOLD_ORE);
             return;
         }
-        depositOre();
-        doOreRun(true, true);
+        if (depositOre()) {
+            doOreRun(true, true);
+        }
     }
 
     private void doOreRun(boolean useIceGloves, boolean waitInventoryChange) {
@@ -553,6 +556,7 @@ public class BlastoiseFurnaceScript extends Script {
             log.error("No ore in Inventory");
             return false;
         }
+        Microbot.status = "Putting ore on conveyor belt";
         if (!Microbot.getRs2TileObjectCache().query().interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on")) {
             log.error("Failed to interact with conveyor belt");
             return false;
@@ -594,28 +598,33 @@ public class BlastoiseFurnaceScript extends Script {
         timerStarted = true;
     }
 
-    void depositOre() {
+    boolean depositOre() {
+        final boolean usesCoalBag = config.getBars().isRequiresCoalBag();
         if (!putOreOnConveyorBelt()) {
-            log.warn("Ore did not go onto the conveyor belt, keeping the coal bag for the next trip");
-            return;
+            log.warn(usesCoalBag
+                    ? "Ore did not go onto the conveyor belt. Leaving the coal bag full and trying again next trip."
+                    : "Ore did not go onto the conveyor belt. Trying again next trip.");
+            return false;
         }
-        if (config.getBars().isRequiresCoalBag()) {
+        if (usesCoalBag) {
             if (!Rs2Inventory.interact(COAL_BAGS, "Empty") || !Rs2Inventory.waitForInventoryChanges(3_000)) {
-                log.error("Failed to empty coal bag 1");
-                return;
+                log.warn("Coal bag did not empty. Trying again next trip.");
+                return true;
             }
             if (!putOreOnConveyorBelt()) {
-                return;
+                log.warn("Coal from the coal bag did not go onto the conveyor belt. Trying again next trip.");
+                return false;
             }
         }
-        if (config.getBars().isRequiresCoalBag() &&
+        if (usesCoalBag &&
                 (Rs2Inventory.hasItem(SMITHING_UNIFORM_GLOVES_ICE)
                         || Rs2Inventory.hasItem(GAUNTLETS_OF_GOLDSMITHING)
                         || Rs2Inventory.hasItem(ICE_GLOVES))) {
             if (Rs2Inventory.interact(COAL_BAGS, "Empty")) Rs2Inventory.waitForInventoryChanges(3_000);
-            else log.error("Failed to empty coal bag 2");
+            else log.warn("Coal bag did not empty a second time. Trying again next trip.");
             putOreOnConveyorBelt();
         }
+        return true;
     }
 
 

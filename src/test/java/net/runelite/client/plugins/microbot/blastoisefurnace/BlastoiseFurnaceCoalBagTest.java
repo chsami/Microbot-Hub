@@ -54,7 +54,7 @@ class BlastoiseFurnaceCoalBagTest {
     private final AtomicInteger ore = new AtomicInteger();
     private final AtomicInteger walkPolls = new AtomicInteger();
     private final AtomicBoolean belted = new AtomicBoolean();
-    private final AtomicBoolean beltAcceptsOre = new AtomicBoolean(true);
+    private final AtomicInteger beltAcceptsLoads = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicBoolean bagEmpties = new AtomicBoolean(true);
 
     @BeforeEach
@@ -82,7 +82,7 @@ class BlastoiseFurnaceCoalBagTest {
                 walkPolls.decrementAndGet();
                 return true;
             }
-            if (!belted.getAndSet(true) && beltAcceptsOre.get()) {
+            if (!belted.getAndSet(true) && beltAcceptsLoads.getAndDecrement() > 0) {
                 ore.set(0);
             }
             return false;
@@ -175,7 +175,7 @@ class BlastoiseFurnaceCoalBagTest {
     void waitsForAWalkLongerThanTheIdleTimeoutBeforeEmptyingTheCoalBag() {
         ore.set(27);
 
-        coalBagScript().depositOre();
+        assertTrue(coalBagScript().depositOre());
 
         verify(query, times(2)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
         inventory.verify(() -> Rs2Inventory.interact(BlastoiseFurnaceScript.COAL_BAGS, "Empty"), times(1));
@@ -185,7 +185,7 @@ class BlastoiseFurnaceCoalBagTest {
     @Test
     void reportsNoDepositWhenTheOreStaysInTheInventory() {
         ore.set(27);
-        beltAcceptsOre.set(false);
+        beltAcceptsLoads.set(0);
 
         assertFalse(coalBagScript().putOreOnConveyorBelt());
     }
@@ -193,9 +193,9 @@ class BlastoiseFurnaceCoalBagTest {
     @Test
     void keepsTheCoalBagFullWhenTheOreDoesNotGoOnTheBelt() {
         ore.set(27);
-        beltAcceptsOre.set(false);
+        beltAcceptsLoads.set(0);
 
-        coalBagScript().depositOre();
+        assertFalse(coalBagScript().depositOre());
 
         verify(query, times(1)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
         inventory.verify(() -> Rs2Inventory.interact(eq(BlastoiseFurnaceScript.COAL_BAGS), anyString()), never());
@@ -207,10 +207,43 @@ class BlastoiseFurnaceCoalBagTest {
         ore.set(27);
         bagEmpties.set(false);
 
-        coalBagScript().depositOre();
+        assertTrue(coalBagScript().depositOre());
 
         verify(query, times(1)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
         inventory.verify(() -> Rs2Inventory.interact(BlastoiseFurnaceScript.COAL_BAGS, "Empty"), times(1));
+        assertEquals(0, ore.get());
+    }
+
+    @Test
+    void reportsNoDepositWhenTheCoalFromTheBagStaysInTheInventory() {
+        ore.set(27);
+        beltAcceptsLoads.set(1);
+
+        assertFalse(coalBagScript().depositOre());
+
+        verify(query, times(2)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
+        assertEquals(27, ore.get());
+    }
+
+    @Test
+    void skipsTheCoalBagForBarsThatDoNotUseIt() {
+        ore.set(27);
+
+        assertTrue(script(Bars.GOLD_BAR).depositOre());
+
+        verify(query, times(1)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
+        inventory.verify(() -> Rs2Inventory.interact(eq(BlastoiseFurnaceScript.COAL_BAGS), anyString()), never());
+    }
+
+    @Test
+    void reportsNoDepositForBarsWithoutACoalBagWhenTheOreStaysInTheInventory() {
+        ore.set(27);
+        beltAcceptsLoads.set(0);
+
+        assertFalse(script(Bars.GOLD_BAR).depositOre());
+
+        inventory.verify(() -> Rs2Inventory.interact(eq(BlastoiseFurnaceScript.COAL_BAGS), anyString()), never());
+        assertEquals(27, ore.get());
     }
 
     private static BlastoiseFurnaceScript script() {
@@ -218,8 +251,12 @@ class BlastoiseFurnaceCoalBagTest {
     }
 
     private static BlastoiseFurnaceScript coalBagScript() {
+        return script(Bars.MITHRIL_BAR);
+    }
+
+    private static BlastoiseFurnaceScript script(Bars bar) {
         BlastoiseFurnaceConfig config = mock(BlastoiseFurnaceConfig.class);
-        when(config.getBars()).thenReturn(Bars.MITHRIL_BAR);
+        when(config.getBars()).thenReturn(bar);
         return new BlastoiseFurnaceScript(null, config);
     }
 }
