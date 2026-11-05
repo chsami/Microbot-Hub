@@ -30,7 +30,11 @@ import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectM
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.microbot.util.models.RS2Item;
+import net.runelite.client.plugins.microbot.util.npc.MonsterLocation;
 import net.runelite.client.plugins.microbot.util.npc.Rs2Npc;
+import net.runelite.client.plugins.microbot.util.npc.Rs2NpcManager;
+import net.runelite.api.Quest;
+import net.runelite.api.QuestState;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -63,6 +67,11 @@ public class ThievingScript extends Script {
     private final ThievingPlugin plugin;
 
     private WorldPoint startingLocation = null;
+    /** Where WALK_TO_NPC is heading; resolved once per trip (spawn-data lookups are not free). */
+    private WorldPoint travelTarget = null;
+    private boolean travelLookupFailed = false;
+    private int travelFailures = 0;
+    private static final int MAX_TRAVEL_FAILURES = 3;
     private String startingNpc = null;
     protected volatile boolean cleanNpc = false;
 
@@ -335,7 +344,9 @@ ThievingNpcStrategy getActiveStrategy() {
 
         if (Rs2Inventory.isFull()) return applyOverride(State.DROP);
 
-        if (isNpcNull(thievingNpc) && (thievingNpc = getThievingNpcCache()) == null && shouldHop()) return applyOverride(State.HOP);
+        if (isNpcNull(thievingNpc)) thievingNpc = getThievingNpcCache();
+        final State travelState = getTravelState();
+        if (travelState != null) return applyOverride(travelState);
 
         if (config.THIEVING_NPC() == ThievingNpc.VYRES) {
             final WorldPoint[] housePolygon = getVyreHouseOrReset(getNpcName(thievingNpc));
@@ -390,6 +401,189 @@ ThievingNpcStrategy getActiveStrategy() {
         return applyOverride(State.PICKPOCKET);
     }
 
+    /** True when the "Walk to NPC location" behaviour applies to the selected NPC. */
+    private boolean walkToNpcEnabled() {
+        return config.walkToNpc() && shouldHop() && config.THIEVING_NPC() != null;
+    }
+
+    private boolean isNpcNear() {
+        final Rs2NpcModel npc = thievingNpc;
+        if (isNpcNull(npc)) return false;
+        final WorldPoint me = Rs2Player.getWorldLocation();
+        final WorldPoint at = npc.getWorldLocation();
+        return me != null && at != null && me.distanceTo(at) <= ThievingTravel.TARGET_RADIUS;
+    }
+
+    /**
+     * Decides between thieving, travelling to the NPC area and hopping when the NPC is missing.
+     * Returns null to continue with the regular state logic.
+     */
+    private State getTravelState() {
+        final WorldPoint me = Rs2Player.getWorldLocation();
+        if (me == null) return null;
+        final boolean walk = walkToNpcEnabled();
+        final boolean npcNear = walk ? isNpcNear() : !isNpcNull(thievingNpc);
+        if (npcNear && startingLocation == null) {
+            startingLocation = me; // anchor where the NPC is within reach
+            log.debug("Set starting location to {}", me);
+        }
+        final WorldPoint target = walk && !npcNear ? resolveTravelTarget() : null;
+        final int dist = target == null ? Integer.MAX_VALUE : me.distanceTo(target);
+        final ThievingTravel.Decision decision = ThievingTravel.decide(npcNear, walk, shouldHop(), target != null, dist);
+        switch (decision) {
+            case WALK:
+                return State.WALK_TO_NPC;
+            case HOP:
+                return State.HOP;
+            case STOP:
+                if (ThievingTravel.anchorsInPlace(config.THIEVING_NPC())) {
+                    if (startingLocation == null) {
+                        startingLocation = me;
+                        log.debug("Set starting location to {}", me);
+                    }
+                    return State.HOP;
+                }
+                stopNoLocation(noLocationReason());
+                return State.IDLE;
+            default:
+                return null;
+        }
+    }
+
+    /** A visible NPC first, then the anchor, then the client's spawn data. */
+    private WorldPoint resolveTravelTarget() {
+        final Rs2NpcModel visible = thievingNpc;
+        if (!isNpcNull(visible) && visible.getWorldLocation() != null) return visible.getWorldLocation();
+        if (startingLocation != null) return startingLocation;
+        if (travelTarget != null) return travelTarget;
+        if (travelLookupFailed) return null;
+        final WorldPoint resolved = lookupNpcArea();
+        if (resolved == null) travelLookupFailed = true;
+        travelTarget = resolved;
+        return resolved;
+    }
+
+    private WorldPoint lookupNpcArea() {
+        final Rs2NpcModel npc = thievingNpc;
+        if (!isNpcNull(npc) && npc.getWorldLocation() != null) return npc.getWorldLocation();
+
+        final ThievingNpc selected = config.THIEVING_NPC();
+        switch (selected) {
+            case VYRES:
+                if (Rs2Player.getQuestState(Quest.SINS_OF_THE_FATHER) != QuestState.FINISHED) {
+                    log.warn("Vyre thieving needs Sins of the Father; not walking to Darkmeyer");
+                    return null;
+                }
+                return ThievingData.getAnyVyreHouseCenter();
+            case ELVES:
+                log.warn("No Prifddinas spawn data; stand in Prifddinas before starting");
+                return null;
+            case ARDOUGNE_KNIGHT:
+                if (config.ardougneAreaCheck()) return ThievingData.ARDOUGNE_AREA.toWorldPoint();
+                break;
+            default:
+                break;
+        }
+
+        final var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
+        final String highlightedName = highlighted.isEmpty() ? null : Microbot.getClientThread().runOnClientThreadOptional(() -> highlighted.keySet().stream()
+                .filter(n -> n != null && n.getName() != null)
+                .map(net.runelite.api.NPC::getName)
+                .findFirst()
+                .orElse(null)).orElse(null);
+        try {
+            Rs2NpcManager.loadJson();
+        } catch (Exception ex) {
+            log.warn("Could not load NPC spawn data", ex);
+            return null;
+        }
+        for (String name : ThievingTravel.locationNames(selected, highlightedName)) {
+            WorldPoint center = closestSafeCenter(name, 2);
+            if (center == null) center = closestSafeCenter(name, 1);
+            if (center != null) {
+                log.info("Thieving '{}' at {}", name, center);
+                return center;
+            }
+        }
+        return null;
+    }
+
+    /** Nearest spawn cluster centre with more than minClustering spawns, never in the Wilderness. */
+    private WorldPoint closestSafeCenter(String name, int minClustering) {
+        final java.util.List<WorldPoint> centers = new java.util.ArrayList<>();
+        for (MonsterLocation loc : Rs2NpcManager.getNpcLocations(name)) {
+            if (loc.getCoords().size() <= minClustering) continue;
+            final WorldPoint c = loc.getBestClusterCenter();
+            if (c == null) continue;
+            if (ThievingTravel.isWildernessLocation(loc.getLocationName(), c.getX(), c.getY(), c.getPlane())) {
+                log.debug("Skipping Wilderness location {} ({})", loc.getLocationName(), c);
+                continue;
+            }
+            centers.add(c);
+        }
+        if (centers.isEmpty()) return null;
+        final int idx = Rs2Walker.findNearestAccessibleTarget(centers, true);
+        return idx < 0 || idx >= centers.size() ? null : centers.get(idx);
+    }
+
+    private String noLocationReason() {
+        final ThievingNpc selected = config.THIEVING_NPC();
+        final String npcName = ThievingTravel.displayName(selected);
+        if (selected == ThievingNpc.VYRES && Rs2Player.getQuestState(Quest.SINS_OF_THE_FATHER) != QuestState.FINISHED) {
+            return "Vyre thieving needs the Sins of the Father quest. Finish it and start again.";
+        }
+        if (selected == ThievingNpc.NONE) {
+            return "No NPC selected. Pick one in \"NPC to Thieve\", or highlight it with NPC Indicators, and start again.";
+        }
+        if (selected == ThievingNpc.ELVES || selected == ThievingNpc.MASTER_FARMER) {
+            return "Can't walk to " + npcName + " automatically. Stand next to one and start again.";
+        }
+        return "Couldn't find a " + npcName + " spawn outside the Wilderness to walk to. Walk next to one yourself and start again.";
+    }
+
+    private void stopNoLocation(String reason) {
+        log.warn("Thieving stopped: {}", reason);
+        Microbot.status = "Stopped: " + reason;
+        Microbot.showMessage(reason);
+        Microbot.stopPlugin(plugin);
+    }
+
+    private void walkToNpcArea() {
+        final Rs2NpcModel visible = thievingNpc;
+        final boolean chasing = !isNpcNull(visible) && visible.getWorldLocation() != null;
+        final WorldPoint target = resolveTravelTarget();
+        if (target == null) {
+            if (ThievingTravel.anchorsInPlace(config.THIEVING_NPC())) return;
+            stopNoLocation(noLocationReason());
+            return;
+        }
+        if (config.THIEVING_NPC() == ThievingNpc.VYRES && !equip(ThievingData.VYRE_SET)) {
+            stopNoLocation("Vyre thieving needs the vyre noble outfit. Put it in your inventory and start again.");
+            return;
+        }
+        final String npcName = config.THIEVING_NPC() == ThievingNpc.NONE ? "highlighted NPC" : ThievingTravel.displayName(config.THIEVING_NPC());
+        final String visibleName = chasing ? getNpcName(visible) : null;
+        Microbot.status = chasing ? "Walking to nearest " + (visibleName != null ? visibleName : npcName) : "Walking to " + npcName + " area";
+        final boolean arrived = walkTo("Walk to NPC area", target, 3);
+        final WorldPoint me = Rs2Player.getWorldLocation();
+        if (me != null && me.distanceTo(target) <= ThievingTravel.TARGET_RADIUS) {
+            if (startingLocation == null) {
+                startingLocation = me;
+                log.debug("Anchored starting location at {}", me);
+            }
+            travelTarget = null;
+            thievingNpc = null;
+            travelFailures = 0;
+            return;
+        }
+        if (arrived) return;
+        travelFailures++;
+        log.warn("Walk to {} area failed ({}/{})", npcName, travelFailures, MAX_TRAVEL_FAILURES);
+        if (travelFailures >= MAX_TRAVEL_FAILURES) {
+            stopNoLocation("Couldn't reach the " + npcName + " area from here. Walk closer to one and start again.");
+        }
+    }
+
     protected boolean shouldRun() {
         if (!Microbot.isLoggedIn()) return false;
         return true;
@@ -437,7 +631,7 @@ ThievingNpcStrategy getActiveStrategy() {
             cleanNpc = false;
             thievingNpc = null;
         }
-        if (startingLocation == null) {
+        if (startingLocation == null && !walkToNpcEnabled()) {
             final WorldPoint loc = Rs2Player.getWorldLocation();
             if (loc != null) {
                 startingLocation = loc;
@@ -551,8 +745,12 @@ ThievingNpcStrategy getActiveStrategy() {
                     return;
                 }
                 if (startingLocation == null) {
-                    startingLocation = myLoc;
-                    log.debug("Set starting location to {}", myLoc);
+                    if (walkToNpcEnabled()) {
+                        thievingNpc = getThievingNpcCache();
+                    } else {
+                        startingLocation = myLoc;
+                        log.debug("Set starting location to {}", myLoc);
+                    }
                     return;
                 }
                 if (myLoc.distanceTo(startingLocation) <= 5) {
@@ -566,6 +764,9 @@ ThievingNpcStrategy getActiveStrategy() {
                     walkTo("Walk to start", startingLocation, 3);
                 }
                 Rs2Player.waitForWalking();
+                return;
+            case WALK_TO_NPC:
+                walkToNpcArea();
                 return;
             case SHADOW_VEIL:
                 castShadowVeil();
@@ -1086,6 +1287,10 @@ ThievingNpcStrategy getActiveStrategy() {
     }
 
     private void returnToStartAfterEscape() {
+        if (startingLocation == null) {
+            DOOR_TIMER.set();
+            return;
+        }
         if (walkTo("Walk to start", startingLocation, 3)) {
             sleepUntilWithInterrupt(() -> !Rs2Player.isMoving(), 1_200);
         }
@@ -1182,6 +1387,9 @@ ThievingNpcStrategy getActiveStrategy() {
         Rs2Walker.setTarget(null);
         Microbot.isCantReachTargetDetectionEnabled = false;
         startingLocation = null;
+        travelTarget = null;
+        travelLookupFailed = false;
+        travelFailures = 0;
         startingNpc = null;
     }
 }
