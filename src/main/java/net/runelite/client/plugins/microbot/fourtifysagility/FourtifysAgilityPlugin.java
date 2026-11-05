@@ -47,7 +47,8 @@ import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(name = "<html><font color=#f5dd42>Fourtifys Agility", configName = "fourtifyAgility",
                     description = "Agility course training", tags = {"fourtifys", "agility"}, enabledByDefault = false,
-                    authors = {"Fourtifys"}, version = FourtifysAgilityPlugin.VERSION, minClientVersion = "2.6.43", isExternal = true)
+                    authors = {"Fourtifys"}, version = FourtifysAgilityPlugin.VERSION, minClientVersion = "2.6.43", isExternal = true,
+                    iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysAgilityPlugin/assets/icon.png")
 public class FourtifysAgilityPlugin extends Plugin
 {
     public static final String VERSION = "1.0.0";
