@@ -4,6 +4,8 @@ import net.runelite.client.callback.ClientThread;
 
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.util.input.InputArbiter;
 
 /** Each plugin owns a separate lifecycle; generation checks reject stale callbacks. */
 public final class SessionLifecycle
@@ -44,6 +46,12 @@ public final class SessionLifecycle
     public boolean canDispatch(Client client)
     {
         return enabled && started && client.getGameState() == GameState.LOGGED_IN;
+    }
+
+    /** The Microbot pause control and Break Handler breaks set the pause flag; the player's own input counts too. */
+    public static boolean scriptsPaused()
+    {
+        return Microbot.pauseAllScripts.get() || InputArbiter.isHuman();
     }
 
     public int generation()

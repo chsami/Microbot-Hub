@@ -30,6 +30,7 @@ import net.runelite.api.QuestState;
 import net.runelite.api.Scene;
 import net.runelite.api.Skill;
 import net.runelite.api.Tile;
+import net.runelite.api.WorldType;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
@@ -280,21 +281,25 @@ public class GemMiningActions
 
     public String prerequisite(GemMine mine)
     {
+        if (!client.getWorldType().contains(WorldType.MEMBERS))
+        {
+            return "Shilo Village is members-only. Switch to a members world";
+        }
         if (client.getBoostedSkillLevel(Skill.MINING) < 40)
         {
-            return "Mining level 40 required";
+            return "Requires Mining level 40";
         }
         if (Quest.SHILO_VILLAGE.getState(client) != QuestState.FINISHED)
         {
-            return "Complete Shilo Village";
+            return "Requires the Shilo Village quest";
         }
         if (mine.isUnderground() && client.getVarbitValue(3599) < 2)
         {
-            return "Complete Medium Karamja Diary";
+            return "Underground mine needs the medium Karamja Diary. Set Mine to Surface or complete the diary";
         }
         if (!hasPickaxe())
         {
-            return "Bring a usable pickaxe";
+            return "Wear or carry a pickaxe you can use";
         }
         return null;
     }
@@ -428,7 +433,19 @@ public class GemMiningActions
 
     public boolean bankingOpen()
     {
-        return Rs2DepositBox.isOpen() || Rs2Bank.isOpen();
+        // Rs2Bank.isOpen() enters a bank PIN itself, and its waits cannot work on the client thread.
+        return Rs2DepositBox.isOpen() || Rs2Widget.isWidgetVisible(12, 1);
+    }
+
+    public boolean bankPinOpen()
+    {
+        return Rs2Bank.isBankPinWidgetVisible();
+    }
+
+    /** Enters the PIN saved in the Microbot profile from the action worker. */
+    public boolean enterBankPin()
+    {
+        return request(this::bankPinOpen, Rs2Bank::handleBankPin, null);
     }
 
     public boolean bankInRange(GemMine mine)

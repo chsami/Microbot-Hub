@@ -128,7 +128,7 @@ public final class GemBagTask implements FourtifysTask
     {
         if (paused)
         {
-            return "Gem bag action failed. Disable and enable to retry";
+            return "The gem bag did not open or fill after three tries. Disable and enable to retry";
         }
         int tick = plugin.getTick();
         if (waiting != Waiting.NONE)
@@ -155,7 +155,7 @@ public final class GemBagTask implements FourtifysTask
                 if (attempts >= 3)
                 {
                     paused = true;
-                    return "Gem bag action failed. Disable and enable to retry";
+                    return "The gem bag did not open or fill after three tries. Disable and enable to retry";
                 }
             }
         }
@@ -181,7 +181,7 @@ public final class GemBagTask implements FourtifysTask
         if (plugin.getTick() >= controlsDeadline)
         {
             paused = true;
-            return "Gem bag controls unavailable. Disable and enable to retry";
+            return "The gem bag shows no Open or Fill option. Keep it in your inventory, then disable and enable to retry";
         }
         if (!actions.inventoryBagAction(option, () -> await(action)))
         {

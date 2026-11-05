@@ -75,12 +75,12 @@ public class Walking
         }
         if (!backend.isClientThread())
         {
-            return fail("Walking decisions require the client thread");
+            return fail("walking could not start");
         }
         WorldPoint position = backend.position();
         if (target == null || position == null)
         {
-            return fail("Walking requires an alive logged-in player");
+            return fail("you logged out or died");
         }
         if (!Objects.equals(destination, target))
         {
@@ -107,7 +107,7 @@ public class Walking
         }
         if (now - lastProgressAt >= TIMEOUT_MS)
         {
-            return fail("Walking timed out without movement");
+            return fail("walking timed out after " + TIMEOUT_MS / 1000 + " seconds without moving");
         }
         state = State.WALKING;
         if (operation != null)
@@ -146,7 +146,7 @@ public class Walking
         }
         catch (RuntimeException failure)
         {
-            return fail("Walking worker is unavailable");
+            return fail("walking could not start");
         }
         return state;
     }
@@ -200,9 +200,9 @@ public class Walking
     {
         if (result == WalkerState.UNREACHABLE)
         {
-            return "No walkable route to the destination";
+            return "Microbot found no walkable route";
         }
-        return result == WalkerState.EXIT ? "Microbot walker could not run" : null;
+        return result == WalkerState.EXIT ? "the Microbot walker could not run" : null;
     }
 
     private State fail(String reason)
@@ -414,7 +414,7 @@ public class Walking
         @Override
         public synchronized String cancellationFailure()
         {
-            return cleanup.isCompletedExceptionally() ? "Microbot could not stop travel" : null;
+            return cleanup.isCompletedExceptionally() ? "Microbot could not stop walking" : null;
         }
 
         @Override

@@ -111,7 +111,7 @@ public final class GemTripTask implements FourtifysTask
         WorldPoint point = player == null ? null : player.getWorldLocation();
         if (point == null)
         {
-            fail("Mining trip interrupted without a player position");
+            fail("Lost track of your position. Disable and enable to retry");
             return;
         }
         String missing = actions.prerequisite(config.mine());
@@ -127,14 +127,13 @@ public final class GemTripTask implements FourtifysTask
             // The normal walker may open an intermediate bank for the user's selected transports.
             if (phase == Phase.TO_BANK && !actions.bankInRange(config.mine()))
             {
-                walk(bankDestination(), "Walking to " + bankName());
+                walk(bankDestination(), bankName());
                 return;
             }
             if (phase == Phase.TO_MINE && actions.nearestRock(config.mine()) == null)
             {
                 WorldPoint rock = actions.rockDestination(config.mine());
-                walk(rock == null ? config.mine().getMineDestination() : rock,
-                    "Walking to " + config.mine().getDisplayName());
+                walk(rock == null ? config.mine().getMineDestination() : rock, config.mine().getPlaceName());
                 return;
             }
         }
@@ -175,7 +174,7 @@ public final class GemTripTask implements FourtifysTask
             }
             else
             {
-                walk(bankDestination(), "Walking to " + bankName());
+                walk(bankDestination(), bankName());
                 return;
             }
         }
@@ -191,7 +190,7 @@ public final class GemTripTask implements FourtifysTask
                 && !actions.bankInRange(config.mine()))
             {
                 phase = Phase.TO_BANK;
-                walk(bankDestination(), "Walking to " + bankName());
+                walk(bankDestination(), bankName());
                 return;
             }
             banking.isValid();
@@ -243,17 +242,17 @@ public final class GemTripTask implements FourtifysTask
                 plugin.setStatus(status);
                 return;
             }
-            walk(rock == null ? config.mine().getMineDestination() : rock,
-                "Walking to " + config.mine().getDisplayName());
+            walk(rock == null ? config.mine().getMineDestination() : rock, config.mine().getPlaceName());
         }
     }
 
-    private void walk(WorldPoint destination, String description)
+    private void walk(WorldPoint destination, String place)
     {
         Walking.State result = walking.walkTo(destination);
         if (result == Walking.State.FAILED)
         {
-            fail("Walking failed: " + walking.getFailureReason());
+            fail("Could not walk to " + place + ": " + walking.getFailureReason()
+                + ". Walk closer, then disable and enable to retry");
             return;
         }
         if (result == Walking.State.ARRIVED && phase == Phase.TO_BANK
@@ -265,7 +264,8 @@ public final class GemTripTask implements FourtifysTask
             }
             if (plugin.getTick() >= bankArrivalDeadline)
             {
-                fail("No eligible bank target at " + bankName());
+                fail("Found no banker or bank booth at " + bankName()
+                    + ". Walk into the bank, then disable and enable to retry");
                 return;
             }
             status = "Waiting for " + bankName();
@@ -273,7 +273,7 @@ public final class GemTripTask implements FourtifysTask
             return;
         }
         status = result == Walking.State.ARRIVED && phase == Phase.TO_MINE
-            ? "Waiting for gem rocks to respawn" : description;
+            ? "Waiting for gem rocks to respawn" : "Walking to " + place;
         plugin.setStatus(status);
     }
 
@@ -285,14 +285,14 @@ public final class GemTripTask implements FourtifysTask
 
     private String bankName()
     {
-        return config.mine().isUnderground() ? "the underground Bank deposit chest" : "Shilo Village bank";
+        return config.mine().isUnderground() ? "the bank deposit chest in the underground mine" : "Shilo Village bank";
     }
 
     private void fail(String reason)
     {
         walking.cancel();
         phase = Phase.FAILED;
-        status = reason + ". Disable and enable to retry";
+        status = reason;
         plugin.setStatus(status);
     }
 }

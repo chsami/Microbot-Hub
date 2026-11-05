@@ -7,7 +7,7 @@ import net.runelite.client.config.Range;
 
 public interface TimingConfig extends Config
 {
-    @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 10, closedByDefault = true)
+    @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 80, closedByDefault = true)
     String TIMING = "advancedTiming";
 
     @Range(min = 0, max = 10)

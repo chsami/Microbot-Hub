@@ -1,5 +1,7 @@
 package net.runelite.client.plugins.microbot.fourtifysgemmining;
 
+import net.runelite.client.plugins.microbot.PluginConstants;
+
 import com.google.inject.Provides;
 import java.time.Instant;
 import java.util.Random;
@@ -37,12 +39,14 @@ import net.runelite.client.plugins.microbot.fourtifysgemmining.util.timing.TickD
 import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(name = "<html><font color=#f5dd42>Fourtifys Gem Mining", configName = "fourtifyGemMining",
-                    description = "Mine Shilo Village gems with automatic banking", tags = {"fourtifys", "mining", "gems"}, enabledByDefault = false,
-                    authors = {"Fourtifys"}, version = FourtifysGemMiningPlugin.VERSION, minClientVersion = "2.6.43", isExternal = true,
+                    description = "Mine Shilo Village gems with automatic banking", tags = {"fourtifys", "mining", "gems"}, enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+                    authors = {"Fourtifys"}, version = FourtifysGemMiningPlugin.VERSION, minClientVersion = "2.6.43", isExternal = PluginConstants.IS_EXTERNAL,
                     iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysGemMiningPlugin/assets/icon.png")
 public class FourtifysGemMiningPlugin extends Plugin
 {
     public static final String VERSION = "1.0.0";
+    /** Ticks to let the player's own gem bag action land before the plugin checks the bag again. */
+    public static final int PLAYER_BAG_WAIT_TICKS = 3;
     @Inject private Client client;
     @Inject private ClientThread clientThread;
     @Inject private GemMiningConfig config;
@@ -85,6 +89,7 @@ public class FourtifysGemMiningPlugin extends Plugin
     Walking provideWalking(Client targetClient, ClientThread targetThread)
     {
         return new Walking(targetClient, targetThread, () -> lifecycle.isEnabled() && lifecycle.isStarted()
+            && !SessionLifecycle.scriptsPaused()
             && trip != null && trip.canTravel() && tickMine != null && config.mine() == tickMine
             && client.getItemContainer(93) != null && actions.prerequisite(tickMine) == null);
     }
@@ -267,7 +272,9 @@ public class FourtifysGemMiningPlugin extends Plugin
         }
         if (bagTransferPending)
         {
-            bagTransferPaused = true;
+            bagTransferBarrierSent = false;
+            bagTransferDeadline = tick + 8;
+            delay.set(PLAYER_BAG_WAIT_TICKS);
             actions.reset();
             return;
         }
@@ -292,6 +299,11 @@ public class FourtifysGemMiningPlugin extends Plugin
     {
         if (!lifecycle.canDispatch(client))
         {
+            return;
+        }
+        if (SessionLifecycle.scriptsPaused())
+        {
+            actions.reset();
             return;
         }
         Player player = client.getLocalPlayer();
@@ -331,6 +343,13 @@ public class FourtifysGemMiningPlugin extends Plugin
         if (!lifecycle.isEnabled() || client.getGameState() != GameState.LOGGED_IN || player == null)
         {
             walking.cancel();
+            return;
+        }
+        if (SessionLifecycle.scriptsPaused())
+        {
+            walking.cancel();
+            actions.reset();
+            status = "Paused";
             return;
         }
         if (!lifecycle.isStarted())
@@ -400,7 +419,8 @@ public class FourtifysGemMiningPlugin extends Plugin
             {
                 bagTransferPaused = true;
                 actions.reset();
-                status = "Gem bag transfer unconfirmed. Disable and enable to retry";
+                status = "You used the gem bag and its contents could not be confirmed. "
+                    + "Keep the bag in your inventory, then disable and enable to retry";
             }
             else if (bagTransferBarrierSent && actions.gemBagOpen() != bagTransferWasOpen)
             {
@@ -478,7 +498,7 @@ public class FourtifysGemMiningPlugin extends Plugin
             {
                 activeMine = null;
                 mining.reset();
-                status = "Walk closer to " + selected.getDisplayName();
+                status = "Walk closer to " + selected.getPlaceName();
                 return;
             }
             activeMine = selected;

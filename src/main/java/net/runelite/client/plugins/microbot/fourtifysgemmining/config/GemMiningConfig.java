@@ -12,10 +12,10 @@ public interface GemMiningConfig extends TimingConfig
 {
     String GROUP = "fourtifyGemMining";
 
-    @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 10, closedByDefault = true)
+    @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 80, closedByDefault = true)
     String TIMING = "advancedTiming";
 
-    @ConfigSection(name = "General", description = "Choose where to mine. Both locations use normal Microbot walking.", position = 20, closedByDefault = false)
+    @ConfigSection(name = "General", description = "Choose where to mine. The plugin walks between the mine and the bank with Microbot walking.", position = 20, closedByDefault = false)
     String GENERAL = "general";
 
     @ConfigItem(keyName = "showOverlay", name = "Show overlay", description = "Show runtime, mine, status and session gems.", position = 0)
@@ -24,7 +24,7 @@ public interface GemMiningConfig extends TimingConfig
         return true;
     }
 
-    @ConfigItem(keyName = "mine", name = "Mine", description = "Choose the mine. Walk to rocks and banking targets outside interaction range.", position = 0, section = GENERAL)
+    @ConfigItem(keyName = "mine", name = "Mine", description = "Surface: the 7 gem rocks in Shilo Village, banked at Shilo Village bank. Underground: the 48 gem rocks below, banked at the bank deposit chest in the mine; needs the medium Karamja Diary.", position = 0, section = GENERAL)
     default GemMine mine()
     {
         return GemMine.SURFACE;
