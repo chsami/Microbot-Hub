@@ -2,9 +2,11 @@ package net.runelite.client.plugins.microbot.mke_wintertodt;
 
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.mke_wintertodt.startup.location.WintertodtLocationManager;
+import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
@@ -16,15 +18,34 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
 class WintertodtBankingExitTest {
 
+    private Object previousConfig;
+    private String previousStatus;
+
+    @BeforeEach
+    void installConfig() throws Exception {
+        previousConfig = staticField("config");
+        previousStatus = Microbot.status;
+        MKE_WintertodtConfig config = mock(MKE_WintertodtConfig.class);
+        when(config.food()).thenReturn(Rs2Food.SALMON);
+        when(config.eatAtWarmthLevel()).thenReturn(45);
+        setStaticField("config", config);
+    }
+
     @AfterEach
-    void resetWaitingFlag() throws Exception {
+    void restoreState() throws Exception {
         setStaticField("waitingForRoundEnd", false);
+        setStaticField("config", previousConfig);
+        Microbot.status = previousStatus;
     }
 
     @Test
@@ -38,17 +59,26 @@ class WintertodtBankingExitTest {
             location.when(WintertodtLocationManager::isInsideGameRoom).thenReturn(true);
             location.when(() -> WintertodtLocationManager.attemptLeaveWintertodt(anyBoolean())).thenReturn(false);
 
-            handleBankingState(script, gameState(true));
+            Object state = gameState(true, 20);
+            for (int i = 0; i < 3; i++) {
+                handleBankingState(script, state);
+            }
 
-            location.verify(() -> WintertodtLocationManager.attemptLeaveWintertodt(false), times(1));
+            location.verify(() -> WintertodtLocationManager.attemptLeaveWintertodt(false), times(3));
             location.verify(() -> WintertodtLocationManager.attemptLeaveWintertodt(true), never());
             assertFalse((Boolean) staticField("waitingForRoundEnd"));
-            assertEquals(1, field(script, "consecutiveExitFailures"));
+            assertEquals(3, field(script, "consecutiveExitFailures"));
+            microbot.verify(() -> Microbot.log(
+                    "Out of Salmon and warmth is 20% (at or below your Consume at Warmth Level of 45). "
+                            + "Leaving now to stay alive, so this round's 650 points are lost. "
+                            + "Raise Healing Items Per Trip to avoid this."), times(1));
+            microbot.verify(() -> Microbot.log("Leaving Wintertodt (step 3)..."), times(1));
+            assertEquals("Leaving to restock food (low warmth)", Microbot.status);
         }
     }
 
     @Test
-    void waitingForRoundEndIsNotCountedAsAnExitFailure() throws Exception {
+    void waitingForRoundEndIsNotCountedAsAnExitFailureAndLogsOnce() throws Exception {
         MKE_WintertodtScript script = new MKE_WintertodtScript();
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
@@ -58,7 +88,7 @@ class WintertodtBankingExitTest {
             location.when(WintertodtLocationManager::isInsideGameRoom).thenReturn(true);
             location.when(() -> WintertodtLocationManager.attemptLeaveWintertodt(anyBoolean())).thenReturn(false);
 
-            Object state = gameState(false);
+            Object state = gameState(false, 80);
             for (int i = 0; i < 25; i++) {
                 handleBankingState(script, state);
             }
@@ -67,17 +97,25 @@ class WintertodtBankingExitTest {
             assertTrue((Boolean) staticField("waitingForRoundEnd"));
             assertEquals(0, field(script, "consecutiveExitFailures"));
             player.verify(Rs2Player::logout, never());
+            microbot.verify(() -> Microbot.log(anyString()), times(1));
+            microbot.verify(() -> Microbot.log(
+                    "Have 650 points - waiting at the door until the round ends to collect rewards"), times(1));
+            microbot.verify(() -> Microbot.log(contains("Out of")), never());
+            assertEquals("Waiting at door for round end (650 points)", Microbot.status);
         }
     }
 
-    private static Object gameState(boolean lowAndOutOfFood) throws Exception {
+    private static Object gameState(boolean lowAndOutOfFood, int warmth) throws Exception {
         Class<?> type = Class.forName(MKE_WintertodtScript.class.getName() + "$GameState");
         Constructor<?> constructor = type.getDeclaredConstructor();
         constructor.setAccessible(true);
         Object state = constructor.newInstance();
-        Field field = type.getDeclaredField("lowAndOutOfFood");
-        field.setAccessible(true);
-        field.set(state, lowAndOutOfFood);
+        Field food = type.getDeclaredField("lowAndOutOfFood");
+        food.setAccessible(true);
+        food.set(state, lowAndOutOfFood);
+        Field playerWarmth = type.getDeclaredField("playerWarmth");
+        playerWarmth.setAccessible(true);
+        playerWarmth.set(state, warmth);
         return state;
     }
 

@@ -123,7 +123,6 @@ public class WintertodtLocationManager {
         /* NEW: Check points before leaving - wait for rewards if we have enough */
         int currentPoints = getWintertodtPoints();
         if (waitForRoundEnd && currentPoints >= 500) {
-            Microbot.log("Have " + currentPoints + " points - waiting near door for round to end naturally");
             // Just wait here - don't interact with door yet
             return false;
         }
