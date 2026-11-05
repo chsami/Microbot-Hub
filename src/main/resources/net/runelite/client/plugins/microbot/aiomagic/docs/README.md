@@ -141,6 +141,6 @@ The plugin provides a comprehensive configuration panel (`AIOMagicConfig`) where
 ## Splashing (v1.3.0)
 
 - **Splash spell**: by default the "Combat Spell" setting is used. Set it to Auto to pick the highest standard-book combat spell your Magic level and runes allow and upgrade on level-up.
-- **Runes**: restocks from the bank (`Casts per trip`, default 1000; 0 = never bank); optional GE buying (off by default) capped by `Max gp per purchase`; wields an owned elemental staff when it keeps you at -65 or lower. If a restock fails the script stops and names the missing runes.
+- **Runes**: restocks from the bank once your runes run out (`Casts per trip`, default 1000; 0 = never bank); optional GE buying (off by default) capped by `Max gp per purchase`; wields an owned elemental staff when it keeps you at -65 or lower. If a restock fails the script stops and names the missing runes.
 - **Auto splash gear** (off by default): banks your worn items and wears a staff for autocast plus only metal armour (owned first, else the cheapest pieces bought on the GE if `Buy splash gear on the GE` is on) until the magic attack bonus is -65 or lower. `Require -65 magic bonus` stops the script if that cannot be reached.
-- **AFK**: re-attacks every 15-19 minutes, re-targets NPCs further than 10 tiles, returns if drifted over 8 tiles. With no NPC name set it picks the nearest safe low-level NPC (chicken, rat, man, ...).
+- **AFK**: re-attacks every 15-19 minutes, re-targets auto-picked NPCs further than 10 tiles, returns if drifted over 8 tiles. With no NPC name set it picks the nearest safe low-level NPC (chicken, rat, man, ...).

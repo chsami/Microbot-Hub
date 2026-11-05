@@ -58,6 +58,14 @@ public final class SplashGear {
         return metal + " " + piece;
     }
 
+    public static int defenceRequirement(String itemName) {
+        if (itemName == null || itemName.contains("d'hide")) return 0;
+        for (int m = 0; m < METALS.length; m++) {
+            if (itemName.startsWith(METALS[m] + " ")) return METAL_DEFENCE[m];
+        }
+        return 0;
+    }
+
     public static boolean metalWearable(int metalIndex, int defenceLevel) {
         return defenceLevel >= METAL_DEFENCE[metalIndex];
     }

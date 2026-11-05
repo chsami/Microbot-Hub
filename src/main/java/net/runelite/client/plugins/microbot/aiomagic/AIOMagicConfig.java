@@ -142,7 +142,7 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = castsPerTrip,
 			name = "Casts per trip",
-			description = "How many casts' worth of runes to withdraw when restocking at the bank. 0 = never bank (the script stops when runes run out)",
+			description = "How many casts' worth of runes to withdraw at the bank once your runes run out. 0 = never bank (the script stops when runes run out)",
 			position = 3,
 			section = splashSection
 	)
@@ -153,7 +153,7 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = useElementalStaff,
 			name = "Use elemental staff",
-			description = "Wield an owned elemental staff to save runes (only if it keeps you splash-safe)",
+			description = "Wield an owned elemental staff to save runes; your staff may be swapped for it at the bank (only if it keeps you splash-safe)",
 			position = 4,
 			section = splashSection
 	)
@@ -175,7 +175,7 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = maxGpPerPurchase,
 			name = "Max gp per purchase",
-			description = "Never spend more than this on one GE purchase of runes or splash gear",
+			description = "Never spend more than this in total on one Grand Exchange trip for runes or splash gear",
 			position = 6,
 			section = splashSection
 	)
