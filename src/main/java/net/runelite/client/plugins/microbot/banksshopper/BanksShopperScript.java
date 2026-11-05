@@ -290,9 +290,7 @@ public class BanksShopperScript extends Script {
 
             CompletableFuture<Void> walkFuture = CompletableFuture.runAsync(
                     () -> Rs2Walker.walkTo(walkTarget, 4));
-            sleepUntil(() -> Rs2Shop.getNearestShopNpc(plugin.getNpcName(), plugin.isUseExactNaming()) != null
-                            || Rs2Player.getWorldLocation().distanceTo(walkTarget) <= 4,
-                    30_000);
+            sleepUntil(() -> isShopNpcInSceneOrArrived(walkTarget), 30_000);
             Rs2Walker.clearWalkingRoute("banksshopper:shop-npc-in-range");
             try {
                 walkFuture.get(2, TimeUnit.SECONDS);
@@ -306,6 +304,12 @@ public class BanksShopperScript extends Script {
         Rs2Npc.interact(npc, "Trade");
         sleepUntil(Rs2Shop::isOpen, 5000);
         return Rs2Shop.isOpen();
+    }
+
+    private boolean isShopNpcInSceneOrArrived(WorldPoint walkTarget) {
+        if (Rs2Shop.getNearestShopNpc(plugin.getNpcName(), plugin.isUseExactNaming()) != null) return true;
+        WorldPoint here = Rs2Player.getWorldLocation();
+        return here != null && here.distanceTo(walkTarget) <= 4;
     }
 
     /**
