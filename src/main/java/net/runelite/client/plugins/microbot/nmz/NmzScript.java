@@ -30,8 +30,6 @@ import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
-import net.runelite.client.plugins.microbot.util.security.Encryption;
-import net.runelite.client.plugins.microbot.util.security.LoginManager;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
@@ -165,7 +163,7 @@ public class NmzScript extends Script {
             final String absorption = "Absorption (4)";
             storePotions(ObjectID.NZONE_BARREL_3, "overload", config.overloadPotionAmount());
             storePotions(ObjectID.NZONE_BARREL_4, "absorption", config.absorptionPotionAmount());
-            handleStore();
+            if (!handleStore()) return;
             fetchOverloadPotions(ObjectID.NZONE_BARREL_3, overload, config.overloadPotionAmount());
             if (Rs2Inventory.hasItemAmount(overload, config.overloadPotionAmount())) {
                 fetchPotions(ObjectID.NZONE_BARREL_4, absorption, config.absorptionPotionAmount());
@@ -402,8 +400,8 @@ public class NmzScript extends Script {
         sleep(2000, 4000);
     }
 
-    public void handleStore() {
-        if (canStartNmz()) return;
+    public boolean handleStore() {
+        if (canStartNmz()) return true;
         int overloadAmt = Microbot.getVarbitValue(VarbitID.NZONE_POTION_3);
         int absorptionAmt = Microbot.getVarbitValue(VarbitID.NZONE_POTION_4);
 
@@ -411,7 +409,7 @@ public class NmzScript extends Script {
         int overloadDosesNeeded = Math.max(0, config.overloadPotionAmount() * 4 - overloadAmt);
         int absorptionDosesNeeded = Math.max(0, config.absorptionPotionAmount() * 4 - absorptionAmt);
 
-        if (overloadDosesNeeded == 0 && absorptionDosesNeeded == 0) return;
+        if (overloadDosesNeeded == 0 && absorptionDosesNeeded == 0) return true;
 
         // Each shop purchase gives one 4-dose potion (ceiling division)
         int overloadToBuy = (overloadDosesNeeded + 3) / 4;
@@ -424,24 +422,17 @@ public class NmzScript extends Script {
         if (nmzPoints < totalCost) {
             Microbot.showMessage("BOT SHUTDOWN: Not enough points to buy potions (have " + nmzPoints + ", need " + totalCost + ")");
             Microbot.stopPlugin(plugin);
-            return;
+            return false;
         }
 
         Rs2TileObjectModel chest = tileObjectCache.query().withId(ObjectID.NZONE_LOBBY_CHEST).nearest();
-        if (chest == null) return;
+        if (chest == null) return true;
         chest.click();
         sleepUntil(() -> Rs2Widget.isWidgetVisible(13500418) || Rs2Bank.isBankPinWidgetVisible(), 10000);
-        if (Rs2Bank.isBankPinWidgetVisible()) {
-            try {
-                Rs2Bank.handleBankPin(Encryption.decrypt(LoginManager.getActiveProfile().getBankPin()));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            sleepUntil(() -> Rs2Widget.isWidgetVisible(13500418), 10000);
-        }
+        if (!handleRewardChestBankPin()) return false;
 
         Widget benefitsBtn = Rs2Widget.getWidget(13500418);
-        if (benefitsBtn == null) return;
+        if (benefitsBtn == null) return true;
         if (benefitsBtn.getSpriteId() != 813) {
             Rs2Widget.clickWidgetFast(benefitsBtn, 4, 4);
             sleepUntil(() -> {
@@ -467,6 +458,23 @@ public class NmzScript extends Script {
             Rs2Widget.clickWidgetFast(potionButton, 9, 4);
             sleep(600, 1000);
         }
+        return true;
+    }
+
+    boolean handleRewardChestBankPin() {
+        if (!Rs2Bank.isBankPinWidgetVisible()) return true;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            if (Rs2Bank.handleBankPin() || !Rs2Bank.isBankPinWidgetVisible()) {
+                sleepUntil(() -> Rs2Widget.isWidgetVisible(13500418), 10000);
+                return true;
+            }
+        }
+        Microbot.showMessage("BOT SHUTDOWN: Could not enter your bank PIN at the NMZ reward chest.\n"
+                + "NMZ potions were not bought.\n\n"
+                + "Check that the Bank PIN field in your Microbot profile holds your 4-digit PIN,\n"
+                + "or enter the PIN yourself and start the script again.");
+        Microbot.stopPlugin(plugin);
+        return false;
     }
 
 }

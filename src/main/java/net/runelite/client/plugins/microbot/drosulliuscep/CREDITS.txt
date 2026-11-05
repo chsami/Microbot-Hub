@@ -1,0 +1,17 @@
+DRO SULLIUSCEP - CREDITS
+
+DRO (droplugins): creator, author and maintainer of DroSulliuscep;
+route recording, gameplay strategy, testing, review and release decisions.
+
+The bundled BaseProfileDro, DroDrop and DroOverlayDropdown classes are also
+DRO's work, shared across DRO plugins.
+
+Reuse and attribution
+---------------------
+DRO distributes this plugin free of charge and as open source under the
+BSD-2-Clause terms in LICENSE.txt. You may use, modify and redistribute it,
+but every redistribution of the source (including copied files, partial
+excerpts and forks) must keep the copyright line, the author credit naming
+DRO (droplugins), and the license text. Binary redistributions must
+reproduce the same notices in their documentation. Removing or replacing the
+author credit is not permitted by the license.

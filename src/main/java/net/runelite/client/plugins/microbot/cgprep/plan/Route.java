@@ -134,6 +134,51 @@ public final class Route
 		return ring(entry, new int[]{-d[0], -d[1]});
 	}
 
+	/** Is (x, z) one of the three outer-ring rooms the red route peeks into? */
+	public static boolean isPeek(int sx, int sz, int x, int z)
+	{
+		for (Step st : red(sx, sz, 1))
+		{
+			if (st.kind == Kind.PEEK && st.x == x && st.z == z)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The outer-ring lap after the peeked demi-bosses are dead (user, 1.8.0): from the room of the
+	 * last one killed, carrying on along the ring on its side (the -p peek goes -p, the +p one
+	 * +p); from the middle peek, {@code middleSign}. Null when that room isn't a peeked one (the
+	 * blue path + green lap then).
+	 */
+	public static List<int[]> fromPeek(int sx, int sz, List<int[]> killRooms, int middleSign)
+	{
+		// The last kill in a peeked room (a kill later on the lap doesn't change the lap).
+		int[] killRoom = null;
+		for (int i = killRooms == null ? -1 : killRooms.size() - 1; i >= 0; i--)
+		{
+			int[] r = killRooms.get(i);
+			if (isPeek(sx, sz, r[0], r[1]))
+			{
+				killRoom = r;
+				break;
+			}
+		}
+		if (killRoom == null)
+		{
+			return null;
+		}
+		int sign = sideOf(sx, sz, killRoom[0], killRoom[1]);
+		if (sign == 0)
+		{
+			sign = middleSign < 0 ? -1 : 1;
+		}
+		int[] p = side(sx, sz);
+		return ring(killRoom, new int[]{sign * p[0], sign * p[1]});
+	}
+
 	/** Outer ring, one way round: (0,0)..(6,0), (6,1)..(6,6), (5,6)..(0,6), (0,5)..(0,1). */
 	static List<int[]> perimeter()
 	{

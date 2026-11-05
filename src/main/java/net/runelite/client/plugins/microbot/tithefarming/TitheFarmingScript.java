@@ -165,6 +165,10 @@ public class TitheFarmingScript extends Script {
                         new TitheFarmPlant(55, 49, 18)));
                 break;
         }
+
+        if (config.use16Plants()) {
+            plants = TitheFarmPlantLimits.apply16PlantLimit(plants, lane);
+        }
     }
 
 

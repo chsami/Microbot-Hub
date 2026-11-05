@@ -12,6 +12,7 @@ The **Thieving Plugin** provides an automated way to steal from NPCs around OSRS
 |---------------------------------|----------------------------------------------------------------------------------|
 | **NPC to Thieve**               | Choose a NPC to thieve from the list or mark one using the NPC indicator plugin. |
 | **Ardy Knight Bank Area Check** | Require Ardougne Knight to be in the Ardougne bank area.                         |
+| **Walk to NPC location**        | On by default. If no matching NPC is within 15 tiles, walk to the nearest spawn area of the selected NPC (Wilderness spawn areas are skipped) and only hop worlds once there. Vyres walk to Darkmeyer and equip the vyre noble outfit. None, Elves and Master Farmer only walk to one you can see. Wealthy citizen never walks. |
 | **Shadow Veil**                 | Enable automatic casting of Shadow Veil.                                         |
 | **Escape Attacking NPCs**       | Whether the bot should run away if its being attacked                            |
 | **Custom Escape Location**      | Where the bot should run to if its attack. Format: digitX,digitY,digitZ          |
@@ -36,7 +37,7 @@ The **Thieving Plugin** provides an automated way to steal from NPCs around OSRS
 
 ## How It Works
 1. Change the settings to your liking food amount, casting shadow veil, etc.
-2. Go to the NPC you want to steal from and either select it in the dropdown list from "NPC to Thieve" or mark it using the NPC Indicator plugin.
+2. Select the NPC in the dropdown list from "NPC to Thieve", or mark it using the NPC Indicator plugin. With "Walk to NPC location" on, the plugin walks to the nearest spawn area of the selected NPC for you. For None (marked NPCs), Elves, Master Farmer and Wealthy citizen, or with the option off, go to the NPC yourself first.
 3. Activate the plugin.
 4. Enjoy.
 

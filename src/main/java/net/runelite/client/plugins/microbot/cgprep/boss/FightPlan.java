@@ -20,6 +20,10 @@ public final class FightPlan
 	public int moveY = -1;
 	/** The move is an escape: staying put risks damage in the next 2 ticks (it goes before anything but prayer). */
 	public boolean urgent;
+	/** Ticks the protection click can still wait and be up in time (0 = this tick). */
+	public int protectSlack;
+	/** Send the (urgent) move before the protection prayer: the prayer can wait a tick. */
+	public boolean moveFirst;
 	/** Click Attack on the boss (we're standing and not attacking yet). */
 	public boolean attack;
 	/** Planner's expected cost (for logs). */

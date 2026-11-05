@@ -192,6 +192,7 @@ public final class GauntletMaze implements net.runelite.client.plugins.microbot.
 		lastFoundCount = -1;
 		demiBosses.clear();
 		demiBossKilled.clear();
+		demiKillRooms.clear();
 		roomX = -1;
 		roomZ = -1;
 		startRoomX = -1;
@@ -370,6 +371,36 @@ public final class GauntletMaze implements net.runelite.client.plugins.microbot.
 	{
 		demiBossKilled.put(m, true);
 		demiBosses.remove(m);
+	}
+
+	/** Rooms {x, z} of this run's demi-boss kills, oldest first (1.8.0: where the ring lap starts). */
+	private final java.util.List<int[]> demiKillRooms = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+	/** A demi-boss died at {@code at} (raw; null = where we stand). */
+	public void markKilled(Monster m, WorldPoint at)
+	{
+		markKilled(m);
+		int[] cell = at != null ? grid.roomOf(at) : null;
+		if (cell == null && roomX >= 0)
+		{
+			cell = new int[]{roomX, roomZ};
+		}
+		if (cell != null)
+		{
+			demiKillRooms.add(new int[]{cell[0], cell[1]});
+		}
+	}
+
+	/** Rooms of this run's demi-boss kills, oldest first. */
+	public java.util.List<int[]> demiKillRooms()
+	{
+		return demiKillRooms;
+	}
+
+	/** Replay / sim: a demi-boss kill in this room. */
+	public void addDemiKillRoom(int x, int z)
+	{
+		demiKillRooms.add(new int[]{x, z});
 	}
 
 	public boolean isKilled(Monster m)

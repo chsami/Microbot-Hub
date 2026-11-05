@@ -90,12 +90,14 @@ public interface CgPrepConfig extends Config
 	}
 
 	@Range(min = 0, max = 6)
-	@ConfigItem(keyName = "potionTarget", name = "Egniol potions",
-		description = "How many Egniol potions to brew each run (one grym leaf each).",
+	@ConfigItem(keyName = "potionsBrewed", name = "Egniol potions",
+		description = "Egniol potions to brew for the boss (one grym leaf each). Planned prep sips only use doses beyond these. After an emergency sip at very low prayer, the bot brews a replacement only if a grym leaf is close by and there is time.",
 		position = 3, section = runSection)
 	default int potionTarget()
 	{
-		return 3;
+		// 1.8.0: the setting now means potions brewed (it used to be "max brews", where 3 gave
+		// the boss 2 potions). 2 keeps the old default's 6 boss doses.
+		return 2;
 	}
 
 	@Range(min = 0, max = 100)
@@ -160,7 +162,7 @@ public interface CgPrepConfig extends Config
 	}
 
 	@ConfigItem(keyName = "weaveAttacks", name = "Weave attacks while gathering",
-		description = "A weak monster hitting us at a node: attack it right after a resource lands, then click the node again (kills it, saves prayer, farms shards)",
+		description = "A weak monster hitting us at a node: attack it right after a resource lands, then click the node again (kills it, saves prayer, farms shards). Stops once the shard target is met",
 		position = 100, hidden = true)
 	default boolean weaveAttacks()
 	{

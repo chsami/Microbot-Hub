@@ -172,7 +172,7 @@ public class MahoganyHomesScript extends Script {
             return;
         }
 
-        if (Rs2Player.getWorldLocation().getPlane() != object.getWorldLocation().getPlane()) {
+        if (!isOnPlane(Rs2Player.getWorldLocation(), object.getWorldLocation().getPlane())) {
             log("Object is on a different floor, trying to use ladder/stairs.");
             tryToUseLadder();
             return;
@@ -201,7 +201,7 @@ public class MahoganyHomesScript extends Script {
             WalkerState state = Rs2Walker.walkWithStateUntil(object.getWorldLocation(), 3,
                     () -> readyFurniture() != null);
             if (state == WalkerState.UNREACHABLE) {
-                if (Rs2Player.getWorldLocation().getPlane() != object.getWorldLocation().getPlane()) {
+                if (!isOnPlane(Rs2Player.getWorldLocation(), object.getWorldLocation().getPlane())) {
                     tryToUseLadder();
                 } else {
                     log("All pathing failed, trying to interact anyways.");
@@ -242,7 +242,7 @@ public class MahoganyHomesScript extends Script {
 
     private boolean openDoorToObject(GameObject object, Rs2WorldPoint objectLocation) {
         if (objectLocation == null) return false;
-        if (Rs2Player.getWorldLocation().getPlane() != object.getWorldLocation().getPlane()) {
+        if (!isOnPlane(Rs2Player.getWorldLocation(), object.getWorldLocation().getPlane())) {
             return false;
         }
         log("Local Path seems to be blocked, checking for doors to open.");
@@ -307,7 +307,9 @@ public class MahoganyHomesScript extends Script {
 
     private void tryToUseLadder() {
         log("Walker missing transport, trying to find ladder manually.");
-        int plane = Rs2Player.getWorldLocation().getPlane();
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+        int plane = playerLocation.getPlane();
         var closestLadder = Microbot.getRs2TileObjectCache().query()
                 .withIds(Arrays.stream(plugin.getCurrentHome().getLadders()).mapToInt(Integer::intValue).toArray())
                 .where(obj -> obj.getWorldLocation().getPlane() == plane).nearest();
@@ -321,7 +323,7 @@ public class MahoganyHomesScript extends Script {
         if (approach == null) return;
 
         // Geometric proximity can put us behind the house, across a closed door.
-        if (approach.distanceToPath(Rs2Player.getWorldLocation()) > 2) {
+        if (approach.distanceToPath(playerLocation) > 2) {
             log("Reaching ladder entrance before climbing: " + approach.getWorldPoint());
             if (!openDoorToObject(ladder, approach)) {
                 Rs2Walker.walkWithState(approach.getWorldPoint(), 0);
@@ -329,9 +331,17 @@ public class MahoganyHomesScript extends Script {
             return;
         }
         if (closestLadder.click()) {
-            sleepUntil(() -> Rs2Player.getWorldLocation().getPlane() != plane, 5000);
+            sleepUntil(() -> hasLeftPlane(Rs2Player.getWorldLocation(), plane), 5000);
             sleep(200, 600);
         }
+    }
+
+    static boolean hasLeftPlane(WorldPoint location, int plane) {
+        return location != null && location.getPlane() != plane;
+    }
+
+    static boolean isOnPlane(WorldPoint location, int plane) {
+        return location != null && location.getPlane() == plane;
     }
 
 
@@ -350,9 +360,11 @@ public class MahoganyHomesScript extends Script {
                 }
             }
             var npc = Microbot.getRs2NpcCache().query().withId(plugin.getCurrentHome().getNpcId()).nearest();
-            if (npc == null && Rs2Player.getWorldLocation().getPlane() > 0) {
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            if (playerLocation == null) return;
+            if (npc == null && playerLocation.getPlane() > 0) {
                 log("We are on the wrong floor, Trying to find ladder to go down");
-                int playerPlane = Rs2Player.getWorldLocation().getPlane();
+                int playerPlane = playerLocation.getPlane();
 
                 var ladders = Microbot.getRs2TileObjectCache().query()
                         .withIds(Arrays.stream(plugin.getCurrentHome().getLadders()).mapToInt(Integer::intValue).toArray())
@@ -360,19 +372,19 @@ public class MahoganyHomesScript extends Script {
                         .toList();
                 var closestLadder2 = ladders.stream()
                         .min(Comparator.comparingInt(obj ->
-                                obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                                obj.getWorldLocation().distanceTo(playerLocation)))
                         .orElse(null);
                     if (closestLadder2 != null && closestLadder2.click()) {
                             sleepUntil(
-                                    () -> Rs2Player.getWorldLocation().getPlane() == 0
+                                    () -> isOnPlane(Rs2Player.getWorldLocation(), 0)
                                     , 5000);
                             return;
                     }
             }
             if (npc != null) {
                 Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
-                log("Local NPC path distance: " + npcLocation.distanceToPath(Rs2Player.getWorldLocation()));
-                if (npcLocation.distanceToPath(Rs2Player.getWorldLocation()) < 20) {
+                log("Local NPC path distance: " + npcLocation.distanceToPath(playerLocation));
+                if (npcLocation.distanceToPath(playerLocation) < 20) {
                     if (npc.click("Talk-to")) {
                         log("Getting reward from NPC");
                         sleepUntil(Rs2Dialogue::hasContinue, 10000);

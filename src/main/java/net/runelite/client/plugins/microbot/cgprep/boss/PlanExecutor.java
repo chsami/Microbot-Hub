@@ -35,6 +35,11 @@ public final class PlanExecutor
 		stuck = o.px == prevPx && o.py == prevPy;
 		prevPx = o.px;
 		prevPy = o.py;
+		// 0. an escape that can't wait while the prayer can (1.8.0)
+		if (p.moveFirst && p.moving() && (o.px != p.moveX || o.py != p.moveY))
+		{
+			add(out, tick, new Click(Click.Type.MOVE, null, p.moveX, p.moveY));
+		}
 		// 1. protection
 		Style have = o.activeProtection();
 		if (p.protect != have && o.prayer > 0)
@@ -52,7 +57,7 @@ public final class PlanExecutor
 		// 2. move or attack
 		if (p.moving())
 		{
-			if (o.px != p.moveX || o.py != p.moveY)
+			if (!p.moveFirst && (o.px != p.moveX || o.py != p.moveY))
 			{
 				add(out, tick, new Click(Click.Type.MOVE, null, p.moveX, p.moveY));
 			}
