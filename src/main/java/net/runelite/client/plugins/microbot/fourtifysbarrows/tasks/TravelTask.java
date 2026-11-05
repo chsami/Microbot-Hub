@@ -115,7 +115,7 @@ public final class TravelTask implements FourtifysTask
             long cooldown = method == TravelMethod.SHADES_MINIGAME ? actions.shadesCooldown() : 0;
             if (cooldown > 0)
             {
-                status = "Waiting for Shades of Mort'ton teleport cooldown (" + cooldown + " min)";
+                status = "Shades teleport ready in " + cooldown + " min";
                 controlsDeadline = -1;
                 return;
             }

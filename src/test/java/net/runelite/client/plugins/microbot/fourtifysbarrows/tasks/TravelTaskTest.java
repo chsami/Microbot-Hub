@@ -156,7 +156,7 @@ public class TravelTaskTest
         }
         assertEquals("", actions.failure);
         assertTrue(actions.requests.isEmpty());
-        assertEquals("Waiting for Shades of Mort'ton teleport cooldown (12 min)", task.getStatus());
+        assertEquals("Shades teleport ready in 12 min", task.getStatus());
         actions.cooldown = 0;
         actions.problem = null;
         task.execute();

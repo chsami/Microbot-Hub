@@ -82,6 +82,13 @@ public class BarrowsOverlayTest
     }
 
     @Test
+    public void theLongestShadesCooldownWaitFitsWithoutCuttingTheMinutes()
+    {
+        String status = "Shades teleport ready in 20 min";
+        assertEquals(status, BarrowsOverlay.fit(status, metrics(), STATUS_WIDTH));
+    }
+
+    @Test
     public void wrapKeepsEveryWordWithinTheTooltipWidth()
     {
         FontMetrics metrics = metrics();
