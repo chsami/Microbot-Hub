@@ -42,6 +42,8 @@ public class BlastoiseFurnaceScript extends Script {
     private static final int MAX_ORE_PER_INTERACTION = 27;
     private static final int MAX_ORE_PER_HYBRID_INTERACTION = 26;
     private static final int MAX_TAKE_ATTEMPTS = 3;
+    static final int CONVEYOR_POLL_MS = 300;
+    static final int CONVEYOR_IDLE_TIMEOUT_MS = 5_000;
     static final int MAX_FAILED_LOOT_CYCLES = 3;
     public static State state = State.BANKING;
     private int failedLootCycles = 0;
@@ -545,7 +547,7 @@ public class BlastoiseFurnaceScript extends Script {
         return Rs2Inventory.count("ore") + Rs2Inventory.count("coal");
     }
 
-    private boolean putOreOnConveyorBelt() {
+    boolean putOreOnConveyorBelt() {
         final int oreCount = getInventoryOreCount();
         if (oreCount <= 0) {
             log.error("No ore in Inventory");
@@ -555,7 +557,8 @@ public class BlastoiseFurnaceScript extends Script {
             log.error("Failed to interact with conveyor belt");
             return false;
         }
-        sleepUntil(() -> Rs2Dialogue.isInDialogue() || getInventoryOreCount() < oreCount, 10_000);
+        sleepUntilTrue(() -> Rs2Dialogue.isInDialogue() || getInventoryOreCount() < oreCount,
+                Rs2Player::isMoving, CONVEYOR_POLL_MS, CONVEYOR_IDLE_TIMEOUT_MS);
         if (Rs2Widget.hasWidget("You must ask the foreman's")) {
             log.info("Need to pay the noob tax");
             if(timerStarted && !timeIsUp){
@@ -565,7 +568,7 @@ public class BlastoiseFurnaceScript extends Script {
             handleTax();
             return putOreOnConveyorBelt();
         }
-        return true;
+        return getInventoryOreCount() < oreCount;
     }
 
     public void setTenMinuteTimer(){
@@ -591,12 +594,19 @@ public class BlastoiseFurnaceScript extends Script {
         timerStarted = true;
     }
 
-    private void depositOre() {
-        putOreOnConveyorBelt();
+    void depositOre() {
+        if (!putOreOnConveyorBelt()) {
+            log.warn("Ore did not go onto the conveyor belt, keeping the coal bag for the next trip");
+            return;
+        }
         if (config.getBars().isRequiresCoalBag()) {
-            if (Rs2Inventory.interact(COAL_BAGS, "Empty")) Rs2Inventory.waitForInventoryChanges(3_000);
-            else log.error("Failed to empty coal bag 1");
-            putOreOnConveyorBelt();
+            if (!Rs2Inventory.interact(COAL_BAGS, "Empty") || !Rs2Inventory.waitForInventoryChanges(3_000)) {
+                log.error("Failed to empty coal bag 1");
+                return;
+            }
+            if (!putOreOnConveyorBelt()) {
+                return;
+            }
         }
         if (config.getBars().isRequiresCoalBag() &&
                 (Rs2Inventory.hasItem(SMITHING_UNIFORM_GLOVES_ICE)
