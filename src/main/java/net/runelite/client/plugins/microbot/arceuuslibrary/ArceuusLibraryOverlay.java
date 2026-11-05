@@ -46,6 +46,12 @@ public class ArceuusLibraryOverlay extends OverlayPanel
 
             panelComponent.getChildren().add(LineComponent.builder()
                     .left("State").right(String.valueOf(script.getState())).build());
+            String travelStatus = script.getTravelStatus();
+            if (travelStatus != null)
+            {
+                panelComponent.getChildren().add(LineComponent.builder()
+                        .left(travelStatus).leftColor(Color.YELLOW).build());
+            }
             panelComponent.getChildren().add(LineComponent.builder()
                     .left("Solver").right(script.getSolverState()).build());
             panelComponent.getChildren().add(LineComponent.builder()
