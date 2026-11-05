@@ -374,7 +374,8 @@ public final class BrimhavenTask implements FourtifysTask
         }
         if (vouchers < reward.price())
         {
-            plugin.setStatus("Not enough vouchers for " + reward + "; turn off Leave the arena to re-enter");
+            plugin.setStatus("Not enough vouchers for " + reward + " (" + vouchers + " of " + reward.price()
+                + "); turn off Leave the arena to re-enter");
             return;
         }
         if (!BrimhavenRewards.hasRoom(reward, items, Rs2Inventory.emptySlotCount()))
@@ -388,7 +389,7 @@ public final class BrimhavenTask implements FourtifysTask
             Optional<BrimhavenRewards.Purchase> purchase = BrimhavenRewards.findVoucherPurchase(client, reward.toString());
             if (client.getVarpValue(3874) != 583 || purchase.isEmpty())
             {
-                plugin.setStatus("Cannot verify the selected arena reward");
+                plugin.setStatus("Could not find " + reward + " in the arena store; buy it yourself or change Voucher reward");
                 return;
             }
             BrimhavenRewards.Purchase selected = purchase.get();

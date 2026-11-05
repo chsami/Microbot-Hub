@@ -196,7 +196,25 @@ public class CourseHandoffIntegrationTest
             fixture.leaveBrimhaven = true;
             fixture.voucherReward = BrimhavenVoucherReward.TOADFLAX;
             fixture.tick(2808, 3193, 0);
-            assertTrue(fixture.plugin.getStatus().contains("Not enough vouchers for Toadflax"));
+            assertEquals("Not enough vouchers for Toadflax (0 of 3); turn off Leave the arena to re-enter", fixture.plugin.getStatus());
+            fixture.actions.dispatch();
+            assertEquals(0, fixture.menuActions);
+        }
+    }
+
+    @Test
+    public void brimhavenRewardMissingFromTheStoreNamesItAndTheNextStep() throws Exception
+    {
+        try (Fixture fixture = new Fixture())
+        {
+            fixture.selected = AgilityCourse.BRIMHAVEN;
+            fixture.leaveBrimhaven = true;
+            fixture.voucherReward = BrimhavenVoucherReward.TOADFLAX;
+            fixture.vouchers = 5;
+            fixture.storeOpen = true;
+            fixture.tick(2808, 3193, 0);
+            assertEquals("Could not find Toadflax in the arena store; buy it yourself or change Voucher reward",
+                fixture.plugin.getStatus());
             fixture.actions.dispatch();
             assertEquals(0, fixture.menuActions);
         }
@@ -290,6 +308,8 @@ public class CourseHandoffIntegrationTest
         boolean hasPyramidTop;
         boolean simonPresent;
         boolean leaveBrimhaven;
+        int vouchers;
+        boolean storeOpen;
         BrimhavenVoucherReward voucherReward = BrimhavenVoucherReward.NONE;
         Client client;
         int menuActions;
@@ -381,10 +401,15 @@ public class CourseHandoffIntegrationTest
                     case "getItemContainer":
                         if ((int) args[0] != 93) return null;
                         return proxy(ItemContainer.class, (o, m, a) -> m.getName().equals("getItems")
-                            ? (hasPyramidTop ? new Item[] {new Item(6970, 1)} : new Item[0])
+                            ? java.util.stream.Stream.of(hasPyramidTop ? new Item(6970, 1) : null, vouchers > 0 ? new Item(29482, vouchers) : null)
+                                .filter(java.util.Objects::nonNull).toArray(Item[]::new)
                             : defaultValue(m.getReturnType()));
                     case "getWidget":
                         if (args.length == 1 && ((int) args[0] == dialogueRoot || (int) args[0] == dialogueRoot + 4) && dialogueRoot != 0)
+                        {
+                            return proxy(Widget.class, (o, m, a) -> defaultValue(m.getReturnType()));
+                        }
+                        if (args.length == 2 && (int) args[0] == 819 && (int) args[1] == 7 && storeOpen)
                         {
                             return proxy(Widget.class, (o, m, a) -> defaultValue(m.getReturnType()));
                         }
