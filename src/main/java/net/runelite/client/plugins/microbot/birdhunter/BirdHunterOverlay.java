@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.birdhunter;
 import net.runelite.api.Client;
 import net.runelite.api.Perspective;
 import net.runelite.api.coords.LocalPoint;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPanel;
@@ -37,7 +38,8 @@ public class BirdHunterOverlay extends OverlayPanel {
                 .left("Bury bones start at: ")
                 .right(String.valueOf(BirdHunterScript.getRandomBoneThreshold()))
                 .build());
-        LocalPoint localPoint = LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), BirdHunterScript.getInitialStartTile());
+        WorldPoint startTile = BirdHunterScript.getInitialStartTile();
+        LocalPoint localPoint = startTile == null ? null : LocalPoint.fromWorld(Microbot.getClient().getTopLevelWorldView(), startTile);
         int huntingRadius = config.huntingRadiusValue();
         if (localPoint != null) {
             Polygon tile = Perspective.getCanvasTileAreaPoly(client, localPoint, (huntingRadius * 2) + 1);

@@ -22,6 +22,7 @@ The **Auto Woodcutting Plugin** is a RuneLite plugin for the Microbot framework 
     - Locate and chop the selected tree type
     - Handle forestry events as they occur
     - Perform configured actions with logs (drop, bank, fletch, etc.)
+    - With **Burn logs**, light the whole inventory of logs in a line from where you stand, then walk back to the trees once after the last log. With **Burn logs at campfire**, burn them on a lit fire or Forester's Campfire within 6 tiles. If a fire has to be lit and no Tinderbox is in your inventory, the script tries to take one from a nearby bank and stops with a message if it cannot.
     - Display current status and progress in the overlay
 4. **Stop:** You can stop the script at any time from the panel.
 

@@ -68,7 +68,7 @@ An automated slayer plugin that handles the full slayer loop: getting tasks from
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Enable Plugin | Enabled | Toggle the slayer plugin on/off |
-| Auto Travel | Enabled | Automatically travel to slayer task location |
+| Auto Travel | Enabled | Automatically travel to slayer task location. When off, walk there yourself: the script starts once you are at the task location or within Attack Radius of a task monster. |
 | Slayer Master | Duradel | Which slayer master to get tasks from |
 | Get New Task | Enabled | Automatically get a new task when current task is complete |
 

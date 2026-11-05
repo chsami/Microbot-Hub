@@ -160,9 +160,24 @@ ThievingNpcStrategy getActiveStrategy() {
         return thievingNpc;
     }
 
+    static boolean usesHighlightedNpcs(ThievingNpc target, boolean hasHighlights) {
+        return hasHighlights && target != ThievingNpc.VYRES;
+    }
+
+    private boolean hasHighlightedVyre() {
+        final var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
+        if (highlighted.isEmpty()) return false;
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> highlighted.keySet().stream()
+                .anyMatch(npc -> npc != null && ThievingData.VYRES.contains(npc.getName()))).orElse(false);
+    }
+
     private Predicate<Rs2NpcModel> getThievingNpcFilter() {
         Predicate<Rs2NpcModel> filter = npc -> true;
-        if (net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs().isEmpty()) {
+        final var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
+        final Predicate<Rs2NpcModel> isHighlighted = npc -> npc != null && highlighted.containsKey(npc.getNpc());
+        if (usesHighlightedNpcs(config.THIEVING_NPC(), !highlighted.isEmpty())) {
+            filter = isHighlighted;
+        } else {
             final ThievingNpc finalNpc = config.THIEVING_NPC();
             if (finalNpc == null) {
                 log.error("Config Thieving NPC is null");
@@ -176,6 +191,7 @@ ThievingNpcStrategy getActiveStrategy() {
             switch (finalNpc) {
                 case VYRES:
                     filter = validateName(ThievingData.VYRES::contains);
+                    if (hasHighlightedVyre()) filter = filter.and(isHighlighted);
                     break;
                 case ARDOUGNE_KNIGHT:
                     filter = validateName("knight of ardougne"::equalsIgnoreCase);
@@ -185,11 +201,17 @@ ThievingNpcStrategy getActiveStrategy() {
                     filter = validateName(ThievingData.ELVES::contains);
                     break;
                 default:
-                    filter = validateName(name -> name.toLowerCase().contains(finalNpc.getName()));
+                    filter = validateName(name -> matchesNpcName(finalNpc, name));
                     break;
             }
         }
         return filter;
+    }
+
+    static boolean matchesNpcName(ThievingNpc target, String name) {
+        if (target == null || name == null) return false;
+        if (target == ThievingNpc.WARRIOR) return name.toLowerCase().contains(target.getName());
+        return name.equalsIgnoreCase(target.getName());
     }
 
     private Rs2NpcModel getThievingNpcCache() {
@@ -218,10 +240,23 @@ ThievingNpcStrategy getActiveStrategy() {
         if (startingNpc == null && config.THIEVING_NPC() == ThievingNpc.VYRES) {
             startingNpc = getNpcName(npc);
             log.debug("Set starting npc to {}", startingNpc);
+            if (!net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs().isEmpty() && !hasHighlightedVyre()) {
+                log.info("None of your highlighted NPCs is a supported vyre, targeting the nearest vyre {}", startingNpc);
+            }
         }
         
         log.debug("Found new NPC={} to thieve @ {}", getNpcName(npc), toString(npc.getWorldLocation()));
         return npc;
+    }
+
+    private WorldPoint[] getVyreHouseOrReset(String name) {
+        final WorldPoint[] house = ThievingData.getVyreHouse(name);
+        if (house == null) {
+            log.warn("'{}' is not a supported vyre for Vyres mode, picking another vyre nearby", name);
+            thievingNpc = null;
+            startingNpc = null;
+        }
+        return house;
     }
 
     private <T> T getAttackingNpcs(Function<Stream<Rs2NpcModel>, T> consumer, T defaultValue) {
@@ -303,7 +338,8 @@ ThievingNpcStrategy getActiveStrategy() {
         if (isNpcNull(thievingNpc) && (thievingNpc = getThievingNpcCache()) == null && shouldHop()) return applyOverride(State.HOP);
 
         if (config.THIEVING_NPC() == ThievingNpc.VYRES) {
-            final WorldPoint[] housePolygon = ThievingData.getVyreHouse(getNpcName(thievingNpc));
+            final WorldPoint[] housePolygon = getVyreHouseOrReset(getNpcName(thievingNpc));
+            if (housePolygon == null) return State.IDLE;
 
             if (Microbot.getRs2NpcCache().query()
                     .where(Rs2NpcModel.matches(true, "Vyrewatch Sentinel"))
@@ -514,6 +550,11 @@ ThievingNpcStrategy getActiveStrategy() {
                     log.warn("Player Location is null");
                     return;
                 }
+                if (startingLocation == null) {
+                    startingLocation = myLoc;
+                    log.debug("Set starting location to {}", myLoc);
+                    return;
+                }
                 if (myLoc.distanceTo(startingLocation) <= 5) {
                     if (thievingNpc != null) {
                         walkTo("Walk to npc ", thievingNpc.getWorldLocation(), 1);
@@ -532,7 +573,8 @@ ThievingNpcStrategy getActiveStrategy() {
             case CLOSE_DOOR:
                 if (isNpcNull(thievingNpc)) return;
                 final String name = getNpcName(thievingNpc);
-                final WorldPoint[] house = ThievingData.getVyreHouse(name);
+                final WorldPoint[] house = getVyreHouseOrReset(name);
+                if (house == null) return;
                 final WorldPoint myLoc2 = Rs2Player.getWorldLocation();
                 if (isPointInPolygon(house, myLoc2)) {
                     log.debug("Closing door {} in {} house", toString(myLoc2), name);
@@ -590,7 +632,7 @@ ThievingNpcStrategy getActiveStrategy() {
                 if ((timeSince / 30_000d) > rand) sleep(300, 700); // around every 30s
 
                 var highlighted = net.runelite.client.plugins.npchighlight.NpcIndicatorsPlugin.getHighlightedNpcs();
-                if (highlighted.isEmpty()) {
+                if (highlighted.isEmpty() || config.THIEVING_NPC() == ThievingNpc.VYRES) {
                     if (isNpcNull(thievingNpc)) return;
                     Rs2Npc.pickpocket(thievingNpc.getNpc());
                 } else {
@@ -795,7 +837,9 @@ ThievingNpcStrategy getActiveStrategy() {
 
             final WorldPoint doorWp = door.getWorldLocation();
             if (!door.click("Close")) return false;
-            if (door.getWorldLocation().distanceTo(Rs2Player.getWorldLocation()) > 1) {
+            final WorldPoint locAfterClick = Rs2Player.getWorldLocation();
+            if (locAfterClick == null) return false;
+            if (door.getWorldLocation().distanceTo(locAfterClick) > 1) {
                 if (!sleepUntilWithInterrupt(() -> Rs2Player.isMoving() || Rs2Player.isStunned(), 1_200)) return false;
                 if (Rs2Player.isStunned()) return false;
                 sleepUntilWithInterrupt(() -> !Rs2Player.isMoving(), 5_000);
@@ -922,8 +966,13 @@ ThievingNpcStrategy getActiveStrategy() {
 
     private void bankAndEquip() {
         if (!Rs2Bank.isOpen()) {
+            final WorldPoint myLoc = Rs2Player.getWorldLocation();
+            if (myLoc == null) {
+                log.warn("Player Location is null");
+                return;
+            }
             BankLocation bank;
-            if (config.THIEVING_NPC() == ThievingNpc.VYRES && ThievingData.OUTSIDE_HALLOWED_BANK.distanceTo(Rs2Player.getWorldLocation()) < 20) {
+            if (config.THIEVING_NPC() == ThievingNpc.VYRES && ThievingData.OUTSIDE_HALLOWED_BANK.distanceTo(myLoc) < 20) {
                 log.debug("Near Hallowed");
                 bank = BankLocation.HALLOWED_SEPULCHRE;
                 // it's not needed for banking, but if we have it in inv we should equip it
@@ -933,7 +982,8 @@ ThievingNpcStrategy getActiveStrategy() {
                 bank = Rs2Bank.getNearestBank();
                 if (bank == BankLocation.DARKMEYER) {
                     if (!equip(ThievingData.VYRE_SET)) {
-                        log.error("Did not equip vyre set cannot go to darkmeyer bank");
+                        showMessage("Vyre noble set (top, legs and shoes) is needed to bank at Darkmeyer. Carry or wear it and start the script again.");
+                        shutdown();
                         return;
                     }
                 }

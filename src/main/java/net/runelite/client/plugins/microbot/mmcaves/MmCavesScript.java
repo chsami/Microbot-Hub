@@ -176,7 +176,7 @@ public class MmCavesScript extends Script {
                         Rs2Inventory::contains,
                         name -> Rs2Equipment.isWearing(name, true));
                 if (!hasLightSource) {
-                    Microbot.log("Player does NOT have a light source");
+                    Microbot.log(MmCavesDecisions.missingLightSourceMessage());
                     stopAndLog();
                     return;
                 }

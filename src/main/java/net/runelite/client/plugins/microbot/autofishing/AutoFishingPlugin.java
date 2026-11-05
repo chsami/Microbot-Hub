@@ -27,7 +27,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoFishingPlugin extends Plugin {
-    static final String version = "1.0.9";
+    static final String version = "1.0.12";
     @Inject
     private AutoFishingConfig config;
 

@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.61]
+
+### Fixed
+- **Cargo hold deposit and withdraw**: The script now waits for the Deposit inventory and salvage stack clicks to finish before deciding whether they worked, so it no longer closes the cargo hold while the click is still on its way and repeats the click on the next loop.
+
+---
+
 ## [2.2.58]
 
 ### Added
