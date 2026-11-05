@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import java.util.function.IntPredicate;
 
 import static net.runelite.api.gameval.ObjectID.BLAST_FURNACE_CONVEYER_BELT_CLICKABLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,9 +54,13 @@ class BlastoiseFurnaceCoalBagTest {
     private Rs2TileObjectQueryable query;
     private final AtomicInteger ore = new AtomicInteger();
     private final AtomicInteger walkPolls = new AtomicInteger();
+    private final AtomicInteger walkLength = new AtomicInteger(WALK_POLLS);
     private final AtomicBoolean belted = new AtomicBoolean();
-    private final AtomicInteger beltAcceptsLoads = new AtomicInteger(Integer.MAX_VALUE);
-    private final AtomicBoolean bagEmpties = new AtomicBoolean(true);
+    private final AtomicInteger beltClicks = new AtomicInteger();
+    private final AtomicInteger emptyClicks = new AtomicInteger();
+    private final AtomicBoolean lastEmptyWorked = new AtomicBoolean();
+    private IntPredicate beltAccepts = click -> true;
+    private IntPredicate bagEmpties = click -> true;
 
     @BeforeEach
     void setUp() {
@@ -73,7 +78,8 @@ class BlastoiseFurnaceCoalBagTest {
         microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
 
         when(query.interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on")).thenAnswer(invocation -> {
-            walkPolls.set(WALK_POLLS);
+            beltClicks.incrementAndGet();
+            walkPolls.set(walkLength.get());
             belted.set(false);
             return true;
         });
@@ -82,19 +88,21 @@ class BlastoiseFurnaceCoalBagTest {
                 walkPolls.decrementAndGet();
                 return true;
             }
-            if (!belted.getAndSet(true) && beltAcceptsLoads.getAndDecrement() > 0) {
+            if (!belted.getAndSet(true) && beltAccepts.test(beltClicks.get())) {
                 ore.set(0);
             }
             return false;
         });
         inventory.when(() -> Rs2Inventory.count("ore")).thenAnswer(invocation -> ore.get());
         inventory.when(() -> Rs2Inventory.interact(BlastoiseFurnaceScript.COAL_BAGS, "Empty")).thenAnswer(invocation -> {
-            if (bagEmpties.get()) {
+            boolean works = bagEmpties.test(emptyClicks.incrementAndGet());
+            lastEmptyWorked.set(works);
+            if (works) {
                 ore.set(27);
             }
-            return true;
+            return works;
         });
-        inventory.when(() -> Rs2Inventory.waitForInventoryChanges(anyInt())).thenAnswer(invocation -> bagEmpties.get());
+        inventory.when(() -> Rs2Inventory.waitForInventoryChanges(anyInt())).thenAnswer(invocation -> lastEmptyWorked.get());
         global.when(() -> Global.sleepUntilTrue(any(BooleanSupplier.class), any(BooleanSupplier.class), anyInt(), anyInt()))
                 .thenAnswer(invocation -> {
                     BooleanSupplier awaited = invocation.getArgument(0);
@@ -185,27 +193,40 @@ class BlastoiseFurnaceCoalBagTest {
     @Test
     void reportsNoDepositWhenTheOreStaysInTheInventory() {
         ore.set(27);
-        beltAcceptsLoads.set(0);
+        beltAccepts = click -> false;
 
         assertFalse(coalBagScript().putOreOnConveyorBelt());
     }
 
     @Test
+    void stopsWaitingWhenThePlayerNeverStopsMoving() {
+        ore.set(27);
+        walkLength.set(Integer.MAX_VALUE);
+
+        assertFalse(coalBagScript().putOreOnConveyorBelt());
+
+        player.verify(Rs2Player::isMoving,
+                times(BlastoiseFurnaceScript.CONVEYOR_MAX_WALK_MS / BlastoiseFurnaceScript.CONVEYOR_POLL_MS - 1));
+        assertEquals(27, ore.get());
+    }
+
+    @Test
     void keepsTheCoalBagFullWhenTheOreDoesNotGoOnTheBelt() {
         ore.set(27);
-        beltAcceptsLoads.set(0);
+        beltAccepts = click -> false;
 
         assertFalse(coalBagScript().depositOre());
 
         verify(query, times(1)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
         inventory.verify(() -> Rs2Inventory.interact(eq(BlastoiseFurnaceScript.COAL_BAGS), anyString()), never());
         assertEquals(27, ore.get());
+        assertEquals("Ore didn't go on the belt, retrying", Microbot.status);
     }
 
     @Test
     void doesNotClickTheBeltAgainWhenTheCoalBagDoesNotEmpty() {
         ore.set(27);
-        bagEmpties.set(false);
+        bagEmpties = click -> false;
 
         assertTrue(coalBagScript().depositOre());
 
@@ -215,14 +236,52 @@ class BlastoiseFurnaceCoalBagTest {
     }
 
     @Test
-    void reportsNoDepositWhenTheCoalFromTheBagStaysInTheInventory() {
+    void retriesTheBeltOnceWhenTheCoalFromTheBagDoesNotGoOn() {
         ore.set(27);
-        beltAcceptsLoads.set(1);
+        beltAccepts = click -> click != 2;
+
+        assertTrue(coalBagScript().depositOre());
+
+        verify(query, times(3)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
+        assertEquals(0, ore.get());
+        microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), never());
+    }
+
+    @Test
+    void stopsWithAMessageWhenTheCoalFromTheBagStaysInTheInventory() {
+        ore.set(27);
+        beltAccepts = click -> click == 1;
 
         assertFalse(coalBagScript().depositOre());
 
-        verify(query, times(2)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
+        verify(query, times(3)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
         assertEquals(27, ore.get());
+        microbot.verify(() -> Microbot.showMessage(
+                "Coal from the coal bag did not go onto the conveyor belt. Put it on the belt or bank it, then start the script again."), times(1));
+        microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), times(1));
+    }
+
+    @Test
+    void skipsTheBeltWhenTheSecondCoalBagEmptyFails() {
+        ore.set(27);
+        inventory.when(() -> Rs2Inventory.hasItem(ItemID.ICE_GLOVES)).thenReturn(true);
+        bagEmpties = click -> click == 1;
+
+        assertTrue(coalBagScript().depositOre());
+
+        verify(query, times(2)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
+        inventory.verify(() -> Rs2Inventory.interact(BlastoiseFurnaceScript.COAL_BAGS, "Empty"), times(2));
+    }
+
+    @Test
+    void putsTheSecondCoalBagEmptyOnTheBelt() {
+        ore.set(27);
+        inventory.when(() -> Rs2Inventory.hasItem(ItemID.ICE_GLOVES)).thenReturn(true);
+
+        assertTrue(coalBagScript().depositOre());
+
+        verify(query, times(3)).interact(BLAST_FURNACE_CONVEYER_BELT_CLICKABLE, "Put-ore-on");
+        assertEquals(0, ore.get());
     }
 
     @Test
@@ -238,7 +297,7 @@ class BlastoiseFurnaceCoalBagTest {
     @Test
     void reportsNoDepositForBarsWithoutACoalBagWhenTheOreStaysInTheInventory() {
         ore.set(27);
-        beltAcceptsLoads.set(0);
+        beltAccepts = click -> false;
 
         assertFalse(script(Bars.GOLD_BAR).depositOre());
 

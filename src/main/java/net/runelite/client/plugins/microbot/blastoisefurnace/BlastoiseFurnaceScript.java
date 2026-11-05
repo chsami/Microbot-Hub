@@ -27,6 +27,7 @@ import javax.inject.Inject;
 import java.awt.event.KeyEvent;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,6 +45,7 @@ public class BlastoiseFurnaceScript extends Script {
     private static final int MAX_TAKE_ATTEMPTS = 3;
     static final int CONVEYOR_POLL_MS = 300;
     static final int CONVEYOR_IDLE_TIMEOUT_MS = 5_000;
+    static final int CONVEYOR_MAX_WALK_MS = 30_000;
     static final int MAX_FAILED_LOOT_CYCLES = 3;
     public static State state = State.BANKING;
     private int failedLootCycles = 0;
@@ -553,7 +555,7 @@ public class BlastoiseFurnaceScript extends Script {
     boolean putOreOnConveyorBelt() {
         final int oreCount = getInventoryOreCount();
         if (oreCount <= 0) {
-            log.error("No ore in Inventory");
+            log.debug("No ore in Inventory");
             return false;
         }
         Microbot.status = "Putting ore on conveyor belt";
@@ -561,8 +563,10 @@ public class BlastoiseFurnaceScript extends Script {
             log.error("Failed to interact with conveyor belt");
             return false;
         }
+        final AtomicInteger polls = new AtomicInteger();
         sleepUntilTrue(() -> Rs2Dialogue.isInDialogue() || getInventoryOreCount() < oreCount,
-                Rs2Player::isMoving, CONVEYOR_POLL_MS, CONVEYOR_IDLE_TIMEOUT_MS);
+                () -> polls.incrementAndGet() < CONVEYOR_MAX_WALK_MS / CONVEYOR_POLL_MS && Rs2Player.isMoving(),
+                CONVEYOR_POLL_MS, CONVEYOR_IDLE_TIMEOUT_MS);
         if (Rs2Widget.hasWidget("You must ask the foreman's")) {
             log.info("Need to pay the noob tax");
             if(timerStarted && !timeIsUp){
@@ -604,6 +608,7 @@ public class BlastoiseFurnaceScript extends Script {
             log.warn(usesCoalBag
                     ? "Ore did not go onto the conveyor belt. Leaving the coal bag full and trying again next trip."
                     : "Ore did not go onto the conveyor belt. Trying again next trip.");
+            Microbot.status = "Ore didn't go on the belt, retrying";
             return false;
         }
         if (usesCoalBag) {
@@ -611,8 +616,12 @@ public class BlastoiseFurnaceScript extends Script {
                 log.warn("Coal bag did not empty. Trying again next trip.");
                 return true;
             }
-            if (!putOreOnConveyorBelt()) {
-                log.warn("Coal from the coal bag did not go onto the conveyor belt. Trying again next trip.");
+            if (!putOreOnConveyorBelt() && getInventoryOreCount() > 0 && !putOreOnConveyorBelt()) {
+                log.warn("Coal from the coal bag did not go onto the conveyor belt, stopping");
+                Microbot.status = "Coal didn't go on the belt, stopped";
+                Microbot.showMessage("Coal from the coal bag did not go onto the conveyor belt. Put it on the belt or bank it, then start the script again.");
+                Rs2Player.logout();
+                Microbot.stopPlugin(plugin);
                 return false;
             }
         }
@@ -620,9 +629,11 @@ public class BlastoiseFurnaceScript extends Script {
                 (Rs2Inventory.hasItem(SMITHING_UNIFORM_GLOVES_ICE)
                         || Rs2Inventory.hasItem(GAUNTLETS_OF_GOLDSMITHING)
                         || Rs2Inventory.hasItem(ICE_GLOVES))) {
-            if (Rs2Inventory.interact(COAL_BAGS, "Empty")) Rs2Inventory.waitForInventoryChanges(3_000);
-            else log.warn("Coal bag did not empty a second time. Trying again next trip.");
-            putOreOnConveyorBelt();
+            if (!Rs2Inventory.interact(COAL_BAGS, "Empty")) {
+                log.warn("Coal bag did not empty a second time. Trying again next trip.");
+            } else if (Rs2Inventory.waitForInventoryChanges(3_000)) {
+                putOreOnConveyorBelt();
+            }
         }
         return true;
     }
