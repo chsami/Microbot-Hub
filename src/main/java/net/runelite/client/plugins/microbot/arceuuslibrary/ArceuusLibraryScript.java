@@ -251,6 +251,13 @@ public class ArceuusLibraryScript extends Script
                 return;
             }
 
+            if (!config.readRewardBook() && Rs2Inventory.isFull() && Rs2Inventory.hasItem(BOOK_OF_ARCANE_KNOWLEDGE))
+            {
+                stopWithMessage("Arceuus Library stopped: your inventory is full of Books of arcane knowledge. "
+                        + "Bank them or turn on Read reward book, then start the plugin again.");
+                return;
+            }
+
             if (trySectionSweep()) return;
             logBranch("fetch " + wanted.getShortName());
             handleFetch(wanted);
@@ -992,7 +999,7 @@ public class ArceuusLibraryScript extends Script
             if (++restockFailures >= 2)
             {
                 restockGivenUp = true;
-                notifyPlayer("Couldn't open the Arceuus bank twice; carrying on without restocking potions until you restart the plugin.");
+                notifyPlayer("Couldn't open the Arceuus bank after 2 tries; carrying on without restocking potions until you restart the plugin.");
             }
             return;
         }
@@ -1266,11 +1273,11 @@ public class ArceuusLibraryScript extends Script
             return left > 0 ? String.format("Walk failed, retrying in %ds", (left + 999) / 1000) : null;
         }
         int failures = walkFailures;
-        if (failures <= 0) return "Travelling to the library";
-        if (failures >= MAX_TRAVEL_FAILURES) return "Travelling: no route found";
-        if (left <= 0) return String.format("Travelling to the library (attempt %d of %d)",
+        if (failures <= 0) return "Traveling to the library";
+        if (failures >= MAX_TRAVEL_FAILURES) return "Traveling: no route found";
+        if (left <= 0) return String.format("Traveling to the library (attempt %d of %d)",
                 failures + 1, MAX_TRAVEL_FAILURES);
-        return String.format("Travelling: no route found, retrying in %ds (attempt %d of %d)",
+        return String.format("Traveling: no route found, retrying in %ds (attempt %d of %d)",
                 (left + 999) / 1000, failures + 1, MAX_TRAVEL_FAILURES);
     }
 

@@ -7,7 +7,7 @@ Automates the Arceuus Library task by reading the upstream **Kourend Library** R
 The upstream Kourend Library plugin observes customer dialogue, bookcase searches, and reshuffle events to narrow down which bookcase contains which book. This plugin reads that solver state and drives the player through the loop.
 
 - **Reads** — wanted book, customer NPC, possible bookcase locations, solver state (`NO_DATA` / `INCOMPLETE` / `COMPLETE`).
-- **Drives** — travelling to the library, walking, talking, searching, delivering.
+- **Drives** — traveling to the library, walking, talking, searching, delivering.
 - **Does not** re-implement book inference. The upstream plugin is the brain.
 
 ## Prerequisites

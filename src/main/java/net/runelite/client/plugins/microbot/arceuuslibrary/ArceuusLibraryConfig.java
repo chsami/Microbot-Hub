@@ -29,7 +29,7 @@ public interface ArceuusLibraryConfig extends Config
             keyName = "rewardXp",
             name = "Reward skill",
             description = "Which XP to claim from the Book of arcane knowledge (Magic = 15x Magic level, Runecraft = 5x Runecraft level). Auto picks whichever pays more; ties go to Magic. Only used when 'Read reward book' is on.",
-            position = 1
+            position = 2
     )
     default RewardXp rewardXp() { return RewardXp.MAGIC; }
 
@@ -37,7 +37,7 @@ public interface ArceuusLibraryConfig extends Config
             keyName = "readRewardBook",
             name = "Read reward book",
             description = "Read a Book of arcane knowledge as soon as it is received. When off, the books stay in your inventory and fill it up; the script needs free slots to carry library books, so bank them now and then.",
-            position = 2
+            position = 1
     )
     default boolean readRewardBook() { return true; }
 
