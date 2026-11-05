@@ -162,7 +162,7 @@ public final class SplashLogic {
 
     public static List<String> describe(Map<Runes, Integer> runes) {
         List<String> out = new ArrayList<>();
-        runes.forEach((r, q) -> out.add(q + " " + r.name().toLowerCase(Locale.ROOT)));
+        runes.forEach((r, q) -> out.add(String.format("%,d %s runes", q, r.name().toLowerCase(Locale.ROOT))));
         return out;
     }
 }

@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.aiomagic.scripts;
 
+import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
 import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.Skill;
@@ -48,6 +49,7 @@ import java.util.concurrent.TimeUnit;
  * Splashing with an auto-progressing spell: picks the best combat spell for the current Magic level and runes,
  * restocks runes from the bank (or the GE), checks the -65 magic bonus, and keeps the session alive (AFK re-click).
  */
+@Slf4j
 public class SplashScript extends Script {
     private static final RuneFilter CARRIED = RuneFilter.builder().includeBank(false).build();
     private static final int MIN_CASTS_BEFORE_RESTOCK = 1;
@@ -69,6 +71,7 @@ public class SplashScript extends Script {
     private Rs2CombatSpells activeSpell;
     private int autocastFailures;
     private final Set<Rs2CombatSpells> restockTried = new HashSet<>();
+    private final Set<Rs2Staff> staffSkipLogged = new HashSet<>();
     private String lastLoggedDefaultNpc = "";
     private String lastNoTargetLog = "";
     private String lastErrorLog = "";
@@ -103,6 +106,7 @@ public class SplashScript extends Script {
         activeSpell = null;
         autocastFailures = 0;
         restockTried.clear();
+        staffSkipLogged.clear();
         lastLoggedDefaultNpc = "";
         lastNoTargetLog = "";
         lastErrorLog = "";
@@ -113,7 +117,8 @@ public class SplashScript extends Script {
                 tick();
                 lastErrorLog = "";
             } catch (Exception ex) {
-                String msg = "Splashing hit an error, retrying: " + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+                log.debug("Splashing tick failed", ex);
+                String msg = "Splashing hit an unexpected error and will retry. If this keeps happening, restart the script.";
                 if (!msg.equals(lastErrorLog)) {
                     lastErrorLog = msg;
                     Microbot.log(msg);
@@ -363,17 +368,21 @@ public class SplashScript extends Script {
             supply = SplashLogic.merge(supply, SplashLogic.unlimited(staff.getRunes()));
         }
         Rs2CombatSpells best = SplashLogic.bestSpell(level, supply, 1);
-        if (best == null && cfg().buyRunesOnGe()) {
+        if (best == null && cfg().buyRunesOnGe() && (initialStockDone || !bankingAllowed())) {
             best = bestAffordableOnGe(level, carried);
         }
         return best;
     }
 
     private Rs2CombatSpells bestAffordableOnGe(int level, Map<Runes, Integer> carried) {
-        Map<Runes, Integer> prices = gePrices(true);
-        Rs2CombatSpells best = null;
+        List<Rs2CombatSpells> unlocked = new ArrayList<>();
         for (Rs2CombatSpells spell : SplashLogic.AUTO_ORDER) {
-            if (spell.getRequiredLevel() > level) continue;
+            if (spell.getRequiredLevel() <= level) unlocked.add(spell);
+        }
+        Map<Runes, Integer> prices = gePrices(unlocked, true);
+        if (prices == null) return null;
+        Rs2CombatSpells best = null;
+        for (Rs2CombatSpells spell : unlocked) {
             int casts = SplashLogic.affordableCasts(spell.getRequiredRunes(), 100, carried, prices, cfg().maxGpPerPurchase());
             if (casts >= 100 && (best == null || spell.getRequiredLevel() >= best.getRequiredLevel())) best = spell;
         }
@@ -394,24 +403,34 @@ public class SplashScript extends Script {
         sleepUntil(Rs2Bank::isOpen, 5000);
         if (!Rs2Bank.isOpen()) return;
 
-        if (spell != null) {
-            equipBestStaff(spell);
-            Map<Runes, Integer> carried = carriedRunes();
-            Map<Runes, Integer> missing = SplashLogic.runesToWithdraw(spell.getRequiredRunes(), cfg().castsPerTrip(), carried);
-            for (Map.Entry<Runes, Integer> e : missing.entrySet()) {
-                int id = e.getKey().getItemId();
-                int take = Math.min(e.getValue(), Rs2Bank.count(id));
-                if (take > 0) {
-                    Rs2Bank.withdrawX(id, take);
-                    sleepUntil(() -> Rs2Inventory.hasItem(id), 3000);
-                }
+        if (spell == null) {
+            spell = chooseSpell(Rs2Player.getRealSkillLevel(Skill.MAGIC), carriedRunes());
+            if (spell == null) {
+                Rs2Bank.closeBank();
+                return;
             }
-            carried = carriedRunes();
-            if (SplashLogic.castsAvailable(spell.getRequiredRunes(), carried) < MIN_CASTS_BEFORE_RESTOCK
-                    && cfg().buyRunesOnGe()) {
+            restockTried.add(spell);
+        }
+        equipBestStaff(spell);
+        Map<Runes, Integer> carried = carriedRunes();
+        Map<Runes, Integer> missing = SplashLogic.runesToWithdraw(spell.getRequiredRunes(), cfg().castsPerTrip(), carried);
+        for (Map.Entry<Runes, Integer> e : missing.entrySet()) {
+            int id = e.getKey().getItemId();
+            int take = Math.min(e.getValue(), Rs2Bank.count(id));
+            if (take > 0) {
+                Rs2Bank.withdrawX(id, take);
+                sleepUntil(() -> Rs2Inventory.hasItem(id), 3000);
+            }
+        }
+        carried = carriedRunes();
+        if (SplashLogic.castsAvailable(spell.getRequiredRunes(), carried) < MIN_CASTS_BEFORE_RESTOCK) {
+            if (cfg().buyRunesOnGe()) {
                 buyRunesOnGe(spell, carried);
                 return;
             }
+            Rs2Bank.closeBank();
+            if (cfg().splashSpellMode() == SplashSpellMode.CONFIGURED) stopOutOfRunes(spell, carried);
+            return;
         }
         Rs2Bank.closeBank();
         returnToStart();
@@ -463,6 +482,9 @@ public class SplashScript extends Script {
             boolean isWielded = weapon != null && weapon.getId() == staff.getItemID();
             if (!isWielded
                     && !SplashLogic.staffKeepsSplashSafe(total, weaponBonus, magicBonusOf(staff.getItemID()))) {
+                if (cfg().useElementalStaff() && staffSkipLogged.add(staff)) {
+                    Microbot.log("Not wielding " + readable(staff.name()) + ": your magic bonus would be above -65.");
+                }
                 continue;
             }
             best = staff;
@@ -471,12 +493,18 @@ public class SplashScript extends Script {
         return best;
     }
 
-    private Map<Runes, Integer> gePrices(boolean withMarkup) {
+    private Map<Runes, Integer> gePrices(List<Rs2CombatSpells> spells, boolean withMarkup) {
         Map<Runes, Integer> prices = new EnumMap<>(Runes.class);
-        for (Rs2CombatSpells spell : SplashLogic.AUTO_ORDER) {
+        for (Rs2CombatSpells spell : spells) {
             for (Runes r : spell.getRequiredRunes().keySet()) {
                 if (prices.containsKey(r)) continue;
-                int p = Math.max(1, Rs2GrandExchange.getPrice(r.getItemId()));
+                int p = Rs2GrandExchange.getPrice(r.getItemId());
+                if (p <= 0) {
+                    Microbot.showMessage("Could not look up the GE price for " + SplashLogic.runeItemName(r)
+                            + ". AIO Magic stopped. Buy the runes yourself or try again later.");
+                    shutdown();
+                    return null;
+                }
                 prices.put(r, withMarkup ? Math.max(p + 1, p * GE_PRICE_MARKUP_PERCENT / 100) : p);
             }
         }
@@ -502,7 +530,8 @@ public class SplashScript extends Script {
         }
         Rs2Bank.closeBank();
 
-        Map<Runes, Integer> prices = gePrices(true);
+        Map<Runes, Integer> prices = gePrices(List.of(spell), true);
+        if (prices == null) return;
         int casts = SplashLogic.affordableCasts(spell.getRequiredRunes(), cfg().castsPerTrip(), carried, prices, budget);
         Map<Runes, Integer> toBuy = SplashLogic.runesToWithdraw(spell.getRequiredRunes(), casts, carried);
         if (casts < 1 || toBuy.isEmpty()) {

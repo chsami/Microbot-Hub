@@ -107,7 +107,7 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = npcName,
 			name = "NPC Name",
-			description = "Name of the NPC you would like to splash. Leave empty to auto-pick the nearest safe low-level NPC (chicken, rat, man, cow...) within 10 tiles",
+			description = "Name of the NPC you would like to splash. It must be within 8 tiles of where you start the script, and the script walks back if you drift further. Leave empty to auto-pick the nearest safe low-level NPC (chicken, rat, man, cow...) within 10 tiles",
 			position = 0,
 			section = splashSection
 	)
@@ -184,7 +184,7 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = requireSplashBonus,
 			name = "Require -65 magic bonus",
-			description = "Stop if your equipment magic attack bonus is above -65 (you may hit instead of splash). Off = only warn."
+			description = "Stop if your equipment magic attack bonus is above -65 (you may hit instead of splash). Off = only a warning in the log console."
 					+ " Wear metal armour (helm, platebody, platelegs, kiteshield) plus a piece with a magic penalty such as"
 					+ " green d'hide vambraces: metal armour plus a staff only reaches about -55",
 			position = 7,
