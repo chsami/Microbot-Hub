@@ -7,25 +7,28 @@ Automates the Arceuus Library task by reading the upstream **Kourend Library** R
 The upstream Kourend Library plugin observes customer dialogue, bookcase searches, and reshuffle events to narrow down which bookcase contains which book. This plugin reads that solver state and drives the player through the loop.
 
 - **Reads** — wanted book, customer NPC, possible bookcase locations, solver state (`NO_DATA` / `INCOMPLETE` / `COMPLETE`).
-- **Drives** — walking, talking, searching, delivering.
+- **Drives** — travelling to the library, walking, talking, searching, delivering.
 - **Does not** re-implement book inference. The upstream plugin is the brain.
 
 ## Prerequisites
 
 - Members world.
-- Inside the Arceuus Library (region 6459). The script will not auto-travel there — fairy ring CIS or another teleport, then start.
+- Start inside the Arceuus Library (region 6459) or anywhere else. Outside the library, the script travels there on its own with the web walker's ships, charters and teleports. If walking fails, it breaks an *Arceuus library teleport* or *Kourend castle teleport* tab from your inventory. If it still can't reach the library, it stops and asks you to go to Great Kourend first or bring one of those tabs.
 - The upstream **Kourend Library** plugin will be enabled automatically when you start this plugin.
 
 ## Config
 
 | Option | Description |
 |---|---|
-| Reward XP | Which XP to claim from the *Book of arcane knowledge* reward. `MAGIC` = 15× Magic level, `RUNECRAFT` = 5× Runecraft level. Default: `MAGIC`. |
+| Reward skill | Which XP to claim from the *Book of arcane knowledge* reward. Magic = 15× Magic level, Runecraft = 5× Runecraft level. Auto picks whichever pays more; ties go to Magic. Default: Auto. |
+| Read reward book | Read a *Book of arcane knowledge* as soon as you get one. When off, the books stay in your inventory. Default: on. |
 | Read Soul Journey | If the requested book is *Soul Journey*, read it before delivery to start the *Bear Your Soul* miniquest. Default: on. |
+| Use stamina/energy potions | Drink Extended stamina, Stamina, Super energy or Energy potions (any dose, best first) to keep running. Default: off. |
+| Drink at run energy % | Drink a potion when run energy is at or below this value (1-99). Default: 30. |
+| Potions to bring | When you run out of potions and energy is low, the script walks to the Arceuus bank, takes this many (0-10), and walks back to the library. If the bank has none, it stops trying and carries on without them. 0 turns restocking off. Default: 2. |
 
 ## Out of scope
 
-- Auto-travel to the library.
 - Dark Manuscripts (removed January 2024).
 - Library Historical Archive interactions.
 - Bear Your Soul miniquest steps beyond the optional one-shot Soul Journey read.

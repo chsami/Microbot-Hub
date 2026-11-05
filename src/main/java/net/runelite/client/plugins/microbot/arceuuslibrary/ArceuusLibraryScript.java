@@ -174,6 +174,7 @@ public class ArceuusLibraryScript extends Script
             // The customer/book loop only makes sense inside the library. Elsewhere,
             // travel there first (with the pathfinder's teleports/transports enabled).
             WorldPoint playerLoc = Rs2Player.getWorldLocation();
+            if (playerLoc == null) return;
             if (!LibraryTravel.isInsideLibrary(playerLoc))
             {
                 travelToLibrary(playerLoc);
@@ -967,6 +968,7 @@ public class ArceuusLibraryScript extends Script
     /** Walks to the Arceuus bank and withdraws potions; the next tick's travel phase brings us back. */
     private void restockPotions()
     {
+        cancelBackgroundWalk();
         state = ArceuusLibraryState.RESTOCK;
         log.info("[restock] out of potions at {}% energy; banking at Arceuus", Rs2Player.getRunEnergy());
         boolean opened = Rs2Bank.isOpen() || Rs2Bank.walkToBankAndUseBank(BankLocation.ARCEUUS);
@@ -1123,6 +1125,7 @@ public class ArceuusLibraryScript extends Script
             try
             {
                 WalkerState result = Rs2Walker.walkWithState(target, 2);
+                if (inFlightTarget != target) return;
                 WorldPoint now = Rs2Player.getWorldLocation();
                 boolean noProgress = result == WalkerState.EXIT && startedAt != null && startedAt.equals(now);
                 if (result == WalkerState.UNREACHABLE || noProgress)
@@ -1171,9 +1174,10 @@ public class ArceuusLibraryScript extends Script
             if (tryTravelItems(here)) return;
             if (travelFailureRounds >= MAX_TRAVEL_FAILURES)
             {
-                String msg = "Can't reach the Arceuus Library from " + here + " - travel to Kourend first";
-                log.error(msg);
-                Microbot.showMessage(msg);
+                log.error("Can't reach the Arceuus Library from {} - travel to Kourend first", here);
+                Microbot.showMessage("Arceuus Library stopped: no route to the library from your current location. "
+                        + "Go to Great Kourend first, or carry an Arceuus library teleport or Kourend castle teleport tab, "
+                        + "then start the plugin again.");
                 shutdown();
                 if (onFatal != null) onFatal.run();
                 return;
