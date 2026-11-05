@@ -90,7 +90,7 @@ public class TickDelayTest
         for (int index = 0; index < 4; index++)
         {
             f.session.tick();
-            assertEquals("Short pause (5 ticks)", f.session.plugin.getStatus());
+            assertEquals("Attacking Tormented Demon", f.session.plugin.getStatus(), "An animation keeps the activity status");
         }
         assertEquals(1, f.session.requests());
         f.session.world.animation = -1;
