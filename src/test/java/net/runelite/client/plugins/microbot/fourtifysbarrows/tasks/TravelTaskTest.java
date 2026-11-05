@@ -343,6 +343,44 @@ public class TravelTaskTest
         assertEquals(5, actions.requests.size());
     }
 
+    @Test
+    public void anOpenBankAtTheStartIsClosedThenTheTripContinues()
+    {
+        FakeActions actions = new FakeActions();
+        actions.bankOpen = true;
+        actions.problem = "Close the bank or busy interface before travelling to Barrows";
+        TravelTask task = new TravelTask(actions);
+        task.execute();
+        assertEquals(1, actions.closes);
+        assertEquals("Closing the bank", task.getStatus());
+        assertEquals("", actions.failure);
+        assertTrue(actions.requests.isEmpty());
+        actions.now = 1;
+        task.execute();
+        assertEquals(1, actions.closes, "Waits for the close before asking again");
+        actions.bankOpen = false;
+        actions.problem = null;
+        actions.now = 2;
+        task.execute();
+        assertEquals("", actions.failure);
+        assertEquals(List.of(TravelMethod.BARROWS_TABLET), actions.requests);
+    }
+
+    @Test
+    public void aBankThatStaysOpenStopsAfterThreeCloses()
+    {
+        FakeActions actions = new FakeActions();
+        actions.bankOpen = true;
+        TravelTask task = new TravelTask(actions);
+        for (int tick = 0; tick <= 24; tick += 8)
+        {
+            actions.now = tick;
+            task.execute();
+        }
+        assertEquals(3, actions.closes);
+        assertEquals("The bank did not close; close it, then enable the plugin again", actions.failure);
+    }
+
     private static final class FakeActions extends BarrowsActions
     {
         private final List<TravelMethod> requests = new ArrayList<>();
@@ -368,6 +406,8 @@ public class TravelTaskTest
         private long cooldown;
         private String failure = "";
         private WorldPoint destination;
+        private boolean bankOpen;
+        private int closes;
 
         @Override
         public BarrowsConfig config()
@@ -452,6 +492,20 @@ public class TravelTaskTest
         public void fail(String reason)
         {
             failure = reason;
+        }
+
+        @Override
+        public boolean bankingOpen()
+        {
+            return bankOpen;
+        }
+
+        @Override
+        public boolean closeBank(Runnable callback)
+        {
+            closes++;
+            callback.run();
+            return true;
         }
     }
 }
