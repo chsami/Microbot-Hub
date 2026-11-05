@@ -219,6 +219,13 @@ public class BarrowsActions
         }
     }
 
+    /** Stops where the player stands, for a stop where the ring teleport would lose something. */
+    public void stopInPlace(String reason)
+    {
+        failure = reason;
+        reset();
+    }
+
     /** Ends a pending stop whose teleport out of Barrows could not be completed. */
     public void failEscape()
     {
@@ -250,8 +257,15 @@ public class BarrowsActions
         {
             return true;
         }
+        return atBarrowsSurface() && attacked();
+    }
+
+    /** Whether a living NPC is attacking the player. */
+    public boolean attacked()
+    {
+        Player player = player();
         List<NPC> npcs = client.getNpcs();
-        return atBarrowsSurface() && npcs != null
+        return player != null && npcs != null
             && npcs.stream().anyMatch(npc -> npc.getInteracting() == player && !npc.isDead());
     }
 

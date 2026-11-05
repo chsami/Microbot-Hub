@@ -542,9 +542,14 @@ public final class CryptTask implements FourtifysTask
         {
             request("Eat for loot space", () -> actions.inventory(actions.config().foodId(), "Eat", this::dispatched));
         }
+        else if (actions.attacked())
+        {
+            actions.fail("Chest rewards were left on the ground: your inventory was full while you were under attack");
+        }
         else
         {
-            actions.fail("Chest rewards are on the ground and the inventory has no food or vial to clear");
+            // The ring teleport would leave the rewards behind, so stop where they can still be picked up.
+            actions.stopInPlace("Chest rewards are on the ground and your inventory is full; free a slot and pick them up yourself");
         }
     }
 

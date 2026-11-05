@@ -709,7 +709,30 @@ public class CryptTaskTest
         actions.ground = 1;
         actions.tick = 2;
         task.execute();
-        assertTrue(actions.failure.contains("no food or vial"));
+        assertEquals("Chest rewards are on the ground and your inventory is full; free a slot and pick them up yourself",
+            actions.failure);
+        assertTrue(actions.stoppedInPlace, "The ring teleport would leave the rewards behind");
+    }
+
+    @Test
+    public void overflowLootUnderAttackTeleportsOutAndSaysTheRewardsWereLeft()
+    {
+        FakeActions actions = new FakeActions();
+        actions.open = true;
+        actions.slots = 0;
+        CryptTask task = new CryptTask(actions);
+        task.execute();
+        actions.rewards = true;
+        actions.tick = 1;
+        task.observe();
+        actions.rewards = false;
+        actions.ground = 1;
+        actions.attacker = liveNpc();
+        actions.tick = 2;
+        task.execute();
+        assertEquals("Chest rewards were left on the ground: your inventory was full while you were under attack",
+            actions.failure);
+        assertFalse(actions.stoppedInPlace);
     }
 
     private static final class FakeActions extends BarrowsActions
@@ -751,6 +774,7 @@ public class CryptTaskTest
         private int tab;
         private boolean closeButton = true;
         private String failure;
+        private boolean stoppedInPlace;
         private Prayer protection;
         private WorldPoint position = TunnelMap.roomCenter(4);
         private WorldPoint walked;
@@ -1070,6 +1094,19 @@ public class CryptTaskTest
         public void fail(String text)
         {
             failure = text;
+        }
+
+        @Override
+        public void stopInPlace(String text)
+        {
+            failure = text;
+            stoppedInPlace = true;
+        }
+
+        @Override
+        public boolean attacked()
+        {
+            return attacker != null;
         }
     }
 }
