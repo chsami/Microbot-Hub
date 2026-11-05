@@ -2126,8 +2126,13 @@ public class TemporossScript extends Script {
             isFightingFire = false;
             return;
         }
+        List<TemporossNpcSnapshot> ourFires = firesToDouse(sortedFires, workArea, cachedPlayerLocal);
+        if (ourFires.isEmpty()) {
+            isFightingFire = false;
+            return;
+        }
         isFightingFire = true;
-        for (TemporossNpcSnapshot fire : sortedFires) {
+        for (TemporossNpcSnapshot fire : ourFires) {
             if(isFilling){
                 Microbot.log("Filling, skipping fire");
                 return;
@@ -2143,6 +2148,23 @@ public class TemporossScript extends Script {
                 return;
             }
         }
+    }
+
+    private static final int CONTINUOUS_DOUSE_RANGE = 5 * Perspective.LOCAL_TILE_SIZE;
+
+    static List<TemporossNpcSnapshot> firesToDouse(List<TemporossNpcSnapshot> fires, TemporossWorkArea area,
+                                                   LocalPoint playerLocal) {
+        return fires.stream()
+                .filter(fire -> fire != null
+                        && ((playerLocal != null && fire.localLocation != null
+                                && playerLocal.distanceTo(fire.localLocation) <= CONTINUOUS_DOUSE_RANGE)
+                            || (area != null && area.isNearOurStations(fire.worldLocation))))
+                .collect(Collectors.toList());
+    }
+
+    private static boolean isDousingFire() {
+        int index = cachedInteractingIndex;
+        return index >= 0 && sortedFires.stream().anyMatch(fire -> fire.index == index);
     }
 
     /**
@@ -2402,6 +2424,10 @@ public class TemporossScript extends Script {
                 // Full bag: nothing to catch into. Reachable while holding through pool 1 with a
                 // full cooked inventory — stand by instead of clicking spots that cannot pay out.
                 if (cachedAllFish >= cachedTotalSlots) {
+                    return;
+                }
+
+                if (isDousingFire() && (Rs2Player.isMoving() || Rs2Player.isAnimating())) {
                     return;
                 }
 

@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.barrows;
 
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
+import net.runelite.client.plugins.microbot.util.magic.Runes;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -68,5 +69,21 @@ final class BarrowsGearRules {
                     String name = nameOf.apply(candidate);
                     return name == null ? Integer.MAX_VALUE : name.length();
                 });
+    }
+
+    static Runes runeByName(String runeName) {
+        if (runeName == null) {
+            return null;
+        }
+        for (Runes rune : Runes.values()) {
+            if ((rune.name() + " rune").equalsIgnoreCase(runeName)) {
+                return rune;
+            }
+        }
+        return null;
+    }
+
+    static boolean hasMoreRunesThan(int inventoryQuantity, int pouchQuantity, int minAmount) {
+        return inventoryQuantity + pouchQuantity > minAmount;
     }
 }

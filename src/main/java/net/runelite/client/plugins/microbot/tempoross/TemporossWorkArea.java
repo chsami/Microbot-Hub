@@ -239,6 +239,19 @@ public class TemporossWorkArea
                 || point.distanceTo(totemExitNpc) <= ANCHOR_RADIUS;
     }
 
+    private static final int SHIP_STATION_RADIUS = 8;
+    private static final int TOTEM_STATION_RADIUS = 6;
+
+    public boolean isNearOurStations(WorldPoint point) {
+        if (point == null) {
+            return false;
+        }
+        if (point.distanceTo(exitNpc) <= SHIP_STATION_RADIUS) {
+            return true;
+        }
+        return totemExitNpc != null && point.distanceTo(totemExitNpc) <= TOTEM_STATION_RADIUS;
+    }
+
     public String getAllPointsAsString() {
         String sb = "exitNpc=" + exitNpc +
                 ", safePoint=" + safePoint +
