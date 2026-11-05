@@ -36,6 +36,7 @@ public final class WildernessAgilityScript extends Script {
     private static final int ACTION_DELAY = 3000;
     private static final int XP_TIMEOUT = 8000;
     private static final int DISPENSER_ID = 53224;
+    static final String DISPENSER_ACTION = "Tag";
     private static final int TICKET_ITEM_ID = 29460;
     
     // Regex patterns for dispenser chat messages
@@ -263,7 +264,7 @@ public final class WildernessAgilityScript extends Script {
                     dispenserPreValue = getInventoryValue();
                     dispenserLootAttempts = 1;
                     waitingForDispenserLoot = true;
-                    dispenser.click("Search");
+                    dispenser.click(DISPENSER_ACTION);
                 }
             }
         }
@@ -781,7 +782,7 @@ public final class WildernessAgilityScript extends Script {
             }
         }
     }
-    private void handleRocks() {
+    void handleRocks() {
         WorldPoint loc = Rs2Player.getWorldLocation();
         if (loc != null && loc.getY() <= 3933) {
             // Get fresh dispenser object for immediate use
@@ -797,7 +798,7 @@ public final class WildernessAgilityScript extends Script {
                 dispenserPreValue = getInventoryValue();
                 dispenserLootAttempts = 1;
                 waitingForDispenserLoot = true;
-                freshDispenser.click("Search");
+                freshDispenser.click(DISPENSER_ACTION);
             }
             return;
         }
@@ -869,7 +870,7 @@ public final class WildernessAgilityScript extends Script {
             }
         }
     }
-    private void handleDispenser() {
+    void handleDispenser() {
         Rs2TileObjectModel dispenser = cachedDispenserObj;
         WorldPoint playerLoc = Rs2Player.getWorldLocation();
         if (dispenser == null || playerLoc == null) return;
@@ -919,7 +920,7 @@ public final class WildernessAgilityScript extends Script {
         if (dispenserLootAttempts == 0) {
             dispenserPreValue = getInventoryValue();
             dispenserTicketsBefore = currentTickets;
-            dispenser.click("Search");
+            dispenser.click(DISPENSER_ACTION);
             waitingForDispenserLoot = true;
             dispenserLootAttempts = 1; // Only try once, now wait for loot
         } else if (dispenserLootAttempts == 1) {
@@ -1439,7 +1440,7 @@ public final class WildernessAgilityScript extends Script {
     /**
      * Handles Emergency Escape logic - following Netoxic's approach exactly
      */
-    private void handleEmergencyEscape() {
+    void handleEmergencyEscape() {
         if (!emergencyEscapeTriggered) {
             return;
         }
@@ -1466,10 +1467,13 @@ public final class WildernessAgilityScript extends Script {
         
         // Step 2: Check if player is in rock area and climb if needed (Netoxic's approach)
         if (!hasClimbedRocks) {
-            WorldArea rockArea = new WorldArea(SOUTH_WEST_CORNER, ROCK_AREA_WIDTH, ROCK_AREA_HEIGHT);
-            boolean isInArea = rockArea.contains(Rs2Player.getWorldLocation());
             WorldPoint currentLoc = Rs2Player.getWorldLocation();
-            
+            if (currentLoc == null) {
+                return;
+            }
+            WorldArea rockArea = new WorldArea(SOUTH_WEST_CORNER, ROCK_AREA_WIDTH, ROCK_AREA_HEIGHT);
+            boolean isInArea = rockArea.contains(currentLoc);
+
             // Initialize step timer
             if (escapeStep2StartTime == 0) {
                 escapeStep2StartTime = System.currentTimeMillis();
@@ -1494,7 +1498,7 @@ public final class WildernessAgilityScript extends Script {
                 return; // Wait for next loop iteration
             } else {
                 // Check if we're within 3 tiles of the gate area - consider it arrived
-                if (currentLoc != null && currentLoc.distanceTo(GATE_AREA) <= 3) {
+                if (currentLoc.distanceTo(GATE_AREA) <= 3) {
                     Microbot.log("[WildernessAgility] Emergency Escape Step 2: Arrived at gate area (within 3 tiles)");
                     hasClimbedRocks = true;
                     escapeStep2StartTime = 0; // Reset timer

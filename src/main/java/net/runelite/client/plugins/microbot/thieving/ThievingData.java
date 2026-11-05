@@ -38,9 +38,7 @@ public final class ThievingData {
 
     public static WorldPoint[] getVyreHouse(String vyreName) {
         if (vyreName == null) return null;
-        final WorldPoint[] house = VYRE_HOUSES.get(vyreName);
-        if (house == null) throw new IllegalArgumentException("Vyre House is not defined for " + vyreName);
-        return house;
+        return VYRE_HOUSES.get(vyreName);
     }
 
     /** Centre of a Darkmeyer vyre house, used as a travel target. */

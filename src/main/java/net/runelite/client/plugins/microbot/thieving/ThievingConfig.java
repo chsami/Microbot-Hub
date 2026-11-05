@@ -53,7 +53,7 @@ public interface ThievingConfig extends Config {
     @ConfigItem(
             keyName = "walkToNpc",
             name = "Walk to NPC location",
-            description = "If no matching NPC is nearby, walk to the nearest spawn area of the selected NPC instead of hopping worlds where you stand.",
+            description = "If no matching NPC is nearby, walk to the nearest spawn area of the selected NPC instead of hopping worlds where you stand. Never walks into the Wilderness. Not used for Wealthy citizen, Elves or Master Farmer.",
             position = 2,
             section = generalSection
     )

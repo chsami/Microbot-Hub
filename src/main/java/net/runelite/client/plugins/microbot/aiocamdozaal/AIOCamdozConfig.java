@@ -27,6 +27,7 @@ public interface AIOCamdozConfig extends Config {
         DRAGON_PICKAXE_OR,
         INFERNAL_PICKAXE,
         INFERNAL_PICKAXE_OR,
+        THIRD_AGE_PICKAXE,
         CRYSTAL_PICKAXE,
         TRAILBLAZER_PICKAXE
     }
@@ -70,7 +71,7 @@ public interface AIOCamdozConfig extends Config {
     @ConfigItem(
             name = "Pickaxe",
             keyName = "pickaxe",
-            description = "The pickaxe that the plugin will try to use",
+            description = "Which pickaxe to wear. Ornament, upgraded and uncharged versions count as the same pickaxe, and the Infernal and Trailblazer options also accept Trailblazer pickaxes. If you are not wearing or carrying it, the script takes it out of the bank.",
             position = 1,
             section = mineAndSmithSettingSection
     )

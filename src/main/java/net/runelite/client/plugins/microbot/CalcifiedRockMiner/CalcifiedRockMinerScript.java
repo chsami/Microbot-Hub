@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.CalcifiedRockMiner;
 
 import net.runelite.api.GameState;
+import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
@@ -155,28 +156,31 @@ public class CalcifiedRockMinerScript extends Script {
         }
     }
 
-    private boolean hopIfTooManyPlayersNearby(net.runelite.client.plugins.microbot.CalcifiedRockMiner.CalcifiedRockMinerConfig config) {
+    boolean hopIfTooManyPlayersNearby(net.runelite.client.plugins.microbot.CalcifiedRockMiner.CalcifiedRockMinerConfig config) {
         int maxPlayers = config.maxPlayersInArea();
         if (maxPlayers > 0) {
             WorldPoint localLocation = Rs2Player.getWorldLocation();
+            if (localLocation == null) return false;
 
-            long nearbyPlayers = Microbot.getClient().getTopLevelWorldView().players().stream()
-                    .filter(p -> p != null && p != Microbot.getClient().getLocalPlayer())
-                    .filter(p -> {
-                        return p.getWorldLocation().distanceTo(localLocation) <= 15;
-                    })
-                    //filter if players are using mining animation
-                    .filter(p -> p.getAnimation() != -1)
+            Player localPlayer = Microbot.getClient().getLocalPlayer();
+            int nearbyPlayers = Microbot.getRs2PlayerCache().query()
+                    .where(p -> p.getPlayer() != localPlayer)
+                    .where(p -> p.getAnimation() != -1)
+                    .within(localLocation, 15)
                     .count();
 
-            if (nearbyPlayers >= maxPlayers) {
-                Microbot.log("Too many players nearby. Hopping...");
+            if (nearbyPlayers > maxPlayers) {
                 Rs2Random.waitEx(3200, 800); // Delay to avoid UI locking
                 int world = Login.getRandomWorld(Rs2Player.isMember());
+                Microbot.log(nearbyPlayers + " other players are mining here (limit " + maxPlayers + "). Hopping to world " + world + "...");
                 boolean hopped = Microbot.hopToWorld(world);
-                if (!hopped) return false;
+                if (!hopped) {
+                    Microbot.log("Could not hop to world " + world + ". Will try again shortly.");
+                    return false;
+                }
                 sleepUntil(() -> Microbot.getClient().getGameState() == GameState.HOPPING);
                 sleepUntil(() -> Microbot.getClient().getGameState() == GameState.LOGGED_IN);
+                return true;
             }
         }
         return false;

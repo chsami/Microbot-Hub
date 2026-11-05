@@ -1200,7 +1200,7 @@ public class PyramidCourse implements AgilityCourseHandler {
                 
                 // Walk back towards the pyramid start
                 WorldPoint currentPos = Rs2Player.getWorldLocation();
-                if (currentPos.distanceTo(START_POINT) > 10) {
+                if (currentPos != null && currentPos.distanceTo(START_POINT) > 10) {
                     log.debug("Walking back to pyramid start");
                     Rs2Walker.walkTo(START_POINT);
                 }

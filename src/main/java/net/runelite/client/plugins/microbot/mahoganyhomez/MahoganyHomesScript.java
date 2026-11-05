@@ -29,6 +29,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2InteractionApproach;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
+import net.runelite.client.util.Text;
 
 import java.awt.Rectangle;
 import java.util.*;
@@ -45,7 +46,10 @@ public class MahoganyHomesScript extends Script {
     private static final int CHOOSE_CHARACTER_WIDGET_ID = 4915200;
     private static final long NPC_CONTACT_RETRY_MS = 5000;
     private static final String[] CONTACT_SPELL_NAMES = {"Astral Contact", "NPC Contact", "Npc Contact"};
+    private static final String CONTACT_TARGET = "Amy";
+    private static final String CONTRACT_OPTION_TEXT = "contract";
     private long lastNpcContactAttempt;
+    private String lastContactProblem;
 
     public boolean run(MahoganyHomesConfig config) {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -168,7 +172,7 @@ public class MahoganyHomesScript extends Script {
             return;
         }
 
-        if (Rs2Player.getWorldLocation().getPlane() != object.getWorldLocation().getPlane()) {
+        if (!isOnPlane(Rs2Player.getWorldLocation(), object.getWorldLocation().getPlane())) {
             log("Object is on a different floor, trying to use ladder/stairs.");
             tryToUseLadder();
             return;
@@ -197,7 +201,7 @@ public class MahoganyHomesScript extends Script {
             WalkerState state = Rs2Walker.walkWithStateUntil(object.getWorldLocation(), 3,
                     () -> readyFurniture() != null);
             if (state == WalkerState.UNREACHABLE) {
-                if (Rs2Player.getWorldLocation().getPlane() != object.getWorldLocation().getPlane()) {
+                if (!isOnPlane(Rs2Player.getWorldLocation(), object.getWorldLocation().getPlane())) {
                     tryToUseLadder();
                 } else {
                     log("All pathing failed, trying to interact anyways.");
@@ -238,7 +242,7 @@ public class MahoganyHomesScript extends Script {
 
     private boolean openDoorToObject(GameObject object, Rs2WorldPoint objectLocation) {
         if (objectLocation == null) return false;
-        if (Rs2Player.getWorldLocation().getPlane() != object.getWorldLocation().getPlane()) {
+        if (!isOnPlane(Rs2Player.getWorldLocation(), object.getWorldLocation().getPlane())) {
             return false;
         }
         log("Local Path seems to be blocked, checking for doors to open.");
@@ -303,7 +307,9 @@ public class MahoganyHomesScript extends Script {
 
     private void tryToUseLadder() {
         log("Walker missing transport, trying to find ladder manually.");
-        int plane = Rs2Player.getWorldLocation().getPlane();
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+        int plane = playerLocation.getPlane();
         var closestLadder = Microbot.getRs2TileObjectCache().query()
                 .withIds(Arrays.stream(plugin.getCurrentHome().getLadders()).mapToInt(Integer::intValue).toArray())
                 .where(obj -> obj.getWorldLocation().getPlane() == plane).nearest();
@@ -317,7 +323,7 @@ public class MahoganyHomesScript extends Script {
         if (approach == null) return;
 
         // Geometric proximity can put us behind the house, across a closed door.
-        if (approach.distanceToPath(Rs2Player.getWorldLocation()) > 2) {
+        if (approach.distanceToPath(playerLocation) > 2) {
             log("Reaching ladder entrance before climbing: " + approach.getWorldPoint());
             if (!openDoorToObject(ladder, approach)) {
                 Rs2Walker.walkWithState(approach.getWorldPoint(), 0);
@@ -325,9 +331,17 @@ public class MahoganyHomesScript extends Script {
             return;
         }
         if (closestLadder.click()) {
-            sleepUntil(() -> Rs2Player.getWorldLocation().getPlane() != plane, 5000);
+            sleepUntil(() -> hasLeftPlane(Rs2Player.getWorldLocation(), plane), 5000);
             sleep(200, 600);
         }
+    }
+
+    static boolean hasLeftPlane(WorldPoint location, int plane) {
+        return location != null && location.getPlane() != plane;
+    }
+
+    static boolean isOnPlane(WorldPoint location, int plane) {
+        return location != null && location.getPlane() == plane;
     }
 
 
@@ -346,9 +360,11 @@ public class MahoganyHomesScript extends Script {
                 }
             }
             var npc = Microbot.getRs2NpcCache().query().withId(plugin.getCurrentHome().getNpcId()).nearest();
-            if (npc == null && Rs2Player.getWorldLocation().getPlane() > 0) {
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            if (playerLocation == null) return;
+            if (npc == null && playerLocation.getPlane() > 0) {
                 log("We are on the wrong floor, Trying to find ladder to go down");
-                int playerPlane = Rs2Player.getWorldLocation().getPlane();
+                int playerPlane = playerLocation.getPlane();
 
                 var ladders = Microbot.getRs2TileObjectCache().query()
                         .withIds(Arrays.stream(plugin.getCurrentHome().getLadders()).mapToInt(Integer::intValue).toArray())
@@ -356,19 +372,19 @@ public class MahoganyHomesScript extends Script {
                         .toList();
                 var closestLadder2 = ladders.stream()
                         .min(Comparator.comparingInt(obj ->
-                                obj.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                                obj.getWorldLocation().distanceTo(playerLocation)))
                         .orElse(null);
                     if (closestLadder2 != null && closestLadder2.click()) {
                             sleepUntil(
-                                    () -> Rs2Player.getWorldLocation().getPlane() == 0
+                                    () -> isOnPlane(Rs2Player.getWorldLocation(), 0)
                                     , 5000);
                             return;
                     }
             }
             if (npc != null) {
                 Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
-                log("Local NPC path distance: " + npcLocation.distanceToPath(Rs2Player.getWorldLocation()));
-                if (npcLocation.distanceToPath(Rs2Player.getWorldLocation()) < 20) {
+                log("Local NPC path distance: " + npcLocation.distanceToPath(playerLocation));
+                if (npcLocation.distanceToPath(playerLocation) < 20) {
                     if (npc.click("Talk-to")) {
                         log("Getting reward from NPC");
                         sleepUntil(Rs2Dialogue::hasContinue, 10000);
@@ -441,29 +457,86 @@ public class MahoganyHomesScript extends Script {
             return false;
         }
 
-        if (!castContactSpell()) {
+        if (hasAmyContractOptions()) {
+            lastContactProblem = null;
+            return true;
+        }
+
+        if (Rs2Dialogue.isInDialogue()
+                && !sleepUntil(() -> !Rs2Dialogue.isInDialogue(), Rs2Dialogue::clickContinue, 3000, 300)) {
+            logContactProblem("A chat box is open, so Astral Contact was not cast. Close it and the script will carry on.");
+            return false;
+        }
+
+        if (!castContactSpell(CONTACT_TARGET)) {
             log("Unable to cast Astral Contact / NPC Contact.");
             return false;
         }
 
-        if (!sleepUntil(() -> !Rs2Widget.isHidden(CHOOSE_CHARACTER_WIDGET_ID), 7000)) {
-            log("Astral Contact cast, but contact selection did not open.");
+        if (!sleepUntil(() -> !Rs2Widget.isHidden(CHOOSE_CHARACTER_WIDGET_ID) || Rs2Dialogue.isInDialogue(), 7000)) {
+            logContactProblem("Astral Contact did not reach Amy. Check that you have the runes for Astral Contact, or turn off \"Use NPC Contact\" to walk to the contract NPC instead.");
             return false;
         }
 
-        if (!selectContactTarget("amy")) {
-            log("Astral Contact opened, but Amy could not be selected.");
+        if (!Rs2Widget.isHidden(CHOOSE_CHARACTER_WIDGET_ID)) {
+            if (!selectContactTarget("amy")) {
+                log("Astral Contact opened, but Amy could not be selected.");
+                return false;
+            }
+            Rs2Player.waitForAnimation();
+            lastContactProblem = null;
+            return true;
+        }
+
+        if (!sleepUntil(Rs2Dialogue::hasSelectAnOption, Rs2Dialogue::clickContinue, 5000, 300) || !hasAmyContractOptions()) {
+            Microbot.showMessage("Astral Contact went to your last contact instead of Amy. Cast Astral Contact on Amy once by hand so she becomes your last contact, then start the script again.");
+            Microbot.stopPlugin(plugin);
             return false;
         }
 
-        Rs2Player.waitForAnimation();
+        lastContactProblem = null;
         return true;
     }
 
-    private boolean castContactSpell() {
+    private boolean hasAmyContractOptions() {
+        if (!Rs2Dialogue.hasSelectAnOption()) {
+            return false;
+        }
+        List<String> options = Rs2Dialogue.getDialogueOptions().stream()
+                .map(Widget::getText)
+                .collect(Collectors.toList());
+        return isContractTierDialogue(options);
+    }
+
+    static boolean isContractTierDialogue(List<String> options) {
+        if (options == null) {
+            return false;
+        }
+        return options.stream()
+                .filter(Objects::nonNull)
+                .map(option -> Text.removeTags(option).toLowerCase())
+                .anyMatch(option -> option.contains(CONTRACT_OPTION_TEXT));
+    }
+
+    private void logContactProblem(String message) {
+        if (message.equals(lastContactProblem)) {
+            return;
+        }
+        lastContactProblem = message;
+        log(message);
+    }
+
+    private boolean castContactSpell(String npcName) {
         Rs2Tab.switchToMagicTab();
         sleep(150, 300);
         Rs2Magic.canCast(MagicAction.NPC_CONTACT);
+
+        for (String spellName : CONTACT_SPELL_NAMES) {
+            if (invokeContactSpellOption(spellName, npcName)) {
+                log("Casting %s on %s.", spellName, npcName);
+                return true;
+            }
+        }
 
         for (String spellName : CONTACT_SPELL_NAMES) {
             if (clickSpellbookWidget(spellName)) {
@@ -473,6 +546,59 @@ public class MahoganyHomesScript extends Script {
         }
 
         return false;
+    }
+
+    private boolean invokeContactSpellOption(String spellName, String npcName) {
+        Map.Entry<NewMenuEntry, Rectangle> invocation = Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Widget spell = findSpellbookWidget(spellName);
+            if (spell == null || spell.isHidden() || spell.getBounds() == null) {
+                return null;
+            }
+            int actionIndex = contactActionIndex(spell.getActions(), npcName);
+            if (actionIndex < 0) {
+                return null;
+            }
+            NewMenuEntry entry = new NewMenuEntry()
+                    .option(spell.getActions()[actionIndex])
+                    .param0(spell.getIndex())
+                    .param1(spell.getId())
+                    .opcode(MenuAction.CC_OP.getId())
+                    .identifier(actionIndex + 1)
+                    .itemId(-1)
+                    .target(spell.getName());
+            return new AbstractMap.SimpleEntry<>(entry, new Rectangle(spell.getBounds()));
+        }).orElse(null);
+        if (invocation == null) {
+            return false;
+        }
+        Microbot.doInvoke(invocation.getKey(), invocation.getValue());
+        return true;
+    }
+
+    private Widget findSpellbookWidget(String spellName) {
+        for (int childId : new int[] {3, 0}) {
+            Widget root = Rs2Widget.getWidget(218, childId);
+            if (root == null) {
+                continue;
+            }
+            Widget spell = Rs2Widget.findWidget(spellName, Collections.singletonList(root), true);
+            if (spell != null) {
+                return spell;
+            }
+        }
+        return null;
+    }
+
+    static int contactActionIndex(String[] actions, String npcName) {
+        if (actions == null || npcName == null) {
+            return -1;
+        }
+        for (int i = 0; i < actions.length; i++) {
+            if (actions[i] != null && Text.removeTags(actions[i]).trim().equalsIgnoreCase(npcName)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private boolean clickSpellbookWidget(String spellName) {
@@ -515,8 +641,11 @@ public class MahoganyHomesScript extends Script {
     private Rectangle[] contactTargetBounds(String npcName) {
         return Microbot.getClientThread().runOnClientThreadOptional(() -> {
             Widget chooser = Rs2Widget.getWidget(CHOOSE_CHARACTER_WIDGET_ID);
-            Widget npc = Rs2Widget.findWidget(npcName);
-            if (chooser == null || npc == null || chooser.isHidden()) {
+            if (chooser == null || chooser.isHidden()) {
+                return null;
+            }
+            Widget npc = Rs2Widget.findWidget(npcName, Collections.singletonList(chooser), false);
+            if (npc == null) {
                 return null;
             }
             Rectangle chooserBounds = chooser.getBounds();

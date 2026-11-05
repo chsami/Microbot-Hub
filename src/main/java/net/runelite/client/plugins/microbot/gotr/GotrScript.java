@@ -245,7 +245,7 @@ public class GotrScript extends Script {
     }
 
     private boolean waitingForGameToStart(int timeToStart) {
-        if (isInHugeMine()) return false;
+        if (isInHugeMine() || portalClock.isRoundRunning()) return false;
 
         if (getStartTimer() > Rs2Random.randomGaussian(35, Rs2Random.between(1, 5)) || getStartTimer() == -1 || timeToStart > 10) {
 
@@ -394,6 +394,16 @@ public class GotrScript extends Script {
 
     static boolean hasFragmentsToFillInventory(int fragments, int emptySlots, int pouchCapacity) {
         return fragments >= emptySlots + pouchCapacity;
+    }
+
+    static boolean shouldMineLargeRemains(int fragments, int maxFragments, boolean roundRunning, int secondsSincePortal) {
+        if (fragments >= maxFragments) {
+            return false;
+        }
+        if (secondsSincePortal == -1) {
+            return !roundRunning;
+        }
+        return secondsSincePortal < 85;
     }
 
     private boolean depositRunesIntoPool() {
@@ -585,7 +595,9 @@ public class GotrScript extends Script {
             leaveHugeMine();
             return;
         }
-        if (Rs2Player.getSkillRequirement(Skill.AGILITY, 56) && getTimeSincePortal() < 85 && !Rs2Inventory.hasItem(GUARDIAN_ESSENCE)) {
+        if (Rs2Player.getSkillRequirement(Skill.AGILITY, 56)
+                && shouldMineLargeRemains(Rs2Inventory.itemQuantity(GUARDIAN_FRAGMENTS), config.maxFragmentAmount(), portalClock.isRoundRunning(), portalClock.secondsSincePortal(Instant.now()))
+                && !Rs2Inventory.hasItem(GUARDIAN_ESSENCE)) {
             if (!isInLargeMine() && !isInHugeMine() && (!Rs2Inventory.hasItem(GUARDIAN_FRAGMENTS) || getStartTimer() == -1)) {
                 if (Rs2Walker.walkTo(new WorldPoint(3632, 9503, 0), 20)) {
                     log("Traveling to large mine...");

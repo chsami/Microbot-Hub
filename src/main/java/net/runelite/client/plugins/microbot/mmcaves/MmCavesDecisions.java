@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.IntSupplier;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 final class MmCavesDecisions {
     private MmCavesDecisions() {
@@ -18,6 +19,14 @@ final class MmCavesDecisions {
         return Arrays.stream(LightSources.values())
                 .map(LightSources::getItemName)
                 .anyMatch(name -> inInventory.test(name) || equipped.test(name));
+    }
+
+    static String missingLightSourceMessage() {
+        String accepted = Arrays.stream(LightSources.values())
+                .map(LightSources::getItemName)
+                .collect(Collectors.joining(", "));
+        return "MM Caves stopped: no lit light source found. Carry or wear one of: " + accepted
+                + ". Unlit torches and candles do not count, so light them first.";
     }
 
     static boolean shouldHeal(double healthPercentage) {

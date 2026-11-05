@@ -90,6 +90,10 @@ final class ThievingTravel {
         return (locationName != null && locationName.toLowerCase().contains("wilderness")) || isWilderness(x, y, plane);
     }
 
+    static boolean anchorsInPlace(ThievingNpc npc) {
+        return npc == ThievingNpc.ELVES || npc == ThievingNpc.MASTER_FARMER || npc == ThievingNpc.NONE;
+    }
+
     static String titleCase(String s) {
         if (s == null || s.isEmpty()) return s;
         final StringBuilder sb = new StringBuilder(s.length());
