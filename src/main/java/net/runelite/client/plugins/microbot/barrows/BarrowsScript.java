@@ -72,6 +72,8 @@ public class BarrowsScript extends Script {
             "Death rune"
     );
 
+    private static final String STAFF_OUT_OF_CHARGES_MESSAGE = "Barrows stopped: your staff is out of charges. Recharge it, then start Barrows again.";
+
     /** Invalidates prior scheduled loops across plugin restarts / duplicate run() calls. */
     private static final AtomicInteger RUN_GENERATION = new AtomicInteger();
     private static volatile ScheduledFuture<?> activeMainFuture;
@@ -232,8 +234,8 @@ public class BarrowsScript extends Script {
 
                 if(usingPoweredStaffs) {
                     if (outOfPoweredStaffCharges) {
-                        Microbot.log("No charges left on our staff. Stopping...");
-                        super.shutdown();
+                        stopForMissingSupply(STAFF_OUT_OF_CHARGES_MESSAGE);
+                        return;
                     }
                 }
 
@@ -755,7 +757,7 @@ public class BarrowsScript extends Script {
                                     sleepUntil(() -> Rs2Player.isAnimating(), Rs2Random.between(2000, 4000));
                                     sleepUntil(() -> !Rs2Player.isAnimating(), Rs2Random.between(6000, 10000));
                                 } else if(!hasDuelingRingAvailable()){
-                                    stopForMissingSupply("Barrows stopped: you need a Ring of dueling in your inventory to leave Barrows for the bank.");
+                                    stopForMissingSupply("Barrows stopped: no Ring of dueling to teleport out for supplies. Leave Barrows yourself, bank a Ring of dueling, then start Barrows again.");
                                 }
                                 return;
                             }
@@ -787,7 +789,7 @@ public class BarrowsScript extends Script {
                                 Rs2Bank.withdrawOne("Spade");
                                 sleepUntil(()-> Rs2Inventory.contains("Spade"), Rs2Random.between(2000,4000));
                             } else {
-                                stopForMissingSupply("Barrows stopped: no Spade in your bank.");
+                                stopForMissingSupply("Barrows stopped: no Spade in your bank. Bank a Spade, then start Barrows again.");
                                 return;
                             }
                         }
@@ -807,17 +809,17 @@ public class BarrowsScript extends Script {
                                         withdrawNeededRunes(config);
                                     }
                                 } else {
-                                    stopForMissingSupply("Barrows stopped: not enough " + neededRune + "s in your bank and no lower-tier runes available.");
+                                    stopForMissingSupply(missingRunesMessage(config.minRuneAmount()));
                                     return;
                                 }
                             }
                         } else if(outOfPoweredStaffCharges){
-                            stopForMissingSupply("Barrows stopped: your staff is out of charges.");
+                            stopForMissingSupply(STAFF_OUT_OF_CHARGES_MESSAGE);
                             return;
                         }
 
-                        if(isPohTravelMode(config)){
-                            ensurePohTravelSupplies(config);
+                        if(isPohTravelMode(config) && !ensurePohTravelSupplies(config)){
+                            return;
                         }
 
                         int howtoBank = Rs2Random.between(0,100);
@@ -834,7 +836,7 @@ public class BarrowsScript extends Script {
                                             sleepUntil(()-> Rs2Inventory.count(config.prayerRestoreType().getPrayerRestoreTypeID()) > Rs2Random.between(4,8), Rs2Random.between(2000,4000));
                                         }
                                     } else {
-                                        stopForMissingSupply("Barrows stopped: need at least "+config.targetPrayerPots()+" "+config.prayerRestoreType().getPrayerRestoreTypeName()+" in your bank.");
+                                        stopForMissingSupply(notEnoughInBankMessage(Rs2Bank.getBankItem(config.prayerRestoreType().getPrayerRestoreTypeID()).getQuantity(), config.prayerRestoreType().getPrayerRestoreTypeName(), "Max Prayer Restore", config.targetPrayerPots()));
                                         return;
                                     }
                                 }
@@ -856,7 +858,7 @@ public class BarrowsScript extends Script {
                                                 sleepUntil(() -> Rs2Inventory.count("Forgotten brew(4)") + Rs2Inventory.count("Forgotten brew(3)") > Rs2Random.between(1, 3), Rs2Random.between(2000, 4000));
                                             }
                                         } else {
-                                            stopForMissingSupply("Barrows stopped: need at least " + config.targetForgottenBrew() + " Forgotten brew(4) in your bank.");
+                                            stopForMissingSupply(notEnoughInBankMessage(Rs2Bank.getBankItem("Forgotten brew(4)").getQuantity(), "Forgotten brew(4)", "Max Forgotten Brews", config.targetForgottenBrew()));
                                             return;
                                         }
                                     }
@@ -873,11 +875,11 @@ public class BarrowsScript extends Script {
                                             sleep(Rs2Random.between(300,750));
                                         }
                                     } else {
-                                        stopForMissingSupply("Barrows stopped: need at least "+config.targetBarrowsTeleports()+" "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName()+" in your bank.");
+                                        stopForMissingSupply(notEnoughInBankMessage(Rs2Bank.getBankItem(config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemID()).getQuantity(), config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName()+"s", "Max Barrows Teleports", config.targetBarrowsTeleports()));
                                         return;
                                     }
                                 } else {
-                                    stopForMissingSupply("Barrows stopped: need at least "+config.targetBarrowsTeleports()+" "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName()+" in your bank.");
+                                    stopForMissingSupply(notEnoughInBankMessage(0, config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName()+"s", "Max Barrows Teleports", config.targetBarrowsTeleports()));
                                     return;
                                 }
                                 }
@@ -898,7 +900,7 @@ public class BarrowsScript extends Script {
                                             sleepUntil(()-> Rs2Inventory.count(ourFoodsID) >= 10, Rs2Random.between(2000,4000));
                                         }
                                     } else {
-                                        stopForMissingSupply("Barrows stopped: need at least "+config.targetFoodAmount()+" "+ourfoodsname+" in your bank.");
+                                        stopForMissingSupply(notEnoughInBankMessage(Rs2Bank.getBankItem(ourFoodsID).getQuantity(), ourfoodsname, "Max Food Amount", config.targetFoodAmount()));
                                         return;
                                     }
                                 }
@@ -1187,7 +1189,7 @@ public class BarrowsScript extends Script {
      * POH banking: withdraw pouch / dust+law before requiring tabs.
      * Tabs remain the fallback when cast supplies still cannot be made available.
      */
-    private void ensurePohTravelSupplies(BarrowsConfig config){
+    private boolean ensurePohTravelSupplies(BarrowsConfig config){
         if(!canCastHouseTeleport() && !Rs2Inventory.hasRunePouch()){
             Microbot.log("Withdrawing rune pouch for Teleport to House.");
             if(Rs2Bank.withdrawRunePouch()){
@@ -1217,11 +1219,12 @@ public class BarrowsScript extends Script {
                         sleep(Rs2Random.between(300,750));
                     }
                 } else if(!canCastHouseTeleport()){
-                    Microbot.log("Can't cast Teleport to House (need Law + Dust/Air+Earth in inv/pouch) and no house tabs available. stopping...");
-                    super.shutdown();
+                    stopForMissingSupply("Barrows stopped: you can't cast Teleport to House (it needs a Law rune plus a Dust rune, or Air and Earth runes) and your bank has fewer than " + config.targetBarrowsTeleports() + " Teleport to house tabs (Max Barrows Teleports). Bank the runes or more tabs, then start Barrows again.");
+                    return false;
                 }
             }
         }
+        return true;
     }
 
     private void withdrawHouseTeleportRunesFromBank(){
@@ -2781,10 +2784,50 @@ public class BarrowsScript extends Script {
 
         Microbot.log("Withdrawing Ring of dueling for inventory Ferox teleports.");
         if(!withdrawOneDuelingRingFromBank()){
-            stopForMissingSupply("Barrows stopped: no Ring of dueling in your bank. Bank at least one and start Barrows again.");
+            stopForMissingSupply(duelingRingWithdrawFailedMessage());
             return false;
         }
         return true;
+    }
+
+    private String duelingRingWithdrawFailedMessage(){
+        if(!bankHasDuelingRing()){
+            return "Barrows stopped: no Ring of dueling in your bank. Bank at least one and start Barrows again.";
+        }
+        if(Rs2Inventory.isFull()){
+            return "Barrows stopped: your inventory is full, so a Ring of dueling could not be withdrawn. Lower Max Food Amount or Max Prayer Restore to free a slot, then start Barrows again.";
+        }
+        return "Barrows stopped: could not withdraw a Ring of dueling from your bank. Start Barrows again; if this keeps happening, put a ring in your inventory before starting.";
+    }
+
+    private boolean bankHasDuelingRing(){
+        for(int id : DUELING_RING_IDS){
+            if(Rs2Bank.count(id) > 0){
+                return true;
+            }
+        }
+        return Rs2Bank.hasBankItem("Ring of dueling", false);
+    }
+
+    String notEnoughInBankMessage(int bankCount, String itemName, String settingName, int settingValue){
+        String have = bankCount <= 0 ? "no " : "only " + bankCount + " ";
+        return "Barrows stopped: " + have + itemName + " in your bank, but " + settingName + " is set to " + settingValue
+                + ". Bank more or lower " + settingName + ", then start Barrows again.";
+    }
+
+    private String missingRunesMessage(int minRunes){
+        String next = " Bank more runes or lower Min Runes, then start Barrows again.";
+        String need = " in your bank (you need more than " + minRunes + ", the Min Runes setting)";
+        if(neededRune == null || "unknown".equals(neededRune)){
+            return "Barrows stopped: not enough combat runes" + need + "." + next;
+        }
+        List<String> castable = getCastableRuneTiers();
+        List<String> lower = new ArrayList<>();
+        for(int i = castable.indexOf(neededRune) + 1; i < castable.size(); i++){
+            lower.add(castable.get(i).replace(" rune", ""));
+        }
+        String lowerText = lower.isEmpty() ? "" : ", and not enough " + String.join(" or ", lower) + " runes to cast a lower Wind spell";
+        return "Barrows stopped: not enough " + neededRune + "s" + need + lowerText + "." + next;
     }
 
     void stopForMissingSupply(String message){
