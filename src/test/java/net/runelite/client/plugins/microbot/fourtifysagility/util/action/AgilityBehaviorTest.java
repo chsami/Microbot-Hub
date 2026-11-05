@@ -52,8 +52,9 @@ public class AgilityBehaviorTest
                 new Class<?>[] {Player.class}, (proxy, method, args) ->
                 method.getName().equals("getAnimation") ? 713 : null);
         plugin.setTickDelay(2);
+        plugin.setStatus("Crossing the log");
         assertTrue(waitForDelay(plugin, animating));
-        assertEquals("Short pause (2 ticks)", plugin.getStatus());
+        assertEquals("Crossing the log", plugin.getStatus(), "An animation keeps the activity status");
         assertTrue(waitForDelay(plugin, idle));
         assertEquals("Short pause (2 ticks)", plugin.getStatus());
         assertTrue(waitForDelay(plugin, idle));

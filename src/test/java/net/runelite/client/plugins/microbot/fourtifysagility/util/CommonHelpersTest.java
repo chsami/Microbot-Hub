@@ -71,7 +71,8 @@ public class CommonHelpersTest
         assertTrue(first.waitForDelay(player(625), status::add));
         assertTrue(first.waitForDelay(player(-1), status::add));
         assertFalse(first.waitForDelay(player(-1), status::add));
-        assertEquals(List.of("Short pause (1 tick)", "Short pause (1 tick)"), status);
+        // The animating tick neither counts down nor shows the countdown.
+        assertEquals(List.of("Short pause (1 tick)"), status);
     }
 
     @Test
