@@ -80,6 +80,26 @@ final class StaminaPotions
         return best;
     }
 
+    static int bestIndex(List<String> names, boolean staminaActive)
+    {
+        if (staminaActive)
+        {
+            List<String> plain = new ArrayList<>();
+            List<Integer> positions = new ArrayList<>();
+            for (int i = 0; i < names.size(); i++)
+            {
+                if (isPotion(names.get(i)) && !givesStaminaEffect(names.get(i)))
+                {
+                    plain.add(names.get(i));
+                    positions.add(i);
+                }
+            }
+            int idx = bestIndex(plain);
+            if (idx >= 0) return positions.get(idx);
+        }
+        return bestIndex(names);
+    }
+
     static boolean shouldEnableRun(boolean runEnabled, int energyPercent)
     {
         return !runEnabled && energyPercent > MIN_ENERGY_TO_RUN;

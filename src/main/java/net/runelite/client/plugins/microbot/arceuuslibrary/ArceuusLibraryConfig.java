@@ -14,13 +14,14 @@ import net.runelite.client.config.Range;
         + "That plugin must be enabled (this plugin will enable it on start).</p>"
         + "<p>Inside the library, the script finds a customer, fetches their requested "
         + "book from a bookcase, and delivers it for Magic or Runecraft XP.</p>"
-        + "<p>Started anywhere else, it travels to the library on its own using the "
+        + "<p>You need to be on a members world. Started anywhere else, it travels to the library on its own using the "
         + "web walker's ships, charters and teleports. If walking fails it breaks an "
         + "Arceuus library teleport or Kourend castle teleport tab from your inventory. "
         + "If it still can't get there, it stops and tells you why.</p>"
         + "<p>Stamina/energy potions are off by default. When turned on, the script "
         + "drinks them to keep running and, when it runs out, walks to the Arceuus "
         + "bank to take more, then returns to the library.</p>"
+        + "<p>The script keeps run turned on whenever you have more than 10% run energy.</p>"
         + "</div>")
 public interface ArceuusLibraryConfig extends Config
 {
@@ -30,7 +31,7 @@ public interface ArceuusLibraryConfig extends Config
             description = "Which XP to claim from the Book of arcane knowledge (Magic = 15x Magic level, Runecraft = 5x Runecraft level). Auto picks whichever pays more; ties go to Magic.",
             position = 1
     )
-    default RewardXp rewardXp() { return RewardXp.AUTO; }
+    default RewardXp rewardXp() { return RewardXp.MAGIC; }
 
     @ConfigItem(
             keyName = "readRewardBook",
@@ -68,7 +69,7 @@ public interface ArceuusLibraryConfig extends Config
     @ConfigItem(
             keyName = "potionsToBring",
             name = "Potions to bring",
-            description = "When you run out of potions and energy is low, the script walks to the Arceuus bank, takes this many, and walks back to the library. If the bank has none, it stops trying and carries on without them. 0 turns restocking off.",
+            description = "When you run out of potions and energy is low, the script walks to the Arceuus bank, takes this many, and walks back to the library. If the bank has none, or none reach your inventory, it stops trying and carries on without them. 0 turns restocking off.",
             position = 6
     )
     @Range(min = 0, max = 10)
