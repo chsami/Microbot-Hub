@@ -36,7 +36,7 @@ public interface ArceuusLibraryConfig extends Config
     @ConfigItem(
             keyName = "readRewardBook",
             name = "Read reward book",
-            description = "Read a Book of arcane knowledge as soon as it is received. When off, the books stay in your inventory.",
+            description = "Read a Book of arcane knowledge as soon as it is received. When off, the books stay in your inventory and fill it up; the script needs free slots to carry library books, so bank them now and then.",
             position = 2
     )
     default boolean readRewardBook() { return true; }

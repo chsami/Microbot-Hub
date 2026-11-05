@@ -31,7 +31,7 @@ import javax.inject.Inject;
 @Slf4j
 public class ArceuusLibraryPlugin extends Plugin
 {
-    public static final String version = "1.0.3";
+    public static final String version = "1.0.4";
     private static final String NOTHING_FOUND_MESSAGE = "You don't find anything useful here.";
     private static final String BOOKS_SHIFTED_MESSAGE =
             "You hear the shifting of books due to a mysterious force...or are you just hearing things?";

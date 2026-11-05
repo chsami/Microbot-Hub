@@ -114,6 +114,7 @@ public class ArceuusLibraryScript extends Script
     /** Teleport tabs usable from inventory/bank, best (lands in the library) first. */
     private static final String[] TRAVEL_TABS = { "Arceuus library teleport", "Kourend castle teleport" };
     private static final int MAX_TRAVEL_FAILURES = 3;
+    private static final long IN_LIBRARY_RETRY_MS = 2_000L;
 
     private final Runnable onFatal;
     private volatile boolean pathfinderLocal = false;
@@ -985,7 +986,7 @@ public class ArceuusLibraryScript extends Script
             if (++restockFailures >= 2)
             {
                 restockGivenUp = true;
-                notifyPlayer("Couldn't open the Arceuus bank twice; carrying on without restocking potions.");
+                notifyPlayer("Couldn't open the Arceuus bank twice; carrying on without restocking potions until you restart the plugin.");
             }
             return;
         }
@@ -999,7 +1000,7 @@ public class ArceuusLibraryScript extends Script
         if (plan.isEmpty())
         {
             restockGivenUp = true;
-            notifyPlayer("No stamina or energy potions in your bank; carrying on without them.");
+            notifyPlayer("No stamina or energy potions in your bank; carrying on without them until you restart the plugin.");
         }
         for (Integer id : plan)
         {
@@ -1012,7 +1013,7 @@ public class ArceuusLibraryScript extends Script
         if (!restockGivenUp && heldPotion(false) == null)
         {
             restockGivenUp = true;
-            notifyPlayer("Couldn't take any stamina or energy potions from the bank (is your inventory full?); carrying on without them.");
+            notifyPlayer("Couldn't take any stamina or energy potions from the bank (is your inventory full?); carrying on without them until you restart the plugin.");
         }
     }
 
@@ -1149,13 +1150,13 @@ public class ArceuusLibraryScript extends Script
                 if (result == WalkerState.UNREACHABLE || noProgress)
                 {
                     int n = ++walkFailures;
-                    long ms = LibraryTravel.backoffMillis(n);
+                    long ms = state == ArceuusLibraryState.TRAVELING ? LibraryTravel.backoffMillis(n) : IN_LIBRARY_RETRY_MS;
                     walkBackoffUntil = System.currentTimeMillis() + ms;
                     log.debug("[walk] {} to {} from {}; backing off {}s (failure #{})",
                             result, target, now, ms / 1000, n);
                     if (state != ArceuusLibraryState.TRAVELING)
                     {
-                        log.warn("[walk] walk failed ({}); trying again in {} s (failure #{})", result, ms / 1000, n);
+                        log.warn("Couldn't walk to the next spot in the library; trying again in {} s.", ms / 1000);
                     }
                     else if (n < MAX_TRAVEL_FAILURES)
                     {
@@ -1213,8 +1214,8 @@ public class ArceuusLibraryScript extends Script
             {
                 log.debug("No route to the Arceuus Library from {}", here);
                 stopWithMessage("Arceuus Library stopped: couldn't find a route to the library. "
-                        + "Make sure you are on a members world, then go to Great Kourend or carry an "
-                        + "Arceuus library teleport or Kourend castle teleport tab, and start the plugin again.");
+                        + "Go to Great Kourend, or carry an Arceuus library teleport or Kourend castle teleport tab, "
+                        + "and start the plugin again.");
                 return;
             }
         }
@@ -1229,7 +1230,7 @@ public class ArceuusLibraryScript extends Script
 
     private void stopWithMessage(String message)
     {
-        log.error(message);
+        log.warn(message);
         Microbot.showMessage(message);
         shutdown();
         if (onFatal != null) onFatal.run();
@@ -1237,9 +1238,12 @@ public class ArceuusLibraryScript extends Script
 
     public String getTravelStatus()
     {
-        if (state != ArceuusLibraryState.TRAVELING) return null;
-        int failures = walkFailures;
         long left = walkBackoffUntil - System.currentTimeMillis();
+        if (state != ArceuusLibraryState.TRAVELING)
+        {
+            return left > 0 ? String.format("Walk failed, retrying in %ds", (left + 999) / 1000) : null;
+        }
+        int failures = walkFailures;
         if (failures <= 0) return "Travelling to the library";
         if (failures >= MAX_TRAVEL_FAILURES) return "Travelling: no route found";
         if (left <= 0) return String.format("Travelling to the library (attempt %d of %d)",
@@ -1260,7 +1264,8 @@ public class ArceuusLibraryScript extends Script
             }
             if (Rs2Inventory.hasItem(tab))
             {
-                log.info("[travel] unreachable by walking from {}; breaking {}", from, tab);
+                log.debug("[travel] unreachable by walking from {}; breaking {}", from, tab);
+                log.info("No walking route to the library; using a {} tab.", tab);
                 if (Rs2Bank.isOpen()) Rs2Bank.closeBank();
                 if (Rs2Inventory.interact(tab, "Break"))
                 {
@@ -1357,6 +1362,7 @@ public class ArceuusLibraryScript extends Script
     public void shutdown()
     {
         super.shutdown();
+        cancelBackgroundWalk();
         clearPathfinderRestrictions();
         state = ArceuusLibraryState.IDLE;
     }
