@@ -38,7 +38,8 @@ import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(name = "<html><font color=#f5dd42>Fourtifys Gem Mining", configName = "fourtifyGemMining",
                     description = "Mine Shilo Village gems with automatic banking", tags = {"fourtifys", "mining", "gems"}, enabledByDefault = false,
-                    authors = {"Fourtifys"}, version = FourtifysGemMiningPlugin.VERSION, minClientVersion = "2.6.43", isExternal = true)
+                    authors = {"Fourtifys"}, version = FourtifysGemMiningPlugin.VERSION, minClientVersion = "2.6.43", isExternal = true,
+                    iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysGemMiningPlugin/assets/icon.png")
 public class FourtifysGemMiningPlugin extends Plugin
 {
     public static final String VERSION = "1.0.0";
