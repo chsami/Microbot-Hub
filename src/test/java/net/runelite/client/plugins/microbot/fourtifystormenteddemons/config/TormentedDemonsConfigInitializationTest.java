@@ -163,7 +163,7 @@ public class TormentedDemonsConfigInitializationTest
     }
 
     @Test
-    public void sectionsAreOrderedWithTimingCollapsedAndGeneralOpen() throws Exception
+    public void sectionsAreOrderedWithTimingCollapsedAndGeneralAndEquipmentOpen() throws Exception
     {
         ConfigSection timing = (ConfigSection) annotation("TIMING");
         ConfigSection general = (ConfigSection) annotation("GENERAL");
@@ -171,6 +171,7 @@ public class TormentedDemonsConfigInitializationTest
         assertTrue(timing.closedByDefault());
         assertEquals(20, general.position());
         assertFalse(general.closedByDefault());
+        assertFalse(((ConfigSection) annotation("EQUIPMENT")).closedByDefault(), "the required equipment IDs are shown");
         ConfigItem overlay = TormentedDemonsConfig.class.getMethod("showOverlay").getAnnotation(ConfigItem.class);
         assertEquals("", overlay.section());
         ConfigItem emergency = TormentedDemonsConfig.class.getMethod("emergencyAt").getAnnotation(ConfigItem.class);

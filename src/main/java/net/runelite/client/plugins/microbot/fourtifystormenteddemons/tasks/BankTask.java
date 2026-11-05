@@ -4,6 +4,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
@@ -36,15 +37,18 @@ public final class BankTask implements FourtifysTask
     private final Map<CombatStyle, Set<Integer>> sets;
     private final Set<Integer> keep;
     private final Map<Integer, Integer> restock;
+    private final Consumer<String> tell;
     private boolean stocked;
     private boolean pinSent;
+    private boolean pinAsked;
     private int requestedAt = Integer.MIN_VALUE / 2;
     private WorldPoint lastPosition;
     private int lastMoveTick = Integer.MIN_VALUE / 2;
     private String status = "Banking";
 
     public BankTask(DemonActions actions, TormentedDemonsConfig config, TripState trip, Walking walking, IntSupplier tick,
-                    Map<CombatStyle, Set<Integer>> sets, Set<Integer> keep, Map<Integer, Integer> restock)
+                    Map<CombatStyle, Set<Integer>> sets, Set<Integer> keep, Map<Integer, Integer> restock,
+                    Consumer<String> tell)
     {
         this.actions = actions;
         this.config = config;
@@ -54,6 +58,7 @@ public final class BankTask implements FourtifysTask
         this.sets = sets;
         this.keep = keep;
         this.restock = restock;
+        this.tell = tell;
     }
 
     /** Items banking leaves in the inventory. */
@@ -106,6 +111,13 @@ public final class BankTask implements FourtifysTask
             // One try with the saved PIN: a wrong one typed again would lock the bank for a while.
             if (pinSent)
             {
+                // The overlay may be off or the player away, so the wait is also told once in the chat.
+                if (!pinAsked)
+                {
+                    pinAsked = true;
+                    tell.accept("Waiting for your bank PIN: type it in the bank window or save it in your Microbot profile;"
+                        + " the plugin continues after the bank opens");
+                }
                 status = "Enter your bank PIN to continue";
                 return;
             }
@@ -120,6 +132,7 @@ public final class BankTask implements FourtifysTask
         if (actions.bankOpen())
         {
             pinSent = false;
+            pinAsked = false;
             restockStep(now);
             return;
         }
@@ -291,6 +304,7 @@ public final class BankTask implements FourtifysTask
     {
         stocked = false;
         pinSent = false;
+        pinAsked = false;
         requestedAt = Integer.MIN_VALUE / 2;
         lastPosition = null;
         lastMoveTick = Integer.MIN_VALUE / 2;

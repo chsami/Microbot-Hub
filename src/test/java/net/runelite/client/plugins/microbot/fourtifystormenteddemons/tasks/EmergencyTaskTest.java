@@ -88,7 +88,7 @@ public class EmergencyTaskTest
         task.execute();
         assertEquals("ring", actions.requests.get(0));
         assertEquals(TripPhase.LEAVING, trip.getPhase());
-        assertEquals("Emergency teleport", trip.getLeaveReason());
+        assertEquals("Low Hitpoints", trip.getLeaveReason());
         assertNull(actions.getFailure());
         assertEquals("Emergency teleport to Ferox Enclave", task.getStatus());
     }

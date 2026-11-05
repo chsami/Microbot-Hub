@@ -8,6 +8,8 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -102,6 +104,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
     private final DemonFight fight = new DemonFight();
     private TripState trip = new TripState();
     private Instant startTime;
+    private Instant stoppedAt;
     private String status = "Stopped";
     private int tick;
     private int tickGameCycle;
@@ -112,6 +115,10 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
     /** The tick each demon last fought the player: a dying demon stops interacting before its death shows. */
     private final Map<NPC, Integer> fought = new HashMap<>();
     private Set<Integer> kept = Set.of();
+    /** The item ID settings, refilled in place so the tasks that share them see each change. */
+    private final Map<CombatStyle, Set<Integer>> sets = new EnumMap<>(CombatStyle.class);
+    private final Set<Integer> keep = new LinkedHashSet<>();
+    private final Map<Integer, Integer> restock = new LinkedHashMap<>();
     private EmergencyTask emergency;
     private DodgeTask dodge;
     private PrayerTask prayer;
@@ -167,24 +174,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         }
         actions.newSession();
         trip = new TripState();
-        Map<CombatStyle, Set<Integer>> sets = new EnumMap<>(CombatStyle.class);
-        sets.put(CombatStyle.MAGIC, ids("Magic equipment IDs", config.magicGear()));
-        sets.put(CombatStyle.RANGED, ids("Ranged equipment IDs", config.rangedGear()));
-        sets.put(CombatStyle.MELEE, ids("Melee equipment IDs", config.meleeGear()));
-        Set<Integer> keep = ids("Retained inventory IDs", config.keepItems());
-        Map<Integer, Integer> restock = Map.of();
-        try
-        {
-            restock = DemonActions.restock(config.restockItems());
-        }
-        catch (IllegalArgumentException invalid)
-        {
-            actions.fail("Additional supplies/ammunition: " + invalid.getMessage());
-        }
-        if (sets.values().stream().filter(ids -> !ids.isEmpty()).count() < 2)
-        {
-            actions.fail("Fill in at least two of Magic, Ranged and Melee equipment IDs");
-        }
+        readItemSettings();
         IntSupplier ticks = this::getTick;
         emergency = new EmergencyTask(actions, config, trip, ticks);
         dodge = new DodgeTask(actions, fight, trip, ticks, Rs2Tile::getReachableTilesFromTile,
@@ -194,7 +184,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         gear = new GearTask(actions, fight, trip, ticks, sets);
         looting = new LootTask(actions, config, fight, trip, ticks, new LootRule(config.lootAlways(), config.lootMinimum()));
         combat = new CombatTask(client, actions, config, fight, trip, ticks);
-        banking = new BankTask(actions, config, trip, walking, ticks, sets, keep, restock);
+        banking = new BankTask(actions, config, trip, walking, ticks, sets, keep, restock, this::tell);
         travel = new TravelTask(actions, config, trip, walking, ticks);
         kept = Set.copyOf(banking.keptItems());
         trip.setStyle(GearChoice.worn(sets, actions::wearing));
@@ -234,6 +224,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         observedRequests = actions.getRequestsDispatched();
         lifecycle.setStarted(true);
         startTime = Instant.now();
+        stoppedAt = null;
         status = "Starting";
         overlays.add(overlay);
     }
@@ -243,10 +234,40 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         lifecycle.setStarted(false);
         walking.cancel();
         startTime = null;
+        stoppedAt = null;
         delay.set(0);
         actions.reset();
         overlays.remove(overlay);
         status = "Stopped";
+    }
+
+    /** Reads the item ID settings into the shared lists; an invalid one stops the session with the setting's name. */
+    private void readItemSettings()
+    {
+        Map<CombatStyle, Set<Integer>> read = new EnumMap<>(CombatStyle.class);
+        read.put(CombatStyle.MAGIC, ids("Magic equipment IDs", config.magicGear()));
+        read.put(CombatStyle.RANGED, ids("Ranged equipment IDs", config.rangedGear()));
+        read.put(CombatStyle.MELEE, ids("Melee equipment IDs", config.meleeGear()));
+        Set<Integer> readKeep = ids("Retained inventory IDs", config.keepItems());
+        Map<Integer, Integer> readRestock = Map.of();
+        try
+        {
+            readRestock = DemonActions.restock(config.restockItems());
+        }
+        catch (IllegalArgumentException invalid)
+        {
+            actions.fail("Additional supplies/ammunition: " + invalid.getMessage());
+        }
+        if (read.values().stream().filter(ids -> !ids.isEmpty()).count() < 2)
+        {
+            actions.fail("Fill in at least two of Magic, Ranged and Melee equipment IDs");
+        }
+        sets.clear();
+        sets.putAll(read);
+        keep.clear();
+        keep.addAll(readKeep);
+        restock.clear();
+        restock.putAll(readRestock);
     }
 
     /** The setting's item IDs, or none after stopping with the setting's name and the format to use. */
@@ -310,8 +331,25 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
             delay.set(0);
             return;
         }
-        // The restart's stop() cancels walking and queued actions on the client thread.
-        lifecycle.scheduleStart(clientThread, this::start);
+        // Tasks read the other settings when they use them, so a change keeps the runtime, kills, loot and trips.
+        clientThread.invokeLater(() ->
+        {
+            if (!lifecycle.isStarted())
+            {
+                return;
+            }
+            if (actions.getFailure() != null)
+            {
+                // A stopped session starts again once the player changes a setting, such as the one it named.
+                lifecycle.scheduleStart(clientThread, this::start);
+                return;
+            }
+            readItemSettings();
+            looting.setRule(new LootRule(config.lootAlways(), config.lootMinimum()));
+            kept = Set.copyOf(banking.keptItems());
+            // Items that join or leave the kept list are not loot, so the loot count starts from what is carried now.
+            loot.suspend();
+        });
     }
 
     @Subscribe
@@ -445,7 +483,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         if (player.isDead())
         {
             walking.cancel();
-            actions.fail("Player died; disable and recover before restarting");
+            actions.fail("You died; turn the plugin off, reclaim your items, then restart the plugin at Ferox Enclave");
         }
         if (actions.getFailure() != null)
         {
@@ -488,7 +526,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         status = "Waiting";
     }
 
-    /** Tells the player once per stop, in the chat and as a notification, since the overlay may be off or cut short. */
+    /** Tells the player once per stop, since the overlay may be off or cut short. */
     private void reportStop()
     {
         if (stopReported)
@@ -496,9 +534,16 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
             return;
         }
         stopReported = true;
-        String message = "[Tormented Demons] Stopped: " + status;
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
-        notifier.notify(message);
+        stoppedAt = Instant.now();
+        tell("Stopped: " + status);
+    }
+
+    /** Tells the player in the chat and as a notification. */
+    private void tell(String message)
+    {
+        String text = "[Tormented Demons] " + message;
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", text, null);
+        notifier.notify(text);
     }
 
     private void run(FourtifysTask task)
@@ -620,13 +665,21 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         return kills;
     }
 
+    /** How long the session ran, frozen at a stop so a stopped plugin does not look like it is still running. */
+    public Duration getRuntime()
+    {
+        Instant start = startTime;
+        Instant end = stoppedAt;
+        return start == null ? Duration.ZERO : Duration.between(start, end != null ? end : Instant.now());
+    }
+
     public long getKillsPerHour()
     {
         if (startTime == null)
         {
             return 0;
         }
-        long seconds = Math.max(1, Duration.between(startTime, Instant.now()).getSeconds());
+        long seconds = Math.max(1, getRuntime().getSeconds());
         return kills * 3600 / seconds;
     }
 

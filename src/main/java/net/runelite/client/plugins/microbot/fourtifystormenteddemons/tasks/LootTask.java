@@ -23,7 +23,7 @@ public final class LootTask implements FourtifysTask
     private final DemonFight fight;
     private final TripState trip;
     private final IntSupplier tick;
-    private final LootRule rule;
+    private LootRule rule;
     private int requestedAt = Integer.MIN_VALUE / 2;
     private WorldPoint lastPosition;
     private int lastMoveTick = Integer.MIN_VALUE / 2;
@@ -95,5 +95,11 @@ public final class LootTask implements FourtifysTask
         status = "Looting " + actions.itemName(drop.getItem().getId());
         int now = tick.getAsInt();
         actions.pickup(drop, () -> requestedAt = now);
+    }
+
+    /** Applies changed loot settings without resetting the task. */
+    public void setRule(LootRule rule)
+    {
+        this.rule = rule;
     }
 }

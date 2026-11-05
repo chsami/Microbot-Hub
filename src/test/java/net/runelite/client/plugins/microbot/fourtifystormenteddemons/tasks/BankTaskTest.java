@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.fourtifystormenteddemons.tasks;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,7 +36,8 @@ public class BankTaskTest
     private final Map<CombatStyle, Set<Integer>> sets = new LinkedHashMap<>();
     private final Set<Integer> keep = new LinkedHashSet<>();
     private final Map<Integer, Integer> restock = new LinkedHashMap<>();
-    private final BankTask task = new BankTask(actions, config, trip, walking, tick::get, sets, keep, restock);
+    private final List<String> told = new ArrayList<>();
+    private final BankTask task = new BankTask(actions, config, trip, walking, tick::get, sets, keep, restock, told::add);
 
     public BankTaskTest()
     {
@@ -542,6 +544,9 @@ public class BankTaskTest
         next();
         assertEquals(List.of("enterBankPin"), actions.requests, "A wrong PIN is not typed again");
         assertEquals("Enter your bank PIN to continue", task.getStatus());
+        next();
+        assertEquals(List.of("Waiting for your bank PIN: type it in the bank window or save it in your Microbot profile;"
+            + " the plugin continues after the bank opens"), told, "The player is told once per wait");
         assertNull(actions.getFailure());
         actions.pinShown = false;
         actions.bankIsOpen = true;

@@ -1,7 +1,10 @@
 package net.runelite.client.plugins.microbot.fourtifystormenteddemons;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.GameState;
 import net.runelite.api.Hitsplat;
@@ -14,6 +17,7 @@ import net.runelite.api.events.HitsplatApplied;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.fourtifystormenteddemons.config.TormentedDemonsConfig;
+import net.runelite.client.plugins.microbot.fourtifystormenteddemons.temple.CombatStyle;
 import net.runelite.client.plugins.microbot.fourtifystormenteddemons.temple.DemonFight;
 import net.runelite.client.plugins.microbot.fourtifystormenteddemons.temple.TempleData;
 import net.runelite.client.plugins.microbot.fourtifystormenteddemons.temple.TripState;
@@ -170,18 +174,79 @@ public class PluginLifecycleTest
     }
 
     @Test
-    public void changedSettingsBlockDispatchBeforeQueuedRestartThenRestartTheSession() throws Exception
+    public void changedSettingsKeepTheSessionItsCountersAndQueuedRequests() throws Exception
     {
         PluginTestFixture fixture = new PluginTestFixture();
         fixture.enableAndDrain();
-        fixture.decisionOnly();
-        configChanged(fixture, "room");
-        assertEquals(1, fixture.thread.pending.size());
-        fixture.clientTick();
-        assertEquals(0, fixture.requests());
-        fixture.thread.drain();
         fixture.tick();
-        assertEquals(1, fixture.requests());
+        fixture.demon.interacting = fixture.world.player;
+        fixture.demon.animation = TempleData.DEATH_ANIMATION;
+        AnimationChanged death = new AnimationChanged();
+        death.setActor(fixture.demon.npc);
+        fixture.plugin.onAnimationChanged(death);
+        fixture.demon.animation = -1;
+        Instant started = fixture.plugin.getStartTime();
+        Object trip = fixture.read("trip");
+        Object looting = fixture.read("looting");
+        fixture.decisionOnly();
+        long before = fixture.requests();
+        for (String key : new String[] {"room", "eatAt", "magicGear", "keepItems", "lootAlways"})
+        {
+            configChanged(fixture, key);
+            fixture.thread.drain();
+        }
+        assertSame(started, fixture.plugin.getStartTime());
+        assertEquals(1, fixture.plugin.getKills());
+        assertSame(trip, fixture.read("trip"));
+        assertSame(looting, fixture.read("looting"));
+        fixture.clientTick();
+        assertEquals(before + 1, fixture.requests());
+    }
+
+    @Test
+    public void changedItemSettingsApplyWithoutARestart() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.enableAndDrain();
+        fixture.config.melee = "4587";
+        fixture.config.keep = "1234";
+        configChanged(fixture, "meleeGear");
+        fixture.thread.drain();
+        @SuppressWarnings("unchecked")
+        Map<CombatStyle, Set<Integer>> sets = (Map<CombatStyle, Set<Integer>>) fixture.read("sets");
+        assertEquals(Set.of(4587), sets.get(CombatStyle.MELEE));
+        assertTrue(((Set<?>) fixture.read("kept")).contains(1234));
+    }
+
+    @Test
+    public void anInvalidItemListEnteredWhileRunningStopsTheSession() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.enableAndDrain();
+        fixture.config.melee = "Torva";
+        configChanged(fixture, "meleeGear");
+        assertEquals(1, fixture.thread.pending.size(), "the check waits for the client thread");
+        fixture.thread.drain();
+        fixture.decisionOnly();
+        assertEquals("Melee equipment IDs: \"Torva\" is not an item ID; use whole numbers separated by commas, like 4675,9185",
+            fixture.plugin.getStatus());
+        assertNotNull(fixture.plugin.getStartTime());
+    }
+
+    @Test
+    public void fixingTheNamedSettingAfterAStopStartsANewSession() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.enableAndDrain();
+        fixture.config.melee = "Torva";
+        configChanged(fixture, "meleeGear");
+        fixture.thread.drain();
+        fixture.decisionOnly();
+        assertTrue(fixture.plugin.getStatus().startsWith("Melee equipment IDs"));
+        fixture.config.melee = "";
+        configChanged(fixture, "meleeGear");
+        fixture.thread.drain();
+        assertEquals("Starting", fixture.plugin.getStatus());
     }
 
     @Test
@@ -240,11 +305,11 @@ public class PluginLifecycleTest
         fixture.clientTick();
         assertEquals(0, fixture.requests());
         fixture.tick();
-        assertEquals("Player died; disable and recover before restarting", fixture.plugin.getStatus());
+        assertEquals("You died; turn the plugin off, reclaim your items, then restart the plugin at Ferox Enclave", fixture.plugin.getStatus());
         fixture.world.dead = false;
         fixture.tick();
         assertEquals(0, fixture.requests());
-        assertEquals("Player died; disable and recover before restarting", fixture.plugin.getStatus());
+        assertEquals("You died; turn the plugin off, reclaim your items, then restart the plugin at Ferox Enclave", fixture.plugin.getStatus());
     }
 
     @Test
@@ -351,6 +416,20 @@ public class PluginLifecycleTest
         String message = "[Tormented Demons] Stopped: Carry or wear a Ring of dueling, then restart the plugin";
         assertEquals(List.of(message), fixture.world.chat);
         assertEquals(List.of(message), fixture.notifications);
+    }
+
+    @Test
+    public void theRuntimeStopsCountingWhenThePluginStops() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.FOOD, 5);
+        fixture.enableAndDrain();
+        fixture.tick();
+        fixture.tick();
+        assertNotNull(fixture.plugin.getStartTime(), "the stopped session still shows its overlay");
+        Duration runtime = fixture.plugin.getRuntime();
+        Thread.sleep(20);
+        assertEquals(runtime, fixture.plugin.getRuntime());
     }
 
     @Test

@@ -18,7 +18,7 @@ public interface TormentedDemonsConfig extends TimingConfig
     @ConfigSection(name = "General", description = "Requires While Guthix Sleeps. Bank at Ferox Enclave with a Ring of dueling and travel in with Guthixian temple teleports.", position = 20, closedByDefault = false)
     String GENERAL = "general";
 
-    @ConfigSection(name = "Equipment", description = "Use the equipment supplied by the player. Fill in two or more styles; the plugin wears another one when the demon's overhead protects against the current style.", position = 30, closedByDefault = true)
+    @ConfigSection(name = "Equipment", description = "Use the equipment supplied by the player. Fill in two or more styles; the plugin wears another one when the demon's overhead protects against the current style.", position = 30, closedByDefault = false)
     String EQUIPMENT = "equipment";
 
     @ConfigSection(name = "Supplies", description = "Choose supplies and the points at which to use them.", position = 40, closedByDefault = false)

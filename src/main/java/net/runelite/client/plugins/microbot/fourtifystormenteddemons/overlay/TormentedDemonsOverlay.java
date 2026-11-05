@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.fourtifystormenteddemons.overlay;
 
 import java.awt.Dimension;
 import java.awt.Graphics2D;
+import java.time.Instant;
 import javax.inject.Inject;
 import net.runelite.api.Client;
 import net.runelite.client.plugins.microbot.fourtifystormenteddemons.FourtifysTormentedDemonsPlugin;
@@ -30,7 +31,7 @@ public final class TormentedDemonsOverlay extends FourtifysOverlay
         {
             return null;
         }
-        String elapsed = RuntimeFormat.elapsed(plugin.getStartTime());
+        String elapsed = RuntimeFormat.elapsed(Instant.now().minus(plugin.getRuntime()));
         return render(graphics, "Fourtifys Demons", elapsed, plugin.getStatus(),
             "Kills: " + plugin.getKills(), "Per hour: " + plugin.getKillsPerHour(),
             "Loot: " + shortValue(plugin.getLootValue()), "Uniques: " + plugin.getUniques());

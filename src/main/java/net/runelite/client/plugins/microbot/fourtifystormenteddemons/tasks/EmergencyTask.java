@@ -51,7 +51,7 @@ public final class EmergencyTask implements FourtifysTask
             actions.fail("Hitpoints are low and no Ring of dueling is worn or carried; teleport out yourself, then restart the plugin");
             return;
         }
-        trip.leave("Emergency teleport");
+        trip.leave("Low Hitpoints");
         int now = tick.getAsInt();
         if (now - requestedAt >= RETRY_TICKS)
         {
