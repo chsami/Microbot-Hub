@@ -35,7 +35,7 @@ public interface SlayerConfig extends Config {
     @ConfigItem(
             keyName = "enableAutoTravel",
             name = "Auto Travel",
-            description = "Automatically travel to slayer task location",
+            description = "Automatically travel to slayer task location. When off, walk there yourself: the script starts once you are at the task location or within Attack Radius of a task monster.",
             position = 1,
             section = generalSection
     )
@@ -46,7 +46,7 @@ public interface SlayerConfig extends Config {
     @ConfigItem(
             keyName = "slayerMaster",
             name = "Slayer Master",
-            description = "Which slayer master to get tasks from",
+            description = "Which Slayer Master gives you tasks.<br>Turael / Spria: any level<br>Mazchna: 20 combat, Priest in Peril<br>Vannaka: 40 combat<br>Chaeldar: 70 combat, Lost City<br>Nieve: 85 combat (Steve after Monkey Madness II)<br>Duradel: 100 combat, 50 Slayer, Shilo Village",
             position = 2,
             section = generalSection
     )

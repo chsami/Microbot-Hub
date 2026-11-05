@@ -85,6 +85,7 @@ public class TitheFarmPlant {
     }
 
     private static boolean isTithePatchId(int id) {
+        if (isDeadPatchId(id)) return true;
         switch (id) {
             case ObjectID.HOSIDIUS_TITHE_EMPTY:
             case ObjectID.HOSIDIUS_TITHE_A_1_DRY:
@@ -108,6 +109,26 @@ public class TitheFarmPlant {
             case ObjectID.HOSIDIUS_TITHE_C_1_WET:
             case ObjectID.HOSIDIUS_TITHE_C_2_WET:
             case ObjectID.HOSIDIUS_TITHE_C_3_WET:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static boolean isDeadPatchId(int id) {
+        switch (id) {
+            case ObjectID.HOSIDIUS_TITHE_A_1_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_A_2_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_A_3_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_A_4_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_B_1_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_B_2_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_B_3_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_B_4_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_C_1_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_C_2_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_C_3_DEAD:
+            case ObjectID.HOSIDIUS_TITHE_C_4_DEAD:
                 return true;
             default:
                 return false;
@@ -152,6 +173,11 @@ public class TitheFarmPlant {
     public boolean isEmptyPatch() {
         Rs2TileObjectModel obj = getGameObject();
         return obj != null && obj.getId() == ObjectID.HOSIDIUS_TITHE_EMPTY;
+    }
+
+    public boolean isDead() {
+        Rs2TileObjectModel obj = getGameObject();
+        return obj != null && isDeadPatchId(obj.getId());
     }
 
     public boolean isEmptyPatchOrSeedling() {

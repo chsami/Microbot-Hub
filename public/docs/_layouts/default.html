@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en" class="mb">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% seo %}
+  <meta name="theme-color" content="#0c0a08">
+  <link rel="icon" href="https://www.themicrobot.com/images/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Montserrat:wght@400;500;600;700;800&display=swap">
+  <!-- The site's one theme, served by themicrobot.com, so these pages change with it. -->
+  <link rel="stylesheet" href="https://www.themicrobot.com/microbot/mb-theme.css">
+  <link rel="stylesheet" href="{{ '/assets/css/hub.css' | relative_url }}">
+</head>
+<body>
+  <a class="mb-skip" href="#guide">Skip to the guide</a>
+  {% include header.html %}
+
+  <main class="container hub">
+    <nav class="hub-crumbs" aria-label="Breadcrumb">
+      <a href="https://www.themicrobot.com/plugins.html">Plugins</a>
+      <span aria-hidden="true">/</span>
+      <span id="crumb-name" aria-current="page"></span>
+    </nav>
+
+    <!-- Filled from plugins.json. Without it the page is just the guide, which still reads fine. -->
+    <section class="hub-hero" id="hero" hidden>
+      <div class="hub-hero__art" id="hero-art"><img id="p-card" alt=""></div>
+      <div>
+        <p class="hub-health" id="p-health"></p>
+        <h1 class="hub-hero__name" id="p-name"></h1>
+        <p class="hub-hero__by" id="p-by"></p>
+        <p class="hub-hero__desc" id="p-desc"></p>
+        <ul class="hub-tags" id="p-tags" aria-label="Tags"></ul>
+      </div>
+    </section>
+
+    <div class="hub-layout">
+      <aside class="hub-side" id="side" hidden>
+        <section class="mb-card hub-box">
+          <h2 class="hub-box__title">Get it in the client</h2>
+          <ol class="hub-steps">
+            <li>Click <b>Community Plugins</b> in the client's sidebar.</li>
+            <li>Open the <span class="hub-tab">Plugin Hub</span> tab.</li>
+            <li>
+              Search for <b id="s-name"></b> and press <span class="hub-key" aria-label="download">&#x2B07;</span> on its row:
+              <!-- A copy of the client's hub row so it is recognised on sight. -->
+              <div class="hub-row" aria-hidden="true">
+                <div class="hub-row__text">
+                  <span class="hub-row__name" id="r-name"></span>
+                  <span class="hub-row__by" id="r-by"></span>
+                  <span class="hub-row__desc" id="r-desc"></span>
+                </div>
+                <div class="hub-row__ctl"><span class="hub-row__ver" id="r-ver"></span><span class="hub-row__btn">&#x2B07;</span></div>
+              </div>
+            </li>
+            <li>Turn it on under <span class="hub-tab">Installed</span>.</li>
+          </ol>
+          <button class="mb-btn mb-btn--gold hub-copy" id="copy" type="button">Copy the name</button>
+          <p class="hub-copy__done" id="copy-done" role="status"></p>
+        </section>
+
+        <section class="mb-card hub-box">
+          <h2 class="hub-box__title">Details</h2>
+          <dl class="hub-facts">
+            <dt>Version</dt><dd id="f-version"></dd>
+            <dt>Needs Microbot</dt><dd id="f-client"></dd>
+            <dt>On the hub since</dt><dd id="f-added"></dd>
+          </dl>
+          <p class="hub-note" id="p-note" hidden></p>
+        </section>
+      </aside>
+
+      <article class="mb-card hub-doc" id="guide">
+        {{ content }}
+      </article>
+    </div>
+  </main>
+
+  {% include footer.html %}
+
+  <script src="https://www.themicrobot.com/microbot/mb-site.js"></script>
+  <script>
+  (function () {
+    var m = location.pathname.match(/\/([A-Za-z0-9_]+Plugin)\/?(index\.html)?$/);
+    if (!m) return;
+    var id = m[1];
+    var $ = function (k) { return document.getElementById(k); };
+    fetch('{{ "/plugins.json" | relative_url }}').then(function (r) { return r.json(); }).then(function (all) {
+      var p = all.filter(function (x) { return x.internalName === id; })[0];
+      if (!p) return;
+      var by = p.authors && p.authors.length ? p.authors.join(', ') : 'Unknown';
+      document.title = p.name + ' | Microbot Plugins';
+      ['p-name', 'crumb-name', 's-name', 'r-name'].forEach(function (k) { $(k).textContent = p.name; });
+      $('p-by').textContent = 'by ' + by;
+      // The client's row shows "Multiple authors" past one name.
+      $('r-by').textContent = p.authors && p.authors.length > 1 ? 'Multiple authors' : by;
+      $('p-desc').textContent = $('r-desc').textContent = p.description || '';
+      (p.tags || []).forEach(function (t) {
+        var li = document.createElement('li'); li.className = 'mb-chip'; li.textContent = t; $('p-tags').appendChild(li);
+      });
+      $('r-ver').textContent = p.version;
+      $('f-version').textContent = p.version;
+      $('f-client').textContent = p.minClientVersion + ' or newer';
+      $('f-added').textContent = p.addedAt
+        ? new Date(p.addedAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : 'Unknown';
+      // Same three states as the client's hub badge; no entry means nobody has reported a problem, not "tested".
+      var h = p.health || {}, status = p.disable ? 'broken' : (h.status || 'ok');
+      var label = { ok: '✓ No known issues', unverified: '? Not checked on the current client', broken: '! Reported broken' }[status];
+      $('p-health').className = 'hub-health hub-health--' + status;
+      $('p-health').textContent = label || status;
+      $('side').className = 'hub-side hub-side--' + status;
+      if (h.reason) { $('p-note').textContent = h.reason; $('p-note').hidden = false; }
+      var art = $('p-card');
+      art.onerror = function () { art.onerror = null; noArt(); };
+      if (p.cardUrl || p.iconUrl) { art.src = p.cardUrl || p.iconUrl; } else noArt();
+      function noArt() { $('hero-art').classList.add('hub-hero__art--none'); art.src = 'https://www.themicrobot.com/microbot/logo.png'; }
+      // The guide usually repeats the name as its first heading; the hero already says it.
+      var first = document.querySelector('.hub-doc > h1:first-child');
+      if (first) first.remove();
+      $('copy').addEventListener('click', function () {
+        (navigator.clipboard ? navigator.clipboard.writeText(p.name) : Promise.reject()).then(function () {
+          $('copy-done').textContent = 'Copied "' + p.name + '". Paste it into the Plugin Hub search.';
+        }, function () { $('copy-done').textContent = 'Search for: ' + p.name; });
+      });
+      $('hero').hidden = false;
+      $('side').hidden = false;
+    }).catch(function () {});
+  })();
+  </script>
+</body>
+</html>

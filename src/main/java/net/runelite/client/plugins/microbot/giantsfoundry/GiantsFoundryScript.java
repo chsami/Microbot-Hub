@@ -326,7 +326,7 @@ public class GiantsFoundryScript extends Script {
         Rs2TileObjectModel obj = GiantsFoundryState.getStageObject(stage);
         if (obj == null) return;
         obj.click();
-        Rs2Player.waitForAnimation();
+        sleepUntil(() -> Rs2Player.isAnimating() && !BonusWidget.isActive(), 5000);
     }
 
     private void handIn() {

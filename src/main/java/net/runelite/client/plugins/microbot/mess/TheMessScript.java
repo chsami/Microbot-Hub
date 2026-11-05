@@ -171,7 +171,7 @@ public class TheMessScript extends Script {
         withdrawFromUtensil(ItemID.BOWL_EMPTY, needed);
     }
 
-    private void pizzaTick() {
+    void pizzaTick() {
         // Consume-to-zero phases (cooking) take priority over any combine that uses their output.
         // Withdrawal targets size to predecessor counts so leftovers from burns carry into the next batch.
         if (has(ItemID.HOSIDIUS_SERVERY_PINEAPPLE_PIZZA))                                                 { serveAndMaybeHop(APPRECIATION_BAR_PIZZA); return; }
@@ -180,10 +180,10 @@ public class TheMessScript extends Script {
         if (has(ItemID.HOSIDIUS_SERVERY_PINEAPPLE) && has(ItemID.KNIFE))                                  { combineAll(ItemID.KNIFE, ItemID.HOSIDIUS_SERVERY_PINEAPPLE, "Cutting pineapple"); return; }
         if (has(ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA) && has(ItemID.HOSIDIUS_SERVERY_CHEESE))         { combineAll(ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA, ItemID.HOSIDIUS_SERVERY_CHEESE, "Adding cheese"); return; }
         if (has(ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA) && !has(ItemID.HOSIDIUS_SERVERY_CHEESE))        { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_CHEESE, count(ItemID.HOSIDIUS_SERVERY_INCOMPLETE_PIZZA)); return; }
+        if (has(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE) && has(ItemID.BOWL_EMPTY))                            { returnEmptyBowls(); return; }
         if (has(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE) && has(ItemID.HOSIDIUS_SERVERY_TOMATO))               { combineAll(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE, ItemID.HOSIDIUS_SERVERY_TOMATO, "Adding tomato"); return; }
         if (has(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE) && !has(ItemID.HOSIDIUS_SERVERY_TOMATO))              { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_TOMATO, count(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE)); return; }
         if (has(ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA) && !has(ItemID.HOSIDIUS_SERVERY_PINEAPPLE_CHUNKS) && !has(ItemID.HOSIDIUS_SERVERY_PINEAPPLE)) { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_PINEAPPLE, count(ItemID.HOSIDIUS_SERVERY_PLAIN_PIZZA)); return; }
-        if (has(ItemID.HOSIDIUS_SERVERY_PIZZA_BASE) && has(ItemID.BOWL_EMPTY))                            { returnEmptyBowls(); return; }
         if (has(ItemID.BOWL_WATER) && has(ItemID.HOSIDIUS_SERVERY_POT_FLOUR))                             { combineDoughDialog(ItemID.BOWL_WATER, ItemID.HOSIDIUS_SERVERY_POT_FLOUR, "Pizza base"); return; }
         if (has(ItemID.BOWL_EMPTY) && !has(ItemID.HOSIDIUS_SERVERY_POT_FLOUR))                            { withdrawFromFood(ItemID.HOSIDIUS_SERVERY_POT_FLOUR, count(ItemID.BOWL_EMPTY)); return; }
         if (has(ItemID.BOWL_EMPTY))                                                                       { fillBowls(); return; }
@@ -213,7 +213,7 @@ public class TheMessScript extends Script {
     }
 
     private boolean withdrawFromUtensil(int itemId, int targetCount) { return withdrawFromCupboard(UTENSIL_CUPBOARD_LOC, itemId, targetCount); }
-    private boolean withdrawFromFood(int itemId, int targetCount)    { return withdrawFromCupboard(FOOD_CUPBOARD_LOC,    itemId, targetCount); }
+    boolean withdrawFromFood(int itemId, int targetCount)    { return withdrawFromCupboard(FOOD_CUPBOARD_LOC,    itemId, targetCount); }
 
     private boolean withdrawFromCupboard(WorldPoint loc, int itemId, int targetCount) {
         int have = count(itemId);
@@ -321,7 +321,7 @@ public class TheMessScript extends Script {
         return sleepUntil(() -> !has(ItemID.BOWL_EMPTY), 15000);
     }
 
-    private boolean returnEmptyBowls() {
+    boolean returnEmptyBowls() {
         if (!has(ItemID.BOWL_EMPTY)) return true;
         logDecision("returnEmptyBowls");
         setStatus("Returning empty bowls");

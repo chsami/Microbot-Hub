@@ -9,6 +9,7 @@ import net.runelite.client.plugins.microbot.crafting.CraftingConfig;
 import net.runelite.client.plugins.microbot.crafting.enums.Glass;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Category;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
@@ -66,7 +67,8 @@ public class GlassblowingScript extends Script implements ICraftingScript {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
 
-                if (Rs2Player.isAnimating(3000) || Rs2Antiban.getCategory().isBusy()) return;
+                Category category = Rs2Antiban.getCategory();
+                if (Rs2Player.isAnimating(3000) || (category != null && category.isBusy())) return;
                 if (Rs2AntibanSettings.actionCooldownActive) return;
 
                 if (config.glassType() == Glass.PROGRESSIVE) {

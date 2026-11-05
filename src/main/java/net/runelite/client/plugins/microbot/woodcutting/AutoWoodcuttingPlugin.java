@@ -26,6 +26,7 @@ import net.runelite.client.plugins.microbot.woodcutting.Forestry.*;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
 import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingTree;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.Text;
 
 import javax.inject.Inject;
 import java.awt.*;
@@ -50,7 +51,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 )
 @Slf4j
 public class AutoWoodcuttingPlugin extends Plugin {
-    public static final String version = "1.8.8";
+    public static final String version = "1.8.13";
     @Inject
     @Getter(AccessLevel.MODULE)
     public AutoWoodcuttingScript autoWoodcuttingScript;
@@ -122,7 +123,7 @@ public class AutoWoodcuttingPlugin extends Plugin {
             woodcuttingOverlay.incrementLogsChopped();
         }
 
-        if (msg.equals("you can't light a fire here.")) {
+        if (Text.removeTags(msg).equalsIgnoreCase("You can't light a fire here.")) {
             autoWoodcuttingScript.cannotLightFire = true;
         }
 

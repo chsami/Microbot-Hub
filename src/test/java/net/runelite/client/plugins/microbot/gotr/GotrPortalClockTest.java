@@ -33,6 +33,29 @@ class GotrPortalClockTest
     }
 
     @Test
+    void firstPortalAdjustmentNeverReadsAsUnknown()
+    {
+        GotrPortalClock clock = new GotrPortalClock();
+        clock.roundStarted(at(0));
+        assertEquals(0, clock.secondsSincePortal(at(0)));
+        assertEquals(0, clock.secondsSincePortal(at(39)));
+        assertEquals(5, clock.secondsSincePortal(at(45)));
+    }
+
+    @Test
+    void roundRunsFromStartUntilReset()
+    {
+        GotrPortalClock clock = new GotrPortalClock();
+        assertFalse(clock.isRoundRunning());
+        clock.roundStarted(at(0));
+        assertTrue(clock.isRoundRunning());
+        assertEquals(-1, clock.secondsSincePortal(at(GotrPortalClock.STALE_AFTER_SECONDS + 1)));
+        assertTrue(clock.isRoundRunning());
+        clock.reset();
+        assertFalse(clock.isRoundRunning());
+    }
+
+    @Test
     void portalSpawnClearsFirstPortalAdjustment()
     {
         GotrPortalClock clock = new GotrPortalClock();

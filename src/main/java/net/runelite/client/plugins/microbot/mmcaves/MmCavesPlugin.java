@@ -33,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 )
 @Slf4j
 public class MmCavesPlugin extends Plugin {
-    public static final String version = "1.0.3";
+    public static final String version = "1.0.4";
 
     @Inject
     private MmCavesConfig config;
