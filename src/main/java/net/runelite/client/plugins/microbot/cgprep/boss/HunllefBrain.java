@@ -20,16 +20,53 @@ public final class HunllefBrain
 	private int lastEatSent = -100;
 	private int lastDrinkSent = -100;
 	public MovePlanner.Result lastMove;
+	private final java.util.Random rnd;
+	/** 1.8.1 long run: the end tile being run to (-1 = none), where the click went out from, our tile last tick. */
+	private int runDest = -1;
+	private int runFrom = -1;
+	private int runLast = -1;
+	/** A run click this tick's plan wants (confirmed in {@link #sent}). */
+	private int runWanted = -1;
+	private int runWantedFrom = -1;
 
 	public HunllefBrain(BrainConfig c)
 	{
+		this(c, new java.util.Random());
+	}
+
+	public HunllefBrain(BrainConfig c, java.util.Random rnd)
+	{
 		this.c = c;
-		this.planner = new MovePlanner(c);
+		this.rnd = rnd;
+		this.planner = new MovePlanner(c, rnd);
+	}
+
+	public MovePlanner planner()
+	{
+		return planner;
 	}
 
 	/** A click really went out (the executor/sim reports it): eats and drinks are spaced from these. */
 	public void sent(Click k, int tick)
 	{
+		if (k.type == Click.Type.MOVE)
+		{
+			int q = Arena.t(k.x, k.y);
+			if (q == runWanted)
+			{
+				runDest = q;
+				runFrom = runWantedFrom;
+				runLast = runWantedFrom;
+			}
+			else
+			{
+				runDest = -1;
+			}
+		}
+		else if (k.type == Click.Type.ATTACK)
+		{
+			runDest = -1; // attacking stops the run
+		}
 		if (k.type == Click.Type.EAT)
 		{
 			lastEatSent = tick;
@@ -119,12 +156,62 @@ public final class HunllefBrain
 		lastMove = r;
 		p.cost = r.cost;
 		boolean under = Arena.underBoss(o.px, o.py, o.bx, o.by);
-		if (r.x >= 0)
+		int here = Arena.t(o.px, o.py);
+		runWanted = -1;
+		boolean keepRunning = false;
+		if (c.longRuns && runDest >= 0 && r.path.length > 0)
+		{
+			// Still running to the last long click's tile? Off its line (a misclick), not moving (a
+			// lost click) or there already: the run is over. Otherwise keep running while it costs
+			// about what the new plan does: no walk click this tick.
+			int dx = Arena.x(runDest);
+			int dy = Arena.y(runDest);
+			boolean ok = here != runDest && here != runLast
+				&& MovePlanner.onWalk(Arena.x(runFrom), Arena.y(runFrom), dx, dy, here);
+			if (ok)
+			{
+				double plan = planner.evalPath(m, r.path, MovePlanner.stepClicks(here, r.path));
+				int[] rest = MovePlanner.walk(o.px, o.py, dx, dy, r.path.length);
+				double run = planner.evalPath(m, rest, new boolean[r.path.length]);
+				ok = run <= plan + c.runTolerance && !MovePlanner.landsUnderBoss(rest, o.bx, o.by);
+			}
+			if (ok)
+			{
+				keepRunning = true;
+				p.moveX = dx;
+				p.moveY = dy;
+				p.continueRun = true;
+				p.why = "running";
+				p.urgent = dangerHere(m, t);
+			}
+			else
+			{
+				runDest = -1;
+			}
+		}
+		runLast = here;
+		if (keepRunning)
+		{
+			// the move is set
+		}
+		else if (r.x >= 0)
 		{
 			p.moveX = r.x;
 			p.moveY = r.y;
 			p.why = "planner";
 			p.urgent = dangerHere(m, t);
+			if (c.longRuns && rnd.nextDouble() < c.runChance)
+			{
+				int run = planner.runTarget(m, r, planner.evalPath(m, r.path, MovePlanner.stepClicks(here, r.path)));
+				if (run >= 0)
+				{
+					p.moveX = Arena.x(run);
+					p.moveY = Arena.y(run);
+					p.why = "run";
+					runWanted = run;
+					runWantedFrom = here;
+				}
+			}
 		}
 		else
 		{

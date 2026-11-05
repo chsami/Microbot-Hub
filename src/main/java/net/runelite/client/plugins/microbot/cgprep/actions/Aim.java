@@ -34,9 +34,9 @@ public final class Aim
 			lastFail = "object not found";
 			return false;
 		}
-		if (!onScreen(obj.getLocalLocation()))
+		if (!clickable(obj))
 		{
-			lastFail = "not on screen";
+			lastFail = "not on screen (or behind an interface)";
 			return false;
 		}
 		// An item left selected by an earlier try: using it again would just deselect it (1.6.0).
@@ -72,6 +72,60 @@ public final class Aim
 
 	/** Why the last {@link #useItemOn} returned false (for the log). */
 	public static volatile String lastFail;
+
+	/**
+	 * 1.8.1: an object that can be clicked right now: on screen AND not hidden behind the chatbox,
+	 * side panel or minimap. Microbot's object click turns the camera itself in that case, holding
+	 * an arrow key until it faces the object within 5 degrees; at its turning speed the camera can
+	 * pass that window between checks and spin (user, 1.8.0). Here the camera is turned to face it
+	 * our way instead; false = still covered (the caller walks closer).
+	 */
+	public static boolean clickable(net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel obj)
+	{
+		if (obj == null || !onScreen(obj.getLocalLocation()))
+		{
+			return false;
+		}
+		if (clear(obj))
+		{
+			return true;
+		}
+		try
+		{
+			HumanCamera.get().face(obj.getLocalLocation());
+		}
+		catch (InterruptedException e)
+		{
+			Thread.currentThread().interrupt();
+			return false;
+		}
+		catch (Exception e)
+		{
+			return false;
+		}
+		return clear(obj);
+	}
+
+	/** The object's clickbox has a part clear of the interfaces (Microbot's own test before clicking). */
+	static boolean clear(net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel obj)
+	{
+		try
+		{
+			java.awt.Rectangle box = net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper.getObjectClickbox(obj.getTileObject());
+			if (net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper.isFallbackRectangle(box))
+			{
+				return true; // no clickbox known: Microbot clicks it without turning either
+			}
+			java.awt.Rectangle vp = net.runelite.client.plugins.microbot.Microbot.getClientThread()
+				.runOnClientThreadOptional(net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper::sceneViewportBounds).orElse(null);
+			return net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper.clearOfInterfaces(box, vp,
+				net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper.visibleSceneOverlayBounds()) != null;
+		}
+		catch (Exception e)
+		{
+			return true;
+		}
+	}
 
 	/** True when the tile is (now) on screen; never holds a key. */
 	public static boolean onScreen(LocalPoint lp)

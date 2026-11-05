@@ -40,6 +40,12 @@ public final class WorldScan
 		/** Its animation and frame this tick (attack starts: see PrayerGuard). */
 		public int anim = -1;
 		public int animFrame;
+		/**
+		 * 1.8.1: it's after us but can't get to a tile it can hit us from (a wall, or too wide for the
+		 * gap), and we're standing still. Only worked out for one targeting us within
+		 * {@link #REACH_CHECK_TILES}; false whenever unsure.
+		 */
+		public boolean cantReach;
 
 		Npc(int index, int id, WorldPoint raw, int size, int tiles, boolean targetingUs, boolean dead)
 		{
@@ -52,6 +58,9 @@ public final class WorldScan
 			this.dead = dead;
 		}
 	}
+
+	/** Monsters further than this aren't checked for {@link Npc#cantReach}. */
+	public static final int REACH_CHECK_TILES = 8;
 
 	public final List<Npc> npcs;
 	public final WorldPoint me;
@@ -119,6 +128,10 @@ public final class WorldScan
 			return latest;
 		}
 		WorldPoint me = p.getWorldLocation(); // RAW instance coords
+		// Standing still: same tile as last tick and no walk under way. Only then can a monster be
+		// known not to reach us (we step, it may get a path).
+		boolean still = me != null && me.equals(prevMe) && client.getLocalDestinationLocation() == null;
+		net.runelite.api.WorldView wv = client.getTopLevelWorldView();
 		List<Npc> list = new ArrayList<>();
 		for (NPC n : client.getTopLevelWorldView().npcs())
 		{
@@ -139,6 +152,10 @@ public final class WorldScan
 			Npc x = new Npc(n.getIndex(), n.getId(), w, size, tiles, n.getInteracting() == p, n.isDead());
 			x.anim = n.getAnimation();
 			x.animFrame = n.getAnimationFrame();
+			if (still && x.targetingUs && !x.dead && tiles <= REACH_CHECK_TILES && w != null)
+			{
+				x.cantReach = cantReach(wv, w, size, me);
+			}
 			list.add(x);
 		}
 		Set<Rs2PrayerEnum> active = EnumSet.noneOf(Rs2PrayerEnum.class);
@@ -195,6 +212,31 @@ public final class WorldScan
 		prevMe = me;
 		latest = s;
 		return s;
+	}
+
+	/** CLIENT THREAD. See {@link MeleeReach}; false when anything is unknown (it may reach us). */
+	static boolean cantReach(net.runelite.api.WorldView wv, WorldPoint npc, int size, WorldPoint me)
+	{
+		try
+		{
+			int plane = me.getPlane();
+			MeleeReach.Collision col = (x, y, sz, dx, dy) ->
+			{
+				// Off the loaded scene: unknown, so it can step (the safe answer).
+				if (net.runelite.api.coords.LocalPoint.fromWorld(wv, x, y) == null
+					|| net.runelite.api.coords.LocalPoint.fromWorld(wv, x + dx, y + dy) == null
+					|| net.runelite.api.coords.LocalPoint.fromWorld(wv, x + sz - 1 + dx, y + sz - 1 + dy) == null)
+				{
+					return true;
+				}
+				return new net.runelite.api.coords.WorldArea(x, y, sz, sz, plane).canTravelInDirection(wv, dx, dy);
+			};
+			return !MeleeReach.canReach(npc.getX(), npc.getY(), size, me.getX(), me.getY(), col);
+		}
+		catch (Exception e)
+		{
+			return false;
+		}
 	}
 
 	/**

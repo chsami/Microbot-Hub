@@ -336,7 +336,7 @@ public final class GatherAction
 		}
 
 		int before = count;
-		if (!Aim.onScreen(obj.getLocalLocation()))
+		if (!Aim.clickable(obj))
 		{
 			// Off screen even after the camera turn: get closer, but not forever (1.6.2: 100 s of
 			// "WALKING" on one tile; a minimap click on a tile we're already by doesn't move us).

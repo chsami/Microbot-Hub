@@ -82,7 +82,7 @@ public final class StationActions
 				return ActionResult.NO_REACTION;
 			}
 			pace.before(Pace.Kind.WORLD);
-			boolean clicked = Aim.onScreen(bowl.getLocalLocation()) && bowl.click("Sing-crystal");
+			boolean clicked = Aim.clickable(bowl) && bowl.click("Sing-crystal");
 			pace.after(Pace.Kind.WORLD);
 			if (!clicked)
 			{
@@ -462,7 +462,7 @@ public final class StationActions
 		{
 			pace.before(Pace.Kind.WORLD);
 		}
-		boolean seen = range != null && Aim.onScreen(range.getLocalLocation());
+		boolean seen = range != null && Aim.clickable(range);
 		boolean cooking = seen && range.click("Cook");
 		if (range != null)
 		{
@@ -534,7 +534,7 @@ public final class StationActions
 			return walk;
 		}
 		Rs2TileObjectModel tools = station(mode.objTools);
-		if (tools == null || !Aim.onScreen(tools.getLocalLocation()) || !tools.click())
+		if (tools == null || !Aim.clickable(tools) || !tools.click())
 		{
 			return ActionResult.NOT_AVAILABLE;
 		}
