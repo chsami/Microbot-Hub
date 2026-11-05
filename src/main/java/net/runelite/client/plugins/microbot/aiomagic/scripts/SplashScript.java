@@ -55,6 +55,8 @@ public class SplashScript extends Script {
     private static final RuneFilter CARRIED = RuneFilter.builder().includeBank(false).build();
     private static final int MIN_CASTS_BEFORE_RESTOCK = 1;
     private static final int GE_PRICE_MARKUP_PERCENT = 115;
+    private static final String PENALTY_PIECES_HINT = "Your staff adds to the bonus, so wear extra pieces with a magic penalty"
+            + " (for example d'hide vambraces or metal boots), or turn off 'Require -65 magic bonus'.";
 
     private final AIOMagicPlugin plugin;
     private final Random random = new Random();
@@ -71,6 +73,8 @@ public class SplashScript extends Script {
     private final Set<Rs2CombatSpells> restockTried = new HashSet<>();
     private String lastLoggedDefaultNpc = "";
     private String lastNoTargetLog = "";
+    private String lastErrorLog = "";
+    private final List<String> missingSplashGear = new ArrayList<>();
 
     @Inject
     public SplashScript(AIOMagicPlugin plugin) {
@@ -104,13 +108,20 @@ public class SplashScript extends Script {
         restockTried.clear();
         lastLoggedDefaultNpc = "";
         lastNoTargetLog = "";
+        lastErrorLog = "";
+        missingSplashGear.clear();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 tick();
+                lastErrorLog = "";
             } catch (Exception ex) {
-                Microbot.log("Splash error: " + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+                String msg = "Splashing hit an error, retrying: " + (ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+                if (!msg.equals(lastErrorLog)) {
+                    lastErrorLog = msg;
+                    Microbot.log(msg);
+                }
             }
         }, 0, 1000, TimeUnit.MILLISECONDS);
         return true;
@@ -163,13 +174,16 @@ public class SplashScript extends Script {
             return true;
         }
         String msg = "Magic attack bonus is " + bonus + " (needs " + SplashLogic.SPLASH_SAFE_MAGIC_BONUS
-                + " or lower); you would hit instead of splash.";
+                + " or lower); you may hit instead of splash.";
         if (cfg().requireSplashBonus()) {
             Microbot.log("WARNING: " + msg + " Stopping (Require -65 magic bonus is on).");
-            String hint = cfg().autoSplashGear()
-                    ? "Auto splash gear could not reach " + SplashLogic.SPLASH_SAFE_MAGIC_BONUS + ". Check the log for the piece"
-                    + " it could not get or wear, wear more metal armour yourself, or turn off 'Require -65 magic bonus'."
-                    : "Wear more metal armour, turn on 'Auto splash gear', or turn off 'Require -65 magic bonus'.";
+            boolean onePiece = missingSplashGear.size() == 1;
+            String hint = !missingSplashGear.isEmpty()
+                    ? "Could not buy " + String.join(", ", missingSplashGear) + " on the GE (offer" + (onePiece ? "" : "s")
+                    + " not filled). Check your GE offers, buy " + (onePiece ? "it" : "them") + " yourself and start again."
+                    : cfg().autoSplashGear()
+                    ? "Auto splash gear could not reach " + SplashLogic.SPLASH_SAFE_MAGIC_BONUS + " (see the log). " + PENALTY_PIECES_HINT
+                    : PENALTY_PIECES_HINT;
             Microbot.showMessage(msg + " AIO Magic stopped. " + hint);
             shutdown();
             return false;
@@ -201,6 +215,7 @@ public class SplashScript extends Script {
 
     /** Wears the cheapest metal-only outfit that reaches the splash bonus. False if the script stopped. */
     private boolean setupSplashGear() {
+        missingSplashGear.clear();
         Microbot.log("Magic bonus " + totalMagicBonus() + " is above " + SplashLogic.SPLASH_SAFE_MAGIC_BONUS
                 + "; setting up splash gear.");
         if (!Rs2Bank.walkToBankAndUseBank()) {
@@ -303,13 +318,21 @@ public class SplashScript extends Script {
             if (wish != null) {
                 for (SplashGear.Piece pc : wish.pieces) if (!pc.owned) need.add(pc.name);
             }
-            String msg = wish == null
-                    ? "Cannot reach a " + target + " magic bonus with metal armour at Defence " + defence + " and your "
-                    + staffName + ". AIO Magic stopped. Train Defence for heavier armour, or turn off 'Auto splash gear'"
-                    + " and set up your gear yourself."
-                    : "Splash gear still needed: " + String.join(", ", need) + " (about " + gp(wish.cost) + "). AIO Magic stopped. "
-                    + (allowBuy ? "Raise 'Max gp per purchase' above " + gp(maxGp) + " or buy the pieces yourself."
-                    : "Buy the pieces yourself or turn on 'Buy splash gear on the GE'.");
+            String reason = wish == null
+                    ? "Cannot reach a " + target + " magic bonus with metal armour and your " + staffName + "."
+                    : "Splash gear still needed: " + String.join(", ", need) + " (about " + gp(wish.cost) + ").";
+            String fix = wish == null ? PENALTY_PIECES_HINT
+                    : allowBuy ? "Raise 'Max gp per purchase' above " + gp(maxGp) + " or buy the pieces yourself."
+                    : "Buy the pieces yourself or turn on 'Buy splash gear on the GE'.";
+            if (!cfg().requireSplashBonus()) {
+                Microbot.log(reason + " Keeping your current gear ('Require -65 magic bonus' is off). "
+                        + (wish == null ? "Your staff adds to the bonus, so wear extra pieces with a magic penalty"
+                        + " (for example d'hide vambraces or metal boots)." : fix));
+                Rs2Bank.closeBank();
+                returnToStart();
+                return true;
+            }
+            String msg = reason + " AIO Magic stopped. " + fix;
             Microbot.log(msg);
             Microbot.showMessage(msg);
             Rs2Bank.closeBank();
@@ -356,7 +379,13 @@ public class SplashScript extends Script {
             }
             sleepUntil(Rs2GrandExchange::hasFinishedBuyingOffers, 90_000);
             Rs2GrandExchange.collectAllToInventory();
+            sleepUntil(() -> toBuy.stream().allMatch(pc -> Rs2Inventory.hasItem(pc.itemId)), 3000);
             Rs2GrandExchange.closeExchange();
+            for (SplashGear.Piece pc : toBuy) {
+                if (Rs2Inventory.hasItem(pc.itemId)) continue;
+                missingSplashGear.add(pc.name);
+                Microbot.log("Could not buy " + pc.name + " on the GE (offer not filled).");
+            }
         } else {
             Rs2Bank.closeBank();
         }
@@ -366,9 +395,8 @@ public class SplashScript extends Script {
             if (!Rs2Inventory.interact(pc.itemId, "Wear")) Rs2Inventory.interact(pc.itemId, "Wield");
             sleepUntil(() -> Rs2Equipment.get(pc.itemId) != null, 3000);
             if (Rs2Equipment.get(pc.itemId) == null) {
-                int needed = SplashGear.defenceRequirement(pc.name);
-                String msg = "Could not wear " + pc.name + (needed > 1 ? " (needs " + needed + " Defence)" : "")
-                        + ". AIO Magic stopped.";
+                String msg = "Could not wear " + pc.name + ". AIO Magic stopped. Your worn items are in the bank."
+                        + " Check the item's requirements (e.g. Rune platebody needs Dragon Slayer I) or turn off 'Auto splash gear'.";
                 Microbot.log(msg);
                 Microbot.showMessage(msg);
                 shutdown();
@@ -719,14 +747,35 @@ public class SplashScript extends Script {
             shutdown();
             return;
         }
+        Map<Runes, Integer> before = carriedRunes();
         for (Map.Entry<Runes, Integer> e : toBuy.entrySet()) {
             Rs2GrandExchange.buyItem(SplashLogic.runeItemName(e.getKey()), prices.get(e.getKey()), e.getValue());
             sleepUntil(Rs2GrandExchange::isOpen, 3000);
         }
         sleepUntil(Rs2GrandExchange::hasFinishedBuyingOffers, 90_000);
         Rs2GrandExchange.collectAllToInventory();
+        sleepUntil(() -> unfilledRunes(toBuy, before).isEmpty(), 3000);
         Rs2GrandExchange.closeExchange();
+        List<String> unfilled = unfilledRunes(toBuy, before);
+        for (String offer : unfilled) Microbot.log("The GE offer for " + offer + " did not fill.");
+        if (!unfilled.isEmpty() && !canCastFromCarried(spell)) {
+            boolean one = unfilled.size() == 1;
+            Microbot.showMessage("The GE offer" + (one ? "" : "s") + " for " + String.join(", ", unfilled) + " did not fill."
+                    + " AIO Magic stopped. Check your GE offers, buy the runes yourself and start again.");
+            shutdown();
+            return;
+        }
         returnToStart();
+    }
+
+    private List<String> unfilledRunes(Map<Runes, Integer> bought, Map<Runes, Integer> before) {
+        Map<Runes, Integer> now = carriedRunes();
+        List<String> out = new ArrayList<>();
+        for (Map.Entry<Runes, Integer> e : bought.entrySet()) {
+            long received = (long) now.getOrDefault(e.getKey(), 0) - before.getOrDefault(e.getKey(), 0);
+            if (received < e.getValue()) out.add(String.format("%,d %ss", e.getValue(), SplashLogic.runeItemName(e.getKey())));
+        }
+        return out;
     }
 
     private void returnToStart() {
@@ -785,15 +834,18 @@ public class SplashScript extends Script {
                         + " (combat " + targetNpc.getCombatLevel() + ")");
             }
         } else {
+            WorldPoint anchor = startTile;
             targetNpc = Microbot.getRs2NpcCache().query()
                     .withName(configured)
+                    .where(n -> n.isWithinDistance(anchor, SplashLogic.MAX_DRIFT_DISTANCE))
                     .nearestOnClientThread();
         }
         if (targetNpc == null) {
             String msg = useDefault
                     ? "No safe splash target (chicken, rat, man, cow...) within " + SplashLogic.MAX_TARGET_DISTANCE
                     + " tiles. Move closer to one or enter an NPC Name."
-                    : "No " + configured + " nearby. Move closer to one or check the NPC Name setting.";
+                    : "No " + configured + " within " + SplashLogic.MAX_DRIFT_DISTANCE
+                    + " tiles of where you started. Start closer to one.";
             if (!msg.equals(lastNoTargetLog)) {
                 lastNoTargetLog = msg;
                 Microbot.log(msg);

@@ -186,18 +186,22 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = requireSplashBonus,
 			name = "Require -65 magic bonus",
-			description = "Stop if your equipment magic attack bonus is above -65 (you would hit instead of splash). Off = only warn",
+			description = "Stop if your equipment magic attack bonus is above -65 (you may hit instead of splash). Off = only warn."
+					+ " A staff for autocast adds +10 or more, so full metal armour (-65) with a staff is about -55: reaching -65 then"
+					+ " needs extra pieces with a magic penalty (e.g. d'hide vambraces or metal boots)",
 			position = 7,
 			section = splashSection
 	)
 	default boolean requireSplashBonus() {
-		return true;
+		return false;
 	}
 
 	@ConfigItem(
 			keyName = autoSplashGear,
 			name = "Auto splash gear",
-			description = "Before splashing, bank your worn items and wear only metal armour (owned, else bought) plus a staff for autocast until the magic attack bonus is -65 or lower",
+			description = "Before splashing, bank your worn items and wear only metal armour (owned, else bought) plus a staff for autocast until the magic attack bonus is -65 or lower."
+					+ " Owned pieces with a magic penalty (e.g. d'hide vambraces) are used too; if -65 cannot be reached your gear is left as it is,"
+					+ " or the script stops when 'Require -65 magic bonus' is on",
 			position = 8,
 			section = splashSection
 	)
