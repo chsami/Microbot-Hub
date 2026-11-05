@@ -755,8 +755,7 @@ public class BarrowsScript extends Script {
                                     sleepUntil(() -> Rs2Player.isAnimating(), Rs2Random.between(2000, 4000));
                                     sleepUntil(() -> !Rs2Player.isAnimating(), Rs2Random.between(6000, 10000));
                                 } else if(!hasDuelingRingAvailable()){
-                                    Microbot.log("Need a Ring of dueling to leave Barrows for the bank. stopping...");
-                                    super.shutdown();
+                                    stopForMissingSupply("Barrows stopped: you need a Ring of dueling in your inventory to leave Barrows for the bank.");
                                 }
                                 return;
                             }
@@ -788,13 +787,15 @@ public class BarrowsScript extends Script {
                                 Rs2Bank.withdrawOne("Spade");
                                 sleepUntil(()-> Rs2Inventory.contains("Spade"), Rs2Random.between(2000,4000));
                             } else {
-                                Microbot.log("We're out of Spades. stopping...");
-                                super.shutdown();
+                                stopForMissingSupply("Barrows stopped: no Spade in your bank.");
+                                return;
                             }
                         }
 
                         // Always stock Ring(s) of dueling for Ferox pool tele — never skip / never RoD(8)-only.
-                        ensureRingOfDuelingFromBank();
+                        if(!ensureRingOfDuelingFromBank()){
+                            return;
+                        }
 
                         // Catalytic runes before POH checks — POH must not abort banking before Blood/Death fallback.
                         if(!usingPoweredStaffs) {
@@ -806,13 +807,13 @@ public class BarrowsScript extends Script {
                                         withdrawNeededRunes(config);
                                     }
                                 } else {
-                                    Microbot.log("We're out of " + neededRune + "s and no lower-tier runes available. stopping...");
-                                    super.shutdown();
+                                    stopForMissingSupply("Barrows stopped: not enough " + neededRune + "s in your bank and no lower-tier runes available.");
+                                    return;
                                 }
                             }
                         } else if(outOfPoweredStaffCharges){
-                            Microbot.log("We're out of staff charges. stopping...");
-                            super.shutdown();
+                            stopForMissingSupply("Barrows stopped: your staff is out of charges.");
+                            return;
                         }
 
                         if(isPohTravelMode(config)){
@@ -833,8 +834,8 @@ public class BarrowsScript extends Script {
                                             sleepUntil(()-> Rs2Inventory.count(config.prayerRestoreType().getPrayerRestoreTypeID()) > Rs2Random.between(4,8), Rs2Random.between(2000,4000));
                                         }
                                     } else {
-                                        Microbot.log("We're out of "+config.prayerRestoreType().getPrayerRestoreTypeID()+" need at least "+config.targetPrayerPots()+" stopping...");
-                                        super.shutdown();
+                                        stopForMissingSupply("Barrows stopped: need at least "+config.targetPrayerPots()+" "+config.prayerRestoreType().getPrayerRestoreTypeName()+" in your bank.");
+                                        return;
                                     }
                                 }
                             }
@@ -855,8 +856,8 @@ public class BarrowsScript extends Script {
                                                 sleepUntil(() -> Rs2Inventory.count("Forgotten brew(4)") + Rs2Inventory.count("Forgotten brew(3)") > Rs2Random.between(1, 3), Rs2Random.between(2000, 4000));
                                             }
                                         } else {
-                                            Microbot.log("We're out of " + " Forgotten brew " + " need at least " + config.targetForgottenBrew() + " stopping...");
-                                            super.shutdown();
+                                            stopForMissingSupply("Barrows stopped: need at least " + config.targetForgottenBrew() + " Forgotten brew(4) in your bank.");
+                                            return;
                                         }
                                     }
                                 }
@@ -872,12 +873,12 @@ public class BarrowsScript extends Script {
                                             sleep(Rs2Random.between(300,750));
                                         }
                                     } else {
-                                        Microbot.log("We're out of "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName()+" need at least "+config.targetBarrowsTeleports()+" stopping...");
-                                        super.shutdown();
+                                        stopForMissingSupply("Barrows stopped: need at least "+config.targetBarrowsTeleports()+" "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName()+" in your bank.");
+                                        return;
                                     }
                                 } else {
-                                    Microbot.log("We're out of "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName()+" need at least "+config.targetBarrowsTeleports()+" stopping...");
-                                    super.shutdown();
+                                    stopForMissingSupply("Barrows stopped: need at least "+config.targetBarrowsTeleports()+" "+config.selectedToBarrowsTPMethod().getToBarrowsTPMethodItemName()+" in your bank.");
+                                    return;
                                 }
                                 }
                             }
@@ -897,15 +898,17 @@ public class BarrowsScript extends Script {
                                             sleepUntil(()-> Rs2Inventory.count(ourFoodsID) >= 10, Rs2Random.between(2000,4000));
                                         }
                                     } else {
-                                        Microbot.log("We're out of "+ourfoodsname+" need at least "+config.targetFoodAmount()+" stopping...");
-                                        super.shutdown();
+                                        stopForMissingSupply("Barrows stopped: need at least "+config.targetFoodAmount()+" "+ourfoodsname+" in your bank.");
+                                        return;
                                     }
                                 }
                             }
                         }
 
                         // Re-assert RoD after random withdraws (inventory may have filled).
-                        ensureRingOfDuelingFromBank();
+                        if(!ensureRingOfDuelingFromBank()){
+                            return;
+                        }
 
                         suppliesCheck(config);
 
@@ -2768,19 +2771,28 @@ public class BarrowsScript extends Script {
     }
 
     /** Withdraw Ring of dueling into inventory (never equip — rub/tele from inv). */
-    private void ensureRingOfDuelingFromBank(){
+    boolean ensureRingOfDuelingFromBank(){
         if(!Rs2Bank.isOpen()){
-            return;
+            return true;
         }
         if(hasDuelingRingInInventory()){
-            return;
+            return true;
         }
 
         Microbot.log("Withdrawing Ring of dueling for inventory Ferox teleports.");
         if(!withdrawOneDuelingRingFromBank()){
-            Microbot.log("Out of Rings of dueling — stopping.");
-            super.shutdown();
+            stopForMissingSupply("Barrows stopped: no Ring of dueling in your bank. Bank at least one and start Barrows again.");
+            return false;
         }
+        return true;
+    }
+
+    void stopForMissingSupply(String message){
+        Microbot.log(message, Level.WARN);
+        Microbot.status = message;
+        super.shutdown();
+        Microbot.stopPlugin(BarrowsPlugin.class);
+        Microbot.showMessage(message);
     }
 
     private boolean withdrawOneDuelingRingFromBank(){
