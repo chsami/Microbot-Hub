@@ -279,6 +279,13 @@ public class DemonActions
         return frame != null && !frame.isHidden() && client.getItemContainer(BANK) != null;
     }
 
+    /** The bank PIN keypad, which opening the bank shows first on an account with a PIN. */
+    public boolean bankPinShown()
+    {
+        Widget keypad = client.getWidget(213, 0);
+        return keypad != null && !keypad.isHidden();
+    }
+
     /** The first ring of dueling worn or carried, or -1. */
     public int duelingRing()
     {
@@ -310,47 +317,71 @@ public class DemonActions
         return itemManager == null || itemManager.getItemComposition(id) == null ? null : itemManager.getItemComposition(id).getName();
     }
 
+    /** The item's name and ID for player messages, such as "Death rune (560)", or "item 560" when the name is unknown. */
+    public String describe(int id)
+    {
+        String name = itemName(id);
+        return name == null || name.isBlank() ? "item " + id : name + " (" + id + ")";
+    }
+
+    /** Parses item IDs separated by commas, skipping empty entries. The message of a rejection explains the format. */
     public static Set<Integer> ids(String text)
     {
         Set<Integer> result = new LinkedHashSet<>();
-        if (text != null && !text.isBlank())
+        for (String entry : entries(text))
         {
-            for (String value : text.split(","))
+            int id = positive(entry);
+            if (id <= 0)
             {
-                int id = Integer.parseInt(value.trim());
-                if (id <= 0)
-                {
-                    throw new IllegalArgumentException("Item IDs must be positive");
-                }
-                result.add(id);
+                throw new IllegalArgumentException("\"" + entry + "\" is not an item ID; use whole numbers separated by commas, like 4675,9185");
+            }
+            result.add(id);
+        }
+        return result;
+    }
+
+    /** Parses itemID:quantity pairs separated by commas, skipping empty entries. */
+    public static Map<Integer, Integer> restock(String text)
+    {
+        Map<Integer, Integer> result = new LinkedHashMap<>();
+        for (String entry : entries(text))
+        {
+            String[] parts = entry.split(":", -1);
+            int id = parts.length == 2 ? positive(parts[0]) : -1;
+            int amount = parts.length == 2 ? positive(parts[1]) : -1;
+            if (id <= 0 || amount <= 0)
+            {
+                throw new IllegalArgumentException("\"" + entry + "\" is not an itemID:quantity pair; use pairs separated by commas, like 560:500,9075:200");
+            }
+            result.put(id, amount);
+        }
+        return result;
+    }
+
+    private static List<String> entries(String text)
+    {
+        List<String> result = new ArrayList<>();
+        for (String entry : text == null ? new String[0] : text.split(","))
+        {
+            if (!entry.isBlank())
+            {
+                result.add(entry.trim());
             }
         }
         return result;
     }
 
-    /** Parses itemID:quantity pairs, comma separated. */
-    public static Map<Integer, Integer> restock(String text)
+    /** The whole number written in the text, or -1 when it is not a positive whole number. */
+    private static int positive(String text)
     {
-        Map<Integer, Integer> result = new LinkedHashMap<>();
-        if (text != null && !text.isBlank())
+        try
         {
-            for (String pair : text.split(","))
-            {
-                String[] parts = pair.trim().split(":");
-                if (parts.length != 2)
-                {
-                    throw new IllegalArgumentException("Use itemID:quantity for restock supplies");
-                }
-                int id = Integer.parseInt(parts[0].trim());
-                int amount = Integer.parseInt(parts[1].trim());
-                if (id <= 0 || amount <= 0)
-                {
-                    throw new IllegalArgumentException("Restock IDs and quantities must be positive");
-                }
-                result.put(id, amount);
-            }
+            return Math.max(-1, Integer.parseInt(text.trim()));
         }
-        return result;
+        catch (NumberFormatException invalid)
+        {
+            return -1;
+        }
     }
 
     /** Live Tormented Demons in the top-level world view. */
@@ -612,6 +643,12 @@ public class DemonActions
             }
         }
         return false;
+    }
+
+    /** Types the bank PIN saved in the Microbot profile. It waits for each digit, so it runs on the worker. */
+    public boolean enterBankPin(Runnable callback)
+    {
+        return request(this::bankPinShown, Rs2Bank::handleBankPin, callback);
     }
 
     public boolean deposit(int id, Runnable callback)

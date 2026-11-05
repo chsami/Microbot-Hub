@@ -37,6 +37,7 @@ public final class BankTask implements FourtifysTask
     private final Set<Integer> keep;
     private final Map<Integer, Integer> restock;
     private boolean stocked;
+    private boolean pinSent;
     private int requestedAt = Integer.MIN_VALUE / 2;
     private WorldPoint lastPosition;
     private int lastMoveTick = Integer.MIN_VALUE / 2;
@@ -100,14 +101,31 @@ public final class BankTask implements FourtifysTask
         {
             return;
         }
+        if (actions.bankPinShown())
+        {
+            // One try with the saved PIN: a wrong one typed again would lock the bank for a while.
+            if (pinSent)
+            {
+                status = "Enter your bank PIN to continue";
+                return;
+            }
+            status = "Entering the bank PIN";
+            actions.enterBankPin(() ->
+            {
+                requestedAt = now;
+                pinSent = true;
+            });
+            return;
+        }
         if (actions.bankOpen())
         {
+            pinSent = false;
             restockStep(now);
             return;
         }
         if (!stocked)
         {
-            if (walkNear(TempleData.FEROX_BANK, BANK_REACH, "Ferox bank") && !walkingToObject(now))
+            if (walkNear(TempleData.FEROX_BANK, BANK_REACH, "the Ferox Enclave bank") && !walkingToObject(now))
             {
                 status = "Opening the bank";
                 actions.openBank(() -> requestedAt = now);
@@ -117,7 +135,7 @@ public final class BankTask implements FourtifysTask
         if (!actions.restored())
         {
             TileObject pool = actions.object(Set.of(TempleData.FEROX_POOL_OBJECT));
-            if (walkNear(TempleData.FEROX_POOL, POOL_REACH, "Pool of Refreshment") && pool != null && !walkingToObject(now))
+            if (walkNear(TempleData.FEROX_POOL, POOL_REACH, "the Pool of Refreshment") && pool != null && !walkingToObject(now))
             {
                 status = "Drinking from the Pool of Refreshment";
                 actions.object(pool, "Drink", () -> requestedAt = now);
@@ -149,7 +167,7 @@ public final class BankTask implements FourtifysTask
         Walking.State state = walking.walkTo(point);
         if (state == Walking.State.FAILED)
         {
-            actions.fail(walking.getFailureReason());
+            actions.fail("Could not walk to " + label + "; walk there yourself, then restart the plugin");
         }
         return false;
     }
@@ -172,7 +190,7 @@ public final class BankTask implements FourtifysTask
             int ring = TempleData.DUELING_RINGS.stream().filter(id -> actions.bankCount(id) > 0).findFirst().orElse(-1);
             if (ring <= 0)
             {
-                actions.fail("No Ring of dueling in the bank");
+                actions.fail("No Ring of dueling in the bank; add one, then restart the plugin");
                 return;
             }
             status = "Withdrawing a Ring of dueling";
@@ -187,7 +205,7 @@ public final class BankTask implements FourtifysTask
                 {
                     if (actions.bankCount(id) == 0)
                     {
-                        actions.fail("Missing equipment item " + id);
+                        actions.fail("Missing " + actions.describe(id) + ": put it in your bank or remove it from your equipment IDs, then restart the plugin");
                         return;
                     }
                     status = "Withdrawing equipment";
@@ -204,7 +222,7 @@ public final class BankTask implements FourtifysTask
         }
         for (Map.Entry<Integer, Integer> item : restock.entrySet())
         {
-            if (withdraw(item.getKey(), item.getValue(), "item " + item.getKey(), observed))
+            if (withdraw(item.getKey(), item.getValue(), actions.describe(item.getKey()), observed))
             {
                 return;
             }
@@ -231,7 +249,7 @@ public final class BankTask implements FourtifysTask
         }
         if (carried == 0)
         {
-            actions.fail("No " + label + " left in the bank");
+            actions.fail("No " + label + " left in the bank; add more to the bank, then restart the plugin");
             return true;
         }
         return false;
@@ -256,7 +274,7 @@ public final class BankTask implements FourtifysTask
         }
         if (carried == 0)
         {
-            actions.fail("No prayer restores left in the bank");
+            actions.fail("No prayer restores left in the bank; add more to the bank, then restart the plugin");
             return true;
         }
         return false;
@@ -272,6 +290,7 @@ public final class BankTask implements FourtifysTask
     public void reset()
     {
         stocked = false;
+        pinSent = false;
         requestedAt = Integer.MIN_VALUE / 2;
         lastPosition = null;
         lastMoveTick = Integer.MIN_VALUE / 2;

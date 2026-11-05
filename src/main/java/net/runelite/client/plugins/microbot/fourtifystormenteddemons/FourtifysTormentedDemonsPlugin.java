@@ -1,5 +1,7 @@
 package net.runelite.client.plugins.microbot.fourtifystormenteddemons;
 
+import net.runelite.client.plugins.microbot.PluginConstants;
+
 import com.google.inject.Provides;
 import java.time.Duration;
 import java.time.Instant;
@@ -27,12 +29,14 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.ProjectileMoved;
+import net.runelite.client.Notifier;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.fourtifystormenteddemons.config.TormentedDemonsConfig;
 import net.runelite.client.plugins.microbot.fourtifystormenteddemons.overlay.TormentedDemonsOverlay;
 import net.runelite.client.plugins.microbot.fourtifystormenteddemons.util.action.ActionQueue;
@@ -65,8 +69,8 @@ import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 @PluginDescriptor(name = "<html><font color=#f5dd42>Fourtifys Tormented Demons", configName = "fourtifyTormentedDemons",
-                    description = "Fight Tormented Demons with prayer switching, fire bomb steps and Ferox Enclave banking", tags = {"fourtifys", "tormented", "demons", "pvm"}, enabledByDefault = false,
-                    authors = {"Fourtifys"}, version = FourtifysTormentedDemonsPlugin.VERSION, minClientVersion = "2.6.43", isExternal = true,
+                    description = "Fight Tormented Demons with prayer switching, fire bomb steps and Ferox Enclave banking", tags = {"fourtifys", "tormented", "demons", "pvm"}, enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+                    authors = {"Fourtifys"}, version = FourtifysTormentedDemonsPlugin.VERSION, minClientVersion = "2.6.43", isExternal = PluginConstants.IS_EXTERNAL,
                     iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysTormentedDemonsPlugin/assets/icon.png")
 public class FourtifysTormentedDemonsPlugin extends Plugin
 {
@@ -87,6 +91,8 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
     private TormentedDemonsOverlay overlay;
     @Inject
     private Walking walking;
+    @Inject
+    private Notifier notifier;
     private final Random random = new Random();
     private final SessionLifecycle lifecycle = new SessionLifecycle();
     private final TickDelay delay = new TickDelay();
@@ -101,6 +107,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
     private int tickGameCycle;
     private long observedRequests;
     private long kills;
+    private boolean stopReported;
     private NPC lastKilled;
     /** The tick each demon last fought the player: a dying demon stops interacting before its death shows. */
     private final Map<NPC, Integer> fought = new HashMap<>();
@@ -161,19 +168,22 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         actions.newSession();
         trip = new TripState();
         Map<CombatStyle, Set<Integer>> sets = new EnumMap<>(CombatStyle.class);
-        Set<Integer> keep = Set.of();
+        sets.put(CombatStyle.MAGIC, ids("Magic equipment IDs", config.magicGear()));
+        sets.put(CombatStyle.RANGED, ids("Ranged equipment IDs", config.rangedGear()));
+        sets.put(CombatStyle.MELEE, ids("Melee equipment IDs", config.meleeGear()));
+        Set<Integer> keep = ids("Retained inventory IDs", config.keepItems());
         Map<Integer, Integer> restock = Map.of();
         try
         {
-            sets.put(CombatStyle.MAGIC, DemonActions.ids(config.magicGear()));
-            sets.put(CombatStyle.RANGED, DemonActions.ids(config.rangedGear()));
-            sets.put(CombatStyle.MELEE, DemonActions.ids(config.meleeGear()));
-            keep = DemonActions.ids(config.keepItems());
             restock = DemonActions.restock(config.restockItems());
         }
         catch (IllegalArgumentException invalid)
         {
-            actions.fail("Invalid item ID list: " + invalid.getMessage());
+            actions.fail("Additional supplies/ammunition: " + invalid.getMessage());
+        }
+        if (sets.values().stream().filter(ids -> !ids.isEmpty()).count() < 2)
+        {
+            actions.fail("Fill in at least two of Magic, Ranged and Melee equipment IDs");
         }
         IntSupplier ticks = this::getTick;
         emergency = new EmergencyTask(actions, config, trip, ticks);
@@ -196,11 +206,11 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
             TripPhase phase = TripRules.startPhase(TempleData.atFerox(position), TempleData.inTemple(position), onRoute, leaveReason());
             if (phase == null)
             {
-                actions.fail("Start at Ferox Enclave or in the Ancient Guthixian Temple");
+                actions.fail("Walk to Ferox Enclave or into the Ancient Guthixian Temple, then restart the plugin");
             }
             else if (actions.duelingRing() <= 0 && phase != TripPhase.BANKING)
             {
-                actions.fail("Carry or wear a Ring of dueling");
+                actions.fail("Carry or wear a Ring of dueling, then restart the plugin");
             }
             else
             {
@@ -213,6 +223,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         }
         fight.reset();
         seenProjectiles.clear();
+        stopReported = false;
         kills = 0;
         lastKilled = null;
         fought.clear();
@@ -236,6 +247,20 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         actions.reset();
         overlays.remove(overlay);
         status = "Stopped";
+    }
+
+    /** The setting's item IDs, or none after stopping with the setting's name and the format to use. */
+    private Set<Integer> ids(String setting, String text)
+    {
+        try
+        {
+            return DemonActions.ids(text);
+        }
+        catch (IllegalArgumentException invalid)
+        {
+            actions.fail(setting + ": " + invalid.getMessage());
+            return Set.of();
+        }
     }
 
     private static boolean unlocked(Rs2PrayerEnum prayer)
@@ -276,13 +301,16 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         {
             return;
         }
+        if ("showOverlay".equals(event.getKey()))
+        {
+            return;
+        }
         if (event.getKey() != null && event.getKey().startsWith("tickDelay"))
         {
             delay.set(0);
             return;
         }
-        walking.cancel();
-        actions.reset();
+        // The restart's stop() cancels walking and queued actions on the client thread.
         lifecycle.scheduleStart(clientThread, this::start);
     }
 
@@ -300,7 +328,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         }
         else if (TempleData.QUEST_MESSAGE.equals(event.getMessage()))
         {
-            actions.fail("While Guthix Sleeps is required to use the Guthixian temple teleport");
+            actions.fail("The Guthixian temple teleport needs While Guthix Sleeps; complete the quest, then restart the plugin");
         }
     }
 
@@ -397,6 +425,13 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
             walking.cancel();
             return;
         }
+        // The Break Handler and the Microbot pause control set this flag for every script.
+        if (Microbot.pauseAllScripts.get())
+        {
+            walking.cancel();
+            status = "Paused";
+            return;
+        }
         if (!lifecycle.isStarted())
         {
             start();
@@ -416,6 +451,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         {
             walking.cancel();
             status = actions.getFailure();
+            reportStop();
             return;
         }
         if (!actions.inventoryLoaded())
@@ -450,6 +486,19 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
             }
         }
         status = "Waiting";
+    }
+
+    /** Tells the player once per stop, in the chat and as a notification, since the overlay may be off or cut short. */
+    private void reportStop()
+    {
+        if (stopReported)
+        {
+            return;
+        }
+        stopReported = true;
+        String message = "[Tormented Demons] Stopped: " + status;
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
+        notifier.notify(message);
     }
 
     private void run(FourtifysTask task)

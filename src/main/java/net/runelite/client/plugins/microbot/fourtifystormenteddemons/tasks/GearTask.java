@@ -78,7 +78,7 @@ public final class GearTask implements FourtifysTask
         int id = missing();
         if (actions.count(id) == 0)
         {
-            actions.fail("Missing equipment item " + id);
+            actions.fail("Missing " + actions.describe(id) + ": carry it or remove it from your equipment IDs, then restart the plugin");
             return;
         }
         int now = tick.getAsInt();

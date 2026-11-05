@@ -102,7 +102,7 @@ public final class TravelTask implements FourtifysTask
         status = "Teleporting to Ferox Enclave: " + trip.getLeaveReason();
         if (actions.duelingRing() <= 0)
         {
-            actions.fail("No Ring of dueling to leave the temple");
+            actions.fail("No Ring of dueling to leave the temple; teleport out yourself, then restart the plugin");
             return;
         }
         if (retryDue(now))
@@ -121,7 +121,7 @@ public final class TravelTask implements FourtifysTask
         }
         if (now - lastMoveTick > STALL_TICKS)
         {
-            actions.fail("Travel to the temple stopped at " + position);
+            actions.fail("Could not reach the temple; walk to Ferox Enclave or into the temple, then restart the plugin");
             return;
         }
         if (!retryDue(now))
@@ -139,7 +139,7 @@ public final class TravelTask implements FourtifysTask
         {
             if (actions.count(TempleData.TEMPLE_TELEPORT) == 0)
             {
-                actions.fail("No Guthixian temple teleports carried");
+                actions.fail("No Guthixian temple teleports carried; carry some, then restart the plugin");
                 return;
             }
             status = "Reading a Guthixian temple teleport";
@@ -216,14 +216,14 @@ public final class TravelTask implements FourtifysTask
     {
         if (!TempleData.inTemple(position))
         {
-            actions.fail("Left the temple; disable and restart from Ferox Enclave");
+            actions.fail("Left the temple; walk to Ferox Enclave, then restart the plugin");
             return;
         }
         status = "Walking to " + config.room().getDisplayName();
         Walking.State state = walking.walkTo(config.room().getCenter());
         if (state == Walking.State.FAILED)
         {
-            actions.fail(walking.getFailureReason());
+            actions.fail("Could not walk to " + config.room().getDisplayName() + "; walk there yourself, then restart the plugin");
         }
     }
 

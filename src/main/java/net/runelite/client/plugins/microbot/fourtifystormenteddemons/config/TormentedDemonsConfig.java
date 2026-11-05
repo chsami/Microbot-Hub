@@ -12,7 +12,7 @@ public interface TormentedDemonsConfig extends TimingConfig
 {
     String GROUP = "fourtifyTormentedDemons";
 
-    @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 10, closedByDefault = true)
+    @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 80, closedByDefault = true)
     String TIMING = "advancedTiming";
 
     @ConfigSection(name = "General", description = "Requires While Guthix Sleeps. Bank at Ferox Enclave with a Ring of dueling and travel in with Guthixian temple teleports.", position = 20, closedByDefault = false)
@@ -30,7 +30,7 @@ public interface TormentedDemonsConfig extends TimingConfig
     @ConfigSection(name = "Emergency teleport", description = "Teleport to Ferox Enclave with the Ring of dueling when Hitpoints are low.", position = 60, closedByDefault = true)
     String SAFETY = "safety";
 
-    @ConfigItem(keyName = "showOverlay", name = "Show overlay", description = "Show runtime, room, status, kills and loot while the plugin is enabled.", position = 0)
+    @ConfigItem(keyName = "showOverlay", name = "Show overlay", description = "Show runtime, status, kills, kills per hour, loot value and uniques while the plugin is enabled.", position = 0)
     default boolean showOverlay()
     {
         return true;
@@ -48,31 +48,31 @@ public interface TormentedDemonsConfig extends TimingConfig
         return false;
     }
 
-    @ConfigItem(keyName = "magicGear", name = "Magic equipment IDs", description = "Comma-separated magic equipment item IDs. Configure autocast or a powered weapon before starting. Blank skips this style.", position = 0, section = EQUIPMENT)
+    @ConfigItem(keyName = "magicGear", name = "Magic equipment IDs", description = "Magic equipment item IDs separated by commas, like 4675,6889. Configure autocast or a powered weapon before starting. Blank skips this style.", position = 0, section = EQUIPMENT)
     default String magicGear()
     {
         return "";
     }
 
-    @ConfigItem(keyName = "rangedGear", name = "Ranged equipment IDs", description = "Comma-separated ranged equipment item IDs. Wear the ammunition; it stays worn for the other styles. Blank skips this style.", position = 1, section = EQUIPMENT)
+    @ConfigItem(keyName = "rangedGear", name = "Ranged equipment IDs", description = "Ranged equipment item IDs separated by commas, like 9185,10499. Wear the ammunition; it stays worn for the other styles. Blank skips this style.", position = 1, section = EQUIPMENT)
     default String rangedGear()
     {
-        return "27235,33639,28951,27238,27241,29591,26235,31097,28310";
+        return "";
     }
 
-    @ConfigItem(keyName = "meleeGear", name = "Melee equipment IDs", description = "Comma-separated melee equipment item IDs. Blank skips this style.", position = 2, section = EQUIPMENT)
+    @ConfigItem(keyName = "meleeGear", name = "Melee equipment IDs", description = "Melee equipment item IDs separated by commas, like 4151,8850. Blank skips this style.", position = 2, section = EQUIPMENT)
     default String meleeGear()
     {
-        return "26382,29801,21295,26384,26386,29589,22322,22981,31097,28307";
+        return "";
     }
 
-    @ConfigItem(keyName = "keepItems", name = "Retained inventory IDs", description = "Comma-separated extra inventory item IDs to retain when banking, such as runes, a rune pouch or weapon charges. These items must be supplied by the player.", position = 3, section = EQUIPMENT)
+    @ConfigItem(keyName = "keepItems", name = "Retained inventory IDs", description = "Extra inventory item IDs to keep when banking, separated by commas, such as runes, a rune pouch or weapon charges. These items must be supplied by the player.", position = 3, section = EQUIPMENT)
     default String keepItems()
     {
         return "";
     }
 
-    @ConfigItem(keyName = "restockItems", name = "Additional supplies/ammunition", description = "Additional supplies and ammunition as itemID:quantity pairs, comma separated; include runes and ammunition needed per trip.", position = 4, section = EQUIPMENT)
+    @ConfigItem(keyName = "restockItems", name = "Additional supplies/ammunition", description = "Additional supplies and ammunition as itemID:quantity pairs separated by commas, like 560:500,9075:200; include runes and ammunition needed per trip.", position = 4, section = EQUIPMENT)
     default String restockItems()
     {
         return "";
