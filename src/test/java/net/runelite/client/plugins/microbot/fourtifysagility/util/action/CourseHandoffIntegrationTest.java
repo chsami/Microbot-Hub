@@ -108,7 +108,7 @@ public class CourseHandoffIntegrationTest
         {
             fixture.selected = AgilityCourse.WILDERNESS;
             fixture.tick(3005, 3964, 0);
-            assertEquals("Walk back to the obstacle you were attempting", fixture.plugin.getStatus());
+            assertEquals("Walk to the start of the rope swing to continue the lap", fixture.plugin.getStatus());
             fixture.actions.dispatch();
             assertEquals(0, fixture.menuActions);
         }

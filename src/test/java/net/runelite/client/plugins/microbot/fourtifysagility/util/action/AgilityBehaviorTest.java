@@ -232,7 +232,7 @@ public class AgilityBehaviorTest
         fixture.position = new WorldPoint(2728, 3488, 0);
         task.execute();
         fixture.dispatch();
-        assertEquals("Agility 60 needed for this course; choose a lower course", fixture.plugin.getStatus());
+        assertEquals("Agility 60 needed for this course; choose a lower-level course", fixture.plugin.getStatus());
         assertTrue(fixture.menu.isEmpty());
     }
 
