@@ -257,6 +257,7 @@ public class MKE_WintertodtScript extends Script {
         Rs2TileObjectModel burningBrazier;
         boolean needBanking;
         boolean needPotions = false; // For rejuvenation potion logic
+        boolean lowAndOutOfFood;
         int wintertodtHp = -1;
         boolean inventoryFull;
         boolean hasItemsToBurn;
@@ -1501,6 +1502,7 @@ public class MKE_WintertodtScript extends Script {
             boolean lowAndOutOfFood =
                     (foodCount == 0) &&
                     (gameState.playerWarmth <= config.eatAtWarmthLevel());
+            gameState.lowAndOutOfFood = lowAndOutOfFood;
 
             /* ─────────── BANKING RULES FOR REJUVENATION POTIONS ─────────── */
             if (usesPotions) {
@@ -2080,14 +2082,18 @@ public class MKE_WintertodtScript extends Script {
                 
                 // Check points before leaving - wait for rewards if we have enough
                 int currentPoints = getWintertodtPoints();
-                if (currentPoints >= 500) {
+                if (currentPoints >= 500 && !gameState.lowAndOutOfFood) {
                     Microbot.log("Have " + currentPoints + " points - waiting near door for round to end naturally");
                     waitingForRoundEnd = true; // Set flag to prevent resuming activities
                 } else {
                     waitingForRoundEnd = false; // Reset waiting flag if points dropped below threshold
                 }
-                
-                if (!WintertodtLocationManager.attemptLeaveWintertodt()) {
+
+                if (!WintertodtLocationManager.attemptLeaveWintertodt(waitingForRoundEnd)) {
+                    if (waitingForRoundEnd) {
+                        consecutiveExitFailures = 0;
+                        return;
+                    }
                     consecutiveExitFailures++;
                     if (consecutiveExitFailures >= MAX_EXIT_FAILURES) {
                         Microbot.log("CRITICAL: Too many exit failures (" + consecutiveExitFailures + ") - emergency logout to prevent infinite loop");

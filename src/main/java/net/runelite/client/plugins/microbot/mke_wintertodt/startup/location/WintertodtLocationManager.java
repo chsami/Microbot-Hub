@@ -101,6 +101,11 @@ public class WintertodtLocationManager {
      */
     public static boolean attemptLeaveWintertodt()
     {
+        return attemptLeaveWintertodt(true);
+    }
+
+    public static boolean attemptLeaveWintertodt(boolean waitForRoundEnd)
+    {
         /* Already outside? → nothing else to do */
         if (!isInsideGameRoom())
         {
@@ -117,7 +122,7 @@ public class WintertodtLocationManager {
 
         /* NEW: Check points before leaving - wait for rewards if we have enough */
         int currentPoints = getWintertodtPoints();
-        if (currentPoints >= 500) {
+        if (waitForRoundEnd && currentPoints >= 500) {
             Microbot.log("Have " + currentPoints + " points - waiting near door for round to end naturally");
             // Just wait here - don't interact with door yet
             return false;
