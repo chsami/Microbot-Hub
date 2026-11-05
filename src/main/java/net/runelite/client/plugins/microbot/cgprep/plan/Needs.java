@@ -151,12 +151,12 @@ public final class Needs
 		{
 			// The setting is the number of potions to brew (user, 1.8.0; 0.3.32-1.7.x read it as
 			// "max brews" and gave the boss 3 x (setting - 1) doses, so 2 meant ONE potion). All
-			// `potionTarget` brews are required. Up to 3 doses may be sipped during prep; a sip
-			// calls for one extra brew to replace it, which is a nice-to-have (its herb only from
-			// close by). Brews made = doses brewed / 3 (in the bag + drunk).
+			// `potionTarget` brews are required. Planned prep sips (up to 3) only come from doses
+			// held above the boss's; a sip calls for one extra brew to replace it, which is a
+			// nice-to-have (its herb only from close by). Brews made = doses brewed / 3 (in the bag + drunk).
 			int bossDoses = 3 * potionTarget;
 			n.bossDoses = bossDoses;
-			n.prepDoseAllowance = 3;
+			n.prepDoseAllowance = Math.min(3, l.dosesDrunk + Math.max(0, l.potionDoses - bossDoses));
 			int brewsMade = (l.potionDoses + l.dosesDrunk) / 3;
 			int wanted = potionTarget + (l.dosesDrunk > 0 ? 1 : 0);
 			n.potionsToMake = Math.max(0, wanted - brewsMade);

@@ -91,7 +91,7 @@ public interface CgPrepConfig extends Config
 
 	@Range(min = 0, max = 6)
 	@ConfigItem(keyName = "potionsBrewed", name = "Egniol potions",
-		description = "Egniol potions to bring to the boss (one grym leaf each). If the bot sips one during prep, it brews a replacement.",
+		description = "Egniol potions to brew for the boss (one grym leaf each). Planned prep sips only use doses beyond these. After an emergency sip at very low prayer, the bot brews a replacement only if a grym leaf is close by and there is time.",
 		position = 3, section = runSection)
 	default int potionTarget()
 	{
@@ -162,7 +162,7 @@ public interface CgPrepConfig extends Config
 	}
 
 	@ConfigItem(keyName = "weaveAttacks", name = "Weave attacks while gathering",
-		description = "A weak monster hitting us at a node: attack it right after a resource lands, then click the node again (kills it, saves prayer, farms shards)",
+		description = "A weak monster hitting us at a node: attack it right after a resource lands, then click the node again (kills it, saves prayer, farms shards). Stops once the shard target is met",
 		position = 100, hidden = true)
 	default boolean weaveAttacks()
 	{

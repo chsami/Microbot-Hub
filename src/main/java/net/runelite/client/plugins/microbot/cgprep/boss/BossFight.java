@@ -518,6 +518,10 @@ public final class BossFight
 			if (mode != Mode.ON)
 			{
 				lastNote = "DRY RUN";
+				for (Click c : clicks)
+				{
+					brain.sent(c, o.tick);
+				}
 				log.accept("FIGHT", "[dry] " + line);
 				return;
 			}
