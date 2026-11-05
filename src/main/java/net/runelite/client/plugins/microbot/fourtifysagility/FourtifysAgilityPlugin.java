@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.fourtifysagility;
 import net.runelite.client.plugins.microbot.PluginConstants;
 
 import com.google.inject.Provides;
+import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -55,6 +56,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 public class FourtifysAgilityPlugin extends Plugin
 {
     public static final String VERSION = "1.0.0";
+    private static final Method HEADER_PAUSE = pauseCheck("net.runelite.client.plugins.microbot.ScriptPauseController");
     @Inject private Client client;
     @Inject private ClientThread clientThread;
     @Inject private AgilityConfig config;
@@ -254,10 +256,10 @@ public class FourtifysAgilityPlugin extends Plugin
         {
             return;
         }
-        // The Break Handler and the Microbot pause control set this flag for every script.
-        if (Microbot.pauseAllScripts.get())
+        // The Break Handler sets this flag; the client header pause button sets the pause controller.
+        if (Microbot.pauseAllScripts.get() || headerPaused(HEADER_PAUSE))
         {
-            status = "Paused";
+            status = "Paused by Microbot (break or pause)";
             return;
         }
         if (!lifecycle.isStarted())
@@ -311,6 +313,31 @@ public class FourtifysAgilityPlugin extends Plugin
         }
     }
 
+    /** The pause controller's check, or null on clients from before 2.6.53, which have no header pause button. */
+    static Method pauseCheck(String controller)
+    {
+        try
+        {
+            return Class.forName(controller).getMethod("isPaused");
+        }
+        catch (ReflectiveOperationException | LinkageError missing)
+        {
+            return null;
+        }
+    }
+
+    static boolean headerPaused(Method check)
+    {
+        try
+        {
+            return check != null && Boolean.TRUE.equals(check.invoke(null));
+        }
+        catch (ReflectiveOperationException failure)
+        {
+            return false;
+        }
+    }
+
     boolean waitForDelay(Player player)
     {
         return delay.waitForDelay(player, this::setStatus);
@@ -328,7 +355,7 @@ public class FourtifysAgilityPlugin extends Plugin
         {
             return false;
         }
-        status = "Walk closer to first obstacle";
+        status = "Walk closer to the " + config.area().getDisplayName() + " start, or change Course";
         return true;
     }
 

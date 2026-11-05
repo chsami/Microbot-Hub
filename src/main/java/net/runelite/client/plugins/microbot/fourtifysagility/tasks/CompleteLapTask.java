@@ -29,7 +29,8 @@ import net.runelite.client.util.Text;
 public final class CompleteLapTask implements FourtifysTask
 {
     private static final String SEERS_TELEPORT_FAILED = "Seers teleport failed: it needs the Kandarin hard diary, Camelot"
-        + " Teleport set to Seers' Village, 45 Magic and its runes. Turn the plugin off and on to try again";
+        + " Teleport set to Seers' Village, 45 Magic and its runes. Turn off Use diary teleport, or turn the plugin off and on"
+        + " to try again";
     private final FourtifysAgilityPlugin plugin;
     private final Client client;
     private final AgilityConfig config;
@@ -215,8 +216,8 @@ public final class CompleteLapTask implements FourtifysTask
                 else
                 {
                     this.plugin.setStatus(this.config.foodId() > 0
-                        ? "No food (ID " + this.config.foodId() + "); add food to continue"
-                        : "No food configured; set a food item ID");
+                        ? "Hitpoints below " + this.config.minHealth() + " and no food (ID " + this.config.foodId() + ") left; add food to continue"
+                        : "Hitpoints below " + this.config.minHealth() + "; heal, or set Food item ID under Healing");
                 }
 
                 return;
@@ -278,7 +279,10 @@ public final class CompleteLapTask implements FourtifysTask
 
                     if (agility < required)
                     {
-                        this.plugin.setStatus("Agility below " + required + "; add a summer pie to continue");
+                        // A summer pie boosts Agility by 5 from the real level, so it cannot cover a larger gap.
+                        this.plugin.setStatus(this.client.getRealSkillLevel(Skill.AGILITY) + 5 >= required
+                            ? "Agility below " + required + "; add a summer pie to continue"
+                            : "Agility " + required + " needed for this course; choose a lower course");
                         return;
                     }
 

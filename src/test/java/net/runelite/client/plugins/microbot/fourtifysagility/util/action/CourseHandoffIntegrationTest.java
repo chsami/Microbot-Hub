@@ -50,11 +50,11 @@ public class CourseHandoffIntegrationTest
             fixture.tick(3237, 3412, 3);
             fixture.animation = 713;
             fixture.tick(3237, 3417, 0);
-            assertEquals("Walk closer to first obstacle", fixture.plugin.getStatus());
+            assertEquals(walkCloser(fixture.selected), fixture.plugin.getStatus());
             fixture.animation = -1;
             fixture.tick(3237, 3417, 0);
             assertEquals(AgilityCourse.CANIFIS, fixture.plugin.getActiveCourse());
-            assertEquals("Walk closer to first obstacle", fixture.plugin.getStatus());
+            assertEquals(walkCloser(fixture.selected), fixture.plugin.getStatus());
             fixture.tick(3506, 3489, 0);
             // On the course, but this scene has no first obstacle in range.
             assertEquals("Walk closer to the Canifis start", fixture.plugin.getStatus());
@@ -123,7 +123,7 @@ public class CourseHandoffIntegrationTest
             fixture.selected = AgilityCourse.AGILITY_PYRAMID;
             fixture.tick(3237, 3412, 3);
             fixture.tick(3237, 3417, 0);
-            assertEquals("Walk closer to first obstacle", fixture.plugin.getStatus());
+            assertEquals("Walk closer to the Agility Pyramid start, or change Course", fixture.plugin.getStatus());
             fixture.tick(3354, 2830, 0);
             assertEquals("Walk closer to the Agility Pyramid start", fixture.plugin.getStatus());
             assertEquals(AgilityCourse.AGILITY_PYRAMID, fixture.plugin.getActiveCourse());
@@ -137,7 +137,7 @@ public class CourseHandoffIntegrationTest
             (Fixture fixture = new Fixture())
         {
             fixture.tick(3280, 3412, 0);
-            assertEquals("Walk closer to first obstacle", fixture.plugin.getStatus());
+            assertEquals(walkCloser(fixture.selected), fixture.plugin.getStatus());
         }
     }
 
@@ -228,7 +228,7 @@ public class CourseHandoffIntegrationTest
 
             fixture.hasPyramidTop = false;
             fixture.tick(3348, 2831, 0);
-            assertEquals("Walk closer to first obstacle", fixture.plugin.getStatus());
+            assertEquals(walkCloser(fixture.selected), fixture.plugin.getStatus());
         }
     }
 
@@ -240,7 +240,7 @@ public class CourseHandoffIntegrationTest
             fixture.selected = AgilityCourse.AGILITY_PYRAMID;
             fixture.hasPyramidTop = true;
             fixture.tick(3200, 3200, 0);
-            assertEquals("Walk closer to first obstacle", fixture.plugin.getStatus());
+            assertEquals(walkCloser(fixture.selected), fixture.plugin.getStatus());
         }
     }
 
@@ -264,7 +264,7 @@ public class CourseHandoffIntegrationTest
 
             fixture.dialogueRoot = 0;
             fixture.tick(3348, 2831, 0);
-            assertEquals("Walk closer to first obstacle", fixture.plugin.getStatus());
+            assertEquals(walkCloser(fixture.selected), fixture.plugin.getStatus());
         }
     }
 
@@ -279,7 +279,7 @@ public class CourseHandoffIntegrationTest
             fixture.tick(3348, 2831, 0);
             fixture.actions.dispatch();
             assertEquals(0, fixture.menuActions);
-            assertEquals("Walk closer to first obstacle", fixture.plugin.getStatus());
+            assertEquals(walkCloser(fixture.selected), fixture.plugin.getStatus());
         }
     }
 
@@ -480,5 +480,10 @@ public class CourseHandoffIntegrationTest
             return 0L;
         }
         return null;
+    }
+
+    private static String walkCloser(AgilityCourse course)
+    {
+        return "Walk closer to the " + course.getDisplayName() + " start, or change Course";
     }
 }

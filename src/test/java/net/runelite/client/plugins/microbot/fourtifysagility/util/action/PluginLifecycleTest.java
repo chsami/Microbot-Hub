@@ -122,7 +122,7 @@ public class PluginLifecycleTest
         try
         {
             fixture.plugin.onGameTick(new GameTick());
-            assertEquals("Paused", fixture.plugin.getStatus());
+            assertEquals("Paused by Microbot (break or pause)", fixture.plugin.getStatus());
             assertNull(fixture.plugin.getStartTime());
         }
         finally

@@ -75,7 +75,7 @@ public interface AgilityConfig extends TimingConfig
         return BrimhavenVoucherReward.NONE;
     }
 
-    @ConfigItem(keyName = "foodId", name = "Food item ID", description = "Item ID of the food to eat when Hitpoints fall below the threshold, for example 385 for a shark. At 0, the plugin stops at the threshold instead.", position = 0, section = suppliesSection)
+    @ConfigItem(keyName = "foodId", name = "Food item ID", description = "Item ID of the food to eat when Hitpoints fall below the threshold, for example 385 for a shark. At 0, the plugin does not eat and stands still below the threshold until you heal.", position = 0, section = suppliesSection)
     default int foodId()
     {
         return 0;

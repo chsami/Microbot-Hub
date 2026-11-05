@@ -149,7 +149,7 @@ public class AgilityBehaviorTest
         task.execute();
         task.execute();
         fixture.dispatch();
-        assertEquals("No food (ID 385); add food to continue", fixture.plugin.getStatus());
+        assertEquals("Hitpoints below 10 and no food (ID 385) left; add food to continue", fixture.plugin.getStatus());
         assertEquals(0, fixture.warningCount);
         assertTrue(fixture.menu.isEmpty());
 
@@ -159,6 +159,25 @@ public class AgilityBehaviorTest
         assertEquals(1, fixture.menu.size());
         assertEquals(385, fixture.menu.get(0).itemId);
         assertEquals(0, fixture.warningCount);
+    }
+
+    @Test
+    public void lowHitpointsWithoutConfiguredFoodNamesTheCauseAndTheSetting() throws Exception
+    {
+        Fixture fixture = new Fixture();
+        fixture.hitpoints = 5;
+        AgilityConfig config = new AgilityConfig()
+        {
+            @Override public AgilityCourse area() { return AgilityCourse.SEERS_VILLAGE; }
+            @Override public int minHealth() { return 10; }
+        };
+        inject(fixture.plugin, "config", config);
+        CompleteLapTask task = new CompleteLapTask(fixture.plugin, fixture.client, config, fixture.actions, fixture.spells);
+        fixture.setInventory(inventory(385));
+        task.execute();
+        fixture.dispatch();
+        assertEquals("Hitpoints below 10; heal, or set Food item ID under Healing", fixture.plugin.getStatus());
+        assertTrue(fixture.menu.isEmpty());
     }
 
     @Test
@@ -194,6 +213,26 @@ public class AgilityBehaviorTest
         task.execute();
         // The level is met, so no pie is asked for; this scene has no wall, so the lap asks to come closer.
         assertEquals("Walk closer to the Seers Village start", fixture.plugin.getStatus());
+    }
+
+    @Test
+    public void aGapTooLargeForASummerPieAsksForALowerCourse() throws Exception
+    {
+        Fixture fixture = new Fixture();
+        fixture.agility = 54;
+        fixture.realAgility = 54;
+        AgilityConfig config = new AgilityConfig()
+        {
+            @Override public AgilityCourse area() { return AgilityCourse.SEERS_VILLAGE; }
+            @Override public boolean ignoreMarks() { return true; }
+        };
+        inject(fixture.plugin, "config", config);
+        CompleteLapTask task = new CompleteLapTask(fixture.plugin, fixture.client, config, fixture.actions, fixture.spells);
+        fixture.position = new WorldPoint(2728, 3488, 0);
+        task.execute();
+        fixture.dispatch();
+        assertEquals("Agility 60 needed for this course; choose a lower course", fixture.plugin.getStatus());
+        assertTrue(fixture.menu.isEmpty());
     }
 
     @Test
@@ -564,6 +603,7 @@ public class AgilityBehaviorTest
         task.seersTeleportMessage("You must complete the hard tier of the Kandarin achievement diary.");
         assertTrue(task.waitingForSeersTeleport(fixture.player));
         assertTrue(fixture.plugin.getStatus().contains("failed"));
+        assertTrue(fixture.plugin.getStatus().contains("Turn off Use diary teleport, or turn the plugin off and on"));
         task.resetSeersTeleport();
         assertFalse(task.waitingForSeersTeleport(fixture.player));
 

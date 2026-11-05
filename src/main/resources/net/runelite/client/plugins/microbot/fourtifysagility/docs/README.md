@@ -31,8 +31,8 @@ between obstacles.
    plugin does not travel between courses. When a lap ends further
    from the first obstacle, as on Seers Village, Pollnivneach,
    Rellekka and Al Kharid, it walks back on its own.
-4. Enable the plugin. It waits while Microbot scripts are paused,
-   including Break Handler breaks.
+4. Enable the plugin. It waits while scripts are paused from the
+   client header pause button or by the Break Handler.
 
 Course settings:
 
