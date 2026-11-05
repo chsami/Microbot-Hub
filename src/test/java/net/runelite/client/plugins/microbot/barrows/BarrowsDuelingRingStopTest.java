@@ -77,8 +77,22 @@ class BarrowsDuelingRingStopTest
 
         assertEquals("Barrows stopped: only 6 Prayer potion(4) in your bank, but Max Prayer Restore is set to 8. Bank more or lower Max Prayer Restore, then start Barrows again.",
                 script.notEnoughInBankMessage(6, "Prayer potion(4)", "Max Prayer Restore", 8));
-        assertEquals("Barrows stopped: no Barrows teleports in your bank, but Max Barrows Teleports is set to 5. Bank more or lower Max Barrows Teleports, then start Barrows again.",
+        assertEquals("Barrows stopped: no Barrows teleports in your bank. Bank at least 5 (Max Barrows Teleports), then start Barrows again.",
                 script.notEnoughInBankMessage(0, "Barrows teleports", "Max Barrows Teleports", 5));
+    }
+
+    @Test
+    void stopPopupWrapsTheMessageButLogKeepsPlainText()
+    {
+        BarrowsScript script = new BarrowsScript();
+        String message = "Barrows stopped: no Spade in your bank. Bank a Spade, then start Barrows again.";
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class))
+        {
+            script.stopForMissingSupply(message);
+
+            microbot.verify(() -> Microbot.showMessage("<html><body style='width:320px'>" + message + "</body></html>"));
+            assertEquals(message, Microbot.status);
+        }
     }
 
     @Test

@@ -1065,10 +1065,8 @@ public class BarrowsScript extends Script {
                 if (Rs2Equipment.isWearing(it -> it != null && BarrowsGearRules.fillsSetupRow(rowName, it.getName()))) {
                     continue;
                 }
-                Microbot.log(rowName + " is broken (" + row.getValue() + ") and you have no working copy in your bank or inventory."
-                        + " Repair it (Bob in Lumbridge or an armour stand in your house), then start Barrows again.", Level.WARN);
-                Microbot.status = "Barrows stopped: " + rowName + " is broken";
-                super.shutdown();
+                stopForMissingSupply("Barrows stopped: " + rowName + " is broken (" + row.getValue() + ") and you have no working copy in your bank or inventory."
+                        + " Repair it (Bob in Lumbridge or an armour stand in your house), then start Barrows again.");
                 return false;
             }
             Microbot.log("Inventory Setup equipment still mismatched after " + maxEquipmentLoadAttempts
@@ -1219,7 +1217,7 @@ public class BarrowsScript extends Script {
                         sleep(Rs2Random.between(300,750));
                     }
                 } else if(!canCastHouseTeleport()){
-                    stopForMissingSupply("Barrows stopped: you can't cast Teleport to House (it needs a Law rune plus a Dust rune, or Air and Earth runes) and your bank has fewer than " + config.targetBarrowsTeleports() + " Teleport to house tabs (Max Barrows Teleports). Bank the runes or more tabs, then start Barrows again.");
+                    stopForMissingSupply("Barrows stopped: you can't cast Teleport to House (standard spellbook, with a Law rune and a Dust rune, or Law, Air and Earth runes) and your bank has fewer than " + config.targetBarrowsTeleports() + " Teleport to house tabs. Bank the runes or " + config.targetBarrowsTeleports() + " tabs, or lower Max Barrows Teleports, then start Barrows again.");
                     return false;
                 }
             }
@@ -2792,7 +2790,7 @@ public class BarrowsScript extends Script {
 
     private String duelingRingWithdrawFailedMessage(){
         if(!bankHasDuelingRing()){
-            return "Barrows stopped: no Ring of dueling in your bank. Bank at least one and start Barrows again.";
+            return "Barrows stopped: no Ring of dueling in your bank. Bank at least one, then start Barrows again.";
         }
         if(Rs2Inventory.isFull()){
             return "Barrows stopped: your inventory is full, so a Ring of dueling could not be withdrawn. Lower Max Food Amount or Max Prayer Restore to free a slot, then start Barrows again.";
@@ -2810,8 +2808,10 @@ public class BarrowsScript extends Script {
     }
 
     String notEnoughInBankMessage(int bankCount, String itemName, String settingName, int settingValue){
-        String have = bankCount <= 0 ? "no " : "only " + bankCount + " ";
-        return "Barrows stopped: " + have + itemName + " in your bank, but " + settingName + " is set to " + settingValue
+        if(bankCount <= 0){
+            return "Barrows stopped: no " + itemName + " in your bank. Bank at least " + settingValue + " (" + settingName + "), then start Barrows again.";
+        }
+        return "Barrows stopped: only " + bankCount + " " + itemName + " in your bank, but " + settingName + " is set to " + settingValue
                 + ". Bank more or lower " + settingName + ", then start Barrows again.";
     }
 
@@ -2835,7 +2835,11 @@ public class BarrowsScript extends Script {
         Microbot.status = message;
         super.shutdown();
         Microbot.stopPlugin(BarrowsPlugin.class);
-        Microbot.showMessage(message);
+        Microbot.showMessage(popupText(message));
+    }
+
+    static String popupText(String message){
+        return "<html><body style='width:320px'>" + message + "</body></html>";
     }
 
     private boolean withdrawOneDuelingRingFromBank(){
