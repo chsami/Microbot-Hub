@@ -138,3 +138,9 @@ The plugin provides a comprehensive configuration panel (`AIOMagicConfig`) where
 ---
 
 **Automate your Magic training and maximize your experience gains with the AIO Magic Plugin!**
+## Splashing (v1.3.0)
+
+- **Splash spell**: by default the "Combat Spell" setting is used. Set it to Auto to pick the highest standard-book combat spell your Magic level and runes allow and upgrade on level-up.
+- **Runes**: restocks from the bank once your runes run out (`Casts per trip`, default 1000; 0 = never bank); optional GE buying (off by default) capped by `Max gp per purchase`; wields an owned elemental staff when it keeps you at -65 or lower. If a restock fails the script stops and names the missing runes.
+- **-65 magic bonus**: at start the script checks your magic attack bonus and warns once if it is above -65. `Require -65 magic bonus` (off by default) stops the script instead. Wear metal armour (helm, platebody, platelegs, kiteshield) plus a piece with a magic penalty such as green d'hide vambraces: metal armour plus a staff only reaches about -55.
+- **AFK**: re-attacks every 15-19 minutes, re-targets auto-picked NPCs further than 10 tiles, only attacks a configured NPC Name within 8 tiles of where you started, returns if drifted over 8 tiles. With no NPC name set it picks the nearest safe low-level NPC (chicken, rat, man, ...).

@@ -5,6 +5,7 @@ import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 import net.runelite.client.plugins.microbot.aiomagic.enums.MagicActivity;
+import net.runelite.client.plugins.microbot.aiomagic.enums.SplashSpellMode;
 import net.runelite.client.plugins.microbot.aiomagic.enums.StunSpell;
 import net.runelite.client.plugins.microbot.aiomagic.enums.SuperHeatItem;
 import net.runelite.client.plugins.microbot.aiomagic.enums.TeleportSpell;
@@ -22,6 +23,12 @@ public interface AIOMagicConfig extends Config {
 	String teleportSpell = "teleportSpell";
 	String stunSpell = "stunSpell";
 	String stunNpcName = "stunNpcName";
+	String splashSpellMode = "splashSpellMode";
+	String castsPerTrip = "splashCastsPerTrip";
+	String buyRunesOnGe = "splashBuyRunesOnGe";
+	String maxGpPerPurchase = "splashMaxGpPerPurchase";
+	String requireSplashBonus = "splashRequireMagicBonus";
+	String useElementalStaff = "splashUseElementalStaff";
 
 	@ConfigSection(
 			name = "General Settings",
@@ -100,7 +107,7 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = npcName,
 			name = "NPC Name",
-			description = "Name of the NPC you would like to splash",
+			description = "Name of the NPC you would like to splash. It must be within 8 tiles of where you start the script, and the script walks back if you drift further. Leave empty to auto-pick the nearest safe low-level NPC (chicken, rat, man, cow...) within 10 tiles",
 			position = 0,
 			section = splashSection
 	)
@@ -111,12 +118,80 @@ public interface AIOMagicConfig extends Config {
 	@ConfigItem(
 			keyName = combatSpell,
 			name = "Combat Spell",
-			description = "Select the spell you would like to splash with",
-			position = 1,
+			description = "Spell used when 'Splash spell' is set to 'Combat Spell setting'",
+			position = 2,
 			section = splashSection
 	)
 	default Rs2CombatSpells combatSpell() {
 		return Rs2CombatSpells.WIND_STRIKE;
+	}
+
+	@ConfigItem(
+			keyName = splashSpellMode,
+			name = "Splash spell",
+			description = "'Combat Spell setting' always casts the spell chosen below. Auto picks the highest standard-book combat spell your Magic level and runes allow, and upgrades as you level up",
+			position = 1,
+			section = splashSection
+	)
+	default SplashSpellMode splashSpellMode() {
+		return SplashSpellMode.CONFIGURED;
+	}
+
+	@ConfigItem(
+			keyName = castsPerTrip,
+			name = "Casts per trip",
+			description = "How many casts' worth of runes to withdraw at the bank once your runes run out. 0 = never bank (the script stops when runes run out)",
+			position = 3,
+			section = splashSection
+	)
+	default int castsPerTrip() {
+		return 1000;
+	}
+
+	@ConfigItem(
+			keyName = useElementalStaff,
+			name = "Use elemental staff",
+			description = "Wield an owned elemental staff to save runes; your staff may be swapped for it at the bank (only if it keeps you splash-safe)",
+			position = 4,
+			section = splashSection
+	)
+	default boolean useElementalStaff() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = buyRunesOnGe,
+			name = "Buy runes on the GE",
+			description = "When runes are short and the bank has none, buy them on the Grand Exchange",
+			position = 5,
+			section = splashSection
+	)
+	default boolean buyRunesOnGe() {
+		return false;
+	}
+
+	@ConfigItem(
+			keyName = maxGpPerPurchase,
+			name = "Max gp per purchase",
+			description = "Never spend more than this in total on one Grand Exchange trip for runes",
+			position = 6,
+			section = splashSection
+	)
+	default int maxGpPerPurchase() {
+		return 100_000;
+	}
+
+	@ConfigItem(
+			keyName = requireSplashBonus,
+			name = "Require -65 magic bonus",
+			description = "Stop if your equipment magic attack bonus is above -65 (you may hit instead of splash). Off = only a warning in the log console."
+					+ " Wear metal armour (helm, platebody, platelegs, kiteshield) plus a piece with a magic penalty such as"
+					+ " green d'hide vambraces: metal armour plus a staff only reaches about -55",
+			position = 7,
+			section = splashSection
+	)
+	default boolean requireSplashBonus() {
+		return false;
 	}
 
 	@ConfigItem(
