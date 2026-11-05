@@ -94,7 +94,7 @@ public final class BankTask implements FourtifysTask
                 {
                     if (attempts >= 3)
                     {
-                        stop("Bank close not acknowledged; reopen the bank and close it before restarting");
+                        stop("Bank close not acknowledged; reopen the bank and close it, then enable the plugin again");
                         return;
                     }
                     attempts++;
@@ -111,7 +111,7 @@ public final class BankTask implements FourtifysTask
                     {
                         if (actions.bankTravelDialogueVisible())
                         {
-                            stop("Bank teleport option failed three times");
+                            stop("The Ring of dueling's Ferox Enclave teleport failed three times; enable the plugin again to retry");
                             return;
                         }
                     }
@@ -134,7 +134,7 @@ public final class BankTask implements FourtifysTask
                 waiting = Waiting.NONE;
                 if (attempts >= 3)
                 {
-                    stop("Bank action failed three times: " + operation);
+                    stop("Could not " + operation + " after three tries; enable the plugin again to retry");
                     return;
                 }
             }
@@ -169,7 +169,7 @@ public final class BankTask implements FourtifysTask
                         stop(problem);
                         return;
                     }
-                    if (prepare("bank ring teleport"))
+                    if (prepare("use the Ring of dueling to Ferox Enclave"))
                     {
                         status = "Using Ring of dueling to Ferox Enclave";
                         actions.requestBankTravel(() -> await(Waiting.TRAVEL, 0));
@@ -198,7 +198,7 @@ public final class BankTask implements FourtifysTask
                 status = "Walking to Ferox bank";
                 return;
             }
-            if (prepare("open bank"))
+            if (prepare("open the bank"))
             {
                 status = "Opening bank";
                 actions.openBank(() -> await(Waiting.OPEN, 0));
@@ -207,7 +207,7 @@ public final class BankTask implements FourtifysTask
         }
         if (actions.hasLoot())
         {
-            if (prepare("deposit loot"))
+            if (prepare("deposit the chest rewards"))
             {
                 status = "Depositing chest rewards";
                 actions.depositLoot(() -> await(Waiting.DEPOSIT, 0));
@@ -216,12 +216,12 @@ public final class BankTask implements FourtifysTask
         }
         if (actions.count(952) == 0)
         {
-            withdraw(952, "spade", 1);
+            withdraw(952, "Spade", 1, "bank a spade");
             return;
         }
         if (actions.foodCount() < config.foodCount())
         {
-            withdraw(config.foodId(), "food", config.foodCount() - actions.foodCount());
+            withdraw(config.foodId(), actions.itemName(config.foodId()), config.foodCount() - actions.foodCount(), "restock it or lower Food count");
             return;
         }
         if (actions.potionCount() < config.potionCount())
@@ -233,7 +233,8 @@ public final class BankTask implements FourtifysTask
         {
             if (actions.count(supply.getKey()) < supply.getValue())
             {
-                withdraw(supply.getKey(), "supply item " + supply.getKey(), supply.getValue() - actions.count(supply.getKey()));
+                withdraw(supply.getKey(), actions.itemName(supply.getKey()), supply.getValue() - actions.count(supply.getKey()),
+                    "restock it or change Additional supplies/ammunition");
                 return;
             }
         }
@@ -242,9 +243,9 @@ public final class BankTask implements FourtifysTask
             int ring = actions.bankReplacementRing();
             if (ring > 0)
             {
-                withdraw(ring, "charged bank ring", 1);
+                withdraw(ring, "Ring of dueling", 1, "bank a charged one");
             }
-            else if (prepare("withdraw charged bank ring"))
+            else if (prepare("withdraw charged bank ring", "Out of charged Rings of dueling in the bank: bank one, then enable the plugin again"))
             {
                 status = "Waiting for a charged bank ring in the bank";
             }
@@ -258,7 +259,7 @@ public final class BankTask implements FourtifysTask
         }
         if (!actions.atSelectedBank())
         {
-            if (prepare("close bank for Ferox travel"))
+            if (prepare("close the bank before the ring teleport"))
             {
                 status = "Closing bank before Ring of dueling travel to Ferox";
                 actions.closeBank(() -> await(Waiting.CLOSE_FOR_FEROX, 0));
@@ -267,14 +268,14 @@ public final class BankTask implements FourtifysTask
         }
         if (needsFeroxRestoration())
         {
-            if (prepare("close bank for Ferox pool"))
+            if (prepare("close the bank before the Pool of Refreshment"))
             {
                 status = "Closing bank before Ferox restoration";
                 actions.closeBank(() -> await(Waiting.CLOSE_FOR_POOL, 0));
             }
             return;
         }
-        if (prepare("close bank"))
+        if (prepare("close the bank"))
         {
             status = "Closing bank";
             actions.closeBank(() -> await(Waiting.CLOSE, 0));
@@ -299,7 +300,7 @@ public final class BankTask implements FourtifysTask
         }
         if (actions.tick() >= poolDeadline)
         {
-            stop("Ferox pool restoration timed out; check the path and depleted stats before restarting");
+            stop("Ferox pool restoration timed out; check the path and depleted stats, then enable the plugin again");
             return;
         }
         if (!actions.walkToFeroxPool())
@@ -307,7 +308,7 @@ public final class BankTask implements FourtifysTask
             status = "Walking to Ferox Pool of Refreshment";
             return;
         }
-        if (prepare("drink from Ferox Pool of Refreshment"))
+        if (prepare("drink from the Ferox Pool of Refreshment"))
         {
             status = "Restoring at Ferox Pool of Refreshment";
             actions.drinkFeroxPool(() -> await(Waiting.RESTORE, 0));
@@ -327,19 +328,22 @@ public final class BankTask implements FourtifysTask
         }
         if (available < 0)
         {
-            if (prepare("withdraw prayer potion"))
+            if (prepare("withdraw prayer potion", "Out of prayer potions in the bank: restock them or lower Prayer potion count"))
             {
                 status = "Waiting for prayer potions in the bank";
             }
             return;
         }
-        withdraw(available, "prayer potion", missing);
+        withdraw(available, "prayer potions", missing, "restock them or lower Prayer potion count");
     }
 
     /** Withdraws what is missing in one request, capped by the bank and, unstacked, by the free slots. */
-    private void withdraw(int id, String name, int missing)
+    private void withdraw(int id, String name, int missing, String restock)
     {
-        if (prepare("withdraw " + name))
+        String stopReason = actions.bankCount(id) > 0
+            ? "Could not withdraw " + name + "; free inventory space, then enable the plugin again"
+            : "Out of " + name + " in the bank: " + restock;
+        if (prepare("withdraw " + name, stopReason))
         {
             status = "Withdrawing " + name;
             int amount = Math.min(missing, actions.bankCount(id));
@@ -352,6 +356,11 @@ public final class BankTask implements FourtifysTask
     }
 
     private boolean prepare(String nextOperation)
+    {
+        return prepare(nextOperation, "Could not " + nextOperation + " after three tries; enable the plugin again to retry");
+    }
+
+    private boolean prepare(String nextOperation, String stopReason)
     {
         if (!nextOperation.equals(operation))
         {
@@ -369,7 +378,7 @@ public final class BankTask implements FourtifysTask
             attempts++;
             if (attempts >= 3)
             {
-                stop("Bank item or action unavailable: " + operation);
+                stop(stopReason);
                 return false;
             }
         }

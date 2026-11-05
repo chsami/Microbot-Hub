@@ -20,7 +20,7 @@ public final class TickDelay
         {
             return false;
         }
-        status.accept("Timeout: " + remaining);
+        status.accept("Short pause (" + remaining + (remaining == 1 ? " tick)" : " ticks)"));
         remaining--;
         return true;
     }

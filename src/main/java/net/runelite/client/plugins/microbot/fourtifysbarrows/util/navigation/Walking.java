@@ -111,7 +111,7 @@ public class Walking
         }
         if (now - lastProgressAt >= TIMEOUT_MS)
         {
-            return fail("Walking timed out without movement");
+            return fail("Walking timed out after 120 seconds without movement; clear the path, then enable the plugin again");
         }
         state = State.WALKING;
         if (operation != null)
@@ -124,7 +124,8 @@ public class Walking
             {
                 if (operation.failure != null)
                 {
-                    return fail(operation.failure instanceof RouteFailure ? operation.failure.getMessage() : "Microbot walking failed");
+                    return fail(operation.failure instanceof RouteFailure ? operation.failure.getMessage()
+                        : "Walking failed (" + describe(operation.failure) + "); check the walker settings, then enable the plugin again");
                 }
                 nextAttemptAt = now + RETRY_DELAY_MS;
             }
@@ -142,7 +143,7 @@ public class Walking
         }
         catch (RuntimeException failure)
         {
-            return fail("Walking worker is unavailable");
+            return fail("Walking could not start (" + describe(failure) + "); enable the plugin again");
         }
         return state;
     }
@@ -190,6 +191,11 @@ public class Walking
                 pending.finished = true;
             }
         }
+    }
+
+    private static String describe(Throwable failure)
+    {
+        return failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
     }
 
     private State fail(String reason)

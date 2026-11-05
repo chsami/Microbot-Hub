@@ -70,6 +70,7 @@ public class BarrowsActions
         () -> api, () -> worker, this::interactionReady);
     private String status = "Starting";
     private String failure;
+    private String pendingStop;
     private boolean trip;
     private static final int[] BANK_RING_IDS = {2552, 2554, 2556, 2558, 2560, 2562, 2564, 2566};
     /** Prayer potions from four doses to one. */
@@ -95,6 +96,7 @@ public class BarrowsActions
     {
         reset();
         failure = null;
+        pendingStop = null;
         trip = false;
     }
 
@@ -103,7 +105,9 @@ public class BarrowsActions
         queue.clear();
         if (worker != null && worker.getFailure() != null)
         {
-            fail("Microbot interaction failed: " + worker.getFailure().getClass().getSimpleName());
+            Throwable cause = worker.getFailure();
+            fail("A game action failed (" + (cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage())
+                + "); enable the plugin again to retry");
         }
     }
 
@@ -203,10 +207,54 @@ public class BarrowsActions
         return failure == null ? status : failure;
     }
 
+    /** Stops the session. In danger at Barrows, the stop waits for the ring teleport out of Barrows. */
     public void fail(String reason)
     {
-        failure = reason;
+        if (pendingStop == null)
+        {
+            pendingStop = reason;
+        }
         reset();
+        if (!endangered())
+        {
+            failure = pendingStop;
+        }
+    }
+
+    /** Ends a pending stop whose teleport out of Barrows could not be completed. */
+    public void failEscape()
+    {
+        failure = pendingStop + "; the teleport out failed, so leave Barrows now";
+        reset();
+    }
+
+    /** The reason the session stopped, or null while it runs. */
+    public String failure()
+    {
+        return failure;
+    }
+
+    /** The reason for a stop that waits for the teleport out of Barrows, or null. */
+    public String pendingStop()
+    {
+        return failure == null ? pendingStop : null;
+    }
+
+    /** Idling in a crypt, in the tunnels or under attack at Barrows can get the player killed. */
+    boolean endangered()
+    {
+        Player player = player();
+        if (client.getGameState() != GameState.LOGGED_IN || player == null || player.isDead())
+        {
+            return false;
+        }
+        if (inside())
+        {
+            return true;
+        }
+        List<NPC> npcs = client.getNpcs();
+        return atBarrowsSurface() && npcs != null
+            && npcs.stream().anyMatch(npc -> npc.getInteracting() == player && !npc.isDead());
     }
 
     public boolean bankPending()
@@ -350,7 +398,7 @@ public class BarrowsActions
                 }
                 if (count(carried) == 0)
                 {
-                    fail("Missing equipment item " + id);
+                    fail(gearName(id) + " is no longer worn or carried; restock it, then enable the plugin again");
                 }
                 else if (!inventory(carried, "Wear", callback))
                 {
@@ -360,6 +408,38 @@ public class BarrowsActions
             }
         }
         return true;
+    }
+
+    /** Names the first configured equipment item that is neither worn nor carried, or returns null. */
+    public String missingGear()
+    {
+        String[][] sets = {{"Magic equipment IDs", config.magicGear()}, {"Ahrim equipment IDs", config.rangedGear()},
+            {"Tunnel equipment IDs", config.meleeGear()}};
+        for (String[] set : sets)
+        {
+            for (int id : gearIds(set[1]))
+            {
+                boolean ring = Arrays.stream(BANK_RING_IDS).anyMatch(value -> value == id);
+                if (!wearing(id) && count(id) == 0 && !(ring && hasBankTravelRing()))
+                {
+                    return "Wear or carry " + gearName(id) + ", or remove it from " + set[0];
+                }
+            }
+        }
+        return null;
+    }
+
+    public String itemName(int id)
+    {
+        ItemComposition item = client.getItemDefinition(id);
+        return item == null || item.getName() == null ? "item " + id : item.getName();
+    }
+
+    /** Equipment settings list IDs, so a named item also shows its ID. */
+    private String gearName(int id)
+    {
+        String name = itemName(id);
+        return name.equals("item " + id) ? name : name + " (" + id + ")";
     }
 
     private boolean wearingBankChargeVariant(int requested)
@@ -842,7 +922,7 @@ public class BarrowsActions
     {
         if (client.getVarbitValue(3958) != 0)
         {
-            fail("Set bank withdrawal mode to Item before restarting");
+            fail("Set the bank withdrawal mode to Item, then enable the plugin again");
             return false;
         }
         return interactions.withdrawOne(id, () -> bankingOpen() && client.getVarbitValue(3958) == 0, callback);
@@ -857,7 +937,7 @@ public class BarrowsActions
         }
         if (client.getVarbitValue(3958) != 0)
         {
-            fail("Set bank withdrawal mode to Item before restarting");
+            fail("Set the bank withdrawal mode to Item, then enable the plugin again");
             return false;
         }
         return interactions.withdraw(id, amount, () -> bankingOpen() && client.getVarbitValue(3958) == 0

@@ -99,7 +99,7 @@ public final class TravelTask implements FourtifysTask
             }
             else if (attempts >= MAX_ATTEMPTS)
             {
-                stop("No arrival observed after three attempts: " + method);
+                stop("Used " + method + " three times without arriving; check it, then enable the plugin again");
                 return;
             }
             else
@@ -126,7 +126,7 @@ public final class TravelTask implements FourtifysTask
         {
             if (actions.tick() >= localWalkDeadline)
             {
-                stop("Did not reach Barrows after the selected teleport");
+                stop("Did not reach Barrows after the selected teleport; walk to Barrows, then enable the plugin again");
                 return;
             }
             status = "Walking from " + method + " to Barrows";
@@ -139,7 +139,7 @@ public final class TravelTask implements FourtifysTask
         }
         if (actions.tick() >= controlsDeadline)
         {
-            stop("Travel control unavailable: " + method);
+            stop("Could not use " + method + "; carry it or meet its requirements, then enable the plugin again");
             return;
         }
         status = "Using " + method;

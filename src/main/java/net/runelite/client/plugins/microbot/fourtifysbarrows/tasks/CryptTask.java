@@ -627,7 +627,7 @@ public final class CryptTask implements FourtifysTask
         }
         if (attempts >= 5)
         {
-            actions.fail("No progress: " + label);
+            actions.fail(label + " made no progress after five tries; enable the plugin again to retry");
             return;
         }
         attempts++;
@@ -677,7 +677,7 @@ public final class CryptTask implements FourtifysTask
                 actions.fail("No observed combat progress while gathering reward potential; check weapon and ammunition");
                 return;
             }
-            actions.status("Fighting " + npc.getName() + " #" + npc.getIndex() + " for reward potential");
+            actions.status("Fighting " + npc.getName() + " for reward potential");
             return;
         }
         farmingNpc = null;
@@ -692,7 +692,7 @@ public final class CryptTask implements FourtifysTask
         }
         if (actions.tunnelMonster(this::dispatched))
         {
-            actions.status("Gather reward potential (attacked by " + (attacker == null ? "none" : attacker.getName() + " #" + attacker.getIndex()) + ")");
+            actions.status(attacker == null ? "Attacking a tunnel monster for reward potential" : "Attacking " + attacker.getName() + " for reward potential");
             return;
         }
         int room = actions.currentTunnelRoom();

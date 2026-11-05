@@ -23,9 +23,11 @@ restores at the pool, banks the loot, restocks and goes again.
 3. Wear or carry a charged Ring of dueling, and carry a spade.
 4. Put food, prayer potions and the items for your travel method in
    your bank.
-5. Choose **Travel method** from the table above and meet its
+5. Choose **Teleport to Barrows** from the table above and meet its
    requirements.
-6. Enter your gear as comma-separated item IDs:
+6. Optionally enter gear to swap to, as comma-separated item IDs. Each
+   list is blank by default, which keeps what you wear. Wear or carry
+   every listed item: the plugin checks this at start.
    - **Magic equipment IDs**: for every brother except Ahrim. Set
      autocast or use a powered staff.
    - **Ahrim equipment IDs**: ranged gear for Ahrim.
@@ -36,5 +38,16 @@ restores at the pool, banks the loot, restocks and goes again.
    items you keep or restock.
 8. Enable the plugin at Ferox Enclave or at Barrows.
 
-At low Hitpoints, the plugin teleports to Ferox Enclave with the Ring of
-dueling. Set the level in **At or below HP (%)**.
+## While it runs
+
+- **Emergency teleport:** at Barrows only, low Hitpoints make the plugin
+  use the Ring of dueling to Ferox Enclave, turn off the protection
+  prayer and stop. Set the level in **At or below HP (%)**. Elsewhere,
+  low Hitpoints start the normal bank trip, and the Ferox pool heals you.
+- **Auto-retaliate:** the plugin turns it off so that only the planned
+  fights count toward the reward. It stays off after the plugin stops;
+  turn it back on yourself.
+- **Stops:** when something stops the plugin, it posts one red chat
+  message, "Fourtifys Barrows stopped:" followed by the reason and what
+  to do. It then switches itself off. A stop during a fight at Barrows
+  first teleports you to Ferox Enclave.

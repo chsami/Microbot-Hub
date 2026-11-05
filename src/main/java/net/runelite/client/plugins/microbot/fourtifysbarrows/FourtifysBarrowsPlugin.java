@@ -1,6 +1,9 @@
 package net.runelite.client.plugins.microbot.fourtifysbarrows;
 
+import net.runelite.client.plugins.microbot.PluginConstants;
+
 import com.google.inject.Provides;
+import java.awt.Color;
 import java.time.Instant;
 import java.util.Random;
 import javax.inject.Inject;
@@ -19,6 +22,7 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.fourtifysbarrows.config.BarrowsConfig;
 import net.runelite.client.plugins.microbot.fourtifysbarrows.overlay.BarrowsOverlay;
 import net.runelite.client.plugins.microbot.fourtifysbarrows.tasks.CryptTask;
@@ -36,10 +40,11 @@ import net.runelite.client.plugins.microbot.fourtifysbarrows.util.action.ActionQ
 import net.runelite.client.plugins.microbot.fourtifysbarrows.util.lifecycle.SessionLifecycle;
 import net.runelite.client.plugins.microbot.fourtifysbarrows.util.timing.TickDelay;
 import net.runelite.client.ui.overlay.OverlayManager;
+import net.runelite.client.util.ColorUtil;
 
 @PluginDescriptor(name = "<html><font color=#f5dd42>Fourtifys Barrows", configName = "fourtifyBarrows",
-                    description = "Complete Barrows chest runs with supplies and normal Microbot walking", tags = {"fourtifys", "barrows"}, enabledByDefault = false,
-                    authors = {"Fourtifys"}, version = FourtifysBarrowsPlugin.VERSION, minClientVersion = "2.6.43", isExternal = true,
+                    description = "Kills the Barrows brothers, loots the chest and restocks at Ferox Enclave", tags = {"fourtifys", "barrows"}, enabledByDefault = PluginConstants.DEFAULT_ENABLED,
+                    authors = {"Fourtifys"}, version = FourtifysBarrowsPlugin.VERSION, minClientVersion = "2.6.43", isExternal = PluginConstants.IS_EXTERNAL,
                     iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysBarrowsPlugin/assets/icon.png")
 public class FourtifysBarrowsPlugin extends Plugin
 {
@@ -82,7 +87,6 @@ public class FourtifysBarrowsPlugin extends Plugin
     protected void shutDown()
     {
         lifecycle.scheduleStop(clientThread, this::stop);
-        actions.reset();
     }
 
     private void start()
@@ -98,17 +102,10 @@ public class FourtifysBarrowsPlugin extends Plugin
             return;
         }
         actions.newSession();
-        try
+        String settingsProblem = settingsProblem();
+        if (settingsProblem != null)
         {
-            BarrowsActions.gearIds(config.magicGear());
-            BarrowsActions.gearIds(config.rangedGear());
-            BarrowsActions.gearIds(config.meleeGear());
-            BarrowsActions.gearIds(config.keepItems());
-            actions.restockItems();
-        }
-        catch (IllegalArgumentException invalid)
-        {
-            actions.fail("Invalid item ID list: " + invalid.getMessage());
+            actions.fail(settingsProblem);
         }
         crypt = new CryptTask(actions);
         combat = new CombatTask(actions);
@@ -120,9 +117,14 @@ public class FourtifysBarrowsPlugin extends Plugin
         if (actions.ready())
         {
             String bankTravelProblem = actions.bankTravelStartProblem();
+            String gearProblem = actions.missingGear();
             if (bankTravelProblem != null)
             {
                 actions.fail(bankTravelProblem);
+            }
+            else if (gearProblem != null)
+            {
+                actions.fail(gearProblem);
             }
             else if (!actions.hasBankTravelRing())
             {
@@ -155,6 +157,34 @@ public class FourtifysBarrowsPlugin extends Plugin
         overlays.add(overlay);
     }
 
+    /** Names the first item list setting that does not parse, with its value and the expected form. */
+    private String settingsProblem()
+    {
+        String[][] lists = {{"Magic equipment IDs", config.magicGear()}, {"Ahrim equipment IDs", config.rangedGear()},
+            {"Tunnel equipment IDs", config.meleeGear()}, {"Retained inventory IDs", config.keepItems()}};
+        for (String[] list : lists)
+        {
+            try
+            {
+                BarrowsActions.gearIds(list[1]);
+            }
+            catch (IllegalArgumentException invalid)
+            {
+                return list[0] + " is \"" + list[1] + "\"; use positive item IDs separated by commas, such as 4151,11840";
+            }
+        }
+        try
+        {
+            actions.restockItems();
+        }
+        catch (IllegalArgumentException invalid)
+        {
+            return "Additional supplies/ammunition is \"" + config.restockItems()
+                + "\"; use itemID:quantity pairs separated by commas, such as 560:100,9075:200";
+        }
+        return null;
+    }
+
     private void stop()
     {
         lifecycle.setStarted(false);
@@ -162,7 +192,16 @@ public class FourtifysBarrowsPlugin extends Plugin
         delay.set(0);
         actions.reset();
         overlays.remove(overlay);
-        status = "Stopped";
+        status = actions.failure() == null ? "Stopped" : actions.failure();
+    }
+
+    /** Ends the session, tells the player why in chat and switches the plugin off. */
+    private void stopFor(String reason)
+    {
+        status = reason;
+        lifecycle.scheduleStop(clientThread, this::stop);
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", ColorUtil.wrapWithColorTag("Fourtifys Barrows stopped: " + reason, Color.RED), null);
+        Microbot.stopPlugin(this);
     }
 
     @Subscribe
@@ -196,8 +235,15 @@ public class FourtifysBarrowsPlugin extends Plugin
                 delay.set(0);
                 return;
             }
-            actions.reset();
-            lifecycle.scheduleStart(clientThread, this::start);
+            // Tasks read settings when they use them, so a change keeps the runtime, chest count and crypt progress.
+            clientThread.invokeLater(() ->
+            {
+                String problem = lifecycle.isStarted() ? settingsProblem() : null;
+                if (problem != null)
+                {
+                    actions.fail(problem);
+                }
+            });
         }
     }
 
@@ -259,11 +305,32 @@ public class FourtifysBarrowsPlugin extends Plugin
         crypt.observe();
         if (player.isDead())
         {
-            actions.fail("Player died; disable and recover before restarting");
+            actions.fail("Player died; recover before enabling the plugin again");
+        }
+        String failure = actions.failure();
+        if (failure != null)
+        {
+            stopFor(failure);
+            return;
         }
         if (!actions.ready())
         {
             status = actions.getStatus();
+            return;
+        }
+        String stopping = actions.pendingStop();
+        if (stopping != null)
+        {
+            if (emergency.isValid())
+            {
+                emergency.execute();
+                status = actions.pendingStop() != null ? "Teleporting out before stopping: " + stopping : actions.getStatus();
+            }
+            else
+            {
+                actions.failEscape();
+                status = actions.getStatus();
+            }
             return;
         }
         String prerequisite = actions.prerequisite();

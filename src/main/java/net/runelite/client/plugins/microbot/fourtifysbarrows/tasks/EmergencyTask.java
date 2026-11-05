@@ -37,6 +37,10 @@ public final class EmergencyTask implements FourtifysTask
         {
             return true;
         }
+        if (actions.pendingStop() != null)
+        {
+            return actions.hp() > 0 && actions.atBarrows();
+        }
         if (!actions.emergencyHealth())
         {
             escaping = false;
@@ -85,7 +89,7 @@ public final class EmergencyTask implements FourtifysTask
                     return;
                 }
                 prayerDeadline = -1;
-                status = "Emergency teleport completed; check character before restarting";
+                status = "Emergency teleport completed at Ferox Enclave; heal and restock, then enable the plugin again";
                 armed = false;
                 pending = false;
                 actions.fail(status);
@@ -138,6 +142,11 @@ public final class EmergencyTask implements FourtifysTask
     {
         armed = false;
         pending = false;
+        if (actions.pendingStop() != null)
+        {
+            actions.failEscape();
+            return;
+        }
         escaping = true;
         status = reason;
         actions.status(reason);

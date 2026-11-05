@@ -10,7 +10,7 @@ public interface BarrowsConfig extends TimingConfig
 {
     String GROUP = "fourtifyBarrows";
 
-    @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 10, closedByDefault = true)
+    @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 80, closedByDefault = true)
     String TIMING = "advancedTiming";
 
     @ConfigSection(name = "General", description = "The plugin disables auto-retaliate to control reward potential. It remains off after stopping. Choose the reward target and banking policy.", position = 20, closedByDefault = false)
@@ -25,13 +25,13 @@ public interface BarrowsConfig extends TimingConfig
     @ConfigSection(name = "Travel to Barrows", description = "Choose the prepared teleport used to reach Barrows.", position = 35, closedByDefault = false)
     String TRAVEL = "travel";
 
-    @ConfigSection(name = "Equipment", description = "Use the equipment supplied by the player. Configure autocast or a powered weapon before starting.", position = 40, closedByDefault = true)
+    @ConfigSection(name = "Equipment", description = "Use the equipment supplied by the player. Configure autocast or a powered weapon before starting.", position = 40, closedByDefault = false)
     String EQUIPMENT = "equipment";
 
-    @ConfigSection(name = "Emergency teleport", description = "Choose the emergency teleport and low-health threshold.", position = 60, closedByDefault = true)
+    @ConfigSection(name = "Emergency teleport", description = "At Barrows, teleport to Ferox Enclave at low Hitpoints, then stop the plugin.", position = 60, closedByDefault = true)
     String SAFETY = "safety";
 
-    @ConfigItem(keyName = "showOverlay", name = "Show overlay", description = "Show runtime, activity, status, and dispatched requests while the plugin is enabled.", position = 0)
+    @ConfigItem(keyName = "showOverlay", name = "Show overlay", description = "Show the runtime, chest count and status while the plugin runs.", position = 0)
     default boolean showOverlay()
     {
         return true;
@@ -50,13 +50,13 @@ public interface BarrowsConfig extends TimingConfig
         return 880;
     }
 
-    @ConfigItem(keyName = "travelMethod", name = "Travel method", description = "Use the selected teleport only. Carry its item in inventory, or prepare the active Arceuus spellbook and the Barrows spell's requirements. The minigame teleport must be unlocked and ready.", position = 0, section = TRAVEL)
+    @ConfigItem(keyName = "travelMethod", name = "Teleport to Barrows", description = "Use the selected teleport only. Carry its item in inventory, or prepare the active Arceuus spellbook and the Barrows spell's requirements. The minigame teleport must be unlocked and ready.", position = 0, section = TRAVEL)
     default TravelMethod travelMethod()
     {
         return TravelMethod.BARROWS_TABLET;
     }
 
-    @ConfigItem(keyName = "bankTeleport", name = "Travel method", description = "Use a charged Ring of Dueling to reach Ferox Enclave, then restore at the pool and use the bank.", position = 0, section = BANK_TRAVEL)
+    @ConfigItem(keyName = "bankTeleport", name = "Teleport to bank", description = "Use a charged Ring of Dueling to reach Ferox Enclave, then restore at the pool and use the bank.", position = 0, section = BANK_TRAVEL)
     default BankTeleport bankTeleport()
     {
         return BankTeleport.RING_OF_DUELING;
@@ -100,13 +100,13 @@ public interface BarrowsConfig extends TimingConfig
     @ConfigItem(keyName = "magicGear", name = "Magic equipment IDs", description = "Comma-separated item IDs to equip for brothers other than Ahrim. Configure autocast or a powered weapon before starting. Blank keeps the equipment supplied by the player.", position = 0, section = EQUIPMENT)
     default String magicGear()
     {
-        return "21018,12002,21791,21021,21024,31113,27251,22947,31106,31097,28313";
+        return "";
     }
 
     @ConfigItem(keyName = "rangedGear", name = "Ahrim equipment IDs", description = "Comma-separated ranged equipment item IDs for Ahrim. Supply ammunition as required. Blank keeps the equipment supplied by the player.", position = 1, section = EQUIPMENT)
     default String rangedGear()
     {
-        return "27235,33639,28951,27238,27241,12926,22947,26235,31097,28310";
+        return "";
     }
 
     @ConfigItem(keyName = "meleeGear", name = "Tunnel equipment IDs", description = "Comma-separated melee equipment item IDs for tunnel creatures. Blank keeps the equipment supplied by the player.", position = 2, section = EQUIPMENT)
@@ -134,7 +134,7 @@ public interface BarrowsConfig extends TimingConfig
     }
 
     @Range(min = 1, max = 99)
-    @ConfigItem(keyName = "emergencyAt", name = "At or below HP (%)", description = "Attempt emergency escape when current Hitpoints are at or below this percentage of maximum Hitpoints.", position = 1, section = SAFETY)
+    @ConfigItem(keyName = "emergencyAt", name = "At or below HP (%)", description = "At Barrows, use the Ring of dueling to Ferox Enclave when Hitpoints are at or below this percentage of maximum Hitpoints, then stop the plugin. Elsewhere, low Hitpoints start the normal bank trip.", position = 1, section = SAFETY)
     default int emergencyAt()
     {
         return 25;
