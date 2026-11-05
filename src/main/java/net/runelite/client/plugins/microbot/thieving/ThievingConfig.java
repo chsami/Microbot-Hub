@@ -53,7 +53,7 @@ public interface ThievingConfig extends Config {
     @ConfigItem(
             keyName = "walkToNpc",
             name = "Walk to NPC location",
-            description = "If no matching NPC is within 15 tiles, walk to the nearest spawn area of the selected NPC (spawn areas in the Wilderness are skipped) and only hop worlds once there. Vyres: walks to Vallessia von Pitt's house in Darkmeyer and equips the vyre noble outfit (needs Sins of the Father). None, Elves and Master Farmer: only walks to one you can see, otherwise stays where you started and hops. Wealthy citizen: never walks.",
+            description = "If no matching NPC is within 15 tiles, walk to the nearest<br>spawn area (never in the Wilderness) and only hop worlds there.<br>Vyres: walks to Vallessia von Pitt's house in Darkmeyer<br>(needs Sins of the Father and the vyre noble outfit).<br>None, Elves, Master Farmer: only walks to one you can see.<br>Wealthy citizen: never walks.",
             position = 2,
             section = generalSection
     )
