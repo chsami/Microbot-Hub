@@ -48,7 +48,7 @@ import net.runelite.client.util.ColorUtil;
                     iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysBarrowsPlugin/assets/icon.png")
 public class FourtifysBarrowsPlugin extends Plugin
 {
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.1";
     @Inject private Client client;
     @Inject private ClientThread clientThread;
     @Inject private BarrowsConfig config;
@@ -161,7 +161,7 @@ public class FourtifysBarrowsPlugin extends Plugin
     private String settingsProblem()
     {
         String[][] lists = {{"Magic equipment IDs", config.magicGear()}, {"Ahrim equipment IDs", config.rangedGear()},
-            {"Tunnel equipment IDs", config.meleeGear()}, {"Retained inventory IDs", config.keepItems()}};
+            {"Tunnel equipment IDs", config.meleeGear()}, {"Items to keep (IDs)", config.keepItems()}};
         for (String[] list : lists)
         {
             try
@@ -342,7 +342,7 @@ public class FourtifysBarrowsPlugin extends Plugin
         }
         if (client.getRealSkillLevel(Skill.PRAYER) < 43)
         {
-            actions.fail("Prayer level 43 required for protection prayers");
+            actions.fail("Protection prayers need level 43 Prayer; train Prayer to 43, then enable the plugin again");
             status = actions.getStatus();
             return;
         }

@@ -156,7 +156,7 @@ public class TravelTaskTest
         }
         assertEquals("", actions.failure);
         assertTrue(actions.requests.isEmpty());
-        assertEquals("Waiting for Shades of Mort'ton teleport cooldown (12 min)", task.getStatus());
+        assertEquals("Shades teleport ready in 12 min", task.getStatus());
         actions.cooldown = 0;
         actions.problem = null;
         task.execute();
@@ -343,6 +343,67 @@ public class TravelTaskTest
         assertEquals(5, actions.requests.size());
     }
 
+    @Test
+    public void anOpenBankAtTheStartIsClosedThenTheTripContinues()
+    {
+        FakeActions actions = new FakeActions();
+        actions.bankOpen = true;
+        actions.problem = "Close the bank or busy interface before travelling to Barrows";
+        TravelTask task = new TravelTask(actions);
+        task.execute();
+        assertEquals(1, actions.closes);
+        assertEquals("Closing the bank", task.getStatus());
+        assertEquals("", actions.failure);
+        assertTrue(actions.requests.isEmpty());
+        actions.now = 1;
+        task.execute();
+        assertEquals(1, actions.closes, "Waits for the close before asking again");
+        actions.bankOpen = false;
+        actions.problem = null;
+        actions.now = 2;
+        task.execute();
+        assertEquals("", actions.failure);
+        assertEquals(List.of(TravelMethod.BARROWS_TABLET), actions.requests);
+    }
+
+    @Test
+    public void aClosedBankWaitsForTheGameToAcknowledgeTheClose()
+    {
+        FakeActions actions = new FakeActions();
+        actions.bankOpen = true;
+        actions.closeAcknowledged = false;
+        actions.problem = "Close the bank or busy interface before travelling to Barrows";
+        TravelTask task = new TravelTask(actions);
+        task.execute();
+        actions.bankOpen = false;
+        actions.now = 1;
+        task.execute();
+        assertEquals("", actions.failure);
+        assertEquals("Closing the bank", task.getStatus());
+        assertTrue(actions.requests.isEmpty());
+        actions.closeAcknowledged = true;
+        actions.problem = null;
+        actions.now = 2;
+        task.execute();
+        assertEquals("", actions.failure);
+        assertEquals(List.of(TravelMethod.BARROWS_TABLET), actions.requests);
+    }
+
+    @Test
+    public void aBankThatStaysOpenStopsAfterThreeCloses()
+    {
+        FakeActions actions = new FakeActions();
+        actions.bankOpen = true;
+        TravelTask task = new TravelTask(actions);
+        for (int tick = 0; tick <= 24; tick += 8)
+        {
+            actions.now = tick;
+            task.execute();
+        }
+        assertEquals(3, actions.closes);
+        assertEquals("The bank did not close; close it, then enable the plugin again", actions.failure);
+    }
+
     private static final class FakeActions extends BarrowsActions
     {
         private final List<TravelMethod> requests = new ArrayList<>();
@@ -368,6 +429,9 @@ public class TravelTaskTest
         private long cooldown;
         private String failure = "";
         private WorldPoint destination;
+        private boolean bankOpen;
+        private boolean closeAcknowledged = true;
+        private int closes;
 
         @Override
         public BarrowsConfig config()
@@ -452,6 +516,26 @@ public class TravelTaskTest
         public void fail(String reason)
         {
             failure = reason;
+        }
+
+        @Override
+        public boolean bankingOpen()
+        {
+            return bankOpen;
+        }
+
+        @Override
+        public boolean bankCloseObserved()
+        {
+            return !bankOpen && closeAcknowledged;
+        }
+
+        @Override
+        public boolean closeBank(Runnable callback)
+        {
+            closes++;
+            callback.run();
+            return true;
         }
     }
 }

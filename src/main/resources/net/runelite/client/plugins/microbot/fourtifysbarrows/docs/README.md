@@ -33,7 +33,7 @@ restores at the pool, banks the loot, restocks and goes again.
    - **Ahrim equipment IDs**: ranged gear for Ahrim.
    - **Tunnel equipment IDs**: melee gear for tunnel monsters.
 7. Set **Food item ID**, **Food count**, **Prayer potion count** and
-   their thresholds. Use **Retained inventory IDs** and
+   their thresholds. Use **Items to keep (IDs)** and
    **Additional supplies/ammunition** for runes, ammunition and other
    items you keep or restock.
 8. Enable the plugin at Ferox Enclave or at Barrows.
@@ -49,5 +49,7 @@ restores at the pool, banks the loot, restocks and goes again.
   turn it back on yourself.
 - **Stops:** when something stops the plugin, it posts one red chat
   message, "Fourtifys Barrows stopped:" followed by the reason and what
-  to do. It then switches itself off. A stop during a fight at Barrows
-  first teleports you to Ferox Enclave.
+  to do. It then switches itself off. A stop while you are in a crypt,
+  in the tunnels or under attack at Barrows first teleports you to Ferox
+  Enclave. When chest rewards do not fit in your inventory and nothing
+  can make room, it leaves them on the ground and says so.

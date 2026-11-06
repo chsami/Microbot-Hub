@@ -291,7 +291,7 @@ public final class CryptTask implements FourtifysTask
             }
             if (next == null)
             {
-                actions.fail("No tunnel found after searching all six crypts");
+                actions.fail("No tunnel found after searching all six sarcophagi; enable the plugin again to retry");
                 return;
             }
         }
@@ -514,7 +514,7 @@ public final class CryptTask implements FourtifysTask
             exitRoomsSearched++;
             if (exitRoomsSearched >= CORNER_ROOMS.length)
             {
-                actions.fail("No visible exit ladder found in any corner room");
+                actions.fail("Could not find the tunnel exit ladder; enable the plugin again to retry");
                 return false;
             }
             goal = CORNER_ROOMS[exitCorner];
@@ -544,7 +544,9 @@ public final class CryptTask implements FourtifysTask
         }
         else
         {
-            actions.fail("Chest rewards are on the ground and the inventory has no food or vial to clear");
+            // Tunnel monsters attack an idle player, so leave the rewards rather than stop in the tunnels.
+            actions.fail("Chest rewards were left on the ground because your inventory was full; "
+                + "bring fewer supplies or more food so the rewards fit, then enable the plugin again");
         }
     }
 
@@ -627,7 +629,8 @@ public final class CryptTask implements FourtifysTask
         }
         if (attempts >= 5)
         {
-            actions.fail("Stuck on: " + label + " (five tries); enable the plugin again to retry");
+            actions.fail("Gave up after five tries: " + Character.toLowerCase(label.charAt(0)) + label.substring(1)
+                + "; enable the plugin again to retry");
             return;
         }
         attempts++;

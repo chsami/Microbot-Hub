@@ -431,7 +431,7 @@ public class CryptTaskTest
             task.execute();
         }
         assertNotNull(actions.failure);
-        assertTrue(actions.failure.startsWith("Stuck on: "));
+        assertEquals("Gave up after five tries: search Barrows chest; enable the plugin again to retry", actions.failure);
         assertEquals(5, actions.options.size());
     }
 
@@ -695,7 +695,7 @@ public class CryptTaskTest
     }
 
     @Test
-    public void overflowLootWithNothingToClearStopsInsteadOfLeavingIt()
+    public void overflowLootWithNothingToClearTeleportsOutAndSaysTheRewardsWereLeft()
     {
         FakeActions actions = new FakeActions();
         actions.open = true;
@@ -709,7 +709,8 @@ public class CryptTaskTest
         actions.ground = 1;
         actions.tick = 2;
         task.execute();
-        assertTrue(actions.failure.contains("no food or vial"));
+        assertEquals("Chest rewards were left on the ground because your inventory was full; "
+            + "bring fewer supplies or more food so the rewards fit, then enable the plugin again", actions.failure);
     }
 
     private static final class FakeActions extends BarrowsActions

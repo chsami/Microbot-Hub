@@ -250,8 +250,15 @@ public class BarrowsActions
         {
             return true;
         }
+        return atBarrowsSurface() && attacked();
+    }
+
+    /** Whether a living NPC is attacking the player. */
+    public boolean attacked()
+    {
+        Player player = player();
         List<NPC> npcs = client.getNpcs();
-        return atBarrowsSurface() && npcs != null
+        return player != null && npcs != null
             && npcs.stream().anyMatch(npc -> npc.getInteracting() == player && !npc.isDead());
     }
 

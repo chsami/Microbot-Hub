@@ -105,6 +105,16 @@ public class BarrowsActionsTest
     }
 
     @Test
+    public void attackedOnlyWhileALivingNpcTargetsThePlayer() throws Exception
+    {
+        BarrowsActions actions = new BarrowsActions();
+        Scene scene = new Scene(actions, TOMB);
+        assertFalse(actions.attacked());
+        scene.attacker = true;
+        assertTrue(actions.attacked());
+    }
+
+    @Test
     public void aStopOnTheSurfaceWaitsOnlyWhileAnNpcAttacks() throws Exception
     {
         BarrowsActions actions = new BarrowsActions();

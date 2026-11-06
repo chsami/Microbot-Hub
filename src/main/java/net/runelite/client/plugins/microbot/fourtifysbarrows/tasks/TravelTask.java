@@ -16,6 +16,7 @@ public final class TravelTask implements FourtifysTask
     private static final int ARRIVAL_TICKS = 90;
     private static final int LOCAL_WALK_TICKS = 300;
     private static final int MAX_ATTEMPTS = 3;
+    private static final int CLOSE_RETRY_TICKS = 8;
     private final BarrowsActions actions;
     private TravelMethod method;
     private Phase phase = Phase.CONTROLS;
@@ -28,6 +29,8 @@ public final class TravelTask implements FourtifysTask
     private boolean queued;
     private int queuedTick;
     private boolean failed;
+    private int closeAttempts;
+    private int nextClose;
 
     public TravelTask(BarrowsActions actions)
     {
@@ -115,10 +118,23 @@ public final class TravelTask implements FourtifysTask
             long cooldown = method == TravelMethod.SHADES_MINIGAME ? actions.shadesCooldown() : 0;
             if (cooldown > 0)
             {
-                status = "Waiting for Shades of Mort'ton teleport cooldown (" + cooldown + " min)";
+                status = "Shades teleport ready in " + cooldown + " min";
                 controlsDeadline = -1;
                 return;
             }
+            // A start at the Ferox bank often finds it still open; close it rather than stopping.
+            if (actions.bankingOpen())
+            {
+                closeBank();
+                return;
+            }
+            // The game can still count the bank as open for a tick after its window closes.
+            if (closeAttempts > 0 && !actions.bankCloseObserved() && actions.tick() < nextClose)
+            {
+                status = "Closing the bank";
+                return;
+            }
+            closeAttempts = 0;
             String problem = actions.travelProblem(method);
             if (problem != null)
             {
@@ -164,6 +180,23 @@ public final class TravelTask implements FourtifysTask
         }
     }
 
+    private void closeBank()
+    {
+        status = "Closing the bank";
+        if (actions.tick() < nextClose)
+        {
+            return;
+        }
+        if (closeAttempts >= MAX_ATTEMPTS)
+        {
+            stop("The bank did not close; close it, then enable the plugin again");
+            return;
+        }
+        closeAttempts++;
+        nextClose = actions.tick() + CLOSE_RETRY_TICKS;
+        actions.closeBank(() -> { });
+    }
+
     private void observeArrival()
     {
         phase = Phase.LOCAL_WALK;
@@ -197,6 +230,8 @@ public final class TravelTask implements FourtifysTask
         localWalkDeadline = 0;
         queued = false;
         failed = false;
+        closeAttempts = 0;
+        nextClose = 0;
     }
 
     private void stop(String reason)
