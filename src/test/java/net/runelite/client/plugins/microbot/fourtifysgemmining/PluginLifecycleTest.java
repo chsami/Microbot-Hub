@@ -33,7 +33,7 @@ public class PluginLifecycleTest
         {
             fixture.tick();
             fixture.tick();
-            assertEquals("Paused by Microbot (pause or break)", fixture.plugin.getStatus());
+            assertEquals("Paused by Microbot (pause button or break). Resumes when unpaused", fixture.plugin.getStatus());
             assertTrue(fixture.world.requests.isEmpty());
         }
         finally

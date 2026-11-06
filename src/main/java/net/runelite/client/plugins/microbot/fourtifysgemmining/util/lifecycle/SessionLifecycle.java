@@ -61,7 +61,7 @@ public final class SessionLifecycle
         // The Break Handler sets this flag; the client header pause button sets the pause controller.
         if (Microbot.pauseAllScripts.get() || headerPaused(HEADER_PAUSE))
         {
-            return "Paused by Microbot (pause or break)";
+            return "Paused by Microbot (pause button or break). Resumes when unpaused";
         }
         return InputArbiter.isHuman() ? "Paused while you use the mouse or keyboard" : null;
     }
