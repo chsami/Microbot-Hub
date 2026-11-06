@@ -250,6 +250,23 @@ public class PluginLifecycleTest
     }
 
     @Test
+    public void aSettingChangeDoesNotRestartAStopTheSettingsDidNotCause() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.FOOD, 5);
+        fixture.enableAndDrain();
+        fixture.tick();
+        assertEquals("Carry or wear a Ring of dueling, then restart the plugin", fixture.plugin.getStatus());
+        Instant started = fixture.plugin.getStartTime();
+        configChanged(fixture, "eatAt");
+        fixture.thread.drain();
+        fixture.decisionOnly();
+        assertEquals("Carry or wear a Ring of dueling, then restart the plugin", fixture.plugin.getStatus());
+        assertSame(started, fixture.plugin.getStartTime());
+        assertEquals(1, fixture.world.chat.size(), "The stop is not reported a second time");
+    }
+
+    @Test
     public void showingOrHidingTheOverlayKeepsTheSessionAndItsCounters() throws Exception
     {
         PluginTestFixture fixture = new PluginTestFixture();

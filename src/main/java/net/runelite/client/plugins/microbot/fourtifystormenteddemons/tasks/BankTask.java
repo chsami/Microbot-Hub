@@ -115,7 +115,7 @@ public final class BankTask implements FourtifysTask
                 if (!pinAsked)
                 {
                     pinAsked = true;
-                    tell.accept("Waiting for your bank PIN: type it in the bank window or save it in your Microbot profile;"
+                    tell.accept("Waiting for your bank PIN: type it in the bank window, and check the PIN saved in your Microbot profile;"
                         + " the plugin continues after the bank opens");
                 }
                 status = "Enter your bank PIN to continue";
