@@ -76,7 +76,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
                     iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysTormentedDemonsPlugin/assets/icon.png")
 public class FourtifysTormentedDemonsPlugin extends Plugin
 {
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.1";
     private static final int FIGHT_GAP_TICKS = 3;
     private static final int KILL_MEMORY_TICKS = 10;
     @Inject
