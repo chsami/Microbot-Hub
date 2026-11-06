@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.aiomagic.scripts;
 
-import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -84,22 +83,10 @@ public class StunTeleAlchScript extends Script {
                     return;
                 }
                 // Resolve the alchemy item
-                Rs2ItemModel alchemyItem = plugin.getAlchItemNames().stream()
-                        .filter(Rs2Inventory::hasItem)
-                        .map(Rs2Inventory::get)
-                        .findFirst()
-                        .orElse(null);
+                Rs2ItemModel alchemyItem = AlchItemSlot.resolve(plugin.getAlchItemNames());
                 if (alchemyItem == null) {
                     Microbot.log("Missing alchemy items...");
                     return;
-                }
-                // Optional inventory slot normalization for natural mouse
-                if (Rs2AntibanSettings.naturalMouse) {
-                    int inventorySlot = Rs2Player.getSkillRequirement(Skill.MAGIC, 55) ? 12 : 4;
-                    if (alchemyItem.getSlot() != inventorySlot) {
-                        Rs2Inventory.moveItemToSlot(alchemyItem, inventorySlot);
-                        return;
-                    }
                 }
                 // 1) STUN target from user config using queryable NPC cache
                 var target = Microbot.getRs2NpcCache().query()
