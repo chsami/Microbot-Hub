@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.fourtifysgemmining;
 import java.util.Random;
 import net.runelite.api.Item;
 import net.runelite.client.plugins.microbot.fourtifysgemmining.config.GemMiningConfig;
+import net.runelite.client.plugins.microbot.Microbot;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,6 +84,29 @@ public class TickDelayTest
         assertEquals(1, f.world.requests.size());
         f.tick();
         assertEquals(2, f.world.requests.size());
+    }
+
+    @Test
+    public void aPauseEndingDuringMiningRestoresTheMiningStatus() throws Exception
+    {
+        Fixture f = new Fixture(TimingConfig.fixed(2));
+        f.tick();
+        f.gainGem();
+        f.world.animation = 625;
+        f.tick();
+        String mining = f.plugin.getStatus();
+        Microbot.pauseAllScripts.set(true);
+        try
+        {
+            f.tick();
+            assertEquals("Paused by Microbot (pause button or break). Resumes when unpaused", f.plugin.getStatus());
+        }
+        finally
+        {
+            Microbot.pauseAllScripts.set(false);
+        }
+        f.tick();
+        assertEquals(mining, f.plugin.getStatus());
     }
 
     @Test
