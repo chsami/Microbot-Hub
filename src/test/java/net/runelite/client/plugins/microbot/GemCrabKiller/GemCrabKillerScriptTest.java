@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.GemCrabKiller;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -91,14 +92,25 @@ class GemCrabKillerScriptTest {
     }
 
     @Test
-    void setupLoadFailureNamesSetupAndMissingItem() {
-        String withItem = GemCrabKillerScript.setupLoadFailedMessage("Crab", "Rune pickaxe");
-        assertTrue(withItem.contains("'Crab'"));
-        assertTrue(withItem.contains("Rune pickaxe is missing from your bank"));
-        String withoutItem = GemCrabKillerScript.setupLoadFailedMessage("Crab", null);
-        assertTrue(withoutItem.contains("'Crab'"));
-        assertTrue(withoutItem.contains("some items are missing from your bank"));
-        assertTrue(withoutItem.endsWith("then start the script again."));
+    void setupLoadFailureNamesSetupAndShortItem() {
+        assertEquals("Could not load inventory setup 'Crab': not enough Shark in your bank (or it is broken)."
+                        + " Restock or repair it, or edit the setup, then start the script again.",
+                GemCrabKillerScript.setupLoadFailedMessage("Crab", List.of("Shark")));
+    }
+
+    @Test
+    void setupLoadFailureListsEveryShortItem() {
+        String message = GemCrabKillerScript.setupLoadFailedMessage("Crab", List.of("Rune pickaxe", "Shark", "Prayer potion(4)"));
+        assertTrue(message.contains("not enough Rune pickaxe, Shark, Prayer potion(4) in your bank (or one is broken)"));
+        assertTrue(message.contains("Restock or repair them"));
+    }
+
+    @Test
+    void setupLoadFailureWithoutItemDoesNotClaimMissingItems() {
+        String message = GemCrabKillerScript.setupLoadFailedMessage("Crab", List.of());
+        assertTrue(message.startsWith("Could not load inventory setup 'Crab'. Check that your bank has every item"));
+        assertTrue(message.endsWith("The log console shows which step failed."));
+        assertFalse(message.contains("missing from your bank"));
     }
 
     @Test

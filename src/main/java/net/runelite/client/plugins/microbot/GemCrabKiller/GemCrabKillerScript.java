@@ -22,6 +22,9 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
@@ -39,12 +42,12 @@ public class GemCrabKillerScript extends Script {
     private boolean hasLooted = false;
     private Instant waitingTimeStart = null;
     private boolean setupCheckedAtStart = false;
-    private String missingSetupItem = null;
+    private final Set<String> missingSetupItems = new LinkedHashSet<>();
 
     public boolean run(GemCrabKillerConfig config) {
         gemCrabKillerState = startState(config.overrideState(), config.startState());
         setupCheckedAtStart = false;
-        missingSetupItem = null;
+        missingSetupItems.clear();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -56,12 +59,12 @@ public class GemCrabKillerScript extends Script {
                         return;
                     }
                     inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture)
-                            .withMissingSupplyHandler(item -> missingSetupItem = item);
+                            .withMissingSupplyHandler(missingSetupItems::add);
                 }
                 if (checkSetupOnceAtStart(config.useInventorySetup(),
                         () -> inventorySetup.doesEquipmentMatch() && inventorySetup.doesInventoryMatch())) {
                     Microbot.log("Your gear or inventory does not match the setup '" + config.inventorySetup().getName()
-                            + "'. Banking at Tal Teklan to load it first.");
+                            + "' (for example used food or potion doses). Banking at Tal Teklan to load it first.");
                 }
                 eatIfHurt(config);
                 switch (gemCrabKillerState) {
@@ -138,12 +141,15 @@ public class GemCrabKillerScript extends Script {
         return false;
     }
 
-    static String setupLoadFailedMessage(String setupName, String missingItem) {
-        String missing = missingItem == null
-                ? "some items are missing from your bank. Restock them"
-                : missingItem + " is missing from your bank. Restock it";
-        return "Could not load inventory setup '" + setupName + "': " + missing
-                + " or edit the setup, then start the script again.";
+    static String setupLoadFailedMessage(String setupName, Collection<String> missingItems) {
+        if (missingItems.isEmpty()) {
+            return "Could not load inventory setup '" + setupName + "'. Check that your bank has every item in the setup"
+                    + " and that it is not broken, then start the script again. The log console shows which step failed.";
+        }
+        boolean single = missingItems.size() == 1;
+        return "Could not load inventory setup '" + setupName + "': not enough " + String.join(", ", missingItems)
+                + " in your bank (or " + (single ? "it is" : "one is") + " broken). Restock or repair "
+                + (single ? "it" : "them") + ", or edit the setup, then start the script again.";
     }
 
     static boolean isLowHp(boolean dharokMode, int currentHP, double healthPercentage) {
@@ -275,7 +281,7 @@ public class GemCrabKillerScript extends Script {
                     gemCrabKillerState = GemCrabKillerState.WALKING;
                     return;
                 } else {
-                    Microbot.showMessage(setupLoadFailedMessage(config.inventorySetup().getName(), missingSetupItem));
+                    Microbot.showMessage(setupLoadFailedMessage(config.inventorySetup().getName(), missingSetupItems));
                     shutdown();
                 }
             } else {
