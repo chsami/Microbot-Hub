@@ -58,6 +58,12 @@ public class DismissNpcEvent implements BlockingEvent {
 
         Global.sleep(Rs2Random.between(1200, 3000));
 
+        npc = getRandomEventNpc();
+        if (npc == null || !name.equals(npc.getName())) {
+            log.debug("Random event NPC {} left before it was handled", name);
+            return true;
+        }
+
         if (shouldAcceptLamp(name)) {
             if (Rs2Inventory.isFull()) {
                 log.info("Inventory full — waiting for space to accept lamp from {}", name);
