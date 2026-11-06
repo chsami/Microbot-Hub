@@ -5,13 +5,14 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import net.runelite.api.Client;
 import net.runelite.api.Skill;
+import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
 /** Runs the Microbot API's blocking spell operations without blocking client ticks. */
@@ -36,14 +37,33 @@ public final class Spellbook
             {
                 return;
             }
-            Widget widget = Rs2Widget.findWidget(spell.getName());
-            if (widget != null && Global.sleepUntil(() -> version != actions.generation() || Microbot.getClientThread()
+            // The game hides the spellbook once the spell is selected, so look it up among the spellbook's own widgets.
+            int widgetId = spell.getWidgetId();
+            if (widgetId != -1 && Global.sleepUntil(() -> version != actions.generation() || Microbot.getClientThread()
                 .runOnClientThreadOptional(() -> client.getSelectedWidget() != null
-                    && client.getSelectedWidget().getId() == widget.getId()).orElse(false), 5000)
+                    && client.getSelectedWidget().getId() == widgetId).orElse(false), 5000)
+                // The game shows the inventory again after the spell is selected; until then the item cannot be clicked.
+                && Global.sleepUntil(() -> version != actions.generation() || Microbot.getClientThread()
+                    .runOnClientThreadOptional(() -> client.getVarcIntValue(VarClientID.TOPLEVEL_PANEL)
+                        == InterfaceTab.INVENTORY.getVarcIntIndex()).orElse(false), 3000)
                 && version == actions.generation() && !Thread.currentThread().isInterrupted()
                 && Rs2Inventory.slotContains(item.getSlot(), itemId))
             {
                 Rs2Inventory.interact(item, "Cast");
+                return;
+            }
+            if (widgetId != -1)
+            {
+                // A spell left selected turns every later click into a cast, so the course would stall.
+                Microbot.getClientThread().runOnClientThreadOptional(() ->
+                {
+                    Widget selected = client.getSelectedWidget();
+                    if (client.isWidgetSelected() && selected != null && selected.getId() == widgetId)
+                    {
+                        client.setWidgetSelected(false);
+                    }
+                    return true;
+                });
             }
         });
     }

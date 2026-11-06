@@ -108,7 +108,7 @@ public class CourseHandoffIntegrationTest
         {
             fixture.selected = AgilityCourse.WILDERNESS;
             fixture.tick(3005, 3964, 0);
-            assertEquals("Walk back to the obstacle you were attempting", fixture.plugin.getStatus());
+            assertEquals("Walk to the start of the rope swing to continue the lap", fixture.plugin.getStatus());
             fixture.actions.dispatch();
             assertEquals(0, fixture.menuActions);
         }
@@ -196,10 +196,61 @@ public class CourseHandoffIntegrationTest
             fixture.leaveBrimhaven = true;
             fixture.voucherReward = BrimhavenVoucherReward.TOADFLAX;
             fixture.tick(2808, 3193, 0);
-            assertTrue(fixture.plugin.getStatus().contains("Not enough vouchers for Toadflax"));
+            assertEquals("Not enough vouchers for Toadflax (0 of 3); turn off Leave the arena to re-enter", fixture.plugin.getStatus());
             fixture.actions.dispatch();
             assertEquals(0, fixture.menuActions);
         }
+    }
+
+    @Test
+    public void brimhavenRewardMissingFromTheStoreNamesItAndTheNextStep() throws Exception
+    {
+        try (Fixture fixture = new Fixture())
+        {
+            fixture.selected = AgilityCourse.BRIMHAVEN;
+            fixture.leaveBrimhaven = true;
+            fixture.voucherReward = BrimhavenVoucherReward.TOADFLAX;
+            fixture.vouchers = 5;
+            fixture.storeOpen = true;
+            fixture.tick(2808, 3193, 0);
+            assertEquals("Cannot find Toadflax in the arena store; buy it by hand or set Voucher reward on exit to None",
+                fixture.plugin.getStatus());
+            fixture.actions.dispatch();
+            assertEquals(0, fixture.menuActions);
+        }
+    }
+
+    @Test
+    public void brimhavenConfirmedPurchaseSaysTheVouchersWereSpent() throws Exception
+    {
+        try (Fixture fixture = new Fixture())
+        {
+            fixture.selected = AgilityCourse.BRIMHAVEN;
+            fixture.leaveBrimhaven = true;
+            fixture.voucherReward = BrimhavenVoucherReward.TOADFLAX;
+            Object laps = field(fixture.plugin, "laps");
+            Object brimhaven = field(laps, "brimhaven");
+            // The last purchase took all 3 vouchers and added one Toadflax.
+            setField(brimhaven, "voucherBefore", 3);
+            setField(brimhaven, "rewardBefore", -1);
+            setField(brimhaven, "pendingReward", BrimhavenVoucherReward.TOADFLAX);
+            fixture.tick(2808, 3193, 0);
+            assertEquals("Vouchers spent on Toadflax; turn off Leave the arena to re-enter", fixture.plugin.getStatus());
+        }
+    }
+
+    private static Object field(Object instance, String name) throws Exception
+    {
+        Field field = instance.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(instance);
+    }
+
+    private static void setField(Object instance, String name, Object value) throws Exception
+    {
+        Field field = instance.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(instance, value);
     }
 
     @Test
@@ -290,6 +341,8 @@ public class CourseHandoffIntegrationTest
         boolean hasPyramidTop;
         boolean simonPresent;
         boolean leaveBrimhaven;
+        int vouchers;
+        boolean storeOpen;
         BrimhavenVoucherReward voucherReward = BrimhavenVoucherReward.NONE;
         Client client;
         int menuActions;
@@ -381,10 +434,15 @@ public class CourseHandoffIntegrationTest
                     case "getItemContainer":
                         if ((int) args[0] != 93) return null;
                         return proxy(ItemContainer.class, (o, m, a) -> m.getName().equals("getItems")
-                            ? (hasPyramidTop ? new Item[] {new Item(6970, 1)} : new Item[0])
+                            ? java.util.stream.Stream.of(hasPyramidTop ? new Item(6970, 1) : null, vouchers > 0 ? new Item(29482, vouchers) : null)
+                                .filter(java.util.Objects::nonNull).toArray(Item[]::new)
                             : defaultValue(m.getReturnType()));
                     case "getWidget":
                         if (args.length == 1 && ((int) args[0] == dialogueRoot || (int) args[0] == dialogueRoot + 4) && dialogueRoot != 0)
+                        {
+                            return proxy(Widget.class, (o, m, a) -> defaultValue(m.getReturnType()));
+                        }
+                        if (args.length == 2 && (int) args[0] == 819 && (int) args[1] == 7 && storeOpen)
                         {
                             return proxy(Widget.class, (o, m, a) -> defaultValue(m.getReturnType()));
                         }

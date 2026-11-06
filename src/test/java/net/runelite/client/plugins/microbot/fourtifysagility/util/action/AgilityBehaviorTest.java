@@ -19,6 +19,7 @@ import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.fourtifysagility.FourtifysAgilityPlugin;
 import net.runelite.client.plugins.microbot.fourtifysagility.config.AgilityConfig;
 import net.runelite.client.plugins.microbot.fourtifysagility.course.AgilityCourse;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -232,7 +234,7 @@ public class AgilityBehaviorTest
         fixture.position = new WorldPoint(2728, 3488, 0);
         task.execute();
         fixture.dispatch();
-        assertEquals("Agility 60 needed for this course; choose a lower course", fixture.plugin.getStatus());
+        assertEquals("Agility 60 needed for this course; choose a lower-level course", fixture.plugin.getStatus());
         assertTrue(fixture.menu.isEmpty());
     }
 
@@ -491,6 +493,7 @@ public class AgilityBehaviorTest
         assertEquals(1, fixture.menu.size());
         assertEquals(MenuAction.WIDGET_TARGET, fixture.menu.get(0).action);
         assertEquals(0, fixture.warningCount);
+        assertEquals(999, fixture.selectedWidget.getId(), "a selection the plugin did not make stays");
         fixture.spells.alchemy(856);
         fixture.dispatch();
         assertEquals(2, fixture.menu.size());
@@ -514,11 +517,46 @@ public class AgilityBehaviorTest
         fixture.selectedWidget = fixture.nativeSpellWidget();
         fixture.awaitWorker();
         assertEquals(1, fixture.menu.size());
+        fixture.selectRequestedWidget = true;
         fixture.spells.alchemy(856);
         fixture.dispatch();
         assertEquals(3, fixture.menu.size());
         assertEquals(MenuAction.WIDGET_TARGET_ON_WIDGET, fixture.menu.get(2).action);
         assertEquals(1, fixture.menu.get(2).slot);
+    }
+
+    @Test
+    public void aSkippedItemCastClearsTheSelectedSpell() throws Exception
+    {
+        Fixture fixture = new Fixture();
+        fixture.installAlchemy();
+        fixture.spells.alchemy(856);
+        fixture.actions.dispatch();
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+        while (fixture.menu.isEmpty() && System.nanoTime() < deadline)
+        {
+            Thread.sleep(10);
+        }
+        // The spell is selected, but the item has moved, so the cast on it is skipped.
+        fixture.setInventory(inventory(561, 856, 554));
+        fixture.selectedWidget = fixture.nativeSpellWidget();
+        fixture.awaitWorker();
+        assertEquals(1, fixture.menu.size());
+        assertNull(fixture.selectedWidget);
+    }
+
+    @Test
+    public void alchemyWaitsForTheInventoryBeforeTargetingTheItem() throws Exception
+    {
+        Fixture fixture = new Fixture();
+        fixture.installAlchemy();
+        fixture.selectRequestedWidget = true;
+        fixture.inventoryAfterSelect = false;
+        fixture.spells.alchemy(856);
+        fixture.dispatch();
+        // The Magic tab stayed open, so an item click would do nothing; the spell is cleared instead.
+        assertEquals(1, fixture.menu.size());
+        assertNull(fixture.selectedWidget);
     }
 
     @Test
@@ -758,6 +796,7 @@ public class AgilityBehaviorTest
         Item[] inventory = new Item[0];
         Item[] equipment = new Item[0];
         int tab = 3;
+        boolean inventoryAfterSelect = true;
         int energy;
         int warningCount;
         volatile Widget selectedWidget;
@@ -795,6 +834,8 @@ public class AgilityBehaviorTest
                 if (request.action == MenuAction.WIDGET_TARGET && selectRequestedWidget)
                 {
                     selectedWidget = request.widget == 1000 ? nativeSpellWidget() : widgets.get(request.widget);
+                    // Like the game, selecting an item spell shows the inventory again.
+                    tab = inventoryAfterSelect ? 3 : tab;
                 }
             });
             inject(actions, "client", client);
@@ -932,7 +973,8 @@ public class AgilityBehaviorTest
                     }
                     return widgets.get(widget);
                 case "getWidgetRoots":
-                    return spellInstalled ? new Widget[] {nativeSpellWidget()} : new Widget[0];
+                    // Like the game, the spellbook is only shown while the Magic tab is open.
+                    return spellInstalled && tab == InterfaceTab.MAGIC.getVarcIntIndex() ? new Widget[] {nativeSpellWidget()} : new Widget[0];
                 case "getItemDefinition":
                     return itemDefinition((Integer) arguments[0]);
                 case "getVarbitValue":
@@ -966,6 +1008,14 @@ public class AgilityBehaviorTest
                     return energy;
                 case "getSelectedWidget":
                     return selectedWidget;
+                case "isWidgetSelected":
+                    return selectedWidget != null;
+                case "setWidgetSelected":
+                    if (!(Boolean) arguments[0])
+                    {
+                        selectedWidget = null;
+                    }
+                    return null;
                 case "addChatMessage":
                     warningCount++;
                     return null;

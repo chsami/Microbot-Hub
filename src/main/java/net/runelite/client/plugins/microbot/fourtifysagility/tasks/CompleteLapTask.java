@@ -282,7 +282,7 @@ public final class CompleteLapTask implements FourtifysTask
                         // A summer pie boosts Agility by 5 from the real level, so it cannot cover a larger gap.
                         this.plugin.setStatus(this.client.getRealSkillLevel(Skill.AGILITY) + 5 >= required
                             ? "Agility below " + required + "; add a summer pie to continue"
-                            : "Agility " + required + " needed for this course; choose a lower course");
+                            : "Agility " + required + " needed for this course; choose a lower-level course");
                         return;
                     }
 
@@ -361,7 +361,7 @@ public final class CompleteLapTask implements FourtifysTask
                                     this.walkToCourseTile(new WorldPoint(3002, 3946, 0), "the log balance");
                                     continue;
                                 default:
-                                    this.plugin.setStatus("Walk back to the obstacle you were attempting");
+                                    this.plugin.setStatus("Walk to the start of the rope swing to continue the lap");
                                     continue;
                             }
                         case PYRAMID_TWENTY_ONE:
