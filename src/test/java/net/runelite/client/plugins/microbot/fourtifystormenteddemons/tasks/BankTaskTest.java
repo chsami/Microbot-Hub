@@ -545,7 +545,7 @@ public class BankTaskTest
         assertEquals(List.of("enterBankPin"), actions.requests, "A wrong PIN is not typed again");
         assertEquals("Enter your bank PIN to continue", task.getStatus());
         next();
-        assertEquals(List.of("Waiting for your bank PIN: type it in the bank window or save it in your Microbot profile;"
+        assertEquals(List.of("Waiting for your bank PIN: type it in the bank window, and check the PIN saved in your Microbot profile;"
             + " the plugin continues after the bank opens"), told, "The player is told once per wait");
         assertNull(actions.getFailure());
         actions.pinShown = false;
