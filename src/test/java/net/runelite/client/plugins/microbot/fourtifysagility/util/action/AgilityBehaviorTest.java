@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterEach;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -491,6 +492,7 @@ public class AgilityBehaviorTest
         assertEquals(1, fixture.menu.size());
         assertEquals(MenuAction.WIDGET_TARGET, fixture.menu.get(0).action);
         assertEquals(0, fixture.warningCount);
+        assertEquals(999, fixture.selectedWidget.getId(), "a selection the plugin did not make stays");
         fixture.spells.alchemy(856);
         fixture.dispatch();
         assertEquals(2, fixture.menu.size());
@@ -514,11 +516,32 @@ public class AgilityBehaviorTest
         fixture.selectedWidget = fixture.nativeSpellWidget();
         fixture.awaitWorker();
         assertEquals(1, fixture.menu.size());
+        fixture.selectRequestedWidget = true;
         fixture.spells.alchemy(856);
         fixture.dispatch();
         assertEquals(3, fixture.menu.size());
         assertEquals(MenuAction.WIDGET_TARGET_ON_WIDGET, fixture.menu.get(2).action);
         assertEquals(1, fixture.menu.get(2).slot);
+    }
+
+    @Test
+    public void aSkippedItemCastClearsTheSelectedSpell() throws Exception
+    {
+        Fixture fixture = new Fixture();
+        fixture.installAlchemy();
+        fixture.spells.alchemy(856);
+        fixture.actions.dispatch();
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(2);
+        while (fixture.menu.isEmpty() && System.nanoTime() < deadline)
+        {
+            Thread.sleep(10);
+        }
+        // The spell is selected, but the item has moved, so the cast on it is skipped.
+        fixture.setInventory(inventory(561, 856, 554));
+        fixture.selectedWidget = fixture.nativeSpellWidget();
+        fixture.awaitWorker();
+        assertEquals(1, fixture.menu.size());
+        assertNull(fixture.selectedWidget);
     }
 
     @Test
@@ -966,6 +989,14 @@ public class AgilityBehaviorTest
                     return energy;
                 case "getSelectedWidget":
                     return selectedWidget;
+                case "isWidgetSelected":
+                    return selectedWidget != null;
+                case "setWidgetSelected":
+                    if (!(Boolean) arguments[0])
+                    {
+                        selectedWidget = null;
+                    }
+                    return null;
                 case "addChatMessage":
                     warningCount++;
                     return null;

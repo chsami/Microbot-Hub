@@ -44,6 +44,20 @@ public final class Spellbook
                 && Rs2Inventory.slotContains(item.getSlot(), itemId))
             {
                 Rs2Inventory.interact(item, "Cast");
+                return;
+            }
+            if (widget != null)
+            {
+                // A spell left selected turns every later click into a cast, so the course would stall.
+                Microbot.getClientThread().runOnClientThreadOptional(() ->
+                {
+                    Widget selected = client.getSelectedWidget();
+                    if (client.isWidgetSelected() && selected != null && selected.getId() == widget.getId())
+                    {
+                        client.setWidgetSelected(false);
+                    }
+                    return true;
+                });
             }
         });
     }
