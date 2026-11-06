@@ -44,7 +44,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
                     iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysGemMiningPlugin/assets/icon.png")
 public class FourtifysGemMiningPlugin extends Plugin
 {
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.1";
     /** Ticks to let the player's own gem bag action land before the plugin checks the bag again. */
     public static final int PLAYER_BAG_WAIT_TICKS = 3;
     @Inject private Client client;
