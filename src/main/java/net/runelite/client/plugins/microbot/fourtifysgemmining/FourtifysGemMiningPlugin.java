@@ -58,6 +58,7 @@ public class FourtifysGemMiningPlugin extends Plugin
     private final SessionLifecycle lifecycle = new SessionLifecycle();
     private Instant startTime;
     private String status = "Stopped";
+    private String statusBeforePause;
     private GemMine activeMine;
     private GemMine tickMine;
     private WorldPoint previous;
@@ -136,6 +137,7 @@ public class FourtifysGemMiningPlugin extends Plugin
         lifecycle.setStarted(false);
         resetActivity();
         startTime = null;
+        statusBeforePause = null;
         overlays.remove(overlay);
         status = "Stopped";
     }
@@ -350,8 +352,18 @@ public class FourtifysGemMiningPlugin extends Plugin
         {
             walking.cancel();
             actions.reset();
+            if (statusBeforePause == null)
+            {
+                statusBeforePause = status;
+            }
             status = paused;
             return;
+        }
+        if (statusBeforePause != null)
+        {
+            // The short pause leaves the status alone while the player is busy, so the pause text would stay.
+            status = statusBeforePause;
+            statusBeforePause = null;
         }
         if (!lifecycle.isStarted())
         {
