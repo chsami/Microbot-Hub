@@ -143,6 +143,7 @@ public class AutoFiremakingPlusScript extends Script {
                 if (!config.speedMode() && Rs2AntibanSettings.actionCooldownActive) return;
 
                 if (startPosition == null) startPosition = Rs2Player.getWorldLocation();
+                if (startPosition == null) return;
 
                 activeLog = config.progressiveMode() ? Logs.getBestForLevel() : config.logType();
                 if (activeLog == null || !activeLog.hasRequiredLevel()) {
@@ -355,7 +356,9 @@ public class AutoFiremakingPlusScript extends Script {
         }
         WorldPoint eastEnd = currentLine.getEastEnd();
         Microbot.status = "Walking to line";
-        if (Rs2Player.getWorldLocation().distanceTo(eastEnd) <= 1) {
+        WorldPoint playerPos = Rs2Player.getWorldLocation();
+        if (playerPos == null) return;
+        if (playerPos.distanceTo(eastEnd) <= 1) {
             state = State.BURNING;
             return;
         }
@@ -383,6 +386,7 @@ public class AutoFiremakingPlusScript extends Script {
         }
 
         WorldPoint playerPos = Rs2Player.getWorldLocation();
+        if (playerPos == null) return;
         if (TileScanner.hasFire(playerPos)) {
             WorldPoint westTile = new WorldPoint(playerPos.getX() - 1, playerPos.getY(), playerPos.getPlane());
             if (!Rs2Tile.isWalkable(westTile)) {
@@ -392,7 +396,7 @@ public class AutoFiremakingPlusScript extends Script {
                 return;
             }
             Rs2Walker.walkTo(westTile, 0);
-            sleepUntil(() -> Rs2Player.getWorldLocation().distanceTo(westTile) <= 0, 3000);
+            sleepUntil(() -> westTile.equals(Rs2Player.getWorldLocation()), 3000);
             return;
         }
         if (!Rs2Tile.isWalkable(playerPos)) {
@@ -403,18 +407,19 @@ public class AutoFiremakingPlusScript extends Script {
         }
 
         Microbot.status = "Lighting " + activeLog.getLogName();
-        WorldPoint before = Rs2Player.getWorldLocation();
         Rs2Inventory.combine(TINDERBOX_NAME, activeLog.getLogName());
         if (Rs2Player.waitForXpDrop(Skill.FIREMAKING, 10000)) {
             actionsCompleted++;
-            sleepUntil(() -> !Rs2Player.getWorldLocation().equals(before), 3000);
+            sleepUntil(() -> !playerPos.equals(Rs2Player.getWorldLocation()), 3000);
             sleep(200, 400);
         }
     }
 
     private void lineWalkBack(AutoFiremakingPlusConfig config) {
         Microbot.status = "Walking back";
-        if (Rs2Player.getWorldLocation().distanceTo(startPosition) <= config.scanRadius()) {
+        WorldPoint playerPos = Rs2Player.getWorldLocation();
+        if (playerPos == null) return;
+        if (playerPos.distanceTo(startPosition) <= config.scanRadius()) {
             state = State.SCANNING;
             return;
         }
