@@ -367,6 +367,29 @@ public class TravelTaskTest
     }
 
     @Test
+    public void aClosedBankWaitsForTheGameToAcknowledgeTheClose()
+    {
+        FakeActions actions = new FakeActions();
+        actions.bankOpen = true;
+        actions.closeAcknowledged = false;
+        actions.problem = "Close the bank or busy interface before travelling to Barrows";
+        TravelTask task = new TravelTask(actions);
+        task.execute();
+        actions.bankOpen = false;
+        actions.now = 1;
+        task.execute();
+        assertEquals("", actions.failure);
+        assertEquals("Closing the bank", task.getStatus());
+        assertTrue(actions.requests.isEmpty());
+        actions.closeAcknowledged = true;
+        actions.problem = null;
+        actions.now = 2;
+        task.execute();
+        assertEquals("", actions.failure);
+        assertEquals(List.of(TravelMethod.BARROWS_TABLET), actions.requests);
+    }
+
+    @Test
     public void aBankThatStaysOpenStopsAfterThreeCloses()
     {
         FakeActions actions = new FakeActions();
@@ -407,6 +430,7 @@ public class TravelTaskTest
         private String failure = "";
         private WorldPoint destination;
         private boolean bankOpen;
+        private boolean closeAcknowledged = true;
         private int closes;
 
         @Override
@@ -498,6 +522,12 @@ public class TravelTaskTest
         public boolean bankingOpen()
         {
             return bankOpen;
+        }
+
+        @Override
+        public boolean bankCloseObserved()
+        {
+            return !bankOpen && closeAcknowledged;
         }
 
         @Override

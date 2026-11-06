@@ -105,17 +105,6 @@ public class BarrowsActionsTest
     }
 
     @Test
-    public void aStopInPlaceInTheTunnelsSkipsTheTeleportOut() throws Exception
-    {
-        BarrowsActions actions = new BarrowsActions();
-        new Scene(actions, TOMB);
-        actions.stopInPlace("Chest rewards are on the ground");
-        assertFalse(actions.ready());
-        assertNull(actions.pendingStop());
-        assertEquals("Chest rewards are on the ground", actions.getStatus());
-    }
-
-    @Test
     public void attackedOnlyWhileALivingNpcTargetsThePlayer() throws Exception
     {
         BarrowsActions actions = new BarrowsActions();

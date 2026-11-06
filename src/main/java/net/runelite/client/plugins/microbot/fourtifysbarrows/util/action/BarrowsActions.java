@@ -219,13 +219,6 @@ public class BarrowsActions
         }
     }
 
-    /** Stops where the player stands, for a stop where the ring teleport would lose something. */
-    public void stopInPlace(String reason)
-    {
-        failure = reason;
-        reset();
-    }
-
     /** Ends a pending stop whose teleport out of Barrows could not be completed. */
     public void failEscape()
     {

@@ -291,7 +291,7 @@ public final class CryptTask implements FourtifysTask
             }
             if (next == null)
             {
-                actions.fail("No tunnel found after searching all six sarcophagi; search them yourself or enable the plugin again to retry");
+                actions.fail("No tunnel found after searching all six sarcophagi; enable the plugin again to retry");
                 return;
             }
         }
@@ -514,7 +514,7 @@ public final class CryptTask implements FourtifysTask
             exitRoomsSearched++;
             if (exitRoomsSearched >= CORNER_ROOMS.length)
             {
-                actions.fail("Could not find the tunnel exit ladder; enable the plugin again at Barrows to retry");
+                actions.fail("Could not find the tunnel exit ladder; enable the plugin again to retry");
                 return false;
             }
             goal = CORNER_ROOMS[exitCorner];
@@ -542,14 +542,11 @@ public final class CryptTask implements FourtifysTask
         {
             request("Eat for loot space", () -> actions.inventory(actions.config().foodId(), "Eat", this::dispatched));
         }
-        else if (actions.attacked())
-        {
-            actions.fail("Chest rewards were left on the ground: your inventory was full while you were under attack");
-        }
         else
         {
-            // The ring teleport would leave the rewards behind, so stop where they can still be picked up.
-            actions.stopInPlace("Chest rewards are on the ground and your inventory is full; free a slot and pick them up yourself");
+            // Tunnel monsters attack an idle player, so leave the rewards rather than stop in the tunnels.
+            actions.fail("Chest rewards were left on the ground because your inventory was full; "
+                + "bring fewer supplies or more food so the rewards fit, then enable the plugin again");
         }
     }
 
@@ -632,8 +629,8 @@ public final class CryptTask implements FourtifysTask
         }
         if (attempts >= 5)
         {
-            actions.fail("Could not " + Character.toLowerCase(label.charAt(0)) + label.substring(1)
-                + " after five tries; enable the plugin again to retry");
+            actions.fail("Gave up after five tries: " + Character.toLowerCase(label.charAt(0)) + label.substring(1)
+                + "; enable the plugin again to retry");
             return;
         }
         attempts++;

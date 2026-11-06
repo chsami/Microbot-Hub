@@ -51,5 +51,5 @@ restores at the pool, banks the loot, restocks and goes again.
   message, "Fourtifys Barrows stopped:" followed by the reason and what
   to do. It then switches itself off. A stop while you are in a crypt,
   in the tunnels or under attack at Barrows first teleports you to Ferox
-  Enclave. When chest rewards are left on the ground and nothing is
-  attacking you, it stops in place so you can pick them up.
+  Enclave. When chest rewards do not fit in your inventory and nothing
+  can make room, it leaves them on the ground and says so.

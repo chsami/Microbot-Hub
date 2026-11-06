@@ -128,6 +128,12 @@ public final class TravelTask implements FourtifysTask
                 closeBank();
                 return;
             }
+            // The game can still count the bank as open for a tick after its window closes.
+            if (closeAttempts > 0 && !actions.bankCloseObserved() && actions.tick() < nextClose)
+            {
+                status = "Closing the bank";
+                return;
+            }
             closeAttempts = 0;
             String problem = actions.travelProblem(method);
             if (problem != null)
