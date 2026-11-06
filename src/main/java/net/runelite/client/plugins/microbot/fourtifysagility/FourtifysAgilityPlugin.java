@@ -55,7 +55,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
                     iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysAgilityPlugin/assets/icon.png")
 public class FourtifysAgilityPlugin extends Plugin
 {
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.1";
     private static final Method HEADER_PAUSE = pauseCheck("net.runelite.client.plugins.microbot.ScriptPauseController");
     @Inject private Client client;
     @Inject private ClientThread clientThread;
