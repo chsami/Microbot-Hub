@@ -545,6 +545,20 @@ public class AgilityBehaviorTest
     }
 
     @Test
+    public void alchemyWaitsForTheInventoryBeforeTargetingTheItem() throws Exception
+    {
+        Fixture fixture = new Fixture();
+        fixture.installAlchemy();
+        fixture.selectRequestedWidget = true;
+        fixture.inventoryAfterSelect = false;
+        fixture.spells.alchemy(856);
+        fixture.dispatch();
+        // The Magic tab stayed open, so an item click would do nothing; the spell is cleared instead.
+        assertEquals(1, fixture.menu.size());
+        assertNull(fixture.selectedWidget);
+    }
+
+    @Test
     public void alchemyDoesNotFollowAnItemMovedToAnotherSlot() throws Exception
     {
         Fixture fixture = new Fixture();
@@ -781,6 +795,7 @@ public class AgilityBehaviorTest
         Item[] inventory = new Item[0];
         Item[] equipment = new Item[0];
         int tab = 3;
+        boolean inventoryAfterSelect = true;
         int energy;
         int warningCount;
         volatile Widget selectedWidget;
@@ -818,6 +833,8 @@ public class AgilityBehaviorTest
                 if (request.action == MenuAction.WIDGET_TARGET && selectRequestedWidget)
                 {
                     selectedWidget = request.widget == 1000 ? nativeSpellWidget() : widgets.get(request.widget);
+                    // Like the game, selecting an item spell shows the inventory again.
+                    tab = inventoryAfterSelect ? 3 : tab;
                 }
             });
             inject(actions, "client", client);
