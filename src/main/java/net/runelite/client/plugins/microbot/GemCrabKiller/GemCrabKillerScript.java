@@ -23,6 +23,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 public class GemCrabKillerScript extends Script {
     private final int CAVE_ENTRANCE_ID = 57631;
@@ -38,12 +39,12 @@ public class GemCrabKillerScript extends Script {
     private boolean hasLooted = false;
     private Instant waitingTimeStart = null;
     private boolean setupCheckedAtStart = false;
+    private String missingSetupItem = null;
 
     public boolean run(GemCrabKillerConfig config) {
-        if (config.overrideState()) {
-            gemCrabKillerState = config.startState();
-        }
+        gemCrabKillerState = startState(config.overrideState(), config.startState());
         setupCheckedAtStart = false;
+        missingSetupItem = null;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -54,14 +55,13 @@ public class GemCrabKillerScript extends Script {
                         shutdown();
                         return;
                     }
-                    inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
+                    inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture)
+                            .withMissingSupplyHandler(item -> missingSetupItem = item);
                 }
-                if (!setupCheckedAtStart) {
-                    setupCheckedAtStart = true;
-                    if (shouldCheckSetupAtStart(config.useInventorySetup(), gemCrabKillerState)
-                            && !(inventorySetup.doesEquipmentMatch() && inventorySetup.doesInventoryMatch())) {
-                        gemCrabKillerState = GemCrabKillerState.BANKING;
-                    }
+                if (checkSetupOnceAtStart(config.useInventorySetup(),
+                        () -> inventorySetup.doesEquipmentMatch() && inventorySetup.doesInventoryMatch())) {
+                    Microbot.log("Your gear or inventory does not match the setup '" + config.inventorySetup().getName()
+                            + "'. Banking at Tal Teklan to load it first.");
                 }
                 eatIfHurt(config);
                 switch (gemCrabKillerState) {
@@ -118,8 +118,32 @@ public class GemCrabKillerScript extends Script {
         }
     }
 
+    static GemCrabKillerState startState(boolean overrideState, GemCrabKillerState configuredState) {
+        return overrideState ? configuredState : GemCrabKillerState.WALKING;
+    }
+
     static boolean shouldCheckSetupAtStart(boolean useInventorySetup, GemCrabKillerState state) {
         return useInventorySetup && state == GemCrabKillerState.WALKING;
+    }
+
+    boolean checkSetupOnceAtStart(boolean useInventorySetup, BooleanSupplier setupMatches) {
+        if (setupCheckedAtStart) {
+            return false;
+        }
+        setupCheckedAtStart = true;
+        if (shouldCheckSetupAtStart(useInventorySetup, gemCrabKillerState) && !setupMatches.getAsBoolean()) {
+            gemCrabKillerState = GemCrabKillerState.BANKING;
+            return true;
+        }
+        return false;
+    }
+
+    static String setupLoadFailedMessage(String setupName, String missingItem) {
+        String missing = missingItem == null
+                ? "some items are missing from your bank. Restock them"
+                : missingItem + " is missing from your bank. Restock it";
+        return "Could not load inventory setup '" + setupName + "': " + missing
+                + " or edit the setup, then start the script again.";
     }
 
     static boolean isLowHp(boolean dharokMode, int currentHP, double healthPercentage) {
@@ -251,7 +275,7 @@ public class GemCrabKillerScript extends Script {
                     gemCrabKillerState = GemCrabKillerState.WALKING;
                     return;
                 } else {
-                    Microbot.showMessage("Unable to load inventory setup. Shutting down.");
+                    Microbot.showMessage(setupLoadFailedMessage(config.inventorySetup().getName(), missingSetupItem));
                     shutdown();
                 }
             } else {
