@@ -111,6 +111,8 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
     private long observedRequests;
     private long kills;
     private boolean stopReported;
+    /** Whether the stop came from an item ID setting, which a settings change can fix. */
+    private boolean settingsStop;
     private NPC lastKilled;
     /** The tick each demon last fought the player: a dying demon stops interacting before its death shows. */
     private final Map<NPC, Integer> fought = new HashMap<>();
@@ -244,6 +246,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
     /** Reads the item ID settings into the shared lists; an invalid one stops the session with the setting's name. */
     private void readItemSettings()
     {
+        boolean failedBefore = actions.getFailure() != null;
         Map<CombatStyle, Set<Integer>> read = new EnumMap<>(CombatStyle.class);
         read.put(CombatStyle.MAGIC, ids("Magic equipment IDs", config.magicGear()));
         read.put(CombatStyle.RANGED, ids("Ranged equipment IDs", config.rangedGear()));
@@ -268,6 +271,7 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
         keep.addAll(readKeep);
         restock.clear();
         restock.putAll(readRestock);
+        settingsStop = !failedBefore && actions.getFailure() != null;
     }
 
     /** The setting's item IDs, or none after stopping with the setting's name and the format to use. */
@@ -340,8 +344,11 @@ public class FourtifysTormentedDemonsPlugin extends Plugin
             }
             if (actions.getFailure() != null)
             {
-                // A stopped session starts again once the player changes a setting, such as the one it named.
-                lifecycle.scheduleStart(clientThread, this::start);
+                // Only a stop the settings caused can be fixed here; other stops wait for the plugin to be turned on again.
+                if (settingsStop)
+                {
+                    lifecycle.scheduleStart(clientThread, this::start);
+                }
                 return;
             }
             readItemSettings();
