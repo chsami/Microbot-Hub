@@ -56,6 +56,7 @@ public final class BrimhavenTask implements FourtifysTask
     private int rewardBefore;
     private int voucherTick;
     private BrimhavenVoucherReward pendingReward;
+    private BrimhavenVoucherReward spentOn;
     private boolean recovering;
 
     public BrimhavenTask(FourtifysAgilityPlugin plugin, Client client, AgilityConfig config, AgilityActions actions)
@@ -82,6 +83,7 @@ public final class BrimhavenTask implements FourtifysTask
         shopRequested = false;
         voucherBefore = -1;
         pendingReward = null;
+        spentOn = null;
         recovering = false;
     }
 
@@ -362,6 +364,7 @@ public final class BrimhavenTask implements FourtifysTask
             if (BrimhavenRewards.purchaseConfirmed(pendingReward, voucherBefore, vouchers, rewardBefore,
                 Rs2Inventory.itemQuantity(pendingReward.itemId())))
             {
+                spentOn = pendingReward;
                 voucherBefore = -1;
                 pendingReward = null;
             }
@@ -374,8 +377,10 @@ public final class BrimhavenTask implements FourtifysTask
         }
         if (vouchers < reward.price())
         {
-            plugin.setStatus("Not enough vouchers for " + reward + " (" + vouchers + " of " + reward.price()
-                + "); turn off Leave the arena to re-enter");
+            plugin.setStatus(spentOn == reward
+                ? "Vouchers spent on " + reward + "; turn off Leave the arena to re-enter"
+                : "Not enough vouchers for " + reward + " (" + vouchers + " of " + reward.price()
+                    + "); turn off Leave the arena to re-enter");
             return;
         }
         if (!BrimhavenRewards.hasRoom(reward, items, Rs2Inventory.emptySlotCount()))
@@ -389,7 +394,7 @@ public final class BrimhavenTask implements FourtifysTask
             Optional<BrimhavenRewards.Purchase> purchase = BrimhavenRewards.findVoucherPurchase(client, reward.toString());
             if (client.getVarpValue(3874) != 583 || purchase.isEmpty())
             {
-                plugin.setStatus("Could not find " + reward + " in the arena store; buy it yourself or change Voucher reward");
+                plugin.setStatus("Cannot find " + reward + " in the arena store; buy it by hand or set Voucher reward on exit to None");
                 return;
             }
             BrimhavenRewards.Purchase selected = purchase.get();

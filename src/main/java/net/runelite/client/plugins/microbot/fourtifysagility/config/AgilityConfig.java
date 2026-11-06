@@ -63,13 +63,13 @@ public interface AgilityConfig extends TimingConfig
         return PyramidTopTurnIn.EVERY_LAP;
     }
 
-    @ConfigItem(keyName = "brimhavenLeave", name = "Leave the arena", description = "On: head to the exit ladder and leave the arena, then buy the Voucher reward if one is set. Off: keep tagging dispensers and re-enter after each visit.", position = 0, section = brimhavenSection)
+    @ConfigItem(keyName = "brimhavenLeave", name = "Leave the arena", description = "On: finish the current crossing, climb the exit ladder, buy the Voucher reward on exit (if one is set) and wait outside. Off: keep paying the entry fee and tagging dispensers.", position = 0, section = brimhavenSection)
     default boolean brimhavenLeave()
     {
         return false;
     }
 
-    @ConfigItem(keyName = "brimhavenVoucherReward", name = "Voucher reward on exit", description = "Spend carried vouchers on this reward at Pirate Jackie once the plugin has left the arena. Only used when Leave the arena is on. None keeps your vouchers.", position = 2, section = brimhavenSection)
+    @ConfigItem(keyName = "brimhavenVoucherReward", name = "Voucher reward on exit", description = "Needs Leave the arena on. After leaving, spend carried vouchers on this reward until you run out of vouchers or inventory space. None keeps your vouchers.", position = 2, section = brimhavenSection)
     default BrimhavenVoucherReward brimhavenVoucherReward()
     {
         return BrimhavenVoucherReward.NONE;

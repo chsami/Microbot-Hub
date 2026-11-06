@@ -213,11 +213,44 @@ public class CourseHandoffIntegrationTest
             fixture.vouchers = 5;
             fixture.storeOpen = true;
             fixture.tick(2808, 3193, 0);
-            assertEquals("Could not find Toadflax in the arena store; buy it yourself or change Voucher reward",
+            assertEquals("Cannot find Toadflax in the arena store; buy it by hand or set Voucher reward on exit to None",
                 fixture.plugin.getStatus());
             fixture.actions.dispatch();
             assertEquals(0, fixture.menuActions);
         }
+    }
+
+    @Test
+    public void brimhavenConfirmedPurchaseSaysTheVouchersWereSpent() throws Exception
+    {
+        try (Fixture fixture = new Fixture())
+        {
+            fixture.selected = AgilityCourse.BRIMHAVEN;
+            fixture.leaveBrimhaven = true;
+            fixture.voucherReward = BrimhavenVoucherReward.TOADFLAX;
+            Object laps = field(fixture.plugin, "laps");
+            Object brimhaven = field(laps, "brimhaven");
+            // The last purchase took all 3 vouchers and added one Toadflax.
+            setField(brimhaven, "voucherBefore", 3);
+            setField(brimhaven, "rewardBefore", -1);
+            setField(brimhaven, "pendingReward", BrimhavenVoucherReward.TOADFLAX);
+            fixture.tick(2808, 3193, 0);
+            assertEquals("Vouchers spent on Toadflax; turn off Leave the arena to re-enter", fixture.plugin.getStatus());
+        }
+    }
+
+    private static Object field(Object instance, String name) throws Exception
+    {
+        Field field = instance.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(instance);
+    }
+
+    private static void setField(Object instance, String name, Object value) throws Exception
+    {
+        Field field = instance.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(instance, value);
     }
 
     @Test
