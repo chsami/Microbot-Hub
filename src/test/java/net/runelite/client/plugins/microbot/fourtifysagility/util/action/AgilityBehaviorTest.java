@@ -19,6 +19,7 @@ import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.widgets.Widget;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.fourtifysagility.FourtifysAgilityPlugin;
 import net.runelite.client.plugins.microbot.fourtifysagility.config.AgilityConfig;
 import net.runelite.client.plugins.microbot.fourtifysagility.course.AgilityCourse;
@@ -972,7 +973,8 @@ public class AgilityBehaviorTest
                     }
                     return widgets.get(widget);
                 case "getWidgetRoots":
-                    return spellInstalled ? new Widget[] {nativeSpellWidget()} : new Widget[0];
+                    // Like the game, the spellbook is only shown while the Magic tab is open.
+                    return spellInstalled && tab == InterfaceTab.MAGIC.getVarcIntIndex() ? new Widget[] {nativeSpellWidget()} : new Widget[0];
                 case "getItemDefinition":
                     return itemDefinition((Integer) arguments[0]);
                 case "getVarbitValue":
