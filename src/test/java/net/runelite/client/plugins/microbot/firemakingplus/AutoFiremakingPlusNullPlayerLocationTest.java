@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.firemakingplus;
 
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
@@ -45,6 +46,7 @@ class AutoFiremakingPlusNullPlayerLocationTest {
             inventory.verify(() -> Rs2Inventory.combine(anyString(), anyString()), never());
             assertEquals(State.BURNING, getField(script, "state"));
             assertEquals(Integer.MIN_VALUE, getField(script, "blockedLineY"));
+            assertEquals("Waiting for player to load", Microbot.status);
         }
     }
 
@@ -62,6 +64,7 @@ class AutoFiremakingPlusNullPlayerLocationTest {
 
             walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never());
             assertEquals(State.WALKING_TO_LINE, getField(script, "state"));
+            assertEquals("Waiting for player to load", Microbot.status);
         }
     }
 
@@ -83,6 +86,38 @@ class AutoFiremakingPlusNullPlayerLocationTest {
 
             walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never());
             assertEquals(State.WALKING_BACK, getField(script, "state"));
+            assertEquals("Waiting for player to load", Microbot.status);
+        }
+    }
+
+    @Test
+    void runCampfireSkipsTheTickWhenThePlayerLocationIsNull() throws Exception {
+        AutoFiremakingPlusScript script = new AutoFiremakingPlusScript();
+        setField(script, "activeLog", Logs.LOGS);
+        setField(script, "state", State.BURNING);
+        AutoFiremakingPlusConfig config = mock(AutoFiremakingPlusConfig.class);
+        when(config.method()).thenReturn(FiremakingMethod.CAMPFIRE);
+        try (MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class,
+                     invocation -> invocation.getMethod().getReturnType() == boolean.class
+                             ? Boolean.TRUE
+                             : RETURNS_DEFAULTS.answer(invocation));
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<TileScanner> scanner = mockStatic(TileScanner.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            player.when(Rs2Player::getWorldLocation).thenReturn(null);
+
+            Method method = AutoFiremakingPlusScript.class
+                    .getDeclaredMethod("runCampfire", AutoFiremakingPlusConfig.class);
+            method.setAccessible(true);
+            assertDoesNotThrow(() -> method.invoke(script, config));
+
+            inventory.verify(() -> Rs2Inventory.combine(anyString(), anyString()), never());
+            inventory.verify(() -> Rs2Inventory.use(anyInt()), never());
+            scanner.verify(() -> TileScanner.fireTilesNear(any(), anyInt()), never());
+            walker.verify(() -> Rs2Walker.walkTo(any(WorldPoint.class), anyInt()), never());
+            assertEquals(State.BURNING, getField(script, "state"));
+            assertEquals(-1, getField(script, "lastLogCount"));
+            assertEquals("Waiting for player to load", Microbot.status);
         }
     }
 
