@@ -37,11 +37,13 @@ public class GemCrabKillerScript extends Script {
     private Rs2InventorySetup inventorySetup = null;
     private boolean hasLooted = false;
     private Instant waitingTimeStart = null;
+    private boolean setupCheckedAtStart = false;
 
     public boolean run(GemCrabKillerConfig config) {
         if (config.overrideState()) {
             gemCrabKillerState = config.startState();
         }
+        setupCheckedAtStart = false;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -53,6 +55,13 @@ public class GemCrabKillerScript extends Script {
                         return;
                     }
                     inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
+                }
+                if (!setupCheckedAtStart) {
+                    setupCheckedAtStart = true;
+                    if (shouldCheckSetupAtStart(config.useInventorySetup(), gemCrabKillerState)
+                            && !(inventorySetup.doesEquipmentMatch() && inventorySetup.doesInventoryMatch())) {
+                        gemCrabKillerState = GemCrabKillerState.BANKING;
+                    }
                 }
                 eatIfHurt(config);
                 switch (gemCrabKillerState) {
@@ -107,6 +116,10 @@ public class GemCrabKillerScript extends Script {
         if (Rs2Inventory.getInventoryFood().isEmpty() && lowHp) {
             gemCrabKillerState = GemCrabKillerState.BANKING;
         }
+    }
+
+    static boolean shouldCheckSetupAtStart(boolean useInventorySetup, GemCrabKillerState state) {
+        return useInventorySetup && state == GemCrabKillerState.WALKING;
     }
 
     static boolean isLowHp(boolean dharokMode, int currentHP, double healthPercentage) {

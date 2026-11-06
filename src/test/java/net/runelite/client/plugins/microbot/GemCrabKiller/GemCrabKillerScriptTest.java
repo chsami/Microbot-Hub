@@ -20,6 +20,25 @@ class GemCrabKillerScriptTest {
     }
 
     @Test
+    void walkingStartWithInventorySetupChecksSetup() {
+        assertTrue(GemCrabKillerScript.shouldCheckSetupAtStart(true, GemCrabKillerState.WALKING));
+    }
+
+    @Test
+    void startWithoutInventorySetupSkipsCheck() {
+        for (GemCrabKillerState state : GemCrabKillerState.values()) {
+            assertFalse(GemCrabKillerScript.shouldCheckSetupAtStart(false, state));
+        }
+    }
+
+    @Test
+    void startAtCrabOrBankSkipsCheck() {
+        assertFalse(GemCrabKillerScript.shouldCheckSetupAtStart(true, GemCrabKillerState.FIGHTING));
+        assertFalse(GemCrabKillerScript.shouldCheckSetupAtStart(true, GemCrabKillerState.WAITING));
+        assertFalse(GemCrabKillerScript.shouldCheckSetupAtStart(true, GemCrabKillerState.BANKING));
+    }
+
+    @Test
     void normalModeKeepsQuarterHealthThreshold() {
         assertTrue(GemCrabKillerScript.isLowHp(false, 20, 24.9d));
         assertFalse(GemCrabKillerScript.isLowHp(false, 25, 25.0d));
