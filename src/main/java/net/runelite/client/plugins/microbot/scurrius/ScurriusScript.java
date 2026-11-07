@@ -8,7 +8,15 @@ import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
+import net.runelite.client.plugins.microbot.breakhandler.breakhandlerv2.BreakHandlerV2State;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.scurrius.enums.State;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
+import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
+import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
+import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
@@ -16,10 +24,12 @@ import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
+import net.runelite.client.plugins.microbot.util.security.LoginManager;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -48,6 +58,38 @@ public class ScurriusScript extends Script {
     private long emergencyRetryAt = 0;
     private boolean loggedNoTeleport = false;
     /** Percent thresholds for the next eat and the next prayer potion; -1 until rolled. */
+    /** Kills since the last bank visit and the kill count that starts the next restock trip (0 when trips are off); shown in the overlay. */
+    public static volatile int killsSinceBank = 0;
+    public static volatile int nextTripAt = 0;
+    /** Kills this session and the experience tracker, both shown in the overlay. */
+    public static volatile int totalKills = 0;
+    public static final XpTracker XP = new XpTracker();
+    private int restockTarget = 0;
+    private boolean scurriusWasPresent = false;
+    private boolean fightedThisKill = false;
+    private boolean lootPending = false;
+    private int emptyLootLoops = 0;
+    /** Breaks: bank visits since the last break, the visit count that starts the next one, and the running break. */
+    public static volatile int breakTripsDone = 0;
+    public static volatile int breakTripsTarget = 0;
+    /** When the running break ends (epoch ms), 0 when not on a break; shown in the overlay. */
+    public static volatile long breakEndsAtMs = 0;
+    private int tripsSinceBreak = 0;
+    private int breakTripTarget = 0;
+    private boolean onBreak = false;
+    private long breakEndAt = 0;
+    private long lastLoginAttempt = 0;
+    private int loginAttempts = 0;
+    private static final long LOGIN_RETRY_MS = 15_000;
+    private boolean restockTrip = false;
+    private long restockStartedAt = 0;
+    private static final int LOOT_DONE_AFTER_EMPTY_LOOPS = 5;
+    private static final long RESTOCK_WALK_TIMEOUT_MS = 120_000;
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ScurriusScript.class);
+    private final Random habitRandom = new Random();
+    private boolean habitsDoneThisKill = false;
+    private boolean pausedBeforeEntry = false;
+    private long lateReclickAt = 0;
     private int eatThreshold = -1;
     private int prayerThreshold = -1;
     /** Prayer flicking and rock dodging run on game ticks in this driver, owned by the plugin. */
@@ -65,9 +107,28 @@ public class ScurriusScript extends Script {
     public boolean run(ScurriusConfig config) {
         this.config = config;
         Microbot.enableAutoRunOn = true;
+        setUpAntiban();
+        habitsDoneThisKill = false;
+        pausedBeforeEntry = false;
+        lateReclickAt = 0;
+        killsSinceBank = 0;
+        totalKills = 0;
+        restockTarget = rollRestockTarget();
+        restockTrip = false;
+        lootPending = false;
+        scurriusWasPresent = false;
+        fightedThisKill = false;
+        onBreak = false;
+        breakEndsAtMs = 0;
+        tripsSinceBreak = 0;
+        breakTripTarget = rollBreakTarget();
         List<Integer> importantItems = List.of(config.foodSelection().getId(), config.potionSelection().getItemId(), ItemID.POH_TABLET_VARROCKTELEPORT);
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
+                if (onBreak) {
+                    handleBreak();
+                    return; // on a break the script does nothing else: no clicks
+                }
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 if (Rs2Player.getWorldLocation() == null) return;
@@ -77,6 +138,10 @@ public class ScurriusScript extends Script {
                 if (state != previousState) {
                     Microbot.log("State changed to: " + getStateDescription(state));
                     previousState = state;
+                }
+                if (config.antibanFramework()) {
+                    // The antiban framework must never pause, cool down or break inside the fight.
+                    safetyHold(state == State.FIGHTING || state == State.TELEPORT_AWAY);
                 }
 
                 scurrius = Microbot.getRs2NpcCache().query().withName("Scurrius").nearestOnClientThread();
@@ -91,6 +156,33 @@ public class ScurriusScript extends Script {
                     Microbot.log(isInFightRoom ? "Player has entered the boss room." : "Player has exited the boss room.");
                     previousInFightRoom = isInFightRoom;
                 }
+
+                // A kill: Scurrius is gone while we are still in the room after fighting him (a teleport-out or our own
+                // death leaves the room, or has emergencyActive set, and does not count).
+                if (isScurriusPresent && state == State.FIGHTING) {
+                    fightedThisKill = true;
+                }
+                if (scurriusWasPresent && !isScurriusPresent && isInFightRoom && fightedThisKill && !emergencyActive
+                        && state != State.TELEPORT_AWAY) {
+                    killsSinceBank++;
+                    totalKills++;
+                    habitsDoneThisKill = false;
+                    ScurriusTickDriver killDriver = tickDriver;
+                    if (killDriver != null) killDriver.rollKillMode();
+                    fightedThisKill = false;
+                    lootPending = true;
+                    emptyLootLoops = 0;
+                    Microbot.log("Kills: " + killsSinceBank + (config.restockEnabled() ? " / next trip at " + restockTarget : ""));
+                }
+                scurriusWasPresent = isScurriusPresent;
+                if (!isInFightRoom) {
+                    fightedThisKill = false;
+                } else {
+                    pausedBeforeEntry = false;
+                }
+                nextTripAt = config.restockEnabled() ? restockTarget : 0;
+                breakTripsDone = tripsSinceBreak;
+                breakTripsTarget = config.breakEnabled() ? breakTripTarget : 0;
 
                 if (emergencyActive && !isInFightRoom) {
                     emergencyActive = false; // the teleport worked: the normal rules apply again (bank, walk back)
@@ -143,6 +235,12 @@ public class ScurriusScript extends Script {
 
                 switch (state) {
                     case BANKING:
+                        if (restockTrip && isInFightRoom && System.currentTimeMillis() - restockStartedAt > RESTOCK_WALK_TIMEOUT_MS) {
+                            Microbot.log("Restock trip: could not leave the boss room, skipping this trip.");
+                            skipRestockTrip();
+                            state = State.WAITING_FOR_BOSS;
+                            break;
+                        }
                         boolean isCloseToBank = Rs2Bank.walkToBank();
                         if (isCloseToBank) {
                             Rs2Bank.openBank();
@@ -172,6 +270,7 @@ public class ScurriusScript extends Script {
 
                             Rs2Bank.closeBank();
                             sleepUntil(() -> !Rs2Bank.isOpen());
+                            onBankVisitDone();
                         }
                         break;
 
@@ -180,7 +279,10 @@ public class ScurriusScript extends Script {
                         // Eating and drinking are not gated on animating: with a blowpipe the player animates all the time.
                         // The threshold is a percent of the real level, rolled again after each eat or drink.
                         if (currentTime - lastEatTime > EAT_COOLDOWN_MS) {
-                            if (eatThreshold < 0) eatThreshold = randomThreshold(config.minEatPercent(), config.maxEatPercent());
+                            if (eatThreshold < 0) {
+                                eatThreshold = HumanHabits.eatThreshold(randomThreshold(config.minEatPercent(), config.maxEatPercent()),
+                                        habitRandom, config.habitEatEarly());
+                            }
                             int hp = Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS);
                             int maxHp = Microbot.getClient().getRealSkillLevel(Skill.HITPOINTS);
 
@@ -188,6 +290,7 @@ public class ScurriusScript extends Script {
                                 Microbot.log("Eating at " + hp + "/" + maxHp + " hp (" + (hp * 100 / maxHp) + "%), threshold "
                                         + eatThreshold + "%.");
                                 lastEatTime = currentTime;
+                                returnToPrayerTab();
                                 eatThreshold = -1;
                             }
                         }
@@ -202,6 +305,7 @@ public class ScurriusScript extends Script {
                                 Microbot.log("Drinking a prayer potion at " + prayer + "/" + maxPrayer + " prayer ("
                                         + (prayer * 100 / maxPrayer) + "%), threshold " + prayerThreshold + "%.");
                                 lastPrayerTime = currentTime;
+                                returnToPrayerTab();
                                 prayerThreshold = -1;
                             }
                         }
@@ -218,7 +322,17 @@ public class ScurriusScript extends Script {
                         }
 
                         if (scurrius != null && !Microbot.getClient().getLocalPlayer().isInteracting()) {
-                            scurrius.click("Attack");
+                            // Now and then a little late (under a tick), without blocking the loop: eating etc. go on meanwhile.
+                            if (lateReclickAt == 0) {
+                                int delay = HumanHabits.reclickDelayMs(habitRandom, config.habitLateReclick());
+                                lateReclickAt = delay == 0 ? currentTime : currentTime + delay;
+                            }
+                            if (currentTime >= lateReclickAt) {
+                                scurrius.click("Attack");
+                                lateReclickAt = 0;
+                            }
+                        } else {
+                            lateReclickAt = 0;
                         }
                         break;
 
@@ -227,6 +341,7 @@ public class ScurriusScript extends Script {
                         if (tabsBeforeTeleport == 0) {
                             Microbot.log("No Varrock teleport tab to break, staying in the fight.");
                             emergencyActive = false;
+                            restockTrip = false;
                             state = isInFightRoom ? State.FIGHTING : State.BANKING;
                             break;
                         }
@@ -237,6 +352,11 @@ public class ScurriusScript extends Script {
                                     + " -> " + Rs2Inventory.count(TELEPORT_TAB_ID) + "), back to fighting.");
                             emergencyActive = false;
                             emergencyRetryAt = System.currentTimeMillis() + TELEPORT_RETRY_COOLDOWN_MS;
+                            if (restockTrip) {
+                                skipRestockTrip(); // a restock trip is optional: do not retry it in a loop
+                                state = State.WAITING_FOR_BOSS;
+                                break;
+                            }
                             state = State.FIGHTING;
                             break;
                         }
@@ -254,13 +374,22 @@ public class ScurriusScript extends Script {
                         }
 
                         Rs2Walker.walkTo(bossLocation);
+                        if (!pausedBeforeEntry && Rs2Player.getWorldLocation().distanceTo(bossLocation) < 12) {
+                            pausedBeforeEntry = true;
+                            humanPause("before entering the room");
+                        }
                         String interactionType = config.bossRoomEntryType().getInteractionText();
                         Microbot.getRs2TileObjectCache().query().withId(ObjectID.RAT_BOSS_ENTRANCE).interact(interactionType);
                         sleepUntil(this::isInFightRoom);
                         break;
 
                     case WAITING_FOR_BOSS:
-                        attemptLooting(config);
+                        if (attemptLooting(config)) {
+                            lootPending = true;
+                            emptyLootLoops = 0;
+                        } else if (lootPending && ++emptyLootLoops >= LOOT_DONE_AFTER_EMPTY_LOOPS) {
+                            lootPending = false;
+                        }
                         if (!hasLoggedRespawnWait) {
                             Microbot.log("Waiting for Scurris to respawn...");
                             hasLoggedRespawnWait = true;
@@ -269,6 +398,15 @@ public class ScurriusScript extends Script {
                         if (isScurriusPresent) {
                             state = State.FIGHTING;
                             Microbot.log("Scurris has respawned, switching to FIGHTING.");
+                            break;
+                        }
+                        if (!lootPending && !habitsDoneThisKill) {
+                            habitsDoneThisKill = true;
+                            runBetweenKillHabits();
+                        }
+                        if (config.restockEnabled() && RestockTrips.shouldStartRestockTrip(killsSinceBank, restockTarget,
+                                isScurriusPresent, lootPending, Rs2Inventory.getInventoryFood().size())) {
+                            startRestockTrip();
                         }
                         break;
                 }
@@ -282,6 +420,185 @@ public class ScurriusScript extends Script {
             }
         }, 0, 400, TimeUnit.MILLISECONDS);
         return true;
+    }
+
+    /**
+     * Microbot's antiban the way other plugins use it, with a combat activity. The action cooldown, micro breaks and
+     * universal antiban stay off (the cooldown never ends in nonstop combat), and the safety hold in the loop keeps
+     * anything else out of the fight.
+     */
+    private void setUpAntiban() {
+        if (!config.antibanFramework()) {
+            return;
+        }
+        Rs2Antiban.resetAntibanSettings();
+        Rs2Antiban.antibanSetupTemplates.applyCombatSetup();
+        Rs2AntibanSettings.simulateAttentionSpan = true;
+        Rs2AntibanSettings.nonLinearIntervals = true;
+        Rs2AntibanSettings.contextualVariability = true;
+        Rs2AntibanSettings.usePlayStyle = true;
+        Rs2AntibanSettings.naturalMouse = true;
+        Rs2AntibanSettings.actionCooldownChance = 0.0;
+        Rs2AntibanSettings.takeMicroBreaks = false;
+        Rs2AntibanSettings.universalAntiban = false;
+        Rs2Antiban.setActivity(Activity.GENERAL_COMBAT);
+    }
+
+    /**
+     * Rs2Antiban.setSafetyHold exists only in newer clients (it keeps cooldowns and micro breaks out of a fight), so it is
+     * called by reflection and is simply skipped where it is missing; the cooldown chance is 0 and micro breaks are off anyway.
+     */
+    private static void safetyHold(boolean hold) {
+        try {
+            Rs2Antiban.class.getMethod("setSafetyHold", boolean.class).invoke(null, hold);
+        } catch (NoSuchMethodException ex) {
+            // older client: nothing to hold
+        } catch (Exception ex) {
+            LOG.debug("setSafetyHold failed", ex);
+        }
+    }
+
+    private void returnToPrayerTab() {
+        ScurriusTickDriver driver = tickDriver;
+        if (driver != null) {
+            driver.returnToPrayerTab();
+        }
+    }
+
+    private void humanPause(String where) {
+        int ms = HumanHabits.pauseMs(habitRandom, config.habitPauses());
+        if (ms > 0) {
+            LOG.debug("Habit: pausing {} ms {}", ms, where);
+            sleep(ms);
+        }
+    }
+
+    /** Between kills, with Scurrius gone and the loot picked up: now and then one or two small human things. Short, never in the fight. */
+    private void runBetweenKillHabits() {
+        try {
+            if (config.habitOffScreen() && HumanHabits.roll(habitRandom, HumanHabits.OFF_SCREEN_PERCENT)) {
+                LOG.debug("Habit: mouse off-screen");
+                Rs2Antiban.moveMouseOffScreen();
+            }
+            if (config.habitCheckSkills() && HumanHabits.roll(habitRandom, HumanHabits.SKILL_CHECK_PERCENT)) {
+                LOG.debug("Habit: checking the skills tab");
+                Rs2Tab.switchTo(InterfaceTab.SKILLS);
+                sleep(1000 + habitRandom.nextInt(2000));
+                Rs2Tab.switchTo(InterfaceTab.INVENTORY);
+            }
+            if (config.habitCameraNudges() && HumanHabits.roll(habitRandom, HumanHabits.CAMERA_NUDGE_PERCENT)) {
+                int target = ((Rs2Camera.getAngle() + HumanHabits.cameraNudgeDegrees(habitRandom)) % 360 + 360) % 360;
+                LOG.debug("Habit: camera to {}", target);
+                Rs2Camera.setAngle(target, 10);
+            }
+        } catch (Exception ex) {
+            LOG.debug("Habit failed", ex);
+        }
+    }
+
+    private int rollRestockTarget() {
+        return RestockTrips.rollTarget(config.restockMinKills(), config.restockMaxKills(), ThreadLocalRandom.current());
+    }
+
+    /** Leaves after a kill and the loot, with food left: the teleport tab, else the walker. Never mid-fight. */
+    private void startRestockTrip() {
+        Microbot.log("Restock trip after " + killsSinceBank + " kills (planned " + restockTarget + ").");
+        restockTrip = true;
+        restockStartedAt = System.currentTimeMillis();
+        emergencyActive = true; // keeps the fight rules from pulling the state back while we are still in the room
+        state = Rs2Inventory.hasItem(TELEPORT_TAB_ID) ? State.TELEPORT_AWAY : State.BANKING;
+    }
+
+    /** A trip that did not work out: forget it and plan the next one. */
+    private void skipRestockTrip() {
+        restockTrip = false;
+        emergencyActive = false;
+        killsSinceBank = 0;
+        restockTarget = rollRestockTarget();
+    }
+
+    private int rollBreakTarget() {
+        return Breaks.rollTripTarget(config.breakMinTrips(), config.breakMaxTrips(), ThreadLocalRandom.current());
+    }
+
+    /** True while Microbot's own Break Handler (either version) is on a break: it owns logging out and in then. */
+    private static boolean isGlobalBreakActive() {
+        return BreakHandlerScript.isBreakActive() || BreakHandlerScript.isMicroBreakActive()
+                || BreakHandlerV2State.isBreakActive();
+    }
+
+    /** Right after restocking, at the bank: prayers off, then a random-length break, logged out if configured. */
+    private void startBreak() {
+        long length = Breaks.rollLengthMs(config.breakMinMinutes(), config.breakMaxMinutes(), ThreadLocalRandom.current());
+        onBreak = true;
+        breakEndAt = System.currentTimeMillis() + length;
+        breakEndsAtMs = breakEndAt;
+        loginAttempts = 0;
+        lastLoginAttempt = 0;
+        disableAllPrayers();
+        Microbot.log("Taking a break of " + Breaks.formatRemaining(length) + " after " + tripsSinceBreak + " restock trips"
+                + (config.breakLogout() ? ", logging out." : "."));
+    }
+
+    private void endBreak() {
+        onBreak = false;
+        breakEndsAtMs = 0;
+        tripsSinceBreak = 0;
+        breakTripTarget = rollBreakTarget();
+        Microbot.log("Break over. Next break after " + breakTripTarget + " restock trips.");
+    }
+
+    /**
+     * Runs instead of the whole loop while on a break. Logging out uses the client's terminal logout, which also stops Auto
+     * Login from logging straight back in; logging in again uses the client's own LoginManager with the active profile,
+     * so no credentials are handled here. If Microbot's Break Handler starts a break meanwhile, ours is dropped and it
+     * owns the login.
+     */
+    private void handleBreak() {
+        if (isGlobalBreakActive()) {
+            Microbot.log("Microbot's Break Handler started a break: dropping ours.");
+            endBreak();
+            return;
+        }
+        boolean timeUp = System.currentTimeMillis() >= breakEndAt;
+        if (!timeUp) {
+            if (config.breakLogout() && Microbot.isLoggedIn()) {
+                Rs2Player.logoutWithoutAutoLogin();
+            }
+            return;
+        }
+        if (Microbot.isLoggedIn()) {
+            endBreak();
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastLoginAttempt >= LOGIN_RETRY_MS) {
+            lastLoginAttempt = now;
+            loginAttempts++;
+            boolean started = LoginManager.login();
+            if (!started && loginAttempts % 4 == 1) {
+                Microbot.log("Break over but login did not start (attempt " + loginAttempts
+                        + "). It needs an active login profile (Auto Login plugin / account selector).");
+            }
+        }
+    }
+
+    /** Every bank visit, restock or not, starts the count again. */
+    private void onBankVisitDone() {
+        restockTrip = false;
+        killsSinceBank = 0;
+        lootPending = false;
+        restockTarget = rollRestockTarget();
+        Microbot.log("Banked. Next restock trip after " + restockTarget + " kills.");
+        tripsSinceBreak++;
+        if (Breaks.shouldBreakNow(config.breakEnabled(), tripsSinceBreak, breakTripTarget, onBreak, isInFightRoom(),
+                isGlobalBreakActive())) {
+            startBreak();
+        } else if (config.breakEnabled() && tripsSinceBreak >= breakTripTarget && isGlobalBreakActive()) {
+            Microbot.log("Break due, but Microbot's own Break Handler is on a break: skipping ours for now.");
+        } else {
+            humanPause("after banking");
+        }
     }
 
     /** Teleports out when the food is nearly gone and health is low. Returns true when it switched to TELEPORT_AWAY. */
@@ -377,12 +694,14 @@ public class ScurriusScript extends Script {
         return true;
     }
 
-    private void attemptLooting(ScurriusConfig config) {
+    /** Loots; returns true when something was picked up (more may follow). */
+    private boolean attemptLooting(ScurriusConfig config) {
         List<String> lootItems = parseLootItems(config.lootItems());
         LootingParameters nameParams = new LootingParameters(10, 1, 1, 0, false, true, lootItems.toArray(new String[0]));
-        Rs2GroundItem.lootItemsBasedOnNames(nameParams);
+        boolean byName = Rs2GroundItem.lootItemsBasedOnNames(nameParams);
         LootingParameters valueParams = new LootingParameters(10, 1, config.lootValueThreshold(), 0, false, true);
-        Rs2GroundItem.lootItemBasedOnValue(valueParams);
+        boolean byValue = Rs2GroundItem.lootItemBasedOnValue(valueParams);
+        return byName | byValue;
     }
 
     private List<String> parseLootItems(String lootFilter) {
@@ -398,5 +717,9 @@ public class ScurriusScript extends Script {
     public void shutdown() {
         super.shutdown();
         disableAllPrayers();
+        safetyHold(false);
+        if (config != null && config.antibanFramework()) {
+            Rs2Antiban.resetAntibanSettings();
+        }
     }
 }

@@ -18,7 +18,13 @@ import net.runelite.client.plugins.microbot.scurrius.PrayerFlickTiming.Decision;
 import net.runelite.client.plugins.microbot.scurrius.PrayerFlickTiming.Style;
 import net.runelite.client.plugins.microbot.scurrius.enums.PrayerMode;
 import net.runelite.client.plugins.microbot.scurrius.enums.State;
+import net.runelite.api.MenuAction;
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
+import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
+import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.coords.Rs2LocalPoint;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
@@ -31,8 +37,12 @@ import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 /**
@@ -81,10 +91,34 @@ public class ScurriusTickDriver {
         thread.setDaemon(true);
         return thread;
     });
+    /** Lazy flick only: the off-click (and an on-click from nothing) is placed a little way into the tick, not on it. */
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread thread = new Thread(r, "scurrius-prayer-delay");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final Random random = new Random();
+    private final Object scheduleLock = new Object();
+    private ScheduledFuture<?> scheduledClick;
+    private Rs2PrayerEnum scheduledPrayer;
+    private boolean scheduledOn;
     private final PrayerFlickTiming timing = new PrayerFlickTiming();
     private final FallingRocks rocks = new FallingRocks();
 
     private volatile PrayerMode mode = PrayerMode.LAZY_FLICK;
+    private volatile boolean variation = true;
+    private volatile boolean mousePrayers = false;
+    private volatile PrayerMode killMode = PrayerMode.LAZY_FLICK;
+    private volatile int mixedAlwaysWeight = 50;
+    private volatile int mixedLazyWeight = 50;
+    private volatile int tickLabel = NO_TICK;
+    private volatile long tickStartMs;
+    /** Mouse clicks on the prayer icon run here: they move the mouse and wait, so never on the client thread. */
+    private final ExecutorService mouseWorker = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "scurrius-mouse");
+        thread.setDaemon(true);
+        return thread;
+    });
     private volatile boolean attackHeld;
     private volatile WorldPoint dodgeTarget;
     private int dodgeTick;
@@ -94,15 +128,71 @@ public class ScurriusTickDriver {
     private int lastAttackTick = NO_TICK;
     private boolean ratsAttacking;
     /** The protection prayer we last asked for and the tick we asked in: the game shows it only a tick later. */
-    private Rs2PrayerEnum expectedPrayer;
+    private volatile Rs2PrayerEnum expectedPrayer;
     /** Projectiles already handled (ProjectileMoved fires every frame) and the tick they were first seen; logged ids. */
     private final Map<Projectile, Integer> seenProjectiles = new IdentityHashMap<>();
     private final Set<Integer> loggedAnimations = new HashSet<>();
     private final Set<Integer> loggedProjectiles = new HashSet<>();
-    private int expectedTick = NO_TICK;
+    private volatile int expectedTick = NO_TICK;
 
     public void setMode(PrayerMode mode) {
         this.mode = mode;
+    }
+
+    /** Anti-ban: switch prayers by clicking the icon with the mouse (falling back to the instant click when time is short). */
+    public void setMousePrayers(boolean mousePrayers) {
+        this.mousePrayers = mousePrayers;
+    }
+
+    /** Mixed prayer: the weights for always on and lazy flick when a kill picks its mode. */
+    public void setMixedWeights(int alwaysOnWeight, int lazyWeight) {
+        mixedAlwaysWeight = alwaysOnWeight;
+        mixedLazyWeight = lazyWeight;
+    }
+
+    /** Called at the start and after every kill: in Mixed mode the next kill gets its own mode. */
+    public void rollKillMode() {
+        killMode = HumanHabits.pickKillMode(mixedAlwaysWeight, mixedLazyWeight, random);
+        log.debug("Scurrius prayer mode for the next kill: {}", killMode);
+    }
+
+    private PrayerMode effectiveMode() {
+        PrayerMode current = mode;
+        return current == PrayerMode.MIXED ? killMode : current;
+    }
+
+    /** The first moment of a tick seen from an event or the GameTick; the mouse path measures its time budget from it. */
+    private void markTick(int label) {
+        if (label != tickLabel) {
+            tickLabel = label;
+            tickStartMs = System.currentTimeMillis();
+        }
+    }
+
+    /** After eating or drinking has left the prayer tab: go back to it a moment later, like a player flicking would. */
+    public void returnToPrayerTab() {
+        if (!mousePrayers) {
+            return;
+        }
+        mouseWorker.submit(() -> {
+            try {
+                Thread.sleep(300 + random.nextInt(900));
+                if (inFight() && Rs2Tab.getCurrentTab() != InterfaceTab.PRAYER) {
+                    Rs2Tab.switchTo(InterfaceTab.PRAYER);
+                }
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            } catch (Exception ex) {
+                log.debug("Returning to the prayer tab failed", ex);
+            }
+        });
+    }
+
+    /** Lazy flick settings: ticks the prayer stays on after a hit (random between min and max) and the variation switch. */
+    public void setLazySettings(int holdMin, int holdMax, boolean variation) {
+        timing.setLazyHold(holdMin, holdMax);
+        timing.setLazyVariation(variation);
+        this.variation = variation;
     }
 
     /** True while the player stands on, or is walking off, a falling-rock tile: the script must not click Attack. */
@@ -123,6 +213,7 @@ public class ScurriusTickDriver {
     public void onGameTick(Client client) {
         final int tick = client.getTickCount();
         lastGameTick = tick;
+        markTick(tick);
         rocks.refresh(tick, liveRockTiles(client));
         for (Iterator<Integer> it = seenProjectiles.values().iterator(); it.hasNext(); ) {
             if (tick - it.next() > PROJECTILE_MEMORY_TICKS) {
@@ -159,6 +250,7 @@ public class ScurriusTickDriver {
             return;
         }
         int tick = updateTick(client);
+        markTick(tick);
         noteAnimation(tick, npc.getAnimation());
         actOnPrayer(tick, false, true);
     }
@@ -189,6 +281,7 @@ public class ScurriusTickDriver {
         if (loggedProjectiles.add(projectile.getId())) {
             log.info("scurrius projectile {} -> {}", projectile.getId(), style);
         }
+        markTick(tick);
         timing.onStyleSignal(tick, style);
         actOnPrayer(tick, false, true);
     }
@@ -214,6 +307,7 @@ public class ScurriusTickDriver {
         dodgeTarget = null;
         attackHeld = false;
         ratsAttacking = false;
+        cancelScheduled();
         expectedPrayer = null;
         expectedTick = NO_TICK;
         seenProjectiles.clear();
@@ -343,28 +437,107 @@ public class ScurriusTickDriver {
      * has not applied clicks of the previous tick yet there, so our own record of them is trusted over the game state.
      */
     private void actOnPrayer(int tick, boolean allowPulse, boolean eventPhase) {
-        Decision decision = timing.decide(tick, mode, ratsAttacking);
+        PrayerMode currentMode = effectiveMode();
+        Decision decision = timing.decide(tick, currentMode, ratsAttacking);
         Rs2PrayerEnum want = decision.style == null ? null : prayerFor(decision.style);
         boolean trustExpected = expectedTick == tick || (eventPhase && expectedTick == tick - 1);
         Rs2PrayerEnum active = trustExpected ? expectedPrayer : Rs2Prayer.getActiveProtectionPrayer();
         boolean pulse = allowPulse && decision.pulse && expectedTick != tick;
+        boolean lazy = currentMode == PrayerMode.LAZY_FLICK;
         if (want == null) {
-            if (active != null) {
-                click(active, tick);
-                expectedPrayer = null;
+            if (active != null && !isScheduled(active, false)) {
+                cancelScheduled();
+                if (lazy) {
+                    schedule(active, false, PrayerFlickTiming.offDelayMs(random), tick);
+                } else {
+                    click(active, tick);
+                    expectedPrayer = null;
+                    expectedTick = tick;
+                }
             }
-        } else if (active != want) {
-            // A different protection prayer replaces the active one: one click, no separate switch-off.
-            click(want, tick);
-            expectedPrayer = want;
-            log.info("Scurrius prayer -> {} (anim {}, tick {})", want, previousAnimation, tick);
-        } else if (pulse) {
-            click(want, tick);
-            click(want, tick);
-            expectedPrayer = want;
+            return;
         }
-        if (want != null || active != null) {
+        if (active != want) {
+            // A different protection prayer replaces the active one: one click, no separate switch-off.
+            if (lazy && variation && active == null) {
+                // Turning on from nothing: a little way into the tick. A style switch below stays immediate.
+                if (!isScheduled(want, true)) {
+                    cancelScheduled();
+                    schedule(want, true, PrayerFlickTiming.onDelayMs(random), tick);
+                    logOn(want, tick, decision.tag);
+                }
+                return;
+            }
+            cancelScheduled();
+            click(want, tick);
+            expectedPrayer = want;
             expectedTick = tick;
+            logOn(want, tick, decision.tag);
+            return;
+        }
+        cancelScheduled(); // already on and wanted on: a pending off-click is dropped (hold, or the next attack)
+        if (allowPulse && decision.pulse && expectedTick != tick) {
+            click(want, tick);
+            click(want, tick);
+            expectedPrayer = want;
+            expectedTick = tick;
+        }
+    }
+
+    private void logOn(Rs2PrayerEnum want, int tick, String tag) {
+        log.info("Scurrius prayer -> {} (anim {}, tick {}){}", want, previousAnimation, tick,
+                tag.isEmpty() ? "" : " [" + tag + "]");
+    }
+
+    private boolean isScheduled(Rs2PrayerEnum prayer, boolean on) {
+        synchronized (scheduleLock) {
+            return scheduledClick != null && scheduledPrayer == prayer && scheduledOn == on;
+        }
+    }
+
+    private void cancelScheduled() {
+        synchronized (scheduleLock) {
+            if (scheduledClick != null) {
+                scheduledClick.cancel(false);
+                scheduledClick = null;
+                scheduledPrayer = null;
+            }
+        }
+    }
+
+    /** Runs {@link #fireScheduled} after the delay, off the client thread; a new decision cancels it first. */
+    private void schedule(Rs2PrayerEnum prayer, boolean on, int delayMs, int tick) {
+        synchronized (scheduleLock) {
+            scheduledPrayer = prayer;
+            scheduledOn = on;
+            scheduledClick = scheduler.schedule(() -> fireScheduled(prayer, on, tick), delayMs, TimeUnit.MILLISECONDS);
+        }
+    }
+
+    private void fireScheduled(Rs2PrayerEnum prayer, boolean on, int tick) {
+        synchronized (scheduleLock) {
+            if (scheduledClick == null || scheduledPrayer != prayer || scheduledOn != on) {
+                return; // cancelled meanwhile
+            }
+            scheduledClick = null;
+            scheduledPrayer = null;
+        }
+        if (!inFight()) {
+            return;
+        }
+        try {
+            boolean active = Rs2Prayer.isPrayerActive(prayer);
+            if (active == on) {
+                return;
+            }
+            performClick(prayer, tick);
+            expectedPrayer = on ? prayer : null;
+            expectedTick = tick;
+            if (!on) {
+                log.info("Scurrius prayer off (held {} ticks)", timing.lastHoldTicks());
+            }
+        } catch (Exception ex) {
+            log.warn("Scurrius delayed prayer click failed (tick {})", tick, ex);
         }
     }
 
@@ -396,13 +569,65 @@ public class ScurriusTickDriver {
                 ambiguous);
     }
 
-    /** One click, made on the client thread (no post-click sleep, no queue) and without waiting for the server. */
+    /**
+     * One click, without waiting for the server. By default it is made right here on the client thread (no post-click
+     * sleep, no queue). With mouse prayers it goes to the mouse worker and clicks the icon.
+     */
     private void click(Rs2PrayerEnum prayer, int tick) {
+        if (mousePrayers) {
+            long start = tickStartMs;
+            mouseWorker.submit(() -> mouseClick(prayer, tick, start));
+            return;
+        }
         try {
             Rs2Prayer.toggle(prayer);
         } catch (Exception ex) {
             log.warn("Scurrius prayer click failed (tick {})", tick, ex);
         }
+    }
+
+    /** A click from a worker thread: the mouse path when there is time, else (and always when mouse prayers are off) the menu click. */
+    private void performClick(Rs2PrayerEnum prayer, int tick) {
+        if (mousePrayers) {
+            mouseClick(prayer, tick, tickStartMs);
+        } else {
+            Rs2Prayer.toggle(prayer);
+        }
+    }
+
+    private void mouseClick(Rs2PrayerEnum prayer, int tick, long tickStart) {
+        try {
+            boolean tabOpen = Rs2Tab.getCurrentTab() == InterfaceTab.PRAYER;
+            PrayerClickPlan.Plan plan = PrayerClickPlan.decide(true, tabOpen, System.currentTimeMillis() - tickStart);
+            if (plan == PrayerClickPlan.Plan.INSTANT) {
+                instantClick(prayer);
+                return;
+            }
+            if (plan == PrayerClickPlan.Plan.TAB_THEN_MOUSE) {
+                Rs2Tab.switchTo(InterfaceTab.PRAYER);
+                if (Rs2Tab.getCurrentTab() != InterfaceTab.PRAYER
+                        || !PrayerClickPlan.mouseStillInTime(System.currentTimeMillis() - tickStart)) {
+                    instantClick(prayer);
+                    return;
+                }
+            }
+            Rs2Prayer.toggle(prayer); // with the prayer tab open this clicks the icon itself
+        } catch (Exception ex) {
+            log.warn("Scurrius prayer mouse click failed (tick {}), clicking instantly", tick, ex);
+            instantClick(prayer);
+        }
+    }
+
+    /** The menu click that works with the prayer tab closed: what Rs2Prayer uses when the icon is not visible. */
+    private static void instantClick(Rs2PrayerEnum prayer) {
+        NewMenuEntry entry = new NewMenuEntry()
+                .param0(-1)
+                .param1(prayer.getIndex())
+                .opcode(MenuAction.CC_OP.getId())
+                .identifier(1)
+                .itemId(-1)
+                .option("Activate");
+        Microbot.doInvokeQuick(entry, Rs2UiHelper.getDefaultRectangle());
     }
 
     private static int countRatsAttacking(Client client) {
@@ -470,7 +695,10 @@ public class ScurriusTickDriver {
 
     /** Stops the walk worker. Called on plugin shutdown. */
     public void shutdown() {
+        cancelScheduled();
+        scheduler.shutdownNow();
         walkWorker.shutdownNow();
+        mouseWorker.shutdownNow();
         timing.reset();
         rocks.clear();
         leaveFight();

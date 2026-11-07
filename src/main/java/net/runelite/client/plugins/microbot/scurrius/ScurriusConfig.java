@@ -38,6 +38,27 @@ public interface ScurriusConfig extends Config {
     String emergencySettings = "emergencySettings";
 
     @ConfigSection(
+            name = "Restock trips",
+            description = "Regular bank trips, even when supplies are not out",
+            position = 5
+    )
+    String restockSettings = "restockSettings";
+
+    @ConfigSection(
+            name = "Breaks",
+            description = "Take a break after a number of restock trips",
+            position = 6
+    )
+    String breakSettings = "breakSettings";
+
+    @ConfigSection(
+            name = "Anti-ban",
+            description = "Human-like behaviour",
+            position = 7
+    )
+    String antibanSettings = "antibanSettings";
+
+    @ConfigSection(
             name = "Loot Settings",
             description = "Settings for looting items",
             position = 3
@@ -241,6 +262,292 @@ public interface ScurriusConfig extends Config {
     )
     default int emergencyHpPercent() {
         return 50;
+    }
+
+    @ConfigItem(
+            keyName = "lazyFlickHoldMin",
+            name = "Lazy flick hold min (ticks)",
+            description = "Lazy flick: fewest extra ticks the prayer stays on after a hit before it is switched off",
+            position = 5,
+            section = prayerSettings
+    )
+    @Range(
+            min = 0,
+            max = 5
+    )
+    default int lazyFlickHoldMin() {
+        return 1;
+    }
+
+    @ConfigItem(
+            keyName = "lazyFlickHoldMax",
+            name = "Lazy flick hold max (ticks)",
+            description = "Lazy flick: most extra ticks the prayer stays on after a hit before it is switched off (random per attack)",
+            position = 6,
+            section = prayerSettings
+    )
+    @Range(
+            min = 0,
+            max = 5
+    )
+    default int lazyFlickHoldMax() {
+        return 2;
+    }
+
+    @ConfigItem(
+            keyName = "lazyFlickVariation",
+            name = "Lazy flick variation",
+            description = "Lazy flick: vary when the prayer goes on (one or two ticks early, a short random delay) and now and then keep it "
+                    + "on for a whole attack instead of flicking. Never leaves a hit unprotected.",
+            position = 7,
+            section = prayerSettings
+    )
+    default boolean lazyFlickVariation() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "restockEnabled",
+            name = "Restock trips",
+            description = "After a random number of kills (between the two numbers below), once Scurrius is dead and the loot is picked up "
+                    + "and there is food left, teleport out (or walk), bank and come back",
+            position = 0,
+            section = restockSettings
+    )
+    default boolean restockEnabled() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "restockMinKills",
+            name = "Restock after at least (kills)",
+            description = "Fewest kills between restock trips",
+            position = 1,
+            section = restockSettings
+    )
+    @Range(
+            min = 1,
+            max = 50
+    )
+    default int restockMinKills() {
+        return 2;
+    }
+
+    @ConfigItem(
+            keyName = "restockMaxKills",
+            name = "Restock after at most (kills)",
+            description = "Most kills between restock trips (the target is random between the two; swapped values are fine)",
+            position = 2,
+            section = restockSettings
+    )
+    @Range(
+            min = 1,
+            max = 50
+    )
+    default int restockMaxKills() {
+        return 5;
+    }
+
+    @ConfigItem(
+            keyName = "breakEnabled",
+            name = "Breaks",
+            description = "Right after restocking at the bank, take a break after a random number of restock trips. "
+                    + "Use this or Microbot's Break Handler, not both.",
+            position = 0,
+            section = breakSettings
+    )
+    default boolean breakEnabled() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "breakMinTrips",
+            name = "Break after at least (restock trips)",
+            description = "Fewest bank visits (planned or emergency) between breaks",
+            position = 1,
+            section = breakSettings
+    )
+    @Range(
+            min = 1,
+            max = 50
+    )
+    default int breakMinTrips() {
+        return 2;
+    }
+
+    @ConfigItem(
+            keyName = "breakMaxTrips",
+            name = "Break after at most (restock trips)",
+            description = "Most bank visits between breaks; the target is random between the two and rolled again after each break",
+            position = 2,
+            section = breakSettings
+    )
+    @Range(
+            min = 1,
+            max = 50
+    )
+    default int breakMaxTrips() {
+        return 2;
+    }
+
+    @ConfigItem(
+            keyName = "breakMinMinutes",
+            name = "Break length at least (minutes)",
+            description = "Shortest break",
+            position = 3,
+            section = breakSettings
+    )
+    @Range(
+            min = 1,
+            max = 240
+    )
+    default int breakMinMinutes() {
+        return 5;
+    }
+
+    @ConfigItem(
+            keyName = "breakMaxMinutes",
+            name = "Break length at most (minutes)",
+            description = "Longest break; the length is random to the second between the two",
+            position = 4,
+            section = breakSettings
+    )
+    @Range(
+            min = 1,
+            max = 240
+    )
+    default int breakMaxMinutes() {
+        return 40;
+    }
+
+    @ConfigItem(
+            keyName = "breakLogout",
+            name = "Log out during break",
+            description = "Log out for the break and log back in with the client's active login profile when it ends",
+            position = 5,
+            section = breakSettings
+    )
+    default boolean breakLogout() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "mixedAlwaysOnWeight",
+            name = "Mixed: always on weight",
+            description = "Prayer mode Mixed: relative chance that a kill uses always on",
+            position = 8,
+            section = prayerSettings
+    )
+    @Range(
+            min = 0,
+            max = 100
+    )
+    default int mixedAlwaysOnWeight() {
+        return 50;
+    }
+
+    @ConfigItem(
+            keyName = "mixedLazyWeight",
+            name = "Mixed: lazy flick weight",
+            description = "Prayer mode Mixed: relative chance that a kill uses lazy flick",
+            position = 9,
+            section = prayerSettings
+    )
+    @Range(
+            min = 0,
+            max = 100
+    )
+    default int mixedLazyWeight() {
+        return 50;
+    }
+
+    @ConfigItem(
+            keyName = "antibanMousePrayers",
+            name = "Click prayers with the mouse",
+            description = "Open the prayer tab and click the prayer icon like a player. When there is no time left in the tick it clicks "
+                    + "instantly instead, so a hit is never left unprotected.",
+            position = 0,
+            section = antibanSettings
+    )
+    default boolean antibanMousePrayers() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "antibanFramework",
+            name = "Use Microbot antiban",
+            description = "Natural mouse, attention span and play style. Never pauses the fight: eating, praying, dodging and attacking are not delayed.",
+            position = 1,
+            section = antibanSettings
+    )
+    default boolean antibanFramework() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "habitOffScreen",
+            name = "Mouse off-screen while waiting",
+            description = "Sometimes move the mouse off the game window while waiting for Scurrius to respawn",
+            position = 2,
+            section = antibanSettings
+    )
+    default boolean habitOffScreen() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "habitCheckSkills",
+            name = "Check the skills tab between kills",
+            description = "Sometimes open the skills tab for a moment between kills",
+            position = 3,
+            section = antibanSettings
+    )
+    default boolean habitCheckSkills() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "habitCameraNudges",
+            name = "Small camera turns between kills",
+            description = "Sometimes turn the camera a little between kills",
+            position = 4,
+            section = antibanSettings
+    )
+    default boolean habitCameraNudges() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "habitPauses",
+            name = "Short random pauses",
+            description = "Sometimes pause 1-8 seconds after banking and before walking into the boss room",
+            position = 5,
+            section = antibanSettings
+    )
+    default boolean habitPauses() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "habitLateReclick",
+            name = "Re-click Scurrius a little late",
+            description = "Sometimes wait up to a tick before attacking again after the attack stopped",
+            position = 6,
+            section = antibanSettings
+    )
+    default boolean habitLateReclick() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "habitEatEarly",
+            name = "Sometimes eat a bit early",
+            description = "Now and then eat a few percent above the chosen threshold",
+            position = 7,
+            section = antibanSettings
+    )
+    default boolean habitEatEarly() {
+        return true;
     }
 
     @ConfigItem(

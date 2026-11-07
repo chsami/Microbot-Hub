@@ -4,6 +4,7 @@ import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
+import net.runelite.api.GameState;
 import net.runelite.api.GraphicsObject;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.AnimationChanged;
@@ -36,7 +37,7 @@ import java.awt.*;
 )
 @Slf4j
 public class ScurriusPlugin extends Plugin {
-    public static final String version = "1.1.1";
+    public static final String version = "1.1.2";
     @Inject
     private ScurriusConfig config;
     @Provides
@@ -64,8 +65,13 @@ public class ScurriusPlugin extends Plugin {
             overlayManager.add(exampleOverlay);
         }
         ScurriusScript.state = State.BANKING;
+        ScurriusScript.XP.reset(System.currentTimeMillis());
         tickDriver = new ScurriusTickDriver();
         tickDriver.setMode(config.prayerMode());
+        tickDriver.setLazySettings(config.lazyFlickHoldMin(), config.lazyFlickHoldMax(), config.lazyFlickVariation());
+        tickDriver.setMousePrayers(config.antibanMousePrayers());
+        tickDriver.setMixedWeights(config.mixedAlwaysOnWeight(), config.mixedLazyWeight());
+        tickDriver.rollKillMode();
         scurriusScript.setTickDriver(tickDriver);
         scurriusScript.run(config);
     }
@@ -99,8 +105,12 @@ public class ScurriusPlugin extends Plugin {
 
     @Subscribe
     public void onGameTick(GameTick event) {
+        ScurriusScript.XP.startIfNeeded(client.getGameState() == GameState.LOGGED_IN, client::getSkillExperience);
         if (tickDriver != null) {
             tickDriver.setMode(config.prayerMode());
+            tickDriver.setLazySettings(config.lazyFlickHoldMin(), config.lazyFlickHoldMax(), config.lazyFlickVariation());
+            tickDriver.setMousePrayers(config.antibanMousePrayers());
+            tickDriver.setMixedWeights(config.mixedAlwaysOnWeight(), config.mixedLazyWeight());
             tickDriver.onGameTick(client);
         }
     }

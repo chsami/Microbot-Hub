@@ -71,10 +71,10 @@ class PrayerFlickTimingTest {
     }
 
     @Test
-    void lazyFlickIsOnFromTheAnimationTickUntilTheHitLands() {
+    void lazyFlickIsOnTheTickBeforeTheHitUntilItLands() {
         PrayerFlickTiming timing = learned();
         timing.onAttackStarted(200, Style.MAGIC); // lands at 202
-        assertEquals(Style.MAGIC, timing.decide(200, PrayerMode.LAZY_FLICK, false).style);
+        assertNull(timing.decide(200, PrayerMode.LAZY_FLICK, false).style);
         assertNull(timing.decide(199, PrayerMode.LAZY_FLICK, false).style);
         assertEquals(Style.MAGIC, timing.decide(201, PrayerMode.LAZY_FLICK, false).style);
         assertEquals(Style.MAGIC, timing.decide(202, PrayerMode.LAZY_FLICK, false).style);
@@ -199,8 +199,8 @@ class PrayerFlickTimingTest {
         PrayerFlickTiming timing = learned();
         timing.onStyleSignal(200, Style.RANGE);
         timing.onHit(202, 0, Style.RANGE, false);
-        timing.onStyleSignal(205, Style.MAGIC);
-        assertEquals(Style.MAGIC, timing.decide(205, PrayerMode.LAZY_FLICK, false).style);
+        timing.onStyleSignal(205, Style.MAGIC); // lands at 207, on from 206
+        assertEquals(Style.MAGIC, timing.decide(206, PrayerMode.LAZY_FLICK, false).style);
     }
 
     @Test
