@@ -50,6 +50,7 @@ public class RoguesDenScript extends Script {
     private Obstacles.Obstacle walkObstacle;
     private WorldPoint walkPlayerLocation;
     private int walkAttempts;
+    private int walkStuckReports;
     boolean hasStaminaPotionInBank = true;
     boolean hasEnergyPotionInBank = true;
 
@@ -60,6 +61,7 @@ public class RoguesDenScript extends Script {
         walkObstacle = null;
         walkPlayerLocation = null;
         walkAttempts = 0;
+        walkStuckReports = 0;
         Obstacles.Obstacle[] originalObstacles = new Obstacles.Obstacle[]{
                 new Obstacles.Obstacle(3048, 4997, 7251),
                 new Obstacles.Obstacle(3039, 4999, "Stand"),
@@ -483,14 +485,21 @@ public class RoguesDenScript extends Script {
             walkObstacle = obstacle;
             walkPlayerLocation = playerLocation;
             walkAttempts = 0;
+            walkStuckReports = 0;
         }
         walkAttempts++;
         if (walkAttempts <= STUCK_WALK_ATTEMPTS) return;
 
         WorldPoint target = obstacle.getTile();
-        Microbot.log("Can't reach the maze tile " + target.getX() + ", " + target.getY()
-                + " (you're at " + playerLocation.getX() + ", " + playerLocation.getY() + ") after "
-                + STUCK_WALK_ATTEMPTS + " tries. Turning the camera and trying again.");
+        if (walkStuckReports == 0) {
+            Microbot.log("Can't reach the maze tile " + target.getX() + ", " + target.getY()
+                    + " from " + playerLocation.getX() + ", " + playerLocation.getY()
+                    + ". Turning the camera and trying again.");
+        } else if (walkStuckReports == 1) {
+            Microbot.log("Still can't reach the maze tile " + target.getX() + ", " + target.getY()
+                    + ". Click that tile yourself or stop the script.");
+        }
+        if (walkStuckReports < 2) walkStuckReports++;
         Rs2Camera.angleToTile(target);
         walkAttempts = 0;
     }

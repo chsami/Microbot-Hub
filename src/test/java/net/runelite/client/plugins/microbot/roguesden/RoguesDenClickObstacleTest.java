@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -181,6 +182,39 @@ class RoguesDenClickObstacleTest {
             camera.verify(() -> Rs2Camera.angleToTile(WALL_STAND.getTile()));
             microbot.verify(() -> Microbot.log(anyString()));
             walker.verify(() -> Rs2Walker.walkFastCanvas(WALL_STAND.getTile()), times(RoguesDenScript.STUCK_WALK_ATTEMPTS + 1));
+        }
+    }
+
+    @Test
+    void logsStuckStandStepOnlyTwicePerTile() throws Exception {
+        Obstacles.OBSTACLES = new Obstacles.Obstacle[]{ENTRANCE, WALL_STAND, WALL_SEARCH, AFTER_WALL};
+        RoguesDenScript script = new RoguesDenScript();
+        int firings = 4;
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Random> random = mockStatic(Rs2Random.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Camera> camera = mockStatic(Rs2Camera.class);
+             MockedStatic<Global> global = mockStatic(Global.class)) {
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(2988, 5087, 1));
+            random.when(() -> Rs2Random.between(1, 10)).thenReturn(1);
+            walker.when(() -> Rs2Walker.walkFastCanvas(WALL_STAND.getTile())).thenReturn(true);
+
+            for (int i = 0; i < (RoguesDenScript.STUCK_WALK_ATTEMPTS + 1) * firings; i++) {
+                clickObstacle(script);
+            }
+
+            camera.verify(() -> Rs2Camera.angleToTile(WALL_STAND.getTile()), times(firings));
+            microbot.verify(() -> Microbot.log(startsWith("Can't reach")), times(1));
+            microbot.verify(() -> Microbot.log(startsWith("Still can't reach")), times(1));
+
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(2989, 5087, 1));
+            for (int i = 0; i <= RoguesDenScript.STUCK_WALK_ATTEMPTS; i++) {
+                clickObstacle(script);
+            }
+
+            microbot.verify(() -> Microbot.log(startsWith("Can't reach")), times(2));
         }
     }
 
