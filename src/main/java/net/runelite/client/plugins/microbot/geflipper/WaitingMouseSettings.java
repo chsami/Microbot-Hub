@@ -37,9 +37,9 @@ import javax.swing.JSpinner;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
 import javax.swing.JTextArea;
+import javax.swing.Timer;
 import javax.swing.event.ChangeListener;
 import javax.swing.text.JTextComponent;
-import net.runelite.client.config.ConfigDescriptor;
 import net.runelite.client.config.ConfigButton;
 import net.runelite.client.config.ConfigItemDescriptor;
 import net.runelite.client.plugins.microbot.ui.MicrobotPluginConfigurationDescriptor;
@@ -48,7 +48,6 @@ import net.runelite.client.ui.ColorScheme;
 /** Binds this plugin's native settings controls without changing client UI or preferences. */
 final class WaitingMouseSettings implements AutoCloseable {
     private static final String PANEL_CLASS = "net.runelite.client.plugins.microbot.ui.MicrobotConfigPanel";
-    private static final String GROUP = "Flipper Config";
     private static final String FREQUENCY_KEY = "waitingMouseChance";
     private static final String FINISH_KEY = "finish";
     private FlipperPlugin owner;
@@ -60,6 +59,8 @@ final class WaitingMouseSettings implements AutoCloseable {
     private IntSupplier frequencyValue;
     private BooleanSupplier sliderEditable;
     private Supplier<String> frequencyDescription;
+    private Supplier<String> muleStatusSupplier;
+    private final Timer muleStatusTimer = new Timer(1000, event -> refreshMuleStatus());
     private final Set<Container> observed = Collections.newSetFromMap(new IdentityHashMap<>());
     private final ContainerAdapter treeChanges = new ContainerAdapter() {
         @Override public void componentAdded(ContainerEvent event) {
@@ -85,6 +86,7 @@ final class WaitingMouseSettings implements AutoCloseable {
     private TimeBinding timeSourceBinding;
     private TimeBinding customTimeBinding;
     private MouseSpeedBinding mouseSpeedBinding;
+    private MuleStatusBinding muleStatusBinding;
     private boolean finishRequested;
     private boolean started;
     private boolean closed;
@@ -143,6 +145,21 @@ final class WaitingMouseSettings implements AutoCloseable {
         if (!closed && started) scan(false);
     }
 
+    /** The Finish request was refused, so the button must not stay greyed out until a restart. */
+    void finishRefused() {
+        requireEdt();
+        finishRequested = false;
+        if (!closed && started) scan(false);
+    }
+
+    /** Displays an already-cached status; this supplier must never perform client or network work. */
+    void setMuleStatusSupplier(Supplier<String> supplier) {
+        requireEdt();
+        if (closed) return;
+        muleStatusSupplier = supplier;
+        if (started) scan(false);
+    }
+
     @Override public void close() {
         requireEdt();
         if (closed) return;
@@ -154,6 +171,10 @@ final class WaitingMouseSettings implements AutoCloseable {
         detachFinish();
         detachTimes();
         detachMouseSpeed();
+        detachMuleStatus();
+        for (ActionListener listener : muleStatusTimer.getActionListeners()) {
+            muleStatusTimer.removeActionListener(listener);
+        }
         settingsRoot = null;
         owner = null;
         config = null;
@@ -163,6 +184,7 @@ final class WaitingMouseSettings implements AutoCloseable {
         frequencyValue = null;
         sliderEditable = null;
         frequencyDescription = null;
+        muleStatusSupplier = null;
     }
 
     private void observe(Component component) {
@@ -201,6 +223,7 @@ final class WaitingMouseSettings implements AutoCloseable {
             detachFinish();
             detachTimes();
             detachMouseSpeed();
+            detachMuleStatus();
             return;
         }
         JPanel panel = findOwnedPanel(settingsRoot);
@@ -233,6 +256,106 @@ final class WaitingMouseSettings implements AutoCloseable {
         if (finishAction != null) bindFinish(panel);
         bindTimes(panel);
         bindMouseSpeed(panel);
+        bindMuleStatus(panel);
+    }
+
+    /** For a row inside a section, the panel that holds the sections; folding or filtering hides only the section. */
+    private static Component sectionHolder(JPanel panel, JPanel row) {
+        Container parent = row.getParent();
+        Object contents = panel == null ? null : SettingsLook.nativeField(panel.getClass(), panel, "sectionContentByKey");
+        if (parent != null && contents instanceof Map && ((Map<?, ?>) contents).containsValue(parent)
+            && parent.getParent() != null && parent.getParent().getParent() != null) {
+            return parent.getParent().getParent();
+        }
+        return parent;
+    }
+
+    private void bindMuleStatus(JPanel panel) {
+        String name = itemName(descriptor(panel), FlipperConfig.MuleMode.class, "muleMode");
+        JPanel row = panel == null || name == null ? null : findRow(panel, name);
+        if (muleStatusBinding != null && (muleStatusBinding.panel != panel || muleStatusBinding.row != row
+            || !muleStatusBinding.attached())) detachMuleStatus();
+        if (muleStatusSupplier == null) {
+            detachMuleStatus();
+            return;
+        }
+        if (muleStatusBinding == null && row != null) {
+            BorderLayout layout = (BorderLayout) row.getLayout();
+            if (layout.getLayoutComponent(BorderLayout.EAST) instanceof JComboBox
+                && layout.getLayoutComponent(BorderLayout.SOUTH) == null) {
+                muleStatusBinding = new MuleStatusBinding(panel, row);
+                muleStatusBinding.attach();
+            }
+        }
+        refreshMuleStatus();
+        if (muleStatusBinding != null && !muleStatusTimer.isRunning()) muleStatusTimer.start();
+    }
+
+    private void refreshMuleStatus() {
+        requireEdt();
+        if (closed || !started || muleStatusSupplier == null || muleStatusBinding == null) return;
+        if (!muleStatusBinding.attached()) {
+            detachMuleStatus();
+            queueScan();
+            return;
+        }
+        String text;
+        try {
+            text = muleStatusSupplier.get();
+        } catch (RuntimeException unavailable) {
+            text = null;
+        }
+        muleStatusBinding.refresh(text);
+    }
+
+    private void detachMuleStatus() {
+        muleStatusTimer.stop();
+        if (muleStatusBinding == null) return;
+        MuleStatusBinding previous = muleStatusBinding;
+        muleStatusBinding = null;
+        previous.detach();
+    }
+
+    private final class MuleStatusBinding {
+        private final JPanel panel, row;
+        private final JLabel label = new JLabel();
+
+        private MuleStatusBinding(JPanel panel, JPanel row) {
+            this.panel = panel;
+            this.row = row;
+            label.setForeground(ColorScheme.TEXT_COLOR);
+            label.getAccessibleContext().setAccessibleName("Mule connection status");
+        }
+
+        private void attach() {
+            row.add(label, BorderLayout.SOUTH);
+            row.revalidate();
+            row.repaint();
+        }
+
+        private boolean attached() {
+            return label.getParent() == row && row.getLayout() instanceof BorderLayout
+                && ((BorderLayout) row.getLayout()).getLayoutComponent(BorderLayout.SOUTH) == label
+                && SwingUtilities.isDescendingFrom(row, panel) && settingsRoot.isShowing()
+                && visibleWithinRoot(row) && owned(descriptor(panel));
+        }
+
+        private void refresh(String value) {
+            String text = value == null ? "" : value.trim();
+            if (text.equals(label.getText()) && label.isVisible() == !text.isEmpty()) return;
+            label.setText(text);
+            label.setToolTipText(text.isEmpty() ? null : text);
+            label.getAccessibleContext().setAccessibleDescription(text);
+            label.setVisible(!text.isEmpty());
+            row.revalidate();
+            row.repaint();
+        }
+
+        private void detach() {
+            if (label.getParent() == row) row.remove(label);
+            row.revalidate();
+            row.repaint();
+        }
     }
 
     private boolean sliderEnabled() {
@@ -406,38 +529,16 @@ final class WaitingMouseSettings implements AutoCloseable {
     }
 
     private JPanel findOwnedPanel(Component component) {
-        if (component == null || !component.isVisible()) return null;
-        if (PANEL_CLASS.equals(component.getClass().getName())) {
-            return owned(descriptor(component)) ? (JPanel) component : null;
-        }
-        if (component instanceof Container) {
-            for (Component child : ((Container) component).getComponents()) {
-                JPanel found = findOwnedPanel(child);
-                if (found != null) return found;
-            }
-        }
-        return null;
+        return SettingsLook.ownedPanel(component, owner);
     }
 
     private boolean owned(MicrobotPluginConfigurationDescriptor descriptor) {
-        ConfigDescriptor details = descriptor == null ? null : descriptor.getConfigDescriptor();
-        return descriptor != null && descriptor.getPlugin() == owner && details != null
-            && details.getGroup() != null && GROUP.equals(details.getGroup().value());
+        return SettingsLook.owned(descriptor, owner);
     }
 
     private MicrobotPluginConfigurationDescriptor descriptor(Component panel) {
-        if (panel == null || !PANEL_CLASS.equals(panel.getClass().getName())) return null;
-        try {
-            // The native panel is package-private. Read only its descriptor to prove row ownership.
-            Field field = panel.getClass().getDeclaredField("pluginConfig");
-            field.setAccessible(true);
-            Object value = field.get(panel);
-            return value instanceof MicrobotPluginConfigurationDescriptor
-                ? (MicrobotPluginConfigurationDescriptor) value : null;
-        } catch (ReflectiveOperationException | RuntimeException unavailable) {
-            // An unsupported client layout retains its normal integer control.
-            return null;
-        }
+        // An unsupported client layout gives null and keeps its normal controls.
+        return SettingsLook.descriptor(panel);
     }
 
     private String frequencyName(MicrobotPluginConfigurationDescriptor descriptor) {
@@ -523,7 +624,7 @@ final class WaitingMouseSettings implements AutoCloseable {
             this.original = original;
             this.custom = custom;
             location = custom ? BorderLayout.SOUTH : BorderLayout.EAST;
-            originalLabelColor = label.getForeground();
+            originalLabelColor = SettingsLook.ownForeground(label);
             originalLabelEnabled = label.isEnabled();
             originalEnabled = original.isEnabled();
             originalRowVisible = row.isVisible();
@@ -583,7 +684,7 @@ final class WaitingMouseSettings implements AutoCloseable {
             Component shown = ((BorderLayout) row.getLayout()).getLayoutComponent(location);
             return active && label.getParent() == row && (shown == original || shown == blank)
                 && SwingUtilities.isDescendingFrom(row, panel) && settingsRoot.isShowing()
-                && visibleWithinRoot(custom ? row.getParent() : row) && owned(descriptor(panel));
+                && visibleWithinRoot(custom ? sectionHolder(panel, row) : row) && owned(descriptor(panel));
         }
 
         private boolean editable() {
@@ -672,7 +773,7 @@ final class WaitingMouseSettings implements AutoCloseable {
                 if (event.getSource() == this.button) clicked();
             };
             originalListeners = button.getActionListeners();
-            originalColor = button.getForeground();
+            originalColor = SettingsLook.ownForeground(button);
             originalEnabled = button.isEnabled();
         }
 
@@ -751,7 +852,7 @@ final class WaitingMouseSettings implements AutoCloseable {
             this.row = row;
             this.label = label;
             originalSpinner = spinner;
-            originalLabelColor = label.getForeground();
+            originalLabelColor = SettingsLook.ownForeground(label);
             originalLabelEnabled = label.isEnabled();
             slider.setOpaque(false);
             slider.setPaintTicks(false);

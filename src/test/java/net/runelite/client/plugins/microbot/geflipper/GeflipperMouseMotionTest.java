@@ -25,23 +25,67 @@ class GeflipperMouseMotionTest {
     private static final Point TARGET = new Point(60, 40);
 
     @Test
-    void disabledActionsDelegateWithoutReadingPolicyOrSamplingSpeed() {
+    void naturalMovementStillRunsWhenOptionalSpeedVariationIsOff() {
         FakeBackend backend = new FakeBackend();
         SpeedRandom random = new SpeedRandom();
-        GeflipperMouseMotion helper = helper(backend, random, (nature, path, x, y) -> fail("Disabled motion cannot run"));
+        GeflipperMouseMotion helper = realHelper(backend, random);
         NewMenuEntry entry = new NewMenuEntry();
 
         assertTrue(helper.move(TARGET, false, () -> true));
         assertTrue(helper.click(TARGET, false, () -> true));
         assertTrue(helper.invoke(entry, TARGET, false, () -> true));
+        backend.pendingMenu(null); // The client consumes a successful invoke before the next action.
         assertTrue(helper.offscreen(new Point(-1, 20), false, () -> true));
 
-        assertEquals(Arrays.asList(GeflipperMouseMotion.Action.MOVE, GeflipperMouseMotion.Action.CLICK,
-            GeflipperMouseMotion.Action.INVOKE, GeflipperMouseMotion.Action.OFFSCREEN), backend.delegated);
+        assertTrue(backend.delegated.isEmpty());
         assertEquals(0, random.calls);
-        assertEquals(0, backend.snapshots);
-        assertEquals(0, backend.gestures);
-        assertTrue(backend.events.isEmpty());
+        assertEquals(4, backend.snapshots);
+        assertEquals(4, backend.gestures);
+        assertEquals(Arrays.asList("press", "release", "click", "press", "release", "click"), backend.events);
+    }
+
+    @Test
+    void buyingSlotReceivesIntermediateNaturalMovesBeforePressInBothSpeedModes() {
+        for (boolean varySpeed : new boolean[]{false, true}) {
+            FakeBackend backend = new FakeBackend();
+            SpeedRandom random = new SpeedRandom();
+            NewMenuEntry entry = new NewMenuEntry();
+            backend.afterPress = () -> {
+                assertTrue(backend.moves.size() > 2);
+                assertEquals(TARGET, backend.position);
+                assertSame(entry, backend.menu);
+            };
+            assertTrue(realHelper(backend, random).invoke(entry, TARGET, varySpeed, () -> true));
+            assertNotEquals(TARGET, backend.moves.get(0), "The first event must not jump to the buy slot");
+            assertEquals(varySpeed ? 1 : 0, random.calls);
+            assertTrue(backend.delegated.isEmpty());
+        }
+    }
+
+    @Test
+    void unsuccessfulNaturalMovementCannotFallBackToTeleportingAndClicking() {
+        for (boolean varySpeed : new boolean[]{false, true}) {
+            FakeBackend backend = new FakeBackend();
+            GeflipperMouseMotion helper = helper(backend, new SpeedRandom(), (nature, path, x, y) -> {});
+            assertFalse(helper.invoke(new NewMenuEntry(), TARGET, varySpeed, () -> true));
+            assertTrue(backend.events.isEmpty());
+            assertTrue(backend.delegated.isEmpty());
+            assertNull(backend.menu);
+        }
+    }
+
+    @Test
+    void disabledSpeedVariationPreservesOriginalPaceAndNeverSamplesIt() {
+        FakeBackend backend = new FakeBackend();
+        SpeedRandom random = new SpeedRandom();
+        Object originalSpeed = backend.nature.getSpeedManager();
+        GeflipperMouseMotion helper = helper(backend, random, (copy, path, x, y) -> {
+            assertSame(originalSpeed, copy.getSpeedManager());
+            copy.getSystemCalls().setMousePosition(x, y);
+        });
+        assertTrue(helper.move(TARGET, false, () -> true));
+        assertSame(originalSpeed, backend.nature.getSpeedManager());
+        assertEquals(0, random.calls);
     }
 
     @Test
@@ -95,6 +139,7 @@ class GeflipperMouseMotionTest {
             captured.set(copy);
             assertEquals(313L, copy.getSpeedManager().getFlowWithTime(20).y.longValue());
             assertEquals(313L, copy.getSpeedManager().getFlowWithTime(5).y.longValue());
+            copy.getSystemCalls().setMousePosition(x, y);
         });
 
         assertTrue(helper.move(TARGET, true, () -> true));
@@ -158,6 +203,16 @@ class GeflipperMouseMotionTest {
             assertEquals(0, backend.gestures);
             assertEquals(0, random.calls);
         }
+    }
+
+    @Test
+    void customPolicyClicksMoveFirstAndNeverDelegateADirectSdkClick() {
+        FakeBackend backend = movementBackend(2);
+        NewMenuEntry entry = new NewMenuEntry();
+        assertTrue(realHelper(backend, new SpeedRandom()).invoke(entry, TARGET, false, () -> true));
+        assertEquals(List.of(GeflipperMouseMotion.Action.MOVE), backend.delegated);
+        assertEquals(Arrays.asList("press", "release", "click"), backend.events);
+        assertSame(entry, backend.menu);
     }
 
     @Test
@@ -283,6 +338,163 @@ class GeflipperMouseMotionTest {
         assertTrue(backend.delegated.isEmpty());
     }
 
+    @Test
+    void validatedClicksMoveThenValidateOutsideThePressGestureInEveryMovementMode() {
+        for (int mode = 0; mode < 3; mode++) {
+            FakeBackend backend = movementBackend(mode);
+            SpeedRandom random = new SpeedRandom();
+            AtomicBoolean validated = new AtomicBoolean();
+            backend.afterPress = () -> assertTrue(validated.get());
+
+            assertTrue(realHelper(backend, random).clickValidated(TARGET, mode != 1, () -> true, () -> {
+                assertFalse(backend.inGesture, "Fresh widget/menu reads cannot hold the input lock");
+                assertEquals(TARGET, backend.position);
+                assertTrue(backend.events.isEmpty());
+                validated.set(true);
+                return true;
+            }));
+
+            assertEquals(Arrays.asList("press", "release", "click"), backend.events);
+            assertEquals(TARGET, backend.lastClick);
+            assertEquals(mode == 2 ? 1 : 2, backend.gestures);
+            assertEquals(mode == 0 ? 1 : 0, random.calls);
+            assertEquals(mode == 2 ? List.of(GeflipperMouseMotion.Action.MOVE) : List.of(), backend.delegated);
+        }
+    }
+
+    @Test
+    void changedMenuOrSuggestionDuringMovementCancelsWithoutAnUnvalidatedFallbackClick() {
+        for (int mode = 0; mode < 3; mode++) {
+            for (boolean invoke : new boolean[]{false, true}) {
+                FakeBackend backend = movementBackend(mode);
+                AtomicBoolean currentSuggestionAndMenu = new AtomicBoolean(true);
+                backend.afterMove = () -> currentSuggestionAndMenu.set(false);
+                backend.afterDelegate = () -> currentSuggestionAndMenu.set(false);
+                GeflipperMouseMotion helper = realHelper(backend, new SpeedRandom());
+                NewMenuEntry entry = new NewMenuEntry();
+
+                boolean clicked = invoke
+                    ? helper.invokeValidated(entry, TARGET, mode != 1, () -> true, currentSuggestionAndMenu::get)
+                    : helper.clickValidated(TARGET, mode != 1, () -> true, currentSuggestionAndMenu::get);
+
+                assertFalse(clicked);
+                assertTrue(backend.events.isEmpty());
+                assertNull(backend.lastClick);
+                assertNull(backend.menu);
+                assertEquals(mode == 2 ? 0 : 1, backend.gestures);
+                assertEquals(mode == 2 ? List.of(GeflipperMouseMotion.Action.MOVE) : List.of(), backend.delegated);
+            }
+        }
+    }
+
+    @Test
+    void stationaryClickValidatesOutsideInputOwnershipAndNeverMovesAgain() {
+        FakeBackend backend = new FakeBackend();
+        backend.position = TARGET;
+        GeflipperMouseMotion helper = helper(backend, new SpeedRandom(),
+            (nature, path, x, y) -> fail("A validated hover must not start another movement"));
+
+        assertTrue(helper.clickStationary(TARGET, () -> true, () -> {
+            assertFalse(backend.inGesture);
+            assertEquals(0, backend.gestures);
+            return true;
+        }));
+
+        assertEquals(Arrays.asList("press", "release", "click"), backend.events);
+        assertEquals(1, backend.gestures);
+        assertEquals(0, backend.snapshots);
+        assertTrue(backend.moves.isEmpty());
+        assertTrue(backend.delegated.isEmpty());
+    }
+
+    @Test
+    void pointerDriftAfterValidationOrWhileWaitingForInputOwnershipCancelsBeforePress() {
+        for (boolean duringValidation : new boolean[]{false, true}) {
+            FakeBackend backend = new FakeBackend();
+            backend.position = TARGET;
+            Runnable drift = () -> backend.position = new Point(61, 40);
+            if (!duringValidation) backend.beforeGesture = drift;
+
+            assertFalse(realHelper(backend, new SpeedRandom()).clickStationary(TARGET, () -> true, () -> {
+                if (duringValidation) drift.run();
+                return true;
+            }));
+
+            assertTrue(backend.events.isEmpty());
+            assertNull(backend.lastClick);
+            assertTrue(backend.delegated.isEmpty());
+        }
+    }
+
+    @Test
+    void validatedInvokePublishesAfterValidationForNormalDisabledAndCustomMovementPolicies() {
+        for (int mode = 0; mode < 3; mode++) {
+            FakeBackend backend = movementBackend(mode);
+            NewMenuEntry entry = new NewMenuEntry();
+            backend.afterMove = () -> assertNull(backend.menu);
+            backend.afterDelegate = () -> assertNull(backend.menu);
+            backend.afterPress = () -> assertSame(entry, backend.menu);
+
+            assertTrue(realHelper(backend, new SpeedRandom()).invokeValidated(entry, TARGET, mode != 1, () -> true, () -> {
+                assertFalse(backend.inGesture);
+                assertNull(backend.menu);
+                assertEquals(TARGET, backend.position);
+                return true;
+            }));
+
+            assertSame(entry, backend.menu);
+            assertEquals(Arrays.asList("press", "release", "click"), backend.events);
+            assertEquals(TARGET, backend.lastClick);
+            assertEquals(mode == 2 ? List.of(GeflipperMouseMotion.Action.MOVE) : List.of(), backend.delegated);
+        }
+    }
+
+    @Test
+    void cancelledValidatedInvokeClearsOnlyItsOwnPublishedEntry() {
+        for (boolean replace : new boolean[]{false, true}) {
+            FakeBackend backend = new FakeBackend();
+            NewMenuEntry owned = new NewMenuEntry();
+            NewMenuEntry foreign = new NewMenuEntry();
+            backend.afterPress = () -> {
+                if (replace) backend.menu = foreign;
+                backend.human = true;
+            };
+
+            assertFalse(realHelper(backend, new SpeedRandom())
+                .invokeValidated(owned, TARGET, true, () -> true, () -> true));
+
+            if (replace) assertSame(foreign, backend.menu);
+            else assertNull(backend.menu);
+            assertEquals(List.of("press"), backend.events);
+            assertEquals(1, backend.automaticReleases);
+            assertNull(backend.lastClick);
+        }
+    }
+
+    @Test
+    void stationaryClickRejectsForeignMenuAndFailedValidationWithoutPressing() {
+        for (boolean pending : new boolean[]{false, true}) {
+            FakeBackend backend = new FakeBackend();
+            backend.position = TARGET;
+            NewMenuEntry foreign = new NewMenuEntry();
+            if (pending) backend.menu = foreign;
+
+            assertFalse(realHelper(backend, new SpeedRandom()).clickStationary(TARGET, () -> true, () -> false));
+
+            if (pending) assertSame(foreign, backend.menu);
+            assertEquals(0, backend.gestures);
+            assertTrue(backend.events.isEmpty());
+        }
+    }
+
+    private static FakeBackend movementBackend(int mode) {
+        FakeBackend backend = new FakeBackend();
+        if (mode == 2) backend.nature.setNoiseProvider((random, x, y) -> {
+            throw new AssertionError("Unknown policies must retain the SDK movement path");
+        });
+        return backend;
+    }
+
     private static GeflipperMouseMotion realHelper(FakeBackend backend, SpeedRandom random) {
         return helper(backend, random, (nature, path, x, y) -> new MouseMotion(nature, path, x, y).move());
     }
@@ -311,7 +523,8 @@ class GeflipperMouseMotionTest {
         private long now;
         private Point position = new Point(10, 10), lastClick;
         private MenuEntry menu;
-        private Runnable afterMove = () -> {}, afterPress = () -> {}, afterSnapshot = () -> {};
+        private Runnable afterMove = () -> {}, afterPress = () -> {}, afterSnapshot = () -> {},
+            afterDelegate = () -> {}, beforeGesture = () -> {};
 
         private FakeBackend() {
             nature.setTimeToStepsDivider(8);
@@ -340,6 +553,7 @@ class GeflipperMouseMotionTest {
         public boolean gesture(Consumer<GeflipperMouseMotion.Sink> action) {
             assertFalse(inGesture, "Nested InputLoop gestures are forbidden");
             gestures++;
+            beforeGesture.run();
             inGesture = true;
             try {
                 action.accept(new GeflipperMouseMotion.Sink() {
@@ -365,6 +579,9 @@ class GeflipperMouseMotionTest {
         public void delegate(GeflipperMouseMotion.Action action, Point point, NewMenuEntry entry) {
             assertFalse(inGesture);
             delegated.add(action);
+            if (action == GeflipperMouseMotion.Action.MOVE || action == GeflipperMouseMotion.Action.OFFSCREEN)
+                position = point;
+            afterDelegate.run();
         }
         public MenuEntry pendingMenu() { return menu; }
         public void pendingMenu(MenuEntry entry) { menu = entry; }

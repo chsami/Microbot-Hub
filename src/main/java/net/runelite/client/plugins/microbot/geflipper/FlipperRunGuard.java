@@ -1,7 +1,15 @@
 package net.runelite.client.plugins.microbot.geflipper;
 
+import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.ScriptPauseController;
+
 /** Preserve Microbot's input/pause guards without Script.run's shared preference writes. */
 final class FlipperRunGuard {
+    /** Break Handler's pause or the pause button in the Microbot header. */
+    static boolean scriptsPaused() {
+        return Microbot.pauseAllScripts.get() || ScriptPauseController.isPaused();
+    }
+
     interface Context {
         void heartbeat();
         boolean loggedIn();

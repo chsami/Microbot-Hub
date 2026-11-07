@@ -98,8 +98,65 @@ final class GeflipperMouseMotion {
         return entry != null && perform(Action.INVOKE, point, entry, varySpeed, guard);
     }
 
+    /** Re-read client state after movement, before taking ownership of the stationary press. */
+    boolean clickValidated(Point point, boolean varySpeed, BooleanSupplier guard, BooleanSupplier validation) {
+        return validation != null && move(point, varySpeed, guard) && clickStationary(point, guard, validation);
+    }
+
+    boolean clickStationary(Point point, BooleanSupplier guard, BooleanSupplier validation) {
+        return pressValidated(null, point, guard, validation);
+    }
+
+    boolean invokeStationary(NewMenuEntry entry, Point point, BooleanSupplier guard, BooleanSupplier validation) {
+        return entry != null && pressValidated(entry, point, guard, validation);
+    }
+
+    boolean invokeValidated(NewMenuEntry entry, Point point, boolean varySpeed,
+                            BooleanSupplier guard, BooleanSupplier validation) {
+        return entry != null && validation != null && move(point, varySpeed, guard)
+            && pressValidated(entry, point, guard, validation);
+    }
+
     boolean offscreen(Point point, boolean varySpeed, BooleanSupplier guard) {
         return perform(Action.OFFSCREEN, point, null, varySpeed, guard);
+    }
+
+    private boolean pressValidated(NewMenuEntry entry, Point point, BooleanSupplier guard, BooleanSupplier validation) {
+        boolean[] published = {false};
+        boolean completed = false;
+        try {
+            if (point == null || point.getX() < 0 || point.getY() < 0 || guard == null || validation == null
+                || !allowed(guard) || backend.pendingMenu() != null || !point.equals(backend.position())) return false;
+            // Validation may invoke the client thread. Never run it while InputLoop owns the input lock.
+            if (!validation.getAsBoolean() || !allowed(guard) || backend.pendingMenu() != null
+                || !point.equals(backend.position())) return false;
+            completed = backend.gesture(sink -> {
+                checkStationary(point, guard, sink);
+                if (backend.pendingMenu() != null) throw new Cancelled();
+                if (entry != null) {
+                    backend.pendingMenu(entry);
+                    published[0] = true;
+                }
+                checkStationary(point, guard, sink);
+                if (backend.pendingMenu() != entry) throw new Cancelled();
+                sink.press(point.getX(), point.getY());
+                checkStationary(point, guard, sink);
+                sink.release(point.getX(), point.getY());
+                checkStationary(point, guard, sink);
+                sink.click(point.getX(), point.getY());
+                backend.clicked(point);
+            });
+            return completed;
+        } catch (RuntimeException unavailableOrCancelled) {
+            return false;
+        } finally {
+            if (!completed && published[0] && backend.pendingMenu() == entry) backend.pendingMenu(null);
+        }
+    }
+
+    private void checkStationary(Point point, BooleanSupplier guard, Sink sink) {
+        check(guard, sink);
+        if (!point.equals(backend.position())) throw new Cancelled();
     }
 
     private boolean perform(Action action, Point point, NewMenuEntry entry, boolean varySpeed, BooleanSupplier guard) {
@@ -107,10 +164,8 @@ final class GeflipperMouseMotion {
         boolean completed = false;
         try {
             if (point == null || guard == null || !allowed(guard) || backend.pendingMenu() != null) return false;
-            if (!varySpeed) {
-                backend.delegate(action, point, entry);
-                return true;
-            }
+            // Natural movement is independent of the optional pace variation. The SDK click
+            // fallback can emit a direct move when its natural path did not reach the target.
             // All client-thread reads and policy construction happen before taking the input lock.
             Snapshot snapshot = backend.snapshot();
             if (!validTarget(snapshot, point, action == Action.OFFSCREEN)) return false;
@@ -122,10 +177,12 @@ final class GeflipperMouseMotion {
                 || source.getOvershootManager().getClass() != DefaultOvershootManager.class) {
                 // Unknown policies retain their usual SDK movement and its usual cancellation limits.
                 if (!allowed(guard) || backend.pendingMenu() != null) return false;
-                backend.delegate(action, point, entry);
-                return true;
+                backend.delegate(action == Action.OFFSCREEN ? Action.OFFSCREEN : Action.MOVE, point, null);
+                if (action == Action.OFFSCREEN) return allowed(guard);
+                if (action == Action.MOVE) return allowed(guard) && point.equals(backend.position());
+                return pressValidated(entry, point, guard, () -> true);
             }
-            MouseMotionNature nature = privateNature(snapshot.nature);
+            MouseMotionNature nature = privateNature(snapshot.nature, varySpeed);
             if (nature == null || !allowed(guard)) return false;
             completed = backend.gesture(sink -> {
                 check(guard, sink);
@@ -157,7 +214,9 @@ final class GeflipperMouseMotion {
                     throw new Cancelled();
                 }
                 check(guard, sink);
-                if (action == Action.MOVE || action == Action.OFFSCREEN) return;
+                if (action == Action.OFFSCREEN) return;
+                if (!point.equals(backend.position())) throw new Cancelled();
+                if (action == Action.MOVE) return;
                 if (backend.pendingMenu() != null) throw new Cancelled();
                 if (entry != null) {
                     backend.pendingMenu(entry);
@@ -213,7 +272,7 @@ final class GeflipperMouseMotion {
         return outside ? !inside && x >= -1 && y >= -1 && x <= snapshot.width + 1 && y <= snapshot.height + 1 : inside;
     }
 
-    private MouseMotionNature privateNature(MouseMotionNature source) {
+    private MouseMotionNature privateNature(MouseMotionNature source, boolean varySpeed) {
         double divider = source.getTimeToStepsDivider();
         if (!Double.isFinite(divider) || divider <= 0 || source.getMinSteps() <= 0 || source.getEffectFadeSteps() <= 0
             || source.getReactionTimeBaseMs() < 0 || source.getReactionTimeVariationMs() < 0
@@ -241,7 +300,7 @@ final class GeflipperMouseMotion {
             overshoot.setOvershootSpeedupDivider(original.getOvershootSpeedupDivider());
         }
         copy.setOvershootManager(overshoot);
-        copy.setSpeedManager(MouseSpeedVariation.forMovement(source.getSpeedManager(), true, speedRandom));
+        copy.setSpeedManager(MouseSpeedVariation.forMovement(source.getSpeedManager(), varySpeed, speedRandom));
         return copy;
     }
 
@@ -266,13 +325,9 @@ final class GeflipperMouseMotion {
             })) == InputLoop.Result.COMPLETED;
         }
         public void delegate(Action action, Point point, NewMenuEntry entry) {
-            if (action == Action.CLICK) Microbot.getMouse().click(point);
-            else if (action == Action.INVOKE) Microbot.getMouse().click(point, entry);
-            else {
-                if (Microbot.naturalMouse != null) Microbot.naturalMouse.moveTo(point.getX(), point.getY());
-                else Microbot.getMouse().move(point);
-                if (action == Action.OFFSCREEN) Microbot.getMouse().move(point);
-            }
+            if (Microbot.naturalMouse == null) return;
+            Microbot.naturalMouse.moveTo(point.getX(), point.getY());
+            if (action == Action.OFFSCREEN) Microbot.getMouse().move(point);
         }
         public MenuEntry pendingMenu() { return Microbot.targetMenu; }
         public void pendingMenu(MenuEntry entry) { Microbot.targetMenu = entry; }

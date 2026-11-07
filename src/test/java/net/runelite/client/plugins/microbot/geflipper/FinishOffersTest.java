@@ -198,6 +198,14 @@ class FinishOffersTest {
         assertFalse(refreshed.noActiveSells);
     }
 
+    @Test
+    void untradeableItemsDoNotCountAsUnlisted() {
+        Item[] items = new Item[]{new Item(ItemID.COINS, 100), new Item(13190, 1)};
+        FinishOffers result = FinishOffers.capture(emptyOffers(), inventory(items), id -> id != 13190);
+        assertNotNull(result);
+        assertTrue(result.noUnlistedItems);
+    }
+
     private static void assertUnavailableOffers(GrandExchangeOffer[] offers) {
         assertNull(FinishOffers.capture(offers, inventory(new Item(ItemID.COINS, 1))));
         assertFalse(FinishOffers.isActiveBuy(offers, 0));

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static net.runelite.client.plugins.microbot.geflipper.FlipperConfig.RandomizationPreset.*;
 import static net.runelite.client.plugins.microbot.geflipper.FlipperConfig.TimeOfDaySource.*;
@@ -19,6 +20,125 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class WaitingMousePresetsTest {
     private static final Instant START = Instant.parse("2026-10-09T02:00:00Z");
+
+    @Test
+    void localDriftIsHeldForAtLeastFortyFiveMonotonicMinutes() {
+        MutableClock clock = new MutableClock();
+        clock.zone = ZoneId.of("Asia/Singapore");
+        MutableConfig config = localConfig();
+        int[] calls = {0};
+        int[] offsets = {0};
+        WaitingMouse.RandomInt random = (minimum, maximum) -> {
+            calls[0]++;
+            if (minimum < 0) return offsets[0]++ == 0 ? 0 : 3;
+            return minimum;
+        };
+        WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
+        assertEquals(75, presets.frequency(config));
+        clock.elapse(2699);
+        assertEquals(75, presets.frequency(config), "A local offset cannot reroll before 45 minutes");
+        assertEquals(2, calls[0]);
+        clock.elapse(2700);
+        assertEquals(76, presets.frequency(config), "A newly sampled target still moves only one point");
+        assertEquals(4, calls[0]);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {2700, 4500})
+    void localHourlyIntervalsHonorBothEndpointsWithoutBypassingTheThirtySecondSlew(int interval) {
+        MutableClock clock = new MutableClock();
+        clock.zone = ZoneId.of("Asia/Singapore");
+        MutableConfig config = localConfig();
+        RandomSource random = localRandom(0, 3, -3);
+        random.localInterval = interval;
+        WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
+        assertEquals(75, presets.frequency(config));
+        clock.elapse(interval - 1);
+        assertEquals(75, presets.frequency(config));
+        assertEquals(2, random.calls);
+        clock.elapse(interval);
+        assertEquals(76, presets.frequency(config));
+        assertEquals(4, random.calls);
+        clock.elapse(interval + 29);
+        for (int read = 0; read < 100; read++) assertEquals(76, presets.frequency(config));
+        clock.elapse(interval + 30);
+        assertEquals(77, presets.frequency(config));
+        clock.elapse(2L * interval - 1);
+        assertEquals(78, presets.frequency(config));
+        assertEquals(4, random.calls);
+        clock.elapse(2L * interval);
+        assertEquals(78, presets.frequency(config), "Sampling a new offset cannot bypass the step interval");
+        assertEquals(6, random.calls);
+        clock.elapse(2L * interval + 29);
+        assertEquals(77, presets.frequency(config));
+    }
+
+    @Test
+    void independentLocalSamplesMayRepeatWithoutForcedRerolls() {
+        MutableClock clock = new MutableClock();
+        clock.zone = ZoneId.of("Asia/Singapore");
+        MutableConfig config = localConfig();
+        RandomSource random = localRandom(2, 2, 2);
+        random.localInterval = 2700;
+        WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
+        assertEquals(77, presets.frequency(config));
+        clock.elapse(2700);
+        assertEquals(77, presets.frequency(config));
+        assertEquals(4, random.calls, "A repeated random sample does not require another draw");
+        clock.elapse(5400);
+        assertEquals(77, presets.frequency(config));
+        assertEquals(6, random.calls);
+    }
+
+    @Test
+    void theSameLocalHourOnLaterDaysSamplesFreshOffsetsWithoutRestartingOrReplayingTheDay() {
+        MutableClock clock = new MutableClock();
+        clock.zone = ZoneId.of("Asia/Singapore");
+        MutableConfig config = localConfig();
+        config.base = 41;
+        config.time = "17:23";
+        config.rejectCustomTime = true;
+        RandomSource random = localRandom(-3, 3, -2);
+        random.localInterval = 2700;
+        WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
+        assertEquals(72, presets.frequency(config));
+        clock.set(START.plusSeconds(24 * 3600));
+        clock.elapse(24 * 3600);
+        assertEquals(73, presets.frequency(config), "A later day's sample keeps the existing gradual slider state");
+        assertEquals(4, random.calls, "A missed day samples once rather than replaying every hourly interval");
+        for (int read = 0; read < 100; read++) assertEquals(73, presets.frequency(config));
+        assertEquals(4, random.calls);
+        clock.elapse(24 * 3600 + 30);
+        assertEquals(74, presets.frequency(config));
+        clock.set(START.plusSeconds(48 * 3600));
+        clock.elapse(48 * 3600);
+        assertEquals(73, presets.frequency(config));
+        assertEquals(6, random.calls);
+        assertTrue(random.localDrifts.isEmpty(), "The next day uses another random draw, not the first day's offset");
+        assertEquals(41, config.base);
+        assertEquals("17:23", config.time);
+        assertEquals(LOCAL_TIME, config.source);
+        assertEquals(DAY_FATIGUE, config.preset);
+        assertEquals(0, config.customTimeReads);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {Integer.MIN_VALUE, -3, 0, 3, Integer.MAX_VALUE})
+    void localDriftClampsEverySampleToThreePointsAndKeepsTheEffectiveValueBounded(int sampled) {
+        MutableClock clock = new MutableClock();
+        clock.zone = ZoneId.of("Asia/Singapore");
+        MutableConfig config = localConfig();
+        RandomSource random = localRandom(sampled);
+        WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
+        int initial = presets.frequency(config);
+        assertEquals(75 + Math.max(-3, Math.min(3, sampled)), initial);
+        clock.set(START.plusSeconds(12 * 3600));
+        clock.elapse(30);
+        int current = presets.frequency(config);
+        assertEquals(initial - 1, current, "A distant local-time target still advances just one slider point");
+        assertTrue(current >= 22 && current <= 78);
+        assertEquals(2, random.calls, "Changing wall time must not resample the held offset");
+    }
 
     @Test
     void neutralSessionPresetsUseTheirCentersAndCustomPreservesTheClampedExistingChoice() {
@@ -149,26 +269,28 @@ class WaitingMousePresetsTest {
         config.speed = true;
         config.source = choice;
         config.time = "10:00";
-        RandomSource random = new RandomSource(5, -5);
+        RandomSource random = choice == LOCAL_TIME ? localRandom(3, -3) : new RandomSource(5, -5);
         random.interval = 300;
+        int interval = choice == LOCAL_TIME ? random.localInterval : random.interval;
         WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
         int previous = presets.frequency(config);
-        assertEquals(80, previous);
-        clock.set(start.plusSeconds(299));
-        clock.elapse(299);
+        assertEquals(choice == LOCAL_TIME ? 78 : 80, previous);
+        clock.set(start.plusSeconds(interval - 1));
+        clock.elapse(interval - 1);
         presets.frequency(config);
         assertEquals(2, random.calls);
-        clock.set(start.plusSeconds(300));
-        clock.elapse(300);
+        clock.set(start.plusSeconds(interval));
+        clock.elapse(interval);
         previous = presets.frequency(config);
         assertEquals(4, random.calls);
         int lowest = previous;
         int highest = previous;
-        for (int elapsed = 330; elapsed <= 48 * 60 * 60; elapsed += 30) {
+        for (int elapsed = interval + 30; elapsed <= 48 * 60 * 60; elapsed += 30) {
             clock.set(start.plusSeconds(elapsed));
             clock.elapse(elapsed);
             int current = presets.frequency(config);
-            assertTrue(current >= 20 && current <= 80, "Day Fatigue must stay within its bounded range");
+            assertTrue(current >= (choice == LOCAL_TIME ? 22 : 20) && current <= (choice == LOCAL_TIME ? 78 : 80),
+                "Day Fatigue must stay within the selected source's bounded range");
             assertTrue(Math.abs(current - previous) <= 1, "Runtime adjustments move at most one point per 30 seconds");
             lowest = Math.min(lowest, current);
             highest = Math.max(highest, current);
@@ -187,7 +309,7 @@ class WaitingMousePresetsTest {
         MutableConfig config = localConfig();
         config.time = null;
         config.rejectCustomTime = true;
-        RandomSource random = new RandomSource(0, 5);
+        RandomSource random = localRandom(0, 3);
         WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
         assertEquals(75, presets.frequency(config));
         assertTrue(presets.description(config).contains("computer local time 10:00"));
@@ -212,7 +334,7 @@ class WaitingMousePresetsTest {
         MutableClock clock = new MutableClock();
         clock.zone = ZoneId.of("Asia/Singapore");
         MutableConfig config = localConfig();
-        RandomSource random = new RandomSource();
+        RandomSource random = localRandom();
         WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
         assertEquals(75, presets.frequency(config));
         clock.zone = ZoneOffset.UTC;
@@ -246,7 +368,7 @@ class WaitingMousePresetsTest {
         Instant start = Instant.parse(instant);
         clock.set(start);
         MutableConfig config = localConfig();
-        RandomSource random = new RandomSource();
+        RandomSource random = localRandom();
         WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
         int initial = presets.frequency(config);
         assertTrue(presets.description(config).contains("computer local time " + before));
@@ -272,7 +394,7 @@ class WaitingMousePresetsTest {
         clock.set(start);
         MutableConfig config = localConfig();
         config.time = "17:23";
-        RandomSource random = new RandomSource();
+        RandomSource random = localRandom();
         WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
         int initial = presets.frequency(config);
         assertTrue(presets.description(config).contains("computer local time 23:59"));
@@ -290,37 +412,37 @@ class WaitingMousePresetsTest {
         MutableClock clock = new MutableClock();
         clock.zone = ZoneId.of("Asia/Singapore");
         MutableConfig config = localConfig();
-        RandomSource random = new RandomSource(0, -5, 5);
-        random.interval = 120;
+        RandomSource random = localRandom(0, -3, 3);
+        random.localInterval = 2700;
         WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
         assertEquals(75, presets.frequency(config));
-        clock.set(START.plusSeconds(120));
-        clock.elapse(120);
+        clock.set(START.plusSeconds(2700));
+        clock.elapse(2700);
         assertEquals(74, presets.frequency(config));
         assertEquals(4, random.calls);
         clock.set(START.minusSeconds(3600));
-        clock.elapse(90);
+        clock.elapse(2670);
         assertEquals(74, presets.frequency(config), "An injected monotonic rollback also cannot replay an elapsed interval");
         assertEquals(4, random.calls);
-        clock.elapse(149);
+        clock.elapse(2729);
         for (int read = 0; read < 100; read++) assertEquals(74, presets.frequency(config));
         assertTrue(presets.description(config).contains("computer local time 09:00"));
         assertEquals(4, random.calls);
         clock.set(START.minusSeconds(3570));
-        clock.elapse(150);
+        clock.elapse(2730);
         assertEquals(73, presets.frequency(config));
         clock.set(START.minusSeconds(7200));
-        clock.elapse(180);
+        clock.elapse(2760);
         assertEquals(72, presets.frequency(config), "A backward wall edit cannot freeze further monotonic slider updates");
         assertEquals(4, random.calls);
         clock.set(START.minusSeconds(7140));
-        clock.elapse(240);
+        clock.elapse(5400);
         assertEquals(73, presets.frequency(config), "The next drift uses elapsed time despite the wall clock still being behind");
         assertEquals(6, random.calls);
         assertEquals(73, presets.frequency(config));
-        clock.elapse(269);
+        clock.elapse(5429);
         assertEquals(73, presets.frequency(config));
-        clock.elapse(270);
+        clock.elapse(5430);
         assertEquals(74, presets.frequency(config));
     }
 
@@ -329,8 +451,8 @@ class WaitingMousePresetsTest {
         MutableClock clock = new MutableClock();
         clock.zone = ZoneId.of("Asia/Singapore");
         MutableConfig config = localConfig();
-        RandomSource random = new RandomSource(0, -5);
-        random.interval = 120;
+        RandomSource random = localRandom(0, -3);
+        random.localInterval = 2700;
         WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
         assertEquals(75, presets.frequency(config));
         Instant farFuture = START.plusSeconds(100L * 366 * 24 * 60 * 60 + 12 * 3600);
@@ -368,7 +490,7 @@ class WaitingMousePresetsTest {
         config.rejectTimeControls = true;
         config.time = "invalid hidden time";
         config.base = 47;
-        RandomSource random = new RandomSource();
+        RandomSource random = localRandom();
         WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
         for (int read = 0; read < 100; read++) {
             assertEquals(47, presets.frequency(config));
@@ -411,7 +533,7 @@ class WaitingMousePresetsTest {
         MutableConfig config = localConfig();
         config.time = "14:30";
         config.base = 43;
-        RandomSource random = new RandomSource();
+        RandomSource random = localRandom();
         WaitingMousePresets presets = new WaitingMousePresets(clock, random, clock::nanoTime);
         assertEquals(75, presets.frequency(config));
         clock.set(START.plusSeconds(3600));
@@ -818,6 +940,13 @@ class WaitingMousePresetsTest {
         return config;
     }
 
+    private static RandomSource localRandom(Integer... drift) {
+        RandomSource random = new RandomSource();
+        random.localMode = true;
+        random.localDrifts.addAll(Arrays.asList(drift));
+        return random;
+    }
+
     private static final class MutableConfig implements FlipperConfig {
         private RandomizationPreset preset = CUSTOM;
         private TimeOfDaySource source = MORNING;
@@ -867,8 +996,11 @@ class WaitingMousePresetsTest {
     private static final class RandomSource implements WaitingMouse.RandomInt {
         private final Deque<Integer> drifts = new ArrayDeque<>();
         private final Deque<Integer> sessionDrifts = new ArrayDeque<>();
+        private final Deque<Integer> localDrifts = new ArrayDeque<>();
+        private boolean localMode;
         private int calls;
         private int interval = 300;
+        private int localInterval = 4500;
         private int offset;
         private int fatigueInterval = 1800;
 
@@ -876,7 +1008,12 @@ class WaitingMousePresetsTest {
 
         @Override public int inclusive(int minimum, int maximum) {
             calls++;
-            if (minimum == -3) { assertEquals(3, maximum); return offset; }
+            if (minimum == -3) {
+                assertEquals(3, maximum);
+                if (!localMode) return offset;
+                return localDrifts.isEmpty() ? 0 : localDrifts.removeFirst();
+            }
+            if (minimum == 2700) { assertEquals(4500, maximum); return localInterval; }
             if (minimum == -2) { assertEquals(2, maximum); return sessionDrifts.isEmpty() ? 0 : sessionDrifts.removeFirst(); }
             if (minimum == 900) { assertEquals(1800, maximum); return fatigueInterval; }
             if (minimum == -5) {

@@ -14,6 +14,8 @@ import java.util.function.LongSupplier;
 /** In-memory randomization policy. The master switch and all preference writes belong to the caller. */
 final class WaitingMousePresets {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm");
+    private static final int LOCAL_DRIFT_MIN_SECONDS = 45 * 60;
+    private static final int LOCAL_DRIFT_MAX_SECONDS = 75 * 60;
     private final Clock clock;
     private final WaitingMouse.RandomInt random;
     private final LongSupplier nanoTime;
@@ -132,8 +134,8 @@ final class WaitingMousePresets {
             startTime = virtualTime = selectedStart;
             source = selectedSource;
             configuredTime = selectedTime;
-            drift = randomDrift();
-            nextDriftSeconds = randomInterval();
+            drift = randomDrift(local);
+            nextDriftSeconds = randomDayInterval(local);
             dayElapsed = lastAdjustmentSeconds = 0;
             localAnchorNanos = nowNanos;
             effective = target(virtualTime, drift);
@@ -148,8 +150,8 @@ final class WaitingMousePresets {
         // slider changes so clock/zone corrections cannot freeze or accelerate them.
         dayElapsed = elapsed;
         if (elapsed >= nextDriftSeconds) {
-            drift = randomDrift();
-            nextDriftSeconds = elapsed + randomInterval();
+            drift = randomDrift(local);
+            nextDriftSeconds = elapsed + randomDayInterval(local);
         }
         int target = target(virtualTime, drift);
         if (target != effective && elapsed - lastAdjustmentSeconds >= 30) {
@@ -233,7 +235,17 @@ final class WaitingMousePresets {
         };
     }
 
-    private int randomDrift() { return clamp(random.inclusive(-5, 5), -5, 5); }
+    private int randomDrift(boolean local) {
+        int limit = local ? 3 : 5;
+        return clamp(random.inclusive(-limit, limit), -limit, limit);
+    }
+
+    private int randomDayInterval(boolean local) {
+        // A fresh offset and deadline avoid a daily clock-derived randomization pattern.
+        return local ? clamp(random.inclusive(LOCAL_DRIFT_MIN_SECONDS, LOCAL_DRIFT_MAX_SECONDS),
+            LOCAL_DRIFT_MIN_SECONDS, LOCAL_DRIFT_MAX_SECONDS) : randomInterval();
+    }
+
     private int randomInterval() { return clamp(random.inclusive(120, 300), 120, 300); }
 
     private static int target(LocalTime time, int drift) {

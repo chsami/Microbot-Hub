@@ -218,6 +218,23 @@ class FinishSessionTest {
     }
 
     @Test
+    void stopWaitingForSalesAllowsFinishingEvenWithActiveSells() {
+        Fixture fixture = new Fixture();
+        FinishSession session = start(fixture, true);
+        fixture.manager.completeRequest();
+
+        FinishSession.CompletionSnapshot withSells = new FinishSession.CompletionSnapshot(
+            true, true, true, true, false, true);
+        assertFalse(session.completionReady(withSells, 100));
+        assertFalse(session.completionReady(withSells, 10000));
+
+        session.stopWaitingForSales();
+        assertFalse(session.completionReady(withSells, 10100));
+        assertTrue(session.completionReady(withSells, 15100));
+        session.close();
+    }
+
+    @Test
     void onlyKnownNonBuyingSuggestionsAreAllowed() {
         Fixture fixture = new Fixture();
         FinishSession session = start(fixture, false);

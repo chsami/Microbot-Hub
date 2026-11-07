@@ -3,11 +3,15 @@ package net.runelite.client.plugins.microbot.geflipper;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /** Owns the temporary Copilot sell-only mode requested by the Finish button. */
 final class FinishSession {
     static final long COMPLETE_STABLE_MS = 5000;
+    static final long STALE_SETTLE_MS = 15_000;
+    private long refreshAskedAtMillis;
     private static final String REQUESTED = "Finish requested. Waiting for Copilot.";
     private static final String UNAVAILABLE = "Finish paused: Copilot's finish controls are unavailable. Check Copilot or stop GE Flipper.";
     private static final String PAUSED = "Finish paused: resume Copilot to finish the offers.";
@@ -52,6 +56,12 @@ final class FinishSession {
     }
 
     synchronized boolean isRequested() { return requested; }
+
+    /** A system update is imminent: stop waiting for sell offers to fill and just finish collecting. */
+    synchronized void stopWaitingForSales() { waitForAllSales = false; }
+
+    /** True while Finish also waits for every sell offer to fill (a mule sell-down), not just for listing them. */
+    synchronized boolean waitsForAllSales() { return waitForAllSales; }
     synchronized boolean isActive() { return active; }
     synchronized long generation() { return generation; }
     synchronized String status() { return status; }
@@ -146,6 +156,7 @@ final class FinishSession {
             changedSellOnly = !initialMode;
             if (changedSellOnly) setSellOnly.invoke(preferences, true);
             setNeeded.invoke(manager, true);
+            refreshAskedAtMillis = System.currentTimeMillis();
             active = true;
             readinessStarted = false;
             status = REFRESHING;
@@ -210,6 +221,7 @@ final class FinishSession {
                 if (!inProgress) {
                     baselineReceivedAt = instant(getReceivedAt, manager);
                     setNeeded.invoke(manager, true);
+                    refreshAskedAtMillis = System.currentTimeMillis();
                     waitingForPreviousRequest = false;
                 }
                 status = REFRESHING;
@@ -222,8 +234,14 @@ final class FinishSession {
                 return false;
             }
             Instant received = instant(getReceivedAt, manager);
-            if (inProgress || bool(getNeeded, manager) || bool(getRefreshPending, manager)
-                || received == null || (baselineReceivedAt != null && !received.isAfter(baselineReceivedAt))) {
+            boolean pending = inProgress || bool(getNeeded, manager) || bool(getRefreshPending, manager);
+            // Copilot does not emit a newer timestamp when nothing changed on the exchange. After a
+            // quiet period with nothing pending, the existing response is the current answer.
+            boolean staleButSettled = received != null && baselineReceivedAt != null
+                && !received.isAfter(baselineReceivedAt) && !pending
+                && System.currentTimeMillis() - refreshAskedAtMillis > STALE_SETTLE_MS;
+            if (pending || received == null
+                || (baselineReceivedAt != null && !received.isAfter(baselineReceivedAt) && !staleButSettled)) {
                 status = REFRESHING;
                 readinessStarted = false;
                 return false;
@@ -249,6 +267,23 @@ final class FinishSession {
             readinessStarted = true;
         }
         return nowMillis - readySince >= COMPLETE_STABLE_MS;
+    }
+
+    /**
+     * Names, in plain words and in a fixed order, what a Finish is still waiting for. Empty when every snapshot
+     * condition that completionReady reads is met, so the only wait left is the settle time. For logging only:
+     * it reads nothing but its arguments and changes nothing, so it cannot alter when Finish completes.
+     */
+    static String describeUnmet(CompletionSnapshot snapshot, boolean waitForAllSales) {
+        if (snapshot == null) return "a reading of the Grand Exchange";
+        List<String> unmet = new ArrayList<>();
+        if (!snapshot.overviewReady) unmet.add("the Grand Exchange overview to be open");
+        if (!snapshot.noActiveBuys) unmet.add("buy offers to be cancelled");
+        if (!snapshot.noCollectables) unmet.add("finished offers to be collected");
+        if (!snapshot.noUnlistedItems) unmet.add("inventory items to be listed for sale");
+        if (waitForAllSales && !snapshot.noActiveSells) unmet.add("sell offers to finish");
+        if (!snapshot.healthyFreshWait) unmet.add("Copilot to show Wait");
+        return String.join(", ", unmet);
     }
 
     /** Releases the temporary mode while preserving the explicit request over a logout. */

@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.geflipper;
 
+import java.util.function.IntPredicate;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
 import net.runelite.api.Item;
@@ -28,6 +29,14 @@ final class FinishOffers {
 
     /** Must be called with client-thread reads; unavailable data cannot report completion. */
     static FinishOffers capture(GrandExchangeOffer[] offers, ItemContainer inventory) {
+        return capture(offers, inventory, id -> true);
+    }
+
+    /**
+     * Items the Grand Exchange cannot trade (bonds, teleport tabs, pouches) never count as unlisted,
+     * otherwise Finish would wait forever for Copilot to sell something it cannot sell.
+     */
+    static FinishOffers capture(GrandExchangeOffer[] offers, ItemContainer inventory, IntPredicate tradeable) {
         if (offers == null || offers.length != OFFER_SLOTS || inventory == null) return null;
         try {
             int buySlot = -1;
@@ -67,7 +76,7 @@ final class FinishOffers {
                 if (quantity == 0) continue;
                 if (item.getId() <= 0) return null;
                 occupiedSlots++;
-                if (item.getId() != ItemID.COINS) noUnlistedItems = false;
+                if (item.getId() != ItemID.COINS && tradeable.test(item.getId())) noUnlistedItems = false;
             }
             return new FinishOffers(buySlot, noCollectables, noUnlistedItems,
                 noActiveSells, INVENTORY_SLOTS - occupiedSlots);

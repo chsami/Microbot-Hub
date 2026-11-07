@@ -7,6 +7,17 @@ import net.runelite.api.Point;
 
 /** Executes supported slot operations without falling back to "View offer". */
 public final class SlotActionExecutor {
+    /**
+     * Planned click point and live cursor must both lie on the slot button.
+     * Exact pixel equality is not required: natural mouse often settles nearby after a hover.
+     */
+    public static boolean cursorOnSlotButton(Point mouse, Point planned, Rectangle buttonBounds) {
+        return mouse != null && planned != null && buttonBounds != null
+            && buttonBounds.width >= 2 && buttonBounds.height >= 2
+            && buttonBounds.contains(planned.getX(), planned.getY())
+            && buttonBounds.contains(mouse.getX(), mouse.getY());
+    }
+
     enum Action {
         ABORT("Abort offer", 2),
         MODIFY("Modify offer", 3);
@@ -30,15 +41,27 @@ public final class SlotActionExecutor {
         MENU_NOT_READY
     }
 
+    enum Readiness {
+        READY,
+        /** The full wait elapsed while the original action remained safe to attempt. */
+        TIMED_OUT,
+        /** The action became unsafe, was interrupted, or the script stopped waiting. */
+        CANCELLED
+    }
+
     interface Ui {
         boolean slotSwapEnabled();
         /** Returns null unless the visible slot exposes this exact widget operation. */
         Point actionPoint(int slotId, Action action);
         boolean hover(Point point);
-        boolean awaitDefaultAction(int slotId, Action action, Point point);
+        Readiness awaitDefaultAction(int slotId, Action action, Point point);
         /** Revalidates the suggestion and default action immediately before the click. */
         boolean clickDefaultAction(int slotId, Action action, Point point);
         boolean invokeAction(int slotId, Action action, Point point);
+        /** Revalidates the original offer, suggestion and hovered operation before dispatch. */
+        default boolean invokeFallbackAction(int slotId, Action action, Point point) {
+            return false;
+        }
     }
 
     static Result execute(FlipperConfig.SlotAction mode, Action action, int slotId, Ui ui) {
@@ -51,24 +74,17 @@ public final class SlotActionExecutor {
             return ui.invokeAction(slotId, action, point) ? Result.ACTED : Result.MENU_NOT_READY;
         }
         if (!ui.hover(point)) return Result.MENU_NOT_READY;
-        if (!ui.awaitDefaultAction(slotId, action, point)) return Result.MENU_NOT_READY;
+        Readiness readiness = ui.awaitDefaultAction(slotId, action, point);
+        if (readiness == Readiness.TIMED_OUT) {
+            return ui.invokeFallbackAction(slotId, action, point) ? Result.ACTED : Result.MENU_NOT_READY;
+        }
+        if (readiness != Readiness.READY) return Result.MENU_NOT_READY;
         return ui.clickDefaultAction(slotId, action, point) ? Result.ACTED : Result.MENU_NOT_READY;
     }
 
     static boolean supportsAction(String[] actions, Action action) {
         return actions != null && action.identifier > 0 && actions.length >= action.identifier
             && action.option.equals(actions[action.identifier - 1]);
-    }
-
-    /**
-     * Planned click point and live cursor must both lie on the slot button.
-     * Exact pixel equality is not required: natural mouse often settles nearby after a hover.
-     */
-    public static boolean cursorOnSlotButton(Point mouse, Point planned, Rectangle buttonBounds) {
-        return mouse != null && planned != null && buttonBounds != null
-            && buttonBounds.width >= 2 && buttonBounds.height >= 2
-            && buttonBounds.contains(planned.getX(), planned.getY())
-            && buttonBounds.contains(mouse.getX(), mouse.getY());
     }
 
     /** The last menu entry is the actual left-click operation after Copilot's swap. */

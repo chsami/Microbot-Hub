@@ -4,15 +4,19 @@ import com.google.inject.Inject;
 import com.google.inject.Provides;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.ProfileChanged;
+import net.runelite.client.input.MouseManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.plugins.PluginInstantiationException;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.ui.MicrobotTopLevelConfigPanel;
 
@@ -21,22 +25,27 @@ import javax.inject.Provider;
 import javax.swing.SwingUtilities;
 
 import java.awt.*;
+import java.util.List;
 
 @PluginDescriptor(
         name = PluginDescriptor.Choken + "Flipper",
-        description = "Flipping copilot automation",
+        description = "Follows Flipping Copilot's suggestions at the Grand Exchange",
         tags = {"flip", "ge", "grand", "exchange", "automation"},
-        authors = {"Choken", "afss0"},
+        authors = {"Choken", "afss0", "Joinkiee"},
         version = FlipperPlugin.version,
-        minClientVersion = "2.6.26",
+        minClientVersion = "2.6.53",
         cardUrl = "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/FlipperPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class FlipperPlugin extends Plugin {
-    public static final String version = "1.2.81";
+    public static final String version = "1.3.0";
+    /** Logger name for the few lines meant for client.log whatever this package's own log level is. */
+    static final String DIAGNOSTICS_LOGGER = "GEFlipper";
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FlipperPlugin.class);
+    /** Outside this package's logger on purpose: that one is held at WARN to keep the game chat quiet. */
+    private static final org.slf4j.Logger diagnostics = org.slf4j.LoggerFactory.getLogger(DIAGNOSTICS_LOGGER);
     @Inject
     private Client client;
     @Inject
@@ -55,14 +64,45 @@ public class FlipperPlugin extends Plugin {
     private ConfigManager configManager;
     @Inject
     private PluginManager pluginManager;
-    private long lifecycleGeneration;
+    private volatile long lifecycleGeneration;
     @Inject
     private Provider<MicrobotTopLevelConfigPanel> settingsPanelProvider;
     private WaitingMouseSettings waitingMouseSettings;
+    /** Lives from plugin load until it is unloaded, whether GE Flipper is on or off. */
+    private SettingsLook settingsLook;
+    @Inject
+    private MouseManager mouseManager;
+    private ManualMouseGuard manualMouseGuard;
+    private MuleLoginOverlay muleLoginOverlay;
+    @Inject
+    private net.runelite.client.eventbus.EventBus eventBus;
+    private final FinishBreakLock finishBreakLock = new FinishBreakLock();
+    private FinishLogoutHold logoutHold;
+    private javax.swing.Timer logoutHoldTimer;
 
     @Provides
     net.runelite.client.plugins.microbot.geflipper.FlipperConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(FlipperConfig.class);
+    }
+
+    /**
+     * Runs once when Microbot loads the plugin, on or off, so its settings panel keeps its sections folded and greys
+     * settings that are not in use either way. Look only: it never starts the script or changes a setting.
+     */
+    @Inject
+    void installSettingsLook(net.runelite.client.eventbus.EventBus eventBus) {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                if (settingsLook != null || settingsPanelProvider == null || config == null) return;
+                SettingsLook look = new SettingsLook(this, config, settingsPanelProvider.get().getWrappedPanel(),
+                    eventBus, () -> flipperScript != null && flipperScript.isRunning());
+                look.setBindingsActive(waitingMouseSettings != null);
+                look.start();
+                settingsLook = look;
+            } catch (RuntimeException | LinkageError unavailable) {
+                log.warn("GE Flipper settings look unavailable on this client: {}", unavailable.toString());
+            }
+        });
     }
 
 
@@ -98,18 +138,23 @@ public class FlipperPlugin extends Plugin {
     @Override
     protected void startUp() throws AWTException{
         lifecycleGeneration++;
+        // One line per start, so a log shows which build is running (an old jar was once mistaken for the new one).
+        diagnostics.info("GE Flipper {} started.", version);
         warnIfSlotSwapOff();
         applyOwnLogLevel();
+        removeOldGuideText();
+        if (settingsLook != null) settingsLook.setBindingsActive(true);
         if (settingsPanelProvider != null && configManager != null) {
             waitingMouseSettings = new WaitingMouseSettings(this, config,
                 settingsPanelProvider.get().getWrappedPanel(),
                 this::saveWaitingMouseChance,
-                this::requestFinish, () -> flipperScript != null && flipperScript.isRunning()
+                this::requestFinishFromButton, () -> flipperScript != null && flipperScript.isRunning()
                     && !flipperScript.isFinishing(),
                 () -> flipperScript.waitingMouseFrequency(config),
                 () -> config.waitingMousePreset() != FlipperConfig.RandomizationPreset.DAY_FATIGUE
                     || !config.randomizeMouseSpeed(),
                 () -> flipperScript.waitingMouseDescription(config));
+            waitingMouseSettings.setMuleStatusSupplier(() -> flipperScript.getMuleSettingsStatus());
             waitingMouseSettings.start();
         }
         if (overlay != null) {
@@ -118,46 +163,189 @@ public class FlipperPlugin extends Plugin {
         }
         flipperScript.setSettingsAvailabilityChanged(this::refreshWaitingMouseSettings);
         flipperScript.setWaitingMouseFrequencyChanged(this::refreshWaitingMouseValue);
+        flipperScript.setSystemUpdateHandler(this::requestFinish);
+        if (configManager != null) flipperScript.attachMuleLedgerStore(() -> new MuleLedgerConfigStore(configManager));
         flipperScript.run(config);
+        startMuleLoginOverlay();
+        if (mouseManager != null && client != null) {
+            manualMouseGuard = new ManualMouseGuard(mouseManager, client::getCanvas,
+                () -> config != null && config.blockManualMouseInput()
+                    && flipperScript != null && flipperScript.isRunning()
+                    && client.getGameState() == GameState.LOGGED_IN);
+            manualMouseGuard.start();
+        }
         refreshWaitingMouseSettings();
+    }
+
+    /**
+     * The guide moved to a new key so its new text shows. RuneLite had saved the old text under the old key in every
+     * profile; remove that copy once. No other setting is touched.
+     */
+    private void removeOldGuideText() {
+        try {
+            if (configManager != null
+                && configManager.getConfiguration(FlipperConfig.GROUP, FlipperConfig.OLD_GUIDE_KEY) != null) {
+                configManager.unsetConfiguration(FlipperConfig.GROUP, FlipperConfig.OLD_GUIDE_KEY);
+            }
+        } catch (RuntimeException ignored) {
+        }
     }
 
     /** Only an explicit slider edit saves the manual value; config replay never writes settings. */
     void saveWaitingMouseChance(int value) {
         if (configManager == null) return;
         synchronized (configManager) {
-            configManager.setConfiguration("Flipper Config", "waitingMousePreset",
+            configManager.setConfiguration(FlipperConfig.GROUP, "waitingMousePreset",
                 FlipperConfig.RandomizationPreset.CUSTOM);
-            configManager.setConfiguration("Flipper Config", "waitingMouseChance",
+            configManager.setConfiguration(FlipperConfig.GROUP, "waitingMouseChance",
                 Math.max(0, Math.min(100, value)));
         }
     }
 
     /** Called only by the owned native speed checkbox's explicit enable action. */
     void selectFatigueFromMouseSpeedClick() {
-        if (configManager != null) configManager.setConfiguration("Flipper Config", "waitingMousePreset",
+        if (configManager != null) configManager.setConfiguration(FlipperConfig.GROUP, "waitingMousePreset",
             FlipperConfig.RandomizationPreset.DAY_FATIGUE);
     }
 
-    private void requestFinish() {
-        if (flipperScript == null || !flipperScript.isRunning()) return;
+    static final int STOP_RETRIES = 3;
+    static final int STOP_RETRY_MS = 30_000;
+
+    /** True when Finish started. Breaks wait (through Break Handler's own lock) until GE Flipper stops. */
+    boolean requestFinish() {
+        if (flipperScript == null || !flipperScript.isRunning()) return false;
         long generation = lifecycleGeneration;
-        flipperScript.requestFinish(() -> stopAfterFinish(generation));
+        if (!flipperScript.requestFinish(() -> stopAfterFinish(generation))) {
+            log.warn("Finish could not start right now. Try again in a moment.");
+            return false;
+        }
+        finishBreakLock.acquire();
+        diagnostics.info("Finish started: listing items; breaks wait until GE Flipper stops.");
+        return true;
+    }
+
+    private void requestFinishFromButton() {
+        WaitingMouseSettings panel = waitingMouseSettings;
+        if (!requestFinish() && panel != null) panel.finishRefused();
     }
 
     void stopAfterFinish(long generation) {
-        SwingUtilities.invokeLater(() -> {
-            if (generation != lifecycleGeneration || flipperScript == null
-                || !flipperScript.isFinishComplete() || !flipperScript.isRunning()
-                || pluginManager == null || !pluginManager.isPluginActive(this)) return;
-            try {
-                // This explicit Finish request disables only this plugin.
-                pluginManager.setPluginEnabled(this, false);
-                pluginManager.stopPlugin(this);
-            } catch (PluginInstantiationException failure) {
-                log.error("Finish completed, but GE Flipper could not be disabled. Turn it off manually.");
+        SwingUtilities.invokeLater(() -> holdUntilLoggedOut(generation));
+    }
+
+    /**
+     * Everything is listed. GE Flipper stops all input so the game's idle timer can log the account out, keeps
+     * auto-login from logging back in meanwhile, and switches itself off after the logout.
+     */
+    private void holdUntilLoggedOut(long generation) {
+        String declined = generation != lifecycleGeneration ? "GE Flipper was restarted"
+            : flipperScript == null ? "no script"
+            : !flipperScript.isFinishComplete() ? "Finish is not complete yet"
+            : !flipperScript.isRunning() ? "the script already stopped"
+            : logoutHold != null ? "already waiting for the logout" : null;
+        if (declined != null) {
+            diagnostics.info("Finish: not stopping GE Flipper ({}).", declined);
+            return;
+        }
+        flipperScript.shutdown();
+        flipperScript.setAwaitingFinishLogout(true);
+        log.warn("Finish: everything is listed. GE Flipper turns off once the game logs you out; "
+            + "auto-login waits until you log in again.");
+        FinishLogoutHold hold = new FinishLogoutHold(new FinishLogoutHold.Port() {
+            @Override public boolean loggedOut() {
+                return client != null && client.getGameState() == GameState.LOGIN_SCREEN;
+            }
+            @Override public void post(Object event) {
+                if (eventBus != null) eventBus.post(event);
+            }
+            @Override public void finished(boolean loggedOut) {
+                stopLogoutHold();
+                if (!loggedOut) {
+                    log.warn("Finish: the game kept you logged in for 10 minutes (another plugin may stop idle "
+                        + "logout). GE Flipper is turning off; log out when you're ready.");
+                }
+                disableAfterFinish(generation, 1);
             }
         });
+        logoutHold = hold;
+        hold.start(nowMillis());
+        if (hold.tick(nowMillis())) return;
+        javax.swing.Timer timer = new javax.swing.Timer((int) FinishLogoutHold.RENEW_MS, e -> hold.tick(nowMillis()));
+        logoutHoldTimer = timer;
+        timer.start();
+    }
+
+    private void stopLogoutHold() {
+        javax.swing.Timer timer = logoutHoldTimer;
+        logoutHoldTimer = null;
+        if (timer != null) timer.stop();
+        FinishLogoutHold hold = logoutHold;
+        logoutHold = null;
+        if (hold != null) hold.cancel();
+    }
+
+    private static long nowMillis() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
+    private void disableAfterFinish(long generation, int attempt) {
+        String declined = generation != lifecycleGeneration ? "GE Flipper was restarted"
+            : pluginManager == null ? "no plugin manager"
+            : !pluginManager.isPluginActive(this) ? "the plugin is already off" : null;
+        if (declined != null) {
+            diagnostics.info("Finish: not stopping GE Flipper ({}).", declined);
+            return;
+        }
+        try {
+            // This explicit Finish request disables only this plugin.
+            pluginManager.setPluginEnabled(this, false);
+            pluginManager.stopPlugin(this);
+        } catch (PluginInstantiationException | RuntimeException failure) {
+            if (attempt < STOP_RETRIES) {
+                log.warn("Finish completed, but GE Flipper could not be disabled (try {} of {}). Retrying in {} s.",
+                    attempt, STOP_RETRIES, STOP_RETRY_MS / 1000);
+                javax.swing.Timer retry = new javax.swing.Timer(STOP_RETRY_MS,
+                    event -> disableAfterFinish(generation, attempt + 1));
+                retry.setRepeats(false);
+                retry.start();
+            } else {
+                log.error("Finish completed, but GE Flipper could not be disabled. Turn it off manually.");
+            }
+            return;
+        }
+        diagnostics.info("Finish: GE Flipper is off.");
+    }
+
+    /** The Mule receiver's stats on the login screen, where RuneLite draws no overlays of its own. */
+    private void startMuleLoginOverlay() {
+        MuleLoginOverlay previous = muleLoginOverlay;
+        muleLoginOverlay = null;
+        if (previous != null) previous.close();
+        if (client == null || config == null || flipperScript == null || GraphicsEnvironment.isHeadless()) return;
+        MuleLoginOverlay created = new MuleLoginOverlay(new MuleLoginOverlay.Source() {
+            @Override public boolean enabled() {
+                return config.showOverlay() && config.muleMode() == FlipperConfig.MuleMode.MULE_RECEIVER
+                    && flipperScript.isRunning();
+            }
+            @Override public GameState gameState() { return client.getGameState(); }
+            @Override public Component anchor() { return client.getCanvas(); }
+            @Override public Rectangle canvasOnScreen() {
+                Canvas canvas = client.getCanvas();
+                if (canvas == null || !canvas.isShowing()) return null;
+                try {
+                    return new Rectangle(canvas.getLocationOnScreen(), canvas.getSize());
+                } catch (IllegalComponentStateException notShowing) {
+                    return null;
+                }
+            }
+            @Override public String title() { return MuleOverlayView.title(); }
+            @Override public List<MuleOverlayView.Row> rows() {
+                return MuleOverlayView.receiverRows(flipperScript.getMuleConnectionStatus(),
+                    flipperScript.getMuleLedgerSnapshot(), false, flipperScript.getSlotActionStatus());
+            }
+        });
+        muleLoginOverlay = created;
+        created.start();
     }
 
     /**
@@ -168,7 +356,8 @@ public class FlipperPlugin extends Plugin {
     private void warnIfSlotSwapOff() {
         if (configManager == null || config == null
             || config.slotAction() != FlipperConfig.SlotAction.COPILOT_LEFT_CLICK) return;
-        if ("true".equals(configManager.getConfiguration("flippingcopilot", "slotActionSwap"))) return;
+        // An unset preference uses Copilot's enabled default, so only explicit false warrants this warning.
+        if (!"false".equals(configManager.getConfiguration("flippingcopilot", "slotActionSwap"))) return;
         log.warn("GE Flipper's Copilot left-click swap is On, but Flipping Copilot's slot action swap is off. "
             + "Enable it in Copilot's own settings, or set Copilot left-click swap to Off in GE Flipper. "
             + "This plugin never changes that setting for you.");
@@ -176,8 +365,10 @@ public class FlipperPlugin extends Plugin {
 
     @Subscribe
     public void onConfigChanged(ConfigChanged event) {
-        if (!"Flipper Config".equals(event.getGroup())) return;
+        if (!FlipperConfig.GROUP.equals(event.getGroup())) return;
+        if (event.getKey().startsWith("mule") && flipperScript != null) flipperScript.invalidateMuleActions();
         if ("slotActionMode".equals(event.getKey())) {
+            if (flipperScript != null) flipperScript.invalidateMouseMovement();
             warnIfSlotSwapOff();
         }
         if ("verboseLogging".equals(event.getKey())) applyOwnLogLevel();
@@ -197,7 +388,19 @@ public class FlipperPlugin extends Plugin {
             }
             refreshWaitingMouseSettings();
         }
+        if ("secondScreenAfkMode".equals(event.getKey()) && flipperScript != null
+            && config != null && config.secondScreenAfkMode() == FlipperConfig.SecondScreenAfkMode.OFF) {
+            flipperScript.resetSecondScreenAfk();
+        }
         if ("showOverlay".equals(event.getKey()) && overlay != null && !config.showOverlay()) overlay.clearStats();
+    }
+
+    @Subscribe
+    public void onChatMessage(ChatMessage event) {
+        if (event.getType() != ChatMessageType.TRADEREQ || flipperScript == null
+            || client == null || client.getGameState() != GameState.LOGGED_IN) return;
+        flipperScript.recordMuleTradeRequest(MulePolicy.tradeRequestName(event.getName(), event.getMessage()),
+            client.getAccountHash());
     }
 
     @Subscribe
@@ -206,6 +409,8 @@ public class FlipperPlugin extends Plugin {
             flipperScript.invalidateMouseMovement();
             flipperScript.resetWaitingMousePresets();
             flipperScript.pauseFinishForProfileChange();
+            flipperScript.pauseMuleForProfileChange();
+            flipperScript.resetSecondScreenAfk();
         }
         refreshWaitingMouseSettings();
     }
@@ -238,12 +443,22 @@ public class FlipperPlugin extends Plugin {
     @Override
     protected void shutDown() {
         lifecycleGeneration++;
+        stopLogoutHold();
+        finishBreakLock.release();
+        if (flipperScript != null) flipperScript.setAwaitingFinishLogout(false);
+        if (manualMouseGuard != null) manualMouseGuard.close();
+        manualMouseGuard = null;
         flipperScript.setSettingsAvailabilityChanged(null);
         flipperScript.setWaitingMouseFrequencyChanged(null);
+        flipperScript.setSystemUpdateHandler(null);
+        MuleLoginOverlay loginOverlay = muleLoginOverlay;
+        muleLoginOverlay = null;
+        if (loginOverlay != null) loginOverlay.close();
         flipperScript.shutdown();
         flipperScript.state = State.GOING_TO_GE;
         if (waitingMouseSettings != null) waitingMouseSettings.close();
         waitingMouseSettings = null;
+        if (settingsLook != null) settingsLook.setBindingsActive(false);
         if (overlay != null) {
             overlay.clearStats();
             if (overlayManager != null) overlayManager.remove(overlay);

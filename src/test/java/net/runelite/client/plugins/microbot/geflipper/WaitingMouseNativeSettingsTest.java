@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.geflipper;
 
 import com.formdev.flatlaf.ui.FlatSliderUI;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.event.ActionEvent;
@@ -24,14 +25,18 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.Action;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
@@ -114,6 +119,140 @@ class WaitingMouseNativeSettingsTest {
                 assertTrue(fixture.patches().isEmpty(), "Restoring native listeners must not save anything");
             }
         });
+    }
+
+    @Test
+    void settingsStartFoldedWithOnlyFinishAndOverlayShownAndTheSliderAttachesWhenMouseIsOpened() throws Exception {
+        Fixture[] fixture = new Fixture[1];
+        Map<String, String> before = new HashMap<>();
+        try {
+            onEdt(() -> {
+                fixture[0] = new Fixture(temporary, true, false);
+                before.putAll(fixture[0].preferences());
+                fixture[0].startLook(true);
+                fixture[0].settings.start();
+                assertEquals(new HashSet<>(Arrays.asList("trading", "mouse", "afk", "muling", "help")),
+                    fixture[0].sectionContents().keySet());
+                for (Map.Entry<String, JPanel> section : fixture[0].sectionContents().entrySet()) {
+                    assertFalse(section.getValue().isVisible(), section.getKey() + " starts folded");
+                }
+                Set<String> shown = new HashSet<>();
+                for (Method method : FlipperConfig.class.getMethods()) {
+                    ConfigItem item = method.getAnnotation(ConfigItem.class);
+                    if (item == null) continue;
+                    assertEquals(item.section().isEmpty(), method.getName().equals("finish")
+                        || method.getName().equals("showOverlay"), item.keyName() + " grouping");
+                    if (fixture[0].shown(fixture[0].row(method.getName()))) shown.add(item.name());
+                }
+                assertEquals(new HashSet<>(Arrays.asList("End / Finish", "Show overlay")), shown,
+                    "Only the two everyday controls show until a section is opened");
+
+                // Finish sits outside the sections, so its binding works with everything folded.
+                fixture[0].finishAvailable = false;
+                fixture[0].settings.refresh();
+                assertFalse(fixture[0].finishButton().isEnabled());
+                fixture[0].finishAvailable = true;
+                fixture[0].settings.refresh();
+                assertTrue(fixture[0].finishButton().isEnabled());
+
+                assertTrue(fixture[0].sliders().isEmpty(), "A folded row keeps its native control");
+                assertTrue(fixture[0].east(fixture[0].row("waitingMouseChance")) instanceof JSpinner);
+                fixture[0].setSectionOpen("mouse", true);
+            });
+            flushEdt();
+            onEdt(() -> {
+                assertTrue(fixture[0].shown(fixture[0].row("waitingMouseChance")));
+                assertFalse(fixture[0].shown(fixture[0].row("muleMode")), "Opening one section leaves the rest folded");
+                assertEquals(47, fixture[0].slider().getValue(), "Opening the section attaches the slider by itself");
+                fixture[0].search().setText("detailed");
+                fixture[0].search().setText("");
+                assertTrue(fixture[0].sectionContents().get("trading").isVisible(),
+                    "Microbot's own filter reopens every section when the search is cleared");
+            });
+            flushEdt();
+            onEdt(() -> {
+                for (String key : new String[]{"trading", "afk", "muling", "help"}) {
+                    assertFalse(fixture[0].sectionContents().get(key).isVisible(), key + " is folded again");
+                }
+                assertTrue(fixture[0].sectionContents().get("mouse").isVisible(), "The section you opened stays open");
+                fixture[0].setSectionOpen("mouse", false);
+            });
+            flushEdt();
+            onEdt(() -> {
+                assertTrue(fixture[0].sliders().isEmpty());
+                assertTrue(fixture[0].east(fixture[0].row("waitingMouseChance")) instanceof JSpinner,
+                    "Folding the section again hands the row back to the native control");
+                assertEquals(before, fixture[0].preferences());
+                assertTrue(fixture[0].patches().isEmpty(), "Opening and folding sections never writes settings");
+            });
+        } finally {
+            onEdt(() -> { if (fixture[0] != null) fixture[0].close(); });
+        }
+    }
+
+    @Test
+    void settingsThatAreOffOrUnusedAreGreyWhileGeFlipperIsOffAndFollowChanges() throws Exception {
+        Fixture[] fixture = new Fixture[1];
+        Map<String, Color> own = new HashMap<>();
+        Map<String, String> before = new HashMap<>();
+        Set<String> grey = new HashSet<>(Arrays.asList("finish", "randomizeMouseSpeed", "blockManualMouseInput",
+            "waitingMouseTimeSource", "waitingMouseTime", "secondScreenAfkMode", "secondScreenAfkMinutes",
+            "muleMode", "muleRsn", "muleThresholdGp", "muleTriggerGp", "muleBeforeUpdate", "muleWorld", "mulePort",
+            "verboseLogging"));
+        try {
+            onEdt(() -> {
+                fixture[0] = new Fixture(temporary);
+                for (Method method : FlipperConfig.class.getMethods()) {
+                    ConfigItem item = method.getAnnotation(ConfigItem.class);
+                    if (item != null) own.put(method.getName(), fixture[0].nameLabel(method.getName()).getForeground());
+                }
+                before.putAll(fixture[0].preferences());
+                fixture[0].startLook(false); // GE Flipper is off: no WaitingMouseSettings at all.
+                for (String method : own.keySet()) {
+                    Color shown = fixture[0].nameLabel(method).getForeground();
+                    if (grey.contains(method)) assertEquals(SettingsLook.DIM, shown, method + " is not in use");
+                    else assertEquals(own.get(method), shown, method + " is in use");
+                }
+                assertEquals(SettingsLook.DIM, fixture[0].east(fixture[0].row("muleMode")).getForeground(),
+                    "The value text is greyed too");
+                assertEquals(before, fixture[0].preferences());
+                fixture[0].manager.setConfiguration(GROUP, "muleMode", FlipperConfig.MuleMode.MULE_RECEIVER);
+            });
+            flushEdt();
+            onEdt(() -> {
+                for (String method : new String[]{"muleMode", "muleWorld", "mulePort"}) {
+                    assertEquals(own.get(method), fixture[0].nameLabel(method).getForeground(), method + " is now used");
+                }
+                for (String method : new String[]{"muleRsn", "muleThresholdGp", "muleTriggerGp", "muleBeforeUpdate"}) {
+                    assertEquals(SettingsLook.DIM, fixture[0].nameLabel(method).getForeground(),
+                        method + " only matters on a Flipper");
+                }
+
+                // GE Flipper starts: its own bindings take over their rows with the real colours.
+                fixture[0].look.setBindingsActive(true);
+                assertEquals(own.get("waitingMouseTimeSource"), fixture[0].nameLabel("waitingMouseTimeSource").getForeground());
+                assertEquals(own.get("finish"), fixture[0].nameLabel("finish").getForeground());
+                fixture[0].settings.start();
+                assertEquals(ColorScheme.MEDIUM_GRAY_COLOR, fixture[0].nameLabel("waitingMouseTimeSource").getForeground(),
+                    "The fatigue clock stays dark while it is off");
+                fixture[0].settings.close();
+                assertEquals(own.get("waitingMouseTimeSource"), fixture[0].nameLabel("waitingMouseTimeSource").getForeground(),
+                    "Its binding put back the real colour, not a grey one");
+                fixture[0].look.setBindingsActive(false);
+            });
+            flushEdt();
+            onEdt(() -> {
+                assertEquals(SettingsLook.DIM, fixture[0].nameLabel("waitingMouseTimeSource").getForeground());
+                assertEquals(SettingsLook.DIM, fixture[0].nameLabel("finish").getForeground(),
+                    "Finish does nothing while GE Flipper is off");
+                fixture[0].look.close();
+                for (String method : own.keySet()) {
+                    assertEquals(own.get(method), fixture[0].nameLabel(method).getForeground(), method + " restored");
+                }
+            });
+        } finally {
+            onEdt(() -> { if (fixture[0] != null) fixture[0].close(); });
+        }
     }
 
     @Test
@@ -457,7 +596,7 @@ class WaitingMouseNativeSettingsTest {
                 assertTrue(row.isVisible());
                 assertSame(nativeTime, fixture.time());
                 assertEquals("19:20", fixture.time().getText());
-                fixture.search().setText("custom start");
+                fixture.search().setText("start time");
                 fixture.manager.setConfiguration(GROUP, "randomizeMouseSpeed", false);
                 fixture.settings.refresh();
                 assertFalse(row.isVisible());
@@ -545,7 +684,7 @@ class WaitingMouseNativeSettingsTest {
                 fixture.enterTime("18:37");
                 fixture.settings.start();
                 assertEquals("Fatigue clock", fixture.label(fixture.row("waitingMouseTimeSource")).getText());
-                assertEquals("Custom start time (HH:mm)", fixture.label(fixture.row("waitingMouseTime")).getText());
+                assertEquals("Start time (HH:mm)", fixture.label(fixture.row("waitingMouseTime")).getText());
                 for (FlipperConfig.RandomizationPreset preset : FlipperConfig.RandomizationPreset.values()) {
                     for (boolean master : new boolean[]{false, true}) {
                         for (boolean speed : new boolean[]{false, true}) {
@@ -888,7 +1027,7 @@ class WaitingMouseNativeSettingsTest {
                 oldSlider[0] = fixture[0].slider();
                 oldSlider[0].setValueIsAdjusting(true);
                 oldSlider[0].setValue(90);
-                fixture[0].search().setText("Verbose");
+                fixture[0].search().setText("Detailed");
             });
             flushEdt();
             onEdt(() -> {
@@ -1040,7 +1179,7 @@ class WaitingMouseNativeSettingsTest {
                 fixture[0] = new Fixture(temporary, true);
                 fixture[0].settings.start();
                 button[0] = fixture[0].finishButton();
-                fixture[0].search().setText("Verbose");
+                fixture[0].search().setText("Detailed");
                 button[0].doClick(0);
                 assertEquals(0, fixture[0].finishRequests.get());
                 assertFalse(fixture[0].preferences().containsKey(GROUP + ".finish"));
@@ -1187,13 +1326,21 @@ class WaitingMouseNativeSettingsTest {
         private final WaitingMousePresets presets = new WaitingMousePresets(clock,
             (minimum, maximum) -> minimum <= 0 && maximum >= 0 ? 0 : minimum);
         private boolean finishAvailable = true;
+        // The settings live in folded sections; most tests open them all, as a user who expands them would.
+        private final boolean expandSections;
+        private SettingsLook look;
 
         private Fixture(Path temporary) throws Exception {
             this(temporary, false);
         }
 
-        @SuppressWarnings("unchecked")
         private Fixture(Path temporary, boolean bindFinish) throws Exception {
+            this(temporary, bindFinish, true);
+        }
+
+        @SuppressWarnings("unchecked")
+        private Fixture(Path temporary, boolean bindFinish, boolean expandSections) throws Exception {
+            this.expandSections = expandSections;
             Constructor<?> managerConstructor = ConfigManager.class.getDeclaredConstructors()[0];
             managerConstructor.setAccessible(true);
             manager = (ConfigManager) managerConstructor.newInstance(
@@ -1210,10 +1357,24 @@ class WaitingMouseNativeSettingsTest {
             properties = (Map<String, String>) field(dataType, "properties").get(data);
             properties.put(GROUP + ".slotActionMode", "MENU_OPTION");
             properties.put(GROUP + ".selectionMethod", "HOTKEY");
-            properties.put(GROUP + ".guide", "Synthetic test guide");
+            properties.put(GROUP + ".howToUse", "Synthetic test guide");
             properties.put(GROUP + ".showOverlay", "true");
             properties.put(GROUP + ".verboseLogging", "false");
             properties.put(MOUSE_SPEED, "false");
+            properties.put(GROUP + ".blockManualMouseInput", "false");
+            properties.put(GROUP + ".autoFinishOnSystemUpdate", "true");
+            properties.put(GROUP + ".secondScreenAfkMode", "OFF");
+            properties.put(GROUP + ".secondScreenAfkMinutes", "10");
+            properties.put(GROUP + ".muleMode", "OFF");
+            properties.put(GROUP + ".muleRsn", "");
+            properties.put(GROUP + ".muleThresholdGp", "50M");
+            properties.put(GROUP + ".muleTriggerGp", "0");
+            properties.put(GROUP + ".muleBeforeUpdate", "true");
+            properties.put(GROUP + ".muleReserveGp", "30M");
+            properties.put(GROUP + ".muleWorld", "0");
+            properties.put(GROUP + ".muleLocation", "Auto");
+            properties.put(GROUP + ".muleHost", "auto");
+            properties.put(GROUP + ".mulePort", "44971");
             properties.put(GROUP + ".waitingMousePreset", "CUSTOM");
             properties.put(GROUP + ".waitingMouseTimeSource", "MORNING");
             properties.put(GROUP + ".waitingMouseTime", "09:00");
@@ -1244,20 +1405,23 @@ class WaitingMouseNativeSettingsTest {
 
         private void createPanel() throws Exception {
             Class<?> panelType = Class.forName("net.runelite.client.plugins.microbot.ui.MicrobotConfigPanel");
+            // The client remembers opened sections in a static map; forget them so this panel starts as a new one would.
+            if (!expandSections) ((Map<?, ?>) field(panelType, "sectionExpandStates").get(null)).clear();
             Constructor<?> panelConstructor = panelType.getDeclaredConstructors()[0];
             panelConstructor.setAccessible(true);
-            Class<?>[] panelParameters = panelConstructor.getParameterTypes();
-            Object[] panelArguments = new Object[panelParameters.length];
-            for (int index = 0; index < panelParameters.length; index++) {
-                if (panelParameters[index] == ConfigManager.class) panelArguments[index] = manager;
-                if (panelParameters[index] == PluginManager.class) panelArguments[index] = pluginManager;
-                if (panelParameters[index].getName().equals("net.runelite.client.plugins.microbot.ui.MicrobotBugReporter")) {
-                    Constructor<?> reporterConstructor = panelParameters[index].getDeclaredConstructors()[0];
-                    reporterConstructor.setAccessible(true);
-                    panelArguments[index] = reporterConstructor.newInstance(new Object[reporterConstructor.getParameterCount()]);
+            Object[] args = new Object[panelConstructor.getParameterCount()];
+            Class<?>[] types = panelConstructor.getParameterTypes();
+            for (int i = 0; i < types.length; i++) {
+                if (types[i] == ConfigManager.class) args[i] = manager;
+                else if (types[i] == PluginManager.class) args[i] = pluginManager;
+                else if (types[i].getName().endsWith("MicrobotBugReporter")) {
+                    Constructor<?> brConstructor = types[i].getDeclaredConstructors()[0];
+                    brConstructor.setAccessible(true);
+                    args[i] = brConstructor.newInstance(new Object[brConstructor.getParameterCount()]);
                 }
+                else args[i] = null;
             }
-            panel = (JPanel) panelConstructor.newInstance(panelArguments);
+            panel = (JPanel) panelConstructor.newInstance(args);
             root.add(panel, BorderLayout.CENTER);
             initializePanel();
         }
@@ -1267,6 +1431,36 @@ class WaitingMouseNativeSettingsTest {
             init.setAccessible(true);
             init.invoke(panel, new MicrobotPluginConfigurationDescriptor("Flipper", "Synthetic test", new String[0],
                 owner, config, manager.getConfigDescriptor(config), Collections.emptyList()));
+            if (expandSections) {
+                // Record them as opened by the user, so GE Flipper's re-folding keeps them open.
+                @SuppressWarnings("unchecked") Map<Object, Object> remembered =
+                    (Map<Object, Object>) field(panel.getClass(), "sectionExpandStates").get(null);
+                for (Object section : ((Map<?, ?>) field(panel.getClass(), "sectionPanelByDesc").get(panel)).keySet()) {
+                    remembered.put(section, true);
+                }
+                for (String key : new ArrayList<>(sectionContents().keySet())) setSectionOpen(key, true);
+            }
+        }
+
+        @SuppressWarnings("unchecked") private Map<String, JPanel> sectionContents() throws Exception {
+            return (Map<String, JPanel>) field(panel.getClass(), "sectionContentByKey").get(panel);
+        }
+
+        /** Clicks the section's own expand/retract button, exactly as a user would. */
+        private void setSectionOpen(String key, boolean open) throws Exception {
+            JPanel content = sectionContents().get(key);
+            if (content.isVisible() == open) return;
+            JPanel header = (JPanel) content.getParent().getComponent(0);
+            ((JButton) ((BorderLayout) header.getLayout()).getLayoutComponent(BorderLayout.WEST)).doClick(0);
+            assertEquals(open, content.isVisible());
+        }
+
+        /** True when the component and every parent up to the settings root are visible. */
+        private boolean shown(Component component) {
+            for (Component current = component; current != null && current != root; current = current.getParent()) {
+                if (!current.isVisible()) return false;
+            }
+            return true;
         }
 
         private void registerOwner() throws Exception {
@@ -1399,10 +1593,23 @@ class WaitingMouseNativeSettingsTest {
             return found;
         }
 
+        /** The look GE Flipper keeps on its settings from load time; on = its own bindings are running too. */
+        private void startLook(boolean geFlipperOn) {
+            look = new SettingsLook(owner, config, root, eventBus, () -> geFlipperOn);
+            look.setBindingsActive(geFlipperOn);
+            look.start();
+        }
+
+        /** The row's name label, or the button for a button row. */
+        private JComponent nameLabel(String methodName) throws Exception {
+            return (JComponent) ((BorderLayout) row(methodName).getLayout()).getLayoutComponent(BorderLayout.CENTER);
+        }
+
         @Override public void close() throws Exception {
             eventBus.unregister(owner);
             field(FlipperPlugin.class, "waitingMouseSettings").set(owner, null);
             settings.close();
+            if (look != null) look.close();
             profileName.set(null, previousProfileName);
         }
     }

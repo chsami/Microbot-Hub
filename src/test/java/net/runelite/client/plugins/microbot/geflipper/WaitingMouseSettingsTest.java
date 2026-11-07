@@ -20,6 +20,7 @@ import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.Action;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
@@ -30,6 +31,7 @@ import javax.swing.JSpinner;
 import javax.swing.KeyStroke;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import net.runelite.client.config.ConfigDescriptor;
 import net.runelite.client.config.ConfigButton;
 import net.runelite.client.config.ConfigGroup;
@@ -44,6 +46,183 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /** Exercises the actual SDK settings panel and descriptor, with synthetic rows and no client/profile. */
 class WaitingMouseSettingsTest {
+    @Test
+    void muleStatusAttachesToItsOwnedModeRowWithoutChangingControlsOrPreferences() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            MuleRow mule = fixture.addMuleRow();
+            int indexSize = fixture.itemIndex().size();
+            int listeners = mule.mode.getActionListeners().length;
+            try (WaitingMouseSettings settings = fixture.settings()) {
+                settings.setMuleStatusSupplier(() -> "Mule link: Connected / Ready");
+                settings.start();
+                JLabel status = muleStatus(mule);
+                assertEquals("Mule link: Connected / Ready", status.getText());
+                assertEquals(status.getText(), status.getToolTipText());
+                assertEquals(status.getText(), status.getAccessibleContext().getAccessibleDescription());
+                assertSame(mule.label, ((BorderLayout) mule.panel.getLayout()).getLayoutComponent(BorderLayout.CENTER));
+                assertSame(mule.mode, ((BorderLayout) mule.panel.getLayout()).getLayoutComponent(BorderLayout.EAST));
+                assertEquals(listeners, mule.mode.getActionListeners().length);
+                assertEquals(0, mule.nativeChanges.get());
+                assertEquals(indexSize, fixture.itemIndex().size());
+                assertTrue(fixture.saved.isEmpty());
+                assertTrue(muleTimer(settings).isRunning());
+            }
+            assertNull(((BorderLayout) mule.panel.getLayout()).getLayoutComponent(BorderLayout.SOUTH));
+            assertEquals(listeners, mule.mode.getActionListeners().length);
+            assertEquals(0, mule.nativeChanges.get());
+        });
+    }
+
+    @Test
+    void muleTimerReadsOnlyCachedSupplierOnTheEdtAndRefreshesNullAndChangedText() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            MuleRow mule = fixture.addMuleRow();
+            String[] cached = {"Flipper link: Listening"};
+            AtomicInteger reads = new AtomicInteger();
+            try (WaitingMouseSettings settings = fixture.settings()) {
+                settings.setMuleStatusSupplier(() -> {
+                    assertTrue(SwingUtilities.isEventDispatchThread());
+                    reads.incrementAndGet();
+                    return cached[0];
+                });
+                settings.start();
+                JLabel status = muleStatus(mule);
+                Timer timer = muleTimer(settings);
+                assertEquals("Flipper link: Listening", status.getText());
+                cached[0] = "Flipper link: Connected / Trading";
+                tick(timer);
+                assertEquals(cached[0], status.getText());
+                assertTrue(status.isVisible());
+                cached[0] = null;
+                tick(timer);
+                assertEquals("", status.getText());
+                assertFalse(status.isVisible());
+                cached[0] = "Mule link: Disconnected";
+                tick(timer);
+                assertEquals(cached[0], status.getText());
+                assertTrue(status.isVisible());
+                assertTrue(reads.get() >= 4);
+                assertEquals(0, mule.nativeChanges.get());
+                assertTrue(fixture.saved.isEmpty());
+            }
+        });
+    }
+
+    @Test
+    void clearingMuleSupplierStopsItsTimerAndReattachingPreservesTheExistingSlider() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            MuleRow mule = fixture.addMuleRow();
+            try (WaitingMouseSettings settings = fixture.settings()) {
+                settings.setMuleStatusSupplier(() -> "Mule link: Connected");
+                settings.start();
+                JSlider slider = slider(fixture.root);
+                JLabel previous = muleStatus(mule);
+                settings.setMuleStatusSupplier(null);
+                assertNull(previous.getParent());
+                assertNull(((BorderLayout) mule.panel.getLayout()).getLayoutComponent(BorderLayout.SOUTH));
+                assertFalse(muleTimer(settings).isRunning());
+                assertSame(slider, slider(fixture.root));
+                settings.setMuleStatusSupplier(() -> "Mule link: Disconnected");
+                assertEquals("Mule link: Disconnected", muleStatus(mule).getText());
+                assertNotSame(previous, muleStatus(mule));
+                assertSame(slider, slider(fixture.root));
+                assertTrue(muleTimer(settings).isRunning());
+                assertTrue(fixture.saved.isEmpty());
+            }
+        });
+    }
+
+    @Test
+    void rebuildingMuleRowsDetachesTheOldLabelAndAttachesOnlyOneReplacement() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            MuleRow original = fixture.addMuleRow();
+            try (WaitingMouseSettings settings = fixture.settings()) {
+                settings.setMuleStatusSupplier(() -> "Flipper link: Listening");
+                settings.start();
+                JLabel old = muleStatus(original);
+                fixture.main.remove(original.panel);
+                MuleRow replacement = fixture.addMuleRow();
+                settings.refreshValue();
+                assertNull(old.getParent());
+                assertNull(((BorderLayout) original.panel.getLayout()).getLayoutComponent(BorderLayout.SOUTH));
+                JLabel current = muleStatus(replacement);
+                settings.refreshValue();
+                tick(muleTimer(settings));
+                assertSame(current, muleStatus(replacement));
+                assertEquals(3, replacement.panel.getComponentCount());
+                assertTrue(muleTimer(settings).isRunning());
+                assertEquals(0, original.nativeChanges.get());
+                assertEquals(0, replacement.nativeChanges.get());
+                assertTrue(fixture.saved.isEmpty());
+            }
+        });
+    }
+
+    @Test
+    void muleStatusNeverChangesAnotherPluginGroupOrAnExistingSouthComponent() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            MuleRow mule = fixture.addMuleRow();
+            try (WaitingMouseSettings settings = fixture.settings()) {
+                settings.setMuleStatusSupplier(() -> "Mule link: Connected");
+                fixture.setDescriptor(new FlipperPlugin(), FlipperConfig.class.getAnnotation(ConfigGroup.class));
+                settings.start();
+                assertNull(((BorderLayout) mule.panel.getLayout()).getLayoutComponent(BorderLayout.SOUTH));
+                assertFalse(muleTimer(settings).isRunning());
+                fixture.setDescriptor(fixture.owner, OtherConfig.class.getAnnotation(ConfigGroup.class));
+                settings.refreshValue();
+                assertNull(((BorderLayout) mule.panel.getLayout()).getLayoutComponent(BorderLayout.SOUTH));
+                fixture.setDescriptor(fixture.owner, FlipperConfig.class.getAnnotation(ConfigGroup.class));
+                JLabel existing = new JLabel("Existing native content");
+                mule.panel.add(existing, BorderLayout.SOUTH);
+                settings.refreshValue();
+                assertSame(existing, ((BorderLayout) mule.panel.getLayout()).getLayoutComponent(BorderLayout.SOUTH));
+                assertFalse(muleTimer(settings).isRunning());
+            }
+            assertEquals("Existing native content", muleStatus(mule).getText());
+            assertEquals(0, mule.nativeChanges.get());
+        });
+    }
+
+    @Test
+    void hiddenSettingsAndCloseStopMuleRefreshesAndRemoveOnlyTheOwnedUi() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            MuleRow mule = fixture.addMuleRow();
+            AtomicInteger reads = new AtomicInteger();
+            WaitingMouseSettings settings = fixture.settings();
+            settings.setMuleStatusSupplier(() -> {
+                reads.incrementAndGet();
+                return "Flipper link: Listening";
+            });
+            settings.start();
+            Timer timer = muleTimer(settings);
+            JLabel original = muleStatus(mule);
+            fixture.root.showing(false);
+            settings.refreshValue();
+            assertFalse(timer.isRunning());
+            assertNull(original.getParent());
+            fixture.root.showing(true);
+            settings.refreshValue();
+            assertTrue(timer.isRunning());
+            JLabel restored = muleStatus(mule);
+            settings.close();
+            assertFalse(timer.isRunning());
+            assertEquals(0, timer.getActionListeners().length);
+            assertNull(restored.getParent());
+            int stoppedReads = reads.get();
+            tick(timer);
+            settings.setMuleStatusSupplier(() -> { throw new AssertionError("A closed adapter must not read it"); });
+            assertEquals(stoppedReads, reads.get());
+            assertSame(mule.mode, ((BorderLayout) mule.panel.getLayout()).getLayoutComponent(BorderLayout.EAST));
+            assertEquals(0, mule.nativeChanges.get());
+        });
+    }
+
     @Test
     void nativeRowGetsOneSliderAndPreservesSearchResetAndPreferences() throws Exception {
         onEdt(() -> {
@@ -760,6 +939,24 @@ class WaitingMouseSettingsTest {
     }
 
     @Test
+    void aRefusedFinishReEnablesTheButton() throws Exception {
+        onEdt(() -> {
+            Fixture fixture = new Fixture();
+            AtomicInteger requests = new AtomicInteger();
+            WaitingMouseSettings[] holder = new WaitingMouseSettings[1];
+            holder[0] = fixture.finishSettings(() -> { requests.incrementAndGet(); holder[0].finishRefused(); });
+            holder[0].start();
+            JButton button = fixture.finishRow.button;
+            button.doClick(0);
+            assertEquals(1, requests.get());
+            assertTrue(button.isEnabled(), "A refused Finish must not leave the button greyed out");
+            button.doClick(0);
+            assertEquals(2, requests.get());
+            holder[0].close();
+        });
+    }
+
+    @Test
     void detachedFinishButtonCannotRequestAndNewRowPreservesAcceptedState() throws Exception {
         onEdt(() -> {
             Fixture fixture = new Fixture();
@@ -811,6 +1008,20 @@ class WaitingMouseSettingsTest {
         Field field = type.getDeclaredField(name);
         field.setAccessible(true);
         return field;
+    }
+
+    private static Timer muleTimer(WaitingMouseSettings settings) throws Exception {
+        return (Timer) field(WaitingMouseSettings.class, "muleStatusTimer").get(settings);
+    }
+
+    private static JLabel muleStatus(MuleRow row) {
+        return (JLabel) ((BorderLayout) row.panel.getLayout()).getLayoutComponent(BorderLayout.SOUTH);
+    }
+
+    private static void tick(Timer timer) {
+        for (java.awt.event.ActionListener listener : timer.getActionListeners()) {
+            listener.actionPerformed(new ActionEvent(timer, ActionEvent.ACTION_PERFORMED, "timer"));
+        }
     }
 
     private static JSlider slider(Container root) {
@@ -879,10 +1090,19 @@ class WaitingMouseSettingsTest {
             ConfigDescriptor descriptor = new ConfigDescriptor(group, Collections.emptyList(),
                 Arrays.asList(new ConfigItemDescriptor(item, int.class, range, null, null),
                     new ConfigItemDescriptor(FlipperConfig.class.getMethod("finish").getAnnotation(ConfigItem.class),
-                        ConfigButton.class, null, null, null)), null);
+                        ConfigButton.class, null, null, null),
+                    new ConfigItemDescriptor(FlipperConfig.class.getMethod("muleMode").getAnnotation(ConfigItem.class),
+                        FlipperConfig.MuleMode.class, null, null, null)), null);
             field(panel.getClass(), "pluginConfig").set(panel,
                 new MicrobotPluginConfigurationDescriptor("Flipper", "", new String[0], plugin, config,
                     descriptor, Collections.emptyList()));
+        }
+
+        private MuleRow addMuleRow() throws Exception {
+            MuleRow row = new MuleRow();
+            main.add(row.panel);
+            itemIndex().put(row.panel, row.label.getText().toLowerCase(java.util.Locale.ROOT));
+            return row;
         }
 
         @SuppressWarnings("unchecked") private Map<JPanel, String> itemIndex() throws Exception {
@@ -921,6 +1141,20 @@ class WaitingMouseSettingsTest {
             spinner.addChangeListener(event -> nativeChanges.incrementAndGet());
             panel.add(label, BorderLayout.CENTER);
             panel.add(spinner, BorderLayout.EAST);
+        }
+    }
+
+    private static final class MuleRow {
+        private final JPanel panel = new JPanel(new BorderLayout());
+        private final JLabel label;
+        private final JComboBox<FlipperConfig.MuleMode> mode = new JComboBox<>(FlipperConfig.MuleMode.values());
+        private final AtomicInteger nativeChanges = new AtomicInteger();
+
+        private MuleRow() throws Exception {
+            label = new JLabel(FlipperConfig.class.getMethod("muleMode").getAnnotation(ConfigItem.class).name());
+            mode.addActionListener(event -> nativeChanges.incrementAndGet());
+            panel.add(label, BorderLayout.CENTER);
+            panel.add(mode, BorderLayout.EAST);
         }
     }
 

@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.geflipper;
 
-import java.awt.Rectangle;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,6 +13,9 @@ import static net.runelite.client.plugins.microbot.geflipper.FlipperConfig.SlotA
 import static net.runelite.client.plugins.microbot.geflipper.FlipperConfig.SlotAction.MENU_OPTION;
 import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Action.ABORT;
 import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Action.MODIFY;
+import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Readiness.CANCELLED;
+import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Readiness.READY;
+import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Readiness.TIMED_OUT;
 import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Result.ACTED;
 import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Result.MENU_NOT_READY;
 import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Result.SLOT_UNAVAILABLE;
@@ -26,6 +28,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Regression coverage for executing the swapped slot action without opening View offer. */
 public class SlotActionExecutorTest {
     private static final int SLOT_ID = (465 << 16) | 9;
+
+    @Test
+    public void cursorNearThePlannedPointStillCountsWhileBothAreOnTheButton() {
+        java.awt.Rectangle button = new java.awt.Rectangle(100, 200, 40, 20);
+        Point planned = new Point(110, 210);
+
+        assertTrue(SlotActionExecutor.cursorOnSlotButton(new Point(112, 209), planned, button));
+        assertFalse(SlotActionExecutor.cursorOnSlotButton(new Point(150, 209), planned, button));
+        assertFalse(SlotActionExecutor.cursorOnSlotButton(new Point(112, 209), new Point(10, 10), button));
+        assertFalse(SlotActionExecutor.cursorOnSlotButton(null, planned, button));
+        assertFalse(SlotActionExecutor.cursorOnSlotButton(planned, planned, new java.awt.Rectangle(110, 210, 1, 1)));
+    }
 
     @Test
     public void modifyLeftClickWaitsForTheSwapAndClicksTheHoveredPoint() {
@@ -102,16 +116,55 @@ public class SlotActionExecutorTest {
     }
 
     @Test
-    public void unreadyMenuDoesNotClickOrInvokeAFallbackAction() {
-        FakeUi ui = new FakeUi();
-        ui.menuReady = false;
+    public void cancelledReadinessDoesNotClickOrInvokeAFallbackAction() {
+        for (SlotActionExecutor.Action action : SlotActionExecutor.Action.values()) {
+            FakeUi ui = new FakeUi();
+            ui.readiness = CANCELLED;
 
-        assertEquals(MENU_NOT_READY,
-            SlotActionExecutor.execute(COPILOT_LEFT_CLICK, MODIFY, SLOT_ID, ui));
+            assertEquals(MENU_NOT_READY,
+                SlotActionExecutor.execute(COPILOT_LEFT_CLICK, action, SLOT_ID, ui));
 
-        assertEquals(Arrays.asList("hover", "await"), ui.operations);
-        assertEquals(0, ui.clicks);
-        assertEquals(0, ui.invocations);
+            assertEquals(Arrays.asList("hover", "await"), ui.operations);
+            assertEquals(0, ui.clicks);
+            assertEquals(0, ui.invocations);
+            assertEquals(0, ui.fallbackAttempts);
+        }
+    }
+
+    @Test
+    public void timedOutSwapUsesExactlyOneValidatedFallbackForEitherAction() {
+        for (SlotActionExecutor.Action action : SlotActionExecutor.Action.values()) {
+            FakeUi ui = new FakeUi();
+            ui.readiness = TIMED_OUT;
+
+            assertEquals(ACTED,
+                SlotActionExecutor.execute(COPILOT_LEFT_CLICK, action, SLOT_ID, ui));
+
+            assertEquals(Arrays.asList("hover", "await", "fallback"), ui.operations);
+            assertSame(ui.hoveredPoint, ui.invokedPoint);
+            assertEquals(0, ui.clicks);
+            assertEquals(0, ui.invocations);
+            assertEquals(1, ui.fallbackAttempts);
+            assertEquals(1, ui.fallbackInvocations);
+        }
+    }
+
+    @Test
+    public void rejectedFallbackNeverClicksOrReportsSuccessForEitherAction() {
+        for (SlotActionExecutor.Action action : SlotActionExecutor.Action.values()) {
+            FakeUi ui = new FakeUi();
+            ui.readiness = TIMED_OUT;
+            ui.finalValidation = false;
+
+            assertEquals(MENU_NOT_READY,
+                SlotActionExecutor.execute(COPILOT_LEFT_CLICK, action, SLOT_ID, ui));
+
+            assertEquals(Arrays.asList("hover", "await", "rejected fallback"), ui.operations);
+            assertEquals(0, ui.clicks);
+            assertEquals(0, ui.invocations);
+            assertEquals(1, ui.fallbackAttempts);
+            assertEquals(0, ui.fallbackInvocations);
+        }
     }
 
     @Test
@@ -119,12 +172,14 @@ public class SlotActionExecutorTest {
         for (SlotActionExecutor.Action action : SlotActionExecutor.Action.values()) {
             FakeUi ui = new FakeUi();
             ui.hoverReady = false;
+            ui.readiness = TIMED_OUT;
 
             assertEquals(MENU_NOT_READY, SlotActionExecutor.execute(COPILOT_LEFT_CLICK, action, SLOT_ID, ui));
 
             assertEquals(Arrays.asList("hover"), ui.operations);
             assertEquals(0, ui.clicks);
             assertEquals(0, ui.invocations);
+            assertEquals(0, ui.fallbackAttempts);
         }
     }
 
@@ -139,6 +194,23 @@ public class SlotActionExecutorTest {
         assertEquals(Arrays.asList("hover", "await", "rejected click"), ui.operations);
         assertEquals(0, ui.clicks);
         assertEquals(0, ui.invocations);
+        assertEquals(0, ui.fallbackAttempts);
+    }
+
+    @Test
+    public void failedClickNeverTriggersASecondActionForEitherOperation() {
+        for (SlotActionExecutor.Action action : SlotActionExecutor.Action.values()) {
+            FakeUi ui = new FakeUi();
+            ui.clickAccepted = false;
+
+            assertEquals(MENU_NOT_READY,
+                SlotActionExecutor.execute(COPILOT_LEFT_CLICK, action, SLOT_ID, ui));
+
+            assertEquals(Arrays.asList("hover", "await", "click"), ui.operations);
+            assertEquals(1, ui.clicks);
+            assertEquals(0, ui.invocations);
+            assertEquals(0, ui.fallbackAttempts);
+        }
     }
 
     @Test
@@ -148,6 +220,24 @@ public class SlotActionExecutorTest {
         assertEquals(MENU_NOT_READY, SlotActionExecutor.execute(MENU_OPTION, MODIFY, SLOT_ID, ui));
         assertEquals(0, ui.clicks);
         assertEquals(0, ui.invocations);
+        assertEquals(0, ui.fallbackAttempts);
+    }
+
+    @Test
+    public void failedExplicitMenuActionNeverUsesTheSwapFallback() {
+        for (SlotActionExecutor.Action action : SlotActionExecutor.Action.values()) {
+            FakeUi ui = new FakeUi();
+            ui.readiness = TIMED_OUT;
+            ui.finalValidation = false;
+
+            assertEquals(MENU_NOT_READY,
+                SlotActionExecutor.execute(MENU_OPTION, action, SLOT_ID, ui));
+
+            assertTrue(ui.operations.isEmpty());
+            assertEquals(0, ui.clicks);
+            assertEquals(0, ui.invocations);
+            assertEquals(0, ui.fallbackAttempts);
+        }
     }
 
     @Test
@@ -228,15 +318,19 @@ public class SlotActionExecutorTest {
         boolean hoverReady = true;
         final List<String> operations = new ArrayList<>();
         boolean swapEnabled = true;
-        boolean menuReady = true;
+        SlotActionExecutor.Readiness readiness = READY;
         boolean finalValidation = true;
+        boolean clickAccepted = true;
         Point point = new Point(240, 175);
         Point hoveredPoint;
         Point clickedPoint;
+        Point invokedPoint;
         SlotActionExecutor.Action lastAction;
         int lastSlotId;
         int clicks;
         int invocations;
+        int fallbackAttempts;
+        int fallbackInvocations;
 
         @Override
         public boolean slotSwapEnabled() {
@@ -259,19 +353,19 @@ public class SlotActionExecutorTest {
         }
 
         @Override
-        public boolean awaitDefaultAction(int slotId, SlotActionExecutor.Action action, Point point) {
+        public SlotActionExecutor.Readiness awaitDefaultAction(int slotId, SlotActionExecutor.Action action, Point point) {
             assertSame(hoveredPoint, point);
             assertEquals(SLOT_ID, slotId);
             assertEquals(lastAction, action);
             operations.add("await");
-            return menuReady;
+            return readiness;
         }
 
         @Override
         public boolean clickDefaultAction(int slotId, SlotActionExecutor.Action action, Point point) {
             assertEquals(Arrays.asList("hover", "await"), operations);
             assertSame(hoveredPoint, point);
-            assertTrue(menuReady);
+            assertEquals(READY, readiness);
             assertEquals(SLOT_ID, slotId);
             assertEquals(lastAction, action);
             if (!finalValidation) {
@@ -281,7 +375,7 @@ public class SlotActionExecutorTest {
             clickedPoint = point;
             clicks++;
             operations.add("click");
-            return true;
+            return clickAccepted;
         }
 
         @Override
@@ -292,6 +386,24 @@ public class SlotActionExecutorTest {
             if (!finalValidation) return false;
             invocations++;
             operations.add("invoke");
+            return true;
+        }
+
+        @Override
+        public boolean invokeFallbackAction(int slotId, SlotActionExecutor.Action action, Point point) {
+            assertEquals(Arrays.asList("hover", "await"), operations);
+            assertSame(hoveredPoint, point);
+            assertEquals(TIMED_OUT, readiness);
+            assertEquals(SLOT_ID, slotId);
+            assertEquals(lastAction, action);
+            fallbackAttempts++;
+            if (!finalValidation) {
+                operations.add("rejected fallback");
+                return false;
+            }
+            invokedPoint = point;
+            fallbackInvocations++;
+            operations.add("fallback");
             return true;
         }
     }

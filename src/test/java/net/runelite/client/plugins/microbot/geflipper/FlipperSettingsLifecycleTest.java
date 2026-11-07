@@ -2,6 +2,8 @@ package net.runelite.client.plugins.microbot.geflipper;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -22,6 +24,7 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.LoggerFactory;
 
@@ -31,6 +34,73 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Actual plugin/script startup, with synthetic preferences and a scheduler that never runs tasks. */
 public class FlipperSettingsLifecycleTest {
     @TempDir Path temporary;
+
+    @ParameterizedTest
+    @CsvSource(value = {
+        "COPILOT_LEFT_CLICK, unset, false",
+        "COPILOT_LEFT_CLICK, true, false",
+        "COPILOT_LEFT_CLICK, false, true",
+        "MENU_OPTION, false, false"
+    }, nullValues = "unset")
+    @SuppressWarnings("unchecked")
+    public void slotSwapWarningRequiresExplicitDisabledPreference(
+            FlipperConfig.SlotAction mode, String savedSwap, boolean shouldWarn) throws Exception {
+        Logger own = (Logger) LoggerFactory.getLogger("net.runelite.client.plugins.microbot.geflipper");
+        Logger logger = (Logger) LoggerFactory.getLogger(FlipperPlugin.class);
+        Level previousOwnLevel = own.getLevel();
+        Level previousLevel = logger.getLevel();
+        ListAppender<ILoggingEvent> messages = new ListAppender<>();
+        messages.setContext(logger.getLoggerContext());
+        messages.start();
+        logger.addAppender(messages);
+        logger.setLevel(Level.WARN);
+        Field profileName = field(ConfigManager.class, "configProfileName");
+        Object previousProfileName = profileName.get(null);
+        FlipperPlugin plugin = new FlipperPlugin();
+        try {
+            Constructor<?> managerConstructor = ConfigManager.class.getDeclaredConstructors()[0];
+            managerConstructor.setAccessible(true);
+            ConfigManager manager = (ConfigManager) managerConstructor.newInstance(
+                null, inertScheduler(), new EventBus(), null, null, null, null, null);
+            Class<?> dataType = Class.forName("net.runelite.client.config.ConfigData");
+            Constructor<?> dataConstructor = dataType.getDeclaredConstructor(File.class);
+            dataConstructor.setAccessible(true);
+            Object data = dataConstructor.newInstance(temporary.resolve("synthetic-swap.properties").toFile());
+            field(ConfigManager.class, "configProfile").set(manager, data);
+            Map<String, String> preferences = (Map<String, String>) field(dataType, "properties").get(data);
+            preferences.put("Flipper Config.slotActionMode", mode.name());
+            if (savedSwap != null) preferences.put("flippingcopilot.slotActionSwap", savedSwap);
+            Map<String, String> expected = new HashMap<>(preferences);
+            field(FlipperPlugin.class, "config").set(plugin, manager.getConfig(FlipperConfig.class));
+            field(FlipperPlugin.class, "configManager").set(plugin, manager);
+            field(FlipperPlugin.class, "flipperScript").set(plugin, new FlipperScript() {
+                @Override public boolean run(FlipperConfig config) { return true; }
+                @Override public void shutdown() { }
+            });
+
+            plugin.startUp();
+            assertEquals(shouldWarn ? 1 : 0, messages.list.size(), "Startup warning");
+            ConfigChanged changed = new ConfigChanged();
+            changed.setGroup("Flipper Config");
+            changed.setKey("slotActionMode");
+            plugin.onConfigChanged(changed);
+            assertEquals(shouldWarn ? 2 : 0, messages.list.size(), "Configuration warning");
+            if (shouldWarn) {
+                assertTrue(messages.list.stream().allMatch(event -> event.getLevel() == Level.WARN
+                    && event.getFormattedMessage().contains("slot action swap is off")));
+            }
+            plugin.shutDown();
+            assertEquals(expected, preferences, "Warning must not insert or change preferences");
+            assertTrue(((Map<?, ?>) field(dataType, "patchChanges").get(data)).isEmpty(),
+                "Warning must not queue preference writes");
+        } finally {
+            logger.detachAppender(messages);
+            messages.stop();
+            logger.setLevel(previousLevel);
+            own.setLevel(previousOwnLevel);
+            profileName.set(null, previousProfileName);
+        }
+    }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})

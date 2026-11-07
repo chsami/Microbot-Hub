@@ -53,6 +53,18 @@ class FinishCollectTest {
         Node root = root(); root.actions = new String[] {"Collect to inventory"}; root.child.actions = null;
         assertNull(FinishCollect.bounds(root.widget, 765, 503));
     }
+    @Test void scansActionsAndReturnsCorrectOneBasedIndex() {
+        Node root = root();
+        root.child.actions = new String[] {"Collect to inventory", "Collect to bank"};
+        assertEquals(1, FinishCollect.operation(root.widget, 765, 503));
+
+        root.child.actions = new String[] {"Collect to bank", "Collect to inventory"};
+        assertEquals(2, FinishCollect.operation(root.widget, 765, 503));
+
+        root.child.actions = new String[] {"Collect to bank", "Examine"};
+        assertEquals(-1, FinishCollect.operation(root.widget, 765, 503));
+    }
+
     private static Node root() {
         Node root = new Node(); root.index = -1; root.actions = null; root.child = new Node();
         return root;
