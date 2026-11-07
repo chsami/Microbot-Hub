@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.eventdismiss;
 
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ItemID;
+import net.runelite.api.NPC;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -22,6 +23,7 @@ public class DismissNpcEvent implements BlockingEvent {
     private final AtomicBoolean waitingForLamp = new AtomicBoolean(false);
     private final AtomicInteger lampWaitCounter = new AtomicInteger(0);
     private static final int MAX_LAMP_WAIT_TICKS = 50;
+    private volatile NPC announcedNpc;
 
     public DismissNpcEvent(EventDismissConfig config) {
         this.config = config;
@@ -56,11 +58,16 @@ public class DismissNpcEvent implements BlockingEvent {
         if (name == null)
             return true;
 
-        log.info("Random event NPC {} detected", name);
+        NPC current = npc.getNpc();
+        if (current == null || current != announcedNpc) {
+            announcedNpc = current;
+            log.info("Random event NPC {} detected", name);
+        }
         Global.sleep(Rs2Random.between(1200, 3000));
 
         npc = getRandomEventNpc();
         if (npc == null || !name.equals(npc.getName())) {
+            announcedNpc = null;
             log.info("Random event NPC {} left before it was handled", name);
             return true;
         }
@@ -156,7 +163,7 @@ public class DismissNpcEvent implements BlockingEvent {
     private void dismiss(Rs2NpcModel npc) {
         String name = npc.getName();
         if (!npc.click("Dismiss")) {
-            log.info("Could not click Dismiss on random event NPC {}", name);
+            log.info("Could not click Dismiss on {} (it may be off screen or you were using the mouse), trying again.", name);
             return;
         }
         log.info("Clicked Dismiss on random event NPC {}", name);

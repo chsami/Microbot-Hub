@@ -34,6 +34,9 @@ The **Event Dismiss Plugin** is a utility tool for Old School RuneScape, designe
 4. **Overlay (Optional):**  
    Displays a notification or status update when an event is dismissed.
 
+5. **Works without a bot script (since 2.1.3):**  
+   The handler checks for random events on its own, so it also works while you only use the Shortest Path walker or play by hand. It waits until you have stopped using the mouse and keyboard for a moment before it clicks Dismiss.
+
 ---
 
 ## Configuration
@@ -69,6 +72,7 @@ The plugin provides a configuration panel (`EventDismissConfig`) where you can:
 - Only dismisses random event NPCs defined in the script logic.
 - Does not interact with quest or important NPCs.
 - May not handle all new or rare random events if not included in the detection list.
+- While it handles a random event, Microbot's own built-in actions can run in the same session, even with no bot script running. They apply the Microbot General settings (Hide roofs, Disable level-up interface, Disable world switcher confirmation), close the bank tutorial and click through Death's office. If you play by hand and want to keep roofs, level-up popups or the world switch warning, turn those settings off under Microbot > General.
 
 ---
 
