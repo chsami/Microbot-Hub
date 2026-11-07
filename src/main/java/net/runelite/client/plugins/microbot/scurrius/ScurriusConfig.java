@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.scurrius;
 import lombok.Getter;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.config.*;
+import net.runelite.client.plugins.microbot.scurrius.enums.PrayerMode;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 
 @ConfigGroup("Scurrius")
@@ -28,6 +29,13 @@ public interface ScurriusConfig extends Config {
             position = 2
     )
     String prayerSettings = "prayerSettings";
+
+    @ConfigSection(
+            name = "Emergency teleport",
+            description = "Break a Varrock teleport, bank and come back when food and health are low",
+            position = 4
+    )
+    String emergencySettings = "emergencySettings";
 
     @ConfigSection(
             name = "Loot Settings",
@@ -190,6 +198,49 @@ public interface ScurriusConfig extends Config {
     )
     default int maxPrayerPercent() {
         return 30;
+    }
+
+    @ConfigItem(
+            keyName = "prayerMode",
+            name = "Prayer mode",
+            description = "Always on: the protection prayer stays on. Lazy flick: on only for the tick before a hit lands and the tick it lands. "
+                    + "One-tick flick: switched off and on every tick so it never drains. Flicking falls back to always on until the hit "
+                    + "timing is learned, after an unprotected hit, and while giant rats attack you.",
+            position = 4,
+            section = prayerSettings
+    )
+    default PrayerMode prayerMode() {
+        return PrayerMode.LAZY_FLICK;
+    }
+
+    @ConfigItem(
+            keyName = "emergencyFoodLeft",
+            name = "Food left",
+            description = "Teleport out when this much food or less is left in the inventory (and health is under the percent below)",
+            position = 0,
+            section = emergencySettings
+    )
+    @Range(
+            min = 0,
+            max = 28
+    )
+    default int emergencyFoodLeft() {
+        return 2;
+    }
+
+    @ConfigItem(
+            keyName = "emergencyHpPercent",
+            name = "Hitpoints percent",
+            description = "Teleport out when hitpoints are under this percent of your real hitpoints level (and food is low)",
+            position = 1,
+            section = emergencySettings
+    )
+    @Range(
+            min = 1,
+            max = 99
+    )
+    default int emergencyHpPercent() {
+        return 50;
     }
 
     @ConfigItem(

@@ -10,18 +10,14 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.scurrius.enums.State;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
-import net.runelite.client.plugins.microbot.util.coords.Rs2LocalPoint;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
-import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
-import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -38,18 +34,30 @@ public class ScurriusScript extends Script {
     private static final int PRAYER_COOLDOWN_MS = 2000;
 
     final WorldPoint bossLocation = new WorldPoint(3279, 9869, 0);
-    final WorldArea fightRoom = new WorldArea(new WorldPoint(3290, 9860, 0), 17, 17);
+    static final WorldArea FIGHT_ROOM = new WorldArea(new WorldPoint(3290, 9860, 0), 17, 17);
+    final WorldArea fightRoom = FIGHT_ROOM;
     public static State state = State.BANKING;
     Rs2NpcModel scurrius = null;
     private State previousState = null;
     private boolean hasLoggedRespawnWait = false;
     private Boolean previousInFightRoom = null;
-    private Rs2PrayerEnum currentDefensivePrayer = Rs2PrayerEnum.PROTECT_MELEE;
+    private static final int TELEPORT_TAB_ID = ItemID.POH_TABLET_VARROCKTELEPORT;
+    private static final long TELEPORT_RETRY_COOLDOWN_MS = 5000;
+    /** Set when the script decided to teleport out; stops the fight rules pulling the state back until the room is left. */
+    private boolean emergencyActive = false;
+    private long emergencyRetryAt = 0;
+    private boolean loggedNoTeleport = false;
+    /** Prayer flicking and rock dodging run on game ticks in this driver, owned by the plugin. */
+    private volatile ScurriusTickDriver tickDriver;
 
-    // Animation constants
-    private static final int MELEE_ATTACK_ANIMATION = 10693;
-    private static final int RANGE_ATTACK_ANIMATION = 10695;
-    private static final int MAGIC_ATTACK_ANIMATION = 10697;
+    public void setTickDriver(ScurriusTickDriver tickDriver) {
+        this.tickDriver = tickDriver;
+    }
+
+    private boolean isAttackHeld() {
+        ScurriusTickDriver driver = tickDriver;
+        return driver != null && driver.isAttackHeld();
+    }
 
     public boolean run(ScurriusConfig config) {
         this.config = config;
@@ -81,12 +89,18 @@ public class ScurriusScript extends Script {
                     previousInFightRoom = isInFightRoom;
                 }
 
-                if (!isScurriusPresent && !hasFood && !hasPrayerPotions) {
+                if (emergencyActive && !isInFightRoom) {
+                    emergencyActive = false; // the teleport worked: the normal rules apply again (bank, walk back)
+                }
+
+                if (!isScurriusPresent && !hasFood) {
                     if (isInFightRoom) {
-                        if (Rs2Inventory.hasItem(ItemID.POH_TABLET_VARROCKTELEPORT)) {
+                        if (Rs2Inventory.hasItem(TELEPORT_TAB_ID)) {
+                            emergencyActive = true;
                             state = State.TELEPORT_AWAY;
-                        } else {
+                        } else if (!loggedNoTeleport) {
                             Microbot.log("No teleport available. Attempting to walk to bank (will likely fail).");
+                            loggedNoTeleport = true;
                         }
                     } else {
                         state = State.BANKING;
@@ -101,11 +115,16 @@ public class ScurriusScript extends Script {
                 }
 
                 if (state != State.WAITING_FOR_BOSS) {
-                    if (isScurriusPresent && hasFood && hasLineOfSightWithScurrius) {
+                    // Inside the room Scurrius is attackable without line of sight (the Attack click walks to it); a
+                    // teleport that was just decided on must not be undone by this rule.
+                    if (isScurriusPresent && hasFood && (hasLineOfSightWithScurrius || isInFightRoom)
+                            && !emergencyActive && state != State.TELEPORT_AWAY) {
                         state = State.FIGHTING;
                     }
 
-                    if (isScurriusPresent && !hasFood && Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) < 25) {
+                    if (isScurriusPresent && !hasFood && Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) < 25
+                            && Rs2Inventory.hasItem(TELEPORT_TAB_ID)) {
+                        emergencyActive = true;
                         state = State.TELEPORT_AWAY;
                     }
 
@@ -154,21 +173,7 @@ public class ScurriusScript extends Script {
                         break;
 
                     case FIGHTING:
-                        handlePrayerLogic();
-                        List<WorldPoint> dangerousWorldPoints = new ArrayList<>(Rs2Tile.getDangerousGraphicsObjectTiles().keySet());
-
-                        if (!dangerousWorldPoints.isEmpty()) {
-                            for (WorldPoint worldPoint : dangerousWorldPoints) {
-                                if (Rs2Player.getWorldLocation().equals(worldPoint)) {
-                                    final WorldPoint safeTile = findSafeTile(Rs2Player.getWorldLocation(), dangerousWorldPoints);
-                                    if (safeTile != null) {
-                                        Rs2Walker.walkFastCanvas(safeTile);
-                                        Microbot.log("Dodging dangerous area, moving to safe tile at: " + safeTile);
-                                    }
-                                }
-                            }
-                        }
-
+                        if (tryEmergencyTeleport(currentTime)) break;
                         if (currentTime - lastEatTime > EAT_COOLDOWN_MS) {
                             int randomEatThreshold = randomThreshold(config.minEatPercent(), config.maxEatPercent());
 
@@ -189,6 +194,9 @@ public class ScurriusScript extends Script {
                             }
                         }
 
+                        // Rocks falling on the player: the driver walks off them; no Attack click until clear.
+                        if (isAttackHeld()) break;
+
                         Rs2NpcModel giantRatModel = Microbot.getRs2NpcCache().query()
                                 .where(ScurriusScript::isLiveGiantRat)
                                 .nearest();
@@ -197,14 +205,29 @@ public class ScurriusScript extends Script {
                             if (didWeAttackAGiantRat) return;
                         }
 
-                        if (!Microbot.getClient().getLocalPlayer().isInteracting()) {
+                        if (scurrius != null && !Microbot.getClient().getLocalPlayer().isInteracting()) {
                             scurrius.click("Attack");
                         }
                         break;
 
                     case TELEPORT_AWAY:
+                        int tabsBeforeTeleport = Rs2Inventory.count(TELEPORT_TAB_ID);
+                        if (tabsBeforeTeleport == 0) {
+                            Microbot.log("No Varrock teleport tab to break, staying in the fight.");
+                            emergencyActive = false;
+                            state = isInFightRoom ? State.FIGHTING : State.BANKING;
+                            break;
+                        }
                         Rs2Inventory.interact("Varrock teleport", "break");
-                        sleepUntil(() -> !isInFightRoom());
+                        boolean leftFightRoom = sleepUntil(() -> !isInFightRoom(), 10_000);
+                        if (!leftFightRoom) {
+                            Microbot.log("Teleport did not take us out of the boss room (tabs " + tabsBeforeTeleport
+                                    + " -> " + Rs2Inventory.count(TELEPORT_TAB_ID) + "), back to fighting.");
+                            emergencyActive = false;
+                            emergencyRetryAt = System.currentTimeMillis() + TELEPORT_RETRY_COOLDOWN_MS;
+                            state = State.FIGHTING;
+                            break;
+                        }
                         sleep(600 * 2);
                         disableAllPrayers();
                         state = State.BANKING;
@@ -249,12 +272,43 @@ public class ScurriusScript extends Script {
         return true;
     }
 
+    /** Teleports out when the food is nearly gone and health is low. Returns true when it switched to TELEPORT_AWAY. */
+    private boolean tryEmergencyTeleport(long now) {
+        if (now < emergencyRetryAt) return false;
+        int foodLeft = Rs2Inventory.getInventoryFood().size();
+        int hp = Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS);
+        int maxHp = Microbot.getClient().getRealSkillLevel(Skill.HITPOINTS);
+        if (!shouldEmergencyTeleport(foodLeft, hp, maxHp, config)) return false;
+        if (!Rs2Inventory.hasItem(TELEPORT_TAB_ID)) {
+            if (!loggedNoTeleport) {
+                Microbot.log("Emergency teleport wanted (food " + foodLeft + ", hp " + hp + "/" + maxHp
+                        + ") but there is no Varrock teleport tab. Eating what is left.");
+                loggedNoTeleport = true;
+            }
+            return false;
+        }
+        loggedNoTeleport = false;
+        Microbot.log("Emergency teleport: food " + foodLeft + ", hp " + hp + "/" + maxHp + ".");
+        emergencyActive = true;
+        state = State.TELEPORT_AWAY;
+        return true;
+    }
+
+    /**
+     * Whether to teleport out: food left at or under the threshold and hitpoints under the percent of real max hitpoints.
+     * Pure; hp is the boosted level, maxHp the real level.
+     */
+    static boolean shouldEmergencyTeleport(int foodLeft, int hp, int maxHp, ScurriusConfig cfg) {
+        if (maxHp <= 0) return false;
+        return foodLeft <= cfg.emergencyFoodLeft() && hp * 100 < maxHp * cfg.emergencyHpPercent();
+    }
+
     private String getStateDescription(State state) {
         switch (state) {
             case BANKING:
                 return "Out of food or prayer potions. Banking.";
             case TELEPORT_AWAY:
-                return "No food, no prayer potions, and low health. Teleporting away.";
+                return "Out of food or low on food and health. Teleporting away.";
             case WALK_TO_BOSS:
                 return "Scurris is not present, walking to boss.";
             case FIGHTING:
@@ -283,24 +337,6 @@ public class ScurriusScript extends Script {
         int low = Math.min(first, second);
         int high = Math.max(first, second);
         return ThreadLocalRandom.current().nextInt(low, high + 1);
-    }
-
-    private WorldPoint findSafeTile(WorldPoint playerLocation, List<WorldPoint> dangerousWorldPoints) {
-        List<WorldPoint> nearbyTiles = List.of(
-                new WorldPoint(playerLocation.getX() + 1, playerLocation.getY(), playerLocation.getPlane()),
-                new WorldPoint(playerLocation.getX() - 1, playerLocation.getY(), playerLocation.getPlane()),
-                new WorldPoint(playerLocation.getX(), playerLocation.getY() + 1, playerLocation.getPlane()),
-                new WorldPoint(playerLocation.getX(), playerLocation.getY() - 1, playerLocation.getPlane())
-        );
-
-        for (WorldPoint tile : nearbyTiles) {
-            if (!dangerousWorldPoints.contains(tile) && Rs2Tile.isWalkable(Rs2LocalPoint.fromWorldInstance(tile))) {
-                Microbot.log("Found safe tile: " + tile);
-                return tile;
-            }
-        }
-        Microbot.log("No safe tile found!");
-        return null;
     }
 
     private boolean hasRequiredSupplies() {
@@ -336,41 +372,9 @@ public class ScurriusScript extends Script {
         return Arrays.asList(lootFilter.toLowerCase().split(","));
     }
 
-    private void handlePrayerLogic() {
-        if (scurrius == null) return;
-
-        int npcAnimation = scurrius.getNpc().getAnimation();
-        Rs2PrayerEnum newDefensivePrayer = null;
-
-        switch (npcAnimation) {
-            case MELEE_ATTACK_ANIMATION:
-                newDefensivePrayer = Rs2PrayerEnum.PROTECT_MELEE;
-                break;
-            case RANGE_ATTACK_ANIMATION:
-                newDefensivePrayer = Rs2PrayerEnum.PROTECT_RANGE;
-                break;
-            case MAGIC_ATTACK_ANIMATION:
-                newDefensivePrayer = Rs2PrayerEnum.PROTECT_MAGIC;
-                break;
-        }
-
-        if (newDefensivePrayer != null && newDefensivePrayer != currentDefensivePrayer) {
-            switchDefensivePrayer(newDefensivePrayer);
-        }
-    }
-
-    private void switchDefensivePrayer(Rs2PrayerEnum newDefensivePrayer) {
-        if (currentDefensivePrayer != null) {
-            Rs2Prayer.toggle(currentDefensivePrayer, false);
-        }
-        Rs2Prayer.toggle(newDefensivePrayer, true);
-        currentDefensivePrayer = newDefensivePrayer;
-    }
-
     public void disableAllPrayers() {
         Rs2Prayer.disableAllPrayers();
         Microbot.log("All prayers disabled to preserve prayer points.");
-        currentDefensivePrayer = null;
     }
 
     @Override
