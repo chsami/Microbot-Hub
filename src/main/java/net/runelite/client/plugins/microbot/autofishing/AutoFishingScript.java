@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.autofishing;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.coords.WorldPoint;
@@ -62,6 +63,10 @@ public class AutoFishingScript extends Script {
     private void loop() {
         try {
             if (!super.run() || !Microbot.isLoggedIn()) return;
+
+            // The level-up pop-up blocks game input until it is dismissed. Without this the
+            // script keeps its FISHING state and never clicks another spot after a level.
+            if (dismissLevelUpScreen()) return;
 
             WorldPoint playerLocation = Rs2Player.getWorldLocation();
             if (playerLocation == null) return;
@@ -375,6 +380,21 @@ public class AutoFishingScript extends Script {
     private void handleErrorRecovery() {
         if (Rs2Bank.isOpen()) Rs2Bank.closeBank();
         fishAction = "";
+    }
+
+    /**
+     * The level-up screen takes over the chatbox and no longer accepts world interaction,
+     * so the script has to click its "Click here to continue" before it can act again.
+     *
+     * @return true when a level-up screen was showing and the dismiss click was sent
+     */
+    private boolean dismissLevelUpScreen() {
+        if (!Rs2Widget.isWidgetVisible(InterfaceID.LevelupDisplay.CONTINUE)) {
+            return false;
+        }
+        log.debug("Dismissing level-up screen");
+        Rs2Widget.clickWidget(InterfaceID.LevelupDisplay.CONTINUE);
+        return true;
     }
 
     /**
