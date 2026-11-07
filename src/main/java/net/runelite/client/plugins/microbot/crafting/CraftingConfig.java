@@ -34,7 +34,7 @@ public interface CraftingConfig extends Config {
     @ConfigItem(
             keyName = "fletchIntoBoltTips",
             name = "Fletch into Bolt Tips",
-            description = "Fletch cut gems into bolt tips if possible",
+            description = "Fletch cut gems into bolt tips. When your uncut gems run out, cut gems from your bank are fletched too.",
             position = 1,
             section = gemSection
     )

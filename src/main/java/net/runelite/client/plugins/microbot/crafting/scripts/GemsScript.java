@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.crafting.scripts;
 
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -21,6 +22,9 @@ import java.util.concurrent.TimeUnit;
 public class GemsScript extends Script implements ICraftingScript {
 
     public static double version = 1.0;
+
+    private boolean fletchUnavailableNoticeShown;
+    private boolean bankCutGemsNoticeShown;
 
     @Override
     public String getName() {
@@ -44,6 +48,8 @@ public class GemsScript extends Script implements ICraftingScript {
 
 
     public boolean run(CraftingConfig config) {
+        fletchUnavailableNoticeShown = false;
+        bankCutGemsNoticeShown = false;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -59,6 +65,10 @@ public class GemsScript extends Script implements ICraftingScript {
                 final BoltTips boltTip = config.fletchIntoBoltTips() ? getBoltTip(config.gemType()) : null;
                 final boolean fletchCutGems = !amethyst && boltTip != null
                         && Rs2Player.getSkillRequirement(Skill.FLETCHING, boltTip.getFletchingLevelRequired());
+                if (config.fletchIntoBoltTips() && !amethyst && !fletchCutGems && !fletchUnavailableNoticeShown) {
+                    fletchUnavailableNoticeShown = true;
+                    showGameMessage(fletchUnavailableMessage(gemName, boltTip));
+                }
 
                 if ((!amethyst && !hasGemsToProcess(Rs2Inventory.hasItem(uncutGemName), Rs2Inventory.hasItem(gemName, true), fletchCutGems))
                         || !Rs2Inventory.hasItem("chisel") || (amethyst && !Rs2Inventory.hasItem(21347))) {
@@ -77,6 +87,10 @@ public class GemsScript extends Script implements ICraftingScript {
                             Rs2Bank.withdrawItem(true, "chisel");
                             Rs2Bank.withdrawAll(true, uncutGemName);
                         } else if (fletchCutGems && (Rs2Bank.hasItem(gemName, true) || Rs2Inventory.hasItem(gemName, true))) {
+                            if (!bankCutGemsNoticeShown && Rs2Bank.hasItem(gemName, true)) {
+                                bankCutGemsNoticeShown = true;
+                                showGameMessage("No uncut " + gemName + " left, fletching cut " + gemName + " from your bank into bolt tips.");
+                            }
                             Rs2Bank.withdrawItem(true, "chisel");
                             Rs2Bank.withdrawAll(true, gemName, true);
                         } else if (amethyst && Rs2Bank.hasItem(21347)) {
@@ -85,7 +99,7 @@ public class GemsScript extends Script implements ICraftingScript {
                         }
                         else
                         {
-                            Microbot.showMessage("You've ran out of materials!");
+                            Microbot.showMessage(outOfMaterialsMessage(gemName, amethyst, fletchCutGems));
                             shutdown();
                             }
                         Rs2Bank.closeBank();
@@ -141,6 +155,28 @@ public class GemsScript extends Script implements ICraftingScript {
 
     static boolean hasGemsToProcess(boolean hasUncutGems, boolean hasCutGems, boolean fletchCutGems) {
         return hasUncutGems || (fletchCutGems && hasCutGems);
+    }
+
+    static String fletchUnavailableMessage(String gemName, BoltTips boltTip) {
+        if (boltTip == null) {
+            return gemName + " cannot be fletched into bolt tips, only cutting gems.";
+        }
+        return "Fletching level " + boltTip.getFletchingLevelRequired() + " needed for " + boltTip.getGemName() + " bolt tips, only cutting gems.";
+    }
+
+    static String outOfMaterialsMessage(String gemName, boolean amethyst, boolean fletchCutGems) {
+        if (amethyst) {
+            return "Out of amethyst in your bank. Stopping.";
+        }
+        if (fletchCutGems) {
+            return "Out of uncut and cut " + gemName + " in your bank. Stopping.";
+        }
+        return "Out of uncut " + gemName + " in your bank. Stopping.";
+    }
+
+    private static void showGameMessage(String message) {
+        Microbot.getClientThread().invokeLater(() ->
+                Microbot.getClient().addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null));
     }
 
     @Override
