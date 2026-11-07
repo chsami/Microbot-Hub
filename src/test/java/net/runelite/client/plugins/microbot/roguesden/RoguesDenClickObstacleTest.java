@@ -19,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -180,6 +181,32 @@ class RoguesDenClickObstacleTest {
             camera.verify(() -> Rs2Camera.angleToTile(WALL_STAND.getTile()));
             microbot.verify(() -> Microbot.log(anyString()));
             walker.verify(() -> Rs2Walker.walkFastCanvas(WALL_STAND.getTile()), times(RoguesDenScript.STUCK_WALK_ATTEMPTS + 1));
+        }
+    }
+
+    @Test
+    void doesNotTurnCameraWhilePlayerKeepsMoving() throws Exception {
+        Obstacles.OBSTACLES = new Obstacles.Obstacle[]{ENTRANCE, WALL_STAND, WALL_SEARCH, AFTER_WALL};
+        RoguesDenScript script = new RoguesDenScript();
+        AtomicInteger calls = new AtomicInteger();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Random> random = mockStatic(Rs2Random.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Camera> camera = mockStatic(Rs2Camera.class);
+             MockedStatic<Global> global = mockStatic(Global.class)) {
+            player.when(Rs2Player::getWorldLocation)
+                    .thenAnswer(invocation -> new WorldPoint(2980 + calls.getAndIncrement() % 8, 5087, 1));
+            random.when(() -> Rs2Random.between(1, 10)).thenReturn(1);
+            walker.when(() -> Rs2Walker.walkFastCanvas(WALL_STAND.getTile())).thenReturn(true);
+
+            for (int i = 0; i < RoguesDenScript.STUCK_WALK_ATTEMPTS * 3; i++) {
+                clickObstacle(script);
+            }
+
+            camera.verifyNoInteractions();
+            microbot.verify(() -> Microbot.log(anyString()), never());
         }
     }
 
