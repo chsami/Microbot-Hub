@@ -56,11 +56,12 @@ public class DismissNpcEvent implements BlockingEvent {
         if (name == null)
             return true;
 
+        log.info("Random event NPC {} detected", name);
         Global.sleep(Rs2Random.between(1200, 3000));
 
         npc = getRandomEventNpc();
         if (npc == null || !name.equals(npc.getName())) {
-            log.debug("Random event NPC {} left before it was handled", name);
+            log.info("Random event NPC {} left before it was handled", name);
             return true;
         }
 
@@ -153,7 +154,12 @@ public class DismissNpcEvent implements BlockingEvent {
     }
 
     private void dismiss(Rs2NpcModel npc) {
-        npc.click("Dismiss");
+        String name = npc.getName();
+        if (!npc.click("Dismiss")) {
+            log.info("Could not click Dismiss on random event NPC {}", name);
+            return;
+        }
+        log.info("Clicked Dismiss on random event NPC {}", name);
         Global.sleepUntil(() -> getRandomEventNpc() == null);
     }
 

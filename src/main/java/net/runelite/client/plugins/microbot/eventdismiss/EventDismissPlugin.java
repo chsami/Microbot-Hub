@@ -26,7 +26,7 @@ import java.awt.*;
 )
 @Slf4j
 public class EventDismissPlugin extends Plugin {
-    public static final String version = "2.1.2";
+    public static final String version = "2.1.3";
 
     @Inject
     private EventDismissConfig config;
@@ -34,6 +34,8 @@ public class EventDismissPlugin extends Plugin {
     private OverlayManager overlayManager;
     @Inject
     private EventDismissOverlay overlay;
+    @Inject
+    private EventDismissScript eventDismissScript;
 
     private DismissNpcEvent dismissNpcEvent;
     private UseLampEvent useLampEvent;
@@ -53,10 +55,12 @@ public class EventDismissPlugin extends Plugin {
             overlayManager.add(overlay);
         }
         LampUtility.reset();
+        eventDismissScript.start();
     }
 
     @Override
     protected void shutDown() {
+        eventDismissScript.shutdown();
         Microbot.getBlockingEventManager().remove(dismissNpcEvent);
         Microbot.getBlockingEventManager().remove(useLampEvent);
         if (overlayManager != null) {
