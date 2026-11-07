@@ -74,6 +74,8 @@ public class ScurriusScript extends Script {
     private boolean fightedThisKill = false;
     /** Set when we fought since the last bank visit; a bank visit without it is not a real restock trip. */
     private boolean fightedSinceBank = false;
+    /** A bank visit just ended and the next supply check has not been made yet. */
+    private boolean justBanked = false;
     private boolean lootPending = false;
     private int emptyLootLoops = 0;
     /** Breaks: bank visits since the last break, the visit count that starts the next one, and the running break. */
@@ -140,6 +142,7 @@ public class ScurriusScript extends Script {
         scurriusWasPresent = false;
         fightedThisKill = false;
         fightedSinceBank = false;
+        justBanked = false;
         onBreak = false;
         breakEndsAtMs = 0;
         tripsSinceBreak = 0;
@@ -213,6 +216,22 @@ public class ScurriusScript extends Script {
 
                 // The one table for what to do with the supplies and the boss: leave when out of food or potions, top up
                 // outside the room, walk in with full supplies. A decided teleport or walk-out (emergencyActive) is not undone.
+                if (justBanked && !isInFightRoom) {
+                    // The bank visit just ended: if the supplies are still short (after a moment for the inventory to settle)
+                    // the bank cannot give more, so stop here instead of banking in a loop.
+                    justBanked = false;
+                    String stillShort = supplyShortage();
+                    if (stillShort != null) {
+                        sleep(1500);
+                        stillShort = supplyShortage();
+                    }
+                    if (stillShort != null) {
+                        Microbot.log("Banked but still short: " + stillShort + ". Stopping instead of looping.");
+                        Microbot.showMessage("Scurrius stopped: still short after banking (" + stillShort + ")");
+                        shutdown();
+                        return;
+                    }
+                }
                 if (!emergencyActive && state != State.TELEPORT_AWAY) {
                     int foodLeft = Rs2Inventory.getInventoryFood().size();
                     boolean hasTab = Rs2Inventory.hasItem(TELEPORT_TAB_ID);
@@ -349,7 +368,7 @@ public class ScurriusScript extends Script {
                         break;
 
                     case TELEPORT_AWAY:
-                        int tabsBeforeTeleport = Rs2Inventory.count(TELEPORT_TAB_ID);
+                        int tabsBeforeTeleport = supplyQuantity(TELEPORT_TAB_ID);
                         if (tabsBeforeTeleport == 0) {
                             Microbot.log("No Varrock teleport tab to break, staying in the fight.");
                             emergencyActive = false;
@@ -361,7 +380,7 @@ public class ScurriusScript extends Script {
                         boolean leftFightRoom = sleepUntil(() -> !isInFightRoom(), 10_000);
                         if (!leftFightRoom) {
                             Microbot.log("Teleport did not take us out of the boss room (tabs " + tabsBeforeTeleport
-                                    + " -> " + Rs2Inventory.count(TELEPORT_TAB_ID) + "), back to fighting.");
+                                    + " -> " + supplyQuantity(TELEPORT_TAB_ID) + "), back to fighting.");
                             emergencyActive = false;
                             emergencyRetryAt = System.currentTimeMillis() + TELEPORT_RETRY_COOLDOWN_MS;
                             if (restockTrip) {
@@ -747,6 +766,7 @@ public class ScurriusScript extends Script {
      * start or repeated visits with no fighting between them change nothing.
      */
     private void onBankVisitDone() {
+        justBanked = true;
         restockTrip = false;
         lootPending = false;
         boolean real = RestockTrips.isRealTrip(killsSinceBank, fightedSinceBank);
@@ -852,28 +872,25 @@ public class ScurriusScript extends Script {
         }
     }
 
+    /** Quantity of an inventory item: a stack counts by its quantity (tabs are one stack), single items by one each. */
+    private static int supplyQuantity(int itemId) {
+        return SupplyCounts.quantity(Rs2Inventory.all(), item -> item.getId(), item -> item.getQuantity(), itemId);
+    }
+
+    /** What is short against the configured amounts, like "food 18/20", or null when all is there. */
+    private String supplyShortage() {
+        return SupplyCounts.shortage(
+                supplyQuantity(config.foodSelection().getId()), config.foodAmount(),
+                supplyQuantity(config.potionSelection().getItemId()), config.prayerPotionAmount(),
+                supplyQuantity(TELEPORT_TAB_ID), config.teleportAmount());
+    }
+
     private boolean hasRequiredSupplies() {
-        if (Rs2Inventory.count(TELEPORT_TAB_ID) < config.teleportAmount()) {
-            logSupplyShortage("Not enough teleport tabs in inventory. Expected: " + config.teleportAmount());
+        String shortage = supplyShortage();
+        if (shortage != null) {
+            logSupplyShortage("Not enough supplies in inventory: " + shortage);
             return false;
         }
-        int foodAmount = config.foodAmount();
-        int foodItemId = config.foodSelection().getId();
-        int prayerPotionAmount = config.prayerPotionAmount();
-        int potionItemId = config.potionSelection().getItemId();
-
-        int currentFoodCount = Rs2Inventory.count(foodItemId);
-        if (currentFoodCount < foodAmount) {
-            logSupplyShortage("Not enough food in inventory. Expected: " + foodAmount + ", Found: " + currentFoodCount);
-            return false;
-        }
-
-        int currentPrayerPotionCount = Rs2Inventory.count(potionItemId);
-        if (currentPrayerPotionCount < prayerPotionAmount) {
-            logSupplyShortage("Not enough prayer potions in inventory. Expected: " + prayerPotionAmount + ", Found: " + currentPrayerPotionCount);
-            return false;
-        }
-
         return true;
     }
 
