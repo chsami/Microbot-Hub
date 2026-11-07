@@ -6,9 +6,11 @@ import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GraphicsObject;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GraphicsObjectCreated;
 import net.runelite.api.events.HitsplatApplied;
+import net.runelite.api.events.ProjectileMoved;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
@@ -34,7 +36,7 @@ import java.awt.*;
 )
 @Slf4j
 public class ScurriusPlugin extends Plugin {
-    public static final String version = "1.1.0";
+    public static final String version = "1.1.1";
     @Inject
     private ScurriusConfig config;
     @Provides
@@ -91,7 +93,7 @@ public class ScurriusPlugin extends Plugin {
     @Subscribe
     public void onGraphicsObjectCreated(GraphicsObjectCreated event) {
         if (tickDriver != null && event.getGraphicsObject().getId() == ScurriusTickDriver.ROCKS_GRAPHICS_ID) {
-            tickDriver.onRocksCreated(client, event.getGraphicsObject(), client.getTickCount());
+            tickDriver.onRocksCreated(client, event.getGraphicsObject());
         }
     }
 
@@ -100,6 +102,20 @@ public class ScurriusPlugin extends Plugin {
         if (tickDriver != null) {
             tickDriver.setMode(config.prayerMode());
             tickDriver.onGameTick(client);
+        }
+    }
+
+    @Subscribe
+    public void onAnimationChanged(AnimationChanged event) {
+        if (tickDriver != null) {
+            tickDriver.onAnimationChanged(client, event);
+        }
+    }
+
+    @Subscribe
+    public void onProjectileMoved(ProjectileMoved event) {
+        if (tickDriver != null) {
+            tickDriver.onProjectileMoved(client, event);
         }
     }
 

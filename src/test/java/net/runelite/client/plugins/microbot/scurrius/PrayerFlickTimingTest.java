@@ -71,10 +71,11 @@ class PrayerFlickTimingTest {
     }
 
     @Test
-    void lazyFlickWindowIsLandingMinusOneToLanding() {
+    void lazyFlickIsOnFromTheAnimationTickUntilTheHitLands() {
         PrayerFlickTiming timing = learned();
         timing.onAttackStarted(200, Style.MAGIC); // lands at 202
-        assertNull(timing.decide(200, PrayerMode.LAZY_FLICK, false).style);
+        assertEquals(Style.MAGIC, timing.decide(200, PrayerMode.LAZY_FLICK, false).style);
+        assertNull(timing.decide(199, PrayerMode.LAZY_FLICK, false).style);
         assertEquals(Style.MAGIC, timing.decide(201, PrayerMode.LAZY_FLICK, false).style);
         assertEquals(Style.MAGIC, timing.decide(202, PrayerMode.LAZY_FLICK, false).style);
         timing.onHit(202, 0, Style.MAGIC, false);
@@ -157,9 +158,55 @@ class PrayerFlickTimingTest {
 
     @Test
     void animationIdsMapToStyles() {
+        assertEquals(Style.MELEE, ScurriusTickDriver.styleFor(10692));
         assertEquals(Style.MELEE, ScurriusTickDriver.styleFor(10693));
+        assertEquals(Style.RANGE, ScurriusTickDriver.styleFor(10694));
         assertEquals(Style.RANGE, ScurriusTickDriver.styleFor(10695));
+        assertEquals(Style.MAGIC, ScurriusTickDriver.styleFor(10696));
         assertEquals(Style.MAGIC, ScurriusTickDriver.styleFor(10697));
+        assertNull(ScurriusTickDriver.styleFor(10698)); // stomp: not a prayer attack
         assertNull(ScurriusTickDriver.styleFor(-1));
+    }
+
+    @Test
+    void projectileProvesTheStyleWhenTheAnimationShowedAnother() {
+        PrayerFlickTiming timing = new PrayerFlickTiming();
+        timing.onStyleSignal(10, Style.MELEE);          // animation
+        timing.onStyleSignal(11, Style.MAGIC);          // projectile of the same attack corrects it
+        assertEquals(Style.MAGIC, timing.decide(11, PrayerMode.ALWAYS_ON, false).style);
+        assertEquals(Style.MAGIC, timing.decide(11, PrayerMode.ONE_TICK_FLICK, false).style);
+    }
+
+    @Test
+    void projectileAloneStartsAnAttackWhenTheAnimationWasMissed() {
+        PrayerFlickTiming timing = new PrayerFlickTiming();
+        assertEquals(Style.MELEE, timing.decide(5, PrayerMode.ALWAYS_ON, false).style);
+        timing.onStyleSignal(6, Style.MAGIC);
+        assertEquals(Style.MAGIC, timing.decide(6, PrayerMode.ALWAYS_ON, false).style);
+    }
+
+    @Test
+    void signalsOfTheSameStyleAreOneAttack() {
+        PrayerFlickTiming timing = learned();
+        timing.onStyleSignal(200, Style.RANGE);
+        timing.onStyleSignal(201, Style.RANGE); // projectile of the same attack
+        timing.onHit(202, 0, Style.RANGE, false);
+        assertNull(timing.decide(203, PrayerMode.LAZY_FLICK, false).style); // nothing left pending
+    }
+
+    @Test
+    void aSignalAfterTheWindowIsANewAttack() {
+        PrayerFlickTiming timing = learned();
+        timing.onStyleSignal(200, Style.RANGE);
+        timing.onHit(202, 0, Style.RANGE, false);
+        timing.onStyleSignal(205, Style.MAGIC);
+        assertEquals(Style.MAGIC, timing.decide(205, PrayerMode.LAZY_FLICK, false).style);
+    }
+
+    @Test
+    void projectileIdsMapToStyles() {
+        assertEquals(Style.MAGIC, ScurriusTickDriver.projectileStyle(2640));
+        assertEquals(Style.RANGE, ScurriusTickDriver.projectileStyle(2642));
+        assertNull(ScurriusTickDriver.projectileStyle(2644)); // falling debris
     }
 }

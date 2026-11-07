@@ -17,9 +17,14 @@ import java.util.Map;
  *
  * <p>Tick convention: every method takes the client tick count of the GameTick being processed. A click made while
  * handling tick {@code t} is applied by the server in tick {@code t + 1}. So for a hit landing at tick {@code L}
- * the prayer must be requested on at tick {@code L - 1}. {@link #decide} wants it on for ticks {@code L - 1} and
- * {@code L}: the request to switch off is made once the hit has landed (the hitsplat clears the pending attack), or one
- * tick after {@code L} if no hitsplat was seen.
+ * the prayer must be requested on by tick {@code L - 1}. The right style is requested on the very tick the attack is
+ * first seen ({@code A}, where {@code A <= L - 1}), in every mode, and {@link #decide} keeps it on through tick {@code L}
+ * (lazy flick). The request to switch off is made once the hit has landed (the hitsplat clears the pending attack), or
+ * one tick after {@code L} if no hitsplat was seen.
+ *
+ * <p>The style comes from either the attack animation or the projectile aimed at the player; both are signals for the
+ * same attack when they arrive within {@link #SAME_ATTACK_TICKS} of each other, and a later signal with another style
+ * corrects the earlier one (the projectile is the authority).
  *
  * <p>Safety: an unprotected hit, an unexpected hit, rats attacking, or an unknown timing keep the prayer on.
  */
@@ -44,6 +49,8 @@ public final class PrayerFlickTiming {
     /** Ticks the prayer is held on (no flicking) after a hit that was not blocked. */
     public static final int UNPROTECTED_HOLD_TICKS = 10;
     private static final int PENDING_EXPIRY_TICKS = MAX_DELAY + 4;
+    /** Signals (animation, projectile) closer than this belong to one attack: Scurrius attacks at most every 4-5 ticks. */
+    public static final int SAME_ATTACK_TICKS = 3;
 
     private static final class Pending {
         final int startTick;
@@ -60,12 +67,31 @@ public final class PrayerFlickTiming {
     private final Map<Style, Integer> confirmedDelay = new EnumMap<>(Style.class);
     private final Map<Style, Integer> streak = new EnumMap<>(Style.class);
     private Style lastStyle;
+    private int lastSignalTick = Integer.MIN_VALUE;
     private int holdUntil = Integer.MIN_VALUE;
 
     /** Scurrius started an attack of this style (first tick its attack animation was seen). */
     public void onAttackStarted(int tick, Style style) {
         pending.addLast(new Pending(tick, style));
         lastStyle = style;
+        lastSignalTick = tick;
+    }
+
+    /**
+     * An attack animation or a projectile aimed at the player showed this style. A new attack unless it follows another
+     * signal within {@link #SAME_ATTACK_TICKS}; then it is the same attack, and if the style differs it replaces it.
+     */
+    public void onStyleSignal(int tick, Style style) {
+        Pending last = pending.peekLast();
+        if (last != null && tick - lastSignalTick >= 0 && tick - lastSignalTick < SAME_ATTACK_TICKS) {
+            if (last.style != style) {
+                pending.removeLast();
+                pending.addLast(new Pending(last.startTick, style));
+                lastStyle = style;
+            }
+            return;
+        }
+        onAttackStarted(tick, style);
     }
 
     /**
@@ -142,6 +168,7 @@ public final class PrayerFlickTiming {
     /** Forget pending attacks (new fight, state change). Learned delays are kept: they do not change between kills. */
     public void clearPending() {
         pending.clear();
+        lastSignalTick = Integer.MIN_VALUE;
         holdUntil = Integer.MIN_VALUE;
     }
 
@@ -175,7 +202,7 @@ public final class PrayerFlickTiming {
         }
         for (Pending attack : pending) {
             int landing = attack.startTick + confirmedDelay.get(attack.style);
-            if (tick >= landing - 1 && tick <= landing) {
+            if (tick >= attack.startTick && tick <= landing) {
                 return new Decision(attack.style, false);
             }
         }

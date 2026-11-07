@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -96,5 +97,34 @@ class SafeTileFinderTest {
         WorldPoint player = wp(3300, 9860);
         WorldPoint safe = SafeTileFinder.find(player, Set.of(player), everywhere, room, null, 1);
         assertEquals(1, chebyshev(safe, player));
+    }
+
+    /** An instance: template tile (x, y) is scene tile (x - 3200, y - 9700); only scene tiles 90..130 x 160..200 exist. */
+    private static final Function<WorldPoint, int[]> TO_SCENE = tile -> {
+        int x = tile.getX() - 3200;
+        int y = tile.getY() - 9700;
+        return x >= 90 && x <= 130 && y >= 160 && y <= 200 ? new int[]{x, y} : null;
+    };
+
+    @Test
+    void instancedRoomUsesTheSceneConversionForWalkability() {
+        WorldPoint player = wp(3296, 9868); // template coordinates, like Rs2Player.getWorldLocation() in the private room
+        // A test that asked the collision map about the template tile directly would see nothing walkable (null scene).
+        Predicate<WorldPoint> naive = SafeTileFinder.walkable(tile -> null, scene -> true);
+        assertNull(SafeTileFinder.find(player, Set.of(player), naive, room, boss, 1));
+
+        Predicate<WorldPoint> instanced = SafeTileFinder.walkable(TO_SCENE, scene -> true);
+        WorldPoint safe = SafeTileFinder.find(player, Set.of(player), instanced, room, null, 1);
+        assertNotNull(safe);
+        assertEquals(1, chebyshev(safe, player));
+    }
+
+    @Test
+    void sceneTilesThatAreBlockedAreNotWalkable() {
+        WorldPoint player = wp(3296, 9868);
+        Predicate<WorldPoint> instanced = SafeTileFinder.walkable(TO_SCENE, scene -> scene[0] != 97); // wall column x = 3297
+        WorldPoint safe = SafeTileFinder.find(player, Set.of(player), instanced, room, null, 1);
+        assertNotNull(safe);
+        assertFalse(safe.getX() == 3297);
     }
 }

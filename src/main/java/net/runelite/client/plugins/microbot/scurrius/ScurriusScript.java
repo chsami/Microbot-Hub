@@ -47,6 +47,9 @@ public class ScurriusScript extends Script {
     private boolean emergencyActive = false;
     private long emergencyRetryAt = 0;
     private boolean loggedNoTeleport = false;
+    /** Percent thresholds for the next eat and the next prayer potion; -1 until rolled. */
+    private int eatThreshold = -1;
+    private int prayerThreshold = -1;
     /** Prayer flicking and rock dodging run on game ticks in this driver, owned by the plugin. */
     private volatile ScurriusTickDriver tickDriver;
 
@@ -174,23 +177,32 @@ public class ScurriusScript extends Script {
 
                     case FIGHTING:
                         if (tryEmergencyTeleport(currentTime)) break;
+                        // Eating and drinking are not gated on animating: with a blowpipe the player animates all the time.
+                        // The threshold is a percent of the real level, rolled again after each eat or drink.
                         if (currentTime - lastEatTime > EAT_COOLDOWN_MS) {
-                            int randomEatThreshold = randomThreshold(config.minEatPercent(), config.maxEatPercent());
+                            if (eatThreshold < 0) eatThreshold = randomThreshold(config.minEatPercent(), config.maxEatPercent());
+                            int hp = Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS);
+                            int maxHp = Microbot.getClient().getRealSkillLevel(Skill.HITPOINTS);
 
-                            if (Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) < randomEatThreshold && !Rs2Player.isAnimating()) {
-                                Rs2Player.eatAt(randomEatThreshold);
+                            if (shouldEat(hp, maxHp, eatThreshold) && Rs2Player.useFood()) {
+                                Microbot.log("Eating at " + hp + "/" + maxHp + " hp (" + (hp * 100 / maxHp) + "%), threshold "
+                                        + eatThreshold + "%.");
                                 lastEatTime = currentTime;
-                                Microbot.log("Eating food at " + randomEatThreshold + "% health.");
+                                eatThreshold = -1;
                             }
                         }
 
                         if (currentTime - lastPrayerTime > PRAYER_COOLDOWN_MS) {
-                            int randomPrayerThreshold = randomThreshold(config.minPrayerPercent(), config.maxPrayerPercent());
+                            if (prayerThreshold < 0) prayerThreshold = randomThreshold(config.minPrayerPercent(), config.maxPrayerPercent());
+                            int prayer = Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER);
+                            int maxPrayer = Microbot.getClient().getRealSkillLevel(Skill.PRAYER);
 
-                            if (Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER) < randomPrayerThreshold && !Rs2Player.isAnimating()) {
-                                Rs2Player.drinkPrayerPotionAt(randomPrayerThreshold);
+                            // drinkPrayerPotionAt takes prayer points and drinks when the level is not above them
+                            if (shouldEat(prayer, maxPrayer, prayerThreshold) && Rs2Player.drinkPrayerPotionAt(prayer)) {
+                                Microbot.log("Drinking a prayer potion at " + prayer + "/" + maxPrayer + " prayer ("
+                                        + (prayer * 100 / maxPrayer) + "%), threshold " + prayerThreshold + "%.");
                                 lastPrayerTime = currentTime;
-                                Microbot.log("Drinking prayer potion at " + randomPrayerThreshold + "% prayer points.");
+                                prayerThreshold = -1;
                             }
                         }
 
@@ -331,6 +343,11 @@ public class ScurriusScript extends Script {
     static boolean isLiveGiantRat(Rs2NpcModel npc) {
         String name = npc.getName();
         return name != null && name.toLowerCase().contains("giant rat") && !npc.getNpc().isDead();
+    }
+
+    /** Whether a level (hitpoints or prayer) is under the percent of its real maximum. Pure. */
+    static boolean shouldEat(int level, int maxLevel, int thresholdPercent) {
+        return maxLevel > 0 && level * 100 < maxLevel * thresholdPercent;
     }
 
     static int randomThreshold(int first, int second) {

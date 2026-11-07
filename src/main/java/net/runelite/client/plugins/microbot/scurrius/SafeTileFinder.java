@@ -5,6 +5,7 @@ import net.runelite.api.coords.WorldPoint;
 
 import java.util.Comparator;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 /** Picks where to step when standing under falling rocks. Pure, so it is unit tested. */
@@ -51,6 +52,18 @@ public final class SafeTileFinder {
             }
         }
         return best;
+    }
+
+    /**
+     * A walkable test for tiles in the space of the player's world location. Inside an instance that is template
+     * coordinates, which the collision map cannot be asked about directly: {@code toScene} converts such a tile to the
+     * scene tile (null when it is not in the scene, which is not walkable) and {@code sceneWalkable} tests that.
+     */
+    public static <S> Predicate<WorldPoint> walkable(Function<WorldPoint, S> toScene, Predicate<S> sceneWalkable) {
+        return tile -> {
+            S scene = toScene.apply(tile);
+            return scene != null && sceneWalkable.test(scene);
+        };
     }
 
     /** Whether a tile can attack the boss: adjacent (not diagonal-only) for range 1, else within range of the footprint. */
