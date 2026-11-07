@@ -16,6 +16,10 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.camera.Rs2Camera;
+import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
+import net.runelite.client.plugins.microbot.util.misc.SpecialAttackWeaponEnum;
+import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
@@ -63,6 +67,7 @@ public class ScurriusScript extends Script {
     public static volatile int nextTripAt = 0;
     /** Kills this session and the experience tracker, both shown in the overlay. */
     public static volatile int totalKills = 0;
+    public static volatile int specsUsed = 0;
     public static final XpTracker XP = new XpTracker();
     private int restockTarget = 0;
     private boolean scurriusWasPresent = false;
@@ -92,6 +97,15 @@ public class ScurriusScript extends Script {
     private boolean habitsDoneThisKill = false;
     private boolean pausedBeforeEntry = false;
     private long lateReclickAt = 0;
+    /** Special attack: when the energy became available (0 = not), its random delay, the attempt being verified, and a weapon swap. */
+    private long specAvailableSince = 0;
+    private int specDelayMs = 0;
+    private long specPendingSince = 0;
+    private int specEnergyBefore = 0;
+    private long specRetryAt = 0;
+    private boolean swappedForSpec = false;
+    private int mainWeaponId = -1;
+    private int mainShieldId = -1;
     private int eatThreshold = -1;
     private int prayerThreshold = -1;
     /** Prayer flicking and rock dodging run on game ticks in this driver, owned by the plugin. */
@@ -115,6 +129,11 @@ public class ScurriusScript extends Script {
         lateReclickAt = 0;
         killsSinceBank = 0;
         totalKills = 0;
+        specsUsed = 0;
+        specPendingSince = 0;
+        specAvailableSince = 0;
+        specRetryAt = 0;
+        swappedForSpec = false;
         restockTarget = rollRestockTarget();
         restockTrip = false;
         lootPending = false;
@@ -319,6 +338,8 @@ public class ScurriusScript extends Script {
                         // Rocks falling on the player: the driver walks off them; no Attack click until clear.
                         if (isAttackHeld()) break;
 
+                        handleSpecialAttack(currentTime);
+
                         Rs2NpcModel giantRatModel = Microbot.getRs2NpcCache().query()
                                 .where(ScurriusScript::isLiveGiantRat)
                                 .nearest();
@@ -462,6 +483,128 @@ public class ScurriusScript extends Script {
         } catch (Exception ex) {
             LOG.debug("setSafetyHold failed", ex);
         }
+    }
+
+    /**
+     * Special attack on Scurrius: after eating and praying have had their turn and never while attacks are held. The spec
+     * is turned on through the orb (Rs2Combat.setSpecState clicks it), and the attempt counts only when the energy drops.
+     * With a spec weapon set it is wielded first and the main weapon (and shield) put back afterwards.
+     */
+    private void handleSpecialAttack(long now) {
+        try {
+            if (specPendingSince != 0) {
+                int energy = Rs2Combat.getSpecEnergy();
+                if (SpecialAttacks.fired(specEnergyBefore, energy)) {
+                    specsUsed++;
+                    specPendingSince = 0;
+                    LOG.debug("Special attack fired (energy {} -> {})", specEnergyBefore, energy);
+                    restoreMainWeapon();
+                } else if (now - specPendingSince > SpecialAttacks.VERIFY_TIMEOUT_MS) {
+                    LOG.debug("Special attack did not fire, trying again in a while");
+                    specPendingSince = 0;
+                    specRetryAt = now + SpecialAttacks.RETRY_COOLDOWN_MS;
+                    Rs2Combat.setSpecState(false);
+                    restoreMainWeapon();
+                }
+                return;
+            }
+            if (!config.specEnabled() || scurrius == null) {
+                return;
+            }
+            String specWeapon = config.specWeapon() == null ? "" : config.specWeapon().trim();
+            int needed = SpecialAttacks.neededPercent(config.specEnergyNeeded(), weaponSpecCost(specWeapon));
+            int energyRaw = Rs2Combat.getSpecEnergy();
+            if (energyRaw / 10 >= needed) {
+                if (specAvailableSince == 0) {
+                    specAvailableSince = now;
+                    specDelayMs = SpecialAttacks.delayMs(habitRandom, config.antibanFramework());
+                }
+            } else {
+                specAvailableSince = 0;
+                return;
+            }
+            net.runelite.api.Actor target = Microbot.getClient().getLocalPlayer().getInteracting();
+            boolean attackingBoss = target != null && target == scurrius.getNpc();
+            int hpPercent = 100;
+            net.runelite.api.NPC npc = scurrius.getNpc();
+            if (npc.getHealthScale() > 0 && npc.getHealthRatio() >= 0) {
+                hpPercent = npc.getHealthRatio() * 100 / npc.getHealthScale();
+            }
+            if (!SpecialAttacks.shouldSpec(true, energyRaw / 10, needed, !npc.isDead(), attackingBoss, isAttackHeld(), false,
+                    now >= specRetryAt, now - specAvailableSince >= specDelayMs, hpPercent, config.specSkipBossHp())) {
+                return;
+            }
+            if (!specWeapon.isEmpty() && !swapToSpecWeapon(specWeapon)) {
+                specRetryAt = now + SpecialAttacks.RETRY_COOLDOWN_MS;
+                return;
+            }
+            specEnergyBefore = energyRaw;
+            if (Rs2Combat.setSpecState(true, needed * 10)) {
+                specPendingSince = now;
+                specAvailableSince = 0;
+                lateReclickAt = 0; // the attack branch re-clicks Scurrius if the weapon swap dropped the target
+            } else {
+                restoreMainWeapon();
+                specRetryAt = now + SpecialAttacks.RETRY_COOLDOWN_MS;
+            }
+        } catch (Exception ex) {
+            LOG.debug("Special attack step failed", ex);
+        }
+    }
+
+    /** The spec cost in 0-1000 of the spec weapon (or the equipped weapon when blank); 0 when unknown. */
+    private int weaponSpecCost(String specWeaponName) {
+        String name = specWeaponName;
+        if (name.isEmpty()) {
+            net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel weapon = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+            name = weapon == null || weapon.getName() == null ? "" : weapon.getName();
+        }
+        String lower = name.toLowerCase();
+        for (SpecialAttackWeaponEnum candidate : SpecialAttackWeaponEnum.values()) {
+            if (lower.contains(candidate.getName())) {
+                return candidate.getEnergyRequired();
+            }
+        }
+        return 0;
+    }
+
+    /** Wields the spec weapon from the inventory, remembering the main weapon and shield. False if it cannot. */
+    private boolean swapToSpecWeapon(String name) {
+        net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel current = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+        if (current != null && current.getName() != null && current.getName().toLowerCase().contains(name.toLowerCase())) {
+            return true; // already wielded
+        }
+        if (!Rs2Inventory.hasItem(name)) {
+            LOG.debug("Spec weapon {} is not in the inventory", name);
+            return false;
+        }
+        net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel shield = Rs2Equipment.get(EquipmentInventorySlot.SHIELD);
+        mainWeaponId = current == null ? -1 : current.getId();
+        mainShieldId = shield == null ? -1 : shield.getId();
+        Rs2Inventory.wield(name);
+        boolean worn = sleepUntil(() -> {
+            net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel now = Rs2Equipment.get(EquipmentInventorySlot.WEAPON);
+            return now != null && now.getName() != null && now.getName().toLowerCase().contains(name.toLowerCase());
+        }, 2000);
+        swappedForSpec = worn;
+        return worn;
+    }
+
+    /** After a spec (or a failed one): the main weapon back, and the shield if a two-handed spec weapon pushed it off. */
+    private void restoreMainWeapon() {
+        if (!swappedForSpec) {
+            return;
+        }
+        swappedForSpec = false;
+        if (mainWeaponId != -1) {
+            Rs2Inventory.wield(mainWeaponId);
+            sleepUntil(() -> Rs2Equipment.isWearing(mainWeaponId), 2000);
+        }
+        if (mainShieldId != -1 && !Rs2Equipment.isWearing(EquipmentInventorySlot.SHIELD)) {
+            Rs2Inventory.wield(mainShieldId);
+            sleepUntil(() -> Rs2Equipment.isWearing(mainShieldId), 2000);
+        }
+        lateReclickAt = 0;
     }
 
     private void returnToPrayerTab() {

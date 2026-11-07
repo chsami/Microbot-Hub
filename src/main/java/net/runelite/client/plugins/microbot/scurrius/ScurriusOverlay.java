@@ -77,6 +77,10 @@ public class ScurriusOverlay extends OverlayPanel {
                         .build());
             }
 
+            panelComponent.getChildren().add(LineComponent.builder()
+                    .left("Specs: " + ScurriusScript.specsUsed)
+                    .build());
+
             int nextTrip = ScurriusScript.nextTripAt;
             panelComponent.getChildren().add(LineComponent.builder()
                     .left("Since bank: " + ScurriusScript.killsSinceBank + (nextTrip > 0 ? " / next trip at " + nextTrip : ""))

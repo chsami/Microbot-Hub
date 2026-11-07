@@ -59,6 +59,13 @@ public interface ScurriusConfig extends Config {
     String antibanSettings = "antibanSettings";
 
     @ConfigSection(
+            name = "Special attack",
+            description = "Use the special attack on Scurrius whenever it is available",
+            position = 8
+    )
+    String specSettings = "specSettings";
+
+    @ConfigSection(
             name = "Loot Settings",
             description = "Settings for looting items",
             position = 3
@@ -548,6 +555,58 @@ public interface ScurriusConfig extends Config {
     )
     default boolean habitEatEarly() {
         return true;
+    }
+
+    @ConfigItem(
+            keyName = "specEnabled",
+            name = "Use special attack",
+            description = "Turn the special attack on whenever there is enough energy, while attacking Scurrius (never the rats)",
+            position = 0,
+            section = specSettings
+    )
+    default boolean specEnabled() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "specEnergyNeeded",
+            name = "Spec energy needed (%)",
+            description = "0 = the weapon's own cost when known (toxic blowpipe 50), else 50",
+            position = 1,
+            section = specSettings
+    )
+    @Range(
+            min = 0,
+            max = 100
+    )
+    default int specEnergyNeeded() {
+        return 0;
+    }
+
+    @ConfigItem(
+            keyName = "specWeapon",
+            name = "Spec weapon",
+            description = "Blank = the equipped weapon. A name from the inventory is wielded for the spec and the main weapon (and shield) put back afterwards",
+            position = 2,
+            section = specSettings
+    )
+    default String specWeapon() {
+        return "";
+    }
+
+    @ConfigItem(
+            keyName = "specSkipBossHp",
+            name = "Skip spec under boss HP (%)",
+            description = "Do not spec when Scurrius is under this health percent; 0 = never skip",
+            position = 3,
+            section = specSettings
+    )
+    @Range(
+            min = 0,
+            max = 100
+    )
+    default int specSkipBossHp() {
+        return 0;
     }
 
     @ConfigItem(
