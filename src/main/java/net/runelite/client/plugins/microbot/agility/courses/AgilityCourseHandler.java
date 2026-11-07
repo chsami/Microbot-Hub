@@ -60,6 +60,11 @@ public interface AgilityCourseHandler
 		return "You do not have the required items for this course.";
 	}
 
+	default String getObstacleNotFoundStopMessage()
+	{
+		return null;
+	}
+
 	default boolean handleCourseActions(WorldPoint playerWorldLocation)
 	{
 		return handleWalkToStart(playerWorldLocation);
