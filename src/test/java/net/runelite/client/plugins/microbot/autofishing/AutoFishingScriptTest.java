@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.autofishing;
 
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.autofishing.enums.AutoFishingState;
@@ -12,6 +13,7 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
@@ -59,6 +61,7 @@ class AutoFishingScriptTest {
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
              MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
              MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
             microbot.when(Microbot::isLoggedIn).thenReturn(true);
             rs2Player.when(Rs2Player::getWorldLocation).thenReturn(null);
@@ -71,6 +74,31 @@ class AutoFishingScriptTest {
             rs2Player.verify(Rs2Player::getWorldLocation);
             inventory.verifyNoInteractions();
             microbot.verify(Microbot::getRs2NpcCache, never());
+            assertEquals(AutoFishingState.IDLE, script.getCurrentState());
+        }
+    }
+
+    @Test
+    void tickDismissesLevelUpScreenInsteadOfTryingToFish() {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        AutoFishingScript script = new AutoFishingScript() {{
+            scheduledExecutorService = executor;
+        }};
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
+             MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
+            microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            widget.when(() -> Rs2Widget.isWidgetVisible(InterfaceID.LevelupDisplay.CONTINUE)).thenReturn(true);
+
+            script.run(mock(AutoFishingConfig.class));
+            ArgumentCaptor<Runnable> tick = ArgumentCaptor.forClass(Runnable.class);
+            verify(executor).scheduleWithFixedDelay(tick.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+            tick.getValue().run();
+
+            widget.verify(() -> Rs2Widget.clickWidget(InterfaceID.LevelupDisplay.CONTINUE));
+            rs2Player.verify(Rs2Player::getWorldLocation, never());
             assertEquals(AutoFishingState.IDLE, script.getCurrentState());
         }
     }
@@ -102,6 +130,7 @@ class AutoFishingScriptTest {
              MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
              MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
              MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
              MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
             microbot.when(Microbot::isLoggedIn).thenReturn(true);
             inventory.when(() -> Rs2Inventory.hasItem(anyString())).thenReturn(true);
