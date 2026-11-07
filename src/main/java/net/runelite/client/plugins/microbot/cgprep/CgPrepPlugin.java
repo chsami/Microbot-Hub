@@ -51,7 +51,7 @@ import net.runelite.client.util.HotkeyListener;
 )
 public class CgPrepPlugin extends Plugin
 {
-	static final String version = "1.8.1";
+	static final String version = "1.8.2";
 
 	@Inject
 	private CgPrepConfig config;
@@ -166,7 +166,7 @@ public class CgPrepPlugin extends Plugin
 			Microbot.getClientThread().invokeLater(this::postMigrationMsg);
 		}
 		overlayManager.add(overlay);
-		bossOverlay = new net.runelite.client.plugins.microbot.cgprep.boss.BossFightOverlay(client, () -> script.boss, config::bossOverlay);
+		bossOverlay = new net.runelite.client.plugins.microbot.cgprep.boss.BossFightOverlay(client, () -> script.boss, () -> config.showOverlay() && config.bossOverlay());
 		overlayManager.add(bossOverlay);
 		keyManager.registerKeyListener(pauseListener);
 		keyManager.registerKeyListener(continueListener);
@@ -377,9 +377,22 @@ public class CgPrepPlugin extends Plugin
 			if (st != null)
 			{
 				st.onChat(e.getMessage(), client.getVarbitValue(net.runelite.api.gameval.VarbitID.PLAYER_IN_GAUNTLET) != 0,
-					client.getVarbitValue(CgIds.VB_BOSS_STARTED) != 0);
+					client.getVarbitValue(CgIds.VB_BOSS_STARTED) != 0, client.getTickCount());
 			}
 		}
+	}
+
+	/** 1.8.2: our own death, seen as it happens (still inside the Gauntlet, varbits intact). */
+	@Subscribe
+	public void onActorDeath(net.runelite.api.events.ActorDeath e)
+	{
+		net.runelite.client.plugins.microbot.cgprep.stats.RunStats st = script.stats;
+		if (st == null || e.getActor() == null || e.getActor() != client.getLocalPlayer()
+			|| client.getVarbitValue(net.runelite.api.gameval.VarbitID.PLAYER_IN_GAUNTLET) == 0)
+		{
+			return;
+		}
+		st.died(client.getVarbitValue(CgIds.VB_BOSS_STARTED) != 0, "death");
 	}
 
 	/** Reward Chest opened by hand: its loot lands in the inventory over the next ticks. */

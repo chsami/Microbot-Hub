@@ -28,6 +28,10 @@ public class CgPrepOverlay extends OverlayPanel
 	@Override
 	public Dimension render(Graphics2D g)
 	{
+		if (!config.showOverlay())
+		{
+			return null; // setting "Show overlay" off (user, 1.8.2)
+		}
 		CgPrepScript s = plugin.script();
 		panelComponent.setPreferredSize(new Dimension(280, 0));
 		panelComponent.getChildren().add(TitleComponent.builder()

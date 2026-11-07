@@ -58,6 +58,7 @@ public final class BossFight
 	public volatile boolean naturalInput = true;
 	private final HumanInput human = new HumanInput();
 	private int reaimedAtStart;
+	private int stalledAtStart;
 	private final Humanizer humanizer = new Humanizer(new java.util.Random());
 	private final java.util.Random rnd = new java.util.Random();
 	private InputTiming.Zone cursorZone = InputTiming.Zone.SCENE;
@@ -186,6 +187,7 @@ public final class BossFight
 			exec.reset();
 			humanizer.reset();
 			reaimedAtStart = human.reaimed;
+			stalledAtStart = human.stalled;
 			fightPrepared = false;
 			warnedSlowBow = false;
 			fightTicks = 0;
@@ -906,6 +908,13 @@ public final class BossFight
 		}
 	}
 
+	/** The fight's last read had us at 0 HP (1.8.2: a death the stats must count). */
+	public boolean sawZeroHp()
+	{
+		FightObs o = lastObs;
+		return o != null && o.hp <= 0;
+	}
+
 	/** End of fight / run: one summary line. */
 	public void summary(String outcome)
 	{
@@ -913,6 +922,6 @@ public final class BossFight
 		FightObs o = lastObs;
 		log.accept("FIGHT", "END " + outcome + (o == null ? "" : " hp " + o.hp + " fish " + o.fish + " doses " + o.doses + " boss " + o.bossHp)
 			+ " attacks " + m.attacksTotal + " swings " + m.swings + " style misses " + m.styleMisses + "/" + m.styleChecks
-			+ " walk re-aims " + (human.reaimed - reaimedAtStart));
+			+ " walk re-aims " + (human.reaimed - reaimedAtStart) + " stuck moves " + (human.stalled - stalledAtStart));
 	}
 }

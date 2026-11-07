@@ -85,6 +85,10 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	volatile long reenterAtMs = -1;
 	private long lastLobbyClickMs;
 	private int chestFails;
+	/** 1.8.2: the Reward Chest was given up on for this lobby visit. */
+	private boolean chestGaveUp;
+	/** Chest clicks that didn't clear the reward before it's left alone (player report: retried forever). */
+	static final int CHEST_MAX_TRIES = 3;
 	/** Entrance clicks in a row that didn't get us in (review: a locked Corrupted Gauntlet looped forever). */
 	private int enterFails;
 	/** Set after {@link #ENTER_GIVE_UP} failed entries: no more Enter clicks until Continue / the Gauntlet setting changes / restart. */
@@ -337,16 +341,17 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	 * The only desktop notification (user, 1.6.3/1.6.4): a run ended in a kill or a death, whether
 	 * the loop is on or off.
 	 */
-	private void notifyRunEnd()
+	private void notifyRunEnd(CgState from)
 	{
 		if (!config.notifyRunEnd() || Microbot.getNotifier() == null)
 		{
 			return;
 		}
 		net.runelite.client.plugins.microbot.cgprep.stats.RunStats rs = stats;
-		boolean died = rs != null && deathsAtRunStart >= 0 && rs.setupDeaths() + rs.bossDeaths() > deathsAtRunStart;
+		boolean died = rs != null && (rs.diedThisRun() || deathsAtRunStart >= 0 && rs.setupDeaths() + rs.bossDeaths() > deathsAtRunStart);
 		String next = !config.autoLoop() ? " Press " + config.continueKey() + " for the next run." : bossOnly() ? " Next run starting now: prep it yourself." : "";
-		String msg = (died ? "Auto Gauntlet: you died." : "Auto Gauntlet: Hunllef killed!") + next;
+		// 1.8.2: only a boss fight that ended alive is a kill (leaving during prep isn't).
+		String msg = (died ? "Auto Gauntlet: you died." : from == CgState.BOSS ? "Auto Gauntlet: Hunllef killed!" : "Auto Gauntlet: run over.") + next;
 		Microbot.getNotifier().notify(msg);
 		pl("LOBBY", "notification: " + msg);
 	}
@@ -660,6 +665,8 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			rapidTries = 0;
 			net.runelite.client.plugins.microbot.cgprep.stats.RunStats rs = stats;
 			deathsAtRunStart = rs == null ? -1 : rs.setupDeaths() + rs.bossDeaths();
+			chestFails = 0;
+			chestGaveUp = false;
 			pl("RUN", "started mode=" + mode() + " profile=" + config.profile() + " dryRun=" + config.dryRun()
 				+ " skipDemi=" + config.skipDemiBosses() + " fishTarget=" + config.fishTarget()
 				+ " antiban=" + antiban.isActive() + " seed=" + runSeed + " autoMode=" + config.autoMode() + (bossAuto() ? " (bot fights, no handover)" : ""));
@@ -1028,13 +1035,25 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		}
 		if (to == CgState.BOSS)
 		{
+			net.runelite.client.plugins.microbot.cgprep.stats.RunStats rsb = stats;
+			if (rsb != null)
+			{
+				rsb.sawBoss();
+			}
 			syncBossSettings(); // the fight resets itself on its first tick (BossFight.newFight)
 			pl("FIGHT", "START mode=" + boss.mode + " input=" + config.bossInput() + " offense=" + boss.brainConfig.offense + " eat<=" + boss.brainConfig.eatBelow
 				+ " drink<=" + boss.brainConfig.drinkBelow + " clicks/tick=" + boss.clicksPerTick);
 		}
 		if (from == CgState.BOSS)
 		{
-			boss.summary(to == CgState.POST_RUN ? "left the boss room" : "-> " + to);
+			// 1.8.2: a death is on the books before the summary and the run-end notification.
+			net.runelite.client.plugins.microbot.cgprep.stats.RunStats rs0 = stats;
+			if (rs0 != null && boss.sawZeroHp())
+			{
+				rs0.died(true, "the fight saw 0 HP");
+			}
+			boolean dead = rs0 != null && rs0.diedThisRun();
+			boss.summary(dead ? "died" : to == CgState.POST_RUN ? "left the boss room" : "-> " + to);
 		}
 		if (from == CgState.LOBBY_SETUP)
 		{
@@ -1045,7 +1064,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			runsCompleted++;
 			continueRequested = false;
 			handover.clear();
-			notifyRunEnd();
+			notifyRunEnd(from);
 			if (!config.dryRun())
 			{
 				// Boss dead (or run over): the inventory goes up so a watching player sees what the
@@ -2271,6 +2290,15 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			return; // the last click is still being walked to / processed
 		}
 		boolean reward = (config.autoLoop() || continueRequested) && Microbot.getVarbitValue(CgIds.VB_REWARD_AVAILABLE) != 0;
+		// 1.8.2 (player report: it tried the chest every 8 s, forever): a chest that doesn't clear
+		// after a few clicks is left alone and the next run starts. A boss-fight death still has
+		// loot (user), so it's opened the same way after one.
+		if (reward && !chestGaveUp && chestFails >= CHEST_MAX_TRIES)
+		{
+			chestGaveUp = true;
+			pl("LOBBY", "WARN the Reward Chest didn't open after " + chestFails + " clicks: leaving it, going again");
+		}
+		reward &= !chestGaveUp;
 		int free = Rs2Inventory.emptySlotCount();
 		boolean needBank = reward && (free < config.bankBelowFreeSlots() || (chestFails >= 2 && free < 8));
 		if (needBank || Rs2DepositBox.isOpen())

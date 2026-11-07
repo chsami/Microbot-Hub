@@ -51,7 +51,11 @@ public final class RunStats
 	private int windowUntil = -1;
 	/** Tick we last left the Gauntlet: the held items come back then and are not loot. */
 	private int leftTick = -100;
-	private boolean diedThisRun;
+	private volatile boolean diedThisRun;
+	/** The boss fight started this run (the boss varbit is gone by the time a death message shows). */
+	private volatile boolean bossThisRun;
+	/** Ticks after leaving the Gauntlet in which the death message still counts (1.8.2). */
+	static final int DEATH_GRACE_TICKS = 5;
 
 	public RunStats(ConfigManager config, ItemManager items, BiConsumer<String, String> log)
 	{
@@ -76,25 +80,57 @@ public final class RunStats
 	{
 		runs++;
 		diedThisRun = false;
+		bossThisRun = false;
 	}
 
-	/** Game message. Client thread; inGauntlet / bossStarted read from the client's varbits. */
-	public void onChat(String message, boolean inGauntlet, boolean bossStarted)
+	/** The boss fight of this run has started. */
+	public void sawBoss()
 	{
-		if (message == null || !message.contains(DEATH_MESSAGE) || !inGauntlet || diedThisRun)
+		bossThisRun = true;
+	}
+
+	/** Did we die in this run (so far)? */
+	public boolean diedThisRun()
+	{
+		return diedThisRun;
+	}
+
+	/**
+	 * We died (counted once per run). 1.8.2 (player report): deaths only came from the chat
+	 * message, accepted only while still in the Gauntlet, but a death teleports you out first, so
+	 * the message was dropped and the run ended as "Hunllef killed!" with Boss deaths at 0. Now
+	 * the death itself is the main source (the client's death event, while still inside), with the
+	 * fight seeing 0 HP and the message as backups.
+	 */
+	public synchronized void died(boolean boss, String how)
+	{
+		if (diedThisRun)
 		{
 			return;
 		}
 		diedThisRun = true;
-		if (bossStarted)
+		if (boss || bossThisRun)
 		{
 			bossDeaths++;
-			log.accept("STATS", "died in the boss fight (boss deaths " + bossDeaths + ")");
+			log.accept("STATS", "died in the boss fight (" + how + "; boss deaths " + bossDeaths + ")");
 		}
 		else
 		{
 			setupDeaths++;
-			log.accept("STATS", "died during prep (setup deaths " + setupDeaths + ")");
+			log.accept("STATS", "died during prep (" + how + "; setup deaths " + setupDeaths + ")");
+		}
+	}
+
+	/** Game message. Client thread; inGauntlet / bossStarted read from the client's varbits. */
+	public void onChat(String message, boolean inGauntlet, boolean bossStarted, int tick)
+	{
+		if (message == null || !message.contains(DEATH_MESSAGE))
+		{
+			return;
+		}
+		if (inGauntlet || tick - leftTick <= DEATH_GRACE_TICKS)
+		{
+			died(bossStarted, "death message");
 		}
 	}
 
