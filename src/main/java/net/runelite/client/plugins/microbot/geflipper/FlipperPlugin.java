@@ -85,24 +85,88 @@ public class FlipperPlugin extends Plugin {
         return configManager.getConfig(FlipperConfig.class);
     }
 
+    private net.runelite.client.eventbus.EventBus lookEventBus;
+    private LookWhenClientStarted lookWaiter;
+
     /**
      * Runs once when Microbot loads the plugin, on or off, so its settings panel keeps its sections folded and greys
      * settings that are not in use either way. Look only: it never starts the script or changes a setting.
+     *
+     * It must not touch Microbot's settings panel yet. During client start-up plugins load before the client applies
+     * its dark theme, and building the panel that early leaves the whole Microbot side panel in Java's default white
+     * look. So the look starts once the game reaches the login screen (straight away when the plugin is loaded into a
+     * running client), or when the plugin is switched on, whichever comes first.
      */
     @Inject
     void installSettingsLook(net.runelite.client.eventbus.EventBus eventBus) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                if (settingsLook != null || settingsPanelProvider == null || config == null) return;
-                SettingsLook look = new SettingsLook(this, config, settingsPanelProvider.get().getWrappedPanel(),
-                    eventBus, () -> flipperScript != null && flipperScript.isRunning());
-                look.setBindingsActive(waitingMouseSettings != null);
-                look.start();
-                settingsLook = look;
-            } catch (RuntimeException | LinkageError unavailable) {
-                log.warn("GE Flipper settings look unavailable on this client: {}", unavailable.toString());
-            }
-        });
+        lookEventBus = eventBus;
+        if (clientStarted(client)) {
+            SwingUtilities.invokeLater(this::startSettingsLook);
+            return;
+        }
+        LookWhenClientStarted waiter = new LookWhenClientStarted(this);
+        lookWaiter = waiter;
+        try {
+            eventBus.register(waiter);
+        } catch (RuntimeException | LinkageError unavailable) {
+            lookWaiter = null;
+        }
+    }
+
+    /** True once the game is past start-up, which is after the client has applied its theme. */
+    static boolean clientStarted(Client client) {
+        try {
+            GameState state = client == null ? null : client.getGameState();
+            return state != null && state != GameState.UNKNOWN && state != GameState.STARTING;
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    /** Swing thread only, and only after the client has applied its theme. */
+    private void startSettingsLook() {
+        stopLookWaiter();
+        try {
+            if (settingsLook != null || settingsPanelProvider == null || config == null || lookEventBus == null) return;
+            SettingsLook look = new SettingsLook(this, config, settingsPanelProvider.get().getWrappedPanel(),
+                lookEventBus, () -> flipperScript != null && flipperScript.isRunning());
+            look.setBindingsActive(waitingMouseSettings != null);
+            look.start();
+            settingsLook = look;
+        } catch (RuntimeException | LinkageError unavailable) {
+            log.warn("GE Flipper settings look unavailable on this client: {}", unavailable.toString());
+        }
+    }
+
+    private void stopLookWaiter() {
+        LookWhenClientStarted waiter = lookWaiter;
+        lookWaiter = null;
+        if (waiter == null || lookEventBus == null) return;
+        try {
+            lookEventBus.unregister(waiter);
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    /** Waits, without touching any Swing component, for the game to get past start-up. */
+    static final class LookWhenClientStarted {
+        private final FlipperPlugin plugin;
+
+        LookWhenClientStarted(FlipperPlugin plugin) {
+            this.plugin = plugin;
+        }
+
+        @Subscribe
+        public void onGameStateChanged(GameStateChanged event) {
+            GameState state = event.getGameState();
+            if (state == null || state == GameState.UNKNOWN || state == GameState.STARTING) return;
+            SwingUtilities.invokeLater(plugin::startSettingsLook);
+        }
+
+        @Subscribe
+        public void onPluginChanged(net.runelite.client.events.PluginChanged event) {
+            if (!event.isLoaded() && event.getPlugin() == plugin) SwingUtilities.invokeLater(plugin::stopLookWaiter);
+        }
     }
 
 
@@ -143,6 +207,7 @@ public class FlipperPlugin extends Plugin {
         warnIfSlotSwapOff();
         applyOwnLogLevel();
         removeOldGuideText();
+        if (settingsLook == null) startSettingsLook();
         if (settingsLook != null) settingsLook.setBindingsActive(true);
         if (settingsPanelProvider != null && configManager != null) {
             waitingMouseSettings = new WaitingMouseSettings(this, config,
