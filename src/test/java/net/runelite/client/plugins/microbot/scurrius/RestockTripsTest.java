@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,5 +41,39 @@ class RestockTripsTest {
             assertTrue(RestockTrips.rollTarget(0, 0, random) == 1);
         }
         assertTrue(RestockTrips.rollTarget(6, 6, random) == 6);
+    }
+
+    @Test
+    void bankVisitsWithoutFightingAreNotRestockTrips() {
+        assertFalse(RestockTrips.isRealTrip(0, false)); // the visit at the start, or a repeated one
+        assertTrue(RestockTrips.isRealTrip(1, false));  // a kill
+        assertTrue(RestockTrips.isRealTrip(0, true));   // fought, no kill yet (an emergency teleport)
+    }
+
+    @Test
+    void startupAndRepeatedVisitsNeverCountTowardABreakOrRerollTheTarget() {
+        // mirrors the script: counts and the kill target change only on a real trip
+        int trips = 0;
+        int targetRolls = 0;
+        int kills = 0;
+        boolean fought = false;
+        for (int visit = 0; visit < 3; visit++) { // three visits with no fighting between them
+            if (RestockTrips.isRealTrip(kills, fought)) {
+                trips++;
+                targetRolls++;
+                kills = 0;
+            }
+            fought = false;
+        }
+        assertEquals(0, trips);
+        assertEquals(0, targetRolls);
+        kills = 2;
+        fought = true;
+        if (RestockTrips.isRealTrip(kills, fought)) {
+            trips++;
+            targetRolls++;
+        }
+        assertEquals(1, trips);
+        assertEquals(1, targetRolls);
     }
 }

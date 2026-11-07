@@ -67,6 +67,8 @@ public class ScurriusScript extends Script {
     private int restockTarget = 0;
     private boolean scurriusWasPresent = false;
     private boolean fightedThisKill = false;
+    /** Set when we fought since the last bank visit; a bank visit without it is not a real restock trip. */
+    private boolean fightedSinceBank = false;
     private boolean lootPending = false;
     private int emptyLootLoops = 0;
     /** Breaks: bank visits since the last break, the visit count that starts the next one, and the running break. */
@@ -118,6 +120,7 @@ public class ScurriusScript extends Script {
         lootPending = false;
         scurriusWasPresent = false;
         fightedThisKill = false;
+        fightedSinceBank = false;
         onBreak = false;
         breakEndsAtMs = 0;
         tripsSinceBreak = 0;
@@ -161,6 +164,7 @@ public class ScurriusScript extends Script {
                 // death leaves the room, or has emergencyActive set, and does not count).
                 if (isScurriusPresent && state == State.FIGHTING) {
                     fightedThisKill = true;
+                    fightedSinceBank = true;
                 }
                 if (scurriusWasPresent && !isScurriusPresent && isInFightRoom && fightedThisKill && !emergencyActive
                         && state != State.TELEPORT_AWAY) {
@@ -252,17 +256,19 @@ public class ScurriusScript extends Script {
                             int requiredPotionAmount = config.prayerPotionAmount();
                             int requiredTeleports = config.teleportAmount();
 
-                            if (!Rs2Bank.withdrawDeficit(config.foodSelection().getId(), requiredFoodAmount)) {
+                            // Each item is topped up to the full amount before the bank is closed: withdrawDeficit returns
+                            // before the inventory has updated, so one call (and the next item's) can leave it short.
+                            if (!topUp(config.foodSelection().getId(), requiredFoodAmount)) {
                                 Microbot.showMessage("Missing Food in Bank");
                                 shutdown();
                                 return;
                             }
-                            if (!Rs2Bank.withdrawDeficit(config.potionSelection().getItemId(), requiredPotionAmount)) {
+                            if (!topUp(config.potionSelection().getItemId(), requiredPotionAmount)) {
                                 Microbot.showMessage("Missing Potion in Bank");
                                 shutdown();
                                 return;
                             }
-                            if (!Rs2Bank.withdrawDeficit(ItemID.POH_TABLET_VARROCKTELEPORT, requiredTeleports)) {
+                            if (!topUp(ItemID.POH_TABLET_VARROCKTELEPORT, requiredTeleports)) {
                                 Microbot.showMessage("Missing Teleports in Bank");
                                 shutdown();
                                 return;
@@ -583,11 +589,45 @@ public class ScurriusScript extends Script {
         }
     }
 
-    /** Every bank visit, restock or not, starts the count again. */
+    /**
+     * Withdraws until the inventory holds the full amount, staying in the bank. Returns false when the bank cannot supply it.
+     * Each round waits for the inventory count to follow before judging the result.
+     */
+    private boolean topUp(int itemId, int required) {
+        for (int attempt = 0; attempt < 6; attempt++) {
+            if (Rs2Inventory.itemQuantity(itemId) >= required) {
+                return true;
+            }
+            boolean asked = Rs2Bank.withdrawDeficit(itemId, required);
+            sleepUntil(() -> Rs2Inventory.itemQuantity(itemId) >= required, 3000);
+            if (!asked && Rs2Inventory.itemQuantity(itemId) < required) {
+                sleep(600); // the count may still be catching up; one more look before calling the bank empty
+                if (Rs2Inventory.itemQuantity(itemId) >= required) {
+                    return true;
+                }
+                if (!Rs2Bank.hasBankItem(itemId, required - Rs2Inventory.itemQuantity(itemId))) {
+                    return false;
+                }
+            }
+        }
+        return Rs2Inventory.itemQuantity(itemId) >= required;
+    }
+
+    /**
+     * Every bank visit empties the loot and restocks. Only a visit that follows fighting (a kill, or at least time in the
+     * fight) is a restock trip: it restarts the kill count and the target and counts toward the next break. Visits at the
+     * start or repeated visits with no fighting between them change nothing.
+     */
     private void onBankVisitDone() {
         restockTrip = false;
-        killsSinceBank = 0;
         lootPending = false;
+        boolean real = RestockTrips.isRealTrip(killsSinceBank, fightedSinceBank);
+        fightedSinceBank = false;
+        if (!real) {
+            Microbot.log("Banked. No fighting since the last bank visit: trip and break counts unchanged.");
+            return;
+        }
+        killsSinceBank = 0;
         restockTarget = rollRestockTarget();
         Microbot.log("Banked. Next restock trip after " + restockTarget + " kills.");
         tripsSinceBreak++;

@@ -18,6 +18,14 @@ public final class RestockTrips {
     }
 
     /**
+     * Whether a bank visit counts as a restock trip (for the break count and a new kill target): there was a kill or at
+     * least some fighting since the previous visit.
+     */
+    public static boolean isRealTrip(int killsSinceBank, boolean fightedSinceBank) {
+        return killsSinceBank > 0 || fightedSinceBank;
+    }
+
+    /**
      * Whether to leave for a restock trip now: enough kills since the last bank visit, Scurrius dead, the loot picked up
      * and food still left. Never while the boss is alive, so never mid-fight.
      */
