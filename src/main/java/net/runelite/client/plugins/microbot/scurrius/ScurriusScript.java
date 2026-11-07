@@ -211,49 +211,34 @@ public class ScurriusScript extends Script {
                     emergencyActive = false; // the teleport worked: the normal rules apply again (bank, walk back)
                 }
 
-                if (!isScurriusPresent && !hasFood) {
-                    if (isInFightRoom) {
-                        if (Rs2Inventory.hasItem(TELEPORT_TAB_ID)) {
-                            emergencyActive = true;
-                            state = State.TELEPORT_AWAY;
-                        } else if (!loggedNoTeleport) {
-                            Microbot.log("No teleport available. Attempting to walk to bank (will likely fail).");
+                // The one table for what to do with the supplies and the boss: leave when out of food or potions, top up
+                // outside the room, walk in with full supplies. A decided teleport or walk-out (emergencyActive) is not undone.
+                if (!emergencyActive && state != State.TELEPORT_AWAY) {
+                    int foodLeft = Rs2Inventory.getInventoryFood().size();
+                    boolean hasTab = Rs2Inventory.hasItem(TELEPORT_TAB_ID);
+                    State next = SupplyRules.nextState(isInFightRoom, isScurriusPresent, hasLineOfSightWithScurrius, lootPending,
+                            foodLeft, hasPrayerPotions, hasTab, Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER),
+                            Microbot.getClient().getRealSkillLevel(Skill.PRAYER), hasRequiredSupplies());
+                    boolean leaving = isInFightRoom && (next == State.TELEPORT_AWAY || next == State.BANKING);
+                    if (leaving && currentTime < emergencyRetryAt) {
+                        next = state; // a teleport just failed: wait out the cooldown instead of retrying every loop
+                    } else if (leaving) {
+                        emergencyActive = true; // keeps the fight rules from pulling the state back
+                        if (!hasTab && !loggedNoTeleport) {
+                            Microbot.log("Out of supplies in the boss room and no teleport tab: walking out to the bank.");
                             loggedNoTeleport = true;
                         }
-                    } else {
-                        state = State.BANKING;
-                    }
-                }
-
-                if (state == State.FIGHTING) {
-                    if (!isScurriusPresent && hasFood && hasPrayerPotions && isInFightRoom) {
-                        state = State.WAITING_FOR_BOSS;
-                        hasLoggedRespawnWait = false;
-                    }
-                }
-
-                if (state != State.WAITING_FOR_BOSS) {
-                    // Inside the room Scurrius is attackable without line of sight (the Attack click walks to it); a
-                    // teleport that was just decided on must not be undone by this rule.
-                    if (isScurriusPresent && hasFood && (hasLineOfSightWithScurrius || isInFightRoom)
-                            && !emergencyActive && state != State.TELEPORT_AWAY) {
-                        state = State.FIGHTING;
-                    }
-
-                    if (isScurriusPresent && !hasFood && Microbot.getClient().getBoostedSkillLevel(Skill.HITPOINTS) < 25
-                            && Rs2Inventory.hasItem(TELEPORT_TAB_ID)) {
-                        emergencyActive = true;
-                        state = State.TELEPORT_AWAY;
-                    }
-
-                    if (!isScurriusPresent && !isInFightRoom && hasFood && hasPrayerPotions) {
-                        if (!hasRequiredSupplies()) {
-                            Microbot.log("Missing supplies, returning to BANKING.");
-                            state = State.BANKING;
-                        } else {
-                            state = State.WALK_TO_BOSS;
+                        if (state != next) {
+                            Microbot.log("Leaving to restock (food " + foodLeft + ", prayer potions " + (hasPrayerPotions ? "yes" : "no") + ").");
                         }
                     }
+                    if (next == State.WAITING_FOR_BOSS && state != State.WAITING_FOR_BOSS) {
+                        hasLoggedRespawnWait = false;
+                    }
+                    if (next == State.FIGHTING && state == State.WAITING_FOR_BOSS) {
+                        next = state; // the WAITING case switches to FIGHTING itself, after its looting step
+                    }
+                    state = next;
                 }
 
                 switch (state) {
@@ -856,7 +841,22 @@ public class ScurriusScript extends Script {
         return ThreadLocalRandom.current().nextInt(low, high + 1);
     }
 
+    private long lastSupplyShortageLog = 0;
+
+    /** hasRequiredSupplies runs every loop now, so the shortage is logged at most every 10 seconds. */
+    private void logSupplyShortage(String message) {
+        long now = System.currentTimeMillis();
+        if (now - lastSupplyShortageLog > 10_000) {
+            lastSupplyShortageLog = now;
+            Microbot.log(message);
+        }
+    }
+
     private boolean hasRequiredSupplies() {
+        if (Rs2Inventory.count(TELEPORT_TAB_ID) < config.teleportAmount()) {
+            logSupplyShortage("Not enough teleport tabs in inventory. Expected: " + config.teleportAmount());
+            return false;
+        }
         int foodAmount = config.foodAmount();
         int foodItemId = config.foodSelection().getId();
         int prayerPotionAmount = config.prayerPotionAmount();
@@ -864,13 +864,13 @@ public class ScurriusScript extends Script {
 
         int currentFoodCount = Rs2Inventory.count(foodItemId);
         if (currentFoodCount < foodAmount) {
-            Microbot.log("Not enough food in inventory. Expected: " + foodAmount + ", Found: " + currentFoodCount);
+            logSupplyShortage("Not enough food in inventory. Expected: " + foodAmount + ", Found: " + currentFoodCount);
             return false;
         }
 
         int currentPrayerPotionCount = Rs2Inventory.count(potionItemId);
         if (currentPrayerPotionCount < prayerPotionAmount) {
-            Microbot.log("Not enough prayer potions in inventory. Expected: " + prayerPotionAmount + ", Found: " + currentPrayerPotionCount);
+            logSupplyShortage("Not enough prayer potions in inventory. Expected: " + prayerPotionAmount + ", Found: " + currentPrayerPotionCount);
             return false;
         }
 
