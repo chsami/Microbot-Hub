@@ -4,6 +4,7 @@ import lombok.Getter;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.config.*;
 import net.runelite.client.plugins.microbot.scurrius.enums.PrayerMode;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 
 @ConfigGroup("Scurrius")
@@ -116,6 +117,18 @@ public interface ScurriusConfig extends Config {
         return false;
     }
     
+    @ConfigItem(
+            keyName = "inventorySetup",
+            name = "Inventory setup",
+            description = "Pick a saved Inventory Setup to load at the bank (gear and supplies). Empty = the food, potion and teleport "
+                    + "amounts below. With a setup, the required food, prayer doses and teleport tabs come from the setup.",
+            position = 3,
+            section = generalSettings
+    )
+    default InventorySetup inventorySetup() {
+        return null;
+    }
+
     @ConfigItem(
             keyName = "foodSelection",
             name = "Select Food",

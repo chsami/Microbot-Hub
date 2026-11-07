@@ -11,6 +11,10 @@ import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.breakhandler.breakhandlerv2.BreakHandlerV2State;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
+import net.runelite.client.plugins.microbot.inventorysetups.InventorySetupsItem;
+import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
+import net.runelite.client.plugins.microbot.util.misc.Rs2Food;
 import net.runelite.client.plugins.microbot.scurrius.enums.State;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
@@ -271,6 +275,17 @@ public class ScurriusScript extends Script {
                         boolean isCloseToBank = Rs2Bank.walkToBank();
                         if (isCloseToBank) {
                             Rs2Bank.openBank();
+                        }
+                        if (Rs2Bank.isOpen() && config.inventorySetup() != null) {
+                            // An Inventory Setup: gear first, then the inventory (it banks whatever is not in the setup, loot included).
+                            if (!loadInventorySetup(config.inventorySetup())) {
+                                shutdown();
+                                return;
+                            }
+                            Rs2Bank.closeBank();
+                            sleepUntil(() -> !Rs2Bank.isOpen());
+                            onBankVisitDone();
+                            break;
                         }
                         if (Rs2Bank.isOpen()) {
                             Rs2Bank.depositAllExcept(importantItems.toArray(new Integer[0]));
@@ -879,10 +894,100 @@ public class ScurriusScript extends Script {
 
     /** What is short against the configured amounts, like "food 18/20", or null when all is there. */
     private String supplyShortage() {
+        if (config.inventorySetup() != null) {
+            return setupShortage(config.inventorySetup());
+        }
         return SupplyCounts.shortage(
                 supplyQuantity(config.foodSelection().getId()), config.foodAmount(),
                 supplyQuantity(config.potionSelection().getItemId()), config.prayerPotionAmount(),
                 supplyQuantity(TELEPORT_TAB_ID), config.teleportAmount());
+    }
+
+    private final java.util.Map<Integer, String> itemNames = new java.util.HashMap<>();
+
+    private String itemName(InventorySetupsItem item) {
+        if (item.getName() != null && !item.getName().isEmpty()) {
+            return item.getName();
+        }
+        return itemNames.computeIfAbsent(item.getId(), id -> {
+            try {
+                return Microbot.getRs2ItemManager().getItemComposition(id).getName();
+            } catch (Exception ex) {
+                return "item " + id;
+            }
+        });
+    }
+
+    /** The setup's inventory rows (dummy slots left out), with names. */
+    private java.util.List<SetupSupplies.Item> setupInventory(InventorySetup setup) {
+        java.util.List<SetupSupplies.Item> items = new java.util.ArrayList<>();
+        for (InventorySetupsItem item : setup.getInventory()) {
+            if (item != null && item.getId() != -1) {
+                items.add(new SetupSupplies.Item(item.getId(), itemName(item), item.getQuantity()));
+            }
+        }
+        return items;
+    }
+
+    private java.util.List<SetupSupplies.Item> setupEquipment(InventorySetup setup) {
+        java.util.List<SetupSupplies.Item> items = new java.util.ArrayList<>();
+        for (InventorySetupsItem item : setup.getEquipment()) {
+            if (item != null && item.getId() != -1) {
+                items.add(new SetupSupplies.Item(item.getId(), itemName(item), 1));
+            }
+        }
+        return items;
+    }
+
+    /** With a setup: food, prayer doses and tabs against what the setup holds (stack quantities), and the worn gear. Null when met. */
+    private String setupShortage(InventorySetup setup) {
+        SetupSupplies.Needs needs = SetupSupplies.derive(setupInventory(setup), id -> Rs2Food.getIds().contains(id), TELEPORT_TAB_ID);
+        int foodHave = 0;
+        for (net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel food : Rs2Inventory.getInventoryFood()) {
+            foodHave += Math.max(1, food.getQuantity());
+        }
+        int dosesHave = 0;
+        for (net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel item : Rs2Inventory.all()) {
+            if (item.getName() != null && SetupSupplies.isPrayerRestore(item.getName())) {
+                dosesHave += Math.max(1, item.getQuantity()) * SetupSupplies.doses(item.getName());
+            }
+        }
+        String shortage = SupplyCounts.shortage(foodHave, needs.food, dosesHave, needs.prayerDoses,
+                supplyQuantity(TELEPORT_TAB_ID), needs.tabs);
+        Rs2InventorySetup loader = new Rs2InventorySetup(setup, mainScheduledFuture);
+        if (!setupEquipment(setup).isEmpty() && !loader.doesEquipmentMatch()) {
+            shortage = shortage == null ? "equipment" : shortage + ", equipment";
+        }
+        return shortage;
+    }
+
+    /**
+     * Loads the setup at the open bank: equipment, then inventory, a bounded number of times. False (after a message
+     * naming what is missing) when the bank cannot supply it. Never loops.
+     */
+    private boolean loadInventorySetup(InventorySetup setup) {
+        Rs2InventorySetup loader = new Rs2InventorySetup(setup, mainScheduledFuture);
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            loader.loadEquipment();
+            loader.loadInventory();
+            if (loader.doesEquipmentMatch() && loader.doesInventoryMatch()) {
+                return true;
+            }
+            LOG.debug("Inventory setup {} not complete after attempt {}", setup.getName(), attempt);
+            sleep(600);
+        }
+        java.util.List<String> missing = new java.util.ArrayList<>(
+                SetupSupplies.missing(setupInventory(setup), id -> supplyQuantity(id)));
+        for (SetupSupplies.Item worn : setupEquipment(setup)) {
+            if (!Rs2Equipment.isWearing(worn.id)) {
+                missing.add(worn.name + " (equipment)");
+            }
+        }
+        String message = "Scurrius stopped: the bank could not supply inventory setup '" + setup.getName() + "': "
+                + (missing.isEmpty() ? "it still does not match" : String.join(", ", missing));
+        Microbot.log(message);
+        Microbot.showMessage(message);
+        return false;
     }
 
     private boolean hasRequiredSupplies() {

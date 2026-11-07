@@ -37,7 +37,7 @@ import java.awt.*;
 )
 @Slf4j
 public class ScurriusPlugin extends Plugin {
-    public static final String version = "1.1.6";
+    public static final String version = "1.1.7";
     @Inject
     private ScurriusConfig config;
     @Provides

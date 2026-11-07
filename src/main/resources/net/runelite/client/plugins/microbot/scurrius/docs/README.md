@@ -39,6 +39,10 @@ Banks, walks to Scurrius in the Rat Pits (private or public entrance), fights hi
   is attacking Scurrius himself (never rats, never while dodging), it turns the spec on through the orb after a short random
   delay and counts it only when the energy drops. Optional spec weapon from the inventory (the main weapon and shield are
   put back afterwards) and an optional "skip spec under boss HP" threshold.
+- **Inventory Setup** (optional): pick a saved Inventory Setup in the config. The bank loads its gear and inventory (loot is
+  banked as anything not in the setup), and the food, prayer-dose and teleport-tab amounts that count as "full supplies" come from
+  the setup (tabs by stack quantity). If the bank cannot supply the setup the script stops with a message naming the items.
+  With no setup chosen the food, potion and teleport amounts in the config are used.
 - **Overlay**: runtime, experience and experience per hour for Attack, Strength, Defence, Ranged, Magic and Hitpoints
   (skills with no gain are hidden), kills and kills per hour, kills since the last bank, and the break countdown.
 
