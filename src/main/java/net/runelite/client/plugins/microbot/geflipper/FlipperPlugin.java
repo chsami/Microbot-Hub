@@ -243,6 +243,8 @@ public class FlipperPlugin extends Plugin {
                     || !config.randomizeMouseSpeed(),
                 () -> flipperScript.waitingMouseDescription(config));
             waitingMouseSettings.setMuleStatusSupplier(() -> flipperScript.getMuleSettingsStatus());
+            waitingMouseSettings.setMuleNowAction(this::requestMuleNowFromButton,
+                () -> flipperScript != null && flipperScript.muleNowAvailable(config));
             waitingMouseSettings.start();
         }
         if (overlay != null) {
@@ -317,6 +319,21 @@ public class FlipperPlugin extends Plugin {
     private void requestFinishFromButton() {
         WaitingMouseSettings panel = waitingMouseSettings;
         if (!requestFinish() && panel != null) panel.finishRefused();
+    }
+
+    /** "Mule now": queues the typed amount for the Mule, or says in chat why it can't. Never from a config event. */
+    private void requestMuleNowFromButton() {
+        FlipperScript script = flipperScript;
+        String refused = script == null || config == null ? "switch GE Flipper on first." : script.requestMuleNow(config);
+        if (refused != null) {
+            log.warn("Mule now: {}", refused);
+        } else {
+            log.warn("Mule now: sending {} to {}. Buy offers are cancelled and items listed first if not enough GP "
+                + "is free.", FlipperOverlay.compact(MulePolicy.parseAmountSetting(config.muleNowAmount())),
+                config.muleRsn().trim());
+        }
+        WaitingMouseSettings panel = waitingMouseSettings;
+        if (panel != null) panel.refreshValue();
     }
 
     void stopAfterFinish(long generation) {

@@ -52,7 +52,7 @@ final class SettingsLook implements AutoCloseable {
     static final String OWN_COLOR = "geflipper.ownForeground";
     /** Rows WaitingMouseSettings styles itself while GE Flipper runs. */
     static final Set<String> BOUND_KEYS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
-        "finish", "waitingMouseChance", "waitingMouseTimeSource", "waitingMouseTime")));
+        "finish", "muleNow", "waitingMouseChance", "waitingMouseTimeSource", "waitingMouseTime")));
     private static final String PANEL_CLASS = "net.runelite.client.plugins.microbot.ui.MicrobotConfigPanel";
     private static final String GROUP = FlipperConfig.GROUP;
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SettingsLook.class);
@@ -160,8 +160,11 @@ final class SettingsLook implements AutoCloseable {
             case "mulePort": return c.muleMode() != FlipperConfig.MuleMode.OFF;
             case "muleRsn":
             case "muleThresholdGp":
-            case "muleTriggerGp": return c.muleMode() == FlipperConfig.MuleMode.FLIPPER_SENDER;
-            case "muleBeforeUpdate": return c.muleMode() == FlipperConfig.MuleMode.FLIPPER_SENDER && c.muleBeforeUpdate();
+            case "muleTriggerGp":
+            case "muleNowAmount": return c.muleMode() == FlipperConfig.MuleMode.FLIPPER_SENDER;
+            case "muleNow": return running && c.muleMode() == FlipperConfig.MuleMode.FLIPPER_SENDER;
+            case "muleBeforeUpdate":
+            case "muleUpdateKeepGp": return c.muleMode() == FlipperConfig.MuleMode.FLIPPER_SENDER && c.muleBeforeUpdate();
             case "verboseLogging": return c.verboseLogging();
             default: return true; // Always in use: suggestion input, left-click swap and the help texts.
         }

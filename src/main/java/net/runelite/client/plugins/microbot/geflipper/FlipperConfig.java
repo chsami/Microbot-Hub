@@ -345,14 +345,47 @@ public interface FlipperConfig extends Config {
     @ConfigItem(
         keyName = "muleBeforeUpdate",
         name = "Mule before OSRS update",
-        description = "When an update countdown appears, send everything above<br>"
-            + "'Keep for flipping' to the Mule before stopping. Only loose GP<br>"
-            + "is sent; skipped if the update is too close.<br>"
+        description = "When an update countdown appears, send the free GP above<br>"
+            + "'Keep during update' to the Mule before stopping.<br>"
+            + "Skipped if the update is too close.<br>"
             + "Set it on the Flipper. A Mule always takes this transfer.",
         position = 45,
         section = muleSection
     )
     default boolean muleBeforeUpdate() { return true; }
+
+    @ConfigItem(
+        keyName = "muleUpdateKeepGp",
+        name = "Keep during update",
+        description = "What 'Mule before OSRS update' keeps; it sends the<br>"
+            + "rest of the free GP. 0 = send all free GP.<br>"
+            + "Blank = the 'Keep for flipping' amount.<br>"
+            + "A plain number is millions: 20 = 20M.",
+        position = 46,
+        section = muleSection
+    )
+    default String muleUpdateKeepGp() { return ""; }
+
+    @ConfigItem(
+        keyName = "muleNowAmount",
+        name = "Mule now amount",
+        description = "How much 'Mule now' sends. A plain number is millions:<br>"
+            + "100 = 100M. It may go below 'Keep for flipping'.",
+        position = 47,
+        section = muleSection
+    )
+    default String muleNowAmount() { return ""; }
+
+    @ConfigItem(
+        keyName = "muleNow",
+        name = "Mule now",
+        description = "Send the 'Mule now amount' to your Mule straight away.<br>"
+            + "If not enough GP is free, buy offers are cancelled and<br>"
+            + "items listed with Copilot first. Only while GE Flipper runs.",
+        position = 48,
+        section = muleSection
+    )
+    default ConfigButton muleNow() { return null; }
 
     @Range(min = 0, max = 600)
     @ConfigItem(
@@ -360,7 +393,7 @@ public interface FlipperConfig extends Config {
         name = "Mule world (0 = Auto)",
         description = "0 = use the Mule's world and hop back after trading.<br>"
             + "Or enter a world number (e.g. 554) to always meet there.",
-        position = 46,
+        position = 49,
         section = muleSection
     )
     default int muleWorld() { return 0; }
@@ -370,7 +403,7 @@ public interface FlipperConfig extends Config {
         keyName = "mulePort",
         name = "Mule port",
         description = "Port your Flipper and Mule clients on this computer<br>use to talk. Must match on both.",
-        position = 47,
+        position = 50,
         section = muleSection
     )
     default int mulePort() { return 43599; }

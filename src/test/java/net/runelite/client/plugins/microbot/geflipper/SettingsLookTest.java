@@ -48,10 +48,16 @@ class SettingsLookTest {
         FlipperConfig flipper = config("muleMode", FlipperConfig.MuleMode.FLIPPER_SENDER, "muleBeforeUpdate", true);
         FlipperConfig mule = config("muleMode", FlipperConfig.MuleMode.MULE_RECEIVER, "muleBeforeUpdate", true);
         for (String key : new String[]{"muleMode", "muleRsn", "muleThresholdGp", "muleTriggerGp", "muleBeforeUpdate",
-            "muleWorld", "mulePort"}) {
+            "muleUpdateKeepGp", "muleNowAmount", "muleNow", "muleWorld", "mulePort"}) {
             assertFalse(isActive(off, key, true), key + " with muling off");
             assertTrue(isActive(flipper, key, true), key + " on a Flipper");
         }
+        for (String key : new String[]{"muleUpdateKeepGp", "muleNowAmount", "muleNow"}) {
+            assertFalse(isActive(mule, key, true), key + " only matters on a Flipper");
+        }
+        assertFalse(isActive(flipper, "muleNow", false), "Mule now does nothing while GE Flipper is off");
+        assertFalse(isActive(config("muleMode", FlipperConfig.MuleMode.FLIPPER_SENDER, "muleBeforeUpdate", false),
+            "muleUpdateKeepGp", true), "Keep during update follows its checkbox");
         assertTrue(isActive(mule, "muleWorld", true));
         assertTrue(isActive(mule, "mulePort", true));
         assertFalse(isActive(mule, "muleRsn", true), "Only the Flipper names its Mule");

@@ -50,6 +50,7 @@ final class WaitingMouseSettings implements AutoCloseable {
     private static final String PANEL_CLASS = "net.runelite.client.plugins.microbot.ui.MicrobotConfigPanel";
     private static final String FREQUENCY_KEY = "waitingMouseChance";
     private static final String FINISH_KEY = "finish";
+    private static final String MULE_NOW_KEY = "muleNow";
     private FlipperPlugin owner;
     private FlipperConfig config;
     private JPanel settingsRoot;
@@ -60,6 +61,8 @@ final class WaitingMouseSettings implements AutoCloseable {
     private BooleanSupplier sliderEditable;
     private Supplier<String> frequencyDescription;
     private Supplier<String> muleStatusSupplier;
+    private Runnable muleNowAction;
+    private BooleanSupplier muleNowAvailable;
     private final Timer muleStatusTimer = new Timer(1000, event -> refreshMuleStatus());
     private final Set<Container> observed = Collections.newSetFromMap(new IdentityHashMap<>());
     private final ContainerAdapter treeChanges = new ContainerAdapter() {
@@ -82,7 +85,8 @@ final class WaitingMouseSettings implements AutoCloseable {
         if ((event.getChangeFlags() & relevant) != 0) queueScan();
     };
     private Binding binding;
-    private FinishBinding finishBinding;
+    private ButtonBinding finishBinding;
+    private ButtonBinding muleNowBinding;
     private TimeBinding timeSourceBinding;
     private TimeBinding customTimeBinding;
     private MouseSpeedBinding mouseSpeedBinding;
@@ -152,6 +156,22 @@ final class WaitingMouseSettings implements AutoCloseable {
         if (!closed && started) scan(false);
     }
 
+    /**
+     * Binds the "Mule now" button like End / Finish: a click runs {@code action} directly, and profile or default
+     * config events never do. {@code available} reads cached state only.
+     */
+    void setMuleNowAction(Runnable action, BooleanSupplier available) {
+        requireEdt();
+        if (closed) return;
+        if ((action == null) != (available == null)) {
+            throw new IllegalArgumentException("Mule now action and availability must be supplied together");
+        }
+        detachMuleNow();
+        muleNowAction = action;
+        muleNowAvailable = available;
+        if (started) scan(false);
+    }
+
     /** Displays an already-cached status; this supplier must never perform client or network work. */
     void setMuleStatusSupplier(Supplier<String> supplier) {
         requireEdt();
@@ -169,6 +189,7 @@ final class WaitingMouseSettings implements AutoCloseable {
         unobserve(settingsRoot);
         detach();
         detachFinish();
+        detachMuleNow();
         detachTimes();
         detachMouseSpeed();
         detachMuleStatus();
@@ -181,6 +202,8 @@ final class WaitingMouseSettings implements AutoCloseable {
         frequencyChanged = null;
         finishAction = null;
         finishAvailable = null;
+        muleNowAction = null;
+        muleNowAvailable = null;
         frequencyValue = null;
         sliderEditable = null;
         frequencyDescription = null;
@@ -221,6 +244,7 @@ final class WaitingMouseSettings implements AutoCloseable {
         if (!settingsRoot.isShowing()) {
             detach();
             detachFinish();
+            detachMuleNow();
             detachTimes();
             detachMouseSpeed();
             detachMuleStatus();
@@ -254,6 +278,7 @@ final class WaitingMouseSettings implements AutoCloseable {
             }
         }
         if (finishAction != null) bindFinish(panel);
+        if (muleNowAction != null) bindMuleNow(panel);
         bindTimes(panel);
         bindMouseSpeed(panel);
         bindMuleStatus(panel);
@@ -293,6 +318,8 @@ final class WaitingMouseSettings implements AutoCloseable {
 
     private void refreshMuleStatus() {
         requireEdt();
+        // The Mule now button follows the transfer state, which changes without any settings event.
+        if (!closed && started && muleNowBinding != null && muleNowBinding.attached()) muleNowBinding.refresh();
         if (closed || !started || muleStatusSupplier == null || muleStatusBinding == null) return;
         if (!muleStatusBinding.attached()) {
             detachMuleStatus();
@@ -498,20 +525,36 @@ final class WaitingMouseSettings implements AutoCloseable {
     }
 
     private void bindFinish(JPanel panel) {
-        String itemName = itemName(descriptor(panel), ConfigButton.class, FINISH_KEY);
-        JPanel row = panel == null || itemName == null ? null : findRow(panel, itemName, true);
-        if (finishBinding != null && (finishBinding.panel != panel || finishBinding.row != row
-            || !finishBinding.attached())) detachFinish();
-        if (finishBinding == null && row != null) {
-            BorderLayout layout = (BorderLayout) row.getLayout();
-            Component center = layout.getLayoutComponent(BorderLayout.CENTER);
-            if (center instanceof JButton && layout.getLayoutComponent(BorderLayout.EAST) == null
-                && layout.getLayoutComponent(BorderLayout.SOUTH) == null) {
-                finishBinding = new FinishBinding(panel, row, (JButton) center);
-                finishBinding.attach();
-            }
-        }
+        if (finishBinding != null && !finishBinding.fits(panel)) detachFinish();
+        if (finishBinding == null) finishBinding = bindButton(panel, FINISH_KEY, finishAction, finishAvailable, true);
         if (finishBinding != null) finishBinding.refresh();
+    }
+
+    private void bindMuleNow(JPanel panel) {
+        if (muleNowBinding != null && !muleNowBinding.fits(panel)) detachMuleNow();
+        if (muleNowBinding == null) {
+            muleNowBinding = bindButton(panel, MULE_NOW_KEY, muleNowAction, muleNowAvailable, false);
+        }
+        if (muleNowBinding != null) muleNowBinding.refresh();
+    }
+
+    /** Takes over a settings button so a click runs {@code action} directly; null while the row isn't there. */
+    private ButtonBinding bindButton(JPanel panel, String key, Runnable action, BooleanSupplier available,
+                                     boolean latch) {
+        JPanel row = buttonRow(panel, key);
+        if (row == null) return null;
+        BorderLayout layout = (BorderLayout) row.getLayout();
+        Component center = layout.getLayoutComponent(BorderLayout.CENTER);
+        if (!(center instanceof JButton) || layout.getLayoutComponent(BorderLayout.EAST) != null
+            || layout.getLayoutComponent(BorderLayout.SOUTH) != null) return null;
+        ButtonBinding created = new ButtonBinding(panel, row, (JButton) center, key, action, available, latch);
+        created.attach();
+        return created;
+    }
+
+    private JPanel buttonRow(JPanel panel, String key) {
+        String itemName = itemName(descriptor(panel), ConfigButton.class, key);
+        return panel == null || itemName == null ? null : findRow(panel, itemName, true);
     }
 
     private void detach() {
@@ -523,8 +566,15 @@ final class WaitingMouseSettings implements AutoCloseable {
 
     private void detachFinish() {
         if (finishBinding == null) return;
-        FinishBinding previous = finishBinding;
+        ButtonBinding previous = finishBinding;
         finishBinding = null;
+        previous.detach();
+    }
+
+    private void detachMuleNow() {
+        if (muleNowBinding == null) return;
+        ButtonBinding previous = muleNowBinding;
+        muleNowBinding = null;
         previous.detach();
     }
 
@@ -755,20 +805,33 @@ final class WaitingMouseSettings implements AutoCloseable {
         }
     }
 
-    private final class FinishBinding {
+    /**
+     * A settings button that runs its action directly instead of storing a command in the profile: End / Finish
+     * (which stays disabled after a click until refused) and Mule now (which follows its availability only).
+     */
+    private final class ButtonBinding {
         private final JPanel panel;
         private final JPanel row;
         private final JButton button;
+        private final String key;
+        private final Runnable action;
+        private final BooleanSupplier available;
+        private final boolean latch;
         private final ActionListener[] originalListeners;
         private final Color originalColor;
         private final boolean originalEnabled;
         private final ActionListener listener;
         private boolean active = true;
 
-        private FinishBinding(JPanel panel, JPanel row, JButton button) {
+        private ButtonBinding(JPanel panel, JPanel row, JButton button, String key, Runnable action,
+                              BooleanSupplier available, boolean latch) {
             this.panel = panel;
             this.row = row;
             this.button = button;
+            this.key = key;
+            this.action = action;
+            this.available = available;
+            this.latch = latch;
             listener = event -> {
                 if (event.getSource() == this.button) clicked();
             };
@@ -785,8 +848,13 @@ final class WaitingMouseSettings implements AutoCloseable {
             refresh();
         }
 
+        /** Still attached to the row that holds this button in {@code current}. */
+        private boolean fits(JPanel current) {
+            return panel == current && row == buttonRow(current, key) && attached();
+        }
+
         private boolean attached() {
-            String name = itemName(descriptor(panel), ConfigButton.class, FINISH_KEY);
+            String name = itemName(descriptor(panel), ConfigButton.class, key);
             return active && button.getParent() == row && row.getLayout() instanceof BorderLayout
                 && ((BorderLayout) row.getLayout()).getLayoutComponent(BorderLayout.CENTER) == button
                 && ((BorderLayout) row.getLayout()).getLayoutComponent(BorderLayout.EAST) == null
@@ -795,29 +863,34 @@ final class WaitingMouseSettings implements AutoCloseable {
                 && visibleWithinRoot(button) && name != null && name.equals(button.getText());
         }
 
+        private boolean latched() {
+            return latch && finishRequested;
+        }
+
         private void refresh() {
-            boolean available = !finishRequested && finishAvailable.getAsBoolean();
-            button.setEnabled(available);
-            button.setForeground(available ? originalColor : ColorScheme.MEDIUM_GRAY_COLOR);
+            boolean usable = !latched() && available.getAsBoolean();
+            button.setEnabled(usable);
+            button.setForeground(usable ? originalColor : ColorScheme.MEDIUM_GRAY_COLOR);
         }
 
         private void clicked() {
-            if (closed || !active || finishBinding != this) return;
+            if (closed || !active || (finishBinding != this && muleNowBinding != this)) return;
             if (!attached()) {
-                detachFinish();
+                if (finishBinding == this) detachFinish();
+                else detachMuleNow();
                 return;
             }
-            if (finishRequested || !button.isEnabled() || !finishAvailable.getAsBoolean()) {
+            if (latched() || !button.isEnabled() || !available.getAsBoolean()) {
                 refresh();
                 return;
             }
-            finishRequested = true;
+            if (latch) finishRequested = true;
             refresh();
             try {
-                finishAction.run();
+                action.run();
                 if (!closed && active) refresh();
             } catch (RuntimeException failure) {
-                finishRequested = false;
+                if (latch) finishRequested = false;
                 if (!closed && active) refresh();
                 throw failure;
             }

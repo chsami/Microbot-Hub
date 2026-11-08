@@ -66,7 +66,9 @@ Muling is off by default. It moves GP from a flipping account to a Mule account,
 
 - On the flipping account pick **Flipper (sends GP)**, enter the Mule's in-game name, and set **Keep for flipping** and **Mule when over**. Keep for flipping counts GP, items and GE offers. In both amounts a plain number means millions (`150` is 150M, `1000` is 1000M); add k, M or B, or type the full amount with commas, to be exact. The largest amount is 2,147M. Mule when over is the total that starts a transfer; `0` starts one whenever there's at least 1,000 GP above the keep amount. For example, keep `50M` and mule when over `75M`: nothing happens at 60M; at 75M GE Flipper frees up and sends the extra 25M.
 - On the Mule account pick **Mule (receives GP)**. The Mule waits logged out and logs in only when a Flipper is ready to trade.
-- **Mule before OSRS update** (on, only used while muling): when an update countdown appears, send everything above the keep amount before stopping. Only loose GP is sent, and it's skipped when less than 90 seconds remain. Set it on the Flipper: a Mule always takes this transfer, so on a Mule this setting is grey.
+- **Mule before OSRS update** (on, only used while muling): when an update countdown appears, send the loose GP above **Keep during update** before stopping. Only loose GP is sent, and it's skipped when less than 90 seconds remain. Set it on the Flipper: a Mule always takes this transfer, so on a Mule this setting is grey.
+- **Keep during update:** what that transfer keeps. Blank uses Keep for flipping; `0` sends all loose GP; a plain number is millions (`20` keeps 20M). A typo falls back to Keep for flipping.
+- **Mule now amount** and **Mule now:** press Mule now to send that amount to the Mule straight away, ignoring Mule when over and Keep for flipping. If not enough GP is free, GE Flipper first cancels buy offers and lists items with Copilot, the same as automatic muling, then trades it. It works only while GE Flipper runs on the Flipper with the Mule's client connected, and says in chat why if it can't start. If everything is listed but the amount still isn't free, it stops and tells you; press it again once more has sold, or send less. Profile changes and setting resets never press it.
 - **Mule world:** `0` uses the Mule's world and hops back afterwards; or enter a world to always meet there.
 - **Mule port:** the port the two clients use to talk. It must match on both.
 
@@ -86,7 +88,7 @@ GE Flipper follows Copilot; it doesn't pick items or prices itself. After an upd
 
 **1.3.0**
 
-- Muling between a Flipper and a Mule account on the same computer. Plain numbers in the mule amounts mean millions.
+- Muling between a Flipper and a Mule account on the same computer, with a Mule now button and a separate keep amount for the transfer before an OSRS update. Plain numbers in the mule amounts mean millions.
 - AFK breaks, Finish on OSRS update (off by default) and Block manual mouse input (off by default).
 - End / Finish holds breaks while listing, then waits for the idle logout with auto-login held off, and switches GE Flipper off. It never switches Break Handler off.
 - Simpler settings: two controls on top, folded sections, shorter names and tooltips, and grey text for settings that aren't in use.

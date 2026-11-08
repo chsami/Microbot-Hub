@@ -197,8 +197,8 @@ class WaitingMouseNativeSettingsTest {
         Map<String, String> before = new HashMap<>();
         Set<String> grey = new HashSet<>(Arrays.asList("finish", "randomizeMouseSpeed", "blockManualMouseInput",
             "waitingMouseTimeSource", "waitingMouseTime", "secondScreenAfkMode", "secondScreenAfkMinutes",
-            "muleMode", "muleRsn", "muleThresholdGp", "muleTriggerGp", "muleBeforeUpdate", "muleWorld", "mulePort",
-            "verboseLogging"));
+            "muleMode", "muleRsn", "muleThresholdGp", "muleTriggerGp", "muleBeforeUpdate", "muleUpdateKeepGp",
+            "muleNowAmount", "muleNow", "muleWorld", "mulePort", "verboseLogging"));
         try {
             onEdt(() -> {
                 fixture[0] = new Fixture(temporary);
@@ -223,7 +223,8 @@ class WaitingMouseNativeSettingsTest {
                 for (String method : new String[]{"muleMode", "muleWorld", "mulePort"}) {
                     assertEquals(own.get(method), fixture[0].nameLabel(method).getForeground(), method + " is now used");
                 }
-                for (String method : new String[]{"muleRsn", "muleThresholdGp", "muleTriggerGp", "muleBeforeUpdate"}) {
+                for (String method : new String[]{"muleRsn", "muleThresholdGp", "muleTriggerGp", "muleBeforeUpdate",
+                    "muleUpdateKeepGp", "muleNowAmount", "muleNow"}) {
                     assertEquals(SettingsLook.DIM, fixture[0].nameLabel(method).getForeground(),
                         method + " only matters on a Flipper");
                 }
@@ -1128,6 +1129,46 @@ class WaitingMouseNativeSettingsTest {
                 assertNotNull(fixture.preferences().get(GROUP + ".finish"), "Native SDK behavior is restored");
             }
         });
+    }
+
+    @Test
+    void muleNowButtonRunsItsActionDirectlyAndConfigEventsNeverPressIt() throws Exception {
+        Fixture[] fixture = new Fixture[1];
+        AtomicInteger presses = new AtomicInteger();
+        boolean[] available = {true};
+        try {
+            onEdt(() -> {
+                fixture[0] = new Fixture(temporary, true);
+                fixture[0].settings.setMuleNowAction(presses::incrementAndGet, () -> available[0]);
+                fixture[0].settings.start();
+                fixture[0].setSectionOpen("muling", true);
+            });
+            flushEdt();
+            onEdt(() -> {
+                JButton button = fixture[0].configButton("muleNow");
+                assertEquals("Mule now", button.getText());
+                Map<String, String> before = fixture[0].preferences();
+                button.doClick(0);
+                assertEquals(1, presses.get());
+                assertEquals(before, fixture[0].preferences(), "A press stores no command");
+                button.doClick(0);
+                assertEquals(2, presses.get(), "Unlike Finish it follows its availability, not a one-shot latch");
+
+                available[0] = false;
+                fixture[0].settings.refreshValue();
+                assertFalse(button.isEnabled());
+                button.doClick(0);
+                assertEquals(2, presses.get());
+
+                available[0] = true;
+                fixture[0].manager.setConfiguration(GROUP, "muleNow", "synthetic-profile-command");
+                fixture[0].eventBus.post(new ProfileChanged());
+                fixture[0].manager.setDefaultConfiguration(fixture[0].config, true);
+                assertEquals(2, presses.get(), "Config replays and profile changes never send GP");
+            });
+        } finally {
+            onEdt(() -> { if (fixture[0] != null) fixture[0].close(); });
+        }
     }
 
     @Test

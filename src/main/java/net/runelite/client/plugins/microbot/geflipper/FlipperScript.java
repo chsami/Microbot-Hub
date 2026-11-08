@@ -166,6 +166,8 @@ public class FlipperScript extends Script {
     /** Mule before an OSRS update: wait for Finish to list everything, then one transfer, then stop. */
     enum UpdateMule { NONE, AFTER_FINISH, RUNNING, DONE }
     private volatile UpdateMule updateMule = UpdateMule.NONE;
+    /** A "Mule now" press waiting for the script thread to hand it to the Mule session; 0 = none. */
+    private volatile int muleNowRequest;
     /** When the update is due, on the monotonic clock. */
     private long updateDueAt;
     /** No new transfer starts with less than this left before the update. */
@@ -248,6 +250,7 @@ public class FlipperScript extends Script {
         observedMuleMode = config == null ? FlipperConfig.MuleMode.OFF : config.muleMode();
         muleFinish = false;
         updateMule = UpdateMule.NONE;
+        muleNowRequest = 0;
         receiverFinishRequested = false;
         receiverFinishProfileInterrupted = false;
         secondScreenAfk.reset();
@@ -970,6 +973,48 @@ public class FlipperScript extends Script {
         muleWasActive = active;
     }
 
+    /**
+     * "Keep during update": blank uses the keep amount (-1). A typo also falls back to the keep amount, which never
+     * sends more than the player expects.
+     */
+    static int updateKeepGp(FlipperConfig config) {
+        String text = config == null ? null : config.muleUpdateKeepGp();
+        if (text == null || text.trim().isEmpty()) return -1;
+        return MulePolicy.parseAmountSetting(text);
+    }
+
+    /**
+     * "Mule now" from the settings button: sends the "Mule now amount" to the Mule, freeing up GP first if needed.
+     * Returns why it can't, or null once the request is queued for the script thread. Any thread.
+     */
+    String requestMuleNow(FlipperConfig config) {
+        if (!isRunning() || config == null) return "switch GE Flipper on first.";
+        if (config.muleMode() != FlipperConfig.MuleMode.FLIPPER_SENDER) {
+            return "set 'Mule mode' to Flipper (sends GP) first.";
+        }
+        if (config.muleRsn() == null || config.muleRsn().trim().isEmpty()) return "enter your Mule's name (RSN) first.";
+        if (finishSession.isRequested() && !muleFinish) return "End / Finish is running.";
+        if (muleSession.active() || muleNowRequest > 0 || muleSession.manualTransferPending()) {
+            return "a transfer is already under way.";
+        }
+        if (!getMuleConnectionStatus().availableForPreparation) {
+            return "the Mule isn't connected. Start the Mule's client with 'Mule mode' set to Mule, then try again.";
+        }
+        int amount = MulePolicy.parseAmountSetting(config.muleNowAmount());
+        if (amount < MulePolicy.MIN_TRANSFER_GP) {
+            return "enter an amount in 'Mule now amount' first (a plain number is millions: 100 = 100M).";
+        }
+        muleNowRequest = amount;
+        return null;
+    }
+
+    /** Whether the "Mule now" button can be pressed. Cached state only, for the settings panel. */
+    boolean muleNowAvailable(FlipperConfig config) {
+        return isRunning() && config != null && config.muleMode() == FlipperConfig.MuleMode.FLIPPER_SENDER
+            && !muleSession.active() && muleNowRequest == 0 && !muleSession.manualTransferPending()
+            && (!finishSession.isRequested() || muleFinish);
+    }
+
     private boolean initializeMuleOrCopilot() {
         refreshSenderConnection();
         FlipperConfig.MuleMode muleMode = config == null ? FlipperConfig.MuleMode.OFF : config.muleMode();
@@ -982,11 +1027,17 @@ public class FlipperScript extends Script {
             muleMode == FlipperConfig.MuleMode.FLIPPER_SENDER,
             trigger,
             capitalLimit,
+            updateKeepGp(config),
             config == null ? "" : config.muleRsn(),
             "auto",
             config == null ? MulePolicy.DEFAULT_PORT : config.mulePort(),
             config == null ? 0 : config.muleWorld(),
             MulePolicy.TileSpec.auto());
+        int muleNow = muleNowRequest;
+        if (muleNow > 0) {
+            muleNowRequest = 0;
+            muleSession.requestManualTransfer(muleNow);
+        }
         boolean userFinish = finishSession.isRequested() && !muleFinish;
         UpdateMule update = updateMule;
         // The update transfer, and one already under way when the update was announced, are finished, not cancelled.

@@ -975,6 +975,144 @@ class MuleSessionTest {
         assertTrue(session.finishReceiver(10_600L));
     }
 
+    // ---- Mule now and Keep during update ----
+
+    private static final MuleNetwork.MuleReply READY_MULE =
+        new MuleNetwork.MuleReply(true, true, "BankMule", 301, "FlipperAcc", "127.0.0.1", "OK");
+
+    private static MuleSession.SenderSettings keepSettings(int keep, int updateKeep) {
+        return new MuleSession.SenderSettings(true, 0, keep, updateKeep, "BankMule", "auto",
+            43599, 0, MulePolicy.TileSpec.auto());
+    }
+
+    @Test
+    void muleNowSendsTheAmountAtOnceWhateverTheTriggerAndKeepAmount() {
+        FakePort port = new FakePort();
+        port.muleReply = READY_MULE;
+        MuleSession session = new MuleSession(port);
+        // Keep 150M with an 86M total: automatic muling would never send anything.
+        MuleSession.SenderSettings settings = keepSettings(150_000_000, -1);
+        port.view = capitalView(30_000_000, 86_000_000L, true, true);
+        assertFalse(session.tickSender(settings, false, 0L));
+        assertEquals(0, port.requestLeaseCalls);
+
+        session.requestManualTransfer(20_000_000);
+        assertTrue(session.manualTransferPending());
+        assertTrue(session.tickSender(settings, false, 1_000L), "No debounce or trigger for Mule now");
+        assertEquals(20_000_000, port.lastRequestedAmount);
+        assertEquals(MuleSession.Phase.PREPARING_CASH, session.phase());
+        assertFalse(session.manualTransferPending());
+        assertTrue(session.status().contains("Mule now"), session.status());
+
+        // The keep amount changing mid-transfer belongs to automatic muling; it doesn't cancel Mule now.
+        session.tickSender(keepSettings(60_000_000, -1), false, 2_000L);
+        assertNotEquals(MuleSession.Phase.IDLE, session.phase());
+        assertNotEquals(MuleSession.Phase.RETURNING, session.phase());
+        assertFalse(session.status().contains("limit changed"), session.status());
+    }
+
+    @Test
+    void muleNowFreesUpGpFirstWhenNotEnoughIsLoose() {
+        FakePort port = new FakePort();
+        port.muleReply = READY_MULE;
+        MuleSession session = new MuleSession(port);
+        MuleSession.SenderSettings settings = keepSettings(150_000_000, -1);
+        port.view = capitalView(5_000_000, 86_000_000L, true, true);
+        session.requestManualTransfer(20_000_000);
+        assertFalse(session.tickSender(settings, false, 1_000L));
+        assertTrue(session.liquidationRequested(), "Cancel buys and sell down first");
+        assertEquals(20_000_000, session.liquidationTargetGp());
+        assertTrue(session.status().contains("freeing up"), session.status());
+        assertEquals(0, port.requestLeaseCalls);
+
+        port.view = capitalView(25_000_000, 86_000_000L, true, true);
+        assertTrue(session.tickSender(settings, false, 2_000L));
+        assertEquals(20_000_000, port.lastRequestedAmount);
+        assertFalse(session.liquidationRequested());
+    }
+
+    @Test
+    void muleNowThatCanNotRunEndsWithAReason() {
+        FakePort port = new FakePort();
+        port.muleReply = READY_MULE;
+        MuleSession.SenderSettings settings = keepSettings(50_000_000, -1);
+
+        MuleSession tooMuch = new MuleSession(port);
+        port.view = capitalView(5_000_000, 10_000_000L, true, true);
+        tooMuch.requestManualTransfer(20_000_000);
+        assertFalse(tooMuch.tickSender(settings, false, 1_000L));
+        assertFalse(tooMuch.manualTransferPending());
+        assertFalse(tooMuch.liquidationRequested());
+        assertTrue(tooMuch.status().contains("more than your total"), tooMuch.status());
+
+        MuleSession stalled = new MuleSession(port);
+        port.view = capitalView(5_000_000, 86_000_000L, true, true);
+        stalled.requestManualTransfer(20_000_000);
+        stalled.tickSender(settings, false, 1_000L);
+        stalled.liquidationStalled(2_000L); // everything listed, sales not in yet
+        assertFalse(stalled.manualTransferPending());
+        assertFalse(stalled.liquidationRequested());
+        assertTrue(stalled.status().contains("Press Mule now again"), stalled.status());
+
+        FakePort offlinePort = new FakePort(); // its Mule doesn't answer
+        MuleSession offline = new MuleSession(offlinePort);
+        offlinePort.view = capitalView(30_000_000, 86_000_000L, true, true);
+        offline.requestManualTransfer(20_000_000);
+        assertFalse(offline.tickSender(settings, false, 1_000L));
+        assertFalse(offline.manualTransferPending(), "No endless retries for a button press");
+        assertTrue(offline.status().startsWith("Mule now: "), offline.status());
+        assertTrue(offline.status().contains("try again"), offline.status());
+
+        MuleSession mulingOff = new MuleSession(port);
+        port.view = capitalView(30_000_000, 86_000_000L, true, true);
+        mulingOff.requestManualTransfer(20_000_000);
+        assertFalse(mulingOff.tickSender(senderSettings(false, 50_000_000), false, 1_000L));
+        assertFalse(mulingOff.manualTransferPending());
+
+        MuleSession tiny = new MuleSession(port);
+        tiny.requestManualTransfer(500);
+        assertFalse(tiny.manualTransferPending(), "Below the smallest transfer");
+    }
+
+    @Test
+    void keepDuringUpdateSetsWhatTheUpdateTransferKeeps() {
+        // 30M loose of a 60M total, keep 50M: the update transfer normally sends the 10M above it.
+        int[][] cases = {{-1, 10_000_000}, {40_000_000, 20_000_000}, {0, 30_000_000}};
+        for (int[] c : cases) {
+            FakePort port = new FakePort();
+            port.muleReply = READY_MULE;
+            MuleSession session = new MuleSession(port);
+            port.view = capitalView(30_000_000, 60_000_000L, true, true);
+            session.requestTransferBeforeUpdate(300_000L);
+            assertTrue(session.tickSender(keepSettings(50_000_000, c[0]), false, 1_000L), "keep " + c[0]);
+            assertEquals(c[1], port.lastRequestedAmount, "keep " + c[0]);
+        }
+
+        FakePort port = new FakePort();
+        port.muleReply = READY_MULE;
+        MuleSession nothingLoose = new MuleSession(port);
+        port.view = capitalView(0, 60_000_000L, true, true);
+        nothingLoose.requestTransferBeforeUpdate(300_000L);
+        assertFalse(nothingLoose.tickSender(keepSettings(50_000_000, 0), false, 1_000L));
+        assertTrue(nothingLoose.status().contains("no loose GP"), nothingLoose.status());
+    }
+
+    @Test
+    void keepDuringUpdateIsReadFromItsSetting() {
+        assertEquals(-1, FlipperScript.updateKeepGp(updateKeep("")), "Blank uses Keep for flipping");
+        assertEquals(-1, FlipperScript.updateKeepGp(updateKeep("  ")));
+        assertEquals(0, FlipperScript.updateKeepGp(updateKeep("0")), "0 sends all free GP");
+        assertEquals(20_000_000, FlipperScript.updateKeepGp(updateKeep("20")));
+        assertEquals(-1, FlipperScript.updateKeepGp(updateKeep("2O")), "A typo falls back to Keep for flipping");
+        assertEquals(-1, FlipperScript.updateKeepGp(null));
+    }
+
+    private static FlipperConfig updateKeep(String text) {
+        return new FlipperConfig() {
+            @Override public String muleUpdateKeepGp() { return text; }
+        };
+    }
+
     @Test
     void muleAmountSettingsReadPlainNumbersAsMillions() {
         assertEquals(150_000_000, MulePolicy.parseAmountSetting("150"));

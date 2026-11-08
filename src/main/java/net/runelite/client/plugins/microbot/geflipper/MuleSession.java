@@ -74,6 +74,8 @@ final class MuleSession {
         final int thresholdGp;
         /** Working capital kept for flipping; a transfer sends only what is above it. */
         final int reserveGp;
+        /** What the transfer before an OSRS update keeps: -1 = the keep amount above, 0 = send all loose GP. */
+        final int updateReserveGp;
         final String muleRsn;
         final String host;
         final int port;
@@ -82,9 +84,15 @@ final class MuleSession {
 
         SenderSettings(boolean enabled, int thresholdGp, int reserveGp, String muleRsn,
                        String host, int port, int fixedWorld, MulePolicy.TileSpec location) {
+            this(enabled, thresholdGp, reserveGp, -1, muleRsn, host, port, fixedWorld, location);
+        }
+
+        SenderSettings(boolean enabled, int thresholdGp, int reserveGp, int updateReserveGp, String muleRsn,
+                       String host, int port, int fixedWorld, MulePolicy.TileSpec location) {
             this.enabled = enabled;
             this.thresholdGp = thresholdGp;
             this.reserveGp = reserveGp;
+            this.updateReserveGp = updateReserveGp < 0 ? -1 : updateReserveGp;
             this.muleRsn = muleRsn == null ? "" : muleRsn.trim();
             this.host = host == null ? "auto" : host;
             this.port = port;
@@ -267,6 +275,10 @@ final class MuleSession {
     private int capitalShortWorld;
     /** One transfer down to the keep amount before an OSRS update; it skips the trigger, cooldowns and sell-down. */
     private boolean updateTransferPending;
+    /** "Mule now": this many GP to send, 0 = none. It frees up GP first and may go below the keep amount. */
+    private volatile int manualTransferGp;
+    /** What set the running transfer's floor, so a settings change only cancels the transfers it belongs to. */
+    private Source lockedSource = Source.AUTO;
     private long updateDeadline;
     /** Pre-trade steps of the running transfer stop after this (0 = no deadline). */
     private long lockedDeadline;
@@ -343,6 +355,25 @@ final class MuleSession {
         updateTransferPending = false;
     }
 
+    /** Where a transfer came from: automatic muling, the transfer before an OSRS update, or "Mule now". */
+    enum Source { AUTO, UPDATE, MANUAL }
+
+    /**
+     * "Mule now": sends {@code amount} GP as soon as possible. It frees up GP first if needed (the caller cancels buys
+     * and sells down while {@link #liquidationRequested()} is true), ignores the trigger and the keep amount, and
+     * gives up with a status message if the GP cannot be freed or the Mule doesn't take it.
+     */
+    void requestManualTransfer(int amount) {
+        if (amount < MulePolicy.MIN_TRANSFER_GP) return;
+        manualTransferGp = amount;
+        status = "Mule now: preparing " + FlipperOverlay.formatProfit(amount) + ".";
+    }
+
+    /** True from the "Mule now" press until its transfer has started or given up. */
+    boolean manualTransferPending() {
+        return manualTransferGp > 0;
+    }
+
     /** Display-only taps on receiver accounting. They are told what was verified and decide nothing. */
     interface ReceiverObserver {
         /** One confirmed incoming trade of {@code gp} coins. */
@@ -394,11 +425,17 @@ final class MuleSession {
         liquidationTargetGp = 0;
         nextAttemptAt = nowMillis + COOLDOWN_AFTER_ABORT_MS;
         status = "";
+        if (manualTransferGp > 0) {
+            manualTransferGp = 0;
+            status = "Mule now: everything is listed, but not enough GP is free yet. Press Mule now again once more "
+                + "has sold, or send less.";
+        }
     }
 
     void cancelLiquidation() {
         liquidating = false;
         liquidationTargetGp = 0;
+        manualTransferGp = 0;
     }
 
     boolean receiverHoldingLogout() {
@@ -710,6 +747,7 @@ final class MuleSession {
                 status = s.enabled && s.muleRsn.isEmpty() ? "Mule: enter the Mule's RSN in settings." : "";
                 // A pending update transfer that cannot run counts as tried, so the update Finish is never held.
                 updateTransferPending = false;
+                manualTransferGp = 0;
                 return false;
             }
         }
@@ -748,7 +786,7 @@ final class MuleSession {
             return phase == Phase.RETURNING && tickSenderActive(s, view, now);
         }
         if (!cancelled && phase != Phase.IDLE && phase != Phase.RETURNING
-            && s.reserveGp != lockedReserveGp) {
+            && lockedSource != Source.MANUAL && floorSetting(s, lockedSource) != lockedReserveGp) {
             // The working-cash floor belongs to the user. Never submit an old amount under a new floor.
             abort(s, view, now, COOLDOWN_AFTER_ABORT_MS, "Mule: working-capital limit changed; cancelled the pending transfer.");
             return phase == Phase.RETURNING && tickSenderActive(s, view, now);
@@ -786,8 +824,14 @@ final class MuleSession {
         return tickSenderActive(s, view, now);
     }
 
+    /** The setting a transfer's floor comes from: the keep amount, or for an update transfer its own keep amount. */
+    private static int floorSetting(SenderSettings s, Source source) {
+        return source == Source.UPDATE && s.updateReserveGp >= 0 ? s.updateReserveGp : s.reserveGp;
+    }
+
     private boolean tickSenderIdle(SenderSettings s, Snapshot view, long now) {
         if (updateTransferPending) return startTransferBeforeUpdate(s, view, now);
+        if (manualTransferGp > 0) return startManualTransfer(s, view, now);
         if (now < nextAttemptAt) {
             liquidating = false;
             liquidationTargetGp = 0;
@@ -855,7 +899,7 @@ final class MuleSession {
         liquidationTargetGp = 0;
         if (lastProbeMillis >= 0 && now - lastProbeMillis < PROBE_RETRY_MS) return false;
         lastProbeMillis = now;
-        return requestTransfer(s, view, now, amount, 0);
+        return requestTransfer(s, view, now, amount, 0, Source.AUTO, s.reserveGp);
     }
 
     private boolean startTransferBeforeUpdate(SenderSettings s, Snapshot view, long now) {
@@ -871,17 +915,68 @@ final class MuleSession {
             status = "Mule: no verified working-capital estimate; skipped the transfer before the update.";
             return false;
         }
-        int amount = MulePolicy.calculatePortfolioTransferAmount(view.workingCapitalGp(), view.looseCoins(), s.reserveGp);
+        int keep = floorSetting(s, Source.UPDATE);
+        int amount = keep == 0 ? (int) Math.min(Integer.MAX_VALUE, view.looseCoins())
+            : MulePolicy.calculatePortfolioTransferAmount(view.workingCapitalGp(), view.looseCoins(), keep);
         if (amount < MulePolicy.MIN_TRANSFER_GP) {
-            status = "Mule: nothing above " + FlipperOverlay.formatProfit(s.reserveGp).replace("+", "")
+            status = keep == 0 ? "Mule: no loose GP to send before the update."
+                : "Mule: nothing above " + FlipperOverlay.formatProfit(keep).replace("+", "")
                 + " to send before the update.";
             return false;
         }
-        return requestTransfer(s, view, now, amount, updateDeadline > 0 ? updateDeadline : Long.MAX_VALUE);
+        return requestTransfer(s, view, now, amount, updateDeadline > 0 ? updateDeadline : Long.MAX_VALUE,
+            Source.UPDATE, keep);
+    }
+
+    /** "Mule now": free up the amount if needed, then send it, whatever the trigger and keep amount say. */
+    private boolean startManualTransfer(SenderSettings s, Snapshot view, long now) {
+        int amount = manualTransferGp;
+        eligibleSince = -1;
+        if (!view.capitalVerified) {
+            status = "Mule now: waiting for verified working-capital data.";
+            return false;
+        }
+        if (amount > view.workingCapitalGp()) {
+            endManualTransfer("Mule now: " + FlipperOverlay.formatProfit(amount).replace("+", "") + " is more than "
+                + "your total (" + FlipperOverlay.formatProfit(view.workingCapitalGp()).replace("+", "")
+                + "). Enter a smaller amount.");
+            return false;
+        }
+        if (view.looseCoins() < amount) {
+            liquidationTargetGp = amount;
+            if (!liquidating) {
+                liquidating = true;
+                liquidateSince = now;
+            }
+            if (now - liquidateSince > LIQUIDATE_TIMEOUT_MS) {
+                endManualTransfer("Mule now: the GP did not become free in time; resuming normal flipping.");
+            } else {
+                status = "Mule now: freeing up " + FlipperOverlay.formatProfit(amount).replace("+", "") + " ("
+                    + FlipperOverlay.formatProfit(view.looseCoins()).replace("+", "") + " free so far).";
+            }
+            return false;
+        }
+        liquidating = false;
+        liquidationTargetGp = 0;
+        manualTransferGp = 0;
+        // The floor keeps the rest of the total as it is now, so a misread or a price drop can't send more.
+        int floor = (int) Math.min(Integer.MAX_VALUE, Math.max(0L, view.workingCapitalGp() - amount));
+        if (requestTransfer(s, view, now, amount, 0, Source.MANUAL, floor)) return true;
+        String reason = status.startsWith("Mule: ") ? status.substring("Mule: ".length()) : status;
+        status = "Mule now: " + reason.replace("; retrying later.", ". Press Mule now to try again.");
+        return false;
+    }
+
+    private void endManualTransfer(String message) {
+        manualTransferGp = 0;
+        liquidating = false;
+        liquidationTargetGp = 0;
+        status = message;
     }
 
     /** Asks the Mule for a lease and, when granted, locks this transfer's amount, floor and return point. */
-    private boolean requestTransfer(SenderSettings s, Snapshot view, long now, int amount, long deadline) {
+    private boolean requestTransfer(SenderSettings s, Snapshot view, long now, int amount, long deadline,
+                                    Source source, int floorGp) {
         MulePolicy.HostPort hp = MulePolicy.parseHostAndPort(s.host, s.port);
         MuleNetwork.MuleReply reply = port.requestMuleLease(hp.host, hp.port, s.muleRsn, view.playerName, amount);
         if (!reply.ok) {
@@ -911,7 +1006,8 @@ final class MuleSession {
         returnY = view.tileY;
         returnPlane = view.plane;
         lockedTransferAmount = amount;
-        lockedReserveGp = s.reserveGp;
+        lockedReserveGp = floorGp;
+        lockedSource = source;
         lockedDeadline = deadline;
         coinsBeforeTrade = -1;
         hopAttempts = 0;
@@ -924,7 +1020,7 @@ final class MuleSession {
         liquidating = false;
         liquidationTargetGp = 0;
         enter(reply.ready ? Phase.PREPARING_CASH : Phase.WAITING_FOR_MULE, now);
-        String reason = deadline > 0 ? " before the OSRS update" : "";
+        String reason = deadline > 0 ? " before the OSRS update" : source == Source.MANUAL ? " (Mule now)" : "";
         status = reply.ready ? "Mule: preparing " + FlipperOverlay.formatProfit(amount) + reason + "."
             : "Mule: waiting for " + targetMuleRsn + " to log in" + reason + ".";
         return true;
