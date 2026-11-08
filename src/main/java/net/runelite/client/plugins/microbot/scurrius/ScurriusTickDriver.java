@@ -271,12 +271,12 @@ public class ScurriusTickDriver {
             net.runelite.api.Actor source = projectile.getSourceActor();
             if (source instanceof NPC && "Scurrius".equals(((NPC) source).getName())
                     && loggedProjectiles.add(projectile.getId())) {
-                log.info("scurrius projectile {} -> unknown style, prayer kept (tick {})", projectile.getId(), tick);
+                log.debug("scurrius projectile {} -> unknown style, prayer kept (tick {})", projectile.getId(), tick);
             }
             return;
         }
         if (loggedProjectiles.add(projectile.getId())) {
-            log.info("scurrius projectile {} -> {}", projectile.getId(), style);
+            log.debug("scurrius projectile {} -> {}", projectile.getId(), style);
         }
         markTick(tick);
         timing.onStyleSignal(tick, style);
@@ -287,7 +287,7 @@ public class ScurriusTickDriver {
         boolean known = styleFor(animation) != null;
         boolean bossAnimation = animation >= FIRST_BOSS_ANIMATION && animation <= LAST_BOSS_ANIMATION;
         if (animation != -1 && !known && !bossAnimation && loggedAnimations.add(animation)) {
-            log.info("scurrius anim {} (unknown, not treated as an attack)", animation);
+            log.debug("scurrius anim {} (unknown, not treated as an attack)", animation);
         }
     }
 
@@ -334,7 +334,7 @@ public class ScurriusTickDriver {
         WorldPoint safe = pickSafeTile(client, player);
         if (safe == null) {
             if (lastNoSafeTileLog == NO_TICK || tick - lastNoSafeTileLog > 5) {
-                log.warn("Scurrius dodge: no safe tile near {}", player);
+                log.debug("Scurrius dodge: no safe tile near {}", player);
                 lastNoSafeTileLog = tick;
             }
             return;
@@ -342,7 +342,7 @@ public class ScurriusTickDriver {
         dodgeTick = tick;
         dodgeTarget = safe;
         attackHeld = true;
-        log.info("Scurrius dodge: rocks on {} -> {}", player, safe);
+        log.debug("Scurrius dodge: rocks on {} -> {}", player, safe);
         walkWorker.submit(() -> {
             try {
                 Rs2Walker.walkFastCanvas(safe);
@@ -482,7 +482,7 @@ public class ScurriusTickDriver {
     }
 
     private void logOn(Rs2PrayerEnum want, int tick, String tag) {
-        log.info("Scurrius prayer -> {} (anim {}, tick {}){}", want, previousAnimation, tick,
+        log.debug("Scurrius prayer -> {} (anim {}, tick {}){}", want, previousAnimation, tick,
                 tag.isEmpty() ? "" : " [" + tag + "]");
     }
 
@@ -531,7 +531,7 @@ public class ScurriusTickDriver {
             expectedPrayer = on ? prayer : null;
             expectedTick = tick;
             if (!on) {
-                log.info("Scurrius prayer off (held {} ticks)", timing.lastHoldTicks());
+                log.debug("Scurrius prayer off (held {} ticks)", timing.lastHoldTicks());
             }
         } catch (Exception ex) {
             log.warn("Scurrius delayed prayer click failed (tick {})", tick, ex);

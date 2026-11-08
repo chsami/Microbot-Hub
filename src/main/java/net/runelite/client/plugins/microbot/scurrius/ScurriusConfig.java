@@ -444,7 +444,7 @@ public interface ScurriusConfig extends Config {
     @ConfigItem(
             keyName = "breakLogout",
             name = "Log out during break",
-            description = "Log out for the break and log back in with the client's active login profile when it ends",
+            description = "Log out for the break and log back in when it ends. Needs a saved login profile (Auto Login plugin or account selector); without one you stay logged out after the break.",
             position = 5,
             section = breakSettings
     )
@@ -579,7 +579,7 @@ public interface ScurriusConfig extends Config {
             section = specSettings
     )
     default boolean specEnabled() {
-        return true;
+        return false;
     }
 
     @ConfigItem(

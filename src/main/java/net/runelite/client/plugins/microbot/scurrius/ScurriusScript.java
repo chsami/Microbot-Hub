@@ -230,8 +230,8 @@ public class ScurriusScript extends Script {
                         stillShort = supplyShortage();
                     }
                     if (stillShort != null) {
-                        Microbot.log("Scurrius stopped: after banking you still have only " + stillShort + ". Put more in your bank or lower the amounts in the Scurrius settings (with an Inventory Setup: check that your worn gear matches it).");
-                        Microbot.showMessage("Scurrius stopped: after banking you still have only " + stillShort + ". Put more in your bank or lower the amounts in the Scurrius settings (with an Inventory Setup: check that your worn gear matches it).");
+                        Microbot.log("Scurrius stopped: after banking you are still short of " + stillShort + ". Put more in your bank or lower the amounts in the Scurrius settings (with an Inventory Setup: check that your worn gear matches it).");
+                        Microbot.showMessage("Scurrius stopped: after banking you are still short of " + stillShort + ". Put more in your bank or lower the amounts in the Scurrius settings (with an Inventory Setup: check that your worn gear matches it).");
                         shutdown();
                         return;
                     }
@@ -288,7 +288,9 @@ public class ScurriusScript extends Script {
                             break;
                         }
                         if (Rs2Bank.isOpen()) {
-                            Rs2Bank.depositAllExcept(importantItems.toArray(new Integer[0]));
+                            String specName = config.specWeapon() == null ? "" : config.specWeapon().trim().toLowerCase();
+                            Rs2Bank.depositAllExcept(item -> importantItems.contains(item.getId())
+                                    || (!specName.isEmpty() && item.getName() != null && item.getName().toLowerCase().contains(specName)));
 
                             int requiredFoodAmount = config.foodAmount();
                             int requiredPotionAmount = config.prayerPotionAmount();
@@ -792,7 +794,7 @@ public class ScurriusScript extends Script {
         }
         killsSinceBank = 0;
         restockTarget = rollRestockTarget();
-        Microbot.log("Banked. Next restock trip after " + restockTarget + " kills.");
+        Microbot.log(config.restockEnabled() ? "Banked. Next restock trip after " + restockTarget + " kills." : "Banked.");
         tripsSinceBreak++;
         if (Breaks.shouldBreakNow(config.breakEnabled(), tripsSinceBreak, breakTripTarget, onBreak, isInFightRoom(),
                 isGlobalBreakActive())) {
@@ -954,9 +956,12 @@ public class ScurriusScript extends Script {
         }
         String shortage = SupplyCounts.shortage(foodHave, needs.food, dosesHave, needs.prayerDoses,
                 supplyQuantity(TELEPORT_TAB_ID), needs.tabs);
+        if (shortage != null) {
+            shortage = shortage.replace("prayer potions ", "prayer doses ");
+        }
         Rs2InventorySetup loader = new Rs2InventorySetup(setup, mainScheduledFuture);
         if (!setupEquipment(setup).isEmpty() && !loader.doesEquipmentMatch()) {
-            shortage = shortage == null ? "equipment" : shortage + ", equipment";
+            shortage = shortage == null ? "worn gear (does not match the setup)" : shortage + ", worn gear (does not match the setup)";
         }
         return shortage;
     }

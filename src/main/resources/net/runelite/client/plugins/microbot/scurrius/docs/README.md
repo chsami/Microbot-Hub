@@ -35,7 +35,7 @@ Banks, walks to Scurrius in the Rat Pits (private or public entrance), fights hi
   breaks), and rare habits between kills: mouse off-screen (off by default), a look at the skills tab, a small camera turn,
   1-8 second pauses after banking and before the room, a re-click up to a tick late, an eat a few percent early.
   Nothing in the fight is ever delayed.
-- **Special attack** (on by default): whenever there is enough energy (the weapon's own cost when known, else 50%) and it
+- **Special attack** (off by default): whenever there is enough energy (the weapon's own cost when known, else 50%) and it
   is attacking Scurrius himself (never rats, never while dodging), it turns the spec on through the orb after a short random
   delay and counts it only when the energy drops. Optional spec weapon from the inventory (the main weapon and shield are
   put back afterwards) and an optional "skip spec under boss HP" threshold.
