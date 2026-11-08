@@ -50,26 +50,6 @@ import static org.mockito.Mockito.when;
 class RevKillerScriptSafetyTest {
 
     @Test
-    void emptyRingSlotIsNotADuelingRing() {
-        try (MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class)) {
-            equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.RING)).thenReturn(null);
-
-            assertFalse(revKillerScript.isWearingDuelingRing());
-        }
-    }
-
-    @Test
-    void equippedDuelingRingIsDetected() {
-        Rs2ItemModel ring = mock(Rs2ItemModel.class);
-        when(ring.getName()).thenReturn("Ring of dueling(8)");
-        try (MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class)) {
-            equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.RING)).thenReturn(ring);
-
-            assertTrue(revKillerScript.isWearingDuelingRing());
-        }
-    }
-
-    @Test
     void onlyChargedDuelingRingCanTeleport() {
         assertTrue(hasDuelingTeleport("Ring of dueling(8)"));
         assertTrue(hasDuelingTeleport("Ring of dueling(1)"));
@@ -182,6 +162,7 @@ class RevKillerScriptSafetyTest {
     void onlyChargedGloryIsTakenFromTheBank() {
         assertTrue(revKillerScript.isChargedGlory(item("Amulet of glory(4)", ItemID.AMULET_OF_GLORY4)));
         assertTrue(revKillerScript.isChargedGlory(item("Amulet of glory(t6)", ItemID.AMULET_OF_GLORY_T6)));
+        assertTrue(revKillerScript.isChargedGlory(item("Amulet of eternal glory", ItemID.AMULET_OF_ETERNAL_GLORY)));
         assertFalse(revKillerScript.isChargedGlory(item("Amulet of glory", ItemID.AMULET_OF_GLORY)));
         assertFalse(revKillerScript.isChargedGlory(item("Amulet of glory(t)", ItemID.AMULET_OF_GLORY_T)));
         assertFalse(revKillerScript.isChargedGlory(item("Amulet of power", ItemID.AMULET_OF_POWER)));
@@ -272,6 +253,42 @@ class RevKillerScriptSafetyTest {
         assertTrue(run.result);
         assertEquals(glory, run.equipped);
         assertTrue(run.events.isEmpty());
+    }
+
+    @Test
+    @Timeout(10)
+    void bankLeavesWornEternalGloryAlone() {
+        Rs2ItemModel eternal = item("Amulet of eternal glory", ItemID.AMULET_OF_ETERNAL_GLORY);
+        BankRun run = runBankStep(EquipmentInventorySlot.AMULET, eternal, List.of(item("Amulet of glory(6)", ItemID.AMULET_OF_GLORY6)), true);
+
+        assertTrue(run.result);
+        assertEquals(eternal, run.equipped);
+        assertTrue(run.inventory.isEmpty());
+        assertTrue(run.events.isEmpty());
+    }
+
+    @Test
+    @Timeout(10)
+    void bankWithoutGloryDoesNotStopWhileEternalGloryIsWorn() {
+        Rs2ItemModel eternal = item("Amulet of eternal glory", ItemID.AMULET_OF_ETERNAL_GLORY);
+        BankRun run = runBankStep(EquipmentInventorySlot.AMULET, eternal, List.of(), true);
+
+        assertTrue(run.result);
+        assertEquals(eternal, run.equipped);
+        assertFalse(run.events.contains("stop"));
+        assertTrue(run.events.isEmpty());
+    }
+
+    @Test
+    @Timeout(10)
+    void unchargedTrimmedGloryIsSwappedForChargedGlory() {
+        Rs2ItemModel trimmed = item("Amulet of glory(t)", ItemID.AMULET_OF_GLORY_T);
+        BankRun run = runBankStep(EquipmentInventorySlot.AMULET, trimmed, List.of(item("Amulet of glory(4)", ItemID.AMULET_OF_GLORY4)), true);
+
+        assertTrue(run.result);
+        assertEquals("Amulet of glory(4)", run.equipped.getName());
+        assertTrue(run.events.contains("deposit:Amulet of glory(t)"));
+        assertFalse(run.events.contains("stop"));
     }
 
     private static final class BankRun {

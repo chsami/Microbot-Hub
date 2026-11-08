@@ -56,10 +56,10 @@ import java.util.stream.Collectors;
 
 public class revKillerScript extends Script {
     static final int MAX_FLEE_TELEPORT_ATTEMPTS = 5;
-    static final String NO_DUELING_RING_MESSAGE = "Revenant Killer stopped: no charged Ring of dueling in your bank. The plugin wears a Ring of dueling to teleport out of the caves. Put Rings of dueling in your bank at Ferox Enclave and start the plugin again.";
-    static final String NO_DUELING_RING_POPUP = "<html>Revenant Killer stopped: no charged Ring of dueling in your bank.<br>The plugin wears a Ring of dueling to teleport out of the caves.<br>Put Rings of dueling in your bank at Ferox Enclave and start the plugin again.</html>";
-    static final String NO_GLORY_MESSAGE = "Revenant Killer stopped: no charged Amulet of glory in your bank. The plugin wears a charged Amulet of glory to teleport out of the caves. Put charged Amulets of glory in your bank at Ferox Enclave and start the plugin again.";
-    static final String NO_GLORY_POPUP = "<html>Revenant Killer stopped: no charged Amulet of glory in your bank.<br>The plugin wears a charged Amulet of glory to teleport out of the caves.<br>Put charged Amulets of glory in your bank at Ferox Enclave and start the plugin again.</html>";
+    static final String NO_DUELING_RING_MESSAGE = "Revenant Killer stopped: no charged Ring of dueling in your bank. The plugin wears a Ring of dueling to teleport out of the caves. Put Rings of dueling in your bank and start the plugin again.";
+    static final String NO_DUELING_RING_POPUP = "<html>Revenant Killer stopped: no charged Ring of dueling in your bank.<br>The plugin wears a Ring of dueling to teleport out of the caves.<br>Put Rings of dueling in your bank and start the plugin again.</html>";
+    static final String NO_GLORY_MESSAGE = "Revenant Killer stopped: no charged Amulet of glory in your bank. The plugin wears a charged Amulet of glory to teleport out of the caves. Put charged Amulets of glory in your bank and start the plugin again.";
+    static final String NO_GLORY_POPUP = "<html>Revenant Killer stopped: no charged Amulet of glory in your bank.<br>The plugin wears a charged Amulet of glory to teleport out of the caves.<br>Put charged Amulets of glory in your bank and start the plugin again.</html>";
     private revKillerConfig config;
     @Provides
     revKillerConfig provideConfig(ConfigManager configManager) {
@@ -1299,12 +1299,12 @@ public class revKillerScript extends Script {
         }
     }
     boolean equipDuelingRingAtBank(){
-        return wearFromBank(EquipmentInventorySlot.RING, revKillerScript::isWearingDuelingRing, revKillerScript::isChargedDuelingRing,
+        return wearFromBank(EquipmentInventorySlot.RING, revKillerScript::hasDuelingTeleport, revKillerScript::isChargedDuelingRing,
                 "a Ring of dueling", NO_DUELING_RING_MESSAGE, NO_DUELING_RING_POPUP);
     }
 
     boolean equipChargedGloryAtBank(){
-        return wearFromBank(EquipmentInventorySlot.AMULET, revKillerScript::isWearingChargedGlory, revKillerScript::isChargedGlory,
+        return wearFromBank(EquipmentInventorySlot.AMULET, revKillerScript::hasGloryTeleport, revKillerScript::isChargedGlory,
                 "a charged Amulet of glory", NO_GLORY_MESSAGE, NO_GLORY_POPUP);
     }
 
@@ -1452,7 +1452,7 @@ public class revKillerScript extends Script {
         return false;
     }
 
-    if (!isWearingDuelingRing()) {
+    if (!hasDuelingTeleport()) {
         Microbot.log("We don't have our ring of dueling");
         return false;
     }
@@ -1472,7 +1472,7 @@ public class revKillerScript extends Script {
         return false;
     }
 
-    if (!isWearingChargedGlory()) {
+    if (!hasGloryTeleport()) {
         Microbot.log("amulet is not charged");
         return false;
     }
@@ -1569,11 +1569,6 @@ public class revKillerScript extends Script {
         return false;
     }
 
-    static boolean isWearingDuelingRing() {
-        Rs2ItemModel ring = Rs2Equipment.get(EquipmentInventorySlot.RING);
-        return ring != null && ring.getName() != null && ring.getName().contains("dueling");
-    }
-
     static boolean hasDuelingTeleport() {
         return isChargedDuelingRing(Rs2Equipment.get(EquipmentInventorySlot.RING));
     }
@@ -1582,18 +1577,11 @@ public class revKillerScript extends Script {
         return ring != null && ring.getName() != null && ring.getName().toLowerCase().matches("ring of dueling\\s?\\(\\d\\)");
     }
 
-    static boolean isWearingChargedGlory() {
-        Rs2ItemModel amulet = Rs2Equipment.get(EquipmentInventorySlot.AMULET);
-        return amulet != null && amulet.getName() != null && amulet.getName().contains("Amulet of glory(");
+    static boolean hasGloryTeleport() {
+        return isChargedGlory(Rs2Equipment.get(EquipmentInventorySlot.AMULET));
     }
 
     static boolean isChargedGlory(Rs2ItemModel amulet) {
-        return amulet != null && amulet.getName() != null && amulet.getName().contains("Amulet of glory(")
-                && amulet.getName().toLowerCase().matches("amulet of glory\\(t?\\d\\)");
-    }
-
-    static boolean hasGloryTeleport() {
-        Rs2ItemModel amulet = Rs2Equipment.get(EquipmentInventorySlot.AMULET);
         if (amulet == null || amulet.getName() == null) return false;
         String name = amulet.getName().toLowerCase();
         return name.equals("amulet of eternal glory") || name.matches("amulet of glory\\s?\\(t?\\d\\)");
