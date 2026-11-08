@@ -299,7 +299,7 @@ public class AutoFishingScript extends Script {
     private void handleGettingGear() {
         if (Rs2Bank.walkToBankAndUseBank()) {
             for (String tool : selectedFish.getMethod().getRequiredItems()) {
-                if (!Rs2Inventory.hasItem(tool) && !Rs2Equipment.isWearing(tool)) {
+                if (!hasRequiredItem(tool)) {
                     withdrawAndEquipItem(tool);
                 }
             }
@@ -464,7 +464,7 @@ public class AutoFishingScript extends Script {
 
     private boolean hasRequiredGear() {
         boolean hasTools = selectedFish.getMethod().getRequiredItems().stream()
-                .allMatch(tool -> Rs2Inventory.hasItem(tool) || Rs2Equipment.isWearing(tool));
+                .allMatch(this::hasRequiredItem);
 
         if (selectedHarpoon != HarpoonType.NONE) {
             return hasTools && (Rs2Inventory.hasItem(selectedHarpoon.getName()) || Rs2Equipment.isWearing(selectedHarpoon.getName()));
@@ -474,15 +474,23 @@ public class AutoFishingScript extends Script {
 
     private boolean hasFishingMaterials() {
         // Consumables that deplete while fishing (baits, feathers, etc.). Tools like rods/nets/pots are separate.
-        List<String> required = selectedFish.getMethod().getRequiredItems();
-        for (String item : required) {
-            if (isConsumable(item)) {
-                if (!Rs2Inventory.hasItem(item)) {
-                    return false;
-                }
-            }
+        return selectedFish.getMethod().getRequiredItems().stream()
+                .filter(AutoFishingScript::isConsumable)
+                .allMatch(this::hasRequiredItem);
+    }
+
+    private boolean hasRequiredItem(String item) {
+        if (isConsumable(item)) {
+            return Rs2Inventory.hasItem(ItemID.TACKLE_BOX) || Rs2Inventory.hasItem(acceptedConsumables(item));
         }
-        return true;
+        return Rs2Inventory.hasItem(item) || Rs2Equipment.isWearing(item);
+    }
+
+    static String[] acceptedConsumables(String item) {
+        if (item.equalsIgnoreCase("Fishing bait")) {
+            return new String[]{"Fishing bait", "Sandworms"};
+        }
+        return new String[]{item};
     }
 
     private boolean isAtFishingLocation(WorldPoint playerLocation) {

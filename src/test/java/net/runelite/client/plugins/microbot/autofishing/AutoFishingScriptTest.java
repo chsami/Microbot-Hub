@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.autofishing;
 
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.autofishing.enums.AutoFishingState;
@@ -10,6 +11,7 @@ import net.runelite.client.plugins.microbot.autofishing.enums.HarpoonType;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
@@ -22,7 +24,9 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,6 +36,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -158,6 +163,68 @@ class AutoFishingScriptTest {
         assertFalse(AutoFishingScript.isWithin(here, null, 5));
         assertTrue(AutoFishingScript.isWithin(here, new WorldPoint(3205, 3200, 0), 5));
         assertFalse(AutoFishingScript.isWithin(here, new WorldPoint(3206, 3200, 0), 5));
+    }
+
+    @Test
+    void sandwormsAreAcceptedWhereFishingBaitIsRequired() {
+        assertArrayEquals(new String[]{"Fishing bait", "Sandworms"}, AutoFishingScript.acceptedConsumables("Fishing bait"));
+        assertArrayEquals(new String[]{"Feather"}, AutoFishingScript.acceptedConsumables("Feather"));
+        assertArrayEquals(new String[]{"Dark fishing bait"}, AutoFishingScript.acceptedConsumables("Dark fishing bait"));
+    }
+
+    @Test
+    void sacredEelKeepsFishingWithBaitInTackleBox() {
+        runSacredEelTick(inventory -> inventory.when(() -> Rs2Inventory.hasItem(ItemID.TACKLE_BOX)).thenReturn(true), false);
+    }
+
+    @Test
+    void sacredEelKeepsFishingWithSandwormsInInventory() {
+        runSacredEelTick(inventory -> inventory.when(() -> Rs2Inventory.hasItem("Fishing bait", "Sandworms")).thenReturn(true), false);
+    }
+
+    @Test
+    void sacredEelStillLogsOutWithoutAnyBait() {
+        runSacredEelTick(inventory -> { }, true);
+    }
+
+    private void runSacredEelTick(Consumer<MockedStatic<Rs2Inventory>> baitSetup, boolean expectLogout) {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        Rs2NpcModel spot = mock(Rs2NpcModel.class);
+        AutoFishingScript script = new AutoFishingScript() {
+            {
+                scheduledExecutorService = executor;
+            }
+
+            @Override
+            Rs2NpcModel findNearestFishingSpot() {
+                return spot;
+            }
+        };
+        AutoFishingConfig config = mock(AutoFishingConfig.class);
+        when(config.fishToCatch()).thenReturn(Fish.SACRED_EEL);
+        when(config.harpoonSpec()).thenReturn(HarpoonType.NONE);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
+             MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
+            microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(2190, 3076, 0));
+            inventory.when(() -> Rs2Inventory.hasItem("Fishing rod")).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.hasItem("Knife")).thenReturn(true);
+            baitSetup.accept(inventory);
+
+            script.run(config);
+            ArgumentCaptor<Runnable> tick = ArgumentCaptor.forClass(Runnable.class);
+            verify(executor).scheduleWithFixedDelay(tick.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+            tick.getValue().run();
+
+            assertEquals(AutoFishingState.FISHING, script.getCurrentState());
+            rs2Player.verify(Rs2Player::logout, expectLogout ? times(1) : never());
+        }
     }
 
     @Test
