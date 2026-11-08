@@ -578,6 +578,10 @@ public class TaskDecisionTest
         fixture.tick();
         assertSame(ranged.npc, trip.getTarget());
         assertEquals(Loadout.LONGRANGE, trip.getLoadout());
+        fixture.world.equipment = TestWorld.items(PluginTestFixture.STAFF, 1);
+        fixture.plugin.setTickDelay(0);
+        fixture.tick();
+        assertEquals("Attacking a husk", fixture.plugin.getStatus(), "the longrange set names its target");
     }
 
     @Test
@@ -984,6 +988,24 @@ public class TaskDecisionTest
         fixture.plugin.setTickDelay(0);
         fixture.tick();
         assertEquals("Teleporting to Ferox Enclave: Out of food and Prayer", fixture.plugin.getStatus());
+    }
+
+    @Test
+    public void withNoFoodTheTripEndsAtTheEatingPointEvenWithRestores() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.RING, 1, PluginTestFixture.STAFF, 1, 3024, 2);
+        fixture.boss.id = 9417;
+        fixture.world.hitpoints = fixture.config.eat + 1;
+        fixture.enableAndDrain();
+        fixture.tick();
+        assertSame(TripPhase.FIGHTING, ((TripState) fixture.read("trip")).getPhase(), "above the eating point");
+        fixture.world.hitpoints = fixture.config.eat;
+        fixture.tick();
+        assertSame(TripPhase.LEAVING, ((TripState) fixture.read("trip")).getPhase());
+        fixture.plugin.setTickDelay(0);
+        fixture.tick();
+        assertEquals("Teleporting to Ferox Enclave: Out of food", fixture.plugin.getStatus());
     }
 
     @Test

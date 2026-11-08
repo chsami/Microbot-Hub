@@ -1,10 +1,13 @@
 package net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.tasks;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.IntSupplier;
+import java.util.stream.Collectors;
 import net.runelite.api.TileObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.config.PhosanisNightmareConfig;
@@ -36,15 +39,17 @@ public final class BankTask implements FourtifysTask
     private final SuppliesTask supplies;
     private final Set<Integer> equipment;
     private final Set<Integer> keep;
+    private final Consumer<String> tell;
     private boolean stocked;
     private boolean pinSent;
+    private boolean pinAsked;
     private int requestedAt = Integer.MIN_VALUE / 2;
     private WorldPoint lastPosition;
     private int lastMoveTick = Integer.MIN_VALUE / 2;
     private String status = "Banking";
 
     public BankTask(NightmareActions actions, PhosanisNightmareConfig config, TripState trip, Walking walking, IntSupplier tick,
-        SuppliesTask supplies, Set<Integer> equipment, Set<Integer> keep)
+        SuppliesTask supplies, Set<Integer> equipment, Set<Integer> keep, Consumer<String> tell)
     {
         this.actions = actions;
         this.config = config;
@@ -54,6 +59,7 @@ public final class BankTask implements FourtifysTask
         this.supplies = supplies;
         this.equipment = equipment;
         this.keep = keep;
+        this.tell = tell;
     }
 
     /** Items banking leaves in the inventory; every dose of the potions counts. */
@@ -69,6 +75,10 @@ public final class BankTask implements FourtifysTask
         result.addAll(config.parasiteCure().getDoses());
         result.add(config.combatPotionId());
         result.addAll(supplies.combatPotions());
+        if (config.ghostlyThrall())
+        {
+            result.add(DreamData.BOOK_OF_THE_DEAD);
+        }
         return result;
     }
 
@@ -106,6 +116,13 @@ public final class BankTask implements FourtifysTask
             // One try with the saved PIN: a wrong one typed again would lock the bank for a while.
             if (pinSent)
             {
+                // The overlay may be off or the player away, so the wait is also told once in the chat.
+                if (!pinAsked)
+                {
+                    pinAsked = true;
+                    tell.accept("Waiting for your bank PIN: type it in the bank window, and check the PIN saved in your Microbot profile;"
+                        + " the plugin continues after the bank opens");
+                }
                 status = "Enter your bank PIN to continue";
                 return;
             }
@@ -120,6 +137,7 @@ public final class BankTask implements FourtifysTask
         if (actions.bankOpen())
         {
             pinSent = false;
+            pinAsked = false;
             restockStep(now);
             return;
         }
@@ -186,7 +204,7 @@ public final class BankTask implements FourtifysTask
         }
         if (actions.duelingRing() <= 0)
         {
-            withdrawFirst(DreamData.DUELING_RINGS, "a Ring of dueling", observed);
+            withdrawFirst(DreamData.DUELING_RINGS, "Ring of dueling", observed);
             return;
         }
         if (!actions.wearing(DreamData.MEDALLION) && actions.count(DreamData.MEDALLION) == 0)
@@ -194,24 +212,44 @@ public final class BankTask implements FourtifysTask
             withdrawFirst(List.of(DreamData.MEDALLION), "Drakan's medallion", observed);
             return;
         }
+        List<Integer> absent = new ArrayList<>();
+        int fetch = -1;
         for (int id : equipment)
         {
             if (!actions.wearing(id) && actions.count(id) == 0)
             {
                 if (actions.bankCount(id) == 0)
                 {
-                    actions.fail("Missing " + actions.describe(id) + ": put it in your bank or remove it from your equipment IDs, then restart the plugin");
-                    return;
+                    absent.add(id);
                 }
-                status = "Withdrawing equipment";
-                actions.withdrawOne(id, observed);
-                return;
+                else if (fetch < 0)
+                {
+                    fetch = id;
+                }
             }
         }
-        if (withdraw(config.foodId(), config.foodCount() - actions.count(config.foodId()), "food", observed)
-            || withdrawDoses(List.of(Doses.SUPER_RESTORE, Doses.PRAYER_POTION), config.restoreDoses(), supplies.restoreDoses(), "restores", observed)
-            || withdrawDoses(List.of(config.parasiteCure().getDoses()), config.cureDoses(), supplies.cureDoses(), config.parasiteCure().toString(), observed)
-            || supplies.combatPotions().isEmpty() && withdraw(config.combatPotionId(), 1, actions.describe(config.combatPotionId()), observed))
+        if (!absent.isEmpty())
+        {
+            // Every item is checked first, so one stop names all that is missing.
+            String them = absent.size() == 1 ? "it" : "them";
+            actions.fail("Missing " + absent.stream().map(actions::describe).collect(Collectors.joining(", ")) + ": put " + them
+                + " in your bank or remove " + them + " from your equipment IDs, then restart the plugin");
+            return;
+        }
+        if (fetch > 0)
+        {
+            status = "Withdrawing equipment";
+            actions.withdrawOne(fetch, observed);
+            return;
+        }
+        if (withdraw(config.foodId(), config.foodCount() - actions.count(config.foodId()), actions.describe(config.foodId()), "Food count",
+                observed)
+            || withdrawDoses(List.of(Doses.SUPER_RESTORE, Doses.PRAYER_POTION), config.restoreDoses(), supplies.restoreDoses(),
+                "Super restore(4) or Prayer potion(4)", "Restore doses", observed)
+            || withdrawDoses(List.of(config.parasiteCure().getDoses()), config.cureDoses(), supplies.cureDoses(), config.parasiteCure() + "(4)",
+                "Cure doses", observed)
+            || supplies.combatPotions().isEmpty()
+                && withdraw(config.combatPotionId(), 1, actions.describe(config.combatPotionId()), "Combat potion ID", observed))
         {
             return;
         }
@@ -236,7 +274,7 @@ public final class BankTask implements FourtifysTask
     }
 
     /** Withdraws up to the missing amount of the item. Runs out quietly while some are carried. */
-    private boolean withdraw(int id, int missing, String label, Runnable observed)
+    private boolean withdraw(int id, int missing, String label, String setting, Runnable observed)
     {
         if (id <= 0 || missing <= 0)
         {
@@ -245,6 +283,10 @@ public final class BankTask implements FourtifysTask
         int banked = actions.bankCount(id);
         if (banked > 0)
         {
+            if (noRoom(id, label, setting))
+            {
+                return true;
+            }
             status = "Withdrawing " + label;
             actions.withdraw(id, amount(id, missing, banked), observed);
             return true;
@@ -258,7 +300,7 @@ public final class BankTask implements FourtifysTask
     }
 
     /** Withdraws four-dose potions, the first kind the bank has, to cover the missing doses. */
-    private boolean withdrawDoses(List<List<Integer>> potions, int wanted, int carried, String label, Runnable observed)
+    private boolean withdrawDoses(List<List<Integer>> potions, int wanted, int carried, String label, String setting, Runnable observed)
     {
         if (carried >= wanted)
         {
@@ -270,6 +312,10 @@ public final class BankTask implements FourtifysTask
             int banked = actions.bankCount(full);
             if (banked > 0)
             {
+                if (noRoom(full, label, setting))
+                {
+                    return true;
+                }
                 status = "Withdrawing " + label;
                 actions.withdraw(full, amount(full, (wanted - carried + 3) / 4, banked), observed);
                 return true;
@@ -283,6 +329,18 @@ public final class BankTask implements FourtifysTask
         return false;
     }
 
+    /** With no slot for a missing supply, a withdrawal would be refused again each time, so the plugin stops once. */
+    private boolean noRoom(int id, String label, String setting)
+    {
+        if (actions.freeSlots() > 0 || actions.stackable(id) && actions.count(id) > 0)
+        {
+            return false;
+        }
+        actions.fail("The inventory is full with " + label + " still missing; lower " + setting
+            + " or carry fewer Keep items, then restart the plugin");
+        return true;
+    }
+
     /** The amount for one request: what is missing, no more than the bank has or, unstacked, the free slots. */
     private int amount(int id, int missing, int banked)
     {
@@ -294,6 +352,7 @@ public final class BankTask implements FourtifysTask
     {
         stocked = false;
         pinSent = false;
+        pinAsked = false;
         requestedAt = Integer.MIN_VALUE / 2;
         lastPosition = null;
         lastMoveTick = Integer.MIN_VALUE / 2;

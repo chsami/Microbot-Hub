@@ -4,6 +4,8 @@ import java.util.ArrayList;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Predicate;
 import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.GameState;
@@ -16,6 +18,7 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.ProjectileMoved;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.config.PhosanisNightmareConfig;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.AttackStyle;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.DreamData;
@@ -24,6 +27,7 @@ import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.Sta
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.TripPhase;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.TripState;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.util.task.FourtifysTask;
+import net.runelite.client.plugins.microbot.util.magic.Spell;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 import org.junit.jupiter.api.Test;
 
@@ -181,18 +185,85 @@ public class PluginLifecycleTest
     }
 
     @Test
-    public void changedSettingsBlockDispatchBeforeQueuedRestartThenRestartTheSession() throws Exception
+    public void aSettingChangeKeepsTheSessionAndItsFight() throws Exception
     {
         PluginTestFixture fixture = new PluginTestFixture();
         fixture.enableAndDrain();
-        fixture.decisionOnly();
-        configChanged(fixture, "eatAt");
-        assertEquals(1, fixture.thread.pending.size());
-        fixture.clientTick();
-        assertEquals(0, fixture.requests());
-        fixture.thread.drain();
         fixture.tick();
-        assertEquals(1, fixture.requests());
+        NightmareFight fight = (NightmareFight) fixture.read("fight");
+        fight.setCursed(true);
+        Instant started = fixture.plugin.getStartTime();
+        Object trip = fixture.read("trip");
+        for (String key : new String[] {"eatAt", "meleeGear", "keepItems", "lootAlways"})
+        {
+            configChanged(fixture, key);
+            fixture.thread.drain();
+        }
+        assertSame(started, fixture.plugin.getStartTime());
+        assertSame(trip, fixture.read("trip"));
+        assertSame(TripPhase.FIGHTING, ((TripState) trip).getPhase());
+        assertTrue(fight.isCursed(), "the curse is still known");
+    }
+
+    @Test
+    public void changedItemSettingsApplyWithoutARestart() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.enableAndDrain();
+        fixture.config.melee = "4587";
+        fixture.config.keep = "1234";
+        configChanged(fixture, "meleeGear");
+        fixture.thread.drain();
+        assertEquals(Set.of(4587), fixture.read("melee"));
+        assertTrue(((Set<?>) fixture.read("kept")).contains(1234));
+    }
+
+    @Test
+    public void anInvalidItemListEnteredWhileRunningStopsTheSession() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.enableAndDrain();
+        fixture.config.melee = "Torva";
+        configChanged(fixture, "meleeGear");
+        assertEquals(1, fixture.thread.pending.size(), "the check waits for the client thread");
+        fixture.thread.drain();
+        fixture.decisionOnly();
+        assertTrue(fixture.plugin.getStatus().startsWith("Melee gear IDs: "), fixture.plugin.getStatus());
+        assertNotNull(fixture.plugin.getStartTime());
+    }
+
+    @Test
+    public void fixingTheNamedSettingAfterAStopStartsANewSession() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.enableAndDrain();
+        String melee = fixture.config.melee;
+        fixture.config.melee = "Torva";
+        configChanged(fixture, "meleeGear");
+        fixture.thread.drain();
+        fixture.decisionOnly();
+        assertTrue(fixture.plugin.getStatus().startsWith("Melee gear IDs"));
+        fixture.config.melee = melee;
+        configChanged(fixture, "meleeGear");
+        fixture.thread.drain();
+        assertEquals("Starting", fixture.plugin.getStatus());
+    }
+
+    @Test
+    public void aSettingChangeDoesNotRestartAStopTheSettingsDidNotCause() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.FOOD, 5);
+        fixture.enableAndDrain();
+        fixture.tick();
+        assertEquals("Carry or wear a Ring of dueling, then restart the plugin", fixture.plugin.getStatus());
+        Instant started = fixture.plugin.getStartTime();
+        configChanged(fixture, "eatAt");
+        fixture.thread.drain();
+        fixture.decisionOnly();
+        assertEquals("Carry or wear a Ring of dueling, then restart the plugin", fixture.plugin.getStatus());
+        assertSame(started, fixture.plugin.getStartTime());
+        assertEquals(1, fixture.world.chat.size(), "the stop is not reported a second time");
     }
 
     @Test
@@ -415,7 +486,7 @@ public class PluginLifecycleTest
         fixture.config.magic = "";
         fixture.enableAndDrain();
         fixture.tick();
-        assertEquals("Fill in Melee gear IDs and Magic gear IDs", fixture.plugin.getStatus());
+        assertEquals("Fill in Melee gear IDs and Magic gear IDs in the Equipment section", fixture.plugin.getStatus());
         assertEquals(0, fixture.requests());
     }
 
@@ -443,6 +514,147 @@ public class PluginLifecycleTest
     }
 
     @Test
+    public void aFullInventoryWithSuppliesMissingStopsOnceAndNamesWhatToLower() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.keep = "1234";
+        int[] slots = new int[56];
+        int[] carried = {PluginTestFixture.RING, PluginTestFixture.STAFF, DreamData.MEDALLION};
+        for (int slot = 0; slot < 28; slot++)
+        {
+            slots[slot * 2] = slot < carried.length ? carried[slot] : 1234;
+            slots[slot * 2 + 1] = 1;
+        }
+        fixture.world.inventory = TestWorld.items(slots);
+        fixture.world.bank = TestWorld.items(PluginTestFixture.FOOD, 50);
+        fixture.world.bankVisible = true;
+        fixture.world.instance = false;
+        fixture.standAt(DreamData.FEROX_BANK);
+        fixture.enableAndDrain();
+        for (int tick = 0; tick < 3; tick++)
+        {
+            fixture.tick();
+        }
+        String stop = "The inventory is full with item 385 still missing; lower Food count or carry fewer Keep items, then restart the plugin";
+        assertEquals(stop, fixture.plugin.getStatus());
+        assertEquals(List.of("[Phosani's Nightmare] Stopped: " + stop), fixture.world.chat, "told once");
+        assertEquals(0, fixture.requests(), "no withdrawal the game would refuse");
+    }
+
+    @Test
+    public void theBankPinWaitIsToldOnceInTheChatAndAsANotification() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.world.instance = false;
+        fixture.world.pinVisible = true;
+        fixture.standAt(DreamData.FEROX_BANK);
+        fixture.enableAndDrain();
+        fixture.plugin.setTickDelay(0);
+        for (int tick = 0; tick < 8; tick++)
+        {
+            fixture.tick();
+        }
+        assertEquals("Enter your bank PIN to continue", fixture.plugin.getStatus());
+        String message = "[Phosani's Nightmare] Waiting for your bank PIN: type it in the bank window, and check the PIN saved in your"
+            + " Microbot profile; the plugin continues after the bank opens";
+        assertEquals(List.of(message), fixture.world.chat);
+        assertEquals(List.of(message), fixture.notifications);
+    }
+
+    @Test
+    public void aThrallThatCannotBeCastIsToldOnce() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.thrall = true;
+        fixture.boss.id = 9419;
+        fixture.world.equipment = TestWorld.items(PluginTestFixture.STAFF, 1);
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.RING, 1, PluginTestFixture.FOOD, 5, PluginTestFixture.WHIP, 1);
+        fixture.inject("castable", (Predicate<Spell>) spell -> false);
+        fixture.enableAndDrain();
+        for (int tick = 0; tick < 3; tick++)
+        {
+            fixture.tick();
+        }
+        String message = "[Phosani's Nightmare] A ghostly thrall cannot be cast: use the Arceuus spellbook and carry its runes, or turn off"
+            + " Ghostly thrall";
+        assertEquals(List.of(message), fixture.world.chat);
+        assertEquals(List.of(message), fixture.notifications);
+    }
+
+    @Test
+    public void aDeathChargeThatCannotBeCastIsToldOnce() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.charge = true;
+        fixture.config.spec = "13652";
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.RING, 1, PluginTestFixture.FOOD, 5, PluginTestFixture.STAFF, 1, 13652, 1);
+        fixture.inject("castable", (Predicate<Spell>) spell -> false);
+        fixture.enableAndDrain();
+        for (int tick = 0; tick < 3; tick++)
+        {
+            fixture.tick();
+        }
+        assertEquals(List.of("[Phosani's Nightmare] Death Charge cannot be cast: use the Arceuus spellbook and carry its runes, or turn off"
+            + " Death Charge"), fixture.world.chat);
+    }
+
+    @Test
+    public void withGhostlyThrallOnBankingKeepsTheBookOfTheDead() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.enableAndDrain();
+        assertFalse(((Set<?>) fixture.read("kept")).contains(DreamData.BOOK_OF_THE_DEAD));
+        fixture.config.thrall = true;
+        configChanged(fixture, "ghostlyThrall");
+        fixture.thread.drain();
+        assertTrue(((Set<?>) fixture.read("kept")).contains(DreamData.BOOK_OF_THE_DEAD));
+    }
+
+    @Test
+    public void breaksWaitFromHerDreamUntilFeroxEnclave() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        try
+        {
+            fixture.enableAndDrain();
+            fixture.tick();
+            assertTrue(BreakHandlerScript.isLockState(), "fighting in her dream");
+            ((TripState) fixture.read("trip")).leave("Out of food");
+            fixture.plugin.setTickDelay(0);
+            fixture.tick();
+            assertTrue(BreakHandlerScript.isLockState(), "leaving her dream");
+            fixture.world.instance = false;
+            fixture.standAt(DreamData.FEROX_BANK);
+            fixture.tick();
+            fixture.tick();
+            assertFalse(BreakHandlerScript.isLockState(), "back at Ferox Enclave");
+        }
+        finally
+        {
+            BreakHandlerScript.setLockState(false);
+        }
+    }
+
+    @Test
+    public void stoppingThePluginReleasesBreaks() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        try
+        {
+            fixture.enableAndDrain();
+            fixture.tick();
+            assertTrue(BreakHandlerScript.isLockState());
+            fixture.disable();
+            fixture.thread.drain();
+            assertFalse(BreakHandlerScript.isLockState());
+        }
+        finally
+        {
+            BreakHandlerScript.setLockState(false);
+        }
+    }
+
+    @Test
     public void aMagicWeaponWithNoChargesEndsTheTripAndStopsAtTheBank() throws Exception
     {
         PluginTestFixture fixture = new PluginTestFixture();
@@ -454,12 +666,12 @@ public class PluginLifecycleTest
         assertSame(TripPhase.LEAVING, ((TripState) fixture.read("trip")).getPhase());
         fixture.plugin.setTickDelay(0);
         fixture.tick();
-        assertEquals("Teleporting to Ferox Enclave: The magic weapon has no charges", fixture.plugin.getStatus());
+        assertEquals("Teleporting to Ferox Enclave: Tumeken's Shadow has no charges", fixture.plugin.getStatus());
         fixture.world.instance = false;
         fixture.standAt(DreamData.FEROX_BANK);
         fixture.tick();
         fixture.tick();
-        assertEquals("The magic weapon has no charges; charge it, then restart the plugin", fixture.plugin.getStatus(),
+        assertEquals("Tumeken's Shadow has no charges; charge it, then restart the plugin", fixture.plugin.getStatus(),
             "another trip cannot charge it");
     }
 
@@ -473,7 +685,7 @@ public class PluginLifecycleTest
         fixture.tick();
         fixture.plugin.onChatMessage(message("Tumeken's shadow has no charges! You need to charge it with soul runes and chaos runes."));
         fixture.tick();
-        assertEquals("The magic weapon has no charges; charge it, then restart the plugin", fixture.plugin.getStatus());
+        assertEquals("Tumeken's shadow has no charges; charge it, then restart the plugin", fixture.plugin.getStatus());
     }
 
     @Test
@@ -498,6 +710,40 @@ public class PluginLifecycleTest
         fixture.tick();
         assertEquals("Missing item 4151: carry it or remove it from your equipment IDs, then restart the plugin",
             fixture.plugin.getStatus());
+    }
+
+    @Test
+    public void everyMissingGearItemIsNamedInOneStop() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.world.equipment = TestWorld.items();
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.RING, 1, PluginTestFixture.FOOD, 5);
+        fixture.world.instance = false;
+        fixture.standAt(DreamData.SLEPE_ARRIVAL);
+        fixture.enableAndDrain();
+        fixture.tick();
+        assertEquals("Missing item 4151, item 4675: carry them or remove them from your equipment IDs, then restart the plugin",
+            fixture.plugin.getStatus());
+    }
+
+    @Test
+    public void everyGearItemMissingFromTheBankIsNamedInOneStop() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.world.equipment = TestWorld.items();
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.RING, 1, DreamData.MEDALLION, 1);
+        fixture.world.bank = TestWorld.items(PluginTestFixture.FOOD, 50);
+        fixture.world.bankVisible = true;
+        fixture.world.instance = false;
+        fixture.standAt(DreamData.FEROX_BANK);
+        fixture.enableAndDrain();
+        for (int tick = 0; tick < 3; tick++)
+        {
+            fixture.tick();
+        }
+        assertEquals("Missing item 4151, item 4675: put them in your bank or remove them from your equipment IDs, then restart the plugin",
+            fixture.plugin.getStatus());
+        assertEquals(1, fixture.world.chat.size(), "one stop");
     }
 
     @Test

@@ -200,6 +200,47 @@ public class NightmareFightTest
     }
 
     @Test
+    public void joinedAfterSheWokeHerBlastsSleepwalkersNameThePhase()
+    {
+        NightmareFight fight = new NightmareFight();
+        fight.observeBoss(Stage.SHIELD);
+        fight.observeBoss(Stage.TOTEMS);
+        for (int index = 1; index <= 3; index++)
+        {
+            fight.observeSleepwalker(index, false);
+        }
+        fight.observeBoss(Stage.BLAST);
+        assertEquals(2, fight.getPhase(), "three sleepwalkers: her second blast");
+        fight.observeBoss(Stage.SHIELD);
+        assertEquals(3, fight.getPhase());
+        fight.observeBoss(Stage.TOTEMS);
+        for (int index = 4; index <= 7; index++)
+        {
+            fight.observeSleepwalker(index, false);
+        }
+        fight.observeBoss(Stage.BLAST);
+        assertEquals(3, fight.getPhase());
+    }
+
+    @Test
+    public void sinceSheWokeHerBlastsAreCounted()
+    {
+        NightmareFight fight = new NightmareFight();
+        fight.observeBoss(Stage.WAKING);
+        fight.observeBoss(Stage.SHIELD);
+        fight.observeBoss(Stage.TOTEMS);
+        // A sleepwalker left from another phase does not change the count.
+        for (int index = 1; index <= 3; index++)
+        {
+            fight.observeSleepwalker(index, false);
+        }
+        fight.observeBoss(Stage.BLAST);
+        assertEquals(1, fight.getPhase());
+        fight.observeBoss(Stage.SHIELD);
+        assertEquals(2, fight.getPhase());
+    }
+
+    @Test
     public void aParasitesAttacksAlternateStyles()
     {
         NightmareFight fight = new NightmareFight();

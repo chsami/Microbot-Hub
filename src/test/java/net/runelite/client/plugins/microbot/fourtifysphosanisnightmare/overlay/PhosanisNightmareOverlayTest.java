@@ -16,4 +16,11 @@ public class PhosanisNightmareOverlayTest
         assertEquals("1.0M", PhosanisNightmareOverlay.shortValue(1_000_000));
         assertEquals("3.2M", PhosanisNightmareOverlay.shortValue(3_215_400));
     }
+
+    @Test
+    public void thePhaseShowsADashOutsideAFight()
+    {
+        assertEquals("Phase: -", PhosanisNightmareOverlay.phaseLine(0));
+        assertEquals("Phase: 2", PhosanisNightmareOverlay.phaseLine(2));
+    }
 }

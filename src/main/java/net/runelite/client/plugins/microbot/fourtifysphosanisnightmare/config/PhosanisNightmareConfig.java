@@ -14,10 +14,10 @@ public interface PhosanisNightmareConfig extends TimingConfig
     @ConfigSection(name = "Timing", description = "Adjust action delays. One game tick is about 600 milliseconds.", position = 80, closedByDefault = true)
     String TIMING = "advancedTiming";
 
-    @ConfigSection(name = "General", description = "Bank at Ferox Enclave with a Ring of dueling and travel in with Drakan's medallion. Start at Ferox Enclave or in the Sisterhood Sanctuary.", position = 20, closedByDefault = false)
+    @ConfigSection(name = "General", description = "Bank at Ferox Enclave with a Ring of dueling and travel in with Drakan's medallion. Start at Ferox Enclave, in the Sisterhood Sanctuary or in her dream.", position = 20, closedByDefault = false)
     String GENERAL = "general";
 
-    @ConfigSection(name = "Equipment", description = "Use the equipment supplied by the player. Every listed ID must be worn or carried.", position = 30, closedByDefault = true)
+    @ConfigSection(name = "Equipment", description = "Use the equipment supplied by the player. Every listed ID must be worn, carried or in the bank, which banking takes it from.", position = 30, closedByDefault = true)
     String EQUIPMENT = "equipment";
 
     @ConfigSection(name = "Supplies", description = "Choose supplies and the points at which to use them.", position = 40, closedByDefault = false)
@@ -38,7 +38,7 @@ public interface PhosanisNightmareConfig extends TimingConfig
         return true;
     }
 
-    @ConfigItem(keyName = "ghostlyThrall", name = "Ghostly thrall", description = "Summon the best ghostly thrall your Prayer points cover on the totems. Needs the Arceuus spellbook, runes and the Book of the Dead.", position = 1, section = GENERAL)
+    @ConfigItem(keyName = "ghostlyThrall", name = "Ghostly thrall", description = "Summon the best ghostly thrall your Prayer points cover on the totems. Needs the Arceuus spellbook, runes and the Book of the Dead, which banking keeps while this is on.", position = 1, section = GENERAL)
     default boolean ghostlyThrall()
     {
         return false;
@@ -68,7 +68,7 @@ public interface PhosanisNightmareConfig extends TimingConfig
         return "21018,12002,21791,21021,21024,27275,31106,28313";
     }
 
-    @ConfigItem(keyName = "huskWeapon", name = "Husk weapon ID", description = "Weapon for the husks, wielded alone on its crush style: its max hit must reach 20 in either set. Blank uses the melee weapon.", position = 2, section = EQUIPMENT)
+    @ConfigItem(keyName = "huskWeapon", name = "Husk weapon ID", description = "Weapon that kills a husk in one hit. Only the weapon is swapped in, on its crush style, so its max hit must reach 20 with either gear set worn. Blank uses the melee weapon.", position = 2, section = EQUIPMENT)
     default String huskWeapon()
     {
         return "34027";
@@ -167,14 +167,14 @@ public interface PhosanisNightmareConfig extends TimingConfig
     }
 
     @Range(min = 0, max = 96)
-    @ConfigItem(keyName = "nextKillRestores", name = "Next kill: restores", description = "Start another kill only with at least this many restore doses.", position = 9, section = SUPPLIES)
+    @ConfigItem(keyName = "nextKillRestores", name = "Next kill: restores", description = "Start another kill only with at least this many restore doses; otherwise bank.", position = 9, section = SUPPLIES)
     default int nextKillRestores()
     {
         return 4;
     }
 
     @Range(min = 0, max = 96)
-    @ConfigItem(keyName = "nextKillCures", name = "Next kill: cures", description = "Start another kill only with at least this many cure doses.", position = 10, section = SUPPLIES)
+    @ConfigItem(keyName = "nextKillCures", name = "Next kill: cures", description = "Start another kill only with at least this many cure doses; otherwise bank.", position = 10, section = SUPPLIES)
     default int nextKillCures()
     {
         return 4;

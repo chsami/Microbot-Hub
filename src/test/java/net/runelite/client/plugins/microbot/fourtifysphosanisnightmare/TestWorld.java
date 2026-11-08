@@ -58,6 +58,7 @@ public final class TestWorld
     public boolean widgetSelected;
     public boolean inventoryPresent = true;
     public boolean bankVisible;
+    public boolean pinVisible;
     public GameState state = GameState.LOGGED_IN;
     public int gameCycle;
     public int hitpoints = 99;
@@ -224,6 +225,10 @@ public final class TestWorld
             case "getItemContainer":
                 return container((Integer) args[0]);
             case "getWidget":
+                if (args.length == 2 && (Integer) args[0] == 213 && (Integer) args[1] == 0)
+                {
+                    return pinVisible ? shownWidget() : null;
+                }
                 return args.length == 2 && (Integer) args[0] == 12 && (Integer) args[1] == 1 && bankVisible ? shownWidget() : null;
             case "getObjectDefinition":
                 return objects.stream().filter(target -> target.id == (Integer) args[0]).map(target -> target.definition)

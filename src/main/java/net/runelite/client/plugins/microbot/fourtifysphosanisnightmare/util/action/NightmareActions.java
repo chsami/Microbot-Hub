@@ -111,6 +111,7 @@ public class NightmareActions
     private volatile int lastClicked = -1;
     private int snapshotCycle;
     private FutureTask<Void> pending;
+    /** One worker thread per session, replaced only after a reset stops it. */
     private ExecutorService worker;
     private long dispatchedRequests;
     private String failure;
@@ -147,6 +148,7 @@ public class NightmareActions
         if (worker != null)
         {
             worker.shutdownNow();
+            worker = null;
         }
     }
 
@@ -1128,7 +1130,10 @@ public class NightmareActions
             int expectedGeneration = generation;
             int expires = snapshotCycle + 29;
             WorldPoint origin = client.getLocalPlayer().getWorldLocation();
-            worker = workers.get();
+            if (worker == null || worker.isShutdown())
+            {
+                worker = workers.get();
+            }
             pending = new FutureTask<>(() ->
             {
                 if (!executing.compareAndSet(false, true))
@@ -1159,7 +1164,6 @@ public class NightmareActions
                 }
             }, null);
             worker.execute(pending);
-            worker.shutdown();
         });
     }
 

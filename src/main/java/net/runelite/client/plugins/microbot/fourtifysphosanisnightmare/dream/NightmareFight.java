@@ -6,12 +6,16 @@ import java.util.Set;
 /**
  * One kill as the player sees it: her stage, which shield phase this is, her last standard attack and
  * the curse. Phosani's has three shield phases and then her final phase; her NPC ID names her special
- * set, not the phase, so the phase is counted from her blasts.
+ * set, not the phase, so the phase is counted from her blasts. Joined after she woke, the count starts
+ * from her next blast, whose sleepwalkers name the phase: two in the first, three in the second, four
+ * in the third.
  */
 public class NightmareFight
 {
     private Stage stage;
     private int blasts;
+    /** Her blasts have been counted since she woke. */
+    private boolean phaseKnown;
     private AttackStyle attack;
     private int attackTick = -1;
     private boolean cursed;
@@ -35,6 +39,7 @@ public class NightmareFight
     {
         stage = null;
         blasts = 0;
+        phaseKnown = false;
         attack = null;
         attackTick = -1;
         cursed = false;
@@ -59,6 +64,7 @@ public class NightmareFight
         if (next == Stage.WAKING || next == Stage.ASLEEP)
         {
             blasts = 0;
+            phaseKnown = true;
             attack = null;
             attackTick = -1;
             cursed = false;
@@ -78,6 +84,11 @@ public class NightmareFight
         }
         if (stage == Stage.BLAST)
         {
+            if (!phaseKnown && risen.size() >= 2)
+            {
+                blasts = Math.min(risen.size(), 4) - 1;
+                phaseKnown = true;
+            }
             // Her sleepwalkers rise and reach her before she takes her blast form, so they are counted until it ends.
             risen.clear();
             absorbed.clear();
@@ -239,6 +250,10 @@ public class NightmareFight
         if (stage == Stage.DESPERATION)
         {
             return 4;
+        }
+        if (!phaseKnown && stage == Stage.BLAST && risen.size() >= 2)
+        {
+            return Math.min(risen.size(), 4) - 1;
         }
         // Her blast ends a phase; the blast itself still belongs to it.
         return stage == Stage.BLAST ? blasts : blasts + 1;

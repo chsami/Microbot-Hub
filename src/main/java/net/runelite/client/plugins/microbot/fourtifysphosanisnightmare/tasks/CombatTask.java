@@ -8,10 +8,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
-import java.util.stream.Collectors;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import net.runelite.api.Actor;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
@@ -34,6 +35,7 @@ import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.util.acti
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.util.task.FourtifysTask;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Spells;
 import net.runelite.client.plugins.microbot.util.magic.thralls.Rs2Thrall;
+import net.runelite.client.plugins.microbot.util.magic.Spell;
 
 /**
  * Chooses the target each tick and attacks it: the sleepwalkers once her blast is coming, with only their weapon
@@ -93,7 +95,12 @@ public final class CombatTask implements FourtifysTask
     private final IntSupplier tick;
     private final Function<WorldPoint, Collection<WorldPoint>> reachable;
     private final BiPredicate<WorldArea, WorldArea> sight;
-    private final int specWeapon;
+    private final Map<Loadout, Integer> weapons;
+    private final Consumer<String> tell;
+    private final Predicate<Spell> castable;
+    /** The player has been told that the thrall or Death Charge cannot be cast. */
+    private boolean thrallTold;
+    private boolean chargeTold;
     /** Sleepwalkers the player has already attacked, and the tick of the attack; any hit kills one. */
     private final Map<NPC, Integer> struck = new HashMap<>();
     /** The tick each sleepwalker rose on, from which its first step is reckoned. */
@@ -127,7 +134,7 @@ public final class CombatTask implements FourtifysTask
 
     public CombatTask(NightmareActions actions, PhosanisNightmareConfig config, NightmareFight fight, Hazards hazards,
         TripState trip, GearTask gear, IntSupplier tick, Function<WorldPoint, Collection<WorldPoint>> reachable,
-        BiPredicate<WorldArea, WorldArea> sight, int specWeapon)
+        BiPredicate<WorldArea, WorldArea> sight, Predicate<Spell> castable, Map<Loadout, Integer> weapons, Consumer<String> tell)
     {
         this.actions = actions;
         this.config = config;
@@ -138,7 +145,9 @@ public final class CombatTask implements FourtifysTask
         this.tick = tick;
         this.reachable = reachable;
         this.sight = sight;
-        this.specWeapon = specWeapon;
+        this.castable = castable;
+        this.weapons = weapons;
+        this.tell = tell;
     }
 
     /** Chooses this tick's target and loadout before any task runs, and learns the special attack's cost. */
@@ -544,7 +553,7 @@ public final class CombatTask implements FourtifysTask
     {
         boolean phase = config.specTiming() == SpecTiming.ANY_PHASE || finalPhase;
         int energy = actions.specEnergy();
-        return specWeapon > 0 && phase && energy > 0 && energy >= Math.max(specCost, specNeeded);
+        return specWeapon() > 0 && phase && energy > 0 && energy >= Math.max(specCost, specNeeded);
     }
 
     @Override
@@ -672,7 +681,15 @@ public final class CombatTask implements FourtifysTask
             && !thrallUp(actions.varbit(VarbitID.ARCEUUS_RESURRECTION_ACTIVE), actions.varbit(VarbitID.ARCEUUS_RESURRECTION_COOLDOWN),
                 !actions.npcs(THRALL_NPCS).isEmpty(), now - summonedAt))
         {
-            for (Thrall thrall : affordableThralls(actions.prayerPoints()))
+            List<Thrall> affordable = affordableThralls(actions.prayerPoints());
+            List<Thrall> ready = affordable.stream().filter(thrall -> castable.test(thrall.spell)).collect(Collectors.toList());
+            if (!affordable.isEmpty() && ready.isEmpty() && !thrallTold)
+            {
+                // Short Prayer points are normal, so only a spell the spellbook, level or runes rule out is told.
+                thrallTold = true;
+                tell.accept("A ghostly thrall cannot be cast: use the Arceuus spellbook and carry its runes, or turn off Ghostly thrall");
+            }
+            for (Thrall thrall : ready)
             {
                 if (actions.cast(thrall.spell, thrall.button, () ->
                 {
@@ -685,19 +702,32 @@ public final class CombatTask implements FourtifysTask
                 }
             }
         }
-        if (config.deathCharge() && specWeapon > 0
+        if (config.deathCharge() && specWeapon() > 0
             && !deathChargeUp(actions.varbit(VarbitID.ARCEUUS_DEATH_CHARGE_ACTIVE), actions.varbit(VarbitID.ARCEUUS_DEATH_CHARGE_COOLDOWN),
-                now - chargedAt)
-            && actions.cast(Rs2Spells.DEATH_CHARGE, InterfaceID.MagicSpellbook.DEATH_CHARGE, () ->
+                now - chargedAt))
+        {
+            boolean ready = castable.test(Rs2Spells.DEATH_CHARGE);
+            if (!ready && !chargeTold)
+            {
+                chargeTold = true;
+                tell.accept("Death Charge cannot be cast: use the Arceuus spellbook and carry its runes, or turn off Death Charge");
+            }
+            if (ready && actions.cast(Rs2Spells.DEATH_CHARGE, InterfaceID.MagicSpellbook.DEATH_CHARGE, () ->
             {
                 sent.run();
                 chargedAt = now;
             }))
-        {
-            status = "Casting Death Charge";
-            return true;
+            {
+                status = "Casting Death Charge";
+                return true;
+            }
         }
         return false;
+    }
+
+    private int specWeapon()
+    {
+        return weapons.getOrDefault(Loadout.SPEC, -1);
     }
 
     /** The thrall spells, best first, whose Prayer cost the player's points cover; the game refuses the rest. */
@@ -726,12 +756,21 @@ public final class CombatTask implements FourtifysTask
 
     private String describe(NPC target)
     {
+        // The target names the attack: a loadout such as longrange serves both husks and sleepwalkers.
+        if (DreamData.HUSK_IDS.contains(target.getId()))
+        {
+            return "Attacking a husk";
+        }
+        if (target.getId() == DreamData.SLEEPWALKER)
+        {
+            return "Attacking a sleepwalker";
+        }
         switch (trip.getLoadout())
         {
             case PARASITE:
                 return "Attacking the parasite";
             case HUSK:
-                return target.getId() == DreamData.SLEEPWALKER ? "Attacking a sleepwalker" : "Attacking a husk";
+                return "Attacking a husk";
             case SLEEPWALKER:
             case LONGRANGE:
                 return "Attacking a sleepwalker";

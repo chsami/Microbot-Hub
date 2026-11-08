@@ -252,6 +252,30 @@ public class NightmareActionsTest
     }
 
     @Test
+    public void requestsShareOneWorkerUntilAResetStopsIt()
+    {
+        AtomicInteger created = new AtomicInteger();
+        NightmareActions counted = new NightmareActions(world.client, new TestWorld.QueuedThread(), null, () ->
+        {
+            created.incrementAndGet();
+            return new TestWorld.DirectExecutor();
+        });
+        TestWorld.NpcTarget target = world.npc(3);
+        for (int request = 0; request < 3; request++)
+        {
+            assertTrue(counted.npc(target.npc, "Attack", sent::incrementAndGet));
+            counted.dispatch();
+        }
+        assertEquals(3, sent.get());
+        assertEquals(1, created.get(), "Each request reuses the session's worker");
+        counted.reset();
+        assertTrue(counted.npc(target.npc, "Attack", sent::incrementAndGet));
+        counted.dispatch();
+        assertEquals(4, sent.get());
+        assertEquals(2, created.get(), "A reset stops the worker, so the next request starts a new one");
+    }
+
+    @Test
     public void queuedRequestsDispatchFirstInFirstOutOneAtATime()
     {
         TestWorld.NpcTarget first = world.npc(3);

@@ -21,7 +21,7 @@ public final class LootTask implements FourtifysTask
     private final NightmareFight fight;
     private final TripState trip;
     private final IntSupplier tick;
-    private final LootRule rule;
+    private LootRule rule;
     private int requestedAt = Integer.MIN_VALUE / 2;
     private WorldPoint lastPosition;
     private int lastMoveTick = Integer.MIN_VALUE / 2;
@@ -33,6 +33,11 @@ public final class LootTask implements FourtifysTask
         this.fight = fight;
         this.trip = trip;
         this.tick = tick;
+        this.rule = rule;
+    }
+
+    public void setRule(LootRule rule)
+    {
         this.rule = rule;
     }
 

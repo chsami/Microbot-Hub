@@ -14,6 +14,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.IntSupplier;
 import javax.inject.Inject;
 import net.runelite.api.ChatMessageType;
@@ -42,6 +43,9 @@ import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.util.magic.Spell;
+import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
+import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.config.PhosanisNightmareConfig;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.AttackStyle;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.DreamData;
@@ -92,6 +96,8 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
     private static final int RUN_RESEND_TICKS = 2;
     /** A clear line of sight between two areas on the current scene. */
     private BiPredicate<WorldArea, WorldArea> sight = (from, to) -> from.hasLineOfSightTo(this.client.getTopLevelWorldView(), to);
+    /** The spellbook, Magic level and runes, the rune pouch's included, allow the spell. */
+    private Predicate<Spell> castable = Rs2Magic::canCast;
     @Inject
     private Client client;
     @Inject
@@ -131,7 +137,17 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
     private long observedRequests;
     private long kills;
     private boolean stopReported;
+    /** This session holds Break Handler breaks. */
+    private boolean breaksHeld;
     private Set<Integer> kept = Set.of();
+    /** The item settings, shared with the tasks and refilled in place when a setting changes. */
+    private final Set<Integer> melee = new LinkedHashSet<>();
+    private final Set<Integer> magic = new LinkedHashSet<>();
+    private final Map<Loadout, Integer> weapons = new EnumMap<>(Loadout.class);
+    private final Set<Integer> keep = new LinkedHashSet<>();
+    private final Set<Integer> equipment = new LinkedHashSet<>();
+    /** The current stop came from the settings. */
+    private boolean settingsStop;
     private DodgeTask dodge;
     private PrayerTask prayer;
     private SuppliesTask supplies;
@@ -187,21 +203,7 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
         }
         actions.newSession();
         trip = new TripState();
-        Set<Integer> melee = ids("Melee gear IDs", config.meleeGear());
-        Set<Integer> magic = ids("Magic gear IDs", config.magicGear());
-        Map<Loadout, Integer> weapons = new EnumMap<>(Loadout.class);
-        weapons.put(Loadout.HUSK, weapon("Husk weapon ID", config.huskWeapon()));
-        weapons.put(Loadout.PARASITE, weapon("Parasite weapon ID", config.parasiteWeapon()));
-        weapons.put(Loadout.SLEEPWALKER, weapon("Sleepwalker weapon ID", config.sleepwalkerWeapon()));
-        weapons.put(Loadout.SPEC, weapon("Spec weapon ID", config.specWeapon()));
-        Set<Integer> keep = ids("Keep items", config.keepItems());
-        if (melee.isEmpty() || magic.isEmpty())
-        {
-            actions.fail("Fill in Melee gear IDs and Magic gear IDs");
-        }
-        Set<Integer> equipment = new LinkedHashSet<>(melee);
-        equipment.addAll(magic);
-        weapons.values().stream().filter(id -> id > 0).forEach(equipment::add);
+        readItemSettings();
         IntSupplier ticks = this::getTick;
         Function<WorldPoint, Collection<WorldPoint>> reachable = from -> ReachableTiles.around(client.getTopLevelWorldView(), from, STEP_REACH);
         dodge = new DodgeTask(actions, hazards, ticks, reachable);
@@ -209,9 +211,9 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
         supplies = new SuppliesTask(actions, config, fight, trip, ticks);
         gear = new GearTask(actions, trip, ticks, melee, magic, weapons);
         looting = new LootTask(actions, fight, trip, ticks, new LootRule(config.lootAlways(), config.lootMinimum()));
-        combat = new CombatTask(actions, config, fight, hazards, trip, gear, ticks, reachable, sight, weapons.get(Loadout.SPEC));
+        combat = new CombatTask(actions, config, fight, hazards, trip, gear, ticks, reachable, sight, castable, weapons, this::tell);
         nextKill = new NextKillTask(actions, config, fight, trip, supplies, ticks, () -> looting.next() != null);
-        banking = new BankTask(actions, config, trip, walking, ticks, supplies, equipment, keep);
+        banking = new BankTask(actions, config, trip, walking, ticks, supplies, equipment, keep, this::tell);
         travel = new TravelTask(actions, trip, walking, ticks);
         kept = Set.copyOf(banking.keptItems());
         if (actions.getFailure() == null)
@@ -255,6 +257,7 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
     private void stop()
     {
         lifecycle.setStarted(false);
+        releaseBreaks();
         walking.cancel();
         startTime = null;
         delay.set(0);
@@ -262,6 +265,40 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
         mouse.fast(false);
         overlays.remove(overlay);
         status = "Stopped";
+    }
+
+    /**
+     * Reads the item settings into the sets the tasks share, so a change applies without a new session. Remembers
+     * whether these settings caused a stop, which a later change can then mend.
+     */
+    private void readItemSettings()
+    {
+        boolean failedBefore = actions.getFailure() != null;
+        Set<Integer> readMelee = ids("Melee gear IDs", config.meleeGear());
+        Set<Integer> readMagic = ids("Magic gear IDs", config.magicGear());
+        Map<Loadout, Integer> readWeapons = new EnumMap<>(Loadout.class);
+        readWeapons.put(Loadout.HUSK, weapon("Husk weapon ID", config.huskWeapon()));
+        readWeapons.put(Loadout.PARASITE, weapon("Parasite weapon ID", config.parasiteWeapon()));
+        readWeapons.put(Loadout.SLEEPWALKER, weapon("Sleepwalker weapon ID", config.sleepwalkerWeapon()));
+        readWeapons.put(Loadout.SPEC, weapon("Spec weapon ID", config.specWeapon()));
+        Set<Integer> readKeep = ids("Keep items", config.keepItems());
+        if (readMelee.isEmpty() || readMagic.isEmpty())
+        {
+            actions.fail("Fill in Melee gear IDs and Magic gear IDs in the Equipment section");
+        }
+        melee.clear();
+        melee.addAll(readMelee);
+        magic.clear();
+        magic.addAll(readMagic);
+        weapons.clear();
+        weapons.putAll(readWeapons);
+        keep.clear();
+        keep.addAll(readKeep);
+        equipment.clear();
+        equipment.addAll(melee);
+        equipment.addAll(magic);
+        weapons.values().stream().filter(id -> id > 0).forEach(equipment::add);
+        settingsStop = !failedBefore && actions.getFailure() != null;
     }
 
     /** The setting's item IDs, or none after stopping with the setting's name and the format to use. */
@@ -325,8 +362,28 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
             delay.set(0);
             return;
         }
-        // The restart's stop() cancels walking and queued actions on the client thread.
-        lifecycle.scheduleStart(clientThread, this::start);
+        // Tasks read the other settings when they use them, so a change keeps the session, its fight and its counts.
+        clientThread.invokeLater(() ->
+        {
+            if (!lifecycle.isStarted())
+            {
+                return;
+            }
+            if (actions.getFailure() != null)
+            {
+                // Only a stop the settings caused can be mended here; other stops wait for the plugin to be turned on again.
+                if (settingsStop)
+                {
+                    lifecycle.scheduleStart(clientThread, this::start);
+                }
+                return;
+            }
+            readItemSettings();
+            looting.setRule(new LootRule(config.lootAlways(), config.lootMinimum()));
+            kept = Set.copyOf(banking.keptItems());
+            // Items that join or leave the kept list are not loot, so the loot count starts from what is carried now.
+            loot.suspend();
+        });
     }
 
     @Subscribe
@@ -364,10 +421,11 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
         }
         else if (message != null && DreamData.noCharges(message, magicNames()))
         {
-            String stop = "The magic weapon has no charges; charge it, then restart the plugin";
+            String weapon = DreamData.unchargedItem(message);
+            String stop = weapon + " has no charges; charge it, then restart the plugin";
             if (trip.getPhase() == TripPhase.FIGHTING)
             {
-                trip.leaveAndStop("The magic weapon has no charges", stop);
+                trip.leaveAndStop(weapon + " has no charges", stop);
             }
             else if (trip.getPhase() != TripPhase.LEAVING)
             {
@@ -492,6 +550,7 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
         }
         tick++;
         observeRequests();
+        holdBreaks();
         if (ActionQueue.dead(client, player))
         {
             walking.cancel();
@@ -559,15 +618,45 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
             return;
         }
         stopReported = true;
-        String message = "[Phosani's Nightmare] Stopped: " + status;
-        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
-        notifier.notify(message);
+        tell("Stopped: " + status);
+    }
+
+    /** Tells the player in the chat and as a notification. */
+    private void tell(String message)
+    {
+        String text = "[Phosani's Nightmare] " + message;
+        client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", text, null);
+        notifier.notify(text);
     }
 
     private void run(FourtifysTask task)
     {
         task.execute();
         status = actions.getFailure() != null ? actions.getFailure() : task.getStatus();
+    }
+
+    /**
+     * A Break Handler break waits from the dream until the player is back at Ferox Enclave: a pause in her dream
+     * would leave her hitting the player.
+     */
+    private void holdBreaks()
+    {
+        boolean hold = actions.getFailure() == null
+            && (trip.getPhase() == TripPhase.FIGHTING || trip.getPhase() == TripPhase.LEAVING);
+        if (hold != breaksHeld)
+        {
+            BreakHandlerScript.setLockState(hold);
+            breaksHeld = hold;
+        }
+    }
+
+    private void releaseBreaks()
+    {
+        if (breaksHeld)
+        {
+            BreakHandlerScript.setLockState(false);
+            breaksHeld = false;
+        }
     }
 
     /** Reads this tick's fight, hazards and statistics before any task runs. */
@@ -644,19 +733,26 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
     }
 
     /**
-     * Before her final phase, with no food, no Prayer points and no restores left, her standard attacks land
-     * unprotected and nothing heals them, so the trip ends.
+     * Before her final phase, with no food left the trip ends once the Hitpoints are at the eating point, since hits no
+     * prayer stops would go unhealed, or once no Prayer points and no restores are left either.
      */
     private void observeEmptySupplies()
     {
-        if (trip.getPhase() == TripPhase.FIGHTING && fight.isFighting() && fight.getStage() != Stage.DESPERATION
-            && supplies.food() == 0 && supplies.restoreDoses() == 0 && actions.prayerPoints() == 0)
+        if (trip.getPhase() != TripPhase.FIGHTING || !fight.isFighting() || fight.getStage() == Stage.DESPERATION
+            || supplies.food() > 0)
+        {
+            return;
+        }
+        if (actions.hitpoints() <= config.eatAt())
+        {
+            trip.leave("Out of food");
+        }
+        else if (supplies.restoreDoses() == 0 && actions.prayerPoints() == 0)
         {
             trip.leave("Out of food and Prayer");
         }
     }
 
-    /** Spores and flowers, read from one scan of the scene. */
     /**
      * She leaves and reappears: at the start of a surge lane, or back at the centre for her flowers. Seen leaving,
      * her next tile at the start of a lane is where she reappears however near. Her own tile counts once her return animation shows, or
@@ -711,6 +807,7 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
         bossAnimation = animation;
     }
 
+    /** Spores and flowers, read from one scan of the scene. */
     private void observeObjects()
     {
         Set<Integer> ids = new HashSet<>(DreamData.SPORES_LOCS);

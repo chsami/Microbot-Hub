@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.tasks;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -97,6 +98,15 @@ public final class GearTask implements FourtifysTask
     }
 
     /** The items of the loadout that are not worn. */
+    /** Every item of every set, melee first. */
+    private Set<Integer> allGear()
+    {
+        Set<Integer> all = new LinkedHashSet<>(melee);
+        all.addAll(magic);
+        weapons.values().stream().filter(id -> id > 0).forEach(all::add);
+        return all;
+    }
+
     public List<Integer> missing(Loadout loadout)
     {
         return wanted(loadout).stream().filter(id -> !actions.wearing(id)).collect(Collectors.toList());
@@ -174,23 +184,31 @@ public final class GearTask implements FourtifysTask
             actions.style(style(loadout), sent);
             return;
         }
-        for (int id : missing)
+        if (missing.stream().anyMatch(id -> actions.count(id) == 0))
         {
-            if (actions.count(id) == 0)
+            // Every set is checked, so one stop names all that is missing.
+            List<Integer> absent = new ArrayList<>();
+            for (int id : allGear())
             {
-                String stop = "Missing " + actions.describe(id) + ": carry it or remove it from your equipment IDs, then restart the plugin";
-                if (trip.getPhase() == TripPhase.FIGHTING)
+                if (!actions.wearing(id) && actions.count(id) == 0)
                 {
-                    // Such as a powered staff that has turned into its uncharged form: stopping here would leave the
-                    // player in the fight.
-                    trip.leaveAndStop("Missing " + actions.describe(id), stop);
+                    absent.add(id);
                 }
-                else
-                {
-                    actions.fail(stop);
-                }
-                return;
             }
+            String items = absent.stream().map(actions::describe).collect(Collectors.joining(", "));
+            String them = absent.size() == 1 ? "it" : "them";
+            String stop = "Missing " + items + ": carry " + them + " or remove " + them + " from your equipment IDs, then restart the plugin";
+            if (trip.getPhase() == TripPhase.FIGHTING)
+            {
+                // Such as a powered staff that has turned into its uncharged form: stopping here would leave the
+                // player in the fight.
+                trip.leaveAndStop("Missing " + items, stop);
+            }
+            else
+            {
+                actions.fail(stop);
+            }
+            return;
         }
         NPC target = trip.getTarget();
         Player player = actions.player();

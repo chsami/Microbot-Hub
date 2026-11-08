@@ -32,9 +32,14 @@ public final class PhosanisNightmareOverlay extends FourtifysOverlay
             return null;
         }
         String elapsed = RuntimeFormat.elapsed(plugin.getStartTime());
-        return render(graphics, "Fourtifys Nightmare", elapsed, plugin.getStatus(),
-            "Phase: " + plugin.getPhase(), "Kills: " + plugin.getKills(), "Per hour: " + plugin.getKillsPerHour(),
+        return render(graphics, "Fourtifys Phosani's", elapsed, plugin.getStatus(), phaseLine(plugin.getPhase()), "Kills: " + plugin.getKills(), "Per hour: " + plugin.getKillsPerHour(),
             "Loot: " + shortValue(plugin.getLootValue()), "Trips: " + plugin.getTrips());
+    }
+
+    /** Her phase, or a dash outside a fight. */
+    static String phaseLine(int phase)
+    {
+        return "Phase: " + (phase > 0 ? Integer.toString(phase) : "-");
     }
 
     /** Coins as 950, 12.5K or 3.2M. */

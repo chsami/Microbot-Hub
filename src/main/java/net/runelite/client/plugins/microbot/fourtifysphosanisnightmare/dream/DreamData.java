@@ -9,6 +9,8 @@ import net.runelite.api.coords.WorldPoint;
 public final class DreamData
 {
     public static final int INITIAL = 9423;
+    /** Needed, worn or carried, to summon a thrall. */
+    public static final int BOOK_OF_THE_DEAD = 25818;
     public static final Set<Integer> SHIELD = Set.of(9416, 9417, 9418, 11153);
     public static final Set<Integer> TOTEM_PHASE = Set.of(9419, 9420, 9421, 11155);
     public static final int BLAST = 9422;
@@ -131,12 +133,14 @@ public final class DreamData
      */
     public static boolean noCharges(String message, Collection<String> names)
     {
+        String item = unchargedItem(message);
+        return item != null && (names.isEmpty() || names.stream().anyMatch(item::equalsIgnoreCase));
+    }
+
+    /** The item a no-charges message names, as the game writes it, or null for another message. */
+    public static String unchargedItem(String message)
+    {
         int at = message.indexOf(NO_CHARGES);
-        if (at <= 0)
-        {
-            return false;
-        }
-        String item = message.substring(0, at).replaceFirst("^(Your|The) ", "");
-        return names.isEmpty() || names.stream().anyMatch(item::equalsIgnoreCase);
+        return at <= 0 ? null : message.substring(0, at).replaceFirst("^(Your|The) ", "");
     }
 }

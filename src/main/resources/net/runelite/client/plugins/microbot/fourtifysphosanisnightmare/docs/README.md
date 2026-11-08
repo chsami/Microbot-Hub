@@ -7,8 +7,9 @@ totems. In her final phase it puts every attack on her, special attacks
 first. Between kills it picks up the loot and disturbs her again. When
 supplies run low, it teleports to Ferox Enclave with a Ring of dueling,
 banks, restocks, drinks from the Pool of Refreshment and returns with
-Drakan's medallion. It also teleports out mid-fight when food and Prayer
-are both gone.
+Drakan's medallion. It also teleports out mid-fight when the food is gone
+and your Hitpoints reach the eating point, or when food and Prayer are
+both gone.
 
 ## Setup
 
@@ -25,9 +26,11 @@ are both gone.
 5. Set the supplies, their thresholds and the **Next kill** minimums.
 6. Optional: on the Arceuus spellbook, turn on **Ghostly thrall** for
    the totems and **Death Charge** before special attacks. The thrall
-   needs the Book of the Dead and 2 to 6 Prayer points. Add the book
-   and your rune pouch to **Keep items** (`25818,12791`) so banking
-   leaves them in your inventory.
+   needs the Book of the Dead and 2 to 6 Prayer points; banking keeps
+   the book while **Ghostly thrall** is on. Add your rune pouch to
+   **Keep items** (`12791`) so banking leaves it in your inventory.
+   Banking deposits every item that is not gear, a supply or in **Keep
+   items**.
 7. Enable the plugin at Ferox Enclave, in the Sisterhood Sanctuary or in
    her dream.
 
@@ -36,7 +39,8 @@ before restarting.
 
 When the plugin stops, it says why and what to do next in the game chat
 and with a RuneLite notification. It waits while Microbot scripts are
-paused, including Break Handler breaks.
+paused. Break Handler breaks wait until you are back at Ferox Enclave;
+the plugin then waits for the break to end.
 
 ## Not supported
 
