@@ -123,7 +123,7 @@ public final class Weaver
 		exec.execute(() ->
 		{
 			Rs2TileObjectModel obj = Microbot.getRs2TileObjectCache().query().withId(id).at(at).first();
-			if (obj != null && Aim.onScreen(obj.getLocalLocation()))
+			if (obj != null && Aim.clickable(obj))
 			{
 				obj.click();
 			}

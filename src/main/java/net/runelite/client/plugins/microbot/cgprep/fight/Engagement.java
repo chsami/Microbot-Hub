@@ -51,6 +51,8 @@ public final class Engagement
 		public final boolean targetingUs;
 		/** Its attack animation started this tick (while targeting us). */
 		public final boolean attacked;
+		/** 1.8.1: a melee monster that can't get to a tile it can hit us from (see MeleeReach). */
+		public final boolean cantReach;
 
 		public Seen(int index, Monster type, int distance, boolean targetingUs)
 		{
@@ -59,11 +61,17 @@ public final class Engagement
 
 		public Seen(int index, Monster type, int distance, boolean targetingUs, boolean attacked)
 		{
+			this(index, type, distance, targetingUs, attacked, false);
+		}
+
+		public Seen(int index, Monster type, int distance, boolean targetingUs, boolean attacked, boolean cantReach)
+		{
 			this.index = index;
 			this.type = type;
 			this.distance = distance;
 			this.targetingUs = targetingUs;
 			this.attacked = attacked;
+			this.cantReach = cantReach;
 		}
 	}
 
@@ -76,9 +84,16 @@ public final class Engagement
 		boolean targetingNow;
 		/** Ticks since its last attack on us (demi-bosses). */
 		int sinceAttack = 999;
+		boolean cantReach;
 
 		boolean threat()
 		{
+			// 1.8.1 (user): a melee monster stuck behind a wall or too wide for the gap can't hit us
+			// while we stand still; a swing anyway (an attack animation) still counts.
+			if ((!isDemi(type) || type == Monster.BEAR) && cantReach && sinceAttack > 1)
+			{
+				return false;
+			}
 			if (!isDemi(type))
 			{
 				// 1.2.1 (user): a weak/medium monster is only a threat while it can actually hit us:
@@ -124,6 +139,7 @@ public final class Engagement
 				st.distance = s.distance;
 				st.targetingNow = s.targetingUs;
 				st.sinceAttack = s.attacked && s.targetingUs ? 0 : st.sinceAttack + 1;
+				st.cantReach = s.cantReach;
 			}
 			if (s.targetingUs && (demi || s.distance <= MELEE_RANGE))
 			{
@@ -137,6 +153,7 @@ public final class Engagement
 				st.idleTicks = 0;
 				st.distance = s.distance;
 				st.targetingNow = true;
+				st.cantReach = s.cantReach;
 				if (s.attacked)
 				{
 					st.sinceAttack = 0;
@@ -165,6 +182,7 @@ public final class Engagement
 				e.getValue().targetingNow = false;
 				e.getValue().distance = Integer.MAX_VALUE;
 				e.getValue().sinceAttack++;
+				e.getValue().cantReach = false;
 			}
 		}
 		engaged.entrySet().removeIf(e -> !alive.contains(e.getKey())
@@ -215,7 +233,7 @@ public final class Engagement
 			{
 				continue;
 			}
-			boolean canHit = s.targetingNow && (s.type != Monster.BEAR || s.distance <= BEAR_REACH);
+			boolean canHit = s.targetingNow && (s.type != Monster.BEAR || s.distance <= BEAR_REACH && !s.cantReach);
 			int score = (canHit ? 0 : 1_000_000) + (s.type == prefer ? 0 : 1000) + Math.min(s.distance, 999);
 			if (score < bestScore)
 			{
@@ -233,6 +251,20 @@ public final class Engagement
 		for (State s : engaged.values())
 		{
 			if (!isDemi(s.type) && s.threat())
+			{
+				n++;
+			}
+		}
+		return n;
+	}
+
+	/** 1.8.1: melee monsters (Bear included) after us that can't reach us right now. */
+	public int stuckMelee()
+	{
+		int n = 0;
+		for (State s : engaged.values())
+		{
+			if ((!isDemi(s.type) || s.type == Monster.BEAR) && s.cantReach && s.targetingNow)
 			{
 				n++;
 			}

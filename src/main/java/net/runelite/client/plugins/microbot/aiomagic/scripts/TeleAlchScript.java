@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.aiomagic.scripts;
 
-import net.runelite.api.Skill;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.aiomagic.AIOMagicPlugin;
@@ -11,7 +10,6 @@ import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
-import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 
 import javax.inject.Inject;
 import java.util.concurrent.TimeUnit;
@@ -55,23 +53,11 @@ public class TeleAlchScript extends Script {
                             return;
                         }
 
-                        Rs2ItemModel alchItem = plugin.getAlchItemNames().stream()
-                                .filter(Rs2Inventory::hasItem)
-                                .map(Rs2Inventory::get)
-                                .findFirst()
-                                .orElse(null);
-                        
+                        Rs2ItemModel alchItem = AlchItemSlot.resolve(plugin.getAlchItemNames());
+
                         if (alchItem == null) {
                             Microbot.log("Missing alch items...");
                             return;
-                        }
-                        
-                        if (Rs2AntibanSettings.naturalMouse) {
-                            int inventorySlot = Rs2Player.getSkillRequirement(Skill.MAGIC, 55) ? 12 : 4;
-                            if (alchItem.getSlot() != inventorySlot) {
-                                Rs2Inventory.moveItemToSlot(alchItem, inventorySlot);
-                                return;
-                            }
                         }
 
                         Rs2Magic.alch(alchItem, 100, 150);

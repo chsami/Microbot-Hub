@@ -24,7 +24,7 @@ import java.time.Instant;
         authors = {"TaF"},
         tags = {"TaF", "crab", "combat", "training", "gem"},
         version = GemCrabKillerPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.32",
         cardUrl = "https://chsami.github.io/Microbot-Hub/GemCrabKillerPlugin/assets/GemStoneCrab.png",
         iconUrl = "https://chsami.github.io/Microbot-Hub/GemCrabKillerPlugin/assets/GemStoneCrab.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -33,7 +33,7 @@ import java.time.Instant;
 @Slf4j
 public class GemCrabKillerPlugin extends Plugin {
 
-    public final static String version = "1.0.6";
+    public final static String version = "1.0.7";
     private final Map<Skill, Integer> startSkillExp = new EnumMap<>(Skill.class);
     @Inject
     GemCrabKillerScript gemCrabKillerScript;

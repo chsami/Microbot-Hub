@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.looter.scripts;
 
 import net.runelite.api.GameState;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.looter.AutoLooterConfig;
@@ -139,7 +140,9 @@ public class DefaultScript extends Script {
                 if (initialPlayerLocation == null) return;
 
                 if (state == LooterState.LOOTING) {
-                    if (Rs2Player.getWorldLocation().distanceTo(initialPlayerLocation) > config.distanceToStray()) {
+                    WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                    if (playerLocation == null) return;
+                    if (playerLocation.distanceTo(initialPlayerLocation) > config.distanceToStray()) {
                         Rs2Walker.walkTo(initialPlayerLocation);
                     }
                     return;
@@ -230,9 +233,9 @@ public class DefaultScript extends Script {
     }
 
     private boolean isAwayFromBase(AutoLooterConfig config) {
-        return initialPlayerLocation == null
-                || Rs2Player.isMoving()
-                || Rs2Player.getWorldLocation().distanceTo(initialPlayerLocation) > config.distanceToStray();
+        if (initialPlayerLocation == null || Rs2Player.isMoving()) return true;
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        return playerLocation == null || playerLocation.distanceTo(initialPlayerLocation) > config.distanceToStray();
     }
 
     private void applyAntiBanSettings() {

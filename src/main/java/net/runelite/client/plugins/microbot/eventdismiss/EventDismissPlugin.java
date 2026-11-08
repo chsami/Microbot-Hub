@@ -11,14 +11,15 @@ import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
 import java.awt.*;
+import java.util.List;
 
 @PluginDescriptor(
         name = PluginDescriptor.Default + "Random Event Handler",
-        description = "Dismisses random events and optionally accepts lamps from Genie/Count Check",
+        description = "Dismisses random events and optionally accepts lamps from Genie/Count Check. Works while you play by hand too. While it handles a random event, Microbot's General settings (Hide roofs, Disable level-up interface, Disable world switcher confirmation) may also be applied; turn those off in the Microbot settings if you play manually.",
         tags = {"random", "events", "microbot", "lamp", "genie"},
         authors = {"Unknown"},
         version = EventDismissPlugin.version,
-        minClientVersion = "2.0.7",
+        minClientVersion = "2.6.24",
         cardUrl = "https://chsami.github.io/Microbot-Hub/EventDismissPlugin/assets/card.jpg",
         iconUrl = "https://chsami.github.io/Microbot-Hub/EventDismissPlugin/assets/icon.jpg",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -26,7 +27,7 @@ import java.awt.*;
 )
 @Slf4j
 public class EventDismissPlugin extends Plugin {
-    public static final String version = "2.1.1";
+    public static final String version = "2.1.3";
 
     @Inject
     private EventDismissConfig config;
@@ -34,6 +35,8 @@ public class EventDismissPlugin extends Plugin {
     private OverlayManager overlayManager;
     @Inject
     private EventDismissOverlay overlay;
+    @Inject
+    private EventDismissScript eventDismissScript;
 
     private DismissNpcEvent dismissNpcEvent;
     private UseLampEvent useLampEvent;
@@ -53,10 +56,12 @@ public class EventDismissPlugin extends Plugin {
             overlayManager.add(overlay);
         }
         LampUtility.reset();
+        eventDismissScript.start(List.of(dismissNpcEvent, useLampEvent));
     }
 
     @Override
     protected void shutDown() {
+        eventDismissScript.shutdown();
         Microbot.getBlockingEventManager().remove(dismissNpcEvent);
         Microbot.getBlockingEventManager().remove(useLampEvent);
         if (overlayManager != null) {

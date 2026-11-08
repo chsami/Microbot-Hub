@@ -24,6 +24,8 @@ public final class FightPlan
 	public int protectSlack;
 	/** Send the (urgent) move before the protection prayer: the prayer can wait a tick. */
 	public boolean moveFirst;
+	/** Already running to (moveX, moveY) from an earlier long click: no walk click needed (1.8.1). */
+	public boolean continueRun;
 	/** Click Attack on the boss (we're standing and not attacking yet). */
 	public boolean attack;
 	/** Planner's expected cost (for logs). */
@@ -44,7 +46,7 @@ public final class FightPlan
 		b.append(" wpn=").append(weapon == Style.RANGED ? "bow" : weapon == Style.MAGIC ? "staff" : "-");
 		if (moving())
 		{
-			b.append(" move=").append(moveX).append(',').append(moveY).append(urgent ? "!" : "");
+			b.append(continueRun ? " run=" : " move=").append(moveX).append(',').append(moveY).append(urgent ? "!" : "");
 		}
 		else
 		{

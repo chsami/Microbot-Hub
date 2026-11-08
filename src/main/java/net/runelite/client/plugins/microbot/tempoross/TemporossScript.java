@@ -2132,11 +2132,14 @@ public class TemporossScript extends Script {
             return;
         }
         isFightingFire = true;
-        for (TemporossNpcSnapshot fire : ourFires) {
-            if(isFilling){
+        if (isFilling) {
+            if (isLoadInProgress(isFilling, Rs2Player.isAnimating(), Rs2Player.isMoving())) {
                 Microbot.log("Filling, skipping fire");
                 return;
             }
+            isFilling = false;
+        }
+        for (TemporossNpcSnapshot fire : ourFires) {
             // Skip only if already dousing THIS specific fire — matched by the snapshot's
             // interacting index, never by holding the live actor on the executor.
             if (cachedInteractingIndex != -1 && cachedInteractingIndex == fire.index) {
@@ -2148,6 +2151,10 @@ public class TemporossScript extends Script {
                 return;
             }
         }
+    }
+
+    static boolean isLoadInProgress(boolean filling, boolean animating, boolean moving) {
+        return filling && (animating || moving);
     }
 
     private static final int CONTINUOUS_DOUSE_RANGE = 5 * Perspective.LOCAL_TILE_SIZE;
@@ -2607,7 +2614,7 @@ public class TemporossScript extends Script {
 
                 }
 
-                if (isFilling && (Rs2Player.isAnimating() || Rs2Player.isMoving())) {
+                if (isLoadInProgress(isFilling, Rs2Player.isAnimating(), Rs2Player.isMoving())) {
                     break;
                 }
                 if (ammoCrate == null) {

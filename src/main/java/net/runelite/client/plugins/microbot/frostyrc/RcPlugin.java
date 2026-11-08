@@ -36,7 +36,7 @@ import java.time.Instant;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class RcPlugin extends Plugin {
-    public static final String version = "1.1.5";
+    public static final String version = "1.1.6";
     @Inject
     private RcConfig config;
     @Inject

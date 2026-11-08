@@ -35,7 +35,7 @@ import static net.runelite.client.plugins.microbot.blastoisefurnace.BlastoiseFur
 )
 @Slf4j
 public class BlastoiseFurnacePlugin extends Plugin {
-    final static String version = "1.2.5";
+    final static String version = "1.2.6";
     @Inject
     private BlastoiseFurnaceConfig config;
 

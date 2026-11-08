@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.woodcutting.Forestry;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
@@ -53,10 +54,15 @@ public class LeprechaunEvent implements BlockingEvent {
             }
             // Move to the end of the rainbow
             var location = endOfRainbow.getWorldLocation();
-            if (!Rs2Player.getWorldLocation().equals(location)) {
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            if (playerLocation == null) {
+                Global.sleepUntil(() -> Rs2Player.getWorldLocation() != null, 1200);
+                continue;
+            }
+            if (!playerLocation.equals(location)) {
                 Microbot.log("LeprechaunEvent: Walking to the end of the rainbow at " + location, Level.INFO);
                 Rs2Walker.walkFastCanvas(location);
-                Global.sleepUntil(() -> Rs2Player.getWorldLocation().equals(location), 5000);
+                Global.sleepUntil(() -> location.equals(Rs2Player.getWorldLocation()), 5000);
             }
         }
         plugin.incrementForestryEventCompleted();

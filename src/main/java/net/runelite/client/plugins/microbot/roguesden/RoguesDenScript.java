@@ -40,10 +40,17 @@ public class RoguesDenScript extends Script {
     private static final int RUN_ENERGY_TARGET = 100;
     private static final List<String> STAMINA_DOSES = dosesLowestFirst(Collections.singletonList(Rs2Potion.getStaminaPotion()));
     private static final List<String> ENERGY_DOSES = dosesLowestFirst(Rs2Potion.getRestoreEnergyPotionsVariants());
+    private static final int TRAPPED_WALL_ID = 7249;
+    private static final int WALL_SEARCH_RANGE = 2;
+    static final int STUCK_WALK_ATTEMPTS = 5;
 
     @Getter
     public static int mazeRunsCompleted = 0;
     int currentObstacleIndex;
+    private Obstacles.Obstacle walkObstacle;
+    private WorldPoint walkPlayerLocation;
+    private int walkAttempts;
+    private int walkStuckReports;
     boolean hasStaminaPotionInBank = true;
     boolean hasEnergyPotionInBank = true;
 
@@ -51,6 +58,10 @@ public class RoguesDenScript extends Script {
 
     private void initObstacles() {
         currentObstacleIndex = 0;
+        walkObstacle = null;
+        walkPlayerLocation = null;
+        walkAttempts = 0;
+        walkStuckReports = 0;
         Obstacles.Obstacle[] originalObstacles = new Obstacles.Obstacle[]{
                 new Obstacles.Obstacle(3048, 4997, 7251),
                 new Obstacles.Obstacle(3039, 4999, "Stand"),
@@ -231,6 +242,8 @@ public class RoguesDenScript extends Script {
         if (playerLocation.equals(currentObstacle.getTile())) {
             // interact with nextObstacle
             handleObstacle(nextObstacle);
+        } else if (isWallSearchApproach(currentObstacle, nextObstacle, playerLocation)) {
+            handleObstacle(nextObstacle);
         } else {
             if (currentObstacle.getTile().equals(new WorldPoint(3028, 5056, 0))) { //item requirement before going to obstacle
                 if (!Rs2Inventory.hasItem(ItemID.ROGUESDEN_FLASH_POWDER)) {
@@ -243,6 +256,14 @@ public class RoguesDenScript extends Script {
             handleObstacle(currentObstacle);
         }
         return false;
+    }
+
+    static boolean isWallSearchApproach(Obstacles.Obstacle current, Obstacles.Obstacle next, WorldPoint playerLocation) {
+        return current.getObjectId() == -1
+                && current.getHint().equalsIgnoreCase("Stand")
+                && next.getObjectId() == TRAPPED_WALL_ID
+                && next.getTile().equals(current.getTile())
+                && playerLocation.distanceTo(current.getTile()) <= WALL_SEARCH_RANGE;
     }
 
     private boolean useFlashPowder() {
@@ -432,7 +453,7 @@ public class RoguesDenScript extends Script {
         }
 
         if (obstacle.getObjectId() != -1) {
-            if (obstacle.getObjectId() == 7249) {
+            if (obstacle.getObjectId() == TRAPPED_WALL_ID) {
                 Microbot.getRs2TileObjectCache().query().interact(obstacle.getObjectId(), "search"); // Handles wall searching
             } else {
                 Microbot.getRs2TileObjectCache().query().interact(obstacle.getObjectId());
@@ -446,12 +467,41 @@ public class RoguesDenScript extends Script {
             Rs2GroundItem.lootItemsBasedOnLocation(obstacle.getTile(), ItemID.ROGUESDEN_PUZZLE_MOSAIC_TILE1);
             sleepUntil(() -> Rs2Inventory.hasItem(ItemID.ROGUESDEN_PUZZLE_MOSAIC_TILE1));
         } else {
+            if (obstacle.getHint().equalsIgnoreCase("Stand")) {
+                guardStuckWalk(obstacle);
+            }
             if (!Rs2Walker.walkFastCanvas(obstacle.getTile())) {
                 Rs2Walker.walkTo(obstacle.getTile());
             }
         }
 
         sleepGaussian(obstacle.getWait(), obstacle.getWait() / 4);
+    }
+
+    private void guardStuckWalk(Obstacles.Obstacle obstacle) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return;
+        if (obstacle != walkObstacle || !playerLocation.equals(walkPlayerLocation)) {
+            walkObstacle = obstacle;
+            walkPlayerLocation = playerLocation;
+            walkAttempts = 0;
+            walkStuckReports = 0;
+        }
+        walkAttempts++;
+        if (walkAttempts <= STUCK_WALK_ATTEMPTS) return;
+
+        WorldPoint target = obstacle.getTile();
+        if (walkStuckReports == 0) {
+            Microbot.log("Can't reach the maze tile " + target.getX() + ", " + target.getY()
+                    + " from " + playerLocation.getX() + ", " + playerLocation.getY()
+                    + ". Turning the camera and trying again.");
+        } else if (walkStuckReports == 1) {
+            Microbot.log("Still can't reach the maze tile " + target.getX() + ", " + target.getY()
+                    + ". Click that tile yourself or stop the script.");
+        }
+        if (walkStuckReports < 2) walkStuckReports++;
+        Rs2Camera.angleToTile(target);
+        walkAttempts = 0;
     }
 
     // Helper method to check if an obstacle is for above 80 thieving
