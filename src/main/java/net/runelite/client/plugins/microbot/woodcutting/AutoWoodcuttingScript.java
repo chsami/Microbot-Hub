@@ -34,6 +34,7 @@ import net.runelite.client.plugins.microbot.woodcutting.enums.WoodcuttingTreeLoc
 import javax.inject.Inject;
 import java.awt.event.KeyEvent;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -74,7 +75,8 @@ public class AutoWoodcuttingScript extends Script {
     private static WorldPoint returnPoint;
     public volatile boolean cannotLightFire = false;
     private static final int MAX_FIRE_SPOT_DISTANCE = 10;
-    final Set<WorldPoint> noFireTiles = new HashSet<>();
+    final Set<WorldPoint> noFireTiles = ConcurrentHashMap.newKeySet();
+    volatile int emptyFireSpotPasses = 0;
     WoodcuttingScriptState woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
     private boolean hasAutoHopMessageShown = false;
     private final AutoWoodcuttingPlugin plugin;
@@ -462,14 +464,22 @@ public class AutoWoodcuttingScript extends Script {
                 useCampfire = true;
             }
         }
-        if ((Rs2Player.isStandingOnGameObject() || cannotLightFire) && !Rs2Player.isAnimating() && !useCampfire) {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        boolean onNoFireTile = playerLocation != null && noFireTiles.contains(playerLocation);
+        if ((Rs2Player.isStandingOnGameObject() || cannotLightFire || onNoFireTile) && !Rs2Player.isAnimating() && !useCampfire) {
             fireSpot = fireSpot(1);
             if (fireSpot == null) {
                 noFireTiles.clear();
+                if (++emptyFireSpotPasses > 1) {
+                    Microbot.showMessage(noFireSpotStopMessage());
+                    shutdown();
+                } else {
+                    Microbot.log(noFireSpotRetryMessage());
+                }
                 return false;
             }
             WorldPoint target = fireSpot;
-            if (!Rs2Walker.walkFastCanvas(target) || !sleepUntil(() -> target.equals(Rs2Player.getWorldLocation()), 3000)) {
+            if (!Rs2Walker.walkFastCanvas(target) || !sleepUntilTrue(() -> target.equals(Rs2Player.getWorldLocation()), Rs2Player::isMoving, 100, 1800)) {
                 noFireTiles.add(target);
                 return false;
             }
@@ -500,9 +510,18 @@ public class AutoWoodcuttingScript extends Script {
             }
         }
         if (!cannotLightFire && isFiremake()) {
+            emptyFireSpotPasses = 0;
             sleepUntil(() -> Rs2Player.waitForXpDrop(Skill.FIREMAKING, 40000), 40000);
         }
         return useCampfire;
+    }
+
+    String noFireSpotRetryMessage() {
+        return "Auto Woodcutting: no free tile within " + MAX_FIRE_SPOT_DISTANCE + " tiles will take a fire here. Trying every tile again. If this keeps happening, cut at a spot with more open ground away from water and walls, or switch to '" + WoodcuttingPrimaryAction.BURN_CAMPFIRE + "' next to a Forester's Campfire.";
+    }
+
+    String noFireSpotStopMessage() {
+        return "Auto Woodcutting stopped: could not find a tile within " + MAX_FIRE_SPOT_DISTANCE + " tiles where a fire can be lit. Move to an open area near your trees and start again.";
     }
 
     private WorldPoint fireSpot(int distance) {
@@ -727,6 +746,7 @@ public class AutoWoodcuttingScript extends Script {
         returnPoint = null;
         initialPlayerLocation = null;
         noFireTiles.clear();
+        emptyFireSpotPasses = 0;
         cannotLightFire = false;
         hasAutoHopMessageShown = false;
         Rs2Antiban.resetAntibanSettings();

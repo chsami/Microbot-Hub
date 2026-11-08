@@ -33,6 +33,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -245,8 +246,85 @@ class AutoWoodcuttingBurnStateTest {
 
             walker.verify(() -> Rs2Walker.walkFastCanvas(first));
             walker.verify(() -> Rs2Walker.walkFastCanvas(second));
-            inventory.verify(() -> Rs2Inventory.use(anyString()), never());
+            inventory.verify(() -> Rs2Inventory.waitForInventoryChanges(any(Runnable.class), anyInt(), anyInt()), never());
         }
+    }
+
+    private static Rs2TileObjectCache emptyCache() {
+        Rs2TileObjectQueryable query = mock(Rs2TileObjectQueryable.class, RETURNS_SELF);
+        when(query.nearest(anyInt())).thenReturn(null);
+        Rs2TileObjectCache cache = mock(Rs2TileObjectCache.class);
+        when(cache.query()).thenReturn(query);
+        return cache;
+    }
+
+    @Test
+    void standingOnRememberedTileMovesAwayBeforeLighting() {
+        WorldPoint player = new WorldPoint(3084, 3234, 0);
+        WorldPoint other = new WorldPoint(3085, 3234, 0);
+
+        AutoWoodcuttingScript script = new AutoWoodcuttingScript(null);
+        script.rs2TileObjectCache = emptyCache();
+        script.noFireTiles.add(player);
+        AutoWoodcuttingConfig config = burnConfig(WoodcuttingPrimaryAction.BURN);
+
+        try (MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Tile> tile = mockStatic(Rs2Tile.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(player);
+            tile.when(() -> Rs2Tile.getWalkableTilesAroundPlayer(1)).thenReturn(List.of(player, other));
+            walker.when(() -> Rs2Walker.walkFastCanvas(any(WorldPoint.class))).thenReturn(true);
+
+            script.burnLog(config);
+
+            walker.verify(() -> Rs2Walker.walkFastCanvas(other));
+            inventory.verify(() -> Rs2Inventory.waitForInventoryChanges(any(Runnable.class), anyInt(), anyInt()), never());
+        }
+    }
+
+    @Test
+    void noFireSpotRetriesOnceWithALogLineThenStopsWithAMessage() {
+        WorldPoint player = new WorldPoint(3084, 3234, 0);
+        WorldPoint refused = new WorldPoint(3083, 3234, 0);
+
+        AutoWoodcuttingScript script = spy(new AutoWoodcuttingScript(null));
+        doNothing().when(script).shutdown();
+        script.rs2TileObjectCache = emptyCache();
+        script.cannotLightFire = true;
+        script.noFireTiles.add(refused);
+        AutoWoodcuttingConfig config = burnConfig(WoodcuttingPrimaryAction.BURN);
+
+        try (MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Tile> tile = mockStatic(Rs2Tile.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Microbot> microbot = mockStatic(Microbot.class)) {
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(player);
+            tile.when(() -> Rs2Tile.getWalkableTilesAroundPlayer(anyInt())).thenReturn(List.of());
+
+            assertFalse(script.burnLog(config));
+            assertTrue(script.noFireTiles.isEmpty());
+            microbot.verify(() -> Microbot.log(script.noFireSpotRetryMessage()));
+            microbot.verify(() -> Microbot.showMessage(anyString()), never());
+            verify(script, never()).shutdown();
+
+            assertFalse(script.burnLog(config));
+            microbot.verify(() -> Microbot.showMessage(script.noFireSpotStopMessage()));
+            verify(script).shutdown();
+            walker.verify(() -> Rs2Walker.walkFastCanvas(any(WorldPoint.class)), never());
+        }
+    }
+
+    @Test
+    void noFireSpotMessagesNameTheSearchLimitAndTheCampfireOption() {
+        AutoWoodcuttingScript script = new AutoWoodcuttingScript(null);
+        assertTrue(script.noFireSpotRetryMessage().contains("within 10 tiles"));
+        assertTrue(script.noFireSpotRetryMessage().contains("'" + WoodcuttingPrimaryAction.BURN_CAMPFIRE + "'"));
+        assertTrue(script.noFireSpotStopMessage().startsWith("Auto Woodcutting stopped:"));
     }
 
     @Test
