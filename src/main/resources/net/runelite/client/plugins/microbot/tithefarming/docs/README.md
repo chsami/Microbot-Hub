@@ -20,8 +20,8 @@ The TitheFarming plugin automates the Tithe Farm minigame in Old School RuneScap
 
 1. **Initialization:** Checks for required items (seeds, watering can) and sets up the initial state.
 2. **Planting Phase:** Moves to each plot and plants seeds according to the configured pattern.
-3. **Watering Phase:** Waters crops at the correct growth stages to ensure maximum yield.
-4. **Harvesting Phase:** Harvests crops when fully grown and deposits them in the sack.
+3. **Watering Phase:** Waters crops at the correct growth stages to ensure maximum yield. It waters the nearest plant that needs water, so it only crosses the lane when nothing closer is due.
+4. **Harvesting Phase:** Harvests the nearest fully grown crop first and deposits them in the sack.
 5. **Loop:** Repeats the process for continuous farming runs.
 
 ## Requirements

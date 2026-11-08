@@ -289,7 +289,10 @@ public class TitheFarmingScript extends Script {
         if (corePlayerLoc == null) return;
         TitheFarmPlant plant = nearestPlant(corePlayerLoc, p -> p.isStage1() || p.isStage2());
         if (plant == null && state != HARVEST && !allPlanted) {
-            plant = nearestPlant(corePlayerLoc, TitheFarmPlant::isEmptyPatchOrSeedling);
+            plant = plants.stream()
+                    .filter(TitheFarmPlant::isEmptyPatchOrSeedling)
+                    .min(Comparator.comparingInt(TitheFarmPlant::getIndex))
+                    .orElse(null);
         }
 
 

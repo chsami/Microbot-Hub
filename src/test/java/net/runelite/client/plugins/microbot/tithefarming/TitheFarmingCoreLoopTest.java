@@ -175,6 +175,23 @@ class TitheFarmingCoreLoopTest {
     }
 
     @Test
+    void coreLoopKeepsThePatternOrderWhenPlantingEvenIfAHigherIndexPatchIsNearer() throws Exception {
+        TitheFarmPlant nearEmpty = patch(10, 40, 49);
+        when(nearEmpty.isEmptyPatch()).thenReturn(true);
+        when(nearEmpty.isEmptyPatchOrSeedling()).thenReturn(true);
+        TitheFarmPlant farEmpty = patch(1, 35, 34);
+        when(farEmpty.isEmptyPatch()).thenReturn(true);
+        when(farEmpty.isEmptyPatchOrSeedling()).thenReturn(true);
+        TitheFarmingScript.plants = new ArrayList<>(List.of(nearEmpty, farEmpty));
+        TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
+
+        WorldPoint target = walkTargetOfOneLoop(NORTH_END);
+
+        assertEquals(35, target.getRegionX());
+        assertEquals(34, target.getRegionY());
+    }
+
+    @Test
     void coreLoopStartsTheNextRoundWhenOnlyEmptyAndDeadPatchesRemain() throws Exception {
         TitheFarmPlant empty = patch(1, 35);
         when(empty.isEmptyPatch()).thenReturn(true);
