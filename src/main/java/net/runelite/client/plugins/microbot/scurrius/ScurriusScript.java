@@ -110,6 +110,7 @@ public class ScurriusScript extends Script {
     private int specEnergyBefore = 0;
     private long specRetryAt = 0;
     private boolean swappedForSpec = false;
+    private boolean loggedSpecWeaponMissing = false;
     private int mainWeaponId = -1;
     private int mainShieldId = -1;
     private int eatThreshold = -1;
@@ -140,6 +141,7 @@ public class ScurriusScript extends Script {
         specAvailableSince = 0;
         specRetryAt = 0;
         swappedForSpec = false;
+        loggedSpecWeaponMissing = false;
         restockTarget = rollRestockTarget();
         restockTrip = false;
         lootPending = false;
@@ -299,17 +301,26 @@ public class ScurriusScript extends Script {
                             // Each item is topped up to the full amount before the bank is closed: withdrawDeficit returns
                             // before the inventory has updated, so one call (and the next item's) can leave it short.
                             if (!topUp(config.foodSelection().getId(), requiredFoodAmount)) {
-                                Microbot.showMessage("Missing Food in Bank");
+                                String message = "Scurrius stopped: could not withdraw " + config.foodAmount() + " " + config.foodSelection().getName()
+                                        + ". Put more in your bank, free inventory space, or lower Food Amount.";
+                                Microbot.log(message);
+                                Microbot.showMessage(message);
                                 shutdown();
                                 return;
                             }
                             if (!topUp(config.potionSelection().getItemId(), requiredPotionAmount)) {
-                                Microbot.showMessage("Missing Potion in Bank");
+                                String message = "Scurrius stopped: could not withdraw " + config.prayerPotionAmount() + " " + config.potionSelection()
+                                        + ". Put more in your bank, free inventory space, or lower Prayer Potion Amount.";
+                                Microbot.log(message);
+                                Microbot.showMessage(message);
                                 shutdown();
                                 return;
                             }
                             if (!topUp(ItemID.POH_TABLET_VARROCKTELEPORT, requiredTeleports)) {
-                                Microbot.showMessage("Missing Teleports in Bank");
+                                String message = "Scurrius stopped: could not withdraw " + config.teleportAmount()
+                                        + " Varrock teleport tablets. Put more in your bank or lower Teleport Item Amount.";
+                                Microbot.log(message);
+                                Microbot.showMessage(message);
                                 shutdown();
                                 return;
                             }
@@ -596,7 +607,10 @@ public class ScurriusScript extends Script {
             return true; // already wielded
         }
         if (!Rs2Inventory.hasItem(name)) {
-            LOG.debug("Spec weapon {} is not in the inventory", name);
+            if (!loggedSpecWeaponMissing) {
+                loggedSpecWeaponMissing = true;
+                Microbot.log("Special attack: '" + name + "' is not in your inventory, so no spec is used. Check the Spec weapon name or add it to your Inventory Setup.");
+            }
             return false;
         }
         net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel shield = Rs2Equipment.get(EquipmentInventorySlot.SHIELD);
@@ -706,7 +720,7 @@ public class ScurriusScript extends Script {
         loginAttempts = 0;
         lastLoginAttempt = 0;
         disableAllPrayers();
-        Microbot.log("Taking a break of " + Breaks.formatRemaining(length) + " after " + tripsSinceBreak + " restock trips"
+        Microbot.log("Taking a break of " + Breaks.formatRemaining(length) + " after " + tripsSinceBreak + " bank trips"
                 + (config.breakLogout() ? ", logging out." : "."));
     }
 
@@ -715,7 +729,7 @@ public class ScurriusScript extends Script {
         breakEndsAtMs = 0;
         tripsSinceBreak = 0;
         breakTripTarget = rollBreakTarget();
-        Microbot.log("Break over. Next break after " + breakTripTarget + " restock trips.");
+        Microbot.log("Break over. Next break after " + breakTripTarget + " bank trips.");
     }
 
     /**
@@ -786,6 +800,7 @@ public class ScurriusScript extends Script {
         justBanked = true;
         restockTrip = false;
         lootPending = false;
+        loggedSpecWeaponMissing = false;
         boolean real = RestockTrips.isRealTrip(killsSinceBank, fightedSinceBank);
         fightedSinceBank = false;
         if (!real) {
@@ -971,7 +986,8 @@ public class ScurriusScript extends Script {
      * naming what is missing) when the bank cannot supply it. Never loops.
      */
     private boolean loadInventorySetup(InventorySetup setup) {
-        Rs2InventorySetup loader = new Rs2InventorySetup(setup, mainScheduledFuture);
+        Rs2InventorySetup loader = new Rs2InventorySetup(setup, mainScheduledFuture)
+                .withMissingSupplyHandler(item -> LOG.debug("Inventory setup is missing {}", item));
         for (int attempt = 1; attempt <= 3; attempt++) {
             loader.loadEquipment();
             loader.loadInventory();

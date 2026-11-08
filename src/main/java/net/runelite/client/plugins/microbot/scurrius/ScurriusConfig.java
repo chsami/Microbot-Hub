@@ -47,7 +47,7 @@ public interface ScurriusConfig extends Config {
 
     @ConfigSection(
             name = "Breaks",
-            description = "Take a break after a number of restock trips",
+            description = "Take a break after a number of bank trips (any bank visit after fighting)",
             position = 6
     )
     String breakSettings = "breakSettings";
@@ -120,8 +120,9 @@ public interface ScurriusConfig extends Config {
     @ConfigItem(
             keyName = "inventorySetup",
             name = "Inventory setup",
-            description = "Pick a saved Inventory Setup to load at the bank (gear and supplies). Empty = the food, potion and teleport "
-                    + "amounts below. With a setup, the required food, prayer doses and teleport tabs come from the setup.",
+            description = "Pick a saved Inventory Setup to load at the bank (gear and supplies). Leave empty to use the food, potion and teleport "
+                    + "amounts below. With a setup, the food, prayer doses and teleport tabs needed come from the setup. "
+                    + "Put Varrock teleport tablets in it: they are the only teleport the script uses to leave the boss room.",
             position = 3,
             section = generalSettings
     )
@@ -383,7 +384,7 @@ public interface ScurriusConfig extends Config {
 
     @ConfigItem(
             keyName = "breakMinTrips",
-            name = "Break after at least (restock trips)",
+            name = "Break after at least (bank trips)",
             description = "Fewest bank visits (planned or emergency) between breaks",
             position = 1,
             section = breakSettings
@@ -398,7 +399,7 @@ public interface ScurriusConfig extends Config {
 
     @ConfigItem(
             keyName = "breakMaxTrips",
-            name = "Break after at most (restock trips)",
+            name = "Break after at most (bank trips)",
             description = "Most bank visits between breaks; the target is random between the two and rolled again after each break",
             position = 2,
             section = breakSettings
@@ -600,7 +601,8 @@ public interface ScurriusConfig extends Config {
     @ConfigItem(
             keyName = "specWeapon",
             name = "Spec weapon",
-            description = "Blank = the equipped weapon. A name from the inventory is wielded for the spec and the main weapon (and shield) put back afterwards",
+            description = "Blank = the equipped weapon. Otherwise the name of a weapon in your inventory (with an Inventory Setup, put it in the setup). "
+                    + "It is wielded for the spec and your main weapon and shield are put back afterwards.",
             position = 2,
             section = specSettings
     )

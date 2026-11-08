@@ -73,7 +73,7 @@ public class ScurriusOverlay extends OverlayPanel {
                         .build());
             } else if (ScurriusScript.breakTripsTarget > 0) {
                 panelComponent.getChildren().add(LineComponent.builder()
-                        .left("Next break after " + ScurriusScript.breakTripsDone + "/" + ScurriusScript.breakTripsTarget + " trips")
+                        .left("Next break after " + ScurriusScript.breakTripsDone + "/" + ScurriusScript.breakTripsTarget + " bank trips")
                         .build());
             }
 
