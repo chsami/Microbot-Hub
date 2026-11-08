@@ -810,7 +810,11 @@ public class GotrScript extends Script {
 
         Microbot.log("Found " + availableAltars.size() + " active altars after filtering.");
 
-        if (config.Mode() == Mode.POINTS) {
+        return sortAltarsByMode(availableAltars, config.Mode(), elementalPoints, catalyticPoints);
+    }
+
+    static List<GameObject> sortAltarsByMode(List<GameObject> availableAltars, Mode mode, int elementalPoints, int catalyticPoints) {
+        if (mode == Mode.POINTS) {
             // Sort by strongest → weakest CellType; if equal, fall back to balancing points
             Microbot.log("Sorting by CellType (strongest→weakest) for POINTS mode...");
             return availableAltars.stream()
@@ -831,24 +835,35 @@ public class GotrScript extends Script {
                     .collect(Collectors.toList());
         }
 
-        if ((config.Mode() == Mode.BALANCED && elementalPoints < catalyticPoints) || config.Mode() == Mode.ELEMENTAL) {
-            Microbot.log(elementalPoints < catalyticPoints
-                    ? "We have " + elementalPoints + " elemental points, looking for elemental altar..."
-                    : "We have " + catalyticPoints +" catalytic points, looking for catalytic altar...");
-
-            Microbot.log("Sorting for BALANCED/ELEMENTAL mode (" +
-                    (elementalPoints < catalyticPoints ? "Elemental priority" : "Catalytic priority") + ")");
-
-            return availableAltars.stream()
-                    .sorted(
-                            (elementalPoints < catalyticPoints)
-                                    ? Comparator.comparingInt(TileObject::getId)
-                                    : Comparator.comparingInt(TileObject::getId).reversed()
-                    )
-                    .collect(Collectors.toList());
+        RuneType preferredRuneType = preferredRuneType(mode, elementalPoints, catalyticPoints);
+        if (preferredRuneType == null) {
+            Microbot.log("Returning unsorted altars (default mode).");
+            return availableAltars;
         }
-        Microbot.log("Returning unsorted altars (default mode).");
-        return availableAltars;
+
+        Microbot.log("We have " + elementalPoints + " elemental and " + catalyticPoints
+                + " catalytic points, sorting for " + mode + " mode (" + preferredRuneType + " priority)");
+
+        return availableAltars.stream()
+                .sorted(Comparator.comparingInt(
+                        o -> GotrScript.guardianPortalInfo.get(o.getId()).getRuneType() == preferredRuneType ? 0 : 1))
+                .collect(Collectors.toList());
+    }
+
+    static RuneType preferredRuneType(Mode mode, int elementalPoints, int catalyticPoints) {
+        if (mode == null) {
+            return null;
+        }
+        switch (mode) {
+            case ELEMENTAL:
+                return RuneType.ELEMENTAL;
+            case CATALYTIC:
+                return RuneType.CATALYTIC;
+            case BALANCED:
+                return elementalPoints < catalyticPoints ? RuneType.ELEMENTAL : RuneType.CATALYTIC;
+            default:
+                return null;
+        }
     }
 
     private int getGuardiansPower() {

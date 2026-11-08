@@ -77,7 +77,7 @@ public class AIOMagicPlugin extends Plugin {
     @Inject
     private SpinFlaxScript spinFlaxScript;
 
-    public final static String version = "1.2.8";
+    public final static String version = "1.2.9";
 
     @Override
     protected void startUp() throws AWTException {

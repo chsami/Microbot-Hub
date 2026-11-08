@@ -22,7 +22,11 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 public class GemCrabKillerScript extends Script {
     private final int CAVE_ENTRANCE_ID = 57631;
@@ -37,11 +41,13 @@ public class GemCrabKillerScript extends Script {
     private Rs2InventorySetup inventorySetup = null;
     private boolean hasLooted = false;
     private Instant waitingTimeStart = null;
+    private boolean setupCheckedAtStart = false;
+    private final Set<String> missingSetupItems = new LinkedHashSet<>();
 
     public boolean run(GemCrabKillerConfig config) {
-        if (config.overrideState()) {
-            gemCrabKillerState = config.startState();
-        }
+        gemCrabKillerState = startState(config.overrideState(), config.startState());
+        setupCheckedAtStart = false;
+        missingSetupItems.clear();
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
@@ -52,7 +58,13 @@ public class GemCrabKillerScript extends Script {
                         shutdown();
                         return;
                     }
-                    inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture);
+                    inventorySetup = new Rs2InventorySetup(config.inventorySetup(), mainScheduledFuture)
+                            .withMissingSupplyHandler(missingSetupItems::add);
+                }
+                if (checkSetupOnceAtStart(config.useInventorySetup(),
+                        () -> inventorySetup.doesEquipmentMatch() && inventorySetup.doesInventoryMatch())) {
+                    Microbot.log("Your gear or inventory does not match the setup '" + config.inventorySetup().getName()
+                            + "' (for example used food or potion doses). Banking at Tal Teklan to load it first.");
                 }
                 eatIfHurt(config);
                 switch (gemCrabKillerState) {
@@ -107,6 +119,37 @@ public class GemCrabKillerScript extends Script {
         if (Rs2Inventory.getInventoryFood().isEmpty() && lowHp) {
             gemCrabKillerState = GemCrabKillerState.BANKING;
         }
+    }
+
+    static GemCrabKillerState startState(boolean overrideState, GemCrabKillerState configuredState) {
+        return overrideState ? configuredState : GemCrabKillerState.WALKING;
+    }
+
+    static boolean shouldCheckSetupAtStart(boolean useInventorySetup, GemCrabKillerState state) {
+        return useInventorySetup && state == GemCrabKillerState.WALKING;
+    }
+
+    boolean checkSetupOnceAtStart(boolean useInventorySetup, BooleanSupplier setupMatches) {
+        if (setupCheckedAtStart) {
+            return false;
+        }
+        setupCheckedAtStart = true;
+        if (shouldCheckSetupAtStart(useInventorySetup, gemCrabKillerState) && !setupMatches.getAsBoolean()) {
+            gemCrabKillerState = GemCrabKillerState.BANKING;
+            return true;
+        }
+        return false;
+    }
+
+    static String setupLoadFailedMessage(String setupName, Collection<String> missingItems) {
+        if (missingItems.isEmpty()) {
+            return "Could not load inventory setup '" + setupName + "'. Check that your bank has every item in the setup"
+                    + " and that it is not broken, then start the script again. The log console shows which step failed.";
+        }
+        boolean single = missingItems.size() == 1;
+        return "Could not load inventory setup '" + setupName + "': not enough " + String.join(", ", missingItems)
+                + " in your bank (or " + (single ? "it is" : "one is") + " broken). Restock or repair "
+                + (single ? "it" : "them") + ", or edit the setup, then start the script again.";
     }
 
     static boolean isLowHp(boolean dharokMode, int currentHP, double healthPercentage) {
@@ -238,7 +281,7 @@ public class GemCrabKillerScript extends Script {
                     gemCrabKillerState = GemCrabKillerState.WALKING;
                     return;
                 } else {
-                    Microbot.showMessage("Unable to load inventory setup. Shutting down.");
+                    Microbot.showMessage(setupLoadFailedMessage(config.inventorySetup().getName(), missingSetupItems));
                     shutdown();
                 }
             } else {

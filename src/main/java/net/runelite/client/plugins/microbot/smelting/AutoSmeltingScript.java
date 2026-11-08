@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.smelting;
 
 import net.runelite.api.Skill;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -34,6 +35,8 @@ public class AutoSmeltingScript extends Script {
             try {
                 if (!super.run()) return;
                 if (!Microbot.isLoggedIn()) return;
+                WorldPoint playerLocation = Rs2Player.getWorldLocation();
+                if (playerLocation == null) return;
                 int currentSmithing = Rs2Player.getRealSkillLevel(Skill.SMITHING);
                 // Skill reads return 0 transiently during login / region load.
                 if (currentSmithing <= 0) return;
@@ -46,7 +49,7 @@ public class AutoSmeltingScript extends Script {
                 }
 
                 if (initialPlayerLocation == null) {
-                    initialPlayerLocation = Rs2Player.getWorldLocation();
+                    initialPlayerLocation = playerLocation;
                 }
 
                 if (Rs2Player.isMoving() || Rs2Player.isAnimating(6500)) return;
@@ -128,7 +131,7 @@ public class AutoSmeltingScript extends Script {
                         .nearestOnClientThread(initialPlayerLocation, 20);
 
                 if (furnace == null) {
-                    if (initialPlayerLocation.distanceTo(Rs2Player.getWorldLocation()) > 4) {
+                    if (initialPlayerLocation.distanceTo(playerLocation) > 4) {
                         Rs2Walker.walkTo(initialPlayerLocation, 4);
                     } else {
                         Microbot.status = "AutoSmelting: no furnace within 20 tiles of start — stand near a furnace and restart";

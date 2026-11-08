@@ -5,6 +5,7 @@ import net.runelite.api.TileObject;
 import net.runelite.api.ItemComposition;
 import net.runelite.api.MenuAction;
 import net.runelite.api.Perspective;
+import net.runelite.api.Player;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
@@ -144,7 +145,14 @@ public class AgilityScript extends Script
 					return;
 				}
 				AgilityCourseHandler courseHandler = getActiveHandler();
-				final WorldPoint playerWorldLocation = Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+				final WorldPoint playerWorldLocation = Microbot.getClientThread().invoke(() -> {
+					Player localPlayer = Microbot.getClient().getLocalPlayer();
+					return localPlayer == null ? null : localPlayer.getWorldLocation();
+				});
+				if (playerWorldLocation == null)
+				{
+					return;
+				}
 
 				if (startPoint == null)
 				{
@@ -223,6 +231,13 @@ public class AgilityScript extends Script
 
 				if (gameObject == null)
 				{
+					String stopMessage = courseHandler.getObstacleNotFoundStopMessage();
+					if (stopMessage != null)
+					{
+						plugin.notifyUser(stopMessage);
+						shutdown();
+						return;
+					}
 					Microbot.log("No agility obstacle found. Report this as a bug if this keeps happening.");
 					return;
 				}

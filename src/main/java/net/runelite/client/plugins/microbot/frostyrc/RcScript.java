@@ -101,6 +101,7 @@ public class RcScript extends Script {
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 if (!Microbot.isLoggedIn()) return;
+                if (plugin.getMyWorldPoint() == null) return;
                 if (!super.run()) return;
                 if (shouldPauseForBreak()) return;
                 long startTime = System.currentTimeMillis();

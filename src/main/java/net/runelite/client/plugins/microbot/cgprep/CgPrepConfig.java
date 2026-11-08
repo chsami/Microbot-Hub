@@ -394,6 +394,14 @@ public interface CgPrepConfig extends Config
 		return true;
 	}
 
+	@ConfigItem(keyName = "showOverlay", name = "Show overlay",
+		description = "Show the Auto Gauntlet info panel and the boss fight tile markers on screen.",
+		position = 7, section = runSection)
+	default boolean showOverlay()
+	{
+		return true;
+	}
+
 	@ConfigItem(keyName = "logFolder", name = "Log folder",
 		description = "Where the decision logs go. Empty = .runelite/cg-prep",
 		position = 100, hidden = true)
