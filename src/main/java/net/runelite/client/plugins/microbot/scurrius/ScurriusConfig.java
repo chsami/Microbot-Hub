@@ -246,12 +246,13 @@ public interface ScurriusConfig extends Config {
             name = "Prayer mode",
             description = "Always on: the protection prayer stays on. Lazy flick: on only for the tick before a hit lands and the tick it lands. "
                     + "One-tick flick: switched off and on every tick so it never drains. Flicking falls back to always on until the hit "
-                    + "timing is learned, after an unprotected hit, and while giant rats attack you.",
+                    + "timing is learned, after an unprotected hit, and while giant rats attack you."
+                    + " Mixed (per kill): each kill picks always on or lazy flick, by the two weights below.",
             position = 4,
             section = prayerSettings
     )
     default PrayerMode prayerMode() {
-        return PrayerMode.LAZY_FLICK;
+        return PrayerMode.ALWAYS_ON;
     }
 
     @ConfigItem(
@@ -335,7 +336,7 @@ public interface ScurriusConfig extends Config {
             section = restockSettings
     )
     default boolean restockEnabled() {
-        return true;
+        return false;
     }
 
     @ConfigItem(
@@ -377,7 +378,7 @@ public interface ScurriusConfig extends Config {
             section = breakSettings
     )
     default boolean breakEnabled() {
-        return true;
+        return false;
     }
 
     @ConfigItem(
@@ -490,7 +491,7 @@ public interface ScurriusConfig extends Config {
             section = antibanSettings
     )
     default boolean antibanMousePrayers() {
-        return true;
+        return false;
     }
 
     @ConfigItem(

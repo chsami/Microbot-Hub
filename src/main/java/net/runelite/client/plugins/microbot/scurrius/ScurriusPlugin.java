@@ -29,7 +29,7 @@ import java.awt.*;
         description = "Scurrius boss bot with prayer flicking and falling-rock dodging",
         tags = {"microbot", "scurrius", "boss"},
         version = ScurriusPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.37",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,

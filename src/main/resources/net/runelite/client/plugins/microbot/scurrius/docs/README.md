@@ -5,7 +5,7 @@ Banks, walks to Scurrius in the Rat Pits (private or public entrance), fights hi
 ## Features
 
 - Eats and drinks prayer potions at configurable percentages; loots by name list and value.
-- **Prayer mode** (config, default Lazy flick):
+- **Prayer mode** (config, default Always on):
   - *Always on*: the protection prayer for Scurrius's current attack style stays on.
   - *Lazy flick*: the prayer is on only for the tick before a hit lands and the tick it lands.
   - *One-tick flick*: the prayer is switched off and on every tick so it never drains.
@@ -22,7 +22,7 @@ Banks, walks to Scurrius in the Rat Pits (private or public entrance), fights hi
   animation tick, stays on for a configurable hold (default 1-2 ticks) after the hit, is switched off a few tens of
   milliseconds into the tick, and now and then stays on for a whole attack (setting "Lazy flick variation"). A hit is never
   left unprotected because of this; a new attack during the hold only switches the style.
-- **Restock trips** (on by default): after a random 2-5 kills (configurable), once Scurrius is dead, the loot is picked
+- **Restock trips** (off by default): after a random 2-5 kills (configurable), once Scurrius is dead, the loot is picked
   up and there is food left, it teleports out (or walks without a tab), banks, and comes back. Every bank visit restarts
   the count.
 - **Breaks** (off by default): after a random number of completed bank visits it takes a random-length break right after

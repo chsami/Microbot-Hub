@@ -174,18 +174,15 @@ public class ScurriusTickDriver {
         if (!mousePrayers) {
             return;
         }
-        mouseWorker.submit(() -> {
+        scheduler.schedule(() -> mouseWorker.submit(() -> {
             try {
-                Thread.sleep(300 + random.nextInt(900));
                 if (inFight() && Rs2Tab.getCurrentTab() != InterfaceTab.PRAYER) {
                     Rs2Tab.switchTo(InterfaceTab.PRAYER);
                 }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
             } catch (Exception ex) {
                 log.debug("Returning to the prayer tab failed", ex);
             }
-        });
+        }), 300 + random.nextInt(900), TimeUnit.MILLISECONDS);
     }
 
     /** Lazy flick settings: ticks the prayer stays on after a hit (random between min and max) and the variation switch. */

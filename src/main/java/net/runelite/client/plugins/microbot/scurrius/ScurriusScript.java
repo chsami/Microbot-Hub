@@ -230,8 +230,8 @@ public class ScurriusScript extends Script {
                         stillShort = supplyShortage();
                     }
                     if (stillShort != null) {
-                        Microbot.log("Banked but still short: " + stillShort + ". Stopping instead of looping.");
-                        Microbot.showMessage("Scurrius stopped: still short after banking (" + stillShort + ")");
+                        Microbot.log("Scurrius stopped: after banking you still have only " + stillShort + ". Put more in your bank or lower the amounts in the Scurrius settings (with an Inventory Setup: check that your worn gear matches it).");
+                        Microbot.showMessage("Scurrius stopped: after banking you still have only " + stillShort + ". Put more in your bank or lower the amounts in the Scurrius settings (with an Inventory Setup: check that your worn gear matches it).");
                         shutdown();
                         return;
                     }
@@ -241,7 +241,7 @@ public class ScurriusScript extends Script {
                     boolean hasTab = Rs2Inventory.hasItem(TELEPORT_TAB_ID);
                     State next = SupplyRules.nextState(isInFightRoom, isScurriusPresent, hasLineOfSightWithScurrius, lootPending,
                             foodLeft, hasPrayerPotions, hasTab, Microbot.getClient().getBoostedSkillLevel(Skill.PRAYER),
-                            Microbot.getClient().getRealSkillLevel(Skill.PRAYER), hasRequiredSupplies());
+                            Microbot.getClient().getRealSkillLevel(Skill.PRAYER), isInFightRoom || hasRequiredSupplies());
                     boolean leaving = isInFightRoom && (next == State.TELEPORT_AWAY || next == State.BANKING);
                     if (leaving && currentTime < emergencyRetryAt) {
                         next = state; // a teleport just failed: wait out the cooldown instead of retrying every loop
@@ -838,9 +838,9 @@ public class ScurriusScript extends Script {
     private String getStateDescription(State state) {
         switch (state) {
             case BANKING:
-                return "Out of food or prayer potions. Banking.";
+                return "Banking to restock supplies.";
             case TELEPORT_AWAY:
-                return "Out of food or low on food and health. Teleporting away.";
+                return "Teleporting out of the boss room to bank.";
             case WALK_TO_BOSS:
                 return "Scurris is not present, walking to boss.";
             case FIGHTING:
