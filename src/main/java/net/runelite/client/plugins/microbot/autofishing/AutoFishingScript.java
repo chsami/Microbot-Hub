@@ -49,6 +49,8 @@ public class AutoFishingScript extends Script {
     private String fishAction = "";
     private long lastActionTime = System.currentTimeMillis();
     private volatile boolean outOfBait = false;
+    static final int MAX_TACKLE_BOX_CASTS_WITHOUT_XP = 3;
+    private int tackleBoxCastsWithoutXp = 0;
 
     public boolean run(AutoFishingConfig config) {
         this.config = config;
@@ -56,6 +58,7 @@ public class AutoFishingScript extends Script {
         this.selectedHarpoon = config.harpoonSpec();
         this.lastActionTime = System.currentTimeMillis();
         this.outOfBait = false;
+        this.tackleBoxCastsWithoutXp = 0;
 
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyFishingSetup();
@@ -175,7 +178,7 @@ public class AutoFishingScript extends Script {
         if (!fishAction.isEmpty() && fishingSpot.click(fishAction)) {
             lastActionTime = System.currentTimeMillis();
 
-            Rs2Player.waitForXpDrop(Skill.FISHING, true);
+            boolean gainedXp = Rs2Player.waitForXpDrop(Skill.FISHING, true);
 
             // Wait using repeated xp drop waits until the specific spot despawns or inv is full.
             // This gives one click per spot lifetime and catches full inv during the session.
@@ -188,10 +191,13 @@ public class AutoFishingScript extends Script {
                     if (current == null || !(current instanceof NPC) || ((NPC) current).getIndex() != clickedSpotIndex) {
                         break;
                     }
-                    Rs2Player.waitForXpDrop(Skill.FISHING, 10000, true);
+                    if (Rs2Player.waitForXpDrop(Skill.FISHING, 10000, true)) {
+                        gainedXp = true;
+                    }
                 }
             }
 
+            countTackleBoxCast(gainedXp);
             lastActionTime = System.currentTimeMillis();
             try {
                 Rs2Antiban.actionCooldown();
@@ -305,7 +311,7 @@ public class AutoFishingScript extends Script {
         if (Rs2Bank.walkToBankAndUseBank()) {
             for (String tool : selectedFish.getMethod().getRequiredItems()) {
                 if (!hasRequiredItem(tool)) {
-                    withdrawAndEquipItem(tool);
+                    withdrawAndEquipItem(bankedName(tool));
                 }
             }
             if (selectedHarpoon != HarpoonType.NONE) {
@@ -333,7 +339,7 @@ public class AutoFishingScript extends Script {
                 if (selectedHarpoon != HarpoonType.NONE && !Rs2Inventory.hasItem(selectedHarpoon.getName()) && !Rs2Equipment.isWearing(selectedHarpoon.getName())) {
                     missing.add(selectedHarpoon.getName());
                 }
-                stopWithReason("AutoFishing stopped: could not find " + joinNames(missing, "and") + " in your bank. Bank or buy " + (missing.size() > 1 ? "them" : "it") + ", then start again.");
+                stopWithReason(missingFromBankReason(missing));
                 return;
             }
         }
@@ -492,10 +498,13 @@ public class AutoFishingScript extends Script {
                 .collect(Collectors.toList());
         if (consumables.isEmpty()) return null;
 
-        String needed = joinNames(consumables, "and");
+        String needed = joinNames(displayNames(consumables), "and");
         if (outOfBait) {
             if (Rs2Inventory.hasItem(ItemID.TACKLE_BOX) && consumables.stream().anyMatch(AutoFishingScript::isTackleBoxBait)) {
-                return "AutoFishing stopped: out of " + needed + " (your Tackle box is empty too). Refill the bait or put it in your inventory, then start again.";
+                String refill = config.useBank()
+                        ? "Refill the bait, withdraw " + needed + " from your bank, or put it in your inventory"
+                        : "Refill the bait or put it in your inventory";
+                return "AutoFishing stopped: out of " + needed + " (your Tackle box is empty too). " + refill + ", then start again.";
             }
             return "AutoFishing stopped: out of " + needed + ". Put more in your inventory, then start again.";
         }
@@ -507,13 +516,52 @@ public class AutoFishingScript extends Script {
 
         List<String> sources = new ArrayList<>();
         for (String item : missing) {
-            sources.addAll(Arrays.asList(acceptedConsumables(item)));
+            sources.addAll(displayNames(Arrays.asList(acceptedConsumables(item))));
             if (isTackleBoxBait(item) && !sources.contains("Tackle box")) {
                 sources.add("Tackle box");
             }
         }
         return "AutoFishing stopped: no " + joinNames(sources, "or") + " in your inventory for " + selectedFish.getName()
-                + ". Add " + joinNames(missing, "and") + " and start again.";
+                + ". Add " + joinNames(displayNames(missing), "and") + " and start again.";
+    }
+
+    static String missingFromBankReason(List<String> missing) {
+        List<String> names = missing.stream()
+                .map(item -> joinNames(displayNames(Arrays.asList(acceptedConsumables(item))), "or"))
+                .collect(Collectors.toList());
+        boolean single = missing.size() == 1 && !isConsumable(missing.get(0));
+        return "AutoFishing stopped: could not find " + joinNames(names, "and") + " in your bank. Put " + (single ? "it" : "them")
+                + " in your bank or inventory (buy " + (single ? "one" : "some") + " if you have none), then start again.";
+    }
+
+    static List<String> displayNames(List<String> items) {
+        return items.stream()
+                .map(item -> item.equalsIgnoreCase("Feather") ? "Feathers" : item)
+                .collect(Collectors.toList());
+    }
+
+    private String bankedName(String item) {
+        return Arrays.stream(acceptedConsumables(item))
+                .filter(name -> Rs2Bank.hasItem(name))
+                .findFirst()
+                .orElse(item);
+    }
+
+    private void countTackleBoxCast(boolean gainedXp) {
+        if (gainedXp || !fishesFromTackleBoxOnly()) {
+            tackleBoxCastsWithoutXp = 0;
+            return;
+        }
+        tackleBoxCastsWithoutXp++;
+        if (tackleBoxCastsWithoutXp >= MAX_TACKLE_BOX_CASTS_WITHOUT_XP) {
+            log.info("{} casts in a row gave no Fishing XP with only a Tackle box for bait, treating it as empty", tackleBoxCastsWithoutXp);
+            outOfBait = true;
+        }
+    }
+
+    private boolean fishesFromTackleBoxOnly() {
+        return Rs2Inventory.hasItem(ItemID.TACKLE_BOX) && selectedFish.getMethod().getRequiredItems().stream()
+                .anyMatch(item -> isConsumable(item) && isTackleBoxBait(item) && !Rs2Inventory.hasItem(acceptedConsumables(item)));
     }
 
     private boolean hasRequiredItem(String item) {

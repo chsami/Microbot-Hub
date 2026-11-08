@@ -1,6 +1,9 @@
 package net.runelite.client.plugins.microbot.autofishing;
 
 import net.runelite.api.ChatMessageType;
+import net.runelite.api.NPC;
+import net.runelite.api.NPCComposition;
+import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.gameval.InterfaceID;
@@ -230,7 +233,147 @@ class AutoFishingScriptTest {
     @Test
     void tackleBoxDoesNotStandInForFeathers() {
         runFishingTick(Fish.TROUT_AND_SALMON, inventory -> inventory.when(() -> Rs2Inventory.hasItem(ItemID.TACKLE_BOX)).thenReturn(true), null,
-                "AutoFishing stopped: no Feather in your inventory for Trout + Salmon. Add Feather and start again.");
+                "AutoFishing stopped: no Feathers in your inventory for Trout + Salmon. Add Feathers and start again.");
+    }
+
+    @Test
+    void emptyTackleBoxWithBankingSuggestsWithdrawingBait() {
+        runFishingTick(Fish.SACRED_EEL, true, inventory -> inventory.when(() -> Rs2Inventory.hasItem(ItemID.TACKLE_BOX)).thenReturn(true),
+                "You don't have any fishing bait left.",
+                "AutoFishing stopped: out of Fishing bait (your Tackle box is empty too). Refill the bait, withdraw Fishing bait from your bank, or put it in your inventory, then start again.");
+    }
+
+    @Test
+    void emptyTackleBoxStopsAfterCastsWithoutXpEvenWithoutChatMessage() {
+        assertEquals(AutoFishingScript.MAX_TACKLE_BOX_CASTS_WITHOUT_XP, castsUntilStop(false, false, 10));
+    }
+
+    @Test
+    void tackleBoxCastsThatGiveXpKeepFishing() {
+        assertEquals(-1, castsUntilStop(true, false, 10));
+    }
+
+    @Test
+    void castsWithoutXpAreNotCountedWhenLooseBaitIsInInventory() {
+        assertEquals(-1, castsUntilStop(false, true, 10));
+    }
+
+    @Test
+    void bankStopReasonListsAcceptedBaitAndWhereToPutIt() {
+        assertEquals("AutoFishing stopped: could not find Fishing rod in your bank. Put it in your bank or inventory (buy one if you have none), then start again.",
+                AutoFishingScript.missingFromBankReason(List.of("Fishing rod")));
+        assertEquals("AutoFishing stopped: could not find Fishing bait or Sandworms in your bank. Put them in your bank or inventory (buy some if you have none), then start again.",
+                AutoFishingScript.missingFromBankReason(List.of("Fishing bait")));
+        assertEquals("AutoFishing stopped: could not find Fly fishing rod and Feathers in your bank. Put them in your bank or inventory (buy some if you have none), then start again.",
+                AutoFishingScript.missingFromBankReason(List.of("Fly fishing rod", "Feather")));
+    }
+
+    @Test
+    void gettingGearWithdrawsSandwormsWhenBankHasNoFishingBait() {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        AutoFishingScript script = new AutoFishingScript() {
+            {
+                scheduledExecutorService = executor;
+            }
+
+            @Override
+            Rs2NpcModel findNearestFishingSpot() {
+                return null;
+            }
+        };
+        AutoFishingConfig config = mock(AutoFishingConfig.class);
+        when(config.fishToCatch()).thenReturn(Fish.SACRED_EEL);
+        when(config.harpoonSpec()).thenReturn(HarpoonType.NONE);
+        when(config.useBank()).thenReturn(true);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
+             MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
+            microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(1700, 3700, 0));
+            inventory.when(() -> Rs2Inventory.hasItem("Fishing rod")).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.hasItem("Knife")).thenReturn(true);
+            bank.when(Rs2Bank::walkToBankAndUseBank).thenReturn(true);
+            bank.when(() -> Rs2Bank.hasItem("Sandworms")).thenReturn(true);
+
+            script.run(config);
+            ArgumentCaptor<Runnable> tick = ArgumentCaptor.forClass(Runnable.class);
+            verify(executor).scheduleWithFixedDelay(tick.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+            tick.getValue().run();
+
+            assertEquals(AutoFishingState.GETTING_GEAR, script.getCurrentState());
+            bank.verify(() -> Rs2Bank.withdrawAll("Sandworms"));
+            bank.verify(() -> Rs2Bank.withdrawAll("Fishing bait"), never());
+            microbot.verify(() -> Microbot.showMessage("AutoFishing stopped: could not find Fishing bait or Sandworms in your bank. Put them in your bank or inventory (buy some if you have none), then start again."));
+        }
+    }
+
+    private int castsUntilStop(boolean castsGiveXp, boolean looseBait, int maxTicks) {
+        ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
+        Rs2NpcModel spot = mock(Rs2NpcModel.class);
+        NPC npc = mock(NPC.class);
+        NPCComposition composition = mock(NPCComposition.class);
+        when(spot.getNpc()).thenReturn(npc);
+        when(npc.getIndex()).thenReturn(7);
+        when(npc.getTransformedComposition()).thenReturn(composition);
+        when(composition.getActions()).thenReturn(new String[]{"Bait", null, null, null, null});
+        when(spot.click("Bait")).thenReturn(true);
+        AutoFishingScript script = new AutoFishingScript() {
+            {
+                scheduledExecutorService = executor;
+            }
+
+            @Override
+            Rs2NpcModel findNearestFishingSpot() {
+                return spot;
+            }
+        };
+        AutoFishingConfig config = mock(AutoFishingConfig.class);
+        when(config.fishToCatch()).thenReturn(Fish.SACRED_EEL);
+        when(config.harpoonSpec()).thenReturn(HarpoonType.NONE);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class);
+             MockedStatic<Rs2Antiban> antiban = mockStatic(Rs2Antiban.class)) {
+            microbot.when(Microbot::isLoggedIn).thenReturn(true);
+            rs2Player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(2190, 3076, 0));
+            rs2Player.when(() -> Rs2Player.waitForXpDrop(Skill.FISHING, true)).thenReturn(castsGiveXp);
+            inventory.when(() -> Rs2Inventory.hasItem("Fishing rod")).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.hasItem("Knife")).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.hasItem(ItemID.TACKLE_BOX)).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.hasItem("Fishing bait", "Sandworms")).thenReturn(looseBait);
+
+            script.run(config);
+            ArgumentCaptor<Runnable> tick = ArgumentCaptor.forClass(Runnable.class);
+            verify(executor).scheduleWithFixedDelay(tick.capture(), anyLong(), anyLong(), any(TimeUnit.class));
+
+            AtomicReference<String> stopReason = new AtomicReference<>();
+            microbot.when(() -> Microbot.showMessage(anyString())).thenAnswer(call -> {
+                stopReason.set(call.getArgument(0));
+                return null;
+            });
+
+            for (int casts = 0; casts < maxTicks; casts++) {
+                tick.getValue().run();
+                if (stopReason.get() != null) {
+                    assertEquals("AutoFishing stopped: out of Fishing bait (your Tackle box is empty too). Refill the bait or put it in your inventory, then start again.", stopReason.get());
+                    rs2Player.verify(Rs2Player::logout, times(1));
+                    verify(spot, times(casts)).click("Bait");
+                    return casts;
+                }
+            }
+            verify(spot, times(maxTicks)).click("Bait");
+            return -1;
+        }
     }
 
     @Test
@@ -282,6 +425,10 @@ class AutoFishingScriptTest {
     }
 
     private void runFishingTick(Fish fish, Consumer<MockedStatic<Rs2Inventory>> baitSetup, String chatMessage, String expectedStopReason) {
+        runFishingTick(fish, false, baitSetup, chatMessage, expectedStopReason);
+    }
+
+    private void runFishingTick(Fish fish, boolean useBank, Consumer<MockedStatic<Rs2Inventory>> baitSetup, String chatMessage, String expectedStopReason) {
         ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
         Rs2NpcModel spot = mock(Rs2NpcModel.class);
         AutoFishingScript script = new AutoFishingScript() {
@@ -297,6 +444,7 @@ class AutoFishingScriptTest {
         AutoFishingConfig config = mock(AutoFishingConfig.class);
         when(config.fishToCatch()).thenReturn(fish);
         when(config.harpoonSpec()).thenReturn(HarpoonType.NONE);
+        when(config.useBank()).thenReturn(useBank);
 
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> rs2Player = mockStatic(Rs2Player.class);
