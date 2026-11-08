@@ -85,49 +85,76 @@ public class FlipperPlugin extends Plugin {
         return configManager.getConfig(FlipperConfig.class);
     }
 
+    private static final int LOOK_CHECK_MS = 1000;
+    private static final String RUNELITE_THEME = "net.runelite.client.ui.laf.RuneLiteLAF";
+    private static final String FLAT_THEME = "com.formdev.flatlaf.FlatLaf";
     private net.runelite.client.eventbus.EventBus lookEventBus;
-    private LookWhenClientStarted lookWaiter;
+    private LookUnloadWatch lookWaiter;
+    private javax.swing.Timer lookTimer;
+    private boolean lookAttempted;
+    /** Whether Microbot's window is on screen with its own theme. Tests swap it. */
+    java.util.function.BooleanSupplier clientUiReady = () -> clientUiReady(client);
 
     /**
      * Runs once when Microbot loads the plugin, on or off, so its settings panel keeps its sections folded and greys
      * settings that are not in use either way. Look only: it never starts the script or changes a setting.
      *
-     * It must not touch Microbot's settings panel yet. During client start-up plugins load before the client applies
-     * its dark theme, and building the panel that early leaves the whole Microbot side panel in Java's default white
-     * look. So the look starts once the game reaches the login screen (straight away when the plugin is loaded into a
-     * running client), or when the plugin is switched on, whichever comes first.
+     * Nothing here may touch Microbot's settings panel while the client is starting. Microbot starts the game and
+     * loads plugins before it applies its dark theme, and a panel built before then leaves the whole Microbot side
+     * panel in Java's default white look. So the look waits until Microbot's window is on screen with its own theme:
+     * checked once a second, and when the plugin is switched on, right before the panel is used.
      */
     @Inject
     void installSettingsLook(net.runelite.client.eventbus.EventBus eventBus) {
         lookEventBus = eventBus;
-        if (clientStarted(client)) {
-            SwingUtilities.invokeLater(this::startSettingsLook);
-            return;
-        }
-        LookWhenClientStarted waiter = new LookWhenClientStarted(this);
+        LookUnloadWatch waiter = new LookUnloadWatch(this);
         lookWaiter = waiter;
         try {
             eventBus.register(waiter);
         } catch (RuntimeException | LinkageError unavailable) {
             lookWaiter = null;
         }
+        javax.swing.Timer timer = new javax.swing.Timer(LOOK_CHECK_MS, event -> startSettingsLook());
+        timer.setRepeats(true);
+        lookTimer = timer;
+        timer.start();
     }
 
-    /** True once the game is past start-up, which is after the client has applied its theme. */
-    static boolean clientStarted(Client client) {
+    /**
+     * True once Microbot's game window is on screen and its own theme is in use. That is after client start-up,
+     * never during it, whatever state the game itself is in.
+     */
+    static boolean clientUiReady(Client client) {
         try {
-            GameState state = client == null ? null : client.getGameState();
-            return state != null && state != GameState.UNKNOWN && state != GameState.STARTING;
-        } catch (RuntimeException unavailable) {
+            java.awt.Canvas canvas = client == null ? null : client.getCanvas();
+            if (canvas == null || !canvas.isShowing()) return false;
+            javax.swing.LookAndFeel theme = javax.swing.UIManager.getLookAndFeel();
+            for (Class<?> type = theme == null ? null : theme.getClass(); type != null; type = type.getSuperclass()) {
+                if (RUNELITE_THEME.equals(type.getName()) || FLAT_THEME.equals(type.getName())) return true;
+            }
+            return false;
+        } catch (RuntimeException | LinkageError unavailable) {
             return false;
         }
     }
 
-    /** Swing thread only, and only after the client has applied its theme. */
-    private void startSettingsLook() {
+    /** Swing thread only. Builds the look once, and only once Microbot's window is up with its own theme. */
+    void startSettingsLook() {
+        if (lookAttempted || settingsLook != null) {
+            stopLookWaiter();
+            return;
+        }
+        boolean ready;
+        try {
+            ready = clientUiReady.getAsBoolean();
+        } catch (RuntimeException | LinkageError unavailable) {
+            ready = false;
+        }
+        if (!ready) return;
+        lookAttempted = true;
         stopLookWaiter();
         try {
-            if (settingsLook != null || settingsPanelProvider == null || config == null || lookEventBus == null) return;
+            if (settingsPanelProvider == null || config == null || lookEventBus == null) return;
             SettingsLook look = new SettingsLook(this, config, settingsPanelProvider.get().getWrappedPanel(),
                 lookEventBus, () -> flipperScript != null && flipperScript.isRunning());
             look.setBindingsActive(waitingMouseSettings != null);
@@ -139,7 +166,10 @@ public class FlipperPlugin extends Plugin {
     }
 
     private void stopLookWaiter() {
-        LookWhenClientStarted waiter = lookWaiter;
+        javax.swing.Timer timer = lookTimer;
+        lookTimer = null;
+        if (timer != null) timer.stop();
+        LookUnloadWatch waiter = lookWaiter;
         lookWaiter = null;
         if (waiter == null || lookEventBus == null) return;
         try {
@@ -148,19 +178,12 @@ public class FlipperPlugin extends Plugin {
         }
     }
 
-    /** Waits, without touching any Swing component, for the game to get past start-up. */
-    static final class LookWhenClientStarted {
+    /** Stops the wait if the plugin is unloaded before the look started. Touches no Swing component. */
+    static final class LookUnloadWatch {
         private final FlipperPlugin plugin;
 
-        LookWhenClientStarted(FlipperPlugin plugin) {
+        LookUnloadWatch(FlipperPlugin plugin) {
             this.plugin = plugin;
-        }
-
-        @Subscribe
-        public void onGameStateChanged(GameStateChanged event) {
-            GameState state = event.getGameState();
-            if (state == null || state == GameState.UNKNOWN || state == GameState.STARTING) return;
-            SwingUtilities.invokeLater(plugin::startSettingsLook);
         }
 
         @Subscribe
