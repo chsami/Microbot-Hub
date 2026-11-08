@@ -42,9 +42,8 @@ GE Flipper works every Grand Exchange slot the way Copilot suggests, including C
 
 **Help**
 
-- **Getting started**, **Stopping**, **Settings** and **Problems?**: short guides to setting up, stopping cleanly, what each section does and fixes for common problems.
+- **How to start:** five steps to get GE Flipper running and how to stop it, plus credits. GE Flipper was first made by chocken.
 - **Detailed logs:** log GE Flipper's own activity in detail for troubleshooting. Other plugins' logging is not changed. Suggested prices, quantities and item IDs are never logged.
-- **About:** credits. GE Flipper was first made by chocken.
 
 ## Finishing
 
@@ -95,6 +94,6 @@ GE Flipper follows Copilot; it doesn't pick items or prices itself. After an upd
 - A bigger overlay with status, world, GE slots, the update countdown and mule progress. It sits over the inventory below the top row unless you have moved it.
 - Honours the pause button in the Microbot header. Needs Microbot 2.6.53 or later.
 - Copilot's swapped Abort/Modify left-click now counts once the cursor is anywhere on the slot button, not only on the exact pixel.
-- Setting keys are unchanged, so saved settings carry over. The help is rewritten as short guides under new keys; old saved copies of the help text are removed once.
+- Setting keys are unchanged, so saved settings carry over. The help is now one short "How to start" box under a new key; old saved copies of the help text are removed once.
 
 **1.2.81** fixed Abort and Modify clicks when Copilot highlights a slot. **1.2.80** added waiting mouse presets, the fatigue clock and optional mouse speed variation. **1.2.70** added End / Finish and the waiting mouse.

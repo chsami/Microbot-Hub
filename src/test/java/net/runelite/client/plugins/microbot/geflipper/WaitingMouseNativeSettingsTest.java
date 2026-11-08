@@ -1398,9 +1398,7 @@ class WaitingMouseNativeSettingsTest {
             properties = (Map<String, String>) field(dataType, "properties").get(data);
             properties.put(GROUP + ".slotActionMode", "MENU_OPTION");
             properties.put(GROUP + ".selectionMethod", "HOTKEY");
-            for (String help : new String[]{"helpStart", "helpStop", "helpSettings", "helpProblems", "helpAbout"}) {
-                properties.put(GROUP + "." + help, "Synthetic test help");
-            }
+            properties.put(GROUP + ".quickStart", "Synthetic test help");
             properties.put(GROUP + ".showOverlay", "true");
             properties.put(GROUP + ".verboseLogging", "false");
             properties.put(MOUSE_SPEED, "false");

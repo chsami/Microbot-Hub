@@ -9,6 +9,13 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MuleSessionTest {
+    @Test
+    void muleMessagesShowAmountsWithoutAPlusSign() {
+        assertEquals("60.63M gp", MuleSession.gp(60_630_000));
+        assertEquals("25.00M gp", MuleSession.gp(25_000_000));
+        assertEquals("500.0K gp", MuleSession.gp(500_000));
+    }
+
 
     @Test
     void policyParsesHumanFriendlyGpFormatsAndComputesTransferExcess() {
@@ -336,6 +343,62 @@ class MuleSessionTest {
             "A reading on a different world has its own grace period");
         session.tickSender(settings, false, 11_000L + 2 * MuleSession.CAPITAL_RECHECK_MS);
         assertEquals(MuleSession.Phase.RETURNING, session.phase());
+    }
+
+    @Test
+    void aPartialLowTotalAfterTheHopDoesNotCancelTheTransfer() {
+        // Seen in game: on the Mule's world the bank and GE collection box were not loaded yet, so the total read
+        // far below what the transfer was locked at, and the trade was cancelled after 10 seconds.
+        FakePort port = new FakePort();
+        MuleSession session = senderWithInvestedCapitalAtOpenTrade(port);
+        MuleSession.SenderSettings settings = senderSettings(true, 50_000_000);
+        port.view = partialTradeView(301, 5_000_000, 5_000_000L);
+        session.tickSender(settings, false, 11_000L);
+        session.tickSender(settings, false, 11_000L + 3 * MuleSession.CAPITAL_RECHECK_MS);
+        assertEquals(5_000_000, port.lastOfferedCoins);
+        assertNotEquals(MuleSession.Phase.RETURNING, session.phase());
+        assertEquals("", session.takeCancelReason());
+    }
+
+    @Test
+    void aPartialTotalStillNeedsTheFreeCoinsForTheTransfer() {
+        FakePort port = new FakePort();
+        MuleSession session = senderWithInvestedCapitalAtOpenTrade(port);
+        MuleSession.SenderSettings settings = senderSettings(true, 50_000_000);
+        port.view = partialTradeView(301, 4_000_000, 55_000_000L);
+        session.tickSender(settings, false, 11_000L);
+        session.tickSender(settings, false, 11_000L + MuleSession.CAPITAL_RECHECK_MS);
+        assertEquals(0, port.lastOfferedCoins);
+        assertEquals(MuleSession.Phase.RETURNING, session.phase());
+        assertTrue(session.takeCancelReason().contains("only 4.00M gp free coins"));
+    }
+
+    @Test
+    void geTaxOnSalesDuringTheTradeDoesNotCancelIt() {
+        FakePort port = new FakePort();
+        MuleSession.SenderSettings settings = senderSettings(true, 25_000_000);
+        MuleSession session = senderAtOpenTrade(port, settings, 61_000_000, 85_000_000L);
+        // A big sale fills mid-trade and the GE keeps 2% tax: the full total is 0.8M lower than when locked.
+        port.view = investedTradeView(301, 61_000_000, 84_200_000L, true, false, 0);
+        session.tickSender(settings, false, 11_000L);
+        session.tickSender(settings, false, 11_000L + 2 * MuleSession.CAPITAL_RECHECK_MS);
+        assertEquals(60_000_000, port.lastOfferedCoins);
+        assertNotEquals(MuleSession.Phase.RETURNING, session.phase());
+    }
+
+    @Test
+    void aRealDropBelowTheKeepAmountStillCancelsAndSaysWhyOnce() {
+        FakePort port = new FakePort();
+        MuleSession.SenderSettings settings = senderSettings(true, 25_000_000);
+        MuleSession session = senderAtOpenTrade(port, settings, 61_000_000, 85_000_000L);
+        port.view = investedTradeView(301, 61_000_000, 80_000_000L, true, false, 0);
+        session.tickSender(settings, false, 11_000L);
+        session.tickSender(settings, false, 11_000L + MuleSession.CAPITAL_RECHECK_MS);
+        assertEquals(0, port.lastOfferedCoins);
+        assertEquals(MuleSession.Phase.RETURNING, session.phase());
+        String reason = session.takeCancelReason();
+        assertTrue(reason.contains("sending 60.00M gp would leave less than 25.00M gp"), reason);
+        assertEquals("", session.takeCancelReason(), "Shown once");
     }
 
     @Test
@@ -1381,6 +1444,32 @@ class MuleSessionTest {
         session.tickSender(settings, false, 10_000L);
         assertEquals(MuleSession.Phase.OFFERING_COINS, session.phase());
         return session;
+    }
+
+    private static MuleSession senderAtOpenTrade(FakePort port, MuleSession.SenderSettings settings, int coins,
+                                                 long capital) {
+        MuleSession session = new MuleSession(port);
+        port.muleReply = new MuleNetwork.MuleReply(true, true, "BankMule", 301, "FlipperAcc", "127.0.0.1", "OK");
+        port.view = investedTradeView(330, coins, capital, false, false, 0);
+        session.tickSender(settings, false, 0L);
+        session.tickSender(settings, false, 5_000L);
+        session.tickSender(settings, false, 6_000L);
+        session.tickSender(settings, false, 7_000L);
+        port.view = investedTradeView(301, coins, capital, false, false, 0);
+        session.tickSender(settings, false, 8_000L);
+        session.tickSender(settings, false, 9_000L);
+        port.view = investedTradeView(301, coins, capital, true, false, 0);
+        session.tickSender(settings, false, 10_000L);
+        assertEquals(MuleSession.Phase.OFFERING_COINS, session.phase());
+        return session;
+    }
+
+    /** The trade window is open, but the bank and GE collection box are not known yet: a partial total. */
+    private static MuleSession.Snapshot partialTradeView(int world, int coins, long capital) {
+        return new MuleSession.Snapshot(true, 101L, "FlipperAcc", world,
+            MulePolicy.GE_CENTER_X, MulePolicy.GE_CENTER_Y, MulePolicy.GE_CENTER_PLANE,
+            true, false, false, false, coins, 0, capital, false,
+            true, false, "BankMule", 0, false, 0, true, false);
     }
 
     private static MuleSession senderWithInvestedCapitalAtOpenTrade(FakePort port) {

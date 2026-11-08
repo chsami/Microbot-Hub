@@ -89,9 +89,20 @@ class SettingsLookTest {
 
     @Test
     void choicesThatAreAlwaysInUseAreNeverGrey() {
-        for (String key : new String[]{"selectionMethod", "slotActionMode", "helpStart", "helpStop", "helpSettings",
-            "helpProblems", "helpAbout"}) {
+        for (String key : new String[]{"selectionMethod", "slotActionMode", "quickStart"}) {
             assertTrue(isActive(config(), key, false), key);
+        }
+    }
+
+    @Test
+    void theHelpIsShortAndKeepsTheCredits() {
+        String help = new FlipperConfig() { }.quickStart();
+        assertTrue(help.length() <= FlipperConfig.QUICK_START_MAX_CHARS, help.length() + " characters");
+        assertTrue(help.contains("First made by chocken."));
+        assertTrue(help.contains("afss0") && help.contains("Joinkiee"));
+        for (String old : new String[]{"helpStart", "helpStop", "helpSettings", "helpProblems", "helpAbout"}) {
+            assertTrue(java.util.Arrays.asList(FlipperConfig.OLD_GUIDE_KEYS).contains(old),
+                old + " is cleaned out of saved profiles");
         }
     }
 

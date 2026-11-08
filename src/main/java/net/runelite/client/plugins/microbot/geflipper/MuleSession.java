@@ -327,6 +327,13 @@ final class MuleSession {
     boolean active() { return phase != Phase.IDLE; }
     Phase phase() { return phase; }
     String status() { return status; }
+    private volatile String cancelReason = "";
+    /** Why the last transfer was cancelled, returned once; empty when there is nothing new. */
+    String takeCancelReason() {
+        String reason = cancelReason;
+        cancelReason = "";
+        return reason;
+    }
     private volatile String capitalStatus = "Estimate unavailable";
     String capitalStatus() { return capitalStatus; }
     long totalTransferredGp() { return totalTransferredGp; }
@@ -366,7 +373,7 @@ final class MuleSession {
     void requestManualTransfer(int amount) {
         if (amount < MulePolicy.MIN_TRANSFER_GP) return;
         manualTransferGp = amount;
-        status = "Mule now: preparing " + FlipperOverlay.formatProfit(amount) + ".";
+        status = "Mule now: preparing " + gp(amount) + ".";
     }
 
     /** True from the "Mule now" press until its transfer has started or given up. */
@@ -532,7 +539,7 @@ final class MuleSession {
             // COMPLETE_TRADE may already have cleared the old lease. Do not clear a different sender's new lease.
             if (lease != null && MulePolicy.sameRsn(lease.traderRsn, receiverTradePartner)) port.clearServerLease(lease);
             idleLogoutAt = now + jitter(MULE_LOGOUT_DELAY_BASE_MS);
-            status = "Mule: received " + FlipperOverlay.formatProfit(gained) + "; logging out soon.";
+            status = "Mule: received " + gp(gained) + "; logging out soon.";
         } else if (receiverConfirmationSent) {
             if (receiverReceiptWaitingSince < 0) receiverReceiptWaitingSince = now;
             if (now >= receiverReceiptWaitingSince && now - receiverReceiptWaitingSince < RECEIPT_SETTLE_MS) {
@@ -692,7 +699,7 @@ final class MuleSession {
                 return;
             }
             status = "Mule: ready for " + lease.traderRsn + " ("
-                + FlipperOverlay.formatProfit(lease.amountGp) + "). Waiting for their trade request.";
+                + gp(lease.amountGp) + "). Waiting for their trade request.";
             return;
         }
 
@@ -792,10 +799,14 @@ final class MuleSession {
             return phase == Phase.RETURNING && tickSenderActive(s, view, now);
         }
         long offeredCoins = view.tradeMainOpen || view.tradeConfirmOpen ? view.ourOfferedCoins : 0;
-        long floor = (long) lockedReserveGp - MulePolicy.transferTolerance(lockedReserveGp);
+        long floor = (long) lockedReserveGp - lockedKeepTolerance();
+        boolean coinsShort = view.looseCoins() + offeredCoins < lockedTransferAmount;
+        // Only a full, verified total can show that sending would break the keep amount. After a world hop the bank
+        // and the GE collection box are unknown until the game sends them again, so the total reads partial and low;
+        // that is no reason to cancel. The free coins are always read directly and must always cover the transfer.
+        boolean belowKeep = view.capitalComplete && view.workingCapitalGp() - lockedTransferAmount < floor;
         boolean capitalShort = !cancelled && phase != Phase.IDLE && phase != Phase.RETURNING
-            && (!view.capitalVerified || view.workingCapitalGp() - lockedTransferAmount < floor
-                || view.looseCoins() + offeredCoins < lockedTransferAmount);
+            && (coinsShort || belowKeep);
         if (!capitalShort) {
             capitalShortSince = -1;
         } else {
@@ -811,8 +822,11 @@ final class MuleSession {
                 return true;
             }
             capitalShortSince = -1;
-            abort(s, view, now, COOLDOWN_AFTER_ABORT_MS, "Mule: working capital is unavailable or below the limit ("
-                + capitalSummary(view, offeredCoins) + "); cancelled transfer.");
+            abort(s, view, now, COOLDOWN_AFTER_ABORT_MS, coinsShort
+                ? "Mule: cancelled the transfer: only " + gp(view.looseCoins() + offeredCoins) + " free coins to send "
+                    + gp(lockedTransferAmount) + "."
+                : "Mule: cancelled the transfer: sending " + gp(lockedTransferAmount) + " would leave less than "
+                    + gp(lockedReserveGp) + " (your total is now " + gp(view.workingCapitalGp()) + ").");
             return phase == Phase.RETURNING && tickSenderActive(s, view, now);
         }
 
@@ -883,8 +897,8 @@ final class MuleSession {
                 nextAttemptAt = now + COOLDOWN_AFTER_ABORT_MS;
                 status = "Mule: excess capital did not become liquid in time; resuming normal flipping.";
             } else {
-                status = "Mule: preparing " + FlipperOverlay.formatProfit(required)
-                    + " of excess GP; keeping " + FlipperOverlay.formatProfit(s.reserveGp) + " working capital.";
+                status = "Mule: freeing up " + gp(required) + " to send; keeping " + gp(s.reserveGp)
+                    + " for flipping.";
             }
             return false;
         }
@@ -920,7 +934,7 @@ final class MuleSession {
             : MulePolicy.calculatePortfolioTransferAmount(view.workingCapitalGp(), view.looseCoins(), keep);
         if (amount < MulePolicy.MIN_TRANSFER_GP) {
             status = keep == 0 ? "Mule: no loose GP to send before the update."
-                : "Mule: nothing above " + FlipperOverlay.formatProfit(keep).replace("+", "")
+                : "Mule: nothing above " + gp(keep)
                 + " to send before the update.";
             return false;
         }
@@ -937,8 +951,8 @@ final class MuleSession {
             return false;
         }
         if (amount > view.workingCapitalGp()) {
-            endManualTransfer("Mule now: " + FlipperOverlay.formatProfit(amount).replace("+", "") + " is more than "
-                + "your total (" + FlipperOverlay.formatProfit(view.workingCapitalGp()).replace("+", "")
+            endManualTransfer("Mule now: " + gp(amount) + " is more than "
+                + "your total (" + gp(view.workingCapitalGp())
                 + "). Enter a smaller amount.");
             return false;
         }
@@ -951,8 +965,8 @@ final class MuleSession {
             if (now - liquidateSince > LIQUIDATE_TIMEOUT_MS) {
                 endManualTransfer("Mule now: the GP did not become free in time; resuming normal flipping.");
             } else {
-                status = "Mule now: freeing up " + FlipperOverlay.formatProfit(amount).replace("+", "") + " ("
-                    + FlipperOverlay.formatProfit(view.looseCoins()).replace("+", "") + " free so far).";
+                status = "Mule now: freeing up " + gp(amount) + " ("
+                    + gp(view.looseCoins()) + " free so far).";
             }
             return false;
         }
@@ -1021,17 +1035,9 @@ final class MuleSession {
         liquidationTargetGp = 0;
         enter(reply.ready ? Phase.PREPARING_CASH : Phase.WAITING_FOR_MULE, now);
         String reason = deadline > 0 ? " before the OSRS update" : source == Source.MANUAL ? " (Mule now)" : "";
-        status = reply.ready ? "Mule: preparing " + FlipperOverlay.formatProfit(amount) + reason + "."
+        status = reply.ready ? "Mule: preparing " + gp(amount) + reason + "."
             : "Mule: waiting for " + targetMuleRsn + " to log in" + reason + ".";
         return true;
-    }
-
-    private String capitalSummary(Snapshot view, long offeredCoins) {
-        return "estimate " + FlipperOverlay.formatProfit(view.workingCapitalGp())
-            + (!view.capitalVerified ? " unverified" : view.capitalComplete ? "" : " partial")
-            + ", sending " + FlipperOverlay.formatProfit(lockedTransferAmount)
-            + ", limit " + FlipperOverlay.formatProfit(lockedReserveGp)
-            + ", loose GP " + FlipperOverlay.formatProfit(view.looseCoins() + offeredCoins);
     }
 
     private void applyMeetingTile(SenderSettings s, MuleNetwork.MuleReply reply) {
@@ -1176,7 +1182,7 @@ final class MuleSession {
                     }
                     coinsBeforeTrade = view.inventoryCoins + view.ourOfferedCoins;
                     enter(Phase.OFFERING_COINS, now);
-                    status = "Mule: offering " + FlipperOverlay.formatProfit(lockedTransferAmount) + " to " + targetMuleRsn + ".";
+                    status = "Mule: offering " + gp(lockedTransferAmount) + " to " + targetMuleRsn + ".";
                     return true;
                 }
                 if (!port.playerNear(targetMuleRsn, 10)) {
@@ -1227,7 +1233,7 @@ final class MuleSession {
                     return true;
                 }
                 if (view.ourOfferedCoins == 0) {
-                    status = "Mule: offering " + FlipperOverlay.formatProfit(lockedTransferAmount) + ".";
+                    status = "Mule: offering " + gp(lockedTransferAmount) + ".";
                     port.offerCoins(lockedTransferAmount, view.inventoryCoins);
                     return true;
                 }
@@ -1318,6 +1324,7 @@ final class MuleSession {
             port.releaseMuleLease(lockedLeaseHost, lockedPort, targetMuleRsn, flipper, false);
         }
         if (cooldownMs > 0) nextAttemptAt = now + cooldownMs;
+        if (!reason.isEmpty()) cancelReason = reason;
         if (view != null && view.usable() && returnWorld > 0
             && (view.currentWorld != returnWorld || view.distanceTo(returnX, returnY, returnPlane) > 3
                 || view.tradeMainOpen || view.tradeConfirmOpen)) {
@@ -1367,5 +1374,18 @@ final class MuleSession {
         capitalStatus = "Estimate unavailable";
         lastProbeMillis = -1;
         nextAttemptAt = 0;
+    }
+
+    /**
+     * How far below the keep amount a locked transfer may leave the total. Sell offers keep filling during the trade
+     * and the GE takes 2% tax on each sale, so the total drifts down a little; that must not cancel the transfer.
+     */
+    private long lockedKeepTolerance() {
+        return Math.max(MulePolicy.transferTolerance(lockedReserveGp), lockedTransferAmount / 50L);
+    }
+
+    /** A GP amount for mule messages, without the "+" that profit figures carry. */
+    static String gp(long amount) {
+        return FlipperOverlay.formatProfit(amount).replace("+", "");
     }
 }

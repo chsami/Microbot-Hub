@@ -962,6 +962,9 @@ public class FlipperScript extends Script {
 
     /** Writes each new mule step to client.log, so a cancelled transfer or an unexpected hop shows its reason. */
     private void logMuleProgress(boolean receiver) {
+        String cancelled = muleSession.takeCancelReason();
+        // Shown in chat once: the return trip replaces the status straight away.
+        if (!cancelled.isEmpty()) log.warn(cancelled);
         boolean active = receiver || muleSession.active();
         String status = muleSession.status();
         if ((active || muleWasActive) && status != null && !status.isEmpty() && !status.equals(lastMuleStatusLogged)) {
@@ -1071,7 +1074,7 @@ public class FlipperScript extends Script {
                 finishComplete = false;
                 blockedSlotActionKey = null;
                 invalidateMouseMovement();
-                log.info("Mule: temporarily freeing surplus GP for the configured working-capital limit.");
+                log.info("Mule: freeing up GP above 'Keep for flipping' for the transfer.");
             }
         } else if (muleFinish && !wanted) {
             // A cancelled offer's refund is not valued until collected. Collect it before deciding
