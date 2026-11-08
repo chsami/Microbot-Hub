@@ -17,13 +17,13 @@ GE Flipper works every Grand Exchange slot the way Copilot suggests, including C
 **End / Finish** and **Show overlay** are always shown. Everything else is in folded sections: Trading, Mouse, AFK breaks, Muling and Help. Click a section to open it; the client remembers open sections until it restarts. Settings that are off, or that do nothing with your other choices, have grey text. That is display only and never changes a setting.
 
 - **End / Finish:** stop cleanly. See [Finishing](#finishing).
-- **Show overlay:** status, profit, GP per hour, GE slots, the OSRS update countdown and mule progress on the game screen.
+- **Show overlay:** status, profit, GP per hour, GE slots, the OSRS update countdown and mule progress. The panel sits over your inventory (or the Grand Exchange, bank or trade inventory) below the top row, so the coins there stay in view. If space is short it leaves out details such as the world and session time first, and it steps aside while a right-click menu is open over it. While no inventory is showing it moves to the top-left corner. Hold Alt and drag it to put it anywhere else (RuneLite remembers the spot); Alt+right-click puts it back over the inventory. If you had moved the panel before this update, it stays where you put it.
 
 **Trading**
 
 - **Select suggestions with:** enter Copilot's price and quantity with the hotkey (E) or with mouse clicks.
 - **Copilot left-click swap:** On uses Copilot's swapped left-click for Modify and Abort; turn on slot swap in Copilot's own settings too. If the left-click isn't ready after the mouse arrives, GE Flipper uses the slot's menu option once instead. Off always uses the slot's menu option. GE Flipper never changes Copilot's settings.
-- **Finish on OSRS update** (off by default): when an update countdown appears, run End / Finish automatically.
+- **Finish on OSRS update** (off by default): when an update countdown appears, run End / Finish automatically. Not used on a Mule, which stays ready for the Flipper's last transfer.
 
 **Mouse**
 
@@ -64,9 +64,9 @@ Finish needs an active Copilot session. If offer or inventory data is missing, a
 
 Muling is off by default. It moves GP from a flipping account to a Mule account, and both clients must run on this computer.
 
-- On the flipping account pick **Flipper (sends GP)**, enter the Mule's in-game name, and set **Keep for flipping** and **Mule when over**. Keep for flipping counts GP, items and GE offers. Mule when over is the total that starts a transfer; `0` starts one whenever there's at least 1,000 GP above the keep amount. For example, keep `50M` and mule when over `75M`: nothing happens at 60M; at 75M GE Flipper frees up and sends the extra 25M.
+- On the flipping account pick **Flipper (sends GP)**, enter the Mule's in-game name, and set **Keep for flipping** and **Mule when over**. Keep for flipping counts GP, items and GE offers. In both amounts a plain number means millions (`150` is 150M, `1000` is 1000M); add k, M or B, or type the full amount with commas, to be exact. The largest amount is 2,147M. Mule when over is the total that starts a transfer; `0` starts one whenever there's at least 1,000 GP above the keep amount. For example, keep `50M` and mule when over `75M`: nothing happens at 60M; at 75M GE Flipper frees up and sends the extra 25M.
 - On the Mule account pick **Mule (receives GP)**. The Mule waits logged out and logs in only when a Flipper is ready to trade.
-- **Mule before OSRS update** (on, only used while muling): when an update countdown appears, send everything above the keep amount before stopping. Only loose GP is sent, and it's skipped when less than 90 seconds remain.
+- **Mule before OSRS update** (on, only used while muling): when an update countdown appears, send everything above the keep amount before stopping. Only loose GP is sent, and it's skipped when less than 90 seconds remain. Set it on the Flipper: a Mule always takes this transfer, so on a Mule this setting is grey.
 - **Mule world:** `0` uses the Mule's world and hops back afterwards; or enter a world to always meet there.
 - **Mule port:** the port the two clients use to talk. It must match on both.
 
@@ -86,11 +86,11 @@ GE Flipper follows Copilot; it doesn't pick items or prices itself. After an upd
 
 **1.3.0**
 
-- Muling between a Flipper and a Mule account on the same computer.
+- Muling between a Flipper and a Mule account on the same computer. Plain numbers in the mule amounts mean millions.
 - AFK breaks, Finish on OSRS update (off by default) and Block manual mouse input (off by default).
 - End / Finish holds breaks while listing, then waits for the idle logout with auto-login held off, and switches GE Flipper off. It never switches Break Handler off.
 - Simpler settings: two controls on top, folded sections, shorter names and tooltips, and grey text for settings that aren't in use.
-- A bigger overlay with status, world, GE slots, the update countdown and mule progress.
+- A bigger overlay with status, world, GE slots, the update countdown and mule progress. It sits over the inventory below the top row unless you have moved it.
 - Honours the pause button in the Microbot header. Needs Microbot 2.6.53 or later.
 - Copilot's swapped Abort/Modify left-click now counts once the cursor is anywhere on the slot button, not only on the exact pixel.
 - Setting keys are unchanged, so saved settings carry over. The help is rewritten as short guides under new keys; old saved copies of the help text are removed once.

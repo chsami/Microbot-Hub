@@ -3,6 +3,8 @@ package net.runelite.client.plugins.microbot.geflipper;
 import net.runelite.api.Client;
 import net.runelite.api.GrandExchangeOffer;
 import net.runelite.api.GrandExchangeOfferState;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.ui.overlay.OverlayLayer;
@@ -18,7 +20,10 @@ import javax.inject.Inject;
 import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class FlipperOverlay extends OverlayPanel {
@@ -33,9 +38,30 @@ public class FlipperOverlay extends OverlayPanel {
     private static final Color BAR_BACKGROUND = new Color(0x2B3038);
     private static final Color BAR_FILL = new Color(0x2E8B57);
     private static final Color BAR_FULL = new Color(0xC9A227);
+    private static final int ROW_GAP = 2;
+    private static final Rectangle PANEL_BORDER = new Rectangle(8, 6, 8, 6);
+
+    /**
+     * Inventories the panel can sit over, most specific first: the Grand Exchange, bank and trade screens show their
+     * own inventory in place of the normal one.
+     */
+    private static final int[] INVENTORIES = {InterfaceID.GeOffersSide.ITEMS, InterfaceID.Bankside.ITEMS,
+        InterfaceID.Tradeside.SIDE_LAYER, InterfaceID.Inventory.ITEMS};
+    private static final int INVENTORY_ROWS = 7;
+    private static final int INVENTORY_COLUMNS = 4;
+    /** How much wider and taller than the item grid its side-panel tab may be and still be used. */
+    private static final int MAX_TAB_MARGIN = 60;
+    private static final int MIN_SPOT_WIDTH = 120;
+    private static final int MIN_SPOT_HEIGHT = 60;
+    /** Rows that may be left out when the panel doesn't fit over the inventory; the highest level goes first. */
+    private static final int ALWAYS = 0, DROP_LAST = 1, DROP_SECOND = 2, DROP_FIRST = 3;
+    /** Measures rows before they are drawn over the inventory. Client thread only, like rendering. */
+    private static final BufferedImage MEASURE = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
 
     private final FlipperPlugin plugin;
     private final FlipperConfig config;
+    /** One entry per panel row: ALWAYS, or the DROP_* level at which it is left out when space is short. */
+    private final List<Integer> dropLevels = new ArrayList<>();
     private volatile DisplayStats displayStats = DisplayStats.empty();
     private volatile long statsGeneration;
     private volatile long lastFetchTime;
@@ -45,14 +71,16 @@ public class FlipperOverlay extends OverlayPanel {
         super(plugin);
         this.plugin = plugin;
         this.config = config;
+        // Sits over the inventory below its top row (see inventorySpot), or top left while no inventory is showing.
         setPosition(OverlayPosition.TOP_LEFT);
-        // Drawn above game interfaces, so an open Grand Exchange window never hides it. Overlays never take clicks
-        // (outside RuneLite's Alt drag mode), so the slots underneath still work, and Alt+drag moves it.
+        // Drawn above game interfaces, so neither the inventory nor an open Grand Exchange window hides it. Overlays
+        // never take clicks (outside RuneLite's Alt drag mode), so the slots underneath still work. Alt+drag moves
+        // it anywhere and Alt+right-click puts it back.
         setLayer(OverlayLayer.ALWAYS_ON_TOP);
         setNaughty();
         panelComponent.setBackgroundColor(BACKGROUND_COLOR);
-        panelComponent.setBorder(new Rectangle(8, 6, 8, 6));
-        panelComponent.setGap(new Point(0, 2));
+        panelComponent.setBorder(new Rectangle(PANEL_BORDER));
+        panelComponent.setGap(new Point(0, ROW_GAP));
     }
 
     /** Forget financial display data and invalidate any queued Swing read. */
@@ -60,7 +88,21 @@ public class FlipperOverlay extends OverlayPanel {
         statsGeneration++;
         displayStats = DisplayStats.empty();
         lastFetchTime = 0;
+        clearRows();
+    }
+
+    private void clearRows() {
         panelComponent.getChildren().clear();
+        dropLevels.clear();
+    }
+
+    private void add(LayoutableRenderableEntity row) {
+        add(row, ALWAYS);
+    }
+
+    private void add(LayoutableRenderableEntity row, int dropLevel) {
+        panelComponent.getChildren().add(row);
+        dropLevels.add(dropLevel);
     }
 
     synchronized boolean publishStats(long generation, DisplayStats stats) {
@@ -251,6 +293,12 @@ public class FlipperOverlay extends OverlayPanel {
             clearStats();
             return null;
         }
+        Client client = Microbot.getClient();
+        Rectangle spot = inventorySpot(client);
+        // Skip the frame the placement changes: RuneLite laid this one out for the old placement.
+        if (!usePlacement(spot == null ? OverlayPosition.TOP_LEFT : OverlayPosition.DETACHED)) return null;
+        // Over the inventory the panel would hide a right-click menu opened there, so step aside while it's open.
+        if (spot != null && menuCovers(client, spot)) return null;
         if (receiver) {
             // Receivers need neither Copilot nor its account/session display data, including while on standby.
             clearStats();
@@ -259,12 +307,11 @@ public class FlipperOverlay extends OverlayPanel {
         }
         FlipperScript script = plugin == null ? null : plugin.getFlipperScript();
         DisplayStats stats = displayStats;
-        panelComponent.getChildren().clear();
-        panelComponent.setPreferredSize(new Dimension(muleMode == FlipperConfig.MuleMode.OFF ? 210 : 236, 0));
-        panelComponent.getChildren().add(TitleComponent.builder()
-            .text("GE Flipper  v" + FlipperPlugin.version).color(TITLE_COLOR).build());
+        clearRows();
+        int width = muleMode == FlipperConfig.MuleMode.OFF ? 210 : 236;
+        add(TitleComponent.builder().text("GE Flipper  v" + FlipperPlugin.version).color(TITLE_COLOR).build());
         if (receiver) {
-            panelComponent.getChildren().add(new Section("MULE RECEIVER"));
+            add(new Section("MULE RECEIVER"), DROP_LAST);
             // Same rows as the login-screen window, so both always show the same numbers.
             MuleConnectionMonitor.Snapshot connection = script == null ? null : script.getMuleConnectionStatus();
             MuleLedger.Snapshot ledger = script == null ? null : script.getMuleLedgerSnapshot();
@@ -274,48 +321,162 @@ public class FlipperOverlay extends OverlayPanel {
                 LineComponent.LineComponentBuilder line = LineComponent.builder().left(row.label);
                 if (row.value.isEmpty()) line.leftColor(MuleOverlayView.color(row.tone));
                 else line.leftColor(LABEL_COLOR).right(row.value).rightColor(MuleOverlayView.color(row.tone));
-                panelComponent.getChildren().add(line.build());
+                add(line.build());
             }
-            return super.render(graphics);
+            return draw(graphics, spot, width);
         }
 
-        Client client = Microbot.getClient();
         String activity = script == null ? "Flipping" : script.getActivity();
-        panelComponent.getChildren().add(row("Status:", activity, activityColor(activity)));
+        add(row("Status:", activity, activityColor(activity)));
         int world = client == null ? 0 : client.getWorld();
-        if (world > 0) panelComponent.getChildren().add(row("World:", String.valueOf(world), LABEL_COLOR));
+        if (world > 0) add(row("World:", String.valueOf(world), LABEL_COLOR), DROP_FIRST);
         int updateSeconds = script == null ? -1 : script.getSystemUpdateSeconds();
         if (updateSeconds >= 0) {
             boolean muleFirst = muleMode == FlipperConfig.MuleMode.FLIPPER_SENDER && script.isMuleBeforeUpdatePlanned();
-            panelComponent.getChildren().add(row("OSRS update in:",
-                clock(updateSeconds) + (muleFirst ? ", mule first" : ""), NEGATIVE_COLOR));
+            add(row("OSRS update in:", clock(updateSeconds) + (muleFirst ? ", mule first" : ""), NEGATIVE_COLOR));
         }
 
-        panelComponent.getChildren().add(new Section("PROFIT"));
-        panelComponent.getChildren().add(row("GP/hr:", stats.hourly, getColorForText(stats.hourly)));
-        panelComponent.getChildren().add(row("Copilot Profit:", stats.overall, getColorForText(stats.overall)));
+        add(new Section("PROFIT"), DROP_LAST);
+        add(row("GP/hr:", stats.hourly, getColorForText(stats.hourly)));
+        add(row("Copilot Profit:", stats.overall, getColorForText(stats.overall)));
         if (stats.time != null && !"-".equals(stats.time)) {
-            panelComponent.getChildren().add(row("Session Time:", stats.time, MUTED_COLOR));
+            add(row("Session Time:", stats.time, MUTED_COLOR), DROP_FIRST);
         }
         String slots = slotSummary(client == null ? null : client.getGrandExchangeOffers());
-        if (slots != null) panelComponent.getChildren().add(row("GE slots:", slots, LABEL_COLOR));
+        if (slots != null) add(row("GE slots:", slots, LABEL_COLOR), DROP_LAST);
 
         if (muleMode != FlipperConfig.MuleMode.OFF && script != null) addMuleRows(script);
 
         String slotStatus = script == null ? "" : script.getSlotActionStatus();
         if (!slotStatus.isEmpty()) {
-            panelComponent.getChildren().add(new Section(null));
-            panelComponent.getChildren().add(LineComponent.builder()
-                .left(slotStatus).leftColor(Color.ORANGE).build());
+            add(new Section(null), DROP_LAST);
+            add(LineComponent.builder().left(slotStatus).leftColor(Color.ORANGE).build());
         }
-        return super.render(graphics);
+        return draw(graphics, spot, width);
+    }
+
+    /**
+     * Where the panel sits this frame: over the inventory below its top row, so the coins there stay in view. Null
+     * puts it in the normal top-left corner: while no inventory is showing, and for good once the player has moved
+     * the panel themselves (Alt+drag, which RuneLite remembers). Alt+right-click clears that and brings it back here.
+     * Client thread only (render), as it reads widgets.
+     */
+    private Rectangle inventorySpot(Client client) {
+        if (client == null || getPreferredLocation() != null || getPreferredPosition() != null) return null;
+        for (int id : INVENTORIES) {
+            Widget items = client.getWidget(id);
+            if (items == null || items.isHidden()) continue;
+            Widget tab = items.getParent();
+            Rectangle spot = belowTopRow(items.getBounds(), topRowBottom(items), tab == null ? null : tab.getBounds());
+            if (spot != null) return spot;
+        }
+        return null;
+    }
+
+    /** The bottom edge of the first row of item slots, or -1 when the slots can't be read. */
+    static int topRowBottom(Widget items) {
+        Widget[] slots = items.getDynamicChildren();
+        if (slots == null) return -1;
+        int bottom = -1;
+        for (int i = 0; i < Math.min(INVENTORY_COLUMNS, slots.length); i++) {
+            Rectangle slot = slots[i] == null ? null : slots[i].getBounds();
+            if (slot != null && slot.height > 0) bottom = Math.max(bottom, slot.y + slot.height);
+        }
+        return bottom;
+    }
+
+    /**
+     * The part of an inventory below its top row, widened to the inventory's side-panel tab when that tab is known
+     * and only a little bigger than the item grid. Null when the inventory isn't laid out or the space is too small.
+     */
+    static Rectangle belowTopRow(Rectangle items, int topRowBottom, Rectangle tab) {
+        if (items == null || items.width <= 0 || items.height <= 0) return null;
+        boolean rowKnown = topRowBottom > items.y && topRowBottom <= items.y + items.height / 2;
+        int top = (rowKnown ? topRowBottom : items.y + items.height / INVENTORY_ROWS) + ROW_GAP;
+        int left = items.x;
+        int right = items.x + items.width;
+        int bottom = items.y + items.height;
+        if (tab != null && tab.contains(items) && tab.width - items.width <= MAX_TAB_MARGIN
+            && tab.height - items.height <= MAX_TAB_MARGIN) {
+            left = tab.x + ROW_GAP;
+            right = tab.x + tab.width - ROW_GAP;
+            bottom = tab.y + tab.height - ROW_GAP;
+        }
+        if (right - left < MIN_SPOT_WIDTH || bottom - top < MIN_SPOT_HEIGHT) return null;
+        return new Rectangle(left, top, right - left, bottom - top);
+    }
+
+    /** Moves between the inventory spot (detached) and the corner; false on the frame it moves. */
+    private boolean usePlacement(OverlayPosition wanted) {
+        if (getPosition() == wanted) return true;
+        setPosition(wanted);
+        return false;
+    }
+
+    private static boolean menuCovers(Client client, Rectangle spot) {
+        return client.isMenuOpen()
+            && spot.intersects(client.getMenuX(), client.getMenuY(), client.getMenuWidth(), client.getMenuHeight());
+    }
+
+    /** Draws the rows: as a normal panel, or fitted into the inventory spot. */
+    private Dimension draw(Graphics2D graphics, Rectangle spot, int width) {
+        if (spot == null) {
+            panelComponent.setPreferredSize(new Dimension(width, 0));
+            return super.render(graphics);
+        }
+        // RuneLite drew this frame where the panel last was; move to the spot now. The bounds keep the new place for
+        // the next frame, and for Alt+drag, which picks the panel up where it is drawn.
+        Rectangle bounds = getBounds();
+        graphics.translate(spot.x - bounds.x, spot.y - bounds.y);
+        bounds.setLocation(spot.x, spot.y);
+        panelComponent.setPreferredSize(new Dimension(spot.width, 0));
+        try {
+            fitHeight(graphics, spot.height);
+            return panelComponent.render(graphics);
+        } finally {
+            if (isClearChildren()) clearRows();
+        }
+    }
+
+    /**
+     * Leaves out the least important rows until the panel fits the space over the inventory. A panel sizes itself
+     * from the rows it laid out last time, so this lays the final rows out once more before they are drawn.
+     */
+    private void fitHeight(Graphics2D graphics, int maxHeight) {
+        List<LayoutableRenderableEntity> rows = panelComponent.getChildren();
+        if (rows.isEmpty() || rows.size() != dropLevels.size()) return;
+        layOut(graphics);
+        int height = PANEL_BORDER.y + PANEL_BORDER.height - ROW_GAP;
+        for (LayoutableRenderableEntity row : rows) height += row.getBounds().height + ROW_GAP;
+        boolean dropped = false;
+        for (int level = DROP_FIRST; level > ALWAYS && height > maxHeight; level--) {
+            for (int i = rows.size() - 1; i >= 0 && height > maxHeight; i--) {
+                if (dropLevels.get(i) != level) continue;
+                height -= rows.get(i).getBounds().height + ROW_GAP;
+                rows.remove(i);
+                dropLevels.remove(i);
+                dropped = true;
+            }
+        }
+        if (dropped) layOut(graphics);
+    }
+
+    /** Lays the rows out without drawing them on screen. */
+    private void layOut(Graphics2D graphics) {
+        Graphics2D measure = MEASURE.createGraphics();
+        try {
+            measure.setFont(graphics.getFont());
+            measure.setRenderingHints(graphics.getRenderingHints());
+            panelComponent.render(measure);
+        } finally {
+            measure.dispose();
+        }
     }
 
     private void addMuleRows(FlipperScript script) {
-        panelComponent.getChildren().add(new Section("MULE"));
+        add(new Section("MULE"), DROP_LAST);
         MuleConnectionMonitor.Snapshot connection = script.getMuleConnectionStatus();
-        panelComponent.getChildren().add(row("Mule link:",
-            connection == null ? "Checking" : connection.label(), connectionColor(connection)));
+        add(row("Mule link:", connection == null ? "Checking" : connection.label(), connectionColor(connection)));
 
         long capital = script.getMuleCapitalGp();
         int keep = script.getMuleKeepGp();
@@ -331,26 +492,26 @@ public class FlipperOverlay extends OverlayPanel {
             bar.setBackgroundColor(BAR_BACKGROUND);
             bar.setForegroundColor(capital >= trigger ? BAR_FULL : BAR_FILL);
             bar.setFontColor(Color.WHITE);
-            panelComponent.getChildren().add(bar);
+            add(bar);
         }
         if (keep > 0) {
             String rule = trigger > keep ? "keep " + compact(keep) + ", at " + compact(trigger)
                 : trigger < 0 ? "keep " + compact(keep) + ", check trigger" : "keep " + compact(keep);
-            panelComponent.getChildren().add(row("Mule rule:", rule, trigger < 0 ? NEGATIVE_COLOR : LABEL_COLOR));
+            // A trigger that needs checking is a problem to show, not detail to drop.
+            add(row("Mule rule:", rule, trigger < 0 ? NEGATIVE_COLOR : LABEL_COLOR), trigger < 0 ? ALWAYS : DROP_SECOND);
         }
         long muled = script.getTotalMuledGp();
-        panelComponent.getChildren().add(row("Mule Sent:", formatProfit(muled),
-            muled > 0 ? POSITIVE_COLOR : MUTED_COLOR));
+        add(row("Mule Sent:", formatProfit(muled), muled > 0 ? POSITIVE_COLOR : MUTED_COLOR));
         long lastAge = script.getLastMuleAgeMs();
         if (lastAge >= 0) {
-            panelComponent.getChildren().add(row("Last mule:",
-                compact(script.getLastMuleGp()) + ", " + ago(lastAge) + " ago", MUTED_COLOR));
+            add(row("Last mule:", compact(script.getLastMuleGp()) + ", " + ago(lastAge) + " ago", MUTED_COLOR),
+                DROP_FIRST);
         }
         String capitalStatus = script.getMuleCapitalStatus();
         if (capitalStatus != null && !capitalStatus.isEmpty()) {
             LineComponent.LineComponentBuilder line = LineComponent.builder().left(capitalStatus).leftColor(MUTED_COLOR);
             if (capital >= 0) line.right(compact(capital)).rightColor(MUTED_COLOR);
-            panelComponent.getChildren().add(line.build());
+            add(line.build(), DROP_SECOND);
         }
     }
 

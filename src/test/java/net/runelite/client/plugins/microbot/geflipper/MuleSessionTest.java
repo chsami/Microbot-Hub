@@ -976,10 +976,32 @@ class MuleSessionTest {
     }
 
     @Test
+    void muleAmountSettingsReadPlainNumbersAsMillions() {
+        assertEquals(150_000_000, MulePolicy.parseAmountSetting("150"));
+        assertEquals(1_000_000_000, MulePolicy.parseAmountSetting("1000"));
+        assertEquals(1_500_000, MulePolicy.parseAmountSetting("1.5"));
+        assertEquals(150_000_000, MulePolicy.parseAmountSetting(" 150 "));
+        assertEquals(0, MulePolicy.parseAmountSetting("0"));
+        // A unit or full digits are read as written.
+        assertEquals(150_000_000, MulePolicy.parseAmountSetting("150M"));
+        assertEquals(500_000, MulePolicy.parseAmountSetting("500k"));
+        assertEquals(1_200_000_000, MulePolicy.parseAmountSetting("1.2b"));
+        assertEquals(50_000_000, MulePolicy.parseAmountSetting("50,000,000"));
+        assertEquals(150, MulePolicy.parseAmountSetting("150 gp"));
+        // Too big for the game, or not a number: invalid, which pauses automatic muling.
+        assertEquals(-1, MulePolicy.parseAmountSetting("3000"));
+        assertEquals(-1, MulePolicy.parseAmountSetting("50000000"), "Not read as 50,000,000M");
+        assertEquals(-1, MulePolicy.parseAmountSetting(""));
+        assertEquals(-1, MulePolicy.parseAmountSetting("abc"));
+        assertEquals(-1, MulePolicy.parseAmountSetting(null));
+    }
+
+    @Test
     void policyParsesTheTriggerAndAllowsOnePercentOfDrift() {
         assertEquals(50_000_000, MulePolicy.parseTrigger("", 50_000_000), "Blank keeps the old behaviour");
         assertEquals(50_000_000, MulePolicy.parseTrigger("0", 50_000_000));
         assertEquals(75_000_000, MulePolicy.parseTrigger("75M", 50_000_000));
+        assertEquals(200_000_000, MulePolicy.parseTrigger("200", 50_000_000), "A plain number is millions");
         assertEquals(-1, MulePolicy.parseTrigger("75q", 50_000_000), "A typo stops automatic muling");
         assertEquals(500_000L, MulePolicy.transferTolerance(50_000_000));
         assertEquals(MulePolicy.MIN_TRANSFER_GP, MulePolicy.transferTolerance(10_000));

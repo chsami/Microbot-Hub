@@ -58,6 +58,12 @@ class SettingsLookTest {
         assertFalse(isActive(mule, "muleTriggerGp", true));
         assertFalse(isActive(config("muleMode", FlipperConfig.MuleMode.FLIPPER_SENDER, "muleBeforeUpdate", false),
             "muleBeforeUpdate", true));
+        // A Mule never runs either update step: it stays ready for the Flipper's last transfer.
+        assertFalse(isActive(mule, "muleBeforeUpdate", true));
+        assertFalse(isActive(config("muleMode", FlipperConfig.MuleMode.MULE_RECEIVER, "autoFinishOnSystemUpdate", true),
+            "autoFinishOnSystemUpdate", true));
+        assertTrue(isActive(config("muleMode", FlipperConfig.MuleMode.FLIPPER_SENDER, "autoFinishOnSystemUpdate", true),
+            "autoFinishOnSystemUpdate", true));
     }
 
     @Test

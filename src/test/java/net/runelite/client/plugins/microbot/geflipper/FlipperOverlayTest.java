@@ -3,14 +3,21 @@ package net.runelite.client.plugins.microbot.geflipper;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.gameval.InterfaceID;
+import net.runelite.api.widgets.Widget;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.components.LineComponent;
 import org.junit.jupiter.api.Test;
 
@@ -156,6 +163,140 @@ class FlipperOverlayTest {
         }
     }
 
+    // ---- Placement over the inventory ----
+
+    /** A fixed-mode-like inventory: a 4 x 7 grid of 36 x 32 slots on a 42 x 36 pitch, inside a 190 x 261 tab. */
+    private static final Rectangle TAB = new Rectangle(548, 205, 190, 261);
+    private static final Rectangle ITEMS = new Rectangle(563, 213, 162, 248);
+    private static final int TOP_ROW_BOTTOM = ITEMS.y + 32;
+
+    @Test
+    void theSpotStartsBelowTheTopRowAndFillsTheInventoryTab() {
+        Rectangle spot = FlipperOverlay.belowTopRow(ITEMS, TOP_ROW_BOTTOM, TAB);
+        assertNotNull(spot);
+        assertTrue(spot.y >= TOP_ROW_BOTTOM, "The top row, where the coins are, stays in view");
+        assertTrue(TAB.contains(spot), "Stays inside the inventory tab");
+        assertTrue(spot.width > ITEMS.width, "Uses the tab's width for longer rows");
+        assertEquals(TAB.y + TAB.height, spot.y + spot.height, 2.0);
+    }
+
+    @Test
+    void theSpotFallsBackToTheGridWhenSlotsOrTabCantBeUsed() {
+        Rectangle spot = FlipperOverlay.belowTopRow(ITEMS, -1, null);
+        assertNotNull(spot);
+        assertTrue(spot.y >= ITEMS.y + ITEMS.height / 7, "Unknown slots: skip one row's share of the grid");
+        assertEquals(ITEMS.x, spot.x);
+        assertEquals(ITEMS.width, spot.width);
+
+        Rectangle hugeTab = new Rectangle(0, 0, 765, 503);
+        assertEquals(ITEMS.width, FlipperOverlay.belowTopRow(ITEMS, TOP_ROW_BOTTOM, hugeTab).width,
+            "A container far bigger than the grid isn't the inventory tab");
+        assertNull(FlipperOverlay.belowTopRow(new Rectangle(0, 0, 0, 0), -1, null), "Not laid out yet");
+        assertNull(FlipperOverlay.belowTopRow(new Rectangle(10, 10, 90, 248), -1, null), "Too narrow for the rows");
+        assertNull(FlipperOverlay.belowTopRow(null, -1, TAB));
+    }
+
+    @Test
+    void thePanelSitsOverTheInventoryBelowItsTopRow() throws Exception {
+        try (Fixture fixture = new Fixture(FlipperConfig.MuleMode.OFF, GameState.LOGGED_IN, true)) {
+            fixture.showInventory(InterfaceID.Inventory.ITEMS, ITEMS);
+            assertNull(fixture.render(), "The frame the placement changes is skipped");
+            assertEquals(OverlayPosition.DETACHED, fixture.overlay.getPosition());
+
+            Dimension drawn = fixture.render();
+            Rectangle spot = FlipperOverlay.belowTopRow(ITEMS, TOP_ROW_BOTTOM, TAB);
+            assertNotNull(drawn);
+            assertEquals(spot.getLocation(), fixture.overlay.getBounds().getLocation());
+            assertEquals(spot.width, drawn.width);
+            assertTrue(drawn.height <= spot.height, "Fits below the top row");
+            assertTrue(fixture.labels().contains("GP/hr:"));
+        }
+    }
+
+    @Test
+    void theGrandExchangeInventoryIsUsedWhileTheExchangeIsOpen() throws Exception {
+        try (Fixture fixture = new Fixture(FlipperConfig.MuleMode.OFF, GameState.LOGGED_IN, true)) {
+            Rectangle geItems = new Rectangle(ITEMS.x, ITEMS.y + 4, ITEMS.width, ITEMS.height);
+            fixture.showInventory(InterfaceID.Inventory.ITEMS, ITEMS);
+            fixture.showInventory(InterfaceID.GeOffersSide.ITEMS, geItems);
+            fixture.render();
+            fixture.render();
+            assertEquals(FlipperOverlay.belowTopRow(geItems, geItems.y + 32, TAB).getLocation(),
+                fixture.overlay.getBounds().getLocation());
+        }
+    }
+
+    @Test
+    void withNoInventoryShowingThePanelGoesBackToTheTopLeftCorner() throws Exception {
+        try (Fixture fixture = new Fixture(FlipperConfig.MuleMode.OFF, GameState.LOGGED_IN, true)) {
+            fixture.showInventory(InterfaceID.Inventory.ITEMS, ITEMS);
+            fixture.render();
+            fixture.render();
+            fixture.hidden = true; // e.g. the prayer tab is open
+            assertNull(fixture.render());
+            assertEquals(OverlayPosition.TOP_LEFT, fixture.overlay.getPosition());
+            fixture.render(); // a panel takes its size from the rows it laid out the frame before
+            assertEquals(210, fixture.render().width, "Normal size in the corner");
+        }
+    }
+
+    @Test
+    void aPanelThePlayerMovedStaysWhereTheyPutIt() throws Exception {
+        try (Fixture fixture = new Fixture(FlipperConfig.MuleMode.OFF, GameState.LOGGED_IN, true)) {
+            fixture.showInventory(InterfaceID.Inventory.ITEMS, ITEMS);
+            fixture.overlay.setPreferredLocation(new Point(40, 60)); // Alt+drag, or a saved spot from before
+            fixture.render();
+            Dimension drawn = fixture.render();
+            assertNotNull(drawn);
+            assertEquals(OverlayPosition.TOP_LEFT, fixture.overlay.getPosition());
+            assertEquals(210, drawn.width);
+
+            fixture.overlay.setPreferredLocation(null); // Alt+right-click reset
+            fixture.render();
+            fixture.render();
+            assertEquals(OverlayPosition.DETACHED, fixture.overlay.getPosition());
+        }
+    }
+
+    @Test
+    void aRightClickMenuOverThePanelHidesItUntilClosed() throws Exception {
+        try (Fixture fixture = new Fixture(FlipperConfig.MuleMode.OFF, GameState.LOGGED_IN, true)) {
+            fixture.showInventory(InterfaceID.Inventory.ITEMS, ITEMS);
+            fixture.render();
+            fixture.menu = new Rectangle(600, 300, 120, 80);
+            assertNull(fixture.render());
+            fixture.menu = new Rectangle(100, 100, 120, 80); // a menu over the game world
+            assertNotNull(fixture.render());
+            fixture.menu = null;
+            assertNotNull(fixture.render());
+        }
+    }
+
+    @Test
+    void whenSpaceIsShortDetailRowsAreLeftOutFirst() throws Exception {
+        try (Fixture fixture = new Fixture(FlipperConfig.MuleMode.FLIPPER_SENDER, GameState.LOGGED_IN, true)) {
+            fixture.world = 330;
+            fixture.script.connection = snapshot(MuleConnectionMonitor.State.READY, true);
+            fixture.script.capitalStatus = "Capital: partial estimate";
+            fixture.overlay.publishStats(0, new FlipperOverlay.DisplayStats("+12.3K gp", "+4.1K gp/hr", "03:00:00"));
+            field(FlipperOverlay.class, "lastFetchTime").setLong(fixture.overlay, System.currentTimeMillis());
+            Rectangle shortItems = new Rectangle(ITEMS.x, ITEMS.y, ITEMS.width, 200);
+            fixture.tab = new Rectangle(TAB.x, ITEMS.y - 4, TAB.width, 208);
+            fixture.showInventory(InterfaceID.Inventory.ITEMS, shortItems);
+            fixture.render();
+            Dimension drawn = fixture.render();
+
+            List<String> labels = fixture.labels();
+            for (String kept : new String[]{"Status:", "GP/hr:", "Copilot Profit:", "Mule link:", "Mule Sent:"}) {
+                assertTrue(labels.contains(kept), kept + " is kept");
+            }
+            assertFalse(labels.contains("World:"), "World goes first");
+            assertFalse(labels.contains("Session Time:"), "Session time goes first");
+            Rectangle spot = FlipperOverlay.belowTopRow(shortItems, shortItems.y + 32, fixture.tab);
+            assertTrue(drawn.height <= spot.height, "Fits: " + drawn.height + " <= " + spot.height);
+        }
+    }
+
     private static MuleConnectionMonitor.Snapshot snapshot(MuleConnectionMonitor.State state, boolean connected) {
         return new MuleConnectionMonitor.Snapshot(state, connected, connected, 1_000L);
     }
@@ -188,6 +329,11 @@ class FlipperOverlayTest {
         private final Object oldClient;
         private final Object oldManager;
         private final Graphics2D graphics;
+        final Map<Integer, Widget> widgets = new HashMap<>();
+        Rectangle tab = TAB;
+        boolean hidden;
+        Rectangle menu;
+        int world;
 
         Fixture(FlipperConfig.MuleMode mode, GameState gameState, boolean visible) throws Exception {
             clientField = field(Microbot.class, "client");
@@ -196,7 +342,19 @@ class FlipperOverlayTest {
             oldManager = managerField.get(null);
             Client client = (Client) Proxy.newProxyInstance(Client.class.getClassLoader(), new Class<?>[]{Client.class},
                 (proxy, method, args) -> {
-                    if ("getGameState".equals(method.getName())) return gameState;
+                    switch (method.getName()) {
+                        case "getGameState": return gameState;
+                        case "getWorld": return world;
+                        case "isMenuOpen": return menu != null;
+                        case "getMenuX": return menu == null ? 0 : menu.x;
+                        case "getMenuY": return menu == null ? 0 : menu.y;
+                        case "getMenuWidth": return menu == null ? 0 : menu.width;
+                        case "getMenuHeight": return menu == null ? 0 : menu.height;
+                        case "getWidget":
+                            if (args != null && args.length == 1 && args[0] instanceof Integer) return widgets.get(args[0]);
+                            break;
+                        default:
+                    }
                     Class<?> type = method.getReturnType();
                     if (type == boolean.class) return false;
                     if (type == int.class) return 0;
@@ -219,6 +377,34 @@ class FlipperOverlayTest {
         }
 
         Dimension render() { return overlay.render(graphics); }
+
+        /** An inventory item grid with 28 slots laid out like the game's, inside the fixture's tab. */
+        void showInventory(int id, Rectangle items) {
+            Widget[] slots = new Widget[28];
+            for (int i = 0; i < slots.length; i++) {
+                Rectangle slot = new Rectangle(items.x + (i % 4) * 42, items.y + (i / 4) * 36, 36, 32);
+                slots[i] = widget(() -> slot, null, null);
+            }
+            Widget tabWidget = widget(() -> tab, null, null);
+            widgets.put(id, widget(() -> items, tabWidget, slots));
+        }
+
+        private Widget widget(java.util.function.Supplier<Rectangle> bounds, Widget parent, Widget[] children) {
+            return (Widget) Proxy.newProxyInstance(Widget.class.getClassLoader(), new Class<?>[]{Widget.class},
+                (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "getBounds": return bounds.get();
+                        case "isHidden": return hidden;
+                        case "getParent": return parent;
+                        case "getDynamicChildren": return children;
+                        default:
+                    }
+                    Class<?> type = method.getReturnType();
+                    if (type == boolean.class) return false;
+                    if (type == int.class) return 0;
+                    return null;
+                });
+        }
 
         List<String> labels() throws Exception {
             return overlay.getPanelComponent().getChildren().stream().filter(LineComponent.class::isInstance)

@@ -974,7 +974,7 @@ public class FlipperScript extends Script {
         refreshSenderConnection();
         FlipperConfig.MuleMode muleMode = config == null ? FlipperConfig.MuleMode.OFF : config.muleMode();
         long now = TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
-        int capitalLimit = config == null ? -1 : MulePolicy.parseGp(config.muleThresholdGp());
+        int capitalLimit = config == null ? -1 : MulePolicy.parseAmountSetting(config.muleThresholdGp());
         int trigger = config == null ? -1 : MulePolicy.parseTrigger(config.muleTriggerGp(), capitalLimit);
         displayKeepGp = capitalLimit;
         displayTriggerGp = trigger < 0 ? -1 : Math.max(trigger, capitalLimit);

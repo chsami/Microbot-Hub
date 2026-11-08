@@ -142,7 +142,9 @@ final class SettingsLook implements AutoCloseable {
         switch (key) {
             case "finish": return running;
             case "showOverlay": return c.showOverlay();
-            case "autoFinishOnSystemUpdate": return c.autoFinishOnSystemUpdate();
+            // A Mule never finishes for an update: it stays ready for the Flipper's last transfer.
+            case "autoFinishOnSystemUpdate":
+                return c.autoFinishOnSystemUpdate() && c.muleMode() != FlipperConfig.MuleMode.MULE_RECEIVER;
             case "waitingMouseOffScreen":
             case "waitingMousePreset":
             case "waitingMouseChance": return c.waitingMouseOffScreen();

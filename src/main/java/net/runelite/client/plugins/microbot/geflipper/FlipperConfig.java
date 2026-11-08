@@ -142,7 +142,10 @@ public interface FlipperConfig extends Config {
     @ConfigItem(
         keyName = "showOverlay",
         name = "Show overlay",
-        description = "Show the GE Flipper panel on the game screen:<br>status, profit, GE slots and mule progress.",
+        description = "Show the GE Flipper panel: status, profit, GE slots<br>"
+            + "and mule progress. It sits over your inventory, below<br>"
+            + "the top row. Hold Alt and drag it to move it;<br>"
+            + "Alt+right-click puts it back.",
         position = 1
     )
     default boolean showOverlay() {
@@ -179,7 +182,8 @@ public interface FlipperConfig extends Config {
     @ConfigItem(
         keyName = "autoFinishOnSystemUpdate",
         name = "Finish on OSRS update",
-        description = "When an OSRS update countdown appears,<br>run End / Finish automatically.",
+        description = "When an OSRS update countdown appears,<br>run End / Finish automatically.<br>"
+            + "Not used on a Mule, which waits for the Flipper.",
         position = 13,
         section = tradingSection
     )
@@ -317,7 +321,8 @@ public interface FlipperConfig extends Config {
     @ConfigItem(
         keyName = "muleThresholdGp",
         name = "Keep for flipping",
-        description = "Total to keep for flipping: GP, items and GE offers (e.g. 50M).<br>"
+        description = "Total to keep for flipping: GP, items and GE offers.<br>"
+            + "A plain number is millions: 150 = 150M, 1000 = 1000M.<br>"
             + "Only what's above this is sent. Items with no known price<br>"
             + "aren't counted, so a little extra may stay.",
         position = 43,
@@ -328,8 +333,9 @@ public interface FlipperConfig extends Config {
     @ConfigItem(
         keyName = "muleTriggerGp",
         name = "Mule when over",
-        description = "Start a transfer once your total reaches this (e.g. 75M),<br>"
-            + "then send everything above 'Keep for flipping'.<br>"
+        description = "Start a transfer once your total reaches this<br>"
+            + "(a plain number is millions: 200 = 200M), then send<br>"
+            + "everything above 'Keep for flipping'.<br>"
             + "0 = whenever there's at least 1,000 GP above it.",
         position = 44,
         section = muleSection
@@ -341,7 +347,8 @@ public interface FlipperConfig extends Config {
         name = "Mule before OSRS update",
         description = "When an update countdown appears, send everything above<br>"
             + "'Keep for flipping' to the Mule before stopping. Only loose GP<br>"
-            + "is sent; skipped if the update is too close.",
+            + "is sent; skipped if the update is too close.<br>"
+            + "Set it on the Flipper. A Mule always takes this transfer.",
         position = 45,
         section = muleSection
     )

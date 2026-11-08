@@ -16,6 +16,7 @@ final class MulePolicy {
 
     private static final Pattern GP_PATTERN = Pattern.compile(
         "^\\s*([0-9]+(?:\\.[0-9]+)?)\\s*([kmb]?)\\s*(?:gp)?\\s*$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PLAIN_NUMBER_PATTERN = Pattern.compile("^[0-9]+(?:\\.[0-9]+)?$");
     private static final Pattern THOUSANDS_PATTERN = Pattern.compile(
         "^[0-9]{1,3}(?:,[0-9]{3})+(?:\\.[0-9]+)?[kmb]?(?:gp)?$", Pattern.CASE_INSENSITIVE);
     private static final Pattern TILE_PATTERN = Pattern.compile(
@@ -96,12 +97,24 @@ final class MulePolicy {
     }
 
     /**
+     * The mule amount settings ("Keep for flipping", "Mule when over"): like {@link #parseGp}, except that a plain
+     * number with no unit means millions, so "150" is 150M and "1000" is 1000M (1B). A unit ("500k", "1.2B", "150 gp")
+     * or thousands separators ("50,000,000") are read as written. Too big for the game (over 2,147M) returns -1.
+     */
+    static int parseAmountSetting(String raw) {
+        if (raw == null) return -1;
+        String cleaned = raw.replace("_", "").replace(" ", "").replace(" ", "").trim();
+        if (PLAIN_NUMBER_PATTERN.matcher(cleaned).matches()) return parseGp(cleaned + "M");
+        return parseGp(raw);
+    }
+
+    /**
      * The "Mule when over" amount. Blank or 0 means "as soon as there is excess above the keep amount", which is how
      * muling always worked. A typo returns -1, so it stops automatic muling instead of muling more often.
      */
     static int parseTrigger(String raw, int keepGp) {
         if (raw == null || raw.trim().isEmpty()) return keepGp;
-        int trigger = parseGp(raw);
+        int trigger = parseAmountSetting(raw);
         if (trigger < 0) return -1;
         return trigger == 0 ? keepGp : trigger;
     }
