@@ -85,8 +85,11 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	volatile long reenterAtMs = -1;
 	private long lastLobbyClickMs;
 	private int chestFails;
-	/** 1.8.2: the Reward Chest was given up on for this lobby visit. */
-	private boolean chestGaveUp;
+	/**
+	 * 1.8.2 (review): the Reward Chest didn't open after {@link #CHEST_MAX_TRIES} clicks: the bot
+	 * stops in the lobby (the loot stays in it) until Continue is pressed.
+	 */
+	volatile boolean chestBlocked;
 	/** Chest clicks that didn't clear the reward before it's left alone (player report: retried forever). */
 	static final int CHEST_MAX_TRIES = 3;
 	/** Entrance clicks in a row that didn't get us in (review: a locked Corrupted Gauntlet looped forever). */
@@ -351,7 +354,8 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		boolean died = rs != null && (rs.diedThisRun() || deathsAtRunStart >= 0 && rs.setupDeaths() + rs.bossDeaths() > deathsAtRunStart);
 		String next = !config.autoLoop() ? " Press " + config.continueKey() + " for the next run." : bossOnly() ? " Next run starting now: prep it yourself." : "";
 		// 1.8.2: only a boss fight that ended alive is a kill (leaving during prep isn't).
-		String msg = (died ? "Auto Gauntlet: you died." : from == CgState.BOSS ? "Auto Gauntlet: Hunllef killed!" : "Auto Gauntlet: run over.") + next;
+		String msg = (died ? "Auto Gauntlet: you died." : from == CgState.BOSS ? "Auto Gauntlet: Hunllef killed!"
+			: "Auto Gauntlet: left the Gauntlet before the boss fight.") + next;
 		Microbot.getNotifier().notify(msg);
 		pl("LOBBY", "notification: " + msg);
 	}
@@ -665,8 +669,12 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			rapidTries = 0;
 			net.runelite.client.plugins.microbot.cgprep.stats.RunStats rs = stats;
 			deathsAtRunStart = rs == null ? -1 : rs.setupDeaths() + rs.bossDeaths();
+			if (rs != null)
+			{
+				rs.runStarted();
+			}
 			chestFails = 0;
-			chestGaveUp = false;
+			chestBlocked = false;
 			pl("RUN", "started mode=" + mode() + " profile=" + config.profile() + " dryRun=" + config.dryRun()
 				+ " skipDemi=" + config.skipDemiBosses() + " fishTarget=" + config.fishTarget()
 				+ " antiban=" + antiban.isActive() + " seed=" + runSeed + " autoMode=" + config.autoMode() + (bossAuto() ? " (bot fights, no handover)" : ""));
@@ -2290,15 +2298,25 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			return; // the last click is still being walked to / processed
 		}
 		boolean reward = (config.autoLoop() || continueRequested) && Microbot.getVarbitValue(CgIds.VB_REWARD_AVAILABLE) != 0;
-		// 1.8.2 (player report: it tried the chest every 8 s, forever): a chest that doesn't clear
-		// after a few clicks is left alone and the next run starts. A boss-fight death still has
-		// loot (user), so it's opened the same way after one.
-		if (reward && !chestGaveUp && chestFails >= CHEST_MAX_TRIES)
+		// 1.8.2 (player report: it tried the chest every 8 s, forever; review: don't walk away from
+		// the loot): a chest that doesn't open after a few clicks stops the bot in the lobby, once,
+		// with a chat message, until Continue. A boss-fight death still has loot (user), so it's
+		// opened the same way after one.
+		if (chestBlocked)
 		{
-			chestGaveUp = true;
-			pl("LOBBY", "WARN the Reward Chest didn't open after " + chestFails + " clicks: leaving it, going again");
+			if (!continueRequested)
+			{
+				lastAction = "lobby: stopped, the Reward Chest won't open (see chat)";
+				return;
+			}
+			chestBlocked = false; // Continue: try the chest again (or go in if it's been emptied)
+			chestFails = 0;
 		}
-		reward &= !chestGaveUp;
+		if (reward && chestFails >= CHEST_MAX_TRIES)
+		{
+			blockChest();
+			return;
+		}
 		int free = Rs2Inventory.emptySlotCount();
 		boolean needBank = reward && (free < config.bankBelowFreeSlots() || (chestFails >= 2 && free < 8));
 		if (needBank || Rs2DepositBox.isOpen())
@@ -2401,6 +2419,19 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				blockEntering();
 			}
 		}
+	}
+
+	/** The Reward Chest didn't open after several clicks: stop in the lobby and say why, once (1.8.2 review). */
+	private void blockChest()
+	{
+		String msg = "Auto Gauntlet: the Reward Chest didn't open after " + CHEST_MAX_TRIES + " tries, so it stopped here to keep your loot."
+			+ " Open it yourself (or make room in your bag), then press " + config.continueKey() + " to go again.";
+		chestBlocked = true;
+		continueRequested = false;
+		reenterAtMs = -1;
+		pl("LOBBY", "WARN " + msg);
+		Microbot.getClientThread().invoke(() ->
+			Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", "<col=ff0000>" + msg + "</col>", null));
 	}
 
 	/** Several entrance clicks didn't get us in: stop and say why, once (review). */

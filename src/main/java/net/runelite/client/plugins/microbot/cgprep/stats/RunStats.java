@@ -64,7 +64,7 @@ public final class RunStats
 		this.log = log;
 		// Totals are per session (user, 1.2.0): a new RunStats is made every time the plugin is
 		// switched on, starting from 0. Totals stored by earlier versions are cleared.
-		for (String k : new String[]{K_RUNS, K_SETUP_DEATHS, K_BOSS_DEATHS, K_GE, K_HA})
+		for (String k : config == null ? new String[0] : new String[]{K_RUNS, K_SETUP_DEATHS, K_BOSS_DEATHS, K_GE, K_HA})
 		{
 			if (config.getConfiguration(GROUP, k) != null)
 			{
@@ -79,6 +79,14 @@ public final class RunStats
 	public void runEnded()
 	{
 		runs++;
+	}
+
+	/**
+	 * A new run has started: this run's death and boss flags start clear. (1.8.2 review: clearing
+	 * them in runEnded() let the fight's 0-HP check, which runs after that, count a boss death twice.)
+	 */
+	public void runStarted()
+	{
 		diedThisRun = false;
 		bossThisRun = false;
 	}
