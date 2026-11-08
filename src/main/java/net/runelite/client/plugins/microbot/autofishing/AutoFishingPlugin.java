@@ -3,7 +3,9 @@ package net.runelite.client.plugins.microbot.autofishing;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Skill;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
@@ -27,7 +29,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoFishingPlugin extends Plugin {
-    static final String version = "1.0.13";
+    static final String version = "1.0.14";
     @Inject
     private AutoFishingConfig config;
 
@@ -61,6 +63,11 @@ public class AutoFishingPlugin extends Plugin {
     protected void shutDown() {
         fishingScript.shutdown();
         overlayManager.remove(fishingOverlay);
+    }
+
+    @Subscribe
+    public void onChatMessage(ChatMessage event) {
+        fishingScript.onChatMessage(event);
     }
 
     public int getXpGained() {
