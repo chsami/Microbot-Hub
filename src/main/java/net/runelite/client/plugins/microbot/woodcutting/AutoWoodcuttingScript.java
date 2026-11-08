@@ -35,6 +35,7 @@ import javax.inject.Inject;
 import java.awt.event.KeyEvent;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static net.runelite.api.gameval.AnimationID.*;
@@ -72,6 +73,8 @@ public class AutoWoodcuttingScript extends Script {
     );
     private static WorldPoint returnPoint;
     public volatile boolean cannotLightFire = false;
+    private static final int MAX_FIRE_SPOT_DISTANCE = 10;
+    final Set<WorldPoint> noFireTiles = new HashSet<>();
     WoodcuttingScriptState woodcuttingScriptState = WoodcuttingScriptState.WOODCUTTING;
     private boolean hasAutoHopMessageShown = false;
     private final AutoWoodcuttingPlugin plugin;
@@ -461,7 +464,15 @@ public class AutoWoodcuttingScript extends Script {
         }
         if ((Rs2Player.isStandingOnGameObject() || cannotLightFire) && !Rs2Player.isAnimating() && !useCampfire) {
             fireSpot = fireSpot(1);
-            Rs2Walker.walkFastCanvas(fireSpot);
+            if (fireSpot == null) {
+                noFireTiles.clear();
+                return false;
+            }
+            WorldPoint target = fireSpot;
+            if (!Rs2Walker.walkFastCanvas(target) || !sleepUntil(() -> target.equals(Rs2Player.getWorldLocation()), 3000)) {
+                noFireTiles.add(target);
+                return false;
+            }
             cannotLightFire = false;
         }
         if (!isFiremake() && !useCampfire) {
@@ -482,8 +493,11 @@ public class AutoWoodcuttingScript extends Script {
             return true;
         }
         sleepUntil(() -> !isFiremake());
-        if (!isFiremake()) {
-            sleepUntil(() -> cannotLightFire, 1500);
+        if (!isFiremake() && sleepUntil(() -> cannotLightFire, 1500)) {
+            WorldPoint failedTile = Rs2Player.getWorldLocation();
+            if (failedTile != null) {
+                noFireTiles.add(failedTile);
+            }
         }
         if (!cannotLightFire && isFiremake()) {
             sleepUntil(() -> Rs2Player.waitForXpDrop(Skill.FIREMAKING, 40000), 40000);
@@ -492,28 +506,20 @@ public class AutoWoodcuttingScript extends Script {
     }
 
     private WorldPoint fireSpot(int distance) {
-        List<WorldPoint> worldPoints = Rs2Tile.getWalkableTilesAroundPlayer(distance);
         WorldPoint playerLocation = Rs2Player.getWorldLocation();
-
-        // Create a map to group tiles by their distance from the player
-        Map<Integer, WorldPoint> distanceMap = new HashMap<>();
-
-        for (WorldPoint walkablePoint : worldPoints) {
-            if (rs2TileObjectCache.query().where(x -> x.getWorldLocation().equals(walkablePoint)).nearest(distance) == null) {
-                int tileDistance = playerLocation.distanceTo(walkablePoint);
-                distanceMap.putIfAbsent(tileDistance, walkablePoint);
-            }
+        if (playerLocation == null || distance > MAX_FIRE_SPOT_DISTANCE) {
+            return null;
         }
+        WorldPoint spot = nearestFireSpot(Rs2Tile.getWalkableTilesAroundPlayer(distance), playerLocation,
+                point -> rs2TileObjectCache.query().where(x -> x.getWorldLocation().equals(point)).nearest(distance) != null);
+        return spot != null ? spot : fireSpot(distance + 1);
+    }
 
-        // Find the minimum distance that has walkable points
-        Optional<Integer> minDistanceOpt = distanceMap.keySet().stream().min(Integer::compare);
-
-        if (minDistanceOpt.isPresent()) {
-            return distanceMap.get(minDistanceOpt.get());
-        }
-
-        // Recursively increase the distance if no valid point is found
-        return fireSpot(distance + 1);
+    WorldPoint nearestFireSpot(List<WorldPoint> candidates, WorldPoint playerLocation, Predicate<WorldPoint> occupied) {
+        return candidates.stream()
+                .filter(point -> !point.equals(playerLocation) && !noFireTiles.contains(point) && !occupied.test(point))
+                .min(Comparator.comparingInt(playerLocation::distanceTo))
+                .orElse(null);
     }
 
     private boolean isFiremake() {
@@ -720,6 +726,8 @@ public class AutoWoodcuttingScript extends Script {
         Rs2Walker.setTarget(null);
         returnPoint = null;
         initialPlayerLocation = null;
+        noFireTiles.clear();
+        cannotLightFire = false;
         hasAutoHopMessageShown = false;
         Rs2Antiban.resetAntibanSettings();
         activeLocation = null;
