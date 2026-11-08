@@ -54,6 +54,7 @@ import java.util.stream.Collectors;
 
 public class revKillerScript extends Script {
     static final int MAX_FLEE_TELEPORT_ATTEMPTS = 5;
+    static final String NO_DUELING_RING_MESSAGE = "Revenant Killer stopped: no Ring of dueling(8) in your bank. The plugin wears a Ring of dueling to teleport out of the caves. Put Rings of dueling(8) in your bank at Ferox Enclave and start the plugin again.";
     private revKillerConfig config;
     @Provides
     revKillerConfig provideConfig(ConfigManager configManager) {
@@ -1153,26 +1154,7 @@ public class revKillerScript extends Script {
             }
             howtobank = generateRandomNumber(0,100);
             if(howtobank <= 40){
-                if(Rs2Equipment.get(EquipmentInventorySlot.RING)!=null){
-                    // we have our ring do nothing
-                } else {
-                    Microbot.log("Getting the ring of dueling");
-                    if(Rs2Bank.count(ItemID.RING_OF_DUELING8)>0){
-                        if(!Rs2Inventory.contains(ItemID.RING_OF_DUELING8)){
-                            if(Rs2Bank.withdrawX(ItemID.RING_OF_DUELING8, 1)){
-                                sleepUntil(()-> Rs2Inventory.contains(ItemID.RING_OF_DUELING8), generateRandomNumber(5000,15000));
-                            }
-                        }
-                    } else {
-                        Microbot.log("Out of rings of dueling");
-                        super.shutdown();
-                    }
-                    if(Rs2Inventory.contains(ItemID.RING_OF_DUELING8)){
-                        if(Rs2Inventory.interact(ItemID.RING_OF_DUELING8, "Wear")){
-                            sleepUntil(()-> isWearingDuelingRing(), generateRandomNumber(5000,15000));
-                        }
-                    }
-                }
+                if(!equipDuelingRingAtBank()) return;
             }
             howtobank = generateRandomNumber(0,100);
             //bracelet of eth
@@ -1332,6 +1314,39 @@ public class revKillerScript extends Script {
 
         }
     }
+    boolean equipDuelingRingAtBank(){
+        if(isWearingDuelingRing()) return true;
+        Microbot.log("Getting the ring of dueling");
+        Rs2ItemModel wornRing = Rs2Equipment.get(EquipmentInventorySlot.RING);
+        if(!Rs2Inventory.contains(ItemID.RING_OF_DUELING8)){
+            if(Rs2Bank.count(ItemID.RING_OF_DUELING8)>0){
+                if(Rs2Bank.withdrawX(ItemID.RING_OF_DUELING8, 1)){
+                    sleepUntil(()-> Rs2Inventory.contains(ItemID.RING_OF_DUELING8), generateRandomNumber(5000,15000));
+                }
+            } else {
+                stopWithReason(NO_DUELING_RING_MESSAGE);
+                return false;
+            }
+        }
+        if(Rs2Inventory.contains(ItemID.RING_OF_DUELING8)){
+            if(Rs2Inventory.interact(ItemID.RING_OF_DUELING8, "Wear")){
+                sleepUntil(()-> isWearingDuelingRing(), generateRandomNumber(5000,15000));
+            }
+        }
+        if(wornRing != null && isWearingDuelingRing() && Rs2Inventory.contains(wornRing.getId())){
+            if(Rs2Bank.depositOne(wornRing.getId())){
+                sleepUntil(()-> !Rs2Inventory.contains(wornRing.getId()), generateRandomNumber(5000,15000));
+            }
+        }
+        return true;
+    }
+
+    private void stopWithReason(String reason){
+        Microbot.log(reason);
+        Microbot.showMessage(reason);
+        Microbot.stopPlugin(revKillerPlugin.class);
+    }
+
     public int generateRandomNumber(int min, int max) {
         return Rs2Random.nextInt(min, max, 1000, true);
     }

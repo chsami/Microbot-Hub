@@ -3,12 +3,15 @@ package net.runelite.client.plugins.microbot.revkiller;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.EquipmentInventorySlot;
+import net.runelite.api.ItemID;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.kit.KitType;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
+import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -169,6 +172,83 @@ class RevKillerScriptSafetyTest {
         try (MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class)) {
             equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.AMULET)).thenReturn(amulet);
             return revKillerScript.hasGloryTeleport();
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    void bankSwapsNonDuelingRingForRingOfDueling() {
+        Rs2ItemModel wealth = mock(Rs2ItemModel.class);
+        when(wealth.getName()).thenReturn("Ring of wealth (1)");
+        when(wealth.getId()).thenReturn(ItemID.RING_OF_WEALTH_1);
+        Rs2ItemModel dueling = mock(Rs2ItemModel.class);
+        when(dueling.getName()).thenReturn("Ring of dueling(8)");
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Random> random = mockStatic(Rs2Random.class)) {
+            microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
+            random.when(() -> Rs2Random.nextInt(anyInt(), anyInt(), anyDouble(), anyBoolean())).thenReturn(1);
+            equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.RING)).thenReturn(wealth);
+            inventory.when(() -> Rs2Inventory.contains(ItemID.RING_OF_DUELING8)).thenReturn(false);
+            bank.when(() -> Rs2Bank.count(ItemID.RING_OF_DUELING8)).thenReturn(3);
+            bank.when(() -> Rs2Bank.withdrawX(ItemID.RING_OF_DUELING8, 1)).thenAnswer(i -> {
+                inventory.when(() -> Rs2Inventory.contains(ItemID.RING_OF_DUELING8)).thenReturn(true);
+                return true;
+            });
+            inventory.when(() -> Rs2Inventory.interact(ItemID.RING_OF_DUELING8, "Wear")).thenAnswer(i -> {
+                equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.RING)).thenReturn(dueling);
+                inventory.when(() -> Rs2Inventory.contains(ItemID.RING_OF_DUELING8)).thenReturn(false);
+                inventory.when(() -> Rs2Inventory.contains(ItemID.RING_OF_WEALTH_1)).thenReturn(true);
+                return true;
+            });
+            bank.when(() -> Rs2Bank.depositOne(ItemID.RING_OF_WEALTH_1)).thenAnswer(i -> {
+                inventory.when(() -> Rs2Inventory.contains(ItemID.RING_OF_WEALTH_1)).thenReturn(false);
+                return true;
+            });
+
+            assertTrue(new revKillerScript().equipDuelingRingAtBank());
+
+            inventory.verify(() -> Rs2Inventory.interact(ItemID.RING_OF_DUELING8, "Wear"));
+            bank.verify(() -> Rs2Bank.depositOne(ItemID.RING_OF_WEALTH_1));
+            microbot.verify(() -> Microbot.stopPlugin(revKillerPlugin.class), never());
+            assertTrue(revKillerScript.isWearingDuelingRing());
+        }
+    }
+
+    @Test
+    void bankWithoutRingOfDuelingStopsWithReason() {
+        Rs2ItemModel wealth = mock(Rs2ItemModel.class);
+        when(wealth.getName()).thenReturn("Ring of wealth (1)");
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class)) {
+            equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.RING)).thenReturn(wealth);
+            bank.when(() -> Rs2Bank.count(ItemID.RING_OF_DUELING8)).thenReturn(0);
+
+            assertFalse(new revKillerScript().equipDuelingRingAtBank());
+
+            microbot.verify(() -> Microbot.showMessage(revKillerScript.NO_DUELING_RING_MESSAGE));
+            microbot.verify(() -> Microbot.stopPlugin(revKillerPlugin.class));
+            inventory.verify(() -> Rs2Inventory.interact(anyInt(), anyString()), never());
+        }
+    }
+
+    @Test
+    void bankLeavesWornRingOfDuelingAlone() {
+        Rs2ItemModel dueling = mock(Rs2ItemModel.class);
+        when(dueling.getName()).thenReturn("Ring of dueling(5)");
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Equipment> equipment = mockStatic(Rs2Equipment.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class)) {
+            equipment.when(() -> Rs2Equipment.get(EquipmentInventorySlot.RING)).thenReturn(dueling);
+
+            assertTrue(new revKillerScript().equipDuelingRingAtBank());
+
+            bank.verify(() -> Rs2Bank.withdrawX(anyInt(), anyInt()), never());
+            microbot.verify(() -> Microbot.stopPlugin(revKillerPlugin.class), never());
         }
     }
 
