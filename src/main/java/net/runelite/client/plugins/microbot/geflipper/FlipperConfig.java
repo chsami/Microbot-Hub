@@ -335,7 +335,7 @@ public interface FlipperConfig extends Config {
         description = "Start a transfer once your total reaches this<br>"
             + "(a plain number is millions: 200 = 200M), then send<br>"
             + "everything above 'Keep for flipping'.<br>"
-            + "0 = whenever there's at least 1,000 GP above it.",
+            + "0 = once you have 5% (at least 1M) above it.",
         position = 44,
         section = muleSection
     )
@@ -414,6 +414,9 @@ public interface FlipperConfig extends Config {
     /** Keys of earlier help texts: "guide" up to 1.2.x, the rest from 1.3.0 test builds. */
     String[] OLD_GUIDE_KEYS = {"guide", "howToUse", "helpStart", "helpStop", "helpSettings", "helpProblems",
         "helpAbout"};
+
+    /** Mule amount boxes where a plain number means millions; GE Flipper adds the "M" so the box shows it. */
+    String[] MILLIONS_KEYS = {"muleThresholdGp", "muleTriggerGp", "muleUpdateKeepGp", "muleNowAmount"};
 
     /** The help box is kept short enough to read at a glance. */
     int QUICK_START_MAX_CHARS = 500;

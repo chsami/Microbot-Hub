@@ -256,6 +256,30 @@ final class MuleSession {
     private String targetMuleRsn = "";
     private String lockedConfiguredHost = "";
     private String lockedLeaseHost = "";
+    /** The Flipper's name the lease was booked under, so a later run can still release it. */
+    private String lockedFlipperRsn = "";
+    /** A transfer cut short by a stop, restart or profile change; the next run frees the Mule and heads home. */
+    private Interrupted interrupted;
+
+    private static final class Interrupted {
+        final long account;
+        final String flipperRsn, muleRsn, leaseHost;
+        final int leasePort, awayWorld, homeWorld, homeX, homeY, homePlane;
+
+        Interrupted(long account, String flipperRsn, String muleRsn, String leaseHost, int leasePort, int awayWorld,
+                    int homeWorld, int homeX, int homeY, int homePlane) {
+            this.account = account;
+            this.flipperRsn = flipperRsn;
+            this.muleRsn = muleRsn;
+            this.leaseHost = leaseHost;
+            this.leasePort = leasePort;
+            this.awayWorld = awayWorld;
+            this.homeWorld = homeWorld;
+            this.homeX = homeX;
+            this.homeY = homeY;
+            this.homePlane = homePlane;
+        }
+    }
     private int lockedPort;
     private int lockedFixedWorld;
     private int targetMuleWorld;
@@ -745,6 +769,7 @@ final class MuleSession {
      */
     boolean tickSender(SenderSettings s, boolean finishing, long now) {
         stopReceiver();
+        if (interrupted != null && phase == Phase.IDLE && resumeInterruptedTransfer(now)) return true;
         boolean cancelled = !s.enabled || finishing || s.muleRsn.isEmpty();
         if (cancelled) {
             liquidating = false;
@@ -869,7 +894,7 @@ final class MuleSession {
         }
         // The trigger only starts a transfer. Once the sell-down has begun it carries on down to the keep amount,
         // so a small dip below the trigger cannot stop it halfway with buys already cancelled.
-        int trigger = Math.max(s.thresholdGp, s.reserveGp);
+        int trigger = MulePolicy.autoTriggerGp(Math.max(s.thresholdGp, s.reserveGp), s.reserveGp);
         if (!liquidating && view.workingCapitalGp() < trigger) {
             liquidationTargetGp = 0;
             eligibleSince = -1;
@@ -1011,6 +1036,7 @@ final class MuleSession {
         targetMuleRsn = s.muleRsn;
         lockedConfiguredHost = normalizedHost(hp.host);
         lockedLeaseHost = reply.resolvedHost.isEmpty() ? hp.host : reply.resolvedHost;
+        lockedFlipperRsn = view.playerName;
         lockedPort = hp.port;
         lockedFixedWorld = s.fixedWorld;
         targetMuleWorld = world;
@@ -1317,6 +1343,37 @@ final class MuleSession {
         return false;
     }
 
+    /**
+     * GE Flipper was stopped or restarted while away for a transfer. Free the Mule, and if this account is still on
+     * the Mule's world, go back to the world and spot the transfer started from before flipping again. Waits while
+     * logged out; drops the plan if another account logs in or the player has moved to some other world.
+     */
+    private boolean resumeInterruptedTransfer(long now) {
+        Interrupted pending = interrupted;
+        Snapshot view = port.read();
+        if (view == null || !view.usable()) return false;
+        interrupted = null;
+        if (!pending.muleRsn.isEmpty() && !pending.flipperRsn.isEmpty()) {
+            port.releaseMuleLease(pending.leaseHost, pending.leasePort, pending.muleRsn, pending.flipperRsn, false);
+        }
+        if (view.account != pending.account || view.currentWorld != pending.awayWorld
+            || pending.homeWorld == pending.awayWorld) {
+            return false;
+        }
+        boundAccount = view.account;
+        returnWorld = pending.homeWorld;
+        returnX = pending.homeX;
+        returnY = pending.homeY;
+        returnPlane = pending.homePlane;
+        hopAttempts = 0;
+        nextHopAt = 0;
+        nextWalkAt = 0;
+        enter(Phase.RETURNING, now);
+        status = "Mule: going back to W" + returnWorld + " after the transfer was interrupted.";
+        cancelReason = "Mule: GE Flipper stopped during a transfer; going back to W" + returnWorld + " first.";
+        return true;
+    }
+
     /** Releases the lease and, if we left our world, heads back before resuming flipping. */
     private void abort(SenderSettings s, Snapshot view, long now, long cooldownMs, String reason) {
         String flipper = view == null ? "" : view.playerName;
@@ -1345,7 +1402,7 @@ final class MuleSession {
         phaseSince = 0;
         lastHeartbeatMillis = -1;
         targetMuleRsn = "";
-        lockedConfiguredHost = lockedLeaseHost = "";
+        lockedConfiguredHost = lockedLeaseHost = lockedFlipperRsn = "";
         lockedPort = lockedFixedWorld = 0;
         targetMuleWorld = 0;
         returnWorld = 0;
@@ -1364,6 +1421,10 @@ final class MuleSession {
 
     void reset() {
         stopReceiver();
+        if (phase != Phase.IDLE && returnWorld > 0 && boundAccount != 0) {
+            interrupted = new Interrupted(boundAccount, lockedFlipperRsn, targetMuleRsn, lockedLeaseHost, lockedPort,
+                targetMuleWorld, returnWorld, returnX, returnY, returnPlane);
+        }
         clearTransientSenderState();
         updateTransferPending = false;
         updateDeadline = 0;

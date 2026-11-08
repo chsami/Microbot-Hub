@@ -149,6 +149,21 @@ final class WaitingMouseSettings implements AutoCloseable {
         if (!closed && started) scan(false);
     }
 
+    /**
+     * Shows a text setting's new value in its box after GE Flipper rewrote it, since the settings panel only reads
+     * values when it is built. A box the player is typing in is left alone.
+     */
+    void showText(String key, String value) {
+        requireEdt();
+        if (closed || !started) return;
+        JPanel panel = findOwnedPanel(settingsRoot);
+        String itemName = itemName(descriptor(panel), String.class, key);
+        JPanel row = panel == null || itemName == null ? null : findRow(panel, itemName);
+        if (row == null) return;
+        Component box = ((BorderLayout) row.getLayout()).getLayoutComponent(BorderLayout.SOUTH);
+        if (box instanceof JTextComponent && !box.isFocusOwner()) ((JTextComponent) box).setText(value);
+    }
+
     /** The Finish request was refused, so the button must not stay greyed out until a restart. */
     void finishRefused() {
         requireEdt();

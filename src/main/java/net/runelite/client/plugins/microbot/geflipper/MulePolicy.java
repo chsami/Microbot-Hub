@@ -109,6 +109,17 @@ final class MulePolicy {
     }
 
     /**
+     * What a mule amount box should show: a plain number gets its "M", so "150" reads "150M". Blank, "0" (which means
+     * "same as keep" for 'Mule when over'), and amounts with a unit or thousands separators are left as typed.
+     */
+    static String withMillionsUnit(String raw) {
+        if (raw == null) return null;
+        String trimmed = raw.trim();
+        if (!PLAIN_NUMBER_PATTERN.matcher(trimmed).matches() || new BigDecimal(trimmed).signum() == 0) return raw;
+        return trimmed + "M";
+    }
+
+    /**
      * The "Mule when over" amount. Blank or 0 means "as soon as there is excess above the keep amount", which is how
      * muling always worked. A typo returns -1, so it stops automatic muling instead of muling more often.
      */
@@ -137,6 +148,20 @@ final class MulePolicy {
         if (looseCoins < MIN_TRANSFER_GP) return 0;
         long amount = Math.min(requiredPortfolioTransferAmount(totalCapitalGp, capitalFloorGp), looseCoins);
         return amount < MIN_TRANSFER_GP ? 0 : (int) Math.min(Integer.MAX_VALUE, amount);
+    }
+
+    /** An automatic transfer sends at least this, so a little profit above the keep amount never starts a trip. */
+    static final int MIN_AUTO_TRANSFER_GP = 1_000_000;
+
+    /**
+     * The total that starts an automatic transfer: the 'Mule when over' amount, but never less than 5% (and at least
+     * 1M) above the keep amount. Each trip cancels buys and hops worlds, so it should carry a worthwhile amount.
+     * A negative (invalid) amount is returned as it is.
+     */
+    static int autoTriggerGp(int triggerGp, int keepGp) {
+        if (triggerGp < 0 || keepGp < 0) return triggerGp;
+        long minimum = (long) keepGp + Math.max(MIN_AUTO_TRANSFER_GP, keepGp / 20L);
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(triggerGp, minimum));
     }
 
     static int requiredPortfolioTransferAmount(long totalCapitalGp, int capitalFloorGp) {

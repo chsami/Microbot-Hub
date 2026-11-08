@@ -1025,7 +1025,7 @@ public class FlipperScript extends Script {
         int capitalLimit = config == null ? -1 : MulePolicy.parseAmountSetting(config.muleThresholdGp());
         int trigger = config == null ? -1 : MulePolicy.parseTrigger(config.muleTriggerGp(), capitalLimit);
         displayKeepGp = capitalLimit;
-        displayTriggerGp = trigger < 0 ? -1 : Math.max(trigger, capitalLimit);
+        displayTriggerGp = trigger < 0 ? -1 : MulePolicy.autoTriggerGp(Math.max(trigger, capitalLimit), capitalLimit);
         MuleSession.SenderSettings settings = new MuleSession.SenderSettings(
             muleMode == FlipperConfig.MuleMode.FLIPPER_SENDER,
             trigger,

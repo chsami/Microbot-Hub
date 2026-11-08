@@ -230,6 +230,7 @@ public class FlipperPlugin extends Plugin {
         warnIfSlotSwapOff();
         applyOwnLogLevel();
         removeOldGuideText();
+        for (String key : FlipperConfig.MILLIONS_KEYS) addMillionsUnit(key, null);
         if (settingsLook == null) startSettingsLook();
         if (settingsLook != null) settingsLook.setBindingsActive(true);
         if (settingsPanelProvider != null && configManager != null) {
@@ -474,6 +475,9 @@ public class FlipperPlugin extends Plugin {
     public void onConfigChanged(ConfigChanged event) {
         if (!FlipperConfig.GROUP.equals(event.getGroup())) return;
         if (event.getKey().startsWith("mule") && flipperScript != null) flipperScript.invalidateMuleActions();
+        if (java.util.Arrays.asList(FlipperConfig.MILLIONS_KEYS).contains(event.getKey())) {
+            addMillionsUnit(event.getKey(), event.getNewValue());
+        }
         if ("slotActionMode".equals(event.getKey())) {
             if (flipperScript != null) flipperScript.invalidateMouseMovement();
             warnIfSlotSwapOff();
@@ -520,6 +524,26 @@ public class FlipperPlugin extends Plugin {
             flipperScript.resetSecondScreenAfk();
         }
         refreshWaitingMouseSettings();
+    }
+
+    /**
+     * A plain number in a mule amount box means millions; write the "M" into the setting so the box says so.
+     * The meaning never changes ("150" and "150M" are both 150M). {@code typed} is null to read the saved value.
+     */
+    void addMillionsUnit(String key, String typed) {
+        if (configManager == null) return;
+        try {
+            String value = typed != null ? typed : configManager.getConfiguration(FlipperConfig.GROUP, key);
+            String shown = MulePolicy.withMillionsUnit(value);
+            if (shown == null || shown.equals(value)) return;
+            configManager.setConfiguration(FlipperConfig.GROUP, key, shown);
+            WaitingMouseSettings panel = waitingMouseSettings;
+            if (panel != null) SwingUtilities.invokeLater(() -> {
+                if (waitingMouseSettings == panel) panel.showText(key, shown);
+            });
+        } catch (RuntimeException ignored) {
+            // Display tidy-up only; the amount is read the same either way.
+        }
     }
 
     private void refreshWaitingMouseSettings() {

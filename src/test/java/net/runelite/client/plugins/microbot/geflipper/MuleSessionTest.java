@@ -415,7 +415,7 @@ class MuleSessionTest {
     }
 
     @Test
-    void cashFloorRequiresAtLeastOneThousandExcessBeforeDebouncingALease() {
+    void cashFloorWaitsForFivePercentAboveTheKeepAmountBeforeDebouncingALease() {
         FakePort port = new FakePort();
         MuleSession session = new MuleSession(port);
         port.muleReply = new MuleNetwork.MuleReply(true, true, "BankMule", 301, "FlipperAcc", "127.0.0.1", "OK");
@@ -424,17 +424,17 @@ class MuleSessionTest {
         assertFalse(session.tickSender(senderSettings(true), false, 10_000L));
         assertEquals(0, port.requestLeaseCalls);
 
-        port.view = cashFloorView(30_000_999);
+        port.view = cashFloorView(31_499_999);
         assertFalse(session.tickSender(senderSettings(true), false, 11_000L));
         assertEquals(0, port.requestLeaseCalls);
 
-        port.view = cashFloorView(30_001_000);
+        port.view = cashFloorView(31_500_000);
         assertFalse(session.tickSender(senderSettings(true), false, 12_000L));
         assertFalse(session.tickSender(senderSettings(true), false, 16_999L));
         assertEquals(0, port.requestLeaseCalls);
         assertTrue(session.tickSender(senderSettings(true), false, 17_000L));
         assertEquals(1, port.requestLeaseCalls);
-        assertEquals(1_000, port.lastRequestedAmount);
+        assertEquals(1_500_000, port.lastRequestedAmount);
         assertFalse(session.liquidationRequested());
     }
 
@@ -1174,6 +1174,101 @@ class MuleSessionTest {
         return new FlipperConfig() {
             @Override public String muleUpdateKeepGp() { return text; }
         };
+    }
+
+    @Test
+    void automaticTransfersWaitForAWorthwhileAmount() {
+        // Seen in game: with 'Mule when over' at its default, 149.9K above the keep amount logged the Mule in.
+        assertEquals(26_250_000, MulePolicy.autoTriggerGp(25_000_000, 25_000_000), "5% above keep");
+        assertEquals(105_000_000, MulePolicy.autoTriggerGp(0, 100_000_000));
+        assertEquals(11_000_000, MulePolicy.autoTriggerGp(10_000_000, 10_000_000), "At least 1M above keep");
+        assertEquals(50_000_000, MulePolicy.autoTriggerGp(50_000_000, 25_000_000), "A higher trigger is kept");
+        assertEquals(-1, MulePolicy.autoTriggerGp(-1, 25_000_000), "An invalid trigger stays invalid");
+
+        FakePort port = new FakePort();
+        MuleSession session = new MuleSession(port);
+        MuleSession.SenderSettings settings = senderSettings(true, 25_000_000);
+        port.muleReply = new MuleNetwork.MuleReply(true, true, "BankMule", 301, "FlipperAcc", "127.0.0.1", "OK");
+        port.view = capitalView(25_149_900, 25_149_900L, true, true);
+        session.tickSender(settings, false, 0L);
+        session.tickSender(settings, false, 10_000L);
+        assertEquals(0, port.requestLeaseCalls, "149.9K over the keep amount: no trip");
+        assertFalse(session.liquidationRequested());
+
+        port.view = capitalView(26_300_000, 26_300_000L, true, true);
+        session.tickSender(settings, false, 11_000L);
+        session.tickSender(settings, false, 20_000L);
+        assertEquals(1, port.requestLeaseCalls);
+        assertEquals(1_300_000, port.lastRequestedAmount, "Then everything above the keep amount goes");
+    }
+
+    @Test
+    void plainNumbersGetTheirMShownInTheBox() {
+        assertEquals("150M", MulePolicy.withMillionsUnit("150"));
+        assertEquals("25M", MulePolicy.withMillionsUnit(" 25 "));
+        assertEquals("2.5M", MulePolicy.withMillionsUnit("2.5"));
+        // Left as typed: blank, 0 ("same as keep"), and amounts that already say what they are.
+        assertEquals("", MulePolicy.withMillionsUnit(""));
+        assertEquals("0", MulePolicy.withMillionsUnit("0"));
+        assertEquals("150M", MulePolicy.withMillionsUnit("150M"));
+        assertEquals("500k", MulePolicy.withMillionsUnit("500k"));
+        assertEquals("50,000,000", MulePolicy.withMillionsUnit("50,000,000"));
+        assertNull(MulePolicy.withMillionsUnit(null));
+        for (String typed : new String[]{"150", "2.5", " 25 "}) {
+            assertEquals(MulePolicy.parseAmountSetting(typed),
+                MulePolicy.parseAmountSetting(MulePolicy.withMillionsUnit(typed)), "Same amount: " + typed);
+        }
+    }
+
+    @Test
+    void aRestartDuringATransferFreesTheMuleAndGoesBackToTheHomeWorld() {
+        // Seen in game: GE Flipper was switched off and on while on the Mule's free-to-play world, forgot the
+        // trip and started flipping members items there, while the Mule kept waiting.
+        FakePort port = new FakePort();
+        MuleSession session = senderWithInvestedCapitalAtOpenTrade(port);
+        MuleSession.SenderSettings settings = senderSettings(true, 50_000_000);
+        int releasedBefore = port.releasedLeases.size();
+
+        session.reset();
+        port.view = investedTradeView(301, 5_000_000, 55_000_000L, false, false, 0);
+        assertTrue(session.tickSender(settings, false, 20_000L));
+        assertEquals(releasedBefore + 1, port.releasedLeases.size(), "The Mule is freed");
+        assertEquals(MuleSession.Phase.RETURNING, session.phase());
+        assertTrue(session.takeCancelReason().contains("going back to W330"));
+
+        session.tickSender(settings, false, 21_000L);
+        assertEquals(330, port.lastHoppedWorld, "Back to the world the transfer started from");
+    }
+
+    @Test
+    void anInterruptedTransferWaitsForLoginAndIsDroppedOnceThePlayerMovedOn() {
+        FakePort port = new FakePort();
+        MuleSession session = senderWithInvestedCapitalAtOpenTrade(port);
+        MuleSession.SenderSettings settings = senderSettings(true, 50_000_000);
+        session.reset();
+
+        port.view = MuleSession.Snapshot.loggedOut();
+        session.tickSender(settings, false, 20_000L);
+        assertEquals(MuleSession.Phase.IDLE, session.phase(), "Nothing to do while logged out");
+
+        port.lastHoppedWorld = 0;
+        port.view = investedTradeView(302, 5_000_000, 55_000_000L, false, false, 0);
+        session.tickSender(settings, false, 21_000L);
+        assertNotEquals(MuleSession.Phase.RETURNING, session.phase(), "On some other world: the player moved on");
+        session.tickSender(settings, false, 22_000L);
+        assertEquals(0, port.lastHoppedWorld);
+    }
+
+    @Test
+    void aRestartWithNoTransferUnderWayChangesNothing() {
+        FakePort port = new FakePort();
+        MuleSession session = new MuleSession(port);
+        session.reset();
+        port.view = senderView(330, false);
+        session.tickSender(senderSettings(true, 50_000_000), false, 0L);
+        assertTrue(port.releasedLeases.isEmpty());
+        assertNotEquals(MuleSession.Phase.RETURNING, session.phase());
+        assertEquals("", session.takeCancelReason());
     }
 
     @Test
