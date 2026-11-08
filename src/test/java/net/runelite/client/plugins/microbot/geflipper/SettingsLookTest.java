@@ -77,7 +77,8 @@ class SettingsLookTest {
 
     @Test
     void choicesThatAreAlwaysInUseAreNeverGrey() {
-        for (String key : new String[]{"selectionMethod", "slotActionMode", "howToUse"}) {
+        for (String key : new String[]{"selectionMethod", "slotActionMode", "helpStart", "helpStop", "helpSettings",
+            "helpProblems", "helpAbout"}) {
             assertTrue(isActive(config(), key, false), key);
         }
     }

@@ -119,7 +119,8 @@ public interface FlipperConfig extends Config {
         position = 40, closedByDefault = true)
     String muleSection = "muling";
 
-    @ConfigSection(name = "Help", description = "How to use GE Flipper, and logging.",
+    @ConfigSection(name = "Help", description = "How to start and stop GE Flipper, fixes for common problems,<br>"
+        + "logging and credits.",
         position = 60, closedByDefault = true)
     String helpSection = "help";
 
@@ -369,25 +370,84 @@ public interface FlipperConfig extends Config {
 
     // ---- Help ----
 
-    /** The guide's old key; its saved copy of the old text is removed once (see FlipperPlugin.removeOldGuideText). */
-    String OLD_GUIDE_KEY = "guide";
+    // The client saves each help text into the profile the first time it loads, so changed text needs new keys.
+    // Older keys' saved copies are removed once (see FlipperPlugin.removeOldGuideText).
+    /** Keys of earlier help texts: "guide" up to 1.2.x, "howToUse" in 1.3.0 test builds. */
+    String[] OLD_GUIDE_KEYS = {"guide", "howToUse"};
 
-    // A new key so the updated text shows; the old "guide" key held the previous text in saved profiles.
     @ConfigItem(
-        keyName = "howToUse",
-        name = "How to use",
-        description = "Quick start for GE Flipper.",
+        keyName = "helpStart",
+        name = "Getting started",
+        description = "What you need before switching GE Flipper on.",
         position = 61,
         section = helpSection
     )
-    default String GUIDE() {
-        return "1. Install Flipping Copilot from the Plugin Hub, log in to it and resume its suggestions.\n"
-            + "2. Have GP in your inventory or bank (1M+ recommended).\n"
-            + "3. Start at the Grand Exchange, or carry a teleport to it.\n"
-            + "Press End / Finish to stop cleanly.\n"
-            + "GE Flipper confirms GE price warning popups. Your Copilot, game and Microbot settings stay under "
-            + "your control.\n"
-            + "Made by chocken.";
+    default String helpStart() {
+        return "1. Install Flipping Copilot from the Plugin Hub. Sign in to it and make sure its suggestions "
+            + "aren't paused.\n"
+            + "2. Have coins in your inventory or bank (1M+ recommended).\n"
+            + "3. Go to the Grand Exchange, or carry a teleport to it.\n"
+            + "4. Switch GE Flipper on.\n"
+            + "\n"
+            + "GE Flipper does what Copilot suggests, in every GE slot. Pick your items and prices in Copilot. "
+            + "Don't keep offers of your own on the GE while it runs.";
+    }
+
+    @ConfigItem(
+        keyName = "helpStop",
+        name = "Stopping",
+        description = "How to stop GE Flipper, and what pauses it.",
+        position = 62,
+        section = helpSection
+    )
+    default String helpStop() {
+        return "Press End / Finish at the top of these settings to stop cleanly. GE Flipper cancels its buy "
+            + "offers, lists the items with Copilot's sell prices, waits for the game to log you out, then "
+            + "switches itself off. Sell offers stay on the GE.\n"
+            + "\n"
+            + "Switching GE Flipper off stops it straight away.\n"
+            + "\n"
+            + "Break Handler's breaks and the pause button at the top of Microbot pause it. Stop GE Flipper "
+            + "before you trade by hand.";
+    }
+
+    @ConfigItem(
+        keyName = "helpSettings",
+        name = "Settings",
+        description = "What each section of these settings does.",
+        position = 63,
+        section = helpSection
+    )
+    default String helpSettings() {
+        return "Click a section's name to open it. Hover over a setting's name to see what it does. "
+            + "Grey settings are off, or not used with your other choices.\n"
+            + "\n"
+            + "Show overlay: status, profit and GE slots on the game screen.\n"
+            + "Trading: hotkey or mouse for Copilot's prices, Copilot's left-click swap, and finishing "
+            + "before an OSRS update.\n"
+            + "Mouse: idle mouse moves while Copilot says Wait, mouse speed, and blocking your own mouse.\n"
+            + "AFK breaks: work through Copilot's suggestions, then go AFK for a few minutes, like playing "
+            + "on a second screen.\n"
+            + "Muling: send GP above an amount you choose to another account running on this computer.";
+    }
+
+    @ConfigItem(
+        keyName = "helpProblems",
+        name = "Problems?",
+        description = "Common problems and how to fix them.",
+        position = 64,
+        section = helpSection
+    )
+    default String helpProblems() {
+        return "Nothing happens: check that Copilot is signed in, its suggestions aren't paused and you're "
+            + "at the GE.\n"
+            + "\n"
+            + "Modify or Abort doesn't happen: turn on slot swap in Copilot's settings, or set Copilot "
+            + "left-click swap (under Trading) to Off.\n"
+            + "\n"
+            + "Stuck: the overlay shows what GE Flipper is waiting for.\n"
+            + "\n"
+            + "Reporting a bug: turn on Detailed logs below first, then repeat the problem.";
     }
 
     @ConfigItem(
@@ -395,11 +455,26 @@ public interface FlipperConfig extends Config {
         name = "Detailed logs",
         description = "Log GE Flipper's own activity in detail. Leave off unless<br>"
             + "you're troubleshooting; other plugins' logging is not changed.",
-        position = 62,
+        position = 65,
         section = helpSection
     )
     default boolean verboseLogging() {
         return false;
+    }
+
+    @ConfigItem(
+        keyName = "helpAbout",
+        name = "About",
+        description = "Credits.",
+        position = 66,
+        section = helpSection
+    )
+    default String helpAbout() {
+        return "GE Flipper confirms the GE's price warning popups for you. Your Copilot, game and Microbot "
+            + "settings stay under your control.\n"
+            + "\n"
+            + "First made by chocken.\n"
+            + "Updated by afss0 and Joinkiee.";
     }
 
 }

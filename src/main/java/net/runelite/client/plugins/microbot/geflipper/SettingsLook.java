@@ -161,7 +161,7 @@ final class SettingsLook implements AutoCloseable {
             case "muleTriggerGp": return c.muleMode() == FlipperConfig.MuleMode.FLIPPER_SENDER;
             case "muleBeforeUpdate": return c.muleMode() == FlipperConfig.MuleMode.FLIPPER_SENDER && c.muleBeforeUpdate();
             case "verboseLogging": return c.verboseLogging();
-            default: return true; // Choices that are always in use: suggestion input, left-click swap, How to use.
+            default: return true; // Always in use: suggestion input, left-click swap and the help texts.
         }
     }
 

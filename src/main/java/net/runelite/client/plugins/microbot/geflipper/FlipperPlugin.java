@@ -266,16 +266,18 @@ public class FlipperPlugin extends Plugin {
     }
 
     /**
-     * The guide moved to a new key so its new text shows. RuneLite had saved the old text under the old key in every
-     * profile; remove that copy once. No other setting is touched.
+     * The help moved to new keys so its new text shows. RuneLite had saved the old text under the old keys in
+     * profiles; remove those copies once. No other setting is touched.
      */
     private void removeOldGuideText() {
-        try {
-            if (configManager != null
-                && configManager.getConfiguration(FlipperConfig.GROUP, FlipperConfig.OLD_GUIDE_KEY) != null) {
-                configManager.unsetConfiguration(FlipperConfig.GROUP, FlipperConfig.OLD_GUIDE_KEY);
+        if (configManager == null) return;
+        for (String key : FlipperConfig.OLD_GUIDE_KEYS) {
+            try {
+                if (configManager.getConfiguration(FlipperConfig.GROUP, key) != null) {
+                    configManager.unsetConfiguration(FlipperConfig.GROUP, key);
+                }
+            } catch (RuntimeException ignored) {
             }
-        } catch (RuntimeException ignored) {
         }
     }
 
