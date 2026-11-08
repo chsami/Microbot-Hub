@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 import static net.runelite.client.plugins.microbot.tithefarming.enums.TitheFarmState.*;
 import static net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue.hasSelectAnOption;
@@ -284,23 +285,11 @@ public class TitheFarmingScript extends Script {
 
     private void coreLoop(TitheFarmingConfig config) {
         if (Rs2Player.isMoving()) return;
-        Comparator<TitheFarmPlant> sortByIndex = Comparator.comparingInt(TitheFarmPlant::getIndex);
-        TitheFarmPlant plant = plants.stream()
-                .sorted(sortByIndex)
-                .filter(TitheFarmPlant::isStage1)
-                .findFirst()
-                .orElseGet(() ->
-                        plants.stream()
-                                .sorted(sortByIndex)
-                                .filter(TitheFarmPlant::isStage2)
-                                .findFirst()
-                                .orElse(null)
-                );
+        WorldPoint corePlayerLoc = playerLocation();
+        if (corePlayerLoc == null) return;
+        TitheFarmPlant plant = nearestPlant(corePlayerLoc, p -> p.isStage1() || p.isStage2());
         if (plant == null && state != HARVEST && !allPlanted) {
-            plant = plants.stream()
-                    .sorted(sortByIndex)
-                    .filter(TitheFarmPlant::isEmptyPatchOrSeedling)
-                    .findFirst().orElse(null);
+            plant = nearestPlant(corePlayerLoc, TitheFarmPlant::isEmptyPatchOrSeedling);
         }
 
 
@@ -322,19 +311,13 @@ public class TitheFarmingScript extends Script {
 
         if (plant == null && plants.stream().anyMatch(TitheFarmPlant::isValidToHarvest)) {
             state = TitheFarmState.HARVEST;
-            plant = plants.stream()
-                    .sorted(sortByIndex)
-                    .filter(TitheFarmPlant::isValidToHarvest)
-                    .findFirst()
-                    .orElse(null);
+            plant = nearestPlant(corePlayerLoc, TitheFarmPlant::isValidToHarvest);
         }
 
         if (plant == null) return;
 
         final TitheFarmPlant finalPlant = plant;
 
-        WorldPoint corePlayerLoc = playerLocation();
-        if (corePlayerLoc == null) return;
         Rs2TileObjectModel plantModel = plant.getGameObject();
         if (plantModel == null || plantModel.getWorldLocation().distanceTo2D(corePlayerLoc) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
             WorldPoint w = WorldPoint.fromRegion(corePlayerLoc.getRegionID(),
@@ -408,6 +391,16 @@ public class TitheFarmingScript extends Script {
         }
 
 
+
+    private static TitheFarmPlant nearestPlant(WorldPoint playerLoc, Predicate<TitheFarmPlant> needsAction) {
+        return plants.stream()
+                .filter(needsAction)
+                .min(Comparator.<TitheFarmPlant>comparingInt(p -> Math.max(
+                                Math.abs(p.regionX - playerLoc.getRegionX()),
+                                Math.abs(p.regionY - playerLoc.getRegionY())))
+                        .thenComparingInt(TitheFarmPlant::getIndex))
+                .orElse(null);
+    }
 
     private static void clickPatch(TitheFarmPlant plant) {
         Rs2TileObjectModel model = plant.getGameObject();
