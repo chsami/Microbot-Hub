@@ -145,6 +145,7 @@ public class DroZulrahScript extends Script
     private long feroxBankReadyAt;
     private long poolDrinkIssuedAt;
     private long teleportClickIssuedAt;
+    private long escapeTeleportAt;
     private long nextTeleportRetryAt;
     private int teleportAttempts;
     private long sceneTransitionGraceUntil;
@@ -229,6 +230,7 @@ public class DroZulrahScript extends Script
         this.feroxBankReadyAt = 0L;
         this.poolDrinkIssuedAt = 0L;
         this.teleportClickIssuedAt = 0L;
+        this.escapeTeleportAt = 0L;
         this.nextTeleportRetryAt = 0L;
         this.teleportAttempts = 0;
         this.sceneTransitionGraceUntil = 0L;
@@ -469,7 +471,7 @@ public class DroZulrahScript extends Script
             }
             Microbot.log("[Dro] Zulrah: loot timeout reached; returning to bank");
             killLootUntil = 0L;
-            returnToFerox("Kill complete");
+            returnToFerox("Kill complete", false);
             return;
         }
 
@@ -492,6 +494,12 @@ public class DroZulrahScript extends Script
         Rs2TileObjectModel boat = findBoat();
         if (boat != null)
         {
+            if (!hasRingOfDueling())
+            {
+                state = DroZulrahState.OUT_OF_SUPPLIES;
+                stopForMissingSupply("Charged Ring of dueling for Ferox");
+                return;
+            }
             travelToAndBoard(boat);
             return;
         }
@@ -1160,11 +1168,7 @@ public class DroZulrahScript extends Script
         if (!consumed) consumed = handleNormalFood(zulrah);
         if (!consumed && !moving) consumed = handleBoosts(zulrah);
 
-        if (shouldLeaveFight())
-        {
-            returnToFerox("Low supplies");
-            return;
-        }
+        if (shouldLeaveFight() && returnToFerox("Low supplies", true)) return;
 
         // An Attack click cancels an unfinished crossing/dodge. Resume as soon as the
         // original arrival tolerance is met, including the final tile while still moving.
@@ -1870,18 +1874,45 @@ public class DroZulrahScript extends Script
         }, false);
     }
 
-    private void returnToFerox(String reason)
+    private boolean returnToFerox(String reason, boolean zulrahAlive)
     {
+        ZulrahFeroxReturn.Escape escape = ZulrahFeroxReturn.escape(hasRingOfDueling(),
+                Rs2Inventory.contains(ZUL_ANDRA_TELEPORT), zulrahAlive);
+        if (escape == ZulrahFeroxReturn.Escape.FIGHT_ON)
+        {
+            status = reason + " - no escape teleport, fighting on";
+            return false;
+        }
+        if (escape == ZulrahFeroxReturn.Escape.STOP)
+        {
+            state = DroZulrahState.OUT_OF_SUPPLIES;
+            stopForMissingSupply("Charged Ring of dueling for Ferox");
+            return true;
+        }
         state = DroZulrahState.RETURNING;
+        if (escape == ZulrahFeroxReturn.Escape.ZUL_ANDRA)
+        {
+            status = reason + " - no Ring of dueling, escaping to Zul-Andra";
+            long now = System.currentTimeMillis();
+            if (now - escapeTeleportAt < TELEPORT_TRANSITION_WAIT_MS) return true;
+            if (tripAction(() -> Rs2Inventory.interact(ZUL_ANDRA_TELEPORT, "Teleport")))
+            {
+                escapeTeleportAt = now;
+                sceneTransitionGraceUntil = now + 10_000L;
+                disableCombatPrayers();
+                Rs2Combat.setAutoRetaliate(false);
+            }
+            return true;
+        }
         status = reason + " - returning to Ferox";
-        disableCombatPrayers();
-        Rs2Combat.setAutoRetaliate(false);
 
         boolean teleported = tripAction(
                 () -> Rs2Inventory.interact(RINGS_OF_DUELING, "Ferox Enclave")
                         || Rs2Equipment.interact(RINGS_OF_DUELING, "Ferox Enclave"));
         if (teleported)
         {
+            disableCombatPrayers();
+            Rs2Combat.setAutoRetaliate(false);
             feroxRestored = false;
             feroxReturn = null;
             feroxBankReadyAt = 0L;
@@ -1897,13 +1928,8 @@ public class DroZulrahScript extends Script
             fightContinueClicked = false;
             resetFightTracking();
         }
-        else
-        {
-            if (!hasRingOfDueling()) {
-                state = DroZulrahState.OUT_OF_SUPPLIES;
-                stopForMissingSupply("Charged Ring of dueling for Ferox");
-            } else status = "Ferox teleport not dispatched; retrying";
-        }
+        else status = "Ferox teleport not dispatched; retrying";
+        return true;
     }
 
     private void lootZulrah()
@@ -1940,7 +1966,7 @@ public class DroZulrahScript extends Script
             {
                 killLootUntil = 0L;
                 Microbot.log("[Dro] Zulrah: loot area clear; returning to bank");
-                returnToFerox("Loot collected");
+                returnToFerox("Loot collected", false);
             }
         }
         else
