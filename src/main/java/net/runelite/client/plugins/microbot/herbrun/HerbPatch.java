@@ -1,7 +1,10 @@
 package net.runelite.client.plugins.microbot.herbrun;
 
 import lombok.Getter;
+import net.runelite.api.Quest;
+import net.runelite.api.QuestState;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.questhelper.helpers.mischelpers.farmruns.CropState;
 import net.runelite.client.plugins.microbot.questhelper.helpers.mischelpers.farmruns.FarmingHandler;
 import net.runelite.client.plugins.microbot.questhelper.helpers.mischelpers.farmruns.FarmingPatch;
@@ -58,17 +61,25 @@ public class HerbPatch {
                 break;
             case "Troll Stronghold":
                 this.items.put("Stony basalt", 1);
-                this.enabled = config.enableTrollheim();
+                this.enabled = config.enableTrollheim() && hasCompleted(Quest.MY_ARMS_BIG_ADVENTURE);
                 break;
             case "Weiss":
                 this.items.put("Icy basalt", 1);
-                this.enabled = config.enableWeiss();
+                this.enabled = config.enableWeiss() && hasCompleted(Quest.MAKING_FRIENDS_WITH_MY_ARM);
                 break;
             case "Harmony":
                 this.enabled = false;
                 break;
 
         }
+    }
+
+    private boolean hasCompleted(Quest quest) {
+        if (Rs2Player.getQuestState(quest) == QuestState.FINISHED) {
+            return true;
+        }
+        Microbot.log("Skipping " + regionName + " herb patch: " + quest.getName() + " is not completed");
+        return false;
     }
 
     /**

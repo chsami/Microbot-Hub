@@ -23,6 +23,7 @@ import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.timetracking.Tab;
 import net.runelite.api.coords.WorldPoint;
@@ -43,6 +44,8 @@ public class HerbrunScript extends Script {
     private final HerbrunPlugin plugin;
     private final HerbrunConfig config;
     private HerbPatch currentPatch;
+    private static final int MAX_UNREACHABLE_WALKS = 3;
+    private int unreachableWalks = 0;
     @Inject
     ClientThread clientThread;
     private boolean initialized = false;
@@ -123,10 +126,10 @@ public class HerbrunScript extends Script {
             }
 
             if (!currentPatch.isInRange(40)) {
-                HerbrunPlugin.status = "Walking to " + currentPatch.getRegionName();
-                Rs2Walker.walkTo(currentPatch.getLocation(), 20);
+                walkToCurrentPatch();
                 return;
             }
+            unreachableWalks = 0;
 
             String region = currentPatch.getRegionName();
 
@@ -170,6 +173,19 @@ public class HerbrunScript extends Script {
         }, 0, 1000, TimeUnit.MILLISECONDS);
 
         return true;
+    }
+
+    void walkToCurrentPatch() {
+        HerbrunPlugin.status = "Walking to " + currentPatch.getRegionName();
+        if (Rs2Walker.walkWithState(currentPatch.getLocation(), 20) != WalkerState.UNREACHABLE) {
+            return;
+        }
+        if (++unreachableWalks < MAX_UNREACHABLE_WALKS) {
+            return;
+        }
+        log("Cannot reach the " + currentPatch.getRegionName() + " herb patch, skipping it");
+        currentPatch = null;
+        unreachableWalks = 0;
     }
 
     private void populatePatches() {
@@ -921,6 +937,8 @@ public class HerbrunScript extends Script {
     public void shutdown() {
         super.shutdown();
         initialized = false;
+        currentPatch = null;
+        unreachableWalks = 0;
         allotmentsByRegion.clear();
         flowerByRegion.clear();
         currentPhase = LocationPhase.HERB;
