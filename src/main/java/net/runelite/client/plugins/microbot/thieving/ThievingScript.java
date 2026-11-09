@@ -1181,6 +1181,11 @@ ThievingNpcStrategy getActiveStrategy() {
             } else {
                 log.debug("Not Near Hallowed");
                 bank = Rs2Bank.getNearestBank();
+                if (bank == null) {
+                    showMessage("No reachable bank found from your location. Walk closer to a bank and start the script again.");
+                    shutdown();
+                    return;
+                }
                 if (bank == BankLocation.DARKMEYER) {
                     if (!equip(ThievingData.VYRE_SET)) {
                         showMessage("Vyre noble set (top, legs and shoes) is needed to bank at Darkmeyer. Carry or wear it and start the script again.");

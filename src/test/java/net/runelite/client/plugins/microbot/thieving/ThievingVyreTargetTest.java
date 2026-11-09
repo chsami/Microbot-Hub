@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -147,6 +148,30 @@ class ThievingVyreTargetTest {
 
             verify(script).shutdown();
             microbot.verify(() -> Microbot.showMessage(contains("Vyre noble set")));
+            bank.verify(Rs2Bank::openBank, never());
+            bank.verify(() -> Rs2Bank.walkToBankAndUseBank(any()), never());
+        }
+    }
+
+    @Test
+    void noReachableBankStopsTheScript() throws Exception {
+        ThievingScript script = spy(script(ThievingNpc.ARDOUGNE_KNIGHT));
+        doNothing().when(script).shutdown();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            bank.when(Rs2Bank::isOpen).thenReturn(false);
+            bank.when(Rs2Bank::getNearestBank).thenReturn(null);
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(2662, 3305, 0));
+
+            Method method = ThievingScript.class.getDeclaredMethod("bankAndEquip");
+            method.setAccessible(true);
+            assertDoesNotThrow(() -> method.invoke(script));
+
+            verify(script).shutdown();
+            microbot.verify(() -> Microbot.showMessage(contains("No reachable bank")));
+            bank.verify(() -> Rs2Bank.isNearBank(any(), anyInt()), never());
             bank.verify(Rs2Bank::openBank, never());
             bank.verify(() -> Rs2Bank.walkToBankAndUseBank(any()), never());
         }
