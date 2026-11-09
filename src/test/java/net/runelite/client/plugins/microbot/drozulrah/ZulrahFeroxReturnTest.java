@@ -160,6 +160,14 @@ public class ZulrahFeroxReturnTest {
         assertEquals(ZulrahFeroxReturn.Escape.ZUL_ANDRA,ZulrahFeroxReturn.escape(false,true,true));
         assertEquals(ZulrahFeroxReturn.Escape.FIGHT_ON,ZulrahFeroxReturn.escape(false,false,true));
     }
+    @Test public void prayersStayOnWhenNoTeleportIsDispatched() {
+        assertFalse(ZulrahFeroxReturn.teleportThenLeaveCombat(()->{calls.add("teleport");return false;},()->calls.add("prayers-off")));
+        assertEquals(List.of("teleport"),calls);
+    }
+    @Test public void prayersGoOffOnlyAfterTheTeleportIsDispatched() {
+        assertTrue(ZulrahFeroxReturn.teleportThenLeaveCombat(()->{calls.add("teleport");return true;},()->calls.add("prayers-off")));
+        assertEquals(List.of("teleport","prayers-off"),calls);
+    }
     @Test public void noRingAfterKillStopsOutOfCombat() {
         assertEquals(ZulrahFeroxReturn.Escape.STOP,ZulrahFeroxReturn.escape(false,false,false));
         assertEquals(ZulrahFeroxReturn.Escape.STOP,ZulrahFeroxReturn.escape(false,true,false));

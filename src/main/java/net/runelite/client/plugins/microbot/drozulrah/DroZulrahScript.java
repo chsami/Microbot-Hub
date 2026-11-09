@@ -157,6 +157,7 @@ public class DroZulrahScript extends Script
     private WorldPoint boatApproach;
     private boolean boatApproachRequired;
     private boolean forceReengage;
+    private boolean fightOnLogged;
     private volatile boolean inFight;
     private long lastZulrahSeenMs;
     private long lastAttackMs;
@@ -497,7 +498,7 @@ public class DroZulrahScript extends Script
             if (!hasRingOfDueling())
             {
                 state = DroZulrahState.OUT_OF_SUPPLIES;
-                stopForMissingSupply("Charged Ring of dueling for Ferox");
+                stopForMissingSupply("Charged Ring of dueling (wear or carry one; add it to your selected Inventory Setup)");
                 return;
             }
             travelToAndBoard(boat);
@@ -1874,6 +1875,12 @@ public class DroZulrahScript extends Script
         }, false);
     }
 
+    private void leaveCombat()
+    {
+        disableCombatPrayers();
+        Rs2Combat.setAutoRetaliate(false);
+    }
+
     private boolean returnToFerox(String reason, boolean zulrahAlive)
     {
         ZulrahFeroxReturn.Escape escape = ZulrahFeroxReturn.escape(hasRingOfDueling(),
@@ -1881,6 +1888,12 @@ public class DroZulrahScript extends Script
         if (escape == ZulrahFeroxReturn.Escape.FIGHT_ON)
         {
             status = reason + " - no escape teleport, fighting on";
+            if (!fightOnLogged)
+            {
+                fightOnLogged = true;
+                Microbot.log("[Dro] Zulrah: out of food/prayer and no Ring of dueling or Zul-andra teleport to escape"
+                        + " - fighting on until Zulrah dies. Carry a charged Ring of dueling to leave safely.");
+            }
             return false;
         }
         if (escape == ZulrahFeroxReturn.Escape.STOP)
@@ -1895,24 +1908,23 @@ public class DroZulrahScript extends Script
             status = reason + " - no Ring of dueling, escaping to Zul-Andra";
             long now = System.currentTimeMillis();
             if (now - escapeTeleportAt < TELEPORT_TRANSITION_WAIT_MS) return true;
-            if (tripAction(() -> Rs2Inventory.interact(ZUL_ANDRA_TELEPORT, "Teleport")))
+            if (ZulrahFeroxReturn.teleportThenLeaveCombat(
+                    () -> tripAction(() -> Rs2Inventory.interact(ZUL_ANDRA_TELEPORT, "Teleport")), this::leaveCombat))
             {
                 escapeTeleportAt = now;
                 sceneTransitionGraceUntil = now + 10_000L;
-                disableCombatPrayers();
-                Rs2Combat.setAutoRetaliate(false);
+                Microbot.log("[Dro] Zulrah: low food/prayer and no Ring of dueling - teleported to Zul-Andra to escape;"
+                        + " the script will stop there.");
             }
             return true;
         }
         status = reason + " - returning to Ferox";
 
-        boolean teleported = tripAction(
+        boolean teleported = ZulrahFeroxReturn.teleportThenLeaveCombat(() -> tripAction(
                 () -> Rs2Inventory.interact(RINGS_OF_DUELING, "Ferox Enclave")
-                        || Rs2Equipment.interact(RINGS_OF_DUELING, "Ferox Enclave"));
+                        || Rs2Equipment.interact(RINGS_OF_DUELING, "Ferox Enclave")), this::leaveCombat);
         if (teleported)
         {
-            disableCombatPrayers();
-            Rs2Combat.setAutoRetaliate(false);
             feroxRestored = false;
             feroxReturn = null;
             feroxBankReadyAt = 0L;
@@ -2414,6 +2426,7 @@ public class DroZulrahScript extends Script
         boatApproachRequired = false;
         reengageAfterMovement = false;
         forceReengage = false;
+        fightOnLogged = false;
     }
 
     @Override
