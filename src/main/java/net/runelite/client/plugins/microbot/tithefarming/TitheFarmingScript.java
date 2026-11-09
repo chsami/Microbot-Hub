@@ -360,6 +360,7 @@ public class TitheFarmingScript extends Script {
 
         if (plant.isValidToHarvest()) {
             clickPatch(plant, "harvest");
+            plant.setHarvested(true);
             sleepUntil(() -> finalPlant.isEmptyPatch() || Rs2Player.getAnimation() == AnimationID.HUMAN_DIG, config.sleepAfterHarvestingSeed());
             if (Rs2Player.isAnimating()) {
                 sleepUntil(() -> plants.stream().anyMatch(x -> x.getIndex() == finalPlant.getIndex() && x.isEmptyPatch()));
@@ -408,22 +409,33 @@ public class TitheFarmingScript extends Script {
         if (plants.stream().noneMatch(TitheFarmingScript::needsWater)) {
             wateringPass = false;
         }
-        if (!wateringPass && state != HARVEST && !allPlanted) {
-            TitheFarmPlant empty = lowestIndex(TitheFarmPlant::isEmptyPatchOrSeedling);
-            if (empty != null) return visit(empty);
+        if (state != HARVEST && !allPlanted) {
+            TitheFarmPlant empty = lowestIndex(TitheFarmingScript::isUnplanted);
+            if (empty != null) {
+                if (wateringPass) {
+                    TitheFarmPlant next = nextInPass(false);
+                    if (next != null) return visit(next);
+                    wateringPass = false;
+                }
+                return visit(empty);
+            }
         }
-        return visit(nextInPass(p -> needsWater(p) || p.isValidToHarvest()));
+        return visit(nextInPass(true));
     }
 
-    private TitheFarmPlant nextInPass(Predicate<TitheFarmPlant> needsAction) {
+    private TitheFarmPlant nextInPass(boolean wrap) {
         List<TitheFarmPlant> due = plants.stream()
-                .filter(needsAction)
+                .filter(p -> needsWater(p) || p.isValidToHarvest())
                 .sorted(Comparator.comparingInt(TitheFarmPlant::getIndex))
                 .collect(Collectors.toList());
         return due.stream()
                 .filter(p -> p.getIndex() >= passIndex)
                 .findFirst()
-                .orElse(due.isEmpty() ? null : due.get(0));
+                .orElse(wrap && !due.isEmpty() ? due.get(0) : null);
+    }
+
+    private static boolean isUnplanted(TitheFarmPlant plant) {
+        return plant.isEmptyPatchOrSeedling() && !plant.isHarvested();
     }
 
     private TitheFarmPlant visit(TitheFarmPlant plant) {

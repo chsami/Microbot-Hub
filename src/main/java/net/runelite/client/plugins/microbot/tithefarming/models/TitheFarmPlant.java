@@ -52,6 +52,10 @@ public class TitheFarmPlant {
     private Instant planted;
 
     @Getter
+    @Setter
+    private boolean harvested;
+
+    @Getter
     private final TitheFarmPlantState state;
 
     public int regionX;

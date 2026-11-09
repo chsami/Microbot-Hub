@@ -202,11 +202,63 @@ class TitheFarmingCoreLoopTest {
         assertEquals(TitheFarmState.PLANTING_SEEDS, TitheFarmingScript.state);
 
         when(ripe.isValidToHarvest()).thenReturn(false);
+        when(ripe.isHarvested()).thenReturn(true);
+        when(ripe.isEmptyPatch()).thenReturn(true);
+        when(ripe.isEmptyPatchOrSeedling()).thenReturn(true);
         when(dry.isStage1()).thenReturn(false);
         WorldPoint resumed = walkTargetOfOneLoop(script, NORTH_END);
 
         assertEquals(40, resumed.getRegionX());
         assertEquals(40, resumed.getRegionY());
+    }
+
+    @Test
+    void coreLoopGoesBackToPlantingWhenALowerIndexPlantDriesAfterTheEarlyPassMovedPastIt() throws Exception {
+        TitheFarmPlant first = patch(1, 35, 34);
+        TitheFarmPlant urgent = patch(5, 35, 43);
+        TitheFarmPlant empty = patch(6, 40, 43);
+        when(empty.isEmptyPatch()).thenReturn(true);
+        when(empty.isEmptyPatchOrSeedling()).thenReturn(true);
+        TitheFarmingScript.plants = new ArrayList<>(List.of(first, urgent, empty));
+        TitheFarmingScript.state = TitheFarmState.PLANTING_SEEDS;
+        TitheFarmingScript script = new TitheFarmingScript();
+
+        when(urgent.isStage1()).thenReturn(true);
+        when(urgent.growsWithin(any(Duration.class))).thenReturn(true);
+        assertEquals(43, walkTargetOfOneLoop(script, NORTH_END).getRegionY());
+
+        when(urgent.isStage1()).thenReturn(false);
+        when(first.isStage1()).thenReturn(true);
+        WorldPoint resumed = walkTargetOfOneLoop(script, NORTH_END);
+
+        assertEquals(40, resumed.getRegionX());
+        assertEquals(43, resumed.getRegionY());
+    }
+
+    @Test
+    void coreLoopMarksAPatchAsHarvestedWhenItHarvestsIt() throws Exception {
+        Rs2TileObjectModel patchObject = objectAt(SACK);
+        TitheFarmPlant ripe = patch(1, 35);
+        when(ripe.getGameObject()).thenReturn(patchObject);
+        when(ripe.isValidToHarvest()).thenReturn(true);
+        TitheFarmingScript.plants = new ArrayList<>(List.of(ripe));
+        TitheFarmingScript.state = TitheFarmState.HARVEST;
+        Client client = clientWithPlayerAt(SACK);
+        ClientThread clientThread = runsOnCaller();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);
+             MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Global> global = mockStatic(Global.class)) {
+            microbot.when(Microbot::getClientThread).thenReturn(clientThread);
+            microbot.when(Microbot::getClient).thenReturn(client);
+
+            method("coreLoop", TitheFarmingConfig.class).invoke(new TitheFarmingScript(), mock(TitheFarmingConfig.class));
+
+            verify(patchObject).click("harvest");
+            verify(ripe).setHarvested(true);
+        }
     }
 
     @Test
