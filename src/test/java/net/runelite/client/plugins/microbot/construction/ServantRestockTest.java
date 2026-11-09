@@ -79,6 +79,23 @@ class ServantRestockTest {
     }
 
     @Test
+    void servantSentToUnnoteIsAwayAndOutOfSightWithoutStopping() {
+        ServantRestock restock = new ServantRestock();
+        long now = 0;
+        restock.observe(0, true, now, true);
+        restock.onSent(now);
+        for (int tick = 0; tick < 10; tick++) {
+            now += 600;
+            restock.observe(0, false, now, true);
+            assertTrue(restock.isAway());
+            assertFalse(restock.hasReturned(false, false));
+            assertEquals(Problem.NONE, restock.problem(Servant.NONE, 5000, false, 50_000, true));
+        }
+        assertEquals(0, restock.getFailedAttempts());
+        assertTrue(restock.hasReturned(true, true));
+    }
+
+    @Test
     void missingServantStopsAfterFailedCalls() {
         ServantRestock restock = new ServantRestock();
         for (int attempt = 0; attempt < ServantRestock.MAX_FAILED_ATTEMPTS; attempt++) {
