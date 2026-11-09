@@ -183,7 +183,9 @@ public class HerbrunScript extends Script {
         if (++unreachableWalks < MAX_UNREACHABLE_WALKS) {
             return;
         }
-        log("Cannot reach the " + currentPatch.getRegionName() + " herb patch, skipping it");
+        log("Could not find a path to the " + currentPatch.getDisplayName() + " herb patch after " + MAX_UNREACHABLE_WALKS
+                + " tries (missing teleport item, quest or route?). Skipping it and continuing the run. Turn off '"
+                + currentPatch.getToggleName() + "' in the Location toggles section if you cannot reach it.");
         currentPatch = null;
         unreachableWalks = 0;
     }

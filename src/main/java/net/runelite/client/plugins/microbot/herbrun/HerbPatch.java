@@ -18,6 +18,8 @@ import java.util.Objects;
 public class HerbPatch {
     private final FarmingPatch patch;
     private final String regionName;
+    private String displayName;
+    private String toggleName;
     private final CropState prediction;
     private final WorldPoint location;
     private boolean enabled;
@@ -28,43 +30,56 @@ public class HerbPatch {
         this.regionName = patch.getRegion().getName();
         this.prediction = farmingHandler.predictPatch(patch);
         this.location = getHerbFromName(regionName).getWorldPoint();
+        this.displayName = regionName;
         switch (regionName) {
             case "Ardougne":
 //                if (Rs2Bank.hasItem("Ardougne cloak")) {
 //                    this.items.put("Ardougne cloak", 1);
 //                }
+                this.toggleName = "Enable Ardougne Patch";
                 this.enabled = config.enableArdougne();
                 break;
             case "Catherby":
                 this.items.put("Camelot teleport", 1);
+                this.toggleName = "Enable Catherby Patch";
                 this.enabled = config.enableCatherby();
                 break;
             case "Civitas illa Fortis":
                 this.items.put("Civitas illa fortis teleport", 1);
+                this.displayName = "Civitas illa Fortis (Varlamore)";
+                this.toggleName = "Enable Varlamore Patch";
                 this.enabled = config.enableVarlamore();
                 break;
             case "Falador":
                 this.items.put("Explorer's ring", 1);
+                this.toggleName = "Enable Falador Patch";
                 this.enabled = config.enableFalador();
                 break;
             case "Farming Guild":
                 this.items.put("Skills necklace(", 1);
+                this.toggleName = "Enable Farming Guild Patch";
                 this.enabled = config.enableGuild();
                 break;
             case "Kourend":
                 this.items.put("Xeric's talisman", 1);
+                this.displayName = "Kourend (Hosidius)";
+                this.toggleName = "Enable Hosidius Patch";
                 this.enabled = config.enableHosidius();
                 break;
             case "Morytania":
                 this.items.put("Ectophial", 1);
+                this.toggleName = "Enable Morytania Patch";
                 this.enabled = config.enableMorytania();
                 break;
             case "Troll Stronghold":
                 this.items.put("Stony basalt", 1);
+                this.displayName = "Troll Stronghold (Trollheim)";
+                this.toggleName = "Enable Trollheim Patch";
                 this.enabled = config.enableTrollheim() && hasCompleted(Quest.MY_ARMS_BIG_ADVENTURE);
                 break;
             case "Weiss":
                 this.items.put("Icy basalt", 1);
+                this.toggleName = "Enable Weiss Patch";
                 this.enabled = config.enableWeiss() && hasCompleted(Quest.MAKING_FRIENDS_WITH_MY_ARM);
                 break;
             case "Harmony":
@@ -75,10 +90,15 @@ public class HerbPatch {
     }
 
     private boolean hasCompleted(Quest quest) {
-        if (Rs2Player.getQuestState(quest) == QuestState.FINISHED) {
+        QuestState state = Rs2Player.getQuestState(quest);
+        if (state == QuestState.FINISHED) {
             return true;
         }
-        Microbot.log("Skipping " + regionName + " herb patch: " + quest.getName() + " is not completed");
+        if (state == null) {
+            Microbot.log("Could not read the status of " + quest.getName() + " yet, skipping the " + displayName + " herb patch this run");
+            return false;
+        }
+        Microbot.log("Skipping " + displayName + " herb patch: " + quest.getName() + " is not completed. Finish the quest or turn off '" + toggleName + "' to hide this message.");
         return false;
     }
 

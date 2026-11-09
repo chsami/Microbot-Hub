@@ -24,8 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 class HerbrunQuestGateTest {
@@ -85,6 +87,27 @@ class HerbrunQuestGateTest {
     }
 
     @Test
+    void trollStrongholdSkipMessageNamesTheConfigToggle() {
+        questState(Quest.MY_ARMS_BIG_ADVENTURE, QuestState.NOT_STARTED);
+
+        patch("Troll Stronghold");
+
+        microbot.verify(() -> Microbot.log(argThat((String message) -> message.contains("Troll Stronghold (Trollheim)")
+                && message.contains("is not completed")
+                && message.contains("'Enable Trollheim Patch'"))));
+    }
+
+    @Test
+    void unknownQuestStateSkipsWeissWithoutClaimingTheQuestIsMissing() {
+        questState(Quest.MAKING_FRIENDS_WITH_MY_ARM, null);
+
+        assertFalse(patch("Weiss").isEnabled());
+        microbot.verify(() -> Microbot.log(argThat((String message) -> message.startsWith("Could not read the status of")
+                && message.contains("Weiss"))));
+        microbot.verify(() -> Microbot.log(argThat((String message) -> message.contains("is not completed"))), never());
+    }
+
+    @Test
     void weissStaysOffWhenDisabledInConfigEvenWithTheQuest() {
         when(config.enableWeiss()).thenReturn(false);
         questState(Quest.MAKING_FRIENDS_WITH_MY_ARM, QuestState.FINISHED);
@@ -108,6 +131,9 @@ class HerbrunQuestGateTest {
 
         script.walkToCurrentPatch();
         assertNull(currentPatch(script));
+        microbot.verify(() -> Microbot.log(argThat((String message) -> message.contains("Catherby herb patch after 3 tries")
+                && message.contains("continuing the run")
+                && message.contains("'Enable Catherby Patch'"))));
     }
 
     @Test
