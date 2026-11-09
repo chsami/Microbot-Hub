@@ -81,6 +81,31 @@ class ZulrahDecisionLogicTest {
     }
 
     @Test
+    void westPillarDodgeUsesTheTileStraightWestThatThePlayerReachedInTheMeleePhase() {
+        assertEquals(new WorldPoint(2262, 3072, 0),
+                MeleeDodgeAction.dodgeTarget(new WorldPoint(2264, 3072, 0), StandLocation.WEST_PILLAR_N));
+    }
+
+    @Test
+    void tailSwingPicksATileOutsideTheSlamAreaWheneverOneOfTheTwoIsOutside() {
+        for (StandLocation home : new StandLocation[]{
+                StandLocation.NORTHEAST_NORTH, StandLocation.EAST_PILLAR_N, StandLocation.WEST_PILLAR_N}) {
+            WorldPoint stand = home.toWorldPoint();
+            WorldPoint away = home.meleeDodge().toWorldPoint();
+            for (int dx = -4; dx <= 4; dx++) {
+                for (int dy = -4; dy <= 4; dy++) {
+                    WorldPoint swing = new WorldPoint(stand.getX() + dx, stand.getY() + dy, 0);
+                    if (swing.distanceTo(stand) < 2 && swing.distanceTo(away) < 2) {
+                        continue;
+                    }
+                    assertTrue(MeleeDodgeAction.dodgeTarget(swing, home).distanceTo(swing) >= 2,
+                            home + " swing at " + swing);
+                }
+            }
+        }
+    }
+
+    @Test
     void poisonDamageBelowVenomThresholdRoundsUpByFifths() {
         assertEquals(0, ZulrahHelpers.nextPoisonDamage(0));
         assertEquals(1, ZulrahHelpers.nextPoisonDamage(1));

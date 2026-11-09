@@ -8,7 +8,7 @@ public enum StandLocation {
     EAST_PILLAR_N(2272, 3072),
     EAST_PILLAR_MELEE(2272, 3074),
     WEST_PILLAR_N(2264, 3072),
-    WEST_PILLAR_MELEE(2262, 3074);
+    WEST_PILLAR_MELEE(2262, 3072);
 
     private final int localX;
     private final int localY;
