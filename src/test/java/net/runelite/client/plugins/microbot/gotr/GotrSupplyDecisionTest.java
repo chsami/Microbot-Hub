@@ -75,6 +75,28 @@ class GotrSupplyDecisionTest
     }
 
     @Test
+    void partialCellStackIsToppedUpBetweenRounds()
+    {
+        assertTrue(GotrScript.shouldRestockCells(0, false));
+        assertTrue(GotrScript.shouldRestockCells(4, false));
+        assertTrue(GotrScript.shouldRestockCells(9, false));
+    }
+
+    @Test
+    void fullCellStackIsNotRestocked()
+    {
+        assertFalse(GotrScript.shouldRestockCells(10, false));
+        assertFalse(GotrScript.shouldRestockCells(10, true));
+    }
+
+    @Test
+    void largeMineIsOnlyLeftForCellsWhenNoneAreHeld()
+    {
+        assertTrue(GotrScript.shouldRestockCells(0, true));
+        assertFalse(GotrScript.shouldRestockCells(4, true));
+    }
+
+    @Test
     void largeMineWindowFollowsThePortalClockThroughARound()
     {
         GotrPortalClock clock = new GotrPortalClock();

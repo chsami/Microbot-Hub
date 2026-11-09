@@ -62,6 +62,8 @@ public class GotrScript extends Script {
     static GotrConfig config;
     String GUARDIAN_FRAGMENTS = "guardian fragments";
     String GUARDIAN_ESSENCE = "guardian essence";
+    static final String UNCHARGED_CELL = "Uncharged cell";
+    static final int MAX_UNCHARGED_CELLS = 10;
 
     boolean initCheck = false;
     boolean optimizedEssenceLoop = false;
@@ -254,8 +256,7 @@ public class GotrScript extends Script {
             // game, so we never carry runes over.
             if (depositRunesIntoPool()) return true;
 
-            // Only take cells if we don't already have them
-            if (!Rs2Inventory.hasItem("Uncharged cell")) {
+            if (shouldRestockCells(Rs2Inventory.itemQuantity(UNCHARGED_CELL), isInLargeMine())) {
                 // If in large mine and need cells, leave first
                 if (isInLargeMine()) {
                     if (leaveLargeMine()) return true;
@@ -332,7 +333,10 @@ public class GotrScript extends Script {
         }
 
         if (!Rs2Npc.canWalkTo(guardian.getNpc(), 10)) {
-            return true;
+            log("Walking to the great guardian...");
+            if (!Rs2Walker.walkUntil(guardian.getWorldLocation(), 10, () -> Rs2Npc.canWalkTo(guardian.getNpc(), 10))) {
+                return false;
+            }
         }
 
         state = GotrState.POWERING_UP;
@@ -352,19 +356,27 @@ public class GotrScript extends Script {
 
 
     private void takeUnchargedCells() {
-
-        if (!Rs2Inventory.hasItem("Uncharged cell")) {
-            // Drop one guardian essence if inventory is full
-            if (Rs2Inventory.isFull()) {
-                if (Rs2Inventory.drop(ItemID.GUARDIAN_ESSENCE)) {
-                    Microbot.log("Dropped one Guardian essence to make space for Uncharged cell");
-                }
-            }
-
-            interactObject(ObjectID.UNCHARGED_CELLS_43732, "Take-10");
-            log("Taking uncharged cells...");
-            Rs2Player.waitForAnimation();
+        int heldCells = Rs2Inventory.itemQuantity(UNCHARGED_CELL);
+        if (heldCells >= MAX_UNCHARGED_CELLS) {
+            return;
         }
+        // Drop one guardian essence if inventory is full
+        if (heldCells == 0 && Rs2Inventory.isFull()) {
+            if (Rs2Inventory.drop(ItemID.GUARDIAN_ESSENCE)) {
+                Microbot.log("Dropped one Guardian essence to make space for Uncharged cell");
+            }
+        }
+
+        interactObject(ObjectID.UNCHARGED_CELLS_43732, "Take-10");
+        log("Taking uncharged cells...");
+        Rs2Player.waitForAnimation();
+    }
+
+    static boolean shouldRestockCells(int heldCells, boolean inLargeMine) {
+        if (heldCells >= MAX_UNCHARGED_CELLS) {
+            return false;
+        }
+        return heldCells == 0 || !inLargeMine;
     }
 
     private boolean usePortal() {
