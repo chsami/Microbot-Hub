@@ -32,7 +32,7 @@ import java.awt.*;
 )
 @Slf4j
 public class GiantMolePlugin extends Plugin {
-    public static final String version = "0.0.6";
+    public static final String version = "0.0.7";
 
     @Inject
     private GiantMoleConfig config;
