@@ -6,7 +6,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Pure policy and parsing helpers for GE Flipper LAN muling. */
+/** Pure policy and parsing helpers for GE Flipper muling between clients on the same computer. */
 final class MulePolicy {
     static final int MIN_TRANSFER_GP = 1_000;
     static final int DEFAULT_PORT = 43599;

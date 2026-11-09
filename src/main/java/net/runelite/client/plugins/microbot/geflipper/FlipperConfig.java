@@ -167,9 +167,9 @@ public interface FlipperConfig extends Config {
     @ConfigItem(
         keyName = "slotActionMode",
         name = "Copilot left-click swap",
-        description = "On: use Copilot's swapped left-click for Modify/Abort<br>"
-            + "(turn on slot swap in Copilot too).<br>"
-            + "Off: use the slot's menu option instead.<br>"
+        description = "On: use Copilot's swapped left-click for Modify/Abort.<br>"
+            + "If slot swap is off in Copilot, the slot's menu option is used.<br>"
+            + "Off: always use the slot's menu option.<br>"
             + "GE Flipper never changes Copilot's own setting.",
         position = 12,
         section = tradingSection

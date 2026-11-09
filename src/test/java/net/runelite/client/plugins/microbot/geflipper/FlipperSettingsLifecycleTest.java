@@ -43,7 +43,7 @@ public class FlipperSettingsLifecycleTest {
         "MENU_OPTION, false, false"
     }, nullValues = "unset")
     @SuppressWarnings("unchecked")
-    public void slotSwapWarningRequiresExplicitDisabledPreference(
+    public void slotSwapNoticeRequiresExplicitDisabledPreference(
             FlipperConfig.SlotAction mode, String savedSwap, boolean shouldWarn) throws Exception {
         Logger own = (Logger) LoggerFactory.getLogger("net.runelite.client.plugins.microbot.geflipper");
         Logger logger = (Logger) LoggerFactory.getLogger(FlipperPlugin.class);
@@ -53,7 +53,7 @@ public class FlipperSettingsLifecycleTest {
         messages.setContext(logger.getLoggerContext());
         messages.start();
         logger.addAppender(messages);
-        logger.setLevel(Level.WARN);
+        logger.setLevel(Level.INFO);
         Field profileName = field(ConfigManager.class, "configProfileName");
         Object previousProfileName = profileName.get(null);
         FlipperPlugin plugin = new FlipperPlugin();
@@ -79,16 +79,16 @@ public class FlipperSettingsLifecycleTest {
             });
 
             plugin.startUp();
-            assertEquals(shouldWarn ? 1 : 0, messages.list.size(), "Startup warning");
+            assertEquals(shouldWarn ? 1L : 0L, swapNotices(messages), "Startup notice");
             ConfigChanged changed = new ConfigChanged();
             changed.setGroup("Flipper Config");
             changed.setKey("slotActionMode");
             plugin.onConfigChanged(changed);
-            assertEquals(shouldWarn ? 2 : 0, messages.list.size(), "Configuration warning");
-            if (shouldWarn) {
-                assertTrue(messages.list.stream().allMatch(event -> event.getLevel() == Level.WARN
-                    && event.getFormattedMessage().contains("slot action swap is off")));
-            }
+            assertEquals(shouldWarn ? 2L : 0L, swapNotices(messages), "Configuration notice");
+            assertTrue(messages.list.stream()
+                .filter(event -> event.getFormattedMessage().contains("slot action swap is off"))
+                .allMatch(event -> event.getLevel() == Level.INFO
+                    && event.getFormattedMessage().contains("menu option for Modify and Abort")));
             plugin.shutDown();
             assertEquals(expected, preferences, "Warning must not insert or change preferences");
             assertTrue(((Map<?, ?>) field(dataType, "patchChanges").get(data)).isEmpty(),
@@ -100,6 +100,12 @@ public class FlipperSettingsLifecycleTest {
             own.setLevel(previousOwnLevel);
             profileName.set(null, previousProfileName);
         }
+    }
+
+    private static long swapNotices(ListAppender<ILoggingEvent> messages) {
+        return messages.list.stream()
+            .filter(event -> event.getFormattedMessage().contains("slot action swap is off"))
+            .count();
     }
 
     @ParameterizedTest

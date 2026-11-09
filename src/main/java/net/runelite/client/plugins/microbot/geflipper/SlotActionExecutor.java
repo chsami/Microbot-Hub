@@ -33,8 +33,6 @@ public final class SlotActionExecutor {
     enum Result {
         /** The action was issued. The caller must still confirm the expected screen opened. */
         ACTED,
-        /** Slot swap is off, so a left click would open "View offer" instead of the slot action. */
-        SWAP_DISABLED,
         /** The slot's button widget could not be resolved or is off screen. */
         SLOT_UNAVAILABLE,
         /** The click point was not ready in time. */
@@ -64,10 +62,17 @@ public final class SlotActionExecutor {
         }
     }
 
+    /**
+     * With Copilot's slot swap off, a left click would open "View offer" instead of the slot action,
+     * so the slot's menu option is used instead.
+     */
+    static FlipperConfig.SlotAction effectiveMode(FlipperConfig.SlotAction mode, boolean slotSwapEnabled) {
+        return mode == FlipperConfig.SlotAction.COPILOT_LEFT_CLICK && !slotSwapEnabled
+            ? FlipperConfig.SlotAction.MENU_OPTION : mode;
+    }
+
     static Result execute(FlipperConfig.SlotAction mode, Action action, int slotId, Ui ui) {
-        if (mode == FlipperConfig.SlotAction.COPILOT_LEFT_CLICK && !ui.slotSwapEnabled()) {
-            return Result.SWAP_DISABLED;
-        }
+        if (mode == FlipperConfig.SlotAction.COPILOT_LEFT_CLICK) mode = effectiveMode(mode, ui.slotSwapEnabled());
         Point point = ui.actionPoint(slotId, action);
         if (point == null) return Result.SLOT_UNAVAILABLE;
         if (mode == FlipperConfig.SlotAction.MENU_OPTION) {

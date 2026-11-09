@@ -227,7 +227,7 @@ public class FlipperPlugin extends Plugin {
         lifecycleGeneration++;
         // One line per start, so a log shows which build is running (an old jar was once mistaken for the new one).
         diagnostics.info("GE Flipper {} started.", version);
-        warnIfSlotSwapOff();
+        noteSlotSwapOff();
         applyOwnLogLevel();
         removeOldGuideText();
         for (String key : FlipperConfig.MILLIONS_KEYS) addMillionsUnit(key, null);
@@ -457,18 +457,17 @@ public class FlipperPlugin extends Plugin {
     }
 
     /**
-     * Flipping Copilot's slot action swap belongs to the user. This plugin reads it and reports
-     * when it is off, but never writes it - enabling it silently is what made the user's own
-     * left-click setting flip back on.
+     * Flipping Copilot's slot action swap belongs to the user. This plugin reads it but never writes
+     * it - enabling it silently is what made the user's own left-click setting flip back on. While it
+     * is off, Modify and Abort use the slot's menu option instead.
      */
-    private void warnIfSlotSwapOff() {
+    private void noteSlotSwapOff() {
         if (configManager == null || config == null
             || config.slotAction() != FlipperConfig.SlotAction.COPILOT_LEFT_CLICK) return;
-        // An unset preference uses Copilot's enabled default, so only explicit false warrants this warning.
+        // An unset preference uses Copilot's enabled default, so only an explicit false gets this note.
         if (!"false".equals(configManager.getConfiguration("flippingcopilot", "slotActionSwap"))) return;
-        log.warn("GE Flipper's Copilot left-click swap is On, but Flipping Copilot's slot action swap is off. "
-            + "Enable it in Copilot's own settings, or set Copilot left-click swap to Off in GE Flipper. "
-            + "This plugin never changes that setting for you.");
+        log.info("Flipping Copilot's slot action swap is off, so GE Flipper uses the slot's menu option "
+            + "for Modify and Abort. GE Flipper never changes Copilot's settings.");
     }
 
     @Subscribe
@@ -480,7 +479,7 @@ public class FlipperPlugin extends Plugin {
         }
         if ("slotActionMode".equals(event.getKey())) {
             if (flipperScript != null) flipperScript.invalidateMouseMovement();
-            warnIfSlotSwapOff();
+            noteSlotSwapOff();
         }
         if ("verboseLogging".equals(event.getKey())) applyOwnLogLevel();
         if ("randomizeMouseSpeed".equals(event.getKey())) {

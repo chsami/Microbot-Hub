@@ -3,6 +3,8 @@ package net.runelite.client.plugins.microbot.geflipper;
 import java.lang.reflect.Field;
 import org.junit.jupiter.api.Test;
 
+import static net.runelite.client.plugins.microbot.geflipper.FlipperConfig.SlotAction.COPILOT_LEFT_CLICK;
+import static net.runelite.client.plugins.microbot.geflipper.FlipperConfig.SlotAction.MENU_OPTION;
 import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Action.MODIFY;
 import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Result.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -10,28 +12,27 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Covers real script failure handling, complementing the swap-on/off executor tests. */
 public class FlipperScriptModifyTest {
     @Test
-    public void swapOffPausesWithAnActionableSettingName() throws Exception {
+    public void menuTimeoutConsumesTheTickButDoesNotPermanentlyPause() throws Exception {
         FlipperScript script = new FlipperScript();
-        assertTrue(script.handleSlotActionFailure(SWAP_DISABLED, MODIFY, "same-suggestion"));
-        assertEquals("same-suggestion", blockedKey(script));
-        assertTrue(script.getSlotActionStatus().contains("Enable Copilot slot swap"));
-        assertTrue(script.getSlotActionStatus().contains("Slot menu action"));
+        assertTrue(script.handleSlotActionFailure(MENU_NOT_READY, MODIFY, COPILOT_LEFT_CLICK));
+        assertNull(blockedKey(script));
+        assertTrue(script.getSlotActionStatus().contains("left-click action. Will retry"));
+        assertFalse(script.handleSlotActionFailure(ACTED, MODIFY, COPILOT_LEFT_CLICK));
+        assertNull(blockedKey(script));
     }
 
     @Test
-    public void menuTimeoutConsumesTheTickButDoesNotPermanentlyPause() throws Exception {
+    public void aRejectedMenuOptionSaysSoInsteadOfBlamingTheLeftClick() throws Exception {
         FlipperScript script = new FlipperScript();
-        assertTrue(script.handleSlotActionFailure(MENU_NOT_READY, MODIFY, "same-suggestion"));
+        assertTrue(script.handleSlotActionFailure(MENU_NOT_READY, MODIFY, MENU_OPTION));
         assertNull(blockedKey(script));
-        assertTrue(script.getSlotActionStatus().contains("Will retry"));
-        assertFalse(script.handleSlotActionFailure(ACTED, MODIFY, "same-suggestion"));
-        assertNull(blockedKey(script));
+        assertEquals("Waiting for the slot's Modify offer menu option. Will retry.", script.getSlotActionStatus());
     }
 
     @Test
     public void unavailableActionDoesNotBlockTheSuggestionAndOffersRecovery() throws Exception {
         FlipperScript script = new FlipperScript();
-        assertTrue(script.handleSlotActionFailure(SLOT_UNAVAILABLE, MODIFY, "same-suggestion"));
+        assertTrue(script.handleSlotActionFailure(SLOT_UNAVAILABLE, MODIFY, COPILOT_LEFT_CLICK));
         assertNull(blockedKey(script));
         assertTrue(script.getSlotActionStatus().contains("refresh Copilot suggestions"));
         assertTrue(script.getSlotActionStatus().contains("handle the offer manually"));
@@ -40,7 +41,7 @@ public class FlipperScriptModifyTest {
     @Test
     public void successfulModifyDoesNotEnterTheFailurePath() throws Exception {
         FlipperScript script = new FlipperScript();
-        assertFalse(script.handleSlotActionFailure(ACTED, MODIFY, "same-suggestion"));
+        assertFalse(script.handleSlotActionFailure(ACTED, MODIFY, COPILOT_LEFT_CLICK));
         assertNull(blockedKey(script));
         assertEquals("", script.getSlotActionStatus());
     }

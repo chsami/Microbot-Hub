@@ -22,7 +22,7 @@ GE Flipper works every Grand Exchange slot the way Copilot suggests, including C
 **Trading**
 
 - **Select suggestions with:** enter Copilot's price and quantity with the hotkey (E) or with mouse clicks.
-- **Copilot left-click swap:** On uses Copilot's swapped left-click for Modify and Abort; turn on slot swap in Copilot's own settings too. If the left-click isn't ready after the mouse arrives, GE Flipper uses the slot's menu option once instead. Off always uses the slot's menu option. GE Flipper never changes Copilot's settings.
+- **Copilot left-click swap:** On uses Copilot's swapped left-click for Modify and Abort. While slot swap is off in Copilot's own settings, GE Flipper uses the slot's menu option instead, and it does so once if the left-click isn't ready after the mouse arrives. Off always uses the slot's menu option. GE Flipper never changes Copilot's settings.
 - **Finish on OSRS update** (off by default): when an update countdown appears, run End / Finish automatically. Not used on a Mule, which stays ready for the Flipper's last transfer.
 
 **Mouse**
@@ -94,7 +94,7 @@ GE Flipper follows Copilot; it doesn't pick items or prices itself. After an upd
 - Simpler settings: two controls on top, folded sections, shorter names and tooltips, and grey text for settings that aren't in use.
 - A bigger overlay with status, world, GE slots, the update countdown and mule progress. It sits over the inventory below the top row unless you have moved it.
 - Honours the pause button in the Microbot header. Needs Microbot 2.6.53 or later.
-- Copilot's swapped Abort/Modify left-click now counts once the cursor is anywhere on the slot button, not only on the exact pixel.
+- Copilot's swapped Abort/Modify left-click now counts once the cursor is anywhere on the slot button, not only on the exact pixel. With slot swap off in Copilot, Modify and Abort use the slot's menu option instead of waiting for a setting change.
 - Setting keys are unchanged, so saved settings carry over. The help is now one short "How to start" box under a new key; old saved copies of the help text are removed once.
 
 **1.2.81** fixed Abort and Modify clicks when Copilot highlights a slot. **1.2.80** added waiting mouse presets, the fatigue clock and optional mouse speed variation. **1.2.70** added End / Finish and the waiting mouse.

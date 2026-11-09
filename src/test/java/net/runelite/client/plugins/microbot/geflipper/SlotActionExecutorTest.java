@@ -19,7 +19,6 @@ import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.
 import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Result.ACTED;
 import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Result.MENU_NOT_READY;
 import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Result.SLOT_UNAVAILABLE;
-import static net.runelite.client.plugins.microbot.geflipper.SlotActionExecutor.Result.SWAP_DISABLED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -69,18 +68,47 @@ public class SlotActionExecutorTest {
     }
 
     @Test
-    public void disabledSwapCannotFallBackToOpeningTheOffer() {
+    public void disabledSwapUsesTheSlotMenuOptionInsteadOfALeftClick() {
+        // A left click with Copilot's slot swap off would open "View offer"; the menu option never does.
         for (SlotActionExecutor.Action action : SlotActionExecutor.Action.values()) {
             FakeUi ui = new FakeUi();
             ui.swapEnabled = false;
 
-            assertEquals(SWAP_DISABLED,
-                SlotActionExecutor.execute(COPILOT_LEFT_CLICK, action, SLOT_ID, ui));
+            assertEquals(ACTED, SlotActionExecutor.execute(COPILOT_LEFT_CLICK, action, SLOT_ID, ui));
 
-            assertTrue(ui.operations.isEmpty());
+            assertEquals(Arrays.asList("invoke"), ui.operations);
+            assertEquals(action, ui.lastAction);
+            assertEquals(SLOT_ID, ui.lastSlotId);
             assertEquals(0, ui.clicks);
-            assertEquals(0, ui.invocations);
+            assertEquals(1, ui.invocations);
+            assertEquals(0, ui.fallbackAttempts);
         }
+    }
+
+    @Test
+    public void disabledSwapStillChecksTheSlotAndReportsARejectedMenuOption() {
+        FakeUi missing = new FakeUi();
+        missing.swapEnabled = false;
+        missing.point = null;
+        assertEquals(SLOT_UNAVAILABLE, SlotActionExecutor.execute(COPILOT_LEFT_CLICK, MODIFY, SLOT_ID, missing));
+        assertTrue(missing.operations.isEmpty());
+        assertEquals(0, missing.invocations);
+
+        FakeUi rejected = new FakeUi();
+        rejected.swapEnabled = false;
+        rejected.finalValidation = false;
+        assertEquals(MENU_NOT_READY, SlotActionExecutor.execute(COPILOT_LEFT_CLICK, ABORT, SLOT_ID, rejected));
+        assertTrue(rejected.operations.isEmpty());
+        assertEquals(0, rejected.clicks);
+        assertEquals(0, rejected.invocations);
+    }
+
+    @Test
+    public void onlyALeftClickWithCopilotSwapOffSwitchesToTheMenuOption() {
+        assertEquals(MENU_OPTION, SlotActionExecutor.effectiveMode(COPILOT_LEFT_CLICK, false));
+        assertEquals(COPILOT_LEFT_CLICK, SlotActionExecutor.effectiveMode(COPILOT_LEFT_CLICK, true));
+        assertEquals(MENU_OPTION, SlotActionExecutor.effectiveMode(MENU_OPTION, false));
+        assertEquals(MENU_OPTION, SlotActionExecutor.effectiveMode(MENU_OPTION, true));
     }
 
     @Test

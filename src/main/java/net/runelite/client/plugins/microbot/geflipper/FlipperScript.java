@@ -2578,7 +2578,9 @@ public class FlipperScript extends Script {
             final int slotId = grandExchangeSlotIds[boxId];
             final SlotActionExecutor.Action action = abort
                 ? SlotActionExecutor.Action.ABORT : SlotActionExecutor.Action.MODIFY;
-            SlotActionExecutor.Result result = SlotActionExecutor.execute(config.slotAction(), action, slotId,
+            final FlipperConfig.SlotAction slotMode =
+                SlotActionExecutor.effectiveMode(config.slotAction(), isSlotActionSwapEnabled());
+            SlotActionExecutor.Result result = SlotActionExecutor.execute(slotMode, action, slotId,
                 new SlotActionExecutor.Ui() {
                     private final BooleanSupplier hoverGuard = tradingClickGuard();
                     private final Object copilot = flippingCopilot;
@@ -2647,9 +2649,9 @@ public class FlipperScript extends Script {
                 });
             lastActionTime = System.currentTimeMillis();
             actionCooldown = DEFAULT_ACTION_COOLDOWN;
-            if (handleSlotActionFailure(result, action, key)) return true;
+            if (handleSlotActionFailure(result, action, slotMode)) return true;
             slotActionStatus = "";
-            log.info("Executed {} on slot {} using {}.", action.option, boxId + 1, config.slotAction().actionDescription);
+            log.info("Executed {} on slot {} using {}.", action.option, boxId + 1, slotMode.actionDescription);
             if (abort) {
                 // Dispatch alone is not server acceptance; allow settlement before another request.
                 waitForUi(() -> !sameSlotSuggestion(key) || !readUi(() -> slotOfferMatches(boxId, itemId)),
@@ -2661,7 +2663,9 @@ public class FlipperScript extends Script {
                 // hold this suggestion until it changes, the mode changes, or the plugin restarts.
                 if (isOfferScreenOpen()) backToOverview();
                 blockedSlotActionKey = key;
-                slotActionStatus("Modify setup did not open. Check Copilot left-click swap or restart GE Flipper.");
+                slotActionStatus(slotMode == FlipperConfig.SlotAction.MENU_OPTION
+                    ? "Modify setup did not open. Refresh Copilot suggestions or restart GE Flipper."
+                    : "Modify setup did not open. Check Copilot left-click swap or restart GE Flipper.");
             }
             lastActionTime = System.currentTimeMillis();
             actionCooldown = DEFAULT_ACTION_COOLDOWN;
@@ -2673,14 +2677,14 @@ public class FlipperScript extends Script {
         }
     }
     /** Transient failures consume this tick without permanently blocking the suggestion. */
-    boolean handleSlotActionFailure(SlotActionExecutor.Result result, SlotActionExecutor.Action action, String key) {
+    boolean handleSlotActionFailure(SlotActionExecutor.Result result, SlotActionExecutor.Action action,
+                                    FlipperConfig.SlotAction mode) {
         if (result == SlotActionExecutor.Result.ACTED) return false;
-        if (result == SlotActionExecutor.Result.SWAP_DISABLED) {
-            blockedSlotActionKey = key;
-            slotActionStatus("Enable Copilot slot swap, or set Copilot left-click swap to Off in GE Flipper to use Slot menu action.");
-        } else if (result == SlotActionExecutor.Result.SLOT_UNAVAILABLE) {
+        if (result == SlotActionExecutor.Result.SLOT_UNAVAILABLE) {
             slotActionStatus("No supported " + action.option + " action is available. Waiting; if this persists, "
                 + "refresh Copilot suggestions or handle the offer manually.");
+        } else if (mode == FlipperConfig.SlotAction.MENU_OPTION) {
+            slotActionStatus("Waiting for the slot's " + action.option + " menu option. Will retry.");
         } else {
             slotActionStatus("Waiting for Copilot's " + action.option + " left-click action. Will retry.");
         }
