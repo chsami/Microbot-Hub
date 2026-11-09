@@ -72,6 +72,8 @@ public class ThievingScript extends Script {
     private boolean travelLookupFailed = false;
     private int travelFailures = 0;
     private static final int MAX_TRAVEL_FAILURES = 3;
+    private int bankLookupFailures = 0;
+    private static final int MAX_BANK_LOOKUP_FAILURES = 3;
     private String startingNpc = null;
     protected volatile boolean cleanNpc = false;
 
@@ -1182,10 +1184,17 @@ ThievingNpcStrategy getActiveStrategy() {
                 log.debug("Not Near Hallowed");
                 bank = Rs2Bank.getNearestBank();
                 if (bank == null) {
-                    showMessage("No reachable bank found from your location. Walk closer to a bank and start the script again.");
-                    shutdown();
+                    bankLookupFailures++;
+                    log.warn("No reachable bank found ({}/{})", bankLookupFailures, MAX_BANK_LOOKUP_FAILURES);
+                    if (bankLookupFailures >= MAX_BANK_LOOKUP_FAILURES) {
+                        bankLookupFailures = 0;
+                        stopNoLocation("Couldn't find a route to a bank you can use from here. Walk to a bank you can use yourself, then start the script again.");
+                        return;
+                    }
+                    Microbot.status = "Looking for a bank...";
                     return;
                 }
+                bankLookupFailures = 0;
                 if (bank == BankLocation.DARKMEYER) {
                     if (!equip(ThievingData.VYRE_SET)) {
                         showMessage("Vyre noble set (top, legs and shoes) is needed to bank at Darkmeyer. Carry or wear it and start the script again.");
@@ -1395,6 +1404,7 @@ ThievingNpcStrategy getActiveStrategy() {
         travelTarget = null;
         travelLookupFailed = false;
         travelFailures = 0;
+        bankLookupFailures = 0;
         startingNpc = null;
     }
 }
