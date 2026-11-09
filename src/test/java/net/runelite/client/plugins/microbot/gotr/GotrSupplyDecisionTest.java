@@ -77,23 +77,32 @@ class GotrSupplyDecisionTest
     @Test
     void partialCellStackIsToppedUpBetweenRounds()
     {
-        assertTrue(GotrScript.shouldRestockCells(0, false));
-        assertTrue(GotrScript.shouldRestockCells(4, false));
-        assertTrue(GotrScript.shouldRestockCells(9, false));
+        assertTrue(GotrScript.shouldRestockCells(0, false, false));
+        assertTrue(GotrScript.shouldRestockCells(4, false, false));
+        assertTrue(GotrScript.shouldRestockCells(9, false, false));
     }
 
     @Test
     void fullCellStackIsNotRestocked()
     {
-        assertFalse(GotrScript.shouldRestockCells(10, false));
-        assertFalse(GotrScript.shouldRestockCells(10, true));
+        assertFalse(GotrScript.shouldRestockCells(10, false, false));
+        assertFalse(GotrScript.shouldRestockCells(10, true, false));
     }
 
     @Test
     void largeMineIsOnlyLeftForCellsWhenNoneAreHeld()
     {
-        assertTrue(GotrScript.shouldRestockCells(0, true));
-        assertFalse(GotrScript.shouldRestockCells(4, true));
+        assertTrue(GotrScript.shouldRestockCells(0, true, false));
+        assertFalse(GotrScript.shouldRestockCells(4, true, false));
+    }
+
+    @Test
+    void failedTopUpStopsRetryingUntilTheStackIsEmpty()
+    {
+        assertFalse(GotrScript.shouldRestockCells(4, false, true));
+        assertFalse(GotrScript.shouldRestockCells(4, true, true));
+        assertTrue(GotrScript.shouldRestockCells(0, false, true));
+        assertTrue(GotrScript.shouldRestockCells(0, true, true));
     }
 
     @Test
