@@ -70,7 +70,7 @@ public class TitheFarmingScript extends Script {
 
     private boolean allPlanted = false;
 
-    private static final Duration DRY_PLANT_MARGIN = Duration.ofSeconds(20);
+    private static final Duration DRY_PLANT_MARGIN = Duration.ofSeconds(30);
 
     private boolean wateringPass = false;
 
@@ -319,7 +319,7 @@ public class TitheFarmingScript extends Script {
 
         if (plant == null) return;
 
-        if (plant.isValidToHarvest()) {
+        if (plant.isValidToHarvest() && (allPlanted || plants.stream().noneMatch(TitheFarmingScript::needsWater))) {
             state = TitheFarmState.HARVEST;
         }
 

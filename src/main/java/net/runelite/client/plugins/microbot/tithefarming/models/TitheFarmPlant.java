@@ -237,13 +237,12 @@ public class TitheFarmPlant {
     }
 
     public boolean growsWithin(Duration margin) {
-        return growsWithin(margin, Instant.now());
+        return growsWithin(isStage2() ? 3 : 2, margin, Instant.now());
     }
 
-    public boolean growsWithin(Duration margin, Instant now) {
+    public boolean growsWithin(int nextStage, Duration margin, Instant now) {
         if (planted == null) return true;
-        long stageMillis = PLANT_TIME.toMillis();
-        long intoStage = Math.floorMod(Duration.between(planted, now).toMillis(), stageMillis);
-        return stageMillis - intoStage < margin.toMillis();
+        Instant grows = planted.plus(PLANT_TIME.multipliedBy(nextStage));
+        return !now.isBefore(grows.minus(margin));
     }
 }

@@ -45,21 +45,31 @@ class TitheFarmPlantTest {
 
     @Test
     void aPlantWithUnknownPlantingTimeIsTreatedAsAboutToGrow() {
-        assertTrue(new TitheFarmPlant(35, 25, 1).growsWithin(Duration.ofSeconds(20), Instant.EPOCH));
+        assertTrue(new TitheFarmPlant(35, 25, 1).growsWithin(2, Duration.ofSeconds(30), Instant.EPOCH));
     }
 
     @Test
-    void aPlantIsAboutToGrowOnlyNearTheEndOfEachOneMinuteStage() {
+    void aDryPlantIsAboutToGrowOnlyWithinTheMarginOfItsNextStage() {
         TitheFarmPlant plant = new TitheFarmPlant(35, 25, 1);
         Instant planted = Instant.parse("2026-11-09T12:00:00Z");
         plant.setPlanted(planted);
-        Duration margin = Duration.ofSeconds(20);
+        Duration margin = Duration.ofSeconds(30);
 
-        assertFalse(plant.growsWithin(margin, planted.plusSeconds(30)));
-        assertTrue(plant.growsWithin(margin, planted.plusSeconds(45)));
-        assertFalse(plant.growsWithin(margin, planted.plusSeconds(65)));
-        assertTrue(plant.growsWithin(margin, planted.plusSeconds(101)));
-        assertFalse(plant.growsWithin(margin, planted.plusSeconds(150)));
+        assertFalse(plant.growsWithin(2, margin, planted.plusSeconds(65)));
+        assertTrue(plant.growsWithin(2, margin, planted.plusSeconds(90)));
+        assertFalse(plant.growsWithin(3, margin, planted.plusSeconds(125)));
+        assertTrue(plant.growsWithin(3, margin, planted.plusSeconds(150)));
+    }
+
+    @Test
+    void aDryPlantStillShownAtItsStageAfterTheEstimatedGrowthStaysUrgent() {
+        TitheFarmPlant plant = new TitheFarmPlant(35, 25, 1);
+        Instant planted = Instant.parse("2026-11-09T12:00:00Z");
+        plant.setPlanted(planted);
+        Duration margin = Duration.ofSeconds(30);
+
+        assertTrue(plant.growsWithin(2, margin, planted.plusSeconds(121)));
+        assertTrue(plant.growsWithin(3, margin, planted.plusSeconds(185)));
     }
 
     private static void assertDead(int id) {
