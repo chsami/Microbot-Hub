@@ -58,7 +58,6 @@ public class TitheFarmPlant {
     public int regionY;
 
     public TitheFarmPlant(int regionX, int regionY, int index) {
-        this.planted = Instant.now();
         this.state = TitheFarmPlantState.UNWATERED;
         this.regionX = regionX;
         this.regionY = regionY;
@@ -237,8 +236,14 @@ public class TitheFarmPlant {
         }
     }
 
-    public double getPlantTimeRelative() {
-        Duration duration = Duration.between(planted, Instant.now());
-        return duration.compareTo(PLANT_TIME) < 0 ? (double) duration.toMillis() / PLANT_TIME.toMillis() : 2;
+    public boolean growsWithin(Duration margin) {
+        return growsWithin(margin, Instant.now());
+    }
+
+    public boolean growsWithin(Duration margin, Instant now) {
+        if (planted == null) return true;
+        long stageMillis = PLANT_TIME.toMillis();
+        long intoStage = Math.floorMod(Duration.between(planted, now).toMillis(), stageMillis);
+        return stageMillis - intoStage < margin.toMillis();
     }
 }

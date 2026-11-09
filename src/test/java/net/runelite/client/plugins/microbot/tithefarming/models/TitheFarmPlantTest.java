@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -39,6 +41,25 @@ class TitheFarmPlantTest {
             assertTrue(lookup.matches, "patch id " + id + " should be found");
             assertFalse(lookup.dead, "patch id " + id + " should not be dead");
         }
+    }
+
+    @Test
+    void aPlantWithUnknownPlantingTimeIsTreatedAsAboutToGrow() {
+        assertTrue(new TitheFarmPlant(35, 25, 1).growsWithin(Duration.ofSeconds(20), Instant.EPOCH));
+    }
+
+    @Test
+    void aPlantIsAboutToGrowOnlyNearTheEndOfEachOneMinuteStage() {
+        TitheFarmPlant plant = new TitheFarmPlant(35, 25, 1);
+        Instant planted = Instant.parse("2026-11-09T12:00:00Z");
+        plant.setPlanted(planted);
+        Duration margin = Duration.ofSeconds(20);
+
+        assertFalse(plant.growsWithin(margin, planted.plusSeconds(30)));
+        assertTrue(plant.growsWithin(margin, planted.plusSeconds(45)));
+        assertFalse(plant.growsWithin(margin, planted.plusSeconds(65)));
+        assertTrue(plant.growsWithin(margin, planted.plusSeconds(101)));
+        assertFalse(plant.growsWithin(margin, planted.plusSeconds(150)));
     }
 
     private static void assertDead(int id) {
