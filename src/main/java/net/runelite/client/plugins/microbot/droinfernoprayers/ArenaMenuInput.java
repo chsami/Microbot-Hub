@@ -22,12 +22,10 @@ import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 import net.runelite.client.plugins.microbot.droinfernoprayers.MouseMotionScope;
 import net.runelite.client.util.Text;
 
-/** Local menu dispatch: the selected input mode, one priority lane, native NaturalMouse and observed presses. */
 public final class ArenaMenuInput
 {
     private ArenaMenuInput() { }
 
-    /** Client thread only. The exact index also covers this tick's spawn before Main's cache refresh. */
     public static NPC npc(Client client, int index)
     {
         if(index<0||client==null||client.getTopLevelWorldView()==null)return null;
@@ -40,10 +38,6 @@ public final class ArenaMenuInput
         return current!=null&&current.getIndex()==index&&current.getWorldView()==view&&!current.isDead()?current:null;
     }
 
-    /**
-     * Client thread only. An Attack entry for the NPC at {@code index}, or a cast of the selected Ice spell on it.
-     * The press is dropped if the selection changes after the entry is built. Null when it cannot be clicked.
-     */
     public static ArenaMenuEntry attackEntry(Client client, int index, java.util.function.BooleanSupplier allowed)
     {
         NPC npc = npc(client, index);
@@ -81,12 +75,6 @@ public final class ArenaMenuInput
             || widgetId == net.runelite.client.plugins.skillcalculator.skills.MagicAction.ICE_BURST.getWidgetId();
     }
 
-    /**
-     * Two presses in one pointer gesture. A protection-prayer gesture outranks a separately queued attack and its
-     * click clears the selected spell, so selecting Ice and casting it must not be split (2026-11-01: armed eight
-     * times before one nibbler cast). {@code second} runs on the client thread once {@code firstApplied} holds;
-     * a null entry ends the chain after the first press.
-     */
     public static boolean tryInvokeChain(NewMenuEntry first, Rectangle firstBounds, java.util.function.BooleanSupplier firstApplied,
         java.util.function.Supplier<NewMenuEntry> second)
     {
@@ -95,7 +83,6 @@ public final class ArenaMenuInput
         ArenaMenuEntry guarded = ArenaMenuEntry.guarded(first);
         if (!guarded.valid()) return false;
         if (ArenaInputScope.customClick(point, false, guarded)) {
-            // Invokes fire in queue order on the same lane, so the cast is queued directly behind its selection.
             ArenaMenuEntry next = ArenaInputScope.onClientThread(() -> guard(second.get())).orElse(null);
             Point target = next == null ? null : clickPoint(entityBoundsOnClientThread(next));
             if (target != null) ArenaInputScope.customClick(target, false, next);
@@ -125,7 +112,6 @@ public final class ArenaMenuInput
         return false;
     }
 
-    /** The selection lands on the client frame after the press; a few frames is ample. */
     private static final long CHAIN_SETTLE_NANOS = 150_000_000L;
 
     private static ArenaMenuEntry guard(NewMenuEntry entry)
@@ -155,14 +141,8 @@ public final class ArenaMenuInput
         return tryClick(entry, clickPoint(bounds));
     }
 
-    /** Clicks collected by {@link #burst}, on the thread that builds them. */
     private static final ThreadLocal<java.util.List<Object[]>> BURST = new ThreadLocal<>();
 
-    /**
-     * Runs {@code body} (which builds several clicks, e.g. one Wear per gear piece) and sends them as one gesture in
-     * the order built: invoked 8-11 ms apart, or clicked slot to slot by the Natural mouse without re-queueing between
-     * pieces. Returns what {@code body} returned.
-     */
     public static boolean burst(java.util.function.BooleanSupplier body)
     {
         if (BURST.get() != null) return body.getAsBoolean();
@@ -193,7 +173,6 @@ public final class ArenaMenuInput
         return false;
     }
 
-    /** The initial walk point is fixed here; ArenaMenuEntry reprojects the tile when Main builds its menu. */
     public static boolean tryClick(NewMenuEntry entry, Point point)
     {
         if (entry == null || point == null || entry.getType() == null) return false;
@@ -234,7 +213,7 @@ public final class ArenaMenuInput
             if (current == null) { ArenaInputDiagnostics.event("GESTURE_DROPPED", "TARGET_UNAVAILABLE"); return; }
             if (!current.equals(initial)) travel(current);
             ArenaInputScope.beforeClick();
-            // Re-query after the final motion. A moved target is dropped instead of pressing stale geometry.
+
             if (!PointerState.isAt(current.getX(), current.getY()) || !ArenaInputScope.onClientThread(() -> ready(current, entry)).orElse(false)) {
                 ArenaInputDiagnostics.event("GESTURE_DROPPED", "TARGET_CHANGED_BEFORE_PRESS"); return;
             }
@@ -256,7 +235,6 @@ public final class ArenaMenuInput
         finally { ArenaInputDiagnostics.event("MOUSE_TRAVEL", "NATURAL_MOUSE", System.nanoTime() - started); }
     }
 
-    /** Client thread only. */
     private static Point refresh(Point point, ArenaMenuEntry entry, Dimension size)
     {
         if (!entry.liveValid()) return null;
@@ -267,7 +245,6 @@ public final class ArenaMenuInput
         return ArenaMouse.valid(next, size) ? next : null;
     }
 
-    /** Client thread only. */
     private static boolean ready(Point point, ArenaMenuEntry entry)
     {
         if (!entry.liveValid()) return false;
@@ -289,7 +266,6 @@ public final class ArenaMenuInput
         return null;
     }
 
-    /** The same live item/widget identity checks as native inventory input, with local mode routing. */
     public static boolean inventory(Client client, int slot, int itemId, String option)
     {
         if (slot < 0 || slot >= 28 || itemId <= 0 || option == null) return false;
@@ -299,9 +275,7 @@ public final class ArenaMenuInput
             Widget widget = container == null ? null : container.getChild(slot);
             if (item == null || item.getId() != itemId || widget == null || widget.isHidden() || widget.getItemId() != itemId) return false;
             int identifier = action(widget.getActions(), option);
-            // These explicit CC_OPs are valid even while Ice is selected. In particular,
-            // wielding a carried weapon is how the controller clears a prearmed spell.
-            // Require an actual top-level action; this does not relax Cast/Use or submenus.
+
             final boolean selectionIndependent = identifier > 0 && ordinaryInventoryAction(option);
             MenuAction type = MenuAction.CC_OP;
             String target = item.getName();

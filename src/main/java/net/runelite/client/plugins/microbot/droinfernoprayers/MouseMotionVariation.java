@@ -8,11 +8,6 @@ import net.runelite.client.plugins.microbot.util.mouse.naturalmouse.support.Flow
 import net.runelite.client.plugins.microbot.util.mouse.naturalmouse.support.MouseMotionNature;
 import net.runelite.client.plugins.microbot.util.mouse.naturalmouse.util.Pair;
 
-/**
- * Optional caller-owned variation within an existing mouse movement. Keeps its destination,
- * planned duration, noise, overshoots and reaction times. It never schedules input or waits.
- * The scope travels with MouseMotionScope callbacks; unrelated callers keep their original factory.
- */
 public final class MouseMotionVariation
 {
     private static final ThreadLocal<Session> CURRENT = new ThreadLocal<>();
@@ -59,7 +54,6 @@ public final class MouseMotionVariation
         };
     }
 
-    /** Called after normal intensity/mistake selection and any existing command motion profile. */
     public static MouseMotionFactory apply(MouseMotionFactory source)
     {
         Session session = CURRENT.get();
@@ -83,7 +77,7 @@ public final class MouseMotionVariation
         {
             this.random = random;
             handBias = (random.nextDouble() - 0.5) * 0.12;
-            // Contract the existing arc slightly; never introduce a larger detour or overshoot.
+
             arcScale = 0.90 + random.nextDouble() * 0.10;
         }
 
@@ -123,8 +117,7 @@ public final class MouseMotionVariation
                 for (int i = 0; i < weights.length; i++)
                 {
                     double progress = weights.length == 1 ? 0.5 : (double) i / (weights.length - 1);
-                    // Redistribute acceleration inside the same duration. Existing zero buckets stay zero.
-                    // Scale before Flow's integer-sum normalization to avoid rounding small weights away.
+
                     weights[i] = weights[i] == 0 ? 0 : Math.max(1,
                             Math.rint(weights[i] * 1_000 * (1.0 + skew * (2.0 * progress - 1.0))));
                 }

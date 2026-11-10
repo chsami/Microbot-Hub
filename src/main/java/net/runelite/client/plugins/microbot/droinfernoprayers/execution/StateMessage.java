@@ -15,35 +15,28 @@ import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.inferno.In
 import net.runelite.client.plugins.microbot.droinfernoprayers.execution.Messages.GroundItem;
 import net.runelite.client.plugins.microbot.droinfernoprayers.execution.Messages.Worn;
 
-/**
- * Builds the local decision snapshot every game tick from the common capture and Inferno extras.
- * The session explicitly selects the required capture sections.
- */
 final class StateMessage
 {
-	/** Sections recorded only when changed; the local worker reconstructs entries named in "same". */
 	private static final Set<String> SAME_SECTIONS =
 		Set.of("prayers", "inventory", "equipment", "ground", "camera", "widgets", "dialogue");
 	private static final String[] SKILLS = {"hitpoints", "prayer", "ranged", "magic", "attack", "strength", "defence"};
-	/** Objects to JSON trees: null fields left out. */
+
 	private static final Gson TREE = new Gson();
 
 	State state;
 	InfernoState infernoState;
     net.runelite.client.plugins.microbot.droinfernoprayers.ColosseumUi colosseumUi;
 
-	// Sections selected by the local session.
 	private volatile Set<String> sections = Set.of();
-	/** The collision section's area and the on-screen mask's area, {x1, y1, x2, y2}, or null. */
+
 	private volatile int[] area;
 	private volatile int[] screen;
-	/** Widgets the widgets section reports (packed ids). */
+
 	private volatile int[] widgets = new int[0];
 
 	private final Map<String, JsonElement> lastSent = new HashMap<>();
 	private int[] lastCollision;
 
-	/** Configure capture sections from now on, every section in full on the next tick. */
 	synchronized void welcome(Set<String> sections, int[] area, int[] screen, int[] widgets)
 	{
 		this.sections = new java.util.HashSet<>(sections);
@@ -59,7 +52,6 @@ final class StateMessage
 		lastCollision = null;
 	}
 
-	/** Stopped: capture nothing. */
 	synchronized void clear()
 	{
 		welcome(Set.of(), null, null, new int[0]);
@@ -136,10 +128,6 @@ final class StateMessage
 		return s;
 	}
 
-    /**
-     * Local decisions may skip an obsolete tick, so every queued snapshot must be self-contained.
-     * Remote products keep the original bandwidth-saving delta contract in build().
-     */
     synchronized JsonObject buildFull(long tick, JsonArray events)
     {
         JsonObject snapshot = build(tick, events);
@@ -265,7 +253,6 @@ final class StateMessage
 		return c;
 	}
 
-	/** Add a section, or name it in `same` when it is unchanged since last sent. */
 	private void section(JsonObject s, JsonArray same, String key, JsonElement value)
 	{
 		if (SAME_SECTIONS.contains(key))
@@ -280,7 +267,6 @@ final class StateMessage
 		s.add(key, value);
 	}
 
-	/** The screen area as a bitmask: bit i = tile (x1 + i % width, y1 + i / width), LSB first per byte. */
 	private String onScreen()
 	{
 		int[] r = screen;
@@ -301,7 +287,6 @@ final class StateMessage
 		return Base64.getEncoder().encodeToString(bits);
 	}
 
-	/** The collision area, row-major from (x1, y1), or null when unchanged since last sent. */
 	private JsonObject collision()
 	{
 		int[] r = area;

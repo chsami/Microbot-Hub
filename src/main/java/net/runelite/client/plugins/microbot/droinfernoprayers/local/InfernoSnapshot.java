@@ -1,4 +1,3 @@
-/* Copyright (c) 2026, DRO (droplugins). SPDX-License-Identifier: BSD-2-Clause */
 package net.runelite.client.plugins.microbot.droinfernoprayers.local;
 
 import com.google.gson.JsonArray;
@@ -10,14 +9,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/** Immutable, game-API-free view of the existing arena wire snapshot. */
 final class InfernoSnapshot
 {
     final JsonObject raw, player;
     final long tick, time;
     final int x, y, hp, maxHp, prayer, maxPrayer, magic, baseMagic, ranged, baseRanged, bloodLevel;
     final int runEnergy, specEnergy, animation, interacting, plane;
-    /** Ice tiers the carried runes support (ICE_* bits); -1 when the capture has no rune receipt. */
+
     final int iceRunes;
     static final int ICE_BURST = 1, ICE_BLITZ = 2, ICE_BARRAGE = 4;
     final boolean instance, moving, runOn, specOn, spellSelected;
@@ -61,26 +59,7 @@ final class InfernoSnapshot
             && x >= 2240 && x <= 2303 && y >= 5312 && y <= 5375;
     }
 
-    /** Highest Ice spell the carried runes and boosted Magic can cast now; 0 when none can. */
-    int iceLevel()
-    {
-        // Historical captures carry no rune receipt: keep the reference's Barrage, else Burst.
-        int runes = iceRunes < 0 ? ICE_BURST | ICE_BARRAGE : iceRunes;
-        if ((runes & ICE_BARRAGE) != 0 && magic >= 94) return 94;
-        if ((runes & ICE_BLITZ) != 0 && magic >= 82) return 82;
-        if ((runes & ICE_BURST) != 0 && magic >= 70) return 70;
-        return 0;
-    }
 
-    /** Lowest carried Ice tier within base Magic: the level a restore must bring back after brews. */
-    int iceRestoreLevel()
-    {
-        int runes = iceRunes < 0 ? ICE_BURST | ICE_BARRAGE : iceRunes;
-        if ((runes & ICE_BURST) != 0 && baseMagic >= 70) return 70;
-        if ((runes & ICE_BLITZ) != 0 && baseMagic >= 82) return 82;
-        if ((runes & ICE_BARRAGE) != 0 && baseMagic >= 94) return 94;
-        return 0;
-    }
 
     static int supportedBloodLevel(int level)
     {
@@ -115,7 +94,7 @@ final class InfernoSnapshot
         final int id, slot, qty;
         final String name, lower;
         final boolean worn;
-        /** The game's equipment stats for this item, or null (not wearable, not loaded, or a recorded snapshot). */
+
         final JsonObject gear;
         Item(JsonObject item, boolean worn)
         {
@@ -175,11 +154,6 @@ final class InfernoSnapshot
         boolean alive() { return !dead && index >= 0; }
         boolean enemy() { return alive() && role != Role.PILLAR && role != Role.SHIELD && role != Role.UNKNOWN; }
         boolean targetsPlayer() { return interacting != null && interacting.isJsonPrimitive() && "player".equals(interacting.getAsString()); }
-        int targetIndex()
-        {
-            try { return interacting == null || interacting.isJsonNull() ? -1 : interacting.getAsInt(); }
-            catch (RuntimeException ignored) { return -1; }
-        }
         int distance(int tx, int ty)
         {
             return Math.max(0, Math.max(Math.max(x - tx, tx - x - size + 1), Math.max(y - ty, ty - y - size + 1)));

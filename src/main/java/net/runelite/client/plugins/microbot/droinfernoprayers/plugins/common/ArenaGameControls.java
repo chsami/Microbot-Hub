@@ -10,7 +10,6 @@ import net.runelite.client.plugins.microbot.droinfernoprayers.ArenaMenuInput;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.util.Text;
 
-/** Live game entities and game UI only; never a desktop or URL command bridge. */
 final class ArenaGameControls {
     private final Client client;
     private final BooleanSupplier allowed;

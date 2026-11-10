@@ -2,7 +2,6 @@ package net.runelite.client.plugins.microbot.droinfernoprayers;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import net.runelite.client.config.ConfigItem;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import org.junit.jupiter.api.Test;
@@ -35,27 +34,13 @@ public class DroInfernoPrayersPluginTest
         assertTrue(Files.isRegularFile(Paths.get(docs + "README.md")));
     }
 
-    @Test public void prayersOnlyIsTheDefaultAndFullAutomaticCannotBeChosen() {
+    @Test public void prayersAreTheWholePlugin() {
         DroInfernoPrayersConfig config = new DroInfernoPrayersConfig() { };
-        assertEquals(ArenaAssistMode.PRAYERS_ONLY, config.mode());
-        for (ArenaAssistMode mode : ArenaAssistMode.values()) {
-            assertTrue(mode == ArenaAssistMode.PRAYERS_ONLY || mode == ArenaAssistMode.AUTO_NO_MOVEMENT, mode.name());
-        }
+        assertTrue(config.showTilePack(), "the tile pack is on by default");
+        assertFalse(config.logoutAfterRun());
         DroInfernoPrayersPlugin plugin = new DroInfernoPrayersPlugin();
-        assertEquals(ArenaAssistMode.PRAYERS_ONLY, plugin.mode(), "unset settings fall back to Prayers only");
         assertTrue(plugin.prayersOnly());
         assertFalse(plugin.manualMovement());
         assertEquals(ArenaFightInput.INVOKES, plugin.fightInput());
-    }
-
-    @Test public void aioStartupSettingsAreHiddenAndOff() throws Exception {
-        DroInfernoPrayersConfig config = new DroInfernoPrayersConfig() { };
-        assertFalse(config.automateStartup());
-        assertNull(config.setup());
-        for (String key : new String[]{"prayersOnly", "manualMovement", "fightInput", "automateStartup", "setup", "purchaseBudget", "coinReserve", "maxUnitPrice", "priceMarkupPercent", "offerWaitSeconds", "buyRunePouchNote", "sacrificeFirecape"}) {
-            ConfigItem item = DroInfernoPrayersConfig.class.getMethod(key).getAnnotation(ConfigItem.class);
-            assertNotNull(item, key);
-            assertTrue(item.hidden(), key + " must not show in the settings panel");
-        }
     }
 }

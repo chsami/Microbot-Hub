@@ -8,7 +8,6 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 
-/** User-authorized in-game drops, with live arena and inventory-slot checks. */
 public final class ArenaDropPolicy {
     private ArenaDropPolicy() { }
     public static boolean insideArena(Client client) {
@@ -25,8 +24,7 @@ public final class ArenaDropPolicy {
             if (!allowed.getAsBoolean() || !insideArena(client)) return false;
             var item=Rs2Inventory.getItemInSlot(slot);
             if (item==null || item.getId()!=itemId) return false;
-            // Same client-thread turn: inventory helper revalidates the live slot and Drop action.
-            // It cannot switch tabs or wait here; a hidden inventory safely rejects the request.
+
             return allowed.getAsBoolean() && ArenaMenuInput.inventory(client,slot,itemId,"Drop");
         }).orElse(false);
     }

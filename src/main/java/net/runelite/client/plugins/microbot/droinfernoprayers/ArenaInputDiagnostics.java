@@ -6,7 +6,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
-/** Observation only: no client reads, scheduling, retries, input decisions or protocol writes. */
 public final class ArenaInputDiagnostics implements AutoCloseable {
     private static final ThreadLocal<Trace> CURRENT = new ThreadLocal<>();
     private final Trace previous;
@@ -25,7 +24,7 @@ public final class ArenaInputDiagnostics implements AutoCloseable {
         private final java.util.concurrent.atomic.AtomicBoolean completed = new java.util.concurrent.atomic.AtomicBoolean();
         private volatile String noPressReason = "CALLBACK_RETURNED_WITHOUT_PRESS";
         public long gestureCount() { return gestures.get(); }
-        /** Second, local-only receipt. Submission never proves physical delivery. */
+
         public void finishGesture() {
             if (gesture == 0 || !completed.compareAndSet(false, true)) return;
             event("DELIVERY_RECEIPT", presses.get() > 0 ? "PRESS_EMITTED" : noPressReason, 0);
@@ -41,7 +40,7 @@ public final class ArenaInputDiagnostics implements AutoCloseable {
         public void event(String stage, String reason, long waitNanos) {
             event(stage, reason, waitNanos, Map.of());
         }
-        /** Exact numeric routing at the client dispatch boundary; no display target/name strings. */
+
         public void invoke(boolean returned, net.runelite.api.MenuAction action, int param0, int param1, int identifier, int itemId) {
             event(returned ? "INVOKE_FIRED" : "INVOKE_DISPATCH", action.name(), 0,
                 Map.of("inputMode", "INVOKE", "menuAction", action.name(), "opcode", action.getId(),
@@ -62,7 +61,7 @@ public final class ArenaInputDiagnostics implements AutoCloseable {
                 data.put("thread",Thread.currentThread().getName());
                 data.putAll(extra);
                 sink.accept(data);
-            } catch (RuntimeException ignored) { /* Recording cannot fail input. */ }
+            } catch (RuntimeException ignored) {  }
             if (stage.equals("QUEUE_DROPPED") || stage.equals("GESTURE_DROPPED")) finishGesture();
         }
     }
@@ -77,8 +76,7 @@ public final class ArenaInputDiagnostics implements AutoCloseable {
         Trace trace=CURRENT.get();
         if(trace!=null){trace.presses.incrementAndGet();trace.event("PRESS_EMITTED",reason,0);}
     }
-    // A gesture can call a mouse callback captured earlier at command submission.
-    // Keep the more specific gesture correlation; never change either callback's input scope.
+
     private static Trace effective(Trace captured) {
         Trace active=CURRENT.get();
         return captured.gesture==0 && active!=null && active.gestures==captured.gestures

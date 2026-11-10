@@ -24,15 +24,11 @@ import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.Com
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.State;
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.inferno.InfernoCommands;
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.inferno.InfernoState;
-import net.runelite.client.plugins.microbot.droinfernoprayers.DroRecorderDiagnostic;
+import net.runelite.client.plugins.microbot.droinfernoprayers.ArenaDiagnostic;
 
-/**
- * Local Inferno lifecycle, capture and command admission. Only the bounded decision worker owns a
- * background executor; validated actions use the existing native arena input and receipt owners.
- */
 public final class LocalInfernoSession implements AutoCloseable
 {
-    private static final Gson RECORDING_JSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
+    private static final Gson SNAPSHOT_JSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
     private static final Set<String> SECTIONS = Set.of("player", "npcs", "prayers", "inventory",
         "events", "projectiles", "equipment", "ground", "camera", "collision");
     private final Events events = new Events();
@@ -55,7 +51,6 @@ public final class LocalInfernoSession implements AutoCloseable
         this(gameThread, log, allowed, adapt(Objects.requireNonNull(engine)), null, null);
     }
 
-    /** Deterministic worker scheduling for the lifecycle and action-admission regressions. */
     LocalInfernoSession(Consumer<Runnable> gameThread, Consumer<String> log, BooleanSupplier allowed,
         LocalDecisionWorker.Engine engine, LongSupplier clock, ExecutorService executor)
     {
@@ -99,14 +94,13 @@ public final class LocalInfernoSession implements AutoCloseable
         return this;
     }
 
-    /** "Prayers only": every non-prayer command from the engine is dropped; the player controls the rest. */
     private volatile java.util.function.BooleanSupplier prayersOnly=()->false;
     public LocalInfernoSession prayersOnly(java.util.function.BooleanSupplier value)
     {
         prayersOnly=value==null?()->false:value;
         return this;
     }
-    /** "Manual movement": the engine's walks are dropped; the player moves, everything else stays automatic. */
+
     private volatile BooleanSupplier manualMovement=()->false;
     public LocalInfernoSession manualMovement(BooleanSupplier value)
     {
@@ -147,17 +141,14 @@ public final class LocalInfernoSession implements AutoCloseable
     public String lastEnd() { return lastEnd; }
     public String status() { return lastEnd != null ? lastEnd : "Local: " + worker.status(); }
 
-    /** Capture uses the same native spell checks as arena preparation. Client thread only. */
     public void spellState(boolean ancient, int bloodLevel)
     {
         ancientSpellbook = ancient;
         bloodAutocastLevel = ancient && (bloodLevel == 56 || bloodLevel == 68 || bloodLevel == 80 || bloodLevel == 92) ? bloodLevel : 0;
     }
 
-    /** Carried Ice rune tiers (InfernoSnapshot ICE_* bits). Client thread only. */
     public void iceRunes(int tiers) { iceRunes = ancientSpellbook ? tiers : 0; }
 
-    /** Client-thread game/varbit receipts remain on the shared prayer diagnostics owner. */
     public void observePrayers(Client client)
     {
         if (running) runner.observePrayers(id -> client.getVarbitValue(id) == 1);
@@ -177,7 +168,7 @@ public final class LocalInfernoSession implements AutoCloseable
         stateMessage.welcome(SECTIONS, new int[]{2240, 5312, 2303, 5375}, null, new int[0]);
         running = true;
         events.collect(true);
-        // Main recorder keeps its native sampling; combat input never changes recorder settings.
+
         lifecycle("WELCOME", "LOCAL_ENGINE_READY");
         log.accept("Local Inferno controller ready");
     }
@@ -189,11 +180,10 @@ public final class LocalInfernoSession implements AutoCloseable
         runner.clear();
         events.collect(false);
         stateMessage.clear();
-        // Main recorder settings remain owned by Recorder.
+
         lifecycle("STOP", lastEnd == null ? "CLOSED_LOCALLY" : "SESSION_ENDED");
     }
 
-    /** Fresh complete capture on the client thread; inference and corpus loading stay off-thread. */
     public synchronized void onGameTick()
     {
         runner.nextTick();
@@ -216,11 +206,10 @@ public final class LocalInfernoSession implements AutoCloseable
             if (iceRunes >= 0) snapshot.getAsJsonObject("player").addProperty("iceRunes", iceRunes);
         }
         worker.offer(snapshot);
-        record(Map.of("record", "arena_local_state", "tick", runner.tick(),
-            "status", String.valueOf(worker.status()), "snapshot", RECORDING_JSON.toJson(snapshot)));
+        publish(Map.of("event", "arena_local_state", "tick", runner.tick(),
+            "status", String.valueOf(worker.status()), "snapshot", SNAPSHOT_JSON.toJson(snapshot)));
     }
 
-    /** Admission and start/stop share a short lock; engine computation never holds it. */
     private synchronized void command(long generation, JsonObject packet, BooleanSupplier fresh)
     {
         if (running && worker.currentGeneration(generation) && fresh.getAsBoolean() && !dropped(packet)) runner.onCommand(packet);
@@ -245,19 +234,19 @@ public final class LocalInfernoSession implements AutoCloseable
 
     private void lifecycle(String stage, String reason)
     {
-        record(Map.of("record", "arena_connection", "product", ArenaProduct.INFERNO.protocolName,
+        publish(Map.of("event", "arena_session", "product", ArenaProduct.INFERNO.productName,
             "status", running ? "LOCAL_READY" : "LOCAL_STOPPED", "stage", stage, "reason", reason,
             "cause", lastEnd == null ? "NONE" : lastEnd, "attempt", 1));
     }
 
-    private static void record(Map<String, Object> values)
+    private static void publish(Map<String, Object> values)
     {
         try
         {
             var bus = Microbot.getEventBus();
-            if (bus != null) bus.post(new DroRecorderDiagnostic(values));
+            if (bus != null) bus.post(new ArenaDiagnostic(values));
         }
-        catch (RuntimeException unavailable) { /* Recorder failure cannot interrupt local execution. */ }
+        catch (RuntimeException unavailable) {  }
     }
 
     @Override public synchronized void close()

@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.droinfernoprayers;
 
-/** A loaded arena receipt owns input until confirmed death, completion, departure or logout. */
 final class ArenaRunGuard {
     private volatile boolean entered, finished;
     void observe(boolean reliable, boolean inside, boolean dead) {

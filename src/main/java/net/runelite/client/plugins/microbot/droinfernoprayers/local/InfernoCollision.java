@@ -1,29 +1,3 @@
-/* Copyright (c) 2026, DRO (droplugins). SPDX-License-Identifier: BSD-2-Clause */
-/*
- * Line-of-sight traversal adapted from RuneLite WorldArea.
- * Copyright (c) 2018, Woox <https://github.com/wooxsolo>
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice, this
- *    list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- *    this list of conditions and the following disclaimer in the documentation
- *    and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 package net.runelite.client.plugins.microbot.droinfernoprayers.local;
 
 import com.google.gson.JsonArray;
@@ -38,7 +12,6 @@ import java.util.Map;
 import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoSnapshot.Npc;
 import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoSnapshot.Role;
 
-/** Directional collision and bounded routes in live template coordinates. */
 final class InfernoCollision
 {
     private static final int UNLOADED = 0x1000000;
@@ -110,7 +83,6 @@ final class InfernoCollision
             && cardinal(from.x, from.y + dy, to.x, to.y);
     }
 
-    /** Match Main's WorldArea dominant-axis fixed-point traversal, including directional rounding. */
     boolean ray(int x, int y, int tx, int ty)
     {
         return ray(x, y, tx, ty, false);
@@ -129,7 +101,6 @@ final class InfernoCollision
         return rayAxis(y - y1, x - x1, ty - y1, dx, Math.abs(dy), yMask, xMask, false, unknownMayExpose);
     }
 
-    /** Check the entered major-axis tile before applying the minor-axis slope, as WorldArea does. */
     private boolean rayAxis(int major, int minor, int target, int minorDelta, int majorDistance,
                             int majorMask, int minorMask, boolean horizontal, boolean unknownMayExpose)
     {
@@ -151,40 +122,24 @@ final class InfernoCollision
     private int rayFlag(int major, int minor, boolean horizontal, boolean unknownMayExpose)
     {
         int value = horizontal ? flag(x1 + major, y1 + minor) : flag(x1 + minor, y1 + major);
-        // Missing terrain forbids our shots, but cannot certify safe cover from an enemy.
+
         return unknownMayExpose && (value & UNLOADED) != 0 ? 0 : value;
     }
 
-    boolean playerSight(Tile player, Npc npc)
-    {
-        if (npc.distance(player.x, player.y) == 0) return false;
-        for (int x = npc.x; x < npc.x + npc.size; x++)
-            for (int y = npc.y; y < npc.y + npc.size; y++)
-                if (facing(npc, player, x, y) && ray(player.x, player.y, x, y)) return true;
-        return false;
-    }
 
     boolean npcSight(Npc npc, Tile player)
     {
         if (!valid || !inside(player.x, player.y) || !inside(npc.x, npc.y)
             || !inside(npc.x + npc.size - 1, npc.y + npc.size - 1)) return true;
-        // A tile that blocks sight cannot be shot into, whichever way the ray is cast.
+
         if ((flag(player.x, player.y) & MISSILE_BLOCKED & ~UNLOADED) != 0) return false;
-        // WorldArea comparison point: the NPC tile nearest the player.
-        // Any clear edge ray would let a large NPC see around the pillar it is standing behind.
+
         int x = Math.max(npc.x, Math.min(player.x, npc.x + npc.size - 1));
         int y = Math.max(npc.y, Math.min(player.y, npc.y + npc.size - 1));
-        // Cast from the player. Over 9,519 recorded attacks this blocks 2.0% (any edge ray: 2.0%), while
-        // ready-but-idle NPCs read visible 23% of the time (any edge ray: 44%). The NPC-to-player ray
-        // misses pillar corners the NPC cannot actually shoot past.
+
         return ray(player.x, player.y, x, y, true);
     }
 
-    private static boolean facing(Npc npc, Tile p, int x, int y)
-    {
-        return p.x < npc.x && x == npc.x || p.x >= npc.x + npc.size && x == npc.x + npc.size - 1
-            || p.y < npc.y && y == npc.y || p.y >= npc.y + npc.size && y == npc.y + npc.size - 1;
-    }
 
     boolean melee(Npc npc, Tile tile)
     {
@@ -196,24 +151,16 @@ final class InfernoCollision
         return false;
     }
 
-    /**
-     * One NPC step followed by cardinal contact. The RuneLite WorldArea travelling
-     * rule permits only an X step when a melee target is diagonally adjacent.
-     * An open Y route therefore does not release a valid diagonal pillar trap.
-     * https://github.com/runelite/runelite/blob/runelite-parent-1.9.13/runelite-api/src/main/java/net/runelite/api/coords/WorldArea.java
-     */
     boolean meleeNext(Npc npc, Tile tile)
     {
         if (melee(npc, tile)) return true;
         if (npc.distance(tile.x, tile.y) > 2) return false;
-        if (!valid) return true; // An absent map cannot establish a trap.
+        if (!valid) return true;
         long key = ((long) npc.index << 32) | ((long) tile.x << 16) | tile.y;
         Boolean cached = nextMelee.get(key);
         if (cached != null) return cached;
         if (!loadedMeleeStepArea(npc, tile))
         {
-            // Unknown collision also rejects a route, but is not proof of a trap.
-            // Retain the potential hit until the entire relevant edge is observed.
             nextMelee.put(key, true);
             return true;
         }
@@ -244,21 +191,13 @@ final class InfernoCollision
     private boolean loadedMeleeStepArea(Npc npc, Tile target)
     {
         if ((flag(target.x, target.y) & UNLOADED) != 0) return false;
-        // Bounded to the footprint and one NPC step, including diagonal edge tests.
-        // Unknown cells elsewhere in the scene cannot invalidate an observed trap.
+
         for (int x = npc.x - 1; x <= npc.x + npc.size; x++)
             for (int y = npc.y - 1; y <= npc.y + npc.size; y++)
                 if ((flag(x, y) & UNLOADED) != 0) return false;
         return true;
     }
 
-    /**
-     * The bat's one-tile range margin requires a real approach step. In the
-     * successful opening it remains five tiles away with sight, but the north
-     * pillar blocks one leading footprint cell; sight alone is not an attack.
-     * This uses the existing whole-footprint movement rules, without granting
-     * safety when any relevant collision edge is unknown.
-     */
     boolean batCanReachNext(Npc npc, Tile target)
     {
         int distance = npc.distance(target.x, target.y);
@@ -271,8 +210,7 @@ final class InfernoCollision
         if (!loadedMeleeStepArea(npc, target)) { nextBatRange.put(key, true); return true; }
         int dx = Integer.signum(target.x - npc.x), dy = Integer.signum(target.y - npc.y);
         int nx = npc.x, ny = npc.y;
-        // A mobile actor may vacate its tile before the bat's next step. Only
-        // static terrain and pillars can establish this observed range trap.
+
         if (npcStep(npc, dx, dy, target, true)) { nx += dx; ny += dy; }
         else if (dx != 0 && npcStep(npc, dx, 0, target, true)) nx += dx;
         else if (dy != 0 && npcStep(npc, 0, dy, target, true)) ny += dy;
@@ -283,10 +221,6 @@ final class InfernoCollision
         return result;
     }
 
-    /**
-     * Whether a bat closing in sees {@code player} after its next step toward it. A bat steps and fires on the same
-     * tick (live 2026-11-03 wave 2: stepped out from behind the south-east pillar at distance 3 and hit for 13).
-     */
     boolean batSightNext(Npc npc, Tile player)
     {
         if (!valid || npc.distance(player.x, player.y) > 5) return false;

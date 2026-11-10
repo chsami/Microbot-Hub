@@ -7,7 +7,6 @@ import net.runelite.api.WorldView;
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.NpcSpawnDiagnostics;
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.State;
 
-/** Local routing must distinguish an observed open tile from unavailable scene collision. */
 public final class LocalInfernoState extends State
 {
     private static final int UNLOADED = 0x1000000;
@@ -18,7 +17,6 @@ public final class LocalInfernoState extends State
         this(client, diagnostics, null);
     }
 
-    /** The mapper seam keeps the scene-availability regression independent of instance placement. */
     LocalInfernoState(Client client, NpcSpawnDiagnostics diagnostics,
         BiFunction<Integer, Integer, int[]> scene)
     {

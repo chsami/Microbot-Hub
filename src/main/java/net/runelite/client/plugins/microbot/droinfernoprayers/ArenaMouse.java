@@ -20,11 +20,10 @@ import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 import net.runelite.client.plugins.microbot.droinfernoprayers.MouseMotionScope;
 
-/** Private arena trajectory engine. Uses the shared canvas bridge, never NaturalMouse or its FIFO. */
 public final class ArenaMouse implements ArenaInputScope.ClickHandler, AutoCloseable
 {
     static final long TRAIL_NANOS=240_000_000L;
-    /** Per-move travel jitter: triangular on [1-JITTER,1+JITTER], clamped to the original 18-60 ms range. */
+
     static final double TRAVEL_JITTER=.08;
     static final long MIN_TRAVEL_NANOS=18_000_000L,MAX_TRAVEL_NANOS=60_000_000L;
     static final long MIN_SAMPLE_NANOS=3_500_000L,MAX_SAMPLE_NANOS=4_500_000L;
@@ -42,18 +41,17 @@ public final class ArenaMouse implements ArenaInputScope.ClickHandler, AutoClose
     @Override public void click(Point point,boolean rightClick,NewMenuEntry entry){
         if(closed||point==null){drop(closed?"MOUSE_CLOSED":"NULL_POINT");return;}
         Runnable gesture=ArenaInputScope.capture(()->{
-            // Owner cancellation is normal control flow, as in the ordinary mouse scheduler.
             try { perform(point,rightClick,entry); }
             catch(MouseMotionScope.Cancelled ignored){ }
         });
-        // Never fall back to a second queue or block the client thread.
+
         if(!ArenaInputScope.scheduleGesture(gesture))drop("OWNER_QUEUE_UNAVAILABLE");
     }
 
     private void perform(Point target,boolean rightClick,NewMenuEntry entry){
         checkpoint();
         if(closed){drop("MOUSE_CLOSED");return;}
-        // Same live canvas validation as the existing arena mouse; no state reads in the curve.
+
         Dimension size=Microbot.getClientThread().runOnClientThreadOptional(()->
             new Dimension(Microbot.getClient().getCanvasWidth(),Microbot.getClient().getCanvasHeight())).orElse(null);
         if(!valid(target,size)){drop("INVALID_COMBAT_POINT");return;}
@@ -61,13 +59,13 @@ public final class ArenaMouse implements ArenaInputScope.ClickHandler, AutoClose
             checkpoint();
             if(closed){drop("MOUSE_CLOSED");return;}
             move(emit,target,size);
-            // Preserve the old menu-aware correction for callers supplying entity metadata.
+
             Point corrected=refresh(target,entry,size);
             if(corrected==null){drop("TARGET_UNAVAILABLE");return;}
             if(!corrected.equals(target))move(emit,corrected,size);
             MouseMotionScope.beforeClick();
             if(closed){drop("MOUSE_CLOSED");return;}
-            // Scope cancellation happens before arming. InputLoop unwinds human takeover/buttons.
+
             if(entry!=null)Microbot.targetMenu=entry;
             int button=rightClick?MouseEvent.BUTTON3:MouseEvent.BUTTON1;
             emit.press(corrected.getX(),corrected.getY(),button);
@@ -96,7 +94,6 @@ public final class ArenaMouse implements ArenaInputScope.ClickHandler, AutoClose
         long duration=travelNanos(durationNanos(from,target),random),started=clock.getAsLong();
         ArenaMousePath path=ArenaMousePath.choose(from,target,random);
         try {
-            // Time-based sampling skips missed frames instead of accumulating sleeps/backlog.
             while(true){
                 checkpoint();
                 if(closed)return;
@@ -104,7 +101,7 @@ public final class ArenaMouse implements ArenaInputScope.ClickHandler, AutoClose
                 double t=duration==0?1:Math.min(1,(double)elapsed/duration);
                 Point next=clamp(path.at(t),size);
                 if(!PointerState.isAt(next.getX(),next.getY()))emit.move(next.getX(),next.getY());
-                record(PointerState.get());
+                track(PointerState.get());
                 if(t>=1)return;
                 pause.accept(Math.min(sampleNanos(random),Math.max(1,duration-elapsed)));
             }
@@ -119,21 +116,17 @@ public final class ArenaMouse implements ArenaInputScope.ClickHandler, AutoClose
         double distance=Math.hypot(to.getX()-from.getX(),to.getY()-from.getY());
         return distance==0?0:Math.round(Math.min(60,18+distance*0.055)*1_000_000L);
     }
-    /** Mean-preserving jitter of the nominal budget so equal-distance moves are not one fixed duration. */
+
     static long travelNanos(long nominal,Random random){
         if(nominal==0)return 0;
         double factor=1+TRAVEL_JITTER*(random.nextDouble()+random.nextDouble()-1);
         return Math.max(MIN_TRAVEL_NANOS,Math.min(MAX_TRAVEL_NANOS,Math.round(nominal*factor)));
     }
     static long sampleNanos(Random random){return MIN_SAMPLE_NANOS+(long)(random.nextDouble()*(MAX_SAMPLE_NANOS-MIN_SAMPLE_NANOS));}
-    private synchronized void record(Point point){
+    private synchronized void track(Point point){
         if(closed)return;
         cursor=point;trail.addLast(new Sample(point,clock.getAsLong()));
         while(trail.size()>96)trail.removeFirst();
-    }
-    synchronized List<Sample> samples(long now){
-        while(!trail.isEmpty()&&now-trail.peekFirst().at>TRAIL_NANOS)trail.removeFirst();
-        return new ArrayList<>(trail);
     }
     Point cursor(){return closed?null:cursor;}
     @Override public synchronized void close(){closed=true;trail.clear();cursor=null;}

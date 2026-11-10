@@ -29,12 +29,6 @@ import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayUtil;
 
-/**
- * Community Inferno tile pack (14 Ground Markers tiles, region 9043; osrstools.net "Inferno Tile Pack", from the
- * WeDoRaids Discord !infernotiles), drawn in the Inferno instance when "Show Inferno tile pack" is on. Row y 5358 marks
- * the Zuk shield path (grey stand tiles 2260/2266/2276/2282, red ends 2262-2264 and 2278-2280, "UNSAFE" at 2271,5357);
- * three grey tiles mark wave spots. Monster true tiles are drawn on top. Drawing only: the engine does not read these tiles.
- */
 public final class InfernoTilePackOverlay extends Overlay
 {
 	static final String RESOURCE = "inferno-tile-pack.json";
@@ -56,13 +50,13 @@ public final class InfernoTilePackOverlay extends Overlay
 	}
 
 	private final Client client;
-	private final DroInfernoConfig config;
+	private final DroInfernoPrayersConfig config;
 	private final List<Tile> tiles;
 	private int cachedTick = -1;
 	private List<Object[]> cached = Collections.emptyList();
 
 	@Inject
-	InfernoTilePackOverlay(Client client, DroInfernoConfig config)
+	InfernoTilePackOverlay(Client client, DroInfernoPrayersConfig config)
 	{
 		this.client = client;
 		this.config = config;
@@ -97,7 +91,6 @@ public final class InfernoTilePackOverlay extends Overlay
 		return out;
 	}
 
-	/** Ground Markers colours are #AARRGGBB; near-transparent pack tiles get a faint outline so they stay visible. */
 	static Color color(String hex)
 	{
 		if (hex == null || !hex.startsWith("#") || hex.length() != 9)
@@ -161,7 +154,7 @@ public final class InfernoTilePackOverlay extends Overlay
 				}
 			}
 		}
-		// Monster true tiles on top of the pack, only inside the Inferno's own template region.
+
 		if (InfernoBoundary.inside(client))
 		{
 			InfernoNpcTiles.render(graphics, client, wv);

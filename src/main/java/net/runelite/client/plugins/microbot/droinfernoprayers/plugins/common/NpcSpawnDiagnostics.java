@@ -13,10 +13,6 @@ import net.runelite.api.WorldView;
 import net.runelite.client.plugins.microbot.droinfernoprayers.ArenaProduct;
 import net.runelite.client.plugins.microbot.droinfernoprayers.execution.Messages.Npc;
 
-/**
- * Client-thread, local-only observations of the exact arena snapshot source. Does not query/refresh any
- * cache, reread the NPC list, edit the wire payload, schedule work or strongly retain live NPCs.
- */
 public final class NpcSpawnDiagnostics
 {
     private static final int MAX_TRACKED = 128;
@@ -26,7 +22,7 @@ public final class NpcSpawnDiagnostics
     private final ArenaProduct product;
     private final Consumer<Map<String, Object>> sink;
     private final Map<Long, Seen> tracked = new LinkedHashMap<>();
-    private long wireTick = -1;
+    private long snapshotTick = -1;
     private long nextOrdinal, snapshotNumber, snapshotStarted;
     private int snapshotClientTick, snapshotCycle, nullEntries, nullNames;
 
@@ -35,7 +31,7 @@ public final class NpcSpawnDiagnostics
         final int id, index, worldView, spawnTick, spawnCycle;
         final long ordinal, spawnedAt;
         final WeakReference<NPC> npc;
-        long firstWireTick = -1;
+        long firstSnapshotTick = -1;
         int firstClientTick = -1, firstCycle = -1;
         boolean wasPresent;
         Map<String, Object> details;
@@ -58,7 +54,7 @@ public final class NpcSpawnDiagnostics
 
     public void beginSnapshot(long tick)
     {
-        wireTick = tick; snapshotNumber++; nullEntries = 0; nullNames = 0;
+        snapshotTick = tick; snapshotNumber++; nullEntries = 0; nullNames = 0;
         snapshotStarted = System.nanoTime();
         observe("BEGIN_SNAPSHOT", () -> {
             snapshotClientTick = client.getTickCount(); snapshotCycle = client.getGameCycle();
@@ -74,7 +70,7 @@ public final class NpcSpawnDiagnostics
                 Seen seen = new Seen(npc, client.getTickCount(), client.getGameCycle(), ++nextOrdinal);
                 remember(key(npc), seen);
                 origin(row, seen);
-                // Publish the event identity even if a definition accessor is unavailable.
+
                 publish(row);
                 seen.details = details(npc);
                 Map<String, Object> definition = row("SPAWN_DEFINITION", npc, false);
@@ -89,7 +85,7 @@ public final class NpcSpawnDiagnostics
     {
         observe("DESPAWN", () -> {
             Seen seen = npc == null ? null : tracked.get(key(npc));
-            // A delayed despawn for a reused index must not discard the new NPC's observation.
+
             if (seen != null && seen.npc.get() == npc)
             {
                 tracked.remove(key(npc));
@@ -111,13 +107,12 @@ public final class NpcSpawnDiagnostics
         });
     }
 
-    /** Called at the unchanged State.npcs() filter, for every skipped entry, including null references. */
     public void skipped(NPC npc)
     {
         observe("SKIP", () -> {
             if (npc == null) nullEntries++; else nullNames++;
             Map<String, Object> row = row(npc == null ? "SKIPPED_NULL_NPC" : "SKIPPED_NULL_NAME", npc, true);
-            // The unchanged filter has already made its decision. Keep it even if later reads fail.
+
             publish(row);
             if (npc != null)
             {
@@ -127,7 +122,6 @@ public final class NpcSpawnDiagnostics
         });
     }
 
-    /** Observe the exact captured top-level list and constructed payload; neither is modified. */
     public void snapshot(WorldView top, List<NPC> source, List<Npc> sent)
     {
         long buildMicros = snapshotStarted == 0 ? -1 : (System.nanoTime() - snapshotStarted) / 1_000;
@@ -141,7 +135,6 @@ public final class NpcSpawnDiagnostics
                 Seen seen = tracked.get(entry.getKey());
                 if (seen == null || seen.npc.get() != npc)
                 {
-                    // A mid-run start is not evidence of a spawn event.
                     seen = new Seen(npc, -1, -1, ++nextOrdinal);
                     remember(entry.getKey(), seen);
                 }
@@ -149,7 +142,7 @@ public final class NpcSpawnDiagnostics
                 boolean first = inSnapshot && seen.firstClientTick < 0;
                 if (first)
                 {
-                    seen.firstWireTick = wireTick; seen.firstClientTick = client.getTickCount();
+                    seen.firstSnapshotTick = snapshotTick; seen.firstClientTick = client.getTickCount();
                     seen.firstCycle = client.getGameCycle(); firstCount++;
                 }
                 if (!inSnapshot) missingCount++;
@@ -219,7 +212,7 @@ public final class NpcSpawnDiagnostics
         row.put("spawnObserved", seen.spawnTick >= 0);
         if (seen.firstClientTick >= 0)
         {
-            row.put("firstSnapshotWireTick", seen.firstWireTick);
+            row.put("firstSnapshotTick", seen.firstSnapshotTick);
             row.put("firstSnapshotClientTick", seen.firstClientTick);
             row.put("firstSnapshotGameCycle", seen.firstCycle);
         }
@@ -238,13 +231,13 @@ public final class NpcSpawnDiagnostics
     private Map<String, Object> row(String phase, NPC npc, boolean snapshot)
     {
         Map<String, Object> row = new LinkedHashMap<>();
-        row.put("record", "arena_npc_visibility"); row.put("phase", phase);
-        row.put("product", product.protocolName);
+        row.put("event", "arena_npc_visibility"); row.put("phase", phase);
+        row.put("product", product.productName);
         row.put("clientTick", client.getTickCount()); row.put("gameCycle", client.getGameCycle());
         row.put("clientThread", client.isClientThread());
         if (snapshot)
         {
-            row.put("wireTick", wireTick); row.put("source", "TOP_LEVEL_WORLD_VIEW");
+            row.put("snapshotTick", snapshotTick); row.put("source", "TOP_LEVEL_WORLD_VIEW");
             row.put("snapshotNumber", snapshotNumber);
         }
         if (npc != null)
@@ -289,8 +282,8 @@ public final class NpcSpawnDiagnostics
         try { observation.run(); }
         catch (RuntimeException failure)
         {
-            publish(Map.of("record", "arena_npc_visibility", "phase", "OBSERVATION_FAILED",
-                "product", product.protocolName, "wireTick", wireTick,
+            publish(Map.of("event", "arena_npc_visibility", "phase", "OBSERVATION_FAILED",
+                "product", product.productName, "snapshotTick", snapshotTick,
                 "during", phase, "errorType", failure.getClass().getSimpleName()));
         }
     }
@@ -298,6 +291,6 @@ public final class NpcSpawnDiagnostics
     private void publish(Map<String, Object> row)
     {
         try { sink.accept(Collections.unmodifiableMap(row)); }
-        catch (RuntimeException ignored) { /* Diagnostic output cannot fail a snapshot or event. */ }
+        catch (RuntimeException ignored) {  }
     }
 }

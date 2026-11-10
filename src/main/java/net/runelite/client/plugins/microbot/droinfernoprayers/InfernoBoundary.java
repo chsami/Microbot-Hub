@@ -5,13 +5,12 @@ import net.runelite.api.GameState;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 
-/** The template region used by RuneLite's Inferno timer; entry lobby is excluded. */
 public final class InfernoBoundary {
     private InfernoBoundary() { }
     public static boolean templateTile(int x, int y, int plane) {
         return plane == 0 && x >= 2240 && x < 2304 && y >= 5312 && y < 5376;
     }
-    /** Client-thread only: scene, player health and template conversion are one snapshot. */
+
     public static boolean inside(Client c) {
         if (c == null || c.getGameState() != GameState.LOGGED_IN || c.getLocalPlayer() == null
             || c.getTopLevelWorldView() == null || !c.getTopLevelWorldView().isInstance()

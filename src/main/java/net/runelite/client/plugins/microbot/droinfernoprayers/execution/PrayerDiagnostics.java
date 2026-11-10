@@ -5,7 +5,6 @@ import java.util.function.*;
 import net.runelite.client.plugins.microbot.droinfernoprayers.plugins.common.Commands;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
 
-/** Local-only, bounded timing evidence. Never changes dispatch or waits for a prayer receipt. */
 public final class PrayerDiagnostics {
     private static final ThreadLocal<Ticket> CURRENT=new ThreadLocal<>();
     private final Consumer<Map<String,Object>> sink;
@@ -17,34 +16,33 @@ public final class PrayerDiagnostics {
     public static Ticket current(){return CURRENT.get();}
     private long ms(long start){return Math.max(0,(clock.getAsLong()-start)/1_000_000L);}
     public final class Ticket {
-        final long id,received,receivedWall,serverTick,localTick,deadline;
+        final long id,received,receivedWall,engineTick,localTick,deadline;
         final String op;
         final Rs2PrayerEnum prayer;
         final boolean desired;
         long started=-1,enqueued=-1;
         boolean confirmed,menuSeen;
-        Ticket(long id,String op,String name,boolean desired,long serverTick,long localTick,long deadline){
+        Ticket(long id,String op,String name,boolean desired,long engineTick,long localTick,long deadline){
             this.id=id;this.op=op;this.prayer=Commands.prayerEnum(name);this.desired=desired;
-            this.serverTick=serverTick;this.localTick=localTick;this.deadline=deadline;received=clock.getAsLong();receivedWall=System.currentTimeMillis();
+            this.engineTick=engineTick;this.localTick=localTick;this.deadline=deadline;received=clock.getAsLong();receivedWall=System.currentTimeMillis();
         }
-        /** Called inside the command's existing client-thread state read. */
+
         public void before(boolean active){synchronized(PrayerDiagnostics.this){
             if(!owns(this))return;
             emit(this,"BEFORE",Map.of("active",active));
             if(active==desired){confirmed=true;pending.remove(id);emit(this,"ALREADY_SET",Map.of("active",active));}
         }}
-        /** Worker-side cache check: evidence of the decision to skip input, not a new varbit receipt. */
+
         void cachedBefore(boolean active){synchronized(PrayerDiagnostics.this){
             if(owns(this))emit(this,"CACHED_BEFORE",Map.of("active",active,"source","CACHED_SNAPSHOT"));
         }}
-        /** A menu request was handed to Main; this is not proof the game applied it. */
+
         public void inputQueued(){synchronized(PrayerDiagnostics.this){if(!owns(this))return;enqueued=clock.getAsLong();emit(this,"INPUT_ENQUEUED",Map.of());}}
     }
-    Ticket received(long id,String op,String name,boolean desired,long serverTick,long localTick,long deadline){
+    Ticket received(long id,String op,String name,boolean desired,long engineTick,long localTick,long deadline){
         synchronized(this){
-            Ticket ticket=new Ticket(id,op,name,desired,serverTick,localTick,deadline);
-            // This only retires observation ownership. It never cancels or replaces input.
-            // Even an already-satisfied newer request owns this prayer's subsequent receipt.
+            Ticket ticket=new Ticket(id,op,name,desired,engineTick,localTick,deadline);
+
             for(Ticket older:new ArrayList<>(pending.values()))
                 if(ticket.prayer!=null&&older.prayer==ticket.prayer)retire(older,"SUPERSEDED_BY_NEWER_INTENT");
             if(pending.size()>=128){var oldest=pending.values().iterator().next();pending.remove(oldest.id);emit(oldest,"UNCONFIRMED",Map.of("reason","DIAGNOSTIC_CAPACITY"));}
@@ -66,12 +64,10 @@ public final class PrayerDiagnostics {
             if(!delivered&&owns(ticket))pending.remove(ticket.id);
         }
     }
-    /** Existing input receipt only: a canceled attempt must not claim another action's state. */
+
     synchronized void delivery(Ticket ticket,String reason,long presses){
         if(ticket==null||!owns(ticket)||presses>0||"INVOKE_RETURNED".equals(reason))return;
         if("ALREADY_SATISFIED".equals(reason)){
-            // A cached pre-press check needed no input. Do not invent a native delivery or
-            // a new live varbit receipt; an actual live check calls Ticket.before itself.
             pending.remove(ticket.id);emit(ticket,"NO_INPUT_NEEDED",Map.of("reason",reason));return;
         }
         pending.remove(ticket.id);
@@ -82,7 +78,7 @@ public final class PrayerDiagnostics {
         if(!owns(ticket))return;
         pending.remove(ticket.id);emit(ticket,"UNCONFIRMED",Map.of("reason",reason));
     }
-    /** Client thread only; the caller supplies the existing game's varbit accessor. */
+
     synchronized void observe(IntPredicate active){
         for(Rs2PrayerEnum prayer:Rs2PrayerEnum.values()){
             boolean on=active.test(prayer.getVarbit());Boolean previous=states.put(prayer,on);
@@ -107,10 +103,10 @@ public final class PrayerDiagnostics {
     private void emit(Ticket ticket,String stage,Map<String,Object> extra){
         var values=new LinkedHashMap<String,Object>();values.put("stage",stage);values.put("id",ticket.id);values.put("op",ticket.op);
         values.put("prayer",ticket.prayer==null?"UNKNOWN":ticket.prayer.name());values.put("desired",ticket.desired);
-        values.put("serverTick",ticket.serverTick);values.put("receivedTick",ticket.localTick);values.put("deadlineMs",ticket.deadline);
+        values.put("engineTick",ticket.engineTick);values.put("receivedTick",ticket.localTick);values.put("deadlineMs",ticket.deadline);
         values.put("receivedAtMs",ticket.receivedWall);values.put("elapsedMs",ms(ticket.received));
         if(ticket.started>=0)values.put("dispatchRunMs",ms(ticket.started));
         values.putAll(extra);publish(values);
     }
-    private void publish(Map<String,Object> values){try{sink.accept(Collections.unmodifiableMap(values));}catch(RuntimeException ignored){/* Diagnostics cannot fail a combat action. */}}
+    private void publish(Map<String,Object> values){try{sink.accept(Collections.unmodifiableMap(values));}catch(RuntimeException ignored){}}
 }

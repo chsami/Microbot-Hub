@@ -6,7 +6,6 @@ import net.runelite.api.Skill;
 import net.runelite.api.VarPlayer;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 
-/** Updated on the client thread; waves come from observed game messages, never predictions or personal bests. */
 final class ArenaHudTracker {
     private static final Pattern WAVE=Pattern.compile("(?i)^Wave\\s*:?\\s*(\\d{1,3})[.!]?$");
     private final ArenaProduct product;

@@ -8,18 +8,13 @@ import net.runelite.api.gameval.VarClientID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 
-/** One physical pointer, independent canvas-keyboard work, bounded priorities. No OS/global key API. */
 public final class ArenaInputDispatcher implements AutoCloseable {
     private final Lane pointer=new Lane("dro-arena-pointer",true),keyboard=new Lane("dro-arena-keyboard",false),
         commands=new Lane("dro-arena-commands",false);
-    /**
-     * Consecutive pointer inputs are never sent together. In the recordings same-tick inputs are at least 18 ms
-     * apart (10th percentile 28 ms, median 40 ms); a Protect from Melee invoke sent with a Rigour toggle and a
-     * potion was lost (Colosseum, 2026-11-01).
-     */
+
     static final long MIN_GAP_NANOS=18_000_000L,MAX_GAP_NANOS=28_000_000L;
     private final ArenaMouse mouse=new ArenaMouse();
-    /** Retained for the legacy overlay; neither selectable input mode uses this private mouse. */
+
     public ArenaMouse mouse(){return mouse;}
     private final BooleanSupplier allowed;
     private final Predicate<String> prepare;
@@ -29,16 +24,15 @@ public final class ArenaInputDispatcher implements AutoCloseable {
     public void execute(String op,int priority,Runnable task){execute(op,priority,()->true,task);}
     public void execute(String op,int priority,BooleanSupplier fresh,Runnable task){
         boolean keys=op.equals("dialogue.next")||op.equals("dialogue.choose")||op.equals("camera.set");
-        // A tab cannot change underneath an in-flight gesture. Decisions that can change tabs
-        // use the physical pointer's priority queue as well; unrelated work stays independent.
+
         (keys?keyboard:tab(op)!=null?pointer:commands).submit(priority,()->{
-            if(!fresh.getAsBoolean()||!allowed.getAsBoolean()){task.run();return;}// Runner supplies the BLOCKED result.
+            if(!fresh.getAsBoolean()||!allowed.getAsBoolean()){task.run();return;}
             try(var speed=net.runelite.client.plugins.microbot.droinfernoprayers.MouseMotionScope.speed(1.30)){
                 task.run();
             }
         });
     }
-    /** Same priority pointer lane for physical work, never VirtualMouse's FIFO. */
+
     public void gesture(String op,int priority,BooleanSupplier fresh,Runnable task){
         pointer.submitGesture(priority,task);
     }
@@ -55,7 +49,7 @@ public final class ArenaInputDispatcher implements AutoCloseable {
         InterfaceTab tab=tab(op);if(tab==null)return true;
         return Microbot.getClientThread().runOnClientThreadOptional(()->openTab(Microbot.getClient(),tab)).orElse(false);
     }
-    /** Client-thread only: script dispatch and the live readiness receipt are one operation. */
+
     public static boolean openTab(net.runelite.api.Client client,InterfaceTab tab){
         net.runelite.client.plugins.microbot.droinfernoprayers.MouseMotionScope.checkpoint();
         int wanted=tab.getVarcIntIndex();
@@ -90,7 +84,7 @@ public final class ArenaInputDispatcher implements AutoCloseable {
             Job job=new Job(priority,sequence.incrementAndGet(),observed,permits,cancelled);
             try{executor.execute(job);}catch(RejectedExecutionException closed){job.cancel(false);throw closed;}return job;
         }
-        /** Lane thread only: input pacing, never a wait on game state and never on the client thread. */
+
         private void stagger(){
             long gap=ThreadLocalRandom.current().nextLong(MIN_GAP_NANOS,MAX_GAP_NANOS+1);
             long wait=lastFinished+gap-System.nanoTime();

@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.droinfernoprayers;
 
-/** Standalone local fight lifecycle and immutable overlay progress. */
 public interface ArenaActivity {
     boolean arenaRunning();
     String arenaStatus();

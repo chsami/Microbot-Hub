@@ -9,7 +9,6 @@ import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
 import net.runelite.client.plugins.skillcalculator.skills.MagicAction;
 
-/** Inferno extras. As with Commands, true means satisfied or submitted, not observed completion. */
 public class InfernoCommands
 {
 	private final Client client;
@@ -21,44 +20,12 @@ public class InfernoCommands
         this.allowed = allowed;
 	}
 
-	/** The nearest item named `name` (or "name(...)", e.g. a dose) within `radius` tiles. */
-	public boolean takeGroundItem(String name, int radius)
-	{
-        if (!allowed.getAsBoolean()) return false;
-		if (name==null || name.length()>80 || radius<0 || radius>15) return false;
-        String lower = name.toLowerCase(java.util.Locale.ROOT);
-        return ArenaInputScope.onClientThread(() -> {
-            if(!allowed.getAsBoolean()||client.isWidgetSelected()) return false;
-            Rs2TileItemModel item = Microbot.getRs2TileItemCache().query().fromWorldView()
-                .where(Rs2TileItemModel::isLootAble)
-                .where(i -> i.getName()!=null && (i.getName().equalsIgnoreCase(name)
-                    || i.getName().toLowerCase(java.util.Locale.ROOT).startsWith(lower+"(")))
-                .nearest(radius);
-            if(item==null || item.getLocalLocation()==null) return false;
-            var local=item.getLocalLocation();
-            var polygon=net.runelite.api.Perspective.getCanvasTilePoly(client,local);
-            if(polygon==null||polygon.getBounds().isEmpty())return false;
-            ArenaMenuEntry entry=new ArenaMenuEntry().liveCheck(()->allowed.getAsBoolean()&&!client.isWidgetSelected()
-                &&Microbot.getRs2TileItemCache().query().fromWorldView().where(i->i.getId()==item.getId()
-                    &&i.isLootAble()&&i.getWorldLocation().equals(item.getWorldLocation())).firstOnClientThread()!=null);
-            return ArenaMenuInput.tryInvoke(entry
-                .param0(local.getSceneX()).param1(local.getSceneY()).identifier(item.getId()).itemId(-1)
-                .type(net.runelite.api.MenuAction.GROUND_ITEM_THIRD_OPTION).option("Take")
-                .worldViewId(client.getTopLevelWorldView().getId()),
-                polygon.getBounds());
-        }).orElse(false);
-    }
 
-	/** Select the highest Ice spell the boosted level and carried runes can cast, unless it is already selected. */
 	public boolean armIce()
 	{
         return armIce(-1);
     }
 
-    /**
-     * As {@link #armIce()}, then cast it on the NPC at {@code index} (>= 0) in the same pointer gesture, so no
-     * prayer click can clear the selection in between. With the spell already selected only the cast is sent.
-     */
 	public boolean armIce(int index)
 	{
         if (!allowed.getAsBoolean()) return false;
@@ -92,14 +59,12 @@ public class InfernoCommands
         net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells.ICE_BLITZ,
         net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells.ICE_BURST};
 
-    /** Burst needs chaos runes and Blitz/Barrage need bloods: never select a tier the carried runes can't cast. */
     static MagicAction castableIce(int level){
         for(var spell:ICE_SPELLS)
             if(level>=spell.getMagicAction().getLevel()&&Rs2Magic.hasRequiredRunes(spell))return spell.getMagicAction();
         return null;
     }
 
-    /** ICE_* tier bits of InfernoSnapshot the carried runes support, regardless of the current level. Client thread. */
     public static int iceRuneTiers(){
         int tiers=0;
         if(Rs2Magic.hasRequiredRunes(ICE_SPELLS[2]))tiers|=1;

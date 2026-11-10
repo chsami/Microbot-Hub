@@ -1,6 +1,5 @@
 package net.runelite.client.plugins.microbot.droinfernoprayers;
 
-/** Immutable local display data. No credentials, network bodies or live entities reach render. */
 public final class ArenaHud {
     public final ArenaProduct product;
     public final String status;
@@ -10,5 +9,5 @@ public final class ArenaHud {
         this.product=product;this.status=status;this.wave=wave;this.hp=hp;this.prayer=prayer;this.spec=spec;
         this.brewDoses=brewDoses;this.restoreDoses=restoreDoses;this.startedAt=startedAt;this.waveAt=waveAt;
     }
-    public String title(){return product==ArenaProduct.INFERNO?"Inferno":"Colosseum";}
+    public String title(){return product==ArenaProduct.INFERNO?"Inferno Prayers":"Colosseum Prayers";}
 }

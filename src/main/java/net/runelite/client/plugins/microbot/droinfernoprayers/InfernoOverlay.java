@@ -15,7 +15,6 @@ import net.runelite.client.input.MouseWheelListener;
 import net.runelite.client.plugins.microbot.util.mouse.BotEventGuard;
 import net.runelite.client.ui.overlay.*;
 
-/** Arena HUD with an immutable standalone client frame and local status. */
 public final class InfernoOverlay extends Overlay {
     private static final Color BG=new Color(51,47,38),ACCENT=new Color(226,171,75),TEXT=new Color(227,210,173),MUTED=new Color(180,163,135),CELL=new Color(81,72,60),ON=new Color(116,106,85);
     private static final Font ACTIVITY_FONT=new Font(Font.SANS_SERIF,Font.BOLD,10),STATUS_FONT=new Font(Font.SANS_SERIF,Font.PLAIN,10);
@@ -84,7 +83,7 @@ public final class InfernoOverlay extends Overlay {
     final MouseAdapter mouse=new MouseAdapter(){
         @Override public MouseEvent mouseMoved(MouseEvent e){
             if(BotEventGuard.isSynthetic())return e;
-            // A fresh move (rather than drag) proves a lost release is no longer held.
+
             if(e.getID()==MouseEvent.MOUSE_MOVED){captured.clear();pressed=null;}
             hover=e.getPoint();if(blocksPointer(e.getPoint()))e.consume();return ownedMotion(e);
         }
@@ -114,7 +113,7 @@ public final class InfernoOverlay extends Overlay {
         @Override public MouseEvent mouseClicked(MouseEvent e){if(!BotEventGuard.isSynthetic()&&(blockedClicks.remove(e.getButton())||contains(e.getPoint())))e.consume();return e;}
         @Override public MouseEvent mouseDragged(MouseEvent e){if(!BotEventGuard.isSynthetic()){hover=e.getPoint();if(blocksPointer(e.getPoint())||!compact()&&!captured.isEmpty())e.consume();}return ownedMotion(e);}
     };
-    // Main's listener callback returns the final event; preserve Dro's off-canvas hover clearing.
+
     private static MouseEvent ownedMotion(MouseEvent event){
         if(!event.isConsumed())return event;
         MouseEvent hidden=new MouseEvent(event.getComponent(),event.getID(),event.getWhen(),event.getModifiersEx(),-1,-1,0,false);
@@ -137,7 +136,7 @@ public final class InfernoOverlay extends Overlay {
         Frame frame=this.frame;Shield shield=painted;
         return frame.loggedIn&&!frame.chatBusy&&!frame.chatboxUnavailable&&shield!=null&&shield.layout.matches(frame,generation);
     }
-    // Keep press ownership until release, even if Stop or a dialogue removes the hit targets.
+
     private void clearActions(){hits=Collections.emptyList();pressed=null;}
     private void clearTargets(){painted=null;panel=new Rectangle();clearActions();}
     void clear(){clearTargets();display=null;resetPartialGrace();}
@@ -153,7 +152,7 @@ public final class InfernoOverlay extends Overlay {
             return display;
         }
         if(previous==null){clearTargets();return null;}
-        // Begin only when a retained display is actually used; real LOADING may skip rendering.
+
         if(!partialActive){partialSince=nanoClock.getAsLong();partialActive=true;}
         if(partialExpired()){clear();return null;}
         clearActions();return previous;
@@ -198,30 +197,40 @@ public final class InfernoOverlay extends Overlay {
         return null;
     }
     private void renderArena(Graphics2D g,List<Hit> next,ArenaHud arena,int x,int y,int width,int height){
-        button(g,next,new Rectangle(x+10,y+10,76,24),"Settings",false,planner,"Open plugin settings");
-        int titleX=x+Math.max(100,width-190);
-        var icon=InfernoOverlayArt.icon();
-        if(icon!=null){icon.paintIcon(null,g,titleX,y+1);titleX+=46;}
-        g.setFont(new Font(Font.SANS_SERIF,Font.BOLD,17));g.setColor(ACCENT);drawFit(g,arena.title(),titleX,y+28,x+width-titleX-10);
-        int runX=x+width*53/100,waveX=x+width*78/100;
+        int cx=x+width/2;
+        button(g,next,new Rectangle(x+10,y+9,70,22),"Settings",false,planner,"Open plugin settings");
+        button(g,next,new Rectangle(x+width-32,y+9,22,22),"\u2212",false,()->collapsed=true,"Collapse overlay");
+        Font titleFont=new Font(Font.SANS_SERIF,Font.BOLD,17);g.setFont(titleFont);
+        String title=arena.title();var icon=InfernoOverlayArt.small();
+        int iconWidth=icon==null?0:icon.getIconWidth()+6,titleWidth=Math.min(width-200,g.getFontMetrics().stringWidth(title));
+        int titleX=cx-(iconWidth+titleWidth)/2;
+        if(icon!=null)icon.paintIcon(null,g,titleX,y+7);
+        g.setColor(ACCENT);drawFit(g,title,titleX+iconWidth,y+26,titleWidth);
+        int top=y+7;
+        int[] columns={x+width/6,cx,x+width*5/6};
+        String[] labels={"Current wave","Run time","Wave time"};
+        long now=System.currentTimeMillis();
+        String[] values={arena.wave>0?"Wave "+arena.wave:"Wave \u2014",timeText(Math.max(0,now-arena.startedAt)),arena.waveAt>0?timeText(Math.max(0,now-arena.waveAt)):"\u2014"};
         g.setFont(new Font(Font.SANS_SERIF,Font.PLAIN,10));g.setColor(MUTED);
-        g.drawString("Current wave",x+12,y+56);g.drawString("Run time",runX,y+56);g.drawString("Wave time",waveX,y+56);
-        g.setFont(new Font(Font.SANS_SERIF,Font.BOLD,22));g.setColor(ACCENT);g.drawString(arena.wave>0?"Wave "+arena.wave:"Wave —",x+12,y+80);
-        long now=System.currentTimeMillis();g.setFont(new Font(Font.SANS_SERIF,Font.PLAIN,16));g.setColor(TEXT);
-        g.drawString(timeText(Math.max(0,now-arena.startedAt)),runX,y+79);
-        g.drawString(arena.waveAt>0?timeText(Math.max(0,now-arena.waveAt)):"—",waveX,y+79);
+        for(int i=0;i<3;i++)drawCentered(g,labels[i],columns[i],top+52,width/3-10);
+        for(int i=0;i<3;i++){
+            g.setFont(i==0?new Font(Font.SANS_SERIF,Font.BOLD,20):new Font(Font.SANS_SERIF,Font.PLAIN,16));g.setColor(i==0?ACCENT:TEXT);
+            drawCentered(g,values[i],columns[i],top+74,width/3-10);
+        }
         g.setFont(new Font(Font.SANS_SERIF,Font.PLAIN,10));g.setColor(TEXT);
-        String vitals="HP "+arena.hp+"  |  Prayer "+arena.prayer+"  |  Spec "+arena.spec+"%";
-        String supplies="Brew doses "+arena.brewDoses+"  |  Restore doses "+arena.restoreDoses;
-        drawFit(g,vitals+"  |  "+supplies,x+12,y+100,width-24);
-        g.setColor(CELL);g.drawLine(x+10,y+height-49,x+width-10,y+height-49);
-        g.setFont(new Font(Font.SANS_SERIF,Font.PLAIN,10));g.setColor(TEXT);
-        drawFit(g,arena.status,x+12,y+height-29,Math.max(70,width-225));
-        next.add(new Hit(new Rectangle(x+10,y+height-44,Math.max(70,width-225),22),()->showStatus(arena.title()+"\n"+arena.status),"Read full arena status"));
-        g.setColor(MUTED);drawFit(g,"Input yielding off  |  Breaks off",x+12,y+height-10,Math.max(70,width-225));
-        InfernoOverlayBranding.draw(g,new Rectangle(x+width-210,y+height-43,174,38));
-        next.add(new Hit(new Rectangle(x+width-210,y+height-43,174,38),planner,"Open plugin settings"));
-        button(g,next,new Rectangle(x+width-29,y+height-23,22,18),"−",false,()->collapsed=true,"Collapse arena overlay");
+        drawCentered(g,"HP "+arena.hp+"  |  Prayer "+arena.prayer+"  |  Spec "+arena.spec+"%  |  Brew doses "+arena.brewDoses+"  |  Restore doses "+arena.restoreDoses,cx,top+94,width-24);
+        int divider=y+height-43,statusY=y+height-23;
+        g.setColor(CELL);g.drawLine(x+10,divider,x+width-10,divider);
+        g.setFont(new Font(Font.SANS_SERIF,Font.PLAIN,11));g.setColor(TEXT);drawCentered(g,arena.status,cx,statusY,width-40);
+        next.add(new Hit(new Rectangle(x+10,divider+3,width-20,24),()->showStatus(arena.title()+"\n"+arena.status),"Read full status"));
+        g.setFont(new Font(Font.SANS_SERIF,Font.PLAIN,9));g.setColor(MUTED);drawCentered(g,"v"+VERSION,cx,y+height-7,width-40);
+    }
+    private static void drawCentered(Graphics2D g,String text,int centreX,int baseline,int max){
+        int w=Math.min(max,g.getFontMetrics().stringWidth(text));drawFit(g,text,centreX-w/2,baseline,max);
+    }
+    static final String VERSION=version();
+    private static String version(){
+        var d=DroInfernoPrayersPlugin.class.getAnnotation(net.runelite.client.plugins.PluginDescriptor.class);return d==null?"?":d.version();
     }
     private static void showStatus(String status) {
         javax.swing.SwingUtilities.invokeLater(()->{

@@ -1,4 +1,3 @@
-/* Copyright (c) 2026, DRO (droplugins). SPDX-License-Identifier: BSD-2-Clause */
 package net.runelite.client.plugins.microbot.droinfernoprayers.local;
 
 import com.google.gson.JsonArray;
@@ -10,14 +9,12 @@ import java.util.List;
 import java.util.Map;
 import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoSnapshot.Item;
 
-/** Builds switches from the user's carried setup; a recording's item IDs are never replayed. */
 final class InfernoLoadout
 {
     enum Mode { ICE, BLOOD, BLOWPIPE, LONG_RANGE, CHINS }
     private enum Ammunition { NONE, ARROWS, BOLTS }
     private static final int MAGIC = 1, RANGED = 2;
-    // Keep the reference's relative click order independently of the order in
-    // which inventory/equipment receipts first introduced a carried item.
+
     private static final int[] MAGE_ORDER = {2, 4, 5, 0, 1, 7, 9, 10, 12, 13};
     private static final int[] RANGED_ORDER = {1, 2, 4, 7, 9, 13, 5, 0, 10, 12};
     private static final class Gear
@@ -31,7 +28,7 @@ final class InfernoLoadout
         { this.slot = slot; this.styles = styles; this.preferredStyles = preferredStyles;
             this.weapon = weapon; this.ammunition = ammunition; this.rank = rank; }
     }
-    /** Explicitly supported alternatives. Inventory positions and a recording's selected outfit are not identities. */
+
     private static final Map<Integer, Gear> SUPPORTED = supportedGear();
     private final Map<Integer, Integer> observedSlots = new LinkedHashMap<>();
     private final Map<Integer, Item> known = new LinkedHashMap<>();
@@ -63,8 +60,7 @@ final class InfernoLoadout
         wearable(result, 9, RANGED, 26235);
         wearable(result, 1, RANGED, 27374);
         wearable(result, 2, RANGED, 33639);
-        // Shared Fury is the recorded fallback, below dedicated style necklaces
-        // even when their names have not yet been cached by the client.
+
         result.put(6585, new Gear(2, MAGIC | RANGED, 0, null, Ammunition.NONE, 0));
         result.put(11212, new Gear(13, RANGED, null, Ammunition.ARROWS, 70));
         return java.util.Collections.unmodifiableMap(result);
@@ -79,12 +75,6 @@ final class InfernoLoadout
     private static void shieldPreference(Map<Integer, Gear> result, int style, int... ids)
     { for (int id : ids) result.put(id, new Gear(5, MAGIC | RANGED, style, null, Ammunition.NONE, 0)); }
 
-    /**
-     * A piece requested on {@link #ATTEMPTS} separate ticks that is still not worn (a level requirement, no Wear
-     * option) is set aside for {@link #BLOCK_TICKS}: the switch counts as ready without it, so attacks are never
-     * held waiting for it, and it is retried afterwards (the Colosseum controller's rule). The weapon is never
-     * set aside.
-     */
     static final int ATTEMPTS = 6, BLOCK_TICKS = 25;
     private final Map<Integer, Integer> attempts = new HashMap<>();
     private final Map<Integer, Long> requestedAt = new HashMap<>(), blockedUntil = new HashMap<>();
@@ -94,7 +84,7 @@ final class InfernoLoadout
     {
         for (Item item : f.equipment) { attempts.remove(item.id); requestedAt.remove(item.id); blockedUntil.remove(item.id); }
         blockedUntil.values().removeIf(until -> until <= f.tick);
-        // A request that stopped (the mode changed) starts its count again next time.
+
         requestedAt.entrySet().removeIf(e -> { boolean stale = f.tick - e.getValue() > 5; if (stale) attempts.remove(e.getKey()); return stale; });
         for (Item item : f.equipment) { observedSlots.put(item.id, item.slot); known.put(item.id, item); }
         for (Item item : f.inventory) known.put(item.id, item);
@@ -222,7 +212,7 @@ final class InfernoLoadout
         if (name.contains("bolts") || name.contains("crossbow")) return Ammunition.BOLTS;
         if (name.contains("arrow") || name.contains("twisted bow") || name.contains("shortbow")
             || name.contains("longbow")) return Ammunition.ARROWS;
-        // Blowpipes and charged crystal bows carry their ammunition internally.
+
         return Ammunition.NONE;
     }
 
@@ -232,60 +222,16 @@ final class InfernoLoadout
         return !items.isEmpty() && items.stream().allMatch(item -> f.worn(item.id));
     }
 
-    JsonObject switchTo(InfernoSnapshot f, Mode mode, boolean ruby)
-    {
-        List<Item> items = items(f, mode, ruby);
-        if (items.isEmpty()) return null;
-        Item weapon = items.get(0);
-        for (Item item : items)
-        {
-            if (f.worn(item.id) || item == weapon || Long.valueOf(f.tick).equals(requestedAt.get(item.id))) continue;
-            requestedAt.put(item.id, f.tick);
-            if (attempts.merge(item.id, 1, Integer::sum) >= ATTEMPTS) { blockedUntil.put(item.id, f.tick + BLOCK_TICKS); attempts.remove(item.id); }
-        }
-        boolean mage = mode == Mode.ICE || mode == Mode.BLOOD;
-        JsonArray ids = new JsonArray();
-        for (Item item : items)
-        {
-            int slot = slot(item);
-            boolean core = mage ? slot == 3 || slot == 2 || slot == 4 || slot == 5
-                : slot == 3 || slot == 1 || slot == 2 || slot == 7 || slot == 13 || slot == 5;
-            // The recorded core is intentionally repeated. Extra carried pieces
-            // still participate in ready(), but need no click once observed worn.
-            if (core || !f.worn(item.id)) ids.add(item.id);
-        }
-        JsonObject result = InfernoDecisionEngine.command("equipment.set", "name",
-            mode == Mode.ICE || mode == Mode.BLOOD ? "mage" : mode == Mode.BLOWPIPE ? "blowpipe" : mode == Mode.CHINS ? "chins" : "tbow");
-        result.getAsJsonObject("args").add("items", ids);
-        return result;
-    }
 
-    /** The reference's entry switch lists weapon, necklace, body and offhand in that order. */
-    JsonObject openingMage(InfernoSnapshot f)
-    {
-        List<Item> selected = items(f, Mode.ICE, false);
-        JsonArray ids = new JsonArray();
-        for (int wanted : new int[]{3, 2, 4, 5})
-            for (Item item : selected) if (slot(item) == wanted) ids.add(item.id);
-        // Keep the reference's four-slot prefix, but complete any additional
-        // carried switches required by ready(). Already-worn extras need no click.
-        for (int wanted : new int[]{0, 1, 7, 9, 10, 12, 13})
-            for (Item item : selected) if (slot(item) == wanted && !f.worn(item.id)) ids.add(item.id);
-        if (ids.size() == 0) return null;
-        JsonObject result = InfernoDecisionEngine.command("equipment.set", "name", "mage");
-        result.getAsJsonObject("args").add("items", ids); return result;
-    }
 
     private int suitability(Item item, boolean mage)
     {
         String n = item.lower;
-        // Void helms have no listed bonus; each one's set effect makes it the pick for its own style.
+
         if (n.startsWith("void mage helm")) return mage ? 10_000 : 0;
         if (n.startsWith("void ranger helm")) return mage ? 0 : 10_000;
         if (n.startsWith("void melee helm")) return 0;
-        // Live snapshots carry the game's item stats: a piece is worn for a style when it adds to that style's
-        // attack or damage, the stronger piece winning the slot (Dizana's quiver over the Infernal cape for range,
-        // an imbued or max cape for magic, a god book for both). Recorded snapshots fall through to the table.
+
         if (item.gear != null && item.gear.has("eq"))
         {
             int bonus = mage ? stat(item, "magic") + Math.round(3 * (item.gear.has("mdmg") ? item.gear.get("mdmg").getAsFloat() : 0))
@@ -305,13 +251,12 @@ final class InfernoLoadout
         if (supported != null)
         {
             if ((supported.styles & (mage ? MAGIC : RANGED)) == 0) return 0;
-            // Shared gear remains usable in both styles. Prefer dedicated
-            // alternatives without depending on an ornamented or cached name.
+
             boolean shared = supported.styles == (MAGIC | RANGED);
             return (shared && (supported.preferredStyles & (mage ? MAGIC : RANGED)) == 0 ? 10 : 100) + tier(item);
         }
         if (mage && magic || !mage && ranged) return 100 + tier(item);
-        if (!mage && magic && slot(item) == 5) return 10 + tier(item); // Reference crossbow carries Mage's book.
+        if (!mage && magic && slot(item) == 5) return 10 + tier(item);
         return 0;
     }
 
