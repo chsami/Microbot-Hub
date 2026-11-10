@@ -24,6 +24,10 @@ public interface PyramidPlunderConfig extends Config {
     @ConfigSection(name = "Food & Prayer", description = "Food, banking and Protect from Melee", position = 1)
     String foodSection = "food";
 
+    @ConfigSection(name = "Dro Behavior Profile",
+            description = "Shared BaseProfileDro input timing and mouse parking. Breaks stay with the break handler.", position = 2)
+    String behaviorProfileSection = "behaviorProfileSection";
+
 
     @ConfigItem(keyName = "hopToPlunderWorld", name = "Hop to Pyramid Plunder world",
             description = "Hop to world 493, the official Pyramid Plunder world, before entering the pyramid. "
@@ -85,4 +89,14 @@ public interface PyramidPlunderConfig extends Config {
             description = "On a food restock trip, use the altar if prayer is below this. Low prayer alone never starts a trip.",
             position = 5, section = foodSection)
     default int restorePrayerBelow() { return 20; }
+
+    @ConfigItem(keyName = "mouseActivity", name = "Mouse Activity",
+            description = "How often the mouse leaves the client while waiting, through BaseProfileDro.",
+            position = 0, section = behaviorProfileSection)
+    default BaseProfileDro.MouseActivity mouseActivity() { return BaseProfileDro.MouseActivity.ACTIVE; }
+
+    @ConfigItem(keyName = "parkSide", name = "Mouse park side",
+            description = "Side of the client the mouse parks at while waiting.",
+            position = 1, section = behaviorProfileSection)
+    default BaseProfileDro.AfkParkSide parkSide() { return BaseProfileDro.AfkParkSide.RANDOM; }
 }

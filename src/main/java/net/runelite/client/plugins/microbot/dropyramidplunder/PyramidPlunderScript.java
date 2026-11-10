@@ -30,6 +30,9 @@ import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectM
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
 import net.runelite.client.plugins.microbot.inventorysetups.InventorySetup;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
+import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
+import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
+import net.runelite.client.plugins.microbot.util.antiban.enums.PlayStyle;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
@@ -48,8 +51,9 @@ import org.slf4j.event.Level;
  * <p>Loop: optional hop to world 493, find the Guardian mummy's door, start the game, then in each
  * room pass the spear trap, loot by {@link PyramidPlunderPlan} and pick the tomb doors until the
  * next room. Between runs it eats, cures poison and, when food is low, prays at the
- * temple altar and banks in the Sophanem dungeon. Repeat urn clicks follow the recorded rhythm in
- * {@link PyramidPlunderClicks}; actions wait for observed completion.
+ * temple altar and banks in the Sophanem dungeon. Every input goes through BaseProfileDro, repeat
+ * urn clicks follow the recorded rhythm in {@link PyramidPlunderClicks}, and actions wait for
+ * observed completion.
  */
 @Singleton
 public class PyramidPlunderScript extends Script {
@@ -92,6 +96,7 @@ public class PyramidPlunderScript extends Script {
     private final PyramidPlunderEntrances entrances = new PyramidPlunderEntrances();
 
     private PyramidPlunderConfig config;
+    private BaseProfileDro profile;
     private volatile String status = "Starting";
     /** Set once the script cannot continue; it stops clicking until restarted. */
     private volatile String error;
@@ -187,6 +192,22 @@ public class PyramidPlunderScript extends Script {
         lobbyEnteredAt = 0;
         lobbyResolved = false;
         nextCureAt = 0;
+        Microbot.pauseAllScripts.compareAndSet(true, false);
+
+        // Input timing and mouse parking; breaks stay with the break handler, locked during the game.
+        BaseProfileDro.Settings settings = new BaseProfileDro.Settings()
+                .activity(Activity.GENERAL_THIEVING)
+                .activityIntensity(ActivityIntensity.MODERATE)
+                .playStyle(PlayStyle.MODERATE)
+                .nativeRandomMouseChance(0.0)
+                .mouseActivity(config.mouseActivity())
+                .parkSide(config.parkSide())
+                .customBreaksEnabled(false)
+                .writeBreakStatusToMicrobot(false)
+                .overlayEnabled(false);
+        profile = new BaseProfileDro(settings);
+        profile.start();
+
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(this::loop, 0, 90, TimeUnit.MILLISECONDS);
         return true;
     }
@@ -195,6 +216,9 @@ public class PyramidPlunderScript extends Script {
     public void shutdown() {
         setBreakLock(false);
         inPyramid = false;
+        BaseProfileDro current = profile;
+        profile = null;
+        if (current != null) current.shutdown();
         super.shutdown();
     }
 
@@ -206,7 +230,12 @@ public class PyramidPlunderScript extends Script {
 
     private void loop() {
         try {
-            if (!Microbot.isLoggedIn() || !super.run()) return;
+            BaseProfileDro current = profile;
+            if (current == null) return;
+            if (!Microbot.isLoggedIn() || !super.run()) {
+                current.tick(false, false, config.mouseActivity());
+                return;
+            }
             if (error != null) return;
             View view = read();
             if (view == null) return;
@@ -214,6 +243,7 @@ public class PyramidPlunderScript extends Script {
             inPyramid = inside;
             // A break never interrupts the five-minute game.
             setBreakLock(inside);
+            if (current.tick(!inside, view.waiting, config.mouseActivity())) return;
             step(view);
             Microbot.status = status;
         } catch (RuntimeException ex) {
@@ -252,7 +282,8 @@ public class PyramidPlunderScript extends Script {
 
         if (Rs2Dialogue.hasSelectAnOption()) {
             // "Leave the Tomb?" from a mis-click on a final-room door.
-            act(() -> Rs2Dialogue.clickOption("Ah, I think I'll stay a little longer."));
+            act(BaseProfileDro.ActionPhase.MAINTENANCE, false,
+                    () -> Rs2Dialogue.clickOption("Ah, I think I'll stay a little longer."));
             return;
         }
         RoomScan scan = scan(room);
@@ -294,14 +325,15 @@ public class PyramidPlunderScript extends Script {
             if (Rs2Inventory.count(item -> ARTEFACTS.contains(item.getName())) > 0) {
                 status = "Room " + room + ": dropping artefacts";
                 resetTarget();
-                act(() -> Rs2Inventory.dropAll(item -> ARTEFACTS.contains(item.getName())));
+                act(BaseProfileDro.ActionPhase.MAINTENANCE, false,
+                        () -> Rs2Inventory.dropAll(item -> ARTEFACTS.contains(item.getName())));
                 return;
             }
             if (!Rs2Inventory.getInventoryFood().isEmpty()) {
                 status = "Room " + room + ": making room";
                 int before = Rs2Inventory.count();
                 resetTarget();
-                act(Rs2Player::useFood);
+                act(BaseProfileDro.ActionPhase.MAINTENANCE, false, Rs2Player::useFood);
                 sleepUntil(() -> Rs2Inventory.count() != before, 1200);
                 return;
             }
@@ -341,7 +373,7 @@ public class PyramidPlunderScript extends Script {
                 status = lowAndOutOfFood ? "Leaving: out of food" : "Room " + room + ": leaving";
                 if (scan.exit != null && paced(900, 1700)) {
                     resetTarget();
-                    if (act(() -> scan.exit.click("Quick-leave")))
+                    if (act(BaseProfileDro.ActionPhase.ACTIVE_WORK, false, () -> scan.exit.click("Quick-leave")))
                         waitForAction(() -> regionNow() != PYRAMID_REGION);
                 }
                 break;
@@ -404,7 +436,7 @@ public class PyramidPlunderScript extends Script {
             if (survive(view, false)) return;
             status = "Starting the minigame";
             if (!paced(1700, 2600)) return;
-            if (act(() -> mummy.click("Start-minigame")))
+            if (act(BaseProfileDro.ActionPhase.ACTIVE_WORK, false, () -> mummy.click("Start-minigame")))
                 waitForAction(() -> planeNow() == 0);
             return;
         }
@@ -419,7 +451,7 @@ public class PyramidPlunderScript extends Script {
         status = "Wrong door: leaving";
         Rs2TileObjectModel exit = Microbot.getRs2TileObjectCache().query().withId(LOBBY_EXIT).nearestOnClientThread();
         if (exit == null || !paced(1500, 2400)) return;
-        if (act(() -> exit.click("Leave Tomb")))
+        if (act(BaseProfileDro.ActionPhase.ACTIVE_WORK, false, () -> exit.click("Leave Tomb")))
             waitForAction(() -> regionNow() != PYRAMID_REGION);
     }
 
@@ -499,14 +531,14 @@ public class PyramidPlunderScript extends Script {
         }
         if (Rs2Dialogue.hasContinue()) {
             // The Guardian mummy's "You've had your five minutes" after the timer runs out.
-            act(() -> { Rs2Dialogue.clickContinue(); return true; });
+            act(BaseProfileDro.ActionPhase.MAINTENANCE, false, () -> { Rs2Dialogue.clickContinue(); return true; });
             return;
         }
         if (survive(view, false)) return;
 
         if (view.plane != 0 || view.at.distanceTo2D(NORTH_EXIT) > 60) {
             status = "Walking to the Sophanem pyramid";
-            act(() -> Rs2Walker.walkTo(NORTH_EXIT, 3));
+            act(BaseProfileDro.ActionPhase.SETUP, false, () -> Rs2Walker.walkTo(NORTH_EXIT, 3));
             return;
         }
         Rs2TileItemModel sceptre = Microbot.getRs2TileItemCache().query().withNameContains(SCEPTRE).within(12).nearestOnClientThread();
@@ -514,11 +546,11 @@ public class PyramidPlunderScript extends Script {
             // A sceptre found with a full inventory is dropped here when the mummy throws you out.
             status = "Picking up the Pharaoh's sceptre";
             if (Rs2Inventory.emptySlotCount() == 0) {
-                act(Rs2Player::useFood);
+                act(BaseProfileDro.ActionPhase.MAINTENANCE, true, Rs2Player::useFood);
                 return;
             }
             if (!paced(1200, 2000)) return;
-            act(sceptre::pickup);
+            act(BaseProfileDro.ActionPhase.ACTIVE_WORK, true, sceptre::pickup);
             return;
         }
         if (config.hopToPlunderWorld() && view.world != PLUNDER_WORLD && hopFailures < 3) {
@@ -578,46 +610,47 @@ public class PyramidPlunderScript extends Script {
         if (view.at.distanceTo2D(TEMPLE) > 9) {
             status = "Walking to the temple";
             resetTarget();
-            act(() -> Rs2Walker.walkTo(TEMPLE, 3));
+            act(BaseProfileDro.ActionPhase.SETUP, false, () -> Rs2Walker.walkTo(TEMPLE, 3));
             return;
         }
         if (wantsAltar) {
             status = "Restoring prayer at the altar";
             Rs2TileObjectModel altar = Microbot.getRs2TileObjectCache().query().withId(TEMPLE_ALTAR).nearestOnClientThread();
             if (altar == null || !paced(1800, 2800)) return;
-            act(() -> altar.click("Pray-at"));
+            act(BaseProfileDro.ActionPhase.SETUP, false, () -> altar.click("Pray-at"));
             sleepUntil(() -> Rs2Player.getBoostedSkillLevel(Skill.PRAYER) >= view.prayerLevel, 3600);
             return;
         }
         status = "Climbing down to the bank";
         Rs2TileObjectModel ladder = Microbot.getRs2TileObjectCache().query().withId(TEMPLE_LADDER_DOWN).nearestOnClientThread();
         if (ladder == null || !paced(1800, 2800)) return;
-        if (act(() -> ladder.click("Climb-down")))
+        if (act(BaseProfileDro.ActionPhase.SETUP, false, () -> ladder.click("Climb-down")))
             waitForAction(() -> regionNow() == BANK_REGION);
     }
 
     private void bankRoom(View view) {
         if (!restocking) {
             if (Rs2Bank.isOpen()) {
-                act(Rs2Bank::closeBank);
+                act(BaseProfileDro.ActionPhase.SETUP, false, Rs2Bank::closeBank);
                 return;
             }
             status = "Climbing back up";
             Rs2TileObjectModel ladder = Microbot.getRs2TileObjectCache().query().withId(BANK_LADDER_UP).nearestOnClientThread();
             if (ladder == null || !paced(1800, 2800)) return;
-            if (act(() -> ladder.click("Climb-up")))
+            if (act(BaseProfileDro.ActionPhase.SETUP, false, () -> ladder.click("Climb-up")))
                 waitForAction(() -> regionNow() != BANK_REGION);
             return;
         }
         status = "Banking";
         if (!Rs2Bank.isOpen()) {
             if (!paced(1500, 2400)) return;
-            act(Rs2Bank::openBank);
+            act(BaseProfileDro.ActionPhase.SETUP, false, Rs2Bank::openBank);
             sleepUntil(Rs2Bank::isOpen, 5000);
             return;
         }
         if (Rs2Inventory.count(item -> ARTEFACTS.contains(item.getName())) > 0) {
-            act(() -> Rs2Bank.depositAll(item -> ARTEFACTS.contains(item.getName())));
+            act(BaseProfileDro.ActionPhase.SETUP, false,
+                    () -> Rs2Bank.depositAll(item -> ARTEFACTS.contains(item.getName())));
             return;
         }
         InventorySetup setup = config.inventorySetup();
@@ -639,7 +672,7 @@ public class PyramidPlunderScript extends Script {
                     int amount = Math.min(missing, Rs2Inventory.emptySlotCount());
                     if (amount > 0) {
                         int before = Rs2Inventory.count();
-                        act(() -> Rs2Bank.withdrawX(false, food, amount));
+                        act(BaseProfileDro.ActionPhase.SETUP, false, () -> Rs2Bank.withdrawX(false, food, amount));
                         sleepUntil(() -> Rs2Inventory.count() != before, 2400);
                         return;
                     }
@@ -656,7 +689,7 @@ public class PyramidPlunderScript extends Script {
         if (view.at.distanceTo2D(door.approach) > 14) {
             resetTarget();
             final WorldPoint approach = door.approach;
-            act(() -> Rs2Walker.walkTo(approach, 3));
+            act(BaseProfileDro.ActionPhase.SETUP, false, () -> Rs2Walker.walkTo(approach, 3));
             return;
         }
         Rs2TileObjectModel object = Microbot.getRs2TileObjectCache().query().withId(door.objectId).nearestOnClientThread();
@@ -696,20 +729,22 @@ public class PyramidPlunderScript extends Script {
                 threatSeenAt = now;
                 if (!active && view.prayer > 0) {
                     resetTarget();
-                    act(() -> Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, true, true));
+                    act(BaseProfileDro.ActionPhase.MAINTENANCE, true,
+                            () -> Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, true, true));
                     return true;
                 }
             } else if (active && now - threatSeenAt > prayerLingerMs) {
                 prayerLingerMs = 1800 + random.nextInt(2600);
                 resetTarget();
-                act(() -> Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, false, true));
+                act(BaseProfileDro.ActionPhase.MAINTENANCE, false,
+                        () -> Rs2Prayer.toggle(Rs2PrayerEnum.PROTECT_MELEE, false, true));
                 return true;
             }
         }
         if (view.hpPercent() <= eatAt && !Rs2Inventory.getInventoryFood().isEmpty()) {
             int before = Rs2Inventory.count();
             resetTarget();
-            act(Rs2Player::useFood);
+            act(BaseProfileDro.ActionPhase.MAINTENANCE, true, Rs2Player::useFood);
             sleepUntil(() -> Rs2Inventory.count() != before, 1200);
             eatAt = rollEatAt();
             return true;
@@ -735,7 +770,8 @@ public class PyramidPlunderScript extends Script {
         boolean symbol = Rs2Equipment.isWearing("Holy symbol") || Rs2Equipment.isWearing("Unholy symbol");
         if (symbol && Rs2Inventory.hasItem("Prayer book")
                 && Rs2Player.getBoostedSkillLevel(Skill.PRAYER) > 0) {
-            return act(() -> Rs2Inventory.interact("Prayer book", "Recite-prayer"));
+            return act(BaseProfileDro.ActionPhase.MAINTENANCE, false,
+                    () -> Rs2Inventory.interact("Prayer book", "Recite-prayer"));
         }
         List<String> cures = Rs2Potion.getAntiPoisonVariants();
         Rs2ItemModel potion = Rs2Inventory.get(item -> {
@@ -745,7 +781,7 @@ public class PyramidPlunderScript extends Script {
             return false;
         });
         if (potion == null) return false;
-        return act(() -> Rs2Inventory.interact(potion, "Drink"));
+        return act(BaseProfileDro.ActionPhase.MAINTENANCE, false, () -> Rs2Inventory.interact(potion, "Drink"));
     }
 
     private int rollEatAt() {
@@ -765,15 +801,17 @@ public class PyramidPlunderScript extends Script {
         if (error != null) return;
         error = message;
         status = message;
-                Microbot.log("[PyramidPlunder] " + message, Level.WARN);
+        Microbot.log("[PyramidPlunder] " + message, Level.WARN);
         Microbot.showMessage(message);
     }
 
     // ------------------------------------------------------------------ input
 
-    /** One input action, sent only while the script may click. */
-    private boolean act(BooleanSupplier action) {
-        return inputAllowed() && action.getAsBoolean();
+    /** One profile-layered action. */
+    private boolean act(BaseProfileDro.ActionPhase phase, boolean urgent, BooleanSupplier action) {
+        BaseProfileDro current = profile;
+        if (current == null || !inputAllowed()) return false;
+        return current.performAction(phase, urgent, action);
     }
 
     /** True once at least {@code min}-{@code max} ms passed since the last single click of this kind. */
@@ -786,18 +824,19 @@ public class PyramidPlunderScript extends Script {
 
     /** Submit once; the loop owns completion and an idle failed attempt can retry next pass. */
     private boolean interactObject(Rs2TileObjectModel target, String action, BooleanSupplier done) {
-        if (target == null || !inputAllowed()) return false;
+        BaseProfileDro current = profile;
+        if (target == null || current == null || !inputAllowed()) return false;
         if (done.getAsBoolean()) return true;
         targetKey = target.getId() + "@" + target.getWorldLocation() + ":" + action;
         attemptStartedAt = System.currentTimeMillis();
-        if (act(() -> target.click(action))) {
+        if (act(BaseProfileDro.ActionPhase.ACTIVE_WORK, false, () -> target.click(action))) {
             waitForAction(done);
         }
         return false;
     }
 
     /**
-     * An urn search: the first click is sent like any action, then a few follow-up
+     * An urn search: the first click goes through the profile like any action, then a few follow-up
      * clicks on the same urn on the recorded repeat-click rhythm keep the search going without an idle gap.
      */
     private boolean interactUrn(Rs2TileObjectModel urn, BooleanSupplier looted) {
@@ -873,9 +912,8 @@ public class PyramidPlunderScript extends Script {
     }
 
     private boolean inputAllowed() {
-        // An unstarted script (no scheduled loop) never clicks.
-        return mainScheduledFuture != null && !Thread.currentThread().isInterrupted()
-                && !Microbot.pauseAllScripts.get() && Microbot.isLoggedIn() && error == null;
+        return !Thread.currentThread().isInterrupted() && !Microbot.pauseAllScripts.get()
+                && Microbot.isLoggedIn() && error == null;
     }
 
     // ------------------------------------------------------------------ reads
