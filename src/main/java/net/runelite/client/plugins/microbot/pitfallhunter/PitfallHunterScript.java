@@ -1827,14 +1827,6 @@ public class PitfallHunterScript extends Script
         Microbot.log(level, "[PitfallHunter] " + message);
     }
 
-    @Override
-    public void shutdown()
-    {
-        selectedPit = null;
-        selectedNpc = null;
-        super.shutdown();
-    }
-
     public String getStateDisplay()
     {
         return state.name();
