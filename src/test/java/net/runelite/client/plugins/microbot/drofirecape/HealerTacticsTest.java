@@ -42,10 +42,4 @@ public class HealerTacticsTest {
     @Test public void allTaggedMeansNoMoreTagProposal() {
         assertNull(HealerTactics.tag(scene(new CollisionGrid(new int[64][64]),healer(1,34,30,true)),false));
     }
-    @Test public void meleeModeUsesItsContactTagWithoutRangedDistanceRule() {
-        Snapshot ranged=scene(new CollisionGrid(new int[64][64]),healer(1,31,30,false));
-        Snapshot melee=new Snapshot(ranged.tick(),ranged.player(),ranged.grid(),ranged.mobs(),100,false,1,Protection.MAGIC,true);
-        Plan tag=HealerTactics.tag(melee,false);assertNotNull(tag);assertEquals(1,tag.targetIndex());
-        assertEquals(melee.player(),tag.nextStep());
-    }
 }

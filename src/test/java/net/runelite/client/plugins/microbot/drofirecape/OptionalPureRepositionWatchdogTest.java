@@ -73,8 +73,8 @@ public class OptionalPureRepositionWatchdogTest {
         assertFalse(guard.stalled(room(101,player,jad),approach(),false));
         assertFalse(guard.stalled(room(200,player,jad),approach(),false));
     }
-    @Test public void recordingIsExposedAndEnabledByDefault()throws Exception {
+    @Test public void recordingIsAlwaysOnAndHasNoCheckbox()throws Exception {
         assertTrue(new DroFirecapeConfig(){}.recordRun());
-        assertNotNull(DroFirecapeConfig.class.getMethod("recordRun").getAnnotation(net.runelite.client.config.ConfigItem.class));
+        assertNull(DroFirecapeConfig.class.getMethod("recordRun").getAnnotation(net.runelite.client.config.ConfigItem.class));
     }
 }

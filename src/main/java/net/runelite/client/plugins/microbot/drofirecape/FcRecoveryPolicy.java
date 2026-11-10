@@ -22,9 +22,9 @@ final class FcRecoveryPolicy {
     private static FcFrame.ItemSlot potion(FcFrame f,String prefix){return f.inventory.stream()
         .filter(i->i.name().toLowerCase(Locale.ROOT).startsWith(prefix)&&i.hasAction("Drink")).findFirst().orElse(null);}
     static int hpTarget(int base,boolean overbrew){return base+(overbrew?base*15/100+2:0);}
-    static boolean statsDrained(FcFrame f,boolean melee,boolean magic){return f.defence<f.baseDefence
-        ||(melee?f.attack<f.baseAttack||f.strength<f.baseStrength:f.ranged<f.baseRanged)||magic&&f.magic<f.baseMagic;}
-    static Decision choose(FcFrame f,boolean melee,boolean sweets,boolean overbrew,int energyTarget,int prayerPercent,
+    static boolean statsDrained(FcFrame f,boolean magic){return f.defence<f.baseDefence
+        ||f.ranged<f.baseRanged||magic&&f.magic<f.baseMagic;}
+    static Decision choose(FcFrame f,boolean sweets,boolean overbrew,int energyTarget,int prayerPercent,
                            boolean boost,boolean magic,int wave,int brewDebt,boolean pending) {
         if(pending)return waitFor("Confirming recovery supply consumption");
         FcFrame.ItemSlot sweet=sweets?f.inventory.stream().filter(i->FcSupplyPolicy.sweet(i.name())&&i.hasAction("Eat")).findFirst().orElse(null):null;
@@ -32,7 +32,7 @@ final class FcRecoveryPolicy {
         // Complete run recovery before spending the final temporary HP boost.
         if(sweet!=null&&(f.hp<f.maxHp||energy))return dose(sweet,"Eat","Recovering HP / run with purple sweets");
         int target=hpTarget(f.maxHp,overbrew);
-        boolean heal=f.hp<target,drained=statsDrained(f,melee,magic);
+        boolean heal=f.hp<target,drained=statsDrained(f,magic);
         FcFrame.ItemSlot restore=potion(f,"super restore("),brew=potion(f,"saradomin brew(");
         // An acknowledged brew at <=50% prayer is followed by a restore. With
         // higher prayer, finish at most three brews before repairing real levels.
@@ -49,16 +49,10 @@ final class FcRecoveryPolicy {
         if(drained)return dose(restore,"Drink","Restoring actual combat / Magic levels");
         if(f.prayer*100<f.maxPrayer*prayerPercent)return dose(restore!=null?restore:potion(f,"prayer potion("),"Drink","Restoring prayer to "+prayerPercent+"%");
         if(boost) {
-            if(!melee&&f.ranged<=f.baseRanged) {
+            if(f.ranged<=f.baseRanged) {
                 if(!FcSupplyPolicy.rangedDoseAllowed(wave,f.ranged,f.baseRanged,FcSupplyPolicy.rangedDoses(f.inventory)))
                     return waitFor("Final ranged boost blocked by the existing dose reserve / depleted potions");
                 return dose(f.inventory.stream().filter(i->FcSupplyPolicy.rangedPotion(i.name())&&i.hasAction("Drink")).findFirst().orElse(null),"Drink","Final ranged boost after recovery");
-            }
-            if(melee&&(f.attack<=f.baseAttack||f.strength<=f.baseStrength)) {
-                FcFrame.ItemSlot combat=potion(f,"super combat potion(");if(combat==null)combat=potion(f,"combat potion(");
-                if(combat==null&&f.attack<=f.baseAttack){combat=potion(f,"super attack(");if(combat==null)combat=potion(f,"attack potion(");}
-                if(combat==null&&f.strength<=f.baseStrength){combat=potion(f,"super strength(");if(combat==null)combat=potion(f,"strength potion(");}
-                return dose(combat,"Drink","Final melee boost after recovery");
             }
         }
         return new Decision(null,"","Recovery targets observed",true);

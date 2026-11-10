@@ -56,7 +56,7 @@ public final class PureCombatPolicy {
     /** A follower may need its last step to the wall before the shot opens.
      * Judge the stationary result before starting another release excursion. */
     public static Mob settlingWallShot(Snapshot s) {
-        if(s.meleeMode()||s.mobs().isEmpty()||s.mobs().stream().anyMatch(m->
+        if(s.mobs().isEmpty()||s.mobs().stream().anyMatch(m->
             m.kind()!=Kind.MELEER&&m.kind()!=Kind.BLOB&&m.kind()!=Kind.BABY)
             ||!coveredMelee(s))return null;
         List<Mob> settled=s.mobs();
@@ -77,7 +77,7 @@ public final class PureCombatPolicy {
     }
     /** Early-wave wall cleanup is rechecked after every movement, split or death. */
     public static boolean shelteredRangedAtWall(Snapshot s) {
-        if(s.meleeMode()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER
+        if(s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER
             ||m.kind()==Kind.RANGER&&s.wave()>=53))return false;
         List<Mob> future=s.mobs();
         for(int tick=0;tick<=12;tick++) {
@@ -97,7 +97,7 @@ public final class PureCombatPolicy {
     }
     /** Strongly prefer arrival without melee contact or multiple styles; do not replace baseline recovery. */
     public static long penalty(Snapshot s,Tile tile,List<Mob> arrivals) {
-        if(s.meleeMode()||s.mobs().size()<2)return 0;
+        if(s.mobs().size()<2)return 0;
         int styles=0,contacts=0,released=0;
         for(Mob m:arrivals) {
             styles|=CombatPlanner.threats(s.grid(),m,tile,s.jadStyle());
@@ -123,7 +123,7 @@ public final class PureCombatPolicy {
     }
     public static Plan approach(Snapshot s,Mob target,Tile main,String reason) {
         if(target==null)return null;
-        if(target.kind()==Kind.MELEER&&main!=null&&!s.meleeMode()&&CaveSafety.trapped(s,target)
+        if(target.kind()==Kind.MELEER&&main!=null&&CaveSafety.trapped(s,target)
             &&!CombatPlanner.playerCanAttack(s,s.player(),target)) {
             // Demonstrated Italy/Dragon firing holds, checked with actual weapon
             // range. Approach the trapped side once; never restart its lure.
@@ -144,7 +144,7 @@ public final class PureCombatPolicy {
                 CombatPlanner.bestProtection(s.grid(),s.mobs(),s.player(),s.jadStyle()),false,
                 "Approach recorded rock wall without releasing trapped melee");
         }
-        if(target.kind()==Kind.MAGER&&main!=null&&!s.meleeMode()) {
+        if(target.kind()==Kind.MAGER&&main!=null) {
             Tile sole=main.add(-1,-5);
             if(!sole.equals(s.player())&&CombatPlanner.playerCanAttack(s,sole,target)
                 &&clearOfMagers(s,s.mobs(),sole)&&approachPenalty(s,sole,MinimapMovement.path(s,sole))==0)
@@ -161,7 +161,7 @@ public final class PureCombatPolicy {
                 if(target.kind()==Kind.RANGER&&target.distance(tile)<3)continue;
                 List<Tile> path=paths.to(tile);if(path.isEmpty())continue;
                 // Last-melee cleanup must fire from a wall, not deliberately stand in contact.
-                if(!s.meleeMode()&&s.grid().melee(target,tile))continue;
+                if(s.grid().melee(target,tile))continue;
                 Protection p=CombatPlanner.bestProtection(s.grid(),s.mobs(),tile,s.jadStyle());
                 long cost=CombatPlanner.immediateExposure(s,tile,p)*1000L+path.size()*10L
                     +approachPenalty(s,tile,path);

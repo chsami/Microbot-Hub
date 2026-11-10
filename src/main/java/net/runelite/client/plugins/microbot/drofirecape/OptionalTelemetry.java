@@ -22,7 +22,7 @@ final class OptionalTelemetry extends FcTelemetry {
         if(!enabled)return;
         try {
             String stamp=DateTimeFormatter.ofPattern("uuuuMMdd-HHmmss-SSS").format(LocalDateTime.now());
-            directory=Paths.get(System.getProperty("user.home"),".runelite","dro-firecape",stamp);
+            directory=Paths.get(net.runelite.client.RuneLite.RUNELITE_DIR.getAbsolutePath(),"dro-firecape",stamp);
             Files.createDirectories(directory);writer=Files.newBufferedWriter(directory.resolve("events.jsonl"));
             event("session","controller "+DroFirecapePlugin.version+"; frame schema 3; full background observations including healers; local movement acknowledgements; live validation pending");
         }catch(IOException e){Microbot.log("[Dro Firecape] Trace unavailable: "+e);}

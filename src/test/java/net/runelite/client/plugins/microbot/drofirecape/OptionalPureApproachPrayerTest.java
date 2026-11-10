@@ -28,7 +28,7 @@ public class OptionalPureApproachPrayerTest {
         assertEquals(Protection.MELEE,clock.chooseNative(s,true,Protection.MELEE,Protection.NONE).protection);
         TickProtection.Decision pure=BetaTickProtection.choose(clock,s,true,Protection.MELEE,Protection.NONE,true);
         assertEquals(3,pure.dueMask);assertEquals(Protection.MELEE,pure.protection);
-        assertEquals(Protection.RANGE,BetaTickProtection.choose(clock,s,true,Protection.MELEE,Protection.NONE,false).protection,"Other optional mode retains its existing choice");
+        assertEquals(Protection.RANGE,BetaTickProtection.choose(clock,s,true,Protection.MELEE,Protection.NONE,false).protection, "Other optional mode retains its existing choice");
     }
     @Test public void incomingMagicStillWinsSimultaneousContact() {
         Snapshot s=scene(true,Kind.MELEER);TickProtection clock=new TickProtection(true);clock.beginTick(s.tick(),s.mobs());
