@@ -1,0 +1,400 @@
+/* Copyright (c) 2026, DRO (droplugins). SPDX-License-Identifier: BSD-2-Clause */
+/*
+ * Line-of-sight traversal adapted from RuneLite WorldArea.
+ * Copyright (c) 2018, Woox <https://github.com/wooxsolo>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+package net.runelite.client.plugins.microbot.droinfernoprayers.local;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoSnapshot.Npc;
+import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoSnapshot.Role;
+
+/** Directional collision and bounded routes in live template coordinates. */
+final class InfernoCollision
+{
+    private static final int UNLOADED = 0x1000000;
+    private static final int BLOCKED = 0x100 | 0x40000 | 0x200000 | UNLOADED;
+    private static final int MISSILE_BLOCKED = 0x20000 | UNLOADED;
+    private final int x1, y1, width, height;
+    private final int[] flags;
+    private final boolean[] occupied;
+    private final boolean valid;
+    private final InfernoSnapshot snapshot;
+    private final Map<Long, Boolean> nextMelee = new HashMap<>();
+    private final Map<Long, Boolean> nextBatRange = new HashMap<>();
+
+    InfernoCollision(InfernoSnapshot snapshot)
+    {
+        this.snapshot = snapshot;
+        JsonObject collision = InfernoSnapshot.object(snapshot.raw, "collision");
+        x1 = InfernoSnapshot.integer(collision, "x1", 2240);
+        y1 = InfernoSnapshot.integer(collision, "y1", 5312);
+        int w = InfernoSnapshot.integer(collision, "x2", x1 - 1) - x1 + 1;
+        int h = InfernoSnapshot.integer(collision, "y2", y1 - 1) - y1 + 1;
+        JsonArray data = InfernoSnapshot.array(collision, "flags");
+        valid = w > 0 && h > 0 && w <= 104 && h <= 104 && data.size() == w * h;
+        width = valid ? w : 1; height = valid ? h : 1;
+        flags = new int[width * height]; occupied = new boolean[flags.length];
+        if (!valid) { Arrays.fill(flags, UNLOADED); return; }
+        for (int i = 0; i < flags.length; i++)
+        {
+            JsonElement e = data.get(i);
+            try { flags[i] = e.getAsInt(); }
+            catch (RuntimeException invalid) { flags[i] = UNLOADED; }
+        }
+        for (Npc npc : snapshot.npcs) if (npc.alive())
+            for (int x = npc.x; x < npc.x + npc.size; x++)
+                for (int y = npc.y; y < npc.y + npc.size; y++)
+                    if (inside(x, y)) occupied[index(x, y)] = true;
+    }
+
+    boolean available() { return valid && open(snapshot.x, snapshot.y); }
+    boolean inside(int x, int y) { return x >= x1 && y >= y1 && x < x1 + width && y < y1 + height; }
+    int flag(int x, int y) { return inside(x, y) ? flags[index(x, y)] : UNLOADED; }
+    boolean open(int x, int y) { return valid && inside(x, y) && (flag(x, y) & BLOCKED) == 0; }
+    boolean free(int x, int y) { return open(x, y) && !occupied[index(x, y)]; }
+    private int index(int x, int y) { return (y - y1) * width + x - x1; }
+    private Tile tile(int index) { return new Tile(x1 + index % width, y1 + index / width); }
+
+    private boolean cardinal(int x, int y, int nx, int ny)
+    {
+        int dx = nx - x, dy = ny - y;
+        if (Math.abs(dx) + Math.abs(dy) != 1 || !open(nx, ny)) return false;
+        int out = dx > 0 ? 8 : dx < 0 ? 128 : dy > 0 ? 2 : 32;
+        int in = dx > 0 ? 128 : dx < 0 ? 8 : dy > 0 ? 32 : 2;
+        return (flag(x, y) & out) == 0 && (flag(nx, ny) & in) == 0;
+    }
+
+    boolean step(Tile from, Tile to)
+    {
+        int dx = to.x - from.x, dy = to.y - from.y;
+        if (Math.abs(dx) > 1 || Math.abs(dy) > 1 || !free(to.x, to.y)) return false;
+        if (dx == 0 && dy == 0) return true;
+        if (dx == 0 || dy == 0) return cardinal(from.x, from.y, to.x, to.y);
+        int outgoing = dx < 0 ? (dy > 0 ? 1 : 64) : (dy > 0 ? 4 : 16);
+        int incoming = dx < 0 ? (dy > 0 ? 16 : 4) : (dy > 0 ? 64 : 1);
+        return (flag(from.x, from.y) & outgoing) == 0 && (flag(to.x, to.y) & incoming) == 0
+            && free(from.x + dx, from.y) && free(from.x, from.y + dy)
+            && cardinal(from.x, from.y, from.x + dx, from.y)
+            && cardinal(from.x, from.y, from.x, from.y + dy)
+            && cardinal(from.x + dx, from.y, to.x, to.y)
+            && cardinal(from.x, from.y + dy, to.x, to.y);
+    }
+
+    /** Match Main's WorldArea dominant-axis fixed-point traversal, including directional rounding. */
+    boolean ray(int x, int y, int tx, int ty)
+    {
+        return ray(x, y, tx, ty, false);
+    }
+
+    private boolean ray(int x, int y, int tx, int ty, boolean unknownMayExpose)
+    {
+        if (!valid || !inside(x, y) || !inside(tx, ty)) return false;
+        if (!unknownMayExpose && ((flag(x, y) | flag(tx, ty)) & UNLOADED) != 0) return false;
+        int dx = tx - x, dy = ty - y;
+        if (dx == 0 && dy == 0) return true;
+        int xMask = MISSILE_BLOCKED | ((dx < 0 ? 8 : 128) << 9);
+        int yMask = MISSILE_BLOCKED | ((dy < 0 ? 2 : 32) << 9);
+        if (Math.abs(dx) > Math.abs(dy))
+            return rayAxis(x - x1, y - y1, tx - x1, dy, Math.abs(dx), xMask, yMask, true, unknownMayExpose);
+        return rayAxis(y - y1, x - x1, ty - y1, dx, Math.abs(dy), yMask, xMask, false, unknownMayExpose);
+    }
+
+    /** Check the entered major-axis tile before applying the minor-axis slope, as WorldArea does. */
+    private boolean rayAxis(int major, int minor, int target, int minorDelta, int majorDistance,
+                            int majorMask, int minorMask, boolean horizontal, boolean unknownMayExpose)
+    {
+        int minorFixed = (minor << 16) + 0x8000 - (minorDelta < 0 ? 1 : 0);
+        int slope = (minorDelta << 16) / majorDistance;
+        int direction = Integer.signum(target - major);
+        while (major != target)
+        {
+            major += direction;
+            int currentMinor = minorFixed >>> 16;
+            if ((rayFlag(major, currentMinor, horizontal, unknownMayExpose) & majorMask) != 0) return false;
+            minorFixed += slope;
+            int nextMinor = minorFixed >>> 16;
+            if (nextMinor != currentMinor && (rayFlag(major, nextMinor, horizontal, unknownMayExpose) & minorMask) != 0) return false;
+        }
+        return true;
+    }
+
+    private int rayFlag(int major, int minor, boolean horizontal, boolean unknownMayExpose)
+    {
+        int value = horizontal ? flag(x1 + major, y1 + minor) : flag(x1 + minor, y1 + major);
+        // Missing terrain forbids our shots, but cannot certify safe cover from an enemy.
+        return unknownMayExpose && (value & UNLOADED) != 0 ? 0 : value;
+    }
+
+    boolean playerSight(Tile player, Npc npc)
+    {
+        if (npc.distance(player.x, player.y) == 0) return false;
+        for (int x = npc.x; x < npc.x + npc.size; x++)
+            for (int y = npc.y; y < npc.y + npc.size; y++)
+                if (facing(npc, player, x, y) && ray(player.x, player.y, x, y)) return true;
+        return false;
+    }
+
+    boolean npcSight(Npc npc, Tile player)
+    {
+        if (!valid || !inside(player.x, player.y) || !inside(npc.x, npc.y)
+            || !inside(npc.x + npc.size - 1, npc.y + npc.size - 1)) return true;
+        // A tile that blocks sight cannot be shot into, whichever way the ray is cast.
+        if ((flag(player.x, player.y) & MISSILE_BLOCKED & ~UNLOADED) != 0) return false;
+        // WorldArea comparison point: the NPC tile nearest the player.
+        // Any clear edge ray would let a large NPC see around the pillar it is standing behind.
+        int x = Math.max(npc.x, Math.min(player.x, npc.x + npc.size - 1));
+        int y = Math.max(npc.y, Math.min(player.y, npc.y + npc.size - 1));
+        // Cast from the player. Over 9,519 recorded attacks this blocks 2.0% (any edge ray: 2.0%), while
+        // ready-but-idle NPCs read visible 23% of the time (any edge ray: 44%). The NPC-to-player ray
+        // misses pillar corners the NPC cannot actually shoot past.
+        return ray(player.x, player.y, x, y, true);
+    }
+
+    private static boolean facing(Npc npc, Tile p, int x, int y)
+    {
+        return p.x < npc.x && x == npc.x || p.x >= npc.x + npc.size && x == npc.x + npc.size - 1
+            || p.y < npc.y && y == npc.y || p.y >= npc.y + npc.size && y == npc.y + npc.size - 1;
+    }
+
+    boolean melee(Npc npc, Tile tile)
+    {
+        if (npc.distance(tile.x, tile.y) == 0) return true;
+        if (npc.distance(tile.x, tile.y) > 1) return false;
+        for (int x = npc.x; x < npc.x + npc.size; x++)
+            for (int y = npc.y; y < npc.y + npc.size; y++)
+                if (Math.abs(x - tile.x) + Math.abs(y - tile.y) == 1 && cardinal(x, y, tile.x, tile.y)) return true;
+        return false;
+    }
+
+    /**
+     * One NPC step followed by cardinal contact. The RuneLite WorldArea travelling
+     * rule permits only an X step when a melee target is diagonally adjacent.
+     * An open Y route therefore does not release a valid diagonal pillar trap.
+     * https://github.com/runelite/runelite/blob/runelite-parent-1.9.13/runelite-api/src/main/java/net/runelite/api/coords/WorldArea.java
+     */
+    boolean meleeNext(Npc npc, Tile tile)
+    {
+        if (melee(npc, tile)) return true;
+        if (npc.distance(tile.x, tile.y) > 2) return false;
+        if (!valid) return true; // An absent map cannot establish a trap.
+        long key = ((long) npc.index << 32) | ((long) tile.x << 16) | tile.y;
+        Boolean cached = nextMelee.get(key);
+        if (cached != null) return cached;
+        if (!loadedMeleeStepArea(npc, tile))
+        {
+            // Unknown collision also rejects a route, but is not proof of a trap.
+            // Retain the potential hit until the entire relevant edge is observed.
+            nextMelee.put(key, true);
+            return true;
+        }
+        int ax = Math.max(0, Math.max(npc.x - tile.x, tile.x - (npc.x + npc.size - 1)));
+        int ay = Math.max(0, Math.max(npc.y - tile.y, tile.y - (npc.y + npc.size - 1)));
+        int dx = Integer.signum(tile.x - npc.x), dy = Integer.signum(tile.y - npc.y);
+        Tile next = null;
+        if (ax + ay != 1)
+        {
+            if (ax == 1 && ay == 1)
+            {
+                if (npcStep(npc, dx, 0, tile)) next = new Tile(npc.x + dx, npc.y);
+            }
+            else if (npcStep(npc, dx, dy, tile)) next = new Tile(npc.x + dx, npc.y + dy);
+            else if (dx != 0 && npcStep(npc, dx, 0, tile)) next = new Tile(npc.x + dx, npc.y);
+            else if (dy != 0 && Math.max(Math.abs(tile.x - npc.x), Math.abs(tile.y - npc.y)) > 1
+                && npcStep(npc, 0, dy, tile)) next = new Tile(npc.x, npc.y + dy);
+        }
+        boolean result = false;
+        if (next != null)
+            for (int x = next.x; x < next.x + npc.size; x++)
+                for (int y = next.y; y < next.y + npc.size; y++)
+                    if (Math.abs(x - tile.x) + Math.abs(y - tile.y) == 1 && cardinal(x, y, tile.x, tile.y)) result = true;
+        nextMelee.put(key, result);
+        return result;
+    }
+
+    private boolean loadedMeleeStepArea(Npc npc, Tile target)
+    {
+        if ((flag(target.x, target.y) & UNLOADED) != 0) return false;
+        // Bounded to the footprint and one NPC step, including diagonal edge tests.
+        // Unknown cells elsewhere in the scene cannot invalidate an observed trap.
+        for (int x = npc.x - 1; x <= npc.x + npc.size; x++)
+            for (int y = npc.y - 1; y <= npc.y + npc.size; y++)
+                if ((flag(x, y) & UNLOADED) != 0) return false;
+        return true;
+    }
+
+    /**
+     * The bat's one-tile range margin requires a real approach step. In the
+     * successful opening it remains five tiles away with sight, but the north
+     * pillar blocks one leading footprint cell; sight alone is not an attack.
+     * This uses the existing whole-footprint movement rules, without granting
+     * safety when any relevant collision edge is unknown.
+     */
+    boolean batCanReachNext(Npc npc, Tile target)
+    {
+        int distance = npc.distance(target.x, target.y);
+        if (distance <= 4) return true;
+        if (distance > 5) return false;
+        if (!valid) return true;
+        long key = ((long) npc.index << 32) | ((long) target.x << 16) | target.y;
+        Boolean cached = nextBatRange.get(key);
+        if (cached != null) return cached;
+        if (!loadedMeleeStepArea(npc, target)) { nextBatRange.put(key, true); return true; }
+        int dx = Integer.signum(target.x - npc.x), dy = Integer.signum(target.y - npc.y);
+        int nx = npc.x, ny = npc.y;
+        // A mobile actor may vacate its tile before the bat's next step. Only
+        // static terrain and pillars can establish this observed range trap.
+        if (npcStep(npc, dx, dy, target, true)) { nx += dx; ny += dy; }
+        else if (dx != 0 && npcStep(npc, dx, 0, target, true)) nx += dx;
+        else if (dy != 0 && npcStep(npc, 0, dy, target, true)) ny += dy;
+        int nextDistance = Math.max(Math.max(0, Math.max(nx - target.x, target.x - (nx + npc.size - 1))),
+            Math.max(0, Math.max(ny - target.y, target.y - (ny + npc.size - 1))));
+        boolean result = nextDistance <= 4;
+        nextBatRange.put(key, result);
+        return result;
+    }
+
+    /**
+     * Whether a bat closing in sees {@code player} after its next step toward it. A bat steps and fires on the same
+     * tick (live 2026-11-03 wave 2: stepped out from behind the south-east pillar at distance 3 and hit for 13).
+     */
+    boolean batSightNext(Npc npc, Tile player)
+    {
+        if (!valid || npc.distance(player.x, player.y) > 5) return false;
+        int dx = Integer.signum(player.x - npc.x), dy = Integer.signum(player.y - npc.y);
+        int nx = npc.x, ny = npc.y;
+        if (npcStep(npc, dx, dy, player, true)) { nx += dx; ny += dy; }
+        else if (dx != 0 && npcStep(npc, dx, 0, player, true)) nx += dx;
+        else if (dy != 0 && npcStep(npc, 0, dy, player, true)) ny += dy;
+        else return false;
+        if (!inside(player.x, player.y) || !inside(nx, ny) || !inside(nx + npc.size - 1, ny + npc.size - 1)) return false;
+        if ((flag(player.x, player.y) & MISSILE_BLOCKED & ~UNLOADED) != 0) return false;
+        int x = Math.max(nx, Math.min(player.x, nx + npc.size - 1));
+        int y = Math.max(ny, Math.min(player.y, ny + npc.size - 1));
+        return ray(player.x, player.y, x, y, true);
+    }
+
+    private boolean npcStep(Npc npc, int dx, int dy, Tile player)
+    {
+        return npcStep(npc, dx, dy, player, false);
+    }
+
+    private boolean npcStep(Npc npc, int dx, int dy, Tile player, boolean stationaryOnly)
+    {
+        if (dx == 0 && dy == 0) return false;
+        for (int x = npc.x; x < npc.x + npc.size; x++)
+            for (int y = npc.y; y < npc.y + npc.size; y++)
+            {
+                int nx = x + dx, ny = y + dy;
+                if (!npcFree(npc, nx, ny, player, stationaryOnly)) return false;
+                if (dx == 0 || dy == 0)
+                {
+                    if (!cardinal(x, y, nx, ny)) return false;
+                }
+                else
+                {
+                    int out = dx < 0 ? (dy > 0 ? 1 : 64) : (dy > 0 ? 4 : 16);
+                    int in = dx < 0 ? (dy > 0 ? 16 : 4) : (dy > 0 ? 64 : 1);
+                    if ((flag(x, y) & out) != 0 || (flag(nx, ny) & in) != 0
+                        || !npcFree(npc, nx, y, player, stationaryOnly) || !npcFree(npc, x, ny, player, stationaryOnly)
+                        || !cardinal(x, y, nx, y) || !cardinal(x, y, x, ny)
+                        || !cardinal(nx, y, nx, ny) || !cardinal(x, ny, nx, ny)) return false;
+                }
+            }
+        return true;
+    }
+
+    private boolean npcFree(Npc self, int x, int y, Tile player, boolean stationaryOnly)
+    {
+        if (!open(x, y) || x == player.x && y == player.y) return false;
+        for (Npc other : snapshot.npcs)
+            if (other.index != self.index && other.alive()
+                && (!stationaryOnly || other.role == Role.PILLAR)
+                && x >= other.x && x < other.x + other.size && y >= other.y && y < other.y + other.size) return false;
+        return true;
+    }
+
+    Paths paths(Tile start, int maxDistance) { return new Paths(start, maxDistance); }
+
+    final class Paths
+    {
+        private final int[] previous = new int[flags.length], distances = new int[flags.length];
+        final List<Tile> reachable = new ArrayList<>();
+        final Tile start;
+        Paths(Tile start, int maxDistance)
+        {
+            this.start = start;
+            Arrays.fill(previous, -1); Arrays.fill(distances, -1);
+            if (!open(start.x, start.y)) return;
+            int[] queue = new int[flags.length]; int head = 0, tail = 0, origin = index(start.x, start.y);
+            previous[origin] = origin; distances[origin] = 0; queue[tail++] = origin;
+            while (head < tail)
+            {
+                int at = queue[head++]; Tile from = tile(at); reachable.add(from);
+                if (distances[at] >= maxDistance) continue;
+                for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    Tile to = new Tile(from.x + dx, from.y + dy);
+                    if (!inside(to.x, to.y) || previous[index(to.x, to.y)] >= 0 || !step(from, to)) continue;
+                    int next = index(to.x, to.y); previous[next] = at; distances[next] = distances[at] + 1;
+                    queue[tail++] = next;
+                }
+            }
+        }
+        int distance(Tile target) { return inside(target.x, target.y) ? distances[index(target.x, target.y)] : -1; }
+        List<Tile> to(Tile target)
+        {
+            if (distance(target) < 0) return Collections.emptyList();
+            List<Tile> result = new ArrayList<>();
+            int at = index(target.x, target.y);
+            for (int steps = 0; steps < previous.length; steps++)
+            {
+                result.add(tile(at));
+                if (previous[at] == at) { Collections.reverse(result); return result; }
+                at = previous[at];
+                if (at < 0) return Collections.emptyList();
+            }
+            return Collections.emptyList();
+        }
+    }
+
+    static final class Tile
+    {
+        final int x, y;
+        Tile(int x, int y) { this.x = x; this.y = y; }
+        int distance(Tile other) { return Math.max(Math.abs(x - other.x), Math.abs(y - other.y)); }
+        @Override public boolean equals(Object obj) { return obj instanceof Tile && x == ((Tile) obj).x && y == ((Tile) obj).y; }
+        @Override public int hashCode() { return 31 * x + y; }
+        @Override public String toString() { return x + "," + y; }
+    }
+}
