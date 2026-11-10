@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 3,
+  "nativeSupplementation": true,
+  "modifierTierObservation": "Allowlisted literal widget modifier titles retain observed Roman tiers as modifierLevels; no tier inferred from chosen commands.",
+  "semantics": "Expanded sanitized evidence; partial Sol fight ends at server refusal, no successful kill observed. Rows ordered by run,tick, commands ordered by receipt. Runtime must revalidate targets and collision.",
+  "runs": [
+    {
+      "run": 0,
+      "sourceSha256": "efc300ab41e8691d4b72fad4722fa69c414b3eea475abb51806f5553c03e0fd8",
+      "rows": 3375,
+      "commands": 4140,
+      "firstTick": 9,
+      "lastTick": 3383,
+      "sceneCaptures": 2,
+      "waves": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "nativeSupplementCoverage": {
+        "arenaFrames": 3375,
+        "npcRows": 24608,
+        "destinationFrames": 227,
+        "npcAnimationFrameRows": 3034,
+        "framesWithNpcAnimationFrame": 1991
+      }
+    },
+    {
+      "run": 1,
+      "sourceSha256": "bee2ffea33483e36a5f7f984e4053034d88e51dfe00c731b3b04605e594a05f8",
+      "rows": 4725,
+      "commands": 6668,
+      "firstTick": 11,
+      "lastTick": 4735,
+      "sceneCaptures": 3,
+      "waves": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "nativeSupplementCoverage": {
+        "arenaFrames": 4725,
+        "npcRows": 33782,
+        "destinationFrames": 261,
+        "npcAnimationFrameRows": 3726,
+        "framesWithNpcAnimationFrame": 2730
+      }
+    },
+    {
+      "run": 2,
+      "sourceSha256": "58db1e05b90165ebbb3dea905c343cbffb798e271aed71b0a3efa0023f477eaf",
+      "rows": 4090,
+      "commands": 5769,
+      "firstTick": 10,
+      "lastTick": 4099,
+      "sceneCaptures": 3,
+      "waves": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "nativeSupplementCoverage": {
+        "arenaFrames": 4090,
+        "npcRows": 30040,
+        "destinationFrames": 125,
+        "npcAnimationFrameRows": 3058,
+        "framesWithNpcAnimationFrame": 2417
+      }
+    },
+    {
+      "run": 3,
+      "sourceSha256": "67746b6129450f7573f9755371863832fe88fcf47fada8c306f51bb79f6ec25d",
+      "rows": 2385,
+      "commands": 3356,
+      "firstTick": 11,
+      "lastTick": 2395,
+      "sceneCaptures": 1,
+      "waves": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "nativeSupplementCoverage": {
+        "arenaFrames": 2385,
+        "npcRows": 9246,
+        "destinationFrames": 80,
+        "npcAnimationFrameRows": 1886,
+        "framesWithNpcAnimationFrame": 1437
+      }
+    },
+    {
+      "run": 4,
+      "sourceSha256": "9a8a70a692dbec8d70333f63695093c283299faff70ec4d918aee65df75909fb",
+      "rows": 3911,
+      "commands": 5428,
+      "firstTick": 10,
+      "lastTick": 3920,
+      "sceneCaptures": 3,
+      "waves": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "nativeSupplementCoverage": {
+        "arenaFrames": 3911,
+        "npcRows": 26408,
+        "destinationFrames": 124,
+        "npcAnimationFrameRows": 3422,
+        "framesWithNpcAnimationFrame": 2470
+      }
+    }
+  ],
+  "operations": {
+    "inventory.interact": 210,
+    "movement.tile": 1213,
+    "equipment.set": 355,
+    "npc.interact": 9,
+    "widget.click": 387,
+    "prayer.set": 21607,
+    "prayer.flick": 399,
+    "npc.attack": 1173,
+    "ground.take": 3,
+    "camera.set": 4,
+    "equipment.slot": 1
+  },
+  "rowsSha256": "0822b2846b7abc8cd4cd6b8f2970b079a01849bfb7c832f1836be8fb0ae6dd0b",
+  "geometrySha256": "626f07201e7a7ce3c48a025691a67e1a2a5f6c1046b9ca978f2f7fb1f81784fe",
+  "solNativeSupplement": {
+    "file": "sol-native-observations.jsonl.gz",
+    "sha256": "42154b9b4db830dfddd92284b284ef1a42f255dc8855f0df7590bfe4488a2926",
+    "sourceSha256": "9a8a70a692dbec8d70333f63695093c283299faff70ec4d918aee65df75909fb",
+    "onlineServerObservedTicks": [
+      3739,
+      3920
+    ],
+    "postDisconnectNativeOnlyTicks": [
+      3921,
+      3936
+    ],
+    "semantics": "Native observations preserve event order; no postdisconnect server commands or successful Sol kill inferred."
+  }
+}
