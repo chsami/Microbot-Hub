@@ -13,7 +13,6 @@ import net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaMenuInput;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.util.Text;
 
-/** Live game entities and game UI only; never a desktop or URL command bridge. */
 final class ArenaGameControls {
     private final Client client;
     private final BooleanSupplier allowed;
@@ -32,13 +31,13 @@ final class ArenaGameControls {
         String s=option.toLowerCase(java.util.Locale.ROOT);
         return !s.contains("url")&&!s.contains("website")&&!s.contains("support")&&!s.contains("http")&&!s.contains("wiki");
     }
-    /** Do not let a Colosseum service command abandon the run. Other products retain their controls. */
+
     static boolean permitsOption(ArenaProduct product,String option){
         return safeEntityOption(option)&&(product!=ArenaProduct.COLOSSEUM
             ||java.util.Arrays.stream(Text.removeTags(option).toLowerCase(java.util.Locale.ROOT).split("[^a-z]+"))
                 .noneMatch(word->word.equals("leave")||word.equals("exit")));
     }
-    /** Called only on the client thread. Match the known leave title, not ordinary Yes/reward dialogues. */
+
     static boolean leaveConfirmationVisible(Client client){
         var options=client.getWidget(InterfaceID.Chatmenu.OPTIONS);
         if(options==null||options.isHidden())return false;
@@ -46,8 +45,7 @@ final class ArenaGameControls {
         if(lines==null||lines.length==0||lines[0]==null||lines[0].getText()==null)return false;
         return "Are you sure you wish to leave?".equalsIgnoreCase(Text.removeTags(lines[0].getText()).trim());
     }
-    /** Called only on the client thread, before dialogue helpers may emit global keyboard input. */
-    /** Client thread only. The Colosseum wave modifier choice (865) is on screen. */
+
     static boolean modifierScreenVisible(Client client){
         for(int id:new int[]{InterfaceID.ColosseumIntermission2.MOD_BUTTON_1,InterfaceID.ColosseumIntermission2.RIGHT_BUTTON}){
             var widget=client.getWidget(id);

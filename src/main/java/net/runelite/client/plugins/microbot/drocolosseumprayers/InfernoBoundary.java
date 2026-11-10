@@ -5,7 +5,6 @@ import net.runelite.api.GameState;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 
-/** The template region used by RuneLite's Inferno timer; entry lobby is excluded. */
 public final class InfernoBoundary {
     private InfernoBoundary() { }
     public static boolean templateTile(int x, int y, int plane) {

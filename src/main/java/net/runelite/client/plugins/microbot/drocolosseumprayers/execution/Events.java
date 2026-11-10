@@ -3,18 +3,11 @@ package net.runelite.client.plugins.microbot.drocolosseumprayers.execution;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
-/**
- * What happened between two game ticks, in the order it happened. Call these from your client's event hooks (see
- * Main); the connection sends them with the next tick's state. Only NPCs and you count, never other players.
- *
- * actor = Messages.PLAYER for you, or the NPC's index.
- */
 public final class Events
 {
 	private JsonArray pending = new JsonArray();
 	private volatile boolean collecting;
 
-	/** An NPC appeared. */
 	public void npcSpawned(int index)
 	{
 		JsonObject o = event("spawn");
@@ -22,7 +15,6 @@ public final class Events
 		push(o);
 	}
 
-	/** An NPC went away. */
 	public void npcDespawned(int index)
 	{
 		JsonObject o = event("despawn");
@@ -30,7 +22,6 @@ public final class Events
 		push(o);
 	}
 
-	/** An actor's animation changed. */
 	public void animation(Object actor, int anim)
 	{
 		JsonObject o = event("anim");
@@ -39,7 +30,6 @@ public final class Events
 		push(o);
 	}
 
-	/** An actor's spot animations changed: every spot animation id on it now. */
 	public void graphic(Object actor, int[] spotAnims)
 	{
 		JsonObject o = event("graphic");
@@ -53,7 +43,6 @@ public final class Events
 		push(o);
 	}
 
-	/** A hitsplat landed on an actor. type = the hitsplat type id. */
 	public void hitsplat(Object actor, int type, int amount)
 	{
 		JsonObject o = event("hitsplat");
@@ -63,7 +52,6 @@ public final class Events
 		push(o);
 	}
 
-	/** A game message in the chatbox (types GAMEMESSAGE and SPAM only), colour tags removed. */
 	public void chat(String type, String text)
 	{
 		JsonObject o = event("chat");
@@ -72,9 +60,6 @@ public final class Events
 		push(o);
 	}
 
-	/**
-	 * A graphics object appeared on a tile (any id). Template tile; ticksLeft = max(1, (startCycle - gameCycle + 29) / 30).
-	 */
 	public void graphicsObject(int id, int tx, int ty, int ticksLeft)
 	{
 		JsonObject o = event("gfxobj");
@@ -84,8 +69,6 @@ public final class Events
 		o.addProperty("ticksLeft", ticksLeft);
 		push(o);
 	}
-
-	// ---- used by Connection ----
 
 	void collect(boolean on)
 	{
@@ -110,7 +93,6 @@ public final class Events
 		return o;
 	}
 
-	/** Queued only while connected, so nothing piles up. */
 	private synchronized void push(JsonObject o)
 	{
 		if (collecting && pending.size() < 512)

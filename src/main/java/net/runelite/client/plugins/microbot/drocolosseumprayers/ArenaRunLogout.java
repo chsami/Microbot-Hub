@@ -8,10 +8,6 @@ import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 import net.runelite.client.plugins.microbot.util.player.TerminalLogoutPrompt;
 
-/**
- * Terminal logout after an arena run ends (death or completion), with the usual AutoLogin suppression.
- * Runs on its own daemon thread so it still completes when the arena plugin is stopped right after death.
- */
 final class ArenaRunLogout {
     static final long RETRY_MILLIS = 600L;
     static final long GIVE_UP_MILLIS = 90_000L;
@@ -29,7 +25,6 @@ final class ArenaRunLogout {
     private long startedAt;
 
     ArenaRunLogout() {
-        // Main's prompt owns the observed logout and native AutoLogin suppression.
         this(new TerminalLogoutPrompt(), null, EXECUTOR, System::currentTimeMillis);
     }
 
@@ -40,7 +35,6 @@ final class ArenaRunLogout {
         this.clock = clock;
     }
 
-    /** Starts once per run end; repeated calls while a logout is in progress are ignored. */
     synchronized void start(String message) {
         if (task != null && !task.isDone()) return;
         prompt.begin(message);
@@ -49,7 +43,6 @@ final class ArenaRunLogout {
     }
 
     synchronized boolean running() { return task != null && !task.isDone(); }
-    boolean endsSession() { return true; }
 
     void step() {
         boolean done;

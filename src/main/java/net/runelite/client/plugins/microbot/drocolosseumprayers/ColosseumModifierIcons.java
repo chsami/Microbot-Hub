@@ -5,13 +5,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Colosseum modifiers as the game draws them: sprite per tier, the modifier-select script's id and the tier varbit.
- * Table from the Plugin Hub's Fortis Colosseum plugin (LlemonDuck, BSD 2-Clause), {@code util/Modifier.java}.
- */
 final class ColosseumModifierIcons
 {
-    /** The modifier-select screen's init script: args[2..4] are the offers. */
     static final int SCRIPT_MODIFIER_SELECT_INIT=4931;
 
     static final class Info
@@ -22,7 +17,6 @@ final class ColosseumModifierIcons
         String name(int level){return levelVarbit<0||level<=1?title:title+(level==2?" (II)":" (III)");}
     }
 
-    /** Keyed like the engine's modifier names, in the plugin's order. */
     static final Map<String,Info> ALL=table();
     private static Map<String,Info> table()
     {
@@ -46,17 +40,16 @@ final class ColosseumModifierIcons
     private static void add(Map<String,Info> m,String key,String title,int[] sprites,int id,int levelVarbit)
     {m.put(key,new Info(key,title,sprites,id,levelVarbit));}
 
-    /** Varbit holding the offer taken (1-3) when Minimus leaves; 0 for none. */
     static final int VARBIT_MODIFIER_SELECTED=9788;
     static final int MINIMUS=12808;
-    /** The offers' keys in screen order (args[2..4]); null for an id the table lacks. */
+
     static List<String> offers(Object[] args)
     {
         List<String> out=new ArrayList<>(3);
         for(int i=2;i<=4;i++){String key=null;if(args.length>i&&args[i] instanceof Integer)for(Info info:ALL.values())if(info.id==(Integer)args[i])key=info.key;out.add(key);}
         return out;
     }
-    /** The offer taken: the selected slot (1-3) among the offers, or null. */
+
     static String picked(List<String> offers,int selected)
     {return selected>=1&&selected<=offers.size()?offers.get(selected-1):null;}
     private ColosseumModifierIcons(){}

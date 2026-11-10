@@ -19,7 +19,6 @@ import net.runelite.api.WallObject;
 import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 
-/** Arena-only optional wire hint. All scene/model reads happen on the existing snapshot client thread. */
 final class ArenaOcclusion
 {
     private static final int MARGIN = 6;
@@ -32,7 +31,6 @@ final class ArenaOcclusion
         this(client, tiles::scene, (local, plane) -> Perspective.localToCanvas(client, local, plane));
     }
 
-    // Pure mapping/projection seams keep offline geometry tests independent of the renderer.
     ArenaOcclusion(Client client, BiFunction<Integer, Integer, int[]> scene,
         BiFunction<LocalPoint, Integer, Point> project)
     {
@@ -53,7 +51,6 @@ final class ArenaOcclusion
         if (all == null || plane < 0 || plane >= all.length || all[plane] == null) return bits;
         Tile[][] grid = all[plane];
 
-        // Screen coordinates are template tiles, not a contiguous scene rectangle in rotated instances.
         Set<Long> nearby = new HashSet<>();
         for (int tx = rectangle[0] - MARGIN; tx <= rectangle[2] + MARGIN; tx++)
         {
@@ -106,7 +103,7 @@ final class ArenaOcclusion
         LocalPoint local = object.getLocalLocation();
         if (local == null || local.getWorldView() != view.getId()
             || !nearby.contains(key(local.getSceneX(), local.getSceneY()))) return;
-        // Both object centres and camera X/Y are local 1/128-tile units, never template/world tiles.
+
         double distance = squared(local.getX() - cameraX, local.getY() - cameraY);
         if (object instanceof GameObject)
             add(hulls, ((GameObject) object).getConvexHull(), distance);

@@ -24,15 +24,11 @@ import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.common.C
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.common.State;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.inferno.InfernoCommands;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.inferno.InfernoState;
-import net.runelite.client.plugins.microbot.drocolosseumprayers.DroRecorderDiagnostic;
+import net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaDiagnostic;
 
-/**
- * Local Colosseum lifecycle, capture and command admission. Only the bounded decision worker owns a
- * background executor; validated actions use the existing native arena input and receipt owners.
- */
 public final class LocalColosseumSession implements AutoCloseable
 {
-    private static final Gson RECORDING_JSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
+    private static final Gson SNAPSHOT_JSON = new GsonBuilder().serializeNulls().disableHtmlEscaping().create();
     private static final Set<String> SECTIONS = Set.of("player", "npcs", "prayers", "inventory",
         "events", "projectiles", "equipment", "ground", "camera", "collision", "widgets", "dialogue");
     private final Events events = new Events();
@@ -54,7 +50,6 @@ public final class LocalColosseumSession implements AutoCloseable
         this(gameThread, log, allowed, adapt(Objects.requireNonNull(engine)), null, null);
     }
 
-    /** Deterministic worker scheduling for the lifecycle and action-admission regressions. */
     LocalColosseumSession(Consumer<Runnable> gameThread, Consumer<String> log, BooleanSupplier allowed,
         LocalDecisionWorker.Engine engine, LongSupplier clock, ExecutorService executor)
     {
@@ -62,7 +57,7 @@ public final class LocalColosseumSession implements AutoCloseable
         this.log = Objects.requireNonNull(log);
         runner = new CommandRunner(gameThread, log, this::commandResult,
             () -> running && allowed.getAsBoolean(), () -> end("Local Colosseum: blocked unapproved action"));
-        // Colosseum walk/prayer lane rules depend on the product; the runner defaults to Inferno.
+
         runner.product(ArenaProduct.COLOSSEUM);
         worker = executor == null
             ? new LocalDecisionWorker(engine, this::command, runner::tick, this::failure)
@@ -101,21 +96,20 @@ public final class LocalColosseumSession implements AutoCloseable
         return this;
     }
 
-    /** "Prayers only": every non-prayer command from the engine is dropped; the player controls the rest. */
     private volatile BooleanSupplier prayersOnly=()->false;
     public LocalColosseumSession prayersOnly(BooleanSupplier value)
     {
         prayersOnly=value==null?()->false:value;
         return this;
     }
-    /** "Manual movement": the engine's walks are dropped; the player moves, everything else stays automatic. */
+
     private volatile BooleanSupplier manualMovement=()->false;
     public LocalColosseumSession manualMovement(BooleanSupplier value)
     {
         manualMovement=value==null?()->false:value;
         return this;
     }
-    /** The engine's Javelin sidestep, the one walk Manual movement keeps. */
+
     private static boolean snap(JsonObject packet)
     {
         var args=packet.get("args");
@@ -155,18 +149,15 @@ public final class LocalColosseumSession implements AutoCloseable
     public Events events() { return events; }
     public boolean running() { return running; }
     public boolean readyForFirstWave(){return running&&worker.readyForFirstWave();}
-    public void firstWaveFailed(){end("Local Colosseum: Minimus Start-wave was not observed after three attempts; inspect the arena before restarting");}
     public String lastEnd() { return lastEnd; }
     public String status() { return lastEnd != null ? lastEnd : "Local: " + worker.status(); }
 
-    /** Capture uses the same native spell checks as arena preparation. Client thread only. */
     public void spellState(boolean ancient, int bloodLevel)
     {
         ancientSpellbook = ancient;
         bloodAutocastLevel = ancient && (bloodLevel == 56 || bloodLevel == 68 || bloodLevel == 80 || bloodLevel == 92) ? bloodLevel : 0;
     }
 
-    /** Client-thread game/varbit receipts remain on the shared prayer diagnostics owner. */
     public void observePrayers(Client client)
     {
         if (running) runner.observePrayers(id -> client.getVarbitValue(id) == 1);
@@ -186,7 +177,7 @@ public final class LocalColosseumSession implements AutoCloseable
         stateMessage.welcome(SECTIONS, new int[]{1792, 3072, 1855, 3135}, null, net.runelite.client.plugins.microbot.drocolosseumprayers.ColosseumUi.observedWidgets());
         running = true;
         events.collect(true);
-        // Main recorder keeps its native sampling; combat input never changes recorder settings.
+
         lifecycle("WELCOME", "LOCAL_ENGINE_READY");
         log.accept("Local Colosseum controller ready");
     }
@@ -198,16 +189,15 @@ public final class LocalColosseumSession implements AutoCloseable
         runner.clear();
         events.collect(false);
         stateMessage.clear();
-        // Main recorder settings remain owned by Recorder.
+
         lifecycle("STOP", lastEnd == null ? "CLOSED_LOCALLY" : "SESSION_ENDED");
     }
 
-    /** Fresh complete capture on the client thread; inference and corpus loading stay off-thread. */
     public void onGameTick()
     {
         runner.nextTick();
         if (!running) return;
-        // The game's prayer varbits at this GameTick, before this tick's commands can click a prayer.
+
         stateMessage.capturePrayers();
         runner.runDue();
         JsonObject snapshot = stateMessage.buildFull(runner.tick(), events.drain());
@@ -219,11 +209,10 @@ public final class LocalColosseumSession implements AutoCloseable
             snapshot.getAsJsonObject("player").addProperty("bloodAutocastLevel", bloodAutocastLevel);
         }
         worker.offer(snapshot);
-        record(Map.of("record", "arena_local_state", "tick", runner.tick(), "status", String.valueOf(worker.status()),
-            "snapshot", RECORDING_JSON.toJson(snapshot)));
+        publish(Map.of("event", "arena_local_state", "tick", runner.tick(), "status", String.valueOf(worker.status()),
+            "snapshot", SNAPSHOT_JSON.toJson(snapshot)));
     }
 
-    /** Admission and start/stop share a short lock; engine computation never holds it. */
     private synchronized void command(long generation, JsonObject packet)
     {
         if (running && worker.currentGeneration(generation) && !dropped(packet)) runner.onCommand(packet);
@@ -248,19 +237,19 @@ public final class LocalColosseumSession implements AutoCloseable
 
     private void lifecycle(String stage, String reason)
     {
-        record(Map.of("record", "arena_connection", "product", ArenaProduct.COLOSSEUM.protocolName,
+        publish(Map.of("event", "arena_session", "product", ArenaProduct.COLOSSEUM.productName,
             "status", running ? "LOCAL_READY" : "LOCAL_STOPPED", "stage", stage, "reason", reason,
             "cause", lastEnd == null ? "NONE" : lastEnd, "attempt", 1));
     }
 
-    private static void record(Map<String, Object> values)
+    private static void publish(Map<String, Object> values)
     {
         try
         {
             var bus = Microbot.getEventBus();
-            if (bus != null) bus.post(new DroRecorderDiagnostic(values));
+            if (bus != null) bus.post(new ArenaDiagnostic(values));
         }
-        catch (RuntimeException unavailable) { /* Recorder failure cannot interrupt local execution. */ }
+        catch (RuntimeException unavailable) {  }
     }
 
     @Override public synchronized void close()

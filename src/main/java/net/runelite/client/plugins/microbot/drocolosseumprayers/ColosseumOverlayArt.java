@@ -5,6 +5,8 @@ import javax.swing.Icon;
 final class ColosseumOverlayArt {
 private static final Icon ICON=resourceIcon(net.runelite.client.util.ImageUtil.loadImageResource(ColosseumOverlayArt.class,"colosseum-icon.png"),44);
 static Icon icon(){return ICON;}
+private static final Icon SMALL=resourceIcon(net.runelite.client.util.ImageUtil.loadImageResource(ColosseumOverlayArt.class,"colosseum-icon.png"),26);
+static Icon small(){return SMALL;}
     static Icon resourceIcon(BufferedImage source,int size){
         final BufferedImage artwork=bounded(source,size*4);
         return new Icon(){

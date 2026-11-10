@@ -14,12 +14,11 @@ import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messag
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.util.Text;
 
-/** In-game interface state plus Colosseum wave controls. No desktop or account APIs. */
 public final class ColosseumUi {
 	private static final int[] CONTINUE = {InterfaceID.ChatLeft.CONTINUE, InterfaceID.ChatRight.CONTINUE, InterfaceID.Messagebox.CONTINUE};
-	/** Item/sprite dialogue: continues with Space too. */
+
 	private static final int OBJECT_BOX = InterfaceID.Objectbox.UNIVERSE;
-	/** "Select an Option": child 0 is the title, then one child per option. */
+
 	private static final int OPTIONS = InterfaceID.Chatmenu.OPTIONS;
 	private static final int[] TEXTS = {InterfaceID.ChatLeft.TEXT, InterfaceID.ChatRight.TEXT, InterfaceID.Messagebox.TEXT, InterfaceID.Objectbox.TEXT};
 
@@ -111,22 +110,6 @@ public final class ColosseumUi {
         return !s.contains("url")&&!s.contains("website")&&!s.contains("support")&&!s.contains("http")&&!s.contains("wiki");
     }
     private boolean live(){return allowed.getAsBoolean()&&ArenaDropPolicy.insideArena(client);}
-    public boolean startWave(int index){
-        if(!allowed.getAsBoolean())return false;
-        return Microbot.getClientThread().runOnClientThreadOptional(()->{
-            if(!live()||client.isWidgetSelected())return false;
-            var model=Microbot.getRs2NpcCache().query().where(n->n.getIndex()==index&&n.getId()==12808).firstOnClientThread();
-            if(model==null)return false;var npc=model.getNpc();var composition=npc.getTransformedComposition();
-            if(composition==null||!"Minimus".equals(Text.removeTags(npc.getName()))||npc.getConvexHull()==null)return false;
-            String[] actions=composition.getActions();
-            MenuAction[] ops={MenuAction.NPC_FIRST_OPTION,MenuAction.NPC_SECOND_OPTION,MenuAction.NPC_THIRD_OPTION,MenuAction.NPC_FOURTH_OPTION,MenuAction.NPC_FIFTH_OPTION};
-            for(int i=0;actions!=null&&i<Math.min(actions.length,5);i++)if("Start-wave".equalsIgnoreCase(actions[i])){
-                if(!beforeWave.getAsBoolean())return false;
-                Microbot.doInvoke(new NewMenuEntry().param0(0).param1(0).identifier(index).itemId(-1).type(ops[i]).option("Start-wave")
-                    .worldViewId(client.getTopLevelWorldView().getId()),npc.getConvexHull().getBounds());return true;
-            }return false;
-        }).orElse(false);
-    }
     public boolean click(int id,Integer child,String requested){
         if(!clickable(id,child)||requested!=null&&!approvedOption(requested))throw new IllegalArgumentException("Unapproved arena control");
         if(!allowed.getAsBoolean())return false;
@@ -139,7 +122,6 @@ public final class ColosseumUi {
             for(int i=0;actions!=null&&i<Math.min(actions.length,10);i++){
                 String action=actions[i]==null?null:Text.removeTags(actions[i]);
                 if(approvedOption(action)&&(requested==null||requested.equalsIgnoreCase(action))){
-                    // Frame is close-only; other frame children cannot open help or external links.
                     if((id>>>16)==865&&!Set.of("cancel","close").contains(action.toLowerCase(java.util.Locale.ROOT))&&!beforeWave.getAsBoolean())return false;
                     Microbot.doInvoke(new NewMenuEntry().param0(child==null?-1:child).param1(id).identifier(i+1).itemId(-1)
                         .type(MenuAction.CC_OP).option(action).worldViewId(client.getTopLevelWorldView().getId()),bounds);return true;
@@ -147,7 +129,7 @@ public final class ColosseumUi {
             }return false;
         }).orElse(false);
     }
-    /** Called on the client thread; forbidden IDs are rejected before a widget lookup. */
+
     public WidgetInfo widget(int id){
         if(!readable(id))throw new IllegalArgumentException("Unapproved arena panel");
         if(!live())return null;var w=client.getWidget(id);if(w==null||w.isHidden())return null;
@@ -156,7 +138,7 @@ public final class ColosseumUi {
         var children=w.getDynamicChildren();if(children!=null){info.kids=new String[Math.min(128,children.length)];for(int i=0;i<info.kids.length;i++)info.kids[i]=children[i]==null||!readable(children[i].getId())?"":arrayText(children[i].getText());}
         return info;
     }
-    /** Sparse widget arrays retain their positions; the wire requires strings for empty entries. */
+
     private String arrayText(String value){return value==null?"":text(value);}
     private String text(String value){
         if(value==null)return null;if(textBudget<=0)return "";String text=Text.removeTags(value);String name=client.getLocalPlayer().getName();

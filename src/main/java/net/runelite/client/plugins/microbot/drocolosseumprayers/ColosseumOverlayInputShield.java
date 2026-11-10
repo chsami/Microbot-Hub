@@ -8,7 +8,6 @@ import net.runelite.client.plugins.microbot.util.input.CanvasInputListener;
 import net.runelite.client.plugins.microbot.util.input.StretchMapper;
 import net.runelite.client.plugins.microbot.util.mouse.BotEventGuard;
 
-/** Excludes only real overlay gestures from the input arbiter; keyboard and game input stay intact. */
 final class ColosseumOverlayInputShield extends MouseAdapter implements AutoCloseable {
     private final Predicate<Point> area;
     private final Predicate<Point> motionArea;

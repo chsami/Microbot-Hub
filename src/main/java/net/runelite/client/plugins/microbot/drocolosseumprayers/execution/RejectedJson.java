@@ -4,7 +4,6 @@ import com.google.gson.*;
 import java.util.Set;
 import java.util.function.Consumer;
 
-/** Sanitized diagnostics for rejected local actions. No transport or authentication owner. */
 final class RejectedJson {
     private static final Set<String> SECRETS=Set.of("code","key","license","licence","licensekey","licencekey","apikey","pass","token","resume","resumetoken","authorization","hwid","username","ip");
     static void log(Consumer<String> log,String reason,JsonElement payload) {

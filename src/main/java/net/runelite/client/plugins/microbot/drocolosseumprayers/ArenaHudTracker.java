@@ -6,10 +6,9 @@ import net.runelite.api.Skill;
 import net.runelite.api.VarPlayer;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 
-/** Updated on the client thread; waves come from observed game messages, never predictions or personal bests. */
 final class ArenaHudTracker {
     private static final Pattern WAVE=Pattern.compile("(?i)^Wave\\s*:?\\s*(\\d{1,3})[.!]?$");
-    /** Colosseum sends "@mes_hl_red@Wave: 1</col>"; removeTags leaves the @name@ colour marker. */
+
     private static final Pattern COLOUR_MARKER=Pattern.compile("@[a-z_]+@");
     private final ArenaProduct product;
     private final long startedAt;
@@ -20,7 +19,7 @@ final class ArenaHudTracker {
         var m=WAVE.matcher(text==null?"":COLOUR_MARKER.matcher(text).replaceAll("").trim());
         if(m.matches()){int next=Integer.parseInt(m.group(1));if(next>0&&next!=wave){wave=next;waveAt=now;}}
     }
-    /** The run's modifiers as "key:level" tokens in the overlay's order (see {@link ColosseumModifierIcons}). */
+
     static java.util.List<String> modifierTokens(java.util.Map<String,Integer> levels){
         java.util.List<String> out=new java.util.ArrayList<>();
         for(var info:ColosseumModifierIcons.ALL.values()){
@@ -30,10 +29,7 @@ final class ArenaHudTracker {
         return out;
     }
     ArenaHud snapshot(Client client,String status){return snapshot(client,status,null,java.util.Map.of());}
-    /**
-     * @param picked the modifiers taken this run (the engine's picks and the offers taken at Minimus), with tiers; only
-     *               these are shown. A tier varbit raises a picked modifier's tier, never adds one.
-     */
+
     ArenaHud snapshot(Client client,String status,String state,java.util.Map<String,Integer> picked){
         java.util.Map<String,Integer> levels=new java.util.HashMap<>(picked);
         for(var info:ColosseumModifierIcons.ALL.values()){

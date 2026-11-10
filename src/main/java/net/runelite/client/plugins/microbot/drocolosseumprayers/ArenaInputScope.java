@@ -8,7 +8,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.MouseMotionScope;
 
-/** Arena-only click routing over Main's existing caller-owned NaturalMouse scope. */
 public final class ArenaInputScope implements AutoCloseable
 {
     public interface Profile extends MouseMotionScope.Profile
@@ -21,7 +20,7 @@ public final class ArenaInputScope implements AutoCloseable
     public interface ClickHandler
     {
         void click(Point point, boolean rightClick, NewMenuEntry entry);
-        /** Several left clicks meant for the same tick, in order (a gear switch). */
+
         default void burst(java.util.List<Point> points, java.util.List<NewMenuEntry> entries)
         {
             for (int i = 0; i < entries.size(); i++) click(points.get(i), false, entries.get(i));
@@ -41,7 +40,6 @@ public final class ArenaInputScope implements AutoCloseable
 
     public static ArenaInputScope open(Profile profile) { return new ArenaInputScope(profile); }
     public static boolean immediateTabs() { Profile profile = CURRENT.get(); return profile != null && profile.immediateTabs(); }
-    public static boolean hasCustomMouse() { Profile profile = CURRENT.get(); return profile != null && profile.mouse() != null; }
 
     public static boolean customClick(Point point, boolean rightClick, NewMenuEntry entry)
     {
@@ -81,7 +79,6 @@ public final class ArenaInputScope implements AutoCloseable
         });
     }
 
-    /** Main captures its native scope automatically; this also carries the local click mode and trace. */
     public static <T> Optional<T> onClientThread(Callable<T> task)
     {
         Profile profile = CURRENT.get();

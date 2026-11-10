@@ -8,7 +8,6 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
 
-/** Settings lease only; never changes a mouse factory or adds input/delays. */
 public final class ArenaAntibanPolicy implements AutoCloseable {
     private final Map<Field,Object> previous=new LinkedHashMap<>();
     private ActivityIntensity intensity;
@@ -26,8 +25,8 @@ public final class ArenaAntibanPolicy implements AutoCloseable {
         for(Field f:previous.keySet())try{if(f.getType()==boolean.class)f.setBoolean(null,false);else if(f.getType()==double.class)f.setDouble(null,0);}
         catch(IllegalAccessException e){throw new IllegalStateException(e);}
         Rs2AntibanSettings.antibanEnabled=true;Rs2AntibanSettings.naturalMouse=true;
-        // Fight: exactly 1.0.26 (waves 1-38). Preparation alone keeps the AIO BaseProfileDro humanizer settings.
-        boolean preparing=ArenaPreparationProfile.preparing();
+
+        boolean preparing=false;
         Rs2AntibanSettings.simulateMistakes=preparing;
         Rs2Antiban.setActivityIntensity(preparing?ActivityIntensity.LOW:ActivityIntensity.EXTREME);
     }

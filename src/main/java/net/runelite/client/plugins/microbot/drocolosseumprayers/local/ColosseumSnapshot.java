@@ -1,4 +1,3 @@
-/* Copyright (c) 2026, DRO (droplugins). SPDX-License-Identifier: BSD-2-Clause */
 package net.runelite.client.plugins.microbot.drocolosseumprayers.local;
 
 import com.google.gson.JsonArray;
@@ -11,7 +10,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/** Immutable, game-API-free view of the existing arena wire snapshot. */
 final class ColosseumSnapshot
 {
     final JsonObject raw, player;
@@ -24,7 +22,7 @@ final class ColosseumSnapshot
     final List<Item> inventory = new ArrayList<>(), equipment = new ArrayList<>();
     final JsonArray events, projectiles, ground;
     final Set<String> prayers = new HashSet<>();
-    /** Molten sand tiles (Reentry/Volatility pools 50743-50745, Sol's 50746); standing on one burns every tick. */
+
     final Set<ColosseumCollision.Tile> sand = new HashSet<>();
 
     ColosseumSnapshot(JsonObject raw)
@@ -104,7 +102,6 @@ final class ColosseumSnapshot
         return false;
     }
 
-    /** Combat option index (varp COM_MODE); 1 is Rapid for a ranged weapon. */
     int attackStyle()
     {
         return integer(player, "attackStyle", -1);
@@ -120,7 +117,7 @@ final class ColosseumSnapshot
         final int id, slot, qty;
         final String name, lower;
         final boolean worn;
-        /** The game's equipment stats for this item, or null (not wearable, stats not loaded, or an older snapshot). */
+
         final JsonObject gear;
         Item(JsonObject item, boolean worn)
         {
@@ -130,7 +127,6 @@ final class ColosseumSnapshot
             JsonElement g = item.get("gear");
             gear = g != null && g.isJsonObject() ? g.getAsJsonObject() : null;
         }
-        int stat(String key) { return gear == null ? 0 : integer(gear, key, 0); }
     }
 
     enum Role
@@ -188,21 +184,18 @@ final class ColosseumSnapshot
             spots = array(npc, "spot"); key = string(npc, "key", Integer.toString(index));
         }
         boolean alive() { return !dead && index >= 0; }
-        /**
-         * Playing its death animation: it despawns about three ticks later (231 of 235 in the local recordings,
-         * 2026-11-03/04; the four misses ended with the recording) and its tile opens for whoever is waiting on it.
-         */
+
         boolean dying()
         {
             switch (id)
             {
-                case 12811: return animation == 10860; // Serpent shaman
-                case 12816: return animation == 10858; // Fremennik warband berserker
-                case 12815: return animation == 10855; // Fremennik warband seer
-                case 12814: return animation == 10852; // Fremennik warband archer
-                case 12810: return animation == 10849; // Jaguar warrior
-                case 12817: return animation == 10894; // Javelin Colossus
-                case 12818: return animation == 10866; // Manticore
+                case 12811: return animation == 10860;
+                case 12816: return animation == 10858;
+                case 12815: return animation == 10855;
+                case 12814: return animation == 10852;
+                case 12810: return animation == 10849;
+                case 12817: return animation == 10894;
+                case 12818: return animation == 10866;
                 default: return false;
             }
         }
@@ -210,11 +203,6 @@ final class ColosseumSnapshot
         boolean warband() { return role == Role.BERSERKER || role == Role.ARCHER || role == Role.SEER; }
         boolean meleeOnly() { return role == Role.BERSERKER || role == Role.JAGUAR || role == Role.MINOTAUR; }
         boolean targetsPlayer() { return interacting != null && interacting.isJsonPrimitive() && "player".equals(interacting.getAsString()); }
-        int targetIndex()
-        {
-            try { return interacting == null || interacting.isJsonNull() ? -1 : interacting.getAsInt(); }
-            catch (RuntimeException ignored) { return -1; }
-        }
         int distance(int tx, int ty)
         {
             return Math.max(0, Math.max(Math.max(x - tx, tx - x - size + 1), Math.max(y - ty, ty - y - size + 1)));

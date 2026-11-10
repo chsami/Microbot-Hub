@@ -10,12 +10,6 @@ import java.util.function.Consumer;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.common.Commands;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.plugins.inferno.InfernoCommands;
 
-/**
- * Validates and executes local controller decisions and returns action receipts.
- * Observed capture ticks, deadlines and cancellation generations own delivery.
- *
- * Which method each command calls is in dispatch() below.
- */
 final class CommandRunner
 {
 	Commands commands;
@@ -24,7 +18,7 @@ final class CommandRunner
 
 	private final Consumer<Runnable> gameThread;
 	private final Consumer<String> log;
-	/** Returns a finished result to the local decision worker. */
+
 	private final Consumer<JsonObject> send;
 
     private final java.util.function.BooleanSupplier allowed;
@@ -44,7 +38,7 @@ final class CommandRunner
         net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum.PROTECT_MAGIC,
         net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum.PROTECT_RANGE,
         net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum.PROTECT_MELEE};
-    /** The last observed protection prayers, kept here so urgency never queries or perturbs Commands. */
+
     private volatile java.util.Map<net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum,Boolean> protectionState=java.util.Map.of();
     private volatile long protectionStateNanos;
     void observePrayerMenu(int widget,boolean consumed){prayers.menu(widget,consumed);}
@@ -56,15 +50,15 @@ final class CommandRunner
     }
     private Executor executor;
     void executor(Executor value){executor=value;}
-    /** Fight input choice, read once per command. Dro mouse keeps the 1.0.26 path (no private handler). */
+
     private volatile java.util.function.Supplier<net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaFightInput> fightInput=
         ()->net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaFightInput.MICROBOT_MOUSE;
     private final net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaInvoke invoke=new net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaInvoke();
     void fightInput(java.util.function.Supplier<net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaFightInput> value){
         fightInput=value==null?()->net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaFightInput.MICROBOT_MOUSE:value;}
-    /** Direct invokes: movement.tile walks with the Natural mouse (scene tile picking needs a real canvas click). */
+
     private final net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaSnapWalk snapWalk=new net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaSnapWalk();
-    /** A "snap" walk (Manual movement's Javelin sidestep) clicks its tile without pointer travel, in either mode. */
+
     private net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaInputScope.ClickHandler handler(String op,JsonObject args){
         if("movement.tile".equals(op)&&flag(args,"snap"))return snapWalk;
         var mode=fightInput.get();
@@ -81,7 +75,7 @@ final class CommandRunner
     private final java.util.LinkedHashSet<Long> recentIds = new java.util.LinkedHashSet<>();
 	private volatile long tick;
 	private volatile long tickStartMs;
-	/** Commands for a later tick, kept until it comes. */
+
 	private final ConcurrentLinkedQueue<Command> scheduled = new ConcurrentLinkedQueue<>();
 
 	private static final class Command
@@ -90,7 +84,7 @@ final class CommandRunner
         ArenaInputDiagnostics.Trace inputTrace;
         PrayerDiagnostics.Ticket prayerTrace;
         volatile boolean dispatchStarted;
-        /** Colosseum walk: the cursor is travelling, then the press passed its last check. */
+
         volatile boolean gestureStarted,pressing;
         volatile long dispatchNanos,motionUrgency;
         String desiredKey;long arrival,desiredVersion;int priority;
@@ -118,7 +112,7 @@ final class CommandRunner
         this.prayers=new PrayerDiagnostics(values->{
             log.accept("[prayer] "+values);
             var bus=net.runelite.client.plugins.microbot.Microbot.getEventBus();
-            if(bus!=null)bus.post(new net.runelite.client.plugins.microbot.drocolosseumprayers.DroRecorderDiagnostic(values));
+            if(bus!=null)bus.post(new net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaDiagnostic(values));
         });
 		this.gameThread = gameThread;
         executor=(op,priority,fresh,task)->gameThread.accept(task);
@@ -127,20 +121,17 @@ final class CommandRunner
         this.allowed = allowed;
 	}
 
-	/** The game tick count since start, as sent to the server. */
 	long tick()
 	{
 		return tick;
 	}
 
-	/** A new game tick began. */
 	void nextTick()
 	{
 		tick++;
 		tickStartMs = System.currentTimeMillis();
 	}
 
-	/** Run the commands kept for this tick (on the game thread), in the order they came. */
 	void runDue()
 	{
 		List<Command> due = new ArrayList<>();
@@ -148,7 +139,6 @@ final class CommandRunner
 		due.forEach(this::submit);
 	}
 
-	/** Disconnected: drop anything kept for later. */
 	void clear()
 	{
         generation.incrementAndGet();
@@ -158,16 +148,14 @@ final class CommandRunner
 		scheduled.clear();desired.clear();
 	}
 
-	/** A command arrived. Too late: STALE. This tick: run it now. A later tick: kept for that tick. */
 	synchronized void onCommand(JsonObject m)
 	{
         try { acceptCommand(m); }
         catch(RuntimeException invalid) {
             String reason=invalid instanceof CommandPolicy.Rejection?invalid.getMessage():"MALFORMED_COMMAND";
-            log.accept("[connection] stage=COMMAND_REJECTED op="+CommandPolicy.operation(m)+" reason="+reason);
+            log.accept("[session] stage=COMMAND_REJECTED op="+CommandPolicy.operation(m)+" reason="+reason);
             RejectedJson.log(log,reason,m);
-            // Reject this packet, never revoke unrelated combat work. Unknown host operations
-            // have no dispatcher and cannot access files, hardware identifiers, URLs or processes.
+
             try {
                 long id=m.get("id").getAsBigDecimal().longValueExact();
                 if(id>=0) {
@@ -176,7 +164,7 @@ final class CommandRunner
                     rejected.inputTrace=new ArenaInputDiagnostics.Trace(id,rejected.op,v->{});
                     result(rejected,"BAD_COMMAND",tick,rejected.arrivedAt,false);
                 }
-            } catch(RuntimeException unidentifiable) { /* Raw rejection was logged above. */ }
+            } catch(RuntimeException unidentifiable) {  }
         }
     }
     private void acceptCommand(JsonObject m) {
@@ -211,10 +199,10 @@ final class CommandRunner
         c.inputTrace=new ArenaInputDiagnostics.Trace(c.id,c.op,values->{
             if ("DELIVERY_RECEIPT".equals(values.get("stage"))) log.accept("[input] " + values);
             var bus=net.runelite.client.plugins.microbot.Microbot.getEventBus();
-            if(bus!=null)bus.post(new net.runelite.client.plugins.microbot.drocolosseumprayers.DroRecorderDiagnostic(values));
+            if(bus!=null)bus.post(new net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaDiagnostic(values));
         });
         c.inputTrace.event("COMMAND_RECEIVED","VALIDATED",0);
-        recordCommand(c);
+        publishCommand(c);
         recentIds.add(c.id);
         if(recentIds.size()>256) recentIds.remove(recentIds.iterator().next());
 		long now = tick;
@@ -233,19 +221,14 @@ final class CommandRunner
 		}
 	}
 
-    /** Validated arguments with arrival timing, so a recording shows what each command asked for. */
-    private void recordCommand(Command c){
+    private void publishCommand(Command c){
         var bus=net.runelite.client.plugins.microbot.Microbot.getEventBus();
         if(bus==null)return;
-        bus.post(new net.runelite.client.plugins.microbot.drocolosseumprayers.DroRecorderDiagnostic(java.util.Map.of(
-            "record","arena_command","id",c.id,"op",c.op,"args",c.args.toString(),"serverTick",c.tick,
+        bus.post(new net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaDiagnostic(java.util.Map.of(
+            "event","arena_command","id",c.id,"op",c.op,"args",c.args.toString(),"engineTick",c.tick,
             "deadlineMs",c.deadlineMs,"receivedTick",tick,"sinceTickMs",Math.max(0,c.arrivedAt-tickStartMs))));
     }
 
-    /**
-     * Only protection prayers outrank queued movement. Offensive flicks (Eagle Eye, Rigour, Augury...) arrive
-     * almost every tick at higher waves; counting them cancelled every movement.tile (wave 44 death, 2026-10-21).
-     */
     static boolean protectionPrayer(String name){
         if(name==null)return false;
         try{
@@ -255,11 +238,7 @@ final class CommandRunner
                 ||p==net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum.PROTECT_MELEE;
         }catch(RuntimeException unknown){return false;}
     }
-    /**
-     * A protection prayer that needs a click preempts in-flight movement and attacks. The controller re-sends the
-     * active guard as a flick every tick; treating those as urgent cancelled every walk or cast that crossed a tick
-     * edge (2026-11-01: 223 undelivered walks, nibbler casts lost).
-     */
+
     private boolean urgentPrayer(Command c){
         if(c.prayerTrace==null||!fresh(c)||!protectionPrayer(str(c.args,"prayer")))return false;
         Boolean active=motionClock.getAsLong()-protectionStateNanos>1_200_000_000L?null
@@ -279,29 +258,21 @@ final class CommandRunner
     private boolean motionFresh(Command c){
         if(colosseumWalk(c))return colosseumWalkFresh(c);
         if(!current(c))return false;
-        // A fresh accepted prayer gets one short application window across tick edges.
-        // Newer intent, revoked sessions and input holds still cancel it.
+
         if(c.prayerTrace!=null&&c.dispatchStarted)
             return motionClock.getAsLong()-c.dispatchNanos<=java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(600);
-        // A started gear burst finishes its remaining pieces into the next tick instead of being dropped at the
-        // edge and restarted by the re-sent switch (local 2026-11-02: first click at a median 415 ms, and 4-piece
-        // sets landed one piece per tick). A switch to another style or an urgent protection prayer still cancels it.
+
         if("equipment.set".equals(c.op)&&c.dispatchStarted)
             return motionClock.getAsLong()-c.dispatchNanos<=java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(1200)
                 &&c.motionUrgency==prayerUrgency.get();
         return fresh(c)&&(!c.dispatchStarted||c.motionUrgency==prayerUrgency.get());
     }
-    /** Inferno keeps the older cancellation rules. */
+
     private boolean colosseumWalk(Command c){
         return c.dispatchStarted&&product==net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaProduct.COLOSSEUM
             &&"movement.tile".equals(c.op);
     }
-    /**
-     * Prayer outranks walking. Queued: a stale walk is dropped, and a prayer simply goes first on the pointer lane.
-     * Travelling: a protection prayer or a newer walk takes the pointer mid-curve. Pressing: the click is never
-     * cancelled (Dro s184, tick 4454: a walk cancelled after its press left the player a tile short in Sol's spear).
-     * Pause, a human takeover and a session end still stop it at every stage.
-     */
+
     private boolean colosseumWalkFresh(Command c){
         if(c.generation!=generation.get())return false;
         if(c.pressing)return true;
@@ -317,8 +288,7 @@ final class CommandRunner
             if(!motionFresh(c)||!allowed.getAsBoolean()){
                 ArenaInputDiagnostics.event("GESTURE_CANCELLED","GESTURE_CANCELLED");prayers.gesture(c.prayerTrace,"GESTURE_CANCELLED");return;
             }
-            // A duplicate ensure-on may have landed while this gesture waited. Do not even
-            // open the prayer tab or move the pointer when no click is needed any more.
+
             if(c.prayerTrace!=null){
                 Boolean active=commands.prayerActive(str(c.args,"prayer"));
                 if(active==null){ArenaInputDiagnostics.event("PRAYER_STATE_UNAVAILABLE","PRAYER_STATE_UNAVAILABLE");prayers.gesture(c.prayerTrace,"PRAYER_STATE_UNAVAILABLE");return;}
@@ -328,7 +298,7 @@ final class CommandRunner
             }
             if(c.prayerTrace==null&&!executor.prepare(c.op)){ArenaInputDiagnostics.event("TAB_NOT_READY","TAB_NOT_READY");prayers.gesture(c.prayerTrace,"TAB_NOT_READY");return;}
             prayers.gesture(c.prayerTrace,"GESTURE_STARTED");
-            // Travel is measured against the prayers that arrive from here on.
+
             if(colosseumWalk(c)){c.motionUrgency=prayerUrgency.get();c.gestureStarted=true;}
             gesture.run();
             } catch(RuntimeException failure){
@@ -348,13 +318,12 @@ final class CommandRunner
         int metadata=0;
         try{if(message.has("priority")&&message.get("priority").isJsonPrimitive()&&message.get("priority").getAsJsonPrimitive().isNumber())metadata=Math.max(0,Math.min(100,message.get("priority").getAsBigDecimal().intValueExact()));}
         catch(ArithmeticException|NumberFormatException ignored){ }
-        // The recordings put a tick's protection prayer before its offensive prayer, and both before potions.
+
         int tier=op.startsWith("prayer.")?(protectionPrayer(prayerArg(message))?4:3)
             :op.startsWith("inventory.")||op.equals("equipment.set")?2:op.equals("movement.tile")?1:0;
         return tier*101+metadata;
     }
 
-	/** Run one command and report it: DONE, FAILED, EXPIRED (too late in the tick), BAD_COMMAND or ERROR. */
 	private void run(Command c)
 	{
 		long startTick = tick;
@@ -398,7 +367,6 @@ final class CommandRunner
                     &&!net.runelite.client.plugins.microbot.util.input.InputArbiter.isHuman();}
             }))
         {
-            // prayerSet first observes the requested state; only a real toggle opens its tab.
             if(c.prayerTrace!=null||executor.prepare(c.op))done = dispatch(c.op, c.args);
             else { ArenaInputDiagnostics.event("TAB_NOT_READY","COMMAND_PREPARATION");log.accept("[input] stage=TAB_NOT_READY op="+c.op); }
 			outcome = done ? "DONE" : "FAILED";
@@ -419,61 +387,19 @@ final class CommandRunner
 		result(c, outcome, startTick, startMs, done);
 	}
 
-	/** Each command to its plugins/ method. */
 	boolean dispatch(String op, JsonObject a)
 	{
 		switch (op)
 		{
-			// all products
 			case "prayer.set":
 				return commands.prayerSet(str(a, "prayer"), a.get("on").getAsBoolean());
 			case "prayer.flick":
 				return commands.prayerFlick(str(a, "prayer"));
-			case "movement.tile":
-				return commands.moveTo(num(a, "x"), num(a, "y"), num(a, "plane"), flag(a, "screenOnly"));
-			case "npc.attack":
-				return commands.attackNpc(num(a, "index"));
-			case "equipment.set":
-				return commands.equipSet(a.has("name")?str(a, "name"):null, nums(a, "items"));
-			case "inventory.interact":
-				return commands.inventoryInteract(num(a, "slot"), num(a, "itemId"), str(a, "option"));
-			case "camera.set":
-				return commands.cameraSet(maybe(a, "yaw"), maybe(a, "pitch"), maybe(a, "zoom"));
-            case "npc.interact":return commands.npcInteract(num(a,"index"),str(a,"option"));
-            case "object.interact":return commands.objectInteract(a.has("ids")?nums(a,"ids"):null,
-                a.has("name")?str(a,"name"):null,str(a,"option"),a.has("radius")?num(a,"radius"):15,flag(a,"walk"));
-            case "widget.click":return commands.widgetClick(num(a,"id"),maybe(a,"child"),
-                a.has("option")&&!a.get("option").isJsonNull()?str(a,"option"):null);
-            case "equipment.slot":return commands.equipmentSlot(num(a,"slot"),str(a,"option"));
-            case "equipment.equip":return commands.equipSet(null,new int[]{num(a,"itemId")});
-            case "inventory.eat":return commands.inventoryById(num(a,"itemId"),"Eat");
-            case "inventory.guzzle":return commands.inventoryById(num(a,"itemId"),"Guzzle");
-            case "combat.style":return commands.combatStyle(num(a,"style"));
-            case "combat.retaliate":return commands.autoRetaliate(a.get("on").getAsBoolean());
-            case "dialogue.next":return commands.dialogueNext();
-            case "dialogue.choose":return a.has("text")?commands.dialogueChoose(str(a,"text")):commands.dialogueChoose(num(a,"n"));
-			case "combat.spec":
-				return commands.specialAttack();
-			// Inferno
-			case "ground.take":
-				return wired(infernoCommands, op).takeGroundItem(str(a, "name"), num(a, "radius"));
-			case "magic.armIce":
-				return wired(infernoCommands, op).armIce();
-			case "player.logout":
-				return wired(infernoCommands, op).logout();
 			default:
 				throw new IllegalArgumentException("unknown op " + op);
-		}
+        }
 	}
 
-	private static <T> T wired(T handler, String op)
-	{
-		if (handler == null)
-		{
-			throw new IllegalArgumentException(op + ": that product isn't set up in Main");
-		}
-		return handler;
-	}
 
 	private void result(Command c, String outcome, long startTick, long startMs, boolean delivered)
 	{
@@ -498,8 +424,6 @@ final class CommandRunner
     private static String doneReason(String outcome) {
         return "DONE".equals(outcome) ? "STATE_OR_NON_MOUSE_ACTION_REPORTED_DONE" : outcome;
     }
-
-	// ---- reading arguments ----
 
 	private static String str(JsonObject a, String key)
 	{
@@ -529,14 +453,4 @@ final class CommandRunner
 		return a.has(key) && a.get(key).getAsBoolean();
 	}
 
-	private static int[] nums(JsonObject a, String key)
-	{
-		JsonArray list = a.getAsJsonArray(key);
-		int[] out = new int[list.size()];
-		for (int i = 0; i < out.length; i++)
-		{
-			out[i] = list.get(i).getAsInt();
-		}
-		return out;
-	}
 }

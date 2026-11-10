@@ -8,18 +8,13 @@ import net.runelite.api.gameval.VarClientID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.globval.enums.InterfaceTab;
 
-/** One physical pointer, independent canvas-keyboard work, bounded priorities. No OS/global key API. */
 public final class ArenaInputDispatcher implements AutoCloseable {
     private final Lane pointer=new Lane("dro-arena-pointer",true),keyboard=new Lane("dro-arena-keyboard",false),
         commands=new Lane("dro-arena-commands",false);
-    /**
-     * Consecutive pointer inputs are never sent together. In the recordings same-tick inputs are at least 18 ms
-     * apart (10th percentile 28 ms, median 40 ms); a Protect from Melee invoke sent with a Rigour toggle and a
-     * potion was lost (Colosseum, 2026-11-01).
-     */
+
     static final long MIN_GAP_NANOS=18_000_000L,MAX_GAP_NANOS=28_000_000L;
     private final ArenaMouse mouse=new ArenaMouse();
-    /** Retained for the legacy overlay; neither selectable input mode uses this private mouse. */
+
     public ArenaMouse mouse(){return mouse;}
     private final BooleanSupplier allowed;
     private final Predicate<String> prepare;
@@ -29,17 +24,16 @@ public final class ArenaInputDispatcher implements AutoCloseable {
     public void execute(String op,int priority,Runnable task){execute(op,priority,()->true,task);}
     public void execute(String op,int priority,BooleanSupplier fresh,Runnable task){
         boolean keys=op.equals("dialogue.next")||op.equals("dialogue.choose")||op.equals("camera.set");
-        // A tab cannot change underneath an in-flight gesture. Decisions that can change tabs
-        // use the physical pointer's priority queue as well; unrelated work stays independent.
+
         (keys?keyboard:tab(op)!=null?pointer:commands).submit(priority,()->{
-            if(!fresh.getAsBoolean()||!allowed.getAsBoolean()){task.run();return;}// Runner supplies the BLOCKED result.
+            if(!fresh.getAsBoolean()||!allowed.getAsBoolean()){task.run();return;}
             if(!keys)awaitPressRead(tab(op));
             try(var speed=net.runelite.client.plugins.microbot.drocolosseumprayers.MouseMotionScope.speed(1.30)){
                 task.run();
             }
         });
     }
-    /** Same priority pointer lane for physical work, never VirtualMouse's FIFO. */
+
     public void gesture(String op,int priority,BooleanSupplier fresh,Runnable task){
         pointer.submitGesture(priority,task);
     }
@@ -56,7 +50,7 @@ public final class ArenaInputDispatcher implements AutoCloseable {
         InterfaceTab tab=tab(op);if(tab==null)return true;
         return Microbot.getClientThread().runOnClientThreadOptional(()->openTab(Microbot.getClient(),tab)).orElse(false);
     }
-    /** Client-thread only: script dispatch and the live readiness receipt are one operation. */
+
     public static boolean openTab(net.runelite.api.Client client,InterfaceTab tab){
         net.runelite.client.plugins.microbot.drocolosseumprayers.MouseMotionScope.checkpoint();
         int wanted=tab.getVarcIntIndex();
@@ -65,22 +59,16 @@ public final class ArenaInputDispatcher implements AutoCloseable {
         if(open)openedTab=tab;
         return open;
     }
-    /**
-     * 1.0.80 gear-switch failsafe (user, 2026-11-06: hit by the Manticore while switching gear). The game reads a canvas
-     * press on its next frame, and a tab opened before then moves the click onto the new panel. Live 1.0.79 run 11:30,
-     * wave 4: Protect from Melee was pressed on the prayer book at 667,395 ms, the queued gear switch opened the inventory,
-     * and at 667,439 ms the press drank a Saradomin brew; melee never went on and the Manticore's third orb hit for 14.
-     * A pointer task that needs another tab now waits, at most PRESS_READ_NANOS, until the game has read the last press.
-     */
+
     static final long PRESS_READ_NANOS=150_000_000L;
     private static volatile long pressAt,readAt;
     private static volatile InterfaceTab openedTab;
-    /** Input lane, immediately before a canvas press. */
+
     public static void pressing(){pressAt=System.nanoTime();}
-    /** Client thread (MenuOptionClicked): the game has read a click. */
+
     public static void pressRead(){readAt=System.nanoTime();}
     static boolean pressUnread(long now){long at=pressAt;return at!=0&&readAt<at&&now-at<PRESS_READ_NANOS;}
-    /** Input lane only, never the client thread; bounded by PRESS_READ_NANOS. */
+
     static void awaitPressRead(InterfaceTab wanted){
         if(wanted==null||wanted==openedTab||!pressUnread(System.nanoTime())||Microbot.getClient()==null)return;
         net.runelite.client.plugins.microbot.util.Global.sleepUntil(()->!pressUnread(System.nanoTime()),()->{},
@@ -114,7 +102,7 @@ public final class ArenaInputDispatcher implements AutoCloseable {
             Job job=new Job(priority,sequence.incrementAndGet(),observed,permits,cancelled);
             try{executor.execute(job);}catch(RejectedExecutionException closed){job.cancel(false);throw closed;}return job;
         }
-        /** Lane thread only: input pacing, never a wait on game state and never on the client thread. */
+
         private void stagger(){
             long gap=ThreadLocalRandom.current().nextLong(MIN_GAP_NANOS,MAX_GAP_NANOS+1);
             long wait=lastFinished+gap-System.nanoTime();

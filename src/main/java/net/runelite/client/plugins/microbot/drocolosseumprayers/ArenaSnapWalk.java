@@ -5,11 +5,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.MouseMotionScope;
 
-/**
- * Manual movement's Javelin sidestep. The player is steering with their own mouse, so a Natural mouse walk would
- * travel against it and be dropped when the pointer left its target. The pointer jumps to the tile instead and
- * clicks there in one gesture on the arena's queue; prayer still outranks it and a stale walk is still cancelled.
- */
 public final class ArenaSnapWalk implements ArenaInputScope.ClickHandler
 {
     @Override public void click(Point point, boolean rightClick, NewMenuEntry entry)

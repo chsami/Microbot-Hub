@@ -3,11 +3,6 @@ package net.runelite.client.plugins.microbot.drocolosseumprayers;
 import java.util.function.BooleanSupplier;
 import net.runelite.client.plugins.microbot.util.mouse.naturalmouse.api.MouseMotionFactory;
 
-/**
- * Optional motion-only profile for one caller's work. No shared Antiban settings, input
- * ownership, menu entries or click coordinates are changed. Deferred callbacks carry the
- * profile explicitly; it is never installed as the client thread's default.
- */
 public final class MouseMotionScope implements AutoCloseable
 {
     public interface Profile
@@ -15,14 +10,11 @@ public final class MouseMotionScope implements AutoCloseable
         MouseMotionFactory motion(MouseMotionFactory source);
         long clickPause();
         boolean isValid();
-        /** Optional owner queue. False retains the normal gesture scheduler. */
+
         default boolean scheduleGesture(Runnable gesture){return false;}
-        /** Optional last live-state check, after motion and immediately before pressing. */
+
         default boolean shouldClick(){return true;}
-        /**
-         * Optional: press this menu action with the mouse alone (no forced menu entry). True when the owner took
-         * the click; false keeps the normal entry click.
-         */
+
         default boolean pressEntry(net.runelite.api.Point point, net.runelite.client.plugins.microbot.util.menu.NewMenuEntry entry){return false;}
     }
 
@@ -40,15 +32,13 @@ public final class MouseMotionScope implements AutoCloseable
     }
 
     public static MouseMotionScope open(Profile profile) { return new MouseMotionScope(profile); }
-    public static boolean isPresent() { return CURRENT.get() != null || background()!=null; }
-    /** Local preparation only. Closing invalidates queued preparation callbacks via Profile.isValid(). */
+
     public static AutoCloseable background(Profile profile){
         BACKGROUND.set(java.util.Objects.requireNonNull(profile));
         return ()->BACKGROUND.compareAndSet(profile,null);
     }
     private static Profile background(){Profile captured=CAPTURED_BACKGROUND.get();return captured!=null?captured:BACKGROUND.get();}
 
-    /** Caller-only travel speed, carried through deferred mouse callbacks. */
     public static SpeedScope speed(double multiplier) { return new SpeedScope(multiplier); }
 
     public static final class SpeedScope implements AutoCloseable
@@ -90,20 +80,17 @@ public final class MouseMotionScope implements AutoCloseable
         });
     }
 
-    /** Preserve command priority through to the final physical gesture. */
     public static boolean scheduleGesture(Runnable gesture){
         Profile profile=CURRENT.get();
         return profile!=null&&profile.scheduleGesture(gesture);
     }
 
-    /** The caller's scope presses an entry click with the mouse alone (see {@link Profile#pressEntry}). */
     public static boolean pressEntry(net.runelite.api.Point point, net.runelite.client.plugins.microbot.util.menu.NewMenuEntry entry)
     {
         Profile profile = CURRENT.get();
         return profile != null && entry != null && profile.pressEntry(point, entry);
     }
 
-    /** Called on the mouse worker, never on the client thread. */
     public static void beforeClick()
     {
         Profile profile = CURRENT.get();
@@ -131,7 +118,7 @@ public final class MouseMotionScope implements AutoCloseable
         if(background!=null&&background!=profile&&factory!=null)factory=background.motion(factory);
         double speed = SPEED.get();
         if (factory == null || speed == 1.0) return factory;
-        // Copy the nature; mutating the source would change every other script's mouse.
+
         var original = factory.getNature();
         var copy = new net.runelite.client.plugins.microbot.util.mouse.naturalmouse.support.MouseMotionNature();
         copy.setSystemCalls(original.getSystemCalls());
@@ -160,7 +147,6 @@ public final class MouseMotionScope implements AutoCloseable
         if(background!=null&&(!background.isValid()||Thread.currentThread().isInterrupted()))throw new Cancelled();
     }
 
-    /** Only input is cancelled. Client-thread state reads must still complete their futures. */
     public static final class Cancelled extends RuntimeException
     {
         private Cancelled() { super(null, null, false, false); }

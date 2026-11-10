@@ -22,12 +22,10 @@ import net.runelite.client.plugins.microbot.util.misc.Rs2UiHelper;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.MouseMotionScope;
 import net.runelite.client.util.Text;
 
-/** Local menu dispatch: the selected input mode, one priority lane, native NaturalMouse and observed presses. */
 public final class ArenaMenuInput
 {
     private ArenaMenuInput() { }
 
-    /** Client thread only. The exact index also covers this tick's spawn before Main's cache refresh. */
     public static NPC npc(Client client, int index)
     {
         if(index<0||client==null||client.getTopLevelWorldView()==null)return null;
@@ -51,14 +49,8 @@ public final class ArenaMenuInput
         return tryClick(entry, point);
     }
 
-    /** Clicks collected by {@link #burst}, on the thread that builds them. */
     private static final ThreadLocal<java.util.List<Object[]>> BURST = new ThreadLocal<>();
 
-    /**
-     * Runs {@code body} (which builds several clicks, e.g. one Wear per gear piece) and sends them as one gesture in
-     * the order built: invoked 8-11 ms apart, or clicked slot to slot by the Natural mouse without re-queueing between
-     * pieces. Returns what {@code body} returned.
-     */
     public static boolean burst(java.util.function.BooleanSupplier body)
     {
         if (BURST.get() != null) return body.getAsBoolean();
@@ -89,7 +81,6 @@ public final class ArenaMenuInput
         return false;
     }
 
-    /** The initial walk point is fixed here; ArenaMenuEntry reprojects the tile when Main builds its menu. */
     public static boolean tryClick(NewMenuEntry entry, Point point)
     {
         if (entry == null || point == null || entry.getType() == null) return false;
@@ -130,7 +121,7 @@ public final class ArenaMenuInput
             if (current == null) { ArenaInputDiagnostics.event("GESTURE_DROPPED", "TARGET_UNAVAILABLE"); return; }
             if (!current.equals(initial)) travel(current);
             ArenaInputScope.beforeClick();
-            // Re-query after the final motion. A moved target is dropped instead of pressing stale geometry.
+
             if (!PointerState.isAt(current.getX(), current.getY()) || !ArenaInputScope.onClientThread(() -> ready(current, entry)).orElse(false)) {
                 ArenaInputDiagnostics.event("GESTURE_DROPPED", "TARGET_CHANGED_BEFORE_PRESS"); return;
             }
@@ -147,7 +138,6 @@ public final class ArenaMenuInput
         if (result == InputLoop.Result.ABORTED) ArenaInputDiagnostics.event("GESTURE_ABORTED", "INPUT_LOCK_OR_HUMAN_TAKEOVER");
     }
 
-    /** {@link ArenaSnapWalk}: the same checks and press as {@link #naturalClick}, with the pointer placed instead of travelled. */
     static void snapClick(Point initial, ArenaMenuEntry entry)
     {
         ArenaInputScope.checkpoint();
@@ -189,7 +179,6 @@ public final class ArenaMenuInput
         finally { ArenaInputDiagnostics.event("MOUSE_TRAVEL", "NATURAL_MOUSE", System.nanoTime() - started); }
     }
 
-    /** Client thread only. */
     private static Point refresh(Point point, ArenaMenuEntry entry, Dimension size)
     {
         if (!entry.liveValid()) return null;
@@ -200,7 +189,6 @@ public final class ArenaMenuInput
         return ArenaMouse.valid(next, size) ? next : null;
     }
 
-    /** Client thread only. */
     private static boolean ready(Point point, ArenaMenuEntry entry)
     {
         if (!entry.liveValid()) return false;
@@ -222,13 +210,11 @@ public final class ArenaMenuInput
         return null;
     }
 
-    /** The same live item/widget identity checks as native inventory input, with local mode routing. */
     public static boolean inventory(Client client, int slot, int itemId, String option)
     {
         return inventory(client, slot, itemId, option, null);
     }
 
-    /** {@code onPressed} runs once when the click is actually sent; a gesture cancelled or dropped before its press never runs it. */
     public static boolean inventory(Client client, int slot, int itemId, String option, Runnable onPressed)
     {
         if (slot < 0 || slot >= 28 || itemId <= 0 || option == null) return false;

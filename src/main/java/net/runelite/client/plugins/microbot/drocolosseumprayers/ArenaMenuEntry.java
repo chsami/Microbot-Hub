@@ -7,7 +7,6 @@ import net.runelite.api.Point;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 
-/** Local compatibility for Main's menu builder, including the live walk projection and owner expiry. */
 public final class ArenaMenuEntry extends NewMenuEntry
 {
     private BooleanSupplier allowed;
@@ -19,7 +18,6 @@ public final class ArenaMenuEntry extends NewMenuEntry
 
     public ArenaMenuEntry() { }
 
-    /** Runs once when the click for this entry is actually sent (a canvas press, or the hand-off to Direct invokes). */
     public ArenaMenuEntry onPressed(Runnable hook) { onPressed = hook; return this; }
     void pressed()
     {
@@ -44,11 +42,9 @@ public final class ArenaMenuEntry extends NewMenuEntry
         return guarded;
     }
 
-    /** Client thread: refreshed before Main chooses the entry type, then reused by its parameter getters. */
     public ArenaMenuEntry liveWalkPoint(Supplier<Point> point) { liveWalkPoint = point; return this; }
     public ArenaMenuEntry liveCheck(BooleanSupplier check) { liveCheck = check; return this; }
 
-    /** Client thread only: entity identity and selected-widget state are checked immediately before dispatch. */
     boolean liveValid()
     {
         if (!valid()) return false;
@@ -85,13 +81,11 @@ public final class ArenaMenuEntry extends NewMenuEntry
     @Override public MenuAction getType()
     {
         if (!valid()) return MenuAction.CANCEL;
-        // Main rebuilds the menu on the client thread after the physical press. Do not let
-        // an actor index recycled between those moments become a click on a different NPC.
+
         var client=Microbot.getClient();
         if(client!=null&&client.isClientThread()) {
             if(!liveValid()) { cancel(); return MenuAction.CANCEL; }
-            // Main inserts the entry while calling setType, before it reads either parameter.
-            // Projection failure must therefore select CANCEL before that insertion.
+
             if(liveWalkPoint!=null&&super.getType()==MenuAction.WALK) {
                 try { projection=liveWalkPoint.get(); }
                 catch(RuntimeException unavailable) { projection=null; }

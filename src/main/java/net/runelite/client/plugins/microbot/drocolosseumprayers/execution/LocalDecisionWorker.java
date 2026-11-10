@@ -18,10 +18,6 @@ import java.util.function.Consumer;
 import java.util.function.BiConsumer;
 import java.util.function.LongSupplier;
 
-/**
- * One local decision owner, away from the client thread. There is at most one waiting snapshot; a busy
- * decision never creates a backlog of old game ticks. The existing command runner still owns delivery.
- */
 final class LocalDecisionWorker implements AutoCloseable
 {
     interface Engine
@@ -57,7 +53,7 @@ final class LocalDecisionWorker implements AutoCloseable
     private volatile boolean closed;
     private volatile String status = "Stopped";
     private volatile java.util.function.BooleanSupplier inputAllowed = () -> true;
-    /** Read/written only by the decision executor. */
+
     private long initializedGeneration = Long.MIN_VALUE;
 
     LocalDecisionWorker(Engine engine, Consumer<JsonObject> commands, LongSupplier currentTick,
@@ -116,7 +112,7 @@ final class LocalDecisionWorker implements AutoCloseable
         options = Collections.unmodifiableMap(new LinkedHashMap<>(settings));
         status = "Ready; waiting for an arena snapshot";
         accepting = true;
-        // Begin corpus/configuration work beside the entrance without waiting for wave one's first tick.
+
         waiting.set(new Frame(generation.get(), Long.MIN_VALUE, clock.getAsLong(), null, options));
         schedule();
     }
@@ -145,19 +141,16 @@ final class LocalDecisionWorker implements AutoCloseable
         inputAllowed = java.util.Objects.requireNonNull(allowed);
     }
 
-    /** A delayed failure notification cannot terminate a newer run. */
     boolean failedGeneration(long token)
     {
         return !closed && !accepting && generation.get() == token;
     }
 
-    /** The local session rechecks this under its lifecycle lock before the runner adopts a packet. */
     boolean currentGeneration(long token)
     {
         return !closed && accepting && generation.get() == token;
     }
 
-    /** The caller owns the client-thread capture; no live game object enters this worker. */
     void offer(JsonObject snapshot)
     {
         if (!accepting || closed || !snapshot.has("tick"))
@@ -255,7 +248,7 @@ final class LocalDecisionWorker implements AutoCloseable
                     {
                         throw new IllegalArgumentException("Unbounded local decision");
                     }
-                    // Freeze the complete plan before handing anything to the asynchronous action runner.
+
                     List<JsonObject> packets = new ArrayList<>(actions.size());
                     for (JsonObject action : actions)
                     {
@@ -329,7 +322,7 @@ final class LocalDecisionWorker implements AutoCloseable
             status = reason;
             token = generation.get();
         }
-        // The local session may hold its own lifecycle lock while starting this worker; never call it under ours.
+
         failure.accept(token, reason);
     }
 

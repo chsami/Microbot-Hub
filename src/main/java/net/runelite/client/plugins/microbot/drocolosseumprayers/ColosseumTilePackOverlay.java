@@ -29,15 +29,10 @@ import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
 import net.runelite.client.ui.overlay.OverlayUtil;
 
-/**
- * Community Colosseum tile pack (78 Ground Markers tiles, region 7216; osrstools.net "Colosseum Tile Pack"), drawn in the
- * arena instance when "Show Colosseum tile pack" is on. Labels A/B mark the NW pillar's west face (1815,3115)/(1815,3114)
- * and the centre pillar's off-tick spots; 1/2 the west steps. Drawing only: the engine does not read these tiles.
- */
 public final class ColosseumTilePackOverlay extends Overlay
 {
 	static final String RESOURCE = "colosseum-tile-pack.json";
-	/** The arena's template region; monster tiles are drawn only there, not in other instances. */
+
 	static final int COLOSSEUM_REGION = 7216;
 	private static final Color UNCOLOURED = new Color(255, 255, 255, 90);
 	private static final Stroke STROKE = new BasicStroke(1.5f);
@@ -57,13 +52,13 @@ public final class ColosseumTilePackOverlay extends Overlay
 	}
 
 	private final Client client;
-	private final DroColosseumConfig config;
+	private final DroColosseumPrayersConfig config;
 	private final List<Tile> tiles;
 	private int cachedTick = -1;
 	private List<Object[]> cached = Collections.emptyList();
 
 	@Inject
-	ColosseumTilePackOverlay(Client client, DroColosseumConfig config)
+	ColosseumTilePackOverlay(Client client, DroColosseumPrayersConfig config)
 	{
 		this.client = client;
 		this.config = config;
@@ -98,7 +93,6 @@ public final class ColosseumTilePackOverlay extends Overlay
 		return out;
 	}
 
-	/** Ground Markers colours are #AARRGGBB; near-transparent pack tiles get a faint outline so they stay visible. */
 	static Color color(String hex)
 	{
 		if (hex == null || !hex.startsWith("#") || hex.length() != 9)
@@ -162,7 +156,7 @@ public final class ColosseumTilePackOverlay extends Overlay
 				}
 			}
 		}
-		// Monster true tiles on top of the pack (user, 2026-11-07), only inside the Colosseum's own region.
+
 		LocalPoint me = client.getLocalPlayer().getLocalLocation();
 		if (me != null && WorldPoint.fromLocalInstance(client, me).getRegionID() == COLOSSEUM_REGION)
 		{

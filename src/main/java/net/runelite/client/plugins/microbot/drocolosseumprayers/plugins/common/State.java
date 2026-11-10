@@ -28,17 +28,12 @@ import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messag
 import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messages.Projectile;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messages.Worn;
 
-/**
- * Game state for the local controller, read once per game tick on the client thread.
- *
- * Coordinates and "actor" values: see server/Messages.java.
- */
 public class State
 {
 	private static final Skill[] SKILLS = {
 		Skill.HITPOINTS, Skill.PRAYER, Skill.RANGED, Skill.MAGIC, Skill.ATTACK, Skill.STRENGTH, Skill.DEFENCE,
 	};
-	/** Normalize RuneLite camera angles from JAU14 (0-16383) to 0-2047. */
+
 	private static final int ANGLE_SCALE = 8;
 	private static final int CYCLES_PER_TICK = 30;
 
@@ -54,7 +49,6 @@ public class State
 		this(client, null);
 	}
 
-	/** Retained local Inferno entry point; all arenas now capture fresh top-level NPCs. */
 	public static State inferno(Client client, NpcSpawnDiagnostics npcDiagnostics)
 	{
 		return new State(client, npcDiagnostics);
@@ -72,20 +66,11 @@ public class State
 		return client.getLocalPlayer();
 	}
 
-	// ---- Login ----
-
 	public boolean loggedIn()
 	{
 		return client.getGameState() == GameState.LOGGED_IN && me() != null;
 	}
 
-	public String playerName()
-	{
-		Player me = me();
-		return me == null || me.getName() == null ? null : Text.toJagexName(me.getName());
-	}
-
-	// ---- Player ----
 
 	public int x()
 	{
@@ -102,7 +87,6 @@ public class State
 		return me().getWorldLocation().getPlane();
 	}
 
-    /** Current native walking destination, normalized to template tiles; absent means no destination. */
     public com.google.gson.JsonObject destination()
     {
         if(client==null||client.getTopLevelWorldView()==null)return null;
@@ -115,14 +99,12 @@ public class State
 
 	public int templateX()
 	{
-		// True (server) tile, not the animated local position, which lags while walking.
 		WorldPoint wp = me().getWorldLocation();
 		return template(LocalPoint.fromWorld(client.getTopLevelWorldView(), wp), wp).getX();
 	}
 
 	public int templateY()
 	{
-		// True (server) tile, not the animated local position, which lags while walking.
 		WorldPoint wp = me().getWorldLocation();
 		return template(LocalPoint.fromWorld(client.getTopLevelWorldView(), wp), wp).getY();
 	}
@@ -132,19 +114,16 @@ public class State
 		return client.getBoostedSkillLevel(Skill.HITPOINTS);
 	}
 
-    /** Raw signed VarPlayer 102: poison, venom and protection retain their wire values. */
     public int poison()
     {
         return client.getVarpValue(VarPlayerID.POISON);
     }
 
-    /** Raw current selection receipt, deliberately not interpreted as a modifier index. Client thread only. */
     public int selectedModifier(){return client.getVarbitValue(VarbitID.COLOSSEUM_SELECTED_MODIFIER);}
 
     public int frailtyStacks(){return client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_FRAILTY_STACKS_CLIENT);}
     public int myopiaStacks(){return client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_MYOPIA_STACKS_CLIENT);}
 
-    /** Every native modifier tier the client exposes; Bees!, Quartet, Totemic, Dynamic Duo and Red Flag have none. */
     public com.google.gson.JsonObject modifierLevels(){
         var levels=new com.google.gson.JsonObject();
         levels.addProperty("blasphemy",client.getVarbitValue(VarbitID.COLOSSEUM_MODIFIER_BLASPHEMY_STACKS_CLIENT));
@@ -161,7 +140,6 @@ public class State
         return levels;
     }
 
-    /** Molten sand (Reentry/Volatility pools and Sol's floor) is a game object, not a graphic. Client thread only. */
     public com.google.gson.JsonArray moltenSand(){
         var values=new com.google.gson.JsonArray();
         if(client==null)return values;
@@ -177,7 +155,7 @@ public class State
                 for(var object:tile.getGameObjects()){
                     if(object==null)continue;
                     int id=object.getId();
-                    // 50743-50745 colosseum_molten_pool_1-3 (Reentry/Volatility), 50746 Sol's molten sand.
+
                     if(id<50743||id>50746)continue;
                     var point=WorldPoint.fromLocalInstance(client,object.getLocalLocation());
                     if(point==null)continue;
@@ -191,10 +169,8 @@ public class State
         return values;
     }
 
-    /** Raw native Sol grapple state; no slot or phase mapping is assumed. */
     public int solGrapplePending(){return client.getVarbitValue(VarbitID.COLOSSEUM_SOL_GRAPPLE_PENDING);}
 
-    /** Current top-level graphics; events alone cannot describe a persistent hazard. Client thread only. */
     public com.google.gson.JsonArray graphicsObjects(){
         var values=new com.google.gson.JsonArray();
         if(client==null)return values;
@@ -330,7 +306,7 @@ public class State
 	{
 		int prayer = client.getRealSkillLevel(Skill.PRAYER);
 		int defence = client.getRealSkillLevel(Skill.DEFENCE);
-		// Both need King's Ransom's Knight Waves training done.
+
 		boolean knightWaves = client.getVarbitValue(VarbitID.KR_KNIGHTWAVES_STATE) == 8;
 		if (knightWaves && prayer >= 70 && defence >= 70)
 		{
@@ -359,15 +335,11 @@ public class State
 		return client.getVarbitValue(VarbitID.DATE_SECONDS_PAST_MINUTE);
 	}
 
-	// ---- NPCs ----
-
-	/** Local diagnostic clock only; never changes the snapshot or its NPC source. */
-	public void beginNpcSnapshot(long wireTick)
+	public void beginNpcSnapshot(long snapshotTick)
 	{
-		if (npcDiagnostics != null) npcDiagnostics.beginSnapshot(wireTick);
+		if (npcDiagnostics != null) npcDiagnostics.beginSnapshot(snapshotTick);
 	}
 
-    /** Current tick's receipts supplement same-tick cached membership, without scanning a world view. */
     public void observeNpcEvents(com.google.gson.JsonArray events)
     {
         npcEvents = events == null ? new com.google.gson.JsonArray() : events;
@@ -376,8 +348,7 @@ public class State
 	public List<Npc> npcs()
 	{
 		List<Npc> list = new ArrayList<>();
-		// Client-thread capture uses Main's singleton query API. Spawn/animation receipts fill
-        // a same-tick cache gap through individual live index lookups; no private cache is created.
+
 		WorldView worldView = client.getTopLevelWorldView();
         java.util.Map<Integer, NPC> observed = new java.util.LinkedHashMap<>();
         var cache = net.runelite.client.plugins.microbot.Microbot.getRs2NpcCache();
@@ -445,12 +416,10 @@ public class State
 		return list;
 	}
 
-	// ---- Prayers ----
-
 	public List<String> activePrayers()
 	{
 		List<String> list = new ArrayList<>();
-		// Each prayer's own varbit: isPrayerActive mixes up Deadeye/Eagle Eye and Mystic Vigour/Might.
+
 		for (Prayer p : Prayer.values())
 		{
 			if (client.getVarbitValue(p.getVarbit()) == 1)
@@ -460,8 +429,6 @@ public class State
 		}
 		return list;
 	}
-
-	// ---- Items ----
 
 	public List<Messages.Item> inventory()
 	{
@@ -497,8 +464,6 @@ public class State
 		return list;
 	}
 
-	// ---- Projectiles ----
-
 	public List<Projectile> projectiles()
 	{
 		List<Projectile> list = new ArrayList<>();
@@ -521,8 +486,6 @@ public class State
 		}
 		return list;
 	}
-
-	// ---- Camera ----
 
 	public int cameraYaw()
 	{
@@ -551,13 +514,10 @@ public class State
 		return c != null && c.getX() >= 0 && c.getX() < client.getViewportWidth() && c.getY() >= 0 && c.getY() < client.getViewportHeight();
 	}
 
-    /** Same template rectangle and row-major LSB layout as the existing onScreen mask. */
     public byte[] hiddenTiles(int[] screen, java.util.Set<Integer> occluders)
     {
         return new ArenaOcclusion(client, tiles).mask(screen, occluders);
     }
-
-	// ---- Collision ----
 
 	public int collisionFlags(int tx, int ty)
 	{
@@ -571,9 +531,6 @@ public class State
 		return maps[wv.getPlane()].getFlags()[s[0]][s[1]];
 	}
 
-	// ---- helpers ----
-
-	/** "player" for you, an NPC's index, or null. */
 	protected Object actor(Actor a)
 	{
 		if (a == null)
@@ -587,7 +544,6 @@ public class State
 		return a instanceof NPC ? ((NPC) a).getIndex() : null;
 	}
 
-	/** The template tile of a local point (world tile outside an instance); `world` if it isn't in the scene. */
 	protected WorldPoint template(LocalPoint local, WorldPoint world)
 	{
 		if (local == null || !client.getTopLevelWorldView().isInstance())
@@ -603,7 +559,6 @@ public class State
 		return Text.removeTags(client.getItemDefinition(id).getName());
 	}
 
-	/** Client thread. Null until the item stats have loaded, or for an item that can't be worn. */
 	protected Messages.Gear gear(int id)
 	{
 		var items = net.runelite.client.plugins.microbot.Microbot.getItemManager();

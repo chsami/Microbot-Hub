@@ -5,7 +5,6 @@ import net.runelite.client.config.ConfigManager;
 import net.runelite.client.plugins.microbot.MicrobotConfig;
 import net.runelite.client.plugins.microbot.util.input.InputArbiter;
 
-/** Temporary, reference-counted enforcement of the user's arena-only no-yield preference. */
 public final class ArenaInputLease implements AutoCloseable {
     private static final IdentityHashMap<ConfigManager,State> LIVE=new IdentityHashMap<>();
     private static final String GROUP=MicrobotConfig.configGroup,KEY=MicrobotConfig.keyDisableInputYielding;

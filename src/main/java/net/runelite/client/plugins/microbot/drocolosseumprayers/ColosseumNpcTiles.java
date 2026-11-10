@@ -16,15 +16,6 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 
-/**
- * Colosseum monster true tiles, drawn with the community tile pack when "Show Colosseum tile pack" is on (user,
- * 2026-11-07: the Colosseum guide videos run Better NPC Highlight true tiles beside the tile pack). The true tile is
- * the server-side footprint, the same tile the engine reasons about, not the interpolated model position. The drawing
- * technique (south-west world tile shifted to the footprint centre, then a size-wide canvas area) follows Better NPC
- * Highlight's "True Tile" mode (BSD-2-Clause, MoreBuchus/riktenx). Colours follow the attack style to pray against:
- * green ranged, blue magic, red melee, orange for the Manticore's three styles, yellow for Sol and the Bees.
- * Drawing only: the engine does not read this.
- */
 final class ColosseumNpcTiles
 {
 	static final Color RANGED = new Color(0, 220, 70);
@@ -39,34 +30,32 @@ final class ColosseumNpcTiles
 	{
 	}
 
-	/** Outline colour for a Colosseum monster id, or null for non-combatants (Minimus, pillars, flares, spectators). */
 	static Color colour(int id)
 	{
 		switch (id)
 		{
-			case 12814: // Fremennik warband archer
-			case 12817: // Javelin Colossus
+			case 12814:
+			case 12817:
 				return RANGED;
-			case 12811: // Serpent shaman
-			case 12815: // Fremennik warband seer
-			case 12819: // Shockwave Colossus
+			case 12811:
+			case 12815:
+			case 12819:
 				return MAGIC;
-			case 12810: // Jaguar warrior
-			case 12812: // Minotaur
-			case 12813: // Minotaur (Red Flag)
-			case 12816: // Fremennik warband berserker
+			case 12810:
+			case 12812:
+			case 12813:
+			case 12816:
 				return MELEE;
-			case 12818: // Manticore
+			case 12818:
 				return MIXED;
-			case 12821: // Sol Heredit
-			case 12823: // Angry Bees
+			case 12821:
+			case 12823:
 				return BOSS;
 			default:
 				return null;
 		}
 	}
 
-	/** Draws every live Colosseum monster's true tile in the top-level instance. Client thread (overlay render). */
 	static void render(Graphics2D graphics, Client client, WorldView wv)
 	{
 		Object antialias = graphics.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
@@ -98,7 +87,6 @@ final class ColosseumNpcTiles
 		graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, antialias == null ? RenderingHints.VALUE_ANTIALIAS_DEFAULT : antialias);
 	}
 
-	/** Canvas polygon of a size-by-size footprint whose south-west tile is {@code southWest}; null off-scene. */
 	static Polygon trueTile(Client client, WorldView wv, WorldPoint southWest, int size)
 	{
 		if (southWest == null)

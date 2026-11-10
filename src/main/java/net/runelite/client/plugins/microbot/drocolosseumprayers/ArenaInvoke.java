@@ -5,13 +5,6 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.drocolosseumprayers.MouseMotionScope;
 
-/**
- * "Use invokes": the command's menu action is sent to the client directly, with no pointer travel and
- * no canvas press. Walking is not routed here: CommandRunner sends movement.tile through the Natural
- * mouse, because scene tile picking needs a real canvas click. It keeps the arena's own queue, so prayer
- * still outranks equipment and a command that went stale or was superseded is cancelled before it fires.
- * Only a command that carries a non-WALK menu entry can be invoked; anything else is dropped with a reason.
- */
 public final class ArenaInvoke implements ArenaInputScope.ClickHandler
 {
     static boolean invokable(NewMenuEntry entry)
@@ -30,11 +23,6 @@ public final class ArenaInvoke implements ArenaInputScope.ClickHandler
         if (!ArenaInputScope.scheduleGesture(gesture)) drop("OWNER_QUEUE_UNAVAILABLE");
     }
 
-    /**
-     * A gear switch: every piece is invoked in one gesture so all land in the same tick (the game wears several
-     * items per tick), 8-11 ms apart so each reaches the client as its own action. A cancelled owner, a human
-     * takeover or a pause stops the rest; the engine re-sends whatever is still not worn next tick.
-     */
     @Override public void burst(java.util.List<Point> points, java.util.List<NewMenuEntry> entries)
     {
         java.util.List<NewMenuEntry> valid = new java.util.ArrayList<>();
@@ -59,8 +47,6 @@ public final class ArenaInvoke implements ArenaInputScope.ClickHandler
 
     private static void fire(NewMenuEntry entry)
     {
-        // Same last-moment checks as a click (owner still valid, no human input, prayer still needed),
-        // on the input worker so the client thread never waits.
         MouseMotionScope.beforeClick();
         var trace = ArenaInputDiagnostics.current();
         boolean sent = ArenaInputScope.onClientThread(() ->
@@ -75,7 +61,6 @@ public final class ArenaInvoke implements ArenaInputScope.ClickHandler
             return true;
         }).orElse(false);
         if (!sent) { drop("CLIENT_UNAVAILABLE"); return; }
-        // INVOKE_FIRED records client submission; it is not a physical canvas press.
     }
 
     private static void drop(String reason) { ArenaInputDiagnostics.event("GESTURE_DROPPED", reason); }

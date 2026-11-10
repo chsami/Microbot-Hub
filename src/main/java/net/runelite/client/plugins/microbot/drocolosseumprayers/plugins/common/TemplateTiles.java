@@ -7,17 +7,12 @@ import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 
-/**
- * Template tile -> scene tile, worked out once per scene load (and retried every few ticks while the area isn't
- * mapped yet). Inside an instance the template is the map's own coordinate; outside one it is the world tile.
- * Read on the client thread.
- */
 public final class TemplateTiles
 {
 	private static final int RETRY_TICKS = 5;
 
 	private final Client client;
-	/** (tx << 32 | ty) -> {sceneX, sceneY}. */
+
 	private Map<Long, int[]> scene = new HashMap<>();
 	private int baseX = Integer.MIN_VALUE;
 	private int baseY = Integer.MIN_VALUE;
@@ -32,7 +27,6 @@ public final class TemplateTiles
 		this.client = client;
 	}
 
-	/** The scene tile showing this template tile, {sceneX, sceneY}, or null when it is not in the scene. */
 	public int[] scene(int tx, int ty)
 	{
 		WorldView wv = client.getTopLevelWorldView();
