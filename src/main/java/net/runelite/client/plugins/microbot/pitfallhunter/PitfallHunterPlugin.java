@@ -23,7 +23,7 @@ import javax.inject.Inject;
 @Slf4j
 public class PitfallHunterPlugin extends Plugin
 {
-    public static final String version = "0.1.52";
+    public static final String version = "0.1.53";
 
     @Inject
     private PitfallHunterConfig config;
