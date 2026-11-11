@@ -1,8 +1,8 @@
-# Dro Elf
+# Dro Elf Thieving
 
 Created by **DRO (droplugins)**.
 
-Dro Elf pickpockets elves in Prifddinas. On start it locks onto the nearest elf and the nearest bank, then walks between them with its own built-in Prifddinas route planner. It eats, opens coin pouches, keeps a Dodgy necklace on, and restocks food and necklaces at the bank.
+Dro Elf Thieving pickpockets elves in Prifddinas. On start it locks onto the nearest elf and the nearest bank, then walks between them with its own built-in Prifddinas route planner. It eats, opens coin pouches, keeps a Dodgy necklace on, and restocks food and necklaces at the bank.
 
 ## Requirements
 
@@ -16,7 +16,7 @@ Dro Elf pickpockets elves in Prifddinas. On start it locks onto the nearest elf 
 1. Stand next to the elf you want to thieve in Prifddinas.
 2. Set food, food amount, eat-below HP % and Dodgy necklace amount under **Consumables**.
 3. Optional: turn on **Shadow Veil**, adjust **Adaptive behavior**, and set up **Break manager**.
-4. Enable **[Dro] Elf**.
+4. Enable **[Dro] Elf Thieving**.
 
 ## Walking
 

@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @PluginDescriptor(
-        name = PluginConstants.DRO + "Elf",
+        name = PluginConstants.DRO + "Elf Thieving",
         description = "Dedicated Prifddinas elf thieving with a session-locked route",
         authors = {"Dro"},
         version = DroElfPlugin.VERSION,
