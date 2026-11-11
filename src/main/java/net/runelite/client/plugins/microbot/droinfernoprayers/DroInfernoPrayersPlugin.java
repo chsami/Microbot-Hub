@@ -49,7 +49,7 @@ import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoDecis
     isExternal = PluginConstants.IS_EXTERNAL)
 public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
 {
-    static final String version = "1.0.10";
+    static final String version = "1.0.11";
 	private static final Logger log = LoggerFactory.getLogger(DroInfernoPrayersPlugin.class);
 
 	@Inject
@@ -71,6 +71,11 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
     private volatile ArenaHud hud;
     private final ArenaAntibanPolicy antibanPolicy=new ArenaAntibanPolicy();
     private ArenaRunGuard runGuard = new ArenaRunGuard();
+    private final ArenaRearm rearm = new ArenaRearm();
+    private final ArenaSessionRestarts sessionRestarts = new ArenaSessionRestarts();
+    private boolean gaveUp;
+    static final String GAVE_UP_CHAT="[Dro] Inferno Prayers stopped switching prayers. Pray manually, then turn the plugin off and on to resume.";
+    static final String GAVE_UP_STATUS="Stopped switching prayers: pray manually, then turn the plugin off and on";
     @Override public boolean arenaRunProtected(){return runGuard.protectedRun();}
     @Override public ArenaHud arenaHud(){return active||arenaRunProtected()?hud:null;}
 
@@ -111,7 +116,12 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
         if(terminalStatus!=null)return terminalStatus;
         LocalInfernoSession current=localSession;
         if(current!=null) return current.status();
-        return !active ? "Stopped; re-arm and start the activity to restart" : "Enter the Inferno to start";
+        if(active)return "Enter the Inferno to start";
+        switch(rearm.pending()){
+            case LOGGED_IN:return "Waiting for login; starts again once you are inside";
+            case OUTSIDE:case ARENA_SEEN_OR_OUTSIDE:return "Run ended; starts again on your next entry";
+            default:return "Stopped: turn the plugin off and on to restart";
+        }
     }
     private boolean insideSnapshot() {
         return net.runelite.client.plugins.microbot.Microbot.getClientThread()
@@ -162,7 +172,7 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
 	@Override
 	protected void startUp()
 	{
-        terminalStatus=null;
+        terminalStatus=null;rearm.clear();gaveUp=false;
 
         if(ArenaInputLease.active()){
             active=false;terminalStatus="Stop the active arena before starting Inferno";return;
@@ -192,7 +202,7 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
 	protected void shutDown()
 	{
         log.info("[Inferno local] stage=STOP sessionPresent={}",localSession!=null);
-        inputState.clear();active=false;session++;antibanPolicy.close();runGuard.departed();
+        inputState.clear();active=false;session++;antibanPolicy.close();runGuard.departed();rearm.clear();
         npcDiagnostics=null;
         if(overlayManager!=null&&overlay!=null){overlay.stop();overlayManager.remove(overlay);}
         if(overlayManager!=null&&tilePackOverlay!=null)overlayManager.remove(tilePackOverlay);
@@ -265,13 +275,19 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
         enforceInputLease();
         updateHud(InfernoBoundary.inside(client));
         publishStatus(InfernoBoundary.inside(client));
-        if (!active) return;
-        if(departed){stopSession();return;}
+        if (!active) {
+            // A stop is per run. Start again through the same full restart a settings change uses, so the
+            // antiban policy, NPC tracker, run guard and HUD all begin clean.
+            if(rearm.due(reliable,inside)){log.info("[Inferno local] stage=REARM inside={}",inside);shutDown();startUp();}
+            return;
+        }
+        if(departed){stopSession(ArenaRearm.After.ARENA_SEEN_OR_OUTSIDE);return;}
 
         boolean localLocation=client.getGameState()==net.runelite.api.GameState.LOADING
             || (!reliable&&client.getGameState()==net.runelite.api.GameState.LOGGED_IN) || sessionLocation();
-        if (localSession!=null && !localLocation) { stopSession();return; }
+        if (localSession!=null && !localLocation) { stopSession(ArenaRearm.After.ARENA_SEEN_OR_OUTSIDE);return; }
         if (!InfernoBoundary.inside(client)) return;
+        replaceEndedSession();
         beginSessionIfReady();
         if (localSession!=null) {
             localSession.spellState(
@@ -298,7 +314,7 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
         if(event.getActor()==client.getLocalPlayer()){
             inputState.clear();
             runGuard.observe(true,false,true);
-            stopSession();
+            stopSession(ArenaRearm.After.OUTSIDE);
             terminalStatus="Inferno ended: player died";
             Microbot.status=terminalStatus;
             if(logoutAfterRun())runLogout.start("Inferno: died; logging out with auto-login held.");
@@ -308,7 +324,7 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
         int id=((NPC)event.getActor()).getId();
         if(id==net.runelite.api.gameval.NpcID.INFERNO_TZKALZUK_PLACEHOLDER) {
             runGuard.completed();
-            stopSession();
+            stopSession(ArenaRearm.After.OUTSIDE);
             terminalStatus="Inferno complete: observed Zuk death";
             Microbot.status=terminalStatus;
             if(logoutAfterRun())runLogout.start("Inferno complete; logging out with auto-login held.");
@@ -443,7 +459,29 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
         }catch(RuntimeException unavailable){  }
     }
 
-    private void stopSession() {
+    /**
+     * One late or failed decision ends the session it belongs to. While the player is still inside, a
+     * fresh session takes over on the same tick: the engine reads the fight from the current state, as it
+     * does when the plugin is enabled mid-wave. A stale frame is never acted on and never skipped silently.
+     */
+    private void replaceEndedSession(){
+        LocalInfernoSession ended=localSession;
+        if(ended==null||ended.lastEnd()==null||gaveUp)return;
+        String reason=ended.lastEnd();
+        if(ArenaSessionRestarts.recoverable(reason)&&sessionRestarts.allow(System.currentTimeMillis())){
+            log.info("[Inferno local] stage=SESSION_RESTART cause={}",reason);
+            session++;localSession=null;ended.close();closeInput();
+            actions=new ArenaInputDispatcher(this::inputAllowed);
+            return;
+        }
+        gaveUp=true;terminalStatus=GAVE_UP_STATUS;Microbot.status=terminalStatus;
+        log.info("[Inferno local] stage=SESSION_GAVE_UP cause={}",reason);
+        try{client.addChatMessage(net.runelite.api.ChatMessageType.ENGINE,"",GAVE_UP_CHAT,"");}
+        catch(RuntimeException unavailable){log.info("[Inferno local] could not post the stop message to chat");}
+    }
+
+    private void stopSession(ArenaRearm.After mode) {
+        rearm.stopped(mode);
         log.info("[Inferno local] stage=STOP sessionPresent={}",localSession!=null);
         inputState.clear();active=false;session++;antibanPolicy.close();
         publishStatus(false);
@@ -458,7 +496,7 @@ public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
         if (e.getGameState()!=net.runelite.api.GameState.LOGGED_IN
             && e.getGameState()!=net.runelite.api.GameState.LOADING) {
             runGuard.departed();
-            if(active||localSession!=null)stopSession();
+            if(active||localSession!=null)stopSession(ArenaRearm.After.LOGGED_IN);
         }
     }
 

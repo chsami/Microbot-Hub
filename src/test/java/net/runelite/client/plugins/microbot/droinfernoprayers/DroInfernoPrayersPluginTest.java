@@ -20,7 +20,7 @@ public class DroInfernoPrayersPluginTest
 
     @Test public void descriptorNamesThePrayersPluginAndItsVersion() {
         assertEquals("[Dro] Inferno Prayers", descriptor.name());
-        assertEquals("1.0.10", descriptor.version());
+        assertEquals("1.0.11", descriptor.version());
         assertEquals("2.6.55", descriptor.minClientVersion());
         assertArrayEquals(new String[]{"droplugins"}, descriptor.authors());
     }
