@@ -89,6 +89,7 @@ public class NightmareActions
     static final int BANK = 95;
     private static final int WITHDRAW_WAIT_MILLIS = 3000;
     private static final int ATTACK_RANGE_PARAM = 13;
+    private static final int ATTACK_SPEED_PARAM = 14;
     /** How long a request waits for the game to take its click before it gives up. */
     private static final int CLICK_TAKEN_MS = 600;
     /** No click has been taken since it was set; an NPC click reports no item. */
@@ -392,8 +393,18 @@ public class NightmareActions
 
     public int reach(int id)
     {
+        return itemParam(id, ATTACK_RANGE_PARAM);
+    }
+
+    public int attackSpeed(int id)
+    {
+        return itemParam(id, ATTACK_SPEED_PARAM);
+    }
+
+    private int itemParam(int id, int param)
+    {
         return itemManager == null || id < 0 || itemManager.getItemComposition(id) == null ? 0
-            : itemManager.getItemComposition(id).getIntValue(ATTACK_RANGE_PARAM);
+            : itemManager.getItemComposition(id).getIntValue(param);
     }
 
     public String itemName(int id)

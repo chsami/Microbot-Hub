@@ -1,5 +1,7 @@
 package net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
@@ -9,7 +11,7 @@ import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.util.scen
  * The order to attack her sleepwalkers in, so that as few as possible reach her. Once it starts walking, each takes
  * a tile a tick toward her, straight or diagonally, and she takes it in on the tick it starts next to her, before
  * any hit lands on it that tick. A throw lands two ticks after it goes from up to two tiles away and three ticks from
- * farther, a melee hit lands the tick after, and the next attack goes two ticks after the last. The player runs two
+ * farther, a melee hit lands the tick after, and the next attack goes the weapon's attack ticks after the last. The player runs two
  * tiles a tick, and takes both before stopping in throwing range. A sleepwalker farther than the click range cannot be clicked, so the player waits for it to come
  * closer. Every order is tried, with the last sleepwalker hit in melee or by a throw, whichever loses fewer.
  */
@@ -18,7 +20,6 @@ public final class SleepwalkerPlan
     private static final int CLOSE_RANGE = 2;
     /** An NPC farther than this is not clicked. */
     private static final int CLICK_RANGE = TargetRange.NPC_SEARCH_RADIUS;
-    private static final int ATTACK_TICKS = 2;
     private static final int RUN_TILES = 2;
     /** No attack is planned this many ticks ahead. */
     private static final int HORIZON = 40;
@@ -59,7 +60,64 @@ public final class SleepwalkerPlan
      * @return the step, or null with no sleepwalkers
      */
     public static Step next(WorldPoint player, List<WorldPoint> walkers, int[] walkIn, int[] walkLate, WorldArea body,
-        int readyIn, int throwRange)
+        int readyIn, int throwRange, int attackTicks)
+    {
+        return best(player, walkers, walkIn, walkLate, body, readyIn, throwRange, attackTicks, new long[1]);
+    }
+
+    public static int reaching(WorldPoint player, WorldArea body, int phase, int walkIn, int walkLate, int throwRange,
+        int attackTicks)
+    {
+        int reached = 0;
+        for (List<WorldPoint> walkers : layouts(phase, body))
+        {
+            int[] in = new int[walkers.size()];
+            int[] late = new int[walkers.size()];
+            Arrays.fill(in, walkIn);
+            Arrays.fill(late, walkLate);
+            long[] score = new long[1];
+            best(player, walkers, in, late, body, 1, throwRange, attackTicks, score);
+            reached += score[0] / (HORIZON * 4);
+        }
+        return reached;
+    }
+
+    static List<List<WorldPoint>> layouts(int phase, WorldArea body)
+    {
+        int[][] spawns = DreamData.SLEEPWALKER_SPAWNS;
+        List<List<WorldPoint>> layouts = new ArrayList<>();
+        for (int mask = 0; mask < 1 << spawns.length; mask++)
+        {
+            if (phase == 3 ? onePerPillar(mask) : phase < 3 && Integer.bitCount(mask) == phase + 1)
+            {
+                List<WorldPoint> walkers = new ArrayList<>();
+                for (int index = 0; index < spawns.length; index++)
+                {
+                    if ((mask >> index & 1) == 1)
+                    {
+                        walkers.add(new WorldPoint(body.getX() + spawns[index][0], body.getY() + spawns[index][1], body.getPlane()));
+                    }
+                }
+                layouts.add(walkers);
+            }
+        }
+        return layouts;
+    }
+
+    private static boolean onePerPillar(int mask)
+    {
+        for (int pair = 0; pair < DreamData.SLEEPWALKER_SPAWNS.length; pair += 2)
+        {
+            if (Integer.bitCount(mask >> pair & 3) != 1)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static Step best(WorldPoint player, List<WorldPoint> walkers, int[] walkIn, int[] walkLate, WorldArea body,
+        int readyIn, int throwRange, int attackTicks, long[] bestScore)
     {
         int count = walkers.size();
         if (count == 0)
@@ -72,13 +130,13 @@ public final class SleepwalkerPlan
             order[index] = index;
         }
         Step[] best = {null};
-        long[] bestScore = {Long.MAX_VALUE};
+        bestScore[0] = Long.MAX_VALUE;
         permute(order, 0, () ->
         {
             for (boolean melee : new boolean[] {true, false})
             {
-                long score = Math.max(play(player, walkers, walkIn, body, readyIn, throwRange, order, melee),
-                    play(player, walkers, walkLate, body, readyIn, throwRange, order, melee));
+                long score = Math.max(play(player, walkers, walkIn, body, readyIn, throwRange, attackTicks, order, melee),
+                    play(player, walkers, walkLate, body, readyIn, throwRange, attackTicks, order, melee));
                 if (score < bestScore[0])
                 {
                     bestScore[0] = score;
@@ -113,7 +171,7 @@ public final class SleepwalkerPlan
 
     /** Plays the order out: the sleepwalkers that reach her first, then the tick the last hit lands. */
     static long play(WorldPoint player, List<WorldPoint> walkers, int[] walkIn, WorldArea body, int readyIn, int throwRange,
-        int[] order, boolean meleeLast)
+        int attackTicks, int[] order, boolean meleeLast)
     {
         WorldPoint at = player;
         int tick = 1;
@@ -151,7 +209,7 @@ public final class SleepwalkerPlan
                 reached++;
             }
             landed = Math.max(landed, lands < 0 ? HORIZON : lands);
-            ready = tick + ATTACK_TICKS;
+            ready = tick + attackTicks;
             tick++;
         }
         return (long) reached * (HORIZON * 4) + landed;

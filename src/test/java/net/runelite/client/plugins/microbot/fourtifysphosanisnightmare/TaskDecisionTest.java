@@ -12,6 +12,7 @@ import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.VarPlayerID;
+import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.DreamData;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.Hazards;
 import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.dream.Loadout;
@@ -549,6 +550,52 @@ public class TaskDecisionTest
             walkers.add(walker.npc);
         }
         return fixture;
+    }
+
+    @Test
+    public void beforeHerSleepwalkersRiseAThrownWeaponTakesTheStyleThatLetsFewerThrough() throws Exception
+    {
+        assertTrue(longThrowsBeforeTheRise(1, 22804, true), "a dragon knife reaches more of them on longrange");
+        assertTrue(longThrowsBeforeTheRise(3, 22804, true), "in her third phase too");
+        assertFalse(longThrowsBeforeTheRise(3, 33716, true), "a stake reaches them all on rapid in her third phase");
+        assertFalse(longThrowsBeforeTheRise(1, 22804, false), "a weapon that is not thrown keeps its rapid style");
+    }
+
+    private static boolean longThrowsBeforeTheRise(int phase, int weapon, boolean thrown) throws Exception
+    {
+        PluginTestFixture fixture = risen(phase, weapon, new int[0][], new ArrayList<>());
+        if (thrown)
+        {
+            fixture.world.varbits.put(VarbitID.COMBAT_WEAPON_CATEGORY, 19);
+        }
+        fixture.tick();
+        return ((TripState) fixture.read("trip")).isLongThrows();
+    }
+
+    @Test
+    public void aDragonKnifeOnLongrangeThrowsTwoTilesFarther() throws Exception
+    {
+        assertFalse(struckFromFiveTiles(1), "on rapid it throws from four tiles");
+        assertTrue(struckFromFiveTiles(3), "on longrange from six");
+    }
+
+    private static boolean struckFromFiveTiles(int style) throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.sleepwalker = "22804";
+        fixture.world.equipment = new Item[] {new Item(22804, 50)};
+        fixture.enableAndDrain();
+        fixture.world.varbits.put(VarbitID.COMBAT_WEAPON_CATEGORY, 19);
+        fixture.world.styleButtons = new Object[][] {{0, 1, 3}, {"(Accurate)<br>(Light)", "(Rapid)<br>(Light)", "(Longrange)<br>(Light)"}};
+        fixture.world.varps.put(VarPlayerID.COM_MODE, style);
+        fixture.boss.id = DreamData.BLAST;
+        ((TripState) fixture.read("trip")).setLoadout(Loadout.SLEEPWALKER);
+        TestWorld.NpcTarget walker = fixture.world.npc(5);
+        walker.id = DreamData.SLEEPWALKER;
+        fixture.world.interacting = walker.npc;
+        fixture.world.animation = 7617;
+        fixture.tick();
+        return ((TripState) fixture.read("trip")).getTarget() != walker.npc;
     }
 
     @Test

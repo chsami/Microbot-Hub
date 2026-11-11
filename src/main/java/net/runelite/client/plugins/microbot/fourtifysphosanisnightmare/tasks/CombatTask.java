@@ -56,8 +56,9 @@ public final class CombatTask implements FourtifysTask
     private static final int STRIKE_TICKS = 5;
     /** The longest the last totem waits for her husks or parasite, so a set without them does not stall. */
     public static final int TOTEM_HOLD_TICKS = 30;
-    /** A thrown weapon attacks every other tick. */
     private static final int SLEEPWALKER_ATTACK_TICKS = 2;
+    private static final int THROWN_CATEGORY = 19;
+    private static final int LONGRANGE_REACH = 2;
     /** The ghostly thralls, best first, with their spellbook buttons. */
     private static final List<Thrall> THRALLS = List.of(
         new Thrall(Rs2Thrall.GREATER_GHOST, InterfaceID.MagicSpellbook.RESURRECT_GREATER_GHOST, 6),
@@ -130,6 +131,7 @@ public final class CombatTask implements FourtifysTask
     private boolean blastComing;
     /** All four totems have been seen charged since her totems woke: her blast is next. */
     private boolean totemsFired;
+    private int throwPhase;
     private String status = "Waiting for a target";
 
     public CombatTask(NightmareActions actions, PhosanisNightmareConfig config, NightmareFight fight, Hazards hazards,
@@ -190,6 +192,7 @@ public final class CombatTask implements FourtifysTask
             // Her blast kills a player whose sleepwalkers all reach her, so they come before anything left from the phase.
             // A husk beside the player dies to one crush hit and frees the player to reach them, so it comes first.
             // One under her is out of melee reach, so the staff reaches the sleepwalkers from where the player is held.
+            chooseThrows();
             NPC walker = sleepwalker();
             NPC husk = husk();
             if (husk != null && (walker == null || !underHer(husk)))
@@ -419,8 +422,46 @@ public final class CombatTask implements FourtifysTask
 
     private int throwRange()
     {
-        int reach = actions.reach(weapons.getOrDefault(Loadout.SLEEPWALKER, -1));
-        return reach > 0 ? reach : CAST_RANGE;
+        int weapon = weapons.getOrDefault(Loadout.SLEEPWALKER, -1);
+        int reach = actions.reach(weapon);
+        return reach <= 0 ? CAST_RANGE : reach + (thrown(weapon) && styled("(Longrange)") ? LONGRANGE_REACH : 0);
+    }
+
+    private int throwTicks()
+    {
+        int weapon = weapons.getOrDefault(Loadout.SLEEPWALKER, -1);
+        return !thrown(weapon) ? SLEEPWALKER_ATTACK_TICKS : actions.attackSpeed(weapon) - (styled("(Rapid)") ? 1 : 0);
+    }
+
+    private boolean thrown(int weapon)
+    {
+        return actions.wearing(weapon) && actions.varbit(VarbitID.COMBAT_WEAPON_CATEGORY) == THROWN_CATEGORY
+            && actions.reach(weapon) > 0 && actions.attackSpeed(weapon) > 1;
+    }
+
+    private boolean styled(String type)
+    {
+        return actions.styleIndex() == actions.styleButton(type);
+    }
+
+    private void chooseThrows()
+    {
+        int phase = fight.getPhase();
+        int weapon = weapons.getOrDefault(Loadout.SLEEPWALKER, -1);
+        WorldArea body = home();
+        if (phase == throwPhase || body == null || !thrown(weapon) || first(Set.of(DreamData.SLEEPWALKER)) != null)
+        {
+            return;
+        }
+        throwPhase = phase;
+        WorldPoint wait = new WorldPoint(body.getX() + body.getWidth() / 2 - 1, body.getY() + body.getHeight() / 2 + 1, body.getPlane());
+        boolean third = phase == 3;
+        int walkIn = (third ? DreamData.THIRD_PHASE_WALK_TICKS : DreamData.SLEEPWALKER_WALK_TICKS) - 1;
+        int walkLate = (third ? DreamData.THIRD_PHASE_LATE_WALK_TICKS : DreamData.SLEEPWALKER_WALK_TICKS) - 1;
+        int reach = actions.reach(weapon);
+        int speed = actions.attackSpeed(weapon);
+        trip.setLongThrows(SleepwalkerPlan.reaching(wait, body, phase, walkIn, walkLate, reach + LONGRANGE_REACH, speed)
+            < SleepwalkerPlan.reaching(wait, body, phase, walkIn, walkLate, reach, speed - 1));
     }
 
     /**
@@ -502,9 +543,10 @@ public final class CombatTask implements FourtifysTask
             walkIn[index] = walking ? 1 : Math.max(1, rose + walkTicks - now);
             walkLate[index] = walking ? 1 : Math.max(1, rose + lateTicks - now);
         }
-        int lastAttack = struck.values().stream().mapToInt(Integer::intValue).max().orElse(now - SLEEPWALKER_ATTACK_TICKS);
+        int attackTicks = throwTicks();
+        int lastAttack = struck.values().stream().mapToInt(Integer::intValue).max().orElse(now - attackTicks);
         SleepwalkerPlan.Step step = SleepwalkerPlan.next(at, tiles, walkIn, walkLate, home,
-            Math.max(1, lastAttack + SLEEPWALKER_ATTACK_TICKS - now), throwRange());
+            Math.max(1, lastAttack + attackTicks - now), throwRange(), attackTicks);
         meleeWalker = step.isMelee();
         return walkers.get(step.getIndex());
     }

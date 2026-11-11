@@ -51,6 +51,12 @@ final class PluginTestFixture
         {
             return Map.of(33716, 6, 22804, 4).getOrDefault(id, 0);
         }
+
+        @Override
+        public int attackSpeed(int id)
+        {
+            return Map.of(33716, 3, 22804, 3).getOrDefault(id, 0);
+        }
     };
     final TestWorld.NpcTarget boss;
     final OverlayManager overlays;
