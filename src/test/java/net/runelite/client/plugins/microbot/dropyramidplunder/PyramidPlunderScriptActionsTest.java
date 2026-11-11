@@ -89,6 +89,18 @@ class PyramidPlunderScriptActionsTest {
         }
     }
 
+    @Test void overlayTimeLeftCountsDownLiveAndIsAbsentOutsideARun() throws Exception {
+        PyramidPlunderScript script = new PyramidPlunderScript();
+        assertEquals(-1, script.getSecondsLeft(), 0.001, "not in the pyramid");
+        set(script, "inPyramid", true);
+        assertEquals(-1, script.getSecondsLeft(), 0.001, "no run active");
+        set(script, "runActive", true);
+        set(script, "runStartedAt", System.currentTimeMillis() - 100_000L);
+        assertEquals(200, script.getSecondsLeft(), 1.5);
+        set(script, "runStartedAt", System.currentTimeMillis() - 400_000L);
+        assertEquals(0, script.getSecondsLeft(), 0.001, "never negative");
+    }
+
     @Test void poisonDoesNotInterruptTimedRoom() throws Exception {
         PyramidPlunderScript script = new PyramidPlunderScript();
         set(script, "config", mock(PyramidPlunderConfig.class));

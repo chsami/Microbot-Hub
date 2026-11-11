@@ -138,11 +138,14 @@ public class PyramidPlunderOverlay extends Overlay {
         rows.add(new String[] {"Thieving XP", String.format(Locale.US, "%,d", gained)});
         rows.add(new String[] {"Thieving XP/hr", String.format(Locale.US, "%,d", perHour)});
         if (script.isInPyramid() && script.getCurrentRoom() > 0) {
-            rows.add(new String[] {"Room", script.getCurrentRoom() + " / " + PyramidPlunderPlan.maxRoom(client.getRealSkillLevel(Skill.THIEVING))});
+            int room = script.getCurrentRoom();
+            int maxRoom = PyramidPlunderPlan.maxRoom(client.getRealSkillLevel(Skill.THIEVING));
+            rows.add(new String[] {"Room", room + " / " + maxRoom});
             double left = script.getSecondsLeft();
             if (left >= 0) rows.add(new String[] {"Time left", duration((long) left)});
+            // Urns are only looted in the last two rooms; elsewhere the count would only mislead.
             int urns = script.getUrnsLeft();
-            if (urns >= 0) rows.add(new String[] {"Urns left", String.valueOf(urns)});
+            if (urns >= 0 && PyramidPlunderPlan.urnRoom(room, maxRoom)) rows.add(new String[] {"Urns left", String.valueOf(urns)});
         }
         PyramidPlunderEntrances.Door door = script.getLastGoodDoor();
         rows.add(new String[] {"Mummy door", door == null ? "Unknown" : capitalise(door.name())});

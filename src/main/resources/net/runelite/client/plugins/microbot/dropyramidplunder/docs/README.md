@@ -20,4 +20,4 @@ Runs the Pyramid Plunder minigame in Sophanem: finds the Guardian mummy's door, 
 
 ## Overlay
 
-A compact card with the run status, runtime, runs, Thieving XP and XP/hr, the current room, time and urns left, and the last known mummy door. Click **-** / **+** to collapse or expand it.
+A compact card with the run status, runtime, runs, Thieving XP and XP/hr, the current room, the time left (a live countdown), the urns left in the two urn rooms, and the last known mummy door. Click **-** / **+** to collapse or expand it.

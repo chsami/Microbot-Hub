@@ -107,7 +107,7 @@ public class PyramidPlunderScript extends Script {
 
     private PyramidPlunderClicks.Cadence cadence = new PyramidPlunderClicks.Cadence(random);
     private volatile boolean runActive;
-    private long runStartedAt;
+    private volatile long runStartedAt;
     private volatile int currentRoom;
     private volatile int runs;
 
@@ -163,22 +163,23 @@ public class PyramidPlunderScript extends Script {
 
     // Read by the overlay.
     private volatile long startedAt;
-    private volatile double lastSecondsLeft = -1;
     private volatile int lastUrnsLeft = -1;
 
     long getStartedAt() { return startedAt; }
     int getRuns() { return runs; }
     int getCurrentRoom() { return inPyramid ? currentRoom : 0; }
     boolean isInPyramid() { return inPyramid; }
-    /** Seconds left on the run timer, or -1 outside a run. */
-    double getSecondsLeft() { return inPyramid && runActive ? lastSecondsLeft : -1; }
+    /** Seconds left on the run timer, counted live so it keeps ticking while an action is pending; -1 outside a run. */
+    double getSecondsLeft() {
+        if (!inPyramid || !runActive) return -1;
+        return Math.max(0, RUN_SECONDS - (System.currentTimeMillis() - runStartedAt) / 1000.0);
+    }
     int getUrnsLeft() { return inPyramid && runActive ? lastUrnsLeft : -1; }
     PyramidPlunderEntrances.Door getLastGoodDoor() { return entrances.lastGood(); }
 
     public boolean run(PyramidPlunderConfig config) {
         this.config = config;
         startedAt = System.currentTimeMillis();
-        lastSecondsLeft = -1;
         lastUrnsLeft = -1;
         error = null;
         status = "Starting";
@@ -319,7 +320,6 @@ public class PyramidPlunderScript extends Script {
         boolean xpMode = config.betterXpMode();
         boolean sarcophagusWanted = PyramidPlunderPlan.opensSarcophagus(room, config.openSarcophagi(), xpMode);
         double left = secondsLeft(view);
-        lastSecondsLeft = left;
         lastUrnsLeft = scan.urns.size();
         double reserve = PyramidPlunderPlan.lastRoomReserveSeconds(maxRoom, secondsPerUrn, config.openSarcophagi(), xpMode);
         PyramidPlunderPlan.Step step = PyramidPlunderPlan.next(room, maxRoom, xpMode, view.trapActive && trapDisarmedAt < roomEnteredAt, left, reserve,
