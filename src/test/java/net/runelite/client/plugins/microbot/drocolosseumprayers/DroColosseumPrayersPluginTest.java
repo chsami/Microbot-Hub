@@ -20,7 +20,7 @@ public class DroColosseumPrayersPluginTest
 
     @Test public void descriptorNamesThePrayersPluginAndItsVersion() {
         assertEquals("[Dro] Colosseum Prayers", descriptor.name());
-        assertEquals("1.0.99", descriptor.version());
+        assertEquals("1.0.100", descriptor.version());
         assertEquals("2.6.55", descriptor.minClientVersion());
         assertArrayEquals(new String[]{"droplugins"}, descriptor.authors());
     }
@@ -37,7 +37,6 @@ public class DroColosseumPrayersPluginTest
     @Test public void prayersAreTheWholePlugin() {
         DroColosseumPrayersConfig config = new DroColosseumPrayersConfig() { };
         assertTrue(config.showTilePack(), "the tile pack is on by default");
-        assertFalse(config.logoutAfterRun());
         DroColosseumPrayersPlugin plugin = new DroColosseumPrayersPlugin();
         assertTrue(plugin.prayersOnly());
         assertFalse(plugin.manualMovement());

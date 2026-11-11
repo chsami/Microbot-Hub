@@ -49,7 +49,7 @@ import net.runelite.client.plugins.microbot.drocolosseumprayers.execution.Messag
     isExternal = PluginConstants.IS_EXTERNAL)
 public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
 {
-    static final String version = "1.0.99";
+    static final String version = "1.0.100";
 	private static final Logger log = LoggerFactory.getLogger(DroColosseumPrayersPlugin.class);
 
 	@Inject
@@ -74,6 +74,11 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
     private volatile ArenaHud hud;
     private final ArenaAntibanPolicy antibanPolicy=new ArenaAntibanPolicy();
     private ArenaRunGuard runGuard = new ArenaRunGuard();
+    private final ArenaRearm rearm = new ArenaRearm();
+    private final ArenaSessionRestarts sessionRestarts = new ArenaSessionRestarts();
+    private boolean gaveUp;
+    static final String GAVE_UP_CHAT="[Dro] Colosseum Prayers stopped switching prayers. Pray manually, then turn the plugin off and on to resume.";
+    static final String GAVE_UP_STATUS="Stopped switching prayers: pray manually, then turn the plugin off and on";
 
     @Override public boolean arenaRunProtected(){return runGuard.protectedRun();}
     @Override public ArenaHud arenaHud(){return active||arenaRunProtected()?hud:null;}
@@ -118,7 +123,12 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
         if(terminalStatus!=null)return terminalStatus;
         LocalColosseumSession current=localSession;
         if(current!=null) return current.lastEnd()!=null ? current.lastEnd() : current.status();
-        return !active ? "Stopped; re-arm and start the activity to restart" : "Enter the Colosseum to start";
+        if(active)return "Enter the Colosseum to start";
+        switch(rearm.pending()){
+            case LOGGED_IN:return "Waiting for login; starts again once you are inside";
+            case OUTSIDE:case ARENA_SEEN_OR_OUTSIDE:return "Run ended; starts again on your next entry";
+            default:return "Stopped: turn the plugin off and on to restart";
+        }
     }
     private boolean insideSnapshot() {
         return Microbot.getClientThread()
@@ -130,15 +140,14 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
     private boolean arenaHeld(){
         long now=System.nanoTime();
         if(ArenaProduct.COLOSSEUM.instanceHeld(client)){arenaHeldAt=now;return true;}
-        return client.getGameState()==net.runelite.api.GameState.LOADING&&arenaHeldAt!=0
+        // A short connection loss keeps the player in the fight, like a region load does.
+        net.runelite.api.GameState state=client.getGameState();
+        return (state==net.runelite.api.GameState.LOADING||state==net.runelite.api.GameState.CONNECTION_LOST)&&arenaHeldAt!=0
             &&now-arenaHeldAt<java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
     }
     private boolean localSessionAllowed(){return active&&arenaHeld();}
     private final ArenaInputState inputState=new ArenaInputState();
 
-    private static final ArenaRunLogout runLogout=new ArenaRunLogout();
-
-    private boolean logoutAfterRun(){DroColosseumPrayersConfig c=config;return c!=null&&c.logoutAfterRun();}
     private boolean inputAllowed() {
         if (!active || Microbot.pauseAllScripts.get()
             || net.runelite.client.plugins.microbot.util.input.InputArbiter.isHuman()) return false;
@@ -165,7 +174,7 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
 	@Override
 	protected void startUp()
 	{
-        terminalStatus=null;
+        terminalStatus=null;rearm.clear();gaveUp=false;
         if(ArenaInputLease.active()||infernoRunning()){
             active=false;terminalStatus="Stop local Inferno before starting Colosseum";return;
         }
@@ -190,7 +199,7 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
 	@Override
 	protected void shutDown()
 	{
-        inputState.clear();active=false;session++;antibanPolicy.close();
+        inputState.clear();active=false;session++;antibanPolicy.close();rearm.clear();
 
         npcDiagnostics=null;
         if(overlayManager!=null&&overlay!=null){overlay.stop();overlayManager.remove(overlay);}
@@ -236,7 +245,7 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
     private boolean infernoRunning(){return false;}
     private boolean stopForConflict(){
         if(!active||!infernoRunning())return false;
-        stopSession();
+        stopSession(ArenaRearm.After.NEVER);
 
         if(inputLease!=null){inputLease.close();inputLease=null;}
         hud=null;terminalStatus="Colosseum stopped: local Inferno started";return true;
@@ -252,7 +261,7 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
         if(overlay!=null)overlay.capture(client);
         if(stopForConflict())return;
         if(active)inputState.observe(client,ArenaProduct.COLOSSEUM);
-        if(localSession!=null&&!localSessionAllowed())stopSession();
+        if(localSession!=null&&!localSessionAllowed())stopSession(arenaLost());
     }
 
 	@Subscribe
@@ -267,9 +276,18 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
         enforceInputLease();
         updateHud(ArenaProduct.COLOSSEUM.inside(client));
         publishStatus(ArenaProduct.COLOSSEUM.inside(client));
-        if (!active) return;
-        if (localSession!=null && !localSessionAllowed()) { stopSession();return; }
+        if (!active) {
+            // A stop is per run. Start again through the same full restart a settings change uses, so the
+            // antiban policy, NPC tracker, run guard, HUD and input override all begin clean.
+            boolean inside=ArenaProduct.COLOSSEUM.inside(client);
+            if(rearm.due(reliable,inside)){log.info("[Dro Colosseum] stage=REARM inside={}",inside);shutDown();startUp();}
+            return;
+        }
+        if (localSession!=null && !localSessionAllowed()) { stopSession(arenaLost());return; }
+        // Left alive before a session ever connected: end the run so its guard does not outlive it.
+        if (localSession==null && arenaRunProtected() && reliable && !arenaHeld()) { stopSession(ArenaRearm.After.ARENA_SEEN_OR_OUTSIDE);return; }
         if (!ArenaProduct.COLOSSEUM.inside(client)) return;
+        replaceEndedSession();
         if (!inputAllowed()&&localSession==null) return;
 
         if (localSession==null) connect();
@@ -304,14 +322,14 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
         int id=((NPC)event.getActor()).getId();
         if(id==net.runelite.api.gameval.NpcID.COLOSSEUM_SOL_P1) {
             runGuard.completed();
-            stopSession();terminalStatus="Colosseum complete: observed Sol death";
+            stopSession(ArenaRearm.After.OUTSIDE);terminalStatus="Colosseum complete: observed Sol death";
 
         }
     }
 
     static final String DEATH_MESSAGE="Oh dear, you are dead!";
     private void localDeath(){
-        inputState.clear();runGuard.observe(true,false,true);stopSession();
+        inputState.clear();runGuard.observe(true,false,true);stopSession(ArenaRearm.After.OUTSIDE);
         terminalStatus="Colosseum ended: player died";
 
     }
@@ -450,7 +468,36 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
         try{var bus=Microbot.getEventBus();if(bus!=null)bus.post(new net.runelite.client.plugins.microbot.drocolosseumprayers.ArenaDiagnostic(values));}catch(RuntimeException ignored){}
     }
 
-    private void stopSession() {
+    /** Why a live session lost its arena: not logged in at all, or logged in and no longer there. */
+    private ArenaRearm.After arenaLost(){
+        net.runelite.api.GameState state=client.getGameState();
+        return state==net.runelite.api.GameState.LOGGED_IN||state==net.runelite.api.GameState.LOADING
+            ?ArenaRearm.After.ARENA_SEEN_OR_OUTSIDE:ArenaRearm.After.LOGGED_IN;
+    }
+
+    /**
+     * A session that ended on a failed decision is replaced by a fresh one while the player is still
+     * inside, so one failure does not end prayer switching for the run. The new engine reads the fight
+     * from the current state, as it does when the plugin is enabled mid-wave.
+     */
+    private void replaceEndedSession(){
+        LocalColosseumSession ended=localSession;
+        if(ended==null||ended.lastEnd()==null||gaveUp)return;
+        String reason=ended.lastEnd();
+        if(ArenaSessionRestarts.recoverable(reason)&&sessionRestarts.allow(System.currentTimeMillis())){
+            log.info("[Dro Colosseum] stage=SESSION_RESTART cause={}",reason);
+            session++;localSession=null;ended.close();closeInput();
+            actions=new ArenaInputDispatcher(this::inputAllowed);
+            return;
+        }
+        gaveUp=true;terminalStatus=GAVE_UP_STATUS;
+        log.info("[Dro Colosseum] stage=SESSION_GAVE_UP cause={}",reason);
+        try{client.addChatMessage(net.runelite.api.ChatMessageType.ENGINE,"",GAVE_UP_CHAT,"");}
+        catch(RuntimeException unavailable){log.info("[Dro Colosseum] could not post the stop message to chat");}
+    }
+
+    private void stopSession(ArenaRearm.After mode) {
+        rearm.stopped(mode);
         inputState.clear();active=false;session++;arenaHeldAt=0;antibanPolicy.close();
         npcDiagnostics=null;
         publishStatus(false);
@@ -461,7 +508,7 @@ public class DroColosseumPrayersPlugin extends Plugin implements ArenaActivity
     }
     @Subscribe public void onGameStateChanged(net.runelite.api.events.GameStateChanged e) {
         if(e.getGameState()!=net.runelite.api.GameState.LOGGED_IN)inputState.clear();
-        if (localSession!=null && !localSessionAllowed()) stopSession();
+        if (localSession!=null && !localSessionAllowed()) stopSession(arenaLost());
     }
 
 	private Object actor(Actor a)
