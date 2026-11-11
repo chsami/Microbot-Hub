@@ -15,6 +15,7 @@ import javax.inject.Inject;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
+import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 
 public class RewardHandler implements BaseHandler {
 
@@ -23,6 +24,8 @@ public class RewardHandler implements BaseHandler {
     private static final WorldPoint rewardChestLocation = Locations.REWARDS_CHEST_LOBBY.getWorldPoint();
     private static final int lunarChestGameObjectID = 51346;
     private static final int lunarChestBankAllWidgetID = 56885268;
+    private static final String CHEST_SEALED_MESSAGE = "sealed tightly shut";
+    private static volatile boolean chestSealed;
     private boolean eclipseEnabled;
     private boolean blueEnabled;
     private boolean bloodEnabled;
@@ -36,6 +39,13 @@ public class RewardHandler implements BaseHandler {
         this.bloodEnabled = cfg.enableBlood();
         this.boss = new BossHandler(cfg);
         this.debugLogging = cfg.debugLogging();
+        chestSealed = false;
+    }
+
+    public static void onChatMessage(String message) {
+        if (message != null && message.contains(CHEST_SEALED_MESSAGE)) {
+            chestSealed = true;
+        }
     }
 
     @Override
@@ -43,7 +53,11 @@ public class RewardHandler implements BaseHandler {
         boolean eclipseDone = !eclipseEnabled || !boss.bossIsAlive("Eclipse Moon", Widgets.ECLIPSE_MOON_ID.getID());
         boolean blueDone = !blueEnabled || !boss.bossIsAlive("Blue Moon", Widgets.BLUE_MOON_ID.getID());
         boolean bloodDone = !bloodEnabled || !boss.bossIsAlive("Blood Moon", Widgets.BLOOD_MOON_ID.getID());
-        return eclipseDone && blueDone && bloodDone;
+        if (!(eclipseDone && blueDone && bloodDone)) {
+            chestSealed = false;
+            return false;
+        }
+        return !chestSealed;
     }
 
     @Override
@@ -51,9 +65,16 @@ public class RewardHandler implements BaseHandler {
         BreakHandlerScript.setLockState(true);
         boss.walkToBoss(null, "Rewards Chest", rewardChestLocation);
         if (Microbot.getRs2TileObjectCache().query().interact(lunarChestGameObjectID, "Claim")) {
-            if (debugLogging) {Microbot.log("Successfully claimed rewards from Lunar Chest");}
-            rewardChestCount.incrementAndGet();
-            sleep(2_400);
+            sleepUntil(() -> chestSealed || Rs2Widget.isWidgetVisible(lunarChestBankAllWidgetID), 5_000);
+            if (chestSealed) {
+                if (debugLogging) {Microbot.log("Lunar Chest is sealed, no rewards to claim");}
+                BreakHandlerScript.setLockState(false);
+                return State.IDLE;
+            }
+            if (Rs2Widget.isWidgetVisible(lunarChestBankAllWidgetID)) {
+                if (debugLogging) {Microbot.log("Successfully claimed rewards from Lunar Chest");}
+                rewardChestCount.incrementAndGet();
+            }
         }
         if (Rs2Widget.clickWidget(lunarChestBankAllWidgetID)) {
             if (debugLogging) {Microbot.log("Successfully banked all rewards");}
