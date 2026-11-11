@@ -394,7 +394,7 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
             return;
         }
         // Her messages come coloured, as in "<col=a53fff>The Nightmare has cursed you...</col>".
-        String message = Text.removeTags(event.getMessage());
+        String message = Text.removeTags(event.getMessage()).replaceAll("@mes_\\w+@", "");
         if (DreamData.CURSED.equals(message))
         {
             fight.setCursed(true);

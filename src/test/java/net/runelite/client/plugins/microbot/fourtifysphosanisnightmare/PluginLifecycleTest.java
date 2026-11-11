@@ -793,6 +793,23 @@ public class PluginLifecycleTest
     }
 
     @Test
+    public void herMessagesWithANamedHighlightColourAreRead() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.enableAndDrain();
+        fixture.tick();
+        NightmareFight fight = (NightmareFight) fixture.read("fight");
+        fixture.plugin.onChatMessage(message("@mes_hl_pur@" + DreamData.CURSED + "</col>"));
+        assertTrue(fight.isCursed());
+        fixture.plugin.onChatMessage(message("@mes_hl_gre@" + DreamData.CURSE_ENDED + "</col>"));
+        assertFalse(fight.isCursed());
+        fixture.plugin.onChatMessage(message("@mes_hl_mag@" + DreamData.DROWSY + "</col>"));
+        assertTrue(fight.isDrowsy());
+        fixture.plugin.onChatMessage(message("@mes_hl_gre@" + DreamData.WEAKENED + "</col>"));
+        assertTrue(fight.isWeakened());
+    }
+
+    @Test
     public void herAttackAnimationIsTimedFromTheNextTick() throws Exception
     {
         PluginTestFixture fixture = new PluginTestFixture();
