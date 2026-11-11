@@ -8,7 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.BiPredicate;
 import net.runelite.api.Client;
+import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.GameTick;
@@ -83,6 +85,7 @@ final class PluginTestFixture
         inject("actions", actions);
         inject("walking", new Walking(world.client, thread));
         inject("overlays", overlays);
+        inject("sight", (BiPredicate<WorldArea, WorldArea>) (from, to) -> true);
         inject("notifier", notifier());
         inject("overlay", new PhosanisNightmareOverlay(plugin, config, world.client, new TooltipManager()));
     }

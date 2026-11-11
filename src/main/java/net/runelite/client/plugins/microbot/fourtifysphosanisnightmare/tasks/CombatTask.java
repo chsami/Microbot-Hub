@@ -438,9 +438,8 @@ public final class CombatTask implements FourtifysTask
         // On the first tick after a switch, the attack on the previous target can still be playing, unless an
         // attack started on this tick.
         boolean started = target == lastTarget || lastAnimation == -1 || animatedAt == now;
-        // No attack starts farther than a cast: a player still running there plays the last attack, not one on it.
         if (walkers.contains(target) && animation != -1 && animation != EAT_ANIMATION && started
-            && new WorldArea(player.getWorldLocation(), 1, 1).distanceTo(((NPC) target).getWorldArea()) <= CAST_RANGE)
+            && inReach(player.getWorldLocation(), ((NPC) target).getWorldArea()))
         {
             struck.putIfAbsent((NPC) target, now);
         }

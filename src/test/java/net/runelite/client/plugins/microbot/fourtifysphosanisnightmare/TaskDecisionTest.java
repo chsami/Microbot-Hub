@@ -83,7 +83,6 @@ public class TaskDecisionTest
         PluginTestFixture fixture = new PluginTestFixture();
         fixture.config.sleepwalker = "33716";
         fixture.world.equipment = new Item[] {new Item(33716, 50)};
-        fixture.inject("sight", (BiPredicate<WorldArea, WorldArea>) (from, to) -> true);
         fixture.enableAndDrain();
         fixture.boss.id = DreamData.BLAST;
         TestWorld.NpcTarget walker = fixture.world.npc(-12);
@@ -292,10 +291,13 @@ public class TaskDecisionTest
     {
         PluginTestFixture fixture = started();
         fixture.boss.id = DreamData.BLAST;
-        TestWorld.NpcTarget near = fixture.world.npc(3);
+        TestWorld.NpcTarget near = fixture.world.npc(-3);
         near.id = DreamData.SLEEPWALKER;
-        TestWorld.NpcTarget far = fixture.world.npc(6);
+        TestWorld.NpcTarget far = fixture.world.npc(-6);
         far.id = DreamData.SLEEPWALKER;
+        TestWorld.NpcTarget last = fixture.world.npc(-9);
+        last.id = DreamData.SLEEPWALKER;
+        ((TripState) fixture.read("trip")).setLoadout(Loadout.SLEEPWALKER);
         fixture.world.interacting = near.npc;
         fixture.world.animation = 7617;
         fixture.tick();
@@ -304,7 +306,7 @@ public class TaskDecisionTest
         fixture.tick();
         assertSame(far.npc, ((TripState) fixture.read("trip")).getTarget(), "the throw at the first is still playing");
         fixture.tick();
-        assertNull(((TripState) fixture.read("trip")).getTarget(), "the attack on the second has started");
+        assertSame(last.npc, ((TripState) fixture.read("trip")).getTarget(), "the attack on the second has started");
     }
 
     @Test
@@ -312,10 +314,13 @@ public class TaskDecisionTest
     {
         PluginTestFixture fixture = started();
         fixture.boss.id = DreamData.BLAST;
-        TestWorld.NpcTarget near = fixture.world.npc(3);
+        TestWorld.NpcTarget near = fixture.world.npc(-3);
         near.id = DreamData.SLEEPWALKER;
-        TestWorld.NpcTarget far = fixture.world.npc(6);
+        TestWorld.NpcTarget far = fixture.world.npc(-6);
         far.id = DreamData.SLEEPWALKER;
+        TestWorld.NpcTarget last = fixture.world.npc(-9);
+        last.id = DreamData.SLEEPWALKER;
+        ((TripState) fixture.read("trip")).setLoadout(Loadout.SLEEPWALKER);
         fixture.world.interacting = near.npc;
         fixture.world.animation = 7617;
         fixture.tick();
@@ -325,7 +330,30 @@ public class TaskDecisionTest
         throwing.setActor(fixture.world.player);
         fixture.plugin.onAnimationChanged(throwing);
         fixture.tick();
-        assertNull(((TripState) fixture.read("trip")).getTarget(), "the throw at the second went out on this tick");
+        assertSame(last.npc, ((TripState) fixture.read("trip")).getTarget(), "the throw at the second went out on this tick");
+    }
+
+    @Test
+    public void aBlockOutOfMeleeReachOfTheLastSleepwalkerIsNotAnAttackOnIt() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.sleepwalker = "22804";
+        fixture.config.husk = "34027";
+        fixture.world.equipment = TestWorld.items(34027, 1);
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.RING, 1, PluginTestFixture.FOOD, 5, PluginTestFixture.STAFF, 1,
+            22804, 28);
+        fixture.enableAndDrain();
+        fixture.boss.id = DreamData.BLAST;
+        fixture.plugin.setTickDelay(0);
+        TestWorld.NpcTarget walker = fixture.world.npc(-3);
+        walker.id = DreamData.SLEEPWALKER;
+        TripState trip = (TripState) fixture.read("trip");
+        trip.setLoadout(Loadout.HUSK);
+        fixture.world.interacting = walker.npc;
+        fixture.world.animation = 14471;
+        fixture.tick();
+        assertSame(walker.npc, trip.getTarget(), "Hallowfell's block three tiles short of it is not a hit");
+        assertEquals(Loadout.HUSK, trip.getLoadout());
     }
 
     @Test
@@ -469,6 +497,7 @@ public class TaskDecisionTest
     {
         PluginTestFixture fixture = started();
         fixture.boss.id = DreamData.BLAST;
+        ((TripState) fixture.read("trip")).setLoadout(Loadout.SLEEPWALKER);
         TestWorld.NpcTarget near = fixture.world.npc(3);
         near.id = DreamData.SLEEPWALKER;
         TestWorld.NpcTarget far = fixture.world.npc(10);
