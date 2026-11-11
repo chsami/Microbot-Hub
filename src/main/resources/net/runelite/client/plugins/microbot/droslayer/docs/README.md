@@ -15,7 +15,13 @@ AIO Slayer runs Slayer from start to finish. It gets a task from your chosen mas
 
 Turael, Spria, Mazchna, Vannaka, Chaeldar, Nieve, Steve, Duradel, Kuradal and Krystilia.
 
-**Krystilia gives Wilderness tasks and you can die.** Pick a Wilderness setup you can afford to lose, and look through the **Wilderness Slayer** settings (recovery food, revenant weapon charges, cannon use) before starting.
+If your Combat or Slayer level is too low for the master you picked, the script stops and tells you which master works at your level.
+
+**Krystilia gives Wilderness tasks and you can die.** Pick a Wilderness setup you can afford to lose, and look through the **Wilderness Slayer** settings (recovery food, revenant weapon charges, cannon use) before starting. **Cannon Wilderness tasks** is off by default: a cannon set up in the Wilderness can be lost if you die.
+
+## Auto Travel off
+
+With **Auto Travel** off, walk to the task yourself. The script starts fighting once you are at the task location or within Attack Radius of a task monster. If you start away from your cannon spot it fights where you stand without the cannon. Wilderness tasks need Auto Travel on.
 
 ## Usage
 
@@ -38,6 +44,12 @@ Turael, Spria, Mazchna, Vannaka, Chaeldar, Nieve, Steve, Duradel, Kuradal and Kr
 ## When it stops
 
 If something it needs is missing, such as food or a required Slayer item, it logs out and shows what to restock.
+
+When it is waiting for you instead (no Wilderness setup chosen, no escape item, an ordinary task still active, a missing skill level, blocked safety settings, missing bank supplies, or Auto Travel off), the overlay header shows "Waiting:" with the reason, even while collapsed, and one chat message says what to do.
+
+## [BL] Slayer
+
+This plugin is separate from [BL] Slayer, which is still in the Hub with its own settings. Run only one of the two at a time.
 
 ## Credits
 

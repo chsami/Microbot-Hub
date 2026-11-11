@@ -15,7 +15,7 @@ import java.util.List;
 public class DroSlayerOverlay extends Overlay {
     private static final int WIDTH = 280, PADDING = 10, ROW_HEIGHT = 17;
     private static final Color BORDER = new Color(205, 211, 218, 225), TEXT = new Color(218, 222, 228),
-        MUTED = new Color(195, 202, 211), SHADOW = new Color(0, 0, 0, 190);
+        MUTED = new Color(195, 202, 211), SHADOW = new Color(0, 0, 0, 190), HOLD = new Color(255, 196, 86);
     private static final Font TITLE_FONT = FontManager.getRunescapeFont(),
         LABEL_FONT = FontManager.getRunescapeSmallFont(), VALUE_FONT = FontManager.getRunescapeFont();
     private final DroSlayerPlugin plugin;
@@ -93,6 +93,11 @@ public class DroSlayerOverlay extends Overlay {
     @Override
     public Dimension render(Graphics2D graphics) {
         List<String[]> rows = new ArrayList<>();
+        String holdReason = DroSlayerHold.current(DroSlayerPlugin.getState(), System.currentTimeMillis());
+        if (holdReason != null) {
+            rows.add(new String[]{"Waiting", holdReason});
+            rows.add(new String[]{"To do", DroSlayerHold.currentAction(DroSlayerPlugin.getState(), System.currentTimeMillis())});
+        }
         rows.add(new String[]{"Runtime", plugin.getRuntimeDisplay()});
         if (plugin.isWildernessSlayer()) rows.add(new String[]{"Escapes/deaths", plugin.getEscapesDeathsDisplay()});
         rows.add(new String[]{"Slayer Points", String.valueOf(DroSlayerPlugin.getSlayerPoints())});
@@ -149,8 +154,10 @@ public class DroSlayerOverlay extends Overlay {
         }
         drawText(graphics, TITLE_FONT, wilderness ? TEXT : border,
             wilderness ? "DRO's Wildy Slayer" : "DRO's Slayer", 48, 19);
-        drawText(graphics, VALUE_FONT, getStateColor(DroSlayerPlugin.getState()),
-            DroSlayerPlugin.getState().getDisplayName(), 48, 35);
+        // The header is all that shows while collapsed, so a wait on the player is named here.
+        String hold = DroSlayerHold.current(DroSlayerPlugin.getState(), System.currentTimeMillis());
+        drawText(graphics, VALUE_FONT, hold == null ? getStateColor(DroSlayerPlugin.getState()) : HOLD,
+            hold == null ? DroSlayerPlugin.getState().getDisplayName() : fit(graphics, "Waiting: " + hold, WIDTH - 48 - PADDING), 48, 35);
         graphics.setColor(new Color(border.getRed(), border.getGreen(), border.getBlue(), 75));
         graphics.drawLine(PADDING, 45, WIDTH - PADDING, 45);
         if (collapsed) return new Dimension(WIDTH, height);
@@ -162,6 +169,15 @@ public class DroSlayerOverlay extends Overlay {
             y += ROW_HEIGHT;
         }
         return new Dimension(WIDTH, height);
+    }
+
+    /** Shortens a header line to the panel width; the full text is in the expanded rows. */
+    static String fit(Graphics2D graphics, String text, int width) {
+        FontMetrics metrics = graphics.getFontMetrics(VALUE_FONT);
+        if (metrics.stringWidth(text) <= width) return text;
+        int end = text.length();
+        while (end > 1 && metrics.stringWidth(text.substring(0, end) + "...") > width) end--;
+        return text.substring(0, end).trim() + "...";
     }
 
     private static void drawText(Graphics2D graphics, Font font, Color color, String text, int x, int y) {

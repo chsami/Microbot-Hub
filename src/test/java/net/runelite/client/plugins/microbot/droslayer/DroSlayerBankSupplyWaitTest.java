@@ -207,6 +207,7 @@ public class DroSlayerBankSupplyWaitTest {
             when(config.foodThreshold()).thenReturn(1);
             set(script, "config", config);
             DroSlayerPlugin.setState(DroSlayerState.BANKING);
+            DroSlayerHold.clear();
             try (var bank = mockStatic(Rs2Bank.class); var inventory = mockStatic(Rs2Inventory.class);
                  var runtime = mockStatic(DroSlayerRuntime.class); var dro = mockStatic(Microbot.class)) {
                 inventory.when(Rs2Inventory::emptySlotCount).thenReturn(freeSlots);
@@ -215,7 +216,10 @@ public class DroSlayerBankSupplyWaitTest {
                 assertEquals(false, call(script, "fillRemainingSpaceWithFood"));
                 if (freeSlots == 0) {
                     assertTrue(Microbot.status.contains("Not enough room"));
-                    dro.verifyNoInteractions();
+                    // Waiting never stops or logs out. Its only use of the client is the one chat line saying what is missing.
+                    dro.verify(Microbot::getClientThread);
+                    dro.verifyNoMoreInteractions();
+                    assertTrue(DroSlayerHold.current(DroSlayerState.BANKING, System.currentTimeMillis()).contains("Not enough room"));
                     verify(script, never()).shutdown();
                 } else {
                     dro.verify(() -> Microbot.supplyMessage("usable food"));

@@ -626,7 +626,11 @@ public class DroSlayerScript extends Script {
                 maintainDepartureProtection();
                 if (isWildernessSlayer() && !wildernessSettings.ensureSafeSettings()) {
                     DroSlayerRuntime.cancelWalk();
-                    if (wildernessSettings.isBlocked()) Microbot.status = wildernessSettings.getFailureReason();
+                    if (wildernessSettings.isBlocked()) {
+                        Microbot.status = wildernessSettings.getFailureReason();
+                        holdForPlayer(DroSlayerPlugin.getState(), wildernessSettings.getFailureReason(),
+                                "Turn on skull prevention and turn off Accept Aid in the game settings");
+                    }
                     reportPreCombatHold("Wilderness skull-prevention / Accept Aid settings");
                     return;
                 }
@@ -800,6 +804,8 @@ public class DroSlayerScript extends Script {
             log.warn("Krystilia departure held: no level-30 escape item in bank");
             unresolvedTaskName = currentTaskName();
             DroSlayerPlugin.setState(DroSlayerState.IDLE);
+            holdForPlayer(DroSlayerState.IDLE, "No Wilderness escape item in your bank",
+                    "Bank a seed pod or charged dragonstone jewellery, then turn the plugin off and on");
             return;
         }
         if (Rs2Inventory.isFull() && !ensureFreeInventorySlotForTaskItem()) return;
@@ -832,6 +838,159 @@ public class DroSlayerScript extends Script {
         Microbot.status = reason;
         log.warn("Krystilia task held: {}", reason);
         DroSlayerPlugin.setState(DroSlayerState.IDLE);
+        holdForPlayer(DroSlayerState.IDLE, reason, "Fix this, then turn the plugin off and on");
+    }
+
+    /**
+     * Names what the script is waiting for in the overlay header and, once per reason, in game chat.
+     * Call after the state for the wait has been set.
+     */
+    private void holdForPlayer(DroSlayerState state, String reason, String action) {
+        String line = DroSlayerHold.raise(state, reason, action, System.currentTimeMillis());
+        if (line == null) return;
+        log.warn(line);
+        try {
+            Microbot.getClientThread().invokeLater(() ->
+                    Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.ENGINE, "", line, ""));
+        } catch (RuntimeException unavailable) {
+            log.debug("Could not post the hold message to chat", unavailable);
+        }
+    }
+
+    // ==================== Slayer Master requirement ====================
+
+    private boolean canUseSlayerMaster(DroSlayerMaster master) {
+        int combatLevel = Rs2Player.getCombatLevel();
+        int slayerLevel = Rs2Player.getRealSkillLevel(Skill.SLAYER);
+        if (combatLevel <= 0 || slayerLevel <= 0) {
+            return false;
+        }
+        if (master.isAvailableAt(combatLevel, slayerLevel)) {
+            return true;
+        }
+        String reason = slayerMasterTooHighMessage(master, combatLevel, slayerLevel);
+        log.warn(reason);
+        Microbot.log("[Dro] AIO Slayer stopped: " + reason);
+        DroSlayerPlugin.setState(DroSlayerState.IDLE);
+        // Stop the whole plugin/runtime, as a terminal stop does, but stay logged in: nothing is at risk.
+        shutdown();
+        DroSlayerRuntime.shutdown();
+        try {
+            Plugin plugin = Microbot.getPlugin(DroSlayerPlugin.class.getName());
+            if (plugin != null) Microbot.stopPlugin(plugin);
+        } catch (Exception ignored) {
+        }
+        Microbot.showMessage("[Dro] AIO Slayer stopped: " + reason);
+        return false;
+    }
+
+    static String slayerMasterTooHighMessage(DroSlayerMaster master, int combatLevel, int slayerLevel) {
+        String cause = combatLevel < master.getCombatLevelRequired()
+                ? master.getName() + " only gives tasks from combat level " + master.getCombatLevelRequired()
+                        + "; you are combat level " + combatLevel + "."
+                : master.getName() + " only gives tasks from Slayer level " + master.getSlayerLevelRequired()
+                        + "; you are Slayer level " + slayerLevel + ".";
+        DroSlayerMaster suggestion = DroSlayerMaster.highestAvailableAt(combatLevel, slayerLevel, false);
+        DroSlayerMaster questOption = DroSlayerMaster.highestAvailableAt(combatLevel, slayerLevel, true);
+        String advice;
+        if (suggestion == DroSlayerMaster.NIEVE) {
+            advice = suggestion.getName() + " works at your level (pick " + DroSlayerMaster.STEVE.getName()
+                    + " instead if you have finished " + DroSlayerMaster.STEVE.getQuestRequired() + ").";
+        } else if (questOption.getCombatLevelRequired() > suggestion.getCombatLevelRequired()) {
+            advice = suggestion.getName() + " works at your level with no quest needed (" + questOption.getName()
+                    + " also works if you have finished " + questOption.getQuestRequired() + ").";
+        } else {
+            advice = suggestion.getName() + " works at your level with no quest needed.";
+        }
+        return cause + "\n" + advice
+                + "\nPick a Slayer Master you can use in the plugin settings, then start the plugin again.";
+    }
+
+    // ==================== Arriving with Auto Travel off ====================
+
+    private boolean arrivalHintShown = false;
+
+    private void handleArrivalWithoutAutoTravel(String taskName) {
+        if (isWildernessSlayer()) {
+            // Travel is where the Wilderness escape, supply and safety checks run. Fighting from wherever
+            // the player stands would skip them, so a Krystilia task never starts with Auto Travel off.
+            holdForPlayer(DroSlayerState.DETECTING_TASK, "Auto Travel is off and this is a Wilderness task",
+                    "Turn Auto Travel on in the plugin settings");
+            return;
+        }
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) {
+            return;
+        }
+
+        WorldPoint destination = taskDestination;
+        if (destination != null && playerLocation.distanceTo(destination) <= ARRIVAL_DISTANCE) {
+            log.info("Auto Travel is off. You are at {}, starting the task.", taskLocationName);
+            arrivalHintShown = false;
+            DroSlayerPlugin.setCurrentLocation(isUsingCannon ? taskLocationName + " (Cannon)" : taskLocationName);
+            DroSlayerPlugin.setState(DroSlayerState.AT_LOCATION);
+            return;
+        }
+
+        if (isTaskMonsterNearby(playerLocation)) {
+            boolean cannonDropped = isUsingCannon;
+            if (cannonDropped) {
+                log.warn("Auto Travel is off and you are fighting {} away from {}, so the script will fight here without a cannon. " +
+                        "Walk to the cannon spot before starting if you want to use your cannon.", taskName, describeCannonSpot(taskName));
+            } else {
+                log.info("Auto Travel is off. Fighting {} where you are standing.", taskName);
+            }
+            arrivalHintShown = false;
+            taskDestination = playerLocation;
+            taskLocationName = "Current location";
+            DroSlayerPlugin.setCurrentLocation(cannonDropped ? taskLocationName + " (no cannon)" : taskLocationName);
+            isUsingCannon = false;
+            cannonSpot = null;
+            DroSlayerPlugin.setState(DroSlayerState.AT_LOCATION);
+            return;
+        }
+
+        String destinationName = describeTaskDestination(taskName);
+        DroSlayerPlugin.setCurrentLocation("Walk to " + destinationName);
+        holdForPlayer(DroSlayerState.DETECTING_TASK, "Auto Travel is off",
+                "Walk to " + destinationName + ", or stand within " + config.attackRadius() + " tiles of " + taskName);
+        if (!arrivalHintShown) {
+            arrivalHintShown = true;
+            log.info("Auto Travel is off. Walk to {}, or stand within {} tiles of {}, and the script will start fighting.",
+                    destinationName, config.attackRadius(), taskName);
+        }
+    }
+
+    private String describeTaskDestination(String taskName) {
+        if ("Cannon spot".equals(taskLocationName)) {
+            return "the " + taskName + " cannon spot";
+        }
+        if ("Current location".equals(taskLocationName)) {
+            return "your last fighting spot";
+        }
+        return taskLocationName == null || taskLocationName.isEmpty() ? "the " + taskName + " location" : taskLocationName;
+    }
+
+    private String describeCannonSpot(String taskName) {
+        if ("Cannon spot".equals(taskLocationName)) {
+            return "the " + taskName + " cannon spot";
+        }
+        return "the " + taskLocationName + " cannon spot";
+    }
+
+    private boolean isTaskMonsterNearby(WorldPoint playerLocation) {
+        List<String> targetMonsters = getTargetMonsterNames();
+        if (targetMonsters == null || targetMonsters.isEmpty()) {
+            return false;
+        }
+        return Microbot.getRs2NpcCache().query()
+                .where(npc -> !npc.isDead() && npc.getHealthRatio() != 0)
+                .where(npc -> npc.getName() != null)
+                .where(npc -> targetMonsters.stream()
+                        .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
+                .where(npc -> npc.getWorldLocation() != null &&
+                        npc.getWorldLocation().distanceTo(playerLocation) <= config.attackRadius())
+                .firstOnClientThread() != null;
     }
 
     private boolean hasWildernessCombatLoadout() {
@@ -1252,6 +1411,9 @@ public class DroSlayerScript extends Script {
         }
 
         DroSlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         DroSlayerPlugin.setCurrentLocation(master.getName());
 
@@ -1756,6 +1918,9 @@ public class DroSlayerScript extends Script {
         }
 
         DroSlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         DroSlayerPlugin.setCurrentLocation(master.getName() + " (Skipping)");
 
@@ -2298,6 +2463,9 @@ public class DroSlayerScript extends Script {
         }
 
         DroSlayerMaster master = config.slayerMaster();
+        if (!canUseSlayerMaster(master)) {
+            return;
+        }
         WorldPoint masterLocation = master.getLocation();
         DroSlayerPlugin.setCurrentLocation(master.getName() + " (Blocking)");
 
@@ -2639,6 +2807,8 @@ public class DroSlayerScript extends Script {
                     : "Select an available Wilderness inventory setup";
             log.warn("Krystilia departure held: {}", Microbot.status);
             DroSlayerPlugin.setState(DroSlayerState.IDLE);
+            holdForPlayer(DroSlayerState.IDLE, Microbot.status,
+                    "Save and select that Inventory Setup, then turn the plugin off and on");
             return;
         }
         if (config.enableAutoBanking()) {
@@ -2680,7 +2850,7 @@ public class DroSlayerScript extends Script {
             log.info("Transitioning to TRAVELING");
             DroSlayerPlugin.setState(DroSlayerState.TRAVELING);
         } else {
-            log.info("Auto travel disabled, staying in DETECTING_TASK");
+            handleArrivalWithoutAutoTravel(taskName);
         }
     }
 
@@ -2759,6 +2929,8 @@ public class DroSlayerScript extends Script {
                 Microbot.status = "Wilderness bursting needs a saved burstwildy inventory setup";
                 log.warn("Krystilia departure held: selected burst setup unavailable");
                 DroSlayerPlugin.setState(DroSlayerState.IDLE);
+                holdForPlayer(DroSlayerState.IDLE, Microbot.status,
+                        "Save and select that Inventory Setup, then turn the plugin off and on");
                 return;
             }
             if (isWildernessSlayer()) {
@@ -2768,6 +2940,8 @@ public class DroSlayerScript extends Script {
                         : "Selected Wilderness inventory setup is unavailable";
                 log.warn("Krystilia departure held: configured Wilderness inventory setup unavailable");
                 DroSlayerPlugin.setState(DroSlayerState.IDLE);
+                holdForPlayer(DroSlayerState.IDLE, Microbot.status,
+                        "Save and select that Inventory Setup, then turn the plugin off and on");
                 return;
             }
             if (activeJsonProfile != null && activeJsonProfile.hasSetup()) {
@@ -3210,6 +3384,8 @@ public class DroSlayerScript extends Script {
         Microbot.status = "Waiting for bank supplies: " + reason;
         // Keep the successful base load and retry supply preparation rather than latching IDLE.
         DroSlayerPlugin.setState(DroSlayerState.BANKING);
+        holdForPlayer(DroSlayerState.BANKING, "Bank supplies missing: " + reason,
+                "Add them to your bank; the script checks again every 10 seconds");
         return false;
     }
 

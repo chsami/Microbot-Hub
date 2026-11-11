@@ -43,7 +43,7 @@ import java.awt.*;
 @Slf4j
 public class DroSlayerPlugin extends Plugin {
 
-    public static final String version = "1.3.94";
+    public static final String version = "1.3.95";
 
     @Inject
     private DroSlayerConfig config;
@@ -82,8 +82,12 @@ public class DroSlayerPlugin extends Plugin {
     private static boolean hasTask = false;
 
     @Getter
-    @Setter
     private static DroSlayerState state = DroSlayerState.IDLE;
+
+    public static void setState(DroSlayerState state) {
+        DroSlayerPlugin.state = state;
+        DroSlayerHold.stateChanged(state);
+    }
 
     @Getter
     @Setter
