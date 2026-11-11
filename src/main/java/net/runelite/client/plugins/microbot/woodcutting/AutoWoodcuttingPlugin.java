@@ -51,7 +51,7 @@ import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
 )
 @Slf4j
 public class AutoWoodcuttingPlugin extends Plugin {
-    public static final String version = "1.8.14";
+    public static final String version = "1.8.16";
     @Inject
     @Getter(AccessLevel.MODULE)
     public AutoWoodcuttingScript autoWoodcuttingScript;
