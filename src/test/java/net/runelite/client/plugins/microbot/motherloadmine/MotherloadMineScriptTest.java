@@ -2,6 +2,7 @@ package net.runelite.client.plugins.microbot.motherloadmine;
 
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.microbot.api.player.models.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.motherloadmine.enums.MLMMiningSpot;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import org.junit.jupiter.api.Test;
@@ -10,7 +11,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +39,51 @@ public final class MotherloadMineScriptTest {
         Player player = mock(Player.class);
         when(player.getWorldLocation()).thenReturn(location);
         assertEquals(location, MotherloadMineScript.worldLocationOf(player));
+    }
+
+    @Test
+    void localPlayerNextToVeinDoesNotCountAsCrowding() {
+        WorldPoint vein = new WorldPoint(3730, 5660, 0);
+        Player self = mock(Player.class);
+        Rs2PlayerModel model = mock(Rs2PlayerModel.class);
+        when(model.getPlayer()).thenReturn(self);
+        when(model.getWorldLocation()).thenReturn(vein.dx(1));
+        assertFalse(MotherloadMineScript.isOtherPlayerNear(model, self, vein));
+    }
+
+    @Test
+    void otherPlayerNextToVeinCountsAsCrowding() {
+        WorldPoint vein = new WorldPoint(3730, 5660, 0);
+        Rs2PlayerModel model = mock(Rs2PlayerModel.class);
+        when(model.getPlayer()).thenReturn(mock(Player.class));
+        when(model.getWorldLocation()).thenReturn(vein.dx(2));
+        assertTrue(MotherloadMineScript.isOtherPlayerNear(model, mock(Player.class), vein));
+    }
+
+    @Test
+    void otherPlayerFarFromVeinOrWithoutLocationIsIgnored() {
+        WorldPoint vein = new WorldPoint(3730, 5660, 0);
+        Rs2PlayerModel far = mock(Rs2PlayerModel.class);
+        when(far.getPlayer()).thenReturn(mock(Player.class));
+        when(far.getWorldLocation()).thenReturn(vein.dx(3));
+        Rs2PlayerModel unknown = mock(Rs2PlayerModel.class);
+        when(unknown.getPlayer()).thenReturn(mock(Player.class));
+        Player self = mock(Player.class);
+        assertFalse(MotherloadMineScript.isOtherPlayerNear(far, self, vein));
+        assertFalse(MotherloadMineScript.isOtherPlayerNear(unknown, self, vein));
+        assertFalse(MotherloadMineScript.isOtherPlayerNear(null, self, vein));
+    }
+
+    @Test
+    void fullInventoryOfOreWithoutHammerSkipsRepair() {
+        assertFalse(MotherloadMineScript.canGetHammer(false, true, 0));
+    }
+
+    @Test
+    void hammerCanBeObtainedWithRoomPayDirtOrHammer() {
+        assertTrue(MotherloadMineScript.canGetHammer(true, true, 0));
+        assertTrue(MotherloadMineScript.canGetHammer(false, false, 0));
+        assertTrue(MotherloadMineScript.canGetHammer(false, true, 1));
     }
 
     @Test

@@ -6,6 +6,7 @@ import net.runelite.client.plugins.microbot.actions.Action;
 import net.runelite.client.plugins.microbot.actions.ActionScript;
 import net.runelite.client.plugins.microbot.zulrahslayer.actions.FightContext;
 import net.runelite.client.plugins.microbot.zulrahslayer.actions.LootAction;
+import net.runelite.client.plugins.microbot.zulrahslayer.actions.MeleeDodgeAction;
 import net.runelite.client.plugins.microbot.zulrahslayer.actions.ZulrahAction;
 import net.runelite.client.plugins.microbot.zulrahslayer.actions.ZulrahState;
 import net.runelite.api.coords.WorldPoint;
@@ -178,9 +179,15 @@ public class ZulrahScript extends ActionScript<ZulrahState> {
     }
 
     public void handleMeleeSwing() {
-        if (context != null && context.isMeleeDodgePhase()) {
-            context.setMeleeDodgeAtNorth(!context.isMeleeDodgeAtNorth());
+        if (context == null || !context.isMeleeDodgePhase()) {
+            return;
         }
+        ZulrahPhase phase = context.getPhase();
+        WorldPoint swingTile = Rs2Player.getWorldLocation();
+        if (phase == null || swingTile == null) {
+            return;
+        }
+        context.setMeleeDodgeTarget(MeleeDodgeAction.dodgeTarget(swingTile, phase.getAttributes().getStandLocation()));
     }
 
     public void handleZulrahAttack() {

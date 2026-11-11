@@ -32,7 +32,7 @@ public class LureController {
     public void reset(){resetVariant();previousBlobs.clear();wallAdjustments.clear();splitSettleUntil=-1;meleeTrap.reset();phase=Phase.MAIN;goal=returnTile=home=wall=north=null;routeProgress.reset();northernRecoveryUsed=false;recoveryAttempts=0;rushTarget=nwTarget=-1;peekMelee.clear();southMages.clear();peekAtArrival.clear();rangerEngaged=centreReturnUsed=false;phaseAt=arrivedAt=-1;attempted=false;dynamicOnly=false;recordedIndex=0;failedMoves=0;lureStarts.clear();blockedAtStart.clear();}
     /** Observe before the fast attack path so ranger death cannot become a melee shot in the centre. */
     public void observeFight(Snapshot s,Tile main,int currentTarget) {
-        if(s.meleeMode()||main==null||meleeTrap.active()||excursionActive())return;
+        if(main==null||meleeTrap.active()||excursionActive())return;
         home=main;
         if(wall==null)wall=main.add(-1,-5);
         if(previousBlobs.stream().anyMatch(id->find(s,id)==null))splitSettleUntil=s.tick()+4;

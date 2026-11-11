@@ -5,7 +5,6 @@ import net.runelite.api.EquipmentInventorySlot;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.game.ItemStats;
-import net.runelite.client.plugins.microbot.zulrahslayer.constants.StandLocation;
 import net.runelite.client.plugins.microbot.zulrahslayer.constants.ZulrahType;
 import net.runelite.client.plugins.microbot.zulrahslayer.rotationutils.ZulrahPhase;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -43,8 +42,8 @@ final class ZulrahHelpers {
 
     /** The tile we should be standing on this tick: the melee-dodge tile, or the phase's stand tile. */
     static WorldPoint targetTile(FightContext ctx) {
-        if (ctx.isMeleeDodgePhase()) {
-            return (ctx.isMeleeDodgeAtNorth() ? StandLocation.NORTHEAST_NORTH : StandLocation.NORTHEAST_TOP).toWorldPoint();
+        if (ctx.isMeleeDodgePhase() && ctx.getMeleeDodgeTarget() != null) {
+            return ctx.getMeleeDodgeTarget();
         }
         return ctx.getStandLocation();
     }

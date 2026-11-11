@@ -151,6 +151,27 @@ public class ZulrahFeroxReturnTest {
         run.tick(here,false,false,123100,actions);
         assertEquals(1,Collections.frequency(calls,"pool-fallback"));
     }
+    @Test public void ringAlwaysEscapesToFerox() {
+        assertEquals(ZulrahFeroxReturn.Escape.RING,ZulrahFeroxReturn.escape(true,false,true));
+        assertEquals(ZulrahFeroxReturn.Escape.RING,ZulrahFeroxReturn.escape(true,true,true));
+        assertEquals(ZulrahFeroxReturn.Escape.RING,ZulrahFeroxReturn.escape(true,false,false));
+    }
+    @Test public void noRingMidFightNeverStopsWhileZulrahIsAlive() {
+        assertEquals(ZulrahFeroxReturn.Escape.ZUL_ANDRA,ZulrahFeroxReturn.escape(false,true,true));
+        assertEquals(ZulrahFeroxReturn.Escape.FIGHT_ON,ZulrahFeroxReturn.escape(false,false,true));
+    }
+    @Test public void prayersStayOnWhenNoTeleportIsDispatched() {
+        assertFalse(ZulrahFeroxReturn.teleportThenLeaveCombat(()->{calls.add("teleport");return false;},()->calls.add("prayers-off")));
+        assertEquals(List.of("teleport"),calls);
+    }
+    @Test public void prayersGoOffOnlyAfterTheTeleportIsDispatched() {
+        assertTrue(ZulrahFeroxReturn.teleportThenLeaveCombat(()->{calls.add("teleport");return true;},()->calls.add("prayers-off")));
+        assertEquals(List.of("teleport","prayers-off"),calls);
+    }
+    @Test public void noRingAfterKillStopsOutOfCombat() {
+        assertEquals(ZulrahFeroxReturn.Escape.STOP,ZulrahFeroxReturn.escape(false,false,false));
+        assertEquals(ZulrahFeroxReturn.Escape.STOP,ZulrahFeroxReturn.escape(false,true,false));
+    }
     @Test public void recordedPoolLandingProceedsToBankWithoutExtraPoolClick() {
         ZulrahFeroxReturn run=new ZulrahFeroxReturn(ZulrahFeroxReturn.Route.CAMERA,false,false,(lo,hi)->lo);
         for(long t=0;t<15000 && !run.ready();t+=100) {

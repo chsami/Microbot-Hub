@@ -1,0 +1,96 @@
+[
+ {
+  "tick": 1175,
+  "wave": 12,
+  "player": [
+   53,
+   34
+  ],
+  "mobs": [
+   {
+    "index": 59122,
+    "kind": "BLOB",
+    "tile": [
+     53,
+     36
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 1157,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-076-0.geometry.json",
+  "interaction": -1,
+  "hp": 66,
+  "prayer": 44,
+  "observedPrayer": "NONE",
+  "plan": {
+   "destination": [
+    53,
+    34
+   ],
+   "step": [
+    53,
+    34
+   ],
+   "prayer": "NONE",
+   "target": -1,
+   "safe": true,
+   "risk": 0,
+   "reason": "Pure: let melee settle into existing wall shot"
+  },
+  "label": "w12-trapped-kek-shootable-hold"
+ },
+ {
+  "tick": 1190,
+  "wave": 12,
+  "player": [
+   53,
+   34
+  ],
+  "mobs": [
+   {
+    "index": 59122,
+    "kind": "BLOB",
+    "tile": [
+     53,
+     36
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 1157,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-076-0.geometry.json",
+  "interaction": -1,
+  "hp": 66,
+  "prayer": 45,
+  "observedPrayer": "NONE",
+  "plan": {
+   "destination": [
+    53,
+    34
+   ],
+   "step": [
+    53,
+    34
+   ],
+   "prayer": "NONE",
+   "target": -1,
+   "safe": true,
+   "risk": 0,
+   "reason": "Pure: let melee settle into existing wall shot"
+  },
+  "label": "w12-trapped-kek-shootable-hold-b"
+ }
+]

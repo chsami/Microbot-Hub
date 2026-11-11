@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.woodcutting.Forestry;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
@@ -60,7 +61,14 @@ public class RitualEvent implements BlockingEvent {
                 continue; // If no target circle is found, we cannot proceed with the event
             }
 
-            if (Rs2Player.getWorldLocation().equals(targetCircle.getWorldLocation())) {
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            if (playerLocation == null) {
+                sleepUntil(() -> Rs2Player.getWorldLocation() != null, 1200);
+                continue;
+            }
+
+            WorldPoint circleLocation = targetCircle.getWorldLocation();
+            if (playerLocation.equals(circleLocation)) {
                 //Microbot.log("RitualEvent: Already at the target circle, performing the ritual.", Level.INFO);
                 sleepGaussian(600, 150);
                 continue; // TODO find some condition to wait for here
@@ -68,8 +76,8 @@ public class RitualEvent implements BlockingEvent {
 
             // Move to the target circle
             Microbot.log("RitualEvent: Moving to the target circle to perform the ritual.", Level.INFO);
-            Rs2Walker.walkFastCanvas(targetCircle.getWorldLocation());
-            sleepUntil(() -> Rs2Player.getWorldLocation().equals(targetCircle.getWorldLocation()), 5000);
+            Rs2Walker.walkFastCanvas(circleLocation);
+            sleepUntil(() -> circleLocation.equals(Rs2Player.getWorldLocation()), 5000);
         }
         Microbot.log("RitualEvent: Finished executing the ritual event.", Level.INFO);
         plugin.incrementForestryEventCompleted();

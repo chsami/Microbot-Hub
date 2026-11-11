@@ -16,7 +16,7 @@ public final class PureCombatPlanner extends CombatPlanner {
     @Override protected long arrivalPenalty(Snapshot s,Tile p,List<Mob> arrivals){return PureCombatPolicy.penalty(s,p,arrivals);}
     @Override protected boolean rangerFirst(Snapshot s,Mob m){return PureCombatPolicy.rangerBeforeBat(s,m);}
     @Override protected int targetScore(Snapshot s,Tile p,List<Mob> mobs,Mob m,Protection prayer) {
-        Snapshot positioned=new Snapshot(s.tick(),p,s.grid(),mobs,s.runEnergy(),s.running(),s.weaponRange(),s.jadStyle(),s.meleeMode()).atWave(s.wave());
+        Snapshot positioned=new Snapshot(s.tick(),p,s.grid(),mobs,s.runEnergy(),s.running(),s.weaponRange(),s.jadStyle()).atWave(s.wave());
         if(!PureSafety.releaseSafe(positioned,m,prayer))return SKIP_TARGET;
         return PureCombatPolicy.targetPriority(positioned,m,prayer);
     }

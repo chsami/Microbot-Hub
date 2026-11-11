@@ -22,7 +22,7 @@ public final class RecordedSideLure {
     public void finish(){phase=Phase.IDLE;home=goal=null;follower=started=arrived=-1;progress.reset();}
     public void rebase(int dx,int dy){if(home!=null)home=home.add(dx,dy);if(goal!=null)goal=goal.add(dx,dy);progress.reset();}
     private Mob eligible(Snapshot s) {
-        if(s.meleeMode()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER))return null;
+        if(s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER))return null;
         return s.mobs().stream().filter(m->m.kind()==Kind.MELEER&&!attempted.contains(m.index()))
             .min(Comparator.comparingInt(m->m.distance(s.player()))).orElse(null);
     }

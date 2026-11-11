@@ -62,9 +62,9 @@ final class FirecapeTestClient {
     FcFrame frame(int tick,List<Mob> mobs,Protection jad)throws Exception {
         this.tick=tick;
         Constructor<FcFrame> ctor=FcFrame.class.getDeclaredConstructor(Client.class,WorldView.class,Player.class,
-            List.class,CollisionGrid.class,Protection.class,Map.class,int.class,Set.class,Map.class,boolean.class);
+            List.class,CollisionGrid.class,Protection.class,Map.class,int.class,Set.class,Map.class);
         ctor.setAccessible(true);
-        return ctor.newInstance(client,view,player,mobs,new CollisionGrid(new int[104][104]),jad,Map.of(),7,Set.of(),Map.of(),false);
+        return ctor.newInstance(client,view,player,mobs,new CollisionGrid(new int[104][104]),jad,Map.of(),7,Set.of(),Map.of());
     }
     static FcFrame frame(int tick,int itemId)throws Exception {
         FirecapeTestClient c=new FirecapeTestClient();FcFrame f=c.frame(tick,List.of(),Protection.NONE);

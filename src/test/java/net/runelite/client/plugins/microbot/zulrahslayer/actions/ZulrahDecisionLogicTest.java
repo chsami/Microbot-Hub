@@ -1,12 +1,16 @@
 package net.runelite.client.plugins.microbot.zulrahslayer.actions;
 
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.client.plugins.microbot.zulrahslayer.constants.StandLocation;
 import net.runelite.client.plugins.microbot.zulrahslayer.constants.ZulrahType;
+import net.runelite.client.plugins.microbot.zulrahslayer.rotationutils.RotationType;
 import net.runelite.client.plugins.microbot.zulrahslayer.rotationutils.ZulrahNpc;
 import net.runelite.client.plugins.microbot.zulrahslayer.rotationutils.ZulrahPhase;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -34,6 +38,71 @@ class ZulrahDecisionLogicTest {
         assertTrue(ZulrahHelpers.attackWithMagic(phase(ZulrahType.MAGIC, true)),
                 "the Jad phase is always attacked with magic regardless of encoded form");
         assertTrue(ZulrahHelpers.attackWithMagic(phase(ZulrahType.RANGE, true)));
+    }
+
+    @Test
+    void everyMeleePhaseStandHasADodgeTileTwoStepsAwayInAStraightLine() {
+        for (RotationType rotation : RotationType.values()) {
+            for (ZulrahPhase phase : rotation.getZulrahPhases()) {
+                if (phase.getZulrahNpc().getType() != ZulrahType.MELEE) {
+                    continue;
+                }
+                StandLocation home = phase.getAttributes().getStandLocation();
+                StandLocation dodge = home.meleeDodge();
+                assertNotNull(dodge, rotation.getRotationName() + " melee phase at " + home + " has no dodge tile");
+                WorldPoint a = home.toWorldPoint();
+                WorldPoint b = dodge.toWorldPoint();
+                int dx = Math.abs(a.getX() - b.getX());
+                int dy = Math.abs(a.getY() - b.getY());
+                assertEquals(2, a.distanceTo(b), home + " dodge tile must leave the slammed 3x3 area");
+                assertTrue(dx == 0 || dy == 0 || dx == dy, home + " dodge tile must be a two-step straight hop");
+            }
+        }
+    }
+
+    @Test
+    void tailSwingSendsThePlayerToTheTileOutsideTheSlamArea() {
+        for (StandLocation home : new StandLocation[]{
+                StandLocation.NORTHEAST_NORTH, StandLocation.EAST_PILLAR_N, StandLocation.WEST_PILLAR_N}) {
+            WorldPoint stand = home.toWorldPoint();
+            WorldPoint away = home.meleeDodge().toWorldPoint();
+
+            assertEquals(away, MeleeDodgeAction.dodgeTarget(stand, home));
+            assertEquals(stand, MeleeDodgeAction.dodgeTarget(away, home));
+            assertTrue(MeleeDodgeAction.dodgeTarget(stand, home).distanceTo(stand) >= 2);
+            assertTrue(MeleeDodgeAction.dodgeTarget(away, home).distanceTo(away) >= 2);
+        }
+    }
+
+    @Test
+    void northEastDodgeNoLongerUsesTheCornerTileBehindTheBlockedDiagonal() {
+        assertEquals(new WorldPoint(2272, 3076, 0),
+                MeleeDodgeAction.dodgeTarget(new WorldPoint(2272, 3078, 0), StandLocation.NORTHEAST_NORTH));
+    }
+
+    @Test
+    void westPillarDodgeUsesTheTileStraightWestThatThePlayerReachedInTheMeleePhase() {
+        assertEquals(new WorldPoint(2262, 3072, 0),
+                MeleeDodgeAction.dodgeTarget(new WorldPoint(2264, 3072, 0), StandLocation.WEST_PILLAR_N));
+    }
+
+    @Test
+    void tailSwingPicksATileOutsideTheSlamAreaWheneverOneOfTheTwoIsOutside() {
+        for (StandLocation home : new StandLocation[]{
+                StandLocation.NORTHEAST_NORTH, StandLocation.EAST_PILLAR_N, StandLocation.WEST_PILLAR_N}) {
+            WorldPoint stand = home.toWorldPoint();
+            WorldPoint away = home.meleeDodge().toWorldPoint();
+            for (int dx = -4; dx <= 4; dx++) {
+                for (int dy = -4; dy <= 4; dy++) {
+                    WorldPoint swing = new WorldPoint(stand.getX() + dx, stand.getY() + dy, 0);
+                    if (swing.distanceTo(stand) < 2 && swing.distanceTo(away) < 2) {
+                        continue;
+                    }
+                    assertTrue(MeleeDodgeAction.dodgeTarget(swing, home).distanceTo(swing) >= 2,
+                            home + " swing at " + swing);
+                }
+            }
+        }
     }
 
     @Test

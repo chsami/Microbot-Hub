@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.woodcutting.Forestry;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
@@ -92,9 +93,15 @@ public class EggEvent implements BlockingEvent {
                             .noneMatch(pheasant -> pheasant.getWorldLocation() == nest.getWorldLocation()))
                     .collect(Collectors.toList());
 
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            if (playerLocation == null) {
+                sleepUntil(() -> Rs2Player.getWorldLocation() != null, 1200);
+                continue;
+            }
+
             Microbot.log("EggEvent: Interacting with the pheasant nest to collect an egg.");
             var closestNest = emptyNests.stream()
-                    .min(Comparator.comparingInt(o -> o.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())))
+                    .min(Comparator.comparingInt(o -> o.getWorldLocation().distanceTo(playerLocation)))
                     .orElse(null);
 
             var interact = closestNest != null && closestNest.click();

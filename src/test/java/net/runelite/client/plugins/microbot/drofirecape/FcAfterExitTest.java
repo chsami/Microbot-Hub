@@ -1,4 +1,3 @@
-/* Copyright (c) 2026, DRO (droplugins). SPDX-License-Identifier: BSD-2-Clause */
 package net.runelite.client.plugins.microbot.drofirecape;
 
 import org.junit.jupiter.api.Test;

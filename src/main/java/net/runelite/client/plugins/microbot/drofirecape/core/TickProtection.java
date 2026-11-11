@@ -22,6 +22,8 @@ public final class TickProtection {
     public TickProtection(boolean continuousCadence){this.continuousCadence=continuousCadence;}
     public static final class Decision {
         public final int tick, dueMask, uncertainMask;
+        /** Styles due from at least one monster whose attack clock is known (per monster, unlike uncertainMask). */
+        public final int knownMask;
         public final Protection protection;
         /** An observed/current Jad demand; movement must never override it. */
         public final Protection jadProtection;
@@ -33,6 +35,11 @@ public final class TickProtection {
         }
         private Decision(int tick,Protection protection,int dueMask,int uncertainMask,String reason,
             Protection jadProtection,Protection jadReturnProtection) {
+            this(tick,protection,dueMask,uncertainMask,dueMask&~uncertainMask,reason,jadProtection,jadReturnProtection);
+        }
+        private Decision(int tick,Protection protection,int dueMask,int uncertainMask,int knownMask,String reason,
+            Protection jadProtection,Protection jadReturnProtection) {
+            this.knownMask=knownMask;
             this.tick=tick;this.protection=protection;this.dueMask=dueMask;
             this.uncertainMask=uncertainMask;this.reason=reason;this.jadProtection=jadProtection;
             this.jadReturnProtection=jadReturnProtection;
@@ -76,7 +83,7 @@ public final class TickProtection {
         pending.clear();lastFrameTick=tick;
     }
     /** Verified attack animations only. Healing/defence animations never seed a clock.
-     * Source: Microbot 2.6.24 gameval/AnimationID.java, FIREBAT/LAVABEAST and
+     * Source: Dro 2.6.24 gameval/AnimationID.java, FIREBAT/LAVABEAST and
      * MAGMAQURIS/LIZARD_CLERIC/IGNIFERUM/LORDMAGMUS attack constants.
      * Unverified healer animations intentionally use conservative contact protection.
      */
@@ -130,10 +137,16 @@ public final class TickProtection {
                 if((m.kind()==Kind.MAGER||m.kind()==Kind.RANGER)
                     &&(clock==null||clock.matches<2||clock.last+m.kind().speed<=s.tick()))
                     mask|=CombatPlanner.threats(s.grid(),approaching.get(i),p,s.jadStyle());
+                // Colosseum Jaguar rule: a melee attacker whose clock is ready (none seen yet, or a full
+                // interval since the last swing) is protected while closing within two steps. Live 1.1.33
+                // wave 1: a Tz-Kih covered two tiles in one tick and swung on arrival, unprotected.
+                else if(m.kind().protection==Protection.MELEE&&m.kind()!=Kind.JAD
+                    &&(clock==null||clock.last+m.kind().speed<=s.tick()))
+                    mask|=CombatPlanner.threats(s.grid(),approaching.get(i),p,s.jadStyle())&CombatPlanner.bit(Protection.MELEE);
                 masks.merge(m.index(),mask,(a,b)->a|b);
             }
         }
-        int[] weights=new int[4];int due=0,unknown=0;Protection jadLock=Protection.NONE,jadReturn=Protection.NONE;
+        int[] weights=new int[4];int due=0,unknown=0,knownDue=0;Protection jadLock=Protection.NONE,jadReturn=Protection.NONE;
         boolean healerContact=s.mobs().stream().anyMatch(m->m.kind()==Kind.HEALER&&m.attackingPlayer()
             &&(masks.getOrDefault(m.index(),0)&CombatPlanner.bit(Protection.MELEE))!=0);
         boolean exposedMage=false,exposedRanger=false,meleeDue=false,bigMeleeDue=false,rangerDue=false;
@@ -157,8 +170,7 @@ public final class TickProtection {
                     // this gap modulo eight through an unobserved/late attack.
                     jadReturn=clock.style;mask=0;
                 } else if(mask!=0) {
-                    Protection arm=s.meleeMode()&&contact?Protection.MELEE:
-                        s.jadStyle()==Protection.NONE?Protection.MAGIC:s.jadStyle();
+                    Protection arm=s.jadStyle()==Protection.NONE?Protection.MAGIC:s.jadStyle();
                     jadLock=arm;mask=CombatPlanner.bit(arm);
                 }
                 if(mask!=0){due|=mask;add(weights,mask,10000);}
@@ -174,8 +186,12 @@ public final class TickProtection {
             // An unknown small blob must not guess away active magic protection.
             if(m.kind()==Kind.MAGER&&(mask&CombatPlanner.bit(Protection.MAGIC))!=0)exposedMage=true;
             if(m.kind()==Kind.RANGER&&(mask&CombatPlanner.bit(Protection.RANGE))!=0)exposedRanger=true;
+            // The flick engine trusts one matching interval: a cave NPC keeps a fixed cadence once
+            // it attacks, and every remaining hold is 1-tick reset so it costs no prayer.
+            // A melee-only monster in contact keeps its cadence from its first observed swing.
             boolean known=clock!=null&&clock.kind==m.kind()
-                &&clock.matches>=2&&(!continuousCadence||clock.continuous)
+                &&clock.matches>=(continuousCadence?(m.kind().protection==Protection.MELEE?0:1):2)
+                &&(!continuousCadence||clock.continuous)
                 &&m.attackingPlayer()
                 &&clock.last>=0&&clock.last<=s.tick()&&s.tick()<clock.last+m.kind().speed;
             // Walking alone does not change a continuous four-tick attack phase.
@@ -190,7 +206,7 @@ public final class TickProtection {
             // extra tick for that return; verified earlier gaps still flick.
             int lead=m.kind()==Kind.MAGER&&clock!=null&&clock.style==Protection.MAGIC?magicLead:1;
             if(known&&s.tick()+lead<clock.last+m.kind().speed)continue;
-            if(!known)unknown|=mask;
+            if(!known)unknown|=mask;else knownDue|=mask;
             due|=mask;add(weights,mask,m.kind().maxHit);
             if((known||m.kind()==Kind.MELEER||mageMelee)&&(mask&CombatPlanner.bit(Protection.MELEE))!=0)meleeDue=true;
             if(m.kind()==Kind.MELEER&&(mask&CombatPlanner.bit(Protection.MELEE))!=0)bigMeleeDue=true;
@@ -204,10 +220,13 @@ public final class TickProtection {
         if(held!=null&&held!=Protection.NONE&&score>0&&weights[held.ordinal()]==score)best=held;
         // Keep an exposed protection selected through an otherwise clear gap;
         // an already-active overhead needs no extra OFF/ON cursor work.
-        if(best==Protection.NONE)for(Protection p:new Protection[]{Protection.MAGIC,Protection.RANGE,Protection.MELEE})
+        // The flick engine never holds through a verified gap: it is on only for the due tick.
+        if(best==Protection.NONE&&!continuousCadence)for(Protection p:new Protection[]{Protection.MAGIC,Protection.RANGE,Protection.MELEE})
             if(exposedWeights[p.ordinal()]>score){score=exposedWeights[p.ordinal()];best=p;}
-        boolean retainMage=exposedMage&&((due&CombatPlanner.bit(Protection.MAGIC))!=0||!rangerDue&&!meleeDue);
-        boolean retainRange=exposedRanger&&((due&CombatPlanner.bit(Protection.RANGE))!=0||!meleeDue);
+        boolean retainMage=exposedMage&&((due&CombatPlanner.bit(Protection.MAGIC))!=0
+            ||!continuousCadence&&!rangerDue&&!meleeDue);
+        boolean retainRange=exposedRanger&&((due&CombatPlanner.bit(Protection.RANGE))!=0
+            ||!continuousCadence&&!meleeDue);
         if(retainMage)best=Protection.MAGIC;
         else if(bigMeleeDue)best=Protection.MELEE;
         else if(retainRange)best=Protection.RANGE;
@@ -222,7 +241,7 @@ public final class TickProtection {
             meleeDue?"Melee due inside verified ranged/magic cooldown gap":
             unknown!=0?"Conservative first / uncertain attack":"Prepared before next attack";
         if(Integer.bitCount(due)>1)reason+="; conflicting styles";
-        return new Decision(s.tick(),best,due,unknown,reason,jadLock,jadReturn);
+        return new Decision(s.tick(),best,due,unknown,knownDue,reason,jadLock,jadReturn);
     }
     private static void add(int[] weights,int mask,int amount) {
         for(Protection p:Protection.values())if((mask&CombatPlanner.bit(p))!=0)weights[p.ordinal()]+=amount;
@@ -245,7 +264,7 @@ public final class TickProtection {
                 if(clock!=null&&clock.matches>=2&&clock.last+m.kind().speed<=s.tick()+ahead)return ahead;
             }
             Snapshot future=new Snapshot(s.tick()+ahead,s.player(),s.grid(),s.mobs(),s.runEnergy(),s.running(),
-                s.weaponRange(),s.jadStyle(),s.meleeMode());
+                s.weaponRange(),s.jadStyle());
             Decision next=choose(future,false,held,Protection.NONE);
             if(next.protection!=held||(next.uncertainMask&other)!=0)return ahead;
         }

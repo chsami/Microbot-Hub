@@ -88,6 +88,8 @@ public class BlackjackScript extends Script
     private static final String PICKPOCKET_ACTION = "Pickpocket";
     private static final String KNOCKOUT_ACTION = "Knock-Out";
     private static final String LURE_ACTION = "Lure";
+    private static final String HOLD_FOR_KNOCKOUT_ACTION = "Hold for Knock-Out";
+    private static final int MAX_PICKPOCKETS_PER_KNOCKOUT = 2;
 
     private static final long FAILED_KNOCKOUT_RETRY_MS = 450;
     private static final long PICKPOCKET_BURST_TIMEOUT_MS = 2_800;
@@ -215,6 +217,7 @@ public class BlackjackScript extends Script
     {
         KNOCKOUT_SUCCESS,
         KNOCKOUT_FAILED,
+        PICKPOCKET_ATTEMPT,
         PICKPOCKET_SUCCESS,
         PICKPOCKET_FAILED,
         STUNNED,
@@ -240,6 +243,7 @@ public class BlackjackScript extends Script
     private volatile int successfulPickpockets;
     @Getter
     private volatile int picksThisKnockout;
+    private volatile int pickpocketAttemptsThisKnockout;
     @Getter
     private volatile String lastOutcome = "None";
     @Getter
@@ -386,6 +390,7 @@ public class BlackjackScript extends Script
         failedKnockouts = 0;
         successfulPickpockets = 0;
         picksThisKnockout = 0;
+        pickpocketAttemptsThisKnockout = 0;
         lastOutcome = "None";
         combatSignal = false;
         knockoutDispatchTimeouts = 0;
@@ -708,7 +713,8 @@ public class BlackjackScript extends Script
                     if (now >= nextPickpocketClickAt)
                     {
                         Point anchor = targetAnchor(target, burstClickPoint);
-                        if (anchor != null)
+                        if (anchor != null && pickpocketClickAllowed(PICKPOCKET_ACTION,
+                                picksThisKnockout, pickpocketAttemptsThisKnockout))
                         {
                             moveAndLeftClickTargetOption(target, anchor, "Pickpocket");
                         }
@@ -2216,6 +2222,7 @@ public class BlackjackScript extends Script
         secondPickpocketInteractionComplete = false;
         pendingInventoryFullAt = 0;
         picksThisKnockout = 0;
+        pickpocketAttemptsThisKnockout = 0;
         burstClickPoint = null;
         clearStandingClickAnchor();
     }
@@ -2430,6 +2437,12 @@ public class BlackjackScript extends Script
 
         now = System.currentTimeMillis();
         resetKnockoutAimRecovery();
+        if (HOLD_FOR_KNOCKOUT_ACTION.equals(action))
+        {
+            nextPickpocketClickAt = now + randomPickpocketDelay(false);
+            nextAction = "Wait for target to stand before next Knock-Out";
+            return;
+        }
         lastInteractionAt = now;
         nextPickpocketClickAt = now + randomPickpocketDelay(false);
 
@@ -2510,10 +2523,26 @@ public class BlackjackScript extends Script
             return null;
         }
         standingAnchorMenuMisses = 0;
+        burstClickPoint = current;
+
+        if (!pickpocketClickAllowed(action, picksThisKnockout, pickpocketAttemptsThisKnockout))
+        {
+            return HOLD_FOR_KNOCKOUT_ACTION;
+        }
 
         Microbot.getMouse().click(current);
-        burstClickPoint = current;
         return action;
+    }
+
+    static boolean pickpocketClickAllowed(String action, int confirmedPicks, int startedAttempts)
+    {
+        return !PICKPOCKET_ACTION.equals(action)
+                || (confirmedPicks < MAX_PICKPOCKETS_PER_KNOCKOUT && startedAttempts < MAX_PICKPOCKETS_PER_KNOCKOUT);
+    }
+
+    static boolean isPickpocketAttemptMessage(String lowerCaseMessage)
+    {
+        return lowerCaseMessage.contains("you attempt to pick") && lowerCaseMessage.contains("pocket");
     }
 
     private String topBlackjackOption(Rs2NpcModel target)
@@ -2555,6 +2584,7 @@ public class BlackjackScript extends Script
         lastPickpocketClickAt = 0;
         pendingInventoryFullAt = 0;
         picksThisKnockout = 0;
+        pickpocketAttemptsThisKnockout = 0;
         nextKnockoutArmedAt = 0;
         knockoutFailedAt = 0;
         knockoutRetryAt = 0;
@@ -3790,6 +3820,13 @@ public class BlackjackScript extends Script
                     log.info("Knock-Out failure signal after {}ms; releasing retaliation pickpocket burst",
                             knockoutDispatchAge(knockoutFailedAt));
                     break;
+                case PICKPOCKET_ATTEMPT:
+                    if ((state == BlackjackState.PICKPOCKETING || isSecondPickpocketPrearmPending())
+                            && hasCurrentKnockoutPickpocketClick())
+                    {
+                        pickpocketAttemptsThisKnockout++;
+                    }
+                    break;
                 case PICKPOCKET_SUCCESS:
                     if (state == BlackjackState.PICKPOCKETING || isSecondPickpocketPrearmPending())
                     {
@@ -3868,6 +3905,10 @@ public class BlackjackScript extends Script
         else if (message.contains("blow only glances"))
         {
             outcomes.add(Outcome.KNOCKOUT_FAILED);
+        }
+        else if (isPickpocketAttemptMessage(message))
+        {
+            outcomes.add(Outcome.PICKPOCKET_ATTEMPT);
         }
         else if (message.contains("you pick the") && message.contains("pocket"))
         {

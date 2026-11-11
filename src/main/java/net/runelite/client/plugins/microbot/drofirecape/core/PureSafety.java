@@ -44,7 +44,7 @@ public final class PureSafety {
     /** Do not finish a blocker and reveal a previously sheltered mage/large
      * melee, or split a safely trapped blob into unprotected contact babies. */
     public static boolean releaseSafe(Snapshot s,Mob target,Protection prayer) {
-        if(s.meleeMode()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD))return true;
+        if(s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD))return true;
         List<Mob> before=CombatPlanner.advance(s.grid(),s.mobs(),s.player(),s.jadStyle());
         List<Mob> after=CombatPlanner.advance(s.grid(),CombatPlanner.afterDefeat(s.mobs(),target),s.player(),s.jadStyle());
         for(Mob released:after) {
@@ -64,8 +64,12 @@ public final class PureSafety {
                 if(original!=null&&(CombatPlanner.threats(s.grid(),original,s.player(),s.jadStyle())
                     &~CombatPlanner.bit(prayer))==0)return false;
             }
+            // Babies are melee only: one prayer covers them unless another style can also reach.
+            // Refusing a lone trapped blob made a stand-off until a watchdog walked out of the
+            // trap and released it (wave 12, 2026-10-20 0.3.82 run).
             if(target.kind()==Kind.BLOB&&released.kind()==Kind.BABY&&original==null
-                &&before.stream().noneMatch(m->m.index()==target.index()&&s.grid().melee(m,s.player())))return false;
+                &&before.stream().noneMatch(m->m.index()==target.index()&&s.grid().melee(m,s.player()))
+                &&(mask(s,after,s.player())&~CombatPlanner.bit(Protection.MELEE))!=0)return false;
         }
         return true;
     }
@@ -81,7 +85,7 @@ public final class PureSafety {
     }
     private static boolean routeAllowed(Snapshot s,Tile destination,boolean acquisition) {
         if(destination==null)return false;
-        if(destination.equals(s.player())||s.meleeMode())return true;
+        if(destination.equals(s.player()))return true;
         if(s.mobs().stream().anyMatch(m->m.occupies(destination)))return false;
         List<Tile> path=MinimapMovement.path(s,destination);
         if(path.isEmpty())return false;
@@ -110,6 +114,21 @@ public final class PureSafety {
             if(i%stride==0||i==path.size()-1)future=CombatPlanner.advance(s.grid(),future,tile,s.jadStyle());
         }
         return future.stream().noneMatch(m->m.occupies(destination));
+    }
+    /** When a whole minimap leg is refused, the longest earlier tile of the same walk that is
+     * itself allowed and dispatchable. Never a one-tile shuffle, and never a short step while a
+     * melee follower is present (the same rule MinimapMovement.route applies). */
+    public static Tile allowedLeg(Snapshot s,Tile end,java.util.function.Predicate<Tile> allowed,
+        java.util.function.Predicate<Tile> dispatchable) {
+        if(end==null)return null;
+        List<Tile> path=MinimapMovement.path(s,end);
+        int minimum=s.mobs().stream().anyMatch(CaveSafety::meleeFollower)?4:2;
+        for(int i=path.size()-2;i>0;i--) {
+            Tile leg=path.get(i);
+            if(leg.distance(s.player())<minimum)break;
+            if(allowed.test(leg)&&dispatchable.test(leg))return leg;
+        }
+        return null;
     }
     /** Four-tick pressure is used only to compare spatial alternatives. Clocks
      * are deliberately not extrapolated here; the live prayer owner owns timing. */

@@ -15,7 +15,7 @@ public class OptionalBrewHealingTest {
         assertFalse(h.needed(88,92,65,false,true,true,52));
         assertTrue(h.needed(88,92,65,false,true,true,53));
         h.confirmed();
-        assertTrue(h.needed(103,92,65,false,true,true,53),"One sip to 103 is not the full 107 boosted target");
+        assertTrue(h.needed(103,92,65,false,true,true,53), "One sip to 103 is not the full 107 boosted target");
         h.confirmed();assertFalse(h.needed(107,92,65,false,true,true,53));
         assertFalse(h.needed(88,92,65,false,true,true,53));
         assertTrue(h.needed(88,92,65,false,true,true,54));
@@ -38,7 +38,7 @@ public class OptionalBrewHealingTest {
         assertTrue(h.needed(75,100,60,false,true));
         assertTrue(h.needed(79,100,60,false,true));
         assertFalse(h.needed(80,100,60,false,true));
-        assertFalse(h.needed(79,100,60,false,true),"A completed batch must not restart above the trigger");
+        assertFalse(h.needed(79,100,60,false,true), "A completed batch must not restart above the trigger");
     }
     @Test public void topUpBatchContinuesEvenAfterPrayerWasRestored(){
         BrewHealing h=new BrewHealing();

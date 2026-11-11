@@ -8,13 +8,25 @@ package net.runelite.client.plugins.microbot.drofirecape.core;
 
 import java.util.*;
 
-/** Pure selection policy. Names correspond to Microbot's Rs2PrayerEnum.
+/** Pure selection policy. Names correspond to Dro's Rs2PrayerEnum.
  * Unlock requirements are checked separately from active prayer points.
  */
 public final class OffensivePrayers {
     private OffensivePrayers() { }
     public static List<String> select(boolean melee,int prayer,int defence,
                                       boolean knightWaves,boolean rigour,boolean deadeye) {
+        return select(melee,false,prayer,defence,knightWaves,rigour,deadeye,false);
+    }
+    /** Magic: Augury, then Mystic Might (one slot with Mystic Vigour), Mystic Lore, Mystic Will. */
+    public static List<String> select(boolean melee,boolean magic,int prayer,int defence,
+                                      boolean knightWaves,boolean rigour,boolean deadeye,boolean augury) {
+        if(magic&&!melee) {
+            if(augury&&prayer>=77&&defence>=70)return List.of("AUGURY");
+            if(prayer>=45)return List.of("MYSTIC_MIGHT");
+            if(prayer>=27)return List.of("MYSTIC_LORE");
+            if(prayer>=9)return List.of("MYSTIC_WILL");
+            return List.of();
+        }
         if(!melee) {
             if(rigour&&prayer>=74&&defence>=70)return List.of("RIGOUR");
             if(deadeye&&prayer>=62)return List.of("DEAD_EYE");

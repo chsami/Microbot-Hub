@@ -28,6 +28,10 @@ public class CgPrepOverlay extends OverlayPanel
 	@Override
 	public Dimension render(Graphics2D g)
 	{
+		if (!config.showOverlay())
+		{
+			return null; // setting "Show overlay" off (user, 1.8.2)
+		}
 		CgPrepScript s = plugin.script();
 		panelComponent.setPreferredSize(new Dimension(280, 0));
 		panelComponent.getChildren().add(TitleComponent.builder()
@@ -55,7 +59,7 @@ public class CgPrepOverlay extends OverlayPanel
 		String state = s.getCurrentState() == null ? "-" : s.getCurrentState().name()
 			+ (s.paused && !"PAUSED".equals(s.getCurrentState().name()) ? " (PAUSED)" : "");
 		long reenter = s.reenterAtMs;
-		String blocked = s.enterBlocked;
+		String blocked = s.enterBlocked != null ? s.enterBlocked : s.chestBlocked ? "the Reward Chest won't open (see chat)" : null;
 		if (s.getCurrentState() == CgState.LOBBY_SETUP && blocked != null)
 		{
 			state += " (stopped: " + blocked + ")";

@@ -37,13 +37,11 @@ public class SyncPhaseAction implements ZulrahAction {
             return null;
         }
         log.debug("Changing zulrah phase. Next phase is {}", phase.getZulrahNpc().getType().getName());
-        ctx.setStandLocation(phase.getAttributes().getStandLocation().toWorldPoint());
-        boolean melee = phase.getZulrahNpc().getType() == ZulrahType.MELEE
-                && phase.getAttributes().getStandLocation() == StandLocation.NORTHEAST_NORTH;
+        StandLocation stand = phase.getAttributes().getStandLocation();
+        ctx.setStandLocation(stand.toWorldPoint());
+        boolean melee = phase.getZulrahNpc().getType() == ZulrahType.MELEE && stand.meleeDodge() != null;
         ctx.setMeleeDodgePhase(melee);
-        if (melee) {
-            ctx.setMeleeDodgeAtNorth(true);
-        }
+        ctx.setMeleeDodgeTarget(melee ? stand.toWorldPoint() : null);
         ctx.setGearSwapAttempts(0);
         ctx.setJadStartPrayerSet(false);
         return phase;

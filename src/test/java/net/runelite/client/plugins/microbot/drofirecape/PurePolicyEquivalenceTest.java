@@ -10,7 +10,7 @@ import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class PurePolicyEquivalenceTest {
+public class PurePolicyEquivalenceTest {
     private static final Map<String,String[]> GOLDEN=new LinkedHashMap<>();
     static {
         GOLDEN.put("main-027",new String[]{"eb4e39e9f0bf30ab","acbe9ae197f7b2a6","cb4cb4b7b27e1a65","b7dd82ca2309ba13"});
@@ -21,7 +21,7 @@ class PurePolicyEquivalenceTest {
     private static final Protection[] PRAYERS={Protection.NONE,Protection.MELEE,Protection.RANGE,Protection.MAGIC};
 
     private static List<Snapshot> scenes(String run)throws Exception{return new RetainedRunRegressionTest().scenes(run);}
-    private static Snapshot at(Snapshot s,Tile player){return new Snapshot(s.tick(),player,s.grid(),s.mobs(),s.runEnergy(),s.running(),s.weaponRange(),s.jadStyle(),s.meleeMode()).atWave(s.wave());}
+    private static Snapshot at(Snapshot s,Tile player){return new Snapshot(s.tick(),player,s.grid(),s.mobs(),s.runEnergy(),s.running(),s.weaponRange(),s.jadStyle()).atWave(s.wave());}
     private static String run(Supplier<Object> action){try{return String.valueOf(action.get());}catch(RuntimeException e){return "!"+e.getClass().getSimpleName();}}
     private static List<Snapshot> variants(Snapshot s) {
         List<Snapshot> out=new ArrayList<>();out.add(s);
@@ -99,17 +99,17 @@ class PurePolicyEquivalenceTest {
         return out.toString();
     }
 
-    @Test void pureAndRegularDecisionsMatchPreRefactorControllersOnEveryFixture()throws Exception {
+    @Test public void pureAndRegularDecisionsMatchPreRefactorControllersOnEveryFixture()throws Exception {
         for(Map.Entry<String,String[]> golden:GOLDEN.entrySet()) {
             String run=golden.getKey();String[] expected=golden.getValue();
             String regularPlanner=plannerTrace(run,false),purePlanner=plannerTrace(run,true);
-            assertEquals(expected[0],digest(regularPlanner),"CombatPlanner decisions changed on "+run);
-            assertEquals(expected[1],digest(purePlanner),"PureCombatPlanner decisions changed on "+run);
-            assertNotEquals(regularPlanner,purePlanner,"Pure planner hooks must alter decisions on "+run);
+            assertEquals(expected[0],digest(regularPlanner), "CombatPlanner decisions changed on "+run);
+            assertEquals(expected[1],digest(purePlanner), "PureCombatPlanner decisions changed on "+run);
+            assertNotEquals(regularPlanner,purePlanner, "Pure planner hooks must alter decisions on "+run);
             String regularLure=lureTrace(run,false),pureLure=lureTrace(run,true);
-            assertEquals(expected[2],digest(regularLure),"LureController decisions changed on "+run);
-            assertEquals(expected[3],digest(pureLure),"PureLureController decisions changed on "+run);
-            assertNotEquals(regularLure,pureLure,"Pure lure hooks must alter decisions on "+run);
+            assertEquals(expected[2],digest(regularLure), "LureController decisions changed on "+run);
+            assertEquals(expected[3],digest(pureLure), "PureLureController decisions changed on "+run);
+            assertNotEquals(regularLure,pureLure, "Pure lure hooks must alter decisions on "+run);
         }
     }
 }

@@ -9,7 +9,7 @@ import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class RetainedRunRegressionTest {
+public class RetainedRunRegressionTest {
     private JsonArray json(String name)throws Exception {
         try(Reader r=new InputStreamReader(Objects.requireNonNull(getClass().getResourceAsStream(name)),StandardCharsets.UTF_8)) {
             return new JsonParser().parse(r).getAsJsonArray();
@@ -35,7 +35,7 @@ class RetainedRunRegressionTest {
         return scenes;
     }
     private Snapshot at(Snapshot s,int tick,Tile player,List<Mob> mobs){return new Snapshot(tick,player,s.grid(),mobs,100,true,s.weaponRange(),Protection.NONE).atWave(s.wave());}
-    @Test void firstCapeWallShotRetainsWorkingTrapAfterCompletion()throws Exception {
+    @Test public void firstCapeWallShotRetainsWorkingTrapAfterCompletion()throws Exception {
         for(Snapshot s:scenes("main-027"))if(s.wave()==58) {
             Mob shot=CaveSafety.retainedSafeShot(s,-1);assertNotNull(shot);assertEquals(57539,shot.index());
             LureController lure=new LureController();lure.finishMeleeTrap();Tile home=new Tile(54,36);
@@ -43,23 +43,23 @@ class RetainedRunRegressionTest {
             assertEquals(s.player(),p.destination());assertEquals(57539,p.targetIndex());
         }
     }
-    @Test void secondCapeKeepsReachableShotsAndJadProtectionContracts()throws Exception {
+    @Test public void secondCapeKeepsReachableShotsAndJadProtectionContracts()throws Exception {
         List<Snapshot> frames=scenes("main-029");assertTrue(frames.stream().anyMatch(s->s.wave()==63));
         for(Snapshot s:frames) {
             assertFalse(s.mobs().isEmpty());
             if(s.wave()==63){assertTrue(s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD));continue;}
             Mob shot=CaveSafety.preferredShot(s,Protection.MAGIC);
-            assertNotNull(shot,"Retained second-cape combat frame must offer a shot at tick "+s.tick());assertTrue(CombatPlanner.playerCanAttack(s,s.player(),shot));
+            assertNotNull(shot, "Retained second-cape combat frame must offer a shot at tick "+s.tick());assertTrue(CombatPlanner.playerCanAttack(s,s.player(),shot));
         }
     }
-    @Test void originalPureRangerReleaseRemainsGuardedAgainstAdditionalShooters()throws Exception {
+    @Test public void originalPureRangerReleaseRemainsGuardedAgainstAdditionalShooters()throws Exception {
         Snapshot s=scenes("pure-057").stream().filter(f->f.player().equals(new Tile(34,26))).findFirst().orElseThrow();
         Mob ranger=s.mobs().stream().filter(m->m.kind()==Kind.RANGER).findFirst().orElseThrow();
         assertTrue(PureSafety.releaseSafe(s,ranger,Protection.RANGE));assertTrue(new PureCombatPlanner().attackAllowed(s,ranger,Protection.RANGE,false));
         List<Mob> extra=new ArrayList<>(s.mobs());extra.add(new Mob(999,Kind.MAGER,new Tile(40,26),5,10,10,-1,Protection.MAGIC,true));
         assertFalse(PureSafety.releaseSafe(at(s,s.tick(),s.player(),extra),ranger,Protection.RANGE));
     }
-    @Test void latestWave22FindsCheckedFullFiringApproachUnderPursuit()throws Exception {
+    @Test public void latestWave22FindsCheckedFullFiringApproachUnderPursuit()throws Exception {
         Snapshot s=scenes("pure-066").stream().filter(f->f.tick()==5362).findFirst().orElseThrow();
         assertEquals(new Tile(60,37),s.player());assertEquals(new Tile(60,23),s.mobs().get(0).tile());
         assertFalse(CombatPlanner.playerCanAttack(s,s.player(),s.mobs().get(0)));
@@ -74,7 +74,7 @@ class RetainedRunRegressionTest {
         assertTrue(new PureCombatPlanner().attackAllowed(arrived,following.get(0),shot.protection(),false));
         assertFalse(arrived.grid().melee(following.get(0),arrived.player()));
     }
-    @Test void rejectedEndpointIsRememberedUntilMonsterGeometryChanges()throws Exception {
+    @Test public void rejectedEndpointIsRememberedUntilMonsterGeometryChanges()throws Exception {
         Snapshot s=scenes("pure-066").get(0);PureCombatRecovery r=new PureCombatRecovery();r.observe(s);s=at(s,s.tick()+24,s.player(),s.mobs());r.observe(s);
         Plan first=r.plan(s);assertNotNull(first);r.rejected(s,first);s=at(s,s.tick()+1,s.player(),s.mobs());r.observe(s);Plan alternative=r.plan(s);assertNotNull(alternative);assertNotEquals(first.destination(),alternative.destination());
         java.lang.reflect.Field rejected=PureCombatRecovery.class.getDeclaredField("failed");rejected.setAccessible(true);

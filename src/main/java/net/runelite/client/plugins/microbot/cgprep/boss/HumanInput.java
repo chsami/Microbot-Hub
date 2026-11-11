@@ -73,7 +73,7 @@ public final class HumanInput
 			@Override
 			public Dimension getScreenSize()
 			{
-				return Microbot.getClient().getCanvas().getSize();
+				return gameSize();
 			}
 
 			@Override
@@ -104,12 +104,75 @@ public final class HumanInput
 	/** Walk clicks re-aimed after the cursor arrived (the tile had moved), for the fight log. */
 	volatile int reaimed;
 
+	/**
+	 * The area the cursor can actually be in: the game's own canvas size, which is what Microbot's
+	 * input layer accepts (1.8.2). With Stretched Mode the canvas COMPONENT is bigger; a point in
+	 * between was silently refused and the move below never arrived.
+	 */
+	static Dimension gameSize()
+	{
+		net.runelite.api.Client c = Microbot.getClient();
+		int w = c == null ? 0 : c.getCanvasWidth();
+		int h = c == null ? 0 : c.getCanvasHeight();
+		if (w > 0 && h > 0)
+		{
+			return new Dimension(w, h);
+		}
+		return c == null || c.getCanvas() == null ? new Dimension(765, 503) : c.getCanvas().getSize();
+	}
+
+	/** Longest one cursor move may take before it's given up (1.8.2). */
+	static final long MOVE_LIMIT_MS = 2000;
+
+	/** A move that can't arrive (refused or too slow): ends the gesture without a click. */
+	private static final class Stalled extends RuntimeException
+	{
+		Stalled()
+		{
+			super(null, null, false, false);
+		}
+	}
+
+	/** The running gesture's input, for the checks during a move (set by {@link #gesture}). */
+	private InputLoop.Emit emitNow;
+
 	/** Move along a natural path to (x, y). Call inside a gesture (see {@link #gesture}). */
 	private void moveTo(int x, int y) throws InterruptedException
 	{
 		overshoots.setOvershoots(Rs2AntibanSettings.simulateMistakes && rnd.nextDouble() < 0.12 ? 1 : 0);
-		new MouseMotion(nature, rnd, x, y).move();
+		travel(x, y);
 	}
+
+	/**
+	 * The natural-mouse move itself, kept from hanging (1.8.2, user + player report: the fight
+	 * froze mid-run and the player died). It only ends once the cursor is on the target, and when
+	 * Microbot quietly refuses a cursor move (outside the game area, your own mouse in use, a pause)
+	 * the cursor never gets there: the fight loop and Microbot's input lock stayed stuck in it. Now
+	 * the target is kept inside the game area, Microbot's own check runs at every step (a pause or
+	 * your mouse ends the gesture), and a move that hasn't arrived in {@link #MOVE_LIMIT_MS} is given up.
+	 */
+	private void travel(int x, int y) throws InterruptedException
+	{
+		Dimension d = gameSize();
+		int tx = Math.max(0, Math.min(d.width - 1, x));
+		int ty = Math.max(0, Math.min(d.height - 1, y));
+		long until = System.currentTimeMillis() + MOVE_LIMIT_MS;
+		InputLoop.Emit emit = emitNow;
+		new MouseMotion(nature, rnd, tx, ty).move((mx, my) ->
+		{
+			if (emit != null)
+			{
+				emit.checkpoint();
+			}
+			if (System.currentTimeMillis() > until || Thread.currentThread().isInterrupted())
+			{
+				throw new Stalled();
+			}
+		});
+	}
+
+	/** Moves given up as stuck (see {@link #travel}), for the fight log. */
+	volatile int stalled;
 
 	private interface Body
 	{
@@ -125,17 +188,32 @@ public final class HumanInput
 	private boolean gesture(Body body) throws InterruptedException
 	{
 		InterruptedException[] ie = new InterruptedException[1];
-		InputLoop.Result r = InputLoop.run(emit ->
+		InputLoop.Result r;
+		try
 		{
-			try
+			r = InputLoop.run(emit ->
 			{
-				body.run(emit);
-			}
-			catch (InterruptedException e)
-			{
-				ie[0] = e;
-			}
-		});
+				emitNow = emit;
+				try
+				{
+					body.run(emit);
+				}
+				catch (InterruptedException e)
+				{
+					ie[0] = e;
+				}
+				finally
+				{
+					emitNow = null;
+				}
+			});
+		}
+		catch (Stalled s)
+		{
+			stalled++;
+			Microbot.targetMenu = null;
+			return false; // the lock and any held button were released on the way out
+		}
 		if (ie[0] != null)
 		{
 			Thread.currentThread().interrupt();
@@ -169,7 +247,7 @@ public final class HumanInput
 				if (r != null && (r.x != p.x || r.y != p.y))
 				{
 					overshoots.setOvershoots(0);
-					new MouseMotion(nature, rnd, r.x, r.y).move();
+					travel(r.x, r.y);
 					q = r;
 					entry = t.entryAt.apply(r);
 					reaimed++;

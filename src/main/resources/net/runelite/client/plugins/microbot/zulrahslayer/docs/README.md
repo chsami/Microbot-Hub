@@ -11,6 +11,7 @@ The **Zulrah Slayer Plugin** is a RuneLite plugin for the Microbot framework tha
 - **Resupply:** Resupplies at the Grand Exchange
 - **Travel:** Automatically travels to Zulrah, using a fairy ring in your PoH
 - **Venom handling:** Automatically drinks antipoison if the venom damage is more than 10 to prevent taking too much passive damage
+- **Melee phases:** the bot moves two tiles away from Zulrah's tail swing at every melee position, then attacks again once it is out of reach
 
 ---
 
@@ -37,6 +38,7 @@ The **Zulrah Slayer Plugin** is a RuneLite plugin for the Microbot framework tha
 - Does not regear or get gear back in case of death (if your stats are high enough, this shouldn't really happen)
 - Does not support Zul-Andra teleport scrolls
 - Does not support Ring of Suffering
+- The melee-phase dodge does not check for venom clouds, so the bot can step into one while dodging
 
 ## Disclaimer
 

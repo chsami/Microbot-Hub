@@ -55,7 +55,7 @@ public final class PureHealerLure {
         Set<Integer> result=new HashSet<>();for(Mob m:s.mobs())if(m.kind()==Kind.HEALER)result.add(m.index());return result;
     }
     private static Snapshot at(Snapshot s,Tile p,List<Mob> mobs,int tick){
-        return new Snapshot(tick,p,s.grid(),mobs,s.runEnergy(),s.running(),s.weaponRange(),s.jadStyle(),s.meleeMode()).atWave(s.wave());
+        return new Snapshot(tick,p,s.grid(),mobs,s.runEnergy(),s.running(),s.weaponRange(),s.jadStyle()).atWave(s.wave());
     }
     private void enter(Phase next,Snapshot s,Tile nextGoal,String why){
         phase=next;phaseAt=progressAt=s.tick();blockedAt=verifiedAt=-1;goal=nextGoal;lastPlayer=s.player();reason=why;
@@ -136,7 +136,7 @@ public final class PureHealerLure {
      * Null means do not own this decision; never interpret it as a successful trap. */
     public Plan decide(Snapshot s,Tile italy,Set<Integer> confirmed,Set<Integer> targetingJad,boolean moving) {
         Mob boss=jad(s);Set<Integer> living=indices(s);
-        if(s.meleeMode()||boss==null||living.isEmpty()||italy==null)return null;
+        if(boss==null||living.isEmpty()||italy==null)return null;
         if(active()&&(boss.index()!=jadIndex||!living.equals(group)||!italy.equals(home))) {
             abandon("Healer generation / scene changed");return null;
         }

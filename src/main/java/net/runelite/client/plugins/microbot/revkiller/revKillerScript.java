@@ -50,10 +50,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class revKillerScript extends Script {
     static final int MAX_FLEE_TELEPORT_ATTEMPTS = 5;
+    static final String NO_DUELING_RING_MESSAGE = "Revenant Killer stopped: no charged Ring of dueling in your bank. The plugin wears a Ring of dueling to teleport out of the caves. Put Rings of dueling in your bank and start the plugin again.";
+    static final String NO_DUELING_RING_POPUP = "<html>Revenant Killer stopped: no charged Ring of dueling in your bank.<br>The plugin wears a Ring of dueling to teleport out of the caves.<br>Put Rings of dueling in your bank and start the plugin again.</html>";
+    static final String NO_GLORY_MESSAGE = "Revenant Killer stopped: no charged Amulet of glory in your bank. The plugin wears a charged Amulet of glory to teleport out of the caves. Put charged Amulets of glory in your bank and start the plugin again.";
+    static final String NO_GLORY_POPUP = "<html>Revenant Killer stopped: no charged Amulet of glory in your bank.<br>The plugin wears a charged Amulet of glory to teleport out of the caves.<br>Put charged Amulets of glory in your bank and start the plugin again.</html>";
     private revKillerConfig config;
     @Provides
     revKillerConfig provideConfig(ConfigManager configManager) {
@@ -1128,51 +1134,11 @@ public class revKillerScript extends Script {
             }
             howtobank = generateRandomNumber(0,100);
             if(howtobank <= 40){
-                if(Rs2Equipment.get(EquipmentInventorySlot.AMULET).getName().equals("Amulet of glory")){
-                    Microbot.log("Getting a fresh amulet of glory");
-                    if(Rs2Bank.get(it->it!=null&&it.getName().contains("Amulet of glory(")) != null){
-                        if(!Rs2Inventory.contains(it->it!=null&&it.getName().contains("Amulet of glory("))){
-                            if(Rs2Bank.withdrawX(it->it!=null&&it.getName().contains("Amulet of glory("), 1)){
-                                sleepUntil(()-> Rs2Inventory.contains(it->it!=null&&it.getName().contains("Amulet of glory(")), generateRandomNumber(5000,15000));
-                            }
-                        }
-                    } else {
-                        Microbot.log("Out of amulets of glory 6");
-                        super.shutdown();
-                    }
-                    if(Rs2Inventory.contains(it->it!=null&&it.getName().contains("Amulet of glory("))){
-                        if(Rs2Inventory.interact(it->it!=null&&it.getName().contains("Amulet of glory("), "Wear")){
-                            sleepUntil(()-> Rs2Equipment.isWearing(it->it!=null&&it.getName().contains("Amulet of glory(")), generateRandomNumber(5000,15000));
-                        }
-                    }
-                    if(Rs2Inventory.contains(ItemID.AMULET_OF_GLORY)){
-                        Rs2Bank.depositOne("Amulet of glory", true);
-                        sleepUntil(()-> !Rs2Inventory.contains(ItemID.AMULET_OF_GLORY), generateRandomNumber(5000,15000));
-                    }
-                }
+                if(!equipChargedGloryAtBank()) return;
             }
             howtobank = generateRandomNumber(0,100);
             if(howtobank <= 40){
-                if(Rs2Equipment.get(EquipmentInventorySlot.RING)!=null){
-                    // we have our ring do nothing
-                } else {
-                    Microbot.log("Getting the ring of dueling");
-                    if(Rs2Bank.count(ItemID.RING_OF_DUELING8)>0){
-                        if(!Rs2Inventory.contains(ItemID.RING_OF_DUELING8)){
-                            if(Rs2Bank.withdrawX(ItemID.RING_OF_DUELING8, 1)){
-                                sleepUntil(()-> Rs2Inventory.contains(ItemID.RING_OF_DUELING8), generateRandomNumber(5000,15000));
-                            }
-                        }
-                    } else {
-                        Microbot.log("Out of rings of dueling");
-                        super.shutdown();
-                    }
-                    if(Rs2Inventory.contains(ItemID.RING_OF_DUELING8)){
-                        if(Rs2Inventory.interact(ItemID.RING_OF_DUELING8, "Wear")){
-                            sleepUntil(()-> isWearingDuelingRing(), generateRandomNumber(5000,15000));
-                        }
-                    }
-                }
+                if(!equipDuelingRingAtBank()) return;
             }
             howtobank = generateRandomNumber(0,100);
             //bracelet of eth
@@ -1332,6 +1298,50 @@ public class revKillerScript extends Script {
 
         }
     }
+    boolean equipDuelingRingAtBank(){
+        return wearFromBank(EquipmentInventorySlot.RING, revKillerScript::hasDuelingTeleport, revKillerScript::isChargedDuelingRing,
+                "a Ring of dueling", NO_DUELING_RING_MESSAGE, NO_DUELING_RING_POPUP);
+    }
+
+    boolean equipChargedGloryAtBank(){
+        return wearFromBank(EquipmentInventorySlot.AMULET, revKillerScript::hasGloryTeleport, revKillerScript::isChargedGlory,
+                "a charged Amulet of glory", NO_GLORY_MESSAGE, NO_GLORY_POPUP);
+    }
+
+    private boolean wearFromBank(EquipmentInventorySlot slot, BooleanSupplier alreadyWorn, Predicate<Rs2ItemModel> bankItem, String requirement, String stopMessage, String stopPopup){
+        if(alreadyWorn.getAsBoolean()) return true;
+        Microbot.log("Getting " + requirement);
+        Rs2ItemModel wornItem = Rs2Equipment.get(slot);
+        if(!Rs2Inventory.contains(bankItem)){
+            if(Rs2Bank.get(bankItem) == null){
+                stopWithReason(stopMessage, stopPopup);
+                return false;
+            }
+            if(Rs2Bank.withdrawX(bankItem, 1)){
+                sleepUntil(()-> Rs2Inventory.contains(bankItem), generateRandomNumber(5000,15000));
+            }
+        }
+        if(Rs2Inventory.contains(bankItem)){
+            if(Rs2Inventory.interact(bankItem, "Wear")){
+                sleepUntil(alreadyWorn, generateRandomNumber(5000,15000));
+            }
+        }
+        if(wornItem != null && alreadyWorn.getAsBoolean() && Rs2Inventory.contains(wornItem.getId())){
+            if(Rs2Bank.depositOne(wornItem.getId())){
+                sleepUntil(()-> !Rs2Inventory.contains(wornItem.getId()), generateRandomNumber(5000,15000));
+                Microbot.log("Swapped your " + wornItem.getName() + " for the " + equippedName(slot) + " from your bank. Your " + wornItem.getName()
+                        + " is in your bank. The plugin needs " + requirement + " to teleport out of the caves.");
+            }
+        }
+        return true;
+    }
+
+    private void stopWithReason(String message, String popup){
+        Microbot.log(message);
+        Microbot.stopPlugin(revKillerPlugin.class);
+        Microbot.showMessage(popup);
+    }
+
     public int generateRandomNumber(int min, int max) {
         return Rs2Random.nextInt(min, max, 1000, true);
     }
@@ -1442,7 +1452,7 @@ public class revKillerScript extends Script {
         return false;
     }
 
-    if (!Rs2Equipment.get(EquipmentInventorySlot.RING).getName().contains("dueling")) {
+    if (!hasDuelingTeleport()) {
         Microbot.log("We don't have our ring of dueling");
         return false;
     }
@@ -1462,7 +1472,7 @@ public class revKillerScript extends Script {
         return false;
     }
 
-    if (!Rs2Equipment.get(EquipmentInventorySlot.AMULET).getName().contains("Amulet of glory(")) {
+    if (!hasGloryTeleport()) {
         Microbot.log("amulet is not charged");
         return false;
     }
@@ -1559,18 +1569,19 @@ public class revKillerScript extends Script {
         return false;
     }
 
-    static boolean isWearingDuelingRing() {
-        Rs2ItemModel ring = Rs2Equipment.get(EquipmentInventorySlot.RING);
-        return ring != null && ring.getName() != null && ring.getName().contains("dueling");
+    static boolean hasDuelingTeleport() {
+        return isChargedDuelingRing(Rs2Equipment.get(EquipmentInventorySlot.RING));
     }
 
-    static boolean hasDuelingTeleport() {
-        Rs2ItemModel ring = Rs2Equipment.get(EquipmentInventorySlot.RING);
+    static boolean isChargedDuelingRing(Rs2ItemModel ring) {
         return ring != null && ring.getName() != null && ring.getName().toLowerCase().matches("ring of dueling\\s?\\(\\d\\)");
     }
 
     static boolean hasGloryTeleport() {
-        Rs2ItemModel amulet = Rs2Equipment.get(EquipmentInventorySlot.AMULET);
+        return isChargedGlory(Rs2Equipment.get(EquipmentInventorySlot.AMULET));
+    }
+
+    static boolean isChargedGlory(Rs2ItemModel amulet) {
         if (amulet == null || amulet.getName() == null) return false;
         String name = amulet.getName().toLowerCase();
         return name.equals("amulet of eternal glory") || name.matches("amulet of glory\\s?\\(t?\\d\\)");

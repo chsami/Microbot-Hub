@@ -15,7 +15,7 @@ public final class PureRangerSpacing {
     private int started=-1,retryAfter=-1;
     public void reset(){goal=null;started=retryAfter=-1;}
     public Plan decide(Snapshot s) {
-        if(s.meleeMode()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER))return null;
+        if(s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER))return null;
         List<Mob> rangers=new ArrayList<>();
         for(Mob m:s.mobs())if(m.kind()==Kind.RANGER)rangers.add(m);
         if(goal!=null) {

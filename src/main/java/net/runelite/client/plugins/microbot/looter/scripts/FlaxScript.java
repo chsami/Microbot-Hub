@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.looter.scripts;
 
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.looter.AutoLooterConfig;
@@ -107,7 +108,9 @@ public class FlaxScript extends Script {
     }
 
     private boolean isNearFlaxLocation(AutoLooterConfig config, int distance) {
-        return Rs2Player.getWorldLocation().distanceTo(config.flaxLocation().getWorldPoint()) <= distance;
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null) return false;
+        return playerLocation.distanceTo(config.flaxLocation().getWorldPoint()) <= distance;
     }
 
     private void applyAntiBanSettings() {

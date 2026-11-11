@@ -37,7 +37,7 @@ public class OptionalSupplyPolicyTest {
     private static class Bank implements FcRangePrepot.Input {
         boolean open=true,stocked=true;int drinks,deposits,withdraws;String name;
         public boolean bankOpen(){return open;}public void closeBank(){open=false;}public void openBank(){open=true;}
-        public OptionalActions.ItemResult drink(FcFrame.ItemSlot i){drinks++;return OptionalActions.ItemResult.SENT;}
+        public FcActions.ItemResult drink(FcFrame.ItemSlot i){drinks++;return FcActions.ItemResult.SENT;}
         public boolean stocked(String n){return stocked;}public void deposit(int id){deposits++;}
         public void withdraw(String n){withdraws++;name=n;}
     }

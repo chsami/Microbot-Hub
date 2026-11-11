@@ -78,7 +78,7 @@ public class RangedProtectionPriorityTest {
             Protection next=clock.choose(frame(tick,mage,ranger,melee),false,held,Protection.NONE).protection;
             if(tick>=12) {
                 Protection expected=tick%4==0?Protection.MAGIC:tick%4==1?Protection.RANGE:tick%4==2?Protection.MELEE:Protection.MAGIC;
-                assertEquals(expected,next,"Pre-arm server tick "+(tick+1));
+                assertEquals(expected,next, "Pre-arm server tick "+(tick+1));
             }
             held=next;
         }
@@ -118,7 +118,7 @@ public class RangedProtectionPriorityTest {
                 clock.beginTick(tick,List.of(mage,blob));
                 Snapshot s=frame(tick,mage,blob);
                 Protection next=clock.choose(s,false,held,Protection.NONE).protection;
-                if(tick>=12)assertEquals(tick%4==2?Protection.MELEE:Protection.MAGIC,next,"Small blob "+kind+" pre-arm "+(tick+1));
+                if(tick>=12)assertEquals(tick%4==2?Protection.MELEE:Protection.MAGIC,next, "Small blob "+kind+" pre-arm "+(tick+1));
                 if(tick%4==0&&tick>=12)assertTrue(clock.inputWindowTicks(s,false,next)<=1);
                 held=next;
             }

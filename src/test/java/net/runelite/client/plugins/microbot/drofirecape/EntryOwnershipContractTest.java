@@ -4,7 +4,7 @@ import java.lang.reflect.Field;
 import net.runelite.client.plugins.microbot.drofirecape.core.SupplyAck;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
-class EntryOwnershipContractTest {
+public class EntryOwnershipContractTest {
     static class Config implements DroFirecapeConfig {int rotation;@Override public int entryRotation(){return rotation;}}
     static class Actions extends FcActions {
         final Object source=new Object();int second=22,entries,idles;
@@ -12,9 +12,7 @@ class EntryOwnershipContractTest {
         @Override FcPredictorGate.Sample predictor(boolean inside){return sample(second);}
         @Override boolean zoomConfirmed(){return true;}
         @Override boolean entryProtectionReady(){return true;}
-        @Override boolean entryProtectionReady(boolean conservation){return true;}
         @Override boolean enterPredictedRotation(FcPredictorGate gate,int rotation){entries++;return true;}
-        @Override boolean enterPredictedRotation(FcPredictorGate gate,int rotation,boolean conservation){entries++;return true;}
         @Override void idlePrayersOff(){idles++;}
     }
     static Object get(Object o,String field)throws Exception {
@@ -34,20 +32,20 @@ class EntryOwnershipContractTest {
         }
         void step(int tick,int item)throws Exception {script.rotationWait(FirecapeTestClient.frame(tick,item));}
     }
-    @Test void startupObservedRestoreClearsDebtAndAllowsDefaultAnyEntry()throws Exception {
+    @Test public void startupObservedRestoreClearsDebtAndAllowsDefaultAnyEntry()throws Exception {
         for(boolean pure:new boolean[]{false,true}) {
             Fixture f=new Fixture(pure,true);f.script.supplyRequested(FirecapeTestClient.frame(100,3024),new FcFrame.ItemSlot(0,3024,1,"Super restore(4)",java.util.List.of("Drink")));FirecapeTestClient.set(f.script,"brewDebt",3);
             f.step(101,3026);assertFalse(f.ack.pending());assertEquals(0,get(f.script,"brewDebt"));assertEquals(1,f.actions.entries);assertEquals(0,f.actions.idles);
             assertEquals(DroFirecapeScript.State.ENTERING,f.script.state());
         }
     }
-    @Test void unconsumedStartupDoseTimesOutBeforeEntryWithoutPretendingConsumption()throws Exception {
+    @Test public void unconsumedStartupDoseTimesOutBeforeEntryWithoutPretendingConsumption()throws Exception {
         for(boolean pure:new boolean[]{false,true}) {
             Fixture f=new Fixture(pure,true);if(pure)f.ack.sent(3024,4,100,SupplyAck.Kind.RESTORE,System.currentTimeMillis());else f.ack.sent(3024,1,100,SupplyAck.Kind.RESTORE);f.step(101,3024);assertTrue(f.ack.pending());assertEquals(0,f.actions.entries);
             if(pure)f.ack.sent(3024,4,100,SupplyAck.Kind.RESTORE,System.currentTimeMillis()-3001);f.actions.second=23;f.step(105,3024);assertFalse(f.ack.pending());assertEquals(1,f.actions.entries);
         }
     }
-    @Test void chosenRotationAndUncalibratedPredictorCannotBeBypassedByConsumption()throws Exception {
+    @Test public void chosenRotationAndUncalibratedPredictorCannotBeBypassedByConsumption()throws Exception {
         for(boolean pure:new boolean[]{false,true}) {
             Fixture selected=new Fixture(pure,true);selected.config.rotation=5;selected.step(101,3024);assertEquals(0,selected.actions.entries);
             selected.config.rotation=0;selected.actions.second=23;selected.step(102,3024);assertEquals(1,selected.actions.entries);

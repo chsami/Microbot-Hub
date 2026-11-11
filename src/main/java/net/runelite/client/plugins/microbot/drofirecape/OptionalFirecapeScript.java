@@ -29,7 +29,6 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
     public OptionalFirecapeScript(){super(true);}
 
     private final BrewHealing brewHealing=new BrewHealing();
-    private final OpeningBatPolicy openingBats=new OpeningBatPolicy();
     private final PureHealerLure pureHealerLure=new PureHealerLure();
     private final HealerPullLease healerPullLease=new HealerPullLease();
     private String lastHealerLureState="";
@@ -47,91 +46,80 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
     @Override protected boolean exitOnDamage(){return false;}
     @Override protected boolean traceEnabled(){return config.recordRun();}
     @Override protected String startupDetail(){return "; Record run="+config.recordRun()+" (collision maps saved after cave decisions)";}
-    @Override protected FcTickPrayers createTickPrayers(){return new OptionalTickPrayers(client,meleeMode,events::add);}
-    @Override protected FcFrame captureFrame(){return FcFrame.captureOptional(client,0,meleeMode,jadStyle,attackTicks,attackStyles,dead);}
+    @Override protected FcFrame captureFrame(){return FcFrame.captureOptional(client,0,jadStyle,attackTicks,attackStyles,dead);}
     @Override protected void resetVariantRun() {
-        lastObservationTick=-1;lastObservedControls=lastObservedSettings=lastHealerLureState="";pureHealerLure.reset();healerPullLease.reset();openingBats.reset();
+        lastObservationTick=-1;lastObservedControls=lastObservedSettings=lastHealerLureState="";pureHealerLure.reset();healerPullLease.reset();
         pureRunAttempt=-1000;pureWave=pureFailedMoveTick=-1;pureResetAfterReturn=false;brewHealing.reset();pureSpacing.reset();purePlanner.reset();pureLures.reset();
     }
     @Override protected void resetVariantHealers(){pureHealerLure.reset();healerPullLease.reset();}
     @Override protected void resetVariantTransition(){brewHealing.reset();pureHealerLure.reset();healerPullLease.reset();}
-    @Override protected void resetVariantPlanning(boolean resetLure){openingBats.reset();pureHealerLure.reset();healerPullLease.reset();pureTraceTick=-1;pureCombatRecovery.reset();pureRepositionWatchdog.reset();pureSpacing.reset();purePlanner.reset();if(resetLure){pureLures.reset();pureWave=pureFailedMoveTick=-1;pureResetAfterReturn=false;}}
+    @Override protected void resetVariantPlanning(boolean resetLure){pureHealerLure.reset();healerPullLease.reset();pureTraceTick=-1;pureCombatRecovery.reset();pureRepositionWatchdog.reset();pureSpacing.reset();purePlanner.reset();if(resetLure){pureLures.reset();pureWave=pureFailedMoveTick=-1;pureResetAfterReturn=false;}}
     @Override protected void rebaseVariant(int dx,int dy){pureLures.rebase(dx,dy);}
     @Override protected void userTookControl(){if(pureHealerLure.active()){pureHealerLure.abandon("User/pause took control during the pull");movement.reset();}}
-    @Override protected boolean cameraNeedsOffscreenTarget(){return !config.pureMode();}
-    @Override protected boolean entryProtectionReady(){return actions.entryProtectionReady(config.prayerConservation());}
+    @Override protected boolean cameraNeedsOffscreenTarget(){return false;}
     @Override protected String entryProtectionStatus(){return "confirming the configured entry prayer state";}
-    @Override protected boolean enterPredictedRotation(int rotation){return actions.enterPredictedRotation(entryGate,rotation,config.prayerConservation());}
     @Override protected Protection heldCaveProtection(Snapshot model,Protection protection) {
-        // Opt-in remote/empty idle gaps may release a merely held prayer.
-        // Explicit route guards and every mage/Jad safeguard remain intact.
-        if(!(config.prayerConservation()&&protection==Protection.NONE&&PrayerConservation.remote(model)))
-            return config.pureMode()?PureMageGuard.held(model,protection,requestedCaveProtection):
-                HeldProtection.choose(model,protection,requestedCaveProtection);
-        return protection;
+        return PureMageGuard.held(model,protection,requestedCaveProtection);
     }
     @Override protected boolean beforeHealerCancellation(FcFrame f,Protection urgent) {
-        if((!config.pureMode()||FcSupplyPolicy.criticalHealth(f.model,f.hp,f.maxHp))
+        if(FcSupplyPolicy.criticalHealth(f.model,f.hp,f.maxHp)
             &&healingNeeded(f)&&supplies(f,urgent))return true;
         // Preserve the final trapped monster before immediate Pure shots can finish the wave.
-        return !exitRequested&&config.pureMode()&&healWithSweets(f,urgent);
+        return !exitRequested&&healWithSweets(f,urgent);
     }
     @Override protected boolean variantCombat(FcFrame f,Protection urgent) {
-        return config.pureMode()&&!meleeMode
-            &&f.model.mobs().stream().noneMatch(m->m.kind()==Kind.JAD)&&handlePureCombat(f,urgent);
+        return f.model.mobs().stream().noneMatch(m->m.kind()==Kind.JAD)&&handlePureCombat(f,urgent);
     }
     @Override protected Boolean variantHealerPull(FcFrame f,Snapshot model,Protection urgent) {
         // Only the pure ranged owner may select the exposed-Jad Italy pull.
         // A trapped Jad or an untagged group never enters this controller.
-        if(config.pureMode()&&!meleeMode) {
-            Plan healerPlan=pureHealerLure.decide(model,f.recordedAnchor(RecordedLureBook.ITALY),
-                healers.confirmedIndices(),f.healersTargetingJad,f.moving);
-            String lureState=pureHealerLure.phase()+": "+pureHealerLure.reason();
-            if(!lureState.equals(lastHealerLureState)) {
-                lastHealerLureState=lureState;
-                trace.event("pure-healer-lure","tick="+f.tick+" player="+model.player()+" "+lureState);
+        Plan healerPlan=pureHealerLure.decide(model,f.recordedAnchor(RecordedLureBook.ITALY),
+            healers.confirmedIndices(),f.healersTargetingJad,f.moving);
+        String lureState=pureHealerLure.phase()+": "+pureHealerLure.reason();
+        if(!lureState.equals(lastHealerLureState)) {
+            lastHealerLureState=lureState;
+            trace.event("pure-healer-lure","tick="+f.tick+" player="+model.player()+" "+lureState);
+        }
+        if(healerPlan!=null) {
+            combatPhase=lureState;plan=healerPlan;prayerPlanTick=f.tick;
+            healerRetreat=healerPlan.destination();
+            Protection protection=urgent!=Protection.NONE?urgent:healerPlan.protection();
+            if(!protectInCave(protection))return true;
+            if(movement.pending()) {
+                // Validate the actual outstanding click, not a newly chosen
+                // alternative path while the old command is still running.
+                Plan remaining=MinimapMovement.healerChecked(model,healerRetreat,movement.destination(),
+                    protection,healerPlan.reason());
+                if(!CombatPlanner.actionable(remaining,false)) {
+                    pureHealerLure.abandon("Outstanding healer route became unsafe: "+remaining.reason());
+                    healerPlan=null;
+                } else {
+                    plan=remaining;movePlan(f,remaining);status=remaining.reason();return true;
+                }
             }
             if(healerPlan!=null) {
-                combatPhase=lureState;plan=healerPlan;prayerPlanTick=f.tick;
-                healerRetreat=healerPlan.destination();
-                Protection protection=urgent!=Protection.NONE?urgent:healerPlan.protection();
-                if(!protectInCave(protection))return true;
-                if(movement.pending()) {
-                    // Validate the actual outstanding click, not a newly chosen
-                    // alternative path while the old command is still running.
-                    Plan remaining=MinimapMovement.healerChecked(model,healerRetreat,movement.destination(),
-                        protection,healerPlan.reason());
-                    if(!CombatPlanner.actionable(remaining,false)) {
-                        pureHealerLure.abandon("Outstanding healer route became unsafe: "+remaining.reason());
-                        healerPlan=null;
-                    } else {
-                        plan=remaining;movePlan(f,remaining);status=remaining.reason();return true;
-                    }
+                if(!healerPlan.nextStep().equals(model.player()))movePlan(f,healerPlan);
+                else if(healerPlan.targetIndex()>=0) {
+                    int targetIndex=healerPlan.targetIndex();
+                    Mob boss=model.mobs().stream().filter(m->m.index()==targetIndex).findFirst().orElse(null);
+                    if(boss!=null&&(f.interactingIndex!=boss.index()||forceReengage))
+                        dispatchAttack(f,boss,true,"verified Italy healer separation");
                 }
-                if(healerPlan!=null) {
-                    if(!healerPlan.nextStep().equals(model.player()))movePlan(f,healerPlan);
-                    else if(healerPlan.targetIndex()>=0) {
-                        int targetIndex=healerPlan.targetIndex();
-                        Mob boss=model.mobs().stream().filter(m->m.index()==targetIndex).findFirst().orElse(null);
-                        if(boss!=null&&(f.interactingIndex!=boss.index()||forceReengage))
-                            dispatchAttack(f,boss,true,"verified Italy healer separation");
-                    }
-                    status=healerPlan.reason();return true;
-                }
+                status=healerPlan.reason();return true;
             }
-            if(pureHealerLure.attempted()) {
-                // Bounded failure, not success. Keep the old command ledger
-                // until the existing Jad-protected cancellation observes a stop.
-                healers.lureComplete();healerPullLease.reset();lastPlanTick=-1;forceReengage=true;
-                trace.event("pure-healer-fallback",pureHealerLure.reason());
-                if(cancelHealerRetreat(f))return true;
-                healerRetreat=null;return false;
-            }
+        }
+        if(pureHealerLure.attempted()) {
+            // Bounded failure, not success. Keep the old command ledger
+            // until the existing Jad-protected cancellation observes a stop.
+            healers.lureComplete();healerPullLease.reset();lastPlanTick=-1;forceReengage=true;
+            trace.event("pure-healer-fallback",pureHealerLure.reason());
+            if(cancelHealerRetreat(f))return true;
+            healerRetreat=null;return false;
         }
         return null;
     }
     @Override protected boolean healerPullExpired(FcFrame f,Snapshot model,Plan retreat) {
-        if(config.pureMode()&&!healerPullLease.allow(f.tick,model.player(),healerRetreat,
+        if(!healerPullLease.allow(f.tick,model.player(),healerRetreat,
             CombatPlanner.actionable(retreat,false))) {
             trace.event("healer-pull-expired","tick="+f.tick+" goal="+healerRetreat+" reason="+retreat.reason());
             movement.reset();healerRetreat=null;healers.lureComplete();healerPullLease.reset();
@@ -139,24 +127,36 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
         }
         return false;
     }
-    @Override protected boolean batFirstAllowed(){return !config.pureMode();}
-    @Override protected CombatPlanner attackPlanner(FcFrame current){return config.pureMode()&&!meleeMode&&!hasJad(current)?purePlanner:planner;}
-    @Override protected boolean primesWithoutOffence(){return config.prayerConservation();}
+    @Override protected CombatPlanner attackPlanner(FcFrame current){return !hasJad(current)?purePlanner:planner;}
     @Override protected MoveOwner moveOwner(FcFrame current,Plan p) {
-        boolean spacingPure=config.pureMode()&&!meleeMode&&!hasJad(current)&&pureSpacing.owns(p);
-        boolean recoveringPure=config.pureMode()&&!meleeMode&&!hasJad(current)&&!spacingPure&&pureCombatRecovery.owns(p);
-        boolean exposedHealerPull=config.pureMode()&&!meleeMode&&hasJad(current)&&pureHealerLure.owns(p);
+        boolean spacingPure=!hasJad(current)&&pureSpacing.owns(p);
+        boolean recoveringPure=!hasJad(current)&&!spacingPure&&pureCombatRecovery.owns(p);
+        boolean exposedHealerPull=hasJad(current)&&pureHealerLure.owns(p);
         return new MoveOwner(spacingPure,recoveringPure,exposedHealerPull);
     }
     @Override protected void moveRejected(FcFrame current,Snapshot live,Plan p,MoveOwner owner) {
         if(owner.spacing)pureSpacing.yieldToRecovery(current.tick);
-        if(config.pureMode()&&!meleeMode&&!hasJad(current)&&!exitRequested) {
+        if(!hasJad(current)&&!exitRequested) {
             pureCombatRecovery.rejected(live,p);lastFailedMoveTick=current.tick;
         }
     }
+    private boolean pureRouteAllowed(Snapshot live,FcModel.Tile destination,MoveOwner owner) {
+        return owner.recovering?pureCombatRecovery.routeAllowed(live,destination):PureSafety.routeAllowed(live,destination);
+    }
+    /** Wave 38: a refused full lure leg left the player standing while both attackers closed in.
+     * Walk the longest part of the same leg that the pure check accepts; the plan is re-made next tick. */
+    @Override protected Plan variantRouteLeg(FcFrame current,Snapshot live,Plan checked,Protection protection,MoveOwner owner,boolean strict) {
+        if(hasJad(current)||exitRequested||owner.healerPull
+            ||pureRouteAllowed(live,checked.nextStep(),owner))return checked;
+        FcModel.Tile leg=PureSafety.allowedLeg(live,checked.nextStep(),t->pureRouteAllowed(live,t,owner),
+            t->CombatPlanner.actionable(MinimapMovement.checked(live,checked.destination(),t,protection,checked.reason()),strict));
+        if(leg==null)return checked;
+        trace.event("pure-route-shortened","from="+live.player()+" full="+checked.nextStep()+" leg="+leg+" "+checked.reason());
+        return MinimapMovement.checked(live,checked.destination(),leg,protection,checked.reason());
+    }
     @Override protected boolean variantRouteRejected(FcFrame current,Snapshot live,Plan checked,MoveOwner owner) {
-        if(config.pureMode()&&!meleeMode&&!hasJad(current)&&!exitRequested
-            &&!(owner.recovering?pureCombatRecovery.routeAllowed(live,checked.nextStep()):PureSafety.routeAllowed(live,checked.nextStep()))) {
+        if(!hasJad(current)&&!exitRequested
+            &&!pureRouteAllowed(live,checked.nextStep(),owner)) {
             pureLures.movementFailed();purePlanner.widenSearch();lastPlanTick=-1;
             pureCombatRecovery.rejected(live,checked);lastFailedMoveTick=current.tick;
             if(owner.spacing)pureSpacing.yieldToRecovery(current.tick);
@@ -165,7 +165,7 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
         }
         return false;
     }
-    @Override protected boolean keepsFightingWhenDepleted(){return config.pureMode();}
+    @Override protected boolean keepsFightingWhenDepleted(){return true;}
     @Override protected boolean supplyCritical(FcFrame f,boolean healing) {
         return healing||brewDebt>0||f.prayer<=8||FcSupplyPolicy.criticalHealth(f.model,f.hp,f.maxHp);
     }
@@ -200,7 +200,6 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
                 .findFirst().orElse(null);
             if(item==null&&f.prayer<=config.restorePrayer())item=f.inventory.stream()
                 .filter(i->isPrayerPotion(i.name())).findFirst().orElse(null);
-            if(item==null&&f.prayer<=3&&!config.pureMode()){failForSupplies("Prayer potions or super restores");return null;}
         }
         if(item==null&&healing) {
             if(brewAllowed(f))item=f.inventory.stream()
@@ -212,38 +211,24 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
         }
         return new SupplyChoice(item,action);
     }
-    @Override protected boolean sweetsWaitForLureReturn(){return !config.pureMode();}
-    @Override protected boolean recoveryPauseUnneeded(FcFrame f){return config.pureMode()&&!PrayerConservation.recoveryNeeded(f.hp,f.maxHp);}
+    @Override protected boolean sweetsWaitForLureReturn(){return false;}
+    @Override protected boolean spawnAwareTransitions(){return true;}
+    @Override protected boolean recoveryPauseUnneeded(FcFrame f){return !OptionalRecoveryPolicy.pauseNeeded(f.hp,f.maxHp);}
     @Override protected String pauseRequestDetail(FcFrame f) {
-        return " HP="+f.hp+"/"+f.maxHp+" prayer="+f.prayer+"/"+f.maxPrayer+" pureNeedsRecovery="+config.pureMode();
+        return " HP="+f.hp+"/"+f.maxHp+" prayer="+f.prayer+"/"+f.maxPrayer+" pureNeedsRecovery=true";
     }
     @Override protected FcRecoveryPolicy.Decision recoveryDecision(FcFrame f) {
-        OptionalRecoveryPolicy.Decision recovery=OptionalRecoveryPolicy.choose(f,meleeMode,config.usePurpleSweets(),
+        OptionalRecoveryPolicy.Decision recovery=OptionalRecoveryPolicy.choose(f,config.usePurpleSweets(),
             config.recoveryOverbrew()&&energyPause.nextWave()>=53,40,config.recoveryPrayerPercent(),true,
-            true,energyPause.nextWave(),brewDebt,supplyAck.pending(),config.pureMode());
+            true,energyPause.nextWave(),brewDebt,supplyAck.pending(),true);
         return new FcRecoveryPolicy.Decision(recovery.item,recovery.action,recovery.status,recovery.ready);
     }
     @Override protected void recoveryReady(FcFrame f,String status) {
         trace.event("recovery-ready",status+"; HP="+f.hp+"/"+f.maxHp+" prayer="+f.prayer+"/"+f.maxPrayer);
     }
     @Override protected String resumeStatus() {
-        return config.pureMode()&&frame!=null&&frame.prayer==0?
+        return frame!=null&&frame.prayer==0?
             "Fresh cave observed; continuing Pure run with exhausted prayer":super.resumeStatus();
-    }
-    @Override protected void prepareTickDriver(FcTickPrayers driver) {
-        driver.nativeWidgets(config!=null&&config.nativeTickPrayers());
-        driver.pureTinyPrayers(config!=null&&config.pureMode());
-        driver.conservation(config!=null&&config.prayerConservation());
-        driver.pureWave(waves.wave());
-    }
-    @Override protected void afterTickDriver(FcTickPrayers driver) {
-        if(config!=null&&config.nativeTickPrayers())
-            driver.clientTick(prayerInputAllowed(),config!=null&&config.offensivePrayer(),movement.pending());
-    }
-    @Override protected void configureClientTickDriver(FcTickPrayers driver) {
-        driver.nativeWidgets(config!=null&&config.nativeTickPrayers());
-        driver.pureTinyPrayers(config!=null&&config.pureMode());
-        driver.conservation(config!=null&&config.prayerConservation());
     }
     @Override protected Protection attackAnimation(Kind kind,int animation){return AttackClock.animationWithTiny(kind,animation);}
     private int lastObservationTick=-1;
@@ -251,8 +236,8 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
     @Override
     protected void captureObservation(FcFrame f,String controls) {
         if(f==null||!f.cave)return;
-        String settings="pure="+config.pureMode()+" native="+config.nativeTickPrayers()+" melee="+meleeMode
-            +" offence="+config.offensivePrayer()+" effectiveOffence="+offenceEnabled(f)+" conservation="+config.prayerConservation()+" recovery="+config.energyPause()+" rotationPreference="+config.entryRotation();
+        String settings="input="+input.mode()
+            +" magic="+FcMagic.weapon(f.weapon)+" effectiveOffence="+OffenceTargets.offence(f.interactingIndex,f.model)+" recovery="+config.energyPause()+" rotationPreference="+config.entryRotation();
         if(!settings.equals(lastObservedSettings)){lastObservedSettings=settings;trace.event("settings-observed","tick="+f.tick+" "+settings);}
         if(!controls.equals(lastObservedControls)){lastObservedControls=controls;trace.event("control-ownership","tick="+f.tick+" "+controls+"; detector state, not attribution of every input");}
         if(lastObservationTick==f.tick)return;
@@ -266,14 +251,16 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
         Mob target=null;int best=Integer.MIN_VALUE;
         Protection protect=actions.attackProtection(desiredCaveProtection(urgent!=Protection.NONE?urgent:CombatPlanner.protectionForNextTick(model,model.player())));
         for(Mob m:model.mobs())if(CombatPlanner.playerCanAttack(model,model.player(),m)) {
-            int score=PureCombatPolicy.targetPriority(model,m,protect)+(m.index()==f.interactingIndex?15:0)-m.distance(model.player());
+            // A bat just frozen is shot next, before the freeze ends (user: never let bats hit).
+            int score=PureCombatPolicy.targetPriority(model,m,protect)+(m.index()==f.interactingIndex?15:0)-m.distance(model.player())
+                +(m.index()==frozenBat?1000:0);
             if(score>best){target=m;best=score;}
         }
         if(target==null||f.interactingIndex==target.index()&&!forceReengage)return false;
         if(!pureLures.allowsImmediateShot(model,target,plan))return false;
         Mob ranged=PureCombatPolicy.rangedTarget(model);
         Mob retained=CaveSafety.retainedSafeShot(model,f.interactingIndex);
-        if(ranged!=null&&(target.kind()!=Kind.BAT||PureCombatPolicy.rangerBeforeBat(model,ranged))&&PureCombatPolicy.targetPriority(model,ranged,protect)
+        if(target.index()!=frozenBat&&ranged!=null&&(target.kind()!=Kind.BAT||PureCombatPolicy.rangerBeforeBat(model,ranged))&&PureCombatPolicy.targetPriority(model,ranged,protect)
             >PureCombatPolicy.targetPriority(model,target,protect)&&(retained==null||retained.index()!=target.index()))return false;
         // Apply the configured exposure policy under the tick controller's overhead.
         if(!purePlanner.attackAllowed(model,target,protect,false))return false;
@@ -284,8 +271,9 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
         // briefly on this background worker for the existing driver's safe input
         // window instead of making target acquisition depend on that poll phase.
         // No input lock is held; the prayer worker keeps its original schedule.
-        FcTickPrayers driver=tickPrayers;
-        if(driver!=null&&driver.ownsInput()&&!hasJad(f)) {
+        FcPrayers driver=tickPrayers;
+        // A bat is shot at once; it never waits for a prayer input window.
+        if(driver!=null&&driver.ownsInput()&&!hasJad(f)&&target.kind()!=Kind.BAT) {
             net.runelite.client.plugins.microbot.util.Global.sleepUntil(()->{
                 FcFrame live=frame;
                 return !enabled||Microbot.pauseAllScripts.get()||InputArbiter.isHuman()
@@ -348,7 +336,7 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
         supplyAck.sent(item.id(),supplyCount(f,kind,item.id()),tick,kind,System.currentTimeMillis());
     }
     protected boolean pureSweetsAvailable(FcFrame f) {
-        return f.cave&&config.pureMode()&&config.usePurpleSweets()
+        return f.cave&&config.usePurpleSweets()
             &&f.inventory.stream().anyMatch(i->FcSupplyPolicy.sweet(i.name())&&i.quantity()>0&&i.hasAction("Eat"));
     }
     @Override
@@ -369,11 +357,11 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
     }
     protected boolean brewAllowed(FcFrame f) {
         boolean restoreAvailable=f.inventory.stream().anyMatch(i->isPrayerPotion(i.name()));
-        return PureSupplyBudget.brewAllowed(f.prayer,brewDebt,config.pureMode(),restoreAvailable);
+        return PureSupplyBudget.brewAllowed(f.prayer,brewDebt,true,restoreAvailable);
     }
     @Override
     protected boolean recoveryProtectionReady(FcFrame f,Protection guard) {
-        if(config.pureMode()&&f.prayer==0&&tickPrayers!=null&&tickPrayers.exhaustedCombatReady())return true;
+        if(f.prayer==0&&tickPrayers!=null&&tickPrayers.exhaustedCombatReady())return true;
         return actions.overheadActive(guard)
             &&(tickPrayers==null||!tickPrayers.ownsInput()||tickPrayers.protectionReady());
     }
@@ -393,29 +381,6 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
             lures.reset();planner.reset();
         }
         return handled;
-    }
-    /** Scoped opt-in only; supply service precedes this branch. */
-    protected boolean handleOpeningBats(FcFrame f,Snapshot spatial) {
-        Plan opening=openingBats.decide(spatial,f.recordedAnchor(RecordedLureBook.ITALY),
-            movement.pending()?movement.destination():null);
-        if(opening==null)return false;
-        plan=opening;prayerPlanTick=f.tick;combatPhase="Pure / opening bat conservation";status=opening.reason();
-        if(f.tick!=pureTraceTick){trace.decision(f,waves.wave(),plan);pureTraceTick=f.tick;}
-        if(!protectInCave(opening.protection()))return true;
-        if(!opening.nextStep().equals(spatial.player())){movePlan(f,opening);return true;}
-        if(movement.pending()||f.moving) {
-            // An attack click must not extend an old run into contact. Stop once
-            // on the current tile, then acquire on a fresh stationary frame.
-            if(lastMoveTick!=f.tick&&actions.move(f,spatial.player(),false)) {
-                movement.reset();lastMoveTick=f.tick;forceReengage=true;
-            }
-            return true;
-        }
-        Mob target=spatial.mobs().stream().filter(m->m.index()==opening.targetIndex()).findFirst().orElse(null);
-        if(target!=null&&(f.interactingIndex!=target.index()||forceReengage)) {
-            if(dispatchAttack(f,target,forceReengage,"opening bat acquisition"))forceReengage=false;
-        }
-        return true;
     }
     protected boolean handlePureCombatOwned(FcFrame f,Protection urgent) {
         if(pureWave!=waves.wave()) {
@@ -438,7 +403,9 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
         // acquisition returns. Protection remains owned by the tick writer.
         if((f.prayer<=config.restorePrayer()||f.hp*100<=f.maxHp*config.eatPercent()||brewDebt>=3)
             &&protectInCave(urgent)&&supplies(f,urgent))return true;
-        if(config.prayerConservation()&&handleOpeningBats(f,spatial))return true;
+        // A wanted freeze goes out now, even mid-route, ahead of lures and positioning (it only targets monsters not
+        // yet in contact); the main set goes back as soon as possible.
+        if(magicStepEarly(f,spatial))return true;
         if(movement.pending()&&!spatial.mobs().isEmpty()) {
             Protection overhead=desiredCaveProtection(urgent);
             boolean recoveryOwnsRoute=pureCombatRecovery.owns(plan)&&!pureSpacing.owns(plan);
@@ -576,6 +543,7 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
         guard=desiredCaveProtection(urgent!=Protection.NONE?urgent:next.protection());
         if(!protectInCave(guard))return true;
         if(!next.nextStep().equals(model.player())){movePlan(f,next);return true;}
+        if(!f.moving&&magicStep(f,model))return true;
         Mob target=model.mobs().stream().filter(m->m.index()==plan.targetIndex()).findFirst().orElse(null);
         if(target!=null&&!f.moving&&(f.interactingIndex!=target.index()||forceReengage)) {
             if(dispatchAttack(f,target,forceReengage,"Pure / original protected attack"))forceReengage=false;
@@ -586,13 +554,15 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
         return true;
     }
 
+    @Override protected boolean manualSpecial(FcFrame f,Mob target){return tryPureBlowpipeSpecial(f,target);}
     protected boolean tryPureBlowpipeSpecial(FcFrame f,Mob target) {
         long now=System.currentTimeMillis();
+        int cost=FcSpecials.cost(f.weapon);
         if(f.moving||movement.pending()||f.interactingIndex!=target.index()||forceReengage
-            ||!f.weapon.toLowerCase(Locale.ROOT).contains("blowpipe")||f.specialEnergy<500
-            ||f.maxHp-f.hp<8||f.specialEnabled!=0||now-lastSpecAt<=1800||!attackInputWindow(f))return false;
+            ||cost<0||f.specialEnergy<cost||!FcSpecials.worth(f.weapon,target.kind())
+            ||FcSpecials.heals(f.weapon)&&f.maxHp-f.hp<8||f.specialEnabled!=0||now-lastSpecAt<=1800||!attackInputWindow(f))return false;
         if(!actions.special(()->attackInputWindow(f)&&!Microbot.pauseAllScripts.get()&&!InputArbiter.isHuman()))return false;
-        lastSpecAt=now;status="Blowpipe special requested";
+        lastSpecAt=now;status=f.weapon+" special requested";
         trace.event("special-request","wave="+waves.wave()+" target="+target.index());
         return true;
     }
@@ -636,19 +606,6 @@ public final class OptionalFirecapeScript extends DroFirecapeScript {
         trace.event("recovery","Stuck-monster watchdog: no NPC progress, or no health/death progress for 30 ticks; "+
             (recovery==null?"no protected route yet":recovery.reason()));
         return true;
-    }
-    protected boolean offenceEnabled(FcFrame f) {
-        return offenceEnabled(f,f==null?-1:f.interactingIndex);
-    }
-    @Override
-    protected boolean offenceEnabled(FcFrame f,int targetIndex) {
-        return config!=null&&PrayerConservation.offence(config.offensivePrayer(),config.prayerConservation(),
-            targetIndex,f==null?null:f.model);
-    }
-    @Override
-    protected boolean earlyConservationGap(FcFrame f) {
-        int next=waves.hasSeenMonsters()?Math.min(63,waves.wave()+1):waves.wave();
-        return PrayerConservation.earlyGap(config.prayerConservation(),next,f.model);
     }
     @Override
     protected boolean prayerInputAllowed() {

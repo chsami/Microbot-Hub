@@ -24,7 +24,7 @@ public class RecoveryPolicyTest {
         return f;
     }
     private FcRecoveryPolicy.Decision choose(FcFrame f,int debt,boolean overbrew,boolean pending) {
-        return FcRecoveryPolicy.choose(f,false,true,overbrew,40,90,true,true,62,debt,pending);
+        return FcRecoveryPolicy.choose(f,true,overbrew,40,90,true,true,62,debt,pending);
     }
     private final FcFrame.ItemSlot sweet=item(4561,"Purple sweets"),brew=item(6685,"Saradomin brew(4)"),
         restore=item(3024,"Super restore(4)"),range=item(2444,"Ranging potion(4)");
@@ -64,7 +64,7 @@ public class RecoveryPolicyTest {
     @Test public void finalRangedDoseRetainsJadReserveUntilWave62HasCompleted()throws Exception {
         FcFrame f=frame(100,99,100,item(2444,"Ranging potion(1)"));
         assertFalse(choose(f,0,false,false).ready);assertNull(choose(f,0,false,false).item);
-        assertNotNull(FcRecoveryPolicy.choose(f,false,false,false,0,90,true,true,63,0,false).item);
+        assertNotNull(FcRecoveryPolicy.choose(f,false,false,0,90,true,true,63,0,false).item);
     }
     @Test public void oldBrewDebtAloneDoesNotConsumeRestoreWhenActualTargetsAreReady()throws Exception {
         FcFrame f=frame(100,99,100,restore,range);set(f,"ranged",110);
@@ -72,6 +72,6 @@ public class RecoveryPolicyTest {
     }
     @Test public void zeroRunTargetDoesNotRequireEnergyOrAnotherSweet()throws Exception {
         FcFrame f=frame(100,99,0,sweet);set(f,"ranged",110);
-        assertTrue(FcRecoveryPolicy.choose(f,false,true,false,0,90,true,true,62,0,false).ready);
+        assertTrue(FcRecoveryPolicy.choose(f,true,false,0,90,true,true,62,0,false).ready);
     }
 }

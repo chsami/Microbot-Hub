@@ -21,7 +21,7 @@ public class OptionalBetaTickProtectionTest {
         Mob mage=new Mob(1,Kind.MAGER,new Tile(23,26),5,10,10,-1,Protection.MAGIC,true);
         Mob ranger=new Mob(2,Kind.RANGER,new Tile(15,24),3,10,10,-1,Protection.RANGE,true);
         assertFalse(grid.sight(mage,player));
-        assertTrue(grid.sight(mage,player.add(2,0)),"A hypothetical move around the wall would reveal the mage");
+        assertTrue(grid.sight(mage,player.add(2,0)), "A hypothetical move around the wall would reveal the mage");
         Snapshot s=new Snapshot(1,player,grid,List.of(mage,ranger),100,true,5,Protection.NONE);
         TickProtection clock=new TickProtection(true);clock.beginTick(1,s.mobs());
         for(boolean pure:new boolean[]{false,true}) {
@@ -29,7 +29,7 @@ public class OptionalBetaTickProtectionTest {
             assertEquals(Protection.MAGIC,d.protection);
             assertNotEquals(0,d.dueMask&CombatPlanner.bit(Protection.MAGIC));
         }
-        assertEquals(Protection.MAGIC,clock.choose(s,true,Protection.MAGIC,Protection.NONE).protection,"Visible baseline retains its conservative movement envelope");
+        assertEquals(Protection.MAGIC,clock.choose(s,true,Protection.MAGIC,Protection.NONE).protection, "Visible baseline retains its conservative movement envelope");
     }
     @Test public void mageRearmsBeforeAnApproachCanEnterItsAttackRange() {
         TickProtection clock=new TickProtection(true);
@@ -41,7 +41,7 @@ public class OptionalBetaTickProtectionTest {
         assertEquals(Protection.RANGE,BetaTickProtection.choose(clock,far,true,Protection.MAGIC,Protection.NONE,true).protection);
         Snapshot near=new Snapshot(2,new Tile(20,23),grid,far.mobs(),100,true,5,Protection.NONE);
         clock.beginTick(2,near.mobs());
-        assertEquals(0,CombatPlanner.threats(grid,mage,near.player(),Protection.NONE),"Mage is outside current range, but can enter the movement forecast");
+        assertEquals(0,CombatPlanner.threats(grid,mage,near.player(),Protection.NONE), "Mage is outside current range, but can enter the movement forecast");
         assertEquals(Protection.MAGIC,BetaTickProtection.choose(clock,near,true,Protection.RANGE,Protection.NONE,true).protection);
     }
     @Test public void contactBatNeverOverridesCalibratedIncomingRangerShot() {
@@ -65,16 +65,16 @@ public class OptionalBetaTickProtectionTest {
     private Snapshot scene(int tick,Mob mob){return new Snapshot(tick,new Tile(20,20),
         new CollisionGrid(new int[64][64]),List.of(mob),100,true,7,Protection.NONE);}
     private Mob mage(){return new Mob(1,Kind.MAGER,new Tile(25,20),5,10,10,-1,Protection.MAGIC,true);}
-    @Test public void nativeRetainsUsefulGuardInVerifiedGapsAndArmsOneTickBeforeLaunch(){
+    @Test public void flickTurnsTheGuardOffInVerifiedGapsAndOnOneTickBeforeLaunch(){
         TickProtection clock=new TickProtection(true);Mob mage=mage();
         for(int tick=0;tick<=13;tick++) {
             if(tick==1||tick==5||tick==9||tick==13)clock.animation(1,Kind.MAGER,2647);
             clock.beginTick(tick,List.of(mage));
             TickProtection.Decision beta=BetaTickProtection.choose(clock,scene(tick,mage),true,Protection.MAGIC,Protection.NONE);
-            if(tick>=10)assertEquals(Protection.MAGIC,beta.protection);
+            if(tick>=10)assertEquals(tick==12?Protection.MAGIC:Protection.NONE,beta.protection);
             if(tick==10||tick==11||tick==13)assertEquals(0,beta.dueMask);
             if(tick==12)assertEquals(CombatPlanner.bit(Protection.MAGIC),beta.dueMask);
-            if(tick==10)assertEquals(Protection.MAGIC,clock.choose(scene(tick,mage),true,Protection.MAGIC,Protection.NONE).protection,"Regular selector still holds protection");
+            if(tick==10)assertEquals(Protection.NONE,clock.choose(scene(tick,mage),true,Protection.MAGIC,Protection.NONE).protection, "The flick clock never holds through a verified gap");
         }
     }
     @Test public void queuedMeleeAnimationRearmsBeforeActualNextLaunch(){
@@ -85,8 +85,11 @@ public class OptionalBetaTickProtectionTest {
             if(tick==1||tick==5||tick==9)clock.animation(1,Kind.MELEER,2637);
             clock.beginTick(tick,List.of(melee));
         }
-        assertEquals(Protection.MELEE,BetaTickProtection.choose(clock,scene(11,melee),false,
-            Protection.NONE,Protection.NONE).protection);
+        assertEquals(Protection.NONE,BetaTickProtection.choose(clock,scene(11,melee),false,
+            Protection.NONE,Protection.NONE).protection, "Verified gap: flicked off");
+        clock.beginTick(12,List.of(melee));
+        assertEquals(Protection.MELEE,BetaTickProtection.choose(clock,scene(12,melee),false,
+            Protection.NONE,Protection.NONE).protection, "On once for the next launch");
     }
     @Test public void unknownBabyWinsVerifiedRangerCooldownGap(){
         TickProtection clock=new TickProtection(true);
@@ -100,22 +103,32 @@ public class OptionalBetaTickProtectionTest {
             List.of(ranger,baby),100,true,7,Protection.NONE);
         assertEquals(Protection.MELEE,BetaTickProtection.choose(clock,scene,false,
             Protection.RANGE,Protection.NONE).protection);
-        assertEquals(Protection.RANGE,clock.choose(scene,false,Protection.RANGE,Protection.NONE).protection);
+        assertEquals(Protection.MELEE,clock.choose(scene,false,Protection.RANGE,Protection.NONE).protection, "The flick clock does not hold Range through its verified gap");
     }
-    @Test public void observedRangerPunchDoesNotEraseItsUncertainRangedDemand(){
+    @Test public void aRangerBesideThePlayerIsProtectedWithMelee(){
+        // OSRS Wiki / live 1.1.38: a Tok-Xil beside the player only melees (its swing hit 13 unprotected).
         TickProtection clock=new TickProtection(true);
         Mob ranger=new Mob(1,Kind.RANGER,new Tile(19,20),1,10,10,9,Protection.MELEE,true);
         clock.animation(1,Kind.RANGER,2628);clock.beginTick(10,List.of(ranger));
         TickProtection.Decision d=BetaTickProtection.choose(clock,scene(10,ranger),false,
             Protection.RANGE,Protection.NONE);
-        assertEquals(Protection.RANGE,d.protection);
-        assertNotEquals(0,d.dueMask&CombatPlanner.bit(Protection.RANGE));
-        assertNotEquals(0,d.uncertainMask&CombatPlanner.bit(Protection.MELEE));
+        assertEquals(Protection.MELEE,d.protection);
     }
     @Test public void unknownFirstContactRetainsProtectionUntilTimingIsKnown(){
         TickProtection clock=new TickProtection(true);Mob mage=mage();clock.beginTick(1,List.of(mage));
         TickProtection.Decision d=BetaTickProtection.choose(clock,scene(1,mage),false,Protection.NONE,Protection.NONE);
         assertEquals(Protection.MAGIC,d.protection);assertNotEquals(0,d.uncertainMask);
+    }
+    @Test public void oneMatchingIntervalFlicksAnExposedRangerOffBetweenShots(){
+        TickProtection clock=new TickProtection(true);
+        Mob ranger=new Mob(1,Kind.RANGER,new Tile(25,20),3,10,10,-1,Protection.RANGE,true);
+        for(int tick=1;tick<=8;tick++) {
+            if(tick==1||tick==5)clock.animation(1,Kind.RANGER,2633);
+            clock.beginTick(tick,List.of(ranger));
+            Snapshot s=scene(tick,ranger);clock.spatialEvidence(s);
+            TickProtection.Decision d=BetaTickProtection.choose(clock,s,false,Protection.RANGE,Protection.NONE,true);
+            if(tick>=5)assertEquals(tick==8?Protection.RANGE:Protection.NONE,d.protection, "On only the tick before the shot at 9");
+        }
     }
     @Test public void jadKeepsExistingWindupAndHealerPriority(){
         TickProtection clock=new TickProtection(true);Mob jad=new Mob(1,Kind.JAD,new Tile(25,20),5,10,10,-1,Protection.MAGIC,true);
@@ -123,19 +136,26 @@ public class OptionalBetaTickProtectionTest {
         TickProtection.Decision original=clock.chooseNative(scene(1,jad),false,Protection.MAGIC,Protection.NONE);
         assertEquals(original.protection,BetaTickProtection.choose(clock,scene(1,jad),false,Protection.MAGIC,Protection.NONE).protection);
     }
-    @Test public void pureTinyRequiresTwoIntervalsAndInvalidatesAnObservedContactBreak() {
+    @Test public void contactMeleeCalibratesFromOneSwingAndInvalidatesAnObservedContactBreak() {
         TickProtection clock=new TickProtection(true);
         Mob baby=new Mob(2,Kind.BABY,new Tile(19,20),1,10,10,-1,Protection.MELEE,true);
+        clock.beginTick(0,List.of(baby));
+        TickProtection.Decision unseen=BetaTickProtection.choose(clock,scene(0,baby),false,Protection.NONE,Protection.NONE,true);
+        assertEquals(Protection.MELEE,unseen.protection, "No swing seen yet: guard the contact");assertNotEquals(0,unseen.uncertainMask);
         clock.animation(2,Kind.BABY,2625);clock.beginTick(1,List.of(baby));
         TickProtection.Decision first=BetaTickProtection.choose(clock,scene(1,baby),false,Protection.MELEE,Protection.NONE,true);
-        assertEquals(Protection.MELEE,first.protection);assertNotEquals(0,first.uncertainMask);
-        assertEquals(Protection.MELEE,BetaTickProtection.choose(clock,scene(1,baby),false,Protection.MELEE,Protection.NONE).protection);
-        for(int tick=2;tick<=10;tick++) {
+        assertEquals(Protection.NONE,first.protection, "One swing sets the melee cadence");assertEquals(0,first.uncertainMask);
+        for(int tick=2;tick<=4;tick++) {
+            clock.beginTick(tick,List.of(baby));clock.spatialEvidence(scene(tick,baby));
+            assertEquals(tick==4?Protection.MELEE:Protection.NONE,
+                BetaTickProtection.choose(clock,scene(tick,baby),false,Protection.NONE,Protection.NONE,true).protection, "On only the tick before the swing at 5");
+        }
+        for(int tick=5;tick<=10;tick++) {
             if(tick==5||tick==9)clock.animation(2,Kind.BABY,2625);
             clock.beginTick(tick,List.of(baby));clock.spatialEvidence(scene(tick,baby));
         }
         TickProtection.Decision calibrated=BetaTickProtection.choose(clock,scene(10,baby),false,Protection.MELEE,Protection.NONE,true);
-        assertEquals(Protection.MELEE,calibrated.protection);assertEquals(0,calibrated.dueMask);assertEquals(0,calibrated.uncertainMask);
+        assertEquals(Protection.NONE,calibrated.protection);assertEquals(0,calibrated.dueMask);assertEquals(0,calibrated.uncertainMask);
         Mob away=new Mob(2,Kind.BABY,new Tile(15,20),1,10,10,-1,Protection.MELEE,true);
         clock.spatialEvidence(scene(10,away));
         clock.beginTick(11,List.of(baby));
@@ -158,12 +178,55 @@ public class OptionalBetaTickProtectionTest {
             if(tick==12)assertTrue(d.conflict());
         }
     }
-    @Test public void pureRetainsRangedGuardWhenFirstRangerContactHasNoVerifiedStyle() {
+    @Test public void aKetZekBesideThePlayerIsMeleeUnlessAnotherMageCanAttack() {
+        TickProtection clock=new TickProtection(true);
+        Mob mager=new Mob(3,Kind.MAGER,new Tile(21,20),Kind.MAGER.size,10,10,-1,Protection.MAGIC,true);
+        clock.beginTick(1,List.of(mager));
+        Snapshot s=new Snapshot(1,new Tile(20,20),new CollisionGrid(new int[64][64]),List.of(mager),100,true,7,Protection.NONE);
+        assertEquals(Protection.MELEE,BetaTickProtection.choose(clock,s,true,Protection.NONE,Protection.NONE,true).protection, "Running past a Ket-Zek in melee distance: Melee");
+        // Wave 62: the second Ket-Zek's known magic clock fires on the same tick as the contact melee: Magic first.
+        Mob far=new Mob(4,Kind.MAGER,new Tile(20,30),Kind.MAGER.size,10,10,-1,Protection.MAGIC,true);
+        TickProtection known=new TickProtection(true);
+        for(int tick=1;tick<=11;tick++) {
+            if(tick==1||tick==5||tick==9)known.animation(4,Kind.MAGER,2647);
+            known.beginTick(tick,List.of(mager,far));
+        }
+        known.beginTick(12,List.of(mager,far));
+        Snapshot two=new Snapshot(12,new Tile(20,20),new CollisionGrid(new int[64][64]),List.of(mager,far),100,true,7,Protection.NONE);
+        assertEquals(Protection.MAGIC,BetaTickProtection.choose(known,two,false,Protection.NONE,Protection.NONE,true).protection, "Wave 62: same-tick magic from the second Ket-Zek beats the contact melee");
+    }
+    @Test public void aKetZeksPossibleMagicBeatsAYtMejKotInContactOrOverhead() {
+        // Live 1.1.39 waves 49-50: under/beside a Yt-MejKot, Melee was held and Ket-Zek magic hit 38 and 47.
+        TickProtection clock=new TickProtection(true);
+        Mob big=new Mob(2,Kind.MELEER,new Tile(16,20),4,10,10,-1,Protection.MELEE,true);
+        Mob mager=new Mob(3,Kind.MAGER,new Tile(20,30),Kind.MAGER.size,10,10,-1,Protection.MAGIC,true);
+        clock.beginTick(1,List.of(big,mager));
+        Snapshot beside=new Snapshot(1,new Tile(20,20),new CollisionGrid(new int[64][64]),List.of(big,mager),100,true,7,Protection.NONE);
+        assertEquals(Protection.MAGIC,BetaTickProtection.choose(clock,beside,true,Protection.MELEE,Protection.NONE,true).protection);
+        Snapshot under=new Snapshot(1,new Tile(17,21),new CollisionGrid(new int[64][64]),List.of(big,mager),100,true,7,Protection.NONE);
+        assertEquals(Protection.MAGIC,BetaTickProtection.choose(clock,under,true,Protection.MELEE,Protection.NONE,true).protection);
+    }
+    @Test public void aKnownRangerShotBeatsAnUncalibratedMagerGuess() {
+        // Live 1.1.37 wave 38: Tok-Xil shots on 181/185/189, Ket-Zek's first on 188; Magic was held on 185 and 189.
+        TickProtection clock=new TickProtection(true);
+        Mob ranger=new Mob(1,Kind.RANGER,new Tile(25,20),3,10,10,-1,Protection.RANGE,true);
+        Mob mager=new Mob(3,Kind.MAGER,new Tile(20,26),Kind.MAGER.size,10,10,-1,Protection.MAGIC,true);
+        for(int tick=1;tick<=9;tick++) {
+            if(tick==1||tick==5||tick==9)clock.animation(1,Kind.RANGER,2633);
+            clock.beginTick(tick,List.of(ranger,mager));
+        }
+        for(int tick:new int[]{10,11,12})clock.beginTick(tick,List.of(ranger,mager));
+        Snapshot s=new Snapshot(12,new Tile(20,20),new CollisionGrid(new int[64][64]),List.of(ranger,mager),100,true,7,Protection.NONE);
+        TickProtection.Decision d=BetaTickProtection.choose(clock,s,false,Protection.MAGIC,Protection.NONE,true);
+        assertEquals(Protection.RANGE,d.protection);
+    }
+    @Test public void firstRangerContactIsGuardedWithMelee() {
+        // A Tok-Xil beside the player only melees (user / OSRS Wiki, 2026-11-06), even before its style is verified.
         TickProtection clock=new TickProtection(true);
         Mob ranger=new Mob(1,Kind.RANGER,new Tile(17,20),3,10,10,-1,Protection.RANGE,true);
         clock.beginTick(1,List.of(ranger));
         TickProtection.Decision d=BetaTickProtection.choose(clock,scene(1,ranger),true,Protection.RANGE,Protection.NONE,true);
-        assertEquals(Protection.RANGE,d.protection);
+        assertEquals(Protection.MELEE,d.protection);
         assertNotEquals(0,d.uncertainMask&CombatPlanner.bit(Protection.RANGE));
         assertNotEquals(0,d.uncertainMask&CombatPlanner.bit(Protection.MELEE));
     }

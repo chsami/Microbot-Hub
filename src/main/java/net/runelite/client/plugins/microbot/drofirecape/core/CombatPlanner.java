@@ -86,8 +86,7 @@ public class CombatPlanner {
         return Protection.NONE;
     }
     private static Protection protection(CollisionGrid g,List<Mob> before,List<Mob> after,
-                                         Tile from,Tile to,int tick,Protection jad,boolean meleeMode) {
-        if(meleeMode)return MeleeProtection.choose(g,before,after,from,to,tick-1,jad,Protection.NONE);
+                                         Tile from,Tile to,int tick,Protection jad) {
         int[] weights=new int[4];
         for(int i=0;i<before.size();i++) {
             Mob a=before.get(i), b=after.get(i);
@@ -102,7 +101,7 @@ public class CombatPlanner {
     /** Desired prayer for the server tick that follows this captured snapshot. */
     public static Protection protectionForNextTick(Snapshot s,Tile destination) {
         Tile to=destination==null?s.player():destination;
-        return protection(s.grid(),s.mobs(),advance(s.grid(),s.mobs(),to,s.jadStyle()),s.player(),to,s.tick()+1,s.jadStyle(),s.meleeMode());
+        return protection(s.grid(),s.mobs(),advance(s.grid(),s.mobs(),to,s.jadStyle()),s.player(),to,s.tick()+1,s.jadStyle());
     }
     private static int exposure(CollisionGrid grid,List<Mob> before,List<Mob> after,Tile from,Tile to,
                                 Protection prayer,Protection jad,int tick) {
@@ -119,7 +118,7 @@ public class CombatPlanner {
     }
     public static boolean playerCanAttack(Snapshot s,Tile p,Mob m) {
         if(m==null||m.occupies(p))return false;
-        return s.meleeMode()?s.grid().melee(m,p):m.distance(p)<=s.weaponRange()&&s.grid().playerSight(p,m);
+        return m.distance(p)<=s.weaponRange()&&s.grid().playerSight(p,m);
     }
     /** Death of a large blocker can expose a smaller follower before the next decision. */
     public static List<Mob> afterDefeat(List<Mob> mobs,Mob target) {
@@ -185,8 +184,8 @@ public class CombatPlanner {
     }
     public boolean attackAllowed(Snapshot s,Mob target,Protection prayer,boolean strict) {
         if(!playerCanAttack(s,s.player(),target))return false;
-        if(!s.meleeMode()&&target.kind()==Kind.HEALER&&!target.attackingPlayer()&&target.distance(s.player())<3)return false;
-        if(!s.meleeMode())for(Mob m:s.mobs())if(m.kind()==Kind.JAD&&s.grid().melee(m,s.player()))return false;
+        if(target.kind()==Kind.HEALER&&!target.attackingPlayer()&&target.distance(s.player())<3)return false;
+        for(Mob m:s.mobs())if(m.kind()==Kind.JAD&&s.grid().melee(m,s.player()))return false;
         if(!releaseAllowed(s,target,prayer))return false;
         if(!strict)return true;
         KillWindow release=killWindow(s,s.player(),s.mobs(),target,s.tick()+1);
@@ -273,7 +272,7 @@ public class CombatPlanner {
                     if(dx==0&&dy==0)continue;
                     Tile tile=s.player().add(dx,dy);
                     if(!s.grid().step(s.player(),tile)||occupied(tile,s.mobs()))continue;
-                    if(!s.meleeMode()&&s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD&&s.grid().melee(m,tile)))continue;
+                    if(s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD&&s.grid().melee(m,tile)))continue;
                     Evaluation candidate=evaluate(s,List.of(s.player(),tile),null);
                     if(candidate==null)continue;
                     long score=candidate.score+visits.getOrDefault(tile,0)*500L;
@@ -323,7 +322,7 @@ public class CombatPlanner {
     public Tile chooseCamp(Snapshot upcoming) {
         Tile best=upcoming.player();long score=Long.MAX_VALUE;
         for(Tile t:candidates(upcoming,null)) {
-            Snapshot stationary=new Snapshot(upcoming.tick(),t,upcoming.grid(),upcoming.mobs(),upcoming.runEnergy(),upcoming.running(),upcoming.weaponRange(),upcoming.jadStyle(),upcoming.meleeMode());
+            Snapshot stationary=new Snapshot(upcoming.tick(),t,upcoming.grid(),upcoming.mobs(),upcoming.runEnergy(),upcoming.running(),upcoming.weaponRange(),upcoming.jadStyle());
             Evaluation e=evaluate(stationary,List.of(t),null);
             if(e==null||e.terminalTarget<0)continue;
             long value=e.score+t.distance(upcoming.player())*20L;
@@ -348,7 +347,7 @@ public class CombatPlanner {
             if(upcoming.mobs().stream().anyMatch(m->m.occupies(t)))continue;
             List<Tile> route=paths.to(t);if(route.isEmpty())continue;
             Evaluation travel=evaluate(current,route,t);if(travel==null||travel.risk>0)continue;
-            Snapshot placed=new Snapshot(upcoming.tick(),t,upcoming.grid(),upcoming.mobs(),upcoming.runEnergy(),upcoming.running(),upcoming.weaponRange(),upcoming.jadStyle(),upcoming.meleeMode());
+            Snapshot placed=new Snapshot(upcoming.tick(),t,upcoming.grid(),upcoming.mobs(),upcoming.runEnergy(),upcoming.running(),upcoming.weaponRange(),upcoming.jadStyle());
             Evaluation future=evaluate(placed,List.of(t),null);
             if(future==null||future.terminalTarget<0)continue;
             long cost=future.score+route.size()*30L;
@@ -369,10 +368,6 @@ public class CombatPlanner {
             for(int[] d:new int[][]{{0,1},{1,0},{0,-1},{-1,0}})result.add(c.add(d[0],d[1]));
         }
         for(Mob m:s.mobs()) {
-            if(s.meleeMode())for(int i=0;i<m.size();i++) {
-                result.add(m.tile().add(-1,i));result.add(m.tile().add(m.size(),i));
-                result.add(m.tile().add(i,-1));result.add(m.tile().add(i,m.size()));
-            }
             for(int r:new int[]{3,Math.max(3,s.weaponRange())})for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++) {
                 if(dx==0&&dy==0)continue;
                 result.add(new Tile(m.tile().x()+(dx<0?-r:dx>0?m.size()-1+r:m.size()/2),m.tile().y()+(dy<0?-r:dy>0?m.size()-1+r:m.size()/2)));
@@ -470,7 +465,7 @@ public class CombatPlanner {
             }
             mobs=advance(s.grid(),mobs,p,s.jadStyle());
             if(!p.equals(s.player())&&!TacticalMovement.clearOfJad(s,mobs,p))return null;
-            Protection pray=protection(s.grid(),old,mobs,before,p,s.tick()+t,s.jadStyle(),s.meleeMode());
+            Protection pray=protection(s.grid(),old,mobs,before,p,s.tick()+t,s.jadStyle());
             int hit=exposure(s.grid(),old,mobs,before,p,pray,s.jadStyle(),s.tick()+t);
             total+=hit;peak=Math.max(peak,hit);
             ArrayList<Mob> clocks=new ArrayList<>(mobs.size());
@@ -497,7 +492,7 @@ public class CombatPlanner {
             Mob dying=null;for(Mob m:s.mobs())if(m.index()==target)dying=m;
             if(dying!=null) {
                 KillWindow kill=killWindow(s,s.player(),s.mobs(),dying,s.tick()+1);
-                if(kill.prayer()!=Protection.NONE&&!s.meleeMode())first=kill.prayer();
+                if(kill.prayer()!=Protection.NONE)first=kill.prayer();
                 total+=kill.risk();peak=Math.max(peak,kill.risk());
             }
         }
@@ -540,7 +535,7 @@ public class CombatPlanner {
     protected static final int SKIP_TARGET=Integer.MIN_VALUE;
     protected boolean releaseAllowed(Snapshot s,Mob target,Protection prayer){return true;}
     protected boolean avoidsMeleeKiting(Snapshot s) {
-        return !s.meleeMode()&&s.mobs().stream().anyMatch(CaveSafety::meleeFollower)
+        return s.mobs().stream().anyMatch(CaveSafety::meleeFollower)
             &&s.mobs().stream().noneMatch(m->m.kind()==Kind.JAD);
     }
     protected boolean routeAllowed(Snapshot s,Tile immediate){return true;}
@@ -554,7 +549,7 @@ public class CombatPlanner {
         for(Mob m:mobs) {
             if(m.kind()==Kind.JAD&&healers)continue;
             if(!playerCanAttack(s,p,m))continue;
-            if(!s.meleeMode()&&m.kind()==Kind.HEALER&&!m.attackingPlayer()&&m.distance(p)<3)continue;
+            if(m.kind()==Kind.HEALER&&!m.attackingPlayer()&&m.distance(p)<3)continue;
             int priority=targetScore(s,p,mobs,m,prayer);
             if(priority==SKIP_TARGET)continue;
             int score=priority-m.distance(p);

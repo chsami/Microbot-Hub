@@ -33,6 +33,8 @@ The **Herbrun Plugin** is a RuneLite plugin for the Microbot framework that auto
 
 - Microbot RuneLite client
 - Required seeds, compost, and teleport items for your chosen patches
+- Weiss patch needs Making Friends with My Arm; Trollheim patch needs My Arm's Big Adventure (the patch is skipped automatically if the quest is not done)
+- A patch the walker cannot reach after 3 tries is skipped and the run continues with the other patches
 
 ---
 

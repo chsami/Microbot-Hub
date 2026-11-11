@@ -1,0 +1,3242 @@
+[
+ {
+  "tick": 1592,
+  "wave": 8,
+  "player": [
+   53,
+   31
+  ],
+  "mobs": [
+   {
+    "index": 56735,
+    "kind": "RANGER",
+    "tile": [
+     50,
+     14
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 1591,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 56736,
+    "kind": "BAT",
+    "tile": [
+     53,
+     26
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-0.geometry.json",
+  "interaction": -1,
+  "hp": 69,
+  "prayer": 40,
+  "observedPrayer": "RANGE",
+  "plan": {
+   "destination": [
+    53,
+    22
+   ],
+   "step": [
+    53,
+    22
+   ],
+   "prayer": "RANGE",
+   "target": -1,
+   "safe": false,
+   "risk": 5,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 1596,
+  "wave": 8,
+  "player": [
+   52,
+   23
+  ],
+  "mobs": [
+   {
+    "index": 56735,
+    "kind": "RANGER",
+    "tile": [
+     50,
+     14
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 1595,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 56736,
+    "kind": "BAT",
+    "tile": [
+     52,
+     24
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 1593,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-0.geometry.json",
+  "interaction": -1,
+  "hp": 66,
+  "prayer": 35,
+  "observedPrayer": "RANGE",
+  "plan": {
+   "destination": [
+    53,
+    22
+   ],
+   "step": [
+    53,
+    22
+   ],
+   "prayer": "RANGE",
+   "target": -1,
+   "safe": false,
+   "risk": 5,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 2928,
+  "wave": 24,
+  "player": [
+   32,
+   32
+  ],
+  "mobs": [
+   {
+    "index": 48114,
+    "kind": "MELEER",
+    "tile": [
+     33,
+     32
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2928,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 48115,
+    "kind": "RANGER",
+    "tile": [
+     20,
+     17
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2925,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 65,
+  "prayer": 26,
+  "observedPrayer": "MELEE",
+  "plan": {
+   "destination": [
+    43,
+    42
+   ],
+   "step": [
+    43,
+    42
+   ],
+   "prayer": "MELEE",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 2933,
+  "wave": 24,
+  "player": [
+   40,
+   39
+  ],
+  "mobs": [
+   {
+    "index": 48114,
+    "kind": "MELEER",
+    "tile": [
+     36,
+     34
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2928,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 48115,
+    "kind": "RANGER",
+    "tile": [
+     24,
+     21
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2929,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 63,
+  "prayer": 26,
+  "observedPrayer": "MELEE",
+  "plan": {
+   "destination": [
+    43,
+    42
+   ],
+   "step": [
+    43,
+    42
+   ],
+   "prayer": "RANGE",
+   "target": -1,
+   "safe": true,
+   "risk": 0,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 2941,
+  "wave": 24,
+  "player": [
+   43,
+   39
+  ],
+  "mobs": [
+   {
+    "index": 48114,
+    "kind": "MELEER",
+    "tile": [
+     39,
+     38
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2941,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 48115,
+    "kind": "RANGER",
+    "tile": [
+     28,
+     25
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2941,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 59,
+  "prayer": 44,
+  "observedPrayer": "MELEE",
+  "plan": {
+   "destination": [
+    43,
+    34
+   ],
+   "step": [
+    43,
+    34
+   ],
+   "prayer": "MELEE",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 2944,
+  "wave": 24,
+  "player": [
+   43,
+   34
+  ],
+  "mobs": [
+   {
+    "index": 48114,
+    "kind": "MELEER",
+    "tile": [
+     42,
+     35
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2941,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 48115,
+    "kind": "RANGER",
+    "tile": [
+     28,
+     25
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2941,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 54,
+  "prayer": 43,
+  "observedPrayer": "MELEE",
+  "plan": {
+   "destination": [
+    52,
+    36
+   ],
+   "step": [
+    52,
+    36
+   ],
+   "prayer": "MELEE",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 2948,
+  "wave": 24,
+  "player": [
+   46,
+   36
+  ],
+  "mobs": [
+   {
+    "index": 48114,
+    "kind": "MELEER",
+    "tile": [
+     42,
+     36
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2945,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 48115,
+    "kind": "RANGER",
+    "tile": [
+     29,
+     26
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2945,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 52,
+  "prayer": 43,
+  "observedPrayer": "RANGE",
+  "plan": {
+   "destination": [
+    52,
+    36
+   ],
+   "step": [
+    52,
+    36
+   ],
+   "prayer": "MELEE",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 2958,
+  "wave": 24,
+  "player": [
+   49,
+   36
+  ],
+  "mobs": [
+   {
+    "index": 48114,
+    "kind": "MELEER",
+    "tile": [
+     48,
+     36
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2954,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 48115,
+    "kind": "RANGER",
+    "tile": [
+     35,
+     32
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 2958,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 49,
+  "prayer": 45,
+  "observedPrayer": "MELEE",
+  "plan": {
+   "destination": [
+    45,
+    34
+   ],
+   "step": [
+    45,
+    34
+   ],
+   "prayer": "MELEE",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 3522,
+  "wave": 28,
+  "player": [
+   53,
+   52
+  ],
+  "mobs": [
+   {
+    "index": 58869,
+    "kind": "MELEER",
+    "tile": [
+     47,
+     44
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 58870,
+    "kind": "RANGER",
+    "tile": [
+     53,
+     23
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 3490,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 58871,
+    "kind": "BLOB",
+    "tile": [
+     53,
+     21
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 58872,
+    "kind": "BLOB",
+    "tile": [
+     22,
+     51
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 65,
+  "prayer": 36,
+  "observedPrayer": "NONE",
+  "plan": {
+   "destination": [
+    50,
+    49
+   ],
+   "step": [
+    50,
+    49
+   ],
+   "prayer": "RANGE",
+   "target": -1,
+   "safe": false,
+   "risk": 25,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 3647,
+  "wave": 28,
+  "player": [
+   45,
+   36
+  ],
+  "mobs": [
+   {
+    "index": 58870,
+    "kind": "RANGER",
+    "tile": [
+     45,
+     23
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 3647,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 61915,
+    "kind": "BABY",
+    "tile": [
+     45,
+     34
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 61916,
+    "kind": "BABY",
+    "tile": [
+     44,
+     35
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 65,
+  "prayer": 42,
+  "observedPrayer": "RANGE",
+  "plan": {
+   "destination": [
+    41,
+    30
+   ],
+   "step": [
+    41,
+    30
+   ],
+   "prayer": "RANGE",
+   "target": -1,
+   "safe": false,
+   "risk": 8,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 3651,
+  "wave": 28,
+  "player": [
+   41,
+   30
+  ],
+  "mobs": [
+   {
+    "index": 58870,
+    "kind": "RANGER",
+    "tile": [
+     45,
+     23
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 3651,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 61915,
+    "kind": "BABY",
+    "tile": [
+     41,
+     31
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 3648,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 61916,
+    "kind": "BABY",
+    "tile": [
+     41,
+     32
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 61,
+  "prayer": 41,
+  "observedPrayer": "RANGE",
+  "plan": {
+   "destination": [
+    46,
+    36
+   ],
+   "step": [
+    46,
+    36
+   ],
+   "prayer": "RANGE",
+   "target": -1,
+   "safe": false,
+   "risk": 8,
+   "reason": "Pure: separate conflicting threats into a firing position"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 4392,
+  "wave": 34,
+  "player": [
+   32,
+   34
+  ],
+  "mobs": [
+   {
+    "index": 43582,
+    "kind": "MAGER",
+    "tile": [
+     22,
+     19
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 4391,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 58,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    26,
+    28
+   ],
+   "step": [
+    26,
+    28
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": true,
+   "risk": 0,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 4555,
+  "wave": 35,
+  "player": [
+   46,
+   36
+  ],
+  "mobs": [
+   {
+    "index": 46311,
+    "kind": "MAGER",
+    "tile": [
+     46,
+     21
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 4505,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 46312,
+    "kind": "BLOB",
+    "tile": [
+     46,
+     37
+    ],
+    "size": 2,
+    "healthRatio": 24,
+    "healthScale": 30,
+    "attackTick": 4552,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": 46312,
+  "hp": 59,
+  "prayer": 38,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    51,
+    50
+   ],
+   "step": [
+    51,
+    50
+   ],
+   "prayer": "MELEE",
+   "target": -1,
+   "safe": true,
+   "risk": 0,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 4931,
+  "wave": 37,
+  "player": [
+   33,
+   27
+  ],
+  "mobs": [
+   {
+    "index": 55270,
+    "kind": "MAGER",
+    "tile": [
+     30,
+     22
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MAGIC",
+    "attackingPlayer": false
+   },
+   {
+    "index": 55271,
+    "kind": "BLOB",
+    "tile": [
+     35,
+     7
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": false
+   },
+   {
+    "index": 55272,
+    "kind": "BLOB",
+    "tile": [
+     50,
+     17
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": false
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 65,
+  "prayer": 41,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    32,
+    28
+   ],
+   "step": [
+    32,
+    28
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 55,
+   "reason": "Step out of Ket-Zek melee contact"
+  },
+  "label": "w37-ketzek-spawn-contact"
+ },
+ {
+  "tick": 5101,
+  "wave": 38,
+  "player": [
+   41,
+   32
+  ],
+  "mobs": [
+   {
+    "index": 58599,
+    "kind": "MAGER",
+    "tile": [
+     39,
+     11
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5096,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 58600,
+    "kind": "RANGER",
+    "tile": [
+     49,
+     18
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5101,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 65,
+  "prayer": 43,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    42,
+    33
+   ],
+   "step": [
+    42,
+    33
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5104,
+  "wave": 38,
+  "player": [
+   42,
+   33
+  ],
+  "mobs": [
+   {
+    "index": 58599,
+    "kind": "MAGER",
+    "tile": [
+     42,
+     14
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5104,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 58600,
+    "kind": "RANGER",
+    "tile": [
+     49,
+     18
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5101,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 57,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    44,
+    25
+   ],
+   "step": [
+    44,
+    25
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5108,
+  "wave": 38,
+  "player": [
+   42,
+   30
+  ],
+  "mobs": [
+   {
+    "index": 58599,
+    "kind": "MAGER",
+    "tile": [
+     42,
+     14
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5108,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 58600,
+    "kind": "RANGER",
+    "tile": [
+     49,
+     18
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5105,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 48,
+  "prayer": 43,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    44,
+    25
+   ],
+   "step": [
+    44,
+    25
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5373,
+  "wave": 40,
+  "player": [
+   63,
+   51
+  ],
+  "mobs": [
+   {
+    "index": 63580,
+    "kind": "MAGER",
+    "tile": [
+     44,
+     51
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5371,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 63581,
+    "kind": "RANGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5370,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 63582,
+    "kind": "BAT",
+    "tile": [
+     46,
+     70
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 63583,
+    "kind": "BAT",
+    "tile": [
+     46,
+     50
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 63,
+  "prayer": 45,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    61,
+    57
+   ],
+   "step": [
+    61,
+    57
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5376,
+  "wave": 40,
+  "player": [
+   62,
+   56
+  ],
+  "mobs": [
+   {
+    "index": 63580,
+    "kind": "MAGER",
+    "tile": [
+     44,
+     51
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5375,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 63581,
+    "kind": "RANGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5374,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 63582,
+    "kind": "BAT",
+    "tile": [
+     49,
+     67
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 63583,
+    "kind": "BAT",
+    "tile": [
+     49,
+     50
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 60,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    61,
+    57
+   ],
+   "step": [
+    61,
+    57
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5494,
+  "wave": 41,
+  "player": [
+   52,
+   63
+  ],
+  "mobs": [
+   {
+    "index": 33302,
+    "kind": "MAGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5491,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 33303,
+    "kind": "RANGER",
+    "tile": [
+     41,
+     75
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5494,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 33304,
+    "kind": "BLOB",
+    "tile": [
+     46,
+     59
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 61,
+  "prayer": 42,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    59,
+    74
+   ],
+   "step": [
+    59,
+    74
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5497,
+  "wave": 41,
+  "player": [
+   53,
+   68
+  ],
+  "mobs": [
+   {
+    "index": 33302,
+    "kind": "MAGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5495,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 33303,
+    "kind": "RANGER",
+    "tile": [
+     41,
+     75
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5494,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 33304,
+    "kind": "BLOB",
+    "tile": [
+     49,
+     62
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 60,
+  "prayer": 42,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    59,
+    74
+   ],
+   "step": [
+    59,
+    74
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5500,
+  "wave": 41,
+  "player": [
+   58,
+   73
+  ],
+  "mobs": [
+   {
+    "index": 33302,
+    "kind": "MAGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5499,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 33303,
+    "kind": "RANGER",
+    "tile": [
+     42,
+     74
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5498,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 33304,
+    "kind": "BLOB",
+    "tile": [
+     52,
+     65
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 49,
+  "prayer": 41,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    59,
+    74
+   ],
+   "step": [
+    59,
+    74
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5649,
+  "wave": 42,
+  "player": [
+   49,
+   65
+  ],
+  "mobs": [
+   {
+    "index": 36353,
+    "kind": "MAGER",
+    "tile": [
+     35,
+     81
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5645,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36354,
+    "kind": "RANGER",
+    "tile": [
+     39,
+     52
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5649,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36355,
+    "kind": "BLOB",
+    "tile": [
+     65,
+     65
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36356,
+    "kind": "BAT",
+    "tile": [
+     50,
+     56
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 63,
+  "prayer": 45,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    36,
+    54
+   ],
+   "step": [
+    40,
+    57
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5652,
+  "wave": 42,
+  "player": [
+   44,
+   60
+  ],
+  "mobs": [
+   {
+    "index": 36353,
+    "kind": "MAGER",
+    "tile": [
+     38,
+     78
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5645,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36354,
+    "kind": "RANGER",
+    "tile": [
+     39,
+     52
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5649,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36355,
+    "kind": "BLOB",
+    "tile": [
+     62,
+     62
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36356,
+    "kind": "BAT",
+    "tile": [
+     47,
+     59
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 59,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    36,
+    54
+   ],
+   "step": [
+    40,
+    57
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5654,
+  "wave": 42,
+  "player": [
+   41,
+   57
+  ],
+  "mobs": [
+   {
+    "index": 36353,
+    "kind": "MAGER",
+    "tile": [
+     40,
+     76
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5645,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36354,
+    "kind": "RANGER",
+    "tile": [
+     39,
+     52
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5653,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36355,
+    "kind": "BLOB",
+    "tile": [
+     60,
+     60
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36356,
+    "kind": "BAT",
+    "tile": [
+     45,
+     57
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 56,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    36,
+    54
+   ],
+   "step": [
+    40,
+    57
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5674,
+  "wave": 42,
+  "player": [
+   40,
+   57
+  ],
+  "mobs": [
+   {
+    "index": 36353,
+    "kind": "MAGER",
+    "tile": [
+     40,
+     71
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5645,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36354,
+    "kind": "RANGER",
+    "tile": [
+     39,
+     52
+    ],
+    "size": 3,
+    "healthRatio": 9,
+    "healthScale": 30,
+    "attackTick": 5673,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 36355,
+    "kind": "BLOB",
+    "tile": [
+     41,
+     57
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5673,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 48,
+  "prayer": 38,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    39,
+    57
+   ],
+   "step": [
+    39,
+    57
+   ],
+   "prayer": "RANGE",
+   "target": -1,
+   "safe": false,
+   "risk": 7,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5752,
+  "wave": 42,
+  "player": [
+   38,
+   56
+  ],
+  "mobs": [
+   {
+    "index": 36353,
+    "kind": "MAGER",
+    "tile": [
+     38,
+     71
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5645,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 65,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    41,
+    66
+   ],
+   "step": [
+    41,
+    66
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": true,
+   "risk": 0,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5916,
+  "wave": 43,
+  "player": [
+   41,
+   71
+  ],
+  "mobs": [
+   {
+    "index": 41213,
+    "kind": "MAGER",
+    "tile": [
+     40,
+     53
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5916,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 41214,
+    "kind": "RANGER",
+    "tile": [
+     55,
+     67
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5916,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 41215,
+    "kind": "BLOB",
+    "tile": [
+     41,
+     69
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5916,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": 41215,
+  "hp": 56,
+  "prayer": 34,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    40,
+    71
+   ],
+   "step": [
+    40,
+    71
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 20,
+   "reason": "Pure: separate conflicting threats into a firing position"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 5999,
+  "wave": 43,
+  "player": [
+   45,
+   67
+  ],
+  "mobs": [
+   {
+    "index": 41213,
+    "kind": "MAGER",
+    "tile": [
+     39,
+     53
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5997,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 41214,
+    "kind": "RANGER",
+    "tile": [
+     53,
+     69
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 5996,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 47,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    48,
+    64
+   ],
+   "step": [
+    48,
+    64
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6161,
+  "wave": 44,
+  "player": [
+   47,
+   62
+  ],
+  "mobs": [
+   {
+    "index": 46676,
+    "kind": "MAGER",
+    "tile": [
+     61,
+     62
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6158,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 46677,
+    "kind": "RANGER",
+    "tile": [
+     59,
+     47
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6158,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 46678,
+    "kind": "BLOB",
+    "tile": [
+     47,
+     66
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 46679,
+    "kind": "BLOB",
+    "tile": [
+     47,
+     61
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6160,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 60,
+  "prayer": 43,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    59,
+    67
+   ],
+   "step": [
+    59,
+    67
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 20,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6165,
+  "wave": 44,
+  "player": [
+   55,
+   63
+  ],
+  "mobs": [
+   {
+    "index": 46676,
+    "kind": "MAGER",
+    "tile": [
+     61,
+     62
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6162,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 46677,
+    "kind": "RANGER",
+    "tile": [
+     59,
+     47
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6162,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 46678,
+    "kind": "BLOB",
+    "tile": [
+     51,
+     64
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 46679,
+    "kind": "BLOB",
+    "tile": [
+     51,
+     62
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6160,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 51,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    59,
+    67
+   ],
+   "step": [
+    59,
+    67
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6374,
+  "wave": 45,
+  "player": [
+   57,
+   65
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     59,
+     47
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6374,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51159,
+    "kind": "RANGER",
+    "tile": [
+     35,
+     81
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6374,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 60,
+  "prayer": 45,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    59,
+    62
+   ],
+   "step": [
+    59,
+    62
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6379,
+  "wave": 45,
+  "player": [
+   59,
+   62
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     59,
+     47
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6378,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51159,
+    "kind": "RANGER",
+    "tile": [
+     40,
+     76
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6378,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 52,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    49,
+    80
+   ],
+   "step": [
+    54,
+    75
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 26,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6383,
+  "wave": 45,
+  "player": [
+   59,
+   69
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     59,
+     49
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6378,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51159,
+    "kind": "RANGER",
+    "tile": [
+     42,
+     74
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6381,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6382,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 46,
+  "prayer": 45,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    49,
+    80
+   ],
+   "step": [
+    54,
+    75
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 26,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6385,
+  "wave": 45,
+  "player": [
+   57,
+   72
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     57,
+     51
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6378,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51159,
+    "kind": "RANGER",
+    "tile": [
+     42,
+     74
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6385,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6382,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 34,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    49,
+    80
+   ],
+   "step": [
+    54,
+    75
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 26,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6388,
+  "wave": 45,
+  "player": [
+   54,
+   75
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     54,
+     54
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6378,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51159,
+    "kind": "RANGER",
+    "tile": [
+     42,
+     74
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6385,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6386,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 38,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    49,
+    80
+   ],
+   "step": [
+    49,
+    80
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 26,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6391,
+  "wave": 45,
+  "player": [
+   50,
+   79
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     52,
+     57
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6378,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51159,
+    "kind": "RANGER",
+    "tile": [
+     42,
+     74
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6389,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6390,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 28,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    49,
+    80
+   ],
+   "step": [
+    49,
+    80
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 26,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6433,
+  "wave": 45,
+  "player": [
+   49,
+   80
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     49,
+     58
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6378,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     53,
+     63
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6430,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 49,
+  "prayer": 45,
+  "observedPrayer": "RANGE",
+  "plan": {
+   "destination": [
+    49,
+    70
+   ],
+   "step": [
+    49,
+    70
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure recovery: commit to firing range"
+  },
+  "label": "w45-recovery-commit"
+ },
+ {
+  "tick": 6438,
+  "wave": 45,
+  "player": [
+   49,
+   76
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     49,
+     58
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6438,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     53,
+     63
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6438,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 49,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    49,
+    70
+   ],
+   "step": [
+    49,
+    70
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6441,
+  "wave": 45,
+  "player": [
+   49,
+   71
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     49,
+     58
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6438,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     53,
+     63
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6438,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 50,
+  "prayer": 45,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    49,
+    70
+   ],
+   "step": [
+    49,
+    70
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6442,
+  "wave": 45,
+  "player": [
+   49,
+   70
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     49,
+     58
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6442,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     53,
+     63
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6442,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 39,
+  "prayer": 45,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    49,
+    70
+   ],
+   "step": [
+    49,
+    70
+   ],
+   "prayer": "MAGIC",
+   "target": 51160,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure recovery: attack reachable threat"
+  },
+  "label": "w45-two-style-stand"
+ },
+ {
+  "tick": 6446,
+  "wave": 45,
+  "player": [
+   49,
+   70
+  ],
+  "mobs": [
+   {
+    "index": 51158,
+    "kind": "MAGER",
+    "tile": [
+     49,
+     58
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6446,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 51160,
+    "kind": "RANGER",
+    "tile": [
+     53,
+     63
+    ],
+    "size": 3,
+    "healthRatio": 30,
+    "healthScale": 30,
+    "attackTick": 6446,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 43,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    49,
+    70
+   ],
+   "step": [
+    49,
+    70
+   ],
+   "prayer": "MAGIC",
+   "target": 51160,
+   "safe": false,
+   "risk": 13,
+   "reason": "Pure recovery: attack reachable threat"
+  },
+  "label": "w45-two-style-stand"
+ },
+ {
+  "tick": 6595,
+  "wave": 46,
+  "player": [
+   51,
+   67
+  ],
+  "mobs": [
+   {
+    "index": 55610,
+    "kind": "MAGER",
+    "tile": [
+     34,
+     82
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6595,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 55611,
+    "kind": "MELEER",
+    "tile": [
+     53,
+     63
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 65,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    60,
+    67
+   ],
+   "step": [
+    60,
+    67
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 25,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 6599,
+  "wave": 46,
+  "player": [
+   59,
+   67
+  ],
+  "mobs": [
+   {
+    "index": 55610,
+    "kind": "MAGER",
+    "tile": [
+     38,
+     78
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6595,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 55611,
+    "kind": "MELEER",
+    "tile": [
+     55,
+     65
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 6596,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-2.geometry.json",
+  "interaction": -1,
+  "hp": 43,
+  "prayer": 45,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    60,
+    67
+   ],
+   "step": [
+    60,
+    67
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 25,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 7020,
+  "wave": 48,
+  "player": [
+   41,
+   38
+  ],
+  "mobs": [
+   {
+    "index": 62338,
+    "kind": "MAGER",
+    "tile": [
+     45,
+     21
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 7017,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 62339,
+    "kind": "MELEER",
+    "tile": [
+     38,
+     35
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 62340,
+    "kind": "BAT",
+    "tile": [
+     42,
+     22
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 62341,
+    "kind": "BAT",
+    "tile": [
+     37,
+     38
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 65,
+  "prayer": 40,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    39,
+    40
+   ],
+   "step": [
+    39,
+    40
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 25,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ },
+ {
+  "tick": 7032,
+  "wave": 48,
+  "player": [
+   41,
+   41
+  ],
+  "mobs": [
+   {
+    "index": 62338,
+    "kind": "MAGER",
+    "tile": [
+     44,
+     21
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 7029,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 62339,
+    "kind": "MELEER",
+    "tile": [
+     40,
+     37
+    ],
+    "size": 4,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 7029,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 62340,
+    "kind": "BAT",
+    "tile": [
+     41,
+     34
+    ],
+    "size": 1,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-070-1.geometry.json",
+  "interaction": -1,
+  "hp": 48,
+  "prayer": 38,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    42,
+    42
+   ],
+   "step": [
+    42,
+    42
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 25,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "continuation-hit"
+ }
+]

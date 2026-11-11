@@ -65,7 +65,7 @@ import java.util.List;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class AttackTimerMetronomePlugin extends Plugin {
-    public final static String version = "1.5.0";
+    public final static String version = "1.5.1";
     public enum AttackState {
         NOT_ATTACKING,
         DELAYED_FIRST_TICK,
@@ -237,9 +237,9 @@ public class AttackTimerMetronomePlugin extends Plugin {
         // Fallback to varbit-based attack style detection
         final int currentAttackStyleVarbit = client.getVarpValue(VarPlayer.ATTACK_STYLE);
         final int currentEquippedWeaponTypeVarbit = client.getVarbitValue(Varbits.EQUIPPED_WEAPON_TYPE);
-        AttackStyle[] attackStyles = WeaponType.getWeaponType(currentEquippedWeaponTypeVarbit).getAttackStyles();
+        AttackStyle[] attackStyles = WeaponType.getAttackStyles(client, currentEquippedWeaponTypeVarbit);
 
-        if (currentAttackStyleVarbit < attackStyles.length) {
+        if (currentAttackStyleVarbit >= 0 && currentAttackStyleVarbit < attackStyles.length && attackStyles[currentAttackStyleVarbit] != null) {
             cachedAttackStyle = attackStyles[currentAttackStyleVarbit];
             log.debug("Determined attack style: {}", cachedAttackStyle);
             return cachedAttackStyle;

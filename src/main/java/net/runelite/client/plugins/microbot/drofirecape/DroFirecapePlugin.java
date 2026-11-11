@@ -23,7 +23,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
     isExternal=PluginConstants.IS_EXTERNAL,
     tags={"microbot","dro","firecape","fight caves","jad","boss"})
 public final class DroFirecapePlugin extends Plugin {
-    public static final String version="0.3.75";
+    public static final String version="0.3.85";
     @Inject private FcControllers script;
     @Inject private DroFirecapeConfig config;
     @Inject private DroFirecapeOverlay overlay;
@@ -39,5 +39,8 @@ public final class DroFirecapePlugin extends Plugin {
     @Subscribe public void onAnimationChanged(AnimationChanged e){script.onAnimationChanged(e);}
     @Subscribe public void onActorDeath(ActorDeath e){script.onActorDeath(e);}
     @Subscribe public void onHitsplatApplied(HitsplatApplied e){script.onHitsplatApplied(e);}
+    @Subscribe public void onProjectileMoved(ProjectileMoved e){script.onProjectileMoved(e);}
     @Subscribe public void onGameStateChanged(GameStateChanged e){script.onGameStateChanged(e);}
+    /** The game has read a click: a tab may change again (FcInput press failsafe). */
+    @Subscribe public void onMenuOptionClicked(MenuOptionClicked e){FcInput.pressRead();}
 }

@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.woodcutting.Forestry;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.BlockingEvent;
 import net.runelite.client.plugins.microbot.BlockingEventPriority;
@@ -12,6 +13,11 @@ import net.runelite.client.plugins.microbot.woodcutting.AutoWoodcuttingPlugin;
 import net.runelite.client.plugins.microbot.woodcutting.enums.ForestryEvents;
 
 import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
+
 @Slf4j
 public class EntlingsEvent implements BlockingEvent {
 
@@ -46,12 +52,14 @@ public class EntlingsEvent implements BlockingEvent {
         }
         
         while (this.validate()) {
-            var entlings = Microbot.getRs2NpcCache().query()
+            WorldPoint playerLocation = Rs2Player.getWorldLocation();
+            if (playerLocation == null) {
+                sleepUntil(() -> Rs2Player.getWorldLocation() != null, 1200);
+                continue;
+            }
+            var entlings = sortByDistance(Microbot.getRs2NpcCache().query()
                     .where(npc -> npc.getId() == NpcID.GATHERING_EVENT_ENTLINGS_NPC_01)
-                    .toList();
-            entlings.sort(Comparator.comparingInt(e ->
-                    e.getWorldLocation().distanceTo(Rs2Player.getWorldLocation())
-            ));
+                    .toList(), playerLocation);
 
             for (Rs2NpcModel entling : entlings) {
                 String request = entling.getOverheadText();
@@ -81,6 +89,13 @@ public class EntlingsEvent implements BlockingEvent {
         Microbot.log("EntlingsEvent: Ending event execution");
         plugin.incrementForestryEventCompleted();
         return true;
+    }
+
+    static List<Rs2NpcModel> sortByDistance(List<Rs2NpcModel> entlings, WorldPoint playerLocation) {
+        return entlings.stream()
+                .filter(e -> e.getWorldLocation() != null)
+                .sorted(Comparator.comparingInt(e -> e.getWorldLocation().distanceTo(playerLocation)))
+                .collect(Collectors.toList());
     }
 
     @Override

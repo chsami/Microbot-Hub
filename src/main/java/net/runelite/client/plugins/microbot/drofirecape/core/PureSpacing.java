@@ -27,7 +27,7 @@ public final class PureSpacing {
     public void yieldToRecovery(int tick){goal=lastPlayer=null;since=progressAt=-1;retryAfter=tick+RETRY_TICKS;}
 
     public Plan decide(Snapshot s,int shotDelay) {
-        if(s.meleeMode()||s.mobs().isEmpty()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER)) {
+        if(s.mobs().isEmpty()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER)) {
             reset();return null;
         }
         if(goal!=null) {

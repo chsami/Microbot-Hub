@@ -18,13 +18,15 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
     private static final int CAPTAIN_IZZY_NPC_ID = 5789;
     private static final int COINS_ID = 995;
     private static final int REQUIRED_COINS = 200;
-    
+    private static final int MAX_MISSING_OBSTACLE_CHECKS = 20;
+
     private boolean hasPaid = false;
     private boolean hasClimbedLadder = false;
     private int lastAgilityXpForStep = -1;
     private long lastStepAtMs = 0;
     private int currentObstacleIndex = 0;
-    
+    private int missingObstacleChecks = 0;
+
     /**
      * Reset all flags when script shuts down
      */
@@ -35,6 +37,15 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
         lastAgilityXpForStep = -1;
         lastStepAtMs = 0;
         currentObstacleIndex = 0;
+        missingObstacleChecks = 0;
+    }
+
+    @Override
+    public String getObstacleNotFoundStopMessage() {
+        if (missingObstacleChecks < MAX_MISSING_OBSTACLE_CHECKS) {
+            return null;
+        }
+        return "Can't find the Brimhaven rope swing or pillar near you. Leave the Agility Arena, or walk back next to the rope swing by the entrance ladder, then start the script again.";
     }
 
     @Override
@@ -297,8 +308,12 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
                 
                 var gameObject = Microbot.getRs2TileObjectCache().query().withId(currentObstacle.getObjectID()).within(playerLocation, 10).nearest();
                 if (gameObject != null) {
+                    missingObstacleChecks = 0;
                     log.debug("Looking for obstacle {}/{} (ID: {})", currentObstacleIndex + 1, obstacles.size(), currentObstacle.getObjectID());
                     return gameObject;
+                }
+                if (!Rs2Player.isMoving() && !Rs2Player.isAnimating()) {
+                    missingObstacleChecks++;
                 }
             }
         }
@@ -365,9 +380,9 @@ public class BrimhavenSpikeCourse implements AgilityCourseHandler {
     private boolean isInsideSpikeCourse(WorldPoint playerLocation) {
         return playerLocation != null
             && playerLocation.getPlane() == 3
-            && playerLocation.getX() >= 2788
+            && playerLocation.getX() >= 2752
             && playerLocation.getX() <= 2820
-            && playerLocation.getY() >= 9548
-            && playerLocation.getY() <= 9585;
+            && playerLocation.getY() >= 9536
+            && playerLocation.getY() <= 9599;
     }
 }

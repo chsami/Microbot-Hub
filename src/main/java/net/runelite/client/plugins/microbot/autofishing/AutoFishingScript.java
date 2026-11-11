@@ -3,9 +3,11 @@ package net.runelite.client.plugins.microbot.autofishing;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.ChatMessage;
 
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
@@ -25,6 +27,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -45,12 +48,17 @@ public class AutoFishingScript extends Script {
     private WorldPoint fishingLocation;
     private String fishAction = "";
     private long lastActionTime = System.currentTimeMillis();
+    private volatile boolean outOfBait = false;
+    static final int MAX_TACKLE_BOX_CASTS_WITHOUT_XP = 3;
+    private int tackleBoxCastsWithoutXp = 0;
 
     public boolean run(AutoFishingConfig config) {
         this.config = config;
         this.selectedFish = config.fishToCatch();
         this.selectedHarpoon = config.harpoonSpec();
         this.lastActionTime = System.currentTimeMillis();
+        this.outOfBait = false;
+        this.tackleBoxCastsWithoutXp = 0;
 
         Rs2Antiban.resetAntibanSettings();
         Rs2Antiban.antibanSetupTemplates.applyFishingSetup();
@@ -63,16 +71,21 @@ public class AutoFishingScript extends Script {
         try {
             if (!super.run() || !Microbot.isLoggedIn()) return;
 
+            // The level-up pop-up blocks game input until it is dismissed. Without this the
+            // script keeps its FISHING state and never clicks another spot after a level.
+            if (dismissLevelUpScreen()) return;
+
             WorldPoint playerLocation = Rs2Player.getWorldLocation();
             if (playerLocation == null) return;
 
             currentState = determineState(playerLocation);
 
-            if (currentState == AutoFishingState.FISHING && !hasFishingMaterials()) {
-                log.info("Out of required fishing materials for {}. Logging out and shutting down script.", selectedFish);
-                Rs2Player.logout();
-                shutdown();
-                return;
+            if (currentState == AutoFishingState.FISHING) {
+                String reason = outOfMaterialsReason();
+                if (reason != null) {
+                    stopWithReason(reason);
+                    return;
+                }
             }
 
             if (Rs2Player.isMoving() && currentState != AutoFishingState.TRAVELING) {
@@ -165,7 +178,7 @@ public class AutoFishingScript extends Script {
         if (!fishAction.isEmpty() && fishingSpot.click(fishAction)) {
             lastActionTime = System.currentTimeMillis();
 
-            Rs2Player.waitForXpDrop(Skill.FISHING, true);
+            boolean gainedXp = Rs2Player.waitForXpDrop(Skill.FISHING, true);
 
             // Wait using repeated xp drop waits until the specific spot despawns or inv is full.
             // This gives one click per spot lifetime and catches full inv during the session.
@@ -178,10 +191,13 @@ public class AutoFishingScript extends Script {
                     if (current == null || !(current instanceof NPC) || ((NPC) current).getIndex() != clickedSpotIndex) {
                         break;
                     }
-                    Rs2Player.waitForXpDrop(Skill.FISHING, 10000, true);
+                    if (Rs2Player.waitForXpDrop(Skill.FISHING, 10000, true)) {
+                        gainedXp = true;
+                    }
                 }
             }
 
+            countTackleBoxCast(gainedXp);
             lastActionTime = System.currentTimeMillis();
             try {
                 Rs2Antiban.actionCooldown();
@@ -294,8 +310,8 @@ public class AutoFishingScript extends Script {
     private void handleGettingGear() {
         if (Rs2Bank.walkToBankAndUseBank()) {
             for (String tool : selectedFish.getMethod().getRequiredItems()) {
-                if (!Rs2Inventory.hasItem(tool) && !Rs2Equipment.isWearing(tool)) {
-                    withdrawAndEquipItem(tool);
+                if (!hasRequiredItem(tool)) {
+                    withdrawAndEquipItem(bankedName(tool));
                 }
             }
             if (selectedHarpoon != HarpoonType.NONE) {
@@ -317,9 +333,13 @@ public class AutoFishingScript extends Script {
             }
 
             if (!hasRequiredGear()) {
-                log.info("Could not obtain required gear/materials from bank. Logging out and shutting down script.");
-                Rs2Player.logout();
-                shutdown();
+                List<String> missing = selectedFish.getMethod().getRequiredItems().stream()
+                        .filter(tool -> !hasRequiredItem(tool))
+                        .collect(Collectors.toCollection(ArrayList::new));
+                if (selectedHarpoon != HarpoonType.NONE && !Rs2Inventory.hasItem(selectedHarpoon.getName()) && !Rs2Equipment.isWearing(selectedHarpoon.getName())) {
+                    missing.add(selectedHarpoon.getName());
+                }
+                stopWithReason(missingFromBankReason(missing));
                 return;
             }
         }
@@ -339,10 +359,15 @@ public class AutoFishingScript extends Script {
                 if (h != null) keepIds.add(h.getId());
             }
             for (String tool : selectedFish.getMethod().getRequiredItems()) {
-                if (Rs2Inventory.hasItem(tool)) {
-                    Rs2ItemModel t = Rs2Inventory.get(tool);
-                    if (t != null) keepIds.add(t.getId());
+                for (String name : acceptedConsumables(tool)) {
+                    if (Rs2Inventory.hasItem(name)) {
+                        Rs2ItemModel t = Rs2Inventory.get(name);
+                        if (t != null) keepIds.add(t.getId());
+                    }
                 }
+            }
+            if (Rs2Inventory.hasItem(ItemID.TACKLE_BOX)) {
+                keepIds.add(ItemID.TACKLE_BOX);
             }
             if (Rs2Inventory.hasItem(ItemID.FISH_BARREL_CLOSED)) {
                 keepIds.add(ItemID.FISH_BARREL_CLOSED);
@@ -375,6 +400,21 @@ public class AutoFishingScript extends Script {
     private void handleErrorRecovery() {
         if (Rs2Bank.isOpen()) Rs2Bank.closeBank();
         fishAction = "";
+    }
+
+    /**
+     * The level-up screen takes over the chatbox and no longer accepts world interaction,
+     * so the script has to click its "Click here to continue" before it can act again.
+     *
+     * @return true when a level-up screen was showing and the dismiss click was sent
+     */
+    private boolean dismissLevelUpScreen() {
+        if (!Rs2Widget.isWidgetVisible(InterfaceID.LevelupDisplay.CONTINUE)) {
+            return false;
+        }
+        log.debug("Dismissing level-up screen");
+        Rs2Widget.clickWidget(InterfaceID.LevelupDisplay.CONTINUE);
+        return true;
     }
 
     /**
@@ -444,7 +484,7 @@ public class AutoFishingScript extends Script {
 
     private boolean hasRequiredGear() {
         boolean hasTools = selectedFish.getMethod().getRequiredItems().stream()
-                .allMatch(tool -> Rs2Inventory.hasItem(tool) || Rs2Equipment.isWearing(tool));
+                .allMatch(this::hasRequiredItem);
 
         if (selectedHarpoon != HarpoonType.NONE) {
             return hasTools && (Rs2Inventory.hasItem(selectedHarpoon.getName()) || Rs2Equipment.isWearing(selectedHarpoon.getName()));
@@ -452,17 +492,119 @@ public class AutoFishingScript extends Script {
         return hasTools;
     }
 
-    private boolean hasFishingMaterials() {
-        // Consumables that deplete while fishing (baits, feathers, etc.). Tools like rods/nets/pots are separate.
-        List<String> required = selectedFish.getMethod().getRequiredItems();
-        for (String item : required) {
-            if (isConsumable(item)) {
-                if (!Rs2Inventory.hasItem(item)) {
-                    return false;
-                }
+    private String outOfMaterialsReason() {
+        List<String> consumables = selectedFish.getMethod().getRequiredItems().stream()
+                .filter(AutoFishingScript::isConsumable)
+                .collect(Collectors.toList());
+        if (consumables.isEmpty()) return null;
+
+        String needed = joinNames(displayNames(consumables), "and");
+        if (outOfBait) {
+            if (Rs2Inventory.hasItem(ItemID.TACKLE_BOX) && consumables.stream().anyMatch(AutoFishingScript::isTackleBoxBait)) {
+                String refill = config.useBank()
+                        ? "Refill the bait, withdraw " + needed + " from your bank, or put it in your inventory"
+                        : "Refill the bait or put it in your inventory";
+                return "AutoFishing stopped: out of " + needed + " (your Tackle box is empty too). " + refill + ", then start again.";
+            }
+            return "AutoFishing stopped: out of " + needed + ". Put more in your inventory, then start again.";
+        }
+
+        List<String> missing = consumables.stream()
+                .filter(item -> !hasRequiredItem(item))
+                .collect(Collectors.toList());
+        if (missing.isEmpty()) return null;
+
+        List<String> sources = new ArrayList<>();
+        for (String item : missing) {
+            sources.addAll(displayNames(Arrays.asList(acceptedConsumables(item))));
+            if (isTackleBoxBait(item) && !sources.contains("Tackle box")) {
+                sources.add("Tackle box");
             }
         }
-        return true;
+        return "AutoFishing stopped: no " + joinNames(sources, "or") + " in your inventory for " + selectedFish.getName()
+                + ". Add " + joinNames(displayNames(missing), "and") + " and start again.";
+    }
+
+    static String missingFromBankReason(List<String> missing) {
+        List<String> names = missing.stream()
+                .map(item -> joinNames(displayNames(Arrays.asList(acceptedConsumables(item))), "or"))
+                .collect(Collectors.toList());
+        boolean single = missing.size() == 1 && !isConsumable(missing.get(0));
+        return "AutoFishing stopped: could not find " + joinNames(names, "and") + " in your bank. Put " + (single ? "it" : "them")
+                + " in your bank or inventory (buy " + (single ? "one" : "some") + " if you have none), then start again.";
+    }
+
+    static List<String> displayNames(List<String> items) {
+        return items.stream()
+                .map(item -> item.equalsIgnoreCase("Feather") ? "Feathers" : item)
+                .collect(Collectors.toList());
+    }
+
+    private String bankedName(String item) {
+        return Arrays.stream(acceptedConsumables(item))
+                .filter(name -> Rs2Bank.hasItem(name))
+                .findFirst()
+                .orElse(item);
+    }
+
+    private void countTackleBoxCast(boolean gainedXp) {
+        if (gainedXp || !fishesFromTackleBoxOnly()) {
+            tackleBoxCastsWithoutXp = 0;
+            return;
+        }
+        tackleBoxCastsWithoutXp++;
+        if (tackleBoxCastsWithoutXp >= MAX_TACKLE_BOX_CASTS_WITHOUT_XP) {
+            log.info("{} casts in a row gave no Fishing XP with only a Tackle box for bait, treating it as empty", tackleBoxCastsWithoutXp);
+            outOfBait = true;
+        }
+    }
+
+    private boolean fishesFromTackleBoxOnly() {
+        return Rs2Inventory.hasItem(ItemID.TACKLE_BOX) && selectedFish.getMethod().getRequiredItems().stream()
+                .anyMatch(item -> isConsumable(item) && isTackleBoxBait(item) && !Rs2Inventory.hasItem(acceptedConsumables(item)));
+    }
+
+    private boolean hasRequiredItem(String item) {
+        if (isConsumable(item)) {
+            return Rs2Inventory.hasItem(acceptedConsumables(item)) || (isTackleBoxBait(item) && Rs2Inventory.hasItem(ItemID.TACKLE_BOX));
+        }
+        return Rs2Inventory.hasItem(item) || Rs2Equipment.isWearing(item);
+    }
+
+    static String[] acceptedConsumables(String item) {
+        if (item.equalsIgnoreCase("Fishing bait")) {
+            return new String[]{"Fishing bait", "Sandworms"};
+        }
+        return new String[]{item};
+    }
+
+    static boolean isTackleBoxBait(String item) {
+        return item.equalsIgnoreCase("Fishing bait") || item.equalsIgnoreCase("Sandworms");
+    }
+
+    static boolean isOutOfBaitMessage(String message) {
+        if (message == null) return false;
+        String lower = message.toLowerCase();
+        return (lower.contains("have any") || lower.contains("have no")) && isConsumable(lower);
+    }
+
+    static String joinNames(List<String> names, String conjunction) {
+        if (names.isEmpty()) return "your fishing gear";
+        if (names.size() == 1) return names.get(0);
+        return String.join(", ", names.subList(0, names.size() - 1)) + " " + conjunction + " " + names.get(names.size() - 1);
+    }
+
+    public void onChatMessage(ChatMessage event) {
+        if ((event.getType() == ChatMessageType.GAMEMESSAGE || event.getType() == ChatMessageType.SPAM) && isOutOfBaitMessage(event.getMessage())) {
+            outOfBait = true;
+        }
+    }
+
+    private void stopWithReason(String reason) {
+        log.info(reason);
+        Rs2Player.logout();
+        shutdown();
+        Microbot.showMessage(reason);
     }
 
     private boolean isAtFishingLocation(WorldPoint playerLocation) {

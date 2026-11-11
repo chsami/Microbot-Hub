@@ -151,7 +151,7 @@ public final class MinimapMovement {
     }
     /** Arm before the click can carry the player into a new ranged attack lane. */
     public static Protection routeProtection(Snapshot s,Tile destination,Protection fallback) {
-        if(s.meleeMode()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD))return fallback;
+        if(s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD))return fallback;
         List<Tile> route=path(s,destination);List<Mob> future=s.mobs();int mask=0;boolean bigMelee=false;
         int stride=s.running()&&s.runEnergy()>0?2:1;
         for(int i=0;i<route.size();i++) {

@@ -1,0 +1,213 @@
+[
+ {
+  "tick": 7664,
+  "wave": 38,
+  "player": [
+   54,
+   36
+  ],
+  "mobs": [
+   {
+    "index": 43080,
+    "kind": "MAGER",
+    "tile": [
+     44,
+     8
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 43081,
+    "kind": "RANGER",
+    "tile": [
+     57,
+     18
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "RANGE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-071-0.geometry.json",
+  "interaction": -1,
+  "hp": 65,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    53,
+    26
+   ],
+   "step": [
+    53,
+    36
+   ],
+   "prayer": "NONE",
+   "target": -1,
+   "safe": true,
+   "risk": 0,
+   "reason": "Luring through checked cover"
+  },
+  "label": "w38-lure-dispatch"
+ },
+ {
+  "tick": 8831,
+  "wave": 41,
+  "player": [
+   59,
+   61
+  ],
+  "mobs": [
+   {
+    "index": 57968,
+    "kind": "MAGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 8828,
+    "style": "MAGIC",
+    "attackingPlayer": true
+   },
+   {
+    "index": 57969,
+    "kind": "RANGER",
+    "tile": [
+     43,
+     73
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 8828,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 57970,
+    "kind": "BLOB",
+    "tile": [
+     46,
+     59
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-071-1.geometry.json",
+  "interaction": -1,
+  "hp": 65,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    40,
+    71
+   ],
+   "step": [
+    46,
+    66
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 68,
+   "reason": "Approach blocked ranged attacker before melee cleanup"
+  },
+  "label": "w41-ketzek-edge-approach"
+ },
+ {
+  "tick": 8832,
+  "wave": 41,
+  "player": [
+   59,
+   61
+  ],
+  "mobs": [
+   {
+    "index": 57968,
+    "kind": "MAGER",
+    "tile": [
+     54,
+     62
+    ],
+    "size": 5,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 8832,
+    "style": "MELEE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 57969,
+    "kind": "RANGER",
+    "tile": [
+     43,
+     73
+    ],
+    "size": 3,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": 8832,
+    "style": "RANGE",
+    "attackingPlayer": true
+   },
+   {
+    "index": 57970,
+    "kind": "BLOB",
+    "tile": [
+     47,
+     60
+    ],
+    "size": 2,
+    "healthRatio": -1,
+    "healthScale": -1,
+    "attackTick": -1,
+    "style": "MELEE",
+    "attackingPlayer": true
+   }
+  ],
+  "range": 5,
+  "running": true,
+  "geometry": "pure-071-1.geometry.json",
+  "interaction": -1,
+  "hp": 43,
+  "prayer": 44,
+  "observedPrayer": "MAGIC",
+  "plan": {
+   "destination": [
+    46,
+    66
+   ],
+   "step": [
+    46,
+    66
+   ],
+   "prayer": "MAGIC",
+   "target": -1,
+   "safe": false,
+   "risk": 68,
+   "reason": "Pure: continue acknowledged firing route"
+  },
+  "label": "w41-ketzek-edge-continue"
+ }
+]
