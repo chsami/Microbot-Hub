@@ -27,9 +27,7 @@ public final class TacticalMovement {
         return true;
     }
     public static boolean clearOfJad(Snapshot s,List<Mob> mobs,Tile tile) {
-        if(!s.meleeMode())return clearOfJad(mobs,tile);
-        for(Mob mob:mobs)if(mob.kind()==Kind.JAD&&mob.occupies(tile))return false;
-        return true;
+        return clearOfJad(mobs,tile);
     }
     private static boolean occupied(List<Mob> mobs, Tile tile) {
         for (Mob mob : mobs) if (mob.occupies(tile)) return true;
@@ -64,7 +62,7 @@ public final class TacticalMovement {
             if(mob.occupies(s.player()))escaping=true;
             if(mob.occupies(to)&&(!mob.occupies(s.player())||!mob.occupies(from)
                 ||overlapDepth(mob,to)>overlapDepth(mob,from)))return false;
-            if(!s.meleeMode()&&mob.kind()==Kind.JAD&&jadDanger(mob,to)>0
+            if(mob.kind()==Kind.JAD&&jadDanger(mob,to)>0
                 &&(jadDanger(mob,s.player())==0||jadDanger(mob,to)>jadDanger(mob,from)))return false;
         }
         return escaping;
@@ -151,7 +149,7 @@ public final class TacticalMovement {
                 if(mob.occupies(next)&&(original==null||!original.occupies(s.player())
                     ||overlapDepth(mob,next)>=overlapDepth(original,s.player())))
                     return invalid(s,goal,"NPC can occupy the next step: "+reason);
-                if(!s.meleeMode()&&mob.kind()==Kind.JAD&&jadDanger(mob,next)>0&&(original==null
+                if(mob.kind()==Kind.JAD&&jadDanger(mob,next)>0&&(original==null
                     ||jadDanger(mob,next)>=jadDanger(original,s.player())))
                     return invalid(s,goal,"Jad buffer does not improve: "+reason);
             }
@@ -163,7 +161,6 @@ public final class TacticalMovement {
 
     /** Conservative movement protection: do not turn it off between sampled clocks. */
     private static Protection protection(Snapshot s,List<Tile> tiles) {
-        if(s.meleeMode())return MeleeProtection.choose(s,tiles.get(tiles.size()-1),Protection.NONE);
         boolean jad=false;
         for (Mob mob:s.mobs()) if (mob.kind()==Kind.JAD) {
             for (Tile tile:tiles) if (CombatPlanner.threats(s.grid(),mob,tile,s.jadStyle())!=0) jad=true;

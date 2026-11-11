@@ -51,6 +51,6 @@ public class OptionalMovementStallTest {
             Snapshot room=new Snapshot(tick,player,new CollisionGrid(new int[104][104]),mobs,100,true,5,Protection.NONE);
             recovered|=watchdog.stalled(room,shot,ack.pending(),-1);
         }
-        assertTrue(recovered,"Unacknowledged shots must recover rather than wait until tick 1618");
+        assertTrue(recovered, "Unacknowledged shots must recover rather than wait until tick 1618");
     }
 }

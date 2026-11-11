@@ -29,13 +29,13 @@ import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.menu.NewMenuEntry;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.*;
-import net.runelite.client.plugins.microbot.util.tabs.Rs2Tab;
 import net.runelite.client.plugins.microbot.util.walker.Rs2MiniMap;
 import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel;
 import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.Protection;
 
-/** All input executes off the client thread. Read lambdas return immutable dispatch details. */
+/** Cave actions are menu actions through FcInput: direct invokes or the Natural mouse (walking always
+ * uses the mouse). Read lambdas return immutable dispatch details on the client thread. */
 class FcActions {
     /** Java 11 value type; preserves the former record API and value semantics. */
     protected static final class Click {
@@ -74,25 +74,63 @@ class FcActions {
     }
     protected final FcSpawnPredictor spawnPredictor=new FcSpawnPredictor();
     protected long uiAt,lastAttackAt;
+    private String minigamePromptSent="";
     protected volatile String lastAttackResult="No attack requested";
     protected int lastAttackIndex=-1;
     protected long attackGap=115;
     protected volatile boolean observe;
-    protected volatile FcTickPrayers tickPrayers;
-    void tickPrayerDriver(FcTickPrayers driver){tickPrayers=driver;}
-    protected FcTickPrayers ownedPrayerDriver(){FcTickPrayers d=tickPrayers;return d!=null&&d.ownsInput()?d:null;}
-    Protection attackProtection(Protection fallback){FcTickPrayers d=ownedPrayerDriver();return d==null?fallback:d.requested();}
-    String selectedOffence(){FcTickPrayers d=tickPrayers;return d!=null?d.selectedOffence():"Detecting";}
+    protected volatile FcPrayers tickPrayers;
+    void tickPrayerDriver(FcPrayers driver){tickPrayers=driver;}
+    protected FcPrayers ownedPrayerDriver(){FcPrayers d=tickPrayers;return d!=null&&d.ownsInput()?d:null;}
+    Protection attackProtection(Protection fallback){FcPrayers d=ownedPrayerDriver();return d==null?fallback:d.requested();}
+    String selectedOffence(){FcPrayers d=tickPrayers;return d!=null?d.selectedOffence():"Detecting";}
     protected final Object inputLock=new Object();
-    protected final FcPrayerUi prayerUi=new FcPrayerUi(()->!observe&&!Microbot.pauseAllScripts.get()
-        &&!InputArbiter.isHuman()&&!Thread.currentThread().isInterrupted());
-    String prayerUiStatus(){return prayerUi.problem();}
+    protected volatile String inputProblem="";
+    String inputStatus(){return inputProblem;}
     protected final net.runelite.client.plugins.microbot.drofirecape.core.PrayerSwitchGuard combatPrayerGuard=new net.runelite.client.plugins.microbot.drofirecape.core.PrayerSwitchGuard(COMBAT_PRAYERS.length);
     void observeOnly(boolean value){observe=value;}
-    void reset(){combatPrayerGuard.reset();prayerUi.reset();uiAt=lastAttackAt=0;lastAttackIndex=-1;}
-    static <T>T read(Callable<T> r,T fallback){return Microbot.getClientThread().runOnClientThreadOptional(r).orElse(fallback);}
+    /** "Manual movement": no cave walk is ever sent; the player moves. */
+    private volatile java.util.function.BooleanSupplier manualMovement=()->false;
+    void manualMovement(java.util.function.BooleanSupplier value){manualMovement=value==null?()->false:value;}
+    void reset(){combatPrayerGuard.reset();inputProblem="";uiAt=lastAttackAt=0;lastAttackIndex=-1;minigamePromptSent="";}
+    static <T>T read(Callable<T> r,T fallback) {
+        var thread=Microbot.getClientThread();
+        return thread==null?fallback:thread.runOnClientThreadOptional(r).orElse(fallback);
+    }
     protected static Client client(){return Microbot.getClient();}
-    protected boolean invoke(Click click){if(observe||click==null||click.bounds()==null)return false;synchronized(inputLock){Microbot.doInvoke(click.entry(),click.bounds());}return true;}
+    protected volatile FcArenaInput arena;
+    protected volatile FcInput input=new FcInput(()->FcFightInput.NATURAL_MOUSE,null);
+    void arenaInput(FcArenaInput arena,FcInput input){this.arena=arena;this.input=input;}
+    FcInput input(){return input;}
+    /** Minimap walking and plain UI presses use the arena fight mouse while its lease is held. */
+    protected <T>T gesture(java.util.function.Supplier<T> action,T cancelled){FcArenaInput a=arena;return a==null?action.get():a.fight(action,cancelled);}
+    /** Walking: a protection prayer queued during the travel takes the pointer first. */
+    protected <T>T walkGesture(java.util.function.Supplier<T> action,T cancelled) {
+        FcArenaInput a=arena;if(a==null)return action.get();
+        long urgency=input.protectionUrgency();
+        return a.fight(action,cancelled,()->input.protectionUrgency()==urgency);
+    }
+    protected boolean invoke(Click click){return invoke(click,()->true);}
+    protected boolean invoke(Click click,java.util.function.BooleanSupplier live) {
+        if(observe||click==null||(click.bounds()==null&&!input.invokes(click.entry().getType())))return false;
+        synchronized(inputLock){return input.dispatch(click.entry(),click.bounds(),live);}
+    }
+    /** Opens the tab with the client script (no F-keys or tab clicks), then sends the widget action. */
+    protected boolean widgetAction(InterfaceTab tab,NewMenuEntry entry,Callable<Rectangle> bounds,java.util.function.BooleanSupplier live) {
+        if(observe||!live.getAsBoolean())return false;
+        synchronized(inputLock) {
+            Rectangle area=read(()->{
+                if(tab!=null&&!FcInput.openTab(client(),tab)){inputProblem="Waiting for "+tab.getName()+" tab";return null;}
+                Rectangle b=bounds.call();
+                if(b==null)inputProblem="Waiting for visible "+entry.getOption()+" button";
+                return b;
+            },null);
+            if(area==null&&!input.invokes(entry.getType()))return false;
+            boolean sent=input.dispatch(entry,area,live);
+            if(sent)inputProblem="";
+            return sent;
+        }
+    }
     protected boolean uiReady(long gap){return !observe&&System.currentTimeMillis()-uiAt>=gap;}
     protected void uiSent(){uiAt=System.currentTimeMillis();}
 
@@ -103,7 +141,7 @@ class FcActions {
         Rs2PrayerEnum.BURST_STRENGTH,Rs2PrayerEnum.SUPERHUMAN_STRENGTH,Rs2PrayerEnum.ULTIMATE_STRENGTH,
         Rs2PrayerEnum.CLARITY_THOUGHT,Rs2PrayerEnum.IMPROVED_REFLEXES,Rs2PrayerEnum.INCREDIBLE_REFLEXES,
         Rs2PrayerEnum.CHIVALRY,Rs2PrayerEnum.PIETY};
-    /** Entry/exit acknowledgement only; cave combat is owned by FcTickPrayers. */
+    /** Entry/exit acknowledgement only; cave combat is owned by FcPrayers. */
     protected static final class PrayerState {
         final int tick,points;
         final boolean[] active=new boolean[COMBAT_PRAYERS.length];
@@ -115,23 +153,8 @@ class FcActions {
                     active[i]=active[j]=active[i]||active[j];
         }
     }
-    /** Called only by the existing background prayer worker, never ClientTick. */
-    boolean prepareTickPrayer(Rs2PrayerEnum prayer,java.util.function.BooleanSupplier valid) {
-        synchronized(inputLock){return prayerUi.preparePrayer(prayer,valid);}
-    }
-    FcPrayerUi.Result tickPrayer(net.runelite.client.plugins.microbot.drofirecape.core.OneTickPrayerCycle.Command command,
-        Rs2PrayerEnum prayer,java.util.function.BooleanSupplier early,java.util.function.BooleanSupplier valid) {
-        synchronized(inputLock) {
-            if(command.type==net.runelite.client.plugins.microbot.drofirecape.core.OneTickPrayerCycle.Type.RESET)
-                return prayerUi.resetPrayer(prayer,early,valid);
-            if(command.type==net.runelite.client.plugins.microbot.drofirecape.core.OneTickPrayerCycle.Type.OFF
-                &&!early.getAsBoolean())return FcPrayerUi.Result.SKIPPED;
-            return prayerUi.prayer(prayer,
-                command.type==net.runelite.client.plugins.microbot.drofirecape.core.OneTickPrayerCycle.Type.ON,
-                ()->valid.getAsBoolean()&&(command.type!=net.runelite.client.plugins.microbot.drofirecape.core.OneTickPrayerCycle.Type.OFF||early.getAsBoolean()))
-                ?FcPrayerUi.Result.SENT:FcPrayerUi.Result.WAITING;
-        }
-    }
+    /** The background prayer worker's Natural mouse press shares the cave input lock. */
+    void prayerPulse(FcPrayers driver){synchronized(inputLock){driver.pulse();}}
     /** Only entry pre-arm or outside-cave cleanup may use this bounded writer. */
     protected boolean outsidePrayers(Protection protection) {
         synchronized(inputLock) {
@@ -162,27 +185,48 @@ class FcActions {
     }
     protected void toggleOutsidePrayer(PrayerState state,int channel,boolean desired,long now) {
         if(observe||state.points<=0)return;
+        Rs2PrayerEnum prayer=COMBAT_PRAYERS[channel];
         if(combatPrayerGuard.shouldToggle(channel,state.active[channel],desired,state.tick,now)
-            &&!prayerUi.prayer(COMBAT_PRAYERS[channel],desired,()->read(this::outsidePrayerScene,false)))
+            &&!widgetAction(InterfaceTab.PRAYER,FcPrayers.entry(prayer,desired),()->{
+                Widget w=client().getWidget(prayer.getIndex());
+                return w==null||w.isHidden()?null:FcInput.visibleBounds(w.getBounds(),client().getCanvasWidth(),client().getCanvasHeight());
+            },()->read(()->outsidePrayerScene()&&(client().getVarbitValue(prayer.getVarbit())==1)!=desired,false)))
             combatPrayerGuard.cancel(channel);
     }
-    /** A missing or suspended cave owner never falls back to a second writer. */
+    /** A missing or suspended cave owner never falls back to a second writer. Pure fights at zero prayer. */
     boolean combatProtect(Protection ignored) {
-        FcTickPrayers driver=ownedPrayerDriver();return driver!=null&&driver.protectionReady();
+        FcPrayers driver=ownedPrayerDriver();return driver!=null&&(driver.protectionReady()||driver.exhaustedCombatReady());
     }
     boolean overheadActive(Protection ignored){return combatProtect(ignored);}
     boolean staminaActive(){return Rs2Player.hasStaminaBuffActive();}
-    boolean offenceReady(){FcTickPrayers driver=ownedPrayerDriver();return driver!=null&&driver.offenceReady();}
+    boolean offenceReady(){FcPrayers driver=ownedPrayerDriver();return driver!=null&&driver.offenceReady();}
     void prayersOff(){if(!observe)outsidePrayers(Protection.NONE);}
-    boolean prayersObservedOff(){FcTickPrayers driver=ownedPrayerDriver();return driver!=null&&driver.prayersOffReady();}
+    boolean prayersObservedOff(){FcPrayers driver=ownedPrayerDriver();return driver!=null&&driver.prayersOffReady();}
     void idlePrayersOff(){if(uiReady(1200)){prayersOff();uiSent();}}
-    boolean autoRetaliateOff(){return !observe&&Rs2Combat.setAutoRetaliate(false);}
-    void enableRun(){if(!observe)Rs2Player.toggleRunEnergy(true);}
-    boolean zoomConfirmed(){return read(Rs2Camera::getZoom,-1)==150;}
-    void restoreZoom(){if(!observe&&uiReady(1100)){Rs2Camera.setZoom(150);uiSent();}}
+    /** Varp 172 is 1 while auto retaliate is off. */
+    boolean autoRetaliateOff() {
+        if(!uiReady(900))return false;
+        boolean sent=widgetAction(InterfaceTab.COMBAT,new NewMenuEntry().param0(-1).param1(InterfaceID.CombatInterface.RETALIATE)
+            .type(MenuAction.CC_OP).identifier(1).itemId(-1).option("Auto retaliate").target(""),()->{
+                Widget w=client().getWidget(InterfaceID.CombatInterface.RETALIATE);
+                return w==null||w.isHidden()?null:FcInput.visibleBounds(w.getBounds(),client().getCanvasWidth(),client().getCanvasHeight());
+            },()->read(()->client().getVarpValue(172)==0,false));
+        if(sent)uiSent();
+        return sent;
+    }
+    void enableRun() {
+        widgetAction(null,new NewMenuEntry().param0(-1).param1(InterfaceID.Orbs.RUNBUTTON).type(MenuAction.CC_OP)
+            .identifier(1).itemId(-1).option("Toggle Run").target(""),()->{
+                Widget w=client().getWidget(InterfaceID.Orbs.RUNBUTTON);
+                return w==null||w.isHidden()?null:FcInput.visibleBounds(w.getBounds(),client().getCanvasWidth(),client().getCanvasHeight());
+            },()->read(()->client().getVarpValue(173)==0&&client().getEnergy()>Math.max(0,Microbot.runEnergyThreshold),false));
+    }
+    boolean zoomConfirmed(){return read(Rs2Camera::getZoom,-1)>=0;}
+
     boolean move(FcFrame f,FcModel.Tile scene){return move(f,scene,true);}
     boolean move(FcFrame f,FcModel.Tile scene,boolean minimapFirst) {
         if(observe||f==null||f.stale()||scene==null||Microbot.pauseAllScripts.get()||InputArbiter.isHuman())return false;
+        if(f.cave&&manualMovement.getAsBoolean())return false;
         WorldPoint destination=new WorldPoint(f.baseX+scene.x(),f.baseY+scene.y(),f.plane);
         // Long cave travel stays on the minimap. Exact short rock steps use a
         // visible ground tile through the same native mouse when it is on screen.
@@ -218,8 +262,7 @@ class FcActions {
         if(expected.stale()||v==null||player==null||v.getBaseX()!=expected.baseX||v.getBaseY()!=expected.baseY
             ||v.getPlane()!=expected.plane||c.getWorld()!=expected.world||v.isInstance()!=expected.cave
             ||c.getTickCount()-expected.tick>2)return false;
-        LocalPoint local=player.getLocalLocation();
-        return local!=null&&local.getSceneX()==expected.model.player().x()&&local.getSceneY()==expected.model.player().y();
+        return player.getWorldLocation()!=null&&FcFrame.trueTile(player,v).equals(expected.model.player());
     }
     protected boolean minimapWalk(WorldPoint target,FcFrame expected) {
         Point minimap=read(()->{
@@ -228,7 +271,7 @@ class FcActions {
             return p!=null&&Rs2MiniMap.isPointInsideMinimap(p)?p:null;
         },null);
         if(minimap==null)return false;
-        synchronized(inputLock){Microbot.getMouse().click(minimap);}return true;
+        synchronized(inputLock){return walkGesture(()->{Microbot.getMouse().click(minimap);return true;},false);}
     }
     protected boolean rawWalk(WorldPoint target,FcFrame expected,boolean minimapFirst) {
         if(observe||target==null)return false;
@@ -251,7 +294,7 @@ class FcActions {
             Client c=client();WorldView view=c.getTopLevelWorldView();
             if(c.getGameState()!=GameState.LOGGED_IN||view==null)return false;
             for(var cached:Microbot.getRs2NpcCache().query().withName(expectedName)
-                .where(n->n.getIndex()==index).toList()) {
+                .where(n->n.getIndex()==index).toListOnClientThread()) {
                 NPC npc=cached.getNpc();
                 if(npc==null||npc.isDead()||npc.getWorldView()!=view)continue;
                 Rectangle viewport=new Rectangle(c.getViewportXOffset(),c.getViewportYOffset(),
@@ -270,7 +313,7 @@ class FcActions {
         if(!force&&lastAttackIndex==index&&now-lastAttackAt<900)return false;
         Click click=npcClick(index,expectedName,"Attack",expected);
         if(click==null){lastAttackResult="No current Attack action for NPC "+index+" / "+expectedName;return false;}
-        if(invoke(click)) {
+        if(invoke(click,()->!Microbot.pauseAllScripts.get()&&!InputArbiter.isHuman())) {
             lastAttackResult="Attack dispatched: "+index+" / "+expectedName;
             lastAttackAt=now;lastAttackIndex=index;attackGap=ThreadLocalRandom.current().nextLong(110,121);return true;
         }
@@ -284,7 +327,7 @@ class FcActions {
             if(c.getGameState()!=GameState.LOGGED_IN||v==null||c.getLocalPlayer()==null||!currentPosition(expected))return null;
             NPC selected=null;
             for(var cached:Microbot.getRs2NpcCache().query().withName(name)
-                .where(n->index<0||n.getIndex()==index).toList()) {
+                .where(n->index<0||n.getIndex()==index).toListOnClientThread()) {
                 NPC n=cached.getNpc();if(n==null||n.getWorldView()!=v)continue;
                 if(selected==null||n.getWorldLocation().distanceTo2D(c.getLocalPlayer().getWorldLocation())<selected.getWorldLocation().distanceTo2D(c.getLocalPlayer().getWorldLocation()))selected=n;
             }
@@ -315,17 +358,24 @@ class FcActions {
     ItemResult itemStep(FcFrame.ItemSlot item,String action) {return itemStep(item,action,()->true);}
     ItemResult itemStep(FcFrame.ItemSlot item,String action,java.util.function.BooleanSupplier permitted) {
         if(observe||item==null||!permitted.getAsBoolean())return ItemResult.UNAVAILABLE;
-        synchronized(inputLock){
-            if(!prayerUi.inventory())return prayerUi.missingKey()?ItemResult.UNAVAILABLE:ItemResult.PREPARING;
+        synchronized(inputLock) {
+            if(!read(()->FcInput.openTab(client(),InterfaceTab.INVENTORY),false)){inputProblem="Waiting for Inventory tab";return ItemResult.PREPARING;}
             Click click=inventoryClick(item,action);
             if(click==null) {
-                prayerUi.problem("Inventory item/button not yet visible: slot "+item.slot()+" action "+action);
+                inputProblem="Inventory item/button not yet visible: slot "+item.slot()+" action "+action;
                 return ItemResult.PREPARING;
             }
-            return prayerUi.widget(InterfaceTab.INVENTORY,click.entry(),()->{
-                Click live=permitted.getAsBoolean()?inventoryClick(item,action):null;return live==null?null:live.bounds();
-            })?ItemResult.SENT:ItemResult.PREPARING;
+            // The item must still be in its slot when the action is delivered.
+            boolean sent=input.dispatch(click.entry(),click.bounds(),()->permitted.getAsBoolean()&&slotHolds(item));
+            if(sent)inputProblem="";
+            return sent?ItemResult.SENT:ItemResult.PREPARING;
         }
+    }
+    /** Client thread: the inventory slot still holds this item. */
+    protected static boolean slotHolds(FcFrame.ItemSlot item) {
+        ItemContainer inv=client().getItemContainer(InventoryID.INVENTORY);
+        Item actual=inv==null?null:inv.getItem(item.slot());
+        return actual!=null&&actual.getId()==item.id();
     }
     protected Click inventoryClick(FcFrame.ItemSlot item,String action) {
         return read(()->{
@@ -336,32 +386,140 @@ class FcActions {
             if(inventory==null||inventory.isHidden()||inventory.getChildren()==null)return null;
             for(Widget slot:inventory.getChildren()) {
                 if(slot==null||slot.getIndex()!=item.slot()||slot.isHidden())continue;
-                Rectangle bounds=FcPrayerUi.visibleBounds(slot.getBounds(),client().getCanvasWidth(),client().getCanvasHeight());
+                Rectangle bounds=FcInput.visibleBounds(slot.getBounds(),client().getCanvasWidth(),client().getCanvasHeight());
                 int option=actionIndex(slot.getActions(),action);
                 if(bounds==null||option<0)return null;
                 return new Click(new NewMenuEntry().option(action).target(item.name()).param0(item.slot())
-                    .param1(inventory.getId()).type(MenuAction.CC_OP).identifier(option+1).itemId(item.id()),bounds);
+                    .param1(inventory.getId()).type(MenuAction.CC_OP).identifier(option+1).itemId(item.id()).widget(slot),bounds);
             }
             return null;
         },null);
     }
-    boolean spellbook(){synchronized(inputLock){return prayerUi.open(InterfaceTab.MAGIC);}}
-    void releaseTab(){synchronized(inputLock){prayerUi.releaseTab();}}
+    boolean spellbook(){synchronized(inputLock){return read(()->FcInput.openTab(client(),InterfaceTab.MAGIC),false);}}
     boolean spell(int id,String name) {
-        synchronized(inputLock){
-            return prayerUi.widget(InterfaceTab.MAGIC,new NewMenuEntry().option("Cast").target(name)
-                .param0(-1).param1(id).type(MenuAction.CC_OP).identifier(1).itemId(-1),()->read(()->{
-                    Widget widget=client().getWidget(id);
-                    return widget==null||widget.isHidden()?null:FcPrayerUi.visibleBounds(widget.getBounds(),
-                        client().getCanvasWidth(),client().getCanvasHeight());
-                },null));
+        return widgetAction(InterfaceTab.MAGIC,new NewMenuEntry().option("Cast").target(name)
+            .param0(-1).param1(id).type(MenuAction.CC_OP).identifier(1).itemId(-1),()->{
+                Widget widget=client().getWidget(id);
+                return widget==null||widget.isHidden()?null:FcInput.visibleBounds(widget.getBounds(),
+                    client().getCanvasWidth(),client().getCanvasHeight());
+            },()->true);
+    }
+    /**
+     * Selects a combat spell and casts it on the NPC in one client-thread operation, sent directly in both input
+     * modes: a prayer click clears a selected spell, so a flick between a separate select and cast click dropped the
+     * cast (live 1.1.33: Ice Burst selected, then Deactivate Protect from Melee, then a plain Attack). When the game
+     * has not shown the selection yet, the cast is retried on the next loop.
+     */
+    boolean cast(net.runelite.client.plugins.skillcalculator.skills.MagicAction spell,int index,String name,FcFrame expected) {
+        if(observe||spell==null)return false;
+        int widget=spell.getWidgetId();
+        synchronized(inputLock) {
+            Boolean sent=read(()->{
+                Client c=client();
+                if(!selected(widget)) {
+                    if(!FcInput.openTab(c,InterfaceTab.MAGIC))return null;
+                    Widget w=c.getWidget(widget);
+                    if(w==null||w.isHidden())return null;
+                    // A spell is selected with WIDGET_TARGET, identifier 0 (the player's own click, live 2026-11-06);
+                    // CC_OP 1 on the spell icon never selected it, so no cast followed.
+                    c.menuAction(-1,widget,MenuAction.WIDGET_TARGET,0,-1,"Cast",spell.getName());
+                    if(!selected(widget))return null;
+                }
+                Click base=npcClick(index,name,"Attack",expected);
+                if(base==null)return false;
+                NewMenuEntry e=base.entry();
+                FcMenuEntry cast=FcMenuEntry.guarded(new NewMenuEntry().option("Cast").target(spell.getName()+" -> "+e.getTarget())
+                    .param0(0).param1(0).type(MenuAction.WIDGET_TARGET_ON_NPC).identifier(e.getIdentifier()).itemId(-1)
+                    .actor(e.getActor()).worldViewId(e.getWorldViewId()),
+                    ()->selected(widget)&&!Microbot.pauseAllScripts.get());
+                return FcInput.invokeNow(c,cast);
+            },false);
+            if(sent==null){inputProblem="Selecting "+spell.getName()+"; casting next loop";return false;}
+            if(!sent){inputProblem="No castable target for "+spell.getName();return false;}
+            lastAttackAt=System.currentTimeMillis();lastAttackIndex=index;inputProblem="";
+            return true;
         }
     }
-    boolean special() {
-        if(!uiReady(1800))return false;
-        Rectangle rect=read(()->{Widget w=client().getWidget(10485795);return w==null||w.isHidden()?null:w.getBounds();},null);
-        if(rect==null||rect.width<=0||rect.height<=0)return false;
-        synchronized(inputLock){Microbot.getMouse().click(rect);}uiSent();return true;
+    /** Client thread: this spell widget is the selected target spell. */
+    protected static boolean selected(int widget) {
+        Client c=client();
+        if(!c.isWidgetSelected())return false;
+        Widget w=c.getSelectedWidget();
+        return w!=null&&w.getId()==widget;
+    }
+    boolean special(){return special(()->true);}
+    boolean special(java.util.function.BooleanSupplier valid) {
+        if(!uiReady(1800)||!valid.getAsBoolean())return false;
+        int id=read(()->{
+            Client c=client();
+            if(c.getGameState()!=GameState.LOGGED_IN||c.getVarpValue(300)<500||c.getVarpValue(301)!=0)return -1;
+            for(int candidate:new int[]{InterfaceID.Orbs.SPECBUTTON,10485795}) {
+                Widget w=c.getWidget(candidate);if(w!=null&&!w.isHidden())return candidate;
+            }
+            return -1;
+        },-1);
+        if(id<0)return false;
+        boolean sent=widgetAction(null,new NewMenuEntry().param0(-1).param1(id).type(MenuAction.CC_OP)
+            .identifier(1).itemId(-1).option("Use").target(""),()->{
+                Widget w=client().getWidget(id);
+                return w==null||w.isHidden()?null:FcInput.visibleBounds(w.getBounds(),client().getCanvasWidth(),client().getCanvasHeight());
+            },()->valid.getAsBoolean()&&read(()->client().getVarpValue(300)>=500&&client().getVarpValue(301)==0,false));
+        if(sent)uiSent();
+        return sent;
+    }
+    /** Rapid is combat mode 1 for bows, crossbows, the blowpipe and thrown weapons (varp 43), as the arenas verify. */
+    boolean rapid() {
+        if(!uiReady(900))return false;
+        boolean sent=widgetAction(InterfaceTab.COMBAT,new NewMenuEntry().param0(-1)
+            .param1(net.runelite.api.widgets.WidgetInfo.COMBAT_STYLE_TWO.getId()).type(MenuAction.CC_OP)
+            .identifier(1).itemId(-1).option("Rapid").target(""),()->{
+                Widget w=client().getWidget(net.runelite.api.widgets.WidgetInfo.COMBAT_STYLE_TWO);
+                return w==null||w.isHidden()?null:FcInput.visibleBounds(w.getBounds(),client().getCanvasWidth(),client().getCanvasHeight());
+            },()->read(()->client().getVarpValue(43)!=1,false));
+        if(sent)uiSent();
+        return sent;
+    }
+    /** Autocast selection through the Combat tab, one step per call (open the list, then choose the spell). */
+    boolean autocast(net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells spell) {
+        if(observe||spell==null||!uiReady(600))return false;
+        boolean listOpen=read(()->{Widget w=client().getWidget(201,1);return w!=null&&!w.isHidden();},false);
+        if(!listOpen) {
+            int box=net.runelite.api.widgets.WidgetInfo.COMBAT_SPELL_BOX.getId();
+            boolean sent=widgetAction(InterfaceTab.COMBAT,new NewMenuEntry().param0(-1).param1(box).type(MenuAction.CC_OP)
+                .identifier(1).itemId(-1).option("Choose spell").target(""),()->{
+                    Widget w=client().getWidget(box);
+                    return w==null||w.isHidden()?null:FcInput.visibleBounds(w.getBounds(),client().getCanvasWidth(),client().getCanvasHeight());
+                },()->true);
+            if(sent)uiSent();
+            return false;
+        }
+        Click choice=read(()->{
+            Widget list=client().getWidget(201,1);
+            if(list==null||list.isHidden())return null;
+            // As the arenas: the entry whose op is the spell name, then the spell sprite.
+            String name=spell.getMagicAction().getName();int sprite=spell.getMagicAction().getSprite();
+            Widget match=null;int op=-1;
+            for(Widget[] group:new Widget[][]{list.getDynamicChildren(),list.getStaticChildren(),list.getNestedChildren()}) {
+                if(group==null)continue;
+                for(Widget w:group) {
+                    if(w==null||w.isHidden()||w.getActions()==null)continue;
+                    String[] actions=w.getActions();
+                    for(int i=0;i<actions.length&&match==null;i++)if(name.equalsIgnoreCase(actions[i])){match=w;op=i;}
+                    if(match==null&&w.getSpriteId()==sprite)for(int i=0;i<actions.length&&op<0;i++)
+                        if(actions[i]!=null&&!actions[i].isEmpty()){match=w;op=i;}
+                    if(match!=null)break;
+                }
+                if(match!=null)break;
+            }
+            if(match==null)return null;
+            return new Click(new NewMenuEntry().param0(match.getIndex()).param1(match.getId())
+                .type(MenuAction.CC_OP).identifier(op+1).itemId(-1).option(match.getActions()[op]).target(name),
+                FcInput.visibleBounds(match.getBounds(),client().getCanvasWidth(),client().getCanvasHeight()));
+        },null);
+        if(choice==null){inputProblem="Autocast list has no "+spell.getName();return false;}
+        boolean sent=invoke(choice);
+        if(sent)uiSent();
+        return sent;
     }
     static int actionIndex(String[] actions,String action){if(actions!=null)for(int i=0;i<Math.min(actions.length,5);i++)if(action.equalsIgnoreCase(actions[i]))return i;return -1;}
     FcModel.Tile exitTile(FcFrame f) {
@@ -458,11 +616,10 @@ class FcActions {
             return result.toString();
         },"Scene not ready");
     }
-    /** Entry protection uses the same live acknowledgement as the visible writer. */
+    /** The cave is entered with every combat prayer off; the tick driver flicks the first wave's hits. */
     boolean entryProtectionReady() {
-        // Match the final entry check's live prayer state. The shared cached
-        // accessor can disagree with the visible writer after startup toggles.
-        return outsidePrayers(Protection.MELEE);
+        // Match the final entry check's live prayer state, not a cached accessor.
+        return outsidePrayers(Protection.NONE);
     }
     /** Re-read the predictor after supply/prayer/UI work, immediately before dispatch. */
     boolean enterPredictedRotation(FcPredictorGate gate,int expectedRotation) {
@@ -472,7 +629,9 @@ class FcActions {
                 Client c=client();WorldView v=c.getTopLevelWorldView();
                 if(c.getGameState()!=GameState.LOGGED_IN||v==null||v.isInstance()||c.getLocalPlayer()==null)return null;
                 if(!gate.entryReady(predictorOnClientThread(false),System.currentTimeMillis(),expectedRotation))return null;
-                if(!c.isPrayerActive(Prayer.PROTECT_FROM_MELEE)||c.getBoostedSkillLevel(Skill.PRAYER)<=1)return null;
+                if(c.getBoostedSkillLevel(Skill.PRAYER)<=1)return null;
+                // Recheck every combat prayer slot after the outside cleanup.
+                for(Rs2PrayerEnum prayer:COMBAT_PRAYERS)if(c.getVarbitValue(prayer.getVarbit())==1)return null;
                 TileObject entrance=findObject(11833,"Enter");
                 if(entrance==null||entrance.getWorldLocation().distanceTo2D(c.getLocalPlayer().getWorldLocation())>4)return null;
                 return objectClick(entrance,"Enter");
@@ -484,16 +643,14 @@ class FcActions {
     boolean requestWavePause(int world,java.util.function.BooleanSupplier permitted) {
         if(!uiReady(1200)||!permitted.getAsBoolean())return false;
         synchronized(inputLock) {
-            if(Rs2Tab.getCurrentTab()!=InterfaceTab.LOGOUT){Rs2Tab.switchTo(InterfaceTab.LOGOUT);uiSent();return false;}
-            // Native input re-runs this supplier after mouse travel and at the
-            // final press. The final kill must cancel the click, not log out.
+            if(!read(()->FcInput.openTab(client(),InterfaceTab.LOGOUT),false)){uiSent();return false;}
             Click request=read(()->pauseButton(world),null);
             if(request==null)return false;
-            boolean sent=prayerUi.requestButton(request.entry(),()->{
-                if(!permitted.getAsBoolean())return null;
-                Click current=read(()->pauseButton(world),null);
-                return current!=null&&current.entry().getParam1()==request.entry().getParam1()?current.bounds():null;
-            });
+            // Re-checked at delivery: the final kill must cancel the request, not log out.
+            boolean sent=invoke(request,()->permitted.getAsBoolean()&&read(()->{
+                Click current=pauseButton(world);
+                return current!=null&&current.entry().getParam1()==request.entry().getParam1();
+            },false));
             if(sent)uiSent();return sent;
         }
     }
@@ -503,7 +660,7 @@ class FcActions {
         WorldPoint point=WorldPoint.fromLocalInstance(c,player.getLocalLocation());
         if(point==null||point.getRegionID()!=WaveBook.REGION)return null;
         boolean fighting=false;
-        for(var cached:Microbot.getRs2NpcCache().query().toList()) {
+        for(var cached:Microbot.getRs2NpcCache().query().toListOnClientThread()) {
             NPC npc=cached.getNpc();
             if(npc!=null&&npc.getWorldView()==v&&!npc.isDead()&&npc.getTransformedComposition()!=null
                 &&FcModel.Kind.identify(npc.getName(),FcFrame.npcTileSize(npc))!=null
@@ -515,15 +672,20 @@ class FcActions {
         Widget button=c.getWidget(69,25);int component=(69<<16)|25;
         if(button==null||button.isHidden()){button=c.getWidget(182,8);component=(182<<16)|8;}
         if(button==null||button.isHidden())return null;
-        Rectangle bounds=FcPrayerUi.visibleBounds(button.getBounds(),c.getCanvasWidth(),c.getCanvasHeight());
+        Rectangle bounds=FcInput.visibleBounds(button.getBounds(),c.getCanvasWidth(),c.getCanvasHeight());
         if(bounds==null)return null;
         return new Click(new NewMenuEntry().param0(-1).param1(component).type(MenuAction.CC_OP)
             .identifier(1).itemId(-1).option("Logout"),bounds);
     }
     /** Executes a single preparation UI step. The caller gates the teleport animation/landing. */
     String minigameStep() {
+        // Bank closure is a separate observed step; never open grouping or teleport behind it.
+        if(Rs2Bank.isOpen()) {
+            closeBank();
+            return "Waiting for bank closure before minigame teleport";
+        }
         if(!uiReady(900))return "Waiting for minigame interface";
-        if(Rs2Tab.getCurrentTab()!=InterfaceTab.CHAT){Rs2Tab.switchTo(InterfaceTab.CHAT);uiSent();return "Opening grouping tab";}
+        if(!read(()->FcInput.openTab(client(),InterfaceTab.CHAT),false)){uiSent();return "Opening grouping tab";}
         Widget grouping=read(()->client().getWidget(46333957),null);
         if(grouping==null)return "Waiting for grouping button";
         boolean selected=read(()->Arrays.equals(grouping.getOnOpListener(),new Object[]{489,0,0}),false);
@@ -536,10 +698,47 @@ class FcActions {
             return selectTzhaarMinigame();
         }
         if(!read(FcActions::teleportStationary,false))return "Waiting to stop moving before minigame teleport";
-        synchronized(inputLock) {
-            if(prayerUi.button(()->read(FcActions::teleportBounds,null))){uiSent();return "TELEPORT_SENT";}
+        Rectangle teleport=read(FcActions::teleportBounds,null);
+        if(teleport!=null) synchronized(inputLock) {
+            // Outside the cave: a plain Natural mouse press on the verified, stationary button.
+            if(gesture(()->{
+                if(read(FcActions::teleportBounds,null)==null)return false;
+                Microbot.getMouse().click(teleport);return true;
+            },false)){minigamePromptSent="";uiSent();return "TELEPORT_SENT";}
         }
         return "Waiting for verified visible minigame teleport button";
+    }
+    /** Only called while our Fight Pit teleport is awaiting its landing. */
+    String minigameDialogueStep() {
+        String option=read(()->{
+            if(!Rs2Dialogue.hasSelectAnOption())return null;
+            for(Widget widget:Rs2Dialogue.getDialogueOptions()) {
+                if(widget==null||widget.isHidden())continue;
+                String text=net.runelite.client.util.Text.removeTags(Objects.toString(widget.getText(),"")).trim();
+                String normalized=text.toLowerCase(Locale.ROOT).replaceAll("[^a-z]","");
+                if(normalized.equals("noanddontaskagain")||normalized.equals("nodontaskagain"))return text;
+            }
+            return null;
+        },null);
+        if(option!=null) {
+            if(!"choice".equals(minigamePromptSent)&&uiReady(900)) {
+                synchronized(inputLock) {
+                    if(Rs2Dialogue.clickOption(option,true)){minigamePromptSent="choice";uiSent();}
+                }
+            }
+            return "Confirming No, and don't ask again for Fight Pit teleport";
+        }
+        boolean notice=read(()->{
+            if(!Rs2Dialogue.hasContinue())return false;
+            String text=minigameName(Rs2Dialogue.getDialogueText()).toLowerCase(Locale.ROOT);
+            return text.contains("more players")&&text.contains("fight pits")&&text.contains("world");
+        },false);
+        if(!notice)return null;
+        if(!"notice".equals(minigamePromptSent)&&uiReady(900)) {
+            synchronized(inputLock){Rs2Dialogue.clickContinue();}
+            minigamePromptSent="notice";uiSent();
+        }
+        return "Continuing Fight Pit suggested-world notice";
     }
     protected static String minigameName(String text) {
         return text==null?"":text.replaceAll("<[^>]*>","").replace("&nbsp;"," ").replace('\u00a0',' ').trim();
@@ -566,6 +765,7 @@ class FcActions {
     }
     /** Native button listener, with a fresh target check before mouse press. */
     protected static Rectangle teleportBounds() {
+        if(Rs2Bank.isOpen())return null;
         Client c=client();
         if(!teleportStationary()||c.isMenuOpen())return null;
         Widget selected=c.getWidget(4980747),button=c.getWidget(InterfaceID.Grouping.TELEPORT),text=c.getWidget(InterfaceID.Grouping.TELEPORT_TEXT1);
@@ -594,7 +794,7 @@ class FcActions {
             if(parent.isHidden())return null;
             Rectangle clip=parent.getBounds();if(clip!=null&&clip.width>0&&clip.height>0)bounds=bounds.intersection(clip);
         }
-        Rectangle visible=FcPrayerUi.visibleBounds(bounds,client().getCanvasWidth(),client().getCanvasHeight());
+        Rectangle visible=FcInput.visibleBounds(bounds,client().getCanvasWidth(),client().getCanvasHeight());
         if(visible==null)return null;
         for(int id:new int[]{InterfaceID.Toplevel.MINIMAP,InterfaceID.ToplevelOsrsStretch.MINIMAP,InterfaceID.ToplevelPreEoc.MINIMAP}) {
             Widget map=client().getWidget(id);
@@ -629,7 +829,7 @@ class FcActions {
             if(c.getGameState()!=GameState.LOGGED_IN||c.getLocalPlayer()==null||v==null||!v.isInstance())return false;
             WorldPoint point=WorldPoint.fromLocalInstance(c,c.getLocalPlayer().getLocalLocation());
             if(point==null||point.getRegionID()!=WaveBook.REGION)return false;
-            for(var cached:Microbot.getRs2NpcCache().query().toList()) {
+            for(var cached:Microbot.getRs2NpcCache().query().toListOnClientThread()) {
                 NPC n=cached.getNpc();if(n!=null&&n.getWorldView()==v&&n.getTransformedComposition()!=null
                 &&FcModel.Kind.identify(n.getName(),n.getTransformedComposition().getSize())!=null
                 &&n.getHealthRatio()!=0)return false;
@@ -682,8 +882,5 @@ class FcActions {
     }
     int externalRotation(boolean inside) {
         FcPredictorGate.Sample sample=predictor(inside);return sample.ready?sample.rotation:-1;
-    }    // Optional controller extension points. Normal call sites retain their original overloads.
-    boolean special(java.util.function.BooleanSupplier valid){return valid.getAsBoolean()&&special();}
-    boolean entryProtectionReady(boolean conservation){return entryProtectionReady();}
-    boolean enterPredictedRotation(FcPredictorGate gate,int rotation,boolean conservation){return enterPredictedRotation(gate,rotation);}
+    }
 }

@@ -50,6 +50,6 @@ public final class HealerTactics {
         return null;
     }
     private static boolean tagRange(Snapshot scene,Tile stand,Mob healer) {
-        return (scene.meleeMode()||healer.distance(stand)>=3)&&CombatPlanner.playerCanAttack(scene,stand,healer);
+        return healer.distance(stand)>=3&&CombatPlanner.playerCanAttack(scene,stand,healer);
     }
 }

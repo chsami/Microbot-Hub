@@ -163,16 +163,33 @@ public class GiantsFoundryScript extends Script {
         if (!ensureBarsInInventory()) return;
 
         if (useBars) {
-            addBarsWithWidget(firstBarName, config.FirstBar());
-            addBarsWithWidget(secondBarName, config.SecondBar());
+            if (!addBarsWithWidget(firstBarName, config.FirstBar())) return;
+            if (!addBarsWithWidget(secondBarName, config.SecondBar())) return;
         } else {
-            addBarsWithInventoryUse(firstBarName);
-            addBarsWithInventoryUse(secondBarName);
+            if (!addBarsWithInventoryUse(firstBarName)) return;
+            if (!addBarsWithInventoryUse(secondBarName)) return;
         }
 
         if (canPour()) {
             pourCrucible();
         }
+    }
+
+    private int firstBarsNeeded() {
+        if (!useBars) return config.firstBarAmount();
+        return GiantsFoundryState.barsStillNeeded(config.firstBarAmount(),
+                GiantsFoundryState.getCrucibleCount(config.FirstBar()));
+    }
+
+    private int secondBarsNeeded() {
+        if (!useBars) return config.secondBarAmount();
+        return GiantsFoundryState.secondBarsNeeded(config.FirstBar() == config.SecondBar(),
+                config.firstBarAmount(), config.secondBarAmount(),
+                GiantsFoundryState.getCrucibleCount(config.SecondBar()));
+    }
+
+    private boolean hasBars(String barName, int amount) {
+        return amount <= 0 || Rs2Inventory.hasItemAmount(barName, amount);
     }
 
     private boolean preconditionsMet() {
@@ -182,44 +199,56 @@ public class GiantsFoundryScript extends Script {
     }
 
     private boolean ensureBarsInInventory() {
-        if ((Rs2Inventory.hasItemAmount(firstBarName, config.firstBarAmount())
-                && Rs2Inventory.hasItemAmount(secondBarName, config.secondBarAmount()))
-                || canPour()) {
+        if (canPour()) return true;
+
+        int firstNeeded = firstBarsNeeded();
+        int secondNeeded = secondBarsNeeded();
+        if (useBars && firstNeeded == 0 && secondNeeded == 0) {
+            if (sleepUntil(this::canPour, 3000)) return true;
+            if (firstBarsNeeded() > 0 || secondBarsNeeded() > 0) return false;
+            Microbot.showMessage("Giants Foundry: the crucible already holds the configured bars but is not full. "
+                    + "The two bar amounts must add up to 28.");
+            this.shutdown();
+            return false;
+        }
+        if (hasBars(firstBarName, firstNeeded) && hasBars(secondBarName, secondNeeded)) {
             return true;
         }
 
-        Rs2Bank.openBank();
-        if (Rs2Bank.count(firstBarName) < config.firstBarAmount()
-                || Rs2Bank.count(secondBarName) < config.secondBarAmount()) {
+        if (!Rs2Bank.openBank()) return false;
+        if (Rs2Bank.count(firstBarName) < firstNeeded - Rs2Inventory.count(firstBarName)
+                || Rs2Bank.count(secondBarName) < secondNeeded - Rs2Inventory.count(secondBarName)) {
             Microbot.log("Insufficient bars / items in bank to continue");
             this.shutdown();
             return false;
         }
-        Rs2Bank.withdrawDeficit(firstBarName, config.firstBarAmount());
-        Rs2Bank.withdrawDeficit(secondBarName, config.secondBarAmount());
+        Rs2Bank.withdrawDeficit(firstBarName, firstNeeded);
+        Rs2Bank.withdrawDeficit(secondBarName, secondNeeded);
         Rs2Bank.closeBank();
         return true;
     }
 
-    private void addBarsWithWidget(String barName, SmithableBars key) {
-        if (!Rs2Inventory.hasItem(barName) || canPour()) return;
+    private boolean addBarsWithWidget(String barName, SmithableBars key) {
+        if (!Rs2Inventory.hasItem(barName) || canPour()) return true;
+        int before = GiantsFoundryState.getCrucibleCount(key);
         Microbot.getRs2TileObjectCache().query().interact(CRUCIBLE, "Fill");
-        sleepUntil(() -> Rs2Widget.findWidget("What metal would you like to add?", null) != null, 5000);
+        if (!sleepUntil(() -> Rs2Widget.findWidget("What metal would you like to add?", null) != null, 5000)) {
+            return false;
+        }
         Rs2Keyboard.keyPress(getKeyFromBar(key));
-        sleepUntil(() -> !Rs2Inventory.hasItem(barName), 5000);
+        return sleepUntil(() -> GiantsFoundryState.getCrucibleCount(key) > before, 5000);
     }
 
-    private void addBarsWithInventoryUse(String barName) {
-        if (!Rs2Inventory.hasItem(barName) || canPour()) return;
+    private boolean addBarsWithInventoryUse(String barName) {
+        if (!Rs2Inventory.hasItem(barName) || canPour()) return true;
         Rs2Inventory.use(barName);
         Microbot.getRs2TileObjectCache().query().withId(CRUCIBLE).interact();
         sleepUntil(() -> Rs2Widget.findWidget("How many would you like to add?", null) != null, 5000);
         sleep(600, 1200);
 
-        if (Microbot.getClient().getWidget(14352385) != null) {
-            Rs2Keyboard.keyPress('4');
-            sleepUntil(() -> !Rs2Inventory.hasItem(barName), 5000);
-        }
+        if (Microbot.getClient().getWidget(14352385) == null) return false;
+        Rs2Keyboard.keyPress('4');
+        return sleepUntil(() -> !Rs2Inventory.hasItem(barName), 5000);
     }
 
     private void pourCrucible() {
@@ -247,10 +276,20 @@ public class GiantsFoundryScript extends Script {
 
     public void pickupMould() {
         if (!canPickupMould()) return;
-        if (Rs2Inventory.isEmpty() && GiantsFoundryState.getCurrentStage() == null) {
-            Microbot.getRs2TileObjectCache().query().interact(MOULD_JIG, "Pick-up");
-            sleepUntil(() -> !canPickupMould(), 5000);
+        if (GiantsFoundryState.getCurrentStage() != null) return;
+        if (!Rs2Inventory.isEmpty()) {
+            depositLeftovers();
+            return;
         }
+        Microbot.getRs2TileObjectCache().query().interact(MOULD_JIG, "Pick-up");
+        sleepUntil(() -> !canPickupMould(), 5000);
+    }
+
+    private void depositLeftovers() {
+        Microbot.status = "Banking leftover items before picking up the preform";
+        if (!Rs2Bank.openBank()) return;
+        Rs2Bank.depositAll();
+        Rs2Bank.closeBank();
     }
 
     boolean doAction = false;

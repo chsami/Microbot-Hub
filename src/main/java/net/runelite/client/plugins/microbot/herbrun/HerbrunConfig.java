@@ -118,7 +118,7 @@ public interface HerbrunConfig extends Config {
     @ConfigItem(
             keyName = "enableTrollheim",
             name = "Enable Trollheim Patch",
-            description = "Enable Trollheim patch in herb run",
+            description = "Enable Trollheim patch in herb run (requires My Arm's Big Adventure)",
             position = 1,
             section = locationSection
     )
@@ -195,7 +195,7 @@ public interface HerbrunConfig extends Config {
     @ConfigItem(
             keyName = "enableWeiss",
             name = "Enable Weiss Patch",
-            description = "Enable Weiss patch in herb run",
+            description = "Enable Weiss patch in herb run (requires Making Friends with My Arm)",
             position = 8,
             section = locationSection
     )

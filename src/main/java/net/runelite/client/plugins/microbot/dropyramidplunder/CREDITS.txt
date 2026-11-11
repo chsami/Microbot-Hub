@@ -1,0 +1,11 @@
+DRO PYRAMID PLUNDER — CREDITS
+
+DRO (droplugins): project creator and maintainer; direction, gameplay strategy,
+recordings, testing, review and release decisions.
+
+BaseProfileDro is the shared Dro behaviour layer, carried here unchanged from
+Dro Firecape so this plugin stays self-contained.
+
+DRO distributes this project free of charge and as open source. The standard
+BSD-2-Clause terms in LICENSE.txt permit use, modification and redistribution
+while requiring retention of the copyright, license and disclaimer notices.
