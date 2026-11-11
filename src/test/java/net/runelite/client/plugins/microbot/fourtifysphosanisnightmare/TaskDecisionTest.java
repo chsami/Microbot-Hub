@@ -366,11 +366,28 @@ public class TaskDecisionTest
     }
 
     @Test
+    public void herThirdPhaseSleepwalkersAreOrderedForTheThrowingWeaponsReach() throws Exception
+    {
+        assertEquals(0, firstFromUnderHer(33716), "a stake throws from six tiles");
+        assertEquals(2, firstFromUnderHer(22804), "a dragon knife throws from four");
+    }
+
+    private static int firstFromUnderHer(int weapon) throws Exception
+    {
+        int[][] tiles = {{-4, 11}, {11, 8}, {8, -7}, {-4, -7}};
+        List<NPC> walkers = new ArrayList<>();
+        PluginTestFixture fixture = risen(3, weapon, tiles, walkers);
+        fixture.world.position = fixture.boss.npc.getWorldLocation().dx(1).dy(3);
+        fixture.tick();
+        return walkers.indexOf(((TripState) fixture.read("trip")).getTarget());
+    }
+
+    @Test
     public void aSleepwalkerOffTheTileItRoseOnIsWalking() throws Exception
     {
         int[][] tiles = {{-7, -4}, {-7, 8}, {11, -4}, {11, 8}};
         List<NPC> walkers = new ArrayList<>();
-        PluginTestFixture fixture = risen(3, tiles, walkers);
+        PluginTestFixture fixture = risen(3, 33716, tiles, walkers);
         fixture.tick();
         WorldPoint corner = fixture.boss.npc.getWorldLocation();
         for (TestWorld.NpcTarget walker : fixture.world.npcs)
@@ -393,7 +410,7 @@ public class TaskDecisionTest
     private static int firstSleepwalker(int phase, int[][] tiles) throws Exception
     {
         List<NPC> walkers = new ArrayList<>();
-        PluginTestFixture fixture = risen(phase, tiles, walkers);
+        PluginTestFixture fixture = risen(phase, 33716, tiles, walkers);
         fixture.tick();
         assertEquals(phase, ((NightmareFight) fixture.read("fight")).getPhase());
         return walkers.indexOf(((TripState) fixture.read("trip")).getTarget());
@@ -468,9 +485,12 @@ public class TaskDecisionTest
     }
 
     /** Her blast in the phase, with sleepwalkers rising on the tiles from her south-west corner. */
-    private static PluginTestFixture risen(int phase, int[][] tiles, List<NPC> walkers) throws Exception
+    private static PluginTestFixture risen(int phase, int weapon, int[][] tiles, List<NPC> walkers) throws Exception
     {
-        PluginTestFixture fixture = started();
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.sleepwalker = Integer.toString(weapon);
+        fixture.world.equipment = new Item[] {new Item(weapon, 50)};
+        fixture.enableAndDrain();
         NightmareFight fight = (NightmareFight) fixture.read("fight");
         for (int blast = 1; blast < phase; blast++)
         {

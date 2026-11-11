@@ -88,6 +88,7 @@ public class NightmareActions
     static final int EQUIPMENT = 94;
     static final int BANK = 95;
     private static final int WITHDRAW_WAIT_MILLIS = 3000;
+    private static final int ATTACK_RANGE_PARAM = 13;
     /** How long a request waits for the game to take its click before it gives up. */
     private static final int CLICK_TAKEN_MS = 600;
     /** No click has been taken since it was set; an NPC click reports no item. */
@@ -387,6 +388,12 @@ public class NightmareActions
     {
         ItemStats stats = itemManager == null ? null : itemManager.getItemStats(id);
         return stats != null && stats.getEquipment() != null && stats.getEquipment().isTwoHanded();
+    }
+
+    public int reach(int id)
+    {
+        return itemManager == null || id < 0 || itemManager.getItemComposition(id) == null ? 0
+            : itemManager.getItemComposition(id).getIntValue(ATTACK_RANGE_PARAM);
     }
 
     public String itemName(int id)

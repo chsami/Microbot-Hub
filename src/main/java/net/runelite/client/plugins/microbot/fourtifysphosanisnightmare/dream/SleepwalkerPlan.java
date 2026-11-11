@@ -15,9 +15,6 @@ import net.runelite.client.plugins.microbot.fourtifysphosanisnightmare.util.scen
  */
 public final class SleepwalkerPlan
 {
-    /** A thrown weapon reaches this far. */
-    // shortcut: the blisterwood stake's range; read the worn weapon's range if shorter weapons are used.
-    static final int THROW_RANGE = 6;
     private static final int CLOSE_RANGE = 2;
     /** An NPC farther than this is not clicked. */
     private static final int CLICK_RANGE = TargetRange.NPC_SEARCH_RADIUS;
@@ -62,7 +59,7 @@ public final class SleepwalkerPlan
      * @return the step, or null with no sleepwalkers
      */
     public static Step next(WorldPoint player, List<WorldPoint> walkers, int[] walkIn, int[] walkLate, WorldArea body,
-        int readyIn)
+        int readyIn, int throwRange)
     {
         int count = walkers.size();
         if (count == 0)
@@ -80,8 +77,8 @@ public final class SleepwalkerPlan
         {
             for (boolean melee : new boolean[] {true, false})
             {
-                long score = Math.max(play(player, walkers, walkIn, body, readyIn, order, melee),
-                    play(player, walkers, walkLate, body, readyIn, order, melee));
+                long score = Math.max(play(player, walkers, walkIn, body, readyIn, throwRange, order, melee),
+                    play(player, walkers, walkLate, body, readyIn, throwRange, order, melee));
                 if (score < bestScore[0])
                 {
                     bestScore[0] = score;
@@ -115,8 +112,8 @@ public final class SleepwalkerPlan
     }
 
     /** Plays the order out: the sleepwalkers that reach her first, then the tick the last hit lands. */
-    static long play(WorldPoint player, List<WorldPoint> walkers, int[] walkIn, WorldArea body, int readyIn, int[] order,
-        boolean meleeLast)
+    static long play(WorldPoint player, List<WorldPoint> walkers, int[] walkIn, WorldArea body, int readyIn, int throwRange,
+        int[] order, boolean meleeLast)
     {
         WorldPoint at = player;
         int tick = 1;
@@ -140,9 +137,9 @@ public final class SleepwalkerPlan
                     tick++;
                     continue;
                 }
-                at = melee ? approachSide(at, walker) : approach(at, walker);
+                at = melee ? approachSide(at, walker) : approach(at, walker, throwRange);
                 int distance = at.distanceTo(walker);
-                if ((melee ? beside(at, walker) : distance <= THROW_RANGE) && tick >= ready)
+                if ((melee ? beside(at, walker) : distance <= throwRange) && tick >= ready)
                 {
                     lands = tick + (melee ? 1 : distance <= CLOSE_RANGE ? 2 : 3);
                     break;
@@ -197,9 +194,9 @@ public final class SleepwalkerPlan
     }
 
     /** Runs toward the sleepwalker until it is in throwing range, taking both steps of the tick before it stops. */
-    private static WorldPoint approach(WorldPoint at, WorldPoint walker)
+    private static WorldPoint approach(WorldPoint at, WorldPoint walker, int throwRange)
     {
-        if (at.distanceTo(walker) <= THROW_RANGE)
+        if (at.distanceTo(walker) <= throwRange)
         {
             return at;
         }

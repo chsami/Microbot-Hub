@@ -44,7 +44,14 @@ final class PluginTestFixture
     final TestWorld.QueuedThread thread = new TestWorld.QueuedThread();
     final MutableConfig config = new MutableConfig();
     final FourtifysPhosanisNightmarePlugin plugin = new FourtifysPhosanisNightmarePlugin();
-    final NightmareActions actions = new NightmareActions(world.client, thread, null, TestWorld.DirectExecutor::new);
+    final NightmareActions actions = new NightmareActions(world.client, thread, null, TestWorld.DirectExecutor::new)
+    {
+        @Override
+        public int reach(int id)
+        {
+            return Map.of(33716, 6, 22804, 4).getOrDefault(id, 0);
+        }
+    };
     final TestWorld.NpcTarget boss;
     final OverlayManager overlays;
     final List<String> notifications = new ArrayList<>();

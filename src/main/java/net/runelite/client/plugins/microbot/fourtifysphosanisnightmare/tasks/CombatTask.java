@@ -412,7 +412,14 @@ public final class CombatTask implements FourtifysTask
         {
             return from.isInMeleeDistance(target);
         }
-        return from.distanceTo(target) <= CAST_RANGE && sight.test(from, target);
+        return from.distanceTo(target) <= (trip.getLoadout() == Loadout.SLEEPWALKER ? throwRange() : CAST_RANGE)
+            && sight.test(from, target);
+    }
+
+    private int throwRange()
+    {
+        int reach = actions.reach(weapons.getOrDefault(Loadout.SLEEPWALKER, -1));
+        return reach > 0 ? reach : CAST_RANGE;
     }
 
     /**
@@ -496,7 +503,7 @@ public final class CombatTask implements FourtifysTask
         }
         int lastAttack = struck.values().stream().mapToInt(Integer::intValue).max().orElse(now - SLEEPWALKER_ATTACK_TICKS);
         SleepwalkerPlan.Step step = SleepwalkerPlan.next(at, tiles, walkIn, walkLate, home,
-            Math.max(1, lastAttack + SLEEPWALKER_ATTACK_TICKS - now));
+            Math.max(1, lastAttack + SLEEPWALKER_ATTACK_TICKS - now), throwRange());
         meleeWalker = step.isMelee();
         return walkers.get(step.getIndex());
     }
