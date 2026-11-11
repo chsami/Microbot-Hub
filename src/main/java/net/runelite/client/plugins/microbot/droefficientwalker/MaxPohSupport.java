@@ -70,7 +70,7 @@ public final class MaxPohSupport {
         if (houseSince < 0) houseSince = client.getTickCount();
         if (client.getTickCount() - houseSince < 4 || client.getTickCount() - lastHouseScan < 10) return;
         lastHouseScan = client.getTickCount();
-        panelFilledThisVisit = true;
+        if (!panelFilledThisVisit) { panelFilledThisVisit = true; net.runelite.client.plugins.microbot.droefficientwalker.compat.PohPanelDetect.autoDetect(); }
         Set<String> detected = new TreeSet<>();
         for (TileObject object : houseObjects()) {
             ObjectComposition def = SceneObjects.convertToObjectComposition(object);
