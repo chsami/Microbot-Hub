@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.moonsofperil.handlers;
 
+import net.runelite.api.ChatMessageType;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectQueryable;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -52,7 +54,7 @@ class RewardHandlerTest {
             RewardHandler handler = new RewardHandler(config());
             assertTrue(handler.validate());
 
-            RewardHandler.onChatMessage(SEALED_MESSAGE);
+            RewardHandler.onChatMessage(ChatMessageType.GAMEMESSAGE, SEALED_MESSAGE);
             assertFalse(handler.validate());
             assertFalse(handler.validate());
 
@@ -69,13 +71,31 @@ class RewardHandlerTest {
         try (MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class)) {
             widget.when(() -> Rs2Widget.isHidden(anyInt())).thenReturn(false);
             RewardHandler handler = new RewardHandler(config());
-            RewardHandler.onChatMessage(null);
-            RewardHandler.onChatMessage("You open the chest.");
+            RewardHandler.onChatMessage(null, null);
+            RewardHandler.onChatMessage(ChatMessageType.GAMEMESSAGE, null);
+            RewardHandler.onChatMessage(ChatMessageType.GAMEMESSAGE, "You open the chest.");
             assertTrue(handler.validate());
 
-            RewardHandler.onChatMessage(SEALED_MESSAGE);
+            RewardHandler.onChatMessage(ChatMessageType.GAMEMESSAGE, SEALED_MESSAGE);
             assertFalse(handler.validate());
             assertTrue(new RewardHandler(config()).validate());
+        }
+    }
+
+    @Test
+    void playerTypedChatDoesNotSuppressRewards() {
+        try (MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class)) {
+            widget.when(() -> Rs2Widget.isHidden(anyInt())).thenReturn(false);
+            RewardHandler handler = new RewardHandler(config());
+            for (ChatMessageType type : new ChatMessageType[]{ChatMessageType.PUBLICCHAT, ChatMessageType.MODCHAT,
+                    ChatMessageType.PRIVATECHAT, ChatMessageType.FRIENDSCHAT, ChatMessageType.CLAN_CHAT,
+                    ChatMessageType.CLAN_GUEST_CHAT, ChatMessageType.TRADEREQ, ChatMessageType.AUTOTYPER}) {
+                RewardHandler.onChatMessage(type, SEALED_MESSAGE);
+                assertTrue(handler.validate(), type.name());
+            }
+
+            RewardHandler.onChatMessage(ChatMessageType.MESBOX, SEALED_MESSAGE);
+            assertFalse(handler.validate());
         }
     }
 
@@ -90,11 +110,17 @@ class RewardHandlerTest {
              MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class)) {
             microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
             player.when(Rs2Player::getWorldLocation).thenReturn(Locations.REWARDS_CHEST_LOBBY.getWorldPoint());
+            widget.when(() -> Rs2Widget.isHidden(Widgets.ECLIPSE_MOON_ID.getID())).thenReturn(false);
             RewardHandler handler = new RewardHandler(config());
             int before = RewardHandler.getRewardChestCount().get();
+            Microbot.status = "IDLE";
 
-            RewardHandler.onChatMessage(SEALED_MESSAGE);
+            RewardHandler.onChatMessage(ChatMessageType.GAMEMESSAGE, SEALED_MESSAGE);
             handler.execute();
+
+            assertEquals("Lunar Chest sealed - skipping rewards", Microbot.status);
+            microbot.verify(() -> Microbot.log(contains("Lunar Chest is sealed: there are no rewards to claim.")));
+            microbot.verify(() -> Microbot.log(contains("Eclipse: check mark, Blue: disabled, Blood: disabled")));
 
             assertEquals(before, RewardHandler.getRewardChestCount().get());
             widget.verify(() -> Rs2Widget.clickWidget(BANK_ALL_WIDGET_ID), never());

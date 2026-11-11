@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.moonsofperil.handlers;
 
 import lombok.Getter;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
@@ -12,6 +13,8 @@ import net.runelite.client.plugins.microbot.util.widget.Rs2Widget;
 
 import javax.inject.Inject;
 
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
@@ -25,6 +28,9 @@ public class RewardHandler implements BaseHandler {
     private static final int lunarChestGameObjectID = 51346;
     private static final int lunarChestBankAllWidgetID = 56885268;
     private static final String CHEST_SEALED_MESSAGE = "sealed tightly shut";
+    private static final String CHEST_SEALED_STATUS = "Lunar Chest sealed - skipping rewards";
+    private static final Set<ChatMessageType> GAME_REPLY_TYPES = EnumSet.of(ChatMessageType.GAMEMESSAGE, ChatMessageType.SPAM,
+            ChatMessageType.ENGINE, ChatMessageType.MESBOX, ChatMessageType.DIALOG);
     private static volatile boolean chestSealed;
     private boolean eclipseEnabled;
     private boolean blueEnabled;
@@ -42,8 +48,8 @@ public class RewardHandler implements BaseHandler {
         chestSealed = false;
     }
 
-    public static void onChatMessage(String message) {
-        if (message != null && message.contains(CHEST_SEALED_MESSAGE)) {
+    public static void onChatMessage(ChatMessageType type, String message) {
+        if (type != null && GAME_REPLY_TYPES.contains(type) && message != null && message.contains(CHEST_SEALED_MESSAGE)) {
             chestSealed = true;
         }
     }
@@ -57,7 +63,18 @@ public class RewardHandler implements BaseHandler {
             chestSealed = false;
             return false;
         }
-        return !chestSealed;
+        if (chestSealed) {
+            Microbot.status = CHEST_SEALED_STATUS;
+            return false;
+        }
+        return true;
+    }
+
+    private String checkMark(boolean enabled, int widgetId) {
+        if (!enabled) {
+            return "disabled";
+        }
+        return Rs2Widget.isHidden(widgetId) ? "no check mark" : "check mark";
     }
 
     @Override
@@ -67,7 +84,12 @@ public class RewardHandler implements BaseHandler {
         if (Microbot.getRs2TileObjectCache().query().interact(lunarChestGameObjectID, "Claim")) {
             sleepUntil(() -> chestSealed || Rs2Widget.isWidgetVisible(lunarChestBankAllWidgetID), 5_000);
             if (chestSealed) {
-                if (debugLogging) {Microbot.log("Lunar Chest is sealed, no rewards to claim");}
+                Microbot.status = CHEST_SEALED_STATUS;
+                Microbot.log("Lunar Chest is sealed: there are no rewards to claim. Skipping the chest until a moon is defeated. "
+                        + "If the script stays idle, restart the plugin or fight a moon manually. Moons read as Eclipse: "
+                        + checkMark(eclipseEnabled, Widgets.ECLIPSE_MOON_ID.getID())
+                        + ", Blue: " + checkMark(blueEnabled, Widgets.BLUE_MOON_ID.getID())
+                        + ", Blood: " + checkMark(bloodEnabled, Widgets.BLOOD_MOON_ID.getID()));
                 BreakHandlerScript.setLockState(false);
                 return State.IDLE;
             }

@@ -37,7 +37,7 @@ import java.time.Instant;
 )
 @Slf4j
 public class MoonsOfPerilPlugin extends Plugin {
-    static final String version = "1.0.8";
+    static final String version = "1.0.9";
     @Inject
     private MoonsOfPerilConfig config;
     @Provides
@@ -78,7 +78,7 @@ public class MoonsOfPerilPlugin extends Plugin {
 
     @Subscribe
     public void onChatMessage(ChatMessage event) {
-        RewardHandler.onChatMessage(event.getMessage());
+        RewardHandler.onChatMessage(event.getType(), event.getMessage());
     }
 
     @Subscribe
