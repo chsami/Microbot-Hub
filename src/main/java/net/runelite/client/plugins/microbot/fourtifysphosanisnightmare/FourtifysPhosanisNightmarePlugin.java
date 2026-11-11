@@ -89,7 +89,7 @@ import net.runelite.client.util.Text;
                     iconUrl = "https://chsami.github.io/Microbot-Hub/FourtifysPhosanisNightmarePlugin/assets/icon.png")
 public class FourtifysPhosanisNightmarePlugin extends Plugin
 {
-    public static final String VERSION = "1.0.0";
+    public static final String VERSION = "1.0.1";
     /** Tiles around the player searched for a safe step: far enough to cross the arena floor to where a surge lands. */
     private static final int STEP_REACH = 16;
     /** The run setting shows a toggle a tick later; resending sooner would switch it back. */
