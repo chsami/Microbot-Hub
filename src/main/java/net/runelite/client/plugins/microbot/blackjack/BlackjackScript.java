@@ -88,6 +88,8 @@ public class BlackjackScript extends Script
     private static final String PICKPOCKET_ACTION = "Pickpocket";
     private static final String KNOCKOUT_ACTION = "Knock-Out";
     private static final String LURE_ACTION = "Lure";
+    private static final String HOLD_FOR_KNOCKOUT_ACTION = "Hold for Knock-Out";
+    private static final int MAX_PICKPOCKETS_PER_KNOCKOUT = 2;
 
     private static final long FAILED_KNOCKOUT_RETRY_MS = 450;
     private static final long PICKPOCKET_BURST_TIMEOUT_MS = 2_800;
@@ -2430,6 +2432,12 @@ public class BlackjackScript extends Script
 
         now = System.currentTimeMillis();
         resetKnockoutAimRecovery();
+        if (HOLD_FOR_KNOCKOUT_ACTION.equals(action))
+        {
+            nextPickpocketClickAt = now + randomPickpocketDelay(false);
+            nextAction = "Wait for target to stand before next Knock-Out";
+            return;
+        }
         lastInteractionAt = now;
         nextPickpocketClickAt = now + randomPickpocketDelay(false);
 
@@ -2510,10 +2518,20 @@ public class BlackjackScript extends Script
             return null;
         }
         standingAnchorMenuMisses = 0;
+        burstClickPoint = current;
+
+        if (!pickpocketClickAllowed(action, picksThisKnockout))
+        {
+            return HOLD_FOR_KNOCKOUT_ACTION;
+        }
 
         Microbot.getMouse().click(current);
-        burstClickPoint = current;
         return action;
+    }
+
+    static boolean pickpocketClickAllowed(String action, int confirmedPicks)
+    {
+        return !PICKPOCKET_ACTION.equals(action) || confirmedPicks < MAX_PICKPOCKETS_PER_KNOCKOUT;
     }
 
     private String topBlackjackOption(Rs2NpcModel target)
