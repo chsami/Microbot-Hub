@@ -326,6 +326,7 @@ public class TaskDecisionTest
         fixture.world.animation = 7617;
         fixture.tick();
         assertSame(far.npc, ((TripState) fixture.read("trip")).getTarget());
+        fixture.tick();
         fixture.world.interacting = far.npc;
         AnimationChanged throwing = new AnimationChanged();
         throwing.setActor(fixture.world.player);
@@ -579,7 +580,28 @@ public class TaskDecisionTest
         assertTrue(struckFromFiveTiles(3), "on longrange from six");
     }
 
-    private static boolean struckFromFiveTiles(int style) throws Exception
+    @Test
+    public void aBlockBeforeTheNextThrowIsDueIsNotAThrow() throws Exception
+    {
+        PluginTestFixture fixture = knives(3);
+        TestWorld.NpcTarget thrown = fixture.world.npc(2);
+        thrown.id = DreamData.SLEEPWALKER;
+        TestWorld.NpcTarget next = fixture.world.npc(-2);
+        next.id = DreamData.SLEEPWALKER;
+        TestWorld.NpcTarget last = fixture.world.npc(4);
+        last.id = DreamData.SLEEPWALKER;
+        fixture.world.interacting = thrown.npc;
+        fixture.world.animation = 806;
+        fixture.tick();
+        fixture.world.interacting = next.npc;
+        fixture.tick();
+        fixture.world.animation = 424;
+        fixture.tick();
+        assertSame(next.npc, ((TripState) fixture.read("trip")).getTarget(),
+            "her hit's block comes a tick before a throw on longrange can, so the player keeps going for it");
+    }
+
+    private static PluginTestFixture knives(int style) throws Exception
     {
         PluginTestFixture fixture = new PluginTestFixture();
         fixture.config.sleepwalker = "22804";
@@ -590,6 +612,12 @@ public class TaskDecisionTest
         fixture.world.varps.put(VarPlayerID.COM_MODE, style);
         fixture.boss.id = DreamData.BLAST;
         ((TripState) fixture.read("trip")).setLoadout(Loadout.SLEEPWALKER);
+        return fixture;
+    }
+
+    private static boolean struckFromFiveTiles(int style) throws Exception
+    {
+        PluginTestFixture fixture = knives(style);
         TestWorld.NpcTarget walker = fixture.world.npc(5);
         walker.id = DreamData.SLEEPWALKER;
         fixture.world.interacting = walker.npc;

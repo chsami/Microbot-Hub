@@ -132,6 +132,7 @@ public final class CombatTask implements FourtifysTask
     /** All four totems have been seen charged since her totems woke: her blast is next. */
     private boolean totemsFired;
     private int throwPhase;
+    private int lastStrike = Integer.MIN_VALUE / 2;
     private String status = "Waiting for a target";
 
     public CombatTask(NightmareActions actions, PhosanisNightmareConfig config, NightmareFight fight, Hazards hazards,
@@ -488,9 +489,11 @@ public final class CombatTask implements FourtifysTask
         // attack started on this tick.
         boolean started = target == lastTarget || lastAnimation == -1 || animatedAt == now;
         if (walkers.contains(target) && animation != -1 && animation != EAT_ANIMATION && started
+            && !struck.containsKey(target) && now - lastStrike >= throwTicks()
             && inReach(player.getWorldLocation(), ((NPC) target).getWorldArea()))
         {
-            struck.putIfAbsent((NPC) target, now);
+            struck.put((NPC) target, now);
+            lastStrike = now;
         }
         lastTarget = target;
         lastAnimation = animation;
@@ -544,9 +547,8 @@ public final class CombatTask implements FourtifysTask
             walkLate[index] = walking ? 1 : Math.max(1, rose + lateTicks - now);
         }
         int attackTicks = throwTicks();
-        int lastAttack = struck.values().stream().mapToInt(Integer::intValue).max().orElse(now - attackTicks);
         SleepwalkerPlan.Step step = SleepwalkerPlan.next(at, tiles, walkIn, walkLate, home,
-            Math.max(1, lastAttack + attackTicks - now), throwRange(), attackTicks);
+            Math.max(1, lastStrike + attackTicks - now), throwRange(), attackTicks);
         meleeWalker = step.isMelee();
         return walkers.get(step.getIndex());
     }
@@ -836,6 +838,7 @@ public final class CombatTask implements FourtifysTask
     {
         totemsFired = false;
         struck.clear();
+        lastStrike = Integer.MIN_VALUE / 2;
         risen.clear();
         riseTiles.clear();
         lastTarget = null;
