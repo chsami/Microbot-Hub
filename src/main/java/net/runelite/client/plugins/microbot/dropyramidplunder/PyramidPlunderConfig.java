@@ -36,18 +36,20 @@ public interface PyramidPlunderConfig extends Config {
     default boolean hopToPlunderWorld() { return true; }
 
     @ConfigItem(keyName = "betterXpMode", name = "Better XP mode",
-            description = "Urns only in rooms 7 and 8, no sarcophagi, and the Grand Gold Chest in every room. "
-                    + "Room 7 gets about 1 min 30 for its urns before moving on to room 8. "
-                    + "Needs 81 Thieving for room 7; below that the normal rooms are used. Off: the normal plan below.",
+            description = "Urns in the last two rooms your Thieving level reaches (7 and 8 at 91, 5 and 6 at 71), "
+                    + "no sarcophagi, and the Grand Gold Chest in every room. The room before the last is left with "
+                    + "about 1 min 15 to 1 min 20 on the timer, so the last room gets the rest. "
+                    + "Off: the last room is kept enough time to be emptied, and sarcophagi follow the option below.",
             position = 1, section = generalSection)
     default boolean betterXpMode() { return true; }
 
-    @ConfigItem(keyName = "openSarcophagi", name = "Open sarcophagi (rooms 4+)",
-            description = "Open the sarcophagus from room 4 onward for a Pharaoh's sceptre chance of 1/950 to 1/650. "
-                    + "They give Strength experience only and take about ten seconds each; turn off for the best Thieving rate. "
+    // Key renamed from openSarcophagi when the default became off, so a stored old default is not kept.
+    @ConfigItem(keyName = "searchSarcophagi", name = "Open sarcophagi (rooms 4+)",
+            description = "Off by default. Open the sarcophagus from room 4 onward for a Pharaoh's sceptre chance of 1/950 to 1/650. "
+                    + "They give Strength experience only and take about ten seconds each. "
                     + "Not used in Better XP mode, which never opens them.",
             position = 2, section = generalSection)
-    default boolean openSarcophagi() { return true; }
+    default boolean openSarcophagi() { return false; }
 
     @ConfigItem(keyName = "inventorySetup", name = "Inventory Setup",
             description = "Optional. When selected, its gear and inventory are loaded on the next food restock at the Sophanem bank "

@@ -79,6 +79,8 @@ public class PyramidPlunderScript extends Script {
     static final int[] URNS = {26580, 26600, 26601, 26602, 26603, 26604, 26605, 26606, 26607, 26608,
             26609, 26610, 26611, 26612, 26613};
     static final Set<Integer> URN_LOOTED = Set.of(21265, 21266, 21267);
+    /** A looted urn is left out of the room scan this long, until its opened state has arrived. */
+    static final long LOOTED_URN_HIDE_MS = 1200;
     static final int TEMPLE_ALTAR = 20378;
     static final int TEMPLE_LADDER_DOWN = 20275;
     static final int BANK_LADDER_UP = 20277;
@@ -121,6 +123,10 @@ public class PyramidPlunderScript extends Script {
     private long nextRepeatAt;
     private int selectedDoor = -1;
     private int selectedUrn = -1;
+    // The urn being searched, and the last one looted: its experience drop releases the next urn at once.
+    private int pendingUrn = -1;
+    private int lootedUrn = -1;
+    private long urnLootedAt;
 
     // Urn pace in the last room, carried between runs.
     private double secondsPerUrn = PyramidPlunderPlan.DEFAULT_SECONDS_PER_URN;
@@ -188,6 +194,8 @@ public class PyramidPlunderScript extends Script {
         pendingAction = null;
         pendingReceipt = null;
         selectedDoor = selectedUrn = -1;
+        pendingUrn = lootedUrn = -1;
+        urnLootedAt = 0;
         currentRoom = 0;
         lobbyEnteredAt = 0;
         lobbyResolved = false;
@@ -300,19 +308,23 @@ public class PyramidPlunderScript extends Script {
             sarcophagusOpeningSince = 0;
         }
         if (survive(view, true)) return;
+        if (lootedUrn >= 0) {
+            // The experience drop can be seen a frame before the urn shows as opened.
+            int looted = lootedUrn;
+            if (System.currentTimeMillis() - urnLootedAt > LOOTED_URN_HIDE_MS) lootedUrn = -1;
+            else scan.urns.removeIf(o -> o.getId() == looted);
+        }
         trackUrns(room, maxRoom, scan);
 
         boolean xpMode = config.betterXpMode();
-        boolean sarcophagusWanted = PyramidPlunderPlan.opensSarcophagus(room, maxRoom, config.openSarcophagi(), xpMode);
+        boolean sarcophagusWanted = PyramidPlunderPlan.opensSarcophagus(room, config.openSarcophagi(), xpMode);
         double left = secondsLeft(view);
         lastSecondsLeft = left;
         lastUrnsLeft = scan.urns.size();
         double reserve = PyramidPlunderPlan.lastRoomReserveSeconds(maxRoom, secondsPerUrn, config.openSarcophagi(), xpMode);
-        double roomUrnLeft = PyramidPlunderPlan.roomUrnSecondsLeft(room, maxRoom, xpMode,
-                (System.currentTimeMillis() - roomEnteredAt) / 1000.0);
         PyramidPlunderPlan.Step step = PyramidPlunderPlan.next(room, maxRoom, xpMode, view.trapActive && trapDisarmedAt < roomEnteredAt, left, reserve,
                 secondsPerUrn, scan.urns.size(), scan.chest != null && scan.chestClosed,
-                sarcophagusWanted && scan.sarcophagus != null && scan.sarcophagusClosed, roomUrnLeft);
+                sarcophagusWanted && scan.sarcophagus != null && scan.sarcophagusClosed);
 
         boolean lowAndOutOfFood = view.hpPercent() <= 25 && Rs2Inventory.getInventoryFood().isEmpty();
         // Each room has an exit on the entry side of the trap.
@@ -354,7 +366,8 @@ public class PyramidPlunderScript extends Script {
                     urnPhaseInLastRoom = room >= maxRoom;
                 }
                 int id = urn.getId();
-                interactUrn(urn, () -> URN_LOOTED.contains(impostor(id)));
+                int xpBefore = scan.thievingXp;
+                interactUrn(urn, () -> urnLooted(id, xpBefore));
                 break;
             }
             case CHEST:
@@ -463,10 +476,9 @@ public class PyramidPlunderScript extends Script {
         runStartedAt = System.currentTimeMillis() - Math.round(view.timerTicks * 600.0);
         currentRoom = 0;
         int maxRoom = PyramidPlunderPlan.maxRoom(view.thieving);
-        boolean xp = PyramidPlunderPlan.xpRooms(maxRoom, config.betterXpMode());
         Microbot.log("[PyramidPlunder] Run " + runs + " started; urns in rooms "
-                + (xp ? PyramidPlunderPlan.XP_FIRST_ROOM : Math.max(1, maxRoom - 1)) + "-" + maxRoom
-                + (xp ? " (Better XP mode)" : ""));
+                + PyramidPlunderPlan.firstUrnRoom(maxRoom) + "-" + maxRoom
+                + (config.betterXpMode() ? " (Better XP mode)" : ""));
     }
 
     private void enterRoom(int room) {
@@ -477,6 +489,8 @@ public class PyramidPlunderScript extends Script {
         selectedDoorOpenedAt = 0;
         enteredDoors.clear();
         selectedDoor = selectedUrn = -1;
+        lootedUrn = -1;
+        urnLootedAt = 0;
         deadEndAt = 0;
         urnPhaseStartedAt = 0;
         lastUrnLootAt = 0;
@@ -822,14 +836,21 @@ public class PyramidPlunderScript extends Script {
         return true;
     }
 
-    /** Submit once; the loop owns completion and an idle failed attempt can retry next pass. */
     private boolean interactObject(Rs2TileObjectModel target, String action, BooleanSupplier done) {
+        return interactObject(target, action, done, false);
+    }
+
+    /**
+     * Submit once; the loop owns completion and an idle failed attempt can retry next pass.
+     * {@code urgent} uses the profile's quick reaction instead of its working pause.
+     */
+    private boolean interactObject(Rs2TileObjectModel target, String action, BooleanSupplier done, boolean urgent) {
         BaseProfileDro current = profile;
         if (target == null || current == null || !inputAllowed()) return false;
         if (done.getAsBoolean()) return true;
         targetKey = target.getId() + "@" + target.getWorldLocation() + ":" + action;
         attemptStartedAt = System.currentTimeMillis();
-        if (act(BaseProfileDro.ActionPhase.ACTIVE_WORK, false, () -> target.click(action))) {
+        if (act(BaseProfileDro.ActionPhase.ACTIVE_WORK, urgent, () -> target.click(action))) {
             waitForAction(done);
         }
         return false;
@@ -838,17 +859,29 @@ public class PyramidPlunderScript extends Script {
     /**
      * An urn search: the first click goes through the profile like any action, then a few follow-up
      * clicks on the same urn on the recorded repeat-click rhythm keep the search going without an idle gap.
+     * Straight after an urn's experience drop the next urn is clicked on the profile's quick reaction.
      */
     private boolean interactUrn(Rs2TileObjectModel urn, BooleanSupplier looted) {
-        boolean done = interactObject(urn, "Search", looted);
+        boolean chained = PyramidPlunderAction.chained(System.currentTimeMillis(), urnLootedAt);
+        boolean done = interactObject(urn, "Search", looted, chained);
         if (pendingAction != null && repeatTarget == null) {
             pendingAction = new PyramidPlunderAction(System.currentTimeMillis(), true);
+            pendingUrn = urn.getId();
             repeatTarget = urn;
             repeatAction = "Search";
             repeatsLeft = 2 + random.nextInt(3);
             nextRepeatAt = System.currentTimeMillis() + cadence.nextIntervalMs();
         }
         return done;
+    }
+
+    /** The Thieving experience drop is the loot; the urn showing as opened is the fallback. */
+    private static boolean urnLooted(int urnId, int xpBefore) {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Client client = Microbot.getClient();
+            return PyramidPlunderAction.xpGained(client.getSkillExperience(Skill.THIEVING), xpBefore)
+                    || URN_LOOTED.contains(impostorOnClientThread(client, urnId));
+        }).orElse(false);
     }
 
     private void repeatClick(boolean receipt) {
@@ -870,6 +903,7 @@ public class PyramidPlunderScript extends Script {
     private void waitForAction(BooleanSupplier receipt) {
         pendingReceipt = receipt;
         pendingAction = new PyramidPlunderAction(System.currentTimeMillis());
+        pendingUrn = -1;
         clearRepeat();
     }
 
@@ -882,8 +916,10 @@ public class PyramidPlunderScript extends Script {
             repeatClick(receipt);
             return true;
         }
+        int urn = pendingUrn;
         pendingAction = null;
         pendingReceipt = null;
+        pendingUrn = -1;
         clearRepeat();
         if (result == PyramidPlunderAction.Result.TIMEOUT) {
             // Watchdog: re-read the room and pick the next step instead of giving up the activity.
@@ -901,6 +937,10 @@ public class PyramidPlunderScript extends Script {
         }
         if (result == PyramidPlunderAction.Result.COMPLETE) {
             recoveries = 0;
+            if (urn >= 0) {
+                lootedUrn = urn;
+                urnLootedAt = System.currentTimeMillis();
+            }
             resetTarget();
         }
         return false;
@@ -1015,6 +1055,8 @@ public class PyramidPlunderScript extends Script {
         boolean sarcophagusClosed;
         boolean sarcophagusOpening;
         Rs2TileObjectModel exit;
+        /** Thieving experience when the room was read: the baseline for the next urn's experience drop. */
+        int thievingXp;
         final List<Rs2TileObjectModel> urns = new ArrayList<>();
         final List<Rs2TileObjectModel> closedDoors = new ArrayList<>();
         final List<Rs2TileObjectModel> openDoors = new ArrayList<>();
@@ -1055,6 +1097,7 @@ public class PyramidPlunderScript extends Script {
         if (player != null) objects.sort(Comparator.comparingInt(o -> at.get(o).distanceTo2D(player)));
 
         RoomScan scan = new RoomScan();
+        scan.thievingXp = client.getSkillExperience(Skill.THIEVING);
         for (Rs2TileObjectModel object : objects) {
             int id = object.getId();
             int state = shown.getOrDefault(id, -1);

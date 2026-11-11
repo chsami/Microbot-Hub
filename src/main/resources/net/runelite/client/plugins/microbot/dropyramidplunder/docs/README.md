@@ -10,8 +10,10 @@ Runs the Pyramid Plunder minigame in Sophanem: finds the Guardian mummy's door, 
 
 ## How it plays
 
-- **Better XP mode** (default): at 81+ Thieving, urns only in rooms 7 and 8, the Grand Gold Chest in every room, no sarcophagi. Room 7 gets about 1 min 30 for urns before moving to room 8.
+- **Better XP mode** (default): urns only in the last two rooms your Thieving level reaches (rooms 7 and 8 at 91, rooms 5 and 6 at 71), the Grand Gold Chest in every room, no sarcophagi. The room before the last is left with about 1 min 15 to 1 min 20 on the timer, so the last room gets the rest.
 - **Normal plan**: urns in the last two rooms your level allows, the chest in every room, sarcophagi from room 4 when enabled. The last room keeps enough time to be emptied, learned from your own urn pace.
+- Each urn counts as looted the moment its Thieving experience drops, and the next urn is clicked straight away.
+- Sarcophagi are off by default (Strength experience only, about ten seconds each).
 - The mummy's door changes every 25 minutes. The script tries the door that last worked, then the door other players are queued at, then the nearest untried door. World 493 (the Pyramid Plunder world) is used by default.
 - Between runs it eats, cures poison and, when food is low, prays at the temple altar and banks in the Sophanem dungeon. An optional Inventory Setup is loaded at the bank.
 - Breaks never interrupt the five-minute game: the break handler is locked while inside the pyramid.

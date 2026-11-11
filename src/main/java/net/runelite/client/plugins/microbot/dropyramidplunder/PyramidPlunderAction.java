@@ -12,6 +12,8 @@ final class PyramidPlunderAction {
 
     /** Urns: idle time after a failed search before searching again (other actions settle for 600 ms). */
     static final long QUICK_IDLE_MS = 300;
+    /** Urns: the next urn counts as following a loot, and skips the working pause, within one game tick. */
+    static final long URN_CHAIN_MS = 600;
 
     private final long startedAt;
     private final boolean quick;
@@ -22,7 +24,7 @@ final class PyramidPlunderAction {
         this(now, false);
     }
 
-    /** {@code quick}: an urn; its looted receipt completes at once and a failed search retries sooner. */
+    /** {@code quick}: an urn; its experience drop completes it at once and a failed search retries sooner. */
     PyramidPlunderAction(long now, boolean quick) {
         startedAt = now;
         lastBusyAt = now;
@@ -42,6 +44,15 @@ final class PyramidPlunderAction {
         // The game already changed; staying busy afterwards is not this action.
         if (received && now - receivedAt >= RECEIPT_BUSY_MS) return Result.COMPLETE;
         return now - startedAt >= TIMEOUT_MS ? Result.TIMEOUT : Result.WAIT;
+    }
+
+    /** An experience drop since the click: the urn was looted, whatever its object still shows. */
+    static boolean xpGained(int xp, int xpAtClick) {
+        return xpAtClick > 0 && xp > xpAtClick;
+    }
+
+    static boolean chained(long now, long lootedAt) {
+        return lootedAt > 0 && now - lootedAt < URN_CHAIN_MS;
     }
 
     static boolean changed(int state, int original) {

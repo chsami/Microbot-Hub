@@ -15,9 +15,10 @@ package net.runelite.client.plugins.microbot.dropyramidplunder;
  * mummy is not fought through the whole urn phase.</li>
  * </ul>
  *
- * <p>Better XP mode (on by default): urns only in rooms 7 and 8, no sarcophagi, the chest in every
- * room, and room 7's urns always get {@link #XP_ROOM_URN_BUDGET_SECONDS} from entering the room
- * (no room-8 reserve) before the script moves on to room 8, where urns are looted until the timer. Below 81 Thieving there is no room 7 and the normal rooms are used.
+ * <p>Better XP mode (on by default) uses the same two urn rooms at every Thieving level (7 and 8 at
+ * 91, 5 and 6 at 71): no sarcophagi, the chest in every room, and the room before the last is left
+ * with about {@link #XP_LEAVE_SECONDS} seconds on the timer (no last-room reserve), so the last
+ * room gets the rest and is looted until the timer.
  */
 final class PyramidPlunderPlan {
     /** The run timer varbit counts game ticks up to this value. */
@@ -34,10 +35,11 @@ final class PyramidPlunderPlan {
     static final double DEFAULT_SECONDS_PER_URN = 7.3;
     static final double MIN_RESERVE_SECONDS = 60;
     static final double MAX_RESERVE_SECONDS = 170;
-    /** Better XP mode: urns from this room on. */
-    static final int XP_FIRST_ROOM = 7;
-    /** Better XP mode: seconds room 7 may spend on urns, counted from entering the room. */
-    static final double XP_ROOM_URN_BUDGET_SECONDS = 90;
+    /**
+     * Better XP mode: the room before the last starts another urn only while that urn and the chest
+     * still leave this much of the run, so its doors are started with about 1:15 to 1:20 left.
+     */
+    static final double XP_LEAVE_SECONDS = 75;
 
     private static final int[] URN_XP = {60, 90, 150, 215, 300, 450, 675, 825};
     private static final int[] CHEST_XP = {40, 60, 100, 140, 200, 300, 450, 550};
@@ -61,32 +63,18 @@ final class PyramidPlunderPlan {
         return room >= 1 && room <= maxRoom && room >= maxRoom - 1;
     }
 
-    /** Better XP mode applies once room 7 is reachable; below that the normal plan is kept. */
-    static boolean xpRooms(int maxRoom, boolean xpMode) {
-        return xpMode && maxRoom >= XP_FIRST_ROOM;
-    }
-
-    static boolean urnRoom(int room, int maxRoom, boolean xpMode) {
-        if (!xpRooms(maxRoom, xpMode)) return urnRoom(room, maxRoom);
-        return room >= XP_FIRST_ROOM && room <= maxRoom;
+    /** The first of the two urn rooms: the room before the last one the level reaches. */
+    static int firstUrnRoom(int maxRoom) {
+        return Math.max(1, maxRoom - 1);
     }
 
     static boolean opensSarcophagus(int room, boolean enabled) {
         return enabled && room >= FIRST_SARCOPHAGUS_ROOM;
     }
 
-    static boolean opensSarcophagus(int room, int maxRoom, boolean enabled, boolean xpMode) {
+    static boolean opensSarcophagus(int room, boolean enabled, boolean xpMode) {
         // Better XP mode never opens a sarcophagus (Strength experience only, and slow).
-        return !xpRooms(maxRoom, xpMode) && opensSarcophagus(room, enabled);
-    }
-
-    /**
-     * Seconds of urn time left in this room: unlimited except Better XP mode's room 7 before the last
-     * room, which gets {@link #XP_ROOM_URN_BUDGET_SECONDS} from entering it.
-     */
-    static double roomUrnSecondsLeft(int room, int maxRoom, boolean xpMode, double secondsInRoom) {
-        if (!xpRooms(maxRoom, xpMode) || room != XP_FIRST_ROOM || room >= maxRoom) return Double.POSITIVE_INFINITY;
-        return Math.max(0, XP_ROOM_URN_BUDGET_SECONDS - Math.max(0, secondsInRoom));
+        return !xpMode && opensSarcophagus(room, enabled);
     }
 
     static double secondsLeft(int timerTicks) {
@@ -101,7 +89,7 @@ final class PyramidPlunderPlan {
     static double lastRoomReserveSeconds(int lastRoom, double secondsPerUrn, boolean sarcophagi, boolean xpMode) {
         double perUrn = secondsPerUrn > 0 ? secondsPerUrn : DEFAULT_SECONDS_PER_URN;
         double reserve = TRAP_SECONDS + urnCount(lastRoom) * perUrn + CHEST_SECONDS
-                + (opensSarcophagus(lastRoom, lastRoom, sarcophagi, xpMode) ? SARCOPHAGUS_SECONDS : 0);
+                + (opensSarcophagus(lastRoom, sarcophagi, xpMode) ? SARCOPHAGUS_SECONDS : 0);
         return Math.max(MIN_RESERVE_SECONDS, Math.min(MAX_RESERVE_SECONDS, reserve));
     }
 
@@ -114,27 +102,24 @@ final class PyramidPlunderPlan {
     static Step next(int room, int maxRoom, boolean trapActive, double secondsLeft, double lastRoomReserve,
             double secondsPerUrn, int urnsLeft, boolean chestClosed, boolean sarcophagusClosed) {
         return next(room, maxRoom, false, trapActive, secondsLeft, lastRoomReserve, secondsPerUrn, urnsLeft,
-                chestClosed, sarcophagusClosed, Double.POSITIVE_INFINITY);
+                chestClosed, sarcophagusClosed);
     }
 
-    /**
-     * @param roomUrnSecondsLeft urn time left in this room ({@link #roomUrnSecondsLeft}); urns are
-     *                           skipped once it runs out
-     */
+    /** @param xpMode Better XP mode: the room before the last is left by the timer, not the reserve */
     static Step next(int room, int maxRoom, boolean xpMode, boolean trapActive, double secondsLeft,
             double lastRoomReserve, double secondsPerUrn, int urnsLeft, boolean chestClosed,
-            boolean sarcophagusClosed, double roomUrnSecondsLeft) {
+            boolean sarcophagusClosed) {
         if (trapActive) return Step.TRAP;
         boolean last = room >= maxRoom;
         double perUrn = secondsPerUrn > 0 ? secondsPerUrn : DEFAULT_SECONDS_PER_URN;
         double containers = (chestClosed ? CHEST_SECONDS : 0) + (sarcophagusClosed ? SARCOPHAGUS_SECONDS : 0);
-        if (urnRoom(room, maxRoom, xpMode) && urnsLeft > 0 && roomUrnSecondsLeft > 0) {
+        if (urnRoom(room, maxRoom) && urnsLeft > 0) {
             if (last) {
                 // Keep the containers for the end, but never lose them to the timer.
                 if (secondsLeft > containers + perUrn) return Step.URN;
-            } else if (xpRooms(maxRoom, xpMode)) {
-                // Better XP mode always loots room 7's urns for its budget; only the run timer itself ends them early.
-                if (secondsLeft > containers + DOOR_SECONDS + perUrn) return Step.URN;
+            } else if (xpMode) {
+                // One more urn only while it and the chest still leave the last room its share.
+                if (secondsLeft - containers - perUrn > XP_LEAVE_SECONDS) return Step.URN;
             } else if (secondsLeft - containers - DOOR_SECONDS - perUrn > lastRoomReserve) {
                 return Step.URN;
             }
@@ -142,7 +127,7 @@ final class PyramidPlunderPlan {
         if (chestClosed) return Step.CHEST;
         if (sarcophagusClosed) return Step.SARCOPHAGUS;
         if (!last) return Step.DOOR;
-        return urnsLeft > 0 && urnRoom(room, maxRoom, xpMode) ? Step.URN : Step.LEAVE;
+        return urnsLeft > 0 && urnRoom(room, maxRoom) ? Step.URN : Step.LEAVE;
     }
 
     /** Smoothed seconds per looted urn; a single odd room moves the estimate by a third. */
