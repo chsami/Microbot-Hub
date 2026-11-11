@@ -106,15 +106,21 @@ public class WintertodtLocationManager {
 
     public static boolean attemptLeaveWintertodt(boolean waitForRoundEnd)
     {
+        WorldPoint playerLocation = Rs2Player.getWorldLocation();
+        if (playerLocation == null)
+        {
+            return false;
+        }
+
         /* Already outside? → nothing else to do */
-        if (!isInsideGameRoom())
+        if (!isInsideGameRoom(playerLocation))
         {
             return true;
         }
 
         /* Step 1: Walk close to the door first */
         WorldPoint doorTile = new WorldPoint(1630, 3970, 0);
-        if (Rs2Player.getWorldLocation().distanceTo(doorTile) > 4) {
+        if (playerLocation.distanceTo(doorTile) > 4) {
             Microbot.log("Walking closer to Wintertodt exit door...");
             Rs2Walker.walkTo(doorTile, 2);
             return false; // Continue next tick after walking
@@ -294,15 +300,20 @@ public class WintertodtLocationManager {
      */
     private boolean isAtWintertodt() {
         WorldPoint playerLocation = Rs2Player.getWorldLocation();
-        return playerLocation.distanceTo(WINTERTODT_BANK) <= WINTERTODT_AREA_RADIUS && playerLocation.getY() <= 3967;
+        return playerLocation != null
+                && playerLocation.distanceTo(WINTERTODT_BANK) <= WINTERTODT_AREA_RADIUS && playerLocation.getY() <= 3967;
     }
 
     /**
      * Checks if player is inside the Wintertodt game room (north of doors).
      */
     public static boolean isInsideGameRoom() {
-        WorldPoint playerLocation = Rs2Player.getWorldLocation();
-        return playerLocation.getY() > GAME_ROOM_Y_THRESHOLD && 
+        return isInsideGameRoom(Rs2Player.getWorldLocation());
+    }
+
+    private static boolean isInsideGameRoom(WorldPoint playerLocation) {
+        return playerLocation != null &&
+               playerLocation.getY() > GAME_ROOM_Y_THRESHOLD &&
                playerLocation.distanceTo(WINTERTODT_BOSS_ROOM) <= 40;
     }
     
