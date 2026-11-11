@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.woodcutting.Forestry;
 
 import net.runelite.api.Client;
+import net.runelite.api.GameObject;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.NpcID;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -26,14 +27,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class ForestryEventPlayerLocationTest {
@@ -128,6 +132,57 @@ class ForestryEventPlayerLocationTest {
         global.verify(() -> Global.sleepUntil(any(BooleanSupplier.class), eq(1200)), times(1));
         walker.verify(() -> Rs2Walker.walkFastCanvas(TARGET), times(1));
         verify(plugin).incrementForestryEventCompleted();
+    }
+
+    @Test
+    void saplingValidateSkipsWhilePlayerLocationIsMissing() {
+        Rs2TileObjectModel sapling = sapling();
+
+        StrugglingSaplingEvent event = new StrugglingSaplingEvent(plugin);
+
+        assertFalse(event.validate());
+        verifyNoInteractions(sapling);
+        assertTrue(event.validate());
+    }
+
+    @Test
+    void saplingExecuteDefersWhilePlayerLocationIsMissing() {
+        Rs2TileObjectModel sapling = sapling();
+        player.when(Rs2Player::getWorldLocation).thenReturn(null);
+
+        assertFalse(new StrugglingSaplingEvent(plugin).execute());
+
+        verifyNoInteractions(sapling);
+        verify(plugin, never()).incrementForestryEventCompleted();
+    }
+
+    @Test
+    void saplingExecuteWaitsForPlayerLocationBeforeChoosingAnIngredient() throws Exception {
+        sapling();
+        Rs2TileObjectModel ingredient = mock(Rs2TileObjectModel.class);
+        when(ingredient.getId()).thenReturn(1);
+        when(ingredient.hasAction("Collect")).thenReturn(true);
+        when(ingredient.getWorldLocation()).thenReturn(TARGET);
+        when(objectQuery.toList()).thenReturn(Collections.singletonList(ingredient));
+        Field field = AutoWoodcuttingPlugin.class.getDeclaredField("saplingOrder");
+        field.setAccessible(true);
+        field.set(plugin, new GameObject[3]);
+        player.when(Rs2Player::getWorldLocation).thenReturn(PLAYER, PLAYER, null, PLAYER);
+
+        assertTrue(new StrugglingSaplingEvent(plugin).execute());
+
+        global.verify(() -> Global.sleepUntil(any(BooleanSupplier.class), eq(1200)), times(1));
+        verify(ingredient, times(1)).click("Collect");
+        verify(plugin).incrementForestryEventCompleted();
+    }
+
+    private Rs2TileObjectModel sapling() {
+        Rs2TileObjectModel sapling = mock(Rs2TileObjectModel.class);
+        when(sapling.hasAction("Add-mulch")).thenReturn(true);
+        when(sapling.getWorldLocation()).thenReturn(TARGET);
+        when(objectQuery.withName("Struggling sapling")).thenReturn(objectQuery);
+        when(objectQuery.toListOnClientThread()).thenReturn(Collections.singletonList(sapling));
+        return sapling;
     }
 
     private static net.runelite.client.plugins.microbot.util.npc.Rs2NpcModel circle(int offset) {
