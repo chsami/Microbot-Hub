@@ -139,6 +139,8 @@ final class ColosseumThreats
             boolean firingNow=inSight&&distance<=15;
             boolean stepping=!firingNow&&(speculative?collision.npcFiringAfterApproach(n,tile,ahead+1)
                 :(changingSight||n.targetsPlayer())&&(collision.npcFiringAfterApproach(n,tile)||collision.npcFiringAfterApproachPastDying(n,tile)));
+            if(!stepping&&!firingNow&&MARCH_STEP&&ahead==0&&!n.meleeOnly()&&n.targetsPlayer()&&collision.available()&&n.role!=Role.MANTICORE)
+            {Tile next=march(f,collision,tile).rest.get(n.index);stepping=next!=null&&(next.x!=n.x||next.y!=n.y)&&collision.firingFrom(n,next,tile,ColosseumMarch.range(n));}
 
             boolean ray=false;
             if(HELD_CHARGE&&n.role==Role.MANTICORE)
@@ -219,18 +221,22 @@ final class ColosseumThreats
             if(due)hits.add(new Hit(prayer,weight,n,overdue?1:2));
             else if(!timed&&!n.warband())
             {
-                if(f.prayers.contains(prayer)||n.targetsPlayer()||adjacent&&n.meleeOnly())hits.add(new Hit(prayer,20,n,0));
+                if(f.prayers.contains(prayer)||n.targetsPlayer()||adjacent&&n.meleeOnly())hits.add(new Hit(prayer,UNCLOCKED_BY_ROLE?weight:20,n,0));
             }
     }
+    static final boolean PEEK_TIER=!"false".equals(System.getProperty("colo.peekTier")),
+        UNCLOCKED_BY_ROLE=!"false".equals(System.getProperty("colo.peekTier"));
+    static final boolean MARCH_STEP=!"false".equals(System.getProperty("colo.marchStep"));
+    private static int tier(Hit h,ColosseumSnapshot f){return PEEK_TIER&&f.moving&&h.certainty==1&&h.npc!=null&&!h.npc.meleeOnly()&&h.npc.role!=Role.MANTICORE?2:h.certainty;}
     String protection(ColosseumSnapshot f,ColosseumCollision collision,Tile tile)
     {
         Map<String,Integer> scores=new LinkedHashMap<>();
         if(jaguarIncoming(f,collision,tile))return MELEE;
         List<Hit> hits=hits(f,collision,tile,0);int certainty=-1;
-        for(Hit h:hits)certainty=Math.max(certainty,h.certainty);
+        for(Hit h:hits)certainty=Math.max(certainty,tier(h,f));
 
         boolean first=manticoreFirst(f);
-        for(Hit h:hits)if(h.certainty==certainty)scores.merge(h.prayer,priority(h,first),Integer::sum);
+        for(Hit h:hits)if(tier(h,f)==certainty)scores.merge(h.prayer,priority(h,first),Integer::sum);
         String best=null;int score=0;
         for(Map.Entry<String,Integer> e:scores.entrySet())if(e.getValue()>score){best=e.getKey();score=e.getValue();}
         return best;
