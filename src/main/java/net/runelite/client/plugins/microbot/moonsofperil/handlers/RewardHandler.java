@@ -28,10 +28,13 @@ public class RewardHandler implements BaseHandler {
     private static final int lunarChestGameObjectID = 51346;
     private static final int lunarChestBankAllWidgetID = 56885268;
     private static final String CHEST_SEALED_MESSAGE = "sealed tightly shut";
-    private static final String CHEST_SEALED_STATUS = "Lunar Chest sealed - skipping rewards";
+    private static final String CHEST_SEALED_STATUS = "Lunar Chest sealed, no rewards. Idle until a moon can be fought - see log";
+    private static final String MOON_AVAILABLE_STATUS = "Moon available - continuing";
+    private static final long SEALED_LOG_INTERVAL_MS = 300_000;
     private static final Set<ChatMessageType> GAME_REPLY_TYPES = EnumSet.of(ChatMessageType.GAMEMESSAGE, ChatMessageType.SPAM,
             ChatMessageType.ENGINE, ChatMessageType.MESBOX, ChatMessageType.DIALOG);
     private static volatile boolean chestSealed;
+    static volatile long lastSealedLogAt;
     private boolean eclipseEnabled;
     private boolean blueEnabled;
     private boolean bloodEnabled;
@@ -46,6 +49,7 @@ public class RewardHandler implements BaseHandler {
         this.boss = new BossHandler(cfg);
         this.debugLogging = cfg.debugLogging();
         chestSealed = false;
+        lastSealedLogAt = 0;
     }
 
     public static void onChatMessage(ChatMessageType type, String message) {
@@ -60,21 +64,40 @@ public class RewardHandler implements BaseHandler {
         boolean blueDone = !blueEnabled || !boss.bossIsAlive("Blue Moon", Widgets.BLUE_MOON_ID.getID());
         boolean bloodDone = !bloodEnabled || !boss.bossIsAlive("Blood Moon", Widgets.BLOOD_MOON_ID.getID());
         if (!(eclipseDone && blueDone && bloodDone)) {
-            chestSealed = false;
+            if (chestSealed) {
+                chestSealed = false;
+                lastSealedLogAt = 0;
+                Microbot.status = MOON_AVAILABLE_STATUS;
+            }
             return false;
         }
         if (chestSealed) {
-            Microbot.status = CHEST_SEALED_STATUS;
+            reportSealedChest();
             return false;
         }
         return true;
     }
 
-    private String checkMark(boolean enabled, int widgetId) {
-        if (!enabled) {
-            return "disabled";
+    private void reportSealedChest() {
+        Microbot.status = CHEST_SEALED_STATUS;
+        long now = System.currentTimeMillis();
+        if (lastSealedLogAt != 0 && now - lastSealedLogAt < SEALED_LOG_INTERVAL_MS) {
+            return;
         }
-        return Rs2Widget.isHidden(widgetId) ? "no check mark" : "check mark";
+        lastSealedLogAt = now;
+        Microbot.log("Lunar Chest is sealed: there are no rewards to claim. The script will not click the chest again and waits "
+                + "until one of your enabled moons can be fought. If it stays idle, stop the plugin, defeat a moon yourself, "
+                + "then start it again. If this keeps happening, post this line in Bug Reports. Moon status seen by the script - Eclipse: "
+                + moonStatus(eclipseEnabled, Widgets.ECLIPSE_MOON_ID.getID())
+                + ", Blue: " + moonStatus(blueEnabled, Widgets.BLUE_MOON_ID.getID())
+                + ", Blood: " + moonStatus(bloodEnabled, Widgets.BLOOD_MOON_ID.getID()));
+    }
+
+    private String moonStatus(boolean enabled, int widgetId) {
+        if (!enabled) {
+            return "not enabled";
+        }
+        return Rs2Widget.isHidden(widgetId) ? "not defeated" : "defeated (check mark)";
     }
 
     @Override
@@ -84,12 +107,7 @@ public class RewardHandler implements BaseHandler {
         if (Microbot.getRs2TileObjectCache().query().interact(lunarChestGameObjectID, "Claim")) {
             sleepUntil(() -> chestSealed || Rs2Widget.isWidgetVisible(lunarChestBankAllWidgetID), 5_000);
             if (chestSealed) {
-                Microbot.status = CHEST_SEALED_STATUS;
-                Microbot.log("Lunar Chest is sealed: there are no rewards to claim. Skipping the chest until a moon is defeated. "
-                        + "If the script stays idle, restart the plugin or fight a moon manually. Moons read as Eclipse: "
-                        + checkMark(eclipseEnabled, Widgets.ECLIPSE_MOON_ID.getID())
-                        + ", Blue: " + checkMark(blueEnabled, Widgets.BLUE_MOON_ID.getID())
-                        + ", Blood: " + checkMark(bloodEnabled, Widgets.BLOOD_MOON_ID.getID()));
+                reportSealedChest();
                 BreakHandlerScript.setLockState(false);
                 return State.IDLE;
             }

@@ -23,10 +23,12 @@ import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 class RewardHandlerTest {
     private static final String SEALED_MESSAGE = "It's sealed tightly shut.";
+    private static final String SEALED_STATUS = "Lunar Chest sealed, no rewards. Idle until a moon can be fought - see log";
     private static final int LUNAR_CHEST_ID = 51346;
     private static final int BANK_ALL_WIDGET_ID = 56885268;
 
@@ -118,14 +120,58 @@ class RewardHandlerTest {
             RewardHandler.onChatMessage(ChatMessageType.GAMEMESSAGE, SEALED_MESSAGE);
             handler.execute();
 
-            assertEquals("Lunar Chest sealed - skipping rewards", Microbot.status);
+            assertEquals(SEALED_STATUS, Microbot.status);
             microbot.verify(() -> Microbot.log(contains("Lunar Chest is sealed: there are no rewards to claim.")));
-            microbot.verify(() -> Microbot.log(contains("Eclipse: check mark, Blue: disabled, Blood: disabled")));
+            microbot.verify(() -> Microbot.log(contains("stop the plugin, defeat a moon yourself, then start it again")));
+            microbot.verify(() -> Microbot.log(
+                    contains("Eclipse: defeated (check mark), Blue: not enabled, Blood: not enabled")));
 
             assertEquals(before, RewardHandler.getRewardChestCount().get());
             widget.verify(() -> Rs2Widget.clickWidget(BANK_ALL_WIDGET_ID), never());
             breakHandler.verify(() -> BreakHandlerScript.setLockState(false));
             assertFalse(handler.validate());
+        }
+    }
+
+    @Test
+    void sealedAdviceIsLoggedFromValidateAndRepeatedAtASlowRate() {
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class)) {
+            widget.when(() -> Rs2Widget.isHidden(anyInt())).thenReturn(false);
+            RewardHandler handler = new RewardHandler(config());
+
+            RewardHandler.onChatMessage(ChatMessageType.GAMEMESSAGE, SEALED_MESSAGE);
+            assertFalse(handler.validate());
+            assertFalse(handler.validate());
+            assertEquals(SEALED_STATUS, Microbot.status);
+            microbot.verify(() -> Microbot.log(contains("Lunar Chest is sealed")), times(1));
+
+            RewardHandler.lastSealedLogAt = System.currentTimeMillis() - 301_000;
+            assertFalse(handler.validate());
+            assertFalse(handler.validate());
+            microbot.verify(() -> Microbot.log(contains("Lunar Chest is sealed")), times(2));
+        }
+    }
+
+    @Test
+    void sealedStatusIsReplacedOnceAMoonCanBeFought() {
+        try (MockedStatic<Rs2Widget> widget = mockStatic(Rs2Widget.class)) {
+            widget.when(() -> Rs2Widget.isHidden(anyInt())).thenReturn(false);
+            RewardHandler handler = new RewardHandler(config());
+            widget.when(() -> Rs2Widget.isHidden(Widgets.ECLIPSE_MOON_ID.getID())).thenReturn(true);
+            Microbot.status = "Eating";
+            assertFalse(handler.validate());
+            assertEquals("Eating", Microbot.status);
+
+            widget.when(() -> Rs2Widget.isHidden(Widgets.ECLIPSE_MOON_ID.getID())).thenReturn(false);
+            RewardHandler.onChatMessage(ChatMessageType.GAMEMESSAGE, SEALED_MESSAGE);
+            RewardHandler.lastSealedLogAt = System.currentTimeMillis();
+            assertFalse(handler.validate());
+            assertEquals(SEALED_STATUS, Microbot.status);
+
+            widget.when(() -> Rs2Widget.isHidden(Widgets.ECLIPSE_MOON_ID.getID())).thenReturn(true);
+            assertFalse(handler.validate());
+            assertEquals("Moon available - continuing", Microbot.status);
         }
     }
 
