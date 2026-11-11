@@ -167,8 +167,12 @@ public class DroSlayerPlugin extends Plugin {
         walkerReady = DroSlayerWalkerRequirement.efficientWalkerEnabled();
         if (!walkerReady) {
             log.warn("[Dro] Slayer not started: Efficient Walker is not installed or enabled");
-            Microbot.showMessage(DroSlayerWalkerRequirement.MISSING_MESSAGE);
-            javax.swing.SwingUtilities.invokeLater(() -> Microbot.stopPlugin(this));
+            // Start-up runs on the Swing thread and the message is a modal dialog, so both the
+            // stop and the message wait until start-up has returned.
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                Microbot.stopPlugin(this);
+                Microbot.showMessage(DroSlayerWalkerRequirement.MISSING_MESSAGE);
+            });
             return;
         }
         runtimeStarted = System.nanoTime();

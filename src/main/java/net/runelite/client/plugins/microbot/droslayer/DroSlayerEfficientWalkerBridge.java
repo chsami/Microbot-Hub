@@ -77,7 +77,7 @@ final class DroSlayerEfficientWalkerBridge {
 
         if (!ensureWalker()) {
             recordUnavailableFailure();
-            logUnavailableThrottled("Efficient Walker is unavailable");
+            logUnavailableThrottled("Efficient Walker is not enabled. Enable [Dro] Efficient Walker to keep travelling");
             return false;
         }
 

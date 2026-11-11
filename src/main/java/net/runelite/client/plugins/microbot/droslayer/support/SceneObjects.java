@@ -86,10 +86,14 @@ public final class SceneObjects {
         return interact(object, "");
     }
 
+    /**
+     * Clicks {@code action} on the object. Like the walker's original object click, an action the
+     * object does not list falls back to its first option instead of failing.
+     */
     public static boolean interact(TileObject object, String action) {
         if (object == null) return false;
         Rs2TileObjectModel model = new Rs2TileObjectModel(object);
-        return action == null || action.isEmpty() ? model.click() : model.click(action);
+        return action == null || action.isEmpty() ? model.click() : model.clickOrFirstOption(action);
     }
 
     public static boolean interact(WorldPoint location, String action) {
@@ -126,13 +130,14 @@ public final class SceneObjects {
         return getGroundObject(location);
     }
 
-    /** Nearest ground object to {@code anchor} in the loaded scene. */
+    /** Nearest ground object within half a scene of {@code anchor}. */
     public static GroundObject getGroundObject(WorldPoint anchor) {
-        return first(scene(GroundObject.class, o -> true, anchor, Constants.SCENE_SIZE));
+        return first(scene(GroundObject.class, o -> true, anchor, Constants.SCENE_SIZE / 2));
     }
 
+    /** Nearest matching game object within half a scene of the player. */
     public static GameObject getGameObject(Predicate<GameObject> predicate) {
-        return first(scene(GameObject.class, predicate, Rs2Player.getWorldLocation(), Constants.SCENE_SIZE));
+        return first(scene(GameObject.class, predicate, Rs2Player.getWorldLocation(), Constants.SCENE_SIZE / 2));
     }
 
     public static GameObject getGameObject(int id, WorldPoint anchor, int distance) {
