@@ -668,6 +668,7 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
             fight.observeBoss(boss == null ? null : Stage.fromNpcId(boss.getId()));
             hazards.expire(tick);
             hazards.observeBoss(boss == null ? null : boss.getWorldArea());
+            hazards.observeStage(fight.getStage());
             hazards.observePlayer(actions.position());
             observeJump(boss);
             observeLastStand(boss);
