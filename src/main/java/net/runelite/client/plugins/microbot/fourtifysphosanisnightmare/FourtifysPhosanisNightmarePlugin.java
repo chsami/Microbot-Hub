@@ -675,7 +675,7 @@ public class FourtifysPhosanisNightmarePlugin extends Plugin
             // A hit already on its way can kill a sleepwalker as she absorbs it, and it still counts for her blast.
             for (NPC walker : actions.npcs(Set.of(DreamData.SLEEPWALKER), true))
             {
-                fight.observeSleepwalker(walker.getIndex(), walker.getAnimation() == DreamData.SLEEPWALKER_ABSORBED);
+                fight.observeSleepwalker(walker.getIndex(), walker.getAnimation() == DreamData.SLEEPWALKER_ABSORBED, walker.isDead());
             }
             for (Map.Entry<WorldPoint, Integer> rift : actions.graphicAges(DreamData.RIFT_GRAPHIC).entrySet())
             {

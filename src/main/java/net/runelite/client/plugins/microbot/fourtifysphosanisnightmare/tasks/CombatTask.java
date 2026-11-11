@@ -197,7 +197,8 @@ public final class CombatTask implements FourtifysTask
                 choose(husk, huskLoadout(husk));
                 return;
             }
-            if (walker == null && fight.getPhase() == 3 && fight.sleepwalkersUp())
+            if (walker == null && fight.getPhase() == 3 && fight.sleepwalkersUp() && !fight.sleepwalkerOutOfView(
+                actions.npcs(Set.of(DreamData.SLEEPWALKER), true).stream().map(NPC::getIndex).collect(Collectors.toSet())))
             {
                 // Her last blast's sleepwalkers are dealt with: her final phase comes next. A parasite would heal
                 // her through it, so it dies first; then that phase's set goes on and it opens with an attack.

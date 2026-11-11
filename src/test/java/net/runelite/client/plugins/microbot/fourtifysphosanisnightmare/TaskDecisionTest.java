@@ -434,6 +434,43 @@ public class TaskDecisionTest
     }
 
     @Test
+    public void aSleepwalkerOutOfViewInHerLastBlastIsStillOnItsWay() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.config.spec = "13652";
+        fixture.config.redeem = false;
+        fixture.world.inventory = TestWorld.items(PluginTestFixture.RING, 1, PluginTestFixture.STAFF, 1, 13652, 1);
+        fixture.world.varps.put(VarPlayerID.SA_ENERGY, 1000);
+        fixture.enableAndDrain();
+        NightmareFight fight = (NightmareFight) fixture.read("fight");
+        fight.observeBoss(Stage.WAKING);
+        for (int blast = 1; blast < 3; blast++)
+        {
+            fight.observeBoss(Stage.TOTEMS);
+            fight.observeBoss(Stage.BLAST);
+            fight.observeBoss(Stage.SHIELD);
+        }
+        fight.observeBoss(Stage.TOTEMS);
+        fixture.boss.id = DreamData.BLAST;
+        TestWorld.NpcTarget killed = fixture.world.npc(-3);
+        killed.id = DreamData.SLEEPWALKER;
+        TestWorld.NpcTarget unseen = fixture.world.npc(-12);
+        unseen.id = DreamData.SLEEPWALKER;
+        unseen.index = 2;
+        fixture.tick();
+        assertEquals(3, fight.getPhase());
+        killed.dead = true;
+        fixture.world.npcs.remove(unseen);
+        fixture.tick();
+        TripState trip = (TripState) fixture.read("trip");
+        assertEquals(Loadout.SLEEPWALKER, trip.getLoadout(), "the one gone out of view is still walking to her");
+        fixture.world.npcs.add(unseen);
+        unseen.dead = true;
+        fixture.tick();
+        assertEquals(Loadout.SPEC, trip.getLoadout(), "once both are seen dying, her final phase comes next");
+    }
+
+    @Test
     public void aParasiteOutAfterHerLastBlastsSleepwalkersDiesBeforeHerFinalPhaseSet() throws Exception
     {
         PluginTestFixture fixture = afterTheSleepwalkers(3);
@@ -478,6 +515,8 @@ public class TaskDecisionTest
         fixture.tick();
         TripState trip = (TripState) fixture.read("trip");
         assertSame(walker.npc, trip.getTarget());
+        walker.dead = true;
+        fixture.tick();
         fixture.world.npcs.remove(walker);
         fixture.tick();
         assertEquals(phase, fight.getPhase());
