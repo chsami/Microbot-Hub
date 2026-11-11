@@ -237,11 +237,11 @@ public class WintertodtStartupManager {
             statusMessage = "Moving to optimal starting position...";
             
             // Move to the bank area as the final starting position
-            if (Rs2Player.getWorldLocation().distanceTo(WINTERTODT_BANK) > 10) {
+            if (!WintertodtLocationManager.isWithin(WINTERTODT_BANK, 10)) {
                 Microbot.log("Moving to Wintertodt bank for final positioning...");
                 Rs2Walker.walkTo(WINTERTODT_BANK, 5);
-                
-                if (!sleepUntilTrue(() -> Rs2Player.getWorldLocation().distanceTo(WINTERTODT_BANK) <= 10, 
+
+                if (!sleepUntilTrue(() -> WintertodtLocationManager.isWithin(WINTERTODT_BANK, 10),
                                    100, 30000)) {
                     Microbot.log("Failed to reach final position");
                     return false;
@@ -295,6 +295,12 @@ public class WintertodtStartupManager {
             currentPhase = StartupPhase.CHECKING_GAME_ROOM;
             statusMessage = "Checking if already in game room with necessary items...";
             
+            if (Rs2Player.getWorldLocation() == null) {
+                statusMessage = "Waiting for your position to load...";
+                Microbot.log("Waiting for your position to load...");
+                return false;
+            }
+
             // Check if player is inside the game room (north of doors)
             if (!WintertodtLocationManager.isInsideGameRoom()) {
                 Microbot.log("Player not in game room, proceeding with full startup sequence");
