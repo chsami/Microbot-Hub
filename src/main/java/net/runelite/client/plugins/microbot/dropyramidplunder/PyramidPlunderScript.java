@@ -61,6 +61,8 @@ public class PyramidPlunderScript extends Script {
     static final int BANK_REGION = 11088;
     static final int PLUNDER_WORLD = 493;
     static final int RUN_SECONDS = 300;
+    /** Inventory Setup loads that fail in a row before the script stops. */
+    static final int SETUP_LOAD_ATTEMPTS = 3;
 
     static final WorldPoint NORTH_EXIT = new WorldPoint(3288, 2801, 0);
     /** Beside the bank ladder and the altar, a tile the recording stood on. */
@@ -155,6 +157,7 @@ public class PyramidPlunderScript extends Script {
 
     private boolean restocking;
     private boolean setupApplied;
+    private int setupLoadFailures;
     private boolean bankUnavailableLogged;
     private int hopFailures;
     private int recoveries;
@@ -186,6 +189,7 @@ public class PyramidPlunderScript extends Script {
         runActive = false;
         restocking = false;
         setupApplied = false;
+        setupLoadFailures = 0;
         bankUnavailableLogged = false;
         hopFailures = 0;
         recoveries = 0;
@@ -618,6 +622,11 @@ public class PyramidPlunderScript extends Script {
         boolean wantsBank = contact && (setupPending || food < config.foodAmount());
         boolean wantsAltar = view.prayer < Math.min(view.prayerLevel, config.restorePrayerBelow());
         if (!wantsBank && !wantsAltar) {
+            // Nothing the bank can add, yet food is still at the restock threshold: never loop here.
+            if (contact && PyramidPlunderAction.needsFood(food, config.minFood())) {
+                failRestock(food);
+                return;
+            }
             restocking = false;
             return;
         }
@@ -670,30 +679,57 @@ public class PyramidPlunderScript extends Script {
         InventorySetup setup = config.inventorySetup();
         if (setup != null) {
             Rs2InventorySetup loader = new Rs2InventorySetup(setup, mainScheduledFuture);
-            if (!loader.loadEquipment()) return;
-            if (!loader.loadInventory()) return;
+            if (!loader.loadEquipment() || !loader.loadInventory()) {
+                // A setup that keeps failing is missing items in the bank; stop instead of standing here.
+                if (++setupLoadFailures >= SETUP_LOAD_ATTEMPTS) {
+                    fail("Could not load Inventory Setup " + setup.getName() + ": items missing in the bank");
+                }
+                return;
+            }
+            setupLoadFailures = 0;
             setupApplied = true;
         } else {
             String food = foodName();
             int missing = config.foodAmount() - Rs2Inventory.getInventoryFood().size();
-            if (missing > 0) {
-                if (Rs2Bank.count(food) <= 0) {
-                    if (Rs2Inventory.getInventoryFood().size() < Math.max(1, config.minFood())) {
-                        fail("Out of " + food + " in the bank");
-                        return;
-                    }
-                } else {
-                    int amount = Math.min(missing, Rs2Inventory.emptySlotCount());
-                    if (amount > 0) {
-                        int before = Rs2Inventory.count();
-                        act(BaseProfileDro.ActionPhase.SETUP, false, () -> Rs2Bank.withdrawX(false, food, amount));
-                        sleepUntil(() -> Rs2Inventory.count() != before, 2400);
-                        return;
-                    }
+            if (missing > 0 && Rs2Bank.count(food) > 0) {
+                int amount = Math.min(missing, Rs2Inventory.emptySlotCount());
+                if (amount > 0) {
+                    int before = Rs2Inventory.count();
+                    act(BaseProfileDro.ActionPhase.SETUP, false, () -> Rs2Bank.withdrawX(false, food, amount));
+                    sleepUntil(() -> Rs2Inventory.count() != before, 2400);
+                    return;
                 }
             }
         }
+        // The trip ends on the same condition that started it.
+        int food = Rs2Inventory.getInventoryFood().size();
+        if (PyramidPlunderAction.needsFood(food, config.minFood())) {
+            failRestock(food);
+            return;
+        }
         restocking = false;
+    }
+
+    /** A restock that cannot lift food above the threshold: stop with the cause and the fix. */
+    private void failRestock(int food) {
+        fail(restockFailure(food));
+    }
+
+    String restockFailure(int food) {
+        int min = config.minFood();
+        if (config.inventorySetup() != null) {
+            return "Inventory Setup has too little food for Restock at or below (" + min + ")";
+        }
+        if (min >= config.foodAmount()) {
+            return "Restock at or below (" + min + ") must be lower than Food amount (" + config.foodAmount() + ")";
+        }
+        if (Rs2Bank.isOpen() && Rs2Bank.count(foodName()) <= 0) {
+            return "Out of " + foodName() + " in the bank. Withdraw food or pick another Food, then restart";
+        }
+        if (Rs2Inventory.emptySlotCount() == 0) {
+            return "No free inventory slots for food";
+        }
+        return "Could not restock above " + min + " food at the Sophanem bank (" + food + " carried)";
     }
 
     private void enterPyramid(View view) {
