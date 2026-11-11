@@ -6,13 +6,13 @@ import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class PureHookTest {
+public class PureHookTest {
     private static Mob mob(int id,Kind kind,int x,int y){return new Mob(id,kind,new Tile(x,y),kind.size,9,30,1825,kind.protection,true);}
     private static Snapshot scene(Mob...mobs){return new Snapshot(1825,new Tile(34,26),new CollisionGrid(new int[104][104]),List.of(mobs),88,true,5,Protection.NONE);}
     private final Mob melee=mob(1,Kind.MELEER,35,27),ranger=mob(2,Kind.RANGER,32,29),mage=mob(3,Kind.MAGER,40,26);
     private final Snapshot exposedRelease=scene(melee,ranger,mage);
 
-    @Test void plannerReleaseHookBlocksOnlyPureShotsThatReleaseAnotherShooter() {
+    @Test public void plannerReleaseHookBlocksOnlyPureShotsThatReleaseAnotherShooter() {
         assertFalse(PureSafety.releaseSafe(exposedRelease,ranger,Protection.RANGE));
         CombatPlanner regular=new CombatPlanner();PureCombatPlanner pure=new PureCombatPlanner();
         assertTrue(regular.releaseAllowed(exposedRelease,ranger,Protection.RANGE));
@@ -20,7 +20,7 @@ class PureHookTest {
         assertTrue(regular.attackAllowed(exposedRelease,ranger,Protection.RANGE,false));
         assertFalse(pure.attackAllowed(exposedRelease,ranger,Protection.RANGE,false));
     }
-    @Test void plannerTargetHookSkipsUnsafeReleaseAndUsesPurePriority() {
+    @Test public void plannerTargetHookSkipsUnsafeReleaseAndUsesPurePriority() {
         CombatPlanner regular=new CombatPlanner();PureCombatPlanner pure=new PureCombatPlanner();
         Snapshot s=exposedRelease;
         assertEquals(CombatPlanner.SKIP_TARGET,pure.targetScore(s,s.player(),s.mobs(),ranger,Protection.RANGE));
@@ -30,7 +30,7 @@ class PureHookTest {
         assertTrue(PureSafety.releaseSafe(alone,ranger,Protection.RANGE));
         assertEquals(PureCombatPolicy.targetPriority(alone,ranger,Protection.RANGE),pure.targetScore(alone,alone.player(),alone.mobs(),ranger,Protection.RANGE));
     }
-    @Test void plannerScoringAndRouteHooksDelegateToPurePolicy() {
+    @Test public void plannerScoringAndRouteHooksDelegateToPurePolicy() {
         CombatPlanner regular=new CombatPlanner();PureCombatPlanner pure=new PureCombatPlanner();
         Snapshot s=exposedRelease;Tile step=s.player().add(0,-1);
         assertEquals(0,regular.arrivalPenalty(s,step,s.mobs()));
@@ -40,14 +40,14 @@ class PureHookTest {
         assertEquals(CaveSafety.lateAttackingRanger(s,ranger),regular.rangerFirst(s,ranger));
         assertEquals(PureCombatPolicy.rangerBeforeBat(s,ranger),pure.rangerFirst(s,ranger));
     }
-    @Test void plannerMeleeKitingGuardIsRegularOnly() {
+    @Test public void plannerMeleeKitingGuardIsRegularOnly() {
         Snapshot adjacent=scene(mob(1,Kind.MELEER,35,26));
         assertTrue(new CombatPlanner().avoidsMeleeKiting(adjacent));
         assertFalse(new PureCombatPlanner().avoidsMeleeKiting(adjacent));
         Snapshot jad=scene(mob(1,Kind.MELEER,35,26),mob(2,Kind.JAD,50,50));
         assertFalse(new CombatPlanner().avoidsMeleeKiting(jad));
     }
-    @Test void lureTargetingHooksUsePureCombatPolicy() {
+    @Test public void lureTargetingHooksUsePureCombatPolicy() {
         LureController regular=new LureController();PureLureController pure=new PureLureController();
         Snapshot s=exposedRelease;
         assertTrue(regular.canShoot(s,ranger));
@@ -64,7 +64,7 @@ class PureHookTest {
             assertEquals(PureCombatPolicy.rangerBeforeBat(s,m),pure.rangerBeforeBat(s,m));
         }
     }
-    @Test void lureExcursionHooksAreInertForRegularController() {
+    @Test public void lureExcursionHooksAreInertForRegularController() {
         LureController regular=new LureController();Snapshot s=exposedRelease;
         assertFalse(regular.excursionActive());
         assertNull(regular.excursionPlan(s));

@@ -110,5 +110,116 @@
       }
     ],
     "sourceRecording": "local-captures/20261010-125013-607"
+  },
+  {
+    "run": "pure-070",
+    "eventsSha256": "c89df2fc81c574871bb93b1ad18692656573d0991c5b6485b866fe1db8da70cb",
+    "frames": 46,
+    "ticks": [
+      1592,
+      1596,
+      2928,
+      2933,
+      2941,
+      2944,
+      2948,
+      2958,
+      3522,
+      3647,
+      3651,
+      4392,
+      4555,
+      4931,
+      5101,
+      5104,
+      5108,
+      5373,
+      5376,
+      5494,
+      5497,
+      5500,
+      5649,
+      5652,
+      5654,
+      5674,
+      5752,
+      5916,
+      5999,
+      6161,
+      6165,
+      6374,
+      6379,
+      6383,
+      6385,
+      6388,
+      6391,
+      6433,
+      6438,
+      6441,
+      6442,
+      6446,
+      6595,
+      6599,
+      7020,
+      7032
+    ],
+    "maps": [
+      {
+        "source": "collision-312-13368-9096-0.csv",
+        "sha256": "341c60821a62866e4450d1788bfca50908d2410a8a2895478085e9257e2fee38",
+        "fixture": "pure-070-0.geometry.json"
+      },
+      {
+        "source": "collision-312-13376-9096-0.csv",
+        "sha256": "7939cbaa78cdd75a167bfa5afaf1de969023a118153e0d8e992af3a7ca82c806",
+        "fixture": "pure-070-1.geometry.json"
+      },
+      {
+        "source": "collision-312-13352-9056-0.csv",
+        "sha256": "549ae16599b4c55259b70bb4d9c52a1d4c2f6de34e05700c062b9cdd226b7941",
+        "fixture": "pure-070-2.geometry.json"
+      }
+    ],
+    "sourceRecording": "dro-firecape/20261020-102754-497"
+  },
+  {
+    "run": "pure-071",
+    "eventsSha256": "96ab17bbbeab7de4c7a1a2ce6545bb612741cb18de1c711613f985396306755d",
+    "frames": 3,
+    "ticks": [
+      7664,
+      8831,
+      8832
+    ],
+    "maps": [
+      {
+        "source": "collision-557-12600-15240-0.csv",
+        "sha256": "341c60821a62866e4450d1788bfca50908d2410a8a2895478085e9257e2fee38",
+        "fixture": "pure-071-0.geometry.json"
+      },
+      {
+        "source": "collision-557-12584-15200-0.csv",
+        "sha256": "549ae16599b4c55259b70bb4d9c52a1d4c2f6de34e05700c062b9cdd226b7941",
+        "fixture": "pure-071-1.geometry.json"
+      }
+    ],
+    "sourceRecording": "dro-firecape/20261020-144254-828"
+  },
+  {
+    "run": "pure-076",
+    "eventsSha256": "5519ebc4b1711c5c7732f9eb2b9b06b30ef76773f71cae4b1036d6979d10384b",
+    "frames": 2,
+    "ticks": [
+      1175,
+      1190
+    ],
+    "maps": [
+      {
+        "source": "collision-303-10488-14280-0.csv",
+        "sha256": "341c60821a62866e4450d1788bfca50908d2410a8a2895478085e9257e2fee38",
+        "fixture": "pure-076-0.geometry.json"
+      }
+    ],
+    "sourceRecording": "dro-firecape/20261020-202426-930"
   }
 ]

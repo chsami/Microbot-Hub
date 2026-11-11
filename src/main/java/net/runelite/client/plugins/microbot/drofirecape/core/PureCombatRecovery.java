@@ -27,7 +27,7 @@ public final class PureCombatRecovery {
         observe(s,null);
     }
     public void observe(Snapshot s,Tile committedLure) {
-        if(s.meleeMode()||s.mobs().isEmpty()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER)) {reset();return;}
+        if(s.mobs().isEmpty()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER)) {reset();return;}
         if(s.tick()==lastTick)return;
         Map<Integer,Integer> now=new HashMap<>();for(Mob m:s.mobs())now.put(m.index(),m.healthRatio());
         boolean rosterChanged=lastTick<0||s.tick()<lastTick||!now.keySet().equals(health.keySet());
