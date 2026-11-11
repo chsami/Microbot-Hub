@@ -11,10 +11,4 @@ final class NexusActions {
     public static boolean usePortalNexus(NexusPortal portal) {
         return MaxPohSupport.executeFacility(portal);
     }
-    public static Widget getPortalNexusInterface() {
-        return Rs2Widget.getWidget(InterfaceID.TELENEXUS_TELEPORT, 0);
-    }
-    public static boolean interactWithPortalNexusWidget(NexusPortal portal) {
-        return MaxPohSupport.executeFacility(portal);
-    }
 }

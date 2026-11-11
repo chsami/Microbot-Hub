@@ -40,19 +40,6 @@ public enum LaunchPort {
 
     LaunchPort(PortLocation port) { this.port = port; }
 
-    String portKey() { return port == null ? "" : port.name(); }
-
-    static LaunchPort fromLegacy(String text) {
-        String key = PortCatalog.normalize(text);
-        for (LaunchPort choice : values()) if (choice.portKey().equals(key)) return choice;
-        return AUTOMATIC;
-    }
-
-    public String fullName() {
-        if (port == null) return "Closest to target";
-        return port == PortLocation.VOID_KNIGHTS_OUTPOST ? "Pest Control — Void Knights' Outpost" : port.getName();
-    }
-
     @Override public String toString() {
         if (port == null) return "Closest to target";
         if (port == PortLocation.VOID_KNIGHTS_OUTPOST) return "Pest Control";

@@ -25,11 +25,6 @@ public final class ApeAtollTransports
         return point != null && point.getPlane() == 0 && point.getRegionID() == 11562;
     }
 
-    public static boolean teakReturnArea(WorldPoint point)
-    {
-        return ApeAtollGreegree.onIsland(point) || crashIsland(point);
-    }
-
     /** Supersede the legacy scenery rows with executable NPC Travel connections. */
     public static boolean replacesTravel(int id, WorldPoint origin)
     {

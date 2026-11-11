@@ -121,11 +121,7 @@ public final class WildernessCombatEscape implements AutoCloseable
         this.status = status;
     }
 
-    void setSouthAction(Runnable action) { southAction = action; }
-
     public State getState() { return state; }
-    public String getBlockedReason() { return blockedReason; }
-
     /** Called only on the client thread. The context covers arrived/fighting states, not travel. */
     void tick(WildernessThreatPolicy.Snapshot threat, long now)
     {

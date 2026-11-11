@@ -35,20 +35,8 @@ public final class WildernessCombatContext implements AutoCloseable
 
     boolean prefersLogoutWhenOutOfCombat() { return isActive() && logoutWhenOutOfCombat; }
 
-    /** Only nearby-player presence is exempted; the caller is evaluated on the watcher client tick. */
-    public synchronized void suppressNearbyPlayerLogoutWhile(BooleanSupplier confirmedActivityArea)
-    {
-        if (!closed) nearbyLogoutSuppressed = java.util.Objects.requireNonNull(confirmedActivityArea);
-    }
-
     boolean suppressesNearbyPlayerLogout()
     { return isActive() && nearbyLogoutSuppressed.getAsBoolean(); }
-
-    /** Explicit task-area opt-in; actual player attack activity still takes precedence. */
-    public synchronized void allowQuietPvpResumeWhile(BooleanSupplier confirmedActivityArea)
-    {
-        if (!closed) quietPvpResumeAllowed = java.util.Objects.requireNonNull(confirmedActivityArea);
-    }
 
     boolean allowsQuietPvpResume()
     { return isActive() && quietPvpResumeAllowed.getAsBoolean(); }

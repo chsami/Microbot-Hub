@@ -29,38 +29,6 @@ public final class Rs2WalkerBankingPlanner {
 
 
 
-    /**
-     * Compatibility API for Hub plugins compiled against concrete shortest-path transports.
-     * New code must use {@link #getTransportEdgesForDestination(WorldPoint, boolean)}.
-     */
-    @Deprecated
-    public static List<Transport> getTransportsForDestination(WorldPoint destination, boolean useBankItems, TransportType prefTransportType) {
-        if (destination == null) {
-            return new ArrayList<>();
-        }
-		WorldPoint start = Rs2Player.getWorldLocation();
-		if (start == null) {
-			return new ArrayList<>();
-		}
-
-        Rs2RouteResult route = Rs2PathApi.plan(
-                Rs2RouteRequest.to(start, destination)
-                        .withBankItems(useBankItems));
-        List<WorldPoint> path = route.getPath();
-        if (path.isEmpty()) {
-            log.debug("Unable to find path to destination: " + destination);
-            return new ArrayList<>();
-        }
-
-        // This deprecated return type cannot carry the planner-owned immutable edge, so retain the
-        // historical catalog view for binary compatibility. The active banking path above uses exact
-        // Rs2TransportEdge instances and never enters this endpoint-based adapter.
-        List<Transport> transports = Rs2Walker.getTransportsForPath(
-                path, 0, prefTransportType, true);
-        transports.forEach(t -> log.debug("Transport found: " + t));
-        return transports;
-    }
-
 
     /**
      * Whether a plain {@link TransportType#TRANSPORT} takes part in bank planning.
@@ -85,47 +53,6 @@ public final class Rs2WalkerBankingPlanner {
                 || (transport.getItemIdRequirements() != null && !transport.getItemIdRequirements().isEmpty());
     }
 
-
-	/** Legacy concrete-transport filter while banking consumers migrate to immutable edge views. */
-	public static List<Transport> applyTransportFiltering(List<Transport> transports) {
-		return transports.stream()
-				.filter(t -> t.getType() == TransportType.TELEPORTATION_ITEM
-						|| t.getType() == TransportType.FAIRY_RING
-						|| t.getType() == TransportType.TELEPORTATION_SPELL
-						|| t.getType() == TransportType.CANOE
-						|| t.getType() == TransportType.BOAT
-						|| t.getType() == TransportType.CHARTER_SHIP
-						|| t.getType() == TransportType.SHIP
-						|| t.getType() == TransportType.MINECART
-						|| t.getType() == TransportType.MAGIC_CARPET
-						|| t.getType() == TransportType.SPIRIT_TREE
-						|| planningCoversPlainTransport(t)
-						|| t.getType() == TransportType.SEASONAL_TRANSPORT
-							&& Rs2LeaguesTransport.isLeaguesActive()
-							&& t.getDisplayInfo() != null
-							&& t.getDisplayInfo().toLowerCase().startsWith("leagues area:"))
-				.peek(t -> {
-					if (t.getType() == TransportType.FAIRY_RING
-							&& (t.getItemIdRequirements() == null || t.getItemIdRequirements().isEmpty())
-							&& Microbot.getVarbitValue(VarbitID.LUMBRIDGE_DIARY_ELITE_COMPLETE) != 1) {
-						t.setItemIdRequirements(Set.of(Set.of(
-								ItemID.DRAMEN_STAFF,
-								ItemID.LUNAR_MOONCLAN_LIMINAL_STAFF)));
-					}
-					if (isCurrencyBasedTransport(t.getType())
-							&& (t.getItemIdRequirements() == null || t.getItemIdRequirements().isEmpty())
-							&& t.getCurrencyName() != null && !t.getCurrencyName().isEmpty()
-							&& t.getCurrencyAmount() > 0) {
-						int currencyItemId = getCurrencyItemId(t.getCurrencyName());
-						if (currencyItemId != -1) {
-							t.setItemIdRequirements(Set.of(Set.of(currencyItemId)));
-							log.debug("Set currency requirement for {}: {} x{} (ID: {})",
-									t.getType(), t.getCurrencyName(), t.getCurrencyAmount(), currencyItemId);
-						}
-					}
-				})
-				.collect(Collectors.toList());
-	}
 
 
     public static boolean hasRequiredTransportItems(Transport transport) {
@@ -529,42 +456,6 @@ public final class Rs2WalkerBankingPlanner {
 		return TravelRunes.getRunes().getOrDefault(rune, 0);
 	}
 
-
-    private static Map<Integer, Integer> getSpellRuneRequirements(Transport transport) {
-        Map<Integer, Integer> runeRequirements = new HashMap<>();
-        if (transport.getType() != TransportType.TELEPORTATION_SPELL || transport.getDisplayInfo() == null) {
-            return runeRequirements;
-        }
-        try {
-            String spellName = transport.getDisplayInfo().contains(":")
-                    ? transport.getDisplayInfo().split(":")[0].trim()
-                    : transport.getDisplayInfo().trim();
-            boolean hasMultipleDestination = transport.getDisplayInfo().contains(":");
-            String displayInfo = hasMultipleDestination
-                    ? transport.getDisplayInfo().split(":")[0].trim().toLowerCase()
-                    : transport.getDisplayInfo();
-            log.debug("Looking for spell rune requirements for: '{}' - display info {}", spellName, displayInfo);
-            Rs2Spells rs2Spell = Rs2Magic.getRs2Spell(displayInfo);
-            if (rs2Spell == null) {
-                return runeRequirements;
-            }
-            Map<Runes, Integer> requiredRunes = Rs2Magic.getRequiredRunes(rs2Spell, 1, true);
-            List<Runes> elementalRunes = rs2Spell.getElementalRunes();
-            log.debug("Spell '{}' requires {} runes, including {} elemental runes",
-                    spellName, requiredRunes.size(), elementalRunes.size());
-            requiredRunes.forEach((rune, quantity) -> {
-                int runeItemId = rune.getItemId();
-                runeRequirements.put(runeItemId, quantity);
-                log.debug("Spell '{}' requires {} x {} (ID: {})",
-                        spellName, quantity, rune.name(), runeItemId);
-            });
-        } catch (Exception e) {
-            log.warn("Error getting spell rune requirements for transport '{}': {}",
-                    transport.getDisplayInfo(), e.getMessage());
-        }
-
-        return runeRequirements;
-    }
 
 
 	private static Map<Integer, Integer> getSpellRuneRequirements(Rs2TransportEdge transport)

@@ -205,12 +205,6 @@ final class QuetzalNetwork
         return -1;
     }
 
-    static boolean isWhistleRechargeMessage(String message)
-    {
-        return "Soar Leader Pitri|There you go. Some whistle charges for you!".equals(message)
-            || "Soar Leader Pitri|Looks like the birds are all full for now. Make them work a bit before feeding them again!".equals(message);
-    }
-
     static int parseWhistleCharges(String message)
     {
         Matcher matcher = WHISTLE_CHARGES_PATTERN.matcher(message);

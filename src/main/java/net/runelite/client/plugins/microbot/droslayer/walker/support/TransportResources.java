@@ -200,14 +200,6 @@ public class TransportResources {
         return transports;
     }
 
-    /**
-     * Reload transport TSVs from the plugin classpath (same as {@link #loadAllFromResources()}).
-     * Apply to {@link PathfinderConfig} via {@link ShortestPathPlugin} config hot-reload.
-     */
-    public static HashMap<WorldPoint, Set<Transport>> reloadFromResources() {
-        return loadAllFromResources();
-    }
-
 
     public static List<Restriction> loadRestrictions() {
         List<Restriction> restrictions = new ArrayList<>();

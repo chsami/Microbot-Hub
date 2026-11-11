@@ -38,15 +38,5 @@ public enum BoatPort {
 
     BoatPort(LaunchPort port) { this.port = port; }
 
-    String portKey() { return port == null ? "" : port.portKey(); }
-
-    static BoatPort fromLegacy(String text) {
-        String key = PortCatalog.normalize(text);
-        for (BoatPort choice : values()) if (choice.portKey().equals(key)) return choice;
-        return UNKNOWN_LOST;
-    }
-
-    public String fullName() { return port == null ? "Unknown / lost" : port.fullName(); }
-
     @Override public String toString() { return port == null ? "Unknown / lost" : port.toString(); }
 }

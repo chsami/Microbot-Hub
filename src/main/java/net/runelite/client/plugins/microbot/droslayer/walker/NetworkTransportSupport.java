@@ -203,7 +203,6 @@ final class NetworkTransportSupport
         new WorldPoint(3713, 3830, 0), new WorldPoint(3714, 3830, 0),
         new WorldPoint(3715, 3830, 0)
     };
-    private static final int RUBBER_CAP_MUSHROOM_ID = 30606;
     private static final WorldPoint RUBBER_CAP_DESTINATION = new WorldPoint(3685, 3756, 0);
     private static final WorldPoint[] RUBBER_CAP_ORIGINS = {
         new WorldPoint(3666, 3810, 0),
@@ -272,9 +271,6 @@ final class NetworkTransportSupport
     // teleport unless its 60-tile time cost plus the run after landing is strictly shorter
     // than running directly.
     private static final int MINIGAME_FIXED_RUN_TILE_COST = 60;
-    private static final int CHARTER_MIN_RAW_TILE_SAVINGS = 40;
-    private static final int CHARTER_APPROX_SCORE = 20;
-
     // A small carried coin reserve unlocks Port Sarim/Karamja shipping and the Shilo cart.
     // Keeping this at 200 covers the ordinary island transitions without over-withdrawing.
     private static final int KARAMJA_TRAVEL_COIN_RESERVE = 200;
@@ -861,12 +857,6 @@ final class NetworkTransportSupport
             && edge.type != EdgeType.NATIVE
             && player != null
             && near(player, edge.origin, interactionRadiusFor(edge));
-    }
-
-    // Kept for binary/source compatibility with callers built against v7/v8.
-    boolean hasRecoverableBlockedElkoyEdge()
-    {
-        return hasRecoverableBlockedCustomEdge();
     }
 
     WorldPoint consumeReplanTarget()
@@ -2734,17 +2724,6 @@ final class NetworkTransportSupport
     }
 
     /**
-     * Cheap advisory check used by the bank coordinator before it commits a long carried-items-only
-     * route. Charter edges themselves remain inventory-only; this merely reports whether the live
-     * bank mirror can fund at least one charter that would pass the same account/target admission
-     * rules after the coins were withdrawn.
-     */
-    boolean hasBankBackedCharterCandidate(WorldPoint target)
-    {
-        return bankBackedCharterFareRequirement(target) > 0;
-    }
-
-    /**
      * Return a conservative one-trip coin reserve for the charter candidates admitted for this
      * target. We deliberately use the largest qualifying fare, not a guessed selected edge: after
      * withdrawal Efficient Walker replans normally and may choose any of those candidate routes.
@@ -4147,38 +4126,6 @@ final class NetworkTransportSupport
         }
     }
 
-    private boolean isRubberCapTransport(Object transport)
-    {
-        if (transport == null)
-        {
-            return false;
-        }
-        return isRubberCapTransport(
-            transportInt(transport, transportObjectIdField),
-            transportWorldPoint(transport, transportOriginField),
-            transportWorldPoint(transport, transportDestinationField));
-    }
-
-    private static boolean isRubberCapTransport(int objectId, WorldPoint origin, WorldPoint destination)
-    {
-        if (objectId == RUBBER_CAP_MUSHROOM_ID)
-        {
-            return true;
-        }
-        if (!RUBBER_CAP_DESTINATION.equals(destination) || origin == null)
-        {
-            return false;
-        }
-        for (WorldPoint candidate : RUBBER_CAP_ORIGINS)
-        {
-            if (candidate.equals(origin))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private static boolean nearPoint(WorldPoint a, WorldPoint b, int radius)
     {
         return a != null && b != null
@@ -5059,16 +5006,6 @@ final class NetworkTransportSupport
     private static String inferCharterDestination(WorldPoint destination)
     {
         return destination == null ? "Charter destination" : destination.toString();
-    }
-
-    private static String normalizeWidgetText(String text)
-    {
-        if (text == null || text.isBlank())
-        {
-            return "";
-        }
-        return text.replaceAll("<[^>]+>", " ")
-            .trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
     }
 
     private static int distance2D(WorldPoint a, WorldPoint b)

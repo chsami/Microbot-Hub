@@ -96,11 +96,6 @@ public class PathfinderConfig {
     @Setter
     private volatile Set<Transport> usableTeleports;
 
-	/** Immutable exact-object snapshot for planner adapters after transport admission has run. */
-	public Set<Transport> getUsableTeleportsSnapshot() {
-		Set<Transport> current = usableTeleports;
-		return current == null ? Collections.emptySet() : Set.copyOf(current);
-	}
     private final List<WorldPoint> filteredTargets = new CopyOnWriteArrayList<>();
 
     @Getter
@@ -300,55 +295,6 @@ public class PathfinderConfig {
         return map.get();
     }
 
-    /**
-     * Diagnostics for the live-collision overlay at one tile, for the agent server's
-     * {@code /live-collision} endpoint. Reads only immutable data (the static map and the pinned
-     * snapshot), so it is safe to call from any thread.
-     * <p>
-     * {@code overlayRaw} is the snapshot's own answer ({@code true}/{@code false}/{@code null} where
-     * {@code null} means "unknown, defer to static") — proving capture and the flag translation.
-     * {@code resolved} is what the pathfinder actually uses (overlay where known, else static), and
-     * {@code static} is the static-only reading. Where they differ, the overlay is changing routing.
-     */
-    public Map<String, Object> liveCollisionDiagnostics(int x, int y, int z) {
-        final Map<String, Object> out = new LinkedHashMap<>();
-        out.put("enabled", liveCollisionOverlay.isEnabled());
-
-        final LiveCollisionView view = liveCollisionOverlay.current();
-        out.put("snapshotPresent", view != null);
-        if (view != null) {
-            out.put("regionCount", view.regionCount());
-        }
-        out.put("tile", Map.of("x", x, "y", y, "plane", z));
-
-        final CollisionMap staticMap = new CollisionMap(mapData);
-        final CollisionMap resolvedMap = new CollisionMap(mapData, liveCollisionOverlay);
-        resolvedMap.beginSearch();
-        out.put("static", edgeReadout(staticMap, x, y, z));
-        out.put("resolved", edgeReadout(resolvedMap, x, y, z));
-
-        if (view != null) {
-            final Map<String, Object> raw = new LinkedHashMap<>();
-            raw.put("n", view.edge(x, y, z, LiveCollisionSnapshot.FLAG_NORTH));
-            raw.put("e", view.edge(x, y, z, LiveCollisionSnapshot.FLAG_EAST));
-            raw.put("s", view.edge(x, y - 1, z, LiveCollisionSnapshot.FLAG_NORTH));
-            raw.put("w", view.edge(x - 1, y, z, LiveCollisionSnapshot.FLAG_EAST));
-            out.put("overlayRaw", raw);
-        }
-        return out;
-    }
-
-    private static Map<String, Object> edgeReadout(CollisionMap m, int x, int y, int z) {
-        final Map<String, Object> e = new LinkedHashMap<>();
-        e.put("n", m.n(x, y, z));
-        e.put("e", m.e(x, y, z));
-        e.put("s", m.s(x, y, z));
-        e.put("w", m.w(x, y, z));
-        e.put("blocked", m.isBlocked(x, y, z));
-        e.put("hasRegion", m.hasRegion(x, y));
-        return e;
-    }
-
     public void refresh(WorldPoint target) {
         if (client == null || config == null) {
             return;
@@ -445,26 +391,6 @@ public class PathfinderConfig {
             }
         }
 
-    }
-
-    public void filterLocations(Set<WorldPoint> locations, boolean canReviveFiltered) {
-        if (avoidWilderness) {
-            locations.removeIf(location -> {
-                boolean inWilderness = PathfinderConfig.isInWilderness(location);
-                if (inWilderness) {
-                    filteredTargets.add(location);
-                }
-                return inWilderness;
-            });
-            // If we ended up with no valid locations we re-include the filtered locations
-            if (locations.isEmpty()) {
-                locations.addAll(filteredTargets);
-                filteredTargets.clear();
-            }
-        } else if (canReviveFiltered) { // Re-include previously filtered locations
-            locations.addAll(filteredTargets);
-            filteredTargets.clear();
-        }
     }
 
 
@@ -836,10 +762,6 @@ public class PathfinderConfig {
                 .forEach(relevantItemIds::add);
     }
 
-    public boolean isBlockedTransportEdge(int originPacked, int destinationPacked) {
-        return blockedTransportEdgesPacked.contains(transportEdgeKey(originPacked, destinationPacked));
-    }
-
     public boolean isBlockedTransportStep(int originPacked, int destinationPacked) {
         return isBlockedTransportStep(originPacked, destinationPacked, blockedTransportEdgesPacked);
     }
@@ -883,67 +805,6 @@ public class PathfinderConfig {
 
     private void addStaticBlockedEdges() {
         blockedTransportEdgesPacked.addAll(STATIC_BLOCKED_EDGES_PACKED);
-    }
-
-    /**
-     * Records a walking edge the walker just failed to traverse (e.g. a door that moved the player
-     * the wrong way, or a route click the reachability net proved walled). The observing session
-     * blocks the edge immediately — it just watched the failure, and anything less loops the walker
-     * into the same obstacle.
-     * <p>
-     * SESSION-ONLY by policy (2026-08-07): nothing is persisted, and nothing learned in an earlier
-     * session is loaded. The hand-curated {@code blocked_edges.tsv} is the sole cross-session
-     * authority. The two-strike persistent store this replaces spent its history managing its own
-     * failure modes — the Wydin door poisoning needed probation semantics to self-heal, and the
-     * store's default file leaked developer state into every test that built a config. An edge worth
-     * remembering across sessions is worth a reviewed TSV row.
-     * <p>
-     * Only the attempted direction is blocked — not bidirectionally — so a genuinely one-way door
-     * stays usable the other way. Callers must only pass <em>stable</em> map properties here;
-     * temporary, quest/skill-gated doors are handled by {@code restrictions.tsv} and must not be
-     * learned, or the bot would avoid them for the rest of the session after the requirement is met.
-     *
-     * @return {@code true} if this edge was newly blocked for this session; {@code false} if it was
-     * already blocked.
-     */
-    public boolean learnBlockedEdge(WorldPoint origin, WorldPoint destination, String reason) {
-        if (origin == null || destination == null) {
-            return false;
-        }
-        long key = transportEdgeKey(
-                WorldPointUtil.packWorldPoint(origin),
-                WorldPointUtil.packWorldPoint(destination));
-        if (!learnedBlockedEdgeKeys.add(key)) {
-            return false;
-        }
-        blockedTransportEdgesPacked.add(key);
-        log.info("[Walker] Learned blocked edge {} -> {} ({}) — blocked for THIS SESSION only; "
-                + "permanent blocks belong in blocked_edges.tsv", origin, destination, reason);
-        return true;
-    }
-
-    /**
-     * Reverse of {@link #learnBlockedEdge}: removes the learned block so the edge is plannable again.
-     * Exists for condition-scoped blocks (a door that refused to open for game-state reasons) that the
-     * walker withdraws at the next walk session start. Static rows from blocked_edges.tsv are not
-     * touched — they were never in {@code learnedBlockedEdgeKeys}, and {@code blockedTransportEdgesPacked}
-     * only drops the key when it was a learned one.
-     */
-    public boolean unlearnBlockedEdge(WorldPoint origin, WorldPoint destination, String reason) {
-        if (origin == null || destination == null) {
-            return false;
-        }
-        long key = transportEdgeKey(
-                WorldPointUtil.packWorldPoint(origin),
-                WorldPointUtil.packWorldPoint(destination));
-        if (!learnedBlockedEdgeKeys.remove(key)) {
-            return false;
-        }
-        if (!STATIC_BLOCKED_EDGES_PACKED.contains(key)) {
-            blockedTransportEdgesPacked.remove(key);
-        }
-        log.info("[Walker] Unlearned blocked edge {} -> {} ({})", origin, destination, reason);
-        return true;
     }
 
     private void addBlockedEdge(WorldPoint origin, WorldPoint destination) {
@@ -1104,31 +965,6 @@ public class PathfinderConfig {
         return mergedTransports;
     }
 
-    public void refresh() {
-        refresh(null);
-    }
-
-    /**
-     * Drop the transport-refresh snapshot cache so the next {@link #refresh(WorldPoint)} rebuilds transport maps
-     * (inventory/quest/varbit changes that are not captured by the memo key, script-driven transport mutations, etc.).
-     */
-    public void invalidateTransportRefreshCache() {
-        transportRefreshSnapshots.clear();
-    }
-
-    /**
-     * Rebuilds base transport definitions from packaged TSV resources and swaps them into {@link #allTransports}.
-     * The next {@link #refresh(WorldPoint)} will use the reloaded definitions.
-     *
-     * @return number of origin nodes loaded
-     */
-    public int reloadTransportDefinitionsFromResources() {
-        Map<WorldPoint, Set<Transport>> reloaded = net.runelite.client.plugins.microbot.droslayer.walker.support.TransportResources.reloadFromResources();
-        replaceAllTransports(reloaded);
-        invalidateTransportRefreshCache();
-        return allTransports.size();
-    }
-
     private void replaceAllTransports(Map<WorldPoint, Set<Transport>> source) {
         allTransports.clear();
         if (source == null || source.isEmpty()) {
@@ -1188,20 +1024,6 @@ public class PathfinderConfig {
                 .forEach(entry -> internalRestrictedPointsPacked.add(entry.getPackedWorldPoint()));
     }
 
-    public static boolean isInWilderness(WorldPoint p) {
-        return WILDERNESS_ABOVE_GROUND.distanceTo2D(p) == 0
-                && FEROX_ENCLAVE_1.distanceTo2D(p) != 0
-                && FEROX_ENCLAVE_2.distanceTo2D(p) != 0
-                && FEROX_ENCLAVE_3.distanceTo2D(p) != 0
-                && FEROX_ENCLAVE_4.distanceTo2D(p) != 0
-                && FEROX_ENCLAVE_5.distanceTo2D(p) != 0
-                && NOT_WILDERNESS_1.distanceTo2D(p) != 0
-                && NOT_WILDERNESS_2.distanceTo2D(p) != 0
-                && NOT_WILDERNESS_3.distanceTo2D(p) != 0
-                && NOT_WILDERNESS_4.distanceTo2D(p) != 0
-                || WILDERNESS_UNDERGROUND.distanceTo2D(p) == 0;
-    }
-
     public static boolean isInWilderness(int packedPoint) {
         return WorldPointUtil.distanceToArea2D(packedPoint, WILDERNESS_ABOVE_GROUND) == 0
                 && WorldPointUtil.distanceToArea2D(packedPoint, FEROX_ENCLAVE_1) != 0
@@ -1219,15 +1041,6 @@ public class PathfinderConfig {
     public static boolean isInWildernessPackedPoint(Set<Integer> packedPoints) {
         for (int packedPoint : packedPoints) {
             if (isInWilderness(packedPoint)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public static boolean isInWilderness(Set<WorldPoint> worldPoints) {
-        for (WorldPoint worldPoint : worldPoints) {
-            if (isInWilderness(worldPoint)) {
                 return true;
             }
         }
@@ -1404,14 +1217,6 @@ public class PathfinderConfig {
         return true;
     }
 
-    /**
-     * Same gating as the main {@link #refreshTransports} loop, for rows injected after the merge pass
-     * (Leagues catalog / Area teleports): quest action patch, {@link #useTransport}, {@link Rs2LeaguesTransport#isTransportAllowed}.
-     */
-    public boolean isTransportUsableWithLeaguesContext(Transport transport, Rs2LeaguesTransport.LeaguesContext leaguesCtx) {
-        return isTransportUsableWithLeaguesContext(transport, leaguesCtx, Rs2Player.isInCombat());
-    }
-
     private boolean isTransportUsableWithLeaguesContext(Transport transport,
                                                           Rs2LeaguesTransport.LeaguesContext leaguesCtx,
                                                           boolean inCombat) {
@@ -1554,25 +1359,6 @@ public class PathfinderConfig {
         return isTransportTypeEnabled(type);
     }
 
-    /** Immutable feature-toggle snapshot for planner-independent request policy. */
-    public Set<TransportType> getEnabledTransportTypes() {
-        EnumSet<TransportType> enabled = EnumSet.noneOf(TransportType.class);
-        for (TransportType type : TransportType.values()) {
-            if (isTransportTypeEnabled(type)) {
-                enabled.add(type);
-            }
-        }
-        return Collections.unmodifiableSet(enabled);
-    }
-
-    public TeleportationItem getTeleportationItemPolicy() {
-        return useTeleportationItems == null ? TeleportationItem.NONE : useTeleportationItems;
-    }
-
-    public boolean isMembersWorld() {
-        return client == null || client.getWorldType().contains(WorldType.MEMBERS);
-    }
-
     private boolean isTransportTypeEnabled(TransportType type) {
         switch (type) {
             case AGILITY_SHORTCUT:
@@ -1653,15 +1439,6 @@ public class PathfinderConfig {
                 this::availableRequirementItemQuantity,
                 itemId -> availableItemQuantity(itemId) > 0,
                 itemId -> availableItemQuantity(itemId) > 0).isPresent();
-    }
-
-    static boolean meetsItemRequirements(
-            List<TransportItemRequirement> requirements,
-            java.util.function.IntUnaryOperator availableQuantity) {
-        if (requirements == null || requirements.isEmpty()) {
-            return true;
-        }
-        return requirements.stream().allMatch(requirement -> requirement.isSatisfiedBy(availableQuantity));
     }
 
     private int availableItemQuantity(int itemId) {
@@ -1751,281 +1528,6 @@ public class PathfinderConfig {
         return charges != null && Integer.parseInt(charges) > 0;
     }
 
-    @Deprecated(since = "1.6.2 - Add Restrictions to restrictions.tsv", forRemoval = true)
-    public void setRestrictedTiles(Restriction... restrictions) {
-        this.customRestrictions = List.of(restrictions);
-    }
-
-
-    /**
-     * Filters similar transports based on distance, removing consumable transport items when
-     * better non-consumable alternatives exist within the configured distance.
-     *
-     * @param target Optional target destination for distance-based filtering optimization
-     */
-    private void filterSimilarTransports(WorldPoint target) {
-        int maxDistance = config.maxSimilarTransportDistance();
-        if (maxDistance <= 0) {
-            return;
-        }
-
-        StringBuilder filteringSummary = new StringBuilder();
-        filteringSummary.append("\n=== Transport Filtering Summary ===\n");
-        filteringSummary.append("\tMax similar transport distance: ").append(maxDistance).append(" tiles\n");
-        if (target != null) {
-            filteringSummary.append("\tTarget-based filtering enabled for: ").append(target).append("\n");
-        }
-        filteringSummary.append("\tFiltering Rule: Remove consumable transport items when similar non-consumable alternatives exist\n");
-
-        // Track removed transports by category
-
-        // IMPORTANT: Create a copy of the current teleports to avoid modifying the original set while iterating
-        Set<Transport> teleportsToFilter = new HashSet<>(usableTeleports);
-
-        // Filter usable teleports (null origin)
-        filteringSummary.append("\n\t--- Processing Usable Teleports ---\n");
-        boolean preferTransports = config.preferTransportToTarget();
-        HashMap<WorldPoint, Set<Transport>> allUsableTransports;
-
-        if (preferTransports) {
-            allUsableTransports = new HashMap<>(transports);
-        } else {
-            allUsableTransports = new HashMap<>();
-        }
-        // Call the optimized filter method - now with safeguards against removing critical transports
-        TransportFilterResult usableTeleportsResult = filterConsumableTeleports(teleportsToFilter,
-                allUsableTransports,
-                maxDistance, target);
-        // Apply the results
-        filteringSummary.append(usableTeleportsResult.filterDetails);
-
-        // Only remove consumable teleportation items - never remove staircases or other non-teleport transports
-        Set<Transport> transportsToPurge = new HashSet<>();
-        for (Transport transport : usableTeleportsResult.removedTransports) {
-            // Double-check that we're only removing consumable teleportation items
-            if (transport.getType() == TransportType.TELEPORTATION_ITEM && transport.isConsumable()) {
-                transportsToPurge.add(transport);
-            }
-        }
-
-        // Only now apply the filtered changes
-        usableTeleports.removeAll(transportsToPurge);
-
-        // Generate final summary
-        filteringSummary.append("--- Filtering Results ---");
-        int totalRemoved = transportsToPurge.size();
-        if (totalRemoved > 0) {
-            filteringSummary.append("\n\tTotal consumable transport items removed: ").append(totalRemoved).append("\n");
-        } else {
-            filteringSummary.append("\tNo consumable transport items were filtered.");
-        }
-        filteringSummary.append("\n=== End Transport Filtering Summary ===\n");
-
-        if (totalRemoved > 0) {
-            log.debug(filteringSummary.toString());
-        } else {
-            log.debug(filteringSummary.toString());
-        }
-    }
-
-    /**
-     * Container for transport filtering results
-     */
-    private static class TransportFilterResult {
-        private final Set<Transport> removedTransports = new HashSet<>();
-        private final Map<String, Integer> removedByCategory = new HashMap<>();
-        private final StringBuilder filterDetails = new StringBuilder();
-
-        public void addRemovedTransport(Transport transport, Transport alternative,
-                                        String categoryName, int distance, boolean isTargetBased) {
-            removedTransports.add(transport);
-
-            // Track removal by category
-            String category = categoryName + " over Consumable Item (" +
-                    (isTargetBased ? "target-based" : "destination-based") + ", distance: " + distance + " tiles)";
-            removedByCategory.merge(category, 1, Integer::sum);
-
-            // Log detailed removal information
-            filterDetails.append("\t\tRemoved: '").append(transport.getDisplayInfo())
-                    .append("' (Consumable Item) due to similar '").append(alternative.getDisplayInfo())
-                    .append("' (").append(categoryName)
-                    .append(") - Distance: ").append(distance).append(" tiles (")
-                    .append(isTargetBased ? "target-based" : "destination-based").append(")\n");
-        }
-    }
-
-    /**
-     * Filters consumable transport items when similar non-consumable alternatives exist.
-     *
-     * @param teleports           The set of teleports to filter
-     * @param allUsableTransports Map of all usable transports by location
-     * @param maxDistance         Maximum distance for considering transports similar
-     * @param target              Optional target destination for optimization
-     * @return Result containing transports to remove and filtering details
-     */
-    private TransportFilterResult filterConsumableTeleports(Set<Transport> teleports,
-                                                            HashMap<WorldPoint, Set<Transport>> allUsableTransports,
-                                                            int maxDistance, WorldPoint target) {
-        TransportFilterResult result = new TransportFilterResult();
-
-        // Skip processing if no filtering is needed
-        if (maxDistance <= 0) {
-            return result;
-        }
-
-        // Fast early exit if there are no teleports to filter
-        if (teleports == null || teleports.isEmpty()) {
-            return result;
-        }
-
-        // Separate consumable transport items from other transports (using streams for better performance)
-        List<Transport> consumableItems = new ArrayList<>();
-        List<Transport> nonConsumableTeleports = new ArrayList<>();
-
-        // First pass: separate the teleports into appropriate lists
-        teleports.forEach(teleport -> {
-            if (teleport.getType() == TransportType.TELEPORTATION_ITEM && teleport.isConsumable()) {
-                consumableItems.add(teleport);
-            } else {
-                nonConsumableTeleports.add(teleport);
-            }
-        });
-
-        // Nothing to filter if no consumable items or no alternatives
-        if (consumableItems.isEmpty() || nonConsumableTeleports.isEmpty()) {
-            return result;
-        }
-
-        // Add transportation network transports (like fairy rings, spirit trees) to the non-consumable list
-        if (allUsableTransports != null && !allUsableTransports.isEmpty()) {
-            allUsableTransports.values().stream()
-                    .flatMap(Set::stream)
-                    .filter(transport ->
-                            transport.getType() == TransportType.FAIRY_RING ||
-                                    transport.getType() == TransportType.GNOME_GLIDER ||
-                                    transport.getType() == TransportType.SPIRIT_TREE ||
-                                    transport.getType() == TransportType.QUETZAL)
-                    .forEach(nonConsumableTeleports::add);
-        }
-
-        // Check each consumable item against all non-consumable alternatives
-        // Using a more optimized approach to avoid unnecessary calculations
-        for (Transport consumableItem : consumableItems) {
-            WorldPoint consumableDestination = consumableItem.getDestination();
-            if (consumableDestination == null) continue;
-
-            Transport bestAlternative = null;
-            int shortestDistance = Integer.MAX_VALUE;
-            boolean isTargetBased = false;
-
-            // First determine if we can use target-based comparison
-            boolean useTargetComparison = target != null && target.getPlane() == consumableDestination.getPlane();
-
-            // Pre-calculate target distance for the consumable item if needed
-            int consumableToTarget = useTargetComparison ? consumableDestination.distanceTo2D(target) : 0;
-
-            // Process all non-consumable alternatives
-            for (Transport nonConsumableTeleport : nonConsumableTeleports) {
-                WorldPoint nonConsumableDestination = nonConsumableTeleport.getDestination();
-                if (nonConsumableDestination == null) continue;
-
-                // Ensure we're comparing points on the same plane
-                if (consumableDestination.getPlane() != nonConsumableDestination.getPlane()) {
-                    continue;
-                }
-
-                int distance;
-
-                if (useTargetComparison) {
-                    // Target-based comparison (optimized)
-                    WorldPoint referencePoint = calculateReferencePoint(target, consumableDestination, nonConsumableDestination);
-                    int nonConsumableToReference = nonConsumableDestination.distanceTo2D(referencePoint);
-                    int consumableToReference = consumableDestination.distanceTo2D(referencePoint);
-
-                    // Only consider alternatives that get us at least as close to the target
-                    // This prevents removing consumable items that are better positioned
-                    if (nonConsumableToReference > consumableToReference) {
-                        continue;
-                    }
-
-                    // Calculate distance between the transports
-                    distance = nonConsumableToReference;
-                    isTargetBased = true;
-                } else {
-                    // Simple destination-based comparison
-                    distance = consumableDestination.distanceTo2D(nonConsumableDestination);
-                    isTargetBased = false;
-                }
-
-                // Keep track of the best alternative (shortest distance)
-                if (distance <= maxDistance && distance < shortestDistance) {
-                    shortestDistance = distance;
-                    bestAlternative = nonConsumableTeleport;
-                    break; // Found a suitable alternative, no need to check further
-                }
-            }
-
-            // If we found a suitable alternative, remove the consumable item
-            if (bestAlternative != null) {
-                result.addRemovedTransport(
-                        consumableItem,
-                        bestAlternative,
-                        getTransportTypeName(bestAlternative),
-                        shortestDistance,
-                        isTargetBased
-                );
-            }
-        }
-
-        return result;
-    }
-
-    /**
-     * Calculates a reference point based on the triangle formed by three world points.
-     * This reference point is the centroid (average of the three points) which provides
-     * a point of reference for comparing relative positions.
-     *
-     * @param p1 First point (typically the target)
-     * @param p2 Second point (typically consumable destination)
-     * @param p3 Third point (typically non-consumable destination)
-     * @return The calculated reference point (centroid of the triangle)
-     */
-    private WorldPoint calculateReferencePoint(WorldPoint p1, WorldPoint p2, WorldPoint p3) {
-        // Calculate the centroid (average of the three points)
-        int x = (p1.getX() + p2.getX() + p3.getX()) / 3;
-        int y = (p1.getY() + p2.getY() + p3.getY()) / 3;
-        int plane = p1.getPlane(); // All points should be on the same plane
-
-        return new WorldPoint(x, y, plane);
-    }
-
-    /**
-     * Gets a human-readable name for a transport type.
-     *
-     * @param transport The transport to evaluate
-     * @return Human-readable transport type name
-     */
-    private String getTransportTypeName(Transport transport) {
-        if (transport.getType() == TransportType.TELEPORTATION_SPELL) {
-            return "Teleportation Spell";
-        } else if (transport.getType() == TransportType.TELEPORTATION_ITEM && !transport.isConsumable()) {
-            return "Non-consumable Item";
-        } else if (transport.getType() == TransportType.TELEPORTATION_PORTAL) {
-            return "Teleportation Portal";
-        } else if (transport.getType() == TransportType.SHIP) {
-            return "Ship";
-        } else if (transport.getType() == TransportType.CANOE) {
-            return "Canoe";
-        } else if (transport.getType() == TransportType.NPC) {
-            return "NPC";
-        } else if (transport.getType() == TransportType.POH) {
-            return "Player Owned House";
-        } else if (transport.getType() == TransportType.TRANSPORT) {
-            return "Transport";
-        } else {
-            return transport.getType().toString();
-        }
-    }
 
     private int computeTransportRefreshCacheKeyHash(WorldPoint target,
                                                      Rs2LeaguesTransport.LeaguesContext leaguesCtx,

@@ -322,31 +322,6 @@ final class FairyRingNetwork
             && DIAL_LETTERS[2].indexOf(code.charAt(2)) >= 0;
     }
 
-    static int getNextDialWidgetChild(String code, int[] dialValues)
-    {
-        if (!isValidCode(code) || dialValues.length != 3)
-        {
-            return -1;
-        }
-        for (int dial = 0; dial < 3; dial++)
-        {
-            // Preserve both original array reads and validate every dial before selecting one.
-            if (dialValues[dial] < 0 || dialValues[dial] > 3)
-            {
-                return -1;
-            }
-        }
-        for (int dial = 0; dial < 3; dial++)
-        {
-            int distance = (DIAL_LETTERS[dial].indexOf(code.charAt(dial)) - dialValues[dial] + 4) % 4;
-            if (distance != 0)
-            {
-                return 19 + dial * 2 + (distance == 3 ? 1 : 0);
-            }
-        }
-        return 26;
-    }
-
     /**
      * Keep ordinary values visible. For an unusual default charset, reconstruct
      * the exact old table slice before applying the historical seed bytes.

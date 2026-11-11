@@ -120,68 +120,6 @@ public final class WalkerMouseControl
         click(client, point, null);
     }
 
-    /**
-     * Admit one local walk gesture without changing global route cancellation. True means
-     * queued, never that a destination was selected or reached. The cheap owner predicate
-     * is checked during motion; the scene predicate is read on the client thread before
-     * and after motion. Neither predicate may dispatch input.
-     */
-    static boolean clickOwned(Client client, Point point, boolean minimap,
-        java.util.function.BooleanSupplier ownerValid, java.util.function.BooleanSupplier sceneValid,
-        java.util.function.Consumer<Boolean> completion)
-    {
-        if (point == null || !ownerValid.getAsBoolean()) return false;
-        Object ticket = new Object();
-        if (!pending.compareAndSet(null, ticket)) return false;
-        EfficientWalkerConfig settings = config;
-        long request = generation.get();
-        idleAllowed = false;
-        idleLatched = false;
-        java.util.function.BooleanSupplier valid = () -> ownerValid.getAsBoolean()
-            && request == generation.get() && config == settings
-            && !Thread.currentThread().isInterrupted();
-        java.util.concurrent.atomic.AtomicBoolean clicked = new java.util.concurrent.atomic.AtomicBoolean();
-        try {
-            executor().submit(MouseMotionScope.capture(() -> {
-                try {
-                    InputLoop.run(emit -> {
-                        if (!valid.getAsBoolean() || !Microbot.getClientThread().invoke(
-                            (java.util.function.Supplier<Boolean>) sceneValid::getAsBoolean)) return;
-                        move(point, minimap, request, emit, false, valid);
-                        try { Thread.sleep(profile.clickPause()); }
-                        catch (InterruptedException ex) { Thread.currentThread().interrupt(); return; }
-                        if (!valid.getAsBoolean() || !Microbot.getClientThread().invoke(
-                            (java.util.function.Supplier<Boolean>) sceneValid::getAsBoolean)) return;
-                        emit.checkpoint();
-                        if (!valid.getAsBoolean()) return;
-                        moveWithTrail(emit, point.getX(), point.getY());
-                        if (!valid.getAsBoolean()) return;
-                        Microbot.targetMenu = minimap ? null : new NewMenuEntry().option("Walk here")
-                            .type(net.runelite.api.MenuAction.WALK).identifier(0).itemId(0)
-                            .param0(point.getX()).param1(point.getY());
-                        emit.press(point.getX(), point.getY(), MouseEvent.BUTTON1);
-                        emit.release(point.getX(), point.getY(), MouseEvent.BUTTON1);
-                        emit.click(point.getX(), point.getY(), MouseEvent.BUTTON1);
-                        clicked.set(true);
-                        Microbot.getMouse().setLastClick(point);
-                        lastClickAt = System.currentTimeMillis();
-                        // Local hazard movement must not arm the route's later idle parking.
-                        lastOwnedPoint = null;
-                    });
-                } catch (java.util.concurrent.CancellationException ignored) {
-                    // Only this owner's stale gesture is discarded.
-                } finally {
-                    pending.compareAndSet(ticket, null);
-                    completion.accept(clicked.get());
-                }
-            }));
-            return true;
-        } catch (java.util.concurrent.RejectedExecutionException ex) {
-            pending.compareAndSet(ticket, null);
-            return false;
-        }
-    }
-
     /** Preserve the engine's explicit action across the asynchronous mouse trajectory. */
     public static void interact(Client client, NewMenuEntry entry, java.awt.Rectangle bounds, boolean invoke)
     {

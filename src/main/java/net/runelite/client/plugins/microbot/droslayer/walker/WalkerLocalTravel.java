@@ -16,20 +16,6 @@ final class WalkerLocalTravel
     private final Set<Object> leases = Collections.newSetFromMap(new IdentityHashMap<>());
     private volatile boolean active;
 
-    synchronized Runnable acquire()
-    {
-        Object identity = new Object();
-        leases.add(identity);
-        active = true;
-        return () -> release(identity);
-    }
-
-    private synchronized void release(Object identity)
-    {
-        leases.remove(identity);
-        active = !leases.isEmpty();
-    }
-
     synchronized void clear()
     {
         leases.clear();

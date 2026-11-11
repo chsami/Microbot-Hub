@@ -16,7 +16,6 @@ final class SpellbookPreparation
         HouseStep hostedHouse(Rs2Spellbook target);
         boolean leaveHostedHouse();
         default void nextHostedHouse() { }
-        default boolean returnToExchange() { return false; }
         default long houseProgress() { return 0; }
         Rs2Spellbook current();
         default WorldPoint switchLocation(Rs2Spellbook target)

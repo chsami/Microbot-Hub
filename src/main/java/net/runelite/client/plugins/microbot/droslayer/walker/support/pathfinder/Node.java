@@ -58,15 +58,6 @@ public class Node {
         return path;
     }
 
-    public List<Integer> getPathPacked() {
-        List<Integer> path = new ArrayList<>();
-        for (Node n = this; n != null; n = n.previous) {
-            path.add(n.packedPosition);
-        }
-        Collections.reverse(path);
-        return path;
-    }
-
     private int cost(Node previous, int wait) {
         int previousCost = 0;
         int distance = 0;

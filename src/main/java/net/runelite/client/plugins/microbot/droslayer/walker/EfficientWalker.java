@@ -40,17 +40,11 @@ import java.util.function.Supplier;
  */
 public final class EfficientWalker
 {
-    /** Efficient Walker release this in-script engine was ported from. */
-    public static final String PORTED_VERSION = "1.12.69";
     private static final Logger LOG = LoggerFactory.getLogger(EfficientWalker.class);
     private static final String ENGINE_PACKAGE =
         "net.runelite.client.plugins.microbot.droslayer.walker.engine";
     private static final String ENGINE_WALKER = ENGINE_PACKAGE + ".WalkerEngine";
     private static final String ENGINE_CONFIG = ENGINE_PACKAGE + ".WalkerEngineConfig";
-    private static final String ENGINE_ITEM = ENGINE_PACKAGE + ".QuestItemResolver";
-    private static final String ENGINE_ITEM_COMBINATION = ENGINE_PACKAGE + ".QuestItemResolver$InventoryItemAction";
-    private static final String ENGINE_QUEST_TARGET = ENGINE_PACKAGE + ".QuestHelperBridge$QuestTarget";
-
     // Fossil Island bank chests supplied from the Location overlay.  These are kept local
     // to Fossil Island so the generic Efficient Walker bank catalogue is unchanged elsewhere.
     private static final WorldPoint FOSSIL_NORTH_ISLAND_BANK =
@@ -58,18 +52,9 @@ public final class EfficientWalker
     // Route to the bank approach, rather than the occupied chest tile (3742,3805).
     private static final WorldPoint FOSSIL_CAMP_BANK =
         net.runelite.client.plugins.microbot.util.bank.enums.BankLocation.FOSSIL_ISLAND.getWorldPoint();
-    private static final int FOSSIL_BANK_OPEN_RADIUS = 15;
     private static final int SHORT_LOCAL_ROUTE_STEPS = 10;
     private static final int FOSSIL_BANK_AREA_RADIUS = 180;
 
-    // Ferox has both a Bank chest and a banker very close together. Generic bank discovery can
-    // alternate between them while the route coordinator is still deciding what to withdraw.
-    // Lock Ferox banking to the chest so one bank interaction owns the whole decision.
-    private static final int FEROX_MIN_X = 3110;
-    private static final int FEROX_MAX_X = 3155;
-    private static final int FEROX_MIN_Y = 3610;
-    private static final int FEROX_MAX_Y = 3655;
-    private static final int FEROX_BANK_SEARCH_RADIUS = 24;
     private static final int IMMEDIATE_BANK_RADIUS = 12;
 
     private static WorldPoint nearestFossilBank(WorldPoint player)
@@ -236,56 +221,6 @@ public final class EfficientWalker
             LOG.info("[EfficientWalker] transport preparation ms={}", elapsedMillis(preparationStarted));
     }
 
-    /** Package-local planning queries; these do not start, cancel or retarget a journey. */
-    WeightedRouteAdvisor navigationAdvisor(WorldPoint target)
-    {
-        refreshTransportExtensions(target);
-        return new WeightedRouteAdvisor(catalogTeleportSupport);
-    }
-
-    CollisionProbe navigationCollision()
-    {
-        try
-        {
-            Object planner = field(engineClass, "planner").get(engine);
-            return planner == null ? null : new CollisionProbe(planner);
-        }
-        catch (ReflectiveOperationException ex)
-        {
-            throw new IllegalStateException("Walker collision planner is unavailable", ex);
-        }
-    }
-
-    /** Keeps the engine's collision lookup inside its existing facade. */
-    static final class CollisionProbe
-    {
-        private final Object planner;
-        private final Method standable, canStep;
-
-        CollisionProbe(Object planner) throws ReflectiveOperationException
-        {
-            this.planner = planner;
-            standable = planner.getClass().getDeclaredMethod("isStandable", WorldPoint.class);
-            canStep = planner.getClass().getDeclaredMethod("canStep",
-                int.class, int.class, int.class, int.class, int.class);
-            standable.setAccessible(true);
-            canStep.setAccessible(true);
-        }
-
-        boolean standable(WorldPoint point)
-        {
-            try { return Boolean.TRUE.equals(standable.invoke(planner, point)); }
-            catch (ReflectiveOperationException ex) { throw new IllegalStateException("Walker standability lookup failed", ex); }
-        }
-
-        boolean canStep(WorldPoint from, WorldPoint to)
-        {
-            try { return Boolean.TRUE.equals(canStep.invoke(planner,
-                from.getX(), from.getY(), from.getPlane(), to.getX(), to.getY())); }
-            catch (ReflectiveOperationException ex) { throw new IllegalStateException("Walker collision lookup failed", ex); }
-        }
-    }
-
     private void refreshTransportExtensionsSnapshot(WorldPoint target)
     {
         // Refresh the eligibility snapshot for the full item-teleport catalogue first.
@@ -357,19 +292,6 @@ public final class EfficientWalker
         bankSuppliesAllowed = allowed;
     }
 
-    /** A prepared local leg keeps the caller's inventory and skips transport-supply bank probes. */
-    public boolean walkToWithoutBankSupplies(WorldPoint target) {
-        return runNavigationRequest(target, () -> walkToWithoutBankSuppliesInternal(target));
-    }
-
-    private boolean walkToWithoutBankSuppliesInternal(WorldPoint target) {
-        spellbookSupport.cancel();
-        setBankSuppliesAllowed(false);
-        if (!networkTransportSupport.magicMushtreesAllowed()) cancelForPolicyChange();
-        networkTransportSupport.setMagicMushtreesAllowed(true);
-        return walkToWithCurrentTransportPolicy(target);
-    }
-
     public boolean walkTo(WorldPoint target)
     {
         return runNavigationRequest(target, () -> walkToInternal(target));
@@ -382,136 +304,6 @@ public final class EfficientWalker
         if (!networkTransportSupport.magicMushtreesAllowed()) cancelForPolicyChange();
         networkTransportSupport.setMagicMushtreesAllowed(true);
         return walkToWithCurrentTransportPolicy(target);
-    }
-
-    /** Restricts this journey, including internal replans; normal walkTo keeps all transports. */
-    public boolean walkToWithoutMagicMushtrees(WorldPoint target)
-    {
-        return runNavigationRequest(target, () -> walkToWithoutMagicMushtreesInternal(target));
-    }
-
-    private boolean walkToWithoutMagicMushtreesInternal(WorldPoint target)
-    {
-        spellbookSupport.cancel();
-        setBankSuppliesAllowed(true);
-        if (networkTransportSupport.magicMushtreesAllowed()) cancelForPolicyChange();
-        networkTransportSupport.setMagicMushtreesAllowed(false);
-        return walkToWithCurrentTransportPolicy(target);
-    }
-
-    /** Starts one caller-owned journey; internal nearby retries retain this token. */
-    public long startOwnedWalk(WorldPoint target, String owner)
-    {
-        return startOwnedWalk(target, owner, true);
-    }
-
-    /** Caller-owned prepared travel retains the existing no-bank-supplies policy. */
-    public long startOwnedWalkWithoutBankSupplies(WorldPoint target, String owner)
-    {
-        return startOwnedWalk(target, owner, false);
-    }
-
-    public long startOwnedWalk(WorldPoint target, String owner, java.util.function.BooleanSupplier stillWanted)
-    {
-        return startOwnedWalk(target, owner, true, stillWanted);
-    }
-
-    public long startOwnedWalkWithoutBankSupplies(WorldPoint target, String owner,
-                                                java.util.function.BooleanSupplier stillWanted)
-    {
-        return startOwnedWalk(target, owner, false, stillWanted);
-    }
-
-    private long startOwnedWalk(WorldPoint target, String owner, boolean allowBankSupplies)
-    {
-        return startOwnedWalk(target, owner, allowBankSupplies, () -> true);
-    }
-
-    private long startOwnedWalk(WorldPoint target, String owner, boolean allowBankSupplies,
-                               java.util.function.BooleanSupplier stillWanted)
-    {
-        if (target == null) return 0;
-        Objects.requireNonNull(stillWanted, "stillWanted");
-        String label = owner != null && owner.matches("[A-Za-z0-9._-]{1,64}") ? owner : "caller";
-        WalkerRequestOwnership.Request request;
-        try { request = claimNavigationRequest(target, label, true, stillWanted); }
-        catch (CancellationException cancelled) { return 0; }
-        boolean started = false;
-        try
-        {
-            started = executeNavigationRequest(request, () -> allowBankSupplies
-                ? walkToInternal(target) : walkToWithoutBankSuppliesInternal(target));
-            synchronized (requestOwnership)
-            {
-                return started && requestOwnership.isCurrent(request) ? request.id : 0;
-            }
-        }
-        finally
-        {
-            if (!started)
-            {
-                try (WalkerRequestOwnership.Scope ignored = requestOwnership.bind(request))
-                {
-                    // Revoke permission immediately, including for an already queued
-                    // client-thread handoff whose caller was interrupted while waiting.
-                    cancelNavigation(Thread.currentThread().isInterrupted() ? "INTERRUPTED" : "START_REJECTED", true);
-                }
-            }
-        }
-    }
-
-    /** The token and effective status are observed together on the client thread. */
-    public String getOwnedWalkStatus(long token)
-    {
-        return readOnClientThread(() -> {
-            synchronized (requestOwnership)
-            {
-                if (!requestOwnership.isCurrent(token)) return requestOwnership.detachedStatus(token);
-                return requestOwnership.preparing() ? Status.PLANNING.name() : getStatusSnapshot().name();
-            }
-        }, "PENDING");
-    }
-
-    /**
-     * A failure observation is only a hint: recheck ownership and terminal state
-     * in the same client-thread operation that performs cancellation.
-     */
-    public boolean cancelOwnedWalk(long token, String reason)
-    {
-        String cancellationReason = cancellationReason(reason);
-        Supplier<Boolean> cancel = () -> {
-            synchronized (requestOwnership)
-            {
-                if (!requestOwnership.isCurrent(token)) return false;
-                Status status = requestOwnership.preparing() ? Status.PLANNING : getStatusSnapshot();
-                if (("BLOCKED".equals(cancellationReason) || "RECOVERY_EXHAUSTED".equals(cancellationReason))
-                    && status != Status.BLOCKED) return false;
-                if ("TERMINAL_FAILURE".equals(cancellationReason)
-                    && status != Status.BLOCKED && status != Status.IDLE && status != Status.ARRIVED) return false;
-                WalkerRequestOwnership.Request request = requestOwnership.current();
-                logCancellation(request, cancellationReason, status);
-                try (WalkerRequestOwnership.Scope ignored = requestOwnership.bind(request))
-                {
-                    synchronized (wildernessTravelResume)
-                    {
-                        requestCancellation.cancel();
-                        wildernessTravelResume.reset();
-                    }
-                    spellbookSupport.cancel();
-                    clearNavigationOnClientThread();
-                    requestOwnership.cancel();
-                }
-                return true;
-            }
-        };
-        if (client.isClientThread()) return cancel.get();
-        if (Thread.currentThread().isInterrupted())
-        {
-            // Do not clear the interrupt flag or wait on the client thread during shutdown.
-            Microbot.getClientThread().invokeLater(() -> { cancel.get(); });
-            return false;
-        }
-        return readOnClientThread(cancel, false);
     }
 
     private boolean runNavigationRequest(WorldPoint target, Supplier<Boolean> action)
@@ -765,12 +557,6 @@ public final class EfficientWalker
         return (Boolean) invoke("walkTo", new Class<?>[]{WorldPoint.class}, target);
     }
 
-    /** A reachable live bank can be opened without first walking onto its object tile. */
-    public boolean hasImmediateBankAccess()
-    {
-        return bankTeleportBootstrap.hasImmediateBankAccess();
-    }
-
     /** Uses the engine's own collision result; distance alone never bypasses bank planning. */
     private boolean startShortLocalRoute(WorldPoint target)
     {
@@ -854,157 +640,12 @@ public final class EfficientWalker
         return (Boolean) invoke("walkToNearestBank", NO_TYPES);
     }
 
-    boolean followSuppliedRoute(List<WorldPoint> route)
-    {
-        WorldPoint target = route == null || route.isEmpty() ? null : route.get(route.size() - 1);
-        return runNavigationRequest(target, () -> followSuppliedRouteInternal(route));
-    }
-
-    private boolean followSuppliedRouteInternal(List<WorldPoint> route)
-    {
-        spellbookSupport.cancel();
-        resetApeAtollGreegree();
-        WorldPoint target = route == null || route.isEmpty() ? null : route.get(route.size() - 1);
-        refreshTransportExtensions(target);
-        return (Boolean) invoke("followSuppliedRoute", new Class<?>[]{List.class}, route);
-    }
-
-    public boolean prepareTeleportResourcesAtBank()
-    {
-        spellbookSupport.cancel();
-        setBankSuppliesAllowed(true);
-        refreshTransportExtensions(null);
-        return (Boolean) invoke("prepareTeleportResourcesAtBank", NO_TYPES);
-    }
-
-    boolean previewRouteTo(WorldPoint point)
-    {
-        return runNavigationRequest(point, () -> previewRouteToInternal(point));
-    }
-
-    private boolean previewRouteToInternal(WorldPoint point)
-    {
-        spellbookSupport.cancel();
-        caveLightFailure = null;
-        resetApeAtollGreegree();
-        motherlodeEntranceRockfalls.reset();
-        setBankSuppliesAllowed(true);
-        point = resolveDestination(point);
-        wildernessTravelResume.reset();
-        // World-map Test walk and Dry-run enter through preview directly rather than public
-        // walkTo(). Register the same logical destination recovery here so an unsupported
-        // exact map tile gets the same bounded nearby-tile search as every other entry path.
-        // Candidate retries remain PREVIEW-only; Dry-run must never start walking as a side effect.
-        if (nearbyDestinationRecovery.acceptRequest(point, NearbyRequestMode.PREVIEW))
-        {
-            return true;
-        }
-        if (nearbyDestinationRecovery.exhausted(point))
-        {
-            return false;
-        }
-        boolean started = previewDirect(point);
-        return started || (nearbyDestinationRecovery.canRetry() && nearbyDestinationRecovery.tryNext());
-    }
-
     private boolean previewDirect(WorldPoint point)
     {
         doorActionBlocked = false;
         if (bankTeleportBootstrap.beginHousePortalRecovery(point, true)) return true;
         refreshTransportExtensions(point);
         return (Boolean) invoke("previewRouteTo", new Class<?>[]{WorldPoint.class}, point);
-    }
-
-    boolean startRouteTo(WorldPoint point)
-    {
-        return runNavigationRequest(point, () -> startRouteToInternal(point));
-    }
-
-    private boolean startRouteToInternal(WorldPoint point)
-    {
-        if (wildernessTravelResume.acceptRequest(point)) return true;
-        doorActionBlocked = false;
-        if (nearbyDestinationRecovery.acceptRequest(point, NearbyRequestMode.WALK))
-        {
-            return true;
-        }
-        if (nearbyDestinationRecovery.exhausted(point))
-        {
-            return false;
-        }
-        if (bankTeleportBootstrap.acceptDuplicateTargetRequest(point))
-        {
-            return true;
-        }
-        if (finalTileWatchdog.acceptRequest(point))
-        {
-            return true;
-        }
-        if (bankTeleportBootstrap.beginHousePortalRecovery(point, false)) return true;
-        refreshTransportExtensions(point);
-        if (startShortLocalRoute(point)) return true;
-        if (bankTeleportBootstrap.shouldCoordinateBankedTeleports()
-            && !Rs2Player.isTeleBlocked()
-            && bankTeleportBootstrap.shouldCheckImmediateBankFirst(point))
-        {
-            return bankTeleportBootstrap.startBankDetour(point);
-        }
-
-        if (bankTeleportBootstrap.shouldCoordinateBankedTeleports())
-        {
-            boolean previewStarted = (Boolean) invoke("previewRouteTo", new Class<?>[]{WorldPoint.class}, point);
-            if (!previewStarted)
-            {
-                if (bankTeleportBootstrap.shouldBootstrapUnsupportedTransportRoute(point))
-                {
-                    return bankTeleportBootstrap.startUnsupportedTransportDetour(point);
-                }
-                if (bankTeleportBootstrap.shouldCompareUnsupportedRoute(point))
-                {
-                    bankTeleportBootstrap.awaitDirectPreview(point);
-                    return true;
-                }
-                return false;
-            }
-
-            bankTeleportBootstrap.awaitDirectPreview(point);
-            return true;
-        }
-
-        return (Boolean) invoke("startRouteTo", new Class<?>[]{WorldPoint.class}, point);
-    }
-
-    boolean commitPreviewOrStartRoute(WorldPoint point)
-    {
-        return runNavigationRequest(point, () -> commitPreviewOrStartRouteInternal(point));
-    }
-
-    private boolean commitPreviewOrStartRouteInternal(WorldPoint point)
-    {
-        if (missingApeAtollSupplies(point)
-            || useApeAtollTabletFlow(point) && !ApeAtollGreegree.onIsland(Rs2Player.getWorldLocation())) {
-            if (bankTeleportBootstrap.acceptDuplicateTargetRequest(point)) return true;
-            return walkTo(point);
-        }
-        // A world-map preview may have recovered from the clicked tile to a nearby usable tile.
-        // Commit the tile that was actually previewed while preserving the original clicked tile
-        // as the logical destination exposed to callers.
-        WorldPoint commitTarget = nearbyDestinationRecovery.commitTarget(point);
-        if (bankTeleportBootstrap.commitHousePortalPreview(commitTarget)) return true;
-        if (getStatus() != Status.PREVIEW || !Objects.equals(commitTarget, getDestination()))
-        {
-            return walkTo(point);
-        }
-
-        // Commit through the same full-trip comparison used by script requests.
-        if (bankTeleportBootstrap.shouldCoordinateBankedTeleports()
-            && getStatus() == Status.PREVIEW)
-        {
-            bankTeleportBootstrap.awaitDirectPreview(commitTarget);
-            return true;
-        }
-
-        return (Boolean) invoke("commitPreviewOrStartRoute", new Class<?>[]{WorldPoint.class}, commitTarget);
     }
 
     public void cancel()
@@ -1161,12 +802,6 @@ public final class EfficientWalker
     }
 
     @SuppressWarnings("unchecked")
-    List<List<WorldPoint>> getRouteSegments()
-    {
-        return (List<List<WorldPoint>>) invoke("getRouteSegments", NO_TYPES);
-    }
-
-    @SuppressWarnings("unchecked")
     List<WorldPoint> getRemainingRoute()
     {
         return (List<WorldPoint>) invoke("getRemainingRoute", NO_TYPES);
@@ -1284,14 +919,6 @@ public final class EfficientWalker
         return Status.valueOf(((Enum<?>) value).name());
     }
 
-    public String getFailureReason() {
-        if (routeSubmissionFailure != null) return routeSubmissionFailure;
-        if (caveLightFailure != null) return caveLightFailure;
-        if(networkTransportSupport.tzhaarDoorFailure()!=null)return networkTransportSupport.tzhaarDoorFailure();
-        String reason=apeAtollGreegree.failure();
-        return reason!=null?reason:String.valueOf(getPlanningFailure());
-    }
-
     public PlanningFailure getPlanningFailure()
     {
         return readOnClientThread(() -> {
@@ -1361,28 +988,6 @@ public final class EfficientWalker
     }
 
     void tickSpellbookPreparation() { spellbookSupport.tick(); }
-
-    /**
-     * Poll from a script loop before starting its travel. PREPARING owns navigation until READY;
-     * readiness requires the actual spellbook and, after house use, an observed exit.
-     * With the option off a wrong book returns DISABLED without changing any existing walk.
-     */
-    public SpellbookStatus prepareSpellbook(net.runelite.client.plugins.microbot.util.magic.Rs2Spellbook target)
-    {
-        Objects.requireNonNull(target, "target");
-        if (spellbookSupport.matches(target) && spellbookSupport.state() != SpellbookStatus.READY)
-            return spellbookSupport.state();
-        boolean ready = Microbot.getClientThread().runOnClientThreadOptional(
-            () -> net.runelite.client.plugins.microbot.util.magic.Rs2Magic.getSpellbook() == target).orElse(false);
-        if (ready) return SpellbookStatus.READY;
-        if (!config.autoSpellbook()) return SpellbookStatus.DISABLED;
-        cancel("SPELLBOOK_PREPARATION");
-        bankSuppliesAllowed = true;
-        return spellbookSupport.request(target);
-    }
-
-    public SpellbookStatus getSpellbookStatus() { return spellbookSupport.state(); }
-    public String getSpellbookMessage() { return spellbookSupport.status(); }
 
     public enum SpellbookStatus { IDLE, DISABLED, PREPARING, READY, BLOCKED }
 
@@ -2024,11 +1629,6 @@ public final class EfficientWalker
         invoke("refreshTeleportInventory", NO_TYPES);
     }
 
-    void resetNetworkTransportSession()
-    {
-        resetNetworkTransportSession(true);
-    }
-
     void resetNetworkTransportSession(boolean resetBankKnowledge)
     {
         networkTransportSupport.resetSession();
@@ -2041,84 +1641,14 @@ public final class EfficientWalker
         return (Boolean) invoke("handleActionFailureMessage", new Class<?>[]{String.class}, message);
     }
 
-    void rejectCurrentAction(String message)
-    {
-        invoke("rejectCurrentAction", new Class<?>[]{String.class}, message);
-    }
-
     void onTeleportChargeMessage(String message)
     {
         invoke("onTeleportChargeMessage", new Class<?>[]{String.class}, message);
     }
 
-    boolean hasBankSupplyPlan()
-    {
-        return (Boolean) invoke("hasBankSupplyPlan", NO_TYPES);
-    }
-
-    Object getRequestIdentity()
-    {
-        return invoke("getRequestIdentity", NO_TYPES);
-    }
-
-    boolean selectInventoryItem(QuestItemResolver item)
-    {
-        Object shadowItem = shadowItem(item);
-        Class<?> type = load(ENGINE_ITEM);
-        return (Boolean) invoke("selectInventoryItem", new Class<?>[]{type}, shadowItem);
-    }
-
-    boolean performInventoryItemAction(QuestItemResolver.InventoryItemAction combination)
-    {
-        Object first = shadowItem(combination.selectedItem);
-        Object second = shadowItem(combination.targetItem);
-        Class<?> itemType = load(ENGINE_ITEM);
-        Class<?> type = load(ENGINE_ITEM_COMBINATION);
-        Object shadow = construct(type, new Class<?>[]{itemType, itemType, String.class}, first, second, combination.action);
-        return (Boolean) invoke("performInventoryItemAction", new Class<?>[]{type}, shadow);
-    }
-
-    boolean useSelectedItemOnQuestTarget(QuestItemResolver item, QuestHelperBridge.QuestTarget target)
-    {
-        Object shadowItem = shadowItem(item);
-        Class<?> itemType = load(ENGINE_ITEM);
-        Class<?> targetType = load(ENGINE_QUEST_TARGET);
-        Object shadowTarget = construct(
-            targetType,
-            new Class<?>[]{Object.class, WorldPoint.class, boolean.class, boolean.class,
-                WorldPoint.class, NPC.class, TileObject.class, int.class},
-            target.questStep, target.destination, target.npcStep, target.objectStep, target.nearestNpcLocation, target.npc, target.object, target.objectSize);
-        return (Boolean) invoke("useSelectedItemOnQuestTarget", new Class<?>[]{itemType, targetType}, shadowItem, shadowTarget);
-    }
-
-    String interactQuestObject(TileObject object, Object step)
-    {
-        return (String) invoke("interactQuestObject", new Class<?>[]{TileObject.class, Object.class}, object, step);
-    }
-
-    boolean openNearbyBank()
-    {
-        return (Boolean) invoke("openNearbyBank", NO_TYPES);
-    }
-
     boolean clickWidgetAction(Widget widget, String action)
     {
         return (Boolean) invoke("clickWidgetAction", new Class<?>[]{Widget.class, String.class}, widget, action);
-    }
-
-    String interactQuestNpc(NPC npc, Object step)
-    {
-        return (String) invoke("interactQuestNpc", new Class<?>[]{NPC.class, Object.class}, npc, step);
-    }
-
-    private Object shadowItem(QuestItemResolver item)
-    {
-        if (item == null)
-        {
-            return null;
-        }
-        Class<?> type = load(ENGINE_ITEM);
-        return construct(type, new Class<?>[]{int.class, int.class, String.class}, item.itemId, item.inventorySlot, item.name);
     }
 
     /**
@@ -2202,31 +1732,12 @@ public final class EfficientWalker
                 || (status == Status.BLOCKED && canRetry(status));
         }
 
-        WorldPoint commitTarget(WorldPoint target)
-        {
-            synchronized (requestOwnership)
-            {
-                requestOwnership.check();
-                if (target != null && target.equals(requestedTarget))
-                {
-                    requestMode = NearbyRequestMode.WALK;
-                    return nearbyTarget != null ? nearbyTarget : target;
-                }
-                return target;
-            }
-        }
-
         WorldPoint logicalTarget()
         {
             synchronized (requestOwnership)
             {
                 return nearbyTarget != null ? requestedTarget : null;
             }
-        }
-
-        boolean isUsingNearbyTarget()
-        {
-            return logicalTarget() != null;
         }
 
         private int candidateCount()
@@ -2557,10 +2068,6 @@ public final class EfficientWalker
      */
     private final class BankTeleportBootstrap
     {
-        // Fairy-ring banking has a much narrower admission gate than the general bank probe:
-        // only a known banked staff, no currently usable staff, and an actual bank-aware fairy
-        // edge can trigger it.  A modest floor avoids doing that path analysis for tiny local walks.
-        private static final int MIN_ROUTE_COST_FOR_FAIRY_BANK_PROBE = 30;
         // Minecarts are cheap and most useful for medium/long traversals across Kourend.
         // Keep this above the generic 30-cost bank probe to avoid banking
         // for tiny local walks just because 20 coins happen to be available.
@@ -2891,71 +2398,6 @@ public final class EfficientWalker
         private ExecutorService observationExecutor;
         private Future<?> observation;
 
-        private void beginCompleteRouteObservation(WorldPoint target)
-        {
-            if (!config.enableDebugging() || target == null) return;
-            if (observation != null) observation.cancel(true);
-            if (observationExecutor == null)
-                observationExecutor = Executors.newSingleThreadExecutor(task -> {
-                    Thread thread = new Thread(task, "EfficientWalker-route-observer");
-                    thread.setDaemon(true);
-                    return thread;
-                });
-            WorldPoint start = Rs2Player.getWorldLocation();
-            if (start == null) return;
-            List<WeightedRouteAdvisor.BankedTeleportOption> options = snapshotBankedTeleportOptions(target);
-            Map<Integer, Integer> bank = new LinkedHashMap<>(currentBankCounts());
-            long signature = observationInventorySignature();
-            int world = client.getWorld();
-            boolean allowWilderness = config.allowWildernessTravel();
-            observation = observationExecutor.submit(() -> {
-                try
-                {
-                    new CompleteRouteObserver(
-                        request -> WildernessTravelPolicy.plan(request, allowWilderness),
-                        (edges, prefix) -> Microbot.getClientThread().invoke(() -> {
-                            if (world != client.getWorld() || signature != observationInventorySignature()
-                                || !target.equals(getDestination()))
-                                throw new java.util.concurrent.CancellationException("travel state changed");
-                            Rs2TransportLoadout loadout = TransportSupplyPlanner.supplies(edges,
-                                Rs2WalkerBankingPlanner::getMissingTransportEdgeLoadout,
-                                id -> bank.getOrDefault(id, 0), Rs2Inventory::itemQuantity);
-                            if (!loadout.isSatisfiable()) return loadout;
-                            Map<Integer, Integer> required = new LinkedHashMap<>(loadout.getWithdrawals());
-                            for (Map.Entry<Integer, Integer> entry : prefix.entrySet())
-                            {
-                                ItemComposition definition = client.getItemDefinition(entry.getKey());
-                                boolean consumed = definition != null && definition.getInventoryActions() != null
-                                    && Arrays.stream(definition.getInventoryActions()).anyMatch("Break"::equalsIgnoreCase);
-                                required.merge(entry.getKey(), entry.getValue(), consumed ? Integer::sum : Math::max);
-                            }
-                            if (!containsRequirements(bank, required) || !BankCandidateCapacity.canPrepare(client, required))
-                                return Rs2TransportLoadout.unavailable();
-                            return new Rs2TransportLoadout(required, loadout.getEquipmentItemIds(), true);
-                        }), message -> debug("route-observer {}", message), System::nanoTime)
-                        .withPriority(this::completeRouteSearchPriority)
-                        .compare(start, target, options);
-                }
-                catch (java.util.concurrent.CancellationException ex)
-                {
-                    debug("route-observer target={} status=CANCELLED_OR_STATE_CHANGED executionChanged=false", target);
-                }
-                catch (RuntimeException ex)
-                {
-                    debug("route-observer target={} status=UNAVAILABLE reason={} executionChanged=false", target, ex.getMessage());
-                }
-            });
-            Future<?> activeObservation = observation;
-            java.util.concurrent.CompletableFuture.delayedExecutor(5, java.util.concurrent.TimeUnit.SECONDS)
-                .execute(() -> {
-                    if (!activeObservation.isDone())
-                    {
-                        activeObservation.cancel(true);
-                        debug("route-observer target={} status=SEARCH_TIME_LIMIT unfinishedCandidates=NOT_EVALUATED executionChanged=false", target);
-                    }
-                });
-        }
-
         private int completeRouteSearchPriority(WorldPoint landing, WorldPoint target)
         {
             int best = WeightedRouteAdvisor.teleportSearchDistance(landing, target);
@@ -3043,11 +2485,6 @@ public final class EfficientWalker
             }
         }
 
-        boolean shouldProbeUnknownBankMirror()
-        {
-            return shouldCoordinateBankedTeleports() && !bankMirrorKnown();
-        }
-
         private boolean hasReachableLocalApproach(WorldPoint target)
         {
             if (target == null || nearbyDestinationRecovery.exhausted(target)
@@ -3100,15 +2537,6 @@ public final class EfficientWalker
             invoke("previewRouteTo", new Class<?>[]{WorldPoint.class}, target);
             awaitDirectPreview(target);
             debug("rechecking carried travel methods after landing target={}", target);
-        }
-
-        boolean shouldTakeOverCurrentPreview(WorldPoint target)
-        {
-            return shouldCoordinateBankedTeleports()
-                && target != null
-                && engineStatus() == Status.PREVIEW
-                && target.equals(getDestination())
-                && bankPlanSelected();
         }
 
         boolean prepareApeAtollGreegree(WorldPoint target)
@@ -3888,51 +3316,6 @@ public final class EfficientWalker
             invoke("commitPreviewOrStartRoute", new Class<?>[]{WorldPoint.class}, target);
         }
 
-        private boolean shouldAnalyzeBankedFairyRingCandidate(WorldPoint target, int routeCost)
-        {
-            // When the planner already selected a bank detour, its PREVIEW path can be
-            // only a handful of tiles long (the local leg to the bank), so do not apply the ordinary
-            // route-cost floor in that case.  This is exactly the Civitas-tablet-vs-fairy-ring case.
-            boolean preservedBankCandidate = bankPlanSelected();
-            if (target == null
-                || (!preservedBankCandidate && routeCost < MIN_ROUTE_COST_FOR_FAIRY_BANK_PROBE)
-                || !config.useFairyRings()
-                || !bankMirrorKnown()
-                || hasUsableFairyRingStaff())
-            {
-                return false;
-            }
-
-            return preferredBankedFairyRingStaff() > 0;
-        }
-
-        private void beginFairyRingCandidateAnalysis(WorldPoint target)
-        {
-            cancelFairyRingCandidateAnalysis();
-            state = BankState.ANALYZING_FAIRY_RING_CANDIDATE;
-            stateStartedTick = client.getTickCount();
-            fairyRingCandidateAnalysis = bankExecutor().submit(() -> bankAwareRouteUsesFairyRing(target));
-            debug("bank-coordinator evaluating banked fairy-ring candidate target={}", target);
-        }
-
-        private boolean bankAwareRouteUsesFairyRing(WorldPoint target)
-        {
-            try
-            {
-                List<Transport> transports = Rs2WalkerBankingPlanner.getTransportsForDestination(
-                    target, true, TransportType.TELEPORTATION_ITEM);
-                return transports.stream()
-                    .anyMatch(transport -> transport != null
-                        && transport.getType() == TransportType.FAIRY_RING);
-            }
-            catch (RuntimeException ex)
-            {
-                debug("bank-coordinator fairy-ring candidate probe unavailable target={} error={}",
-                    target, ex.getMessage());
-                return false;
-            }
-        }
-
         private void finishFairyRingCandidateAnalysisIfReady()
         {
             Future<Boolean> analysis = fairyRingCandidateAnalysis;
@@ -4470,41 +3853,6 @@ public final class EfficientWalker
             }
             return new BankTransportRequirements(withdrawals,
                 summary.length() == 0 ? "none" : summary.toString(), false, equipment);
-        }
-
-        private boolean hasUsableFairyRingStaff()
-        {
-            boolean eliteDiary = false;
-            try
-            {
-                eliteDiary = Microbot.getClientThread()
-                    .runOnClientThreadOptional(
-                        () -> Microbot.getVarbitValue(VarbitID.LUMBRIDGE_DIARY_ELITE_COMPLETE) == 1)
-                    .orElse(false);
-            }
-            catch (RuntimeException ex)
-            {
-                debug("bank-coordinator fairy-ring diary check unavailable: {}", ex.getMessage());
-            }
-
-            return eliteDiary
-                || Rs2Inventory.itemQuantity(ItemID.DRAMEN_STAFF) > 0
-                || Rs2Inventory.itemQuantity(ItemID.LUNAR_MOONCLAN_LIMINAL_STAFF) > 0
-                || TravelEquipment.isWearing(ItemID.DRAMEN_STAFF)
-                || TravelEquipment.isWearing(ItemID.LUNAR_MOONCLAN_LIMINAL_STAFF);
-        }
-
-        private int preferredBankedFairyRingStaff()
-        {
-            if (Rs2Bank.count(ItemID.DRAMEN_STAFF) > 0)
-            {
-                return ItemID.DRAMEN_STAFF;
-            }
-            if (Rs2Bank.count(ItemID.LUNAR_MOONCLAN_LIMINAL_STAFF) > 0)
-            {
-                return ItemID.LUNAR_MOONCLAN_LIMINAL_STAFF;
-            }
-            return -1;
         }
 
         private BankTransportRequirements consumeTransportRequirementAnalysis()
@@ -5231,153 +4579,6 @@ public final class EfficientWalker
             return Rs2Bank.isOpen();
         }
 
-        private boolean isInFeroxEnclave(WorldPoint point)
-        {
-            return point != null && point.getPlane() == 0
-                && point.getX() >= FEROX_MIN_X && point.getX() <= FEROX_MAX_X
-                && point.getY() >= FEROX_MIN_Y && point.getY() <= FEROX_MAX_Y;
-        }
-
-        private boolean openFeroxBankChest(WorldPoint player)
-        {
-            if (!isInFeroxEnclave(player))
-            {
-                return false;
-            }
-            if (Rs2Bank.isOpen())
-            {
-                return true;
-            }
-
-            long findDeadline = System.currentTimeMillis() + 1_500L;
-            TileObject chest = null;
-            do
-            {
-                chest = SceneObjects.<TileObject>getAll(
-                        object -> object != null, player, FEROX_BANK_SEARCH_RADIUS).stream()
-                    .filter(object -> {
-                        ObjectComposition composition = SceneObjects.convertToObjectComposition(object);
-                        return composition != null
-                            && "Bank chest".equalsIgnoreCase(composition.getName())
-                            && (SceneObjects.hasAction(composition, "Use", true)
-                                || SceneObjects.hasAction(composition, "Bank", true));
-                    })
-                    .min(Comparator.comparingInt(object ->
-                        object.getWorldLocation().distanceTo2D(player)))
-                    .orElse(null);
-                if (chest != null)
-                {
-                    break;
-                }
-                try
-                {
-                    Thread.sleep(50L);
-                }
-                catch (InterruptedException ex)
-                {
-                    Thread.currentThread().interrupt();
-                    return false;
-                }
-            }
-            while (System.currentTimeMillis() < findDeadline);
-
-            if (chest == null)
-            {
-                return false;
-            }
-
-            ObjectComposition composition = SceneObjects.convertToObjectComposition(chest);
-            String action = composition != null && SceneObjects.hasAction(composition, "Use", true)
-                ? "Use" : "Bank";
-            if (!SceneObjects.interact(chest, action))
-            {
-                return false;
-            }
-
-            long deadline = System.currentTimeMillis() + 2_000L;
-            do
-            {
-                if (Rs2Bank.isOpen())
-                {
-                    debug("bank-coordinator locked Ferox banking to Bank chest at={}",
-                        chest.getWorldLocation());
-                    return true;
-                }
-                try
-                {
-                    Thread.sleep(50L);
-                }
-                catch (InterruptedException ex)
-                {
-                    Thread.currentThread().interrupt();
-                    return false;
-                }
-            }
-            while (System.currentTimeMillis() < deadline);
-            return Rs2Bank.isOpen();
-        }
-
-        private boolean openFossilIslandBankChest(WorldPoint player)
-        {
-            WorldPoint bank = nearestFossilBank(player);
-            if (bank == null || player.distanceTo2D(bank) > FOSSIL_BANK_OPEN_RADIUS)
-            {
-                return false;
-            }
-            if (Rs2Bank.isOpen())
-            {
-                return true;
-            }
-
-            TileObject chest = SceneObjects.<TileObject>getAll(
-                    object -> object != null, player, FOSSIL_BANK_OPEN_RADIUS).stream()
-                .filter(object -> {
-                    ObjectComposition composition = SceneObjects.convertToObjectComposition(object);
-                    return composition != null
-                        && "Bank chest".equalsIgnoreCase(composition.getName())
-                        && (SceneObjects.hasAction(composition, "Use", true)
-                            || SceneObjects.hasAction(composition, "Bank", true));
-                })
-                .min(Comparator.comparingInt(object ->
-                    object.getWorldLocation().distanceTo2D(bank)))
-                .orElse(null);
-
-            if (chest == null)
-            {
-                return false;
-            }
-
-            ObjectComposition composition = SceneObjects.convertToObjectComposition(chest);
-            String action = composition != null && SceneObjects.hasAction(composition, "Use", true)
-                ? "Use" : "Bank";
-            if (!SceneObjects.interact(chest, action))
-            {
-                return false;
-            }
-
-            long deadline = System.currentTimeMillis() + 3_000L;
-            do
-            {
-                if (Rs2Bank.isOpen())
-                {
-                    debug("bank-coordinator opened Fossil Island Bank chest at={} anchor={}",
-                        chest.getWorldLocation(), bank);
-                    return true;
-                }
-                try
-                {
-                    Thread.sleep(50L);
-                }
-                catch (InterruptedException ex)
-                {
-                    Thread.currentThread().interrupt();
-                    return false;
-                }
-            }
-            while (System.currentTimeMillis() < deadline);
-            return Rs2Bank.isOpen();
-        }
-
         private boolean bankActionDone()
         {
             return bankAction != null && bankAction.isDone();
@@ -5934,36 +5135,6 @@ public final class EfficientWalker
         }
     }
 
-    private static Object construct(Class<?> type, Class<?>[] parameterTypes, Object... args)
-    {
-        try
-        {
-            Constructor<?> constructor = type.getDeclaredConstructor(parameterTypes);
-            constructor.setAccessible(true);
-            return constructor.newInstance(args);
-        }
-        catch (InvocationTargetException ex)
-        {
-            throw propagate(ex.getCause());
-        }
-        catch (ReflectiveOperationException ex)
-        {
-            throw new IllegalStateException("Unable to construct compatibility value " + type.getName(), ex);
-        }
-    }
-
-    private Class<?> load(String name)
-    {
-        try
-        {
-            return Class.forName(name, true, engineLoader);
-        }
-        catch (ClassNotFoundException ex)
-        {
-            throw new IllegalStateException("Missing preserved v1.11.2 engine class " + name, ex);
-        }
-    }
-
     /** Engine classes isolated per walker. */
     private static final class NavigationEngineClassLoader extends ClassLoader
     {
@@ -6049,133 +5220,6 @@ public final class EfficientWalker
         TARGET_NOT_STANDABLE,
         ROUTE_UNSUPPORTED,
         SEARCH_LIMIT
-    }
-
-    // Historical facade entry points remain thin compatibility aliases. Maintained callers
-    // use the descriptive methods above; these delegates retain the existing package API.
-    boolean zzzz0245(List<WorldPoint> route)
-    {
-        return followSuppliedRoute(route);
-    }
-
-    boolean zzzz0190(WorldPoint point)
-    {
-        return previewRouteTo(point);
-    }
-
-    boolean zzzz0228(WorldPoint point)
-    {
-        return startRouteTo(point);
-    }
-
-    boolean zzzz0227(WorldPoint point)
-    {
-        return commitPreviewOrStartRoute(point);
-    }
-
-    void zzzz0039()
-    {
-        shutdown();
-    }
-
-    List<List<WorldPoint>> zzzz0073()
-    {
-        return getRouteSegments();
-    }
-
-    List<WorldPoint> zzzz0074()
-    {
-        return getRemainingRoute();
-    }
-
-    Set<WorldPoint> zzzz0071()
-    {
-        return getTransportEndpoints();
-    }
-
-    TransportMarker zzzz0072()
-    {
-        return getActiveTransportMarker();
-    }
-
-    boolean j()
-    {
-        return hasActiveExecutionRequest();
-    }
-
-    void k()
-    {
-        tick();
-    }
-
-    void zzzz0179(ItemContainer itemContainer)
-    {
-        onInventoryChanged(itemContainer);
-    }
-
-    void t()
-    {
-        refreshTeleportInventory();
-    }
-
-    boolean zzzz0197(String message)
-    {
-        return handleActionFailureMessage(message);
-    }
-
-    void zzzz0053(String message)
-    {
-        rejectCurrentAction(message);
-    }
-
-    void zzzz0178(String message)
-    {
-        onTeleportChargeMessage(message);
-    }
-
-    boolean u()
-    {
-        return hasBankSupplyPlan();
-    }
-
-    Object v()
-    {
-        return getRequestIdentity();
-    }
-
-    boolean zzzz0218(QuestItemResolver item)
-    {
-        return selectInventoryItem(item);
-    }
-
-    boolean zzzz0090(QuestItemResolver.InventoryItemAction combination)
-    {
-        return performInventoryItemAction(combination);
-    }
-
-    boolean zzzz0241(QuestItemResolver item, QuestHelperBridge.QuestTarget target)
-    {
-        return useSelectedItemOnQuestTarget(item, target);
-    }
-
-    String zzzz0092(TileObject object, Object step)
-    {
-        return interactQuestObject(object, step);
-    }
-
-    boolean w()
-    {
-        return openNearbyBank();
-    }
-
-    boolean zzzz0014(Widget widget, String action)
-    {
-        return clickWidgetAction(widget, action);
-    }
-
-    String zzzz0091(NPC npc, Object step)
-    {
-        return interactQuestNpc(npc, step);
     }
 
     static final class TransportMarker

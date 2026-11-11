@@ -24,11 +24,6 @@ public final class WildernessTravelPolicy
         return targets != null && !targets.isEmpty() && targets.stream().allMatch(WildernessTravelPolicy::requiresWilderness);
     }
 
-    /** Called inside the planner on its own worker; no mutable account preferences change. */
-    public static Object beginPlanning(Collection<WorldPoint> starts, Collection<WorldPoint> targets, boolean allowed) {
-        return beginPlanning(starts, targets, allowed, null, null);
-    }
-
     public static Object beginPlanning(Collection<WorldPoint> starts, Collection<WorldPoint> targets, boolean allowed,
         WorldPoint actualOrigin, WorldPoint actualTarget) {
         PlanningScope previous = PLANNING.get();
@@ -68,12 +63,6 @@ public final class WildernessTravelPolicy
         return scope == null || path == null || path.isEmpty()
             || (scope.explicit && scope.allowed || scope.escapeLevel > 0 || !containsWilderness(path))
                 && routeAllowed(path, scope.explicit && scope.allowed, scope.escapeLevel, scope.dungeonExit);
-    }
-
-    /** A safe journey may leave an existing dangerous area, but cannot enter or re-enter one. */
-    static boolean routeAllowed(List<WorldPoint> path, WorldPoint destination, boolean allowed) {
-        if (requiresWilderness(destination) && !allowed && containsWilderness(path)) return false;
-        return routeAllowed(path, allowed && requiresWilderness(destination));
     }
 
     private static boolean routeAllowed(List<WorldPoint> path, boolean explicit) {

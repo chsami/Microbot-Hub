@@ -34,7 +34,4 @@ public final class LiveCollisionView implements LiveEdgeSource {
         return region.edgeLocal(x % REGION_SIZE, y % REGION_SIZE, z, flag);
     }
 
-    public int regionCount() {
-        return regions.size();
-    }
 }

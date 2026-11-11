@@ -56,12 +56,6 @@ public final class Rs2ClueCompassTransport
 		return issued;
 	}
 
-	public static boolean isStagedRoute(Transport transport)
-	{
-		return matches(transport) && !transport.isConsumable() && transport.getCurrencyAmount() == 0
-			&& Set.of(Set.of(ITEM_ID)).equals(transport.getItemIdRequirements());
-	}
-
 	static String destination(String displayInfo)
 	{
 		if (displayInfo == null)

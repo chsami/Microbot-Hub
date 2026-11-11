@@ -33,16 +33,6 @@ public final class Rs2RouteResult
 		this.metrics = Objects.requireNonNull(metrics, "metrics");
 	}
 
-	public WorldPoint getStart()
-	{
-		return start;
-	}
-
-	public Set<WorldPoint> getTargets()
-	{
-		return targets;
-	}
-
 	public List<WorldPoint> getPath()
 	{
 		return path;
@@ -53,57 +43,9 @@ public final class Rs2RouteResult
 		return steps;
 	}
 
-	public List<Rs2RouteStep> getTransportSteps()
-	{
-		List<Rs2RouteStep> transportSteps = new ArrayList<>();
-		for (Rs2RouteStep step : steps)
-		{
-			if (step.isTransport())
-			{
-				transportSteps.add(step);
-			}
-		}
-		return List.copyOf(transportSteps);
-	}
-
-	/** Exact selected transport for a directed route edge, if that edge is a transport. */
-	public Optional<Rs2TransportEdge> getTransportEdge(WorldPoint from, WorldPoint to)
-	{
-		if (from == null || to == null)
-		{
-			return Optional.empty();
-		}
-		Map<WorldPoint, Rs2TransportEdge> byDestination = transportEdgesByEndpoints.get(from);
-		return byDestination == null
-			? Optional.empty()
-			: Optional.ofNullable(byDestination.get(to));
-	}
-
-	/** Whether the search ended normally rather than through cancellation or an internal failure. */
-	public boolean isSearchCompleted()
-	{
-		return terminationReason != Rs2RouteTermination.CANCELLED
-			&& terminationReason != Rs2RouteTermination.FAILED;
-	}
-
 	public Rs2RouteTermination getTerminationReason()
 	{
 		return terminationReason;
-	}
-
-	public long getSearchNanos()
-	{
-		return metrics.getSearchNanos();
-	}
-
-	public boolean hasSearchNanos()
-	{
-		return metrics.hasSearchNanos();
-	}
-
-	public Rs2RouteMetrics getMetrics()
-	{
-		return metrics;
 	}
 
 	public Optional<WorldPoint> getEndpoint()

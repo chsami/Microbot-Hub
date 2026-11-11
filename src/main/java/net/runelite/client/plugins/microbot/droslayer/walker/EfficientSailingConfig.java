@@ -10,7 +10,6 @@ import net.runelite.client.config.*;
         + "Right-click your sea destination and choose Sail here. Press / (or your hotkey) to pause/resume; Cancel sailing ends the voyage. Disable other boat controllers.")
 public interface EfficientSailingConfig extends Config {
     String GROUP = "efficientwalker";
-    String LEGACY_GROUP = "efficientSailing";
     // Walker declares the displayed Sailing section; all original items keep their keys and defaults.
     String JOURNEY = "sailingSection";
     String TRAVEL = JOURNEY;

@@ -54,30 +54,4 @@ public final class LiveCollisionRegion {
         return value.get(idx) ? Boolean.TRUE : Boolean.FALSE;
     }
 
-    public int getPlaneCount() {
-        return planeCount;
-    }
-
-    // ---- persistence accessors (raw BitSet words), used by LiveCollisionPersistence ----
-
-    long[] northKnownWords() {
-        return northKnown.toLongArray();
-    }
-
-    long[] northValueWords() {
-        return northValue.toLongArray();
-    }
-
-    long[] eastKnownWords() {
-        return eastKnown.toLongArray();
-    }
-
-    long[] eastValueWords() {
-        return eastValue.toLongArray();
-    }
-
-    static LiveCollisionRegion fromWords(int planeCount, long[] nK, long[] nV, long[] eK, long[] eV) {
-        return new LiveCollisionRegion(planeCount,
-                BitSet.valueOf(nK), BitSet.valueOf(nV), BitSet.valueOf(eK), BitSet.valueOf(eV));
-    }
 }

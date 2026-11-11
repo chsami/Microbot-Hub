@@ -138,11 +138,9 @@ public final class WildernessThreatPolicy
             this.attackingPlayers = Collections.unmodifiableSet(new HashSet<>(attackingPlayers));
         }
 
-        public static Snapshot empty() { return NONE; }
         public int getWildernessLevel() { return wildernessLevel; }
         public boolean isAttackCapablePlayerNearby() { return attackCapablePlayerNearby; }
         public boolean isPvpCombat() { return pvpCombat; }
-        public boolean hasThreat() { return attackCapablePlayerNearby || pvpCombat; }
         public boolean hasAttackAction() { return !attackingPlayers.isEmpty(); }
         Set<Integer> threatPlayers() { return threatPlayers; }
         Set<Integer> attackingPlayers() { return attackingPlayers; }

@@ -77,12 +77,6 @@ public final class Rs2RouteRequest
 			Purpose.GENERAL);
 	}
 
-	public Rs2RouteRequest withRefreshPolicy(RefreshPolicy policy)
-	{
-		return new Rs2RouteRequest(
-			start, targets, policy, refreshTarget, useBankItems, this.policy, purpose);
-	}
-
 	public Rs2RouteRequest withRefreshTarget(WorldPoint target)
 	{
 		return new Rs2RouteRequest(
@@ -99,23 +93,6 @@ public final class Rs2RouteRequest
 		return new Rs2RouteRequest(
 			start, targets, RefreshPolicy.ALWAYS, refreshTarget, enabled,
 			policy == null ? null : policy.withUseBankItems(enabled), purpose);
-	}
-
-	/** Classify this request without changing planning behavior. */
-	public Rs2RouteRequest withPurpose(Purpose purpose)
-	{
-		return new Rs2RouteRequest(
-			start, targets, refreshPolicy, refreshTarget, useBankItems, policy,
-			Objects.requireNonNull(purpose, "purpose"));
-	}
-
-	/** Attach the fully resolved policy passed to an engine implementation. */
-	public Rs2RouteRequest withPolicy(Rs2RoutePolicy resolvedPolicy)
-	{
-		Rs2RoutePolicy nonNullPolicy = Objects.requireNonNull(resolvedPolicy, "resolvedPolicy");
-		return new Rs2RouteRequest(
-			start, targets, refreshPolicy, refreshTarget,
-			nonNullPolicy.isUseBankItems(), nonNullPolicy, purpose);
 	}
 
 	public WorldPoint getStart()
@@ -143,13 +120,4 @@ public final class Rs2RouteRequest
 		return useBankItems;
 	}
 
-	public Optional<Rs2RoutePolicy> getPolicy()
-	{
-		return Optional.ofNullable(policy);
-	}
-
-	public Purpose getPurpose()
-	{
-		return purpose;
-	}
 }

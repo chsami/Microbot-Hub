@@ -113,7 +113,6 @@ public final class Rs2TransportEdge
 	public WorldPoint getDestination() { return destination; }
 	public Rs2TransportType getType() { return type; }
 	public Rs2TransportExecutor getExecutor() { return executor; }
-	public Rs2TerminalTravelMode getTerminalTravelMode() { return terminalTravelMode; }
 	public String getDisplayInfo() { return displayInfo; }
 	public String getAction() { return action; }
 	public String getTarget() { return target; }
@@ -121,13 +120,7 @@ public final class Rs2TransportEdge
 	public int getDuration() { return duration; }
 	public boolean isTeleport() { return teleport; }
 	public boolean isConsumable() { return consumable; }
-	public boolean isMembers() { return members; }
-	public boolean isSkillGated() { return skillGated; }
-	public boolean isQuestGated() { return questGated; }
-	public boolean isStateGated() { return stateGated; }
-	public int getMaxWildernessLevel() { return maxWildernessLevel; }
 	public String getCurrencyName() { return currencyName; }
 	public int getCurrencyAmount() { return currencyAmount; }
 	public List<Rs2TransportItemRequirement> getItemRequirements() { return itemRequirements; }
-	Object getSourceIdentity() { return sourceIdentity; }
 }

@@ -102,23 +102,6 @@ final class WeightedRouteAdvisor
         return best;
     }
 
-    Advice analyze(WorldPoint start, WorldPoint target, boolean allowBank)
-    {
-        return analyze(start, target, allowBank, List.of());
-    }
-
-    Advice analyze(WorldPoint start, WorldPoint target, boolean allowBank,
-                   List<BankedTeleportOption> bankedTeleportOptions)
-    {
-        return analyze(start, target, allowBank, bankedTeleportOptions, false);
-    }
-
-    Advice analyze(WorldPoint start, WorldPoint target, boolean allowBank,
-                   List<BankedTeleportOption> bankedTeleportOptions, boolean directUnavailable)
-    {
-        return analyze(start, target, allowBank, bankedTeleportOptions, directUnavailable, null);
-    }
-
     Advice analyze(WorldPoint start, WorldPoint target, boolean allowBank,
                    List<BankedTeleportOption> bankedTeleportOptions, boolean directUnavailable,
                    WorldPoint nearbyBank)

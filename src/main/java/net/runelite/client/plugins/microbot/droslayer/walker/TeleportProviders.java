@@ -281,82 +281,6 @@ final class TeleportProviders
             return this.destinationSupplier.get();
         }
 
-        int findAvailableSupplyItem(Client client, Map<Integer, Integer> supplies)
-        {
-            if (Rs2Player.isTeleBlocked() || !this.executionAvailability.getAsBoolean())
-            {
-                return -1;
-            }
-            for (int itemId : this.itemIds)
-            {
-                if (supplies.getOrDefault(itemId, 0) > 0 && TeleportProviders.isItemAllowedOnWorld(client, itemId)
-                    && client.getItemDefinition(itemId).getNote() == -1)
-                {
-                    return itemId;
-                }
-            }
-            return -1;
-        }
-
-        List<BankSupplyController.BankSupplyRequirement> getBankSupplyCandidates(Client client, Map<Integer, Integer> supplies, WorldPoint target)
-        {
-            List<BankSupplyController.BankSupplyRequirement> result = new ArrayList<>();
-            if (target == null || Rs2Player.isTeleBlocked() || !this.executionAvailability.getAsBoolean())
-            {
-                return result;
-            }
-            int item = findAvailableSupplyItem(client, supplies);
-            if (item >= 0)
-            {
-                result.add(new BankSupplyController.BankSupplyRequirement(this, target, item));
-            }
-            Map<Integer, Integer> requirements = getRequiredBankItems(client, supplies, -1);
-            if (requirements != null && !requirements.isEmpty())
-            {
-                result.add(new BankSupplyController.BankSupplyRequirement(this, target, requirements));
-            }
-            return result;
-        }
-
-        Map<Integer, Integer> getRequiredBankItems(Client client, Map<Integer, Integer> bank, int itemId)
-        {
-            if (Rs2Player.isTeleBlocked() || !this.executionAvailability.getAsBoolean())
-            {
-                return null;
-            }
-            if (itemId >= 0)
-            {
-                if (!TeleportProviders.isItemAllowedOnWorld(client, itemId) || Arrays.stream(this.itemIds).noneMatch(id -> id == itemId))
-                {
-                    return null;
-                }
-                if (hasUsableTeleportItem(itemId))
-                {
-                    return Collections.emptyMap();
-                }
-                return bank.getOrDefault(itemId, 0) > 0 ? Map.of(itemId, 1) : null;
-            }
-            if (!TeleportProviders.isSpellAllowedOnWorld(client, this.spell) || !this.spell.hasRequirements())
-            {
-                return null;
-            }
-            Map<Integer, Integer> allocation = RuneRequirementAllocator.allocateRequiredRunes(Rs2Magic.getMissingRunes(this.spell), bank,
-                id -> TeleportProviders.isItemAllowedOnWorld(client, id));
-            if (allocation == null)
-            {
-                return null;
-            }
-            if (this.requiredItemId >= 0 && !Rs2Inventory.hasItem(this.requiredItemId))
-            {
-                if (!TeleportProviders.isItemAllowedOnWorld(client, this.requiredItemId) || bank.getOrDefault(this.requiredItemId, 0) < 1)
-                {
-                    return null;
-                }
-                allocation.put(this.requiredItemId, 1);
-            }
-            return allocation;
-        }
-
         boolean isAvailableForRoute(WorldPoint from, WorldPoint to)
         {
             return from != null && to != null && !CollisionRoutePlanner.isWildernessBlocked(to)
@@ -425,35 +349,6 @@ final class TeleportProviders
             String[] actions = widget == null ? null : widget.getActions();
             return actions != null && option > 0 && option <= actions.length
                 && action.equals(actions[option - 1]);
-        }
-
-        boolean isWhistleProvider()
-        {
-            return !this.equipmentAllowed && Arrays.equals(this.itemIds, QuetzalNetwork.WHISTLE_ITEM_IDS);
-        }
-
-        boolean requiresEquipmentTab()
-        {
-            if (this.spell != null && canCastSpell(this.spell) && (this.requiredItemId < 0 || Rs2Inventory.hasItem(this.requiredItemId)))
-            {
-                return false;
-            }
-            for (int itemId : this.itemIds)
-            {
-                if (!TeleportProviders.isItemAllowedOnWorld(Microbot.getClient(), itemId))
-                {
-                    continue;
-                }
-                if (Rs2Inventory.hasItem(itemId))
-                {
-                    return false;
-                }
-                if (this.equipmentAllowed && TravelEquipment.isWearing(itemId))
-                {
-                    return true;
-                }
-            }
-            return false;
         }
 
         private boolean canCastSpell(Spell spell)

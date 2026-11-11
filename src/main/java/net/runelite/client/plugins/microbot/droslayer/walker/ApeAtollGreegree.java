@@ -48,7 +48,6 @@ final class ApeAtollGreegree {
 
     String failure() { return failure; }
     void pause(int tick) { if (startedTick >= 0) startedTick = tick; }
-    boolean pending() { return startedTick >= 0 && failure == null; }
     void fail(String reason) { failure = reason; }
     void reset() { startedTick = -1; failure = null; }
 }

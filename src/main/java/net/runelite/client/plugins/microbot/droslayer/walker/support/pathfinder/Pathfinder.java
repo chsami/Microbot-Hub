@@ -108,81 +108,12 @@ public class Pathfinder implements Runnable {
         this(config, start, Set.of(target));
     }
 
-    /**
-     * Materialize a completed planner-independent route behind the legacy concrete pathfinder surface.
-     *
-     * <p>This is a transitional adapter for the shortest-path overlays and out-of-tree callers that still
-     * consume {@code ShortestPathPlugin.pathfinder}. New walker code must consume the immutable route
-     * contract instead. Remove this factory with the local planner after the staged rollout sunset.</p>
-     */
-    public static Pathfinder completedRoute(
-            PathfinderConfig config,
-            WorldPoint start,
-            Set<WorldPoint> targets,
-            List<WorldPoint> path,
-            List<Transport> transportsByStep,
-            PathTerminationReason terminationReason,
-            long selectedPathCost,
-            long searchNanos,
-            long nodesChecked,
-            long transportsChecked,
-            long liveCollisionEdgesChecked) {
-        Objects.requireNonNull(config, "config");
-        Objects.requireNonNull(start, "start");
-        Objects.requireNonNull(targets, "targets");
-        Objects.requireNonNull(path, "path");
-        Objects.requireNonNull(transportsByStep, "transportsByStep");
-        Objects.requireNonNull(terminationReason, "terminationReason");
-        if (!path.isEmpty() && !start.equals(path.get(0))) {
-            throw new IllegalArgumentException("materialized route must start at the requested start");
-        }
-        if (terminationReason == PathTerminationReason.TARGET_REACHED
-                && (path.isEmpty() || !targets.contains(path.get(path.size() - 1)))) {
-            throw new IllegalArgumentException("reached route must end at a requested target");
-        }
-        if (selectedPathCost < -1L || searchNanos < -1L || nodesChecked < -1L
-                || transportsChecked < -1L || liveCollisionEdgesChecked < -1L) {
-            throw new IllegalArgumentException("materialized route metrics must be non-negative or unavailable");
-        }
-
-        Pathfinder completed = new Pathfinder(config, start, targets);
-        List<WorldPoint> immutablePath = Collections.unmodifiableList(new ArrayList<>(path));
-        completed.map = config.getMap();
-        completed.joinedPath = immutablePath;
-        completed.joinedPathEdges = PathEdge.fromMaterializedRoute(immutablePath, transportsByStep);
-        completed.terminationReason = terminationReason;
-        completed.selectedPathCost = selectedPathCost;
-        completed.cancelled = false;
-        completed.done = true;
-        completed.stats.complete(
-                metricOrZero(searchNanos),
-                metricAsInt(nodesChecked),
-                metricAsInt(transportsChecked),
-                metricOrZero(liveCollisionEdgesChecked));
-        return completed;
-    }
-
-    private static long metricOrZero(long metric) {
-        return metric < 0L ? 0L : metric;
-    }
-
-    private static int metricAsInt(long metric) {
-        if (metric < 0L) {
-            return 0;
-        }
-        return (int) Math.min(Integer.MAX_VALUE, metric);
-    }
-
     public WorldPoint getStart() {
         return WorldPointUtil.unpackWorldPoint(start);
     }
 
     public Set<WorldPoint> getTargets() {
         return targets.stream().map(WorldPointUtil::unpackWorldPoint).collect(Collectors.toSet());
-    }
-
-    public void cancel() {
-        cancelled = true;
     }
 
     public PathfinderStats getStats() {
@@ -228,47 +159,6 @@ public class Pathfinder implements Runnable {
             return joined;
         }
         return PathEdge.fromForwardChain(bestLastNode);
-    }
-
-    /**
-     * Smoothed view of {@link #getPath()} for walker consumption. Collapses
-     * straight-line runs of adjacent tiles using line-of-sight checks so that
-     * the walker's main loop iterates fewer waypoints and issues fewer
-     * minimap clicks. Falls back to the raw path while the pathfinder is
-     * still running (smoothing only runs once after completion).
-     */
-    public List<WorldPoint> getWalkablePath() {
-        List<WorldPoint> raw = getPath();
-        if (!done || raw == null || raw.isEmpty()) {
-            return raw;
-        }
-        if (!smoothed) {
-            smoothedPath = PathSmoother.smooth(raw, map, buildTransportAnchors(raw), config.getBlockedTransportEdgesPacked());
-            smoothed = true;
-        }
-        return smoothedPath;
-    }
-
-    // Tiles in the raw path that are transport origins or destinations. The smoother
-    // must not collapse across these — some gates (e.g., Tutorial Island rat-cage
-    // gates) aren't encoded as collision walls, so canStep would otherwise glide
-    // past the transport edge and hide the gate from the walker.
-    private Set<WorldPoint> buildTransportAnchors(List<WorldPoint> path) {
-        Map<WorldPoint, Set<Transport>> transports = config.getTransports();
-        if (transports == null || transports.isEmpty() || path == null || path.isEmpty()) {
-            return Collections.emptySet();
-        }
-        Set<WorldPoint> anchors = new HashSet<>();
-        for (WorldPoint p : path) {
-            Set<Transport> fromP = transports.get(p);
-            if (fromP == null) continue;
-            anchors.add(p);
-            for (Transport t : fromP) {
-                WorldPoint dest = t.getDestination();
-                if (dest != null) anchors.add(dest);
-            }
-        }
-        return anchors;
     }
 
     private void addNeighbors(Node node) {
@@ -328,33 +218,6 @@ public class Pathfinder implements Runnable {
     private long effectiveCutoffMillis() {
         long configured = config.getCalculationCutoffMillis();
         return cutoffOverrideMillis > 0 ? Math.min(cutoffOverrideMillis, configured) : configured;
-    }
-
-    /**
-     * The rim substitute the sealed-target search actually REACHED, or {@code null}. Non-null only
-     * when the destination was proven sealed AND the substitute pass ended ON a walkable rim tile —
-     * i.e. this run's path is a complete route to the closest standable spot beside the sealed
-     * pocket. The walker uses it to retarget the walk to the rim ONCE: without that, the
-     * SEARCH_EXHAUSTED termination made every pass treat the plan as partial and replan it, and
-     * each replan re-ran this substitute search — the 17:54 walk burned 50k nodes per replan
-     * crawling ~300 tiles toward a destination one tile inside a fence.
-     */
-    public WorldPoint getReachedSealedSubstitute() {
-        int packed = reachedSealedSubstitutePacked;
-        return packed == -1 ? null : WorldPointUtil.unpackWorldPoint(packed);
-    }
-
-    /**
-     * The nearest normalized walkable rim tile of a proven-sealed destination, even when the
-     * bounded substitute search did not reach it. The walker can plan this ordinary tile with its
-     * normal full budget instead of chaining partial sealed-target searches.
-     */
-    public WorldPoint getNearestSealedRimSubstitute() {
-        int[] chased = searchTargetsPacked;
-        if (!sealedTargetMode || chased == null || chased.length == 0) {
-            return null;
-        }
-        return WorldPointUtil.unpackWorldPoint(chased[0]);
     }
 
     /**
@@ -978,10 +841,6 @@ public class Pathfinder implements Runnable {
 		private long liveCollisionEdgesChecked = 0L;
         private long startNanos, endNanos;
         private volatile boolean started = false, ended = false;
-
-        public int getTotalNodesChecked() {
-            return nodesChecked + transportsChecked;
-        }
 
         public long getElapsedTimeNanos() {
             return endNanos - startNanos;

@@ -31,9 +31,4 @@ public final class TransportRequirementPolicy {
                 .allMatch(varbitCheck -> varbitCheck.matches(Microbot.getVarbitValue(varbitCheck.getVarbitId())));
     }
 
-    public static boolean varplayerChecks(Transport transport) {
-        return transport.getVarplayers().isEmpty()
-                || transport.getVarplayers().stream()
-                .allMatch(varplayerCheck -> varplayerCheck.matches(Microbot.getVarbitPlayerValue(varplayerCheck.getVarplayerId())));
-    }
 }

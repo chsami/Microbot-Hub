@@ -47,7 +47,6 @@ public final class TravelEquipment
         return query(item -> Arrays.stream(ids).anyMatch(id -> id == item.getId()));
     }
     public static boolean isWearing(String name, boolean exact) { return isWearing(new String[]{name}, exact); }
-    public static boolean isWearing(String... names) { return isWearing(names, false); }
     public static boolean isWearing(String[] names, boolean exact)
     {
         return query(item -> {

@@ -47,19 +47,6 @@ final class TravelFailureMessages {
       }
    }
 
-   static String findVisibleActionFailureText(Client client) {
-      int[][] dialogueWidgets = new int[][]{{229, 1}, {229, 3}, {231, 6}, {217, 6}, {193, 2}, {11, 2}};
-
-      for (int[] widgetId : dialogueWidgets) {
-         Widget widget = client.getWidget(widgetId[0], widgetId[1]);
-         if (widget != null && !widget.isHidden() && explainActionFailure(widget.getText()) != null) {
-            return widget.getText();
-         }
-      }
-
-      return null;
-   }
-
    static String describeTravelFailure(String reason, WorldPoint destination, String routeObjectName) {
       if (reason.startsWith("preflight-equipment-")) {
          String equipmentName = reason.substring(20).replace('_', ' ');

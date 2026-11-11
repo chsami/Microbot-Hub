@@ -89,16 +89,4 @@ public final class Rs2RoutePolicy
 			restrictedPoints);
 	}
 
-	public boolean isUseBankItems() { return useBankItems; }
-	public boolean isAvoidWilderness() { return avoidWilderness; }
-	public boolean isAvoidDangerousNpcs() { return avoidDangerousNpcs; }
-	public boolean isIgnoreTeleportAndItems() { return ignoreTeleportAndItems; }
-	public boolean isTeleportsDisabled() { return teleportsDisabled; }
-	public boolean isMembersWorld() { return membersWorld; }
-	public boolean isLiveCollisionEnabled() { return liveCollisionEnabled; }
-	public long getCalculationCutoffMillis() { return calculationCutoffMillis; }
-	public int getDistanceBeforeUsingTeleport() { return distanceBeforeUsingTeleport; }
-	public TeleportationItemMode getTeleportationItemMode() { return teleportationItemMode; }
-	public Set<Rs2TransportType> getEnabledTransportTypes() { return enabledTransportTypes; }
-	public Set<WorldPoint> getRestrictedPoints() { return restrictedPoints; }
 }

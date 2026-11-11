@@ -35,7 +35,6 @@ public final class CaveLightSource {
             ItemID.CANDLE_LANTERN_UNLIT, ItemID.CANDLE_LANTERN_BLACK_UNLIT,
             ItemID.OIL_LAMP_UNLIT, ItemID.TORCH_UNLIT, ItemID.UNLIT_CANDLE, ItemID.UNLIT_BLACK_CANDLE);
 
-    public static Set<Integer> litItems() { return LIT; }
     public static boolean isSafeLight(int id) { return LIT.contains(id); }
     public static int chooseLit(IntPredicate owned) {
         for (int id : PREFERRED) if (owned.test(id)) return id;

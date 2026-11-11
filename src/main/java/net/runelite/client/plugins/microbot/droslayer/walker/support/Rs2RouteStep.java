@@ -47,7 +47,6 @@ public final class Rs2RouteStep
 
 	public WorldPoint getFrom() { return from; }
 	public WorldPoint getTo() { return to; }
-	public Kind getKind() { return kind; }
 	public Optional<Rs2TransportEdge> getTransport() { return Optional.ofNullable(transport); }
 	public boolean isTransport() { return kind == Kind.TRANSPORT; }
 }

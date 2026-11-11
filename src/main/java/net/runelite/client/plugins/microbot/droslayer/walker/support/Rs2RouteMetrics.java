@@ -53,53 +53,9 @@ public final class Rs2RouteMetrics
 		}
 	}
 
-	public long getSearchNanos()
-	{
-		return searchNanos;
-	}
-
-	public boolean hasSearchNanos()
-	{
-		return searchNanos != UNAVAILABLE;
-	}
-
-	public long getPathCost()
-	{
-		return pathCost;
-	}
-
-	public boolean hasPathCost()
-	{
-		return pathCost != UNAVAILABLE;
-	}
-
 	public long getNodesChecked()
 	{
 		return nodesChecked;
 	}
 
-	public boolean hasNodesChecked()
-	{
-		return nodesChecked != UNAVAILABLE;
-	}
-
-	public long getTransportsChecked()
-	{
-		return transportsChecked;
-	}
-
-	public boolean hasTransportsChecked()
-	{
-		return transportsChecked != UNAVAILABLE;
-	}
-
-	public long getLiveCollisionEdgesChecked()
-	{
-		return liveCollisionEdgesChecked;
-	}
-
-	public boolean hasLiveCollisionEdgesChecked()
-	{
-		return liveCollisionEdgesChecked != UNAVAILABLE;
-	}
 }

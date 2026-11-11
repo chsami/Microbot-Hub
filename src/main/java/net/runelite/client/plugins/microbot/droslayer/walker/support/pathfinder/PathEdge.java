@@ -46,43 +46,6 @@ public final class PathEdge
 	}
 
 	/**
-	 * Build the temporary local compatibility view for a completed engine-neutral route.
-	 * The transport list is aligned with path edges and may contain {@code null} walking entries.
-	 */
-	static List<PathEdge> fromMaterializedRoute(
-		List<WorldPoint> path, List<Transport> transportsByStep)
-	{
-		if (path == null || transportsByStep == null)
-		{
-			throw new IllegalArgumentException("materialized path and transports are required");
-		}
-		int expected = Math.max(0, path.size() - 1);
-		if (transportsByStep.size() != expected)
-		{
-			throw new IllegalArgumentException(
-				"materialized transport count must match path edge count");
-		}
-		List<PathEdge> edges = new ArrayList<>(expected);
-		for (int i = 0; i < expected; i++)
-		{
-			WorldPoint from = path.get(i);
-			WorldPoint to = path.get(i + 1);
-			if (from == null || to == null)
-			{
-				throw new IllegalArgumentException("materialized path points must be non-null");
-			}
-			Transport transport = transportsByStep.get(i);
-			if (transport != null && !to.equals(transport.getDestination()))
-			{
-				throw new IllegalArgumentException(
-					"materialized transport destination must match its route step");
-			}
-			edges.add(new PathEdge(from, to, transport));
-		}
-		return Collections.unmodifiableList(edges);
-	}
-
-	/**
 	 * Combine a normal start-to-meeting chain with the reverse-search meeting-to-goal chain.
 	 * Reverse transport metadata belongs to the {@code from} node, unlike a forward chain where it
 	 * belongs to the {@code to} node.

@@ -3750,20 +3750,6 @@ public final class WalkerEngine {
          return null;
       }
 
-      /** Public decoder alias; the door-routing algorithm does not use it. */
-      public static String iiougquvbn(byte[] bytes, int seed) {
-         return decodeLegacyOuter(bytes, seed);
-      }
-
-      private static String decodeLegacyOuter(byte[] bytes, int seed) {
-         byte[] decimalSeed = Integer.toString(seed).getBytes();
-         for (int index = 0; index < bytes.length; index++) {
-            bytes[index] = (byte)(bytes[index] ^ decimalSeed[index % decimalSeed.length]);
-            bytes[index] = (byte)(bytes[index] ^ LEGACY_OUTER_KEY[index % LEGACY_OUTER_KEY.length]);
-         }
-         return new String(bytes, StandardCharsets.UTF_16);
-      }
-
    }
 
    private static final class DoorInteraction {

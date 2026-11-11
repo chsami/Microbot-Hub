@@ -69,23 +69,6 @@ public final class Rs2MapOfAlacrityTransport
 			&& !lockedRegions.contains(normalize(destination.region));
 	}
 
-	public static boolean isStagedRoute(Transport transport)
-	{
-		return matches(transport) && !transport.isConsumable() && transport.getCurrencyAmount() == 0
-			&& transport.getItemIdRequirements().equals(Set.of(Set.of(ITEM_ID)));
-	}
-
-	static void markUnavailable(Transport transport, boolean regionLocked)
-	{
-		Destination destination = parseDestination(transport.getDisplayInfo());
-		boolean changed = unavailableDestinations.add(WorldPointUtil.packWorldPoint(transport.getDestination()));
-		if (regionLocked && destination != null)
-		{
-			changed |= lockedRegions.add(normalize(destination.region));
-		}
-		if (changed) Rs2LeaguesTransport.invalidateContext();
-	}
-
 	public static boolean tryUse(Transport transport)
 	{
 		if (!isAvailable(transport))

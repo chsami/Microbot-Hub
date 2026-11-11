@@ -5,9 +5,6 @@ import java.util.function.BooleanSupplier;
 /** Normal travel has two observed pass attempts, with no cape actions or silent retry loop. */
 final class TzhaarDoorAttempts {
     private TzhaarDoorAttempts() { }
-    static boolean pass(BooleanSupplier allowed,BooleanSupplier landed,BooleanSupplier click,BooleanSupplier awaitLanding){
-        return pass(allowed,landed,click,awaitLanding,()->false,()->true);
-    }
     static boolean pass(BooleanSupplier allowed,BooleanSupplier landed,BooleanSupplier click,BooleanSupplier awaitLanding,
                         BooleanSupplier busy,BooleanSupplier awaitIdle){
         for(int attempt=0;attempt<2;attempt++){

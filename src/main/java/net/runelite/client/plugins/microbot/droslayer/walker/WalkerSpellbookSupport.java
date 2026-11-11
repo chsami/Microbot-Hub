@@ -67,15 +67,7 @@ final class WalkerSpellbookSupport
         return next.state;
     }
 
-    boolean matches(Rs2Spellbook target) { Session current = session; return current != null && current.target == target; }
     boolean active() { Session current = session; return current != null && current.state == EfficientWalker.SpellbookStatus.PREPARING; }
-    EfficientWalker.SpellbookStatus state()
-    {
-        Session current = session;
-        return current == null ? EfficientWalker.SpellbookStatus.IDLE : current.state;
-    }
-    String status() { Session current = session; return current == null ? "" : current.message; }
-
     /** Called by the existing client tick; game reads/input and waits execute on their proper threads. */
     synchronized void tick()
     {
@@ -221,14 +213,6 @@ final class WalkerSpellbookSupport
             hostInputAt = 0;
             altarRequestedAt = 0;
             houseExit.reset();
-        }
-        public boolean returnToExchange()
-        {
-            if (!leaveHostedHouse()) return false;
-            WorldPoint exchange = new WorldPoint(3165, 3487, 0);
-            if (arrived(exchange)) { cancelTravel(); return true; }
-            walk(exchange);
-            return false;
         }
         public boolean ownHouseEnabled() { return config.autoSpellbook(); }
         private boolean usedHostedHouse;

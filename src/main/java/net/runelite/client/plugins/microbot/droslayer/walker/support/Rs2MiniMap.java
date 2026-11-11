@@ -23,19 +23,6 @@ import java.util.List;
 public class Rs2MiniMap {
 
     /**
-     * Converts a {@link LocalPoint} to a minimap coordinate {@link Point}.
-     *
-     * @param localPoint The local point to convert.
-     * @return The corresponding minimap point, or {@code null} if conversion fails.
-     */
-    @Nullable
-    public static Point localToMinimap(LocalPoint localPoint) {
-        if (localPoint == null) return null;
-        return Microbot.getClientThread().runOnClientThreadOptional(() -> Perspective.localToMinimap(Microbot.getClient(), localPoint))
-                .orElse(null);
-    }
-
-    /**
      * Converts a {@link WorldPoint} to a minimap coordinate {@link Point}.
      *
      * @param worldPoint The world point to convert.

@@ -22,14 +22,4 @@ public final class GreatConchTransports
         return FAIRY_RING.equals(origin) || FAIRY_RING.equals(destination);
     }
 
-    public static boolean isCharterConnection(WorldPoint origin, WorldPoint destination)
-    {
-        return DOCK.equals(origin) || DOCK.equals(destination);
-    }
-
-    public static boolean onArrivalDeck(WorldPoint player)
-    {
-        return player != null && player.getPlane() == 1 && player.distanceTo2D(DOCK) <= 8;
-    }
-
 }

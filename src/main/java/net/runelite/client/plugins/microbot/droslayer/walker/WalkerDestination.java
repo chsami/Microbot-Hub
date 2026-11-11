@@ -18,7 +18,5 @@ public enum WalkerDestination
         this.worldPoint = worldPoint;
     }
 
-    public WorldPoint getWorldPoint() { return worldPoint; }
-
     @Override public String toString() { return label; }
 }

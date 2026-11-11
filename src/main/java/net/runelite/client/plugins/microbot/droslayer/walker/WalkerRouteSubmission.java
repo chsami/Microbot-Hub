@@ -142,11 +142,6 @@ final class WalkerRouteSubmission implements AutoCloseable
 
     synchronized boolean isPending() { return pending != null; }
 
-    synchronized boolean isPending(long ownerToken)
-    {
-        return pending != null && pending.ownerToken == ownerToken;
-    }
-
     synchronized boolean isCurrent(Ticket ticket)
     {
         return !closed && ticket != null && pending == ticket;

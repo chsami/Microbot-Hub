@@ -71,8 +71,6 @@ final class WalkerRequestOwnership
 
     synchronized boolean isCurrent(Request request) { return request != null && current == request; }
 
-    synchronized boolean isCurrent(long id) { return current != null && current.id == id; }
-
     synchronized boolean preparing() { return current != null && current.preparations > 0; }
 
     synchronized long epoch() { return epoch; }
@@ -86,11 +84,6 @@ final class WalkerRequestOwnership
         }
         current = null;
         return ++epoch;
-    }
-
-    synchronized String detachedStatus(long id)
-    {
-        return id == lastCancelled ? "CANCELLED" : "REPLACED";
     }
 
     Request context() { return context.get() == null ? null : context.get().request; }

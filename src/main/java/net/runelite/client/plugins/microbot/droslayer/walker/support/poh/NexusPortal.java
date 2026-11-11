@@ -86,10 +86,6 @@ public enum NexusPortal implements PohTeleport {
         return this == RESPAWN ? respawnDestination() : location;
     }
 
-    public WorldPoint getLocation() {
-        return getDestination();
-    }
-
     private static WorldPoint respawnDestination() {
         int[] flags = respawnSelectionVarbits();
         WorldPoint[] landings = {new WorldPoint(3095, 3469, 0), new WorldPoint(2964, 3378, 0),
@@ -146,14 +142,6 @@ public enum NexusPortal implements PohTeleport {
             // Amulet-topped Nexus variants
             ObjectID.POH_NEXUS_4_AMULET, ObjectID.POH_NEXUS_5_AMULET
     };
-
-    public static boolean isNexusPortal(GameObject go) {
-        if (go == null) return false;
-        for (int id : PORTAL_IDS) {
-            if (id == go.getId()) return true;
-        }
-        return false;
-    }
 
     public static List<NexusPortal> getAvailableTeleports() {
         List<NexusPortal> teleports = new ArrayList<>();
@@ -241,11 +229,4 @@ public enum NexusPortal implements PohTeleport {
         return getText();
     }
 
-    static NexusPortal fromVarbitValue(int value) {
-        if (value <= 0) return null;
-        for (NexusPortal destination : values()) {
-            if (destination.varbitValue() == value) return destination;
-        }
-        return null;
-    }
 }

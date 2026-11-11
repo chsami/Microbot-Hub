@@ -369,35 +369,6 @@ final class CatalogTeleportSupport
         return best;
     }
 
-    boolean hasUsableCarriedItemTeleport()
-    {
-        try (TravelEquipment.Scope ignored = TravelEquipment.planningScope()) {
-            return hasUsableCarriedItemTeleportSnapshot();
-        }
-    }
-
-    private boolean hasUsableCarriedItemTeleportSnapshot()
-    {
-        if (!installed || entries.isEmpty() || Rs2Player.isTeleBlocked())
-        {
-            return false;
-        }
-
-        for (CatalogEntry entry : entries)
-        {
-            if (entry.eligible && allowed(entry.transport) && hasCarriedItem(entry.itemIds))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    int providerCount()
-    {
-        return entries.size();
-    }
-
     static Spell ancientSpell(String name)
     {
         switch (name.toLowerCase(Locale.ROOT))

@@ -417,17 +417,6 @@ final class TransportCatalog {
    }
 
 
-   /** Public decoder entry point. */
-   public static String mdepybnleg(byte[] descriptor, int seed) {
-      return decodeLegacyOuter(descriptor, seed);
-   }
-
-   /** The descriptor contains a big-endian character count followed by a table offset. */
-   private static String decodeLegacyOuter(byte[] descriptor, int seed) {
-      byte[] seedDigits = Integer.toString(seed).getBytes();
-      return decodeLegacySlice(descriptor, seedDigits);
-   }
-
    private static String decodeLegacySlice(byte[] descriptor, byte[] seedDigits) {
       int length = readDescriptorInt(descriptor, 0);
       int offset = readDescriptorInt(descriptor, 4);

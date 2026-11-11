@@ -16,33 +16,4 @@ public enum PlannerSelectionMode
 	/** Select a semantically matching upstream result for F2P routes, with an automatic local fallback. */
 	UPSTREAM_F2P_CANARY;
 
-	public boolean comparisonEnabled()
-	{
-		return this != LOCAL;
-	}
-
-	public boolean f2pCanaryEnabled()
-	{
-		return this == UPSTREAM_F2P_CANARY;
-	}
-
-	public static PlannerSelectionMode fromConfigValue(Object value, PlannerSelectionMode defaultValue)
-	{
-		if (value instanceof PlannerSelectionMode)
-		{
-			return (PlannerSelectionMode) value;
-		}
-		if (value instanceof String)
-		{
-			try
-			{
-				return PlannerSelectionMode.valueOf(((String) value).trim().toUpperCase());
-			}
-			catch (IllegalArgumentException ignored)
-			{
-				// Invalid test/plugin-message overrides fail closed to the persisted/default mode.
-			}
-		}
-		return defaultValue;
-	}
 }

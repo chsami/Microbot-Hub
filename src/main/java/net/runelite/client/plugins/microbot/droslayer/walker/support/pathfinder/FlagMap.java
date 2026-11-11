@@ -30,20 +30,12 @@ public class FlagMap {
         this.planeCount = (byte) ((flags.size() + scale - 1) / scale);
     }
 
-    public byte[] toBytes() {
-        return flags.toByteArray();
-    }
-
     public boolean get(int x, int y, int z, int flag) {
         if (x < minX || x >= (minX + REGION_SIZE) || y < minY || y >= (minY + REGION_SIZE) || z < 0 || z >= planeCount) {
             return false;
         }
 
         return flags.get(index(x, y, z, flag));
-    }
-
-    public void set(int x, int y, int z, int flag, boolean value) {
-        flags.set(index(x, y, z, flag), value);
     }
 
     private int index(int x, int y, int z, int flag) {

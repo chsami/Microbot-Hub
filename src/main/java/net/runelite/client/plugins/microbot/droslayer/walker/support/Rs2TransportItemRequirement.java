@@ -89,16 +89,6 @@ public final class Rs2TransportItemRequirement
 			|| offhandAlternatives.contains(offhandItemId);
 	}
 
-	public static Optional<ProviderSelection> selectProviders(
-		List<Rs2TransportItemRequirement> requirements,
-		IntUnaryOperator availableQuantity,
-		IntPredicate staffAvailable,
-		IntPredicate offhandAvailable)
-	{
-		return selectProviders(
-			requirements, availableQuantity, staffAvailable, offhandAvailable, false);
-	}
-
 	/**
 	 * Select equipment for provider-bearing clauses while deferring ordinary missing items to the
 	 * withdrawal/purchase planner. This prevents an unbanked purchasable pass from rejecting the
@@ -182,8 +172,6 @@ public final class Rs2TransportItemRequirement
 
 		public int getStaffItemId() { return staffItemId; }
 		public int getOffhandItemId() { return offhandItemId; }
-		public boolean hasStaff() { return staffItemId > 0; }
-		public boolean hasOffhand() { return offhandItemId > 0; }
 	}
 
 	@Override

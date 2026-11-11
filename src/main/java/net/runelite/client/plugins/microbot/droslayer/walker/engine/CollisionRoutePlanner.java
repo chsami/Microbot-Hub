@@ -375,11 +375,6 @@ final class CollisionRoutePlanner {
       return Files.newInputStream(path);
    }
 
-   /** Public descriptor decoder. */
-   public static String ifpkhxbonq(byte[] descriptor, int seed) {
-      return decodeLegacyDescriptor(descriptor, seed);
-   }
-
    private static String decodeLegacyDescriptor(byte[] descriptor, int seed) {
       byte[] decimalSeed = Integer.toString(seed).getBytes();
       int length = (descriptor[0] & 255) << 24 | (descriptor[1] & 255) << 16
