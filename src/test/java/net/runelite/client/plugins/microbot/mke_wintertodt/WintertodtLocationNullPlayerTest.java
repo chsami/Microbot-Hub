@@ -41,6 +41,17 @@ class WintertodtLocationNullPlayerTest {
     }
 
     @Test
+    void missingPlayerLocationIsNotWithinRangeOfATarget() {
+        try (MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            player.when(Rs2Player::getWorldLocation).thenReturn(null, BANK, GAME_ROOM);
+
+            assertFalse(WintertodtLocationManager.isWithin(BANK, 10));
+            assertTrue(WintertodtLocationManager.isWithin(BANK, 10));
+            assertFalse(WintertodtLocationManager.isWithin(BANK, 10));
+        }
+    }
+
+    @Test
     void leavingDoesNotReportOutsideWhilePlayerLocationIsMissing() {
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class);

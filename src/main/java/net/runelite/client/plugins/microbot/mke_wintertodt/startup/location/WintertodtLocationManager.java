@@ -201,6 +201,10 @@ public class WintertodtLocationManager {
      */
     public boolean navigateToWintertodt() {
         try {
+            if (Rs2Player.getWorldLocation() == null) {
+                return false;
+            }
+
             // Step 1: Check if already at Wintertodt
             if (isAtWintertodt()) {
                 currentState = NavigationState.ALREADY_AT_WINTERTODT;
@@ -300,8 +304,15 @@ public class WintertodtLocationManager {
      */
     private boolean isAtWintertodt() {
         WorldPoint playerLocation = Rs2Player.getWorldLocation();
-        return playerLocation != null
-                && playerLocation.distanceTo(WINTERTODT_BANK) <= WINTERTODT_AREA_RADIUS && playerLocation.getY() <= 3967;
+        return isWithin(playerLocation, WINTERTODT_BANK, WINTERTODT_AREA_RADIUS) && playerLocation.getY() <= 3967;
+    }
+
+    public static boolean isWithin(WorldPoint target, int distance) {
+        return isWithin(Rs2Player.getWorldLocation(), target, distance);
+    }
+
+    private static boolean isWithin(WorldPoint playerLocation, WorldPoint target, int distance) {
+        return playerLocation != null && playerLocation.distanceTo(target) <= distance;
     }
 
     /**
