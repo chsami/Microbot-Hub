@@ -28,6 +28,8 @@ import java.util.Map;
         version = DroElfPlugin.VERSION,
         minClientVersion = "2.6.55",
         tags = {"dro", "thieving", "elves", "elf", "prifddinas", "microbot"},
+        iconUrl = "https://chsami.github.io/Microbot-Hub/DroElfPlugin/assets/icon.png",
+        cardUrl = "https://chsami.github.io/Microbot-Hub/DroElfPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
         isExternal = PluginConstants.IS_EXTERNAL
 )
