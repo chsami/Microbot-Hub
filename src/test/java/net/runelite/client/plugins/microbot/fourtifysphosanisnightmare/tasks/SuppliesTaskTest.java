@@ -38,7 +38,7 @@ public class SuppliesTaskTest
         fight.observeBoss(Stage.BLAST);
         for (int index = 1; index <= 4; index++)
         {
-            fight.observeSleepwalker(index, index == 1);
+            fight.observeSleepwalker(index, index == 1, false);
         }
         TestWorld.NpcTarget walker = world.npc(5);
         walker.id = DreamData.SLEEPWALKER;
@@ -64,7 +64,7 @@ public class SuppliesTaskTest
         fight.observeBoss(Stage.BLAST);
         for (int index = 1; index <= 4; index++)
         {
-            fight.observeSleepwalker(index, false);
+            fight.observeSleepwalker(index, false, false);
         }
         TestWorld.NpcTarget walker = world.npc(5);
         walker.id = DreamData.SLEEPWALKER;
@@ -101,7 +101,7 @@ public class SuppliesTaskTest
         world.prayerPoints = config.drink;
         NightmareFight fight = new NightmareFight();
         fight.observeBoss(Stage.BLAST);
-        fight.observeSleepwalker(1, false);
+        fight.observeSleepwalker(1, false, false);
         TestWorld.NpcTarget walker = world.npc(5);
         walker.id = DreamData.SLEEPWALKER;
         NightmareActions actions = new NightmareActions(world.client, new TestWorld.QueuedThread(), null, () -> null);
@@ -139,7 +139,7 @@ public class SuppliesTaskTest
         };
         SuppliesTask task = new SuppliesTask(actions, config, fight, trip, () -> 10);
         assertTrue(task.needsBoost());
-        fight.observeSleepwalker(1, false);
+        fight.observeSleepwalker(1, false, false);
         assertFalse(task.needsBoost(), "a drink would end the attack on a sleepwalker");
     }
 
