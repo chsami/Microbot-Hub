@@ -25,7 +25,7 @@ import java.awt.*;
 )
 @Slf4j
 public class GabulhasKarambwansPlugin extends Plugin {
-    public static final String version = "1.2.2";
+    public static final String version = "1.2.3";
     @Inject
     private GabulhasKarambwansConfig config;
 
