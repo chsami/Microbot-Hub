@@ -62,7 +62,7 @@ import java.util.stream.Collectors;
 )
 @Slf4j
 public class AIOFighterPlugin extends Plugin {
-    public static final String version = "2.2.14";
+    public static final String version = "2.2.15";
     public static boolean needShopping = false;
     private static final String SET = "Set";
     private static final String CENTER_TILE = ColorUtil.wrapWithColorTag("Center Tile", JagexColors.MENU_TARGET);
@@ -376,7 +376,16 @@ public class AIOFighterPlugin extends Plugin {
     }
 
     public static void addNpcToList(String npcName) {
-        setConfig("monster", getNpcAttackList() + npcName + ",");
+        setConfig("monster", appendNpcToList(getNpcAttackList(), npcName));
+    }
+
+    static String appendNpcToList(String stored, String npcName) {
+        List<String> entries = Arrays.stream((stored == null ? "" : stored).split(","))
+                .map(String::trim)
+                .filter(entry -> !entry.isEmpty())
+                .collect(Collectors.toCollection(ArrayList::new));
+        entries.add(npcName);
+        return String.join(",", entries) + ",";
     }
 
     public static void removeNpcFromList(String npcName) {

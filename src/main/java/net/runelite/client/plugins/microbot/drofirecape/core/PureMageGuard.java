@@ -13,7 +13,7 @@ import net.runelite.client.plugins.microbot.drofirecape.core.FcModel.*;
 public final class PureMageGuard {
     private PureMageGuard(){}
     public static boolean allTerrainCovered(Snapshot s) {
-        if(s==null||s.meleeMode()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD))return false;
+        if(s==null||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD))return false;
         long count=s.mobs().stream().filter(m->m.kind()==Kind.MAGER).count();
         // Existing 64-step, single-mage pursuit test excludes temporary NPC
         // body blocks and both current projectile and player firing access.

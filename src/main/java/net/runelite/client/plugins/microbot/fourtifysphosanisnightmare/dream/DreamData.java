@@ -77,6 +77,7 @@ public final class DreamData
     /** In her third phase they stand longer: their first step comes six or seven ticks after they rise. */
     public static final int THIRD_PHASE_WALK_TICKS = 6;
     public static final int THIRD_PHASE_LATE_WALK_TICKS = 7;
+    public static final int[][] SLEEPWALKER_SPAWNS = {{-7, -4}, {-4, -7}, {-7, 8}, {-4, 11}, {8, 11}, {11, 8}, {8, -7}, {11, -4}};
     /** A sleepwalker's animation as she absorbs it. */
     public static final int SLEEPWALKER_ABSORBED = 8571;
     /** Each totem's ready form, the only one that takes magic. */

@@ -48,6 +48,9 @@ public class MahoganyHomesScript extends Script {
     private static final String[] CONTACT_SPELL_NAMES = {"Astral Contact", "NPC Contact", "Npc Contact"};
     private static final String CONTACT_TARGET = "Amy";
     private static final String CONTRACT_OPTION_TEXT = "contract";
+    private static final int MAX_UNREWARDED_TALKS = 2;
+    private int unrewardedTalks;
+    private Home unrewardedTalkHome;
     private long lastNpcContactAttempt;
     private String lastContactProblem;
 
@@ -385,13 +388,21 @@ public class MahoganyHomesScript extends Script {
                 Rs2WorldPoint npcLocation = new Rs2WorldPoint(npc.getWorldLocation());
                 log("Local NPC path distance: " + npcLocation.distanceToPath(playerLocation));
                 if (npcLocation.distanceToPath(playerLocation) < 20) {
+                    Home talkedHome = plugin.getCurrentHome();
                     if (npc.click("Talk-to")) {
                         log("Getting reward from NPC");
-                        sleepUntil(Rs2Dialogue::hasContinue, 10000);
-                        if (Rs2Dialogue.hasDialogueText("Please excuse me, I'm rather busy.")) {
-                            plugin.setCurrentHome(null);
-                        }
+                        boolean answered = sleepUntil(Rs2Dialogue::hasContinue, 10000);
+                        boolean busy = Rs2Dialogue.hasDialogueText("Please excuse me, I'm rather busy.");
                         sleepUntil(() -> !Rs2Dialogue.isInDialogue(), Rs2Dialogue::clickContinue, 6000, 300);
+                        if (answered && !busy) {
+                            sleepUntil(() -> plugin.getCurrentHome() != talkedHome, 2000);
+                        }
+                        if (busy || (answered && shouldDropContract(talkedHome, plugin.getCurrentHome()))) {
+                            Microbot.log("Mahogany Homes: " + talkedHome.getName() + " has no finished contract for us, asking the contract NPC for the current contract.");
+                            unrewardedTalks = 0;
+                            plugin.clearCurrentHome();
+                            sleepUntil(() -> plugin.getCurrentHome() != talkedHome, 2000);
+                        }
                         sleep(600, 1200);
 
                     }
@@ -402,6 +413,20 @@ public class MahoganyHomesScript extends Script {
                 }
             }
         }
+    }
+
+    boolean shouldDropContract(Home talkedHome, Home homeAfterTalk) {
+        if (talkedHome == null || homeAfterTalk != talkedHome) {
+            unrewardedTalks = 0;
+            unrewardedTalkHome = null;
+            return false;
+        }
+        if (unrewardedTalkHome != talkedHome) {
+            unrewardedTalkHome = talkedHome;
+            unrewardedTalks = 0;
+        }
+        unrewardedTalks++;
+        return unrewardedTalks >= MAX_UNREWARDED_TALKS;
     }
 
     // Get new contract

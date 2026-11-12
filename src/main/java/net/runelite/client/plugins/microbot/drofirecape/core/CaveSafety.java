@@ -18,19 +18,19 @@ public final class CaveSafety {
     }
 
     public static boolean mageContact(Snapshot s) {
-        return !s.meleeMode() && s.mobs().stream().anyMatch(m -> m.kind()==Kind.MAGER
+        return s.mobs().stream().anyMatch(m -> m.kind()==Kind.MAGER
             && s.grid().melee(m,s.player()));
     }
     public static boolean clearOfMagers(Snapshot s,List<Mob> mobs,Tile tile) {
-        if(s.meleeMode())return true;
         for(Mob m:mobs)if(m.kind()==Kind.MAGER && m.distance(tile)<2)return false;
         return true;
     }
-    /** Existing contact may be escaped, but a route must not acquire new contact. */
+    /** Existing contact may be escaped, but a route must not acquire new contact. A diagonal
+     * corner is not contact, so starting there never licenses a walk along the Ket-Zek's edge. */
     public static boolean mageStep(Snapshot s,List<Mob> mobs,Tile from,Tile to) {
-        if(s.meleeMode())return true;
         for(Mob m:mobs)if(m.kind()==Kind.MAGER && m.distance(to)<2) {
             if(m.distance(s.player())>=2 || m.distance(to)<m.distance(from))return false;
+            if(s.grid().melee(m,to)&&!s.grid().melee(m,from))return false;
         }
         return true;
     }
@@ -94,7 +94,7 @@ public final class CaveSafety {
      * Re-evaluate every frame: death, contact, reach/trap loss, exposure or an
      * actionable higher-priority target immediately releases this choice. */
     public static Mob retainedSafeShot(Snapshot s,int currentTarget) {
-        if(s.meleeMode()||s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER))return null;
+        if(s.mobs().stream().anyMatch(m->m.kind()==Kind.JAD||m.kind()==Kind.HEALER))return null;
         Protection prayer=CombatPlanner.protectionForNextTick(s,s.player());
         if(CombatPlanner.immediateExposure(s,s.player(),prayer)!=0)return null;
         Mob candidate=s.mobs().stream().filter(m->m.kind()==Kind.MELEER&&m.index()==currentTarget&&CombatPlanner.playerCanAttack(s,s.player(),m)
@@ -125,7 +125,7 @@ public final class CaveSafety {
     /** Predict permanent rock cover while staying put; transient NPC body blocks do not count. */
     public static List<Mob> coveredMages(Snapshot s) {
         List<Mob> covered=new ArrayList<>();
-        if(s.meleeMode()||s.mobs().stream().noneMatch(m->m.kind()!=Kind.MAGER))return covered;
+        if(s.mobs().stream().noneMatch(m->m.kind()!=Kind.MAGER))return covered;
         for(Mob mage:s.mobs())if(mage.kind()==Kind.MAGER&&!active(s,mage)
             &&!CombatPlanner.playerCanAttack(s,s.player(),mage)) {
             Mob settled=mage;
@@ -177,7 +177,7 @@ public final class CaveSafety {
     }
     /** A single verified wall correction for a following melee, selected from recorded anchors. */
     public static Tile nearbyWallTrap(Snapshot s,Tile home) {
-        if(home==null||s.meleeMode()||s.mobs().stream().anyMatch(m->m.kind()==Kind.BAT||m.kind()==Kind.RANGER||m.kind()==Kind.JAD))return null;
+        if(home==null||s.mobs().stream().anyMatch(m->m.kind()==Kind.BAT||m.kind()==Kind.RANGER||m.kind()==Kind.JAD))return null;
         List<Mob> followers=new ArrayList<>();
         for(Mob m:s.mobs())if(m.kind()==Kind.MELEER&&m.distance(s.player())<=2&&!trapped(s,m))followers.add(m);
         if(followers.isEmpty())return null;
@@ -203,7 +203,7 @@ public final class CaveSafety {
     /** Approach a blocked ranged attacker, or a last monster after bounded lure attempts. */
     public static Plan approach(Snapshot s,Mob target,Tile main,String reason) {
         if(target==null)return null;
-        if(target.kind()==Kind.MAGER&&main!=null&&!s.meleeMode()) {
+        if(target.kind()==Kind.MAGER&&main!=null) {
             Tile sole=main.add(-1,-5);
             if(!sole.equals(s.player())&&CombatPlanner.playerCanAttack(s,sole,target)
                 &&clearOfMagers(s,s.mobs(),sole))
@@ -219,7 +219,7 @@ public final class CaveSafety {
                 if(!s.grid().open(tile)||!CombatPlanner.playerCanAttack(s,tile,target))continue;
                 List<Tile> path=paths.to(tile);if(path.isEmpty())continue;
                 // Last-melee cleanup must fire from a wall, not deliberately stand in contact.
-                if(!s.meleeMode()&&s.grid().melee(target,tile))continue;
+                if(s.grid().melee(target,tile))continue;
                 Protection p=CombatPlanner.bestProtection(s.grid(),s.mobs(),tile,s.jadStyle());
                 long cost=CombatPlanner.immediateExposure(s,tile,p)*1000L+path.size()*10L;
                 if(cost<score){score=cost;best=tile;bestPath=path;}

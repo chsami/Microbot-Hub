@@ -27,7 +27,7 @@ public class OptionalPureTargetPriorityTest {
             PureLureController controller=new PureLureController();
             Plan chosen=controller.decide(s,new PureCombatPlanner(),-1,List.of(s.player()),0,
                 s.player(),new Tile(28,37),null,new Tile(19,20));
-            assertEquals(expected,chosen.targetIndex(),"wave "+wave);
+            assertEquals(expected,chosen.targetIndex(), "wave "+wave);
             assertEquals(s.player(),chosen.nextStep());
         }
     }
