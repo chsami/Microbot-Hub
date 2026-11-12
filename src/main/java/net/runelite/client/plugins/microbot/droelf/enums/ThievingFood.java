@@ -51,10 +51,7 @@ public enum ThievingFood {
     PINEAPPLE_CHUNKS("Pineapple Chunks"),
     JUG_OF_WINE("Jug of wine"),
     PURPLE_SWEETS("Purple Sweets"),
-    CABBAGE("Cabbage"),
-
-    // Custom potion
-    ANCIENT_BREW("Ancient brew");
+    CABBAGE("Cabbage");
 
     private final String name;
 

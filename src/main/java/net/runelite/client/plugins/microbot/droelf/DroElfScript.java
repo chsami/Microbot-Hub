@@ -8,11 +8,11 @@ import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.widgets.Widget;
+import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
-import net.runelite.client.plugins.microbot.droelf.enums.ThievingFood;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
@@ -205,24 +205,21 @@ public class DroElfScript extends Script {
 
         if (handleElfAreaInsurance()) return;
 
-        if (config.useFood() && config.food() != ThievingFood.ANCIENT_BREW
-                && Rs2Player.getHealthPercentage() <= config.eatBelow()) {
-            status = "Eating";
-            pauseBeforeAction();
-            Rs2Player.useFood();
-            sleep(250, 500);
-            return;
-        }
-
-        if (config.useFood() && config.food() == ThievingFood.ANCIENT_BREW
-                && !Rs2Player.hasPrayerPoints()) {
-            status = "Drinking ancient brew";
-            for (String dose : ThievingData.ANCIENT_BREW_DOSES) {
-                if (Rs2Inventory.interact(dose, "Drink")) {
-                    sleep(250, 500);
-                    break;
-                }
+        if (Rs2Player.getHealthPercentage() <= config.eatBelow()) {
+            // HP floor: eat when there is food, otherwise stop instead of thieving on.
+            // With "Use food" on and no food left, needsBank() above already sends the
+            // player to the bank, and an empty bank stops the plugin there.
+            if (config.useFood() && !Rs2Inventory.getInventoryFood().isEmpty()) {
+                status = "Eating";
+                pauseBeforeAction();
+                Rs2Player.useFood();
+                sleep(250, 500);
+                return;
             }
+            // Ride out a one-off stale HP read before stopping.
+            if (sleepUntil(() -> Rs2Player.getHealthPercentage() > config.eatBelow(), 1_200)) return;
+            stopWithMessage("HP is at or below " + config.eatBelow() + "% with nothing to heal"
+                    + (config.useFood() ? "." : " (\"Use food\" is off)."));
             return;
         }
 
@@ -844,24 +841,75 @@ public class DroElfScript extends Script {
         sleep(50, 250);
 
         if (config.useFood()) {
-            final String foodName = config.food() == ThievingFood.ANCIENT_BREW
-                    ? "Ancient brew(4)" : config.food().getName();
-            withdrawDeficit(foodName, config.foodAmount());
+            withdrawDeficit(config.food().getName(), config.foodAmount());
             sleep(50, 250);
         }
         withdrawDeficit("Dodgy necklace", config.dodgyAmount());
         sleep(50, 250);
         if (config.shadowVeil()) {
-            if (!Rs2Equipment.isWearing("Lava battlestaff") && !Rs2Inventory.hasItem("Lava battlestaff")) {
+            // Earth and Fire come from a Lava battlestaff or from runes. Only fetch the
+            // staff when neither is there, and fall back to runes if the bank has no staff.
+            if (!hasShadowVeilElementals() && Rs2Bank.hasItem("Lava battlestaff")) {
                 Rs2Bank.withdrawItem("Lava battlestaff");
+                sleepUntil(() -> Rs2Inventory.hasItem("Lava battlestaff"), 1_500);
             }
-            if (Rs2Inventory.itemQuantity("Cosmic rune") < 100) Rs2Bank.withdrawX("Cosmic rune", 100, true);
+            if (!hasShadowVeilElementals()) {
+                withdrawDeficit("Earth rune", SHADOW_VEIL_RUNE_STOCK);
+                withdrawDeficit("Fire rune", SHADOW_VEIL_RUNE_STOCK);
+            }
+            withdrawDeficit("Cosmic rune", SHADOW_VEIL_RUNE_STOCK);
         }
         sleep(50, 250);
+
+        // Anything still missing is not in the bank: stop rather than walk bank <-> elf forever.
+        sleepUntil(() -> missingSupplies().isEmpty(), 1_200);
+        final List<String> missing = missingSupplies();
         pauseBeforeAction();
         Rs2Bank.closeBank();
         sleep(50, 250);
+        if (!missing.isEmpty()) {
+            stopWithMessage("Out of supplies in the bank: " + String.join(", ", missing) + ".");
+            return;
+        }
         followLockedRoute(false);
+    }
+
+    private static final int SHADOW_VEIL_RUNES_PER_CAST = 5;
+    private static final int SHADOW_VEIL_RUNE_STOCK = 100;
+
+    /** Earth and Fire for Shadow Veil: a Lava battlestaff, or enough runes in the inventory. */
+    private boolean hasShadowVeilElementals() {
+        if (Rs2Equipment.isWearing("Lava battlestaff") || Rs2Inventory.hasItem("Lava battlestaff")) return true;
+        return Rs2Inventory.itemQuantity("Earth rune") >= SHADOW_VEIL_RUNES_PER_CAST
+                && Rs2Inventory.itemQuantity("Fire rune") >= SHADOW_VEIL_RUNES_PER_CAST;
+    }
+
+    /** Supplies the current settings need that the inventory/equipment does not have. */
+    private List<String> missingSupplies() {
+        final List<String> missing = new ArrayList<>();
+        if (config.useFood()
+                && !Rs2Inventory.hasUnNotedItem(config.food().getName(), true)
+                && Rs2Inventory.getInventoryFood().isEmpty()) missing.add(config.food().getName());
+        if (config.dodgyAmount() > 0 && !Rs2Equipment.isWearing("dodgy necklace")
+                && !Rs2Inventory.hasUnNotedItem("Dodgy necklace", true)) missing.add("Dodgy necklace");
+        if (config.shadowVeil()) {
+            if (Rs2Inventory.itemQuantity("Cosmic rune") < SHADOW_VEIL_RUNES_PER_CAST) missing.add("Cosmic rune");
+            if (!hasShadowVeilElementals()) missing.add("Lava battlestaff or Earth + Fire runes");
+        }
+        return missing;
+    }
+
+    private void stopWithMessage(String message) {
+        status = "Stopped: " + message;
+        log.warn("[DroElf] Stopping: {}", message);
+        Microbot.showMessage("[Dro] Elf Thieving stopped. " + message);
+        try {
+            final Plugin plugin = Microbot.getPlugin(DroElfPlugin.class.getName());
+            if (plugin != null) Microbot.stopPlugin(plugin);
+        } catch (Exception ex) {
+            log.debug("[DroElf] Plugin stop failed", ex);
+        }
+        shutdown();
     }
 
     private void withdrawDeficit(String name, int wanted) {
@@ -874,15 +922,7 @@ public class DroElfScript extends Script {
     }
 
     private boolean needsBank() {
-        if (config.useFood() && config.food() == ThievingFood.ANCIENT_BREW
-                && ThievingData.ANCIENT_BREW_DOSES.stream().noneMatch(Rs2Inventory::contains)) return true;
-        if (config.useFood() && config.food() != ThievingFood.ANCIENT_BREW
-                && !Rs2Inventory.hasUnNotedItem(config.food().getName(), true)
-                && Rs2Inventory.getInventoryFood().isEmpty()) return true;
-        if (config.dodgyAmount() > 0 && !Rs2Equipment.isWearing("dodgy necklace")
-                && !Rs2Inventory.hasUnNotedItem("Dodgy necklace", true)) return true;
-        return config.shadowVeil() && (Rs2Inventory.itemQuantity("Cosmic rune") < 5
-                || (!Rs2Equipment.isWearing("Lava battlestaff") && !Rs2Inventory.hasItem("Lava battlestaff")));
+        return !missingSupplies().isEmpty();
     }
 
     private void handleFullInventory() {
@@ -902,7 +942,7 @@ public class DroElfScript extends Script {
 
         if (Rs2Inventory.emptySlotCount() >= 2) return;
 
-        if (config.useFood() && config.food() != ThievingFood.ANCIENT_BREW) {
+        if (config.useFood()) {
             final String foodName = config.food().getName();
             final int excess = Rs2Inventory.itemQuantity(foodName, true) - config.foodAmount();
             if (excess > 0) {
@@ -925,6 +965,8 @@ public class DroElfScript extends Script {
                 .filter(item -> item.getName() != null)
                 .filter(item -> !isKeepItemName(item.getName()))
                 .filter(item -> !item.getName().equalsIgnoreCase("Jug"))
+                // Untradeables (Crystal shards, the player's own gear) price at 0: never drop them.
+                .filter(item -> safeInventoryValue(item) > 0)
                 // Rs2ItemModel#getPrice is the total GE value of this inventory slot,
                 // matching Microbot's native value-aware drop behavior.
                 .filter(item -> safeInventoryValue(item) < keepAtOrAbove)
@@ -967,11 +1009,9 @@ public class DroElfScript extends Script {
     private List<String> inventoryKeepItems() {
         final List<String> keep = new ArrayList<>(ThievingData.ROGUE_SET);
         Collections.addAll(keep, "coins", "coin pouch", "book of the dead", "dodgy necklace",
-                "Lava battlestaff", "Earth rune", "Fire rune", "Cosmic rune");
-        if (config.useFood()) {
-            if (config.food() == ThievingFood.ANCIENT_BREW) keep.addAll(ThievingData.ANCIENT_BREW_DOSES);
-            else keep.add(config.food().getName());
-        }
+                "Lava battlestaff", "Earth rune", "Fire rune", "Cosmic rune",
+                "Crystal shard", "Enhanced crystal teleport seed");
+        if (config.useFood()) keep.add(config.food().getName());
         if (config.keepItems() != null && !config.keepItems().isBlank()) {
             Arrays.stream(config.keepItems().split(","))
                     .map(String::strip).filter(item -> !item.isBlank()).forEach(keep::add);

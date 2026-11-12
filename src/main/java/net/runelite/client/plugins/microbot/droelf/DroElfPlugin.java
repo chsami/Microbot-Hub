@@ -35,7 +35,7 @@ import java.util.Map;
 )
 @Slf4j
 public class DroElfPlugin extends Plugin {
-    static final String VERSION = "1.0.3";
+    static final String VERSION = "1.0.4";
 
     @Inject
     private Client client;

@@ -18,7 +18,7 @@ public interface DroElfConfig extends Config {
     @ConfigItem(keyName = "foodAmount", name = "Food amount", description = "Number withdrawn each trip.", position = 2, section = consumables)
     default int foodAmount() { return 5; }
 
-    @ConfigItem(keyName = "eatBelow", name = "Eat below HP %", description = "Eat below this health percentage.", position = 3, section = consumables)
+    @ConfigItem(keyName = "eatBelow", name = "Eat below HP %", description = "Eat below this health percentage. With no food to eat at or below it, the plugin stops.", position = 3, section = consumables)
     default int eatBelow() { return 30; }
 
     @ConfigItem(keyName = "dodgyAmount", name = "Dodgy necklaces", description = "Number withdrawn each trip.", position = 4, section = consumables)
@@ -82,12 +82,12 @@ public interface DroElfConfig extends Config {
     @ConfigItem(keyName = "logoutBreakChance", name = "Logout break chance", description = "Chance that a long break logs out instead of remaining AFK.", position = 3, section = breaks)
     default int logoutBreakChance() { return 40; }
 
-    @Range(min = 1, max = 60)
-    @ConfigItem(keyName = "afkBreakMinDuration", name = "AFK break min", description = "Minimum AFK break duration in minutes.", position = 4, section = breaks)
+    @Range(min = 1, max = 20)
+    @ConfigItem(keyName = "afkBreakMinDuration", name = "AFK break min", description = "Minimum AFK break duration in minutes. Keep below your idle logout time.", position = 4, section = breaks)
     default int afkBreakMinDuration() { return 2; }
 
-    @Range(min = 1, max = 120)
-    @ConfigItem(keyName = "afkBreakMaxDuration", name = "AFK break max", description = "Maximum AFK break duration in minutes.", position = 5, section = breaks)
+    @Range(min = 1, max = 20)
+    @ConfigItem(keyName = "afkBreakMaxDuration", name = "AFK break max", description = "Maximum AFK break duration in minutes. Keep below your idle logout time.", position = 5, section = breaks)
     default int afkBreakMaxDuration() { return 6; }
 
     @Range(min = 1, max = 180)

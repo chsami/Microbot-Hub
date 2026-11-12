@@ -3,8 +3,6 @@ package net.runelite.client.plugins.microbot.droelf;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -80,11 +78,4 @@ public final class ThievingData {
             "Goreu");
 
     public static final Set<String> VYRES = VYRE_HOUSES.keySet();
-
-    public static final List<String> ANCIENT_BREW_DOSES = Arrays.asList(
-        "Ancient brew(1)",
-        "Ancient brew(2)",
-        "Ancient brew(3)",
-        "Ancient brew(4)"
-    );
 }
