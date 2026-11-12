@@ -370,8 +370,7 @@ public class CgPrepPlugin extends Plugin
 	@Subscribe
 	public void onChatMessage(net.runelite.api.events.ChatMessage e)
 	{
-		if ((e.getType() == net.runelite.api.ChatMessageType.GAMEMESSAGE || e.getType() == net.runelite.api.ChatMessageType.MESBOX)
-			&& LobbyDeposit.isEntryRefusal(e.getMessage()))
+		if (LobbyDeposit.isGameText(e.getType()) && LobbyDeposit.isEntryRefusal(e.getMessage()))
 		{
 			script.entryRefusedAtMs = System.currentTimeMillis();
 		}

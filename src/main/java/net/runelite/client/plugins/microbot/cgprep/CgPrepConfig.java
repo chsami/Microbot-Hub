@@ -197,7 +197,7 @@ public interface CgPrepConfig extends Config
 	// ------------------------------------------------------------------ handover
 
 	@ConfigItem(keyName = "autoLoop", name = "Loot chest + go again",
-		description = "After each run, loot the chest and enter the next run. In Boss Only mode the prep timer then starts right away: you have to prep it yourself.",
+		description = "After each run, loot the chest, put everything you carry and wear into the lobby deposit box (the Gauntlet lets no items in) and enter the next run. In Boss Only mode the prep timer then starts right away: you have to prep it yourself.",
 		position = 4, section = runSection)
 	default boolean autoLoop()
 	{
@@ -372,7 +372,7 @@ public interface CgPrepConfig extends Config
 	}
 
 	@ConfigItem(keyName = "autoLobby", name = "Auto lobby (deposit + enter)",
-		description = "Enter the Gauntlet whenever the bot is started outside it, from the lobby (banks first only when the bag is nearly full). 'Loot chest + go again' already covers starting in the lobby",
+		description = "Enter the Gauntlet whenever the bot is started outside it, from the lobby (everything you carry and wear is put in the deposit box first). 'Loot chest + go again' already covers starting in the lobby",
 		position = 100, hidden = true)
 	default boolean autoLobby()
 	{
