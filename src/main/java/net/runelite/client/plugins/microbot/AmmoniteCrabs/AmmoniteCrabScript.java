@@ -1,9 +1,11 @@
 package net.runelite.client.plugins.microbot.AmmoniteCrabs;
 
+import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.VarClientID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.AmmoniteCrabs.enums.AmmoniteCrabState;
@@ -34,15 +36,13 @@ public class AmmoniteCrabScript extends Script {
     public int hijackTimer = 0;
     public AmmoniteCrabState ammoniteCrabState = AmmoniteCrabState.SCANNING_WORLD;
     public int timesHopped = 0;
-    static final int AFK_LOOPS_BEFORE_RESET = 3;
+    static final int AFK_LOOPS_BEFORE_RESET = 5;
     static final int MIN_IDLE_MARGIN_TICKS = 7500;
     static final int MAX_IDLE_MARGIN_TICKS = 10000;
     private long idleMargin = MIN_IDLE_MARGIN_TICKS;
-    private boolean aggroLossLogged = false;
 
     public boolean run(AmmoniteCrabConfig config) {
         initialPlayerLocation = null;
-        aggroLossLogged = false;
         idleMargin = Rs2Random.between(MIN_IDLE_MARGIN_TICKS, MAX_IDLE_MARGIN_TICKS);
         ammoniteCrabState = AmmoniteCrabState.SCANNING_WORLD;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -70,10 +70,6 @@ public class AmmoniteCrabScript extends Script {
                         }
 
                         if (!isNpcAggressive() || afkCountdownDone(afkTimer)) {
-                            if (!aggroLossLogged) {
-                                aggroLossLogged = true;
-                                Microbot.log("Ammonite crabs lost aggro: Fossil Rock next to the player, resetting once out of combat");
-                            }
                             ammoniteCrabState = AmmoniteCrabState.AFK;
                         }
                         if (config.lootSeaweedSpores()) {
@@ -101,12 +97,12 @@ public class AmmoniteCrabScript extends Script {
                         }
                         if (afkCountdownDone(afkTimer)) {
                             if (otherPlayerDetected(config.crabLocation().getFightLocation())) {
-                                Microbot.log("Other player on the fight tile after aggro loss, hopping worlds");
+                                Microbot.log("Another player is on your crab spot - hopping worlds instead of resetting aggro");
                                 Rs2Walker.walkTo(config.crabLocation().getWorldhopLocation());
                                 ammoniteCrabState = AmmoniteCrabState.HOP_WORLD;
                             } else {
                                 // If no other players detected, reset aggro
-                                Microbot.log("Starting aggro reset walk to " + config.crabLocation().getResetLocation());
+                                Microbot.log("Crabs stopped attacking - walking away to reset aggro, then returning to the fight spot");
                                 ammoniteCrabState = AmmoniteCrabState.RESET_AGGRO;
                             }
                         }
@@ -237,7 +233,6 @@ public class AmmoniteCrabScript extends Script {
         if (isWithin(Rs2Player.getWorldLocation(), config.crabLocation().getFightLocation(), 3)) {
             attackScatteredCrabs(config);
             resetAfkTimer();
-            aggroLossLogged = false;
             ammoniteCrabState = AmmoniteCrabState.FIGHT;
         }
     }
@@ -308,11 +303,23 @@ public class AmmoniteCrabScript extends Script {
     }
 
     static boolean preventIdleLogout(long idleMargin) {
-        if (!Rs2Player.checkIdleLogout(idleMargin)) {
+        boolean pressKey = Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Client client = Microbot.getClient();
+            return idleLogoutNearWithoutTypedText(idleMargin,
+                    client.getVarcStrValue(VarClientID.CHATINPUT),
+                    client.getVarcStrValue(VarClientID.MESLAYERINPUT));
+        }).orElse(false);
+        if (!pressKey) {
             return false;
         }
         Rs2Keyboard.keyPress(KeyEvent.VK_BACK_SPACE);
         return true;
+    }
+
+    static boolean idleLogoutNearWithoutTypedText(long idleMargin, String chatInput, String dialogInput) {
+        return Rs2Player.checkIdleLogout(idleMargin)
+                && (chatInput == null || chatInput.isEmpty())
+                && (dialogInput == null || dialogInput.isEmpty());
     }
 
     static boolean isWithin(WorldPoint location, WorldPoint target, int distance) {
