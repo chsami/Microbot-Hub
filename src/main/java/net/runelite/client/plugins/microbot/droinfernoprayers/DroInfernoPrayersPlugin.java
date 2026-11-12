@@ -49,7 +49,7 @@ import net.runelite.client.plugins.microbot.droinfernoprayers.local.InfernoDecis
     isExternal = PluginConstants.IS_EXTERNAL)
 public class DroInfernoPrayersPlugin extends Plugin implements ArenaActivity
 {
-    static final String version = "1.0.11";
+    static final String version = "1.0.12";
 	private static final Logger log = LoggerFactory.getLogger(DroInfernoPrayersPlugin.class);
 
 	@Inject
