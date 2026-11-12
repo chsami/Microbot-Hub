@@ -83,7 +83,7 @@ public class AutoRunecraftScript extends Script
                 {
                     case BANKING:
                         initialise = false;
-                        BankLocation bank = altar.getBank();
+                        BankLocation bank = altar.getPreferredBank();
                         boolean isBankOpen = bank == null ? Rs2Bank.walkToBankAndUseBank() : Rs2Bank.walkToBankAndUseBank(bank);
                         Microbot.status = "Walking to bank";
                         if (!isBankOpen || !Rs2Bank.isOpen()) return;

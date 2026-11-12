@@ -1,6 +1,8 @@
 package net.runelite.client.plugins.microbot.chillRunecraft;
 
 import net.runelite.api.Client;
+import net.runelite.api.Quest;
+import net.runelite.api.QuestState;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.util.Global;
@@ -27,6 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
@@ -96,11 +99,59 @@ class AutoRunecraftScriptBankTest {
         assertEquals(BankLocation.AL_KHARID, Altars.FIRE_ALTAR.getBank());
         assertEquals(BankLocation.EDGEVILLE, Altars.BODY_ALTAR.getBank());
         assertNull(Altars.NATURE_ALTAR.getBank());
+        assertEquals(BankLocation.DUEL_ARENA, Altars.FIRE_ALTAR.getMembersBank());
+        assertEquals(BankLocation.SHILO_VILLAGE, Altars.NATURE_ALTAR.getMembersBank());
         for (Altars altar : Altars.values()) {
             if (altar.getBank() != null) {
                 assertFalse(altar.getBank().isMembers(), altar.name());
             }
+            if (altar.getMembersBank() != null) {
+                assertTrue(altar.getMembersBank().isMembers(), altar.name());
+            }
         }
+    }
+
+    @Test
+    void fireAltarBanksAtAlKharidForFreeToPlay() throws Exception {
+        Runnable tick = startLoop(Altars.FIRE_ALTAR);
+
+        tick.run();
+        tick.run();
+
+        bank.verify(() -> Rs2Bank.walkToBankAndUseBank(BankLocation.AL_KHARID), times(1));
+        bank.verify(() -> Rs2Bank.walkToBankAndUseBank(BankLocation.DUEL_ARENA), never());
+        bank.verify(() -> Rs2Bank.walkToBankAndUseBank(), never());
+        microbot.verify(() -> Microbot.logStackTrace(any(), any()), never());
+    }
+
+    @Test
+    void fireAltarBanksAtTheEmirsArenaForMembers() throws Exception {
+        player.when(Rs2Player::isMember).thenReturn(true);
+        player.when(Rs2Player::isInMemberWorld).thenReturn(true);
+        Runnable tick = startLoop(Altars.FIRE_ALTAR);
+
+        tick.run();
+        tick.run();
+
+        bank.verify(() -> Rs2Bank.walkToBankAndUseBank(BankLocation.DUEL_ARENA), times(1));
+        bank.verify(() -> Rs2Bank.walkToBankAndUseBank(BankLocation.AL_KHARID), never());
+        bank.verify(() -> Rs2Bank.walkToBankAndUseBank(), never());
+        microbot.verify(() -> Microbot.logStackTrace(any(), any()), never());
+    }
+
+    @Test
+    void natureAltarBanksAtShiloVillageOnceTheQuestIsDone() throws Exception {
+        player.when(Rs2Player::isMember).thenReturn(true);
+        player.when(Rs2Player::isInMemberWorld).thenReturn(true);
+        player.when(() -> Rs2Player.getQuestState(Quest.SHILO_VILLAGE)).thenReturn(QuestState.FINISHED);
+        Runnable tick = startLoop(Altars.NATURE_ALTAR);
+
+        tick.run();
+        tick.run();
+
+        bank.verify(() -> Rs2Bank.walkToBankAndUseBank(BankLocation.SHILO_VILLAGE), times(1));
+        bank.verify(() -> Rs2Bank.walkToBankAndUseBank(), never());
+        microbot.verify(() -> Microbot.logStackTrace(any(), any()), never());
     }
 
     @Test
@@ -117,7 +168,10 @@ class AutoRunecraftScriptBankTest {
     }
 
     @Test
-    void altarWithoutAFixedBankKeepsUsingTheNearestBank() throws Exception {
+    void natureAltarKeepsUsingTheNearestBankWithoutTheShiloVillageQuest() throws Exception {
+        player.when(Rs2Player::isMember).thenReturn(true);
+        player.when(Rs2Player::isInMemberWorld).thenReturn(true);
+        player.when(() -> Rs2Player.getQuestState(Quest.SHILO_VILLAGE)).thenReturn(QuestState.IN_PROGRESS);
         Runnable tick = startLoop(Altars.NATURE_ALTAR);
 
         tick.run();

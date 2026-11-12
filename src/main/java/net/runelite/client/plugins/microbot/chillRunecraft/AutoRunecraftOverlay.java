@@ -29,7 +29,7 @@ public class AutoRunecraftOverlay extends OverlayPanel
         {
             panelComponent.setPreferredSize(new Dimension(200, 300));
             panelComponent.getChildren().add(TitleComponent.builder()
-                    .text("ChillX Auto RC v1.0.3")
+                    .text("ChillX Auto RC v" + AutoRunecraftPlugin.version)
                     .color(Color.GREEN)
                     .build());
 
