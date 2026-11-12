@@ -59,7 +59,8 @@ public class CgPrepOverlay extends OverlayPanel
 		String state = s.getCurrentState() == null ? "-" : s.getCurrentState().name()
 			+ (s.paused && !"PAUSED".equals(s.getCurrentState().name()) ? " (PAUSED)" : "");
 		long reenter = s.reenterAtMs;
-		String blocked = s.enterBlocked != null ? s.enterBlocked : s.chestBlocked ? "the Reward Chest won't open (see chat)" : null;
+		String blocked = s.enterBlocked != null ? s.enterBlocked : s.chestBlocked ? "the Reward Chest won't open (see chat)"
+			: s.depositBlocked ? "can't bank your items (see chat)" : null;
 		if (s.getCurrentState() == CgState.LOBBY_SETUP && blocked != null)
 		{
 			state += " (stopped: " + blocked + ")";
