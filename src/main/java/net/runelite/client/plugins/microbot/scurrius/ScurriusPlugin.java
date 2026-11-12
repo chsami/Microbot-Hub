@@ -3,16 +3,21 @@ package net.runelite.client.plugins.microbot.scurrius;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
 import net.runelite.api.GraphicsObject;
 import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.AnimationChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GraphicsObjectCreated;
+import net.runelite.api.events.HitsplatApplied;
+import net.runelite.api.events.ProjectileMoved;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.scurrius.enums.State;
-import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.ui.overlay.OverlayManager;
 
@@ -21,10 +26,10 @@ import java.awt.*;
 
 @PluginDescriptor(
         name = PluginDescriptor.Default + "Scurrius",
-        description = "Scurrius example plugin",
+        description = "Scurrius boss bot with prayer flicking and falling-rock dodging",
         tags = {"microbot", "scurrius", "boss"},
         version = ScurriusPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.37",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
@@ -32,7 +37,7 @@ import java.awt.*;
 )
 @Slf4j
 public class ScurriusPlugin extends Plugin {
-    public static final String version = "1.0.4";
+    public static final String version = "1.1.7";
     @Inject
     private ScurriusConfig config;
     @Provides
@@ -48,6 +53,11 @@ public class ScurriusPlugin extends Plugin {
     @Inject
     ScurriusScript scurriusScript;
 
+    @Inject
+    private Client client;
+
+    private volatile ScurriusTickDriver tickDriver;
+
 
     @Override
     protected void startUp() throws AWTException {
@@ -55,10 +65,23 @@ public class ScurriusPlugin extends Plugin {
             overlayManager.add(exampleOverlay);
         }
         ScurriusScript.state = State.BANKING;
+        ScurriusScript.XP.reset(System.currentTimeMillis());
+        tickDriver = new ScurriusTickDriver();
+        tickDriver.setMode(config.prayerMode());
+        tickDriver.setLazySettings(config.lazyFlickHoldMin(), config.lazyFlickHoldMax(), config.lazyFlickVariation());
+        tickDriver.setMousePrayers(config.antibanMousePrayers());
+        tickDriver.setMixedWeights(config.mixedAlwaysOnWeight(), config.mixedLazyWeight());
+        tickDriver.rollKillMode();
+        scurriusScript.setTickDriver(tickDriver);
         scurriusScript.run(config);
     }
 
     protected void shutDown() {
+        scurriusScript.setTickDriver(null);
+        if (tickDriver != null) {
+            tickDriver.shutdown();
+            tickDriver = null;
+        }
         scurriusScript.shutdown();
         overlayManager.remove(exampleOverlay);
     }
@@ -73,15 +96,43 @@ public class ScurriusPlugin extends Plugin {
         }
     }
 
-	@Subscribe
-	public void onGraphicsObjectCreated(GraphicsObjectCreated event)
-	{
-		final GraphicsObject graphicsObject = event.getGraphicsObject();
-		int SCURRIUS_FALLING_ROCKS = 2644;
-		if (graphicsObject.getId() == SCURRIUS_FALLING_ROCKS) {
-			Rs2Tile.init();
-			int ticks = 8;
-			Rs2Tile.addDangerousGraphicsObjectTile(graphicsObject, 600 * ticks);
-		}
-	}
+    @Subscribe
+    public void onGraphicsObjectCreated(GraphicsObjectCreated event) {
+        if (tickDriver != null && event.getGraphicsObject().getId() == ScurriusTickDriver.ROCKS_GRAPHICS_ID) {
+            tickDriver.onRocksCreated(client, event.getGraphicsObject());
+        }
+    }
+
+    @Subscribe
+    public void onGameTick(GameTick event) {
+        ScurriusScript.XP.startIfNeeded(client.getGameState() == GameState.LOGGED_IN, client::getSkillExperience);
+        if (tickDriver != null) {
+            tickDriver.setMode(config.prayerMode());
+            tickDriver.setLazySettings(config.lazyFlickHoldMin(), config.lazyFlickHoldMax(), config.lazyFlickVariation());
+            tickDriver.setMousePrayers(config.antibanMousePrayers());
+            tickDriver.setMixedWeights(config.mixedAlwaysOnWeight(), config.mixedLazyWeight());
+            tickDriver.onGameTick(client);
+        }
+    }
+
+    @Subscribe
+    public void onAnimationChanged(AnimationChanged event) {
+        if (tickDriver != null) {
+            tickDriver.onAnimationChanged(client, event);
+        }
+    }
+
+    @Subscribe
+    public void onProjectileMoved(ProjectileMoved event) {
+        if (tickDriver != null) {
+            tickDriver.onProjectileMoved(client, event);
+        }
+    }
+
+    @Subscribe
+    public void onHitsplatApplied(HitsplatApplied event) {
+        if (tickDriver != null) {
+            tickDriver.onHitsplat(client, event);
+        }
+    }
 }
