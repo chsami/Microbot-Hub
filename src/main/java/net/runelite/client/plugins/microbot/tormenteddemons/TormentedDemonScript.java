@@ -38,6 +38,7 @@ public class TormentedDemonScript extends Script {
     private boolean lootAttempted = false;
     private String lastChatMessage = "";
     private boolean isRestocking = false;
+    final TormentedDemonBombDodge bombDodge = new TormentedDemonBombDodge();
 
     private static final WorldPoint SAFE_LOCATION = new WorldPoint(3150, 3634, 0);
 
@@ -202,6 +203,10 @@ public class TormentedDemonScript extends Script {
     }
 
     private void handleFighting(TormentedDemonConfig config) {
+        if (bombDodge.isExposed()) {
+            return;
+        }
+
         if (currentTarget == null || currentTarget.isDead()) {
             disableAllPrayers();
 
@@ -578,6 +583,7 @@ public class TormentedDemonScript extends Script {
         currentDefensivePrayer = null;
         currentOffensivePrayer = null;
         currentOverheadIcon = null;
+        bombDodge.reset();
         if (mainScheduledFuture != null && !mainScheduledFuture.isCancelled()) {
             mainScheduledFuture.cancel(true);
         }

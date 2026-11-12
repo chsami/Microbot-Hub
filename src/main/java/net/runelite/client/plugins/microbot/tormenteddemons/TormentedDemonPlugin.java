@@ -3,7 +3,9 @@ package net.runelite.client.plugins.microbot.tormenteddemons;
 import com.google.inject.Provides;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.AnimationChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.GraphicsObjectCreated;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -14,7 +16,9 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.PluginConstants;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
+import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import net.runelite.client.ui.overlay.OverlayManager;
 
 import javax.inject.Inject;
@@ -23,7 +27,6 @@ import java.awt.datatransfer.StringSelection;
 import java.util.StringJoiner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 @PluginDescriptor(
         name = PluginDescriptor.zerozero + "Tormented Demons",
@@ -39,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class TormentedDemonPlugin extends Plugin {
 
-    public static final String version = "1.2.4";
+    public static final String version = "1.2.5";
 
     private static final int CHANGE_ATTACK_STYLE_ANIMATION = 11387;
     private static final int MELEE_ATTACK_ANIMATION = 11392;
@@ -130,19 +133,37 @@ public class TormentedDemonPlugin extends Plugin {
             return;
         }
 
-        Rs2Tile.init();
-        int ticks = 4;
+        final Client client = Microbot.getClient();
+        final WorldPoint bombTile = client.getTopLevelWorldView().getScene().isInstance() ?
+                WorldPoint.fromLocalInstance(client, graphicsObject.getLocation()) :
+                WorldPoint.fromLocal(client, graphicsObject.getLocation());
 
-		Microbot.pauseAllScripts.compareAndSet(false, true);
-        try {
-            scheduledExecutorService.schedule(() -> {
-                Rs2Tile.addDangerousGraphicsObjectTile(graphicsObject, 600 * ticks);
+        tormentedDemonScript.bombDodge.addBomb(bombTile);
+    }
+
+    @Subscribe
+    public void onGameTick(GameTick event) {
+        final TormentedDemonBombDodge bombDodge = tormentedDemonScript.bombDodge;
+        final WorldPoint playerLocation = Rs2Player.getWorldLocation();
+
+        switch (bombDodge.onTick(playerLocation, config.dodgeDelay())) {
+            case STEP:
+                final WorldPoint safeTile = bombDodge.pickSafeTile(playerLocation,
+                        Rs2Tile.getReachableTilesFromTile(playerLocation, TormentedDemonBombDodge.SAFE_TILE_RADIUS));
+                if (safeTile == null) {
+                    tormentedDemonScript.logOnceToChat("No safe tile found to dodge Tormented Demon special attack.");
+                    break;
+                }
+                scheduledExecutorService.execute(() -> Rs2Walker.walkFastCanvas(safeTile));
+                break;
+            case DODGED:
                 tormentedDemonScript.logOnceToChat("Successfully dodged Tormented Demon special attack.");
-				Microbot.pauseAllScripts.compareAndSet(true, false);
-            }, config.dodgeDelay(), TimeUnit.MILLISECONDS);
-        } catch (Exception e) {
-			Microbot.pauseAllScripts.compareAndSet(true, false);
-            tormentedDemonScript.logOnceToChat("Error during dodging: " + e.getMessage());
+                break;
+            case HIT:
+                tormentedDemonScript.logOnceToChat("Failed to dodge Tormented Demon special attack.");
+                break;
+            default:
+                break;
         }
     }
 
