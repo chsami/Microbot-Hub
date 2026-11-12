@@ -32,8 +32,22 @@ class FishTravelFailureTest {
     @Test
     void eachCauseTellsThePlayerWhatToFix() {
         assertTrue(FishTravelFailure.HOUSE_RING_NOT_FOUND.getMessage().contains("house teleport"));
-        assertTrue(FishTravelFailure.HOUSE_RING_TRAVEL.getMessage().contains("Dial DKP"));
-        assertTrue(FishTravelFailure.ZANARIS_RING.getMessage().contains("last destination"));
+        assertTrue(FishTravelFailure.HOUSE_RING_TRAVEL.getMessage().contains("dial DKP"));
+        assertTrue(FishTravelFailure.HOUSE_RING_TRAVEL.getMessage().contains("Dramen or Lunar staff"));
+        assertTrue(FishTravelFailure.ZANARIS_RING.getMessage().contains("dial DKP"));
+        assertTrue(FishTravelFailure.ZANARIS_RING.getMessage().contains("Dramen or Lunar staff"));
         assertNotEquals(FishTravelFailure.HOUSE_RING_TRAVEL.getMessage(), FishTravelFailure.ZANARIS_RING.getMessage());
+    }
+
+    @Test
+    void everyMessageIsSplitIntoShortLinesAndEndsWithTheStopNotice() {
+        for (FishTravelFailure failure : FishTravelFailure.values()) {
+            String[] lines = failure.getMessage().split("\n");
+            assertTrue(lines.length >= 3);
+            for (String line : lines) {
+                assertTrue(line.length() <= 90);
+            }
+            assertTrue(failure.getMessage().endsWith("\nScript stopped."));
+        }
     }
 }

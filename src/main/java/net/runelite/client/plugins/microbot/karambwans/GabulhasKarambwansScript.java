@@ -218,24 +218,15 @@ public class GabulhasKarambwansScript extends Script {
             }
 
             lastTravelFailure = FishTravelFailure.HOUSE_RING_TRAVEL;
-            return usePohFairyRing() && waitTillPlayerNextToFishingSpot();
+            return useFairyRing(findPohFairyRing()) && waitTillPlayerNextToFishingSpot();
         } else {
             lastTravelFailure = FishTravelFailure.ZANARIS_RING;
             Rs2Walker.walkTo(zanarisRingPoint, 3);
             Rs2Player.waitForWalking();
 
-            sleepUntil(() -> Microbot.getRs2TileObjectCache().query().withId(FAIRY_RING_ID).nearestOnClientThread() != null, 5000);
+            sleepUntil(() -> findZanarisFairyRing() != null, 5000);
 
-            // Action is "Last-destination", NOT "Last-destination (DKP)" — the code suffix is not part of the action text.
-            boolean interacted = Microbot.getRs2TileObjectCache().query()
-                    .withId(FAIRY_RING_ID)
-                    .nearestOnClientThread() != null
-                    && Microbot.getRs2TileObjectCache().query()
-                    .withId(FAIRY_RING_ID)
-                    .nearestOnClientThread()
-                    .click("Last-destination");
-
-            if (interacted) {
+            if (useFairyRing(findZanarisFairyRing())) {
                 return waitTillPlayerNextToFishingSpot();
             }
             Rs2Player.waitForWalking();
@@ -249,10 +240,15 @@ public class GabulhasKarambwansScript extends Script {
                 .nearest();
     }
 
-    private boolean usePohFairyRing() {
-        Rs2TileObjectModel ring = findPohFairyRing();
+    private Rs2TileObjectModel findZanarisFairyRing() {
+        return Microbot.getRs2TileObjectCache().query()
+                .withId(FAIRY_RING_ID)
+                .nearestOnClientThread();
+    }
+
+    private boolean useFairyRing(Rs2TileObjectModel ring) {
         if (ring == null) {
-            log.warn("No fairy ring or spiritual fairy tree found in the house");
+            log.warn("No fairy ring or spiritual fairy tree found nearby");
             return false;
         }
         ObjectComposition composition = ring.getObjectComposition();
@@ -265,7 +261,7 @@ public class GabulhasKarambwansScript extends Script {
         }
         String configure = FairyRingDial.findAction(actions, "Configure", "Ring-configure");
         if (configure == null || !ring.click(configure)) {
-            log.warn("The house fairy ring has no Configure or Last-destination ({}) option", FISHING_RING_CODE);
+            log.warn("The fairy ring has no Configure or Last-destination ({}) option", FISHING_RING_CODE);
             return false;
         }
         return dialFairyRing(FISHING_RING_CODE);

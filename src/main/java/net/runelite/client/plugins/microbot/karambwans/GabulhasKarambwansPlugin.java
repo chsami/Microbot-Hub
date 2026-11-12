@@ -17,7 +17,7 @@ import java.awt.*;
         description = "",
         tags = {"GabulhasKarambwans", "Gabulhas"},
         version = GabulhasKarambwansPlugin.version,
-        minClientVersion = "2.0.13",
+        minClientVersion = "2.6.44",
         cardUrl = "",
         iconUrl = "",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,
