@@ -22,7 +22,7 @@ Dro Elf Thieving pickpockets elves in Prifddinas. On start it locks onto the nea
 
 - **Low HP:** at or below **Eat below HP %** it eats. With nothing to eat (or **Use food** off) it stops and shows a message.
 - **Out of supplies:** if the bank has none of the food, Dodgy necklaces or Shadow Veil supplies it needs, it stops and names what is missing.
-- **AFK breaks** are capped at 20 minutes so they stay under the game's idle logout.
+- **AFK breaks** are capped at 10 minutes so they stay under the game's idle logout.
 
 ## Full inventory
 

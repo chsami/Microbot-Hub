@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
  * world when a Microbot login profile is available.
  */
 final class DroElfBreakManager {
-    private static final int MAX_AFK_BREAK_MINUTES = 20;
+    private static final int MAX_AFK_BREAK_MINUTES = 10;
 
     private final DroElfConfig config;
 
@@ -121,7 +121,7 @@ final class DroElfBreakManager {
     }
 
     private void startAfkBreak(long now) {
-        // AFK breaks stay under the game's idle logout; older saved settings may exceed 20.
+        // AFK breaks stay under the game's idle logout; older saved settings may exceed 10.
         int min = Math.min(MAX_AFK_BREAK_MINUTES, Math.max(1, config.afkBreakMinDuration()));
         int max = Math.min(MAX_AFK_BREAK_MINUTES, Math.max(min, config.afkBreakMaxDuration()));
         int minutes = randomBetween(min, max);

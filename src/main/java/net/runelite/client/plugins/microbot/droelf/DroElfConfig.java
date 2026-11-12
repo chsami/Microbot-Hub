@@ -82,11 +82,11 @@ public interface DroElfConfig extends Config {
     @ConfigItem(keyName = "logoutBreakChance", name = "Logout break chance", description = "Chance that a long break logs out instead of remaining AFK.", position = 3, section = breaks)
     default int logoutBreakChance() { return 40; }
 
-    @Range(min = 1, max = 20)
+    @Range(min = 1, max = 10)
     @ConfigItem(keyName = "afkBreakMinDuration", name = "AFK break min", description = "Minimum AFK break duration in minutes. Keep below your idle logout time.", position = 4, section = breaks)
     default int afkBreakMinDuration() { return 2; }
 
-    @Range(min = 1, max = 20)
+    @Range(min = 1, max = 10)
     @ConfigItem(keyName = "afkBreakMaxDuration", name = "AFK break max", description = "Maximum AFK break duration in minutes. Keep below your idle logout time.", position = 5, section = breaks)
     default int afkBreakMaxDuration() { return 6; }
 
