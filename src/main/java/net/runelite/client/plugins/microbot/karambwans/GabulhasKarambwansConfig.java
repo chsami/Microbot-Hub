@@ -8,9 +8,9 @@ import net.runelite.client.plugins.microbot.karambwans.enums.FairyRingAccessMeth
 @ConfigInformation(
         "<h3>Setup Instructions</h3>" +
         "<ol>" +
-                "<li>Configure the fairy rings to DKP (last destination must be DKP).</li>" +
+                "<li>Pick how to reach the fairy ring under Fairy Ring Access: Zanaris (Walk) or POH (Teleport). The script dials DKP for you; keep your Dramen or Lunar staff equipped unless you have the Lumbridge elite diary.</li>" +
                 "<li>Make sure to have a karambwan vessel and raw karambwanji in your inventory.</li>" +
-                "<li>Start the script next to the karambwan fishing spot.</li>" +
+                "<li>Start next to the karambwan fishing spot, or anywhere the script can reach your chosen fairy ring from.</li>" +
         "</ol>" +
         "<h3>Teleports & Banking</h3>" +
         "<ul>" +
