@@ -11,6 +11,7 @@ import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
+import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
 import net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.math.Rs2Random;
@@ -82,7 +83,8 @@ public class AutoRunecraftScript extends Script
                 {
                     case BANKING:
                         initialise = false;
-                        boolean isBankOpen = Rs2Bank.walkToBankAndUseBank();
+                        BankLocation bank = altar.getBank();
+                        boolean isBankOpen = bank == null ? Rs2Bank.walkToBankAndUseBank() : Rs2Bank.walkToBankAndUseBank(bank);
                         Microbot.status = "Walking to bank";
                         if (!isBankOpen || !Rs2Bank.isOpen()) return;
 
