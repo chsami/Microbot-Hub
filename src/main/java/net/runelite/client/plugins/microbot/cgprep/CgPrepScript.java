@@ -531,6 +531,19 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		{
 			keep.add(id);
 		}
+		// 1.8.3: without a bow or a staff the boss can block the one we have for good; the sceptre
+		// (or a halberd) makes it switch its prayer, so it stays.
+		boolean noBow = !Rs2Inventory.hasItem(m.bow) && !net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment.isWearing(m.bow);
+		boolean noStaff = !Rs2Inventory.hasItem(m.staff) && !net.runelite.client.plugins.microbot.util.equipment.Rs2Equipment.isWearing(m.staff);
+		if (noBow || noStaff)
+		{
+			for (int id : m.halberd)
+			{
+				keep.add(id);
+			}
+			keep.add(net.runelite.api.gameval.ItemID.GAUNTLET_SCEPTRE);
+			keep.add(net.runelite.api.gameval.ItemID.GAUNTLET_SCEPTRE_HM);
+		}
 		net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel junk = Rs2Inventory.items(it -> it != null && !keep.contains(it.getId())
 				&& junkDropFails.getOrDefault(it.getId(), 0) < 3) // one that won't drop never holds up the boss
 			.findFirst().orElse(null);
@@ -636,6 +649,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		{
 			// A new run started (or we started the plugin mid-run).
 			maze.resetForNewRun();
+			planner.flipGuard.reset();
 			nav.reset();
 			combat.reset();
 			gather.reset();
@@ -675,6 +689,7 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			}
 			chestFails = 0;
 			chestBlocked = false;
+			topUps = 0;
 			pl("RUN", "started mode=" + mode() + " profile=" + config.profile() + " dryRun=" + config.dryRun()
 				+ " skipDemi=" + config.skipDemiBosses() + " fishTarget=" + config.fishTarget()
 				+ " antiban=" + antiban.isActive() + " seed=" + runSeed + " autoMode=" + config.autoMode() + (bossAuto() ? " (bot fights, no handover)" : ""));
@@ -1156,6 +1171,10 @@ public class CgPrepScript extends StateMachineScript<CgState>
 				if (bossAuto() && !bossOnly() && ensureRapid())
 				{
 					break;
+				}
+				if (bossAuto() && !bossOnly() && !config.dryRun() && topUpBeforeBoss())
+				{
+					break; // one bite / sip per loop, then the barrier
 				}
 				maybeEnterBoss();
 				break;
@@ -2732,6 +2751,57 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	private boolean bossOnly()
 	{
 		return config.autoMode() == CgPrepConfig.AutoMode.BOSS_ONLY;
+	}
+
+	/** Last time a pre-fight bite or sip went out (ms): food and potions each need ~3 ticks between. */
+	private long lastTopUpMs;
+	/** Pre-fight bites / sips this run (capped: a click that never lands can't keep us from the barrier). */
+	private int topUps;
+
+	/**
+	 * 1.8.3: at the barrier, eat until within 20 HP of full and drink a dose under 30% prayer, so
+	 * the fight doesn't start with it (8-11 Nov: 10 fights started under 80 HP, 11 under 20 prayer;
+	 * all 4 deaths started under 80 HP). Uses prep seconds that are usually left over; not in the
+	 * last 8 s. True while it ate or drank this loop.
+	 */
+	private boolean topUpBeforeBoss()
+	{
+		if (secondsLeft >= 0 && secondsLeft < 8 || bossStarted || topUps >= 8 || System.currentTimeMillis() - lastTopUpMs < 1900)
+		{
+			return false;
+		}
+		net.runelite.api.Client c = Microbot.getClient();
+		int hp = Microbot.getClientThread().runOnClientThreadOptional(() -> c.getBoostedSkillLevel(net.runelite.api.Skill.HITPOINTS)).orElse(99);
+		int hpMax = Microbot.getClientThread().runOnClientThreadOptional(() -> c.getRealSkillLevel(net.runelite.api.Skill.HITPOINTS)).orElse(99);
+		int pr = Microbot.getClientThread().runOnClientThreadOptional(() -> c.getBoostedSkillLevel(net.runelite.api.Skill.PRAYER)).orElse(99);
+		int prMax = Microbot.getClientThread().runOnClientThreadOptional(() -> c.getRealSkillLevel(net.runelite.api.Skill.PRAYER)).orElse(99);
+		if (hp <= hpMax - 20 && Rs2Inventory.hasItem(CgIds.PADDLEFISH))
+		{
+			pace.before(Pace.Kind.INVENTORY);
+			boolean sent = Rs2Inventory.interact(CgIds.PADDLEFISH, "Eat");
+			pace.after(Pace.Kind.INVENTORY);
+			lastTopUpMs = System.currentTimeMillis();
+			topUps++;
+			act("before the boss: eat (" + hp + "/" + hpMax + " HP)" + (sent ? "" : " (click didn't go out)"));
+			return true;
+		}
+		if (pr * 100 < prMax * 30)
+		{
+			for (int id : new int[]{CgIds.EGNIOL_1, CgIds.EGNIOL_2, CgIds.EGNIOL_3, CgIds.EGNIOL_4})
+			{
+				if (Rs2Inventory.hasItem(id))
+				{
+					pace.before(Pace.Kind.INVENTORY);
+					boolean sent = Rs2Inventory.interact(id, "Drink");
+					pace.after(Pace.Kind.INVENTORY);
+					lastTopUpMs = System.currentTimeMillis();
+					topUps++;
+					act("before the boss: drink a dose (" + pr + "/" + prMax + " prayer)" + (sent ? "" : " (click didn't go out)"));
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/** No handover when the bot fights: Quick-pass the boss barrier (every 4 s until the fight starts). */

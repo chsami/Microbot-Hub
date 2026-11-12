@@ -109,6 +109,7 @@ public final class MovePlanner
 		}
 		int timer0 = m.readyTick < 0 ? 0 : Math.max(0, m.readyTick - (t + 1));
 		int speed = m.attackSpeed(m.weaponToUse());
+		boolean melee = m.weaponToUse() == Style.MELEE;
 		List<Node> layer = new ArrayList<>();
 		layer.add(new Node(Arena.t(o.px, o.py), timer0, tor0, 0, -2, new int[0]));
 		Result res = new Result();
@@ -148,7 +149,7 @@ public final class MovePlanner
 						}
 						int timer = nd.timer;
 						boolean under = Arena.underBoss(qx, qy, o.bx, o.by);
-						if (stay && !under && timer == 0)
+						if (stay && !under && timer == 0 && (!melee || Arena.meleeTile(qx, qy, o.bx, o.by)))
 						{
 							timer = speed - 1; // swung at T: ready again at T + speed
 						}
@@ -226,6 +227,7 @@ public final class MovePlanner
 		}
 		int timer = m.readyTick < 0 ? 0 : Math.max(0, m.readyTick - (t + 1));
 		int speed = m.attackSpeed(m.weaponToUse());
+		boolean melee = m.weaponToUse() == Style.MELEE;
 		int p = Arena.t(o.px, o.py);
 		double cost = 0;
 		double w = 1;
@@ -244,7 +246,7 @@ public final class MovePlanner
 			{
 				cost += w * c.pLate * hazard(m, px, py, T, torT);
 			}
-			if (stay && !Arena.underBoss(qx, qy, o.bx, o.by) && timer == 0)
+			if (stay && !Arena.underBoss(qx, qy, o.bx, o.by) && timer == 0 && (!melee || Arena.meleeTile(qx, qy, o.bx, o.by)))
 			{
 				timer = speed - 1;
 			}

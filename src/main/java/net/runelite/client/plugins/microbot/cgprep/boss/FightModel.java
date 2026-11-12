@@ -175,13 +175,28 @@ public final class FightModel
 		}
 	}
 
+	/** 1.8.3: we stepped since the last swing (a dodge delays the next swing a tick: not a slow bow). */
+	private boolean movedSinceSwing;
+	private int usX = Integer.MIN_VALUE;
+	private int usY;
+
 	private void us(FightObs ob)
 	{
+		if (usX != Integer.MIN_VALUE && (ob.px != usX || ob.py != usY))
+		{
+			movedSinceSwing = true;
+		}
+		usX = ob.px;
+		usY = ob.py;
 		if (ob.swung)
 		{
 			int w = ob.weapon.ordinal();
 			int gap = tick - lastSwingTick;
-			if (lastSwingWeapon == ob.weapon && lastEatTick < lastSwingTick && gap == 5)
+			boolean still = !movedSinceSwing;
+			movedSinceSwing = false;
+			// 1.8.3: only gaps where we stood still count (17 fights warned "set the bow to Rapid"
+			// with the bow on Rapid: the 5-tick gaps were dodges).
+			if (still && lastSwingWeapon == ob.weapon && lastEatTick < lastSwingTick && gap == 5)
 			{
 				if (++slowSeen[w] >= 2)
 				{
@@ -338,7 +353,28 @@ public final class FightModel
 	/** Weapon style the boss is NOT protecting against (staff when unknown/melee). */
 	public Style weaponToUse()
 	{
-		return protects == Style.MAGIC ? Style.RANGED : Style.MAGIC;
+		Style want = protects == Style.MAGIC ? Style.RANGED : Style.MAGIC;
+		if (o == null || has(want))
+		{
+			return want;
+		}
+		// 1.8.3: the weapon we'd want isn't there (a prep that ran out of time went in without a
+		// bow; the fight clicked "wield bow" 525 times and the boss never dropped below 938).
+		Style other = want == Style.RANGED ? Style.MAGIC : Style.RANGED;
+		if (has(other) && protects != other)
+		{
+			return other; // the boss isn't blocking it (or we don't know yet)
+		}
+		if (o.haveMelee)
+		{
+			return Style.MELEE; // 6 hits it doesn't block make it switch its prayer, then the other works again
+		}
+		return has(other) ? other : want;
+	}
+
+	private boolean has(Style s)
+	{
+		return s == Style.RANGED ? o.haveBow : s == Style.MAGIC ? o.haveStaff : o.haveMelee;
 	}
 
 	public int pendingCount()

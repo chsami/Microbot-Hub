@@ -47,6 +47,14 @@ public final class Arena
 	}
 
 	/** Tiles from (x,y) to the nearest tile of the boss footprint (0 = under it, 1 = next to it). */
+	/** 1.8.3: a tile next to one of the boss's sides (melee reaches from here; not a corner, not under it). */
+	public static boolean meleeTile(int x, int y, int bx, int by)
+	{
+		boolean inX = x >= bx && x <= bx + BOSS_SIZE - 1;
+		boolean inY = y >= by && y <= by + BOSS_SIZE - 1;
+		return inX && (y == by - 1 || y == by + BOSS_SIZE) || inY && (x == bx - 1 || x == bx + BOSS_SIZE);
+	}
+
 	public static int distToBoss(int x, int y, int bx, int by)
 	{
 		int dx = Math.max(0, Math.max(bx - x, x - (bx + BOSS_SIZE - 1)));
