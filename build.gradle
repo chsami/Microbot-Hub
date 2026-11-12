@@ -129,6 +129,9 @@ dependencies {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    // Efficient Walker's route tests load the full collision map; matches the Microbot client's test settings.
+    maxHeapSize = '1g'
+    forkEvery = 25
 }
 
 application {
