@@ -214,7 +214,7 @@ public interface CgPrepConfig extends Config
 
 	@Range(min = 1, max = 27)
 	@ConfigItem(keyName = "bankBelowFreeSlots", name = "Bank loot below free slots",
-		description = "Loot stays in the inventory between runs; bank everything at the lobby deposit box when fewer than this many slots are free before opening the chest",
+		description = "Everything is banked at the lobby deposit box before going back in; it is also banked before opening the chest when fewer than this many slots are free",
 		position = 100, hidden = true)
 	default int bankBelowFreeSlots()
 	{
