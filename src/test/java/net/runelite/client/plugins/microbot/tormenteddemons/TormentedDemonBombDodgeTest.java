@@ -23,7 +23,7 @@ class TormentedDemonBombDodgeTest {
         TormentedDemonBombDodge dodge = new TormentedDemonBombDodge();
 
         assertEquals(Outcome.IDLE, dodge.onTick(BOMB, DEFAULT_DELAY));
-        assertFalse(dodge.isExposed());
+        assertFalse(dodge.hasPendingBombs());
     }
 
     @Test
@@ -34,10 +34,26 @@ class TormentedDemonBombDodgeTest {
         assertEquals(Outcome.WAITING, dodge.onTick(BOMB, DEFAULT_DELAY));
         assertEquals(Outcome.STEP, dodge.onTick(BOMB, DEFAULT_DELAY));
         assertEquals(Outcome.STEP, dodge.onTick(BOMB, DEFAULT_DELAY));
-        assertTrue(dodge.isExposed());
         assertEquals(Outcome.DODGED, dodge.onTick(SAFE, DEFAULT_DELAY));
-        assertFalse(dodge.isExposed());
         assertEquals(Outcome.IDLE, dodge.onTick(SAFE, DEFAULT_DELAY));
+    }
+
+    @Test
+    void bombsStayPendingAfterTheDodgeUntilTheyLand() {
+        TormentedDemonBombDodge dodge = new TormentedDemonBombDodge();
+        dodge.addBomb(BOMB);
+
+        assertEquals(Outcome.STEP, dodge.onTick(BOMB, 0));
+        assertEquals(Outcome.DODGED, dodge.onTick(SAFE, 0));
+        assertTrue(dodge.hasPendingBombs());
+
+        for (int tick = 2; tick < TormentedDemonBombDodge.BOMB_TICKS; tick++) {
+            assertEquals(Outcome.IDLE, dodge.onTick(SAFE, 0));
+            assertTrue(dodge.hasPendingBombs());
+        }
+
+        assertEquals(Outcome.IDLE, dodge.onTick(SAFE, 0));
+        assertFalse(dodge.hasPendingBombs());
     }
 
     @Test
@@ -46,11 +62,12 @@ class TormentedDemonBombDodgeTest {
         dodge.addBomb(BOMB);
 
         assertEquals(Outcome.WAITING, dodge.onTick(BOMB, DEFAULT_DELAY));
-        assertEquals(Outcome.STEP, dodge.onTick(BOMB, DEFAULT_DELAY));
-        assertEquals(Outcome.STEP, dodge.onTick(BOMB, DEFAULT_DELAY));
-        assertEquals(Outcome.STEP, dodge.onTick(BOMB, DEFAULT_DELAY));
+        for (int tick = 1; tick < TormentedDemonBombDodge.BOMB_TICKS; tick++) {
+            assertEquals(Outcome.STEP, dodge.onTick(BOMB, DEFAULT_DELAY));
+            assertTrue(dodge.hasPendingBombs());
+        }
         assertEquals(Outcome.HIT, dodge.onTick(BOMB, DEFAULT_DELAY));
-        assertFalse(dodge.isExposed());
+        assertFalse(dodge.hasPendingBombs());
         assertEquals(Outcome.IDLE, dodge.onTick(BOMB, DEFAULT_DELAY));
     }
 
@@ -60,6 +77,27 @@ class TormentedDemonBombDodgeTest {
         dodge.addBomb(BOMB);
 
         assertEquals(Outcome.STEP, dodge.onTick(BOMB, 0));
+    }
+
+    @Test
+    void delayAboveTheMaximumStillStepsBeforeTheBombLands() {
+        TormentedDemonBombDodge dodge = new TormentedDemonBombDodge();
+        dodge.addBomb(BOMB);
+
+        assertEquals(Outcome.WAITING, dodge.onTick(BOMB, 60000));
+        assertEquals(Outcome.WAITING, dodge.onTick(BOMB, 60000));
+        assertEquals(Outcome.WAITING, dodge.onTick(BOMB, 60000));
+        assertEquals(Outcome.STEP, dodge.onTick(BOMB, 60000));
+        assertEquals(Outcome.STEP, dodge.onTick(BOMB, 60000));
+        assertEquals(Outcome.HIT, dodge.onTick(BOMB, 60000));
+    }
+
+    @Test
+    void negativeDelayStepsOnTheFirstTick() {
+        TormentedDemonBombDodge dodge = new TormentedDemonBombDodge();
+        dodge.addBomb(BOMB);
+
+        assertEquals(Outcome.STEP, dodge.onTick(BOMB, -600));
     }
 
     @Test
@@ -90,7 +128,7 @@ class TormentedDemonBombDodgeTest {
 
         dodge.reset();
 
-        assertFalse(dodge.isExposed());
+        assertFalse(dodge.hasPendingBombs());
         assertEquals(Outcome.IDLE, dodge.onTick(BOMB, 0));
     }
 

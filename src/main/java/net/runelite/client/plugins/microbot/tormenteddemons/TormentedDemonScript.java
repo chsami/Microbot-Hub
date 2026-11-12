@@ -202,8 +202,8 @@ public class TormentedDemonScript extends Script {
         }
     }
 
-    private void handleFighting(TormentedDemonConfig config) {
-        if (bombDodge.isExposed()) {
+    void handleFighting(TormentedDemonConfig config) {
+        if (bombDodge.hasPendingBombs()) {
             return;
         }
 
@@ -562,7 +562,7 @@ public class TormentedDemonScript extends Script {
                 });
     }
 
-    void logOnceToChat(String message) {
+    synchronized void logOnceToChat(String message) {
         if (!message.equals(lastChatMessage)) {
             Microbot.log(message);
             lastChatMessage = message;

@@ -8,8 +8,9 @@ import java.util.Map;
 
 class TormentedDemonBombDodge {
 
-    static final int BOMB_TICKS = 4;
+    static final int BOMB_TICKS = 5;
     static final int TICK_MILLIS = 600;
+    static final int MAX_DODGE_DELAY_MILLIS = 1800;
     static final int SAFE_TILE_RADIUS = 2;
 
     enum Outcome {IDLE, WAITING, STEP, DODGED, HIT}
@@ -38,6 +39,7 @@ class TormentedDemonBombDodge {
         bombTiles.values().removeIf(ticksLeft -> ticksLeft <= 0);
         bombTiles.replaceAll((tile, ticksLeft) -> ticksLeft - 1);
         int elapsedTicks = ticksSinceFirstBomb++;
+        int delayTicks = Math.max(0, Math.min(dodgeDelayMillis, MAX_DODGE_DELAY_MILLIS)) / TICK_MILLIS;
 
         if (landedOnPlayer) {
             exposed = false;
@@ -45,7 +47,7 @@ class TormentedDemonBombDodge {
         }
         if (remaining != null) {
             exposed = true;
-            return elapsedTicks >= dodgeDelayMillis / TICK_MILLIS ? Outcome.STEP : Outcome.WAITING;
+            return elapsedTicks >= delayTicks ? Outcome.STEP : Outcome.WAITING;
         }
         if (exposed) {
             exposed = false;
@@ -54,8 +56,8 @@ class TormentedDemonBombDodge {
         return Outcome.IDLE;
     }
 
-    synchronized boolean isExposed() {
-        return exposed;
+    synchronized boolean hasPendingBombs() {
+        return !bombTiles.isEmpty();
     }
 
     synchronized void reset() {

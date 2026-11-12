@@ -83,10 +83,14 @@ public interface TormentedDemonConfig extends Config {
 
     @ConfigItem(
             keyName = "dodgeDelay",
-            name = "Dodging delay(ms)",
-            description = "Change this if the dodging is not working properly",
+            name = "Dodge delay (ms)",
+            description = "Wait after the fire bomb appears before the first step away. Rounded down to whole game ticks (600 ms): 0-599 steps at once, 600-1199 waits 1 tick, 1200-1799 waits 2 ticks, 1800 waits 3 ticks. The step is repeated every tick until you are off the tile. Lower this if dodges fail.",
             section = tormentedDemonSection,
             position = 5
+    )
+    @Range(
+            min = 0,
+            max = TormentedDemonBombDodge.MAX_DODGE_DELAY_MILLIS
     )
     default int dodgeDelay() {
         return 800;

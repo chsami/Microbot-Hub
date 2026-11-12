@@ -151,16 +151,16 @@ public class TormentedDemonPlugin extends Plugin {
                 final WorldPoint safeTile = bombDodge.pickSafeTile(playerLocation,
                         Rs2Tile.getReachableTilesFromTile(playerLocation, TormentedDemonBombDodge.SAFE_TILE_RADIUS));
                 if (safeTile == null) {
-                    tormentedDemonScript.logOnceToChat("No safe tile found to dodge Tormented Demon special attack.");
+                    tormentedDemonScript.logOnceToChat("No free tile within 2 tiles to dodge the Tormented Demon fire bomb; you will take the hit unless you move manually.");
                     break;
                 }
                 scheduledExecutorService.execute(() -> Rs2Walker.walkFastCanvas(safeTile));
                 break;
             case DODGED:
-                tormentedDemonScript.logOnceToChat("Successfully dodged Tormented Demon special attack.");
+                Microbot.log("Successfully dodged Tormented Demon special attack.");
                 break;
             case HIT:
-                tormentedDemonScript.logOnceToChat("Failed to dodge Tormented Demon special attack.");
+                Microbot.log("Failed to dodge Tormented Demon special attack: still on the fire bomb tile when it landed. If this keeps happening, lower 'Dodge delay (ms)' in the plugin settings.");
                 break;
             default:
                 break;
