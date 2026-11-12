@@ -1,9 +1,11 @@
 package net.runelite.client.plugins.microbot.AmmoniteCrabs;
 
+import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.gameval.VarClientID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.AmmoniteCrabs.enums.AmmoniteCrabState;
@@ -13,12 +15,15 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
 import net.runelite.client.plugins.microbot.util.grounditem.Rs2GroundItem;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.client.plugins.microbot.util.keyboard.Rs2Keyboard;
+import net.runelite.client.plugins.microbot.util.math.Rs2Random;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.player.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.util.security.Login;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
+import java.awt.event.KeyEvent;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -31,9 +36,14 @@ public class AmmoniteCrabScript extends Script {
     public int hijackTimer = 0;
     public AmmoniteCrabState ammoniteCrabState = AmmoniteCrabState.SCANNING_WORLD;
     public int timesHopped = 0;
+    static final int AFK_LOOPS_BEFORE_RESET = 5;
+    static final int MIN_IDLE_MARGIN_TICKS = 7500;
+    static final int MAX_IDLE_MARGIN_TICKS = 10000;
+    private long idleMargin = MIN_IDLE_MARGIN_TICKS;
 
     public boolean run(AmmoniteCrabConfig config) {
         initialPlayerLocation = null;
+        idleMargin = Rs2Random.between(MIN_IDLE_MARGIN_TICKS, MAX_IDLE_MARGIN_TICKS);
         ammoniteCrabState = AmmoniteCrabState.SCANNING_WORLD;
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
@@ -42,6 +52,10 @@ public class AmmoniteCrabScript extends Script {
                 long startTime = System.currentTimeMillis();
                 if (ammoniteCrabState != AmmoniteCrabState.SCANNING_WORLD) {
                     preStateChecks(config);
+                }
+
+                if ((ammoniteCrabState == FIGHT || ammoniteCrabState == AmmoniteCrabState.AFK) && preventIdleLogout(idleMargin)) {
+                    idleMargin = Rs2Random.between(MIN_IDLE_MARGIN_TICKS, MAX_IDLE_MARGIN_TICKS);
                 }
 
                 switch (ammoniteCrabState) {
@@ -55,7 +69,7 @@ public class AmmoniteCrabScript extends Script {
                             Rs2Walker.walkFastCanvas(config.crabLocation().getFightLocation());
                         }
 
-                        if (!isNpcAggressive() || afkTimer >= 10) {
+                        if (!isNpcAggressive() || afkCountdownDone(afkTimer)) {
                             ammoniteCrabState = AmmoniteCrabState.AFK;
                         }
                         if (config.lootSeaweedSpores()) {
@@ -74,19 +88,21 @@ public class AmmoniteCrabScript extends Script {
                         }
                         break;
                     case AFK:
-                        if (afkTimer < 10) {
+                        if (!afkCountdownDone(afkTimer)) {
                             afkTimer++;
                         }
 
                         if (Rs2Combat.inCombat()) {
                             resetAfkTimer();
                         }
-                        if (afkTimer >= 10) {
+                        if (afkCountdownDone(afkTimer)) {
                             if (otherPlayerDetected(config.crabLocation().getFightLocation())) {
+                                Microbot.log("Another player is on your crab spot - hopping worlds instead of resetting aggro");
                                 Rs2Walker.walkTo(config.crabLocation().getWorldhopLocation());
                                 ammoniteCrabState = AmmoniteCrabState.HOP_WORLD;
                             } else {
                                 // If no other players detected, reset aggro
+                                Microbot.log("Crabs stopped attacking - walking away to reset aggro, then returning to the fight spot");
                                 ammoniteCrabState = AmmoniteCrabState.RESET_AGGRO;
                             }
                         }
@@ -280,6 +296,30 @@ public class AmmoniteCrabScript extends Script {
 
     private boolean otherPlayerDetected() {
         return otherPlayerDetected(Rs2Player.getWorldLocation());
+    }
+
+    static boolean afkCountdownDone(int afkTimer) {
+        return afkTimer >= AFK_LOOPS_BEFORE_RESET;
+    }
+
+    static boolean preventIdleLogout(long idleMargin) {
+        boolean pressKey = Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Client client = Microbot.getClient();
+            return idleLogoutNearWithoutTypedText(idleMargin,
+                    client.getVarcStrValue(VarClientID.CHATINPUT),
+                    client.getVarcStrValue(VarClientID.MESLAYERINPUT));
+        }).orElse(false);
+        if (!pressKey) {
+            return false;
+        }
+        Rs2Keyboard.keyPress(KeyEvent.VK_BACK_SPACE);
+        return true;
+    }
+
+    static boolean idleLogoutNearWithoutTypedText(long idleMargin, String chatInput, String dialogInput) {
+        return Rs2Player.checkIdleLogout(idleMargin)
+                && (chatInput == null || chatInput.isEmpty())
+                && (dialogInput == null || dialogInput.isEmpty());
     }
 
     static boolean isWithin(WorldPoint location, WorldPoint target, int distance) {

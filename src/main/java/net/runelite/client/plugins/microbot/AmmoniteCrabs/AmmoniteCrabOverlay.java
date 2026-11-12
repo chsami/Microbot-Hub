@@ -19,7 +19,6 @@ public class AmmoniteCrabOverlay extends OverlayPanel {
     private static final Color WARNING_COLOR = Color.YELLOW;
     private static final Color DANGER_COLOR = Color.RED;
     private static final Color SUCCESS_COLOR = Color.GREEN;
-    private static final int MAX_AFK_TIMER = 10;
     private final AmmoniteCrabPlugin plugin;
 
     @Inject
@@ -91,14 +90,14 @@ public class AmmoniteCrabOverlay extends OverlayPanel {
             // AFK Timer with progress bar
             panelComponent.getChildren().add(LineComponent.builder()
                     .left("AFK Timer:")
-                    .right(plugin.ammoniteCrabScript.afkTimer + "/" + MAX_AFK_TIMER)
+                    .right(plugin.ammoniteCrabScript.afkTimer + "/" + AmmoniteCrabScript.AFK_LOOPS_BEFORE_RESET)
                     .rightColor(getAfkTimerColor(plugin.ammoniteCrabScript.afkTimer))
                     .build());
 
             ProgressBarComponent afkProgressBar = new ProgressBarComponent();
             afkProgressBar.setBackgroundColor(new Color(61, 56, 49));
             afkProgressBar.setForegroundColor(getAfkTimerColor(plugin.ammoniteCrabScript.afkTimer));
-            afkProgressBar.setMaximum(MAX_AFK_TIMER);
+            afkProgressBar.setMaximum(AmmoniteCrabScript.AFK_LOOPS_BEFORE_RESET);
             afkProgressBar.setValue(plugin.ammoniteCrabScript.afkTimer);
             panelComponent.getChildren().add(afkProgressBar);
 
@@ -151,8 +150,8 @@ public class AmmoniteCrabOverlay extends OverlayPanel {
     }
 
     private Color getAfkTimerColor(int timer) {
-        if (timer >= MAX_AFK_TIMER) return DANGER_COLOR;
-        if (timer >= MAX_AFK_TIMER * 0.7) return WARNING_COLOR;
+        if (timer >= AmmoniteCrabScript.AFK_LOOPS_BEFORE_RESET) return DANGER_COLOR;
+        if (timer >= AmmoniteCrabScript.AFK_LOOPS_BEFORE_RESET * 0.7) return WARNING_COLOR;
         return SUCCESS_COLOR;
     }
 
