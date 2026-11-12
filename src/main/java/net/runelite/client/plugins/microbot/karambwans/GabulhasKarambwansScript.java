@@ -39,6 +39,7 @@ public class GabulhasKarambwansScript extends Script {
     private static final String FISHING_RING_CODE = "DKP";
     private static final int MAX_WALK_TO_FISH_ATTEMPTS = 5;
     private static final int FISHING_AREA_RADIUS = 15;
+    private static final int HOUSE_TELEPORT_MIN_DISTANCE = 20;
     private static final int[] DIAL_SLOTS = {InterfaceID.Fairyrings.ROOT_MODEL3, InterfaceID.Fairyrings.ROOT_MODEL4, InterfaceID.Fairyrings.ROOT_MODEL5};
     private static final int[] DIAL_CLOCKWISE = {InterfaceID.Fairyrings._1_CLOCKWISE, InterfaceID.Fairyrings._2_CLOCKWISE, InterfaceID.Fairyrings._3_CLOCKWISE};
     private static final int[] DIAL_ANTICLOCKWISE = {InterfaceID.Fairyrings._1_ANTICLOCKWISE, InterfaceID.Fairyrings._2_ANTICLOCKWISE, InterfaceID.Fairyrings._3_ANTICLOCKWISE};
@@ -48,10 +49,13 @@ public class GabulhasKarambwansScript extends Script {
     private final WorldPoint bankPoint = new WorldPoint(2381, 4455, 0);
     private GabulhasKarambwansConfig config;
     private int failedWalksToFish;
+    private FishTravelFailure lastTravelFailure = FishTravelFailure.ZANARIS_RING;
+    private boolean houseTeleportLanded;
 
     public boolean run(GabulhasKarambwansConfig config) {
         this.config = config;
         failedWalksToFish = 0;
+        houseTeleportLanded = false;
         Microbot.enableAutoRunOn = false;
         Rs2Antiban.setActivity(Activity.CATCHING_RAW_KARAMBWAN);
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
@@ -88,8 +92,8 @@ public class GabulhasKarambwansScript extends Script {
                         if (walkToFish()) {
                             failedWalksToFish = 0;
                             botStatus = states.FISHING;
-                        } else if (++failedWalksToFish >= MAX_WALK_TO_FISH_ATTEMPTS) {
-                            Microbot.showMessage("Could not reach the karambwan fishing spot through the fairy ring (code " + FISHING_RING_CODE + "). Shutting down");
+                        } else if (FishTravelFailure.shouldStop(lastTravelFailure, houseTeleportLanded, ++failedWalksToFish, MAX_WALK_TO_FISH_ATTEMPTS)) {
+                            Microbot.showMessage(lastTravelFailure.getMessage());
                             shutdown();
                             return;
                         } else {
@@ -194,7 +198,9 @@ public class GabulhasKarambwansScript extends Script {
             return true;
         }
         if (config.fairyRingAccessMethod() == FairyRingAccessMethod.POH) {
+            houseTeleportLanded = false;
             if (findPohFairyRing() == null) {
+                WorldPoint before = Rs2Player.getWorldLocation();
                 if (hasPohCape()) {
                     Rs2Equipment.interact(net.runelite.api.EquipmentInventorySlot.CAPE, "Tele to POH");
                 } else if (Rs2Inventory.hasItem("Teleport to house")) {
@@ -202,11 +208,19 @@ public class GabulhasKarambwansScript extends Script {
                 } else {
                     Rs2Magic.quickCast(MagicAction.TELEPORT_TO_HOUSE);
                 }
-                sleepUntil(() -> findPohFairyRing() != null, 10000);
+                if (!sleepUntil(() -> findPohFairyRing() != null, 10000)) {
+                    WorldPoint after = Rs2Player.getWorldLocation();
+                    houseTeleportLanded = before != null && after != null && before.distanceTo(after) > HOUSE_TELEPORT_MIN_DISTANCE;
+                    lastTravelFailure = FishTravelFailure.HOUSE_RING_NOT_FOUND;
+                    log.warn("No fairy ring or spiritual fairy tree found after the house teleport");
+                    return false;
+                }
             }
 
+            lastTravelFailure = FishTravelFailure.HOUSE_RING_TRAVEL;
             return usePohFairyRing() && waitTillPlayerNextToFishingSpot();
         } else {
+            lastTravelFailure = FishTravelFailure.ZANARIS_RING;
             Rs2Walker.walkTo(zanarisRingPoint, 3);
             Rs2Player.waitForWalking();
 
@@ -251,7 +265,7 @@ public class GabulhasKarambwansScript extends Script {
         }
         String configure = FairyRingDial.findAction(actions, "Configure", "Ring-configure");
         if (configure == null || !ring.click(configure)) {
-            log.warn("House fairy ring {} has no usable travel option", ring.getId());
+            log.warn("The house fairy ring has no Configure or Last-destination ({}) option", FISHING_RING_CODE);
             return false;
         }
         return dialFairyRing(FISHING_RING_CODE);
