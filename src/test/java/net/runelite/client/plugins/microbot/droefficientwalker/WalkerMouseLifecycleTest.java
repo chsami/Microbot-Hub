@@ -19,7 +19,6 @@ import net.runelite.client.input.KeyManager;
 import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.util.walker.Rs2MiniMap;
-import net.runelite.client.plugins.microbot.util.input.AwtEmitter;
 import net.runelite.client.plugins.microbot.util.input.InputArbiter;
 import net.runelite.client.plugins.microbot.util.input.PointerState;
 import net.runelite.client.plugins.microbot.util.mouse.VirtualMouse;
@@ -73,7 +72,7 @@ public class WalkerMouseLifecycleTest {
 
     @Test public void reenabledPluginWalkingUsesNaturalMouseAndTrailsAndOffStillUsesLegacyClicks() throws Exception {
         try(Fixture f=new Fixture();var micro=mockStatic(Microbot.class);var arbiter=mockStatic(InputArbiter.class);
-            var awt=mockStatic(AwtEmitter.class);var legacy=mockStatic(CanvasClickDispatcher.class);var minimap=mockStatic(Rs2MiniMap.class)) {
+            var awt=new AwtEmitterStub();var legacy=mockStatic(CanvasClickDispatcher.class);var minimap=mockStatic(Rs2MiniMap.class)) {
             VirtualMouse mouse=new VirtualMouse();NaturalMouse natural=mock(NaturalMouse.class);
             AtomicReference<java.awt.Point> position=new AtomicReference<>(new java.awt.Point(20,30));
             AtomicLong time=new AtomicLong();
@@ -95,16 +94,14 @@ public class WalkerMouseLifecycleTest {
             Player player=mock(Player.class);when(f.client.getLocalPlayer()).thenReturn(player);
             when(player.getWorldLocation()).thenReturn(new WorldPoint(3200,3200,0));
             when(f.client.getCanvasWidth()).thenReturn(300);when(f.client.getCanvasHeight()).thenReturn(200);
-            awt.when(()->AwtEmitter.moved(anyInt(),anyInt())).thenAnswer(i->{
-                int x=i.getArgument(0),y=i.getArgument(1);position.set(new java.awt.Point(x,y));PointerState.setFromBot(x,y);return null;
-            });
+            awt.onMove((x,y)->position.set(new java.awt.Point(x,y)));
             f.plugin.startUp();f.plugin.shutDown();f.plugin.startUp();
             bindImmediateMouseExecutor();
             Point target=new Point(240,120);
             nativeWalkingClick(target);
             assertTrue(mouse.getPoints().size()>10, "Re-enabling must preserve the selected mouse mode and intermediate trail");
             assertEquals(target,PointerState.lastBotPoint());assertEquals(target,mouse.getLastClick());
-            awt.verify(()->AwtEmitter.clicked(240,120,java.awt.event.MouseEvent.BUTTON1),times(1));
+            assertEquals(1,awt.count("click",240,120));
             legacy.verifyNoInteractions();
             when(f.config.useMicrobotMouse()).thenReturn(false);
             ConfigChanged changed=new ConfigChanged();changed.setGroup(EfficientWalkerConfig.GROUP);changed.setKey("useMicrobotMouse");

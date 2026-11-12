@@ -70,10 +70,10 @@ public class WalkerMouseTrailRegressionTest {
 
     @Test public void humanTakeoverCannotRecordOrEmitAnotherWalkingStep() {
         VirtualMouse mouse=new VirtualMouse();java.util.concurrent.atomic.AtomicBoolean human=new java.util.concurrent.atomic.AtomicBoolean();
-        try(var micro=mockStatic(Microbot.class);var arbiter=mockStatic(InputArbiter.class);var awt=mockStatic(AwtEmitter.class)) {
+        try(var micro=mockStatic(Microbot.class);var arbiter=mockStatic(InputArbiter.class);var awt=new AwtEmitterStub()) {
             micro.when(Microbot::getMouse).thenReturn(mouse);arbiter.when(InputArbiter::isHuman).thenAnswer(i->human.get());
             assertEquals(InputLoop.Result.ABORTED,InputLoop.run(emit->{human.set(true);step(emit,80,50);}));
-            assertTrue(mouse.getPoints().isEmpty());awt.verifyNoInteractions();
+            assertTrue(mouse.getPoints().isEmpty());assertFalse(awt.sentAnything());
         }
     }
 
