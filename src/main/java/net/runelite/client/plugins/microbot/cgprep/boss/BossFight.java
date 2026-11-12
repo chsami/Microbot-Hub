@@ -128,6 +128,9 @@ public final class BossFight
 	private volatile int invStaffId = -1;
 	private volatile int bowSlot = -1;
 	private volatile int staffSlot = -1;
+	/** 1.8.3: the sceptre or a halberd in the bag (wielded only when a bow or staff is missing). */
+	private volatile int invMeleeId = -1;
+	private volatile int meleeSlot = -1;
 	private volatile int fishSlot = -1;
 	private volatile int doseSlot = -1;
 	private volatile int doseId = -1;
@@ -369,6 +372,9 @@ public final class BossFight
 		Item w = eq == null ? null : eq.getItem(EquipmentInventorySlot.WEAPON.getSlotIdx());
 		int wid = w == null ? -1 : w.getId();
 		o.weapon = contains(cgMode.bow, wid) ? Style.RANGED : contains(cgMode.staff, wid) ? Style.MAGIC : Style.MELEE;
+		boolean meleeInHand = isMelee(cgMode, wid);
+		int mSlot = -1;
+		int mId = -1;
 		ItemContainer inv = client.getItemContainer(net.runelite.api.gameval.InventoryID.INV);
 		int bowId = -1;
 		int staffId = -1;
@@ -413,12 +419,22 @@ public final class BossFight
 					staffId = id;
 					sSlot = slot;
 				}
+				else if (isMelee(cgMode, id) && (mId < 0 || contains(cgMode.halberd, id)))
+				{
+					mId = id; // a halberd beats the sceptre
+					mSlot = slot;
+				}
 			}
 		}
 		invBowId = bowId;
 		invStaffId = staffId;
 		bowSlot = bSlot;
 		staffSlot = sSlot;
+		invMeleeId = mId;
+		meleeSlot = mSlot;
+		o.haveBow = bowId >= 0 || o.weapon == Style.RANGED;
+		o.haveStaff = staffId >= 0 || o.weapon == Style.MAGIC;
+		o.haveMelee = mId >= 0 || meleeInHand;
 		fishSlot = fSlot;
 		doseSlot = dSlot;
 		doseId = dId;
@@ -734,6 +750,20 @@ public final class BossFight
 		}
 	}
 
+	/** The inventory item to wield for a style: bow, staff, or (1.8.3) the sceptre / halberd. */
+	private QuickClicks.Target wieldTarget(Style s)
+	{
+		return s == Style.RANGED ? QuickClicks.item(clientRef, bowSlot, invBowId, "Wield")
+			: s == Style.MAGIC ? QuickClicks.item(clientRef, staffSlot, invStaffId, "Wield")
+			: QuickClicks.item(clientRef, meleeSlot, invMeleeId, "Wield");
+	}
+
+	private static boolean isMelee(CgMode cgMode, int id)
+	{
+		return id > 0 && (contains(cgMode.halberd, id) || id == net.runelite.api.gameval.ItemID.GAUNTLET_SCEPTRE
+			|| id == net.runelite.api.gameval.ItemID.GAUNTLET_SCEPTRE_HM);
+	}
+
 	/** Where a held-back click would go (for a drift of the cursor), without clicking. */
 	private QuickClicks.Target hoverTarget(Click c)
 	{
@@ -744,8 +774,7 @@ public final class BossFight
 			case OFFENSE_ON:
 				return QuickClicks.prayer(clientRef, c.style == Style.RANGED ? bestRange : bestMage);
 			case WIELD:
-				return c.style == Style.RANGED ? QuickClicks.item(clientRef, bowSlot, invBowId, "Wield")
-					: QuickClicks.item(clientRef, staffSlot, invStaffId, "Wield");
+				return wieldTarget(c.style);
 			case EAT:
 				return QuickClicks.item(clientRef, fishSlot, CgIds.PADDLEFISH, "Eat");
 			case DRINK:
@@ -816,8 +845,7 @@ public final class BossFight
 				break;
 			}
 			case WIELD:
-				t = c.style == Style.RANGED ? QuickClicks.item(clientRef, bowSlot, invBowId, "Wield")
-					: QuickClicks.item(clientRef, staffSlot, invStaffId, "Wield");
+				t = wieldTarget(c.style);
 				break;
 			case EAT:
 				t = QuickClicks.item(clientRef, fishSlot, CgIds.PADDLEFISH, "Eat");
@@ -892,11 +920,7 @@ public final class BossFight
 				}
 				return true;
 			case WIELD:
-			{
-				int slot = c.style == Style.RANGED ? bowSlot : staffSlot;
-				int id = c.style == Style.RANGED ? invBowId : invStaffId;
-				return QuickClicks.sendQuick(QuickClicks.item(clientRef, slot, id, "Wield"));
-			}
+				return QuickClicks.sendQuick(wieldTarget(c.style));
 			case MOVE:
 			{
 				WorldPoint wp = new WorldPoint(originX + c.x, originY + c.y, plane);

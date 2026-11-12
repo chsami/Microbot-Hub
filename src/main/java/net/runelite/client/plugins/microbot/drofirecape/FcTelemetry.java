@@ -23,14 +23,17 @@ class FcTelemetry implements AutoCloseable {
         if(!enabled)return;
         try {
             String stamp=DateTimeFormatter.ofPattern("uuuuMMdd-HHmmss-SSS").format(LocalDateTime.now());
-            directory=Paths.get(System.getProperty("user.home"),".runelite","dro-firecape",stamp);
+            directory=Paths.get(net.runelite.client.RuneLite.RUNELITE_DIR.getAbsolutePath(),"dro-firecape",stamp);
             Files.createDirectories(directory);writer=Files.newBufferedWriter(directory.resolve("events.jsonl"));
             event("session","controller "+DroFirecapePlugin.version+"; frame schema 2; local movement acknowledgements; live validation pending");
         }catch(IOException e){Microbot.log("[Dro Firecape] Trace unavailable: "+e);}
     }
     synchronized void event(String type,String detail) {
         write("{\"time\":\""+Instant.now()+"\",\"type\":\""+escape(type)+"\",\"detail\":\""+escape(detail)+"\"}");
+        recorder("firecape_event",type,detail);
     }
+    /** The Dro client mirrors each event into its recorder; the Hub build keeps events.jsonl only. */
+    static void recorder(String record,String type,String detail) { }
     protected void write(String line) {
         if(writer==null)return;
         try{writer.write(line);writer.newLine();writer.flush();}

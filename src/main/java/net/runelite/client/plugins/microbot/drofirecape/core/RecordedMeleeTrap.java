@@ -22,7 +22,7 @@ public final class RecordedMeleeTrap {
     public void rebase(int dx,int dy){if(home!=null)home=home.add(dx,dy);if(goal!=null)goal=goal.add(dx,dy);}
     public boolean start(Snapshot s,Tile italy,int currentTarget) {return start(s,italy,currentTarget,true);}
     public boolean start(Snapshot s,Tile italy,int currentTarget,boolean allowNorthern) {
-        if(active()||s.meleeMode()||italy==null||s.mobs().stream().anyMatch(m->
+        if(active()||italy==null||s.mobs().stream().anyMatch(m->
             m.kind()==Kind.BAT||m.kind()==Kind.RANGER||m.kind()==Kind.JAD||m.kind()==Kind.HEALER))return false;
         Mob big=s.mobs().stream().filter(m->m.kind()==Kind.MELEER&&!attempted.contains(m.index()))
             .min(Comparator.comparingInt(m->m.distance(s.player()))).orElse(null);

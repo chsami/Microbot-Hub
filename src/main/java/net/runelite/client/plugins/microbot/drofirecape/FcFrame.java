@@ -6,6 +6,8 @@
  */
 package net.runelite.client.plugins.microbot.drofirecape;
 
+import net.runelite.client.plugins.microbot.Microbot;
+
 import java.util.*;
 import net.runelite.api.*;
 import net.runelite.api.coords.*;
@@ -73,7 +75,7 @@ public final class FcFrame {
     final int tick,world,plane,baseX,baseY,hp,maxHp,prayer,maxPrayer,rawEnergy,serverMinute,serverSecond;
     final int attack,baseAttack,strength,baseStrength,defence,baseDefence,magic,baseMagic;
     final int ranged,baseRanged,attackStyle,weaponId,interactingIndex,specialEnergy,specialEnabled,playerAnimation;
-    final boolean cave,inTzhaar,moving,running,autoRetaliate,containersReady;
+    final boolean cave,inTzhaar,moving,walking,running,autoRetaliate,containersReady;
     final String weapon;
     final WorldPoint location,template;
     final Protection overhead;
@@ -83,7 +85,7 @@ public final class FcFrame {
     final Map<FcModel.Tile,FcModel.Tile> recordedTiles;
     final Set<Integer> presentNpcIndices,healersTargetingJad;
     private FcFrame(Client c,WorldView view,Player player,List<Mob> mobs,CollisionGrid grid,
-                    Protection jad,Map<WaveBook.Spawn,FcModel.Tile> spawnPoints,int weaponRange,Set<Integer> healersOnJad,Map<FcModel.Tile,FcModel.Tile> recordedPoints,boolean meleeMode) {
+                    Protection jad,Map<WaveBook.Spawn,FcModel.Tile> spawnPoints,int weaponRange,Set<Integer> healersOnJad,Map<FcModel.Tile,FcModel.Tile> recordedPoints) {
         recordedTiles=Map.copyOf(recordedPoints);
         capturedAt=System.currentTimeMillis();tick=c.getTickCount();world=c.getWorld();
         plane=view.getPlane();baseX=view.getBaseX();baseY=view.getBaseY();
@@ -95,6 +97,9 @@ public final class FcFrame {
         rawEnergy=c.getEnergy();running=c.getVarpValue(173)==1;
         autoRetaliate=c.getVarpValue(172)==0;
         moving=player.getPoseAnimation()!=player.getIdlePoseAnimation();
+        // Turning in place to face a new target is not movement (wave 44, 2026-10-20: each attack
+        // click opened the prayer envelope and woke a trapped Ket-Zek from a neighbouring tile).
+        walking=moving&&player.getPoseAnimation()!=player.getIdleRotateLeft()&&player.getPoseAnimation()!=player.getIdleRotateRight();
         attack=c.getBoostedSkillLevel(Skill.ATTACK);baseAttack=c.getRealSkillLevel(Skill.ATTACK);
         strength=c.getBoostedSkillLevel(Skill.STRENGTH);baseStrength=c.getRealSkillLevel(Skill.STRENGTH);
         defence=c.getBoostedSkillLevel(Skill.DEFENCE);baseDefence=c.getRealSkillLevel(Skill.DEFENCE);
@@ -128,23 +133,24 @@ public final class FcFrame {
         }
         inventory=List.copyOf(inv);spawns=Map.copyOf(spawnPoints);healersTargetingJad=Set.copyOf(healersOnJad);
         HashSet<Integer> indices=new HashSet<>();for(Mob m:mobs)indices.add(m.index());presentNpcIndices=Set.copyOf(indices);
-        LocalPoint local=player.getLocalLocation();
-        model=new Snapshot(tick,new FcModel.Tile(local.getSceneX(),local.getSceneY()),grid,mobs,
-                Math.max(0,(rawEnergy+99)/100),running,weaponRange,jad,meleeMode);
+        // True (server) tile, as the hosted arenas use and as every NPC WorldArea is; the rendered
+        // local location lags a tile behind while walking and mismatched the NPC positions.
+        model=new Snapshot(tick,trueTile(player,view),grid,mobs,
+                Math.max(0,(rawEnergy+99)/100),running,weaponRange,jad);
     }
-    static FcFrame capture(Client c,int overrideRange,boolean meleeMode,Protection jad,Map<Integer,Integer> attackTicks,Map<Integer,Protection> attackStyles,Set<Integer> dead) {
-        return capture(c,overrideRange,meleeMode,jad,attackTicks,attackStyles,dead,false);
+    static FcFrame capture(Client c,int overrideRange,Protection jad,Map<Integer,Integer> attackTicks,Map<Integer,Protection> attackStyles,Set<Integer> dead) {
+        return capture(c,overrideRange,jad,attackTicks,attackStyles,dead,false);
     }
-    static FcFrame captureOptional(Client c,int overrideRange,boolean meleeMode,Protection jad,Map<Integer,Integer> attackTicks,Map<Integer,Protection> attackStyles,Set<Integer> dead) {
-        return capture(c,overrideRange,meleeMode,jad,attackTicks,attackStyles,dead,true);
+    static FcFrame captureOptional(Client c,int overrideRange,Protection jad,Map<Integer,Integer> attackTicks,Map<Integer,Protection> attackStyles,Set<Integer> dead) {
+        return capture(c,overrideRange,jad,attackTicks,attackStyles,dead,true);
     }
-    private static FcFrame capture(Client c,int overrideRange,boolean meleeMode,Protection jad,Map<Integer,Integer> attackTicks,Map<Integer,Protection> attackStyles,Set<Integer> dead,boolean optionalAnchors) {
+    private static FcFrame capture(Client c,int overrideRange,Protection jad,Map<Integer,Integer> attackTicks,Map<Integer,Protection> attackStyles,Set<Integer> dead,boolean optionalAnchors) {
         if(c==null||c.getGameState()!=GameState.LOGGED_IN||c.getLocalPlayer()==null)return null;
         WorldView v=c.getTopLevelWorldView();if(v==null||v.getCollisionMaps()==null)return null;
         int plane=v.getPlane();if(plane<0||plane>=v.getCollisionMaps().length||v.getCollisionMaps()[plane]==null)return null;
         CollisionGrid grid=new CollisionGrid(v.getCollisionMaps()[plane].getFlags());
         Player p=c.getLocalPlayer();ArrayList<Mob> mobs=new ArrayList<>();Set<Integer> healersOnJad=new HashSet<>();
-        for(var cached:net.runelite.client.plugins.microbot.Microbot.getRs2NpcCache().query().toList()) {
+        for(var cached:net.runelite.client.plugins.microbot.Microbot.getRs2NpcCache().query().toListOnClientThread()) {
             NPC n=cached.getNpc();
             if(n==null||n.getWorldView()!=v||dead.contains(n.getIndex()))continue;
             NPCComposition comp=n.getTransformedComposition();if(comp==null)continue;
@@ -184,12 +190,18 @@ public final class FcFrame {
                 }
             }
         }
-        int range=meleeMode?1:overrideRange;
+        int range=overrideRange;
         if(range==0) {
             ItemContainer equipment=c.getItemContainer(InventoryID.EQUIPMENT);Item item=equipment==null?null:equipment.getItem(3);
             range=item==null?0:inferRange(c.getItemDefinition(item.getId()).getName());
+            if(range==0&&item!=null)range=statsRange(item.getId());
         }
-        return new FcFrame(c,v,p,mobs,grid,jad,spawnPoints,Math.max(1,range),healersOnJad,recordedPoints,meleeMode);
+        return new FcFrame(c,v,p,mobs,grid,jad,spawnPoints,Math.max(1,range),healersOnJad,recordedPoints);
+    }
+    /** The player's server tile in scene coordinates. */
+    static FcModel.Tile trueTile(Player player,WorldView view) {
+        WorldPoint w=player.getWorldLocation();
+        return new FcModel.Tile(w.getX()-view.getBaseX(),w.getY()-view.getBaseY());
     }
     /** WorldArea and the planner use tile units. Never use the recorder's raw footprintSize. */
     static int npcTileSize(NPC npc) {
@@ -220,16 +232,40 @@ public final class FcFrame {
         FcModel.Tile template=RecordedLureBook.opening(rotation,wave);
         return template==null?null:recordedTiles.get(template);
     }
+    /** Attack range in tiles on the Rapid/accurate (non-longrange) style, from the OSRS Wiki
+     * "Attack range" tables. Order matters: specific names precede their weapon class. Unlisted
+     * weapons return 0 and stop startup. */
+    /** Melee offence and swing animations follow the equipped weapon: not ranged, staff or wand. */
+    static boolean meleeWeapon(String name){return name!=null&&!name.isEmpty()&&inferRange(name)==0&&!FcMagic.magic(name);}
+    /**
+     * Failsafe for a weapon missing from the name table (a mid-fight switch must never leave the planner without a
+     * range): 10 for a magic weapon (magic attack 10+, autocast reach), 7 for a ranged weapon, 1 for melee.
+     */
+    static int statsRange(int itemId) {
+        try {
+            net.runelite.client.game.ItemStats stats=net.runelite.client.plugins.microbot.Microbot.getItemManager().getItemStats(itemId);
+            net.runelite.client.game.ItemEquipmentStats e=stats==null?null:stats.getEquipment();
+            if(e==null)return 1;
+            if(e.getAmagic()>=10)return 10;
+            if(e.getArange()>0)return 7;
+        } catch(RuntimeException ignored) { }
+        return 1;
+    }
     static int inferRange(String name) {
         if(name==null)return 0;String w=name.toLowerCase(Locale.ROOT);
-        if(w.contains("blowpipe"))return 5;
-        if(w.contains("bow of faerdhinen")||w.contains("crystal bow")||w.contains("twisted bow")||w.contains("longbow"))return 10;
-        if(w.contains("karil"))return 6;
-        if(w.contains("crossbow"))return 7;
-        if(w.contains("shortbow")||w.contains("webweaver")||w.contains("craw's")||w.contains("venator"))return 7;
-        if(w.contains("knife"))return 4;
+        if(w.contains("blowpipe")||w.contains("comp ogre bow")||w.contains("phoenix crossbow")||w.contains("hunter's spear"))return 5;
+        if(w.contains("bow of faerdhinen")||w.contains("crystal bow")||w.contains("twisted bow")||w.contains("dark bow")
+            ||w.contains("scorching bow")||w.contains("longbow")||w.contains("composite bow")||w.contains("comp bow")||w.equals("ogre bow"))return 10;
+        if(w.contains("3rd age bow")||w.contains("craw's bow")||w.contains("webweaver bow")
+            ||w.contains("ballista")||w.contains("chinchompa"))return 9;
+        if(w.contains("armadyl crossbow")||w.contains("zaryte crossbow")||w.contains("karil's crossbow")
+            ||w.contains("hunters' crossbow")||w.contains("hunters' sunlight crossbow")||w.contains("seercull"))return 8;
+        if(w.contains("venator bow")||w.contains("dorgeshuun crossbow")||w.contains("cursed goblin bow")
+            ||w.contains("eclipse atlatl")||w.contains("tonalztics of ralos (uncharged)"))return 6;
+        if(w.contains("crossbow")||w.contains("shortbow")||w.contains("toktz-xil-ul")||w.contains("tonalztics of ralos"))return 7;
+        if(w.contains("knife")||w.contains("thrownaxe"))return 4;
         if(w.contains("dart"))return 3;
-        return 0;
+        return FcMagic.range(name);
     }
     Snapshot predictedWave(int rotation,int wave) {
         if(!WaveBook.validRotation(rotation)||wave<1||wave>63)return null;
@@ -238,7 +274,7 @@ public final class FcFrame {
             FcModel.Tile tile=spawns.get(spawn.location());if(tile==null)return null;
             mobs.add(new Mob(id++,spawn.kind(),tile,spawn.kind().size,-1,-1,-1,spawn.kind().protection,true));
         }
-        return new Snapshot(tick,model.player(),model.grid(),mobs,model.runEnergy(),running,model.weaponRange(),Protection.MAGIC,model.meleeMode());
+        return new Snapshot(tick,model.player(),model.grid(),mobs,model.runEnergy(),running,model.weaponRange(),Protection.MAGIC);
     }
     int count(int id){return inventory.stream().filter(i->i.id()==id).mapToInt(ItemSlot::quantity).sum();}
     boolean sameScene(FcFrame other) {

@@ -610,6 +610,7 @@ public class NightmareActionsTest
         assertEquals(0, actions.price(995));
         assertNull(actions.itemName(995));
         assertFalse(actions.stackable(995));
+        assertEquals(0, actions.reach(22804));
     }
 
     private static Item[] fullInventory()

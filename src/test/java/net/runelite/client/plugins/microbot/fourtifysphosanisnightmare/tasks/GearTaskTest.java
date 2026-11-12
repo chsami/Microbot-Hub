@@ -34,6 +34,14 @@ public class GearTaskTest
     }
 
     @Test
+    public void aThrownSleepwalkerWeaponUsesItsLongrangeStyleWhenThatLetsFewerThrough()
+    {
+        world.styleButtons = new Object[][] {{0, 1, 3}, {"(Accurate)<br>(Light)", "(Rapid)<br>(Light)", "(Longrange)<br>(Light)"}};
+        trip.setLongThrows(true);
+        assertEquals(3, gear.style(Loadout.SLEEPWALKER));
+    }
+
+    @Test
     public void theFirstSleepwalkerAttackDoesNotWaitForTheRapidStyle()
     {
         world.styleButtons = new Object[][] {{0, 1, 3}, {"(Accurate)<br>(Light)", "(Rapid)<br>(Light)", "(Longrange)<br>(Light)"}};

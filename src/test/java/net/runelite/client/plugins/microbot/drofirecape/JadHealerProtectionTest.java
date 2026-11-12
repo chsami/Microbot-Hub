@@ -83,7 +83,7 @@ public class JadHealerProtectionTest {
                 if(tick==delayed)clock.animation(1,Kind.JAD,2656);
                 clock.beginTick(tick,scene(tick,true,true).mobs());
             }
-            assertEquals(Protection.MAGIC,clock.choose(scene(delayed+6,true,true),false,Protection.MAGIC,Protection.NONE).protection,"Delayed interval "+interval);
+            assertEquals(Protection.MAGIC,clock.choose(scene(delayed+6,true,true),false,Protection.MAGIC,Protection.NONE).protection, "Delayed interval "+interval);
         }
     }
     @Test public void jadMeleeContactCannotOpenTheHealerGap() {

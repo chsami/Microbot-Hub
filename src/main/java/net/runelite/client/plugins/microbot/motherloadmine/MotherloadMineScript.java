@@ -32,6 +32,7 @@ import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
 import net.runelite.client.plugins.microbot.api.player.Rs2PlayerCache;
+import net.runelite.client.plugins.microbot.api.player.models.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.api.tileobject.Rs2TileObjectCache;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.motherloadmine.enums.MLMMiningSpot;
@@ -196,6 +197,17 @@ public class MotherloadMineScript extends Script
         return player != null ? player.getWorldLocation() : null;
     }
 
+    static boolean isOtherPlayerNear(Rs2PlayerModel other, Player self, WorldPoint location)
+    {
+        return other != null && other.getPlayer() != self && other.getWorldLocation() != null
+                && other.getWorldLocation().distanceTo(location) <= 2;
+    }
+
+    static boolean canGetHammer(boolean hasHammer, boolean inventoryFull, int payDirtCount)
+    {
+        return hasHammer || !inventoryFull || payDirtCount > 0;
+    }
+
     private String[] SPEC_PICKAXES = {"dragon pickaxe", "crystal pickaxe", "infernal pickaxe"};
 
     private void handlePickaxeSpec() {
@@ -221,7 +233,7 @@ public class MotherloadMineScript extends Script
             return;
         }
 
-        if (shouldRepairWaterwheel && getBrokenStrutCount() > 1) {
+        if (shouldRepairWaterwheel && getBrokenStrutCount() > 1 && canGetHammer(hasHammer(), Rs2Inventory.isFull(), payDirtCount())) {
             status = MLMStatus.FIXING_WATERWHEEL;
             return;
         }
@@ -845,7 +857,8 @@ public class MotherloadMineScript extends Script
 
 		if (!miningSpot.isUpstairs() && config.useAntiCrash())
 		{
-			boolean isPlayerNearBy = rs2PlayerCache.query().where(p -> p != null && p.getWorldLocation().distanceTo(wallObject.getWorldLocation()) <= 2).first() != null;
+			final Player self = Microbot.getClient().getLocalPlayer();
+			boolean isPlayerNearBy = rs2PlayerCache.query().where(p -> isOtherPlayerNear(p, self, location)).first() != null;
 			if (isPlayerNearBy) return false;
 		}
 

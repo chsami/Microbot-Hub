@@ -55,7 +55,7 @@ import java.util.stream.Collectors;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class MahoganyHomesPlugin extends Plugin {
-    public static final String version = "0.0.20";
+    public static final String version = "0.0.21";
     private static final List<Integer> PLANKS = Arrays.asList(ItemID.PLANK, ItemID.OAK_PLANK, ItemID.TEAK_PLANK, ItemID.MAHOGANY_PLANK);
     private static final List<String> PLANK_NAMES = Arrays.asList("Plank", "Oak plank", "Teak plank", "Mahogany plank");
     private static final Map<Integer, Integer> MAHOGANY_HOMES_REPAIRS = new HashMap<>();
@@ -337,11 +337,7 @@ public class MahoganyHomesPlugin extends Plugin {
         }
 
         if (e.getEntry().getOption().equals(MahoganyHomesOverlay.CLEAR_OPTION)) {
-            clientThread.invokeLater(() -> {
-                applyCurrentHome(null);
-                updateConfig();
-                lastChanged = null;
-            });
+            clearCurrentHome();
         }
 
 
@@ -666,6 +662,14 @@ public class MahoganyHomesPlugin extends Plugin {
 
     public void setCurrentHome(final Home h) {
         clientThread.invokeLater(() -> applyCurrentHome(h));
+    }
+
+    public void clearCurrentHome() {
+        clientThread.invokeLater(() -> {
+            applyCurrentHome(null);
+            updateConfig();
+            lastChanged = null;
+        });
     }
 
     private void applyCurrentHome(final Home h) {

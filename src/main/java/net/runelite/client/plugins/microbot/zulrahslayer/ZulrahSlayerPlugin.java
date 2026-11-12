@@ -41,7 +41,7 @@ import java.util.List;
 )
 @Slf4j
 public class ZulrahSlayerPlugin extends Plugin {
-    public static final String version = "1.0.3";
+    public static final String version = "1.0.4";
     public static final int GOING_UNDER_WATER = 5072;   // SNAKEBOSS_SINKFAST
     public static final int ATTACK_ANIMATION = 5069;    // SNAKEBOSS_ATTACK_ACIDX1 (ranged/magic)
     public static final int START_ANIMATION = 5071;     // SNAKEBOSS_SPAWN
@@ -168,7 +168,7 @@ public class ZulrahSlayerPlugin extends Plugin {
             }
             case START_ANIMATION: {
                 zulrahScript.onZulrahSurfaced();
-                stage = 0;
+                stage = zulrahReset ? 1 : 0;
                 pushPhase(npc);
                 logZulrahState("START");
                 break;
@@ -197,7 +197,7 @@ public class ZulrahSlayerPlugin extends Plugin {
                     break;
                 }
 
-                stage = -1;
+                stage = 0;
                 currentRotation = null;
                 potentialRotations.clear();
                 zulrahReset = true;

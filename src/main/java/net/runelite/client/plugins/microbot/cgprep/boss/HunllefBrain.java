@@ -215,7 +215,10 @@ public final class HunllefBrain
 		}
 		else
 		{
-			p.attack = !o.attacking && !under;
+			// 1.8.3: with the sceptre (no bow / staff), only from a tile next to the boss's side: an
+			// Attack click from further out makes the game walk us in, through whatever is in the way.
+			boolean meleeOk = m.weaponToUse() != Style.MELEE || Arena.meleeTile(o.px, o.py, o.bx, o.by);
+			p.attack = !o.attacking && !under && meleeOk;
 		}
 		p.protectSlack = protectSlack(m, p.protect);
 		p.moveFirst = c.dodgeFirst && p.moving() && p.urgent && p.protectSlack >= 1;

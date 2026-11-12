@@ -73,6 +73,7 @@ public final class TestWorld
     /** The scene's collision flags on the player's plane: open floor unless a test blocks a tile. */
     public final int[][] flags = new int[104][104];
     public final Set<Integer> activeVarbits = new HashSet<>();
+    public final Map<Integer, Integer> varbits = new HashMap<>();
     public final Map<Integer, Integer> varps = new HashMap<>(Map.of(VarPlayerID.OPTION_RUN, 1));
     public final Map<Skill, Integer> boosts = new HashMap<>();
     public final List<GraphicsObject> graphics = new ArrayList<>();
@@ -217,7 +218,7 @@ public final class TestWorld
             case "getVarpValue":
                 return varps.getOrDefault((Integer) args[0], 0);
             case "getVarbitValue":
-                return activeVarbits.contains((Integer) args[0]) ? 1 : 0;
+                return varbits.getOrDefault((Integer) args[0], activeVarbits.contains((Integer) args[0]) ? 1 : 0);
             case "getDBRowsByValue":
                 return styleButtons == null ? List.of() : List.of(1);
             case "getDBTableField":

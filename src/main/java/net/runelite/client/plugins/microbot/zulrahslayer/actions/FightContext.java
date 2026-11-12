@@ -51,12 +51,12 @@ public class FightContext {
      *  attack-while-repositioning would keep us pinned there instead of moving. Cleared once we reach the
      *  tile, after which normal safespot attacking resumes. */
     private volatile boolean needsToGoToFirstLocation;
-    /** Whether this is the NE melee-dodge phase. */
+    /** Whether this is a melee-dodge phase. */
     private volatile boolean meleeDodgePhase;
     /** Set once the jad phase's starting overhead has been anchored; the flick alternates it after. */
     private volatile boolean jadStartPrayerSet;
-    /** Which of the two NE dodge tiles is currently targeted; flipped on each tail swing. */
-    private volatile boolean meleeDodgeAtNorth = true;
+    /** The melee-phase tile currently targeted; re-chosen on each tail swing. */
+    private volatile WorldPoint meleeDodgeTarget;
 
     /** Wall-clock of the last attack, for the attack-on-cooldown-while-moving cadence. */
     private long lastAttackAtMs;
@@ -106,7 +106,7 @@ public class FightContext {
         needsToGoToFirstLocation = false;
         meleeDodgePhase = false;
         jadStartPrayerSet = false;
-        meleeDodgeAtNorth = true;
+        meleeDodgeTarget = null;
         lastAttackAtMs = 0;
         gearSwapAttempts = 0;
     }
