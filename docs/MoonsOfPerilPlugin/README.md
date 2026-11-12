@@ -49,6 +49,7 @@ The script sits on “Idle”. What now?
 - Verify you selected an InventorySetup after any edits (switch to another preset, then back).
 - Degraded gear users (eg Barrows, Moons): enable Fuzzy matching so degraded armour is recognised.
 - If it still idles, create a brand-new inventory setup and re-select it.
+- If the overlay says Lunar Chest sealed, the chest had no rewards and the script found no moon to fight. Stop the plugin, defeat a moon yourself, then start it again, and report it in Bug Reports with the 'Lunar Chest is sealed' log line.
 
 ## How do I report a bug?
 - Enable Debug Logs in the plugin configuration, record a clip or video, and post it in the discord Bug Reports channel, following the Microbot template for Bug Reporting. 
