@@ -72,6 +72,7 @@ public class HazardsTest
     public void betweenHerStepsATileNextToHerStaysUnsafe()
     {
         Hazards hazards = new Hazards();
+        hazards.observeStage(Stage.DESPERATION);
         WorldArea boss = new WorldArea(at(22, 27), 5, 5);
         hazards.observeBoss(new WorldArea(at(22, 28), 5, 5));
         hazards.observeBoss(boss);
@@ -88,6 +89,7 @@ public class HazardsTest
     public void whileSheStandsStillATileNextToHerStaysSafe()
     {
         Hazards hazards = new Hazards();
+        hazards.observeStage(Stage.DESPERATION);
         WorldArea boss = new WorldArea(at(22, 27), 5, 5);
         hazards.observeBoss(boss);
         hazards.observeBoss(boss);
@@ -96,6 +98,56 @@ public class HazardsTest
         hazards.expire(6);
         assertFalse(hazards.isDangerous(at(23, 26)), "in her final phase she claws without walking");
         assertNotNull(hazards.beside(at(22, 21), square(at(22, 21), 6), boss));
+    }
+
+    private static final List<WorldPoint> CLAWS = List.of(at(8216, 1629), at(8216, 1630), at(8216, 1631), at(8216, 1632),
+        at(8216, 1633), at(8217, 1627), at(8217, 1628), at(8217, 1630), at(8217, 1632), at(8217, 1633), at(8218, 1630),
+        at(8218, 1631), at(8218, 1635), at(8219, 1631), at(8219, 1633), at(8220, 1630), at(8220, 1633), at(8221, 1627),
+        at(8221, 1634), at(8222, 1627), at(8222, 1635), at(8223, 1631));
+
+    private static final List<WorldPoint> SPORES = List.of(at(8215, 1631), at(8218, 1628), at(8218, 1634), at(8221, 1625),
+        at(8221, 1637), at(8222, 1629), at(8222, 1633), at(8224, 1622), at(8224, 1640), at(8226, 1629), at(8226, 1633),
+        at(8227, 1625), at(8227, 1637), at(8230, 1628), at(8230, 1634), at(8233, 1631));
+
+    private static Hazards clawsOpenedAt(int tick)
+    {
+        Hazards hazards = new Hazards();
+        for (WorldPoint claw : CLAWS)
+        {
+            hazards.observeRift(claw, tick, 0);
+        }
+        return hazards;
+    }
+
+    @Test
+    public void beforeHerFinalPhaseATileNextToHerIsUnsafeBeforeSheTakesHerFirstStep()
+    {
+        Hazards hazards = clawsOpenedAt(100);
+        WorldArea boss = new WorldArea(at(8218, 1626), 5, 5);
+        hazards.observeBoss(boss);
+        hazards.observeBoss(boss);
+        hazards.observeBoss(boss);
+        hazards.observePlayer(at(8219, 1632));
+        hazards.expire(101);
+        assertTrue(hazards.isDangerous(at(8220, 1631)), "she starts toward a player out of her reach and lands on it");
+        hazards.observeStage(Stage.DESPERATION);
+        assertFalse(hazards.isDangerous(at(8220, 1631)), "in her final phase she claws where she stands");
+    }
+
+    @Test
+    public void aWayOutFromUnderHerNeverEndsATickOnHerClawsAsTheyComeUp()
+    {
+        Hazards hazards = clawsOpenedAt(100);
+        hazards.observeBoss(new WorldArea(at(8218, 1626), 5, 5));
+        WorldArea boss = new WorldArea(at(8219, 1627), 5, 5);
+        hazards.observeBoss(boss);
+        hazards.setSpores(SPORES);
+        WorldPoint player = at(8220, 1631);
+        hazards.observePlayer(player);
+        hazards.expire(102);
+        WorldPoint tile = hazards.escape(player, square(player, 16), boss);
+        assertNotNull(tile, "under her the claws hit, so the player leaves");
+        assertEquals(at(8216, 1627), tile, "the nearest way out that ends no tick on a claw as it comes up");
     }
 
     @Test
@@ -328,6 +380,7 @@ public class HazardsTest
     public void aWalkBesideHerMayCrossClawsThatLandAfterItEnds()
     {
         Hazards hazards = new Hazards();
+        hazards.observeStage(Stage.DESPERATION);
         WorldArea boss = new WorldArea(at(20, 20), 5, 5);
         hazards.observeBoss(boss);
         WorldPoint player = at(27, 22);

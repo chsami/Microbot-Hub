@@ -1,6 +1,7 @@
 package net.runelite.client.plugins.microbot.drozulrah;
 
 import net.runelite.api.Skill;
+import java.util.function.BooleanSupplier;
 import java.util.function.IntBinaryOperator;
 import java.util.function.IntUnaryOperator;
 import net.runelite.api.coords.WorldPoint;
@@ -37,6 +38,17 @@ final class ZulrahFeroxReturn {
     private Stage stage;
     private long enteredAt=-1, nextInputAt, poolClickedAt, restoreStartedAt=-1, pausedAt=-1;
     private String status="Preparing Ferox return";
+    enum Escape { RING, ZUL_ANDRA, FIGHT_ON, STOP }
+    static Escape escape(boolean ring,boolean zulAndraTeleport,boolean zulrahAlive) {
+        if(ring)return Escape.RING;
+        if(!zulrahAlive)return Escape.STOP;
+        return zulAndraTeleport?Escape.ZUL_ANDRA:Escape.FIGHT_ON;
+    }
+    static boolean teleportThenLeaveCombat(BooleanSupplier teleport,Runnable leaveCombat) {
+        if(!teleport.getAsBoolean())return false;
+        leaveCombat.run();
+        return true;
+    }
     static ZulrahFeroxReturn select(IntUnaryOperator roll,IntBinaryOperator random) {
         return new ZulrahFeroxReturn(Route.CAMERA,
             roll.applyAsInt(10)==0,roll.applyAsInt(35)==0,random);

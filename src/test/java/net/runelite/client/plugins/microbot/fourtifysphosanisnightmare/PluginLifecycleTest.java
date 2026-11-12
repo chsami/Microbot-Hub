@@ -793,6 +793,23 @@ public class PluginLifecycleTest
     }
 
     @Test
+    public void herMessagesWithANamedHighlightColourAreRead() throws Exception
+    {
+        PluginTestFixture fixture = new PluginTestFixture();
+        fixture.enableAndDrain();
+        fixture.tick();
+        NightmareFight fight = (NightmareFight) fixture.read("fight");
+        fixture.plugin.onChatMessage(message("@mes_hl_pur@" + DreamData.CURSED + "</col>"));
+        assertTrue(fight.isCursed());
+        fixture.plugin.onChatMessage(message("@mes_hl_gre@" + DreamData.CURSE_ENDED + "</col>"));
+        assertFalse(fight.isCursed());
+        fixture.plugin.onChatMessage(message("@mes_hl_mag@" + DreamData.DROWSY + "</col>"));
+        assertTrue(fight.isDrowsy());
+        fixture.plugin.onChatMessage(message("@mes_hl_gre@" + DreamData.WEAKENED + "</col>"));
+        assertTrue(fight.isWeakened());
+    }
+
+    @Test
     public void herAttackAnimationIsTimedFromTheNextTick() throws Exception
     {
         PluginTestFixture fixture = new PluginTestFixture();
@@ -884,8 +901,7 @@ public class PluginLifecycleTest
             fixture.world.activeVarbits.clear();
             fixture.world.activeVarbits.add((missiles ? Rs2PrayerEnum.PROTECT_RANGE : Rs2PrayerEnum.PROTECT_MAGIC).getVarbit());
         }
-        assertEquals(List.of(lands - 3, lands - 1), hers,
-            "hers is on as her missiles launch and as they land, and the husk's in between");
+        assertEquals(List.of(lands - 2), hers, "hers is on as her missiles launch, and the husk's on every other tick");
     }
 
     @Test
@@ -919,7 +935,7 @@ public class PluginLifecycleTest
             fixture.world.activeVarbits.clear();
             fixture.world.activeVarbits.add((missiles ? Rs2PrayerEnum.PROTECT_RANGE : Rs2PrayerEnum.PROTECT_MAGIC).getVarbit());
         }
-        assertEquals(List.of(lands - 3), hers, "the husk's protection stays on as her missiles land");
+        assertEquals(List.of(lands - 2), hers, "the husk's protection is back on as her missiles land");
     }
 
     @Test
@@ -935,8 +951,21 @@ public class PluginLifecycleTest
         AnimationChanged event = new AnimationChanged();
         event.setActor(fixture.boss.npc);
         fixture.plugin.onAnimationChanged(event);
-        fixture.tick();
-        assertEquals("Praying Protect From Melee", prayer.getStatus(), "her melee is read as it lands, two ticks on");
+        NightmareFight fight = (NightmareFight) fixture.read("fight");
+        int lands = fight.getAttackTick() + AttackStyle.MELEE.getHitTicks();
+        List<Integer> hers = new ArrayList<>();
+        for (int tick = 0; tick < 4; tick++)
+        {
+            fixture.tick();
+            boolean melee = prayer.getStatus().contains("Melee");
+            if (melee)
+            {
+                hers.add(fixture.plugin.getTick());
+            }
+            fixture.world.activeVarbits.clear();
+            fixture.world.activeVarbits.add((melee ? Rs2PrayerEnum.PROTECT_MELEE : Rs2PrayerEnum.PROTECT_MAGIC).getVarbit());
+        }
+        assertEquals(List.of(lands - 1), hers, "her melee is read as it lands, so its protection goes on the tick before");
     }
 
     @Test
@@ -965,8 +994,8 @@ public class PluginLifecycleTest
             fixture.world.activeVarbits.clear();
             fixture.world.activeVarbits.add((ranged ? Rs2PrayerEnum.PROTECT_RANGE : Rs2PrayerEnum.PROTECT_MAGIC).getVarbit());
         }
-        assertEquals(List.of(rose + 3, rose + 7), missiles,
-            "its protection ends the tick before each attack, five ticks after rising and every four after");
+        assertEquals(List.of(rose + 4, rose + 8), missiles,
+            "its protection goes on the tick before each attack, five ticks after rising and every four after");
     }
 
     @Test
@@ -1051,7 +1080,7 @@ public class PluginLifecycleTest
             fixture.tick();
             hers = prayer.getStatus().contains("Magic") ? fixture.plugin.getTick() : -1;
         }
-        assertEquals(lands - 3, hers, "the parasite's protection holds until the tick before her magic launches");
+        assertEquals(lands - 2, hers, "the parasite's protection holds until the click that is taken as her magic launches");
     }
 
     @Test

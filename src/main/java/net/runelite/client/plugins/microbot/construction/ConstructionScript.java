@@ -363,6 +363,7 @@ public class ConstructionScript extends Script {
         } else if (hasDialogueOptionToUnnote()) {
             Rs2Keyboard.keyPress('1');
             sleepUntilOnClientThread(() -> !hasDialogueOptionToUnnote());
+            restock.onSent(System.currentTimeMillis());
         } else if (hasPayButlerDialogue() || hasDialogueOptionToPay()) {
             int coins = Rs2Inventory.itemQuantity(ItemID.COINS);
             ServantRestock.Problem problem = restock.problem(ServantRestock.Servant.DEMON_BUTLER, Rs2Inventory.itemQuantity(notedPlankId), true, coins, false);

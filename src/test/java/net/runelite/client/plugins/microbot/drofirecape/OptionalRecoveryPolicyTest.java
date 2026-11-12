@@ -26,7 +26,7 @@ public class OptionalRecoveryPolicyTest {
         return f;
     }
     private OptionalRecoveryPolicy.Decision choose(FcFrame f,int debt,boolean overbrew,boolean pending) {
-        return OptionalRecoveryPolicy.choose(f,false,true,overbrew,40,90,true,true,62,debt,pending);
+        return OptionalRecoveryPolicy.choose(f,true,overbrew,40,90,true,true,62,debt,pending);
     }
     private final FcFrame.ItemSlot sweet=item(4561,"Purple sweets"),brew=item(6685,"Saradomin brew(4)"),
         restore=item(3024,"Super restore(4)"),range=item(2444,"Ranging potion(4)");
@@ -67,7 +67,7 @@ public class OptionalRecoveryPolicyTest {
         FcFrame f=frame(100,99,100,item(2444,"Ranging potion(1)"));
         assertTrue(choose(f,0,false,false).ready);assertNull(choose(f,0,false,false).item);
         assertTrue(choose(f,0,false,false).status.contains("reserve"));
-        assertNotNull(OptionalRecoveryPolicy.choose(f,false,false,false,0,90,true,true,63,0,false).item);
+        assertNotNull(OptionalRecoveryPolicy.choose(f,false,false,0,90,true,true,63,0,false).item);
     }
     @Test public void oldBrewDebtAloneDoesNotConsumeRestoreWhenActualTargetsAreReady()throws Exception {
         FcFrame f=frame(100,99,100,restore,range);set(f,"ranged",110);
@@ -75,10 +75,10 @@ public class OptionalRecoveryPolicyTest {
     }
     @Test public void zeroRunTargetDoesNotRequireEnergyOrAnotherSweet()throws Exception {
         FcFrame f=frame(100,99,0,sweet);set(f,"ranged",110);
-        assertTrue(OptionalRecoveryPolicy.choose(f,false,true,false,0,90,true,true,62,0,false).ready);
+        assertTrue(OptionalRecoveryPolicy.choose(f,true,false,0,90,true,true,62,0,false).ready);
     }
     private OptionalRecoveryPolicy.Decision pure(FcFrame f,int debt,boolean pending) {
-        return OptionalRecoveryPolicy.choose(f,false,true,true,40,90,true,true,54,debt,pending,true);
+        return OptionalRecoveryPolicy.choose(f,true,true,40,90,true,true,54,debt,pending,true);
     }
     @Test public void recordedFullBaseHpDoesNotWaitForImpossibleOverbrew()throws Exception {
         FcFrame f=frame(100,74,100,sweet);set(f,"maxHp",74);set(f,"maxPrayer",45);set(f,"prayer",45);

@@ -26,11 +26,13 @@ import java.util.concurrent.Callable;
 import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -149,6 +151,69 @@ class ThievingVyreTargetTest {
             microbot.verify(() -> Microbot.showMessage(contains("Vyre noble set")));
             bank.verify(Rs2Bank::openBank, never());
             bank.verify(() -> Rs2Bank.walkToBankAndUseBank(any()), never());
+        }
+    }
+
+    @Test
+    void noReachableBankRetriesThenStopsThePlugin() throws Exception {
+        ThievingScript script = script(ThievingNpc.ARDOUGNE_KNIGHT);
+        String previousStatus = Microbot.status;
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            bank.when(Rs2Bank::isOpen).thenReturn(false);
+            bank.when(Rs2Bank::getNearestBank).thenReturn(null);
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(2662, 3305, 0));
+
+            Method method = ThievingScript.class.getDeclaredMethod("bankAndEquip");
+            method.setAccessible(true);
+
+            assertDoesNotThrow(() -> method.invoke(script));
+            assertDoesNotThrow(() -> method.invoke(script));
+            assertEquals("Looking for a bank...", Microbot.status);
+            microbot.verify(() -> Microbot.stopPlugin(any(ThievingPlugin.class)), never());
+            microbot.verify(() -> Microbot.showMessage(any()), never());
+
+            assertDoesNotThrow(() -> method.invoke(script));
+            microbot.verify(() -> Microbot.stopPlugin(any(ThievingPlugin.class)));
+            microbot.verify(() -> Microbot.showMessage(contains("Couldn't find a route to a bank you can use")));
+            assertTrue(Microbot.status.startsWith("Stopped: Couldn't find a route to a bank"));
+            bank.verify(() -> Rs2Bank.isNearBank(any(), anyInt()), never());
+            bank.verify(Rs2Bank::openBank, never());
+            bank.verify(() -> Rs2Bank.walkToBankAndUseBank(any()), never());
+        } finally {
+            Microbot.status = previousStatus;
+        }
+    }
+
+    @Test
+    void foundBankResetsTheLookupRetries() throws Exception {
+        ThievingScript script = script(ThievingNpc.ARDOUGNE_KNIGHT);
+        String previousStatus = Microbot.status;
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Bank> bank = mockStatic(Rs2Bank.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            bank.when(Rs2Bank::isOpen).thenReturn(false);
+            player.when(Rs2Player::getWorldLocation).thenReturn(new WorldPoint(2662, 3305, 0));
+
+            Method method = ThievingScript.class.getDeclaredMethod("bankAndEquip");
+            method.setAccessible(true);
+
+            bank.when(Rs2Bank::getNearestBank).thenReturn(null);
+            assertDoesNotThrow(() -> method.invoke(script));
+            assertDoesNotThrow(() -> method.invoke(script));
+            bank.when(Rs2Bank::getNearestBank).thenReturn(BankLocation.ARDOUGNE_SOUTH);
+            assertDoesNotThrow(() -> method.invoke(script));
+            bank.when(Rs2Bank::getNearestBank).thenReturn(null);
+            assertDoesNotThrow(() -> method.invoke(script));
+            assertDoesNotThrow(() -> method.invoke(script));
+
+            microbot.verify(() -> Microbot.stopPlugin(any(ThievingPlugin.class)), never());
+            microbot.verify(() -> Microbot.showMessage(any()), never());
+        } finally {
+            Microbot.status = previousStatus;
         }
     }
 

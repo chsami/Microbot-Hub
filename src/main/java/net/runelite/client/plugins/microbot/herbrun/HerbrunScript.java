@@ -23,6 +23,7 @@ import net.runelite.client.plugins.microbot.api.tileitem.models.Rs2TileItemModel
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
 import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
+import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.timetracking.Tab;
 import net.runelite.api.coords.WorldPoint;
@@ -43,6 +44,10 @@ public class HerbrunScript extends Script {
     private final HerbrunPlugin plugin;
     private final HerbrunConfig config;
     private HerbPatch currentPatch;
+    private static final int MAX_UNREACHABLE_WALKS = 3;
+    private int unreachableWalks = 0;
+    private static final int MAX_HERB_CLEAR_ATTEMPTS = 5;
+    private int herbClearAttempts = 0;
     @Inject
     ClientThread clientThread;
     private boolean initialized = false;
@@ -104,6 +109,7 @@ public class HerbrunScript extends Script {
             if (currentPatch == null) {
                 getNextPatch();
                 currentPhase = LocationPhase.HERB;
+                herbClearAttempts = 0;
             }
             if (currentPatch == null) {
                 HerbrunPlugin.status = "Finishing up";
@@ -123,10 +129,10 @@ public class HerbrunScript extends Script {
             }
 
             if (!currentPatch.isInRange(40)) {
-                HerbrunPlugin.status = "Walking to " + currentPatch.getRegionName();
-                Rs2Walker.walkTo(currentPatch.getLocation(), 20);
+                walkToCurrentPatch();
                 return;
             }
+            unreachableWalks = 0;
 
             String region = currentPatch.getRegionName();
 
@@ -170,6 +176,21 @@ public class HerbrunScript extends Script {
         }, 0, 1000, TimeUnit.MILLISECONDS);
 
         return true;
+    }
+
+    void walkToCurrentPatch() {
+        HerbrunPlugin.status = "Walking to " + currentPatch.getRegionName();
+        if (Rs2Walker.walkWithState(currentPatch.getLocation(), 20) != WalkerState.UNREACHABLE) {
+            return;
+        }
+        if (++unreachableWalks < MAX_UNREACHABLE_WALKS) {
+            return;
+        }
+        log("Could not find a path to the " + currentPatch.getDisplayName() + " herb patch after " + MAX_UNREACHABLE_WALKS
+                + " tries (missing teleport item, quest or route?). Skipping it and continuing the run. Turn off '"
+                + currentPatch.getToggleName() + "' in the Location toggles section if you cannot reach it.");
+        currentPatch = null;
+        unreachableWalks = 0;
     }
 
     private void populatePatches() {
@@ -292,6 +313,7 @@ public class HerbrunScript extends Script {
             Rs2Player.waitForWalking();
             sleepUntil(() -> !getHerbPatchState(obj).equals("Weeds"), 15000);
             state = getHerbPatchState(obj);
+            if (state.equals("Weeds")) return giveUpClearingHerbPatch();
         }
 
         if (state.equals("Dead")) {
@@ -299,6 +321,7 @@ public class HerbrunScript extends Script {
             Rs2Player.waitForWalking();
             sleepUntil(() -> getHerbPatchState(obj).equals("Empty"), 10000);
             state = getHerbPatchState(obj);
+            if (state.equals("Dead")) return giveUpClearingHerbPatch();
         }
 
         if (state.equals("Empty")) {
@@ -316,6 +339,16 @@ public class HerbrunScript extends Script {
             return false;
         }
 
+        return true;
+    }
+
+    boolean giveUpClearingHerbPatch() {
+        if (++herbClearAttempts < MAX_HERB_CLEAR_ATTEMPTS) {
+            return false;
+        }
+        log("Could not clear the " + currentPatch.getDisplayName() + " herb patch after " + MAX_HERB_CLEAR_ATTEMPTS
+                + " tries. Skipping it and continuing the run.");
+        herbClearAttempts = 0;
         return true;
     }
 
@@ -921,6 +954,9 @@ public class HerbrunScript extends Script {
     public void shutdown() {
         super.shutdown();
         initialized = false;
+        currentPatch = null;
+        unreachableWalks = 0;
+        herbClearAttempts = 0;
         allotmentsByRegion.clear();
         flowerByRegion.clear();
         currentPhase = LocationPhase.HERB;

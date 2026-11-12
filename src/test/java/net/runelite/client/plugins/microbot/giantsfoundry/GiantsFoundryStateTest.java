@@ -71,6 +71,44 @@ class GiantsFoundryStateTest {
     }
 
     @Test
+    void emptyCrucibleNeedsTheFullConfiguredAmounts() {
+        assertEquals(14, GiantsFoundryState.barsStillNeeded(14, 0));
+        assertEquals(14, GiantsFoundryState.secondBarsNeeded(false, 14, 14, 0));
+    }
+
+    @Test
+    void barsAlreadyInTheCrucibleAreNotWithdrawnAgain() {
+        assertEquals(14, GiantsFoundryState.barsStillNeeded(14, 0));
+        assertEquals(0, GiantsFoundryState.secondBarsNeeded(false, 14, 14, 14));
+    }
+
+    @Test
+    void missedSecondFillOnlyNeedsTheSecondBarsAgain() {
+        assertEquals(0, GiantsFoundryState.barsStillNeeded(14, 14));
+        assertEquals(14, GiantsFoundryState.secondBarsNeeded(false, 14, 14, 0));
+    }
+
+    @Test
+    void partlyAddedBarsOnlyNeedTheRemainder() {
+        assertEquals(4, GiantsFoundryState.barsStillNeeded(14, 10));
+        assertEquals(9, GiantsFoundryState.secondBarsNeeded(false, 14, 14, 5));
+    }
+
+    @Test
+    void moreBarsInTheCrucibleThanConfiguredNeedsNone() {
+        assertEquals(0, GiantsFoundryState.barsStillNeeded(14, 20));
+        assertEquals(0, GiantsFoundryState.secondBarsNeeded(false, 14, 10, 28));
+    }
+
+    @Test
+    void sameMetalForBothBarsCountsTheCrucibleOnce() {
+        assertEquals(14, GiantsFoundryState.secondBarsNeeded(true, 14, 14, 0));
+        assertEquals(14, GiantsFoundryState.secondBarsNeeded(true, 14, 14, 14));
+        assertEquals(8, GiantsFoundryState.secondBarsNeeded(true, 14, 14, 20));
+        assertEquals(0, GiantsFoundryState.secondBarsNeeded(true, 14, 14, 28));
+    }
+
+    @Test
     void outOfRangeHeatStillMovesTowardTheRange() {
         assertEquals(10, GiantsFoundryState.getHeatChangeNeeded(20, LOW_RANGE, POLISHING_WHEEL, 1, TRIP_HAMMER));
         assertEquals(-10, GiantsFoundryState.getHeatChangeNeeded(310, LOW_RANGE, POLISHING_WHEEL, 9, TRIP_HAMMER));

@@ -34,6 +34,7 @@ public class NightmareFight
     /** Her blast's sleepwalkers, by NPC index, and those of them that reached her. */
     private final Set<Integer> risen = new HashSet<>();
     private final Set<Integer> absorbed = new HashSet<>();
+    private final Set<Integer> dead = new HashSet<>();
 
     public void reset()
     {
@@ -52,6 +53,7 @@ public class NightmareFight
         missileHuskAt = Integer.MIN_VALUE / 2;
         risen.clear();
         absorbed.clear();
+        dead.clear();
     }
 
     /** Reads her form each tick; a new kill starts when she wakes. */
@@ -92,12 +94,13 @@ public class NightmareFight
             // Her sleepwalkers rise and reach her before she takes her blast form, so they are counted until it ends.
             risen.clear();
             absorbed.clear();
+            dead.clear();
         }
         stage = next;
     }
 
     /** A sleepwalker seen, and whether she is absorbing it. */
-    public void observeSleepwalker(int index, boolean absorbing)
+    public void observeSleepwalker(int index, boolean absorbing, boolean dying)
     {
         if (stage == Stage.DESPERATION)
         {
@@ -109,6 +112,15 @@ public class NightmareFight
         {
             absorbed.add(index);
         }
+        if (dying)
+        {
+            dead.add(index);
+        }
+    }
+
+    public boolean sleepwalkerOutOfView(Set<Integer> inView)
+    {
+        return risen.stream().anyMatch(index -> !absorbed.contains(index) && !dead.contains(index) && !inView.contains(index));
     }
 
     /** Her blast's sleepwalkers have risen, and her blast has not ended. */

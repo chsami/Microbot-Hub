@@ -36,18 +36,19 @@ class FcRuntimeConfigTest {
         }
     }
 
-    @Test void visibleSettingsAndDiagnosticAliasRemainLive() throws Exception {
+    @Test void recordingIsAlwaysOnEvenWithAnOldDisabledPreference() throws Exception {
         ConfigManager manager=mock(ConfigManager.class);
         when(manager.getConfiguration(DroFirecapeConfig.GROUP,"recordRun")).thenReturn("false");
         Method conversion=ConfigManager.class.getDeclaredMethod("stringToObject",String.class,java.lang.reflect.Type.class);
         conversion.setAccessible(true);
         when(conversion.invoke(manager,"false",boolean.class)).thenReturn(false);
         DroFirecapeConfig resolved=FcRuntimeConfig.resolve(realProxy(manager));
-        assertFalse(resolved.recordRun());
-        assertFalse(resolved.diagnostics());
-        verify(manager,atLeastOnce()).getConfiguration(DroFirecapeConfig.GROUP,"recordRun");
-        assertFalse(resolved.pureMode());
-        assertFalse(resolved.nativeTickPrayers());
+        assertTrue(resolved.recordRun());
+        assertTrue(resolved.diagnostics());
+        verify(manager,never()).getConfiguration(DroFirecapeConfig.GROUP,"recordRun");
+        assertEquals(FcFightInput.NATURAL_MOUSE,new DroFirecapeConfig(){}.fightInput());
+        for(String removed:new String[]{"pureMode","nativeTickPrayers","offensivePrayer"})
+            assertThrows(NoSuchMethodException.class,()->DroFirecapeConfig.class.getMethod(removed),removed);
     }
 
     @Test void regularAndOptionalControllerDefaultsAreUsableWithRealProxy() throws Exception {
@@ -62,7 +63,7 @@ class FcRuntimeConfigTest {
             assertTrue(script.blowpipeSpecial());
             assertTrue(script.useThralls());
             assertFalse(script.exitOnDamage());
-            assertTrue(script.traceEnabled());
+            assertTrue(script.traceEnabled(),"Recording is always on");
         }
     }
 
