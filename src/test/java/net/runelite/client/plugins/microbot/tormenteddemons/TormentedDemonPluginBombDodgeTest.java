@@ -3,6 +3,7 @@ package net.runelite.client.plugins.microbot.tormenteddemons;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.client.plugins.microbot.Microbot;
+import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.tile.Rs2Tile;
@@ -22,7 +23,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -34,7 +37,11 @@ class TormentedDemonPluginBombDodgeTest {
 
     private static final WorldPoint BOMB = new WorldPoint(4070, 4430, 0);
     private static final WorldPoint SAFE = new WorldPoint(4071, 4430, 0);
-    private static final String DODGED = "Successfully dodged Tormented Demon special attack.";
+    private static final WorldPoint FAR = new WorldPoint(4073, 4430, 0);
+    private static final String DODGED = "Stepped off the Tormented Demon fire bomb tile.";
+    private static final String NO_FREE_TILE = "No free tile within 2 tiles";
+    private static final String LOWER_DELAY = "lower 'Dodge delay (ms)'";
+    private static final String COULD_NOT_MOVE = "(could not move in time)";
 
     private final TormentedDemonConfig config = mock(TormentedDemonConfig.class);
     private final ScheduledExecutorService executor = mock(ScheduledExecutorService.class);
@@ -127,6 +134,69 @@ class TormentedDemonPluginBombDodgeTest {
     }
 
     @Test
+    void failedDodgeSuggestsALowerDelayOnlyWhenTheDelayWaitsATick() {
+        when(config.dodgeDelay()).thenReturn(800);
+        standOnTheBombUntilItLands();
+
+        microbot.verify(() -> Microbot.log(contains(LOWER_DELAY)), times(1));
+        microbot.verify(() -> Microbot.log(contains(COULD_NOT_MOVE)), never());
+    }
+
+    @Test
+    void failedDodgeWithoutADelayDoesNotSuggestALowerDelay() {
+        when(config.dodgeDelay()).thenReturn(599);
+        standOnTheBombUntilItLands();
+
+        microbot.verify(() -> Microbot.log(contains(COULD_NOT_MOVE)), times(1));
+        microbot.verify(() -> Microbot.log(contains(LOWER_DELAY)), never());
+    }
+
+    @Test
+    void noFreeTileIsLoggedOncePerBombAndTheHitDoesNotBlameTheDelay() {
+        when(config.dodgeDelay()).thenReturn(800);
+        tile.when(() -> Rs2Tile.getReachableTilesFromTile(BOMB, TormentedDemonBombDodge.SAFE_TILE_RADIUS))
+                .thenReturn(new HashMap<WorldPoint, Integer>());
+
+        standOnTheBombUntilItLands();
+
+        microbot.verify(() -> Microbot.log(startsWith(NO_FREE_TILE)), times(1));
+        microbot.verify(() -> Microbot.log(contains(COULD_NOT_MOVE)), times(1));
+        microbot.verify(() -> Microbot.log(contains(LOWER_DELAY)), never());
+        walker.verify(() -> Rs2Walker.walkFastCanvas(any(WorldPoint.class)), never());
+
+        standOnTheBombUntilItLands();
+
+        microbot.verify(() -> Microbot.log(startsWith(NO_FREE_TILE)), times(2));
+    }
+
+    @Test
+    void fightLoopKeepsEatingButDoesNotAttackWhileABombIsNear() {
+        Rs2NpcModel target = liveTarget();
+        script.bombDodge.addBomb(BOMB);
+        tickAt(BOMB);
+        tickAt(SAFE);
+
+        script.handleFighting(config);
+
+        player.verify(() -> Rs2Player.eatAt(50), times(1));
+        player.verify(() -> Rs2Player.drinkPrayerPotionAt(30), times(1));
+        verify(target, never()).click(anyString());
+    }
+
+    @Test
+    void fightLoopAttacksWhenTheOnlyBombIsFarAway() {
+        Rs2NpcModel target = liveTarget();
+        script.bombDodge.addBomb(BOMB);
+        tickAt(FAR);
+        assertTrue(script.bombDodge.hasPendingBombs());
+
+        script.handleFighting(config);
+
+        player.verify(() -> Rs2Player.eatAt(50), times(1));
+        verify(target, times(1)).click("attack");
+    }
+
+    @Test
     void fightLoopDoesNothingWhileBombsArePendingEvenAfterTheDodge() {
         script.bombDodge.addBomb(BOMB);
         tickAt(BOMB);
@@ -139,6 +209,26 @@ class TormentedDemonPluginBombDodgeTest {
         player.verify(() -> Rs2Player.eatAt(anyInt()), never());
         player.verify(Rs2Player::getInteracting, never());
         walker.verify(() -> Rs2Walker.walkFastCanvas(any(WorldPoint.class), anyBoolean()), never());
+    }
+
+    private void standOnTheBombUntilItLands() {
+        script.bombDodge.addBomb(BOMB);
+        for (int tick = 0; tick <= TormentedDemonBombDodge.BOMB_TICKS; tick++) {
+            tickAt(BOMB);
+        }
+        assertFalse(script.bombDodge.hasPendingBombs());
+    }
+
+    private Rs2NpcModel liveTarget() {
+        Rs2NpcModel target = mock(Rs2NpcModel.class);
+        script.currentTarget = target;
+        when(config.combatPotionType()).thenReturn(TormentedDemonConfig.CombatPotionType.DIVINE_SUPER_COMBAT);
+        when(config.rangingPotionType()).thenReturn(TormentedDemonConfig.RangingPotionType.DIVINE_RANGING);
+        when(config.minEatPercent()).thenReturn(50);
+        when(config.minPrayerPercent()).thenReturn(30);
+        player.when(Rs2Player::hasDivineCombatActive).thenReturn(true);
+        player.when(Rs2Player::hasDivineRangedActive).thenReturn(true);
+        return target;
     }
 
     private void tickAt(WorldPoint location) {

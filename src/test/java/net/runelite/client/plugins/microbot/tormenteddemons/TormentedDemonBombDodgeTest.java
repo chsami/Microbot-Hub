@@ -87,9 +87,61 @@ class TormentedDemonBombDodgeTest {
         assertEquals(Outcome.WAITING, dodge.onTick(BOMB, 60000));
         assertEquals(Outcome.WAITING, dodge.onTick(BOMB, 60000));
         assertEquals(Outcome.WAITING, dodge.onTick(BOMB, 60000));
-        assertEquals(Outcome.STEP, dodge.onTick(BOMB, 60000));
-        assertEquals(Outcome.STEP, dodge.onTick(BOMB, 60000));
+        for (int tick = 3; tick < TormentedDemonBombDodge.BOMB_TICKS; tick++) {
+            assertEquals(Outcome.STEP, dodge.onTick(BOMB, 60000));
+        }
         assertEquals(Outcome.HIT, dodge.onTick(BOMB, 60000));
+    }
+
+    @Test
+    void bombTileIsHeldForSevenTicksAfterItAppears() {
+        TormentedDemonBombDodge dodge = new TormentedDemonBombDodge();
+        dodge.addBomb(BOMB);
+
+        for (int tick = 0; tick < 7; tick++) {
+            dodge.onTick(SAFE, 0);
+            assertTrue(dodge.hasPendingBombs());
+        }
+
+        dodge.onTick(SAFE, 0);
+        assertFalse(dodge.hasPendingBombs());
+    }
+
+    @Test
+    void onlyBombsWithinTwoTilesOfThePlayerAreNear() {
+        TormentedDemonBombDodge dodge = new TormentedDemonBombDodge();
+
+        assertFalse(dodge.hasPendingBombsNear(BOMB));
+        assertFalse(dodge.hasPendingBombsNear(null));
+
+        dodge.addBomb(BOMB);
+
+        assertTrue(dodge.hasPendingBombsNear(BOMB));
+        assertTrue(dodge.hasPendingBombsNear(new WorldPoint(4072, 4432, 0)));
+        assertFalse(dodge.hasPendingBombsNear(new WorldPoint(4073, 4430, 0)));
+        assertFalse(dodge.hasPendingBombsNear(new WorldPoint(4070, 4430, 1)));
+        assertTrue(dodge.hasPendingBombsNear(null));
+    }
+
+    @Test
+    void noSafeTileIsReportedOncePerBombWindow() {
+        TormentedDemonBombDodge dodge = new TormentedDemonBombDodge();
+        dodge.addBomb(BOMB);
+
+        assertFalse(dodge.hadNoSafeTile());
+        assertTrue(dodge.reportNoSafeTile());
+        assertFalse(dodge.reportNoSafeTile());
+        assertTrue(dodge.hadNoSafeTile());
+
+        for (int tick = 0; tick <= TormentedDemonBombDodge.BOMB_TICKS; tick++) {
+            dodge.onTick(BOMB, 0);
+        }
+        assertTrue(dodge.hadNoSafeTile());
+
+        dodge.addBomb(BOMB);
+
+        assertFalse(dodge.hadNoSafeTile());
+        assertTrue(dodge.reportNoSafeTile());
     }
 
     @Test
@@ -133,7 +185,7 @@ class TormentedDemonBombDodgeTest {
     }
 
     @Test
-    void safeTileIsTheNearestReachableTileThatIsNotABomb() {
+    void safeTilePrefersATileThatIsNotNextToABomb() {
         TormentedDemonBombDodge dodge = new TormentedDemonBombDodge();
         WorldPoint secondBomb = new WorldPoint(4069, 4430, 0);
         WorldPoint farTile = new WorldPoint(4072, 4430, 0);
@@ -145,6 +197,21 @@ class TormentedDemonBombDodgeTest {
         reachable.put(secondBomb, 1);
         reachable.put(SAFE, 1);
         reachable.put(farTile, 2);
+
+        assertEquals(farTile, dodge.pickSafeTile(BOMB, reachable));
+    }
+
+    @Test
+    void safeTileFallsBackToATileNextToTheBombWhenNothingElseIsFree() {
+        TormentedDemonBombDodge dodge = new TormentedDemonBombDodge();
+        WorldPoint secondBomb = new WorldPoint(4069, 4430, 0);
+        dodge.addBomb(BOMB);
+        dodge.addBomb(secondBomb);
+
+        Map<WorldPoint, Integer> reachable = new HashMap<>();
+        reachable.put(BOMB, 0);
+        reachable.put(secondBomb, 1);
+        reachable.put(SAFE, 1);
 
         assertEquals(SAFE, dodge.pickSafeTile(BOMB, reachable));
     }

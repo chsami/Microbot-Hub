@@ -203,11 +203,11 @@ public class TormentedDemonScript extends Script {
     }
 
     void handleFighting(TormentedDemonConfig config) {
-        if (bombDodge.hasPendingBombs()) {
-            return;
-        }
-
         if (currentTarget == null || currentTarget.isDead()) {
+            if (isHeldForBombs()) {
+                return;
+            }
+
             disableAllPrayers();
 
             if (!lootAttempted) {
@@ -261,6 +261,10 @@ public class TormentedDemonScript extends Script {
             if (currentTarget == null) return;
 
             if (interactingActor == null || interactingIndex != currentTarget.getIndex()) {
+                if (isHeldForBombs()) {
+                    return;
+                }
+
                 boolean attackSuccessful = currentTarget.click("attack");
 
                 if (attackSuccessful) {
@@ -293,6 +297,10 @@ public class TormentedDemonScript extends Script {
         }
     }
 
+
+    private boolean isHeldForBombs() {
+        return bombDodge.hasPendingBombsNear(Rs2Player.getWorldLocation());
+    }
 
     private void switchDefensivePrayer(Rs2PrayerEnum newDefensivePrayer) {
         if (currentDefensivePrayer != null) {
