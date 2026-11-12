@@ -24,6 +24,7 @@ final class InfernoCollision
     private final InfernoSnapshot snapshot;
     private final Map<Long, Boolean> nextMelee = new HashMap<>();
     private final Map<Long, Boolean> nextBatRange = new HashMap<>();
+    private final Map<Long, Integer> approach = new HashMap<>();
 
     InfernoCollision(InfernoSnapshot snapshot)
     {
@@ -58,7 +59,7 @@ final class InfernoCollision
     private int index(int x, int y) { return (y - y1) * width + x - x1; }
     private Tile tile(int index) { return new Tile(x1 + index % width, y1 + index / width); }
 
-    private boolean cardinal(int x, int y, int nx, int ny)
+    boolean cardinal(int x, int y, int nx, int ny)
     {
         int dx = nx - x, dy = ny - y;
         if (Math.abs(dx) + Math.abs(dy) != 1 || !open(nx, ny)) return false;
@@ -140,6 +141,15 @@ final class InfernoCollision
         return ray(player.x, player.y, x, y, true);
     }
 
+    boolean npcSight(int nx, int ny, int size, Tile player)
+    {
+        if (!valid || !inside(player.x, player.y) || !inside(nx, ny) || !inside(nx + size - 1, ny + size - 1)) return true;
+        if ((flag(player.x, player.y) & MISSILE_BLOCKED & ~UNLOADED) != 0) return false;
+        int x = Math.max(nx, Math.min(player.x, nx + size - 1));
+        int y = Math.max(ny, Math.min(player.y, ny + size - 1));
+        return ray(player.x, player.y, x, y, true);
+    }
+
 
     boolean melee(Npc npc, Tile tile)
     {
@@ -190,12 +200,62 @@ final class InfernoCollision
 
     private boolean loadedMeleeStepArea(Npc npc, Tile target)
     {
+        return loadedStepArea(npc.x, npc.y, npc.size, target);
+    }
+
+    private boolean loadedStepArea(int nx, int ny, int size, Tile target)
+    {
         if ((flag(target.x, target.y) & UNLOADED) != 0) return false;
 
-        for (int x = npc.x - 1; x <= npc.x + npc.size; x++)
-            for (int y = npc.y - 1; y <= npc.y + npc.size; y++)
+        for (int x = nx - 1; x <= nx + size; x++)
+            for (int y = ny - 1; y <= ny + size; y++)
                 if ((flag(x, y) & UNLOADED) != 0) return false;
         return true;
+    }
+
+    static final int MELEE_HORIZON = 6;
+
+    int meleeSteps(Npc npc, Tile tile)
+    {
+        if (melee(npc, tile)) return 0;
+        if (npc.distance(tile.x, tile.y) > MELEE_HORIZON + 1) return MELEE_HORIZON + 1;
+        if (!valid) return 1;
+        long key = ((long) npc.index << 32) | ((long) tile.x << 16) | tile.y;
+        Integer cached = approach.get(key);
+        if (cached != null) return cached;
+        int x = npc.x, y = npc.y, result = MELEE_HORIZON + 1;
+        for (int step = 1; step <= MELEE_HORIZON; step++)
+        {
+            if (!loadedStepArea(x, y, npc.size, tile)) { result = step; break; }
+            Tile next = chaseStep(npc.index, x, y, npc.size, tile);
+            if (next == null) break;
+            x = next.x; y = next.y;
+            if (contact(x, y, npc.size, tile)) { result = step; break; }
+        }
+        approach.put(key, result);
+        return result;
+    }
+
+    private Tile chaseStep(int index, int x, int y, int size, Tile tile)
+    {
+        int ax = Math.max(0, Math.max(x - tile.x, tile.x - (x + size - 1)));
+        int ay = Math.max(0, Math.max(y - tile.y, tile.y - (y + size - 1)));
+        if (ax + ay <= 1) return null;
+        int dx = Integer.signum(tile.x - x), dy = Integer.signum(tile.y - y);
+        if (ax == 1 && ay == 1) return npcStep(index, x, y, size, dx, 0, tile, false) ? new Tile(x + dx, y) : null;
+        if (npcStep(index, x, y, size, dx, dy, tile, false)) return new Tile(x + dx, y + dy);
+        if (dx != 0 && npcStep(index, x, y, size, dx, 0, tile, false)) return new Tile(x + dx, y);
+        if (dy != 0 && Math.max(Math.abs(tile.x - x), Math.abs(tile.y - y)) > 1 && npcStep(index, x, y, size, 0, dy, tile, false))
+            return new Tile(x, y + dy);
+        return null;
+    }
+
+    private boolean contact(int nx, int ny, int size, Tile tile)
+    {
+        for (int x = nx; x < nx + size; x++)
+            for (int y = ny; y < ny + size; y++)
+                if (Math.abs(x - tile.x) + Math.abs(y - tile.y) == 1 && cardinal(x, y, tile.x, tile.y)) return true;
+        return false;
     }
 
     boolean batCanReachNext(Npc npc, Tile target)
@@ -244,12 +304,17 @@ final class InfernoCollision
 
     private boolean npcStep(Npc npc, int dx, int dy, Tile player, boolean stationaryOnly)
     {
+        return npcStep(npc.index, npc.x, npc.y, npc.size, dx, dy, player, stationaryOnly);
+    }
+
+    private boolean npcStep(int index, int x0, int y0, int size, int dx, int dy, Tile player, boolean stationaryOnly)
+    {
         if (dx == 0 && dy == 0) return false;
-        for (int x = npc.x; x < npc.x + npc.size; x++)
-            for (int y = npc.y; y < npc.y + npc.size; y++)
+        for (int x = x0; x < x0 + size; x++)
+            for (int y = y0; y < y0 + size; y++)
             {
                 int nx = x + dx, ny = y + dy;
-                if (!npcFree(npc, nx, ny, player, stationaryOnly)) return false;
+                if (!npcFree(index, nx, ny, player, stationaryOnly)) return false;
                 if (dx == 0 || dy == 0)
                 {
                     if (!cardinal(x, y, nx, ny)) return false;
@@ -259,7 +324,7 @@ final class InfernoCollision
                     int out = dx < 0 ? (dy > 0 ? 1 : 64) : (dy > 0 ? 4 : 16);
                     int in = dx < 0 ? (dy > 0 ? 16 : 4) : (dy > 0 ? 64 : 1);
                     if ((flag(x, y) & out) != 0 || (flag(nx, ny) & in) != 0
-                        || !npcFree(npc, nx, y, player, stationaryOnly) || !npcFree(npc, x, ny, player, stationaryOnly)
+                        || !npcFree(index, nx, y, player, stationaryOnly) || !npcFree(index, x, ny, player, stationaryOnly)
                         || !cardinal(x, y, nx, y) || !cardinal(x, y, x, ny)
                         || !cardinal(nx, y, nx, ny) || !cardinal(x, ny, nx, ny)) return false;
                 }
@@ -267,11 +332,11 @@ final class InfernoCollision
         return true;
     }
 
-    private boolean npcFree(Npc self, int x, int y, Tile player, boolean stationaryOnly)
+    private boolean npcFree(int self, int x, int y, Tile player, boolean stationaryOnly)
     {
         if (!open(x, y) || x == player.x && y == player.y) return false;
         for (Npc other : snapshot.npcs)
-            if (other.index != self.index && other.alive()
+            if (other.index != self && other.alive()
                 && (!stationaryOnly || other.role == Role.PILLAR)
                 && x >= other.x && x < other.x + other.size && y >= other.y && y < other.y + other.size) return false;
         return true;
