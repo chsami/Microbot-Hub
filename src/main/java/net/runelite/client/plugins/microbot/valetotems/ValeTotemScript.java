@@ -9,6 +9,7 @@ import net.runelite.client.plugins.microbot.valetotems.enums.TotemLocation.Route
 import net.runelite.client.plugins.microbot.valetotems.handlers.*;
 import net.runelite.client.plugins.microbot.valetotems.models.GameSession;
 import net.runelite.client.plugins.microbot.valetotems.models.TotemProgress;
+import net.runelite.client.plugins.microbot.valetotems.utils.CoordinateUtils;
 import net.runelite.client.plugins.microbot.valetotems.utils.InventoryUtils;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
@@ -47,6 +48,7 @@ public class ValeTotemScript extends Script {
                 if (!Microbot.isLoggedIn()) return;
                 if (!super.run()) return;
                 if (!isRunning) return;
+                if (CoordinateUtils.getPlayerLocation() == null) return;
                 
                 // Main bot logic
                 executeMainLoop();
