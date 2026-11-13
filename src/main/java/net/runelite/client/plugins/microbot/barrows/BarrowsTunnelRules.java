@@ -3,6 +3,10 @@ package net.runelite.client.plugins.microbot.barrows;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.util.walker.WalkerState;
 
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
+
 /**
  * Pure decision helpers for Barrows tunnel combat and Ferox restock.
  * Kept free of client calls so unit tests can lock the rules.
@@ -15,6 +19,8 @@ final class BarrowsTunnelRules {
     static final WorldPoint FEROX_POOL_POINT = new WorldPoint(3128, 3637, 0);
     static final int FEROX_ENCLAVE_RADIUS = 40;
     static final int FEROX_REFRESHMENT_POOL_ID = 39651;
+    static final long ATTACK_REJECTION_WINDOW_MS = 6000;
+    static final long ATTACK_REJECTION_COOLDOWN_MS = 20000;
 
     private BarrowsTunnelRules() {
     }
@@ -55,6 +61,56 @@ final class BarrowsTunnelRules {
             boolean interactingWithCurrentTarget,
             boolean aggressorPresent) {
         return aggressorPresent && !interactingWithCurrentTarget;
+    }
+
+    static boolean shouldClearAggressorOnChestWalk(boolean gainRewardPotential, boolean aggressorPresent) {
+        return gainRewardPotential && aggressorPresent;
+    }
+
+    static boolean isAttackRejectedMessage(String message) {
+        if (message == null) {
+            return false;
+        }
+        String lower = message.toLowerCase();
+        return lower.contains("already under attack") || lower.contains("can't reach that");
+    }
+
+    static boolean isRejectionForAttack(long attackClickMs, long nowMs) {
+        return attackClickMs > 0 && nowMs - attackClickMs <= ATTACK_REJECTION_WINDOW_MS;
+    }
+
+    static boolean isAttackRejectionActive(Long rejectedUntilMs, long nowMs) {
+        return rejectedUntilMs != null && nowMs < rejectedUntilMs;
+    }
+
+    static <T> T pickCombatLockAggressor(
+            List<T> aggressors,
+            Predicate<T> alreadyFighting,
+            Predicate<T> attackRejected,
+            ToIntFunction<T> distance,
+            int maxDistance) {
+        if (aggressors == null) {
+            return null;
+        }
+        T best = null;
+        int bestDistance = Integer.MAX_VALUE;
+        for (T aggressor : aggressors) {
+            if (aggressor == null || attackRejected.test(aggressor)) {
+                continue;
+            }
+            if (alreadyFighting.test(aggressor)) {
+                return aggressor;
+            }
+            int dist = distance.applyAsInt(aggressor);
+            if (dist > maxDistance) {
+                continue;
+            }
+            if (dist < bestDistance) {
+                bestDistance = dist;
+                best = aggressor;
+            }
+        }
+        return best;
     }
 
     static boolean shouldReplanChestWalk(WalkerState result) {
