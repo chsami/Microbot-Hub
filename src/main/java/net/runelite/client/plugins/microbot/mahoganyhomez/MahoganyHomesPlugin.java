@@ -55,7 +55,7 @@ import java.util.stream.Collectors;
         isExternal = PluginConstants.IS_EXTERNAL
 )
 public class MahoganyHomesPlugin extends Plugin {
-    public static final String version = "0.0.21";
+    public static final String version = "0.0.22";
     private static final List<Integer> PLANKS = Arrays.asList(ItemID.PLANK, ItemID.OAK_PLANK, ItemID.TEAK_PLANK, ItemID.MAHOGANY_PLANK);
     private static final List<String> PLANK_NAMES = Arrays.asList("Plank", "Oak plank", "Teak plank", "Mahogany plank");
     private static final Map<Integer, Integer> MAHOGANY_HOMES_REPAIRS = new HashMap<>();
@@ -165,6 +165,7 @@ public class MahoganyHomesPlugin extends Plugin {
     private static final Pattern CONTRACT_FINISHED = Pattern.compile("You have completed [\\d,]* contracts with a total of [\\d,]* points?\\.");
     private static final Pattern CONTRACT_ASSIGNED = Pattern.compile("(\\w*) Contract: Go see [\\w\\s,-]*\\.");
     private static final Pattern REQUEST_CONTACT_TIER = Pattern.compile("Could I have an? (\\w*) contract please\\?");
+    private static final Pattern PLANK_SACK_ENTRY = Pattern.compile("[A-Za-z]+[ \\u00A0]planks:[ \\u00A0]*(\\d{1,4})");
 
     @Getter
     @Inject
@@ -431,9 +432,9 @@ public class MahoganyHomesPlugin extends Plugin {
         }
 
         final String message = e.getMessage();
-        if (message.startsWith("Basic\u00A0planks:")) {
-            String stripped = Text.removeTags(e.getMessage());
-            setPlankCount(Arrays.stream(stripped.split(",")).mapToInt(s -> Integer.parseInt(s.split(":\u00A0")[1])).sum());
+        final int checkedPlankCount = parsePlankSackCount(message);
+        if (checkedPlankCount >= 0) {
+            setPlankCount(checkedPlankCount);
         } else if (message.equals("You haven't got any planks that can go in the sack.")) {
             checkForUpdate = false;
         } else if (message.equals("Your sack is full.")) {
@@ -897,6 +898,21 @@ public class MahoganyHomesPlugin extends Plugin {
             default:
                 return -1;
         }
+    }
+
+    static int parsePlankSackCount(String message) {
+        if (message == null) {
+            return -1;
+        }
+        final Matcher matcher = PLANK_SACK_ENTRY.matcher(Text.removeTags(message));
+        if (!matcher.lookingAt()) {
+            return -1;
+        }
+        int total = 0;
+        do {
+            total += Integer.parseInt(matcher.group(1));
+        } while (matcher.find());
+        return total;
     }
 
     private void setPlankCount(int count) {
