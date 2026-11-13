@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.moonsofperil.handlers;
 
+import net.runelite.api.Client;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -13,6 +14,7 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
@@ -23,6 +25,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 class BossHandlerTest {
@@ -72,6 +75,7 @@ class BossHandlerTest {
              MockedStatic<Rs2Prayer> prayer = mockStatic(Rs2Prayer.class);
              MockedStatic<Rs2Combat> combat = mockStatic(Rs2Combat.class)) {
             microbot.when(Microbot::getRs2NpcCache).thenReturn(cache);
+            microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
             prayer.when(Rs2Prayer::getBestMeleePrayer).thenReturn(Rs2PrayerEnum.PIETY);
             combat.when(Rs2Combat::inCombat).thenReturn(true);
             player.when(() -> Rs2Player.distanceTo(any(WorldPoint.class))).thenReturn(0);
@@ -83,6 +87,54 @@ class BossHandlerTest {
             player.verify(() -> Rs2Player.eatAt(60));
             player.verify(() -> Rs2Player.drinkPrayerPotionAt(35));
             player.verify(Rs2Player::drinkPrayerPotion, never());
+        }
+    }
+
+    @Test
+    void normalAttackSequenceWalksOntoTheAttackTileWhenStandingNextToIt() {
+        Rs2InventorySetup setup = mock(Rs2InventorySetup.class);
+        when(setup.doesEquipmentMatch()).thenReturn(true);
+        Rs2NpcCache cache = npcCacheWithOneSigilIteration();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Prayer> prayer = mockStatic(Rs2Prayer.class);
+             MockedStatic<Rs2Combat> combat = mockStatic(Rs2Combat.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            microbot.when(Microbot::getRs2NpcCache).thenReturn(cache);
+            microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
+            prayer.when(Rs2Prayer::getBestMeleePrayer).thenReturn(Rs2PrayerEnum.PIETY);
+            combat.when(Rs2Combat::inCombat).thenReturn(true);
+            player.when(() -> Rs2Player.distanceTo(any(WorldPoint.class))).thenReturn(1);
+            player.when(() -> Rs2Player.getRealSkillLevel(Skill.PRAYER)).thenReturn(70);
+            player.when(Rs2Player::hasMoonlightActive).thenReturn(true);
+
+            new BossHandler(config()).normalAttackSequence(SIGIL_ID, BOSS_ID, new WorldPoint[]{SIGIL_TILE}, setup);
+
+            walker.verify(() -> Rs2Walker.walkFastCanvas(SIGIL_TILE, true));
+        }
+    }
+
+    @Test
+    void eatIfNeededClicksFoodOncePerFoodDelay() {
+        Client client = mock(Client.class);
+        when(client.getTickCount()).thenReturn(100, 100, 101, 102, 103);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getClient).thenReturn(client);
+            player.when(() -> Rs2Player.eatAt(60)).thenReturn(true);
+            BossHandler handler = new BossHandler(config());
+
+            handler.eatIfNeeded();
+            handler.eatIfNeeded();
+            handler.eatIfNeeded();
+            handler.eatIfNeeded();
+            player.verify(() -> Rs2Player.eatAt(60), times(1));
+
+            handler.eatIfNeeded();
+            player.verify(() -> Rs2Player.eatAt(60), times(2));
         }
     }
 }

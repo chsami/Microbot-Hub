@@ -21,6 +21,7 @@ import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 
 import static net.runelite.client.plugins.microbot.util.Global.sleep;
 import static net.runelite.client.plugins.microbot.util.Global.sleepUntil;
+import static net.runelite.client.plugins.microbot.util.Global.sleepUntilNextTick;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,6 +45,8 @@ public class EclipseMoonHandler implements BaseHandler {
     private final boolean clonerandomdelay;
     private final net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler boss;
     private final boolean debugLogging;
+    private static final int LAP_START_TICKS = 4;
+    private static final int LAP_POLL_MS = 100;
 
     public EclipseMoonHandler(MoonsOfPerilConfig cfg, Rs2InventorySetup equipmentNormal, Rs2InventorySetup equipmentClones)
     {
@@ -124,8 +127,10 @@ public class EclipseMoonHandler implements BaseHandler {
                                 Rs2Player.getWorldLocation().equals(new WorldPoint(1491, 9627, 0)),
                 5_000);
 
-        if (debugLogging) {Microbot.log("Now sleeping 3.5 ticks to perfectly time our walk");}
-        sleep(2_100);
+        int knockbackEndTick = Microbot.getClient().getTickCount();
+        if (debugLogging) {Microbot.log("Knockback finished. Switching run off and waiting " + LAP_START_TICKS + " ticks before the shield lap");}
+        Rs2Player.toggleRunEnergy(false);
+        sleepUntil(() -> Microbot.getClient().getTickCount() - knockbackEndTick >= LAP_START_TICKS, 3_000);
         if (debugLogging) {Microbot.log("Commencing our walk around the lap");}
 
         /*         ───── 2. Four anchor tiles around the boss (SW → NW → NE → SE) ───── */
@@ -144,7 +149,7 @@ public class EclipseMoonHandler implements BaseHandler {
             if (!isSpecialAttack1Sequence()) {
                 return;
             }
-            sleepUntil(() -> Rs2Player.getWorldLocation().equals(p));
+            sleepUntil(() -> Rs2Player.getWorldLocation().equals(p), boss::eatIfNeeded, 5_000, LAP_POLL_MS);
         }
         if (debugLogging) {Microbot.log("Shield lap has been completed");}
 
@@ -169,7 +174,6 @@ public class EclipseMoonHandler implements BaseHandler {
     {
         WorldPoint center = cloneAttackTile;
         WorldPoint playerTile = Rs2Player.getWorldLocation();
-        Rs2NpcModel bossNPC = Microbot.getRs2NpcCache().query().withId(NpcID.PMOON_BOSS_ECLIPSE_MOON_VIS).nearest();
 
         // 1. Captures the conditions required for the start of the special attack sequence.
         if (playerTile.equals(center) && Rs2Player.getAnimation() == AnimationID.HUMAN_TROLL_FLYBACK_MERGE) {
@@ -184,13 +188,21 @@ public class EclipseMoonHandler implements BaseHandler {
         }
 
         // 2. Captures the conditions required if we spawn into the arena midway through the special attack phase.
-        if (playerTile.equals(center) && bossNPC != null && Microbot.getRs2NpcCache().query().withId(sigilNpcID).nearest() == null && !bossNPC.getLocalLocation().equals(Rs2LocalPoint.fromWorldInstance(center))) {
+        if (isClonePhaseActive()) {
             boss.equipInventorySetup(equipmentClones);
             BossHandler.meleePrayerOn();
             return true;
         }
 
         return false;
+    }
+
+    boolean isClonePhaseActive()
+    {
+        WorldPoint center = cloneAttackTile;
+        WorldPoint playerTile = Rs2Player.getWorldLocation();
+        Rs2NpcModel bossNPC = Microbot.getRs2NpcCache().query().withId(NpcID.PMOON_BOSS_ECLIPSE_MOON_VIS).nearest();
+        return playerTile.equals(center) && bossNPC != null && Microbot.getRs2NpcCache().query().withId(sigilNpcID).nearest() == null && !bossNPC.getLocalLocation().equals(Rs2LocalPoint.fromWorldInstance(center));
     }
 
     public void specialAttack2Sequence() {
@@ -203,7 +215,7 @@ public class EclipseMoonHandler implements BaseHandler {
         int parried = 0;
         long phaseStart = System.currentTimeMillis();
 
-        while (isSpecialAttack2Sequence() && System.currentTimeMillis() - phaseStart < PHASE_TIMEOUT_MS) {
+        while (isClonePhaseActive() && System.currentTimeMillis() - phaseStart < PHASE_TIMEOUT_MS) {
 
 
             // 1. Look at ALL Eclipse-Moon NPCs this tick that have the specific spawn animation. Game mechanics mean this list SHOULD only return 1 NPC
@@ -230,11 +242,11 @@ public class EclipseMoonHandler implements BaseHandler {
                 Rs2Walker.walkCanvas(cloneLocalLocation);
                 parried++;
             }
-            if (!isSpecialAttack2Sequence()) {
+            if (!isClonePhaseActive()) {
                 if (debugLogging) {Microbot.log("Special attack 2 sequence has ended, breaking out");}
                 break;
             }
-            sleep(600);
+            sleepUntilNextTick(1_200);
         }
         if (debugLogging) {Microbot.log("Clone phase ended – total clones parried: " + parried);}
     }

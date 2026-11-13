@@ -30,6 +30,8 @@ public final class BossHandler {
     private final int healthPercentage;
     private final int prayerPercentage;
     private final boolean debugLogging;
+    private static final int EAT_DELAY_TICKS = 3;
+    private int nextEatTick;
 
     public BossHandler(MoonsOfPerilConfig cfg) {
         this.healthPercentage = cfg.healthPercentage();
@@ -120,7 +122,13 @@ public final class BossHandler {
      * Eats food if hitpoints below percentage threshold
      */
     public void eatIfNeeded() {
-        Rs2Player.eatAt(healthPercentage);
+        int tick = Microbot.getClient().getTickCount();
+        if (tick < nextEatTick) {
+            return;
+        }
+        if (Rs2Player.eatAt(healthPercentage)) {
+            nextEatTick = tick + EAT_DELAY_TICKS;
+        }
     }
 
     /**
@@ -197,7 +205,7 @@ public final class BossHandler {
             }
 
             /* 3 ─ run onto the target tile if not already there */
-            if (Rs2Player.distanceTo(currentTarget) > 1) {
+            if (Rs2Player.distanceTo(currentTarget) > 0) {
                 if (debugLogging) {Microbot.log("Running to attack tile target location: " + currentTarget);}
                 if (Rs2Walker.walkFastCanvas(currentTarget, true)) {
                     final WorldPoint dest = currentTarget;
