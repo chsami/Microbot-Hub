@@ -128,7 +128,7 @@ public class EclipseMoonHandler implements BaseHandler {
                 5_000);
 
         int knockbackEndTick = Microbot.getClient().getTickCount();
-        if (debugLogging) {Microbot.log("Knockback finished. Switching run off and waiting " + LAP_START_TICKS + " ticks before the shield lap");}
+        if (debugLogging) {Microbot.log("Knockback wait over. Switching run off and waiting " + LAP_START_TICKS + " ticks before the shield lap");}
         Rs2Player.toggleRunEnergy(false);
         sleepUntil(() -> Microbot.getClient().getTickCount() - knockbackEndTick >= LAP_START_TICKS, 3_000);
         if (debugLogging) {Microbot.log("Commencing our walk around the lap");}
@@ -149,7 +149,7 @@ public class EclipseMoonHandler implements BaseHandler {
             if (!isSpecialAttack1Sequence()) {
                 return;
             }
-            sleepUntil(() -> Rs2Player.getWorldLocation().equals(p), boss::eatIfNeeded, 5_000, LAP_POLL_MS);
+            sleepUntil(() -> Rs2Player.getWorldLocation().equals(p), boss::eatIfNeeded, 8_000, LAP_POLL_MS);
         }
         if (debugLogging) {Microbot.log("Shield lap has been completed");}
 

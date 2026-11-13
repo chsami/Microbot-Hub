@@ -31,7 +31,6 @@ public final class BossHandler {
     private final int prayerPercentage;
     private final boolean debugLogging;
     private static final int EAT_DELAY_TICKS = 3;
-    private static final int MAX_ADJACENT_TILE_ATTEMPTS = 2;
     private int nextEatTick;
 
     public BossHandler(MoonsOfPerilConfig cfg) {
@@ -174,7 +173,6 @@ public final class BossHandler {
         WorldPoint lastSigilSW = null;
         WorldPoint currentTarget = null;
         int sigilMoves = 0;
-        int adjacentTileAttempts = 0;
         equipInventorySetup(inventorySetup);
         sleep(150);
         meleePrayerOn();
@@ -194,7 +192,6 @@ public final class BossHandler {
             if (!sigilLocation.equals(lastSigilSW)) {
                 ++sigilMoves;
                 lastSigilSW = sigilLocation;
-                adjacentTileAttempts = 0;
 
                 /* 2 ─ choose *once* the nearest predefined attack tile ≤1 away */
                 currentTarget = sigilLocation;
@@ -208,20 +205,22 @@ public final class BossHandler {
             }
 
             /* 3 ─ run onto the target tile if not already there */
-            int tileDistance = Rs2Player.distanceTo(currentTarget);
-            if (tileDistance > 1 || (tileDistance == 1 && adjacentTileAttempts < MAX_ADJACENT_TILE_ATTEMPTS)) {
-                if (tileDistance == 1) {
-                    ++adjacentTileAttempts;
-                }
+            final WorldPoint dest = currentTarget;
+            if (!dest.equals(Rs2Player.getWorldLocation())) {
                 if (debugLogging) {Microbot.log("Running to attack tile target location: " + currentTarget);}
                 if (Rs2Walker.walkFastCanvas(currentTarget, true)) {
-                    final WorldPoint dest = currentTarget;
-                    sleepUntil(() -> Rs2Player.getWorldLocation().equals(dest), 3_000);
+                    sleepUntil(() -> dest.equals(Rs2Player.getWorldLocation()), 3_000);
                 }
             }
 
             eatIfNeeded();
             drinkIfNeeded();
+
+            if (!dest.equals(Rs2Player.getWorldLocation())) {
+                if (debugLogging) {Microbot.log("Not on the attack tile yet, holding the attack until the walk click lands");}
+                sleep(300);
+                continue;
+            }
 
             /* 4 ─ attack the boss whenever not in combat */
             Rs2NpcModel boss = Microbot.getRs2NpcCache().query().withId(bossNpcID).nearest();
