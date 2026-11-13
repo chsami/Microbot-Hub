@@ -30,6 +30,8 @@ public final class BossHandler {
     private final int healthPercentage;
     private final int prayerPercentage;
     private final boolean debugLogging;
+    private static final int EAT_DELAY_TICKS = 3;
+    private int nextEatTick;
 
     public BossHandler(MoonsOfPerilConfig cfg) {
         this.healthPercentage = cfg.healthPercentage();
@@ -120,7 +122,13 @@ public final class BossHandler {
      * Eats food if hitpoints below percentage threshold
      */
     public void eatIfNeeded() {
-        Rs2Player.eatAt(healthPercentage);
+        int tick = Microbot.getClient().getTickCount();
+        if (tick < nextEatTick) {
+            return;
+        }
+        if (Rs2Player.eatAt(healthPercentage)) {
+            nextEatTick = tick + EAT_DELAY_TICKS;
+        }
     }
 
     /**
@@ -197,16 +205,22 @@ public final class BossHandler {
             }
 
             /* 3 ─ run onto the target tile if not already there */
-            if (Rs2Player.distanceTo(currentTarget) > 1) {
+            final WorldPoint dest = currentTarget;
+            if (!dest.equals(Rs2Player.getWorldLocation())) {
                 if (debugLogging) {Microbot.log("Running to attack tile target location: " + currentTarget);}
                 if (Rs2Walker.walkFastCanvas(currentTarget, true)) {
-                    final WorldPoint dest = currentTarget;
-                    sleepUntil(() -> Rs2Player.getWorldLocation().equals(dest), 3_000);
+                    sleepUntil(() -> dest.equals(Rs2Player.getWorldLocation()), 3_000);
                 }
             }
 
             eatIfNeeded();
             drinkIfNeeded();
+
+            if (!dest.equals(Rs2Player.getWorldLocation())) {
+                if (debugLogging) {Microbot.log("Not on the attack tile yet, holding the attack until the walk click lands");}
+                sleep(300);
+                continue;
+            }
 
             /* 4 ─ attack the boss whenever not in combat */
             Rs2NpcModel boss = Microbot.getRs2NpcCache().query().withId(bossNpcID).nearest();
