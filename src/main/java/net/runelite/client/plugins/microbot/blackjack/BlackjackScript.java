@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.IntSupplier;
 
 @Slf4j
 public class BlackjackScript extends Script
@@ -428,7 +429,7 @@ public class BlackjackScript extends Script
         nextCameraRefacingAt = 0;
         lastCameraPitchAt = 0;
         lastCameraZoomAt = 0;
-        targetCameraZoom = config.returnCameraZoom() > 0 ? config.returnCameraZoom() : Rs2Camera.getZoom();
+        targetCameraZoom = initialTargetZoom(config.returnCameraZoom(), Microbot.isLoggedIn(), Rs2Camera::getZoom);
         zoomRestore.reset();
         visibilityCameraZoom = -1;
         hiddenTargetZoomAttempts = 0;
@@ -4768,6 +4769,15 @@ public class BlackjackScript extends Script
             }
         }
         return true;
+    }
+
+    static int initialTargetZoom(int configuredZoom, boolean loggedIn, IntSupplier liveZoom)
+    {
+        if (configuredZoom > 0)
+        {
+            return configuredZoom;
+        }
+        return loggedIn ? liveZoom.getAsInt() : -1;
     }
 
     static int zoomForHiddenTarget(int zoom)
