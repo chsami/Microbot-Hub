@@ -29,7 +29,7 @@ import java.awt.*;
 )
 @Slf4j
 public class AutoRunecraftPlugin extends Plugin {
-    public static final String version = "1.0.1";
+    public static final String version = "1.0.2";
     @Inject
     private AutoRunecraftConfig config;
     @Provides
