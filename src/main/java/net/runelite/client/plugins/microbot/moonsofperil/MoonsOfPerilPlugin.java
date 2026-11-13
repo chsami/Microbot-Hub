@@ -29,7 +29,7 @@ import java.time.Instant;
         tags = {"bossing", "pvm", "moneymaking", "combat", "microbot"},
         authors = "The Funk",
         version = MoonsOfPerilPlugin.version,
-        minClientVersion = "2.0.14",
+        minClientVersion = "2.2.4",
         iconUrl = "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/icon.png",
         cardUrl = "https://chsami.github.io/Microbot-Hub/MoonsOfPerilPlugin/assets/card.png",
         enabledByDefault = PluginConstants.DEFAULT_ENABLED,

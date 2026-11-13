@@ -45,7 +45,7 @@ public class EclipseMoonHandler implements BaseHandler {
     private final boolean clonerandomdelay;
     private final net.runelite.client.plugins.microbot.moonsofperil.handlers.BossHandler boss;
     private final boolean debugLogging;
-    private static final int LAP_START_TICKS = 4;
+    private static final int LAP_START_TICKS = 3;
     private static final int LAP_POLL_MS = 100;
 
     public EclipseMoonHandler(MoonsOfPerilConfig cfg, Rs2InventorySetup equipmentNormal, Rs2InventorySetup equipmentClones)

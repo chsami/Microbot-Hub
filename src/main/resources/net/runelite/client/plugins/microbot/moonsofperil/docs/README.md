@@ -32,6 +32,7 @@ Babysit until you are 100% comfortable.Run the latest nightly build.
 
 ## Boss Notes
 - New in 1.0.7: during the main attack phase the script eats when your HP drops below Health % topup and drinks when prayer drops below Prayer % topup (both in General settings). Lower these values, for example to 50%, for more DPS, or raise them if you die.
+- New in 1.0.11: Eclipse Moon starts the shield lap earlier and eats during the lap when HP is below Health % topup; the script now eats one food at a time instead of several clicks at once. Needs Microbot client 2.2.4 or newer.
 - **Eclipse Moon:** use your best **stab** weapon.
   - Clone phase = burst DPS with your highest-hit 2-handed weapon. 
   - If you spawn into the boss arena mid-shield special attack, the script exits the arena and re-enters.

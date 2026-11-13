@@ -31,6 +31,7 @@ public final class BossHandler {
     private final int prayerPercentage;
     private final boolean debugLogging;
     private static final int EAT_DELAY_TICKS = 3;
+    private static final int MAX_ADJACENT_TILE_ATTEMPTS = 2;
     private int nextEatTick;
 
     public BossHandler(MoonsOfPerilConfig cfg) {
@@ -173,6 +174,7 @@ public final class BossHandler {
         WorldPoint lastSigilSW = null;
         WorldPoint currentTarget = null;
         int sigilMoves = 0;
+        int adjacentTileAttempts = 0;
         equipInventorySetup(inventorySetup);
         sleep(150);
         meleePrayerOn();
@@ -192,6 +194,7 @@ public final class BossHandler {
             if (!sigilLocation.equals(lastSigilSW)) {
                 ++sigilMoves;
                 lastSigilSW = sigilLocation;
+                adjacentTileAttempts = 0;
 
                 /* 2 ─ choose *once* the nearest predefined attack tile ≤1 away */
                 currentTarget = sigilLocation;
@@ -205,7 +208,11 @@ public final class BossHandler {
             }
 
             /* 3 ─ run onto the target tile if not already there */
-            if (Rs2Player.distanceTo(currentTarget) > 0) {
+            int tileDistance = Rs2Player.distanceTo(currentTarget);
+            if (tileDistance > 1 || (tileDistance == 1 && adjacentTileAttempts < MAX_ADJACENT_TILE_ATTEMPTS)) {
+                if (tileDistance == 1) {
+                    ++adjacentTileAttempts;
+                }
                 if (debugLogging) {Microbot.log("Running to attack tile target location: " + currentTarget);}
                 if (Rs2Walker.walkFastCanvas(currentTarget, true)) {
                     final WorldPoint dest = currentTarget;
