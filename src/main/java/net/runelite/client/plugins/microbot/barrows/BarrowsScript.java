@@ -58,6 +58,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -89,6 +90,9 @@ public class BarrowsScript extends Script {
     private boolean loggedCachedInventorySetupWarning = false;
     private boolean shouldBank = false;
     private boolean shouldAttackSkeleton = false;
+    private static final Map<Integer, Long> REJECTED_ATTACK_TARGETS = new ConcurrentHashMap<>();
+    private static volatile int lastAttackedNpcIndex = -1;
+    private static volatile long lastAttackClickMs = 0;
     private boolean varbitCheckEnabled = true;
     /**
      * Sticky POH travel gate: set when teleToPoh fails despite runes (canCast false / no tabs).
@@ -621,7 +625,7 @@ public class BarrowsScript extends Script {
                         waitingOnPuzzle = false;
                     }
 
-                    if(findTunnelTrashAggressor() != null){
+                    if(shouldClearTunnelAggressor()){
                         stopFutureWalker();
                         if(!clearTunnelTrashAggressor(config)){
                             return;
@@ -721,7 +725,7 @@ public class BarrowsScript extends Script {
                         checkForAndFightBrother(config);
                         return;
                     }
-                    if(findTunnelTrashAggressor() != null){
+                    if(shouldClearTunnelAggressor()){
                         stopFutureWalker();
                         clearTunnelTrashAggressor(config);
                         return;
@@ -1717,8 +1721,13 @@ public class BarrowsScript extends Script {
             sleepUntil(() -> isInteractingWith(attackTarget) && !Rs2Player.isMoving()
                             || attackTarget.isDead()
                             || !npcHasAttackOption(attackTarget)
+                            || isAttackRejected(attackTarget)
                             || findTunnelTrashAggressor() != null,
                     Rs2Random.between(4000,8000));
+            if(isAttackRejected(attackTarget)){
+                logAttackRejected(attackTarget);
+                return;
+            }
             if(findTunnelTrashAggressor() != null){
                 if(!clearTunnelTrashAggressor(config) || !shouldFightMonsterOnWayToChest()){
                     return;
@@ -1764,6 +1773,11 @@ public class BarrowsScript extends Script {
                     }
                     label = monster.getName() != null ? monster.getName() : "monster";
                     continue;
+                }
+
+                if(isAttackRejected(monster)){
+                    logAttackRejected(monster);
+                    break;
                 }
 
                 if(monster != null && !monster.isDead() && !isInteractingWith(monster)){
@@ -1865,7 +1879,7 @@ public class BarrowsScript extends Script {
         int bestDist = Integer.MAX_VALUE;
         for(Rs2NpcModel npc : candidates){
             int sceneDist = distancePlayerToNpc(npc);
-            if(sceneDist > EN_ROUTE_MAX_SCENE_DISTANCE){
+            if(sceneDist > EN_ROUTE_MAX_SCENE_DISTANCE || isAttackRejected(npc)){
                 continue;
             }
             boolean accept = isNpcEngagedWithUs(npc)
@@ -2110,7 +2124,7 @@ public class BarrowsScript extends Script {
             return null;
         }
         final Player local = localPlayer;
-        Rs2NpcModel trash = rs2NpcCache.query()
+        List<Rs2NpcModel> aggressors = rs2NpcCache.query()
                 .where(npc -> npc != null && !npc.isDead() && npc.getCombatLevel() > 0)
                 .where(npc -> {
                     String name = npc.getName();
@@ -2119,12 +2133,50 @@ public class BarrowsScript extends Script {
                     }
                     return Objects.equals(npc.getInteracting(), local);
                 })
-                .nearestOnClientThread();
-        // Ignore "attacking us" from another chamber — do not path across rooms for trash.
-        if(trash != null && distancePlayerToNpc(trash) > EN_ROUTE_MAX_SCENE_DISTANCE){
-            return null;
+                .toListOnClientThread();
+        return BarrowsTunnelRules.pickCombatLockAggressor(
+                aggressors,
+                this::isInteractingWith,
+                this::isAttackRejected,
+                this::distancePlayerToNpc,
+                EN_ROUTE_MAX_SCENE_DISTANCE);
+    }
+
+    static void onAttackRejected(){
+        int index = lastAttackedNpcIndex;
+        long now = System.currentTimeMillis();
+        if(index < 0 || !BarrowsTunnelRules.isRejectionForAttack(lastAttackClickMs, now)){
+            return;
         }
-        return trash;
+        REJECTED_ATTACK_TARGETS.put(index, now + BarrowsTunnelRules.ATTACK_REJECTION_COOLDOWN_MS);
+    }
+
+    private boolean isAttackRejected(Rs2NpcModel npc){
+        if(npc == null){
+            return false;
+        }
+        int index = npc.getIndex();
+        Long rejectedUntil = REJECTED_ATTACK_TARGETS.get(index);
+        if(rejectedUntil == null){
+            return false;
+        }
+        if(BarrowsTunnelRules.isAttackRejectionActive(rejectedUntil, System.currentTimeMillis())){
+            return true;
+        }
+        REJECTED_ATTACK_TARGETS.remove(index, rejectedUntil);
+        return false;
+    }
+
+    private void logAttackRejected(Rs2NpcModel npc){
+        String name = npc.getName() != null ? npc.getName() : "Monster";
+        Microbot.log(name + " can't be attacked right now (out of reach or another monster is on us) — skipping it for "
+                + (BarrowsTunnelRules.ATTACK_REJECTION_COOLDOWN_MS / 1000) + "s.");
+    }
+
+    private boolean shouldClearTunnelAggressor(){
+        return BarrowsTunnelRules.wantsAnotherTunnelKill(
+                needsMoreRewardPotential(), monstersKilledThisRoom, MAX_MONSTERS_PER_ROOM)
+                && findTunnelTrashAggressor() != null;
     }
 
     private boolean isBarrowsBrotherName(String name){
@@ -2141,7 +2193,7 @@ public class BarrowsScript extends Script {
             return true;
         }
 
-        Microbot.log("Tunnel aggressor " + trash.getName() + " has combat priority; clearing it.");
+        Microbot.log(trash.getName() + " is attacking us — trying to kill it first.");
         stopFutureWalker();
 
         long deadline = System.currentTimeMillis() + Rs2Random.between(45000, 75000);
@@ -2157,8 +2209,14 @@ public class BarrowsScript extends Script {
                     break;
                 }
                 sleepUntil(() -> isInteractingWith(target) || target.isDead()
-                                || !npcHasAttackOption(target),
+                                || !npcHasAttackOption(target) || isAttackRejected(target),
                         Rs2Random.between(2000, 4000));
+            }
+            if(isAttackRejected(target)){
+                logAttackRejected(target);
+            }
+            if(target.isDead()){
+                REJECTED_ATTACK_TARGETS.clear();
             }
             if(target.isDead() || !npcHasAttackOption(target)){
                 killedRpTrash = target.isDead()
@@ -2185,7 +2243,8 @@ public class BarrowsScript extends Script {
     private boolean shouldDeferChestWalk(){
         Thread.interrupted();
         return isDoorPuzzleOpenRaw() || findTunnelBrother() != null
-                || findTunnelTrashAggressor() != null || shouldFightMonsterOnWayToChest();
+                || shouldClearTunnelAggressor() || shouldFightMonsterOnWayToChest()
+                || shouldEatNow();
     }
 
     // Same widgets RuneLite's Barrows plugin uses (InterfaceID.BarrowsPuzzle).
@@ -3076,6 +3135,8 @@ public class BarrowsScript extends Script {
             if(!npcHasAttackOption(npc)){
                 return false;
             }
+            lastAttackedNpcIndex = npc.getIndex();
+            lastAttackClickMs = System.currentTimeMillis();
             return npc.click("Attack");
         } catch (Exception e) {
             Microbot.log("Attack unavailable (" + e.getClass().getSimpleName() + ") — continuing.");
@@ -3285,13 +3346,21 @@ public class BarrowsScript extends Script {
         }
     }
 
+    private static boolean isEatableFood(Rs2ItemModel item){
+        return item != null && item.isFood()
+                && BarrowsTunnelRules.hasEatOption(item.getInventoryActions());
+    }
+
+    private boolean shouldEatNow(){
+        return Rs2Player.getHealthPercentage() <= 60
+                && Rs2Inventory.contains(BarrowsScript::isEatableFood);
+    }
+
     public void eatFood(){
-        if(Rs2Player.getHealthPercentage() <= 60){
-            if(Rs2Inventory.contains(it->it!=null&&it.isFood())){
-                Rs2ItemModel food = Rs2Inventory.get(it->it!=null&&it.isFood());
-                if(Rs2Inventory.interact(food, "Eat")){
-                    sleep(0,750);
-                }
+        if(shouldEatNow()){
+            Rs2ItemModel food = Rs2Inventory.get(BarrowsScript::isEatableFood);
+            if(Rs2Inventory.interact(food, "Eat")){
+                sleep(0,750);
             }
         }
     }
@@ -3415,6 +3484,8 @@ public class BarrowsScript extends Script {
         firstRun = true;
         waitingOnPuzzle = false;
         requireHouseTabsToTravel = false;
+        REJECTED_ATTACK_TARGETS.clear();
+        lastAttackedNpcIndex = -1;
         resetTunnelRoomKills();
         // Cancel walkers / stale loops, but leave mainScheduledFuture for Script.shutdown()
         // so base cleanup (ShortestPathPlugin.exit, pause/spec reset) still runs.
