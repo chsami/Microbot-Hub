@@ -95,7 +95,10 @@ public class NavigationHandler {
             if (pathfinderConfig != null) {
                 // Read the current agility shortcuts setting
                 // Note: We need to call refresh() first to ensure settings are up to date
-                pathfinderConfig.refresh(CoordinateUtils.getPlayerLocation());
+                WorldPoint playerLocation = CoordinateUtils.getPlayerLocation();
+                if (playerLocation != null) {
+                    pathfinderConfig.refresh(playerLocation);
+                }
             } else {
                 System.out.println("⚠ Could not access pathfinder configuration to check agility shortcuts setting");
             }
@@ -208,7 +211,7 @@ public class NavigationHandler {
 
                 // Priority 3: Fletching on long walks.
                 // Only start fletching if the next step is a significant distance away.
-                if (CoordinateUtils.getPlayerLocation().distanceTo(nextCheckpoint) > 13) {
+                if (CoordinateUtils.getDistanceToPlayer(nextCheckpoint) > 13) {
                     
                     // Don't start fletching immediately after walking over ent trails
                     // Let the player walk a bit first to resume normal navigation
@@ -538,10 +541,10 @@ public class NavigationHandler {
 
     public static boolean walkOverEntTrail(WorldPoint trailLocation) {
         walkWithRunEnergyCheck(trailLocation);
-        sleepUntil(() -> CoordinateUtils.getPlayerLocation().distanceTo(trailLocation) < 3, 8000);
+        sleepUntil(() -> CoordinateUtils.getDistanceToPlayer(trailLocation) < 3, 8000);
         walkWithRunEnergyCheck(trailLocation);
-        sleepUntil(() -> CoordinateUtils.getPlayerLocation().distanceTo(trailLocation) < 1, 2000);
-        return CoordinateUtils.getPlayerLocation().distanceTo(trailLocation) < 1;
+        sleepUntil(() -> CoordinateUtils.getDistanceToPlayer(trailLocation) < 1, 2000);
+        return CoordinateUtils.getDistanceToPlayer(trailLocation) < 1;
     }
 
     /**
@@ -636,6 +639,9 @@ public class NavigationHandler {
      */
     private static boolean isTooFarFromPath(List<WorldPoint> path, int tolerance) {
         WorldPoint playerLoc = CoordinateUtils.getPlayerLocation();
+        if (playerLoc == null) {
+            return false;
+        }
         int closestIndex = Rs2Walker.getClosestTileIndex(path);
         if (closestIndex == -1) {
             // If we can't find ourselves on the path, we are "too far"
@@ -663,6 +669,9 @@ public class NavigationHandler {
      */
     public static String getNavigationStatus() {
         WorldPoint playerPos = CoordinateUtils.getPlayerLocation();
+        if (playerPos == null) {
+            return "Location: unknown";
+        }
         TotemLocation nearestTotem = CoordinateUtils.getNearestTotemLocation();
         int distanceToBank = CoordinateUtils.getDistanceToBank();
         
@@ -684,6 +693,9 @@ public class NavigationHandler {
     private static boolean handlePathTransports(List<WorldPoint> path, int currentIndex) {
         try {
             WorldPoint currentPosition = CoordinateUtils.getPlayerLocation();
+            if (currentPosition == null) {
+                return false;
+            }
             
             // Check for doors (from Rs2Walker.handleDoors logic)
             if (currentIndex < path.size() - 1) {
@@ -749,7 +761,7 @@ public class NavigationHandler {
                                 if (distanceToOrigin > 2) {
                                     System.out.println("Walking to agility shortcut origin...");
                                     walkWithRunEnergyCheck(transport.getOrigin());
-                                    sleepUntil(() -> CoordinateUtils.getPlayerLocation().distanceTo(transport.getOrigin()) <= 2, 5000);
+                                    sleepUntil(() -> CoordinateUtils.getDistanceToPlayer(transport.getOrigin()) <= 2, 5000);
                                 }
  
                                 // Now find and interact with the agility shortcut
