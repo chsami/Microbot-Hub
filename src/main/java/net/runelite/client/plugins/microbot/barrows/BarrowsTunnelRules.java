@@ -63,8 +63,20 @@ final class BarrowsTunnelRules {
         return aggressorPresent && !interactingWithCurrentTarget;
     }
 
-    static boolean shouldClearAggressorOnChestWalk(boolean gainRewardPotential, boolean aggressorPresent) {
-        return gainRewardPotential && aggressorPresent;
+    static boolean wantsAnotherTunnelKill(boolean needsMoreRewardPotential, int roomKills, int maxRoomKills) {
+        return needsMoreRewardPotential && roomKills < maxRoomKills;
+    }
+
+    static boolean hasEatOption(String[] inventoryActions) {
+        if (inventoryActions == null) {
+            return false;
+        }
+        for (String action : inventoryActions) {
+            if ("Eat".equalsIgnoreCase(action)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static boolean isAttackRejectedMessage(String message) {

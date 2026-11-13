@@ -31,11 +31,31 @@ class BarrowsTunnelRulesTest
     }
 
     @Test
-    void aggressorsAreIgnoredOnTheChestWalkWhenRewardPotentialIsOff()
+    void tunnelKillsAreOnlyWantedWhileRewardPotentialIsNeededAndTheRoomCapIsOpen()
     {
-        assertFalse(BarrowsTunnelRules.shouldClearAggressorOnChestWalk(false, true));
-        assertFalse(BarrowsTunnelRules.shouldClearAggressorOnChestWalk(true, false));
-        assertTrue(BarrowsTunnelRules.shouldClearAggressorOnChestWalk(true, true));
+        assertFalse(BarrowsTunnelRules.wantsAnotherTunnelKill(false, 0, 2));
+        assertFalse(BarrowsTunnelRules.wantsAnotherTunnelKill(true, 2, 2));
+        assertTrue(BarrowsTunnelRules.wantsAnotherTunnelKill(true, 1, 2));
+    }
+
+    @Test
+    void onlyItemsWithAnEatOptionPauseTheWalkForFood()
+    {
+        assertTrue(BarrowsTunnelRules.hasEatOption(new String[]{"Eat", null, "Drop"}));
+        assertFalse(BarrowsTunnelRules.hasEatOption(new String[]{"Drink", null, "Drop"}));
+        assertFalse(BarrowsTunnelRules.hasEatOption(null));
+    }
+
+    @Test
+    void refusedTargetIsNotAnAggressorEvenWhileThePlayerStillFacesIt()
+    {
+        Map<String, Integer> distances = new HashMap<>();
+        distances.put("skeleton", 1);
+        distances.put("crypt rat", 3);
+        List<String> aggressors = Arrays.asList("skeleton", "crypt rat");
+
+        assertEquals("skeleton", BarrowsTunnelRules.pickCombatLockAggressor(
+                aggressors, "crypt rat"::equals, "crypt rat"::equals, distances::get, 8));
     }
 
     @Test

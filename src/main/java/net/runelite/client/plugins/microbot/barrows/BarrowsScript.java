@@ -90,7 +90,6 @@ public class BarrowsScript extends Script {
     private boolean loggedCachedInventorySetupWarning = false;
     private boolean shouldBank = false;
     private boolean shouldAttackSkeleton = false;
-    private boolean gainRewardPotential = false;
     private static final Map<Integer, Long> REJECTED_ATTACK_TARGETS = new ConcurrentHashMap<>();
     private static volatile int lastAttackedNpcIndex = -1;
     private static volatile long lastAttackClickMs = 0;
@@ -234,8 +233,7 @@ public class BarrowsScript extends Script {
                 minForgottenBrews = config.minForgottenBrew();
                 int rewardPotential = Microbot.getVarbitValue(Varbits.BARROWS_REWARD_POTENTIAL);
                 // ~86% = 870/1012. If tunnel brother still alive, leave room for his combat-level RP.
-                gainRewardPotential = config.shouldGainRP();
-                shouldAttackSkeleton = gainRewardPotential
+                shouldAttackSkeleton = config.shouldGainRP()
                         && rewardPotential < getRpTargetForEightySix();
 
                 if(usingPoweredStaffs) {
@@ -1723,8 +1721,13 @@ public class BarrowsScript extends Script {
             sleepUntil(() -> isInteractingWith(attackTarget) && !Rs2Player.isMoving()
                             || attackTarget.isDead()
                             || !npcHasAttackOption(attackTarget)
+                            || isAttackRejected(attackTarget)
                             || findTunnelTrashAggressor() != null,
                     Rs2Random.between(4000,8000));
+            if(isAttackRejected(attackTarget)){
+                logAttackRejected(attackTarget);
+                return;
+            }
             if(findTunnelTrashAggressor() != null){
                 if(!clearTunnelTrashAggressor(config) || !shouldFightMonsterOnWayToChest()){
                     return;
@@ -1770,6 +1773,11 @@ public class BarrowsScript extends Script {
                     }
                     label = monster.getName() != null ? monster.getName() : "monster";
                     continue;
+                }
+
+                if(isAttackRejected(monster)){
+                    logAttackRejected(monster);
+                    break;
                 }
 
                 if(monster != null && !monster.isDead() && !isInteractingWith(monster)){
@@ -2159,12 +2167,16 @@ public class BarrowsScript extends Script {
         return false;
     }
 
+    private void logAttackRejected(Rs2NpcModel npc){
+        String name = npc.getName() != null ? npc.getName() : "Monster";
+        Microbot.log(name + " can't be attacked right now (out of reach or another monster is on us) — skipping it for "
+                + (BarrowsTunnelRules.ATTACK_REJECTION_COOLDOWN_MS / 1000) + "s.");
+    }
+
     private boolean shouldClearTunnelAggressor(){
-        if(!gainRewardPotential){
-            return false;
-        }
-        return BarrowsTunnelRules.shouldClearAggressorOnChestWalk(
-                gainRewardPotential, findTunnelTrashAggressor() != null);
+        return BarrowsTunnelRules.wantsAnotherTunnelKill(
+                needsMoreRewardPotential(), monstersKilledThisRoom, MAX_MONSTERS_PER_ROOM)
+                && findTunnelTrashAggressor() != null;
     }
 
     private boolean isBarrowsBrotherName(String name){
@@ -2181,7 +2193,7 @@ public class BarrowsScript extends Script {
             return true;
         }
 
-        Microbot.log("Tunnel aggressor " + trash.getName() + " has combat priority; clearing it.");
+        Microbot.log(trash.getName() + " is attacking us — trying to kill it first.");
         stopFutureWalker();
 
         long deadline = System.currentTimeMillis() + Rs2Random.between(45000, 75000);
@@ -2201,7 +2213,7 @@ public class BarrowsScript extends Script {
                         Rs2Random.between(2000, 4000));
             }
             if(isAttackRejected(target)){
-                Microbot.log("Cannot fight " + target.getName() + " right now — dropping that target.");
+                logAttackRejected(target);
             }
             if(target.isDead()){
                 REJECTED_ATTACK_TARGETS.clear();
@@ -3334,14 +3346,19 @@ public class BarrowsScript extends Script {
         }
     }
 
+    private static boolean isEatableFood(Rs2ItemModel item){
+        return item != null && item.isFood()
+                && BarrowsTunnelRules.hasEatOption(item.getInventoryActions());
+    }
+
     private boolean shouldEatNow(){
         return Rs2Player.getHealthPercentage() <= 60
-                && Rs2Inventory.contains(it->it!=null&&it.isFood());
+                && Rs2Inventory.contains(BarrowsScript::isEatableFood);
     }
 
     public void eatFood(){
         if(shouldEatNow()){
-            Rs2ItemModel food = Rs2Inventory.get(it->it!=null&&it.isFood());
+            Rs2ItemModel food = Rs2Inventory.get(BarrowsScript::isEatableFood);
             if(Rs2Inventory.interact(food, "Eat")){
                 sleep(0,750);
             }
