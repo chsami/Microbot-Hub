@@ -2,7 +2,6 @@ package net.runelite.client.plugins.microbot.tithefarming;
 
 import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.gameval.AnimationID;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -205,15 +204,15 @@ public class TitheFarmingScript extends Script {
                 }
 
                 //Dialogue stuff only applicable if you enter for the first time
-                if (Rs2Dialogue.isInDialogue()) {
-                    Rs2Dialogue.clickContinue();
-                    sleep(400, 600);
-                    return;
-                }
-
                 if (hasSelectAnOption()) {
                     Rs2Keyboard.keyPress('3');
                     sleep(1500, 1800);
+                    return;
+                }
+
+                if (Rs2Dialogue.isInDialogue()) {
+                    Rs2Dialogue.clickContinue();
+                    sleep(400, 600);
                     return;
                 }
 
@@ -326,12 +325,16 @@ public class TitheFarmingScript extends Script {
         final TitheFarmPlant finalPlant = plant;
 
         Rs2TileObjectModel plantModel = plant.getGameObject();
-        if (plantModel == null || plantModel.getWorldLocation().distanceTo2D(corePlayerLoc) > DISTANCE_THRESHOLD_MINIMAP_WALK) {
-            WorldPoint w = WorldPoint.fromRegion(corePlayerLoc.getRegionID(),
-                    plant.regionX,
-                    plant.regionY,
-                    Microbot.getClient().getTopLevelWorldView().getPlane());
+        WorldPoint w = WorldPoint.fromRegion(corePlayerLoc.getRegionID(),
+                plant.regionX,
+                plant.regionY,
+                Microbot.getClient().getTopLevelWorldView().getPlane());
+        if (plantModel == null) {
             Rs2Walker.walkMiniMap(w, 1);
+            return;
+        }
+        if (plantModel.getWorldLocation().distanceTo2D(corePlayerLoc) > DISTANCE_THRESHOLD_MINIMAP_WALK
+                && Rs2Walker.walkMiniMap(w, 1)) {
             return;
         }
 
@@ -351,9 +354,9 @@ public class TitheFarmingScript extends Script {
 
         if (plant.isValidToWater()) {
             clickPatch(plant, "water");
-            sleepUntil(() -> finalPlant.isWatered() || Rs2Player.getAnimation() == AnimationID.FARMING_WATERING, config.sleepAfterWateringSeed());
-            if (Rs2Player.isAnimating()){
-                sleepUntil(finalPlant::isWatered);
+            sleepUntil(finalPlant::isWatered, config.sleepAfterWateringSeed());
+            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) {
+                sleepUntil(finalPlant::isWatered, 10_000);
             }
         }
 
@@ -361,9 +364,9 @@ public class TitheFarmingScript extends Script {
         if (plant.isValidToHarvest()) {
             clickPatch(plant, "harvest");
             plant.setHarvested(true);
-            sleepUntil(() -> finalPlant.isEmptyPatch() || Rs2Player.getAnimation() == AnimationID.HUMAN_DIG, config.sleepAfterHarvestingSeed());
-            if (Rs2Player.isAnimating()) {
-                sleepUntil(() -> plants.stream().anyMatch(x -> x.getIndex() == finalPlant.getIndex() && x.isEmptyPatch()));
+            sleepUntil(finalPlant::isEmptyPatch, config.sleepAfterHarvestingSeed());
+            if (Rs2Player.isMoving() || Rs2Player.isAnimating()) {
+                sleepUntil(finalPlant::isEmptyPatch, 10_000);
             }
         }
     }
@@ -401,7 +404,7 @@ public class TitheFarmingScript extends Script {
 
 
     private TitheFarmPlant nextPlant() {
-        TitheFarmPlant urgent = lowestIndex(p -> needsWater(p) && p.growsWithin(DRY_PLANT_MARGIN));
+        TitheFarmPlant urgent = nextInPassOf(p -> needsWater(p) && p.growsWithin(DRY_PLANT_MARGIN));
         if (urgent != null) {
             wateringPass = true;
             return visit(urgent);
@@ -434,6 +437,17 @@ public class TitheFarmingScript extends Script {
                 .orElse(wrap && !due.isEmpty() ? due.get(0) : null);
     }
 
+    private TitheFarmPlant nextInPassOf(Predicate<TitheFarmPlant> needsAction) {
+        List<TitheFarmPlant> due = plants.stream()
+                .filter(needsAction)
+                .sorted(Comparator.comparingInt(TitheFarmPlant::getIndex))
+                .collect(Collectors.toList());
+        return due.stream()
+                .filter(p -> p.getIndex() >= passIndex)
+                .findFirst()
+                .orElse(due.isEmpty() ? null : due.get(0));
+    }
+
     private static boolean isUnplanted(TitheFarmPlant plant) {
         return plant.isEmptyPatchOrSeedling() && !plant.isHarvested();
     }
@@ -451,7 +465,7 @@ public class TitheFarmingScript extends Script {
     }
 
     private static boolean needsWater(TitheFarmPlant plant) {
-        return plant.isStage1() || plant.isStage2();
+        return plant.isSeedling() || plant.isStage1() || plant.isStage2();
     }
 
     private static void clickPatch(TitheFarmPlant plant) {
