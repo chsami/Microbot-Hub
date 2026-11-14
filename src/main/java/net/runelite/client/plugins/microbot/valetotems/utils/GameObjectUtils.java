@@ -6,6 +6,7 @@ import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.valetotems.enums.GameObjectId;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -199,6 +200,9 @@ public class GameObjectUtils {
      * @return list of matching game objects
      */
     public static List<GameObject> findGameObjects(int objectId, WorldPoint location, int radius) {
+        if (location == null) {
+            return new ArrayList<>();
+        }
         return Microbot.getRs2TileObjectCache().query().withId(objectId).within(location, radius).toList().stream()
                 .map(GameObjectUtils::toGameObject)
                 .filter(Objects::nonNull)
@@ -319,7 +323,7 @@ public class GameObjectUtils {
         if (obj == null) {
             return -1;
         }
-        return obj.getWorldLocation().distanceTo(CoordinateUtils.getPlayerLocation());
+        return CoordinateUtils.getDistanceToPlayer(obj.getWorldLocation());
     }
 
     /**
@@ -453,8 +457,7 @@ public class GameObjectUtils {
         if (gameObject == null) {
             return false;
         }
-        WorldPoint playerLocation = CoordinateUtils.getPlayerLocation();
-        return gameObject.getWorldLocation().distanceTo(playerLocation) <= maxDistance;
+        return CoordinateUtils.getDistanceToPlayer(gameObject.getWorldLocation()) <= maxDistance;
     }
 
     /**

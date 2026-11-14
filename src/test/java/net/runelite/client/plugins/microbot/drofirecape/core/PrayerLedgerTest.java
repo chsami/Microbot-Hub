@@ -54,6 +54,33 @@ class PrayerLedgerTest {
             "A limited input never resets only part of the active set");
         assertEquals(PrayerLedger.Type.RESET,synced(MAGIC).plan(2_230_000_000L,MAGIC,MAGIC,OVERHEADS,1).get(0).type);
     }
+    @Test void aPressedResetWhoseOnHalfMissedTheTickAwaitsThatOn() {
+        PrayerLedger ledger=synced(MAGIC);
+        ledger.resetPressed(new PrayerLedger.Command(2,PrayerLedger.Type.RESET),OVERHEADS);
+        assertTrue(ledger.plan(2_700_000_000L,MAGIC,MAGIC,OVERHEADS,1).isEmpty());
+        assertEquals(0,ledger.pendingMask());
+        ledger.beginTick(13,2_800_000_000L,0);
+        assertEquals(MAGIC,ledger.pendingMask());
+        assertTrue(ledger.plan(2_830_000_000L,0,MAGIC,OVERHEADS,1).isEmpty(),"A second ON would toggle the arriving prayer off");
+        ledger.beginTick(14,3_400_000_000L,MAGIC);
+        assertEquals(0,ledger.pendingMask());assertEquals(0,ledger.misses());
+    }
+    @Test void aPressedResetThatLandedInOneTickAwaitsNothing() {
+        PrayerLedger ledger=synced(MAGIC);
+        ledger.resetPressed(new PrayerLedger.Command(2,PrayerLedger.Type.RESET),OVERHEADS);
+        ledger.beginTick(13,2_800_000_000L,MAGIC);
+        assertEquals(0,ledger.pendingMask());
+        assertEquals(PrayerLedger.Type.RESET,ledger.plan(2_830_000_000L,MAGIC,MAGIC,OVERHEADS,1).get(0).type);
+    }
+    @Test void aSplitResetWhoseOnNeverArrivesIsPressedAgain() {
+        PrayerLedger ledger=synced(MAGIC);
+        ledger.resetPressed(new PrayerLedger.Command(2,PrayerLedger.Type.RESET),OVERHEADS);
+        ledger.beginTick(13,2_800_000_000L,0);
+        ledger.beginTick(14,3_400_000_000L,0);
+        ledger.beginTick(15,4_000_000_000L,0);
+        assertEquals(0,ledger.pendingMask());
+        assertEquals(PrayerLedger.Type.ON,ledger.plan(4_030_000_000L,0,MAGIC,OVERHEADS,1).get(0).type);
+    }
     @Test void aPendingChangeIsNeverReset() {
         assertEquals(PrayerLedger.Type.OFF,synced(MAGIC|OFFENCE).plan(2_230_000_000L,MAGIC|OFFENCE,MAGIC,OVERHEADS,4).get(0).type);
         PrayerLedger ledger=synced(MAGIC);

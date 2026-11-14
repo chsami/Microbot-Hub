@@ -105,7 +105,7 @@ public interface AgilityCourseHandler
 					case ObjectID.ROOFTOPS_POLLNIVNEACH_MARKETSTALL:
 						return AgilityObjects.canReach(obj.getWorldLocation(), _obj.sizeX(), _obj.sizeY(), 4, 4);
 					case ObjectID.SHAYZIEN_AGILITY_UP_SWING_JUMP_2:
-						return _obj.getWorldLocation().distanceTo(playerLocation) < 6;
+						return AgilityObjects.distanceTo(_obj, playerLocation) < 6;
 					default:
 						return AgilityObjects.canReach(_obj.getWorldLocation(), _obj.sizeX() + 2, _obj.sizeY() + 2, 4, 4);
 				}

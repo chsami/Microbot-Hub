@@ -94,6 +94,9 @@ public class CgPrepScript extends StateMachineScript<CgState>
 	static final int CHEST_MAX_TRIES = 3;
 	/** Entrance clicks in a row that didn't get us in (review: a locked Corrupted Gauntlet looped forever). */
 	private int enterFails;
+	volatile long entryRefusedAtMs;
+	private int depositFails;
+	volatile boolean depositBlocked;
 	/** Set after {@link #ENTER_GIVE_UP} failed entries: no more Enter clicks until Continue / the Gauntlet setting changes / restart. */
 	volatile String enterBlocked;
 	private CgMode enterBlockedMode;
@@ -689,6 +692,8 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			}
 			chestFails = 0;
 			chestBlocked = false;
+			depositFails = 0;
+			depositBlocked = false;
 			topUps = 0;
 			pl("RUN", "started mode=" + mode() + " profile=" + config.profile() + " dryRun=" + config.dryRun()
 				+ " skipDemi=" + config.skipDemiBosses() + " fishTarget=" + config.fishTarget()
@@ -2297,13 +2302,12 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			: maze.inStartRoom() ? ActionResult.DONE : ActionResult.WALKING;
 	}
 
-	/** Deposit everything, then enter. TODO(recon): entrance object + option for Corrupted. */
 	/**
-	 * Lobby, between runs: open the Reward Chest if a reward is waiting (loop on) and keep the loot
-	 * (the Gauntlet holds your items while you're inside and gives them back when you leave); bank
-	 * everything at the deposit box only when fewer than "Bank loot below free slots" are free before
-	 * opening the chest (or the chest won't open twice in a row with space short). Then wait 1-12 s
-	 * (countdown in the overlay) and "Enter-corrupted". Same after a kill or a death.
+	 * Lobby, between runs: open the Reward Chest if a reward is waiting (loop on), first banking at the
+	 * deposit box when fewer than "Bank loot below free slots" are free (or the chest won't open twice
+	 * in a row with space short). The Gauntlet lets nothing in, so once the chest is empty everything
+	 * carried or worn goes into the deposit box. Then wait 1-12 s (countdown in the overlay) and
+	 * "Enter-corrupted". Same after a kill or a death.
 	 */
 	private void lobbySetup()
 	{
@@ -2336,8 +2340,19 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			blockChest();
 			return;
 		}
+		if (depositBlocked)
+		{
+			if (!continueRequested)
+			{
+				lastAction = "lobby: stopped, can't bank your items (see chat)";
+				return;
+			}
+			depositBlocked = false;
+			depositFails = 0;
+		}
 		int free = Rs2Inventory.emptySlotCount();
-		boolean needBank = reward && (free < config.bankBelowFreeSlots() || (chestFails >= 2 && free < 8));
+		boolean wearing = Rs2Equipment.isWearing();
+		boolean needBank = LobbyDeposit.needed(reward, free, config.bankBelowFreeSlots(), chestFails, Rs2Inventory.count(), wearing);
 		if (needBank || Rs2DepositBox.isOpen())
 		{
 			reenterAtMs = -1;
@@ -2345,18 +2360,43 @@ public class CgPrepScript extends StateMachineScript<CgState>
 			{
 				lastLobbyClickMs = now;
 				ActionResult r = clickLobbyObject(new int[]{CgIds.OBJ_LOBBY_DEPOSIT_BOX}, "Deposit");
-				record("lobby: deposit box (" + free + " free slots)", r);
+				record(reward ? "lobby: deposit box (" + free + " free slots)"
+					: "lobby: banking everything you carry and wear (the Gauntlet lets no items in)", r);
 				if (r == ActionResult.CLICKED && !Global.sleepUntil(Rs2DepositBox::isOpen, 6000))
 				{
-					pl("LOBBY", "deposit box didn't open (retrying)");
+					depositFails++;
+					if (LobbyDeposit.giveUp(depositFails))
+					{
+						blockDeposit();
+						return;
+					}
+					pl("LOBBY", "deposit box didn't open: trying again (" + depositFails + "/" + LobbyDeposit.MAX_TRIES + ")");
 				}
 				return;
 			}
 			Rs2DepositBox.depositAll();
-			boolean done = Global.sleepUntil(() -> Rs2Inventory.count() == 0, 3000);
+			if (wearing)
+			{
+				Rs2DepositBox.depositEquipment();
+			}
+			boolean done = Global.sleepUntil(() -> Rs2Inventory.count() == 0 && !Rs2Equipment.isWearing(), 3000);
 			Rs2DepositBox.closeDepositBox();
 			chestFails = 0;
-			pl("LOBBY", "bag nearly full (" + free + " free): banked the loot" + (done ? "" : " (not confirmed yet, checking again)"));
+			if (done)
+			{
+				depositFails = 0;
+				pl("LOBBY", reward ? "bag nearly full (" + free + " free): banked everything carried and worn"
+					: "banked everything carried and worn before going in");
+				return;
+			}
+			depositFails++;
+			if (LobbyDeposit.giveUp(depositFails))
+			{
+				blockDeposit();
+				return;
+			}
+			pl("LOBBY", (reward ? "tried to bank everything to make room for the loot" : "tried to bank everything before going in")
+				+ ", items still carried or worn: trying again (" + depositFails + "/" + LobbyDeposit.MAX_TRIES + ")");
 			return;
 		}
 		if (reward)
@@ -2426,7 +2466,14 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		record("lobby: " + mode().entranceOption(), r);
 		if (r == ActionResult.CLICKED)
 		{
-			boolean in = Global.sleepUntil(() -> Microbot.getVarbitValue(CgIds.VB_PLAYER_IN_GAUNTLET) != 0, 10000);
+			Global.sleepUntil(() -> Microbot.getVarbitValue(CgIds.VB_PLAYER_IN_GAUNTLET) != 0 || entryRefusedAtMs >= now, 10000);
+			boolean in = Microbot.getVarbitValue(CgIds.VB_PLAYER_IN_GAUNTLET) != 0;
+			if (!in && entryRefusedAtMs >= now && (Rs2Inventory.count() > 0 || Rs2Equipment.isWearing()))
+			{
+				reenterAtMs = -1;
+				pl("LOBBY", "the Gauntlet refused entry because items are still carried or worn: banking them first");
+				return;
+			}
 			pl("LOBBY", mode().entranceOption() + (in ? ": entered" : ": not in yet (" + (enterFails + 1) + "/" + ENTER_GIVE_UP + ")"));
 			if (in)
 			{
@@ -2446,6 +2493,18 @@ public class CgPrepScript extends StateMachineScript<CgState>
 		String msg = "Auto Gauntlet: the Reward Chest didn't open after " + CHEST_MAX_TRIES + " tries, so it stopped here to keep your loot."
 			+ " Open it yourself (or make room in your bag), then press " + config.continueKey() + " to go again.";
 		chestBlocked = true;
+		continueRequested = false;
+		reenterAtMs = -1;
+		pl("LOBBY", "WARN " + msg);
+		Microbot.getClientThread().invoke(() ->
+			Microbot.getClient().addChatMessage(net.runelite.api.ChatMessageType.GAMEMESSAGE, "", "<col=ff0000>" + msg + "</col>", null));
+	}
+
+	private void blockDeposit()
+	{
+		String msg = "Auto Gauntlet: couldn't put your items in the deposit box after " + LobbyDeposit.MAX_TRIES + " tries, so it stopped here."
+			+ " Check your bank isn't full, deposit everything you carry and wear yourself, then press " + config.continueKey() + " to go again.";
+		depositBlocked = true;
 		continueRequested = false;
 		reenterAtMs = -1;
 		pl("LOBBY", "WARN " + msg);

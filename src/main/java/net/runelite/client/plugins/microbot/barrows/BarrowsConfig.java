@@ -196,7 +196,7 @@ public interface BarrowsConfig extends Config {
     @ConfigItem(
             keyName = "shouldGainRP",
             name = "Aim for 86+% rewards potential",
-            description = "Should we gain additional RP other than the barrows brothers?",
+            description = "Kill tunnel monsters to reach 86%+ reward potential. When off, the script walks straight to the chest and does not stop to fight monsters that attack it (it still eats).",
             position = 13
     )
     default boolean shouldGainRP() {

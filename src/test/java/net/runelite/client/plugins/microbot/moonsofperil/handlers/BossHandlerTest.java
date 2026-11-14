@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.moonsofperil.handlers;
 
+import net.runelite.api.Client;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
@@ -13,22 +14,27 @@ import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
+import net.runelite.client.plugins.microbot.util.walker.Rs2Walker;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class BossHandlerTest {
     private static final int SIGIL_ID = 1;
     private static final int BOSS_ID = 2;
     private static final WorldPoint SIGIL_TILE = new WorldPoint(1500, 9600, 0);
+    private static final WorldPoint NEXT_TO_SIGIL_TILE = new WorldPoint(1501, 9600, 0);
 
     private static MoonsOfPerilConfig config() {
         MoonsOfPerilConfig config = mock(MoonsOfPerilConfig.class);
@@ -39,6 +45,10 @@ class BossHandlerTest {
     }
 
     private static Rs2NpcCache npcCacheWithOneSigilIteration() {
+        return npcCacheWithSigilIterations(1);
+    }
+
+    private static Rs2NpcCache npcCacheWithSigilIterations(int iterations) {
         Rs2NpcModel sigil = mock(Rs2NpcModel.class);
         when(sigil.getWorldLocation()).thenReturn(SIGIL_TILE);
         Rs2NpcModel boss = mock(Rs2NpcModel.class);
@@ -53,7 +63,7 @@ class BossHandlerTest {
             if (lastId.get() == BOSS_ID) {
                 return boss;
             }
-            return sigilLookups.incrementAndGet() <= 2 ? sigil : null;
+            return sigilLookups.incrementAndGet() <= iterations * 2 ? sigil : null;
         });
         Rs2NpcCache cache = mock(Rs2NpcCache.class);
         when(cache.query()).thenReturn(queryable);
@@ -70,11 +80,13 @@ class BossHandlerTest {
              MockedStatic<Global> global = mockStatic(Global.class);
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
              MockedStatic<Rs2Prayer> prayer = mockStatic(Rs2Prayer.class);
-             MockedStatic<Rs2Combat> combat = mockStatic(Rs2Combat.class)) {
+             MockedStatic<Rs2Combat> combat = mockStatic(Rs2Combat.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
             microbot.when(Microbot::getRs2NpcCache).thenReturn(cache);
+            microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
             prayer.when(Rs2Prayer::getBestMeleePrayer).thenReturn(Rs2PrayerEnum.PIETY);
             combat.when(Rs2Combat::inCombat).thenReturn(true);
-            player.when(() -> Rs2Player.distanceTo(any(WorldPoint.class))).thenReturn(0);
+            player.when(Rs2Player::getWorldLocation).thenReturn(SIGIL_TILE);
             player.when(() -> Rs2Player.getRealSkillLevel(Skill.PRAYER)).thenReturn(70);
             player.when(Rs2Player::hasMoonlightActive).thenReturn(true);
 
@@ -83,6 +95,115 @@ class BossHandlerTest {
             player.verify(() -> Rs2Player.eatAt(60));
             player.verify(() -> Rs2Player.drinkPrayerPotionAt(35));
             player.verify(Rs2Player::drinkPrayerPotion, never());
+        }
+    }
+
+    @Test
+    void normalAttackSequenceAttacksWithoutWalkingWhenOnTheAttackTile() {
+        Rs2InventorySetup setup = mock(Rs2InventorySetup.class);
+        when(setup.doesEquipmentMatch()).thenReturn(true);
+        Rs2NpcCache cache = npcCacheWithOneSigilIteration();
+        Rs2NpcQueryable queryable = cache.query();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Prayer> prayer = mockStatic(Rs2Prayer.class);
+             MockedStatic<Rs2Combat> combat = mockStatic(Rs2Combat.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            microbot.when(Microbot::getRs2NpcCache).thenReturn(cache);
+            microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
+            prayer.when(Rs2Prayer::getBestMeleePrayer).thenReturn(Rs2PrayerEnum.PIETY);
+            combat.when(Rs2Combat::inCombat).thenReturn(false);
+            player.when(Rs2Player::getWorldLocation).thenReturn(SIGIL_TILE);
+            player.when(() -> Rs2Player.getRealSkillLevel(Skill.PRAYER)).thenReturn(70);
+            player.when(Rs2Player::hasMoonlightActive).thenReturn(true);
+
+            new BossHandler(config()).normalAttackSequence(SIGIL_ID, BOSS_ID, new WorldPoint[]{SIGIL_TILE}, setup);
+
+            walker.verify(() -> Rs2Walker.walkFastCanvas(any(WorldPoint.class), anyBoolean()), never());
+            verify(queryable).interact("Attack");
+        }
+    }
+
+    @Test
+    void normalAttackSequenceWalksAndHoldsTheAttackWhileOffTheAttackTile() {
+        Rs2InventorySetup setup = mock(Rs2InventorySetup.class);
+        when(setup.doesEquipmentMatch()).thenReturn(true);
+        Rs2NpcCache cache = npcCacheWithSigilIterations(3);
+        Rs2NpcQueryable queryable = cache.query();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Prayer> prayer = mockStatic(Rs2Prayer.class);
+             MockedStatic<Rs2Combat> combat = mockStatic(Rs2Combat.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            microbot.when(Microbot::getRs2NpcCache).thenReturn(cache);
+            microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
+            prayer.when(Rs2Prayer::getBestMeleePrayer).thenReturn(Rs2PrayerEnum.PIETY);
+            combat.when(Rs2Combat::inCombat).thenReturn(false);
+            player.when(Rs2Player::getWorldLocation).thenReturn(NEXT_TO_SIGIL_TILE);
+            player.when(() -> Rs2Player.getRealSkillLevel(Skill.PRAYER)).thenReturn(70);
+            player.when(Rs2Player::hasMoonlightActive).thenReturn(true);
+            walker.when(() -> Rs2Walker.walkFastCanvas(SIGIL_TILE, true)).thenReturn(false);
+
+            new BossHandler(config()).normalAttackSequence(SIGIL_ID, BOSS_ID, new WorldPoint[]{SIGIL_TILE}, setup);
+
+            walker.verify(() -> Rs2Walker.walkFastCanvas(SIGIL_TILE, true), times(3));
+            verify(queryable, never()).interact("Attack");
+            player.verify(() -> Rs2Player.eatAt(60), times(3));
+        }
+    }
+
+    @Test
+    void normalAttackSequenceAttacksInTheSamePassOnceTheWalkLands() {
+        Rs2InventorySetup setup = mock(Rs2InventorySetup.class);
+        when(setup.doesEquipmentMatch()).thenReturn(true);
+        Rs2NpcCache cache = npcCacheWithOneSigilIteration();
+        Rs2NpcQueryable queryable = cache.query();
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Global> global = mockStatic(Global.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class);
+             MockedStatic<Rs2Prayer> prayer = mockStatic(Rs2Prayer.class);
+             MockedStatic<Rs2Combat> combat = mockStatic(Rs2Combat.class);
+             MockedStatic<Rs2Walker> walker = mockStatic(Rs2Walker.class)) {
+            microbot.when(Microbot::getRs2NpcCache).thenReturn(cache);
+            microbot.when(Microbot::getClient).thenReturn(mock(Client.class));
+            prayer.when(Rs2Prayer::getBestMeleePrayer).thenReturn(Rs2PrayerEnum.PIETY);
+            combat.when(Rs2Combat::inCombat).thenReturn(false);
+            player.when(Rs2Player::getWorldLocation).thenReturn(NEXT_TO_SIGIL_TILE, SIGIL_TILE);
+            player.when(() -> Rs2Player.getRealSkillLevel(Skill.PRAYER)).thenReturn(70);
+            player.when(Rs2Player::hasMoonlightActive).thenReturn(true);
+            walker.when(() -> Rs2Walker.walkFastCanvas(SIGIL_TILE, true)).thenReturn(true);
+
+            new BossHandler(config()).normalAttackSequence(SIGIL_ID, BOSS_ID, new WorldPoint[]{SIGIL_TILE}, setup);
+
+            walker.verify(() -> Rs2Walker.walkFastCanvas(SIGIL_TILE, true), times(1));
+            verify(queryable).interact("Attack");
+        }
+    }
+
+    @Test
+    void eatIfNeededClicksFoodOncePerFoodDelay() {
+        Client client = mock(Client.class);
+        when(client.getTickCount()).thenReturn(100, 100, 101, 102, 103);
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getClient).thenReturn(client);
+            player.when(() -> Rs2Player.eatAt(60)).thenReturn(true);
+            BossHandler handler = new BossHandler(config());
+
+            handler.eatIfNeeded();
+            handler.eatIfNeeded();
+            handler.eatIfNeeded();
+            handler.eatIfNeeded();
+            player.verify(() -> Rs2Player.eatAt(60), times(1));
+
+            handler.eatIfNeeded();
+            player.verify(() -> Rs2Player.eatAt(60), times(2));
         }
     }
 }

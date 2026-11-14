@@ -133,12 +133,22 @@ public class LootScript extends Script {
         return new LootingParameters(
                 config.minPriceOfItemsToLoot(),
                 config.maxPriceOfItemsToLoot(),
-                config.attackRadius(),
+                lootRange(config.attackRadius(), config.centerLocation(), Rs2Player.getWorldLocation()),
                 /* minQuantity */ 1,
                 minInvSlots,
                 config.toggleDelayedLooting(),
                 config.toggleOnlyLootMyItems()
         );
+    }
+
+    static int lootRange(int attackRadius, WorldPoint center, WorldPoint player) {
+        final int range = attackRadius + 1;
+        if (!isCenterSet(center) || player == null || player.getPlane() != center.getPlane()) return range;
+        return range + player.distanceTo(center);
+    }
+
+    private static boolean isCenterSet(WorldPoint center) {
+        return center != null && !(center.getX() == 0 && center.getY() == 0);
     }
 
     private Rs2LootEngine.Builder addIntents(Rs2LootEngine.Builder builder, AIOFighterConfig config) {
@@ -172,7 +182,7 @@ public class LootScript extends Script {
 
     private static boolean isOutsideFightArea(GroundItem groundItem, AIOFighterConfig config) {
         final WorldPoint center = config.centerLocation();
-        if (center == null || (center.getX() == 0 && center.getY() == 0)) return false;
+        if (!isCenterSet(center)) return false;
         final WorldPoint location = groundItem.getLocation();
         return location == null || location.distanceTo(center) > config.attackRadius();
     }

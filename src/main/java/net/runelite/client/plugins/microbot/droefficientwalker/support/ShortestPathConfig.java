@@ -1,0 +1,950 @@
+package net.runelite.client.plugins.microbot.droefficientwalker.support;
+
+import net.runelite.client.config.*;
+import net.runelite.client.plugins.microbot.shortestpath.ShortestPathPlugin;
+import net.runelite.client.plugins.microbot.shortestpath.TeleportationItem;
+import net.runelite.client.plugins.microbot.shortestpath.TileCounter;
+import net.runelite.client.plugins.microbot.shortestpath.TileStyle;
+
+import java.awt.*;
+import java.awt.event.InputEvent;
+import java.awt.event.KeyEvent;
+
+@ConfigGroup(ShortestPathPlugin.CONFIG_GROUP)
+@ConfigInformation("Toggle walking pauses/resumes manual walking. Clear current path removes the destination (default: Ctrl + X).")
+public interface ShortestPathConfig extends Config {
+    @ConfigItem(keyName = "toggleWalkingHotkey", name = "Toggle walking",
+            description = "Enable or disable manual automatic walking, keeping the destination and route.", position = -2)
+    default Keybind toggleWalkingHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(keyName = "clearCurrentPathHotkey", name = "Clear current path",
+            description = "Cancel walking and remove the current route and destination.", position = -1)
+    default Keybind clearCurrentPathHotkey() {
+        return new Keybind(KeyEvent.VK_X, InputEvent.CTRL_DOWN_MASK);
+    }
+
+    /* ------------------------------------------------------------------
+     * Hotkeys — stored as config values but bound/displayed inline on
+     * each side-panel category card (see ShortestPathPanel). Marked
+     * hidden so they don't clutter the settings UI.
+     * ------------------------------------------------------------------ */
+
+    @ConfigItem(
+            keyName = "customLocationToggleHotkey",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default Keybind customLocationToggleHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "bankToggleHotkey",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default Keybind bankToggleHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "nearestBankHotkey",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default Keybind nearestBankHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "depositBoxToggleHotkey",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default Keybind depositBoxToggleHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "nearestDepositBoxHotkey",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default Keybind nearestDepositBoxHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "slayerMasterToggleHotkey",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default Keybind slayerMasterToggleHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "questToggleHotkey",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default Keybind questToggleHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "clueToggleHotkey",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default Keybind clueToggleHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "farmingToggleHotkey",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default Keybind farmingToggleHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigItem(
+            keyName = "hunterToggleHotkey",
+            name = "",
+            description = "",
+            hidden = true
+    )
+    default Keybind hunterToggleHotkey() {
+        return Keybind.NOT_SET;
+    }
+
+    @ConfigSection(
+            name = "Settings",
+            description = "Options for the pathfinding",
+            position = 0
+    )
+    String sectionSettings = "sectionSettings";
+
+    @ConfigItem(
+            keyName = "avoidWilderness",
+            name = "Avoid wilderness",
+            description = "Whether the wilderness should be avoided if possible<br>" +
+                    "(otherwise, will e.g. use wilderness lever from Edgeville to Ardougne)",
+            position = 0,
+            section = sectionSettings
+    )
+    default boolean avoidWilderness() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "avoidDangerousNpcs",
+            name = "Avoid dangerous NPCs",
+            description = "Route around tiles next to aggressive NPCs that attack you while passing<br>" +
+                    "(e.g. undead trees at Draynor Manor). A penalty, not a block, so chokepoints still work.",
+            position = 1,
+            section = sectionSettings
+    )
+    default boolean avoidDangerousNpcs() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useAgilityShortcuts",
+            name = "Use agility shortcuts",
+            description = "Whether to include agility shortcuts in the path.<br>" +
+                    "You must also have the required agility level",
+            position = 2,
+            section = sectionSettings
+    )
+    default boolean useAgilityShortcuts() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useGrappleShortcuts",
+            name = "Use grapple shortcuts",
+            description = "Whether to include crossbow grapple agility shortcuts in the path.<br>" +
+                    "You must also have the required agility, ranged and strength levels",
+            position = 3,
+            section = sectionSettings
+    )
+    default boolean useGrappleShortcuts() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "useBoats",
+            name = "Use boats",
+            description = "Whether to include small boats in the path<br>" +
+                    "(e.g. the boat to Fishing Platform)",
+            position = 4,
+            section = sectionSettings
+    )
+    default boolean useBoats() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useCanoes",
+            name = "Use canoes",
+            description = "Whether to include canoes in the path",
+            position = 5,
+            section = sectionSettings
+    )
+    default boolean useCanoes() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useCharterShips",
+            name = "Use charter ships",
+            description = "Whether to include charter ships in the path",
+            position = 6,
+            section = sectionSettings
+    )
+    default boolean useCharterShips() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useShips",
+            name = "Use ships",
+            description = "Whether to include passenger ships in the path<br>" +
+                    "(e.g. the customs ships to Karamja)",
+            position = 7,
+            section = sectionSettings
+    )
+    default boolean useShips() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useFairyRings",
+            name = "Use fairy rings",
+            description = "Whether to include fairy rings in the path.<br>" +
+                    "You must also have completed the required quests or miniquests",
+            position = 8,
+            section = sectionSettings
+    )
+    default boolean useFairyRings() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useGnomeGliders",
+            name = "Use gnome gliders",
+            description = "Whether to include gnome gliders in the path",
+            position = 9,
+            section = sectionSettings
+    )
+    default boolean useGnomeGliders() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useMinecarts",
+            name = "Use minecarts",
+            description = "Whether to include minecarts in the path<br>" +
+                    "(e.g. the Keldagrim and Lovakengj minecart networks)",
+            position = 10,
+            section = sectionSettings
+    )
+    default boolean useMinecarts() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useSpiritTrees",
+            name = "Use spirit trees",
+            description = "Whether to include spirit trees in the path",
+            position = 11,
+            section = sectionSettings
+    )
+    default boolean useSpiritTrees() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useTeleportationItems",
+            name = "Use teleportation items",
+            description = "Whether to include teleportation items from the player's inventory and equipment.<br>" +
+                    "Options labelled (perm) only use permanent non-charge items.",
+            position = 12,
+            section = sectionSettings
+    )
+    default TeleportationItem useTeleportationItems() {
+        return TeleportationItem.INVENTORY;
+    }
+
+    @ConfigItem(
+            keyName = "useTeleportationLevers",
+            name = "Use teleportation levers",
+            description = "Whether to include teleportation levers in the path<br>" +
+                    "(e.g. the lever from Edgeville to Wilderness)",
+            position = 13,
+            section = sectionSettings
+    )
+    default boolean useTeleportationLevers() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useTeleportationPortals",
+            name = "Use teleportation portals",
+            description = "Whether to include teleportation portals in the path<br>" +
+                    "(e.g. the portal from Ferox Enclave to Castle Wars)",
+            position = 14,
+            section = sectionSettings
+    )
+    default boolean useTeleportationPortals() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useTeleportationSpells",
+            name = "Use teleportation spells",
+            description = "Whether to include teleportation spells in the path",
+            position = 15,
+            section = sectionSettings
+    )
+    default boolean useTeleportationSpells() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useTeleportationMinigames",
+            name = "Use teleportation to minigames",
+            description = "Whether to include teleportation to minigames/activities/grouping in the path<br>" +
+                    "(e.g. the Nightmare Zone minigame teleport). These teleports share a 20 minute cooldown.",
+            position = 16,
+            section = sectionSettings
+    )
+    default boolean useTeleportationMinigames() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "useWildernessObelisks",
+            name = "Use wilderness obelisks",
+            description = "Whether to include wilderness obelisks in the path",
+            position = 17,
+            section = sectionSettings
+    )
+    default boolean useWildernessObelisks() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useNpcs",
+            name = "Use npcs",
+            description = "Whether to include npc transports in the path<br>(e.g. Tree gnome village maze or Lumbridge cellar)",
+            position = 18,
+            section = sectionSettings
+    )
+    default boolean useNpcs() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useQuetzals",
+            name = "Use quetzals",
+            description = "Whether to include quetzals in the path.<br>",
+            position = 19,
+            section = sectionSettings
+    )
+    default boolean useQuetzals() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useMagicCarpets",
+            name = "Use Magic Carpets",
+            description = "Whether to include magic carpets in the path.<br>",
+            position = 20,
+            section = sectionSettings
+    )
+    default boolean useMagicCarpets() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useHotAirBalloons",
+            name = "Use Hot Air Balloons",
+            description = "Whether to include hot air balloons in the path.",
+            position = 21,
+            section = sectionSettings
+    )
+    default boolean useHotAirBalloons() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "useMagicMushtrees",
+            name = "Use Magic Mushtrees",
+            description = "Whether to include magic mushtrees in the path.",
+            position = 22,
+            section = sectionSettings
+    )
+    default boolean useMagicMushtrees() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "useSeasonalTransports",
+            name = "Use Seasonal Transports",
+            description = "Whether to include seasonal League transports (e.g. Map of Alacrity) in the path. League worlds only.",
+            position = 23,
+            section = sectionSettings
+    )
+    default boolean useSeasonalTransports() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "usePoh",
+            name = "Use Player-owned-house Teleports",
+            description = "Whether to include teleportation through the PoH",
+            position = 24,
+            section = sectionSettings
+    )
+    default boolean usePoh() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "usePortalNexus",
+            name = "Use Portal Nexus",
+            description = "Include Portal Nexus destinations saved in PoH Web Config. Requires Player-owned-house Teleports.",
+            position = 24,
+            section = sectionSettings
+    )
+    default boolean usePortalNexus() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "cancelInstead",
+            name = "Cancel instead of recalculating",
+            description = "Whether the path should be cancelled rather than recalculated " +
+                    "when the recalculate distance limit is exceeded",
+            position = 25,
+            section = sectionSettings
+    )
+    default boolean cancelInstead() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "showTransportInfo",
+            name = "Show transport info",
+            description = "Whether to display transport destination hint info, e.g. which chat option and text to click",
+            position = 26,
+            section = sectionSettings
+    )
+    default boolean showTransportInfo() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "distanceBeforeUsingTeleports",
+            name = "Teleport distance",
+            description = "Distance before using a teleport<br>" +
+                    "(This is to avoid using teleports when you are to close",
+            position = 27,
+            section = sectionSettings
+    )
+    default int distanceBeforeUsingTeleport() {
+        return 20;
+    }
+
+    @Range(
+            min = -1,
+            max = 20000
+    )
+    @ConfigItem(
+            keyName = "recalculateDistance",
+            name = "Recalculate distance",
+            description = "Distance from the path the player should be for it to be recalculated (-1 for never)",
+            position = 28,
+            section = sectionSettings
+    )
+    default int recalculateDistance() {
+        return 10;
+    }
+
+    @Range(
+            min = -1,
+            max = 50
+    )
+    @ConfigItem(
+            keyName = "finishDistance",
+            name = "Finish distance",
+            description = "Distance from the target tile at which the path should be ended (-1 for never)",
+            position = 29,
+            section = sectionSettings
+    )
+    default int reachedDistance() {
+        return 5;
+    }
+
+    @ConfigItem(
+            keyName = "showTileCounter",
+            name = "Show tile counter",
+            description = "Whether to display the number of tiles travelled, number of tiles remaining or disable counting",
+            position = 30,
+            section = sectionSettings
+    )
+    default TileCounter showTileCounter() {
+        return TileCounter.REMAINING;
+    }
+
+    @ConfigItem(
+            keyName = "tileCounterStep",
+            name = "Tile counter step",
+            description = "The number of tiles between the displayed tile counter numbers",
+            position = 31,
+            section = sectionSettings
+    )
+    default int tileCounterStep()
+    {
+        return 1;
+    }
+
+    @Units(
+            value = Units.TICKS
+    )
+    @Range(
+            min = 1,
+            max = 30
+    )
+    @ConfigItem(
+            keyName = "calculationCutoff",
+            name = "Calculation cutoff",
+            description = "The cutoff threshold in number of ticks (0.6 seconds) of no progress being<br>" +
+                    "made towards the path target before the calculation will be stopped",
+            position = 32,
+            section = sectionSettings
+    )
+    default int calculationCutoff()
+    {
+        return 5;
+    }
+
+    @ConfigSection(
+            name = "Display",
+            description = "Options for displaying the path on the world map, minimap and scene tiles",
+            position = 1
+    )
+    String sectionDisplay = "sectionDisplay";
+
+    @ConfigItem(
+            keyName = "drawMap",
+            name = "Draw path on world map",
+            description = "Whether the path should be drawn on the world map",
+            position = 0,
+            section = sectionDisplay
+    )
+    default boolean drawMap() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "drawMinimap",
+            name = "Draw path on minimap",
+            description = "Whether the path should be drawn on the minimap",
+            position = 1,
+            section = sectionDisplay
+    )
+    default boolean drawMinimap() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "drawTiles",
+            name = "Draw path on tiles",
+            description = "Whether the path should be drawn on the game tiles",
+            position = 2,
+            section = sectionDisplay
+    )
+    default boolean drawTiles() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "pathStyle",
+            name = "Path style",
+            description = "Whether to display the path as tiles or a segmented line",
+            position = 3,
+            section = sectionDisplay
+    )
+    default TileStyle pathStyle() {
+        return TileStyle.TILES;
+    }
+
+    @ConfigItem(
+            keyName = "showETA",
+            name = "Show ETA Overlay",
+            description = "Whether to display the ETA in an overlay to your destination",
+            position = 4,
+            section = sectionDisplay
+    )
+    default boolean showETA() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "showETAInSeconds",
+            name = "Show ETA in Seconds",
+            description = "Whether to display the ETA in seconds vs mins:seconds",
+            position = 5,
+            section = sectionDisplay
+    )
+    default boolean showInSeconds() {
+        return false;
+    }
+
+    @ConfigSection(
+            name = "Colours",
+            description = "Colours for the path map, minimap and scene tiles",
+            position = 2
+    )
+    String sectionColours = "sectionColours";
+
+    @Alpha
+    @ConfigItem(
+            keyName = "colourPath",
+            name = "Path",
+            description = "Colour of the path tiles on the world map, minimap and in the game scene",
+            position = 0,
+            section = sectionColours
+    )
+    default Color colourPath() {
+        return new Color(255, 0, 0);
+    }
+
+    @Alpha
+    @ConfigItem(
+            keyName = "colourPathCalculating",
+            name = "Calculating",
+            description = "Colour of the path tiles while the pathfinding calculation is in progress",
+            position = 1,
+            section = sectionColours
+    )
+    default Color colourPathCalculating() {
+        return new Color(0, 0, 255);
+    }
+
+    @Alpha
+    @ConfigItem(
+            keyName = "colourTransports",
+            name = "Transports",
+            description = "Colour of the transport tiles",
+            position = 2,
+            section = sectionColours
+    )
+    default Color colourTransports() {
+        return new Color(0, 255, 0, 128);
+    }
+
+    @Alpha
+    @ConfigItem(
+            keyName = "colourCollisionMap",
+            name = "Collision map",
+            description = "Colour of the collision map tiles",
+            position = 3,
+            section = sectionColours
+    )
+    default Color colourCollisionMap() {
+        return new Color(0, 128, 255, 128);
+    }
+
+    @Alpha
+    @ConfigItem(
+            keyName = "colourText",
+            name = "Text",
+            description = "Colour of the text of the tile counter and fairy ring codes",
+            position = 4,
+            section = sectionColours
+    )
+    default Color colourText() {
+        return Color.WHITE;
+    }
+
+    @ConfigSection(
+            name = "Debug Options",
+            description = "Various options for debugging",
+            position = 3,
+            closedByDefault = true
+    )
+    String sectionDebug = "sectionDebug";
+
+    @ConfigItem(
+            keyName = "drawTransports",
+            name = "Draw transports",
+            description = "Whether transports should be drawn",
+            position = 0,
+            section = sectionDebug
+    )
+    default boolean drawTransports() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "drawCollisionMap",
+            name = "Draw collision map",
+            description = "Whether the collision map should be drawn",
+            position = 1,
+            section = sectionDebug
+    )
+    default boolean drawCollisionMap() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "drawDebugPanel",
+            name = "Show debug panel",
+            description = "Toggles displaying the pathfinding debug stats panel",
+            position = 2,
+            section = sectionDebug
+    )
+    default boolean drawDebugPanel() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "verboseWalkerLogging",
+            name = "Verbose console logging",
+            description = "Log walker/shortest-path DEBUG detail to the console without restarting the client "
+                    + "in debug mode. Console only — never the game chat.",
+            position = 3,
+            section = sectionDebug
+    )
+    default boolean verboseWalkerLogging() {
+        return false;
+    }
+    @ConfigSection(
+            name = "Advanced Options",
+            description = "Advanced pathfinding and transport settings",
+            position = 4,
+            closedByDefault = false
+    )
+    String sectionAdvanced = "sectionAdvanced";
+
+	@ConfigItem(
+		keyName = "randomizeFinalTile",
+		name = "Randomize final tile",
+		description = "Whether to randomize the final tile of the path by a few tiles.<br>" +
+			"This can be disabled in situations where you want to be able to click on the final tile directly, such as when using the path for a script that requires precise clicking.",
+		position = 0,
+		section = sectionAdvanced
+	)
+	default boolean randomizeFinalTile() {
+		return true;
+	}
+
+    @ConfigItem(
+            keyName = "walkWithBankedTransports",
+            name = "Walk with banked transports",
+            description = "Whether to use the walk with banked transport functionality or the normal walking.<br>" +
+                    "This will use banked transports when the path via the bank to grab the transportation items is more efficient, " +
+                    "otherwise it will use the normal pathfinding.",
+            position = 1,
+            section = sectionAdvanced
+    )
+    default boolean walkWithBankedTransports() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "minBankRouteSavings",
+            name = "Min. bank route savings (tiles)",
+            description = "Minimum number of tiles the bank route must be shorter than the direct route to use banking.",
+            position = 2,
+            section = sectionAdvanced
+    )
+    @Range(min = 0)
+    default int minBankRouteSavings() {
+        return 80;
+    }
+
+        @ConfigItem(
+                keyName = "preferTransportToTarget",
+                name = "Prefer transport to target",
+                description = "Whether to prefer using transports to reach the target instead of walking.<br>" +
+                        "This will only apply when 'Walk with banked transports' is enabled.",
+                position = 4,
+                section = sectionAdvanced
+        )
+        default boolean preferTransportToTarget() {
+                return false;
+        }
+
+    @ConfigItem(
+            keyName = "interactWithRouteObstaclesAtRange",
+            name = "Interact with obstacles at range",
+            description = "Click doors, stairs, ladders, stiles and other object transports as soon as they are in "
+                    + "range and let the game walk you there, instead of walking to a chosen approach tile "
+                    + "first. Only ever applies to the NEXT obstacle on the route, and falls back to the old "
+                    + "behaviour for any obstacle the server declines to path to.",
+            position = 3,
+            section = sectionAdvanced
+    )
+    default boolean interactWithRouteObstaclesAtRange() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "maxSimilarTransportDistance",
+            name = "Max similar transport distance (tiles)",
+            description = "Maximum distance between spell and consumable item teleport destinations to prefer spells over items.<br>" +
+                    "Only applies when 'Walk with banked transports' is enabled. Set to 0 to disable filtering.",
+            position = 5,
+            section = sectionAdvanced
+    )
+    @Range(min = 0, max = 100)
+    default int maxSimilarTransportDistance() {
+        return 0;
+    }
+
+    @ConfigItem(
+            keyName = "bankTripWhenCacheUnavailable",
+            name = "Bank trip when cache unavailable",
+            description = "When enabled, walker will visit/open nearest bank to bootstrap bank mirror cache before evaluating banked routes.",
+            position = 6,
+            section = sectionAdvanced
+    )
+    default boolean bankTripWhenCacheUnavailable() {
+        return true;
+    }
+
+	@ConfigSection(
+			name = "Spirit tree teleports",
+			description = "Toggle which spirit tree destinations to use",
+			position = 5,
+			closedByDefault = true
+	)
+	String sectionSpiritTrees = "sectionSpiritTrees";
+
+	@ConfigItem(
+			keyName = "spiritTreeEtceteria",
+			name = "Etceteria",
+			description = "Use the spirit tree teleport to Etceteria",
+			position = 0,
+			section = sectionSpiritTrees
+	)
+	default boolean spiritTreeEtceteria() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "spiritTreeBrimhaven",
+			name = "Brimhaven",
+			description = "Use the spirit tree teleport to Brimhaven",
+			position = 1,
+			section = sectionSpiritTrees
+	)
+	default boolean spiritTreeBrimhaven() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "spiritTreePortSarim",
+			name = "Port Sarim",
+			description = "Use the spirit tree teleport to Port Sarim",
+			position = 2,
+			section = sectionSpiritTrees
+	)
+	default boolean spiritTreePortSarim() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "spiritTreeHosidius",
+			name = "Hosidius",
+			description = "Use the spirit tree teleport to Hosidius",
+			position = 3,
+			section = sectionSpiritTrees
+	)
+	default boolean spiritTreeHosidius() {
+		return true;
+	}
+
+	@ConfigItem(
+			keyName = "spiritTreeFarmingGuild",
+			name = "Farming Guild",
+			description = "Use the spirit tree teleport to the Farming Guild",
+			position = 4,
+			section = sectionSpiritTrees
+	)
+    default boolean spiritTreeFarmingGuild() {
+        return true;
+    }
+
+    @ConfigSection(
+            name = "Developer",
+            description = "Optional — most users can ignore.",
+            position = 100
+    )
+    String sectionDeveloper = "sectionDeveloper";
+
+    @ConfigItem(
+            keyName = "reloadTransportDefinitions",
+            name = "Reload transport TSVs",
+            description = "Turn ON to reload web-walker transport tables from the client JAR; saves OFF automatically. Use after replacing packaged TSVs in a dev build.",
+            position = 0,
+            section = sectionDeveloper
+    )
+    default boolean reloadTransportDefinitions() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "useLiveCollision",
+            name = "Live collision",
+            description = "Overlay RuneLite's live scene collision on the static map inside the loaded scene, so pathfinding reflects opened/closed doors, gates and temporary objects, and learns real blocked edges as you travel (persisted, self-invalidating). Out-of-scene routing still uses the static map.",
+            position = 1,
+            section = sectionDeveloper
+    )
+    default boolean useLiveCollision() {
+        return true;
+    }
+
+    @ConfigItem(
+            keyName = "resetLearnedCollision",
+            name = "Reset learned collision",
+            description = "Turn ON to wipe the accumulated live-collision store — both in memory and on disk (~/.runelite/microbot/live-collision). Saves OFF automatically. Use if a bad capture ever corrupts routing; with Live collision still ON it re-learns from scratch as you travel.",
+            position = 2,
+            section = sectionDeveloper
+    )
+    default boolean resetLearnedCollision() {
+        return false;
+    }
+
+	@ConfigItem(
+			keyName = "plannerSelectionMode",
+			name = "Planner rollout mode",
+			description = "Local is the production default. Shadow compares the pinned upstream planner. "
+					+ "The F2P canary selects only semantically matching upstream routes and automatically "
+					+ "falls back to local; members routes remain local.",
+			position = 3,
+			section = sectionDeveloper,
+			hidden = true
+	)
+	default PlannerSelectionMode plannerSelectionMode() {
+		return PlannerSelectionMode.LOCAL;
+	}
+}

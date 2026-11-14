@@ -8,6 +8,8 @@ import net.runelite.client.callback.ClientThread;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.api.npc.Rs2NpcCache;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.player.Rs2PlayerCache;
+import net.runelite.client.plugins.microbot.api.player.models.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.slayer.profile.SlayerTaskProfileJson;
 import net.runelite.client.plugins.microbot.util.magic.Rs2CombatSpells;
 import net.runelite.client.plugins.microbot.util.magic.Rs2Magic;
@@ -30,6 +32,9 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -41,6 +46,7 @@ class SlayerTargetSelectionTest {
 
     private static final WorldPoint ORIGIN = new WorldPoint(3200, 3200, 0);
     private final List<Rs2NpcModel> scene = new ArrayList<>();
+    private final List<Rs2PlayerModel> otherPlayers = new ArrayList<>();
     private MockedStatic<Microbot> microbot;
     private MockedStatic<Rs2Player> player;
     private MockedStatic<Rs2Slayer> slayer;
@@ -70,6 +76,9 @@ class SlayerTargetSelectionTest {
         when(cache.getStream()).thenAnswer(invocation -> scene.stream());
         when(cache.query()).thenCallRealMethod();
         microbot.when(Microbot::getRs2NpcCache).thenReturn(cache);
+        Rs2PlayerCache playerCache = mock(Rs2PlayerCache.class);
+        when(playerCache.getStream()).thenAnswer(invocation -> otherPlayers.stream());
+        microbot.when(Microbot::getRs2PlayerCache).thenReturn(playerCache);
         player.when(Rs2Player::getWorldLocation).thenReturn(ORIGIN);
         slayer.when(Rs2Slayer::getSlayerMonsters).thenReturn(List.of("Abyssal demon"));
 
@@ -187,6 +196,148 @@ class SlayerTargetSelectionTest {
             verify(defeated, never()).click("Attack");
             verify(next).click("Attack");
         }
+    }
+
+    @Test
+    void skipsNpcFightingAnotherPlayer() throws Exception {
+        Rs2NpcModel taken = npc("Abyssal demon", false, -1, false);
+        Rs2NpcModel free = npc("Abyssal demon", false, -1, false);
+        when(taken.getInteracting()).thenReturn(mock(Player.class));
+
+        handleCombat();
+
+        verify(taken, never()).click("Attack");
+        verify(free).click("Attack");
+    }
+
+    @Test
+    void skipsNpcAnotherPlayerIsAttacking() throws Exception {
+        Rs2NpcModel taken = npc("Abyssal demon", false, -1, false);
+        Rs2NpcModel free = npc("Abyssal demon", false, -1, false);
+        otherPlayerTargeting(taken);
+
+        handleCombat();
+
+        verify(taken, never()).click("Attack");
+        verify(free).click("Attack");
+    }
+
+    @Test
+    void stillAttacksNpcFightingAnotherPlayerInMultiCombat() throws Exception {
+        player.when(Rs2Player::isInMulti).thenReturn(true);
+        Rs2NpcModel shared = npc("Abyssal demon", false, -1, false);
+        when(shared.getInteracting()).thenReturn(mock(Player.class));
+        otherPlayerTargeting(shared);
+
+        handleCombat();
+
+        verify(shared).click("Attack");
+    }
+
+    @Test
+    void allTakenNpcsStartCrashTimerInsteadOfAttacking() throws Exception {
+        when(config.hopWhenCrashed()).thenReturn(true);
+        Rs2NpcModel first = npc("Abyssal demon", false, -1, false);
+        Rs2NpcModel second = npc("Abyssal demon", false, -1, false);
+        when(first.getInteracting()).thenReturn(mock(Player.class));
+        otherPlayerTargeting(second);
+
+        handleCombat();
+
+        verify(first, never()).click("Attack");
+        verify(second, never()).click("Attack");
+        assertTrue((boolean) getField("isSearchingForTargets"));
+    }
+
+    @Test
+    void takenMessageExcludesLastClickedNpcOnNextPass() throws Exception {
+        Rs2NpcModel rejected = npc("Abyssal demon", false, -1, false);
+        Rs2NpcModel free = npc("Abyssal demon", false, -1, false);
+        when(rejected.getIndex()).thenReturn(101);
+        when(free.getIndex()).thenReturn(102);
+
+        handleCombat();
+        verify(rejected).click("Attack");
+        script.onTargetTakenMessage();
+        handleCombat();
+
+        verify(rejected).click("Attack");
+        verify(free).click("Attack");
+    }
+
+    @Test
+    void takenMessageDoesNotExcludeNpcAttackingUs() {
+        assertFalse(SlayerScript.isTakenBySomeoneElse(localPlayer, localPlayer, true, true));
+        assertTrue(SlayerScript.isTakenBySomeoneElse(null, localPlayer, false, true));
+        assertFalse(SlayerScript.isTakenBySomeoneElse(null, localPlayer, false, false));
+        assertFalse(SlayerScript.isTakenBySomeoneElse(mock(NPC.class), localPlayer, false, false));
+    }
+
+    @Test
+    void recognisesTargetTakenGameMessage() {
+        assertTrue(SlayerPlugin.isTargetTakenMessage("Someone else is fighting that."));
+        assertFalse(SlayerPlugin.isTargetTakenMessage("I'm already under attack."));
+        assertFalse(SlayerPlugin.isTargetTakenMessage(null));
+    }
+
+    @Test
+    void allTakenWaitIsAnnouncedOncePerWaitingPeriod() throws Exception {
+        Rs2NpcModel taken = npc("Abyssal demon", false, -1, false);
+        when(taken.getInteracting()).thenReturn(mock(Player.class));
+
+        handleCombat();
+        assertTrue((boolean) getField("takenWaitAnnounced"));
+
+        when(taken.getInteracting()).thenReturn(null);
+        handleCombat();
+
+        verify(taken).click("Attack");
+        assertFalse((boolean) getField("takenWaitAnnounced"));
+    }
+
+    @Test
+    void noAllTakenAnnouncementWhenNoMatchingMonsterIsNearby() throws Exception {
+        npc("Goblin", false, -1, false);
+
+        handleCombat();
+
+        assertFalse((boolean) getField("takenWaitAnnounced"));
+    }
+
+    @Test
+    void allTakenMessageExplainsWhatHappensNext() {
+        List<String> names = List.of("Abyssal demon");
+        assertEquals("All Abyssal demon here are being fought by other players - waiting for a free one."
+                        + " Hopping worlds in 20 seconds if none frees up.",
+                SlayerScript.allTakenMessage(names, true, true, 20));
+        assertEquals("All Abyssal demon here are being fought by other players - waiting for a free one."
+                        + " Turn on Hop When Crashed in the Combat settings to hop automatically.",
+                SlayerScript.allTakenMessage(names, false, true, 20));
+        assertEquals("All Abyssal demon here are being fought by other players - waiting for a free one.",
+                SlayerScript.allTakenMessage(names, true, false, 20));
+    }
+
+    @Test
+    void targetTakenMessageNamesTheMonster() {
+        assertEquals("Abyssal demon is being fought by someone else - skipping it for 30 seconds",
+                SlayerScript.targetTakenMessage("Abyssal demon", 30));
+        assertEquals("Target is being fought by someone else - skipping it for 30 seconds",
+                SlayerScript.targetTakenMessage(null, 30));
+    }
+
+    private void otherPlayerTargeting(Rs2NpcModel target) {
+        NPC rawTarget = target.getNpc();
+        Player other = mock(Player.class);
+        when(other.getInteracting()).thenReturn(rawTarget);
+        Rs2PlayerModel model = mock(Rs2PlayerModel.class);
+        when(model.getPlayer()).thenReturn(other);
+        otherPlayers.add(model);
+    }
+
+    private Object getField(String name) throws Exception {
+        Field field = SlayerScript.class.getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(script);
     }
 
     private Rs2NpcModel npc(String name, boolean dead, int healthRatio, boolean attacking) {
