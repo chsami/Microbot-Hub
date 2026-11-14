@@ -1250,6 +1250,8 @@ public final class HerbiboarDecisionCheck
         // Seen live 2026-11-14 14:48: a step toward a spot 57 tiles east landed on the world map orb beside the
         // minimap, the floating map covered the view, and the run ended in the stuck check three minutes later.
         check("the minimap offers Walk here: click", true, HerbiboarScript.minimapClickIsAWalk("Walk here"));
+        // Seen live on 1.3.5: over the minimap itself the menu holds only Cancel, and the click still walks.
+        check("over the bare minimap the menu reads Cancel: click", true, HerbiboarScript.minimapClickIsAWalk("Cancel"));
         check("the cursor is over the world map orb: do not click", false,
             HerbiboarScript.minimapClickIsAWalk("Floating <col=ff9040>World Map</col>"));
         check("the cursor is over the compass: do not click", false, HerbiboarScript.minimapClickIsAWalk("Look North"));

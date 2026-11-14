@@ -1774,9 +1774,12 @@ public class HerbiboarScript extends Script {
         Rs2Walker.setTarget(null, "herbiboar: leg finished, our own clicks take over");
     }
 
-    /** A left click on the minimap must be a walk; anything else under the cursor is an orb or the compass. Pure. */
+    /**
+     * Over the bare minimap the menu holds only Cancel and a left click walks; an orb or the compass puts its own
+     * option on top ("Floating World Map", "Look North"), and that is what a click there would do. Pure.
+     */
     static boolean minimapClickIsAWalk(String topOption) {
-        return topOption == null || "Walk here".equals(topOption);
+        return topOption == null || "Walk here".equals(topOption) || "Cancel".equals(topOption);
     }
 
     private boolean minimapStepToward(WorldPoint loc, BooleanSupplier arrived) {
