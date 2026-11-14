@@ -142,7 +142,8 @@ public class HerbiboarSession {
             Files.createDirectories(dir.toPath());
             File tmp = new File(dir, "current-session.json.tmp");
             Files.write(tmp.toPath(), gson.toJson(s).getBytes(StandardCharsets.UTF_8));
-            Files.move(tmp.toPath(), checkpointFile(dir).toPath(), StandardCopyOption.REPLACE_EXISTING);
+            // ATOMIC_MOVE replaces the old file in one step, or fails and leaves it untouched.
+            Files.move(tmp.toPath(), checkpointFile(dir).toPath(), StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
             log.debug("Herbiboar checkpoint failed: {}", e.getMessage());
         }

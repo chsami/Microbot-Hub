@@ -67,7 +67,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 )
 
 public class HerbiHunterPlugin extends Plugin {
-    static final String version = "1.3.7";
+    static final String version = "1.0.0";
 
     @Getter
     @Setter
@@ -553,9 +553,10 @@ public class HerbiHunterPlugin extends Plugin {
         if (oldObject != null)
         {
             WorldPoint oldLocation = oldObject.getWorldLocation();
-            starts.remove(oldLocation);
-            trailObjects.remove(oldLocation);
-            tunnels.remove(oldLocation);
+            // Only the object that went: another one on the same tile (grass on a search spot) stays cached.
+            starts.remove(oldLocation, oldObject);
+            trailObjects.remove(oldLocation, oldObject);
+            tunnels.remove(oldLocation, oldObject);
         }
 
         if (newObject == null)

@@ -23,15 +23,23 @@ Start in the Mushroom Forest on Fossil Island. If you start somewhere else, it s
 ## What it does
 - Follows the trail from a start rock to the tunnel, attacks the tunnel and harvests the herbs.
 - Banks at the Museum Camp when the inventory is full or a supply runs out.
-- Keeps run energy up with your chosen item, and can keep the stamina effect going.
+- Keeps run energy up with your chosen item (stamina, extended stamina, extreme energy, super energy or energy potions, or strange fruit), and can keep the stamina effect going.
 - Uses a herb sack and magic secateurs if you turn them on.
 - Drops the fossils and herbs you pick.
-- When it stands still for a minute it picks the trail back up from the game's state. After three minutes in a row it logs out and stops.
+- When it stands still for a minute it picks the trail back up from the game's state. After three minutes in a row it walks to the camp bank, logs out and stops.
+- **Log out at 99 Hunter** stops it when the level is reached during a session.
+- After a disconnect or the six-hour logout it waits a few seconds, logs back in and carries on.
 - Keeps session history on the panel, including your best session.
 
 ## Play styles
 - **Relaxed**: a natural pace that varies from session to session, with short pauses and glances.
 - **Focused**: fast and sharp, for when you are watching.
+
+## Breaks
+Works with the Break Handler. A break only ever starts at the bank: when one is due it finishes the catch, banks, and takes the break there, because a character standing idle in the forest gets attacked. Micro breaks, if you have them on, are only rolled at the bank or the Grand Exchange.
+
+## Logs
+**Log detail** under Setup sets how much goes to `client.log`: Quiet (problems only), Normal (problems and events such as banking and breaks) or Detailed (every step, for a bug report). Every line starts with `[HB-`.
 
 ## Restock
 With **Buy potions when out** on, it takes coins to the Grand Exchange when the bank has none of your run energy potion left, buys the amount you set (up to 2,000, the Grand Exchange buy limit) at 10% over its price, banks them there and comes back to hunt. Teleports are allowed on this trip only. If there aren't enough coins, there's no price, or the offer is still unfilled after 3 minutes, it logs out with the reason. This covers potions only, not strange fruit. With it off, running out logs out.

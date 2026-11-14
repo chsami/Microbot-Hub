@@ -1330,6 +1330,28 @@ public class HerbiboarScript extends Script {
                         || Rs2Inventory.contains(ItemID.FAIRY_ENCHANTED_SECATEURS));
     }
 
+    /** Takes the herb sack and secateurs from the open bank when they are turned on and not carried. */
+    private void withdrawMissingSetup(HerbiboarConfig config) {
+        if (config.useHerbSack() && !Rs2Inventory.contains(HERB_SACKS)) {
+            for (int sack : HERB_SACKS) {
+                if (Rs2Bank.hasItem(sack)) {
+                    Rs2Bank.withdrawOne(sack);
+                    break;
+                }
+            }
+            Rs2Inventory.waitForInventoryChanges(1000);
+        }
+        if (config.useMagicSecateurs() && !Rs2Equipment.isWearing(ItemID.FAIRY_ENCHANTED_SECATEURS)
+                && !Rs2Inventory.contains(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
+            if (Rs2Bank.hasItem(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
+                Rs2Bank.withdrawOne(ItemID.FAIRY_ENCHANTED_SECATEURS);
+                Rs2Inventory.waitForInventoryChanges(1000);
+                Rs2Bank.wearItem(ItemID.FAIRY_ENCHANTED_SECATEURS);
+                Rs2Inventory.waitForInventoryChanges(1000);
+            }
+        }
+    }
+
     static boolean setupOk(boolean energyOk, boolean useSack, boolean hasSack, boolean useSecateurs, boolean hasSecateurs) {
         return energyOk && (!useSack || hasSack) && (!useSecateurs || hasSecateurs);
     }
@@ -2639,24 +2661,7 @@ public class HerbiboarScript extends Script {
                         } else {
                             // The one opening for a break: bank open, nothing left hanging.
                             if (!trailLive()) BreakHandlerScript.setLockState(false);
-                            if (config.useHerbSack() && !Rs2Inventory.contains(HERB_SACKS)) {
-                                for (int sack : HERB_SACKS) {
-                                    if (Rs2Bank.hasItem(sack)) {
-                                        Rs2Bank.withdrawOne(sack);
-                                        break;
-                                    }
-                                }
-                                Rs2Inventory.waitForInventoryChanges(1000);
-                            }
-                            if (config.useMagicSecateurs() && !Rs2Equipment.isWearing(ItemID.FAIRY_ENCHANTED_SECATEURS)
-                                    && !Rs2Inventory.contains(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
-                                if (Rs2Bank.hasItem(ItemID.FAIRY_ENCHANTED_SECATEURS)) {
-                                    Rs2Bank.withdrawOne(ItemID.FAIRY_ENCHANTED_SECATEURS);
-                                    Rs2Inventory.waitForInventoryChanges(1000);
-                                    Rs2Bank.wearItem(ItemID.FAIRY_ENCHANTED_SECATEURS);
-                                    Rs2Inventory.waitForInventoryChanges(1000);
-                                }
-                            }
+                            withdrawMissingSetup(config);
                             // Lock the sack and secateurs so deposit-all keeps them.
                             if (Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_SHOWOP) != 1 ||
                             Microbot.getVarbitValue(VarbitID.BANK_SIDE_SLOT_IGNOREINVLOCKS) != 0) {
@@ -2715,6 +2720,9 @@ public class HerbiboarScript extends Script {
                                     Rs2Bank.toggleItemLock(locked.getName(), true);
                                 }
                             }
+
+                            // Again now there is room: a full inventory refused the first try.
+                            withdrawMissingSetup(config);
 
                             HerbiboarConfig.RunEnergyOption energyOption = config.runEnergyOption();
                             switch (energyOption) {
