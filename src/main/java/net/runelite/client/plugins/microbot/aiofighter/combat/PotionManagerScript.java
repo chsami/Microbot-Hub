@@ -10,6 +10,7 @@ import net.runelite.client.plugins.microbot.aiofighter.enums.State;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2ItemModel;
 
 import java.util.concurrent.TimeUnit;
 
@@ -32,7 +33,7 @@ public class PotionManagerScript extends Script {
                 }
 
                 // Always attempt to drink prayer potion
-                if (Rs2Player.drinkPrayerPotion()) {
+                if (drinkPrayerPotionOrMix()) {
                     Rs2Player.waitForAnimation();
                 }
 
@@ -78,6 +79,21 @@ public class PotionManagerScript extends Script {
     }
 
 
+    private boolean drinkPrayerPotionOrMix() {
+        if (Rs2Player.drinkPrayerPotion()) {
+            return true;
+        }
+
+        int maxPrayer = Rs2Player.getRealSkillLevel(Skill.PRAYER);
+        int prayerMixRestore = maxPrayer / 4 + 1;
+        int threshold = maxPrayer - prayerMixRestore;
+        if (Rs2Player.getBoostedSkillLevel(Skill.PRAYER) > threshold) {
+            return false;
+        }
+
+        Rs2ItemModel prayerMix = Rs2Inventory.get("Prayer mix");
+        return prayerMix != null && Rs2Inventory.interact(prayerMix, "Drink");
+    }
     // shutdown
     @Override
     public void shutdown() {

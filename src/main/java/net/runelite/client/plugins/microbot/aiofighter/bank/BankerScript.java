@@ -180,7 +180,9 @@ public class BankerScript extends Script {
         }
 
         // (4) For each potion type, check if the setup requires it and if the player is missing it
-        if (needsPotion(inventorySetup, Rs2Potion.getPrayerPotionsVariants())) {
+        List<String> prayerPotionVariants = new ArrayList<>(Rs2Potion.getPrayerPotionsVariants());
+        prayerPotionVariants.add("Prayer mix");
+        if (needsPotion(inventorySetup, prayerPotionVariants)) {
             Microbot.log("Prayer potion required but not available, triggering banking.");
             return true;
         }
