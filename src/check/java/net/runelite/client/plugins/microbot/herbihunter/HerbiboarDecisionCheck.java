@@ -59,6 +59,7 @@ public final class HerbiboarDecisionCheck
         theStrongerPotionsAreSupported();
         focusedFollowsTheTrailWithTheCamera();
         aMinimapStepOnlyEverWalks();
+        givingUpAndComingBackLookHuman();
         aBreakIsNotWaitedForUnderAttack();
 
         System.out.println();
@@ -1243,6 +1244,20 @@ public final class HerbiboarDecisionCheck
         check("at the bank, trail finished, break asked for: it starts here", true, HerbiboarScript.breakStartsAtBank(false, true));
         check("at the bank mid-trail: the trail comes first", false, HerbiboarScript.breakStartsAtBank(true, true));
         check("at the bank, nothing asked for: back to hunting", false, HerbiboarScript.breakStartsAtBank(false, false));
+    }
+
+    private static void givingUpAndComingBackLookHuman()
+    {
+        // Seen live twice on 2026-11-14: the stuck check fired on the shore, a crab was attacking, the game refused
+        // the logout, and the character was left standing there with the plugin stopped.
+        check("giving up out on the island: walk to the bank first", true, HerbiboarScript.walksToBankBeforeLogout(true, 60));
+        check("already at the bank: log out here", false, HerbiboarScript.walksToBankBeforeLogout(true, 8));
+        check("off the island (the G.E.): log out here", false, HerbiboarScript.walksToBankBeforeLogout(false, 60));
+        // Seen live 17:05: the six-hour logout was answered in the same second.
+        check("the quickest return from a disconnect is five seconds", 5000L, HerbiboarScript.reloginWaitMs(0.0));
+        check("the slowest is forty", 40000L, HerbiboarScript.reloginWaitMs(1.0));
+        check("most are short: the middle roll waits under fourteen seconds", 13750L, HerbiboarScript.reloginWaitMs(0.5));
+        check("no two rolls wait the same", true, HerbiboarScript.reloginWaitMs(0.31) != HerbiboarScript.reloginWaitMs(0.32));
     }
 
     private static void aMinimapStepOnlyEverWalks()

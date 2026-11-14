@@ -456,6 +456,8 @@ public class HerbiboarScript extends Script {
 
     private long lastMoveEnd;
     private long nextLoginAt;
+    private long seenLoginScreenAt;
+    private boolean everLoggedIn;
 
     private void waitForCameraToSettle() {
         sleepUntil(() -> !cameraEasing(), 600);
@@ -1993,9 +1995,32 @@ public class HerbiboarScript extends Script {
     }
 
     /** Ends the run for good: the client's auto-login is told this logout is meant, and no further pass acts. */
+    /** Out on the island an idle character is attacked, and the game refuses a logout in combat. Pure. */
+    static boolean walksToBankBeforeLogout(boolean onIsland, int tilesFromBank) {
+        return onIsland && tilesFromBank > 8;
+    }
+
+    /** Five to forty seconds, mostly short. Pure. */
+    static long reloginWaitMs(double roll) {
+        return 5000 + (long) (roll * roll * 35000);
+    }
+
     private void logOutAndStop() {
         stopping = true;
         BreakHandlerScript.setLockState(false);
+        WorldPoint me = Rs2Player.getWorldLocation();
+        if (me != null && walksToBankBeforeLogout(onFossilIsland(me), me.distanceTo(CAMP_BANK))) {
+            hbLog.event("RUN", "Walking to the camp bank to log out: nothing attacks there");
+            // Bounded: whatever stopped us may stop the walk too, and then we log out where we stand.
+            long until = System.currentTimeMillis() + 90_000;
+            while (System.currentTimeMillis() < until && Microbot.isLoggedIn()) {
+                WorldPoint now = Rs2Player.getWorldLocation();
+                if (now == null || now.distanceTo(CAMP_BANK) <= 8) break;
+                Rs2Walker.walkTo(CAMP_BANK, 4);
+                sleep(Rs2Random.betweenInclusive(600, 1200));
+            }
+            dropWalkerRoute();
+        }
         // The game refuses a logout within ten seconds of a hit: seen live, the first click did nothing.
         for (int tries = 0; tries < 4 && Microbot.isLoggedIn(); tries++) {
             Rs2Player.logoutWithoutAutoLogin();
@@ -2151,6 +2176,8 @@ public class HerbiboarScript extends Script {
         arrivedAtTunnelMs = 0;
         breakPrep = BreakPreparation.register("herbi-hunter");
         stopping = false;
+        everLoggedIn = false;
+        seenLoginScreenAt = 0;
         this.config = config;
         // Script.run() drinks a stamina whenever energy is low and we are moving, which cancels a clicked object.
         if (savedAutoRun == null) {
@@ -2206,6 +2233,14 @@ public class HerbiboarScript extends Script {
                 if (!Microbot.isLoggedIn()) {
                     // A region load (LOADING) is not a logout: it happens every ~40s out here.
                     if (Microbot.getClient().getGameState() != GameState.LOADING) wasLoggedOut = true;
+                    // A person takes a moment to notice a disconnect. Not at the very start: there the user is waiting.
+                    if (everLoggedIn && seenLoginScreenAt == 0 && !breakActive()
+                            && Microbot.getClient().getGameState() == GameState.LOGIN_SCREEN) {
+                        seenLoginScreenAt = System.currentTimeMillis();
+                        long wait = reloginWaitMs(paceRng.nextDouble());
+                        nextLoginAt = Math.max(nextLoginAt, seenLoginScreenAt + wait);
+                        hbLog.event("RECOVER", "Logged out; coming back in about " + wait / 1000 + "s");
+                    }
                     // Never during a break: the break handler logs back in.
                     if (mayLogBackIn(Microbot.getClient().getGameState() == GameState.LOGIN_SCREEN,
                             BreakHandlerScript.isBreakActive(), BreakHandlerV2State.isBreakActive(),
@@ -2218,6 +2253,8 @@ public class HerbiboarScript extends Script {
                     if (breakActive()) notePaused();
                     return;
                 }
+                everLoggedIn = true;
+                seenLoginScreenAt = 0;
                 // An open world map covers the game view: nothing behind it can be clicked or seen.
                 if (Rs2Widget.isWidgetVisible(InterfaceID.Worldmap.CLOSE)) {
                     hbLog.event("RECOVER", "The world map is open; closing it");
