@@ -25,7 +25,7 @@ public final class PrayerLedger {
     public static final long RESET_START_NS=20_000_000L,RESET_END_NS=160_000_000L;
     private final int channels,allMask;
     private final int[] sentTick;
-    private int tick=-1,stable,pending,expected,sentThisTick,misses;
+    private int tick=-1,stable,pending,expected,sentThisTick,misses,split,splitOverheads;
     private long tickAt=-1;
     private boolean failed;
     public PrayerLedger(int channels) {
@@ -33,15 +33,17 @@ public final class PrayerLedger {
         this.channels=channels;allMask=(1<<channels)-1;sentTick=new int[channels];reset();
     }
     public synchronized void reset() {
-        tick=-1;tickAt=-1;stable=pending=expected=sentThisTick=misses=0;failed=false;
+        tick=-1;tickAt=-1;stable=pending=expected=sentThisTick=misses=split=0;failed=false;
         Arrays.fill(sentTick,-1);
     }
     public synchronized void beginTick(int next,long now,int observed) {
         if(next==tick)return;
         long interval=tickAt<0?-1:now-tickAt;
         stable=tick>=0&&next==tick+1&&interval>=450_000_000L&&interval<=750_000_000L&&!failed?stable+1:0;
-        failed=false;tick=next;tickAt=now;sentThisTick=0;
+        int late=next==tick+1?split&~observed&allMask:0;
+        failed=false;tick=next;tickAt=now;sentThisTick=split=0;
         acknowledge(observed);
+        for(int i=0;i<channels;i++)if((late&(1<<i))!=0)sent(new Command(i,Type.ON),splitOverheads);
         for(int i=0;i<channels;i++)if((pending&(1<<i))!=0&&tick-sentTick[i]>=2) {
             pending&=~(1<<i);stable=0;misses++;
         }
@@ -101,6 +103,9 @@ public final class PrayerLedger {
         sentThisTick|=bit;sentTick[command.channel]=tick;
         pending|=bit;
         if(command.type==Type.OFF)expected&=~bit;else expected|=bit;
+    }
+    public synchronized void resetPressed(Command command,int overheadMask) {
+        sentThisTick|=command.mask;split|=command.mask;splitOverheads=overheadMask;
     }
     /** Observed protection, or an ON sent on this tick. A sent intent is not a server
      * acknowledgement; missing evidence on a later tick revokes this permission. */

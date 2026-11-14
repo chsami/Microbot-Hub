@@ -427,6 +427,7 @@ class FcPrayers {
             if(dispatch.command.channel<3){ledger.failed();protection.invalidateCadence();ready=false;decision=null;optionalDeadline=0;}
         } else if(current==dispatch.frame&&owned&&queued.get()==dispatch) {
             if(error!=null){ledger.failed();ready=offenceReady=false;problem(error);}
+            else if(completed&&delivered&&dispatch.command.type==PrayerLedger.Type.RESET)ledger.resetPressed(dispatch.command,OVERHEADS);
             else if(completed)ledger.sent(dispatch.command,OVERHEADS);
         }
         queued.compareAndSet(dispatch,null);
