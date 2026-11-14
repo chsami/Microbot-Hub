@@ -6,6 +6,7 @@ import net.runelite.api.Player;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
+import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.ObjectID;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.api.gameval.VarPlayerID;
@@ -446,6 +447,12 @@ public class NmzScript extends Script {
     public boolean handleStore() {
         int overloadToBuy = dosesToBuy(VarbitID.NZONE_POTION_3, "overload", config.overloadPotionAmount());
         int absorptionToBuy = dosesToBuy(VarbitID.NZONE_POTION_4, "absorption", config.absorptionPotionAmount());
+        // Refill a barrel only when it cannot supply this trip. Do not reopen
+        // the shop after withdrawing the bottles that were just prepared.
+        if (config.fillPotionBarrels()) {
+            if (overloadToBuy > 0) overloadToBuy = Math.max(0, 255 - Microbot.getVarbitValue(VarbitID.NZONE_POTION_3));
+            if (absorptionToBuy > 0) absorptionToBuy = Math.max(0, 255 - Microbot.getVarbitValue(VarbitID.NZONE_POTION_4));
+        }
         if (overloadToBuy == 0 && absorptionToBuy == 0) return true;
 
         // Shop quantities and stored varbits are DOSES, not four-dose bottles.
@@ -485,8 +492,15 @@ public class NmzScript extends Script {
                 Widget item = parent == null ? null : parent.getChild(child);
                 return item == null || item.isHidden() ? null : item.getActions();
             });
-            int buyX = buyOperation(actions, "buyx"), buyOne = buyOperation(actions, "buy1");
-            int operation = buyX > 0 ? buyX : buyOne;
+            int remaining = target - before;
+            int buyX = buyOperation(actions, "buyx");
+            int selectedOperation = buyX;
+            if (selectedOperation == 0) {
+                for (int batch : new int[]{50, 10, 5, 1}) {
+                    if (remaining >= batch && (selectedOperation = buyOperation(actions, "buy" + batch)) > 0) break;
+                }
+            }
+            final int operation = selectedOperation;
             if (operation == 0) return false;
             boolean clicked = Microbot.getClientThread().invoke((java.util.function.Supplier<Boolean>) () -> {
                 Widget parent = Rs2Widget.getWidget(206, 6);
@@ -497,15 +511,24 @@ public class NmzScript extends Script {
             });
             if (!clicked) return false;
             if (buyX > 0) {
-                if (!sleepUntil(() -> Rs2Widget.isWidgetVisible(162, 42)
-                        && (Rs2Widget.getChildWidgetText(162, 42).toLowerCase(Locale.ROOT).contains("how many")
-                        || Rs2Widget.getChildWidgetText(162, 42).toLowerCase(Locale.ROOT).contains("enter amount")), 3000)) return false;
+                if (!sleepUntil(this::purchasePromptOpen, 5000)) return false;
                 Rs2Keyboard.typeString(Integer.toString(target - before));
                 Rs2Keyboard.enter();
             }
             if (!sleepUntil(() -> Microbot.getVarbitValue(stockVarbit) > before, 5000)) return false;
         }
         return Microbot.getVarbitValue(stockVarbit) >= target;
+    }
+
+    // Live chatbox layout: child 42 is a GRAPHIC close icon; the quantity
+    // title is MES_TEXT (child 43). A withdrawal prompt must not accept a buy amount.
+    boolean purchasePromptOpen() {
+        return Microbot.getClientThread().invoke((java.util.function.Supplier<Boolean>) () -> {
+            Widget prompt = Rs2Widget.getWidget(InterfaceID.Chatbox.MES_TEXT);
+            if (prompt == null || prompt.isHidden() || prompt.getText() == null) return false;
+            String title = prompt.getText().replaceAll("<[^>]*>", "").trim().toLowerCase(Locale.ROOT);
+            return title.startsWith("enter amount") || title.contains("how many") && title.contains("buy");
+        });
     }
 
     static int buyOperation(String[] actions, String wanted) {

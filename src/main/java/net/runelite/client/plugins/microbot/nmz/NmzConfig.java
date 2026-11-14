@@ -55,6 +55,15 @@ public interface NmzConfig extends Config {
         return !stopAfterDeath();
     }
 
+    @ConfigItem(
+            keyName = "fillPotionBarrels",
+            name = "Fill potion barrels when buying",
+            description = "When a barrel lacks enough doses for this trip, buy enough to fill it to 255 doses.",
+            position = 3,
+            section = generalSection
+    )
+    default boolean fillPotionBarrels() { return false; }
+
     @Range(min = 0, max = 28)
     @ConfigItem(
             keyName = "How many overload potions to use",

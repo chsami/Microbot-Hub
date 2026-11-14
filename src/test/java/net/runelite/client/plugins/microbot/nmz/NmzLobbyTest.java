@@ -41,6 +41,9 @@ class NmzLobbyTest {
         final Map<String,Integer> inventory = new HashMap<>();
         final Map<Integer,Integer> stock = new HashMap<>();
         int dream = 1, points = 1_000_000;
+        String promptText = "";
+        boolean promptVisible;
+        final Widget quantityPrompt = mock(Widget.class);
         final MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
         final MockedStatic<Rs2Inventory> inv = mockStatic(Rs2Inventory.class);
         final MockedStatic<Global> waits = mockStatic(Global.class);
@@ -60,6 +63,10 @@ class NmzLobbyTest {
             inv.when(() -> Rs2Inventory.hasItem("prayer potion")).thenAnswer(i -> inventory.getOrDefault("prayer potion(4)", 0) > 0);
             waits.when(() -> Global.sleepUntil(any(BooleanSupplier.class), anyInt())).thenAnswer(i -> ((BooleanSupplier)i.getArgument(0)).getAsBoolean());
             waits.when(() -> Global.sleepUntil(any(BooleanSupplier.class))).thenAnswer(i -> ((BooleanSupplier)i.getArgument(0)).getAsBoolean());
+            // Observed game layout, not the old implementation's incorrect child 42.
+            widgets.when(() -> Rs2Widget.getWidget((162 << 16) | 43)).thenReturn(quantityPrompt);
+            when(quantityPrompt.getText()).thenAnswer(i -> promptText);
+            when(quantityPrompt.isHidden()).thenAnswer(i -> !promptVisible);
             script = new NmzScript(plugin, config);
         }
         void objects(Rs2TileObjectModel object) throws Exception {
@@ -187,12 +194,11 @@ class NmzLobbyTest {
     @Test void buyXEntersExactDoseQuantityAndChecksBarrelAcknowledgement() { try (Fixture f = new Fixture()) {
         Widget parent = mock(Widget.class), item = mock(Widget.class);
         f.widgets.when(() -> Rs2Widget.getWidget(206, 6)).thenReturn(parent);when(parent.getChild(6)).thenReturn(item);
-        when(item.getActions()).thenReturn(new String[]{"Buy-1", "Buy-5", "Buy-10", "Buy-X"});
-        f.widgets.when(() -> Rs2Widget.isWidgetVisible(162, 42)).thenReturn(true);
-        f.widgets.when(() -> Rs2Widget.getChildWidgetText(162, 42)).thenReturn("How many would you like to buy?");
+        when(item.getActions()).thenReturn(new String[]{"Buy-1", "Buy-5", "Buy-10", "Buy-50", "Buy-X"});
+        f.promptVisible = true;f.promptText = "Enter amount:";
         f.keyboard.when(Rs2Keyboard::enter).thenAnswer(i -> { f.stock.put(OVERLOAD, 32);return null; });
         assertTrue(f.script.buyDoses(6, OVERLOAD, 32));
-        f.widgets.verify(() -> Rs2Widget.clickWidgetFast(item, 6, 4), times(1));
+        f.widgets.verify(() -> Rs2Widget.clickWidgetFast(item, 6, 5), times(1));
         f.keyboard.verify(() -> Rs2Keyboard.typeString("32"));
     }}
 
@@ -205,13 +211,12 @@ class NmzLobbyTest {
         f.widgets.when(() -> Rs2Widget.clickWidget("Benefits", Optional.of(206), 2, false)).thenAnswer(i -> { benefits[0] = true;return true; });
         Widget parent = mock(Widget.class), item = mock(Widget.class);
         f.widgets.when(() -> Rs2Widget.getWidget(206, 6)).thenReturn(parent);when(parent.getChild(9)).thenReturn(item);
-        when(item.getActions()).thenReturn(new String[]{"Buy-1", "Buy-5", "Buy-10", "Buy-X"});
-        f.widgets.when(() -> Rs2Widget.isWidgetVisible(162, 42)).thenReturn(true);
-        f.widgets.when(() -> Rs2Widget.getChildWidgetText(162, 42)).thenReturn("Enter amount:");
+        when(item.getActions()).thenReturn(new String[]{"Buy-1", "Buy-5", "Buy-10", "Buy-50", "Buy-X"});
+        f.promptVisible = true;f.promptText = "Enter amount:";
         f.keyboard.when(Rs2Keyboard::enter).thenAnswer(i -> { f.stock.put(ABSORPTION, 76);return null; });
         assertTrue(f.script.handleStore());assertEquals(76, f.stock.get(ABSORPTION));
         f.keyboard.verify(() -> Rs2Keyboard.typeString("76"));
-        f.widgets.verify(() -> Rs2Widget.clickWidgetFast(item, 9, 4), times(1));
+        f.widgets.verify(() -> Rs2Widget.clickWidgetFast(item, 9, 5), times(1));
         f.widgets.verify(() -> Rs2Widget.clickWidget("Benefits", Optional.of(206), 2, false), times(1));
     }}
 
@@ -254,4 +259,53 @@ class NmzLobbyTest {
         when(main.isOutside()).thenReturn(false);assertTrue(guard.getValue().getAsBoolean());
         plugin.shutDown();verify(main).shutdown();verify(prayer).shutdown();
     }
+
+    @Test void buyPromptUsesLiveTitleAndRejectsWithdrawalText() { try (Fixture f = new Fixture()) {
+        f.promptVisible = true;f.promptText = "Enter amount:";
+        assertTrue(f.script.purchasePromptOpen());
+        f.promptText = "How many doses of absorption potion will you withdraw? (255)";
+        assertFalse(f.script.purchasePromptOpen());
+        f.promptText = "Enter amount:";f.promptVisible = false;
+        assertFalse(f.script.purchasePromptOpen());
+        f.widgets.verify(() -> Rs2Widget.getWidget((162 << 16) | 42), never());
+    }}
+
+    @Test void barrelRefillTypesOnlyTheDifferenceTo255() throws Exception { try (Fixture f = new Fixture()) {
+        when(f.config.fillPotionBarrels()).thenReturn(true);
+        f.stock.put(OVERLOAD, 132);f.stock.put(ABSORPTION, 35);
+        Rs2TileObjectModel chest = mock(Rs2TileObjectModel.class);when(chest.click()).thenReturn(true);f.objects(chest);
+        f.widgets.when(() -> Rs2Widget.isWidgetVisible(13500418)).thenReturn(true);
+        f.widgets.when(() -> Rs2Widget.isWidgetVisible(206, 6)).thenReturn(true);
+        Widget parent = mock(Widget.class), item = mock(Widget.class);
+        f.widgets.when(() -> Rs2Widget.getWidget(206, 6)).thenReturn(parent);when(parent.getChild(9)).thenReturn(item);
+        when(item.getActions()).thenReturn(new String[]{"Buy-1", "Buy-5", "Buy-10", "Buy-50", "Buy-X"});
+        f.promptVisible = true;f.promptText = "Enter amount:";
+        f.keyboard.when(Rs2Keyboard::enter).thenAnswer(i -> { f.stock.put(ABSORPTION, 255);return null; });
+        assertTrue(f.script.handleStore());
+        f.keyboard.verify(() -> Rs2Keyboard.typeString("220"));
+        assertEquals(132, f.stock.get(OVERLOAD));assertEquals(255, f.stock.get(ABSORPTION));
+        assertEquals(0, f.script.dosesToBuy(ABSORPTION, "absorption", 19));
+    }}
+
+    @Test void buy50FallbackStopsExactlyAtTheBarrelCap() { try (Fixture f = new Fixture()) {
+        f.stock.put(ABSORPTION, 35);
+        Widget parent = mock(Widget.class), item = mock(Widget.class);
+        f.widgets.when(() -> Rs2Widget.getWidget(206, 6)).thenReturn(parent);when(parent.getChild(9)).thenReturn(item);
+        when(item.getActions()).thenReturn(new String[]{"Buy-1", "Buy-5", "Buy-10", "Buy-50"});
+        f.widgets.when(() -> Rs2Widget.clickWidgetFast(item, 9, 4)).thenAnswer(i -> { f.stock.merge(ABSORPTION, 50, Integer::sum);return null; });
+        f.widgets.when(() -> Rs2Widget.clickWidgetFast(item, 9, 3)).thenAnswer(i -> { f.stock.merge(ABSORPTION, 10, Integer::sum);return null; });
+        assertTrue(f.script.buyDoses(9, ABSORPTION, 220));assertEquals(255, f.stock.get(ABSORPTION));
+        f.widgets.verify(() -> Rs2Widget.clickWidgetFast(item, 9, 4), times(4));
+        f.widgets.verify(() -> Rs2Widget.clickWidgetFast(item, 9, 3), times(2));
+        f.keyboard.verify(Rs2Keyboard::enter, never());
+    }}
+
+    @Test void withdrawalPromptCannotReceiveTheBuyQuantity() { try (Fixture f = new Fixture()) {
+        Widget parent = mock(Widget.class), item = mock(Widget.class);
+        f.widgets.when(() -> Rs2Widget.getWidget(206, 6)).thenReturn(parent);when(parent.getChild(9)).thenReturn(item);
+        when(item.getActions()).thenReturn(new String[]{"Buy-X"});
+        f.promptVisible = true;f.promptText = "How many doses of absorption potion will you withdraw? (255)";
+        assertFalse(f.script.buyDoses(9, ABSORPTION, 220));
+        f.keyboard.verify(() -> Rs2Keyboard.typeString(anyString()), never());
+    }}
 }
