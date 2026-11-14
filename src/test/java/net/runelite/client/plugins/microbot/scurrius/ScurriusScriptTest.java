@@ -82,4 +82,25 @@ class ScurriusScriptTest {
         when(scurrius.getName()).thenReturn("Scurrius");
         assertFalse(ScurriusScript.isLiveGiantRat(scurrius));
     }
+
+    @Test
+    void eatsOnlyBelowThePercentOfRealMaxHitpoints() {
+        assertTrue(ScurriusScript.shouldEat(69, 100, 70));
+        assertFalse(ScurriusScript.shouldEat(70, 100, 70));
+        assertTrue(ScurriusScript.shouldEat(60, 99, 70)); // 60.6%
+        assertFalse(ScurriusScript.shouldEat(70, 99, 70)); // 70.7%
+        assertFalse(ScurriusScript.shouldEat(99, 99, 70));
+    }
+
+    @Test
+    void shouldEatIgnoresAnInvalidMaximum() {
+        assertFalse(ScurriusScript.shouldEat(0, 0, 70));
+        assertFalse(ScurriusScript.shouldEat(5, -1, 70));
+    }
+
+    @Test
+    void prayerPercentUsesTheSameRule() {
+        assertTrue(ScurriusScript.shouldEat(20, 99, 30)); // 20 < 29.7
+        assertFalse(ScurriusScript.shouldEat(30, 99, 30));
+    }
 }

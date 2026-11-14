@@ -317,7 +317,7 @@ public class AttackStyleScript extends Script {
     }
 
     private WidgetInfo getComponentToDisplay(AIOFighterConfig config) {
-        List<WidgetInfo> componentsToDisplay = new ArrayList<>();
+        Map<WidgetInfo, AttackStyle> componentStyles = new LinkedHashMap<>();
         AttackStyle[] attackStyles = getWeaponTypeStyles(equippedWeaponTypeVarbit);
         Random random = new Random();
 
@@ -343,38 +343,41 @@ public class AttackStyleScript extends Script {
             // Add appropriate combat option to the list
             if (selectedSkill) {
                 attackStyleToTrain = attackStyle;
-                switch (i) {
-                    case 0:
-                        componentsToDisplay.add(WidgetInfo.COMBAT_STYLE_ONE);
-                        break;
-                    case 1:
-                        componentsToDisplay.add(WidgetInfo.COMBAT_STYLE_TWO);
-                        break;
-                    case 2:
-                        componentsToDisplay.add(WidgetInfo.COMBAT_STYLE_THREE);
-                        break;
-                    case 3:
-                        componentsToDisplay.add(WidgetInfo.COMBAT_STYLE_FOUR);
-                        break;
-                    case 4:
-                        componentsToDisplay.add(WidgetInfo.COMBAT_SPELLS);
-                        break;
-                    case 5:
-                        // Magic staves defensive casting mode
-                        componentsToDisplay.add(WidgetInfo.COMBAT_DEFENSIVE_SPELL_BOX);
-                        componentsToDisplay.add(WidgetInfo.COMBAT_DEFENSIVE_SPELL_ICON);
-                        componentsToDisplay.add(WidgetInfo.COMBAT_DEFENSIVE_SPELL_SHIELD);
-                        componentsToDisplay.add(WidgetInfo.COMBAT_DEFENSIVE_SPELL_TEXT);
-                        break;
-                }
+                addStyleComponents(i, attackStyle, componentStyles);
             }
         }
-        WidgetInfo componentToDisplay = pickComponent(componentsToDisplay, random);
+        WidgetInfo componentToDisplay = pickComponent(new ArrayList<>(componentStyles.keySet()), random);
         if (componentToDisplay == null) {
             return null;
         }
-        attackStyleToTrain = attackStyles[componentToDisplay.ordinal() - 233];
+        attackStyleToTrain = componentStyles.get(componentToDisplay);
         return componentToDisplay;
+    }
+
+    static void addStyleComponents(int styleIndex, AttackStyle attackStyle, Map<WidgetInfo, AttackStyle> componentStyles) {
+        switch (styleIndex) {
+            case 0:
+                componentStyles.put(WidgetInfo.COMBAT_STYLE_ONE, attackStyle);
+                break;
+            case 1:
+                componentStyles.put(WidgetInfo.COMBAT_STYLE_TWO, attackStyle);
+                break;
+            case 2:
+                componentStyles.put(WidgetInfo.COMBAT_STYLE_THREE, attackStyle);
+                break;
+            case 3:
+                componentStyles.put(WidgetInfo.COMBAT_STYLE_FOUR, attackStyle);
+                break;
+            case 4:
+                componentStyles.put(WidgetInfo.COMBAT_SPELLS, attackStyle);
+                break;
+            case 5:
+                componentStyles.put(WidgetInfo.COMBAT_DEFENSIVE_SPELL_BOX, attackStyle);
+                componentStyles.put(WidgetInfo.COMBAT_DEFENSIVE_SPELL_ICON, attackStyle);
+                componentStyles.put(WidgetInfo.COMBAT_DEFENSIVE_SPELL_SHIELD, attackStyle);
+                componentStyles.put(WidgetInfo.COMBAT_DEFENSIVE_SPELL_TEXT, attackStyle);
+                break;
+        }
     }
 
     static WidgetInfo pickComponent(List<WidgetInfo> components, Random random) {

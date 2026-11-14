@@ -32,7 +32,7 @@ import java.awt.*;
 )
 @Slf4j
 public class BarrowsPlugin extends Plugin  {
-    public static final String version = "2.5.27";
+    public static final String version = "2.5.28";
 
     private static final String SHORTEST_PATH_GROUP = "shortestpath";
     private static final String BANK_TRIP_WHEN_CACHE_UNAVAILABLE = "bankTripWhenCacheUnavailable";
@@ -102,7 +102,12 @@ public class BarrowsPlugin extends Plugin  {
 
     @Subscribe
     public void onChatMessage(ChatMessage chatMessage) {
-        if (chatMessage.getType() != ChatMessageType.GAMEMESSAGE) {
+        ChatMessageType type = chatMessage.getType();
+        if ((type == ChatMessageType.GAMEMESSAGE || type == ChatMessageType.ENGINE)
+                && BarrowsTunnelRules.isAttackRejectedMessage(chatMessage.getMessage())) {
+            BarrowsScript.onAttackRejected();
+        }
+        if (type != ChatMessageType.GAMEMESSAGE) {
             return;
         }
 

@@ -1,5 +1,6 @@
 package net.runelite.client.plugins.microbot.valetotems.utils;
 
+import net.runelite.api.Player;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.valetotems.enums.BankLocation;
@@ -18,7 +19,10 @@ public class CoordinateUtils {
      * @return player's current WorldPoint
      */
     public static WorldPoint getPlayerLocation() {
-        return Microbot.getClientThread().invoke(() -> Microbot.getClient().getLocalPlayer().getWorldLocation());
+        return Microbot.getClientThread().invoke(() -> {
+            Player localPlayer = Microbot.getClient().getLocalPlayer();
+            return localPlayer != null ? localPlayer.getWorldLocation() : null;
+        });
     }
 
     /**
@@ -28,6 +32,9 @@ public class CoordinateUtils {
      * @return distance in tiles
      */
     public static int getDistance(WorldPoint point1, WorldPoint point2) {
+        if (point1 == null || point2 == null) {
+            return Integer.MAX_VALUE;
+        }
         return point1.distanceTo(point2);
     }
 
@@ -56,6 +63,9 @@ public class CoordinateUtils {
      */
     public static TotemLocation getNearestTotemLocation() {
         WorldPoint playerPos = getPlayerLocation();
+        if (playerPos == null) {
+            return null;
+        }
         TotemLocation nearest = null;
         int minDistance = Integer.MAX_VALUE;
 

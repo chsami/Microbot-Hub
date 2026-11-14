@@ -1,10 +1,13 @@
 package net.runelite.client.plugins.microbot.agility.courses;
 
 import net.runelite.api.Constants;
+import net.runelite.api.GameObject;
 import net.runelite.api.GroundObject;
 import net.runelite.api.Perspective;
 import net.runelite.api.Player;
+import net.runelite.api.Point;
 import net.runelite.api.TileObject;
+import net.runelite.api.WorldView;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
@@ -64,6 +67,18 @@ public final class AgilityObjects
 			return false;
 		}
 		return new Rs2TileObjectModel(object).click();
+	}
+
+	public static int distanceTo(GameObject object, WorldPoint from)
+	{
+		WorldView worldView = object.getWorldView();
+		Point southWest = object.getSceneMinLocation();
+		if (worldView == null || southWest == null)
+		{
+			return object.getWorldLocation().distanceTo(from);
+		}
+		WorldPoint southWestTile = WorldPoint.fromScene(worldView, southWest.getX(), southWest.getY(), object.getPlane());
+		return new WorldArea(southWestTile, object.sizeX(), object.sizeY()).distanceTo(from);
 	}
 
 	public static boolean canReach(WorldPoint target, int objectSizeX, int objectSizeY, int pathSizeX, int pathSizeY)
