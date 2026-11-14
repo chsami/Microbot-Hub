@@ -39,6 +39,7 @@ class BlastoiseFurnaceTakeBarsTest {
 
     private Object previousClient;
     private Object previousCache;
+    private Rs2TileObjectCache cache;
     private Rs2TileObjectQueryable query;
     private MockedStatic<Rs2Widget> widgets;
     private MockedStatic<Rs2Keyboard> keyboard;
@@ -51,7 +52,7 @@ class BlastoiseFurnaceTakeBarsTest {
     @BeforeEach
     void setUp() throws Exception {
         previousClient = swapMicrobotField("client", mock(Client.class));
-        Rs2TileObjectCache cache = mock(Rs2TileObjectCache.class);
+        cache = mock(Rs2TileObjectCache.class);
         query = mock(Rs2TileObjectQueryable.class, RETURNS_SELF);
         when(cache.query()).thenReturn(query);
         previousCache = swapMicrobotField("rs2TileObjectCache", cache);
@@ -135,6 +136,7 @@ class BlastoiseFurnaceTakeBarsTest {
         BlastoiseFurnaceScript script = script();
         try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
              MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
             for (int cycle = 1; cycle < BlastoiseFurnaceScript.MAX_FAILED_LOOT_CYCLES; cycle++) {
                 assertFalse(script.recordFailedLootCycle());
                 assertEquals("Couldn't take bars, retrying", Microbot.status);
@@ -148,6 +150,68 @@ class BlastoiseFurnaceTakeBarsTest {
             microbot.verify(() -> Microbot.showMessage(anyString()), times(1));
             microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), times(1));
             player.verify(Rs2Player::logout, times(1));
+        }
+    }
+
+    @Test
+    void keepsWaitingWithoutCountingAFailedTakeWhileTheDispenserDoesNotOfferTake() {
+        BlastoiseFurnaceScript script = script();
+        Client client = mock(Client.class);
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
+            microbot.when(Microbot::getClient).thenReturn(client);
+
+            assertFalse(script.awaitDispenserTake());
+
+            assertEquals("Waiting for the Bar dispenser", Microbot.status);
+            verify(query, never()).interact(BLAST_FURNACE_DISPENSER, "Take");
+            microbot.verify(() -> Microbot.showMessage(anyString()), never());
+            microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), never());
+            player.verify(Rs2Player::logout, never());
+        }
+    }
+
+    @Test
+    void stopsWithOneMessageOnlyAfterTheDispenserWithheldTakeForTheWholeTimeout() {
+        BlastoiseFurnaceScript script = script();
+        int poll = BlastoiseFurnaceScript.DISPENSER_READY_POLL_MS;
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
+            for (int waited = poll; waited < BlastoiseFurnaceScript.DISPENSER_READY_TIMEOUT_MS; waited += poll) {
+                assertFalse(script.recordDispenserNotReady(poll));
+            }
+            microbot.verify(() -> Microbot.showMessage(anyString()), never());
+            microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), never());
+            player.verify(Rs2Player::logout, never());
+
+            assertTrue(script.recordDispenserNotReady(poll));
+
+            microbot.verify(() -> Microbot.showMessage(anyString()), times(1));
+            microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), times(1));
+            player.verify(Rs2Player::logout, times(1));
+        }
+    }
+
+    @Test
+    void forgetsTheWaitOnceTheDispenserOffersTake() {
+        BlastoiseFurnaceScript script = script();
+        int almost = BlastoiseFurnaceScript.DISPENSER_READY_TIMEOUT_MS - 1;
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
+            assertFalse(script.recordDispenserNotReady(almost));
+        }
+
+        dispenserOffersTake();
+        assertTrue(script.awaitDispenserTake());
+
+        try (MockedStatic<Microbot> microbot = mockStatic(Microbot.class);
+             MockedStatic<Rs2Player> player = mockStatic(Rs2Player.class)) {
+            microbot.when(Microbot::getRs2TileObjectCache).thenReturn(cache);
+            assertFalse(script.recordDispenserNotReady(almost));
+            microbot.verify(() -> Microbot.stopPlugin(nullable(Plugin.class)), never());
         }
     }
 
