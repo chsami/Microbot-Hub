@@ -1,0 +1,7 @@
+// Isolate NMZ sources and regressions when using -PpluginList=NmzPlugin.
+gradle.projectsEvaluated {
+    def hub = gradle.rootProject
+    if (hub.findProperty('pluginList') != 'NmzPlugin') throw new GradleException('Requires -PpluginList=NmzPlugin')
+    hub.sourceSets.main.java.setIncludes(['net/runelite/client/plugins/microbot/PluginConstants.java', 'net/runelite/client/plugins/microbot/nmz/**'])
+    hub.sourceSets.test.java.setIncludes(['net/runelite/client/plugins/microbot/nmz/**'])
+}

@@ -1,4 +1,33 @@
 # NMZ Plugin  Overview
+
+## Repeating rounds and potion restocking (2.4.7)
+
+Enable **Repeat rounds** to restock and enter your previous dream after a round.
+Its initial value follows the existing **Stop after death** preference (off for
+the default stop-after-death setting). When explicitly enabled, it takes
+precedence over **Stop after death**. Keep a previous dream and coffer funds ready.
+
+Potion amounts are four-dose bottles; purchases and barrel stock are doses.
+Restocking counts full bottles already carried, stores partial/excess bottles,
+buys only missing doses and withdraws only missing bottles. Both potion targets
+must be ready before entry, including zero-overload and prayer-potion setups.
+Unconfirmed deposits never drop leftover potions.
+
+Insufficient points, inventory space or required prayer potions stop the script
+with a reason. Other failed lobby operations retry at most three times. Prayer
+potions must be carried; bank restocking is not added by this update. One prayer
+worker runs during dreams and stops with the plugin.
+
+Isolated regression build:
+
+```sh
+./gradlew test NmzPluginJar -PpluginList=NmzPlugin \
+  -PmicrobotClientPath=/path/to/client.jar -I scripts/nmz-test.init.gradle
+```
+
+The tests simulate lobby transitions and transaction acknowledgements; they do
+not establish live game validation.
+
 ## Purpose
 NmzScript automates the Nightmare Zone (NMZ) minigame in Old School RuneScape using the Microbot framework. It manages inventory, potion usage, combat, prayer, and in-game interactions to maximize efficiency and survivability during NMZ runs.
 
