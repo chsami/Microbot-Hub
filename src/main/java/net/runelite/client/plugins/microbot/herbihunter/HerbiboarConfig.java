@@ -41,6 +41,23 @@ public interface HerbiboarConfig extends Config {
         }
     }
 
+    enum LogDetail {
+        QUIET("Quiet"),
+        NORMAL("Normal"),
+        DETAILED("Detailed");
+
+        private final String name;
+
+        LogDetail(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
     enum PlayStyle {
         RELAXED("Relaxed"),
         FOCUSED("Focused");
@@ -60,6 +77,8 @@ public interface HerbiboarConfig extends Config {
     enum RunEnergyOption {
         NONE("None"),
         STAMINA_POTION("Stamina potion"),
+        EXTENDED_STAMINA_POTION("Extended stamina potion"),
+        EXTREME_ENERGY_POTION("Extreme energy potion"),
         SUPER_ENERGY_POTION("Super energy potion"),
         ENERGY_POTION("Energy potion"),
         STRANGE_FRUIT("Strange fruit");
@@ -175,6 +194,30 @@ public interface HerbiboarConfig extends Config {
     )
     default boolean resetIfStuck() {
         return true;
+    }
+
+    @ConfigItem(
+            keyName = "logoutAt99",
+            name = "Log out at 99 Hunter",
+            description = "Reaching level 99 Hunter during this session: finish the catch, then log out and stop."
+                    + " Does nothing if the character already has 99 when the plugin starts.",
+            section = SETUP_SECTION,
+            position = 8
+    )
+    default boolean logoutAt99() {
+        return false;
+    }
+
+    @ConfigItem(
+            keyName = "logDetail",
+            name = "Log detail",
+            description = "How much Herbi Hunter writes to client.log. Normal: one line per catch plus banking and recoveries."
+                    + " Detailed: everything, set this before reporting a bug. Quiet: problems only.",
+            section = SETUP_SECTION,
+            position = 9
+    )
+    default LogDetail logDetail() {
+        return LogDetail.NORMAL;
     }
 
     @ConfigSection(

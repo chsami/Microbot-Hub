@@ -101,6 +101,11 @@ public class HerbiboarOverlay extends Overlay {
                         compact ? HerbiboarConfig.InfoPanel.FULL : HerbiboarConfig.InfoPanel.COMPACT));
     }
 
+    /** Over active time, like the catch rate beside it: a break must not drag it down. Pure. */
+    static int xpPerHour(long xp, long activeMs) {
+        return activeMs <= 0 ? 0 : (int) (xp * 3_600_000L / activeMs);
+    }
+
     private Snapshot snapshot() {
         long now = System.currentTimeMillis();
         HerbiboarSession session = plugin.getSession();
@@ -115,7 +120,7 @@ public class HerbiboarOverlay extends Overlay {
         Integer gained = plugin.getXpGained();
         long xp = gained == null ? 0 : gained;
         s.xp = String.format(Locale.ENGLISH, "%,d", xp);
-        int xpHr = plugin.getXpPerHour();
+        int xpHr = xpPerHour(xp, ms);
         s.xpPerHour = ready ? compact(xpHr) : "-";
         s.level = client.getRealSkillLevel(Skill.HUNTER);
         if (s.level > 0 && s.level < Experience.MAX_REAL_LEVEL) {
@@ -140,13 +145,8 @@ public class HerbiboarOverlay extends Overlay {
     }
 
     private static int staminaDoses(HerbiboarConfig.RunEnergyOption option) {
-        int[] ids;
-        switch (option) {
-            case STAMINA_POTION: ids = new int[]{ItemID._1DOSESTAMINA, ItemID._2DOSESTAMINA, ItemID._3DOSESTAMINA, ItemID._4DOSESTAMINA}; break;
-            case SUPER_ENERGY_POTION: ids = new int[]{ItemID._1DOSE2ENERGY, ItemID._2DOSE2ENERGY, ItemID._3DOSE2ENERGY, ItemID._4DOSE2ENERGY}; break;
-            case ENERGY_POTION: ids = new int[]{ItemID._1DOSE1ENERGY, ItemID._2DOSE1ENERGY, ItemID._3DOSE1ENERGY, ItemID._4DOSE1ENERGY}; break;
-            default: return -1;
-        }
+        int[] ids = HerbiboarScript.doseIds(option);
+        if (ids.length == 0) return -1;
         int doses = 0;
         for (int i = 0; i < ids.length; i++) doses += (i + 1) * Rs2Inventory.count(ids[i]);
         return doses;

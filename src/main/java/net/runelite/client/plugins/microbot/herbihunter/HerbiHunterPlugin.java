@@ -67,7 +67,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 )
 
 public class HerbiHunterPlugin extends Plugin {
-    static final String version = "1.0.0";
+    static final String version = "1.2.5";
 
     @Getter
     @Setter
@@ -184,6 +184,8 @@ public class HerbiHunterPlugin extends Plugin {
 
     @Getter
     private int finishId;
+    // The finish varbit as last read: resetTrailData zeroes finishId while the varbit is still set, which reopened TUNNEL over the BOAR step.
+    private int finishVarbitSeen;
 
     private boolean started;
 
@@ -196,6 +198,7 @@ public class HerbiHunterPlugin extends Plugin {
 
     @Getter
     private volatile HerbiboarSession session;
+    final HerbiboarLog hbLog = new HerbiboarLog();
     @Getter
     private volatile List<HerbiboarSession> history = Collections.emptyList();
     @Setter
@@ -205,9 +208,13 @@ public class HerbiHunterPlugin extends Plugin {
 
     @Override
     protected void startUp() {
-        Microbot.log(Level.INFO, "Herbi Hunter " + version + " started");
         ClientThread clientThread = Microbot.getClientThread();
         HerbiboarConfig config = provideConfig(Microbot.getConfigManager());
+        lastTrailChangeTick = -1;
+        nothingTick = -1;
+        hbLog.setDetail(config.logDetail());
+        hbLog.start(version, String.valueOf(config.playStyle()));
+        script.hbLog = hbLog;
 
         java.io.File dir = HerbiboarSession.dir();
         HerbiboarSession.recoverCheckpoint(dir, gson);
@@ -240,6 +247,7 @@ public class HerbiHunterPlugin extends Plugin {
         subscribe(GroundObjectSpawned.class, this::onGroundObjectSpawned);
         subscribe(GroundObjectDespawned.class, this::onGroundObjectDespawned);
         subscribe(GameTick.class, this::onGameTick);
+        subscribe(net.runelite.client.events.ConfigChanged.class, this::onConfigChanged);
 
         script.run(config, this);
 
@@ -248,14 +256,42 @@ public class HerbiHunterPlugin extends Plugin {
             clientThread.invokeLater(() ->
             {
                 inHerbiboarArea = checkArea();
+                // A tunnel already found before we started is not a new step for the [HB-T] clock.
+                finishVarbitSeen = client.getVarbitValue(VarbitID.HUNTING_TRAIL_ENDS_FOSSIL);
                 updateTrailData();
+                // What was already on the ground when we started is not a step we were timed on.
+                script.stepTimer.reset();
+                lastTrailChangeTick = -1;
+                scanLoadedScene();
             });
+        }
+    }
+    /** Spawn events for an already-loaded scene fired before we subscribed; without this the start rocks stay unknown until a loading screen. */
+    private void scanLoadedScene()
+    {
+        Tile[][][] tiles = client.getTopLevelWorldView().getScene().getTiles();
+        for (Tile[][] plane : tiles)
+        {
+            for (Tile[] row : plane)
+            {
+                for (Tile tile : row)
+                {
+                    if (tile == null) continue;
+                    for (GameObject object : tile.getGameObjects())
+                    {
+                        if (object != null) onTileObject(null, object);
+                    }
+                    if (tile.getGroundObject() != null) onTileObject(null, tile.getGroundObject());
+                }
+            }
         }
     }
     @Override
     protected void shutDown() {
         subscribers.forEach(eventBus::unregister);
         subscribers.clear();
+        HerbiboarSession ending = session;
+        String why = stopReason == null ? "stopped" : stopReason;
         finishSession();
         overlayManager.remove(overlay);
         overlayManager.remove(minimapOverlay);
@@ -270,6 +306,16 @@ public class HerbiHunterPlugin extends Plugin {
         if (coreShowTrail == null) Microbot.getConfigManager().unsetConfiguration(CORE_GROUP, CORE_SHOW_TRAIL);
         else Microbot.getConfigManager().setConfiguration(CORE_GROUP, CORE_SHOW_TRAIL, coreShowTrail);
         script.shutdown();
+        // Last, so nothing of this run is written after its stop line.
+        hbLog.stop(ending == null ? 0 : (System.currentTimeMillis() - ending.startMs) / 60_000,
+            ending == null ? 0 : ending.caught, why);
+    }
+
+    /** The log setting takes effect at once, without a restart. */
+    public void onConfigChanged(net.runelite.client.events.ConfigChanged event) {
+        if (HerbiboarConfig.GROUP.equals(event.getGroup()) && "logDetail".equals(event.getKey())) {
+            hbLog.setDetail(provideConfig(Microbot.getConfigManager()).logDetail());
+        }
     }
 
     private <T> void subscribe(Class<T> type, java.util.function.Consumer<T> handler) {
@@ -286,11 +332,20 @@ public class HerbiHunterPlugin extends Plugin {
         if (event.getActor() == client.getLocalPlayer()) lastHitTick = client.getTickCount();
     }
 
+    private volatile int lastTrailChangeTick = -1;
+    private volatile int nothingTick = -1;
+
+    /** "Nothing seems to be out of place" only means a wasted search when the trail did not move with it. Pure. */
+    static boolean nothingWasReal(int messageTick, int lastTrailChangeTick) {
+        return lastTrailChangeTick < messageTick - 1;
+    }
+
     public void onChatMessage(ChatMessage chatMessage) {
         if (chatMessage.getType() != ChatMessageType.GAMEMESSAGE) return;
         String msg = chatMessage.getMessage();
-        if (inHerbiboarArea) Microbot.log(Level.INFO, "[HB-CHAT] %s", net.runelite.client.util.Text.removeTags(msg));
-        if (inHerbiboarArea && msg.contains("Nothing seems to be out of place")) Microbot.log(Level.INFO, "[HB-NOTHING] trail: %s", trailDump());
+        if (inHerbiboarArea) hbLog.detail("CHAT", String.format("%s", net.runelite.client.util.Text.removeTags(msg)));
+        // Judged on the next tick: at one muddy patch the game sends this on the very tick the trail advances.
+        if (inHerbiboarArea && msg.contains("Nothing seems to be out of place")) nothingTick = client.getTickCount();
         // contains: the real line is longer ("The creature has successfully confused you with its tracks...").
         if (msg.contains("confused you with its tracks") || msg.contains("need to start again")) {
             trailConfused = true;
@@ -328,6 +383,8 @@ public class HerbiHunterPlugin extends Plugin {
         }
 
         boolean pathActive = false;
+        TrailToSpot trailBefore = nextTrail;
+        int finishBefore = finishVarbitSeen;
         for (HerbiboarSearchSpot spot : HerbiboarSearchSpot.values())
         {
             for (TrailToSpot trail : spot.getTrails())
@@ -353,7 +410,15 @@ public class HerbiHunterPlugin extends Plugin {
             }
         }
 
-        finishId = client.getVarbitValue(VarbitID.HUNTING_TRAIL_ENDS_FOSSIL);
+        finishId = finishVarbitSeen = client.getVarbitValue(VarbitID.HUNTING_TRAIL_ENDS_FOSSIL);
+        // A cleared trail opens nothing: only a real new step starts the [HB-T] clock.
+        if (finishId > 0 && finishBefore == 0) {
+            script.stepTimer.landed(System.currentTimeMillis(), "TUNNEL");
+            lastTrailChangeTick = client.getTickCount();
+        } else if (nextTrail != null && nextTrail != trailBefore) {
+            script.stepTimer.landed(System.currentTimeMillis(), "TRAIL");
+            lastTrailChangeTick = client.getTickCount();
+        }
 
         // The started varbit is only set after the first spot is searched, so a current group also counts as started.
         started = client.getVarbitValue(VarbitID.HUNTING_TRAILS_USED_FOSSIL) > 0 || currentGroup != null;
@@ -410,7 +475,7 @@ public class HerbiHunterPlugin extends Plugin {
 
     private void resetTrailData()
     {
-        Microbot.log(Level.DEBUG, "Reset trail data");
+        hbLog.detail("TRAIL", "Reset trail data");
         shownTrails.clear();
         currentPath.clear();
         nextTrail = null;
@@ -447,8 +512,10 @@ public class HerbiHunterPlugin extends Plugin {
                 if (reenteredArea(was, inHerbiboarArea))
                 {
                     updateTrailData();
-                    Microbot.log(Level.INFO, "Back in the hunting area: trail %s, finish %d",
-                        currentGroup == null ? "none" : currentGroup.name(), finishId);
+                    script.stepTimer.reset();
+                    lastTrailChangeTick = -1;
+                    hbLog.event("RECOVER", String.format("Back in the hunting area: trail %s, finish %d",
+                        currentGroup == null ? "none" : currentGroup.name(), finishId));
                 }
                 break;
             default:
@@ -502,7 +569,7 @@ public class HerbiHunterPlugin extends Plugin {
             return;
         }
 
-        if (HerbiboarSearchSpot.isTrail(newObject.getId()))
+        if (!HerbiboarSearchSpot.cacheable(newObject.getId()))
         {
             return;
         }
@@ -527,7 +594,9 @@ public class HerbiHunterPlugin extends Plugin {
             setStartXp(currentXP);
             setStartTime(Instant.now());
             HerbiboarSession s = session;
-            if (s != null && s.caught == 0) s.startMs = System.currentTimeMillis();
+            if (s != null && s.caught == 0) s.beginAt(System.currentTimeMillis());
+            // At the login screen the level is not the account's either.
+            if (s != null) s.startLevel = client.getRealSkillLevel(Skill.HUNTER);
         }
         setXpGained(currentXP - getStartXp());
         if (getRunningTime() <= 1) return 0;
@@ -535,6 +604,10 @@ public class HerbiHunterPlugin extends Plugin {
     }
 
     public void onGameTick(GameTick event) {
+        if (nothingTick != -1 && client.getTickCount() > nothingTick) {
+            if (nothingWasReal(nothingTick, lastTrailChangeTick)) hbLog.event("NOTHING", "trail: " + trailDump());
+            nothingTick = -1;
+        }
         setRunningTime(Instant.now().getEpochSecond() - getStartTime().getEpochSecond());
         setXpPerHour(calculateXpPerHour());
         HerbiboarSession s = session;
@@ -557,6 +630,7 @@ public class HerbiHunterPlugin extends Plugin {
         session = null;
         if (s == null) return;
         s.endMs = System.currentTimeMillis();
+        s.resume(s.endMs);
         fillTotals(s);
         s.stopReason = stopReason == null ? "stopped" : stopReason;
         if (s.caught == 0 && s.durationMs(s.endMs) < 60_000) return;
@@ -564,9 +638,9 @@ public class HerbiHunterPlugin extends Plugin {
         HerbiboarSession.saveFinished(dir, gson, s);
         double rate = s.catchesPerHour(s.endMs);
         long ms = Math.max(1, s.durationMs(s.endMs));
-        Microbot.log(Level.INFO, "Herbiboar session saved: %s, %d caught (%s/hr), %,d Hunter XP (%,d/hr), %d bank trips; %s play style; %s -> %s",
+        hbLog.event("SESSION", String.format("Herbiboar session saved: %s, %d caught (%s/hr), %,d Hunter XP (%,d/hr), %d bank trips; %s play style; %s -> %s",
                 HerbiboarOverlay.hoursMinutes(s.durationMs(s.endMs)), s.caught, rate < 0 ? "-" : String.valueOf(Math.round(rate)),
-                s.xpGained, s.xpGained * 3_600_000L / ms, s.bankTrips, s.playStyle, s.stopReason, HerbiboarSession.historyFile(dir));
+                s.xpGained, s.xpGained * 3_600_000L / ms, s.bankTrips, s.playStyle, s.stopReason, HerbiboarSession.historyFile(dir).getName()));
     }
 
     private boolean checkArea()

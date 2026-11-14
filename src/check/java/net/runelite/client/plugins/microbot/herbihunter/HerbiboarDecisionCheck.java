@@ -48,6 +48,15 @@ public final class HerbiboarDecisionCheck
         switchingStyleKeepsThePersonality();
         noLapseWhileTheBoarIsOut();
         boarWaitDoesOneThingOnly();
+        theStepTimerSplitsADelayIntoItsPhases();
+        grassNeverReplacesASearchSpot();
+        upkeepOnlyHoldsTheNextClickWhenThereIsSomethingToDo();
+        focusedMovesTheMouseFast();
+        theLogWritesOnlyWhatTheSettingAllows();
+        theCatchLineAndTheNothingMessage();
+        reaching99LogsOutOnlyWhenAsked();
+        breaksAreRespectedAndNotCounted();
+        theStrongerPotionsAreSupported();
 
         System.out.println();
         System.out.println(failures == 0
@@ -1055,6 +1064,297 @@ public final class HerbiboarDecisionCheck
         check("none reachable -> null (fallback)", "null", String.valueOf(HerbiboarScript.nearestByRoute(cands, c -> -1, null)));
         check("tie keeps list order", mid, HerbiboarScript.nearestByRoute(java.util.List.of(mid, lep), c -> 40, null));
         check("bank resumes a live trail, not START", HerbiboarState.TRAIL, HerbiboarScript.resumeState(0, true));
+    }
+
+    /** The timing lines must add up, or the numbers they give would point at the wrong wait. */
+    private static void theStepTimerSplitsADelayIntoItsPhases()
+    {
+        HerbiboarStepTimer t = new HerbiboarStepTimer();
+        check("nothing open closes to nothing", true, t.finish("click", 500) == null);
+        t.landed(1000, "TRAIL");
+        t.mark("seen", 1100);
+        t.mark("react", 1400);
+        t.mark("anim", 2300);
+        t.mark("upkeep", 2350);
+        t.mark("pass", 2500);
+        t.mark("pass", 2600);
+        t.mark("aim", 2900);
+        check("a step splits into its phases",
+            "[HB-T] TRAIL -> click total=2000 seen=100 react=300 anim=900 upkeep=50 pass=150 aim=400 press=100",
+            t.finish("click", 3000));
+        check("a closed step closes once", true, t.finish("click", 3100) == null);
+        t.landed(4000, "TRAIL");
+        t.landed(5000, "TUNNEL");
+        check("a new step replaces an open one",
+            "[HB-T] TUNNEL -> walk total=200 seen=0 react=0 anim=0 upkeep=0 pass=0 aim=0 press=200", t.finish("walk", 5200));
+        t.landed(6000, "BOAR");
+        t.reset();
+        check("reset drops the open step", true, t.finish("click", 6100) == null);
+    }
+
+    /** fossil_grass_lush_* shares a tile with nine search spots; cached in a spot's place, a correct hover reads as a miss. */
+    private static void upkeepOnlyHoldsTheNextClickWhenThereIsSomethingToDo()
+    {
+        check("nothing to do: no wait", false, HerbiboarScript.upkeepDue(true, false, false, false));
+        check("inventory hidden: wait", true, HerbiboarScript.upkeepDue(false, false, false, false));
+        check("something to drop: wait", true, HerbiboarScript.upkeepDue(true, true, false, false));
+        check("closed sack: wait", true, HerbiboarScript.upkeepDue(true, false, true, false));
+        check("drink due: wait", true, HerbiboarScript.upkeepDue(true, false, false, true));
+    }
+
+    private static void grassNeverReplacesASearchSpot()
+    {
+        check("a smelly mushroom is cached", true, HerbiboarSearchSpot.cacheable(30541));
+        check("a muddy patch is cached", true, HerbiboarSearchSpot.cacheable(30543));
+        check("long grass is not", false, HerbiboarSearchSpot.cacheable(30862));
+        check("short grass is not", false, HerbiboarSearchSpot.cacheable(30863));
+        check("sparse grass is not", false, HerbiboarSearchSpot.cacheable(30864));
+    }
+
+    /** The client picks the mouse profile from the activity intensity; herbiboar hunting is rated Low, the slow profile. */
+    private static void focusedMovesTheMouseFast()
+    {
+        check("Focused uses the fast mouse profile",
+            net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity.HIGH, HerbiboarScript.mouseIntensity(false));
+        check("Relaxed keeps the activity's own",
+            net.runelite.client.plugins.microbot.util.antiban.enums.Activity.HUNTING_HERBIBOARS.getActivityIntensity(),
+            HerbiboarScript.mouseIntensity(true));
+    }
+
+    private static void theLogWritesOnlyWhatTheSettingAllows()
+    {
+        final java.util.List<String> sunk = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        final long[] clock = {1_000_000L};
+        HerbiboarLog log = new HerbiboarLog((level, line) -> sunk.add(level + ":" + line), () -> "a3f9")
+        {
+            @Override
+            long now()
+            {
+                return clock[0];
+            }
+        };
+        HerbiboarConfig.LogDetail quiet = HerbiboarConfig.LogDetail.QUIET;
+        HerbiboarConfig.LogDetail normal = HerbiboarConfig.LogDetail.NORMAL;
+        HerbiboarConfig.LogDetail detailed = HerbiboarConfig.LogDetail.DETAILED;
+
+        check("quiet hides events", false, HerbiboarLog.writes(quiet, 1));
+        check("quiet keeps problems", true, HerbiboarLog.writes(quiet, 2));
+        check("normal keeps events", true, HerbiboarLog.writes(normal, 1));
+        check("normal hides detail", false, HerbiboarLog.writes(normal, 0));
+        check("detailed keeps detail", true, HerbiboarLog.writes(detailed, 0));
+        check("the setting reads as its name", "Detailed", detailed.toString());
+
+        log.setDetail(detailed);
+        log.start("1.2.0", "Focused");
+        check("run start", "1:[HB-RUN] start v1.2.0 run=a3f9 style=Focused log=Detailed", sunk.get(0));
+        check("catch line",
+            "[HB-CATCH] #14 run=a3f9 52s steps=6 walks=2 slowest=3288ms TRAIL->click harvest=1625ms unanswered=0 misses=0",
+            HerbiboarLog.catchLine(14, "a3f9", 52, 6, 2, 3288, "TRAIL->click", 1625, 0, 0));
+
+        log.detail("CHAT", "{}", "100% {} C:\\x");
+        check("text is written as given", "1:[HB-CHAT] 100% {} C:\\x", sunk.get(sunk.size() - 1));
+        log.detail("CHAT", "50% done {}");
+        check("a format with no args is the text", "1:[HB-CHAT] 50% done {}", sunk.get(sunk.size() - 1));
+        log.problem("PROBLEM", "stuck at {}", 7);
+        check("a problem is a warning", "2:[HB-PROBLEM] stuck at 7", sunk.get(sunk.size() - 1));
+
+        log.setDetail(quiet);
+        log.detail("WAIT", "x");
+        check("hidden detail is debug", "0:[HB-WAIT] x", sunk.get(sunk.size() - 1));
+        int before = sunk.size();
+        log.event("BANK", "hidden");
+        check("quiet writes no event", before, sunk.size());
+
+        log.step("TRAIL", "walk", 900);
+        log.step("TRAIL", "click", 3288);
+        log.unanswered();
+        log.miss();
+        log.setDetail(normal);
+        clock[0] += 52_000;
+        log.caught(clock[0], 1625);
+        check("counters ran while hidden",
+            "1:[HB-CATCH] #1 run=a3f9 52s steps=2 walks=1 slowest=3288ms TRAIL->click harvest=1625ms unanswered=1 misses=1",
+            sunk.get(sunk.size() - 1));
+
+        for (int i = 0; i < 50; i++) log.event("RECOVER", "same");
+        log.event("RECOVER", "other");
+        check("repeats are counted, not rewritten", java.util.Arrays.asList("1:[HB-RECOVER] same", "1:[HB-RECOVER] same",
+            "1:[HB-RECOVER] same", "1:[HB-RECOVER] same (repeated 47 more times)", "1:[HB-RECOVER] other"),
+            new java.util.ArrayList<>(sunk.subList(sunk.size() - 5, sunk.size())));
+
+        for (int i = 0; i < 9; i++) log.event("RECOVER", "tail");
+        log.stop(12, 14, "stopped");
+        check("stop flushes the repeat count", "1:[HB-RECOVER] tail (repeated 6 more times)", sunk.get(sunk.size() - 2));
+        check("run stop", "1:[HB-RUN] stop run=a3f9 after 12m, 14 caught, stopped", sunk.get(sunk.size() - 1));
+
+        log.setDetail(quiet);
+        log.start("1.2.0", "Relaxed");
+        check("quiet still marks the run", "1:[HB-RUN] start v1.2.0 run=a3f9 style=Relaxed log=Quiet", sunk.get(sunk.size() - 1));
+        log.setDetail(normal);
+        log.caught(clock[0], 0);
+        check("a new run starts clean",
+            "1:[HB-CATCH] #1 run=a3f9 0s steps=0 walks=0 slowest=0ms none harvest=0ms unanswered=0 misses=0",
+            sunk.get(sunk.size() - 1));
+
+        log.setDetail(normal);
+        int unchanged = sunk.size();
+        check("setting the same level writes nothing", unchanged, sunk.size());
+        log.setDetail(quiet);
+        check("a changed setting is always logged", "1:[HB-RUN] log=Quiet run=a3f9", sunk.get(sunk.size() - 1));
+        log.setDetail(normal);
+        check("and logged again on the way back", "1:[HB-RUN] log=Normal run=a3f9", sunk.get(sunk.size() - 1));
+
+        sunk.clear();
+        Thread[] two = new Thread[2];
+        for (int t = 0; t < 2; t++)
+        {
+            final int id = t;
+            two[t] = new Thread(() -> { for (int i = 0; i < 1000; i++) log.event("X", "t" + id + " line " + i); });
+            two[t].start();
+        }
+        try
+        {
+            for (Thread t : two) t.join();
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
+        }
+        check("two threads lose no line", 2000, new java.util.HashSet<>(sunk).size());
+    }
+
+    private static void theStrongerPotionsAreSupported()
+    {
+        HerbiboarConfig.RunEnergyOption extended = HerbiboarConfig.RunEnergyOption.EXTENDED_STAMINA_POTION;
+        HerbiboarConfig.RunEnergyOption extreme = HerbiboarConfig.RunEnergyOption.EXTREME_ENERGY_POTION;
+        check("extended stamina doses, 1 to 4", java.util.Arrays.asList(31647, 31644, 31641, 31638),
+            java.util.Arrays.stream(HerbiboarScript.doseIds(extended)).boxed().collect(java.util.stream.Collectors.toList()));
+        check("extreme energy doses, 1 to 4", java.util.Arrays.asList(31623, 31620, 31617, 31614),
+            java.util.Arrays.stream(HerbiboarScript.doseIds(extreme)).boxed().collect(java.util.stream.Collectors.toList()));
+        check("extended stamina restocks as its 4-dose", 31638, HerbiboarScript.fullDoseItemId(extended));
+        check("extreme energy restocks as its 4-dose", 31614, HerbiboarScript.fullDoseItemId(extreme));
+        check("stamina still restocks as its 4-dose", 12625, HerbiboarScript.fullDoseItemId(HerbiboarConfig.RunEnergyOption.STAMINA_POTION));
+        check("strange fruit has no doses", 0, HerbiboarScript.doseIds(HerbiboarConfig.RunEnergyOption.STRANGE_FRUIT).length);
+        check("extended stamina, effect running: no second dose", false,
+            HerbiboarScript.shouldUseEnergyItem(extended, true, true, 50, 60));
+        check("extended stamina, effect ended, keep-up on: drinks", true,
+            HerbiboarScript.shouldUseEnergyItem(extended, true, false, 100, 50));
+        check("extreme energy drinks at the threshold", true, HerbiboarScript.shouldUseEnergyItem(extreme, false, false, 50, 50));
+        check("extreme energy waits above it", false, HerbiboarScript.shouldUseEnergyItem(extreme, false, false, 51, 50));
+        check("out of extended stamina with restock on: buys more", true, HerbiboarScript.shouldRestock(true, false, extended));
+        check("the log setting defaults to Normal", HerbiboarConfig.LogDetail.NORMAL, new HerbiboarConfig() { }.logDetail());
+
+        final java.util.List<String> sunk = new java.util.ArrayList<>();
+        HerbiboarLog log = new HerbiboarLog((level, line) -> sunk.add(line), () -> "a3f9");
+        log.start("1.2.5", "Focused");
+        log.stop(12, 14, "bank ran out of supplies");
+        check("the stop line says why, so a Quiet log can", "[HB-RUN] stop run=a3f9 after 12m, 14 caught, bank ran out of supplies",
+            sunk.get(sunk.size() - 1));
+    }
+
+    private static void breaksAreRespectedAndNotCounted()
+    {
+        check("disconnected, no break: log back in", true, HerbiboarScript.mayLogBackIn(true, false, false, true));
+        check("the original handler's break: stay out", false, HerbiboarScript.mayLogBackIn(true, true, false, true));
+        check("Break Handler V2's break: stay out", false, HerbiboarScript.mayLogBackIn(true, false, true, true));
+        check("not at the login screen: nothing to do", false, HerbiboarScript.mayLogBackIn(false, false, false, true));
+        check("just tried: wait before the next attempt", false, HerbiboarScript.mayLogBackIn(true, false, false, false));
+
+        check("break asked for between trails: say ready", true, HerbiboarScript.readyForBreak(true, false, true));
+        check("original handler, asked mid-trail: not ready yet", false, HerbiboarScript.readyForBreak(true, true, true));
+        check("V2 asked mid-trail: ready now, V2 waits on the lock itself", true, HerbiboarScript.readyForBreak(true, true, false));
+        check("nothing asked for: nothing to answer", false, HerbiboarScript.readyForBreak(false, false, false));
+        check("a break is on, no trail live: pause", true, HerbiboarScript.pauseForBreak(true, false));
+        check("a break is on mid-trail: finish the catch first", false, HerbiboarScript.pauseForBreak(true, true));
+        check("no break: carry on", false, HerbiboarScript.pauseForBreak(false, false));
+        check("level unknown at the start (login screen): never log out on it", false, HerbiboarScript.logOutAt99(true, 0, 99));
+
+        HerbiboarSession early = new HerbiboarSession(0);
+        early.pause(100);
+        early.beginAt(1000);
+        check("a pause from before the session began starts with it", 0L, early.durationMs(5000));
+        early.resume(5000);
+        check("and only the time after it counts", 1000L, early.durationMs(6000));
+
+        check("XP per hour is over active time", 90_000, HerbiboarOverlay.xpPerHour(30_000, 1_200_000));
+        check("no active time yet: no rate", 0, HerbiboarOverlay.xpPerHour(30_000, 0));
+        check("micro breaks on, break handler on: may roll", true, HerbiboarScript.mayRollMicroBreak(true, true));
+        check("micro breaks on, no break handler to end one: never", false, HerbiboarScript.mayRollMicroBreak(true, false));
+        check("micro breaks off: never", false, HerbiboarScript.mayRollMicroBreak(false, true));
+        check("at the bank, trail finished, roll under the odds: break", true, HerbiboarScript.microBreakNow(true, false, 0.05, 0.049));
+        check("roll over the odds: carry on", false, HerbiboarScript.microBreakNow(true, false, 0.05, 0.05));
+        check("a trail is still live: never, it would be left hanging", false, HerbiboarScript.microBreakNow(true, true, 0.05, 0.0));
+        check("not allowed to roll: never", false, HerbiboarScript.microBreakNow(false, false, 0.05, 0.0));
+        for (long seed = 1; seed <= 200; seed++)
+        {
+            double f = HerbiboarPace.focused(seed).microBreakChance;
+            double r = HerbiboarPace.relaxed(seed, 0).microBreakChance;
+            if (f < 0.01 || f > 0.04 || r < 0.04 || r > 0.10 || f >= r)
+            {
+                check("micro break odds per bank stop: Focused 1-4%, Relaxed 4-10% (seed " + seed + ")", "in range", f + " / " + r);
+            }
+        }
+        check("micro break odds stay in their ranges over 200 sessions", true, true);
+        check("the odds differ from session to session", true,
+            HerbiboarPace.relaxed(1, 0).microBreakChance != HerbiboarPace.relaxed(2, 0).microBreakChance);
+
+        HerbiboarSession s = new HerbiboarSession(0);
+        s.caught = 30;
+        s.pause(600_000);
+        s.pause(700_000);
+        check("time stops counting while paused", 600_000L, s.durationMs(900_000));
+        check("resuming reports the pause, from its first moment", 600_000L, s.resume(1_200_000));
+        check("resuming when not paused is nothing", 0L, s.resume(1_300_000));
+        check("a finished pause stays out of the session time", 1_200_000L, s.durationMs(1_800_000));
+        check("catches per hour is over active time", 90.0, s.catchesPerHour(1_800_000));
+
+        com.google.gson.Gson gson = new com.google.gson.Gson();
+        HerbiboarSession paused = new HerbiboarSession(1000);
+        paused.pause(601_000);
+        HerbiboarSession back = gson.fromJson(gson.toJson(paused), HerbiboarSession.class);
+        back.endMs = 1_201_000;
+        check("a pause still running is saved with the checkpoint", 600_000L, back.durationMs(0));
+        back.resume(back.endMs);
+        check("closing it at the end keeps the same active time", 600_000L, back.durationMs(0));
+        check("and files it under break time", 600_000L, back.breakMs);
+
+        final java.util.List<String> sunk = new java.util.ArrayList<>();
+        final long[] clock = {5_000_000L};
+        HerbiboarLog log = new HerbiboarLog((level, line) -> sunk.add(line), () -> "a3f9")
+        {
+            @Override
+            long now()
+            {
+                return clock[0];
+            }
+        };
+        log.start("1.2.3", "Focused");
+        clock[0] += 100_000;
+        log.paused(40_000);
+        log.caught(clock[0], 1500);
+        check("a break is not part of the catch's time", true, sunk.get(sunk.size() - 1).contains(" 60s steps="));
+    }
+
+    private static void reaching99LogsOutOnlyWhenAsked()
+    {
+        check("box off: 99 does nothing", false, HerbiboarScript.logOutAt99(false, 98, 99));
+        check("box on, 98 -> 99: log out", true, HerbiboarScript.logOutAt99(true, 98, 99));
+        check("box on, still 98: carry on", false, HerbiboarScript.logOutAt99(true, 97, 98));
+        check("box on, already 99 at the start: carry on", false, HerbiboarScript.logOutAt99(true, 99, 99));
+        check("the box is off by default", false, new HerbiboarConfig() { }.logoutAt99());
+    }
+
+    private static void theCatchLineAndTheNothingMessage()
+    {
+        HerbiboarStepTimer t = new HerbiboarStepTimer();
+        t.landed(1000, "TRAIL");
+        t.finish("click", 4288);
+        check("the timer remembers the last step's total", 3288L, t.lastTotalMs());
+        check("the timer remembers what the last step was", "TRAIL", t.lastWhat());
+        check("trail moved on the message tick: not real", false, HerbiHunterPlugin.nothingWasReal(100, 100));
+        check("trail moved the tick before: not real", false, HerbiHunterPlugin.nothingWasReal(100, 99));
+        check("trail last moved long ago: real", true, HerbiHunterPlugin.nothingWasReal(100, 90));
+        check("trail never moved: real", true, HerbiHunterPlugin.nothingWasReal(100, -1));
     }
 
     private static void check(String what, Object expected, Object actual)

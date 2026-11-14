@@ -20,6 +20,10 @@ public class HerbiboarSession {
     long startMs;
     long endMs;
     int caught;
+    /** Total time paused or on a break; 0 in older saved sessions. */
+    long breakMs;
+    /** Saved too: a checkpoint or a stop during a break must not count the break as hunting. */
+    private volatile long pausedSince;
     long xpGained;
     int startLevel;
     int endLevel;
@@ -41,8 +45,30 @@ public class HerbiboarSession {
         catchTimes.add(atMs);
     }
 
-    long durationMs(long nowMs) {
-        return Math.max(0, (endMs > 0 ? endMs : nowMs) - startMs);
+    /** Active time: breaks and pauses are left out, so the hourly rates are for time spent hunting. */
+    synchronized long durationMs(long nowMs) {
+        long until = endMs > 0 ? endMs : nowMs;
+        long pausing = pausedSince > 0 ? Math.max(0, until - pausedSince) : 0;
+        return Math.max(0, until - startMs - breakMs - pausing);
+    }
+
+    /** The first real reading after a start at the login screen: the session, and any pause open, begin here. */
+    synchronized void beginAt(long ms) {
+        startMs = ms;
+        if (pausedSince > 0 && pausedSince < ms) pausedSince = ms;
+    }
+
+    synchronized void pause(long nowMs) {
+        if (pausedSince == 0) pausedSince = nowMs;
+    }
+
+    /** Ends a pause and returns how long it lasted; 0 when none was running. */
+    synchronized long resume(long nowMs) {
+        if (pausedSince == 0) return 0;
+        long ms = Math.max(0, nowMs - pausedSince);
+        pausedSince = 0;
+        breakMs += ms;
+        return ms;
     }
 
     double catchesPerHour(long nowMs) {
@@ -130,6 +156,7 @@ public class HerbiboarSession {
                     HerbiboarSession.class);
             if (s != null && s.caught > 0) {
                 if (s.endMs <= 0) s.endMs = f.lastModified();
+                s.resume(s.endMs);
                 s.stopReason = "client closed or crashed";
                 saveFinished(dir, gson, s);
                 return;

@@ -150,6 +150,15 @@ public enum HerbiboarSearchSpot
 		return TRAILS.contains(id);
 	}
 
+	/** fossil_grass_lush_long / short / sparse: decoration that shares a tile with nine search spots. */
+	private static final Set<Integer> GRASS_IDS = ImmutableSet.of(30862, 30863, 30864);
+
+	/** Whether an object on a spot or tunnel tile may be kept as that tile's target. */
+	public static boolean cacheable(int objectId)
+	{
+		return !isTrail(objectId) && !GRASS_IDS.contains(objectId);
+	}
+
 	public static boolean isSearchSpot(WorldPoint location)
 	{
 		return SPOTS.contains(location);

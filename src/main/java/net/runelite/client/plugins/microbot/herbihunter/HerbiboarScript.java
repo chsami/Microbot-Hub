@@ -25,11 +25,15 @@ import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.MicrobotConfig;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerPlugin;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
+import net.runelite.client.plugins.microbot.breakhandler.BreakPreparation;
+import net.runelite.client.plugins.microbot.breakhandler.breakhandlerv2.BreakHandlerV2State;
 import net.runelite.client.plugins.microbot.util.security.LoginManager;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2Antiban;
 import net.runelite.client.plugins.microbot.util.antiban.Rs2AntibanSettings;
 import net.runelite.client.plugins.microbot.util.antiban.enums.Activity;
+import net.runelite.client.plugins.microbot.util.antiban.enums.ActivityIntensity;
 import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.util.bank.enums.BankLocation;
@@ -166,7 +170,7 @@ public class HerbiboarScript extends Script {
         if (framedZoom <= 0 || inFlight != null || Rs2Player.isMoving()) return;
         int now = Rs2Camera.getZoom();
         if (now <= framedZoom + 10) return;
-        Microbot.log(Level.INFO, "Zoomed in to " + now + " (framed at " + framedZoom + "); zooming back out");
+        hbLog.detail("CAM", "Zoomed in to " + now + " (framed at " + framedZoom + "); zooming back out");
         Rs2Camera.setZoom(framedZoom);
         sleep(Rs2Random.betweenInclusive(200, 400));
     }
@@ -185,12 +189,12 @@ public class HerbiboarScript extends Script {
         long t = System.currentTimeMillis();
         if (pitchFixAt == 0) {
             pitchFixAt = t + habits.pitchFixDelayMs(paceRng);
-            Microbot.log(Level.INFO, "Camera pitched down to " + now + "; raising it in " + (pitchFixAt - t) / 1000 + "s");
+            hbLog.detail("CAM", "Camera pitched down to " + now + "; raising it in " + (pitchFixAt - t) / 1000 + "s");
             return;
         }
         if (t < pitchFixAt) return;
         pitchFixAt = 0;
-        Microbot.log(Level.INFO, "Camera pitched down to " + now + "; raising it back");
+        hbLog.detail("CAM", "Camera pitched down to " + now + "; raising it back");
         Rs2Camera.setPitch(Rs2Random.betweenInclusive(418, 512));
         sleep(Rs2Random.betweenInclusive(200, 400));
     }
@@ -217,7 +221,7 @@ public class HerbiboarScript extends Script {
         } finally {
             Rs2Keyboard.keyRelease(key);
         }
-        Microbot.log(Level.INFO, "Turned the camera " + from + " -> " + Rs2Camera.getAngle() + " deg (wanted "
+        hbLog.detail("CAM", "Turned the camera " + from + " -> " + Rs2Camera.getAngle() + " deg (wanted "
                 + targetDegrees + " +-" + tolerance + ", gap was " + delta + ") in " + (System.currentTimeMillis() - t0)
                 + "ms with " + (key == KeyEvent.VK_LEFT ? "LEFT" : "RIGHT") + " for " + state);
     }
@@ -386,7 +390,8 @@ public class HerbiboarScript extends Script {
     private final long[] recentMoves = new long[8];
     private int recentMoveCount;
     private Boolean savedMoveMouseRandomly;
-    private boolean savedMoveMouseOffScreen, savedSimulateMistakes;
+    private boolean savedMoveMouseOffScreen, savedSimulateMistakes, savedTakeMicroBreaks;
+    private volatile boolean stopping;
     private double slideVx, slideVy;
     private long sampledAt;
     private double sampledCx, sampledCy;
@@ -675,8 +680,7 @@ public class HerbiboarScript extends Script {
                 double fv = Math.hypot(slideVx, slideVy);
                 double[] seen = seenSlide(fb);
                 double seenVx = seen[0], seenVy = seen[1];
-                Microbot.log(Level.INFO, String.format(java.util.Locale.ENGLISH,
-                        "[HB-FOLLOW] %s: cursor %+.0f,%+.0f from its centre, box %dx%d, slide %.2f,%.2f (seen over the move %.2f,%.2f), %s",
+                hbLog.detail("FOLLOW", String.format(java.util.Locale.ENGLISH, "%s: cursor %+.0f,%+.0f from its centre, box %dx%d, slide %.2f,%.2f (seen over the move %.2f,%.2f), %s",
                         action, fdx, fdy, fb.width, fb.height, slideVx, slideVy, seenVx, seenVy,
                         !Rs2Player.isMoving() || fv < 1e-2 ? "not sliding"
                                 : (fdx * slideVx + fdy * slideVy) <= 0 ? "behind it"
@@ -703,9 +707,9 @@ public class HerbiboarScript extends Script {
             if (sleepUntil(() -> plugin.getClickCount() != clicks, 600)
                     && leftClickDoes(plugin.getLastClickedOption(), plugin.getLastClickedId(), action, id)) {
                 if (movesThisClick >= 2) {
-                    Microbot.log(Level.INFO, "[HB-AIM] %s on %s took %d moves (cursor %d,%d, last lead %dms, move took %dms)%s",
+                    hbLog.detail("AIM", String.format("%s on %s took %d moves (cursor %d,%d, last lead %dms, move took %dms)%s",
                             action, what, movesThisClick, at.x, at.y, lastLeadMs, lastMoveMs,
-                            Rs2Player.isMoving() ? ", running" : "");
+                            Rs2Player.isMoving() ? ", running" : ""));
                 }
                 movesThisClick = 0;
                 cursorMisses = 0;
@@ -729,19 +733,19 @@ public class HerbiboarScript extends Script {
                 Rs2Camera.getZoom(), b == null ? "-" : b.width + "x" + b.height + "@" + b.x + "," + b.y,
                 cur.x, cur.y, slideVx, slideVy, seenVx, seenVy, movesThisClick, lastLeadMs, lastMoveMs);
         if (!clicked && ours.test(top)) {
-            Microbot.log(Level.INFO, miss + ": " + action + " is under the cursor; clicking once it settles");
+            hbLog.detail("MISS", miss + ": " + action + " is under the cursor; clicking once it settles");
             return false;
         }
         if (top != null && uiCovers(top.getType()) && s != null && s.contains(Microbot.getMouse().getMousePosition())
                 && nudgeCameraToward(cameraAngle.getAsInt())) {
-            Microbot.log(Level.INFO, miss + ": " + what + " is behind a panel; turning the camera slightly");
+            hbLog.detail("MISS", miss + ": " + what + " is behind a panel; turning the camera slightly");
             moveOnNextHover = true;
             return false;
         }
         // Only another object/NPC on top is "in front"; Walk here means the cursor simply missed.
         // NPC indexes are unique; object ids are not.
         if (top != null && top.getType() == MenuAction.EXAMINE_NPC && top.getIdentifier() == id) {
-            Microbot.log(Level.INFO, miss + ": " + what + " is not offering " + action + " yet");
+            hbLog.detail("MISS", miss + ": " + what + " is not offering " + action + " yet");
             return false;
         }
         if (top != null && !uiCovers(top.getType()) && top.getType() != MenuAction.WALK
@@ -754,7 +758,7 @@ public class HerbiboarScript extends Script {
                 List<Shape> avoid = new ArrayList<>(panels());
                 if (blocker != null) avoid.add(blockerZone(blocker));
                 if (s != null && pointInside(s, avoid) != null) {
-                    Microbot.log(Level.INFO, blocked + "; aiming at the part it leaves showing");
+                    hbLog.detail("COVER", blocked + "; aiming at the part it leaves showing");
                     moveLeading(hull, avoid);
                     return false;
                 }
@@ -765,14 +769,14 @@ public class HerbiboarScript extends Script {
                 coverTries++;
                 if (!target.equals(walkedCloserFor) && spot != null && me != null && me.distanceTo(spot) > 2) {
                     walkedCloserFor = target;
-                    Microbot.log(Level.INFO, blocked + "; walking closer for another angle");
+                    hbLog.detail("COVER", blocked + "; walking closer for another angle");
                     dropWalkerRoute();
                     if (Rs2Walker.walkMiniMap(spot)) sleepUntil(() -> spot.distanceTo(Rs2Player.getWorldLocation()) <= 2, 4000);
                     moveOnNextHover = true;
                     return false;
                 }
             }
-            Microbot.log(Level.INFO, blocked + (coverTries == 2 ? "; turning the camera so it stands clear" : "; turning the camera the other way"));
+            hbLog.detail("COVER", blocked + (coverTries == 2 ? "; turning the camera so it stands clear" : "; turning the camera the other way"));
             peekAround(coverTries == 2 ? 1 : -2);
             coverTries = coverTries == 2 ? 3 : 2;
             // Falls through: counted as a miss, so a blocker that never clears ends in the forced click, not endless turns.
@@ -785,7 +789,7 @@ public class HerbiboarScript extends Script {
                 && s.contains(Microbot.getMouse().getMousePosition()) && missSpot != null && meNow != null
                 && meNow.distanceTo(missSpot) > 3) {
             // On its outline yet the game offers Walk here: not clickable from here (not drawn, too far).
-            Microbot.log(Level.INFO, miss + ", not " + action + " on " + what + ", 4 times; walking closer instead");
+            hbLog.detail("MISS", miss + ", not " + action + " on " + what + ", 4 times; walking closer instead");
             cursorMisses = 0;
             dropWalkerRoute();
             if (Rs2Walker.walkMiniMap(missSpot)) sleepUntil(() -> missSpot.distanceTo(Rs2Player.getWorldLocation()) <= 3, 6000);
@@ -793,13 +797,14 @@ public class HerbiboarScript extends Script {
             return false;
         }
         if (cursorMisses >= 4) {
-            Microbot.log(Level.WARN, miss + ", not " + action + " on " + what + ", 4 times; sending " + action + " anyway");
+            hbLog.event("RECOVER", miss + ", not " + action + " on " + what + ", 4 times; sending " + action + " anyway");
             cursorMisses = 0;
             coverTries = 0;
             forcedClick.run();
             return true;
         }
-        Microbot.log(Level.INFO, miss + ", not " + action + " on " + what + " (miss " + cursorMisses + ")");
+        hbLog.detail("MISS", miss + ", not " + action + " on " + what + " (miss " + cursorMisses + ")");
+        hbLog.miss();
         moveOnNextHover = s != null && s.contains(Microbot.getMouse().getMousePosition());
         return false;
     }
@@ -917,7 +922,7 @@ public class HerbiboarScript extends Script {
             Rs2Camera.setPitch(Rs2Random.betweenInclusive(430, 512));
         }
         if (now - hiddenSince > 2000) {
-            Microbot.log(Level.INFO, what + " never came into view; clicking it anyway");
+            hbLog.detail("MISS", what + " never came into view; clicking it anyway");
             hiddenSince = 0;
             return true;
         }
@@ -989,7 +994,7 @@ public class HerbiboarScript extends Script {
             List<WorldPoint> path = Rs2Walker.getWalkPath(from, to);
             holeDecision = path.isEmpty() ? shouldUseHole(from, to) : pathJumpsHole(path);
             holeDecisionTarget = to;
-            Microbot.log(Level.INFO, (holeDecision ? "Using the hole" : "Walking round, not the hole")
+            hbLog.detail("START", (holeDecision ? "Using the hole" : "Walking round, not the hole")
                     + " to " + to + " (route " + path.size() + " tiles)");
         }
         return holeDecision;
@@ -1078,7 +1083,7 @@ public class HerbiboarScript extends Script {
         String note = tunnel + ": " + why;
         if (note.equals(lastPreHoverNote)) return;
         lastPreHoverNote = note;
-        Microbot.log(Level.INFO, "Boar spot not hovered at " + note);
+        hbLog.detail("HOVER", "Boar spot not hovered at " + note);
     }
 
     /** The emerging boar never offers Harvest. */
@@ -1160,7 +1165,7 @@ public class HerbiboarScript extends Script {
             }
             return null;
         }).orElse(null);
-        Microbot.log(Level.INFO, "Inventory is not showing; back to it");
+        hbLog.detail("UPKEEP", "Inventory is not showing; back to it");
         if (tab != null) {
             Rs2Widget.clickWidget(tab);
         } else {
@@ -1195,34 +1200,31 @@ public class HerbiboarScript extends Script {
         return !trailWork && inFlight == null && !Rs2Player.isMoving();
     }
 
-    private void manageRunEnergy(HerbiboarConfig config) {
+    /** Whether the step must wait for upkeep before the next click. Pure. */
+    static boolean upkeepDue(boolean inventoryShown, boolean somethingToDrop, boolean closedSackToOpen, boolean drinkDue) {
+        return !inventoryShown || somethingToDrop || closedSackToOpen || drinkDue;
+    }
+
+    private boolean drinkDue(HerbiboarConfig config) {
         // A drink takes a moment to register; without this the same potion goes down on consecutive passes.
-        if (!Instant.now().isAfter(lastDrinkAt.plusMillis(drinkCooldownMs))) {
-            return;
-        }
-        HerbiboarConfig.RunEnergyOption energyOption = config.runEnergyOption();
+        if (!Instant.now().isAfter(lastDrinkAt.plusMillis(drinkCooldownMs))) return false;
         // hasStaminaActive reads the live varbit; hasStaminaBuffActive is a stale static.
-        if (!shouldUseEnergyItem(energyOption, config.stamBuffAlwaysActive(), Rs2Player.hasStaminaActive(),
-                Rs2Player.getRunEnergy(), config.thresholdEnergy())) {
-            return;
-        }
-        switch (energyOption) {
-            case STAMINA_POTION:
-                consumeLowestDose("Drink", ItemID._1DOSESTAMINA, ItemID._2DOSESTAMINA, ItemID._3DOSESTAMINA, ItemID._4DOSESTAMINA);
-                break;
-            case SUPER_ENERGY_POTION:
-                consumeLowestDose("Drink", ItemID._1DOSE2ENERGY, ItemID._2DOSE2ENERGY, ItemID._3DOSE2ENERGY, ItemID._4DOSE2ENERGY);
-                break;
-            case ENERGY_POTION:
-                consumeLowestDose("Drink", ItemID._1DOSE1ENERGY, ItemID._2DOSE1ENERGY, ItemID._3DOSE1ENERGY, ItemID._4DOSE1ENERGY);
-                break;
+        return hasEnergyItems(config) && shouldUseEnergyItem(config.runEnergyOption(), config.stamBuffAlwaysActive(),
+            Rs2Player.hasStaminaActive(), Rs2Player.getRunEnergy(), config.thresholdEnergy());
+    }
+
+    private void manageRunEnergy(HerbiboarConfig config) {
+        if (!drinkDue(config)) return;
+        switch (config.runEnergyOption()) {
             case STRANGE_FRUIT:
                 if (Rs2Inventory.contains(ItemID.MACRO_TRIFFIDFRUIT)) {
                     useItem(ItemID.MACRO_TRIFFIDFRUIT, "Eat");
                 }
                 break;
             case NONE:
+                break;
             default:
+                consumeLowestDose("Drink", doseIds(config.runEnergyOption()));
                 break;
         }
     }
@@ -1234,6 +1236,7 @@ public class HerbiboarScript extends Script {
             case NONE:
                 return false;
             case STAMINA_POTION:
+            case EXTENDED_STAMINA_POTION:
                 if (staminaActive && energy > 15) return false;
                 return keepStaminaUp || energy <= threshold;
             default:
@@ -1298,7 +1301,7 @@ public class HerbiboarScript extends Script {
         boolean setupOk = hasRequiredInventorySetup(config);
         boolean bank = shouldBank(empty, setupOk);
         if (bank && state != HerbiboarState.BANK) {
-            Microbot.log(Level.INFO, "Banking: " + empty + " free slots" + (setupOk ? "" : ", setup incomplete (" + config.runEnergyOption()
+            hbLog.event("BANK", "Banking: " + empty + " free slots" + (setupOk ? "" : ", setup incomplete (" + config.runEnergyOption()
                     + (config.useHerbSack() && !Rs2Inventory.contains(HERB_SACKS) ? ", no herb sack" : "") + ")"));
         }
         return bank;
@@ -1326,21 +1329,14 @@ public class HerbiboarScript extends Script {
         HerbiboarConfig.RunEnergyOption energyOption = config.runEnergyOption();
         boolean hasEnergyItems;
         switch (energyOption) {
-            case STAMINA_POTION:
-                hasEnergyItems = Rs2Inventory.contains(ItemID._4DOSESTAMINA, ItemID._3DOSESTAMINA, ItemID._2DOSESTAMINA, ItemID._1DOSESTAMINA);
-                break;
-            case SUPER_ENERGY_POTION:
-                hasEnergyItems = Rs2Inventory.contains(ItemID._4DOSE2ENERGY, ItemID._3DOSE2ENERGY, ItemID._2DOSE2ENERGY, ItemID._1DOSE2ENERGY);
-                break;
-            case ENERGY_POTION:
-                hasEnergyItems = Rs2Inventory.contains(ItemID._4DOSE1ENERGY, ItemID._3DOSE1ENERGY, ItemID._2DOSE1ENERGY, ItemID._1DOSE1ENERGY);
-                break;
             case STRANGE_FRUIT:
                 hasEnergyItems = Rs2Inventory.contains(ItemID.MACRO_TRIFFIDFRUIT);
                 break;
             case NONE:
-            default:
                 hasEnergyItems = true;
+                break;
+            default:
+                hasEnergyItems = Rs2Inventory.contains(doseIds(energyOption));
                 break;
         }
         return hasEnergyItems;
@@ -1368,12 +1364,8 @@ public class HerbiboarScript extends Script {
     }
 
     static int fullDoseItemId(HerbiboarConfig.RunEnergyOption option) {
-        switch (option) {
-            case STAMINA_POTION: return ItemID._4DOSESTAMINA;
-            case SUPER_ENERGY_POTION: return ItemID._4DOSE2ENERGY;
-            case ENERGY_POTION: return ItemID._4DOSE1ENERGY;
-            default: return -1;
-        }
+        int[] ids = doseIds(option);
+        return ids.length == 0 ? -1 : ids[ids.length - 1];
     }
 
     /** Its tick deadline cannot be pushed back by moving. */
@@ -1404,7 +1396,7 @@ public class HerbiboarScript extends Script {
         activity = reason;
         if (!reason.equals(lastIdleReason)) {
             lastIdleReason = reason;
-            Microbot.log(Level.INFO, "Waiting: " + reason);
+            hbLog.detail("WAIT", "Waiting: " + reason);
         }
     }
 
@@ -1428,14 +1420,15 @@ public class HerbiboarScript extends Script {
                 tickCount(), Rs2Player.isMoving() || Rs2Player.isAnimating())) {
             Rs2NpcModel attacker = Microbot.getRs2NpcCache().query()
                 .where(n -> !"Herbiboar".equals(n.getName()) && n.isInteractingWithPlayer()).first();
-            Microbot.log(Level.INFO, "Hit by " + (attacker == null ? "an NPC" : attacker.getName()) + " during "
+            hbLog.event("RECOVER", "Hit by " + (attacker == null ? "an NPC" : attacker.getName()) + " during "
                 + inFlight.what + (state == HerbiboarState.START ? "; trying another start" : "; clicking again"));
             if (state == HerbiboarState.START) { skipStart = inFlight.target; startTarget = null; startChosen = false; }
             clearInFlight();
-            if (!Rs2Combat.setAutoRetaliate(false)) Microbot.log(Level.WARN, "Could not turn auto retaliate off");
+            if (!Rs2Combat.setAutoRetaliate(false)) hbLog.problem("PROBLEM", "Could not turn auto retaliate off");
             return false;
         }
         if (progressChanged) {
+            stepTimer.mark("seen", System.currentTimeMillis());
             unansweredCount = 0;
             // End this pass so the next decides from the new state: carrying on re-attacks an emptied tunnel.
             clearInFlight();
@@ -1448,13 +1441,22 @@ public class HerbiboarScript extends Script {
                     settled();
                 }
             }
-            if (!Rs2Player.isMoving() && sleepUntil(() -> !Rs2Player.isAnimating(), 1200)) upkeep();
+            stepTimer.mark("react", System.currentTimeMillis());
+            // Waiting out the search animation is only for inventory work, which the game drops mid-animation.
+            boolean due = upkeepDue(inventoryShown(),
+                Rs2Inventory.contains(itemsToDrop(config).stream().mapToInt(Integer::intValue).toArray()),
+                config.useHerbSack() && Rs2Inventory.contains(HERB_SACKS_CLOSED), drinkDue(config));
+            boolean still = due && !Rs2Player.isMoving() && sleepUntil(() -> !Rs2Player.isAnimating(), 1200);
+            stepTimer.mark("anim", System.currentTimeMillis());
+            if (still) upkeep();
+            stepTimer.mark("upkeep", System.currentTimeMillis());
             return true;
         }
         if (dispatchResolved(false, deadlinePassed, differentTarget)) {
             if (deadlinePassed && !progressChanged) {
-                Microbot.log(Level.INFO, "No answer to " + inFlight.what + " within "
+                hbLog.event("RECOVER", "No answer to " + inFlight.what + " within "
                         + DISPATCH_DEADLINE_TICKS + " ticks; retrying");
+                hbLog.unanswered();
                 if (state == HerbiboarState.START) { skipStart = inFlight.target; startTarget = null; startChosen = false; }
                 noteUnanswered(inFlight.target);
             }
@@ -1485,12 +1487,12 @@ public class HerbiboarScript extends Script {
         }
         if (unansweredCount >= 2) {
             String dump = Microbot.getClientThread().runOnClientThreadOptional(() -> plugin.trailDump()).orElse("?");
-            Microbot.log(Level.INFO, "[HB-STUCK] %s unanswered %dx; trail: %s", target, unansweredCount, dump);
+            hbLog.event("STUCK", String.format("%s unanswered %dx; trail: %s", target, unansweredCount, dump));
         }
         if (trailIsStuck(unansweredCount) && !target.equals(relogTriedFor)) {
             relogTriedFor = target;
             unansweredCount = 0;
-            Microbot.log(Level.WARN, "The trail is stuck at " + target + " (no answer 3 times); logging out and back in for a fresh trail");
+            hbLog.problem("PROBLEM", "The trail is stuck at " + target + " (no answer 3 times); logging out and back in for a fresh trail");
             relogPending = true;
         }
     }
@@ -1511,6 +1513,14 @@ public class HerbiboarScript extends Script {
     private HerbiboarHabits habits = HerbiboarHabits.draw(0);
     private double annoyance, breakingPoint = 1;
     private WorldPoint annoyanceJudged;
+
+    /**
+     * The client picks the natural-mouse profile from the activity intensity. Herbiboar hunting is rated Low, the
+     * slow "normal gamer" profile; Focused is the speed mode, so it takes High, the "fast gamer" one.
+     */
+    static ActivityIntensity mouseIntensity(boolean relaxed) {
+        return relaxed ? Activity.HUNTING_HERBIBOARS.getActivityIntensity() : ActivityIntensity.HIGH;
+    }
 
     private HerbiboarPace pace() {
         HerbiboarPace p = choose(config.playStyle(), sessionRelaxed);
@@ -1610,6 +1620,7 @@ public class HerbiboarScript extends Script {
         if (loc == null) return false;
         showRoute(loc);
         if (waitingOn(loc, progress)) return false;
+        stepTimer.mark("pass", System.currentTimeMillis());
         // Cross the hole first: clicking an object on its far side paths the long way round.
         WorldPoint from = Rs2Player.getWorldLocation();
         if (useHole(from, loc)) {
@@ -1633,7 +1644,7 @@ public class HerbiboarScript extends Script {
                     && smallTurnShows(from.distanceTo(loc), true, off, habits.turnMaxDeg,
                             Math.min(habits.clickRangeTiles, TURN_SHOWS_MAX_TILES))
                     && habits.turnsFor(off, paceRng)) {
-                Microbot.log(Level.INFO, "Turning the camera " + Math.abs(off) + " deg to " + loc + " rather than walking to it");
+                hbLog.detail("CAM", "Turning the camera " + Math.abs(off) + " deg to " + loc + " rather than walking to it");
                 // A tight stop tolerance, or the turn ends still out of view.
                 turnCameraTo(objectAngle, Rs2Random.betweenInclusive(DRIFT_TOLERANCE_MIN, DRIFT_TOLERANCE_MAX),
                         () -> comfortablyInView(hullOf(object)));
@@ -1646,8 +1657,7 @@ public class HerbiboarScript extends Script {
             annoyance = habits.annoyance(annoyance, off, paceRng);
             if (annoyance >= breakingPoint) {
                 int to = HerbiboarHabits.turnAroundTarget(Rs2Camera.getAngle(), off, habits.turnMaxDeg, paceRng);
-                Microbot.log(Level.INFO, String.format(java.util.Locale.ENGLISH,
-                        "[HB-TURNROUND] %d deg off %s, annoyance %.2f >= %.2f: turning to %d", off, loc, annoyance, breakingPoint, to));
+                hbLog.detail("TURNROUND", String.format(java.util.Locale.ENGLISH, "%d deg off %s, annoyance %.2f >= %.2f: turning to %d", off, loc, annoyance, breakingPoint, to));
                 turnCameraTo(to, Rs2Random.betweenInclusive(3, 12), () -> false);
                 annoyance = 0;
                 breakingPoint = habits.breakingPoint(paceRng);
@@ -1655,7 +1665,7 @@ public class HerbiboarScript extends Script {
         }
         if (from != null && walkFirst(onScreen(object), from.distanceTo(loc), habits.clickRangeTiles)) {
             Shape wh = hullOf(object);
-            Microbot.log(Level.INFO, String.format(java.util.Locale.ENGLISH, "[HB-WALK] %s: %d tiles, %s, camera %d deg off it",
+            hbLog.detail("WALK", String.format(java.util.Locale.ENGLISH, "%s: %d tiles, %s, camera %d deg off it",
                     loc, from.distanceTo(loc),
                     from.distanceTo(loc) > habits.clickRangeTiles ? "out of click range"
                             : wh == null ? "not drawn" : partlyInView(wh.getBounds()) ? "partly in view" : "out of view",
@@ -1673,8 +1683,10 @@ public class HerbiboarScript extends Script {
             idle("closing on " + loc + " to aim");
             return false;
         }
+        stepTimer.mark("aim", System.currentTimeMillis());
         if (!clickUnderCursor(action, object.getId(), () -> hullOf(object), () -> model(object).click(action), loc,
                 () -> Rs2Camera.getObjectAngle(object))) return false;
+        logStep("click");
         int walkTicks = from == null ? 0 : from.distanceTo(loc);
         inFlight = new InFlight(loc, progress.get(), tickCount() + DISPATCH_DEADLINE_TICKS + walkTicks,
                 action + " " + loc);
@@ -1753,6 +1765,7 @@ public class HerbiboarScript extends Script {
             sleep(Rs2Random.betweenInclusive(70, 180));
         }
         if (!Rs2Walker.walkMiniMap(step)) return false;
+        logStep("walk");
         int early = Rs2Random.betweenInclusive(2, 5);
         long stillAfter = System.currentTimeMillis() + Rs2Random.betweenInclusive(1100, 1700);
         sleepUntil(() -> arrived.getAsBoolean()
@@ -1773,6 +1786,7 @@ public class HerbiboarScript extends Script {
             tryHoleShortcut();
             return;
         }
+        logStep("walk");
         WalkerState result = Rs2Walker.walkWithStateUntil(loc, within, arrived);
         dropWalkerRoute();
         WorldPoint now = Rs2Player.getWorldLocation();
@@ -1783,10 +1797,10 @@ public class HerbiboarScript extends Script {
             return;
         }
         stalledWalks++;
-        Microbot.log(Level.INFO, "Walk to " + loc + " ended as " + result + " without moving (stall " + stalledWalks + ")");
+        hbLog.event("RECOVER", "Walk to " + loc + " ended as " + result + " without moving (stall " + stalledWalks + ")");
         switch (stallAction(stalledWalks)) {
             case RESET:
-                Microbot.log(Level.INFO, "Walking stalled " + stalledWalks + " times, resetting script state");
+                hbLog.event("RECOVER", "Walking stalled " + stalledWalks + " times, resetting script state");
                 stalledWalks = 0;
                 setState(HerbiboarState.RESET);
                 break;
@@ -1801,6 +1815,11 @@ public class HerbiboarScript extends Script {
     }
 
     private int stuckMinutes;
+
+    /** Only a 99 gained this session logs out: a character that started at 99 ticked the box by habit. Pure. */
+    static boolean logOutAt99(boolean enabled, int levelAtStart, int levelNow) {
+        return enabled && levelAtStart > 0 && levelAtStart < 99 && levelNow >= 99;
+    }
 
     static boolean giveUpWhenStuck(int consecutiveStuckMinutes) {
         return consecutiveStuckMinutes >= 3;
@@ -1852,18 +1871,18 @@ public class HerbiboarScript extends Script {
         return best;
     }
 
-    private static int startRouteCost(WorldPoint me, WorldPoint rock) {
+    private int startRouteCost(WorldPoint me, WorldPoint rock) {
         try {
             List<WorldPoint> path = Rs2Walker.getWalkPath(me, rock);
             // A rock is not walkable: a good path ends beside it (MIDDLE's nearest standable tile is 3-4 away).
             if (path == null || path.isEmpty() || path.get(path.size() - 1).distanceTo(rock) > 5) {
-                Microbot.log(Level.INFO, "Start route to %s: no path (%s)", rock,
-                        path == null || path.isEmpty() ? "empty" : "ends " + path.get(path.size() - 1).distanceTo(rock) + " away");
+                hbLog.detail("START", String.format("Start route to %s: no path (%s)", rock,
+                        path == null || path.isEmpty() ? "empty" : "ends " + path.get(path.size() - 1).distanceTo(rock) + " away"));
                 return -1;
             }
             return routeCost(path);
         } catch (Exception e) {
-            Microbot.log(Level.INFO, "Start route to %s: no path (%s)", rock, e.toString());
+            hbLog.detail("START", String.format("Start route to %s: no path (%s)", rock, e.toString()));
             return -1;
         }
     }
@@ -1872,6 +1891,79 @@ public class HerbiboarScript extends Script {
     private WorldPoint startTarget;
     private boolean startChosen;
     private static final List<String> START_NAMES = List.of("MIDDLE", "LEPRECHAUN", "CAMP_ENTRANCE", "GHOST_MUSHROOM", "DRIFTWOOD");
+
+    /** Either break handler: the original one or Break Handler V2. */
+    private static boolean breakActive() {
+        return BreakHandlerScript.isBreakActive() || BreakHandlerV2State.isBreakActive();
+    }
+
+    /** A logout during a break is the handler's doing; only a disconnect is ours to undo. Pure. */
+    static boolean mayLogBackIn(boolean atLoginScreen, boolean breakActive, boolean breakActiveV2, boolean cooldownPassed) {
+        return atLoginScreen && !breakActive && !breakActiveV2 && cooldownPassed;
+    }
+
+    /** A requested break is answered once no trail is live. Pure. */
+    static boolean readyForBreak(boolean requested, boolean trailLocked, boolean originalHandlerBreaking) {
+        // The original handler stops checking the lock once it has asked, so it only hears "ready" between trails.
+        // Break Handler V2 asks mid-trail and waits on the lock itself: an answer held back there times out at 120 s.
+        return requested && (!trailLocked || !originalHandlerBreaking);
+    }
+
+    /** A live trail is always finished first; a handler that has committed pauses every script itself. Pure. */
+    static boolean pauseForBreak(boolean breakActive, boolean trailLocked) {
+        return breakActive && !trailLocked;
+    }
+
+    /** Logged out is always a safe place for a break to begin. */
+    private void answerBreakRequest(boolean loggedOut) {
+        BreakPreparation.Handle handle = breakPrep;
+        if (handle == null || !handle.isRequested()) return;
+        if (loggedOut || readyForBreak(true, BreakHandlerScript.isLockState(), BreakHandlerScript.isBreakActive())) {
+            handle.ready();
+        }
+    }
+
+    /** Ends the run for good: the client's auto-login is told this logout is meant, and no further pass acts. */
+    private void logOutAndStop() {
+        stopping = true;
+        BreakHandlerScript.setLockState(false);
+        Rs2Player.logoutWithoutAutoLogin();
+        Microbot.stopPlugin(plugin);
+    }
+
+    /** Hunting is never interrupted: a micro break only starts standing at the bank or the G.E. with no trail live. Pure. */
+    static boolean microBreakNow(boolean mayRoll, boolean trailLive, double chance, double roll) {
+        return mayRoll && !trailLive && roll < chance;
+    }
+
+    /** The odds are the play style's own, drawn per session; the Antiban panel only switches micro breaks on or off. */
+    private boolean microBreakHere(boolean trailLive, String where) {
+        if (!mayRollMicroBreak(Rs2AntibanSettings.takeMicroBreaks, Microbot.isPluginEnabled(BreakHandlerPlugin.class))) return false;
+        if (!microBreakNow(true, trailLive, pace().microBreakChance, paceRng.nextDouble())) return false;
+        Rs2AntibanSettings.microBreakActive = true;
+        hbLog.event("BREAK", "Micro break " + where);
+        return true;
+    }
+
+    /** Only the Break Handler ends a micro break: without it a rolled one would pause the script for good. Pure. */
+    static boolean mayRollMicroBreak(boolean microBreaksOn, boolean breakHandlerOn) {
+        return microBreaksOn && breakHandlerOn;
+    }
+
+    private void notePaused() {
+        HerbiboarSession session = plugin == null ? null : plugin.getSession();
+        if (session != null) session.pause(System.currentTimeMillis());
+    }
+
+    /** Back from a break or pause: it is not hunting time, and standing still through it was not being stuck. */
+    private void noteRunning() {
+        HerbiboarSession session = plugin == null ? null : plugin.getSession();
+        long ms = session == null ? 0 : session.resume(System.currentTimeMillis());
+        if (ms <= 0) return;
+        hbLog.paused(ms);
+        lastMove = Instant.now();
+        if (ms >= 5000) hbLog.event("BREAK", "Back after " + ms / 1000 + "s paused");
+    }
 
     static boolean breaksLocked(HerbiboarState s) {
         return s == HerbiboarState.TRAIL || s == HerbiboarState.TUNNEL || s == HerbiboarState.HARVEST;
@@ -1941,15 +2033,42 @@ public class HerbiboarScript extends Script {
         WorldPoint before = Rs2Player.getWorldLocation();
         if (!clickUnderCursor("Climb through", hole.getId(), () -> hullOf(hole), () -> hole.click("Climb through"), holeAt,
                 () -> Rs2Camera.getObjectAngle(hole))) return false;
-        Microbot.log(Level.INFO, "Clicking the hole to climb through it");
+        logStep("click");
+        hbLog.detail("START", "Clicking the hole to climb through it");
         // Crossing the divide is the proof the climb happened.
         sleepUntil(() -> crossesHole(before, Rs2Player.getWorldLocation()), HOLE_CLIMB_TIMEOUT_MS);
         stalledWalks = 0;
         return true;
     }
 
+    /** [HB-T] timing lines: where the delay between a step landing and our next action goes. */
+    final HerbiboarStepTimer stepTimer = new HerbiboarStepTimer();
+    /** The plugin hands over its own in startUp; this one only keeps early calls from being null. */
+    volatile HerbiboarLog hbLog = new HerbiboarLog();
+    private long arrivedAtTunnelMs;
+    private long harvestClickMs;
+    private BreakPreparation.Handle breakPrep;
+
+    private void logStep(String kind) {
+        String line = stepTimer.finish(kind, System.currentTimeMillis());
+        if (line == null) return;
+        hbLog.detail("T", line.substring("[HB-T] ".length()));
+        hbLog.step(stepTimer.lastWhat(), kind, stepTimer.lastTotalMs());
+    }
+
+    /** When we first stand still at the tunnel: how long before the boar shows is the pre-hover's whole window. */
+    private void noteArrival(WorldPoint tunnel) {
+        if (arrivedAtTunnelMs != 0 || tunnel == null) return;
+        WorldPoint me = Rs2Player.getWorldLocation();
+        if (me != null && me.distanceTo(tunnel) <= 2 && !Rs2Player.isMoving()) arrivedAtTunnelMs = System.currentTimeMillis();
+    }
+
     public boolean run(HerbiboarConfig config, HerbiHunterPlugin herbiboarPlugin) {
         plugin = herbiboarPlugin;
+        stepTimer.reset();
+        arrivedAtTunnelMs = 0;
+        breakPrep = BreakPreparation.register("herbi-hunter");
+        stopping = false;
         this.config = config;
         // Script.run() drinks a stamina whenever energy is low and we are moving, which cancels a clicked object.
         if (savedAutoRun == null) {
@@ -1974,11 +2093,13 @@ public class HerbiboarScript extends Script {
         annoyance = 0;
         annoyanceJudged = null;
         breakingPoint = habits.breakingPoint(paceRng);
-        Microbot.log(Level.INFO, "Play style: " + config.playStyle());
-        Microbot.log(Level.INFO, "[HB-PACE] %s", pace().describe());
-        Microbot.log(Level.INFO, "[HB-HABITS] %s", habits.describe());
+        hbLog.detail("PACE", String.format("%s", pace().describe()));
+        hbLog.detail("HABITS", String.format("%s", habits.describe()));
         cameraFramed = false;
+        // The Hunter template switches micro breaks off; whether to take them is the user's choice.
+        savedTakeMicroBreaks = Rs2AntibanSettings.takeMicroBreaks;
         Rs2Antiban.antibanSetupTemplates.applyHunterSetup();
+        Rs2AntibanSettings.takeMicroBreaks = savedTakeMicroBreaks;
         Rs2Antiban.setActivity(Activity.HUNTING_HERBIBOARS);
         // Our pace owns the mouse; the client's own random moves, off-screen trips and slips would fight it.
         savedMoveMouseRandomly = Rs2AntibanSettings.moveMouseRandomly;
@@ -1988,26 +2109,30 @@ public class HerbiboarScript extends Script {
         Rs2AntibanSettings.moveMouseOffScreen = false;
         Rs2AntibanSettings.simulateMistakes = false;
         String override = antibanOverride(Rs2AntibanSettings.universalAntiban, Rs2AntibanSettings.overwriteScriptSettings);
-        if (override != null) Microbot.log(Level.WARN, "%s is on in the client settings and may override this script's pace", override);
+        if (override != null) hbLog.problem("PROBLEM", String.format("%s is on in the client settings and may override this script's pace", override));
 
         mainScheduledFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
+            if (stopping) return;
             if (!passRunning.compareAndSet(false, true)) {
-                Microbot.log(Level.WARN, "A second script pass started while one was running; skipped");
+                hbLog.problem("PROBLEM", "A second script pass started while one was running; skipped");
                 return;
             }
             try {
                 // An interrupted thread makes every natural-mouse sleep return at once: moves teleport.
-                if (Thread.interrupted()) Microbot.log(Level.WARN, "Script thread was interrupted; cleared so the mouse moves naturally");
+                if (Thread.interrupted()) hbLog.problem("PROBLEM", "Script thread was interrupted; cleared so the mouse moves naturally");
                 if (!Microbot.isLoggedIn()) {
                     // A region load (LOADING) is not a logout: it happens every ~40s out here.
                     if (Microbot.getClient().getGameState() != GameState.LOADING) wasLoggedOut = true;
                     // Never during a break: the break handler logs back in.
-                    if (Microbot.getClient().getGameState() == GameState.LOGIN_SCREEN && !BreakHandlerScript.isBreakActive()
-                            && System.currentTimeMillis() >= nextLoginAt) {
+                    if (mayLogBackIn(Microbot.getClient().getGameState() == GameState.LOGIN_SCREEN,
+                            BreakHandlerScript.isBreakActive(), BreakHandlerV2State.isBreakActive(),
+                            System.currentTimeMillis() >= nextLoginAt)) {
                         nextLoginAt = System.currentTimeMillis() + Rs2Random.betweenInclusive(8000, 15000);
-                        Microbot.log(Level.INFO, "At the login screen; logging back in");
+                        hbLog.event("RECOVER", "At the login screen; logging back in");
                         LoginManager.login();
                     }
+                    answerBreakRequest(true);
+                    if (breakActive()) notePaused();
                     return;
                 }
                 // The welcome screen is LOGGED_IN but swallows camera keys and zoom.
@@ -2031,7 +2156,7 @@ public class HerbiboarScript extends Script {
                     // The G.E. offer and the walk survive a relog.
                     if (state != HerbiboarState.INITIALIZING && state != HerbiboarState.CHECK_AUTO_RETALIATE
                             && state != HerbiboarState.RESTOCK) {
-                        Microbot.log(Level.INFO, "Back in game (was " + state + "); resuming from the game's trail state");
+                        hbLog.event("RECOVER", "Back in game (was " + state + "); resuming from the game's trail state");
                         backToInventory();
                         setState(HerbiboarState.RESET);
                     }
@@ -2051,7 +2176,7 @@ public class HerbiboarScript extends Script {
                     if (state == HerbiboarState.BANK) {
                         notedNext = nextTargetOf(herbiboarPlugin.getFinishId(), herbiboarPlugin.getCurrentPath(),
                                 herbiboarPlugin.getEndLocations());
-                        Microbot.log(Level.INFO, notedNext != null ? "Banking mid-trail: next was " + notedNext
+                        hbLog.event("BANK", notedNext != null ? "Banking mid-trail: next was " + notedNext
                                 : "Banking after a catch");
                     }
                     startTarget = null; startChosen = false;
@@ -2066,9 +2191,22 @@ public class HerbiboarScript extends Script {
                 }
                 // Any other script's shutdown() resets this global, so re-assert it: teleports only for the G.E. trip.
                 Rs2Walker.disableTeleports = state != HerbiboarState.RESTOCK;
-                if (!super.run()) return;
-                if (BreakHandlerScript.isMicroBreakActive()) return;
-                if (BreakHandlerScript.isBreakActive()) return;
+                if (!super.run()) {
+                    answerBreakRequest(false);
+                    notePaused();
+                    return;
+                }
+                // Every pass: the play style can be switched mid-session, and the Antiban panel's slider can move it.
+                ActivityIntensity mouse = mouseIntensity(pace().isRelaxed());
+                if (Rs2Antiban.getActivityIntensity() != mouse) Rs2Antiban.setActivityIntensity(mouse);
+                // Answered before the pause below: "break requested" already counts as an active break, and a
+                // handler left without an answer skips the break after 120 seconds.
+                answerBreakRequest(false);
+                if (pauseForBreak(BreakHandlerScript.isMicroBreakActive() || breakActive(), BreakHandlerScript.isLockState())) {
+                    notePaused();
+                    return;
+                }
+                noteRunning();
                 if (!cameraFramed) {
                     // Clicks on the login camera miss. Camera moves never cancel the character's action.
                     long now = System.currentTimeMillis();
@@ -2099,14 +2237,13 @@ public class HerbiboarScript extends Script {
                         && !(state == HerbiboarState.BANK && Rs2Bank.isOpen())) {
                     stuckMinutes++;
                     if (giveUpWhenStuck(stuckMinutes)) {
-                        Microbot.log(Level.WARN, "Stuck in " + state + " at " + Rs2Player.getWorldLocation()
+                        hbLog.problem("PROBLEM", "Stuck in " + state + " at " + Rs2Player.getWorldLocation()
                                 + " for " + stuckMinutes + " minutes; logging out");
                         herbiboarPlugin.setStopReason("stuck in " + state + " for " + stuckMinutes + " minutes");
-                        Rs2Player.logout();
-                        Microbot.stopPlugin(herbiboarPlugin);
+                        logOutAndStop();
                         return;
                     }
-                    Microbot.log(Level.INFO,"Player has not moved for over 1 minute, resetting script state");
+                    hbLog.event("RECOVER", "Player has not moved for over 1 minute, resetting script state");
                     lastMove = Instant.now();
                     lastLocation = null;
                     setState(HerbiboarState.RESET);
@@ -2124,13 +2261,13 @@ public class HerbiboarScript extends Script {
                     manageRunEnergy(config);
                 }
                 boolean runOn = Rs2Player.isRunEnabled();
-                if (wasRunOn && !runOn) Microbot.log(Level.INFO, "Run went off at %d%% energy", energy);
+                if (wasRunOn && !runOn) hbLog.event("RECOVER", String.format("Run went off at %d%% energy", energy));
                 wasRunOn = runOn;
                 // The game turns run off at 0 energy, and Rs2Player.toggleRunEnergy refuses below the client's threshold.
                 // Clicking the orb never cancels a walk or a queued click.
                 if (!runOn && energy >= runBackOnAt) {
-                    // Microbot.log is a format string: use %% for a literal percent.
-                    Microbot.log(Level.INFO, "Run is off at %d%% energy; turning it back on", Rs2Player.getRunEnergy());
+                    // String.format: %% is a literal percent.
+                    hbLog.event("RECOVER", String.format("Run is off at %d%% energy; turning it back on", Rs2Player.getRunEnergy()));
                     Rs2Widget.clickWidget(InterfaceID.Orbs.RUNBUTTON);
                     sleepUntil(Rs2Player::isRunEnabled, 1200);
                     runBackOnAt = Rs2Random.betweenInclusive(3, 10);
@@ -2138,12 +2275,12 @@ public class HerbiboarScript extends Script {
 
                 // Not in TUNNEL/HARVEST: leaving an attacked boar loses the catch.
                 if (bankAllowedIn(state) && needsToBank(config)) {
-                    Microbot.log(Level.INFO,"Need to bank, switching to BANK state");
+                    hbLog.event("BANK", "Need to bank, switching to BANK state");
                     setState(HerbiboarState.BANK);
                 }
 
                 if (needsTravel(state, Rs2Player.getWorldLocation())) {
-                    Microbot.log(Level.INFO, "Off Fossil Island at " + Rs2Player.getWorldLocation() + "; travelling there");
+                    hbLog.event("TRAVEL", "Off Fossil Island at " + Rs2Player.getWorldLocation() + "; travelling there");
                     pendantTried = false;
                     travelFails = 0;
                     setState(HerbiboarState.TRAVEL);
@@ -2161,7 +2298,7 @@ public class HerbiboarScript extends Script {
                         lastLocation = null;
                         HerbiboarState resume = resumeState(herbiboarPlugin.getFinishId(),
                                 herbiboarPlugin.getCurrentGroup() != null);
-                        Microbot.log(Level.INFO, "Resuming in " + resume + " (finishId="
+                        hbLog.detail("START", "Resuming in " + resume + " (finishId="
                                 + herbiboarPlugin.getFinishId() + ", path=" + herbiboarPlugin.getCurrentPath().size() + ")");
                         // Set before the hand-off, or a mid-trail break can slip in before the next pass relocks.
                         BreakHandlerScript.setLockState(breaksLocked(resume));
@@ -2169,12 +2306,12 @@ public class HerbiboarScript extends Script {
                         break;
                     case INITIALIZING:
                         Microbot.status = "Starting...";
-                        Microbot.log(Level.INFO,"Initializing...");
+                        hbLog.detail("START", "Initializing...");
                         setState(HerbiboarState.CHECK_AUTO_RETALIATE);
                         break;
                     case CHECK_AUTO_RETALIATE:
                         Microbot.status = "Checking auto retaliate...";
-                        Microbot.log(Level.INFO,"Checking auto retaliate...");
+                        hbLog.detail("START", "Checking auto retaliate...");
                         // Retaliating on a crab drags the player off the trail.
                         if (!Rs2Combat.setAutoRetaliate(false)) {
                             idle("auto retaliate is still on; trying again");
@@ -2200,10 +2337,10 @@ public class HerbiboarScript extends Script {
                                     }
                                 }
                                 if (startTarget != null) {
-                                    Microbot.log(Level.INFO, "Start: " + START_NAMES.get(rocks.indexOf(startTarget)) + " " + startTarget.getX() + "," + startTarget.getY()
+                                    hbLog.detail("START", "Start: " + START_NAMES.get(rocks.indexOf(startTarget)) + " " + startTarget.getX() + "," + startTarget.getY()
                                             + " (route " + costs[rocks.indexOf(startTarget)] + " tiles; " + others + ")");
                                 } else {
-                                    Microbot.log(Level.INFO, "Start: no route to any start rock; nearest loaded by distance");
+                                    hbLog.detail("START", "Start: no route to any start rock; nearest loaded by distance");
                                 }
                             }
                             TileObject start;
@@ -2253,7 +2390,7 @@ public class HerbiboarScript extends Script {
                         }
                         List<HerbiboarSearchSpot> path = herbiboarPlugin.getCurrentPath();
                         if (trailIsLost(path.isEmpty(), herbiboarPlugin.getCurrentGroup() == null)) {
-                            Microbot.log(Level.INFO, "Trail data is gone, searching for a new start");
+                            hbLog.event("RECOVER", "Trail data is gone, searching for a new start");
                             setState(HerbiboarState.START);
                             break;
                         }
@@ -2294,7 +2431,7 @@ public class HerbiboarScript extends Script {
                         if (boarComing) {
                             if (tunnelSince == null) tunnelSince = Instant.now();
                             if (Instant.now().isAfter(tunnelSince.plusMillis(HARVEST_GIVE_UP_MS))) {
-                                Microbot.log(Level.INFO, "No herbiboar came out of " + ourTunnel
+                                hbLog.event("RECOVER", "No herbiboar came out of " + ourTunnel
                                         + ", starting the next trail");
                                 tunnelSince = null;
                                 attackedTunnel = false;
@@ -2310,7 +2447,10 @@ public class HerbiboarScript extends Script {
                                     && !preHoverBoarSpot(ourTunnel) && emerging != null && onScreen(emerging)) {
                                 hoverOnce(() -> hullOf(emerging), () -> Rs2Camera.getObjectAngle(emerging));
                             }
-                            if (sleepUntil(() -> herbiboarAt(ourTunnel) != null, 1500)) {
+                            if (sleepUntil(() -> {
+                                noteArrival(ourTunnel);
+                                return herbiboarAt(ourTunnel) != null;
+                            }, 1500)) {
                                 tunnelSince = null;
                                 setState(HerbiboarState.HARVEST);
                                 harvest(config);
@@ -2325,7 +2465,7 @@ public class HerbiboarScript extends Script {
                                         ? "Attack" : "Search";
                                 if (tunnelSince == null) tunnelSince = Instant.now();
                                 if (Instant.now().isAfter(tunnelSince.plusMillis(TUNNEL_GIVE_UP_MS))) {
-                                    Microbot.log(Level.INFO, "Tunnel at " + finishLoc + " yielded nothing in "
+                                    hbLog.event("RECOVER", "Tunnel at " + finishLoc + " yielded nothing in "
                                             + (TUNNEL_GIVE_UP_MS / 1000) + "s (object "
                                             + (tunnel == null ? "not loaded" : "loaded") + "), attacking it again");
                                     tunnelSince = Instant.now();
@@ -2352,7 +2492,7 @@ public class HerbiboarScript extends Script {
 
                         if (!Rs2Bank.isOpen() && shouldRestock(config.restock(), hasEnergyItems(config), config.runEnergyOption())
                                 && bankedDoses(config.runEnergyOption()) == 0) {
-                            Microbot.log(Level.INFO, "Out of " + config.runEnergyOption() + " and the bank has none either; "
+                            hbLog.event("RESTOCK", "Out of " + config.runEnergyOption() + " and the bank has none either; "
                                     + "straight to the G.E.");
                             restockStep = RestockStep.COINS;
                             setState(HerbiboarState.RESTOCK);
@@ -2361,11 +2501,11 @@ public class HerbiboarScript extends Script {
                         if (!Rs2Bank.isOpen()) {
                             // Via the walker, which plans the hole itself: our own hole/minimap legs freeze here.
                             if (onFossilIsland(Rs2Player.getWorldLocation())) {
-                                Microbot.log(Level.INFO, "Walking to the camp bank");
+                                hbLog.event("BANK", "Walking to the camp bank");
                                 showRoute(CAMP_BANK);
                                 Rs2Bank.walkToBankAndUseBank(BankLocation.FOSSIL_ISLAND);
                             } else {
-                                Microbot.log(Level.INFO, "Off Fossil Island; using the nearest bank");
+                                hbLog.event("BANK", "Off Fossil Island; using the nearest bank");
                                 Rs2Bank.walkToBankAndUseBank();
                             }
                             dropWalkerRoute();
@@ -2451,7 +2591,9 @@ public class HerbiboarScript extends Script {
                             HerbiboarConfig.RunEnergyOption energyOption = config.runEnergyOption();
                             switch (energyOption) {
                                 case STAMINA_POTION:
+                                case EXTENDED_STAMINA_POTION:
                                 case SUPER_ENERGY_POTION:
+                                case EXTREME_ENERGY_POTION:
                                 case ENERGY_POTION:
                                     ensureEnergyDoses(energyOption, 24);
                                     break;
@@ -2465,19 +2607,17 @@ public class HerbiboarScript extends Script {
                                     break;
                             }
                             if (shouldRestock(config.restock(), hasEnergyItems(config), energyOption)) {
-                                Microbot.log(Level.INFO, "Bank has no " + energyOption + " left; restocking at the G.E.");
+                                hbLog.event("RESTOCK", "Bank has no " + energyOption + " left; restocking at the G.E.");
                                 restockStep = RestockStep.COINS;
                                 setState(HerbiboarState.RESTOCK);
                                 break;
                             }
                             if (!hasRequiredInventorySetup(config)) {
-                                Microbot.log(Level.INFO, "Bank cannot supply the configured setup ("
+                                hbLog.event("BANK", "Bank cannot supply the configured setup ("
                                         + energyOption + (config.useHerbSack() ? ", herb sack" : "")
                                         + "); logging out");
                                 herbiboarPlugin.setStopReason("bank ran out of supplies");
-                                Rs2Bank.closeBank();
-                                Rs2Player.logout();
-                                Microbot.stopPlugin(herbiboarPlugin);
+                                logOutAndStop();
                                 return;
                             }
                             if (!needsToBank(config)) {
@@ -2494,10 +2634,12 @@ public class HerbiboarScript extends Script {
                                 Rs2Bank.closeBank();
                                 sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
                                 // A live trail stays locked through the idle that follows; only a finished one may break.
-                                BreakHandlerScript.setLockState(keepBreaksLockedAtBankExit(
-                                        resumeState(herbiboarPlugin.getFinishId(), herbiboarPlugin.getCurrentGroup() != null)));
+                                boolean trailLive = keepBreaksLockedAtBankExit(
+                                        resumeState(herbiboarPlugin.getFinishId(), herbiboarPlugin.getCurrentGroup() != null));
+                                BreakHandlerScript.setLockState(trailLive);
                                 setState(HerbiboarState.RETURN_FROM_ISLAND);
-                                long afk = pace().afkAfterBankMs(paceRng);
+                                // One or the other: a micro break at the bank already is the pause.
+                                long afk = microBreakHere(trailLive, "at the bank") ? 0 : pace().afkAfterBankMs(paceRng);
                                 if (afk > 0) {
                                     idle("taking a moment");
                                     sleep((int) afk);
@@ -2521,11 +2663,11 @@ public class HerbiboarScript extends Script {
                         WorldPoint nowNext = nextTargetOf(herbiboarPlugin.getFinishId(), herbiboarPlugin.getCurrentPath(),
                                 herbiboarPlugin.getEndLocations());
                         if (next == HerbiboarState.START) {
-                            Microbot.log(Level.INFO, notedNext != null
+                            hbLog.event("BANK", notedNext != null
                                     ? "Back from the bank: trail gone while banking (noted " + notedNext + ")"
                                     : "Back from the bank: START");
                         } else {
-                            Microbot.log(Level.INFO, "Back from the bank: " + next + " at " + nowNext
+                            hbLog.event("BANK", "Back from the bank: " + next + " at " + nowNext
                                     + (notedNext != null ? " (noted " + notedNext + " at the chest)" : ""));
                         }
                         notedNext = null;
@@ -2565,10 +2707,12 @@ public class HerbiboarScript extends Script {
         return doses;
     }
 
-    /** Ids by dose, 1 to 4; empty for an item without doses. */
-    private static int[] doseIds(HerbiboarConfig.RunEnergyOption option) {
+    /** Ids by dose, 1 to 4; empty for an item without doses. The one place a potion's ids are listed. */
+    static int[] doseIds(HerbiboarConfig.RunEnergyOption option) {
         switch (option) {
             case STAMINA_POTION: return new int[]{ItemID._1DOSESTAMINA, ItemID._2DOSESTAMINA, ItemID._3DOSESTAMINA, ItemID._4DOSESTAMINA};
+            case EXTENDED_STAMINA_POTION: return new int[]{ItemID._1DOSE2STAMINA, ItemID._2DOSE2STAMINA, ItemID._3DOSE2STAMINA, ItemID._4DOSE2STAMINA};
+            case EXTREME_ENERGY_POTION: return new int[]{ItemID._1DOSE3ENERGY, ItemID._2DOSE3ENERGY, ItemID._3DOSE3ENERGY, ItemID._4DOSE3ENERGY};
             case SUPER_ENERGY_POTION: return new int[]{ItemID._1DOSE2ENERGY, ItemID._2DOSE2ENERGY, ItemID._3DOSE2ENERGY, ItemID._4DOSE2ENERGY};
             case ENERGY_POTION: return new int[]{ItemID._1DOSE1ENERGY, ItemID._2DOSE1ENERGY, ItemID._3DOSE1ENERGY, ItemID._4DOSE1ENERGY};
             default: return new int[0];
@@ -2609,7 +2753,7 @@ public class HerbiboarScript extends Script {
                     return;
                 }
                 // No withdrawal: a G.E. buy offer takes the coins from the bank itself (inventory coins first).
-                Microbot.log(Level.INFO, "Restock: " + amount + " " + restockItem + " at " + restockPrice + " ("
+                hbLog.event("RESTOCK", "Restock: " + amount + " " + restockItem + " at " + restockPrice + " ("
                         + cost + " coins of " + coins + "); walking to the G.E.");
                 if (Rs2Bank.isOpen()) {
                     Rs2Bank.closeBank();
@@ -2650,7 +2794,8 @@ public class HerbiboarScript extends Script {
                     Rs2GrandExchange.collectAllToBank();
                     sleepUntil(Rs2GrandExchange::isAllSlotsEmpty, 5000);
                     Rs2GrandExchange.closeExchange();
-                    Microbot.log(Level.INFO, "Restock: bought " + amount + " " + restockItem + "; back to Fossil Island");
+                    hbLog.event("RESTOCK", "Restock: bought " + amount + " " + restockItem + "; back to Fossil Island");
+                    microBreakHere(BreakHandlerScript.isLockState(), "at the G.E.");
                     restockWalkFails = 0;
                     restockStep = RestockStep.TO_CAMP;
                 } else if (System.currentTimeMillis() - restockOfferAt > RESTOCK_OFFER_TIMEOUT_MS) {
@@ -2678,7 +2823,7 @@ public class HerbiboarScript extends Script {
     private void travel(HerbiHunterPlugin herbiboarPlugin) {
         WorldPoint me = Rs2Player.getWorldLocation();
         if (onFossilIsland(me)) {
-            Microbot.log(Level.INFO, "On Fossil Island at " + me);
+            hbLog.event("TRAVEL", "On Fossil Island at " + me);
             setState(HerbiboarState.START);
             return;
         }
@@ -2688,10 +2833,9 @@ public class HerbiboarScript extends Script {
             return;
         }
         if (!Rs2Walker.walkTo(CAMP_BANK, 3) && ++travelFails >= MAX_TRAVEL_FAILS) {
-            Microbot.log(Level.WARN, "Could not reach Fossil Island from " + me + "; logging out");
+            hbLog.problem("PROBLEM", "Could not reach Fossil Island from " + me + "; logging out");
             herbiboarPlugin.setStopReason("could not reach Fossil Island");
-            Rs2Player.logout();
-            Microbot.stopPlugin(herbiboarPlugin);
+            logOutAndStop();
         }
     }
 
@@ -2702,7 +2846,7 @@ public class HerbiboarScript extends Script {
         String where = Rs2Dialogue.hasDialogueOption("Fossil Island") ? "Fossil Island" : "Digsite";
         sleep(reactionMs());
         if (Rs2Dialogue.clickOption(where)) {
-            Microbot.log(Level.INFO, "Digsite pendant: " + where);
+            hbLog.event("TRAVEL", "Digsite pendant: " + where);
             sleepUntil(() -> {
                 WorldPoint now = Rs2Player.getWorldLocation();
                 return now != null && now.distanceTo(from) > PENDANT_MIN_TILES;
@@ -2711,12 +2855,10 @@ public class HerbiboarScript extends Script {
     }
 
     private void stopRestock(String why, HerbiHunterPlugin herbiboarPlugin) {
-        Microbot.log(Level.WARN, "Restock failed: " + why + "; logging out");
+        hbLog.problem("PROBLEM", "Restock failed: " + why + "; logging out");
         herbiboarPlugin.setStopReason("restock failed: " + why);
-        if (Rs2Bank.isOpen()) Rs2Bank.closeBank();
         if (Rs2GrandExchange.isOpen()) Rs2GrandExchange.closeExchange();
-        Rs2Player.logout();
-        Microbot.stopPlugin(herbiboarPlugin);
+        logOutAndStop();
     }
 
     private String lastErrorKey;
@@ -2751,7 +2893,7 @@ public class HerbiboarScript extends Script {
         if (out == null) {
             if (harvestSince == null) harvestSince = Instant.now();
             if (Instant.now().isAfter(harvestSince.plusMillis(HARVEST_GIVE_UP_MS))) {
-                Microbot.log(Level.INFO, "No herbiboar at " + huntTunnel + " for "
+                hbLog.event("RECOVER", "No herbiboar at " + huntTunnel + " for "
                         + (HARVEST_GIVE_UP_MS / 1000) + "s, starting the next trail");
                 harvestSince = null;
                 attackedTunnel = false;
@@ -2768,7 +2910,12 @@ public class HerbiboarScript extends Script {
             return;
         }
         harvestSince = null;
-        if (boarSeenAt == 0) boarSeenAt = System.currentTimeMillis();
+        if (boarSeenAt == 0) {
+            boarSeenAt = System.currentTimeMillis();
+            stepTimer.landed(boarSeenAt, "BOAR");
+            hbLog.detail("T", "BOAR gap=" + (arrivedAtTunnelMs == 0 ? "none" : (boarSeenAt - arrivedAtTunnelMs) + "ms"));
+            arrivedAtTunnelMs = 0;
+        }
         if (!clickWhenVisible(Rs2Camera.getCharacterAngle(out), () -> hullOf(out), huntTunnel)) return;
         if (!canHarvest(out)) {
             // The emerging boar slides ~1.2s, then the game swaps in a new NPC on that spot which offers Harvest.
@@ -2784,8 +2931,8 @@ public class HerbiboarScript extends Script {
                 Shape h = hullOf(herb);
                 if (h != null) {
                     Rectangle b = h.getBounds();
-                    Microbot.log(Level.INFO, "Boar spot: aimed %d,%d; boar outline %d,%d %dx%d (aim %s it)", preHoverAim.x,
-                            preHoverAim.y, b.x, b.y, b.width, b.height, h.contains(preHoverAim) ? "inside" : "outside");
+                    hbLog.detail("HOVER", String.format("Boar spot: aimed %d,%d; boar outline %d,%d %dx%d (aim %s it)", preHoverAim.x,
+                            preHoverAim.y, b.x, b.y, b.width, b.height, h.contains(preHoverAim) ? "inside" : "outside"));
                 }
                 preHoverAim = null;
             }
@@ -2801,7 +2948,9 @@ public class HerbiboarScript extends Script {
             }
             if (!clickUnderCursor("Harvest", herb.getIndex(), () -> hullOf(herb), () -> herb.click("Harvest"), herb.getWorldLocation(),
                     () -> Rs2Camera.getCharacterAngle(herb))) return;
-            Microbot.log(Level.INFO, "Harvest clicked " + (System.currentTimeMillis() - boarSeenAt) + "ms after the herbiboar appeared ("
+            logStep("click");
+            harvestClickMs = System.currentTimeMillis() - boarSeenAt;
+            hbLog.detail("HARVEST", "Harvest clicked " + harvestClickMs + "ms after the herbiboar appeared ("
                     + (System.currentTimeMillis() - harvestableAt) + "ms after Harvest was offered)");
             boarSeenAt = 0;
             harvestableAt = 0;
@@ -2811,8 +2960,19 @@ public class HerbiboarScript extends Script {
                     .toListOnClientThread().stream().noneMatch(n -> n.getIndex() == harvested), 5000);
             if (!gone) return;
             herbiCaught++;
+            stepTimer.landed(System.currentTimeMillis(), "CAUGHT");
             HerbiboarSession session = plugin.getSession();
             if (session != null) session.recordCatch(System.currentTimeMillis());
+            hbLog.caught(System.currentTimeMillis(), harvestClickMs);
+            harvestClickMs = 0;
+            // Checked here, after the harvest: that is where the XP lands and no boar is left waiting.
+            if (logOutAt99(config.logoutAt99(), session == null ? 99 : session.startLevel,
+                    Microbot.getClient().getRealSkillLevel(Skill.HUNTER))) {
+                hbLog.event("RUN", "Reached 99 Hunter; logging out");
+                plugin.setStopReason("reached 99 Hunter");
+                logOutAndStop();
+                return;
+            }
             tunnelSince = null;
             attackedTunnel = false;
             boarWait = null;
@@ -2833,7 +2993,7 @@ public class HerbiboarScript extends Script {
         confusedTrails++;
         HerbiboarSession session = plugin.getSession();
         if (session != null) session.confusions++;
-        Microbot.log(Level.INFO, "The herbiboar confused us; trail lost (" + confusedTrails
+        hbLog.event("RECOVER", "The herbiboar confused us; trail lost (" + confusedTrails
                 + " this session, " + herbiCaught + " caught)");
         setState(HerbiboarState.START);
         attackedTunnel = false;
@@ -2858,6 +3018,11 @@ public class HerbiboarScript extends Script {
             savedAutoRun = null;
         }
         Microbot.status = "IDLE";
+        // Closing an unready handle cancels a pending request instead of claiming we are ready.
+        if (breakPrep != null) {
+            breakPrep.close();
+            breakPrep = null;
+        }
         resetHerbisCaught();
         BreakHandlerScript.setLockState(false);
         // Antiban settings are process-wide statics: give the user's own values back before the reset.
@@ -2868,6 +3033,7 @@ public class HerbiboarScript extends Script {
             savedMoveMouseRandomly = null;
         }
         Rs2Antiban.resetAntibanSettings();
+        Rs2AntibanSettings.takeMicroBreaks = savedTakeMicroBreaks;
         super.shutdown();
     }
 }
