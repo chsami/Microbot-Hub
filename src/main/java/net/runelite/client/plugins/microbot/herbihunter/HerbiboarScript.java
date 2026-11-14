@@ -1774,6 +1774,11 @@ public class HerbiboarScript extends Script {
         Rs2Walker.setTarget(null, "herbiboar: leg finished, our own clicks take over");
     }
 
+    /** A left click on the minimap must be a walk; anything else under the cursor is an orb or the compass. Pure. */
+    static boolean minimapClickIsAWalk(String topOption) {
+        return topOption == null || "Walk here".equals(topOption);
+    }
+
     private boolean minimapStepToward(WorldPoint loc, BooleanSupplier arrived) {
         WorldPoint from = Rs2Player.getWorldLocation();
         if (from == null) return false;
@@ -1787,6 +1792,13 @@ public class HerbiboarScript extends Script {
         if (dot != null && (mouse == null || mouse.distance(dot.getX(), dot.getY()) > MINIMAP_HOVER_PX)) {
             Microbot.getNaturalMouse().moveTo(dot.getX(), dot.getY());
             sleep(Rs2Random.betweenInclusive(70, 180));
+        }
+        // The orbs sit on the minimap's rim, right where a far step lands.
+        MenuEntry over = topMenuEntry();
+        if (!minimapClickIsAWalk(over == null ? null : over.getOption())) {
+            hbLog.detail("WALK", "Minimap step skipped: the cursor is over "
+                    + net.runelite.client.util.Text.removeTags(over.getOption()));
+            return false;
         }
         if (!Rs2Walker.walkMiniMap(step)) return false;
         logStep("walk");
@@ -2201,6 +2213,12 @@ public class HerbiboarScript extends Script {
                     }
                     answerBreakRequest(true);
                     if (breakActive()) notePaused();
+                    return;
+                }
+                // An open world map covers the game view: nothing behind it can be clicked or seen.
+                if (Rs2Widget.isWidgetVisible(InterfaceID.Worldmap.CLOSE)) {
+                    hbLog.event("RECOVER", "The world map is open; closing it");
+                    Rs2Walker.closeWorldMap();
                     return;
                 }
                 // The welcome screen is LOGGED_IN but swallows camera keys and zoom.

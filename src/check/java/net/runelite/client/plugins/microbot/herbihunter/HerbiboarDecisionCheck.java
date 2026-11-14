@@ -58,6 +58,7 @@ public final class HerbiboarDecisionCheck
         breaksAreRespectedAndNotCounted();
         theStrongerPotionsAreSupported();
         focusedFollowsTheTrailWithTheCamera();
+        aMinimapStepOnlyEverWalks();
         aBreakIsNotWaitedForUnderAttack();
 
         System.out.println();
@@ -1242,6 +1243,17 @@ public final class HerbiboarDecisionCheck
         check("at the bank, trail finished, break asked for: it starts here", true, HerbiboarScript.breakStartsAtBank(false, true));
         check("at the bank mid-trail: the trail comes first", false, HerbiboarScript.breakStartsAtBank(true, true));
         check("at the bank, nothing asked for: back to hunting", false, HerbiboarScript.breakStartsAtBank(false, false));
+    }
+
+    private static void aMinimapStepOnlyEverWalks()
+    {
+        // Seen live 2026-11-14 14:48: a step toward a spot 57 tiles east landed on the world map orb beside the
+        // minimap, the floating map covered the view, and the run ended in the stuck check three minutes later.
+        check("the minimap offers Walk here: click", true, HerbiboarScript.minimapClickIsAWalk("Walk here"));
+        check("the cursor is over the world map orb: do not click", false,
+            HerbiboarScript.minimapClickIsAWalk("Floating <col=ff9040>World Map</col>"));
+        check("the cursor is over the compass: do not click", false, HerbiboarScript.minimapClickIsAWalk("Look North"));
+        check("nothing known about the cursor yet: click, as before", true, HerbiboarScript.minimapClickIsAWalk(null));
     }
 
     private static void focusedFollowsTheTrailWithTheCamera()
