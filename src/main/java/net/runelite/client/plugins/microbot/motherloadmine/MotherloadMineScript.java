@@ -199,8 +199,52 @@ public class MotherloadMineScript extends Script
 
     static boolean isOtherPlayerNear(Rs2PlayerModel other, Player self, WorldPoint location)
     {
-        return other != null && other.getPlayer() != self && other.getWorldLocation() != null
-                && other.getWorldLocation().distanceTo(location) <= 2;
+        if (other == null || other.getPlayer() == self) return false;
+        WorldPoint otherLocation = other.getWorldLocation();
+        return otherLocation != null && otherLocation.distanceTo(location) <= 2;
+    }
+
+    static List<WorldPoint> otherPlayerLocations(List<Rs2PlayerModel> players, Player self)
+    {
+        List<WorldPoint> locations = new ArrayList<>();
+        if (players == null) return locations;
+        for (Rs2PlayerModel other : players)
+        {
+            if (other == null || other.getPlayer() == self) continue;
+            WorldPoint otherLocation = other.getWorldLocation();
+            if (otherLocation != null) locations.add(otherLocation);
+        }
+        return locations;
+    }
+
+    static boolean isCrowded(WorldPoint location, List<WorldPoint> otherPlayerLocations)
+    {
+        if (location == null || otherPlayerLocations == null) return false;
+        for (WorldPoint otherLocation : otherPlayerLocations)
+        {
+            if (otherLocation.distanceTo(location) <= 2) return true;
+        }
+        return false;
+    }
+
+    static boolean isInMiningArea(MLMMiningSpot spot, WorldPoint location)
+    {
+        if (spot == null || location == null) return false;
+        switch (spot)
+        {
+            case WEST_UPPER:
+                return WEST_UPPER_AREA.contains(location);
+            case EAST_UPPER:
+                return EAST_UPPER_AREA.contains(location);
+            case WEST_LOWER:
+            case WEST_MID:
+                return WEST_LOWER_AREA.contains(location);
+            case SOUTH_WEST:
+            case SOUTH_EAST:
+                return SOUTH_LOWER_AREA.contains(location);
+            default:
+                return false;
+        }
     }
 
     static boolean canGetHammer(boolean hasHammer, boolean inventoryFull, int payDirtCount)
@@ -811,7 +855,7 @@ public class MotherloadMineScript extends Script
 		
 		return sleepUntil(() -> {
 			Rs2TileObjectModel _vein = rs2TileObjectCache.query().where(o -> Objects.equals(o.getWorldLocation(), veinLocation)).nearest();
-			if (_vein == null || !isValidVein(_vein)) return false;
+			if (_vein == null || !isValidVein(_vein, otherPlayerLocations())) return false;
 			WorldPoint playerLoc = Microbot.getClientThread().invoke(() -> worldLocationOf(Microbot.getClient().getLocalPlayer()));
 			return AntibanPlugin.isMining() && playerLoc != null && _vein.getWorldLocation().distanceTo(playerLoc) <= 2;
 		}, 10_000);
@@ -823,7 +867,8 @@ public class MotherloadMineScript extends Script
         if (playerLocation == null) return null;
 
         Map<WorldPoint, Integer> reachableTiles = Rs2Tile.getReachableTilesFromTile(playerLocation);
-        return rs2TileObjectCache.query().where(this::isValidVein).toList().stream()
+        List<WorldPoint> otherPlayerLocations = otherPlayerLocations();
+        return rs2TileObjectCache.query().where(vein -> isValidVein(vein, otherPlayerLocations)).toList().stream()
                 .filter(vein -> pathDistanceTo(vein, reachableTiles) != Integer.MAX_VALUE)
                 .min(Comparator.comparingInt(vein -> pathDistanceTo(vein, reachableTiles)))
                 .orElse(null);
@@ -846,7 +891,15 @@ public class MotherloadMineScript extends Script
         return best;
     }
 
-    private boolean isValidVein(Rs2TileObjectModel wallObject)
+    private List<WorldPoint> otherPlayerLocations()
+    {
+        if (miningSpot.isUpstairs() || !config.useAntiCrash()) return Collections.emptyList();
+        List<WorldPoint> locations = Microbot.getClientThread().invoke(() ->
+                otherPlayerLocations(rs2PlayerCache.query().toList(), Microbot.getClient().getLocalPlayer()));
+        return locations != null ? locations : Collections.emptyList();
+    }
+
+    private boolean isValidVein(Rs2TileObjectModel wallObject, List<WorldPoint> otherPlayerLocations)
     {
         int id = wallObject.getId();
         boolean isVein = id == ObjectID.MOTHERLODE_ORE_SINGLE || id == ObjectID.MOTHERLODE_ORE_LEFT
@@ -854,28 +907,7 @@ public class MotherloadMineScript extends Script
         if (!isVein) return false;
 
         WorldPoint location = wallObject.getWorldLocation();
-
-		if (!miningSpot.isUpstairs() && config.useAntiCrash())
-		{
-			final Player self = Microbot.getClient().getLocalPlayer();
-			boolean isPlayerNearBy = rs2PlayerCache.query().where(p -> isOtherPlayerNear(p, self, location)).first() != null;
-			if (isPlayerNearBy) return false;
-		}
-
-		if (miningSpot.isUpstairs())
-		{
-        boolean inUpperArea = (miningSpot == MLMMiningSpot.WEST_UPPER && WEST_UPPER_AREA.contains(location))
-                || (miningSpot == MLMMiningSpot.EAST_UPPER && EAST_UPPER_AREA.contains(location));
-            return inUpperArea;
-        }
-        else
-        {
-        boolean inLowerArea = (miningSpot == MLMMiningSpot.WEST_LOWER && WEST_LOWER_AREA.contains(location))
-                || (miningSpot == MLMMiningSpot.WEST_MID && WEST_LOWER_AREA.contains(location))
-                || (miningSpot == MLMMiningSpot.SOUTH_WEST && SOUTH_LOWER_AREA.contains(location))
-                || (miningSpot == MLMMiningSpot.SOUTH_EAST && SOUTH_LOWER_AREA.contains(location));
-        return inLowerArea;
-        }
+        return isInMiningArea(miningSpot, location) && !isCrowded(location, otherPlayerLocations);
     }
 
     private void repositionCameraAndMove()
