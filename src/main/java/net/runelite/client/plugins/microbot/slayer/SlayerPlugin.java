@@ -4,11 +4,13 @@ import com.google.inject.Provides;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Hitsplat;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.Projectile;
 import net.runelite.api.events.ActorDeath;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.NpcDespawned;
@@ -42,7 +44,7 @@ import java.awt.*;
 @Slf4j
 public class SlayerPlugin extends Plugin {
 
-    static final String version = "1.1.8";
+    static final String version = "1.1.9";
 
     @Inject
     private SlayerConfig config;
@@ -165,6 +167,18 @@ public class SlayerPlugin extends Plugin {
         } catch (Exception e) {
             log.error("Slayer Plugin onHitsplatApplied Error: " + e.getMessage());
         }
+    }
+
+    @Subscribe
+    public void onChatMessage(ChatMessage event) {
+        if (event.getType() != ChatMessageType.GAMEMESSAGE && event.getType() != ChatMessageType.SPAM) return;
+        if (isTargetTakenMessage(event.getMessage())) {
+            slayerScript.onTargetTakenMessage();
+        }
+    }
+
+    static boolean isTargetTakenMessage(String message) {
+        return message != null && message.contains("Someone else is fighting that");
     }
 
     @Subscribe

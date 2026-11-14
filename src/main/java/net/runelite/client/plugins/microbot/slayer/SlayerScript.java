@@ -20,6 +20,7 @@ import net.runelite.client.plugins.microbot.util.bank.Rs2Bank;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
 import net.runelite.client.plugins.microbot.util.dialogues.Rs2Dialogue;
 import net.runelite.client.plugins.microbot.api.npc.models.Rs2NpcModel;
+import net.runelite.client.plugins.microbot.api.player.models.Rs2PlayerModel;
 import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.util.gameobject.Rs2Cannon;
 import net.runelite.client.plugins.microbot.util.grounditem.LootingParameters;
@@ -48,12 +49,15 @@ import net.runelite.client.plugins.microbot.slayer.profile.SlayerTaskProfileJson
 import javax.inject.Inject;
 import java.awt.event.KeyEvent;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -117,6 +121,11 @@ public class SlayerScript extends Script {
     private static final int CRASH_HOP_DELAY_MS = 20000; // 20 seconds before hopping
     private static final int WORLD_HOP_COOLDOWN_MS = 60000; // 1 minute cooldown between hops
     private static final int REFUSED_HOP_RETRY_MS = 10000;
+    private static final int TAKEN_NPC_COOLDOWN_MS = 20000;
+    private static final int TAKEN_MESSAGE_WINDOW_MS = 5000;
+    private final Map<Integer, Long> takenNpcCooldowns = new ConcurrentHashMap<>();
+    private volatile int lastAttackTargetIndex = -1;
+    private volatile long lastAttackClickAt = 0;
 
     // Task completion loot delay
     private long taskCompletedTime = 0;
@@ -2980,6 +2989,10 @@ public class SlayerScript extends Script {
 
         // Find attackable NPCs matching target monsters
         // Prioritize NPCs that are already attacking us (interacting with player)
+        boolean multiCombat = Rs2Player.isInMulti();
+        Set<Actor> npcsFoughtByOthers = multiCombat ? Collections.emptySet() : findNpcsFoughtByOtherPlayers();
+        long now = System.currentTimeMillis();
+        takenNpcCooldowns.values().removeIf(expiry -> expiry <= now);
         List<Rs2NpcModel> attackableNpcs = Microbot.getRs2NpcCache().query()
                 .where(SlayerScript::isLivingTarget)
                 .where(npc -> npc.getName() != null)
@@ -2987,6 +3000,11 @@ public class SlayerScript extends Script {
                         .anyMatch(monster -> matchesTargetMonster(npc.getName(), monster)))
                 .where(npc -> destination == null ||
                         npc.getWorldLocation().distanceTo(destination) <= config.attackRadius())
+                .where(npc -> multiCombat || !isTakenBySomeoneElse(
+                        npc.getInteracting(),
+                        Microbot.getClient().getLocalPlayer(),
+                        npcsFoughtByOthers.contains(npc.getNpc()),
+                        takenNpcCooldowns.containsKey(npc.getIndex())))
                 .toListOnClientThread()
                 .stream()
                 .sorted(Comparator
@@ -3060,10 +3078,42 @@ public class SlayerScript extends Script {
 
         // Attack the first NPC (prioritizes those attacking us, then closest)
         Rs2NpcModel target = attackableNpcs.get(0);
+        lastAttackTargetIndex = target.getIndex();
+        lastAttackClickAt = System.currentTimeMillis();
         if (target.click("Attack")) {
             log.info("Attacking {}", target.getName());
             sleepUntil(Rs2Player::isInteracting, 1000);
         }
+    }
+
+    static boolean isTakenBySomeoneElse(Actor npcTarget, Actor localPlayer, boolean foughtByOtherPlayer, boolean onCooldown) {
+        if (npcTarget != null && npcTarget == localPlayer) {
+            return false;
+        }
+        return npcTarget instanceof Player || foughtByOtherPlayer || onCooldown;
+    }
+
+    private static Set<Actor> findNpcsFoughtByOtherPlayers() {
+        return Microbot.getClientThread().runOnClientThreadOptional(() -> {
+            Player localPlayer = Microbot.getClient().getLocalPlayer();
+            Set<Actor> npcs = Microbot.getRs2PlayerCache().getStream()
+                    .map(Rs2PlayerModel::getPlayer)
+                    .filter(other -> other != null && other != localPlayer)
+                    .map(Player::getInteracting)
+                    .filter(net.runelite.api.NPC.class::isInstance)
+                    .collect(Collectors.toSet());
+            return npcs;
+        }).orElse(Collections.emptySet());
+    }
+
+    public void onTargetTakenMessage() {
+        int index = lastAttackTargetIndex;
+        long now = System.currentTimeMillis();
+        if (index < 0 || now - lastAttackClickAt > TAKEN_MESSAGE_WINDOW_MS) {
+            return;
+        }
+        takenNpcCooldowns.put(index, now + TAKEN_NPC_COOLDOWN_MS);
+        log.info("Target is being fought by someone else, skipping it for {} seconds", TAKEN_NPC_COOLDOWN_MS / 1000);
     }
 
     /**
@@ -3106,6 +3156,7 @@ public class SlayerScript extends Script {
             isSearchingForTargets = false;
             crashDetectionStartTime = 0;
             lastWorldHopTime = System.currentTimeMillis();
+            takenNpcCooldowns.clear();
 
             log.info("Successfully hopped to world {}", world);
         } catch (Exception e) {
@@ -4302,6 +4353,8 @@ public class SlayerScript extends Script {
         resetSkipState();
         resetPohState();
         resetCannonState();
+        takenNpcCooldowns.clear();
+        lastAttackTargetIndex = -1;
         initialSetupDone = false;
         super.shutdown();
     }
