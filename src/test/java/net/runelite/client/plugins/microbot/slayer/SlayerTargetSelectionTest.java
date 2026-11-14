@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -277,6 +278,51 @@ class SlayerTargetSelectionTest {
         assertTrue(SlayerPlugin.isTargetTakenMessage("Someone else is fighting that."));
         assertFalse(SlayerPlugin.isTargetTakenMessage("I'm already under attack."));
         assertFalse(SlayerPlugin.isTargetTakenMessage(null));
+    }
+
+    @Test
+    void allTakenWaitIsAnnouncedOncePerWaitingPeriod() throws Exception {
+        Rs2NpcModel taken = npc("Abyssal demon", false, -1, false);
+        when(taken.getInteracting()).thenReturn(mock(Player.class));
+
+        handleCombat();
+        assertTrue((boolean) getField("takenWaitAnnounced"));
+
+        when(taken.getInteracting()).thenReturn(null);
+        handleCombat();
+
+        verify(taken).click("Attack");
+        assertFalse((boolean) getField("takenWaitAnnounced"));
+    }
+
+    @Test
+    void noAllTakenAnnouncementWhenNoMatchingMonsterIsNearby() throws Exception {
+        npc("Goblin", false, -1, false);
+
+        handleCombat();
+
+        assertFalse((boolean) getField("takenWaitAnnounced"));
+    }
+
+    @Test
+    void allTakenMessageExplainsWhatHappensNext() {
+        List<String> names = List.of("Abyssal demon");
+        assertEquals("All Abyssal demon here are being fought by other players - waiting for a free one."
+                        + " Hopping worlds in 20 seconds if none frees up.",
+                SlayerScript.allTakenMessage(names, true, true, 20));
+        assertEquals("All Abyssal demon here are being fought by other players - waiting for a free one."
+                        + " Turn on Hop When Crashed in the Combat settings to hop automatically.",
+                SlayerScript.allTakenMessage(names, false, true, 20));
+        assertEquals("All Abyssal demon here are being fought by other players - waiting for a free one.",
+                SlayerScript.allTakenMessage(names, true, false, 20));
+    }
+
+    @Test
+    void targetTakenMessageNamesTheMonster() {
+        assertEquals("Abyssal demon is being fought by someone else - skipping it for 30 seconds",
+                SlayerScript.targetTakenMessage("Abyssal demon", 30));
+        assertEquals("Target is being fought by someone else - skipping it for 30 seconds",
+                SlayerScript.targetTakenMessage(null, 30));
     }
 
     private void otherPlayerTargeting(Rs2NpcModel target) {
