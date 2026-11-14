@@ -20,15 +20,21 @@ final class HerbiboarPace
     final double afkChance;
     /** Per stop at the bank or the G.E., and only when the user has micro breaks on. */
     final double microBreakChance;
+    /** Focused only: how often a trail that goes behind the camera is followed with a turn instead of a walk. */
+    final double followTurnChance;
+    /** How far from the tunnel the cursor starts going to where the boar comes out. */
+    final int boarReachTiles;
     final double driftChance;
 
     enum AfterCatch { NONE, XP_GLANCE, SKILL_TAB }
 
     private HerbiboarPace(boolean relaxed, long startMs, double median, double attention, double preHover,
                           double lapse, double fatigue, double xpGlance, double skillTab, double afk, double drift,
-                          double microBreak)
+                          double microBreak, double followTurn, int boarReach)
     {
         this.microBreakChance = microBreak;
+        this.followTurnChance = followTurn;
+        this.boarReachTiles = boarReach;
         this.xpGlanceChance = xpGlance;
         this.skillTabChance = skillTab;
         this.afkChance = afk;
@@ -44,7 +50,7 @@ final class HerbiboarPace
 
     static HerbiboarPace focused()
     {
-        return new HerbiboarPace(false, 0, 280, 1.0, 1.0, 0.0, 0.0, 0, 0, 0, 0, 0.02);
+        return new HerbiboarPace(false, 0, 280, 1.0, 1.0, 0.0, 0.0, 0, 0, 0, 0, 0.02, 0.75, 4);
     }
 
     static HerbiboarPace focused(long seed)
@@ -52,7 +58,9 @@ final class HerbiboarPace
         Random r = new Random(seed);
         return new HerbiboarPace(false, 0, 250 + r.nextDouble() * 60, 1.0, 1.0, 0.0, 0.0, 0, 0, 0.05 + r.nextDouble() * 0.15, 0,
             // Drawn last, so every earlier draw stays what it was for a given seed.
-            0.01 + r.nextDouble() * 0.03);
+            0.01 + r.nextDouble() * 0.03,
+            0.55 + r.nextDouble() * 0.35,
+            3 + r.nextInt(4));
     }
 
     static HerbiboarPace relaxed(long seed, long sessionStartMs)
@@ -69,7 +77,9 @@ final class HerbiboarPace
             0.30 + r.nextDouble() * 0.20,
             // Camera drift per search, kept rare: more looks restless.
             0.015 + r.nextDouble() * 0.045,
-            0.04 + r.nextDouble() * 0.06);
+            0.04 + r.nextDouble() * 0.06,
+            // Relaxed keeps its lazy camera and only aims at the boar spot once standing at the tunnel.
+            0, 2);
     }
 
     boolean isRelaxed()

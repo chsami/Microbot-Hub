@@ -67,7 +67,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 )
 
 public class HerbiHunterPlugin extends Plugin {
-    static final String version = "1.2.5";
+    static final String version = "1.3.3";
 
     @Getter
     @Setter

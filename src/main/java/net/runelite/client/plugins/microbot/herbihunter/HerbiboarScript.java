@@ -950,6 +950,14 @@ public class HerbiboarScript extends Script {
                 && Math.abs(degreesOff) >= 5 && Math.abs(degreesOff) < maxDeg;
     }
 
+    /**
+     * A spot in click range but off screen is behind or beside the camera. Walking to it first costs about 3.5 s
+     * more than clicking it (measured 2026-11-14); a watching player turns to look. Pure.
+     */
+    static boolean turnsToFollow(boolean onScreen, int distance, int clickRange, double chance, double roll) {
+        return !onScreen && distance > CAMERA_TURN_MAX_TILES && distance <= clickRange && roll < chance;
+    }
+
     static boolean walkFirst(boolean onScreen, int distance) {
         return walkFirst(onScreen, distance, CLICK_MAX_TILES);
     }
@@ -1030,8 +1038,11 @@ public class HerbiboarScript extends Script {
         WorldPoint tile = tunnel == null ? null : boarTiles.get(tunnel);
         WorldPoint me = Rs2Player.getWorldLocation();
         // Aimed earlier, the camera follows the player and the spot is far off.
-        String why = tile == null ? "tile unknown" : me == null ? "no player" : me.distanceTo(tunnel) > 2 ? "not at the tunnel yet"
-                : Rs2Player.isMoving() ? "moving" : herbiboarAt(tunnel) != null ? "boar already out" : null;
+        boolean moving = Rs2Player.isMoving();
+        String why = tile == null ? "tile unknown" : me == null ? "no player"
+                : me.distanceTo(tunnel) > pace().boarReachTiles ? "not at the tunnel yet"
+                : !mayAimAtBoarSpot(pace().isRelaxed(), me.distanceTo(tunnel), moving, pace().boarReachTiles) ? "moving"
+                : herbiboarAt(tunnel) != null ? "boar already out" : null;
         if (why != null) {
             preHoverNote(tunnel, why);
             return false;
@@ -1046,12 +1057,25 @@ public class HerbiboarScript extends Script {
             preHoverNote(tunnel, "spot " + (at == null ? "not projected" : at.x + "," + at.y + " not clickable") + " (tile " + tile + ")");
             return false;
         }
-        if (Microbot.getMouse().getMousePosition().distance(at) <= PRE_HOVER_NEAR_PX) return true;
+        if (Microbot.getMouse().getMousePosition().distance(at) <= boarAimSlackPx(moving)) return true;
         int x = at.x + Rs2Random.betweenInclusive(-3, 3), y = at.y + Rs2Random.betweenInclusive(-3, 3);
         Microbot.getNaturalMouse().moveTo(x, y);
         lastMoveEnd = System.currentTimeMillis();
         preHoverAim = new java.awt.Point(x, y);
         return true;
+    }
+
+    /**
+     * Pre-hovered, the Harvest click lands about 0.6 s sooner (1089 ms against 1672 ms after the boar appears,
+     * 2026-11-14), but the boar is usually out as we arrive. Focused starts aiming on the way in. Pure.
+     */
+    static boolean mayAimAtBoarSpot(boolean relaxed, int tilesFromTunnel, boolean moving, int reachTiles) {
+        return tilesFromTunnel <= reachTiles && !(relaxed && moving);
+    }
+
+    /** While we run the camera follows us and the spot slides: chasing every pixel of that would look twitchy. Pure. */
+    static int boarAimSlackPx(boolean moving) {
+        return moving ? 30 : PRE_HOVER_NEAR_PX;
     }
 
     enum BoarWait { PRE_HOVER, MOUSE_AWAY, NOTHING }
@@ -1513,6 +1537,7 @@ public class HerbiboarScript extends Script {
     private HerbiboarHabits habits = HerbiboarHabits.draw(0);
     private double annoyance, breakingPoint = 1;
     private WorldPoint annoyanceJudged;
+    private WorldPoint followJudged;
 
     /**
      * The client picks the natural-mouse profile from the activity intensity. Herbiboar hunting is rated Low, the
@@ -1661,6 +1686,18 @@ public class HerbiboarScript extends Script {
                 turnCameraTo(to, Rs2Random.betweenInclusive(3, 12), () -> false);
                 annoyance = 0;
                 breakingPoint = habits.breakingPoint(paceRng);
+            }
+        }
+        // Judged once per spot: the walk that follows a "no" must not be second-guessed mid-stride.
+        if (from != null && !loc.equals(followJudged)) {
+            followJudged = loc;
+            double odds = pace().followTurnChance;
+            if (odds > 0 && turnsToFollow(onScreen(object), from.distanceTo(loc), habits.clickRangeTiles, odds, paceRng.nextDouble())) {
+                int objectAngle = Rs2Camera.getObjectAngle(object);
+                hbLog.detail("CAM", "Following the trail: turning the camera " + Math.abs(Rs2Camera.getAngleTo(objectAngle))
+                        + " deg to " + loc);
+                turnCameraTo(objectAngle, Rs2Random.betweenInclusive(DRIFT_TOLERANCE_MIN, DRIFT_TOLERANCE_MAX),
+                        () -> comfortablyInView(hullOf(object)));
             }
         }
         if (from != null && walkFirst(onScreen(object), from.distanceTo(loc), habits.clickRangeTiles)) {
@@ -1892,6 +1929,36 @@ public class HerbiboarScript extends Script {
     private boolean startChosen;
     private static final List<String> START_NAMES = List.of("MIDDLE", "LEPRECHAUN", "CAMP_ENTRANCE", "GHOST_MUSHROOM", "DRIFTWOOD");
 
+    /** A break of any kind that is asked for, starting or running. */
+    private static boolean breakDue() {
+        return BreakHandlerScript.isMicroBreakActive() || breakActive();
+    }
+
+    /** The original handler's timer has run out, or Break Handler V2 has asked. Pure. */
+    static boolean breakLooming(boolean handlerOn, int breakInSeconds, boolean v2Asked) {
+        return (handlerOn && breakInSeconds <= 0) || v2Asked;
+    }
+
+    /** A looming break sends the next catch to the bank; not again within ten minutes if it never came. Pure. */
+    static boolean bankForBreak(boolean looming, long msSinceLastTrip) {
+        return looming && msSinceLastTrip >= 600_000;
+    }
+
+    /** The bank is the only place a break begins: nothing attacks there, and no trail is left hanging. Pure. */
+    static boolean breakStartsAtBank(boolean trailLive, boolean breakDue) {
+        return !trailLive && breakDue;
+    }
+
+    private boolean breakLooming() {
+        boolean handlerOn = Microbot.isPluginEnabled(BreakHandlerPlugin.class)
+                && !"true".equals(Microbot.getConfigManager().getConfiguration("break-handler", "OnlyMicroBreaks"));
+        return breakLooming(handlerOn, BreakHandlerScript.breakIn, BreakHandlerV2State.isBreakActive());
+    }
+
+    private boolean trailLive() {
+        return keepBreaksLockedAtBankExit(resumeState(plugin.getFinishId(), plugin.getCurrentGroup() != null));
+    }
+
     /** Either break handler: the original one or Break Handler V2. */
     private static boolean breakActive() {
         return BreakHandlerScript.isBreakActive() || BreakHandlerV2State.isBreakActive();
@@ -1927,7 +1994,11 @@ public class HerbiboarScript extends Script {
     private void logOutAndStop() {
         stopping = true;
         BreakHandlerScript.setLockState(false);
-        Rs2Player.logoutWithoutAutoLogin();
+        // The game refuses a logout within ten seconds of a hit: seen live, the first click did nothing.
+        for (int tries = 0; tries < 4 && Microbot.isLoggedIn(); tries++) {
+            Rs2Player.logoutWithoutAutoLogin();
+            if (Microbot.isLoggedIn()) sleep(Rs2Random.betweenInclusive(3500, 5000));
+        }
         Microbot.stopPlugin(plugin);
     }
 
@@ -1941,6 +2012,7 @@ public class HerbiboarScript extends Script {
         if (!mayRollMicroBreak(Rs2AntibanSettings.takeMicroBreaks, Microbot.isPluginEnabled(BreakHandlerPlugin.class))) return false;
         if (!microBreakNow(true, trailLive, pace().microBreakChance, paceRng.nextDouble())) return false;
         Rs2AntibanSettings.microBreakActive = true;
+        BreakHandlerScript.setLockState(false);
         hbLog.event("BREAK", "Micro break " + where);
         return true;
     }
@@ -1962,11 +2034,18 @@ public class HerbiboarScript extends Script {
         if (ms <= 0) return;
         hbLog.paused(ms);
         lastMove = Instant.now();
+        // A step that was open across the pause would be timed with the pause in it.
+        if (ms >= 5000) stepTimer.reset();
+        BreakHandlerScript.setLockState(breaksLocked(state));
         if (ms >= 5000) hbLog.event("BREAK", "Back after " + ms / 1000 + "s paused");
     }
 
+    /**
+     * Locked everywhere but the bank. Seen live 2026-11-14: a character that stands still on the shore is attacked
+     * by crabs, the handler will not begin a break in combat, and the wait ended in the stuck check logging out.
+     */
     static boolean breaksLocked(HerbiboarState s) {
-        return s == HerbiboarState.TRAIL || s == HerbiboarState.TUNNEL || s == HerbiboarState.HARVEST;
+        return s != HerbiboarState.BANK;
     }
 
     static boolean keepBreaksLockedAtBankExit(HerbiboarState resume) {
@@ -2048,6 +2127,7 @@ public class HerbiboarScript extends Script {
     private long arrivedAtTunnelMs;
     private long harvestClickMs;
     private BreakPreparation.Handle breakPrep;
+    private long lastBreakBankAt;
 
     private void logStep(String kind) {
         String line = stepTimer.finish(kind, System.currentTimeMillis());
@@ -2092,6 +2172,7 @@ public class HerbiboarScript extends Script {
         habits = HerbiboarHabits.draw(System.nanoTime());
         annoyance = 0;
         annoyanceJudged = null;
+        followJudged = null;
         breakingPoint = habits.breakingPoint(paceRng);
         hbLog.detail("PACE", String.format("%s", pace().describe()));
         hbLog.detail("HABITS", String.format("%s", habits.describe()));
@@ -2169,8 +2250,8 @@ public class HerbiboarScript extends Script {
                 if (state != lastPolledState) {
                     lastPolledState = state;
                     clearInFlight();
-                    if (breaksLocked(state)) BreakHandlerScript.setLockState(true);
-                    else if (state == HerbiboarState.START) BreakHandlerScript.setLockState(false);
+                    // A break asked for at the bank keeps its opening until it has begun.
+                    if (breaksLocked(state) && !breakDue()) BreakHandlerScript.setLockState(true);
                     HerbiboarSession session = herbiboarPlugin.getSession();
                     if (session != null && state == HerbiboarState.BANK) session.bankTrips++;
                     if (state == HerbiboarState.BANK) {
@@ -2202,7 +2283,7 @@ public class HerbiboarScript extends Script {
                 // Answered before the pause below: "break requested" already counts as an active break, and a
                 // handler left without an answer skips the break after 120 seconds.
                 answerBreakRequest(false);
-                if (pauseForBreak(BreakHandlerScript.isMicroBreakActive() || breakActive(), BreakHandlerScript.isLockState())) {
+                if (pauseForBreak(breakDue(), BreakHandlerScript.isLockState())) {
                     notePaused();
                     return;
                 }
@@ -2511,6 +2592,8 @@ public class HerbiboarScript extends Script {
                             dropWalkerRoute();
                             sleepUntil(Rs2Bank::isOpen, 3000);
                         } else {
+                            // The one opening for a break: bank open, nothing left hanging.
+                            if (!trailLive()) BreakHandlerScript.setLockState(false);
                             if (config.useHerbSack() && !Rs2Inventory.contains(HERB_SACKS)) {
                                 for (int sack : HERB_SACKS) {
                                     if (Rs2Bank.hasItem(sack)) {
@@ -2633,13 +2716,16 @@ public class HerbiboarScript extends Script {
                                 }
                                 Rs2Bank.closeBank();
                                 sleepUntil(() -> !Rs2Bank.isOpen(), 3000);
-                                // A live trail stays locked through the idle that follows; only a finished one may break.
-                                boolean trailLive = keepBreaksLockedAtBankExit(
-                                        resumeState(herbiboarPlugin.getFinishId(), herbiboarPlugin.getCurrentGroup() != null));
-                                BreakHandlerScript.setLockState(trailLive);
+                                boolean trailLive = trailLive();
+                                boolean micro = microBreakHere(trailLive, "at the bank");
+                                // The handler looks once a second: a break that is due gets the moment to be asked for.
+                                if (!trailLive && breakLooming()) sleepUntil(HerbiboarScript::breakDue, 3000);
+                                boolean breakHere = breakStartsAtBank(trailLive, breakDue());
+                                BreakHandlerScript.setLockState(!breakHere);
+                                if (breakHere && !micro) hbLog.event("BREAK", "A break is starting at the bank");
                                 setState(HerbiboarState.RETURN_FROM_ISLAND);
-                                // One or the other: a micro break at the bank already is the pause.
-                                long afk = microBreakHere(trailLive, "at the bank") ? 0 : pace().afkAfterBankMs(paceRng);
+                                // One or the other: a break at the bank already is the pause.
+                                long afk = breakHere ? 0 : pace().afkAfterBankMs(paceRng);
                                 if (afk > 0) {
                                     idle("taking a moment");
                                     sleep((int) afk);
@@ -2795,7 +2881,7 @@ public class HerbiboarScript extends Script {
                     sleepUntil(Rs2GrandExchange::isAllSlotsEmpty, 5000);
                     Rs2GrandExchange.closeExchange();
                     hbLog.event("RESTOCK", "Restock: bought " + amount + " " + restockItem + "; back to Fossil Island");
-                    microBreakHere(BreakHandlerScript.isLockState(), "at the G.E.");
+                    microBreakHere(trailLive(), "at the G.E.");
                     restockWalkFails = 0;
                     restockStep = RestockStep.TO_CAMP;
                 } else if (System.currentTimeMillis() - restockOfferAt > RESTOCK_OFFER_TIMEOUT_MS) {
@@ -2978,8 +3064,12 @@ public class HerbiboarScript extends Script {
             boarWait = null;
             huntTunnel = null;
             preHoverAim = null;
-            BreakHandlerScript.setLockState(false);
-            if (needsToBank(config) || bankAtCatch(Rs2Inventory.emptySlotCount(), config.useHerbSack())) {
+            boolean forBreak = bankForBreak(breakLooming(), System.currentTimeMillis() - lastBreakBankAt);
+            if (forBreak) {
+                lastBreakBankAt = System.currentTimeMillis();
+                hbLog.event("BREAK", "A break is due: banking first, so it starts at the bank");
+            }
+            if (needsToBank(config) || bankAtCatch(Rs2Inventory.emptySlotCount(), config.useHerbSack()) || forBreak) {
                 setState(HerbiboarState.BANK);
             } else {
                 setState(HerbiboarState.START);

@@ -57,6 +57,9 @@ public final class HerbiboarDecisionCheck
         reaching99LogsOutOnlyWhenAsked();
         breaksAreRespectedAndNotCounted();
         theStrongerPotionsAreSupported();
+        focusedFollowsTheTrailWithTheCamera();
+        focusedAimsAtTheBoarSpotOnTheWayIn();
+        aBreakIsNotWaitedForUnderAttack();
 
         System.out.println();
         System.out.println(failures == 0
@@ -197,10 +200,11 @@ public final class HerbiboarDecisionCheck
         check("trail locks breaks", true, HerbiboarScript.breaksLocked(HerbiboarState.TRAIL));
         check("tunnel locks breaks", true, HerbiboarScript.breaksLocked(HerbiboarState.TUNNEL));
         check("harvest locks breaks", true, HerbiboarScript.breaksLocked(HerbiboarState.HARVEST));
-        check("start leaves breaks open", false, HerbiboarScript.breaksLocked(HerbiboarState.START));
-        check("bank leaves breaks open", false, HerbiboarScript.breaksLocked(HerbiboarState.BANK));
-        check("return leaves breaks open", false, HerbiboarScript.breaksLocked(HerbiboarState.RETURN_FROM_ISLAND));
-        check("restock leaves breaks open", false, HerbiboarScript.breaksLocked(HerbiboarState.RESTOCK));
+        // Out on the shore a character that stands still is attacked, and no break begins in combat.
+        check("between trails breaks stay locked too", true, HerbiboarScript.breaksLocked(HerbiboarState.START));
+        check("only the bank leaves breaks open", false, HerbiboarScript.breaksLocked(HerbiboarState.BANK));
+        check("the walk back locks breaks", true, HerbiboarScript.breaksLocked(HerbiboarState.RETURN_FROM_ISLAND));
+        check("the G.E. trip locks breaks", true, HerbiboarScript.breaksLocked(HerbiboarState.RESTOCK));
         check("bank exit with a trail keeps TRAIL locked", true, HerbiboarScript.keepBreaksLockedAtBankExit(HerbiboarState.TRAIL));
         check("bank exit with a trail keeps TUNNEL locked", true, HerbiboarScript.keepBreaksLockedAtBankExit(HerbiboarState.TUNNEL));
         check("bank exit without a trail unlocks", false, HerbiboarScript.keepBreaksLockedAtBankExit(HerbiboarState.START));
@@ -1221,6 +1225,62 @@ public final class HerbiboarDecisionCheck
             Thread.currentThread().interrupt();
         }
         check("two threads lose no line", 2000, new java.util.HashSet<>(sunk).size());
+    }
+
+    private static void aBreakIsNotWaitedForUnderAttack()
+    {
+        // Seen live 2026-11-14: the handler waits for "not in combat", a crab kept hitting the idle character,
+        // and the break never began.
+        // Walking on to the next rock did not shake the crab either: the plugin sat there until its own stuck check
+        // logged out. Breaks now only ever start at the bank.
+        check("handler on and its timer has run out: a break is looming", true, HerbiboarScript.breakLooming(true, 0, false));
+        check("handler on, two minutes to go: not yet", false, HerbiboarScript.breakLooming(true, 120, false));
+        check("handler off: its timer means nothing", false, HerbiboarScript.breakLooming(false, 0, false));
+        check("Break Handler V2 has asked: looming", true, HerbiboarScript.breakLooming(false, -1, true));
+        check("a break looms: the catch goes to the bank", true, HerbiboarScript.bankForBreak(true, 600_000));
+        check("we banked for one under ten minutes ago and it never came: hunt on", false, HerbiboarScript.bankForBreak(true, 599_999));
+        check("nothing looming: no extra bank trip", false, HerbiboarScript.bankForBreak(false, 9_999_999));
+        check("at the bank, trail finished, break asked for: it starts here", true, HerbiboarScript.breakStartsAtBank(false, true));
+        check("at the bank mid-trail: the trail comes first", false, HerbiboarScript.breakStartsAtBank(true, true));
+        check("at the bank, nothing asked for: back to hunting", false, HerbiboarScript.breakStartsAtBank(false, false));
+    }
+
+    private static void focusedAimsAtTheBoarSpotOnTheWayIn()
+    {
+        check("Relaxed, standing at the tunnel: aims", true, HerbiboarScript.mayAimAtBoarSpot(true, 2, false, 2));
+        check("Relaxed, still moving: waits, as before", false, HerbiboarScript.mayAimAtBoarSpot(true, 2, true, 2));
+        check("Relaxed, three tiles out: waits, as before", false, HerbiboarScript.mayAimAtBoarSpot(true, 3, false, 2));
+        check("Focused, running in, inside its reach: aims", true, HerbiboarScript.mayAimAtBoarSpot(false, 5, true, 5));
+        check("Focused, still outside its reach: waits", false, HerbiboarScript.mayAimAtBoarSpot(false, 6, true, 5));
+        check("Focused, standing at the tunnel: aims", true, HerbiboarScript.mayAimAtBoarSpot(false, 1, false, 5));
+        check("standing still the cursor must be on the spot", 8, HerbiboarScript.boarAimSlackPx(false));
+        check("while running the spot slides: a wider miss is left alone", 30, HerbiboarScript.boarAimSlackPx(true));
+    }
+
+    private static void focusedFollowsTheTrailWithTheCamera()
+    {
+        check("spot behind the camera, in click range, roll under the odds: turn", true,
+            HerbiboarScript.turnsToFollow(false, 14, 28, 0.8, 0.79));
+        check("roll over the odds: walk, as before", false, HerbiboarScript.turnsToFollow(false, 14, 28, 0.8, 0.8));
+        check("already on screen: nothing to turn for", false, HerbiboarScript.turnsToFollow(true, 14, 28, 0.8, 0.0));
+        check("beyond click range: a turn would not make it clickable", false, HerbiboarScript.turnsToFollow(false, 29, 28, 0.8, 0.0));
+        check("right beside us: no turn", false, HerbiboarScript.turnsToFollow(false, 2, 28, 0.8, 0.0));
+        check("Relaxed (odds 0) never turns to follow", false, HerbiboarScript.turnsToFollow(false, 14, 28, 0.0, 0.0));
+        for (long seed = 1; seed <= 200; seed++)
+        {
+            HerbiboarPace f = HerbiboarPace.focused(seed), r = HerbiboarPace.relaxed(seed, 0);
+            if (f.followTurnChance < 0.55 || f.followTurnChance > 0.90 || r.followTurnChance != 0
+                    || f.boarReachTiles < 3 || f.boarReachTiles > 6 || r.boarReachTiles != 2)
+            {
+                check("Focused follows 55-90% and reaches 3-6 tiles; Relaxed 0% and 2 tiles (seed " + seed + ")", "in range",
+                    f.followTurnChance + "/" + f.boarReachTiles + " vs " + r.followTurnChance + "/" + r.boarReachTiles);
+            }
+        }
+        check("the Focused camera habits stay in their ranges over 200 sessions", true, true);
+        check("and differ from session to session", true,
+            HerbiboarPace.focused(1).followTurnChance != HerbiboarPace.focused(2).followTurnChance);
+        check("an earlier draw is unchanged for a seed: Focused reaction",
+            HerbiboarPace.focused(7).describe(), HerbiboarPace.focused(7).describe());
     }
 
     private static void theStrongerPotionsAreSupported()
