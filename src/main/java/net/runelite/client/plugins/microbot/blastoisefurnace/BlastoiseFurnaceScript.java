@@ -1,11 +1,13 @@
 package net.runelite.client.plugins.microbot.blastoisefurnace;
 
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.api.ObjectComposition;
 import net.runelite.api.Skill;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.Microbot;
 import net.runelite.client.plugins.microbot.Script;
+import net.runelite.client.plugins.microbot.api.tileobject.models.Rs2TileObjectModel;
 import net.runelite.client.plugins.microbot.blastoisefurnace.enums.Bars;
 import net.runelite.client.plugins.microbot.blastoisefurnace.enums.State;
 import net.runelite.client.plugins.microbot.breakhandler.BreakHandlerScript;
@@ -47,8 +49,19 @@ public class BlastoiseFurnaceScript extends Script {
     static final int CONVEYOR_IDLE_TIMEOUT_MS = 5_000;
     static final int CONVEYOR_MAX_WALK_MS = 30_000;
     static final int MAX_FAILED_LOOT_CYCLES = 3;
+    static final int DISPENSER_READY_POLL_MS = 3_000;
+    static final int DISPENSER_READY_TIMEOUT_MS = 120_000;
+    private static final int[] DISPENSER_BAR_VARBITS = {
+            BLAST_FURNACE_IRON_BARS,
+            BLAST_FURNACE_STEEL_BARS,
+            BLAST_FURNACE_GOLD_BARS,
+            BLAST_FURNACE_MITHRIL_BARS,
+            BLAST_FURNACE_ADAMANTITE_BARS,
+            BLAST_FURNACE_RUNITE_BARS
+    };
     public static State state = State.BANKING;
     private int failedLootCycles = 0;
+    private long dispenserWaitMs = 0;
     static boolean coalBagEmpty;
     static boolean primaryOreEmpty;
     static boolean secondaryOreEmpty;
@@ -77,6 +90,7 @@ public class BlastoiseFurnaceScript extends Script {
         Microbot.enableAutoRunOn = false;
         state = State.BANKING;
         failedLootCycles = 0;
+        dispenserWaitMs = 0;
         primaryOreEmpty = !Rs2Inventory.hasItem(config.getBars().getPrimaryOre());
         secondaryOreEmpty = !Rs2Inventory.hasItem(config.getBars().getSecondaryOre());
         Rs2Antiban.resetAntibanSettings();
@@ -170,6 +184,7 @@ public class BlastoiseFurnaceScript extends Script {
                             handleDispenserLooting();
                             return;
                         } else {
+                            dispenserWaitMs = 0;
                             retrieveItemsForCurrentFurnaceInteraction();
                             state = State.SMITHING;
                         }
@@ -236,7 +251,11 @@ public class BlastoiseFurnaceScript extends Script {
     }
 
     private boolean handleDispenserLooting() {
-        Microbot.status = failedLootCycles == 0 ? "Taking bars from dispenser" : "Couldn't take bars, retrying";
+        if (failedLootCycles > 0) {
+            Microbot.status = "Couldn't take bars, retrying";
+        } else {
+            Microbot.status = dispenserWaitMs > 0 ? "Waiting for the Bar dispenser" : "Taking bars from dispenser";
+        }
         if (!Rs2Inventory.isFull()) {
             if (!dispenserContainsBars()) {
                 sleepUntil(this::dispenserContainsBars, Rs2Random.between(3000, 5000));
@@ -257,6 +276,10 @@ public class BlastoiseFurnaceScript extends Script {
                 return false;
             }
 
+            if (!awaitDispenserTake()) {
+                return false;
+            }
+
             if (!takeBarsFromDispenser()) {
                 recordFailedLootCycle();
                 return false;
@@ -271,17 +294,54 @@ public class BlastoiseFurnaceScript extends Script {
         return true;
     }
 
+    boolean awaitDispenserTake() {
+        long started = System.currentTimeMillis();
+        if (isTakePromptOpen() || sleepUntil(this::dispenserOffersTake, DISPENSER_READY_POLL_MS)) {
+            dispenserWaitMs = 0;
+            return true;
+        }
+        recordDispenserNotReady(System.currentTimeMillis() - started);
+        return false;
+    }
+
+    boolean recordDispenserNotReady(long waitedMs) {
+        dispenserWaitMs += waitedMs;
+        if (dispenserWaitMs >= DISPENSER_READY_TIMEOUT_MS) {
+            log.warn("Bar dispenser did not offer Take for {} s, stopping ({})", dispenserWaitMs / 1000, dispenserDiagnostics());
+            dispenserWaitMs = 0;
+            Microbot.status = "Bar dispenser not ready, stopped";
+            Microbot.showMessage("The Bar dispenser holds bars but did not offer Take for " + DISPENSER_READY_TIMEOUT_MS / 1000 + " seconds. Take them manually, then start the script again.");
+            Rs2Player.logout();
+            Microbot.stopPlugin(plugin);
+            return true;
+        }
+        log.info("Bar dispenser does not offer Take yet, waited {} s of {} s ({})", dispenserWaitMs / 1000, DISPENSER_READY_TIMEOUT_MS / 1000, dispenserDiagnostics());
+        Microbot.status = "Waiting for the Bar dispenser";
+        return false;
+    }
+
+    String dispenserDiagnostics() {
+        Rs2TileObjectModel dispenser = Microbot.getRs2TileObjectCache().query().withId(BLAST_FURNACE_DISPENSER).first();
+        ObjectComposition composition = dispenser == null ? null : dispenser.getObjectComposition();
+        return String.format("dispenser state varbit %d, bar varbits %s, dispenser %s, actions %s, player tile %s",
+                Microbot.getVarbitValue(BLAST_FURNACE_BARS_HOT),
+                Arrays.toString(Arrays.stream(DISPENSER_BAR_VARBITS).map(Microbot::getVarbitValue).toArray()),
+                dispenser == null ? "not found" : "found",
+                composition == null ? "unknown" : Arrays.toString(composition.getActions()),
+                Rs2Player.getWorldLocation());
+    }
+
     boolean recordFailedLootCycle() {
         failedLootCycles++;
         if (failedLootCycles >= MAX_FAILED_LOOT_CYCLES) {
-            log.warn("Couldn't take bars from the dispenser (try {} of {}), stopping", failedLootCycles, MAX_FAILED_LOOT_CYCLES);
+            log.warn("Couldn't take bars from the dispenser (try {} of {}), stopping ({})", failedLootCycles, MAX_FAILED_LOOT_CYCLES, dispenserDiagnostics());
             Microbot.status = "Couldn't take bars, stopped";
             Microbot.showMessage("Couldn't take bars from the Bar dispenser after several tries. Take them manually, then start the script again.");
             Rs2Player.logout();
             Microbot.stopPlugin(plugin);
             return true;
         }
-        log.warn("Couldn't take bars from the dispenser (try {} of {}), retrying", failedLootCycles, MAX_FAILED_LOOT_CYCLES);
+        log.warn("Couldn't take bars from the dispenser (try {} of {}), retrying ({})", failedLootCycles, MAX_FAILED_LOOT_CYCLES, dispenserDiagnostics());
         Microbot.status = "Couldn't take bars, retrying";
         return false;
     }
@@ -678,14 +738,7 @@ public class BlastoiseFurnaceScript extends Script {
     }
 
     public boolean dispenserContainsBars() {
-        return Arrays.stream(new int[]{
-                BLAST_FURNACE_IRON_BARS,
-                BLAST_FURNACE_STEEL_BARS,
-                BLAST_FURNACE_GOLD_BARS,
-                BLAST_FURNACE_MITHRIL_BARS,
-                BLAST_FURNACE_ADAMANTITE_BARS,
-                BLAST_FURNACE_RUNITE_BARS
-        }).anyMatch(id -> Microbot.getVarbitValue(id) > 0);
+        return Arrays.stream(DISPENSER_BAR_VARBITS).anyMatch(id -> Microbot.getVarbitValue(id) > 0);
     }
 
     private void equipGoldSmithGauntlets() {
@@ -704,6 +757,7 @@ public class BlastoiseFurnaceScript extends Script {
         init = false;
         state = State.BANKING;
         failedLootCycles = 0;
+        dispenserWaitMs = 0;
         primaryOreEmpty = false;
         secondaryOreEmpty = false;
         super.shutdown();
