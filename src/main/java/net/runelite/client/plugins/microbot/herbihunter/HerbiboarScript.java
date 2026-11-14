@@ -1038,11 +1038,11 @@ public class HerbiboarScript extends Script {
         WorldPoint tile = tunnel == null ? null : boarTiles.get(tunnel);
         WorldPoint me = Rs2Player.getWorldLocation();
         // Aimed earlier, the camera follows the player and the spot is far off.
-        boolean moving = Rs2Player.isMoving();
-        String why = tile == null ? "tile unknown" : me == null ? "no player"
-                : me.distanceTo(tunnel) > pace().boarReachTiles ? "not at the tunnel yet"
-                : !mayAimAtBoarSpot(pace().isRelaxed(), me.distanceTo(tunnel), moving, pace().boarReachTiles) ? "moving"
-                : herbiboarAt(tunnel) != null ? "boar already out" : null;
+        // Aimed earlier, the camera follows the player and the spot is far off. Tried again for Focused on
+        // 2026-11-14 (aim from 3-6 tiles out, while running): the cursor ended up outside the boar on most catches
+        // and the Harvest click came about 0.4 s later, over 51 catches. Only aim once standing at the tunnel.
+        String why = tile == null ? "tile unknown" : me == null ? "no player" : me.distanceTo(tunnel) > 2 ? "not at the tunnel yet"
+                : Rs2Player.isMoving() ? "moving" : herbiboarAt(tunnel) != null ? "boar already out" : null;
         if (why != null) {
             preHoverNote(tunnel, why);
             return false;
@@ -1057,25 +1057,12 @@ public class HerbiboarScript extends Script {
             preHoverNote(tunnel, "spot " + (at == null ? "not projected" : at.x + "," + at.y + " not clickable") + " (tile " + tile + ")");
             return false;
         }
-        if (Microbot.getMouse().getMousePosition().distance(at) <= boarAimSlackPx(moving)) return true;
+        if (Microbot.getMouse().getMousePosition().distance(at) <= PRE_HOVER_NEAR_PX) return true;
         int x = at.x + Rs2Random.betweenInclusive(-3, 3), y = at.y + Rs2Random.betweenInclusive(-3, 3);
         Microbot.getNaturalMouse().moveTo(x, y);
         lastMoveEnd = System.currentTimeMillis();
         preHoverAim = new java.awt.Point(x, y);
         return true;
-    }
-
-    /**
-     * Pre-hovered, the Harvest click lands about 0.6 s sooner (1089 ms against 1672 ms after the boar appears,
-     * 2026-11-14), but the boar is usually out as we arrive. Focused starts aiming on the way in. Pure.
-     */
-    static boolean mayAimAtBoarSpot(boolean relaxed, int tilesFromTunnel, boolean moving, int reachTiles) {
-        return tilesFromTunnel <= reachTiles && !(relaxed && moving);
-    }
-
-    /** While we run the camera follows us and the spot slides: chasing every pixel of that would look twitchy. Pure. */
-    static int boarAimSlackPx(boolean moving) {
-        return moving ? 30 : PRE_HOVER_NEAR_PX;
     }
 
     enum BoarWait { PRE_HOVER, MOUSE_AWAY, NOTHING }

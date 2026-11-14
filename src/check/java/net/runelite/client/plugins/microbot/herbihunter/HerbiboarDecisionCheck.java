@@ -58,7 +58,6 @@ public final class HerbiboarDecisionCheck
         breaksAreRespectedAndNotCounted();
         theStrongerPotionsAreSupported();
         focusedFollowsTheTrailWithTheCamera();
-        focusedAimsAtTheBoarSpotOnTheWayIn();
         aBreakIsNotWaitedForUnderAttack();
 
         System.out.println();
@@ -1245,18 +1244,6 @@ public final class HerbiboarDecisionCheck
         check("at the bank, nothing asked for: back to hunting", false, HerbiboarScript.breakStartsAtBank(false, false));
     }
 
-    private static void focusedAimsAtTheBoarSpotOnTheWayIn()
-    {
-        check("Relaxed, standing at the tunnel: aims", true, HerbiboarScript.mayAimAtBoarSpot(true, 2, false, 2));
-        check("Relaxed, still moving: waits, as before", false, HerbiboarScript.mayAimAtBoarSpot(true, 2, true, 2));
-        check("Relaxed, three tiles out: waits, as before", false, HerbiboarScript.mayAimAtBoarSpot(true, 3, false, 2));
-        check("Focused, running in, inside its reach: aims", true, HerbiboarScript.mayAimAtBoarSpot(false, 5, true, 5));
-        check("Focused, still outside its reach: waits", false, HerbiboarScript.mayAimAtBoarSpot(false, 6, true, 5));
-        check("Focused, standing at the tunnel: aims", true, HerbiboarScript.mayAimAtBoarSpot(false, 1, false, 5));
-        check("standing still the cursor must be on the spot", 8, HerbiboarScript.boarAimSlackPx(false));
-        check("while running the spot slides: a wider miss is left alone", 30, HerbiboarScript.boarAimSlackPx(true));
-    }
-
     private static void focusedFollowsTheTrailWithTheCamera()
     {
         check("spot behind the camera, in click range, roll under the odds: turn", true,
@@ -1269,11 +1256,10 @@ public final class HerbiboarDecisionCheck
         for (long seed = 1; seed <= 200; seed++)
         {
             HerbiboarPace f = HerbiboarPace.focused(seed), r = HerbiboarPace.relaxed(seed, 0);
-            if (f.followTurnChance < 0.55 || f.followTurnChance > 0.90 || r.followTurnChance != 0
-                    || f.boarReachTiles < 3 || f.boarReachTiles > 6 || r.boarReachTiles != 2)
+            if (f.followTurnChance < 0.55 || f.followTurnChance > 0.90 || r.followTurnChance != 0)
             {
-                check("Focused follows 55-90% and reaches 3-6 tiles; Relaxed 0% and 2 tiles (seed " + seed + ")", "in range",
-                    f.followTurnChance + "/" + f.boarReachTiles + " vs " + r.followTurnChance + "/" + r.boarReachTiles);
+                check("Focused follows 55-90%; Relaxed 0% (seed " + seed + ")", "in range",
+                    f.followTurnChance + " vs " + r.followTurnChance);
             }
         }
         check("the Focused camera habits stay in their ranges over 200 sessions", true, true);
