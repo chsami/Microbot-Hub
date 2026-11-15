@@ -271,13 +271,33 @@ public class TitheFarmPlant {
         }
     }
 
-    public boolean growsWithin(Duration margin) {
-        return growsWithin(isSeedling() ? 1 : isStage2() ? 3 : 2, margin, Instant.now());
+    public int wateredStage() {
+        Rs2TileObjectModel obj = getGameObject();
+        if (obj == null) return 0;
+        switch (obj.getId()) {
+            case ObjectID.HOSIDIUS_TITHE_A_1_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_1_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_1_WET:
+                return 1;
+            case ObjectID.HOSIDIUS_TITHE_A_2_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_2_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_2_WET:
+                return 2;
+            case ObjectID.HOSIDIUS_TITHE_A_3_WET:
+            case ObjectID.HOSIDIUS_TITHE_B_3_WET:
+            case ObjectID.HOSIDIUS_TITHE_C_3_WET:
+                return 3;
+            default:
+                return 0;
+        }
     }
 
-    public boolean growsWithin(int nextStage, Duration margin, Instant now) {
-        if (planted == null) return true;
-        Instant grows = planted.plus(PLANT_TIME.multipliedBy(nextStage));
-        return !now.isBefore(grows.minus(margin));
+    public Duration timeUntilGrowth(Instant now) {
+        return timeUntilGrowth(isSeedling() ? 1 : isStage2() ? 3 : 2, now);
+    }
+
+    public Duration timeUntilGrowth(int nextStage, Instant now) {
+        if (planted == null) return null;
+        return Duration.between(now, planted.plus(PLANT_TIME.multipliedBy(nextStage)));
     }
 }
