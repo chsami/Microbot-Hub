@@ -20,7 +20,8 @@ import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
  * Protection is switched on once before a predicted hit and off after it; offence is switched on
  * the tick before the player's own attack and off after it. A prayer still wanted on a later tick
  * (an uncertain clock, a movement guard) is 1-tick reset early in that tick, so it never drains.
- * Natural mouse resets only a single held slot. Each change is one prayer-widget menu
+ * Natural mouse resets only a single held offensive slot and holds an overhead on: its two presses
+ * cannot share a tick. Each change is one prayer-widget menu
  * action whose live varbit is re-checked at delivery. Direct invokes send it on ClientTick; Natural
  * mouse carries the same entry on the background prayer worker. GameTick provides server evidence.
  */
@@ -267,7 +268,8 @@ class FcPrayers {
             desiredMask=(decision.protection==Protection.NONE?0:1<<(decision.protection.ordinal()-1))
                 |(offence?selectedMask:0);
             boolean invokes=input.invokes(MenuAction.CC_OP);
-            List<PrayerLedger.Command> commands=ledger.plan(now,observedMask,desiredMask,OVERHEADS,invokes?slots.size():1);
+            List<PrayerLedger.Command> commands=ledger.plan(now,observedMask,desiredMask,OVERHEADS,
+                invokes?slots.size():(observedMask&OVERHEADS)!=0?0:1);
             boolean missing=false;
             for(int i=0;i<slots.size();i++)if((desiredMask&(1<<i))!=0&&client.getWidget(slots.get(i).getIndex())==null)missing=true;
             for(PrayerLedger.Command command:commands) {
