@@ -19,6 +19,7 @@ public class ResupplyHandler implements BaseHandler {
 
     static final int BREAM_FISHING_SPOT_ID = ObjectID.RIVER_FISHING_SPOT;
     static final long FISHING_STALL_TIMEOUT_MS = 60_000;
+    static final int[] FISHING_TOOL_IDS = {ItemID.BIG_NET, ItemID.KNIFE};
 
     private final int minMoonlightPotions;
     private final int minCookedBream;
@@ -206,9 +207,6 @@ public class ResupplyHandler implements BaseHandler {
 
         if (debugLogging) Microbot.log("Inventory should now be full of fish");
         sleep(600, 900);
-
-        // Recommendation: DON'T drop it, unless you have a specific reason
-        // Rs2Inventory.drop(ItemID.BIG_NET);
     }
 
     static boolean isFishingStalled(long lastProgressAt, long now) {
@@ -228,6 +226,15 @@ public class ResupplyHandler implements BaseHandler {
             sleep(900, 1200);
         }
         if (debugLogging) {Microbot.log("Finished cooking bream.");}
+        dropFishingTools();
+    }
+
+    static void dropFishingTools() {
+        for (int toolId : FISHING_TOOL_IDS) {
+            if (Rs2Inventory.contains(toolId) && Rs2Inventory.drop(toolId)) {
+                sleepUntil(() -> !Rs2Inventory.contains(toolId), 2_000);
+            }
+        }
     }
 
     /**

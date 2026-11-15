@@ -11,6 +11,8 @@ import net.runelite.client.plugins.microbot.moonsofperil.MoonsOfPerilConfig;
 import net.runelite.client.plugins.microbot.util.Global;
 import net.runelite.client.plugins.microbot.util.Rs2InventorySetup;
 import net.runelite.client.plugins.microbot.util.combat.Rs2Combat;
+import net.runelite.client.plugins.microbot.util.inventory.Rs2Inventory;
+import net.runelite.api.gameval.ItemID;
 import net.runelite.client.plugins.microbot.util.player.Rs2Player;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2Prayer;
 import net.runelite.client.plugins.microbot.util.prayer.Rs2PrayerEnum;
@@ -182,6 +184,41 @@ class BossHandlerTest {
 
             walker.verify(() -> Rs2Walker.walkFastCanvas(SIGIL_TILE, true), times(1));
             verify(queryable).interact("Attack");
+        }
+    }
+
+    @Test
+    void equipInventorySetupDropsFishingToolsBeforeWearingIntoAFullInventory() {
+        Rs2InventorySetup setup = mock(Rs2InventorySetup.class);
+        when(setup.doesEquipmentMatch()).thenReturn(false);
+
+        try (MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class);
+             MockedStatic<Global> global = mockStatic(Global.class)) {
+            inventory.when(Rs2Inventory::isFull).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.contains(ItemID.BIG_NET)).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.contains(ItemID.KNIFE)).thenReturn(true);
+            inventory.when(() -> Rs2Inventory.drop(anyInt())).thenReturn(true);
+
+            new BossHandler(config()).equipInventorySetup(setup);
+
+            inventory.verify(() -> Rs2Inventory.drop(ItemID.BIG_NET));
+            inventory.verify(() -> Rs2Inventory.drop(ItemID.KNIFE));
+            verify(setup).wearEquipment();
+        }
+    }
+
+    @Test
+    void equipInventorySetupKeepsFishingToolsWhenThereIsRoomForTheSwap() {
+        Rs2InventorySetup setup = mock(Rs2InventorySetup.class);
+        when(setup.doesEquipmentMatch()).thenReturn(false);
+
+        try (MockedStatic<Rs2Inventory> inventory = mockStatic(Rs2Inventory.class)) {
+            inventory.when(Rs2Inventory::isFull).thenReturn(false);
+
+            new BossHandler(config()).equipInventorySetup(setup);
+
+            inventory.verify(() -> Rs2Inventory.drop(anyInt()), never());
+            verify(setup).wearEquipment();
         }
     }
 
